@@ -6,6 +6,14 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   const title = state.safety.hardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: protect sparring" : "Today: build the boxer";
   return {
     title,
+    whatChanged:
+      state.safety.hardStops.length > 0
+        ? "Safety flags changed the plan."
+        : state.cycle.trackingEnabled && state.cycle.symptomBurden === "high"
+          ? "Cycle symptoms trimmed optional work."
+          : hasSparring
+            ? "Protected sparring moved support work down."
+            : "Corner Engine resolved today's support from current logs.",
     primaryAction:
       state.safety.hardStops.length > 0
         ? "Pause hard training and weight-cut guidance."

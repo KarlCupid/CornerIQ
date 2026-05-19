@@ -1,4 +1,4 @@
-import { combineConfidence, makeConfidence } from "./confidence";
+import { combineConfidence } from "./confidence";
 import { traceDecision } from "./decisionTrace";
 import type { EngineViewModels, PerformanceState, ResolvePerformanceStateInput } from "./types";
 import { resolvePhase } from "../phase/phaseController";
@@ -6,7 +6,8 @@ import { resolveCycleState } from "../cycle/cycleEngine";
 import { resolveReadiness } from "../readiness/readinessEngine";
 import { resolveWearableState } from "../readiness/wearableSignals";
 import { resolveBodyMassState, resolveBodyMassTrend } from "../bodyMass/bodyMassTrend";
-import { resolveWeightClassFeasibility } from "../fight/weighInRules";
+import { resolveAcuteProtocolEligibility, resolveWeighInContext, resolveWeightClassFeasibility } from "../fight/weighInRules";
+import { resolveTournamentStrategy } from "../fight/tournamentEngine";
 import { resolveWeeklyTrainingPlan } from "../training/weeklyPlanEngine";
 import { resolveNutrition } from "../nutrition/nutritionEngine";
 import { resolveHydration } from "../nutrition/hydrationEngine";
@@ -22,52 +23,16 @@ import { buildProfileViewModel } from "../presentation/profileViewModel";
 import { buildTodayViewModel } from "../presentation/todayViewModel";
 import { buildTrainViewModel } from "../presentation/trainViewModel";
 
-function emptyViewModels(): EngineViewModels {
-  return {
-    today: {
-      title: "",
-      primaryAction: "",
-      trainingPriority: "",
-      fuelPriority: "",
-      bodyMassStatus: "",
-      cycleContext: null,
-      readinessContext: "",
-      riskSummary: [],
-      confidenceLabel: "unknown",
-      why: "",
-      quickLogs: []
-    },
-    fuel: {
-      title: "",
-      hitTheseFirst: [],
-      calorieSummary: "",
-      macroSummary: "",
-      hydrationSummary: "",
-      bodyMassSummary: "",
-      cycleNote: null,
-      riskSummary: [],
-      why: ""
-    },
-    train: {
-      title: "",
-      todaySummary: "",
-      sessionCards: [],
-      protectedAnchorSummary: "",
-      riskSummary: []
-    },
-    plan: {
-      title: "",
-      weeklySummary: "",
-      hardDaySummary: "",
-      warnings: []
-    },
-    cycle: null,
-    profile: {
-      title: "",
-      summary: "",
-      privacyNotes: []
-    }
-  };
+export const ENGINE_VERSION = "0.2.0";
+
+function stableHash(value: unknown): string {
+  const serialized = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
 }
 
 export function resolvePerformanceState(input: ResolvePerformanceStateInput): PerformanceState {
@@ -81,9 +46,23 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     asOfDate: input.asOfDate
   });
   const readiness = resolveReadiness(journey.readinessHistory, input.asOfDate);
-  const wearable = resolveWearableState(journey.wearableSignalHistory);
+  const wearable = resolveWearableState({
+    signals: journey.wearableSignalHistory,
+    asOfDate: input.asOfDate,
+    bodyMassLogs: journey.bodyMassHistory,
+    readinessCheckIns: journey.readinessHistory
+  });
   const todayCheckIn = journey.readinessHistory.find((checkIn) => checkIn.date === input.asOfDate);
   const trend = resolveBodyMassTrend(journey.bodyMassHistory, input.asOfDate);
+  const anchors = [...journey.athlete.protectedBoxingSchedule, ...journey.protectedWorkouts];
+  const training = resolveWeeklyTrainingPlan({
+    athlete: journey.athlete,
+    anchors,
+    asOfDate: input.asOfDate,
+    phase,
+    readiness,
+    highCycleSymptoms: cycle.symptomBurden === "high"
+  });
   const earlySafetyFlags = [
     ...journey.safetyFlags,
     ...cycle.safetyFlags,
@@ -92,7 +71,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     ...assessInjuryRisk(todayCheckIn),
     ...assessMedicalReview(journey.athlete),
     ...assessDehydrationRisk(journey.hydrationHistory, journey.electrolyteHistory, input.asOfDate),
-    ...assessUnderFuelingRisk(trend, journey.nutritionHistory)
+    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, cycle, training)
   ];
   const feasibility = resolveWeightClassFeasibility({
     athlete: journey.athlete,
@@ -110,23 +89,30 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   });
   const safetyFlags = [...earlySafetyFlags, ...feasibility.riskFlags];
   const safety = resolveSafety(safetyFlags);
-  const anchors = [...journey.athlete.protectedBoxingSchedule, ...journey.protectedWorkouts];
-  const training = resolveWeeklyTrainingPlan({
-    anchors,
+  const weighInContext = resolveWeighInContext(journey.activeFightOpportunity, input.asOfDate);
+  const tournamentStrategy = resolveTournamentStrategy(journey.activeTournament ?? journey.activeFightOpportunity?.tournamentDetails ?? null, trend);
+  const acuteProtocolEligibility = resolveAcuteProtocolEligibility({
+    athlete: journey.athlete,
+    fight: journey.activeFightOpportunity,
+    trend,
     asOfDate: input.asOfDate,
-    phase,
-    readiness,
-    highCycleSymptoms: cycle.symptomBurden === "high"
+    safetyFlags: safety.riskFlags,
+    cycle
   });
   const hydration = resolveHydration({ athlete: journey.athlete, riskFlags: safety.riskFlags });
   const nutrition = resolveNutrition({
     athlete: journey.athlete,
     phase,
+    fight: journey.activeFightOpportunity,
+    weighInContext,
+    tournamentStrategy,
     bodyMass,
     cycle,
     readiness,
     training,
-    safetyFlags: safety.riskFlags
+    safetyFlags: safety.riskFlags,
+    acuteProtocolEligibility,
+    foodLogCount: journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length
   });
   const confidence = combineConfidence(
     [phase.confidence, cycle.confidence, readiness.confidence, wearable.signalConfidence, bodyMass.confidence, training.confidence, nutrition.confidence],
@@ -149,7 +135,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       selectedDecision: bodyMass.feasibility.status,
       rejectedAlternatives: bodyMass.feasibility.status === "blocked" ? ["automatic acute protocol"] : [],
       rationale: bodyMass.feasibility.explanation,
-      safetyFlags: bodyMass.feasibility.riskFlags.map((flag) => flag.code),
+      safetyFlags: safety.riskFlags.map((flag) => flag.code),
       confidence: bodyMass.feasibility.confidence,
       timestamp: generatedAt
     }),
@@ -177,16 +163,14 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     })
   ];
 
-  const state: PerformanceState = {
+  const stateWithoutViewModels = {
     athlete: journey.athlete,
     phase,
     objective: journey.activeObjective,
     fightContext: journey.activeFightOpportunity,
-    weighInContext: {
-      weighInType: journey.activeFightOpportunity?.weighInType ?? "unknown",
-      weighInDateTime: journey.activeFightOpportunity?.weighInDateTime ?? null
-    },
+    weighInContext,
     tournamentContext: journey.activeTournament,
+    tournamentStrategy,
     bodyMass,
     nutrition,
     hydration,
@@ -197,16 +181,26 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     safety,
     confidence,
     decisionTrace: trace,
-    viewModels: emptyViewModels(),
+    engineVersion: ENGINE_VERSION,
+    outputHash: stableHash({
+      engineVersion: ENGINE_VERSION,
+      asOfDate: input.asOfDate,
+      athleteId: journey.athlete.athleteId,
+      phase: phase.phase,
+      risks: safety.riskFlags.map((flag) => flag.id),
+      nutrition: nutrition.dailyCaloriesTarget,
+      sessions: training.generatedSessions.map((session) => session.id)
+    }),
     generatedAt,
     asOfDate: input.asOfDate
-  };
+  } satisfies Omit<PerformanceState, "viewModels">;
 
-  state.viewModels = {
-    today: buildTodayViewModel(state),
-    fuel: buildFuelViewModel(state),
-    train: buildTrainViewModel(state),
-    plan: buildPlanViewModel(state),
+  const viewModelInput = { ...stateWithoutViewModels, viewModels: {} as EngineViewModels };
+  const viewModels: EngineViewModels = {
+    today: buildTodayViewModel(viewModelInput),
+    fuel: buildFuelViewModel(viewModelInput),
+    train: buildTrainViewModel(viewModelInput),
+    plan: buildPlanViewModel(viewModelInput),
     cycle: cycle.trackingEnabled
       ? {
           title: "Cycle context",
@@ -214,12 +208,15 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
           confidence: cycle.confidence.level,
           actions:
             cycle.cycleRelatedWeightNoiseRisk === "high"
-              ? ["Use the 7-day trend", "Keep fluids and sodium consistent", "Do not chase today’s spike"]
+              ? ["Use the 7-day trend", "Keep fluids and sodium consistent", "Do not chase today's spike"]
               : ["Log symptoms when relevant", "Use cycle context as one signal"]
         }
       : null,
-    profile: buildProfileViewModel(state)
+    profile: buildProfileViewModel(viewModelInput)
   };
 
-  return state;
+  return {
+    ...stateWithoutViewModels,
+    viewModels
+  };
 }

@@ -4,7 +4,20 @@ import { average, round } from "../core/math";
 import type { BodyMassLog, BodyMassState, BodyMassTrend, CycleState, WeightClassFeasibility } from "../core/types";
 
 export function resolveBodyMassTrend(logs: readonly BodyMassLog[], asOfDate: string): BodyMassTrend {
-  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = logs
+    .map((log, index) => ({ log, index }))
+    .filter(({ log }) => log.date <= asOfDate)
+    .sort((a, b) => {
+      const dateOrder = a.log.date.localeCompare(b.log.date);
+      if (dateOrder !== 0) {
+        return dateOrder;
+      }
+      const aRecorded = a.log.recordedAt ?? `${a.log.date}T00:00:00.000Z`;
+      const bRecorded = b.log.recordedAt ?? `${b.log.date}T00:00:00.000Z`;
+      const recordedOrder = aRecorded.localeCompare(bRecorded);
+      return recordedOrder !== 0 ? recordedOrder : a.index - b.index;
+    })
+    .map(({ log }) => log);
   const latest = sorted.at(-1);
   const last7 = sorted.filter((log) => daysBetween(log.date, asOfDate) >= 0 && daysBetween(log.date, asOfDate) <= 6);
   const firstRecent = last7.at(0);
@@ -31,7 +44,7 @@ export function resolveBodyMassState(input: {
   const trend = resolveBodyMassTrend(input.logs, input.asOfDate);
   const scaleNoiseRisk = input.cycle.cycleRelatedWeightNoiseRisk;
   const confidence = makeConfidence(
-    trend.logCount7Day >= 4 ? 0.78 : trend.logCount7Day > 0 ? 0.52 : 0.22,
+    trend.logCount7Day >= 4 ? 0.78 : trend.logCount7Day > 0 ? 0.44 : 0.22,
     trend.logCount7Day > 0 ? ["body-mass logs available"] : ["no body-mass logs available"],
     trend.logCount7Day >= 4 ? [] : ["four recent body-mass logs"]
   );

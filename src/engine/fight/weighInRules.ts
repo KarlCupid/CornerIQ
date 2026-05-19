@@ -1,7 +1,175 @@
 import { makeConfidence } from "../core/confidence";
 import { dateOnly, daysBetween } from "../core/dates";
-import type { AthleteProfile, BodyMassTrend, FightOpportunity, RiskFlag, WeightClassFeasibility } from "../core/types";
+import type { AcuteProtocolEligibility, AthleteProfile, BodyMassTrend, CycleState, FightOpportunity, RiskFlag, WeighInContext, WeightClassFeasibility } from "../core/types";
 import { createRiskFlag } from "../safety/riskSafetyEngine";
+
+export function resolveWeighInContext(fight: FightOpportunity | null, asOfDate: string): WeighInContext {
+  if (!fight || fight.status === "canceled" || fight.status === "completed") {
+    return {
+      weighInType: "unknown",
+      weighInDateTime: null,
+      daysUntilWeighIn: null,
+      hydrationTestingRequired: false,
+      postWeighInWeightCapKg: null,
+      explanation: "No active weigh-in context."
+    };
+  }
+
+  return {
+    weighInType: fight.weighInType,
+    weighInDateTime: fight.weighInDateTime ?? null,
+    daysUntilWeighIn: fight.weighInDateTime ? daysBetween(asOfDate, dateOnly(fight.weighInDateTime)) : null,
+    hydrationTestingRequired: fight.hydrationTestingRequired,
+    postWeighInWeightCapKg: fight.postWeighInWeightCapKg ?? null,
+    explanation: fight.weighInDateTime ? "Weigh-in context is confirmed." : "Weigh-in timing is unknown."
+  };
+}
+
+export function resolveAcuteProtocolEligibility(input: {
+  athlete: AthleteProfile;
+  fight: FightOpportunity | null;
+  trend: BodyMassTrend;
+  asOfDate: string;
+  safetyFlags: readonly RiskFlag[];
+  cycle: CycleState;
+}): AcuteProtocolEligibility {
+  const gatesPassed: string[] = [];
+  const gatesFailed: string[] = [];
+  const reviewReasons: string[] = [];
+  const blockReasons: string[] = [];
+  const fight = input.fight;
+
+  if (!fight || fight.status === "canceled" || fight.status === "completed") {
+    return {
+      status: "not_applicable",
+      gatesPassed: [],
+      gatesFailed: [],
+      reviewReasons: [],
+      blockReasons: [],
+      athleteFacingSummary: "No active fight cut protocol is needed.",
+      confidence: makeConfidence(0.72, ["no active fight cut"])
+    };
+  }
+
+  const pass = (gate: string) => gatesPassed.push(gate);
+  const fail = (gate: string, reason: string, block = true) => {
+    gatesFailed.push(gate);
+    if (block) {
+      blockReasons.push(reason);
+    } else {
+      reviewReasons.push(reason);
+    }
+  };
+
+  if ((input.athlete.ageYears ?? 0) >= 18) {
+    pass("age >= 18");
+  } else {
+    fail("age >= 18", "Minor athletes cannot receive acute weight manipulation protocols.");
+  }
+
+  if (input.trend.latestKg !== null) {
+    pass("current body mass exists");
+  } else {
+    fail("current body mass exists", "Current body mass is unknown.");
+  }
+
+  if (input.trend.logCount7Day >= 4) {
+    pass("enough recent body-mass logs");
+  } else {
+    fail("enough recent body-mass logs", "Recent body-mass data is too thin for acute support.");
+  }
+
+  if (fight.weighInDateTime) {
+    pass("confirmed weigh-in datetime");
+  } else {
+    fail("confirmed weigh-in datetime", "This cut is blocked until weigh-in timing is confirmed.");
+  }
+
+  if (fight.weighInType !== "unknown") {
+    pass("known weigh-in type");
+  } else {
+    fail("known weigh-in type", "Weigh-in type is unknown.");
+  }
+
+  if (input.safetyFlags.some((flag) => flag.hardStop)) {
+    fail("no hard-stop symptoms", "A hard-stop symptom blocks acute protocol support.");
+  } else {
+    pass("no hard-stop symptoms");
+  }
+
+  if (input.athlete.eatingDisorderRisk.activeConcern || input.athlete.eatingDisorderRisk.severeRestrictionHistory) {
+    fail("no active ED or severe restriction risk", "Eating-disorder or severe restriction risk blocks acute protocols.");
+  } else {
+    pass("no active ED or severe restriction risk");
+  }
+
+  if (input.athlete.pregnancyStatus === "possible" || input.athlete.pregnancyStatus === "confirmed") {
+    fail("no pregnancy possible/confirmed", "Possible or confirmed pregnancy blocks cut protocols.");
+  } else {
+    pass("no pregnancy possible/confirmed");
+  }
+
+  if (input.safetyFlags.some((flag) => flag.code === "rapid_weight_loss" || flag.code === "repeated_low_intake" || flag.code === "missed_period_underfueling_risk")) {
+    fail("no severe under-fueling risk", "Under-fueling risk blocks deficit and acute protocol support.");
+  } else {
+    pass("no severe under-fueling risk");
+  }
+
+  if (input.cycle.trackingEnabled && (input.cycle.symptomBurden === "high" || input.cycle.safetyFlags.some((flag) => flag.hardStop))) {
+    fail("no severe cycle symptoms", "Severe cycle symptoms block acute protocol support.");
+  } else {
+    pass("no severe cycle symptoms");
+  }
+
+  const targetKg = fight.contractedWeightKg + fight.allowanceKg;
+  const requiredLossPercent = input.trend.latestKg === null ? null : (Math.max(0, input.trend.latestKg - targetKg) / input.trend.latestKg) * 100;
+  const daysUntilWeighIn = fight.weighInDateTime ? daysBetween(input.asOfDate, dateOnly(fight.weighInDateTime)) : null;
+  if (requiredLossPercent !== null && fight.weighInType === "same_day" && requiredLossPercent > 1) {
+    fail("same-day acute threshold", "Same-day acute loss is above CornerIQ's conservative safety threshold.");
+  } else {
+    pass("same-day acute threshold");
+  }
+
+  if (requiredLossPercent !== null && daysUntilWeighIn !== null && daysUntilWeighIn <= 7 && requiredLossPercent > 3) {
+    fail("short-notice loss threshold", "Required loss is too high for the remaining timeline.");
+  } else {
+    pass("short-notice loss threshold");
+  }
+
+  if (fight.hydrationTestingRequired) {
+    reviewReasons.push("Hydration testing requires extra caution and review.");
+  }
+
+  if (fight.postWeighInWeightCapKg !== undefined) {
+    reviewReasons.push("Post-weigh-in cap limits rehydration and refuel strategy.");
+  }
+
+  const status =
+    blockReasons.length > 0
+      ? "blocked"
+      : reviewReasons.length > 0
+        ? "review_required"
+        : fight.weighInType === "multi_day_tournament"
+          ? "no_protocol"
+          : "eligible_education";
+
+  return {
+    status,
+    gatesPassed,
+    gatesFailed,
+    reviewReasons,
+    blockReasons,
+    athleteFacingSummary:
+      status === "blocked"
+        ? `Acute protocol blocked: ${blockReasons[0] ?? "safety gate failed"}`
+        : status === "review_required"
+          ? "Acute protocol requires qualified review before use."
+          : status === "no_protocol"
+            ? "Tournament mode keeps you near weight instead of creating an acute cut protocol."
+            : "Gates support educational acute protocol guidance, with conservative limits.",
+    confidence: makeConfidence(blockReasons.length > 0 ? 0.7 : input.trend.logCount7Day >= 4 ? 0.82 : 0.42, gatesPassed, gatesFailed)
+  };
+}
 
 export function resolveWeightClassFeasibility(input: {
   athlete: AthleteProfile;

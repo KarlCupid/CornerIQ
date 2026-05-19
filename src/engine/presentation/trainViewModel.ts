@@ -11,7 +11,9 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       intensity: session.intensity,
       durationMinutes: session.durationMinutes,
       why: session.rationale,
-      modifications: session.modifications
+      modifications: session.modifications,
+      protects: session.protects,
+      fuelDemand: session.fuelDemand
     })),
     protectedAnchorSummary:
       todayAnchors.length > 0

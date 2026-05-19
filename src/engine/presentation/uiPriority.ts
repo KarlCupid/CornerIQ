@@ -10,5 +10,5 @@ export function primaryPriority(state: PerformanceState): string {
   if (state.phase.phase === "fight_week") {
     return "Protect fight-week freshness";
   }
-  return "Complete today’s boxing support";
+  return "Complete today's boxing support";
 }

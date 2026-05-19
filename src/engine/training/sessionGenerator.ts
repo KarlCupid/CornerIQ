@@ -1,4 +1,4 @@
-import type { GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
+import type { BoxingLevel, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
 
 export function generateSupportSession(input: {
   date: string;
@@ -7,7 +7,11 @@ export function generateSupportSession(input: {
   hasSparring: boolean;
   highCycleSymptoms: boolean;
   index: number;
+  boxingLevel: BoxingLevel;
+  equipmentAccess: readonly string[];
 }): GeneratedTrainingSession {
+  const noEquipment = input.equipmentAccess.length === 0 || input.equipmentAccess.includes("none");
+  const novice = input.boxingLevel === "aspiring_boxer" || input.boxingLevel === "amateur_novice";
   if (input.readiness.color === "red") {
     return {
       id: `generated:${input.date}:recovery`,
@@ -18,7 +22,7 @@ export function generateSupportSession(input: {
       intensity: "recovery",
       prescription: ["Easy breathing reset", "Hip and thoracic mobility", "Light walk if symptoms allow"],
       rationale: "Red readiness blocks hard generated work.",
-      protects: ["health", "tomorrow’s boxing"],
+      protects: ["health", "tomorrow's boxing"],
       modifications: ["Hard work removed"],
       fuelDemand: "low"
     };
@@ -33,7 +37,7 @@ export function generateSupportSession(input: {
       durationMinutes: input.highCycleSymptoms ? 15 : 25,
       intensity: "easy",
       prescription: ["Scap push-up 2 x 8", "Band external rotation 2 x 12", "Dead bug 2 x 6/side", "Easy mobility"],
-      rationale: "Sparring owns today’s hard stress, so support work stays short.",
+      rationale: "Sparring owns today's hard stress, so support work stays short.",
       protects: ["sparring quality", "shoulders", "trunk stiffness"],
       modifications: input.highCycleSymptoms ? ["Trimmed for high cycle symptoms"] : [],
       fuelDemand: "high"
@@ -62,12 +66,20 @@ export function generateSupportSession(input: {
       date: input.date,
       family: "strength_full_body",
       title: "Boxing strength support",
-      durationMinutes: input.highCycleSymptoms ? 30 : 45,
-      intensity: input.highCycleSymptoms ? "moderate" : "hard",
-      prescription: ["Movement prep", "Trap bar deadlift RPE 7", "Split squat", "Row variation", "Anti-rotation press", "Cooldown"],
-      rationale: "Builds force and trunk control without replacing boxing practice.",
+      durationMinutes: novice || input.highCycleSymptoms ? 30 : 45,
+      intensity: input.highCycleSymptoms ? "moderate" : novice ? "moderate" : "hard",
+      prescription: noEquipment
+        ? ["Movement prep", "Tempo split squat", "Push-up variation", "Band or towel row", "Dead bug", "Cooldown"]
+        : novice
+          ? ["Movement prep", "Goblet squat RPE 6", "Split squat", "Row variation", "Anti-rotation press", "Cooldown"]
+          : ["Movement prep", "Trap bar deadlift RPE 7", "Split squat", "Row variation", "Anti-rotation press", "Cooldown"],
+      rationale: novice ? "Builds simple boxing strength foundations without unnecessary complexity." : "Builds force and trunk control without replacing boxing practice.",
       protects: ["punch transfer", "stance durability"],
-      modifications: input.highCycleSymptoms ? ["Main lift kept, accessory volume trimmed"] : [],
+      modifications: [
+        ...(input.highCycleSymptoms ? ["Main lift kept, accessory volume trimmed"] : []),
+        ...(noEquipment ? ["No-equipment substitution used"] : []),
+        ...(novice ? ["Lower complexity for novice track"] : [])
+      ],
       fuelDemand: "high"
     };
   }

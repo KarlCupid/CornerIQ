@@ -1,23 +1,45 @@
 import { makeConfidence } from "../core/confidence";
-import type { AthleteProfile, BodyMassState, CycleState, NutritionState, PhaseState, ReadinessState, RiskFlag, TrainingState } from "../core/types";
+import type {
+  AcuteProtocolEligibility,
+  AthleteProfile,
+  BodyMassState,
+  CycleState,
+  FightOpportunity,
+  NutritionState,
+  PhaseState,
+  ReadinessState,
+  RiskFlag,
+  TournamentStrategy,
+  TrainingState,
+  WeighInContext
+} from "../core/types";
 import { toKg } from "../core/units";
 import { calculateMacroTargets } from "./macroTargets";
+import { resolveRehydrationPlan } from "./rehydrationEngine";
 import { sessionFuelingGuidance } from "./sessionFueling";
+import { sodiumFiberStrategy } from "./sodiumFiberStrategy";
 
 export function resolveNutrition(input: {
   athlete: AthleteProfile;
   phase: PhaseState;
+  fight: FightOpportunity | null;
+  weighInContext: WeighInContext;
+  tournamentStrategy: TournamentStrategy;
   bodyMass: BodyMassState;
   cycle: CycleState;
   readiness: ReadinessState;
   training: TrainingState;
   safetyFlags: readonly RiskFlag[];
+  acuteProtocolEligibility: AcuteProtocolEligibility;
+  foodLogCount: number;
 }): NutritionState {
   const kg = toKg(input.athlete.currentBodyMass) ?? input.bodyMass.trend.latestKg ?? input.athlete.typicalWalkAroundWeightKg ?? 75;
   const blocked = input.safetyFlags.some((flag) => flag.hardStop);
+  const underFuelingBlocked = input.safetyFlags.some((flag) => flag.code === "rapid_weight_loss" || flag.code === "repeated_low_intake" || flag.code === "missed_period_underfueling_risk");
   const cycleNoisy = input.bodyMass.feasibility.status === "cycle_noisy" || input.cycle.cycleRelatedWeightNoiseRisk === "high";
   const applyDeficit =
     !blocked &&
+    !underFuelingBlocked &&
     !cycleNoisy &&
     input.readiness.color !== "red" &&
     (input.bodyMass.feasibility.status === "behind" || input.bodyMass.feasibility.status === "on_track") &&
@@ -31,14 +53,19 @@ export function resolveNutrition(input: {
     applyDeficit
   });
   const riskFlags = input.safetyFlags.filter((flag) => flag.domain === "nutrition" || flag.domain === "hydration" || flag.domain === "body_mass");
-  const acuteProtocolStatus =
-    input.bodyMass.feasibility.status === "blocked"
-      ? "blocked"
-      : input.bodyMass.feasibility.status === "needs_review"
-        ? "review_required"
-        : input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day"
-          ? "eligible_education"
-          : "not_applicable";
+  const acuteProtocolStatus = input.acuteProtocolEligibility.status;
+  const rehydrationPlan = resolveRehydrationPlan({
+    fight: input.fight,
+    phase: input.phase.phase,
+    weighInContext: input.weighInContext,
+    blocked
+  });
+  const lowResidueGuidance =
+    input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day"
+      ? `${sodiumFiberStrategy(input.phase)} Lower residue means lower fiber choices, not lower calories.`
+      : null;
+  const tournamentFuelingGuidance =
+    input.tournamentStrategy.status === "active" || input.tournamentStrategy.status === "unsafe" ? input.tournamentStrategy.athleteFacingSummary : null;
 
   return {
     dailyCaloriesTarget: macros.calories,
@@ -62,9 +89,16 @@ export function resolveNutrition(input: {
     bodyMassNote: input.bodyMass.feasibility.explanation,
     cycleNote: input.cycle.trackingEnabled && input.cycle.nutritionAdjustment !== "No cycle nutrition adjustment applied." ? input.cycle.nutritionAdjustment : null,
     acuteProtocolStatus,
+    acuteProtocolEligibility: input.acuteProtocolEligibility,
+    lowResidueGuidance,
+    tournamentFuelingGuidance,
+    rehydrationPlan,
+    underFuelingRiskNote: underFuelingBlocked ? "Under-fueling risk is active, so deficit pressure is blocked and recovery fuel is protected." : null,
     explanation:
       blocked
         ? "Nutrition target protects safety because a hard stop is active."
+        : underFuelingBlocked
+          ? "Nutrition target blocks deficit pressure because under-fueling risk is active."
         : cycleNoisy
           ? "Calories were not cut because cycle-related scale noise lowers confidence."
           : applyDeficit
@@ -72,9 +106,12 @@ export function resolveNutrition(input: {
             : "Fuel target protects boxing quality and recovery.",
     riskFlags,
     confidence: makeConfidence(
-      input.bodyMass.confidence.score * 0.45 + input.training.confidence.score * 0.35 + input.readiness.confidence.score * 0.2,
+      input.bodyMass.confidence.score * 0.35 +
+        input.training.confidence.score * 0.3 +
+        input.readiness.confidence.score * 0.2 +
+        (input.foodLogCount > 0 ? 0.85 : 0.35) * 0.15,
       ["nutrition reads body mass, training demand, readiness, and cycle context"],
-      [...input.bodyMass.confidence.missingInputs, ...input.training.confidence.missingInputs]
+      [...input.bodyMass.confidence.missingInputs, ...input.training.confidence.missingInputs, ...(input.foodLogCount > 0 ? [] : ["food logs"])]
     )
   };
 }

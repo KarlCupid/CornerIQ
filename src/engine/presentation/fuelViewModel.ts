@@ -10,6 +10,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     hydrationSummary: `${state.nutrition.waterLiters}L fluids. ${state.nutrition.sodiumGuidance}`,
     bodyMassSummary: state.nutrition.bodyMassNote,
     cycleNote: state.nutrition.cycleNote,
+    fightOrTournamentNote: state.nutrition.tournamentFuelingGuidance ?? state.nutrition.lowResidueGuidance,
     riskSummary: riskSummary(state.nutrition.riskFlags),
     why: state.nutrition.explanation
   };
