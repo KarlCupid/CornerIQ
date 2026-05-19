@@ -1,24 +1,46 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { JourneyEventSchema } from "../../engine/core/schemas";
 import type { JourneyEvent, JourneyEventType } from "../../engine/core/types";
+import type { CornerSupabaseClient } from "./client";
+import type { TableInsert, TableRow } from "./repositoryTypes";
+import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export interface JourneyEventRow {
-  id: string;
-  event_type: JourneyEventType;
-  event_payload: Record<string, unknown>;
-  occurred_at: string;
-}
+export type JourneyEventRow = Pick<TableRow<"athlete_journey_events">, "id" | "event_type" | "event_payload" | "occurred_at">;
 
 export function mapJourneyEventRow(row: JourneyEventRow): JourneyEvent {
-  return {
-    id: row.id,
-    type: row.event_type,
-    occurredAt: row.occurred_at,
-    payload: row.event_payload
-  };
+  return parseWithSchema(
+    JourneyEventSchema,
+    {
+      id: row.id,
+      type: row.event_type,
+      occurredAt: row.occurred_at,
+      payload: payloadObject(row.event_payload, "athlete_journey_events.event_payload")
+    },
+    "athlete_journey_events"
+  );
 }
 
-export function createJourneyRepository(client: SupabaseClient) {
+export function createJourneyRepository(client: CornerSupabaseClient) {
   return {
-    listEvents: (userId: string) => client.from("athlete_journey_events").select("*").eq("user_id", userId).order("occurred_at")
+    async listEvents(userId: string): Promise<JourneyEvent[]> {
+      const safeUserId = assertUserId(userId, "athlete_journey_events.listEvents");
+      const response = await client
+        .from("athlete_journey_events")
+        .select("id, event_type, event_payload, occurred_at")
+        .eq("user_id", safeUserId)
+        .order("occurred_at", { ascending: true });
+      return readDataOrThrow(response, "athlete_journey_events.listEvents").map(mapJourneyEventRow);
+    },
+
+    async appendEvent(userId: string, type: JourneyEventType, payload: Record<string, unknown>, occurredAt = new Date().toISOString()): Promise<{ id: string }> {
+      const safeUserId = assertUserId(userId, "athlete_journey_events.appendEvent");
+      const insert: TableInsert<"athlete_journey_events"> = {
+        user_id: safeUserId,
+        event_type: type,
+        event_payload: toJson(payload),
+        occurred_at: occurredAt
+      };
+      const response = await client.from("athlete_journey_events").insert(insert).select("id").single();
+      return readDataOrThrow(response, "athlete_journey_events.appendEvent");
+    }
   };
 }

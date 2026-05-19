@@ -1,4 +1,6 @@
 export * from "./sharedTypes";
+export * from "./traceTypes";
+export * from "./performanceTypes";
 export * from "../athlete/types";
 export * from "../fight/types";
 export * from "../cycle/types";
@@ -9,3 +11,4 @@ export * from "../bodyMass/types";
 export * from "../readiness/types";
 export * from "../safety/types";
 export * from "../presentation/types";
+export * from "../phase/phaseTypes";

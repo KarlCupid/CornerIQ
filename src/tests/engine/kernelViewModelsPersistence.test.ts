@@ -59,8 +59,11 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(enabledRelevant.viewModels.today.cycleContext).not.toBeNull();
   });
 
-  it("migration contains RLS and user ownership for every user-owned table", () => {
-    const sql = readFileSync("supabase/migrations/001_core_schema.sql", "utf8");
+  it("migrations contain RLS, owner policies, indexes, comments, and exercise results", () => {
+    const sql = [
+      readFileSync("supabase/migrations/001_core_schema.sql", "utf8"),
+      readFileSync("supabase/migrations/002_schema_hardening.sql", "utf8")
+    ].join("\n");
     const tables = [
       "users_public",
       "athlete_profiles",
@@ -80,6 +83,7 @@ describe("kernel immutability, view models, and persistence schema", () => {
       "generated_training_blocks",
       "generated_training_sessions",
       "completed_training_sessions",
+      "exercise_results",
       "nutrition_targets",
       "weight_class_plans",
       "fight_week_protocols",
@@ -91,17 +95,28 @@ describe("kernel immutability, view models, and persistence schema", () => {
     ];
 
     for (const table of tables) {
-      expect(sql).toContain(`create table public.${table}`);
+      expect(sql).toMatch(new RegExp(`create table( if not exists)? public\\.${table}`));
       expect(sql).toContain(`alter table public.${table} enable row level security`);
       expect(sql).toContain(`create policy "${table} owner access"`);
     }
     expect((sql.match(/user_id uuid not null references auth\.users\(id\) on delete cascade/g) ?? []).length).toBeGreaterThanOrEqual(tables.length);
-    expect(sql).toContain("cycle_logs, cycle_symptom_logs");
-    expect(sql).toContain("export and delete workflows");
+    expect(sql).toContain("body_mass_logs_user_id_log_date_recorded_at_idx");
+    expect(sql).toContain("readiness_checkins_user_id_checkin_date_idx");
+    expect(sql).toContain("cycle_logs_user_id_log_date_idx");
+    expect(sql).toContain("wearable_signal_logs_user_id_recorded_at_signal_type_idx");
+    expect(sql).toContain("engine_runs_user_id_as_of_date_engine_version_idx");
+    expect(sql).toContain("comment on table public.cycle_logs");
+    expect(sql).toContain("comment on table public.cycle_symptom_logs");
+    expect(sql).toContain("comment on column public.athlete_profiles.sensitive_medical");
+    expect(sql).toContain("comment on column public.athlete_profiles.sensitive_cycle");
+    expect(sql).toContain("comment on table public.readiness_checkins");
+    expect(sql).toContain("comment on table public.wearable_signal_logs");
+    expect(sql).toContain("comment on table public.risk_flags");
+    expect(readFileSync("supabase/migrations/002_schema_hardening.sql", "utf8")).not.toMatch(/\bdrop\s+(table|column|constraint)\b/i);
   });
 
   it("repository mappers convert DB rows to engine types", () => {
-    expect(mapBodyMassLogRow({ log_date: "2026-05-19", body_mass_kg: "66.4", source: "manual", recorded_at: "2026-05-19T07:00:00.000Z" })).toEqual({
+    expect(mapBodyMassLogRow({ log_date: "2026-05-19", body_mass_kg: 66.4, source: "manual", recorded_at: "2026-05-19T07:00:00.000Z" })).toEqual({
       date: "2026-05-19",
       bodyMassKg: 66.4,
       source: "manual",
@@ -113,7 +128,7 @@ describe("kernel immutability, view models, and persistence schema", () => {
         cycle_payload: { flowLevel: "moderate", symptoms: ["cramps"], hormonalContraception: "none" }
       }).symptoms
     ).toContain("cramps");
-    expect(mapWearableSignalRow({ signal_type: "sleep_duration", signal_value: "7.5", signal_unit: "h", source_platform: "apple_health", recorded_at: "2026-05-19T07:00:00.000Z" }).value).toBe(7.5);
+    expect(mapWearableSignalRow({ signal_type: "sleep_duration", signal_value: 7.5, signal_unit: "h", source_platform: "apple_health", recorded_at: "2026-05-19T07:00:00.000Z" }).value).toBe(7.5);
   });
 
   it("repository mapper files avoid explicit any", () => {

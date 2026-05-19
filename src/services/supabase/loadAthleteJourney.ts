@@ -1,0 +1,163 @@
+import { AthleteJourneySchema } from "../../engine/core/schemas";
+import type { AthleteJourney, FightOpportunity, ISODateString, TournamentDetails } from "../../engine/core/types";
+import type { CornerSupabaseClient } from "./client";
+import { createAthleteRepository } from "./athleteRepository";
+import { createBodyMassRepository } from "./bodyMassRepository";
+import { createCycleRepository } from "./cycleRepository";
+import { createEngineRunRepository } from "./engineRunRepository";
+import { createFightRepository } from "./fightRepository";
+import { createHydrationRepository } from "./hydrationRepository";
+import { createJourneyRepository } from "./journeyRepository";
+import { createNutritionRepository } from "./nutritionRepository";
+import { createProtectedWorkoutRepository } from "./protectedWorkoutRepository";
+import { createReadinessRepository } from "./readinessRepository";
+import { assertUserId, parseWithSchema } from "./repositoryTypes";
+import { createTournamentRepository } from "./tournamentRepository";
+import { createTrainingRepository } from "./trainingRepository";
+import { createWearableRepository } from "./wearableRepository";
+
+export type LoadAthleteJourneyResult =
+  | { status: "ready"; journey: AthleteJourney }
+  | { status: "needs_profile"; userId: string; asOfDate: ISODateString; reason: string };
+
+export interface AthleteJourneyRepositories {
+  athlete: ReturnType<typeof createAthleteRepository>;
+  fight: ReturnType<typeof createFightRepository>;
+  tournament: ReturnType<typeof createTournamentRepository>;
+  protectedWorkout: ReturnType<typeof createProtectedWorkoutRepository>;
+  bodyMass: ReturnType<typeof createBodyMassRepository>;
+  nutrition: ReturnType<typeof createNutritionRepository>;
+  hydration: ReturnType<typeof createHydrationRepository>;
+  cycle: ReturnType<typeof createCycleRepository>;
+  readiness: ReturnType<typeof createReadinessRepository>;
+  wearable: ReturnType<typeof createWearableRepository>;
+  training: ReturnType<typeof createTrainingRepository>;
+  engineRun: ReturnType<typeof createEngineRunRepository>;
+  journey: ReturnType<typeof createJourneyRepository>;
+}
+
+export function createAthleteJourneyRepositories(client: CornerSupabaseClient): AthleteJourneyRepositories {
+  return {
+    athlete: createAthleteRepository(client),
+    fight: createFightRepository(client),
+    tournament: createTournamentRepository(client),
+    protectedWorkout: createProtectedWorkoutRepository(client),
+    bodyMass: createBodyMassRepository(client),
+    nutrition: createNutritionRepository(client),
+    hydration: createHydrationRepository(client),
+    cycle: createCycleRepository(client),
+    readiness: createReadinessRepository(client),
+    wearable: createWearableRepository(client),
+    training: createTrainingRepository(client),
+    engineRun: createEngineRunRepository(client),
+    journey: createJourneyRepository(client)
+  };
+}
+
+function activeFightForDate(fights: readonly FightOpportunity[], asOfDate: ISODateString): FightOpportunity | null {
+  return (
+    fights.find((fight) => ["confirmed", "short_notice", "tentative"].includes(fight.status) && fight.boutDate >= asOfDate) ??
+    fights.find((fight) => ["confirmed", "short_notice", "tentative"].includes(fight.status)) ??
+    null
+  );
+}
+
+function activeTournamentForDate(tournaments: readonly TournamentDetails[], asOfDate: ISODateString): TournamentDetails | null {
+  return (
+    tournaments.find((tournament) => tournament.tournamentStartDate <= asOfDate && tournament.tournamentEndDate >= asOfDate) ??
+    tournaments.find((tournament) => tournament.tournamentStartDate >= asOfDate) ??
+    null
+  );
+}
+
+function objectiveFromContext(fight: FightOpportunity | null, tournament: TournamentDetails | null): string {
+  if (tournament) {
+    return "tournament";
+  }
+  if (fight?.status === "short_notice") {
+    return "short_notice_camp";
+  }
+  if (fight) {
+    return "camp";
+  }
+  return "build";
+}
+
+export async function loadAthleteJourney(input: {
+  userId: string;
+  asOfDate: ISODateString;
+  repositories: AthleteJourneyRepositories;
+}): Promise<LoadAthleteJourneyResult> {
+  const userId = assertUserId(input.userId, "loadAthleteJourney");
+  const athlete = await input.repositories.athlete.getProfile(userId);
+
+  if (!athlete) {
+    return {
+      status: "needs_profile",
+      userId,
+      asOfDate: input.asOfDate,
+      reason: "No athlete profile exists for this Supabase user."
+    };
+  }
+
+  const [
+    fights,
+    tournaments,
+    protectedWorkouts,
+    bodyMassHistory,
+    nutritionHistory,
+    hydrationHistory,
+    electrolyteHistory,
+    cycleLogs,
+    cycleSymptomLogs,
+    readinessHistory,
+    wearableSignalHistory,
+    trainingHistory,
+    safetyFlags,
+    journeyEvents
+  ] = await Promise.all([
+    input.repositories.fight.listFightOpportunities(userId),
+    input.repositories.tournament.listTournamentPlans(userId),
+    input.repositories.protectedWorkout.listProtectedWorkouts(userId),
+    input.repositories.bodyMass.listLogs(userId),
+    input.repositories.nutrition.listFoodLogs(userId),
+    input.repositories.hydration.listWaterLogs(userId),
+    input.repositories.hydration.listElectrolyteLogs(userId),
+    input.repositories.cycle.listCycleLogs(userId),
+    input.repositories.cycle.listSymptomLogs(userId),
+    input.repositories.readiness.listCheckIns(userId),
+    input.repositories.wearable.listSignals(userId),
+    input.repositories.training.listGeneratedSessions(userId),
+    input.repositories.engineRun.listActiveRiskFlags(userId),
+    input.repositories.journey.listEvents(userId)
+  ]);
+
+  const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
+  const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
+  const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
+
+  const journey: AthleteJourney = {
+    athlete,
+    activePhase: null,
+    activeObjective: objectiveFromContext(activeFightOpportunity, activeTournament),
+    activeFightOpportunity,
+    activeTournament,
+    currentTrainingBlock: null,
+    bodyMassHistory,
+    nutritionHistory,
+    hydrationHistory,
+    electrolyteHistory,
+    cycleHistory,
+    readinessHistory,
+    wearableSignalHistory,
+    trainingHistory,
+    protectedWorkouts,
+    safetyFlags,
+    journeyEvents
+  };
+
+  return {
+    status: "ready",
+    journey: parseWithSchema(AthleteJourneySchema, journey, "loadAthleteJourney")
+  };
+}

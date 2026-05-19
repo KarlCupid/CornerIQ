@@ -179,7 +179,7 @@ export const ReadinessCheckInSchema = z.object({
   urineColor: z.enum(["pale", "normal", "dark", "very_dark", "unknown"]).optional()
 });
 
-const FoodLogSchema = z.object({
+export const FoodLogSchema = z.object({
   date: ISODateSchema,
   calories: z.number().nonnegative(),
   proteinGrams: z.number().nonnegative(),
@@ -190,20 +190,55 @@ const FoodLogSchema = z.object({
   confidence: confidenceLevelSchema
 });
 
-const WaterLogSchema = z.object({
+export const WaterLogSchema = z.object({
   date: ISODateSchema,
   liters: z.number().nonnegative()
 });
 
-const ElectrolyteLogSchema = z.object({
+export const ElectrolyteLogSchema = z.object({
   date: ISODateSchema,
   sodiumMg: z.number().nonnegative()
 });
 
-const RiskFlagSchema = z.object({
+export const RiskFlagSchema = z.object({
   id: z.string().min(1),
   domain: z.enum(["training", "nutrition", "hydration", "body_mass", "cycle", "fight", "tournament", "readiness", "wearable", "medical", "plan_integrity"]),
-  code: z.string().min(1),
+  code: z.enum([
+    "very_dark_urine",
+    "excess_plain_water_low_sodium",
+    "hydration_testing_caution",
+    "rapid_weight_loss",
+    "repeated_low_intake",
+    "missed_period_underfueling_risk",
+    "high_underfueling_blocks_deficit",
+    "unknown_weigh_in_timing",
+    "missing_current_body_mass",
+    "minor_acute_cut_blocked",
+    "ed_risk_cut_blocked",
+    "pregnancy_cut_blocked",
+    "hard_stop_blocks_cut",
+    "same_day_acute_loss_blocked",
+    "short_notice_unsafe_loss",
+    "poor_cut_data_confidence",
+    "post_weigh_in_cap_caution",
+    "severe_cycle_symptoms_block_cut",
+    "heavy_bleeding_with_dizziness",
+    "unusual_pain",
+    "migraine_with_dizziness",
+    "possible_pregnancy",
+    "irregular_cycle_low_confidence",
+    "fainting",
+    "severe_dizziness",
+    "acute_illness",
+    "medical_flags_present",
+    "pain_logged",
+    "red_readiness_blocks_hard_work",
+    "sparring_conflict_avoided",
+    "competition_conflict_avoided",
+    "stale_signal",
+    "manual_wearable_conflict",
+    "external_safety_flag"
+  ]),
   severity: z.enum(["info", "caution", "high", "critical"]),
   status: z.enum(["active", "resolved"]),
   message: z.string(),
@@ -220,6 +255,78 @@ const RiskFlagSchema = z.object({
   explanation: z.string()
 });
 
+export const JourneyEventSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum([
+    "OnboardingCompleted",
+    "BuildPhaseStarted",
+    "FightOpportunityCreated",
+    "FightOpportunityConfirmed",
+    "FightOpportunityRescheduled",
+    "FightOpportunityCanceled",
+    "FightWeightChanged",
+    "CampStarted",
+    "FightWeekStarted",
+    "TournamentStarted",
+    "WeighInCompleted",
+    "BoutCompleted",
+    "RecoveryStarted",
+    "BodyMassLogged",
+    "FoodLogged",
+    "WaterLogged",
+    "ElectrolyteLogged",
+    "CycleBleedingStarted",
+    "CycleSymptomLogged",
+    "CyclePatternUpdated",
+    "HormonalContraceptionUpdated",
+    "WearablePermissionGranted",
+    "WearablePermissionRevoked",
+    "WearableDataSynced",
+    "TrainingSessionCompleted",
+    "ReadinessLogged",
+    "SafetyFlagRaised",
+    "ProfessionalReviewRequired",
+    "ProfessionalReviewCleared"
+  ]),
+  occurredAt: ISODateTimeSchema,
+  payload: z.record(z.unknown())
+});
+
+export const GeneratedTrainingSessionSchema = z.object({
+  id: z.string().min(1),
+  date: ISODateSchema,
+  family: z.enum([
+    "strength_lower",
+    "strength_upper",
+    "strength_full_body",
+    "power_rotational",
+    "power_lower",
+    "power_upper",
+    "alactic_sprints",
+    "roadwork_zone2",
+    "roadwork_tempo",
+    "roadwork_intervals",
+    "round_based_conditioning",
+    "footwork_agility",
+    "reaction_rhythm",
+    "trunk_durability",
+    "shoulder_scap_durability",
+    "neck_trap_durability",
+    "wrist_hand_durability",
+    "hip_ankle_mobility",
+    "recovery_reset",
+    "taper_maintenance"
+  ]),
+  title: z.string().min(1),
+  durationMinutes: z.number().int().positive(),
+  intensity: z.enum(["recovery", "easy", "moderate", "hard"]),
+  prescription: z.array(z.string()),
+  rationale: z.string(),
+  protects: z.array(z.string()),
+  modifications: z.array(z.string()),
+  fuelDemand: z.enum(["low", "moderate", "high"])
+});
+
 export const AthleteJourneySchema = z.object({
   athlete: AthleteProfileSchema,
   activePhase: z.enum(["onboarding", "build", "camp", "short_notice_camp", "fight_week", "tournament", "weigh_in_day", "post_weigh_in", "bout_day", "recovery", "deload", "maintenance"]).nullable(),
@@ -234,8 +341,8 @@ export const AthleteJourneySchema = z.object({
   cycleHistory: z.array(CycleLogSchema),
   readinessHistory: z.array(ReadinessCheckInSchema),
   wearableSignalHistory: z.array(WearableSignalSchema),
-  trainingHistory: z.array(z.unknown()),
+  trainingHistory: z.array(GeneratedTrainingSessionSchema),
   protectedWorkouts: z.array(ProtectedWorkoutSchema),
   safetyFlags: z.array(RiskFlagSchema),
-  journeyEvents: z.array(z.unknown())
+  journeyEvents: z.array(JourneyEventSchema)
 });
