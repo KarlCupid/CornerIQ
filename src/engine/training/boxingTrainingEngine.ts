@@ -1,0 +1,1 @@
+export { resolveWeeklyTrainingPlan } from "./weeklyPlanEngine";

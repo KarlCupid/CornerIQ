@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "CornerIQ",
+    "slug": "corneriq",
+    "scheme": "corneriq",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.corneriq.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.corneriq.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "engineName": "Corner Engine"
+    }
+  }
+}
