@@ -1,0 +1,254 @@
+import type { ISODateString, PerformanceState } from "../../engine/core/types";
+import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
+import type { TrainingBlockTimelineEvent } from "../../engine/training/types";
+import type { AthleteJourneyRepositories } from "../supabase/loadAthleteJourney";
+import { assertUserId } from "../supabase/repositoryTypes";
+import type { PersistedTrainingNextWeekPreview } from "../supabase/trainingNextWeekPreviewRepository";
+
+export type NextWeekTrainingPlanMaterializationMode = "preview_only" | "accept_preview" | "materialize_if_week_boundary";
+export type NextWeekTrainingPlanMaterializationStatus = "preview_only" | "accepted" | "materialized" | "rejected" | "error";
+
+export interface MaterializeNextWeekTrainingPlanRepositories {
+  journey: Pick<AthleteJourneyRepositories["journey"], "appendEvent">;
+  trainingBlock: Pick<AthleteJourneyRepositories["trainingBlock"], "upsertTrainingDayPlans" | "upsertTrainingMicrocycle">;
+  trainingNextWeekPreview: Pick<
+    AthleteJourneyRepositories["trainingNextWeekPreview"],
+    "getLatestPreviewForBlock" | "listPreviewsForBlock" | "markPreviewAccepted" | "markPreviewMaterialized"
+  >;
+  trainingProgression: Pick<AthleteJourneyRepositories["trainingProgression"], "insertTrainingBlockTimelineEvent">;
+}
+
+export interface MaterializeNextWeekTrainingPlanInput {
+  userId: string;
+  current: PerformanceState;
+  previewId?: string | undefined;
+  repositories: MaterializeNextWeekTrainingPlanRepositories;
+  asOfDate: ISODateString;
+  mode: NextWeekTrainingPlanMaterializationMode;
+  reviewApproved?: boolean | undefined;
+  allowBoundaryOverride?: boolean | undefined;
+  auditMetadata?: Record<string, unknown> | undefined;
+}
+
+export interface MaterializeNextWeekTrainingPlanResult {
+  status: NextWeekTrainingPlanMaterializationStatus;
+  explanation: string;
+  previewId?: string | undefined;
+  materializedMicrocycleId?: string | undefined;
+  materializedDayPlanIds?: readonly string[] | undefined;
+  timelineEventId?: string | undefined;
+  warnings: readonly string[];
+}
+
+function activeHardStop(state: PerformanceState): boolean {
+  return state.readiness.color === "red" || state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop);
+}
+
+function activeTrainingBlockId(state: PerformanceState): string | null {
+  return state.training.blockPersistenceStatus?.trainingBlockId ?? state.training.blockHistory.blockId ?? null;
+}
+
+async function resolvePreview(input: {
+  repositories: MaterializeNextWeekTrainingPlanInput["repositories"];
+  userId: string;
+  trainingBlockId: string;
+  previewId?: string | undefined;
+}): Promise<PersistedTrainingNextWeekPreview | null> {
+  if (input.previewId) {
+    const previews = await input.repositories.trainingNextWeekPreview.listPreviewsForBlock(input.userId, input.trainingBlockId);
+    return previews.find((preview) => preview.id === input.previewId) ?? null;
+  }
+  return input.repositories.trainingNextWeekPreview.getLatestPreviewForBlock(input.userId, input.trainingBlockId);
+}
+
+function rejected(explanation: string, previewId: string | undefined, warnings: readonly string[] = []): MaterializeNextWeekTrainingPlanResult {
+  return {
+    status: "rejected",
+    explanation,
+    ...(previewId ? { previewId } : {}),
+    warnings
+  };
+}
+
+function serviceError(error: unknown): MaterializeNextWeekTrainingPlanResult {
+  return {
+    status: "error",
+    explanation: error instanceof Error ? error.message : "Next-week materialization failed.",
+    warnings: ["No programming projection was materialized."]
+  };
+}
+
+function timelineEvent(input: {
+  asOfDate: ISODateString;
+  blockId: string;
+  eventType: TrainingBlockTimelineEvent["eventType"];
+  title: string;
+  summary: string;
+  preview: PersistedTrainingNextWeekPreview;
+  auditMetadata?: Record<string, unknown> | undefined;
+}): TrainingBlockTimelineEvent {
+  return {
+    eventType: input.eventType,
+    eventDate: input.asOfDate,
+    title: input.title,
+    summary: input.summary,
+    payload: {
+      blockId: input.blockId,
+      previewId: input.preview.id,
+      previewStatus: input.preview.status,
+      weekIndex: input.preview.weekIndex,
+      weekStartDate: input.preview.weekStartDate,
+      weekEndDate: input.preview.weekEndDate,
+      volumeStrategy: input.preview.volumeStrategy,
+      ...(input.auditMetadata ?? {})
+    }
+  };
+}
+
+async function appendTimelineEvent(input: {
+  repositories: MaterializeNextWeekTrainingPlanInput["repositories"];
+  userId: string;
+  trainingBlockId: string;
+  event: TrainingBlockTimelineEvent;
+}): Promise<string> {
+  const inserted = await input.repositories.trainingProgression.insertTrainingBlockTimelineEvent({
+    userId: input.userId,
+    trainingBlockId: input.trainingBlockId,
+    event: input.event
+  });
+  return inserted.id;
+}
+
+export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeekTrainingPlanInput): Promise<MaterializeNextWeekTrainingPlanResult> {
+  try {
+    const userId = assertUserId(input.userId, "materializeNextWeekTrainingPlan");
+    const trainingBlockId = activeTrainingBlockId(input.current);
+    if (!trainingBlockId) {
+      return rejected("Active training block must be persisted before next-week preview actions.", input.previewId);
+    }
+
+    const preview = await resolvePreview({
+      repositories: input.repositories,
+      userId,
+      trainingBlockId,
+      previewId: input.previewId
+    });
+    if (!preview) {
+      return rejected("No persisted next-week preview was found for the active block.", input.previewId);
+    }
+    if (preview.userId !== userId || preview.trainingBlockId !== trainingBlockId) {
+      return rejected("Persisted preview does not belong to this athlete and active block.", preview.id);
+    }
+    if (preview.status === "superseded" || preview.status === "rejected") {
+      return rejected(`Persisted preview is ${preview.status} and cannot be accepted or materialized.`, preview.id);
+    }
+
+    if (input.mode === "preview_only") {
+      return {
+        status: "preview_only",
+        explanation: "Preview is loaded for display only; no programming projection was changed.",
+        previewId: preview.id,
+        warnings: []
+      };
+    }
+
+    if (input.mode === "accept_preview") {
+      if (preview.status === "materialized") {
+        return rejected("Next-week preview is already materialized.", preview.id);
+      }
+      const accepted = await input.repositories.trainingNextWeekPreview.markPreviewAccepted(userId, preview.id);
+      const eventId = await appendTimelineEvent({
+        repositories: input.repositories,
+        userId,
+        trainingBlockId,
+        event: timelineEvent({
+          asOfDate: input.asOfDate,
+          blockId: trainingBlockId,
+          eventType: "next_week_preview_accepted",
+          title: "Next-week preview accepted",
+          summary: "Athlete accepted the persisted next-week preview as plan direction. Safety still gates materialization.",
+          preview: accepted,
+          auditMetadata: input.auditMetadata
+        })
+      });
+      await input.repositories.journey.appendEvent(userId, "TrainingPlanAdjusted", {
+        blockId: trainingBlockId,
+        previewId: accepted.id,
+        status: "accepted",
+        source: "next_week_preview_acceptance",
+        ...(input.auditMetadata ?? {})
+      });
+      return {
+        status: "accepted",
+        explanation: "Next-week preview accepted as plan direction. It does not bypass safety or create hard work early.",
+        previewId: accepted.id,
+        timelineEventId: eventId,
+        warnings: accepted.volumeStrategy === "hold_for_review" ? ["Review required before materializing."] : []
+      };
+    }
+
+    if (preview.status === "materialized") {
+      return {
+        status: "materialized",
+        explanation: "Next-week preview is already materialized.",
+        previewId: preview.id,
+        warnings: []
+      };
+    }
+    if (input.asOfDate < preview.weekStartDate && !input.allowBoundaryOverride) {
+      return rejected("Next-week preview is not at the week boundary yet; no future day plans were materialized.", preview.id, ["Current week was not mutated."]);
+    }
+    if (activeHardStop(input.current)) {
+      return rejected("Hard-stop safety is active, so next-week materialization is blocked.", preview.id, ["No future hard work was materialized."]);
+    }
+    if (preview.volumeStrategy === "hold_for_review" && !input.reviewApproved) {
+      return rejected("Review is required before a hold-for-review preview can be materialized.", preview.id, ["No hard work was materialized."]);
+    }
+
+    const projection = nextWeekPreviewToMicrocycle({
+      materialization: preview.preview,
+      currentBlock: input.current.training.activeBlock,
+      protectedWorkouts: input.current.training.protectedAnchors,
+      asOfDate: input.asOfDate
+    });
+    const microcycle = await input.repositories.trainingBlock.upsertTrainingMicrocycle({
+      userId,
+      trainingBlockId,
+      microcycle: projection.microcycle,
+      weekIndex: preview.weekIndex
+    });
+    const dayPlans = await input.repositories.trainingBlock.upsertTrainingDayPlans({
+      userId,
+      trainingBlockId,
+      trainingMicrocycleId: microcycle.id,
+      dayPlans: projection.dayPlans
+    });
+    const materialized = await input.repositories.trainingNextWeekPreview.markPreviewMaterialized(userId, preview.id);
+    const eventId = await appendTimelineEvent({
+      repositories: input.repositories,
+      userId,
+      trainingBlockId,
+      event: timelineEvent({
+        asOfDate: input.asOfDate,
+        blockId: trainingBlockId,
+        eventType: "next_week_materialized",
+        title: "Next week materialized",
+        summary: "Accepted preview was materialized into next-week microcycle and day-plan projections without creating generated sessions.",
+        preview: materialized,
+        auditMetadata: input.auditMetadata
+      })
+    });
+
+    return {
+      status: "materialized",
+      explanation: "Accepted next-week preview was materialized into persisted next-week day-plan projections.",
+      previewId: materialized.id,
+      materializedMicrocycleId: microcycle.id,
+      materializedDayPlanIds: dayPlans.ids,
+      timelineEventId: eventId,
+      warnings: ["Generated support remains summary-only; no future generated session objects were created."]
+    };
+  } catch (error) {
+    return serviceError(error);
+  }
+}

@@ -39,6 +39,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      athlete_coach_relationships: {
+        Row: {
+          athlete_user_id: string
+          coach_user_id: string
+          created_at: string
+          id: string
+          permissions: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_user_id: string
+          coach_user_id: string
+          created_at?: string
+          id?: string
+          permissions?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_user_id?: string
+          coach_user_id?: string
+          created_at?: string
+          id?: string
+          permissions?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       athlete_journey_events: {
         Row: {
           created_at: string
@@ -96,36 +126,6 @@ export type Database = {
           sensitive_medical?: Json
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      athlete_coach_relationships: {
-        Row: {
-          athlete_user_id: string
-          coach_user_id: string
-          created_at: string
-          id: string
-          permissions: Json
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          athlete_user_id: string
-          coach_user_id: string
-          created_at?: string
-          id?: string
-          permissions?: Json
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          athlete_user_id?: string
-          coach_user_id?: string
-          created_at?: string
-          id?: string
-          permissions?: Json
-          status?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -978,6 +978,86 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "training_microcycles_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_next_week_previews: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          engine_version: string
+          generated_support_bias: string
+          id: string
+          input_hash: string
+          materialized_at: string | null
+          materialized_decision: string
+          materialized_phase: string
+          output_hash: string
+          preview_payload: Json
+          status: string
+          superseded_at: string | null
+          target_hard_day_cap: number
+          training_block_id: string
+          updated_at: string
+          user_id: string
+          volume_strategy: string
+          week_end_date: string
+          week_index: number
+          week_start_date: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          engine_version: string
+          generated_support_bias: string
+          id?: string
+          input_hash: string
+          materialized_at?: string | null
+          materialized_decision: string
+          materialized_phase: string
+          output_hash: string
+          preview_payload?: Json
+          status?: string
+          superseded_at?: string | null
+          target_hard_day_cap: number
+          training_block_id: string
+          updated_at?: string
+          user_id: string
+          volume_strategy: string
+          week_end_date: string
+          week_index: number
+          week_start_date: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          engine_version?: string
+          generated_support_bias?: string
+          id?: string
+          input_hash?: string
+          materialized_at?: string | null
+          materialized_decision?: string
+          materialized_phase?: string
+          output_hash?: string
+          preview_payload?: Json
+          status?: string
+          superseded_at?: string | null
+          target_hard_day_cap?: number
+          training_block_id?: string
+          updated_at?: string
+          user_id?: string
+          volume_strategy?: string
+          week_end_date?: string
+          week_index?: number
+          week_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_next_week_previews_training_block_id_fkey"
             columns: ["training_block_id"]
             isOneToOne: false
             referencedRelation: "training_blocks"

@@ -340,7 +340,8 @@ describe("Supabase repositories", () => {
     expect(source).toContain("training_progression_decisions_user_block_week_created_idx");
     expect(source).toContain("training_block_timeline_events_user_block_event_created_idx");
     expect(source).toContain("'note'");
-    expect(source).toContain("not medical or coaching directives");
+    expect(source).toContain("not medical");
+    expect(source).toContain("or coaching directives");
     expect(source).toContain("screens must not mutate training");
   });
 
@@ -358,12 +359,36 @@ describe("Supabase repositories", () => {
     expect(source).toContain("active status requires trusted server-side approval");
   });
 
+  it("007 migration creates next-week preview persistence with RLS, indexes, lifecycle, and comments", () => {
+    const source = readFileSync("supabase/migrations/007_training_next_week_previews.sql", "utf8");
+
+    expect(source).toContain("create table if not exists public.training_next_week_previews");
+    expect(source).toContain("status in ('preview', 'accepted', 'materialized', 'superseded', 'rejected')");
+    expect(source).toContain("volume_strategy in");
+    expect(source).toContain("alter table public.training_next_week_previews enable row level security");
+    expect(source).toContain("auth.uid() = user_id");
+    expect(source).toContain("training_next_week_previews_user_block_week_status_idx");
+    expect(source).toContain("training_next_week_previews_user_block_week_hash_uidx");
+    expect(source).toContain("Preview-only deterministic engine projections");
+    expect(source).toContain("screens must not mutate programming logic directly");
+    expect(source).toContain("not medical or coaching directives");
+  });
+
   it("database types include coach relationship table", () => {
     const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
 
     expect(source).toContain("athlete_coach_relationships");
     expect(source).toContain("athlete_user_id: string");
     expect(source).toContain("coach_user_id: string");
+  });
+
+  it("database types include next-week preview table", () => {
+    const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
+
+    expect(source).toContain("training_next_week_previews");
+    expect(source).toContain("preview_payload: Json");
+    expect(source).toContain("materialized_decision: string");
+    expect(source).toContain("volume_strategy: string");
   });
 
   it("trainingBlockRepository persists typed block, microcycle, day plan, and adjustment payloads", () => {
@@ -407,6 +432,27 @@ describe("Supabase repositories", () => {
     expect(source.toLowerCase()).not.toContain("service_role");
   });
 
+  it("coach approval function skeleton keeps service role server-side and client UI hidden", () => {
+    const functionSource = readFileSync("supabase/functions/approve-coach-relationship/index.ts", "utf8");
+    const appFiles = [
+      "src/services/supabase/client.ts",
+      "src/services/supabase/coachRelationshipRepository.ts",
+      "src/services/training/applyTrainingPlanAdjustment.ts",
+      "src/hooks/useTrainingPlanAdjustments.ts",
+      "src/app/screens/PlanScreen.tsx",
+      "src/app/screens/plan/PlanAdjustmentControls.tsx"
+    ];
+
+    expect(functionSource).toContain('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")');
+    expect(functionSource).toContain("authorizationVerified = false");
+    expect(functionSource).toContain("Coach approval authorization is not implemented yet.");
+    for (const file of appFiles) {
+      expect(readFileSync(file, "utf8").toLowerCase()).not.toContain("service_role");
+      expect(readFileSync(file, "utf8")).not.toContain("approve-coach-relationship");
+    }
+    expect(readFileSync("src/services/supabase/coachRelationshipRepository.ts", "utf8")).not.toContain("approveCoachRelationship");
+  });
+
   it("coachRelationshipRepository blocks missing user ids before writes", async () => {
     const client = { from: vi.fn() } as unknown as CornerSupabaseClient;
     await expect(createCoachRelationshipRepository(client).requestCoachRelationship({ athleteUserId: "", coachUserId: "coach_1" })).rejects.toBeInstanceOf(RepositoryError);
@@ -443,8 +489,12 @@ describe("Supabase repositories", () => {
     const source = readFileSync("src/tests/live/liveDbSmoke.test.ts", "utf8");
 
     expect(source).toContain("smokeRunId");
+    expect(source).toContain("training_next_week_previews");
+    expect(source).toContain("accept_preview");
+    expect(source).toContain("next_week_preview_accepted");
     expect(source).toContain('filter("session_payload->>smokeRunId"');
     expect(source).toContain('filter("result_payload->>smokeRunId"');
+    expect(source).toContain('filter("preview_payload->>smokeRunId"');
     expect(source).toContain("completeWorkoutService");
     expect(source).toContain('filter("target_payload->>smokeRunId"');
     expect(source).toContain('filter("flag_payload->>smokeRunId"');
@@ -485,9 +535,10 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("training_week_summaries");
     expect(USER_OWNED_TABLES).toContain("training_progression_decisions");
     expect(USER_OWNED_TABLES).toContain("training_block_timeline_events");
+    expect(USER_OWNED_TABLES).toContain("training_next_week_previews");
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
-    expect(USER_OWNED_TABLES).toHaveLength(34);
+    expect(USER_OWNED_TABLES).toHaveLength(35);
   });
 
   it("Expo-side services do not reference service role keys", () => {
@@ -544,6 +595,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/hydrationRepository.ts",
       "src/services/supabase/trainingRepository.ts",
       "src/services/supabase/trainingBlockRepository.ts",
+      "src/services/supabase/trainingNextWeekPreviewRepository.ts",
       "src/services/supabase/trainingProgressionRepository.ts",
       "src/services/supabase/coachRelationshipRepository.ts",
       "src/services/supabase/exerciseResultRepository.ts",

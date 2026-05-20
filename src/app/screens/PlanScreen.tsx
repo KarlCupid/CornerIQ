@@ -1,8 +1,9 @@
 import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
+import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { FightSetupDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import { FightSetupScreen } from "./fight/FightSetupScreen";
@@ -17,12 +18,13 @@ export interface PlanScreenProps {
   busy: boolean;
   hasActiveFightOrTournament: boolean;
   isMinor: boolean;
+  nextWeekPreviewActions?: NextWeekPreviewActions | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   viewModel: PlanViewModel;
 }
 
-export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, busy, hasActiveFightOrTournament, isMinor, onSaveFightSetup, onSaveTournamentSetup, viewModel }: PlanScreenProps) {
+export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, busy, hasActiveFightOrTournament, isMinor, nextWeekPreviewActions, onSaveFightSetup, onSaveTournamentSetup, viewModel }: PlanScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -78,9 +80,23 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Next week preview</Text>
           <Text style={screenStyles.body}>Engine preview, not a user-edited plan.</Text>
+          <Text style={screenStyles.body}>{viewModel.nextWeekPreview.persistedStatusLabel}</Text>
           <Text style={screenStyles.body}>Week {viewModel.nextWeekPreview.weekIndex}: {viewModel.nextWeekPreview.phase.replaceAll("_", " ")} - {viewModel.nextWeekPreview.decision}</Text>
+          <Text style={screenStyles.body}>{viewModel.nextWeekPreview.weekStartDate} to {viewModel.nextWeekPreview.weekEndDate}</Text>
           <Text style={screenStyles.callout}>{viewModel.nextWeekPreview.volumeStrategy.replaceAll("_", " ")} - hard day cap {viewModel.nextWeekPreview.hardDayCap}</Text>
           <Text style={screenStyles.body}>Support bias: {viewModel.nextWeekPreview.supportBias.replaceAll("_", " ")}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.actionCopy}</Text>
+          {viewModel.nextWeekPreview.requiresReview ? <Text style={screenStyles.subtle}>Review required before materializing.</Text> : null}
+          {viewModel.nextWeekPreview.canAccept ? (
+            <Pressable disabled={busy || !nextWeekPreviewActions} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined)}>
+              <Text style={screenStyles.quietButtonText}>Accept preview</Text>
+            </Pressable>
+          ) : null}
+          {viewModel.nextWeekPreview.showMaterializeAction ? (
+            <Pressable disabled={busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined)}>
+              <Text style={screenStyles.quietButtonText}>Materialize next week</Text>
+            </Pressable>
+          ) : null}
           <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.explanation}</Text>
           {viewModel.nextWeekPreview.safetyNotes.map((note) => <Text key={note} style={screenStyles.subtle}>Safety: {note}</Text>)}
           {viewModel.nextWeekPreview.dayPlanPreview.map((day) => (

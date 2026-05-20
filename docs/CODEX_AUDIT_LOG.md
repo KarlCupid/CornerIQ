@@ -1,5 +1,45 @@
 # Codex Audit Log
 
+## 2026-05-20 01:09 America/Vancouver
+
+Goal summary:
+- Persist next-week training previews in Supabase.
+- Add accept/materialize service boundaries without mutating current week early.
+- Add Plan accept-preview UI skeleton through service/hook.
+- Add trusted server-side coach approval skeleton while keeping coach UI hidden.
+- Improve block history and exercise history grouping.
+- Apply and verify additive Supabase migration 007 remotely.
+
+Key changes:
+- Added `007_training_next_week_previews.sql` with owner RLS, lifecycle status, preview payload, hashes, constraints, indexes, and timeline event type extension.
+- Regenerated `src/services/supabase/database.types.ts` after applying 007.
+- Added `trainingNextWeekPreviewRepository` with Zod payload validation and explicit preview/accepted/materialized/superseded lifecycle methods.
+- Updated `resolveAndPersistPerformanceState` to persist next-week previews idempotently after weekly summary/progression persistence and return ready state with a warning if only preview persistence fails.
+- Added `nextWeekPreviewToMicrocycle` and `materializeNextWeekTrainingPlan` service for safe accept/materialize behavior.
+- Added `useNextWeekPreviewActions` and Plan buttons/copy for accepting previews and boundary materialization.
+- Added `approve-coach-relationship` Edge Function skeleton that reads service role from function env only and rejects activation until production authorization is implemented.
+- Improved block-history and exercise-history panels with grouped headings and empty-state/no-fake-progression copy.
+- Extended live smoke to verify preview row persistence, accept-preview action, pre-boundary non-materialization, and tagged cleanup.
+
+Command results:
+- `cmd /c npm run typecheck`: passed during implementation.
+- `cmd /c npm test`: after fixing new test failures, passed with `22` files passed and `1` skipped; `222` tests passed and `1` skipped.
+- `cmd /c npm exec supabase -- db push --dry-run`: before push, passed and reported only `007_training_next_week_previews.sql`; after push, passed and reported `Remote database is up to date.`
+- `cmd /c npm exec supabase -- db push`: applied `007_training_next_week_previews.sql`.
+- `cmd /c npm exec supabase -- migration list`: passed after push; `001` through `007` aligned local/remote.
+- `cmd /c npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts`: passed; generated file was normalized from UTF-16 to UTF-8.
+- Ignored `.env` loaded into process with `CORNERIQ_LIVE_DB_SMOKE=1`; extended `cmd /c npm run smoke:live-db`: first failed due a test JSON-level assertion, rerun passed with `1` test passed.
+- No commit was created in this pass; current `git rev-parse HEAD` remained `ccba81c712b1d982a8bffac45d29e4a680c7d925`.
+
+Known gaps:
+- Future generated session materialization from preview summaries is deferred.
+- Coach approval function is a skeleton and not production-authorized.
+- Coach UI remains hidden.
+- Numeric load progression, team memberships, routed history drill-downs, and calendar polish remain deferred.
+
+Next recommendation:
+- Add real server-side authorization/consent checks to coach approval, then decide how accepted previews roll forward at week boundary and whether safe generated support summaries should become generated session objects.
+
 ## 2026-05-20 00:20 America/Vancouver
 
 Goal summary:

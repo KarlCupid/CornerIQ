@@ -3,10 +3,13 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import { buildProfileViewModel } from "../../engine/presentation/profileViewModel";
-import { materializeNextWeekTrainingPlan } from "../../engine/training/nextWeekMaterializationEngine";
+import {
+  materializeNextWeekTrainingPlan as buildNextWeekTrainingPreview,
+  type NextWeekTrainingMaterialization
+} from "../../engine/training/nextWeekMaterializationEngine";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
-import type { TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/training/types";
+import type { NextWeekPreviewPersistenceStatus, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/training/types";
 import {
   type AthleteJourneyRepositories,
   type LoadAthleteJourneyResult,
@@ -83,11 +86,31 @@ function timelineDuplicate(existing: readonly TrainingBlockTimelineEvent[], even
   );
 }
 
+function previewPersistenceStatus(input: {
+  acceptedAt: string | null;
+  id: string;
+  materializedAt: string | null;
+  status: NextWeekPreviewPersistenceStatus["status"];
+  weekEndDate: string;
+  weekStartDate: string;
+}): NextWeekPreviewPersistenceStatus {
+  return {
+    previewId: input.id,
+    status: input.status,
+    weekStartDate: input.weekStartDate,
+    weekEndDate: input.weekEndDate,
+    acceptedAt: input.acceptedAt,
+    materializedAt: input.materializedAt
+  };
+}
+
 function withTrainingPersistenceStatus(input: {
   state: PerformanceState;
   trainingBlockId: string;
   currentWeekSummary: TrainingWeekSummary;
   latestProgressionDecision: TrainingProgressionDecision;
+  nextWeekMaterialization: NextWeekTrainingMaterialization;
+  nextWeekPreviewPersistenceStatus?: NextWeekPreviewPersistenceStatus | undefined;
   timelineEvents: readonly TrainingBlockTimelineEvent[];
 }): PerformanceState {
   const summaries = mergedSummaries(input.state.training.blockHistory.summaries, input.currentWeekSummary);
@@ -96,23 +119,6 @@ function withTrainingPersistenceStatus(input: {
     (event, index, events) =>
       events.findIndex((candidate) => candidate.eventType === event.eventType && candidate.eventDate === event.eventDate && candidate.summary === event.summary) === index
   );
-  const nextWeekMaterialization = materializeNextWeekTrainingPlan({
-    currentTrainingBlock: input.state.training.activeBlock,
-    currentMicrocycle: input.state.training.currentMicrocycle,
-    currentTrainingDayPlans: input.state.training.dayPlans,
-    latestTrainingWeekSummary: input.currentWeekSummary,
-    latestTrainingProgressionDecision: input.latestProgressionDecision,
-    completedTrainingSessions: input.state.training.completedSessions,
-    exerciseResults: input.state.training.recentExerciseResults,
-    protectedWorkouts: input.state.training.protectedAnchors,
-    fight: input.state.fightContext,
-    tournament: input.state.tournamentContext,
-    readiness: input.state.readiness,
-    cycle: input.state.cycle,
-    safetyFlags: input.state.safety.riskFlags,
-    asOfDate: input.state.asOfDate,
-    engineVersion: input.state.engineVersion
-  });
   const nextState: PerformanceState = {
     ...input.state,
     training: {
@@ -126,7 +132,8 @@ function withTrainingPersistenceStatus(input: {
       },
       currentWeekSummary: input.currentWeekSummary,
       latestProgressionDecision: input.latestProgressionDecision,
-      nextWeekMaterialization,
+      nextWeekMaterialization: input.nextWeekMaterialization,
+      nextWeekPreviewPersistenceStatus: input.nextWeekPreviewPersistenceStatus,
       timelineEvents,
       blockPersistenceStatus: {
         trainingBlockId: input.trainingBlockId,
@@ -153,6 +160,9 @@ async function persistTrainingBlockProjection(
   trainingBlockId: string;
   currentWeekSummary: TrainingWeekSummary;
   latestProgressionDecision: TrainingProgressionDecision;
+  nextWeekMaterialization: NextWeekTrainingMaterialization;
+  nextWeekPreviewPersistenceStatus?: NextWeekPreviewPersistenceStatus | undefined;
+  previewPersistenceWarning?: string | undefined;
   timelineEvents: readonly TrainingBlockTimelineEvent[];
 }> {
   const block = await repositories.trainingBlock.upsertActiveTrainingBlock({
@@ -279,15 +289,57 @@ async function persistTrainingBlockProjection(
     });
   }
 
+  const nextWeekMaterialization = buildNextWeekTrainingPreview({
+    currentTrainingBlock: state.training.activeBlock,
+    currentMicrocycle: state.training.currentMicrocycle,
+    currentTrainingDayPlans: state.training.dayPlans,
+    latestTrainingWeekSummary: weekSummary,
+    latestTrainingProgressionDecision: rollForward.decision,
+    completedTrainingSessions: state.training.completedSessions,
+    exerciseResults: state.training.recentExerciseResults,
+    protectedWorkouts: state.training.protectedAnchors,
+    fight: state.fightContext,
+    tournament: state.tournamentContext,
+    readiness: state.readiness,
+    cycle: state.cycle,
+    safetyFlags: state.safety.riskFlags,
+    asOfDate: state.asOfDate,
+    engineVersion: state.engineVersion
+  });
+  let nextWeekPreviewPersistenceStatus: NextWeekPreviewPersistenceStatus | undefined;
+  let previewPersistenceWarning: string | undefined;
+  try {
+    const preview = await repositories.trainingNextWeekPreview.upsertTrainingNextWeekPreview({
+      userId,
+      trainingBlockId: block.id,
+      preview: nextWeekMaterialization,
+      engineVersion: state.engineVersion,
+      inputHash,
+      outputHash: stableHash(nextWeekMaterialization)
+    });
+    await repositories.trainingNextWeekPreview.supersedePreviewsForBlock(userId, block.id, preview.id);
+    nextWeekPreviewPersistenceStatus = previewPersistenceStatus(preview);
+  } catch (error) {
+    previewPersistenceWarning = `Next-week preview persistence failed: ${errorMessage(error)}`;
+  }
+
   return {
     trainingBlockId: block.id,
     currentWeekSummary: weekSummary,
     latestProgressionDecision: rollForward.decision,
+    nextWeekMaterialization,
+    nextWeekPreviewPersistenceStatus,
+    previewPersistenceWarning,
     timelineEvents
   };
 }
 
-async function persistPerformanceState(userId: string, inputHash: string, state: PerformanceState, repositories: AthleteJourneyRepositories): Promise<PerformanceState> {
+async function persistPerformanceState(
+  userId: string,
+  inputHash: string,
+  state: PerformanceState,
+  repositories: AthleteJourneyRepositories
+): Promise<{ state: PerformanceState; persistenceWarning?: string | undefined }> {
   const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
   await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
   await repositories.engineRun.upsertRiskFlags(state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash)));
@@ -296,13 +348,19 @@ async function persistPerformanceState(userId: string, inputHash: string, state:
     state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash))
   );
   const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories);
-  return withTrainingPersistenceStatus({
+  const persistedState = withTrainingPersistenceStatus({
     state,
     trainingBlockId: blockPersistence.trainingBlockId,
     currentWeekSummary: blockPersistence.currentWeekSummary,
     latestProgressionDecision: blockPersistence.latestProgressionDecision,
+    nextWeekMaterialization: blockPersistence.nextWeekMaterialization,
+    nextWeekPreviewPersistenceStatus: blockPersistence.nextWeekPreviewPersistenceStatus,
     timelineEvents: blockPersistence.timelineEvents
   });
+  return {
+    state: persistedState,
+    persistenceWarning: blockPersistence.previewPersistenceWarning
+  };
 }
 
 export async function resolveAndPersistPerformanceState(input: {
@@ -357,8 +415,13 @@ export async function resolveAndPersistPerformanceState(input: {
   }
 
   try {
-    const persistedState = await persistPerformanceState(userId, inputHash, state, input.repositories);
-    return { status: "ready", state: persistedState, inputHash };
+    const persisted = await persistPerformanceState(userId, inputHash, state, input.repositories);
+    return {
+      status: "ready",
+      state: persisted.state,
+      inputHash,
+      ...(persisted.persistenceWarning ? { persistenceWarning: persisted.persistenceWarning } : {})
+    };
   } catch (error) {
     return {
       status: "ready",

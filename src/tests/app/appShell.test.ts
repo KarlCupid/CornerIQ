@@ -206,12 +206,21 @@ const planViewModel: PlanViewModel = {
   },
   latestProgressionDecision: "progress: The week has structured completions.",
   nextWeekPreview: {
+    previewId: "preview_1",
     weekIndex: 3,
+    weekStartDate: "2026-05-26",
+    weekEndDate: "2026-06-01",
     phase: "build_strength",
     decision: "progress",
     volumeStrategy: "progress_small",
     hardDayCap: 3,
     supportBias: "strength",
+    persistedStatus: "preview",
+    persistedStatusLabel: "Persisted preview preview_1 (preview).",
+    canAccept: true,
+    showMaterializeAction: false,
+    requiresReview: false,
+    actionCopy: "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
     explanation: "Persisted progression supports a small next-week increase.",
     safetyNotes: ["Preview only: current week is not mutated and future sessions are not persisted here."],
     dayPlanPreview: [
@@ -383,6 +392,21 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
       supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
       insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
       supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
+    },
+    trainingNextWeekPreview: {
+      upsertTrainingNextWeekPreview: vi.fn(async (record: { preview: { nextWeekEndDate: string; nextWeekStartDate: string } }) => ({
+        id: "preview_1",
+        status: "preview",
+        weekStartDate: record.preview.nextWeekStartDate,
+        weekEndDate: record.preview.nextWeekEndDate,
+        acceptedAt: null,
+        materializedAt: null
+      })),
+      getLatestPreviewForBlock: vi.fn(async () => null),
+      listPreviewsForBlock: vi.fn(async () => []),
+      markPreviewAccepted: vi.fn(),
+      markPreviewMaterialized: vi.fn(),
+      supersedePreviewsForBlock: vi.fn(async () => ({ ids: [] }))
     },
     trainingProgression: {
       upsertTrainingWeekSummary: vi.fn(async () => ({ id: "week_summary_1" })),
@@ -730,6 +754,76 @@ describe("minimal app screens", () => {
     expect(state.viewModels.plan.dayPlans.map((day) => day.date)).toEqual(currentWeekDates);
   });
 
+  it("Plan next-week preview acceptance calls service actions without owning programming logic", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const acceptPreview = vi.fn(async () => ({ status: "accepted" as const, explanation: "Preview accepted.", warnings: [] }));
+    const materializeNextWeek = vi.fn(async () => ({ status: "materialized" as const, explanation: "Materialized.", warnings: [] }));
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        nextWeekPreviewActions: { acceptPreview, materializeNextWeek },
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    expect(JSON.stringify(renderer.toJSON())).toContain("Accepting stores this preview as the plan direction");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Accept preview"));
+    });
+
+    expect(acceptPreview).toHaveBeenCalledWith("preview_1");
+    expect(materializeNextWeek).not.toHaveBeenCalled();
+  });
+
+  it("Plan materialize action is hidden before boundary and review-gated for hold_for_review", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const beforeBoundary = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          nextWeekPreviewActions: { acceptPreview: vi.fn(), materializeNextWeek: vi.fn() },
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: planViewModel
+        })
+      ).toJSON()
+    );
+    expect(beforeBoundary).not.toContain("Materialize next week");
+
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: "2026-05-26",
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        nextWeekPreviewActions: { acceptPreview: vi.fn(), materializeNextWeek: vi.fn() },
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: {
+          ...planViewModel,
+          nextWeekPreview: {
+            ...planViewModel.nextWeekPreview,
+            volumeStrategy: "hold_for_review",
+            showMaterializeAction: true,
+            requiresReview: true,
+            actionCopy: "Review required before materializing."
+          }
+        }
+      })
+    );
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Review required before materializing.");
+    expect(pressableWithText(renderer, "Materialize next week")?.props.disabled).toBe(true);
+  });
+
   it("PlanScreen renders recovery and tournament warning markers", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const red = resolvePerformanceState({
@@ -836,6 +930,10 @@ describe("minimal app screens", () => {
     expect(output).toContain("progress: The week has structured completions.");
     expect(output).toContain("Week 1 summarized");
     expect(output).toContain("Block history detail");
+    expect(output).toContain("Current block");
+    expect(output).toContain("Next-week preview");
+    expect(output).toContain("Adjustments");
+    expect(output).toContain("Safety events");
     expect(output).toContain("Week 2: Week summary persisted.");
     expect(output).toContain("protect day applied");
   });
@@ -865,8 +963,52 @@ describe("minimal app screens", () => {
     );
 
     expect(output).toContain("Completed/partial/prescribed-only/skipped: 1/1/1/0");
+    expect(output).toContain("Prescribed-only counts");
+    expect(output).toContain("RPE");
+    expect(output).toContain("Strength notes");
     expect(output).toContain("Pain flag: Split squat");
+    expect(output).toContain("No fake load progression");
     expect(output).toContain("no numeric load progression inferred");
+  });
+
+  it("history panels render no-history empty copy", async () => {
+    const { TrainingBlockHistoryPanel } = await import("../../app/screens/plan/TrainingBlockHistoryPanel");
+    const { ExerciseHistoryPanel } = await import("../../app/screens/train/ExerciseHistoryPanel");
+    const blockOutput = JSON.stringify(
+      render(
+        React.createElement(TrainingBlockHistoryPanel, {
+          history: {
+            activeBlockSummary: "build strength block, week 1.",
+            weekSummaries: [],
+            progressionDecisions: [],
+            timelineEvents: [],
+            adjustmentEvents: [],
+            latestNextWeekPreview: null,
+            safetyFlags: [],
+            whatChangedAndWhy: ["No changes yet."]
+          }
+        })
+      ).toJSON()
+    );
+    const exerciseOutput = JSON.stringify(
+      render(
+        React.createElement(ExerciseHistoryPanel, {
+          history: {
+            title: "Exercise history",
+            recentExerciseResults: [],
+            statusCounts: { completed: 0, partial: 0, prescribedOnly: 0, skipped: 0 },
+            painFlagsByExercise: [],
+            recentRpeValues: [],
+            latestStrengthExerciseSummary: null,
+            loadProgressionNote: "Free-text load is notes only.",
+            mostRepeatedExercise: null
+          }
+        })
+      ).toJSON()
+    );
+
+    expect(blockOutput).toContain("No history yet");
+    expect(exerciseOutput).toContain("No exercise history yet");
   });
 
   it("FightSetupScreen rejects invalid fight and tournament setup before saving", async () => {

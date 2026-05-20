@@ -11,6 +11,7 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TrainScreen } from "../screens/TrainScreen";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import type { NextWeekPreviewActionsHook } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
@@ -23,6 +24,7 @@ export interface AppTabsProps {
   busy: boolean;
   cycleSymptomOptions: readonly CycleSymptom[];
   message: string | null;
+  nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -34,7 +36,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeekPreviewActions, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -71,10 +73,11 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFi
             <PlanScreen
               asOfDate={asOfDate}
               adjustmentActions={trainingPlanAdjustments?.actions}
-              adjustmentMessage={trainingPlanAdjustments?.message}
-              busy={busy || Boolean(trainingPlanAdjustments?.busy)}
+              adjustmentMessage={trainingPlanAdjustments?.message ?? nextWeekPreviewActions?.message}
+              busy={busy || Boolean(trainingPlanAdjustments?.busy) || Boolean(nextWeekPreviewActions?.busy)}
               hasActiveFightOrTournament={Boolean(state.fightContext || state.tournamentContext)}
               isMinor={(state.athlete.ageYears ?? 99) < 18}
+              nextWeekPreviewActions={nextWeekPreviewActions?.actions}
               onSaveFightSetup={onSaveFightSetup}
               onSaveTournamentSetup={onSaveTournamentSetup}
               viewModel={state.viewModels.plan}

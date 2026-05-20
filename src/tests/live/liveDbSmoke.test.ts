@@ -9,6 +9,7 @@ import { resolveAndPersistPerformanceState } from "../../services/engine/resolve
 import type { DetailedTrainingSession, ExerciseResultDraft, ISODateString, ProtectedWorkout } from "../../engine/core/types";
 import { completeWorkoutService, completedSessionTypeForFamily } from "../../services/training/completeWorkoutService";
 import { applyTrainingPlanAdjustmentService } from "../../services/training/applyTrainingPlanAdjustment";
+import { materializeNextWeekTrainingPlan } from "../../services/training/materializeNextWeekTrainingPlan";
 
 const runLiveSmoke = process.env.CORNERIQ_LIVE_DB_SMOKE === "1";
 const describeLive = runLiveSmoke ? describe : describe.skip;
@@ -74,6 +75,7 @@ describeLive("live Supabase CRUD smoke", () => {
     let existingTrainingWeekSummaryIds = new Set<string>();
     let existingTrainingProgressionDecisionIds = new Set<string>();
     let existingTrainingBlockTimelineEventIds = new Set<string>();
+    let existingTrainingNextWeekPreviewIds = new Set<string>();
     let inputHash: string | null = null;
     let engineRunIds: string[] = [];
     let completedTrainingSessionId: string | null = null;
@@ -82,6 +84,7 @@ describeLive("live Supabase CRUD smoke", () => {
     const smokeTrainingWeekSummaryIds: string[] = [];
     const smokeTrainingProgressionDecisionIds: string[] = [];
     const smokeTrainingBlockTimelineEventIds: string[] = [];
+    const smokeTrainingNextWeekPreviewIds: string[] = [];
 
     const signedIn = await auth.signInWithPassword(email, password);
     expect(signedIn.error).toBeNull();
@@ -123,6 +126,9 @@ describeLive("live Supabase CRUD smoke", () => {
       const existingTimelineResponse = await client.from("training_block_timeline_events").select("id").eq("user_id", userId);
       expect(existingTimelineResponse.error).toBeNull();
       existingTrainingBlockTimelineEventIds = new Set((existingTimelineResponse.data ?? []).map((row) => row.id));
+      const existingPreviewResponse = await client.from("training_next_week_previews").select("id").eq("user_id", userId);
+      expect(existingPreviewResponse.error).toBeNull();
+      existingTrainingNextWeekPreviewIds = new Set((existingPreviewResponse.data ?? []).map((row) => row.id));
 
       await repositories.athlete.upsertProfile(userId, buildDemoAthleteProfile(userId));
       await client.from("athlete_profiles").update({ sensitive_medical: { smokeRunId } }).eq("user_id", userId);
@@ -205,6 +211,48 @@ describeLive("live Supabase CRUD smoke", () => {
           await client.from("training_block_timeline_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
         }
       }
+      const nextWeekPreviewResponse = await client
+        .from("training_next_week_previews")
+        .select("id, preview_payload, status, week_start_date")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!);
+      expect(nextWeekPreviewResponse.error).toBeNull();
+      expect(nextWeekPreviewResponse.data?.length ?? 0).toBeGreaterThan(0);
+      const smokePreview = (nextWeekPreviewResponse.data ?? []).find((row) => !existingTrainingNextWeekPreviewIds.has(row.id));
+      if (!smokePreview) {
+        throw new Error("Live smoke did not create a new next-week preview row to accept safely.");
+      }
+      smokeTrainingNextWeekPreviewIds.push(smokePreview.id);
+      await client.from("training_next_week_previews").update({ preview_payload: smokePayload(smokePreview.preview_payload, smokeRunId) }).eq("id", smokePreview.id).eq("user_id", userId);
+      const acceptedPreview = await materializeNextWeekTrainingPlan({
+        userId,
+        current: resolved.state,
+        previewId: smokePreview.id,
+        repositories,
+        asOfDate,
+        mode: "accept_preview",
+        auditMetadata: { smokeRunId }
+      });
+      expect(acceptedPreview.status).toBe("accepted");
+      expect(asOfDate < smokePreview.week_start_date).toBe(true);
+      const previewTimelineResponse = await client
+        .from("training_block_timeline_events")
+        .select("id, event_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!)
+        .eq("event_type", "next_week_preview_accepted");
+      expect(previewTimelineResponse.error).toBeNull();
+      let taggedPreviewTimelineCount = 0;
+      for (const row of previewTimelineResponse.data ?? []) {
+        if (!existingTrainingBlockTimelineEventIds.has(row.id) && JSON.stringify(row.event_payload).includes(smokePreview.id)) {
+          taggedPreviewTimelineCount += 1;
+          await client.from("training_block_timeline_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+        if (!existingTrainingBlockTimelineEventIds.has(row.id) && !smokeTrainingBlockTimelineEventIds.includes(row.id) && JSON.stringify(row.event_payload).includes(smokePreview.id)) {
+          smokeTrainingBlockTimelineEventIds.push(row.id);
+        }
+      }
+      expect(taggedPreviewTimelineCount).toBeGreaterThan(0);
 
       if (!existingTrainingBlockIds.has(trainingBlockId!)) {
         await client.from("training_blocks").update({ block_payload: smokePayload(blockResponse.data?.block_payload ?? {}, smokeRunId) }).eq("id", trainingBlockId!).eq("user_id", userId);
@@ -378,6 +426,10 @@ describeLive("live Supabase CRUD smoke", () => {
       for (const id of smokeTrainingBlockTimelineEventIds) {
         await client.from("training_block_timeline_events").delete().eq("user_id", userId).eq("id", id).filter("event_payload->>smokeRunId", "eq", smokeRunId);
       }
+      for (const id of smokeTrainingNextWeekPreviewIds) {
+        await client.from("training_next_week_previews").delete().eq("user_id", userId).eq("id", id).filter("preview_payload->>smokeRunId", "eq", smokeRunId);
+      }
+      await client.from("training_next_week_previews").delete().eq("user_id", userId).filter("preview_payload->>smokeRunId", "eq", smokeRunId);
       for (const id of smokeTrainingProgressionDecisionIds) {
         await client.from("training_progression_decisions").delete().eq("user_id", userId).eq("id", id).filter("decision_payload->>smokeRunId", "eq", smokeRunId);
       }

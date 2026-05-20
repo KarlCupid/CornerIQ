@@ -7,6 +7,7 @@ import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
+import { useNextWeekPreviewActions } from "../hooks/useNextWeekPreviewActions";
 import { useQuickLogs } from "../hooks/useQuickLogs";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments";
@@ -35,6 +36,12 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   });
   const readyState = performance.result?.status === "ready" ? performance.result.state : null;
   const trainingPlanAdjustments = useTrainingPlanAdjustments({
+    onRefresh: performance.refresh,
+    repositories: performance.repositories,
+    state: readyState,
+    userId: session.user.id
+  });
+  const nextWeekPreviewActions = useNextWeekPreviewActions({
     onRefresh: performance.refresh,
     repositories: performance.repositories,
     state: readyState,
@@ -71,7 +78,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
 
   return (
     <AppTabs
-      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy}
+      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onSignOut={onSignOut}
@@ -81,6 +88,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       quickLogs={quickLogs.actions}
       asOfDate={performance.asOfDate}
       state={performance.result.state}
+      nextWeekPreviewActions={nextWeekPreviewActions}
       trainingPlanAdjustments={trainingPlanAdjustments}
       userDataControls={userDataControls}
       workoutCompletion={workoutCompletion.actions}

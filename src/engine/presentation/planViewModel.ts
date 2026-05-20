@@ -6,13 +6,28 @@ function dayLabel(date: string): string {
 
 function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel {
   const preview = state.training.nextWeekMaterialization;
+  const persisted = state.training.nextWeekPreviewPersistenceStatus;
+  const persistedStatus = persisted?.status ?? "not_persisted";
+  const requiresReview = preview.materializedVolumeStrategy === "hold_for_review";
   return {
+    previewId: persisted?.previewId ?? null,
     weekIndex: preview.nextWeekIndex,
+    weekStartDate: preview.nextWeekStartDate,
+    weekEndDate: preview.nextWeekEndDate,
     phase: preview.materializedPhase,
     decision: preview.materializedDecision.replaceAll("_", " "),
     volumeStrategy: preview.materializedVolumeStrategy,
     hardDayCap: preview.targetHardDayCap,
     supportBias: preview.generatedSupportBias,
+    persistedStatus,
+    persistedStatusLabel:
+      persistedStatus === "not_persisted"
+        ? "Preview persistence pending."
+        : `Persisted preview ${persisted?.previewId ?? "unknown"} (${persistedStatus.replaceAll("_", " ")}).`,
+    canAccept: persistedStatus === "preview",
+    showMaterializeAction: Boolean(persisted?.previewId && state.asOfDate >= preview.nextWeekStartDate && persistedStatus !== "materialized" && persistedStatus !== "rejected" && persistedStatus !== "superseded"),
+    requiresReview,
+    actionCopy: requiresReview ? "Review required before materializing." : "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
     explanation: preview.explanation,
     safetyNotes: preview.safetyNotes,
     dayPlanPreview: preview.nextWeekDayPlanPreview.map((day) => ({

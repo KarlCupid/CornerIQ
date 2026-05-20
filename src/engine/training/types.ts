@@ -272,6 +272,17 @@ export interface TrainingLoadLedger {
   recoverySessions: number;
 }
 
+export type NextWeekPreviewLifecycleStatus = "preview" | "accepted" | "materialized" | "superseded" | "rejected";
+
+export interface NextWeekPreviewPersistenceStatus {
+  previewId: string;
+  status: NextWeekPreviewLifecycleStatus;
+  weekStartDate: ISODateString;
+  weekEndDate: ISODateString;
+  acceptedAt: string | null;
+  materializedAt: string | null;
+}
+
 export interface TrainingState {
   protectedAnchors: readonly ProtectedWorkout[];
   completedSessions: readonly CompletedTrainingSession[];
@@ -289,6 +300,7 @@ export interface TrainingState {
   currentWeekSummary: TrainingWeekSummary | null;
   latestProgressionDecision: TrainingProgressionDecision | null;
   nextWeekMaterialization: NextWeekTrainingMaterialization;
+  nextWeekPreviewPersistenceStatus?: NextWeekPreviewPersistenceStatus | undefined;
   timelineEvents: readonly TrainingBlockTimelineEvent[];
   blockPersistenceStatus?: {
     trainingBlockId: string;

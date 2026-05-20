@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { addDays } from "../core/dates";
 import type { Confidence, ISODateString } from "../core/sharedTypes";
 import type { CycleState, FightOpportunity, ReadinessState, RiskFlag, TournamentDetails } from "../core/types";
@@ -15,6 +16,90 @@ export type NextWeekTrainingVolumeStrategy =
   | "hold_for_review";
 
 export type NextWeekGeneratedSupportBias = "strength" | "power" | "aerobic_base" | "durability" | "recovery" | "taper_speed" | "tournament_conserve";
+
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+export const NextWeekTrainingVolumeStrategySchema = z.enum([
+  "progress_small",
+  "repeat_same",
+  "reduce_volume",
+  "deload",
+  "taper",
+  "tournament_conserve",
+  "hold_for_review"
+]);
+
+export const NextWeekGeneratedSupportBiasSchema = z.enum(["strength", "power", "aerobic_base", "durability", "recovery", "taper_speed", "tournament_conserve"]);
+
+const trainingBlockPhaseSchema = z.enum([
+  "build_strength",
+  "build_power",
+  "aerobic_base",
+  "camp_support",
+  "fight_week_taper",
+  "tournament_week",
+  "recovery_deload",
+  "maintenance"
+]);
+
+const trainingProgressionDecisionValueSchema = z.enum(["progress", "repeat", "regress", "deload", "taper", "recovery", "coach_review", "hold"]);
+const trainingDayRoleSchema = z.enum(["hard_day", "recovery_day", "support_day", "taper_day", "tournament_conservation_day"]);
+const generatedSessionFamilySchema = z.enum([
+  "strength_lower",
+  "strength_upper",
+  "strength_full_body",
+  "power_rotational",
+  "power_lower",
+  "power_upper",
+  "alactic_sprints",
+  "roadwork_zone2",
+  "roadwork_tempo",
+  "roadwork_intervals",
+  "round_based_conditioning",
+  "footwork_agility",
+  "reaction_rhythm",
+  "trunk_durability",
+  "shoulder_scap_durability",
+  "neck_trap_durability",
+  "wrist_hand_durability",
+  "hip_ankle_mobility",
+  "recovery_reset",
+  "taper_maintenance"
+]);
+const confidenceSchema = z.object({
+  level: z.enum(["high", "medium", "low", "unknown"]),
+  score: z.number().min(0).max(1),
+  reasons: z.array(z.string()),
+  missingInputs: z.array(z.string())
+});
+
+export const NextWeekDayPlanPreviewSchema = z.object({
+  date: isoDateSchema,
+  role: trainingDayRoleSchema,
+  protectedAnchors: z.array(z.string()),
+  generatedSupport: z.string().min(1),
+  hardDay: z.boolean(),
+  fuelDemand: z.enum(["low", "moderate", "high"]),
+  safetyNotes: z.array(z.string()),
+  explanation: z.string().min(1)
+});
+
+export const NextWeekTrainingMaterializationSchema = z.object({
+  nextWeekIndex: z.number().int().positive(),
+  nextWeekStartDate: isoDateSchema,
+  nextWeekEndDate: isoDateSchema,
+  materializedPhase: trainingBlockPhaseSchema,
+  materializedDecision: trainingProgressionDecisionValueSchema,
+  materializedVolumeStrategy: NextWeekTrainingVolumeStrategySchema,
+  targetHardDayCap: z.number().int().nonnegative(),
+  generatedSupportBias: NextWeekGeneratedSupportBiasSchema,
+  sessionFamilyBiases: z.array(generatedSessionFamilySchema),
+  blockedProgressionReasons: z.array(z.string()),
+  safetyNotes: z.array(z.string()),
+  explanation: z.string().min(1),
+  confidence: confidenceSchema,
+  nextWeekDayPlanPreview: z.array(NextWeekDayPlanPreviewSchema)
+});
 
 export interface NextWeekDayPlanPreview {
   date: ISODateString;

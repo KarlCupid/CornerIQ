@@ -186,12 +186,21 @@ export interface TrainingBlockHistoryViewModel {
 }
 
 export interface NextWeekPreviewViewModel {
+  previewId: string | null;
   weekIndex: number;
+  weekStartDate: string;
+  weekEndDate: string;
   phase: TrainingBlockPhase;
   decision: string;
   volumeStrategy: NextWeekTrainingVolumeStrategy;
   hardDayCap: number;
   supportBias: NextWeekGeneratedSupportBias;
+  persistedStatus: "preview" | "accepted" | "materialized" | "superseded" | "rejected" | "not_persisted";
+  persistedStatusLabel: string;
+  canAccept: boolean;
+  showMaterializeAction: boolean;
+  requiresReview: boolean;
+  actionCopy: string;
   explanation: string;
   safetyNotes: readonly string[];
   dayPlanPreview: readonly {

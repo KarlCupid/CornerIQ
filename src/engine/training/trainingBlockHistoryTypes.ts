@@ -32,7 +32,9 @@ export const TrainingBlockTimelineEventTypeSchema = z.enum([
   "deload_requested",
   "block_superseded",
   "block_completed",
-  "coach_review_flagged"
+  "coach_review_flagged",
+  "next_week_preview_accepted",
+  "next_week_materialized"
 ]);
 export type TrainingBlockTimelineEventType = z.infer<typeof TrainingBlockTimelineEventTypeSchema>;
 

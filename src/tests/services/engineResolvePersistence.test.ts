@@ -5,7 +5,7 @@ import type { AthleteJourneyRepositories } from "../../services/supabase/loadAth
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { fixtureAsOfDate, menstruating_athlete_camp_heavy_symptoms, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
-function createRepositories(options: { blockPersistenceFailure?: boolean; journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; repositoryFailure?: boolean } = {}) {
+function createRepositories(options: { blockPersistenceFailure?: boolean; journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; previewPersistenceFailure?: boolean; repositoryFailure?: boolean } = {}) {
   const journey = options.journey ?? no_wearable_manual_only;
   const runStore = new Map<string, string>();
   const generatedSessionStore = new Map<string, unknown>();
@@ -16,6 +16,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
   const dayPlanStore = new Map<string, string>();
   const weekSummaryStore = new Map<string, string>();
   const progressionDecisionStore = new Map<string, string>();
+  const nextWeekPreviewStore = new Map<string, string>();
   const timelineEvents: unknown[] = [];
   const upsertRun = vi.fn(async (record: { as_of_date: string; engine_version: string; input_hash: string; user_id: string }) => {
     if (options.persistenceFailure) {
@@ -84,6 +85,57 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
     });
     return { ids };
   });
+  const upsertTrainingNextWeekPreview = vi.fn(
+    async (record: {
+      engineVersion: string;
+      inputHash: string;
+      outputHash: string;
+      preview: {
+        materializedDecision: string;
+        materializedVolumeStrategy: string;
+        nextWeekDayPlanPreview: readonly unknown[];
+        nextWeekEndDate: string;
+        nextWeekIndex: number;
+        nextWeekStartDate: string;
+        safetyNotes: readonly string[];
+        targetHardDayCap: number;
+      };
+      trainingBlockId: string;
+      userId: string;
+    }) => {
+      if (options.previewPersistenceFailure) {
+        throw new Error("preview projection failed");
+      }
+      const key = `${record.userId}:${record.trainingBlockId}:${record.preview.nextWeekIndex}:${record.inputHash}:${record.outputHash}`;
+      const existing = nextWeekPreviewStore.get(key);
+      if (existing) {
+        return {
+          id: existing,
+          userId: record.userId,
+          trainingBlockId: record.trainingBlockId,
+          weekIndex: record.preview.nextWeekIndex,
+          weekStartDate: record.preview.nextWeekStartDate,
+          weekEndDate: record.preview.nextWeekEndDate,
+          status: "preview" as const,
+          acceptedAt: null,
+          materializedAt: null
+        };
+      }
+      const id = `next_week_preview_${nextWeekPreviewStore.size + 1}`;
+      nextWeekPreviewStore.set(key, id);
+      return {
+        id,
+        userId: record.userId,
+        trainingBlockId: record.trainingBlockId,
+        weekIndex: record.preview.nextWeekIndex,
+        weekStartDate: record.preview.nextWeekStartDate,
+        weekEndDate: record.preview.nextWeekEndDate,
+        status: "preview" as const,
+        acceptedAt: null,
+        materializedAt: null
+      };
+    }
+  );
 
   const repositories = {
     athlete: {
@@ -115,6 +167,14 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
       supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
       insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
       supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
+    },
+    trainingNextWeekPreview: {
+      upsertTrainingNextWeekPreview,
+      getLatestPreviewForBlock: vi.fn(async () => null),
+      listPreviewsForBlock: vi.fn(async () => []),
+      markPreviewAccepted: vi.fn(),
+      markPreviewMaterialized: vi.fn(),
+      supersedePreviewsForBlock: vi.fn(async () => ({ ids: [] }))
     },
     trainingProgression: {
       upsertTrainingWeekSummary: vi.fn(async (record: { summary: { weekIndex: number }; trainingBlockId: string; userId: string }) => {
@@ -160,8 +220,18 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
 
   return {
     repositories,
-    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
-    calls: { saveDecisionTracesForRun, upsertActiveTrainingBlock, upsertGeneratedSessions, upsertNutritionTarget, upsertRiskFlags, upsertRun, upsertTrainingDayPlans, upsertTrainingMicrocycle }
+    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, nextWeekPreviewStore, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
+    calls: {
+      saveDecisionTracesForRun,
+      upsertActiveTrainingBlock,
+      upsertGeneratedSessions,
+      upsertNutritionTarget,
+      upsertRiskFlags,
+      upsertRun,
+      upsertTrainingDayPlans,
+      upsertTrainingMicrocycle,
+      upsertTrainingNextWeekPreview
+    }
   };
 }
 
@@ -224,6 +294,31 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(stores.timelineEvents.length).toBeGreaterThan(0);
   });
 
+  it("persists next-week preview after summary and progression decision persistence", async () => {
+    const { repositories, calls } = createRepositories();
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.state.training.nextWeekPreviewPersistenceStatus?.previewId).toBe("next_week_preview_1");
+      expect(result.state.viewModels.plan.nextWeekPreview.persistedStatus).toBe("preview");
+      expect(result.state.viewModels.plan.nextWeekPreview.previewId).toBe("next_week_preview_1");
+    }
+    expect(calls.upsertTrainingNextWeekPreview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_1",
+        trainingBlockId: "training_block_1",
+        preview: expect.objectContaining({
+          materializedDecision: expect.any(String),
+          materializedVolumeStrategy: expect.any(String),
+          targetHardDayCap: expect.any(Number),
+          nextWeekDayPlanPreview: expect.any(Array),
+          safetyNotes: expect.any(Array)
+        })
+      })
+    );
+  });
+
   it("returns needs_profile without persisting when profile is missing", async () => {
     const { repositories, calls } = createRepositories({ missingProfile: true });
     const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
@@ -251,6 +346,18 @@ describe("resolveAndPersistPerformanceState", () => {
     if (result.status === "ready") {
       expect(result.state.outputHash).not.toBe("");
       expect(result.persistenceWarning).toContain("block projection failed");
+    }
+  });
+
+  it("returns a ready state with a warning when preview persistence fails", async () => {
+    const { repositories } = createRepositories({ previewPersistenceFailure: true });
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.persistenceWarning).toContain("preview projection failed");
+      expect(result.state.viewModels.plan.nextWeekPreview.persistedStatus).toBe("not_persisted");
+      expect(result.state.viewModels.plan.nextWeekPreview.dayPlanPreview.length).toBeGreaterThan(0);
     }
   });
 
@@ -314,6 +421,7 @@ describe("resolveAndPersistPerformanceState", () => {
     const firstDayPlanCount = stores.dayPlanStore.size;
     const firstWeekSummaryCount = stores.weekSummaryStore.size;
     const firstProgressionDecisionCount = stores.progressionDecisionStore.size;
+    const firstPreviewCount = stores.nextWeekPreviewStore.size;
     await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
 
     expect(stores.blockStore.size).toBe(firstBlockCount);
@@ -321,6 +429,7 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(stores.dayPlanStore.size).toBe(firstDayPlanCount);
     expect(stores.weekSummaryStore.size).toBe(firstWeekSummaryCount);
     expect(stores.progressionDecisionStore.size).toBe(firstProgressionDecisionCount);
+    expect(stores.nextWeekPreviewStore.size).toBe(firstPreviewCount);
   });
 
   it("upserts active risk flags by user/domain/code/status", async () => {
