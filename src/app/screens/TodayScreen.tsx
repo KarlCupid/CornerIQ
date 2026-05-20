@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, Text, View } from "react-native";
-import type { CycleSymptom, TodayViewModel } from "../../engine/core/types";
+import type { CycleSymptom, CycleViewModel, RecentLogsViewModel, TodayViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { colors, spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -9,6 +9,8 @@ import { screenStyles } from "./screenStyles";
 
 export interface TodayScreenProps {
   viewModel: TodayViewModel;
+  recentLogs: RecentLogsViewModel;
+  cycleContext: CycleViewModel | null;
   quickLogs: QuickLogActions;
   cycleQuickLogEnabled: boolean;
   cycleSymptomOptions: readonly CycleSymptom[];
@@ -16,7 +18,7 @@ export interface TodayScreenProps {
   message: string | null;
 }
 
-export function TodayScreen({ viewModel, quickLogs, cycleQuickLogEnabled, cycleSymptomOptions, busy, message }: TodayScreenProps) {
+export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cycleQuickLogEnabled, cycleSymptomOptions, busy, message }: TodayScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -29,12 +31,44 @@ export function TodayScreen({ viewModel, quickLogs, cycleQuickLogEnabled, cycleS
       </EngineCard>
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Today</Text>
+          <Text style={screenStyles.sectionTitle}>Decision stack</Text>
+          {viewModel.decisionStack.map((item) => (
+            <View key={item.label} style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.callout}>{item.label}: {item.summary}</Text>
+              <Text style={screenStyles.subtle}>Why: {item.why} Confidence: {item.confidence}</Text>
+            </View>
+          ))}
+        </View>
+      </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Today context</Text>
           <Text style={screenStyles.body}>Training: {viewModel.trainingPriority}</Text>
           <Text style={screenStyles.body}>Fuel: {viewModel.fuelPriority}</Text>
           <Text style={screenStyles.body}>Body mass: {viewModel.bodyMassStatus}</Text>
           {viewModel.cycleContext ? <Text style={screenStyles.body}>Cycle: {viewModel.cycleContext}</Text> : null}
           <Text style={screenStyles.body}>Readiness: {viewModel.readinessContext}</Text>
+        </View>
+      </EngineCard>
+      {cycleContext ? (
+        <EngineCard>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={screenStyles.sectionTitle}>Cycle context</Text>
+            <Text style={screenStyles.body}>Tracking: {cycleContext.trackingStatus}</Text>
+            <Text style={screenStyles.body}>Phase context: {cycleContext.estimatedPhase}</Text>
+            <Text style={screenStyles.body}>Symptoms: {cycleContext.symptomBurden}</Text>
+            <Text style={screenStyles.body}>{cycleContext.trainingAdjustment}</Text>
+            <Text style={screenStyles.body}>{cycleContext.nutritionAdjustment}</Text>
+            <Text style={screenStyles.subtle}>{cycleContext.scaleNoiseNote}</Text>
+            <Text style={screenStyles.subtle}>{cycleContext.historySummary}</Text>
+            <Text style={screenStyles.subtle}>{cycleContext.privacyReminder}</Text>
+          </View>
+        </EngineCard>
+      ) : null}
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Recent logs</Text>
+          {recentLogs.today.map((item) => <Text key={item} style={screenStyles.body}>{item}</Text>)}
         </View>
       </EngineCard>
       <EngineCard>

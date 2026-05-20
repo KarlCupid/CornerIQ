@@ -8,7 +8,7 @@ export function CycleSupportStep({ draft, updateDraft }: OnboardingStepProps) {
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Cycle support</Text>
-      <Text style={screenStyles.subtle}>Optional and private. CornerIQ uses symptoms to adjust training and fueling context; it does not use fertility framing.</Text>
+      <Text style={screenStyles.subtle}>Required choice, optional tracking. CornerIQ uses symptoms to adjust training and fueling context; it does not use fertility framing.</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         {(["enabled", "disabled", "undecided"] as const).map((option) => (
           <Pressable

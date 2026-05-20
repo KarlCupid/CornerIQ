@@ -40,9 +40,9 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
           amateurOrPro: current.boxing.amateurOrPro,
           boutDate,
           weighInType,
-          targetClassLabel: `${Number.isFinite(weight) ? weight : current.bodyMass.currentBodyMassKg} kg`,
-          targetLimitKg: Number.isFinite(weight) ? weight : current.bodyMass.currentBodyMassKg,
-          contractedWeightKg: Number.isFinite(weight) ? weight : current.bodyMass.currentBodyMassKg
+          targetClassLabel: contractedWeightKg.trim() ? `${contractedWeightKg.trim()} kg` : "",
+          targetLimitKg: Number.isFinite(weight) && weight > 0 ? weight : Number.NaN,
+          contractedWeightKg: Number.isFinite(weight) && weight > 0 ? weight : Number.NaN
         }
       }
     }));
@@ -65,7 +65,7 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Goal phase</Text>
-      <Text style={screenStyles.subtle}>Fight setup can be tentative. Unknown weigh-in timing blocks cut decisions until confirmed.</Text>
+      <Text style={screenStyles.subtle}>Required. Fight setup can be tentative. Unknown weigh-in timing blocks cut decisions until confirmed.</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         <OptionButton active={phaseOf(draft) === "build"} label="Build phase" onPress={setBuild} />
         <OptionButton active={phaseOf(draft) === "maintenance_recovery"} label="Maintenance recovery" onPress={setRecovery} />
@@ -104,16 +104,16 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
         onChangeText={(value) => {
           setContractedWeightKg(value);
           const parsed = Number(value);
-          if (draft.goal.phase === "fight_known" && Number.isFinite(parsed) && parsed > 0) {
+          if (draft.goal.phase === "fight_known") {
             updateDraft((current) => ({
               ...current,
               goal: {
                 phase: "fight_known",
                 fight: {
                   ...(current.goal.phase === "fight_known" ? current.goal.fight : createDefaultFightDraft(fallbackDate)),
-                  targetClassLabel: `${parsed} kg`,
-                  targetLimitKg: parsed,
-                  contractedWeightKg: parsed
+                  targetClassLabel: value.trim() ? `${value.trim()} kg` : "",
+                  targetLimitKg: Number.isFinite(parsed) && parsed > 0 ? parsed : Number.NaN,
+                  contractedWeightKg: Number.isFinite(parsed) && parsed > 0 ? parsed : Number.NaN
                 }
               }
             }));

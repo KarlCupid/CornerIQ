@@ -1,5 +1,17 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { useFormMessage } from "../../forms/useFormMessage";
+import {
+  parseOptionalISODateTime,
+  parseOptionalPositiveNumber,
+  parseRequiredDateYYYYMMDD,
+  parseRequiredNonNegativeNumber,
+  parseRequiredPositiveInteger,
+  parseRequiredPositiveNumber,
+  parseRequiredTimeHHMM,
+  validateCommaSeparatedDates,
+  validateNonEmptyText
+} from "../../forms/validation";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import {
@@ -18,19 +30,6 @@ export interface FightSetupScreenProps {
   isMinor: boolean;
   onSaveFight: (draft: FightSetupDraft) => Promise<void>;
   onSaveTournament: (draft: TournamentSetupDraft) => Promise<void>;
-}
-
-function parseNumber(value: string, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function parseOptionalNumber(value: string): number | undefined {
-  if (!value.trim()) {
-    return undefined;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function OptionButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
@@ -68,39 +67,58 @@ export function FightSetupScreen({ asOfDate, busy, hasActiveFightOrTournament, i
   const [numberOfPotentialBouts, setNumberOfPotentialBouts] = useState(`${defaultTournament.numberOfPotentialBouts}`);
   const [rehydrationWindowHoursByDay, setRehydrationWindowHoursByDay] = useState(defaultTournament.rehydrationWindowHoursByDay.join(","));
   const [strategyMode, setStrategyMode] = useState<TournamentSetupDraft["strategyMode"]>("stay_near_weight");
+  const { message: formError, runWithMessage } = useFormMessage("Setup could not be saved.");
+
+  const parseHourList = (value: string): number[] => {
+    const hours = value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item, index) => parseRequiredNonNegativeNumber(item, `Rehydration window #${index + 1}`));
+    if (hours.length === 0) {
+      throw new Error("Rehydration windows are required: enter at least one hour value.");
+    }
+    return hours;
+  };
 
   const saveFight = async () => {
-    const cap = parseOptionalNumber(postWeighInWeightCapKg);
-    await onSaveFight({
-      status,
-      amateurOrPro,
-      boutDate,
-      ...(weighInDateTime.trim() ? { weighInDateTime: weighInDateTime.trim() } : {}),
-      weighInType,
-      rounds: Math.max(1, Math.round(parseNumber(rounds, defaultFight.rounds))),
-      roundMinutes: parseNumber(roundMinutes, defaultFight.roundMinutes),
-      restSeconds: Math.max(1, Math.round(parseNumber(restSeconds, defaultFight.restSeconds))),
-      targetClassLabel,
-      targetLimitKg: parseNumber(contractedWeightKg, defaultFight.targetLimitKg),
-      contractedWeightKg: parseNumber(contractedWeightKg, defaultFight.contractedWeightKg),
-      allowanceKg: Math.max(0, parseNumber(allowanceKg, defaultFight.allowanceKg)),
-      hydrationTestingRequired,
-      ...(cap === undefined ? {} : { postWeighInWeightCapKg: cap }),
-      timezone: "America/Vancouver"
+    await runWithMessage(async () => {
+      const cap = parseOptionalPositiveNumber(postWeighInWeightCapKg, "Post-weigh-in cap");
+      const contractedKg = parseRequiredPositiveNumber(contractedWeightKg, "Contracted weight", { example: "64" });
+      const parsedWeighInDateTime = parseOptionalISODateTime(weighInDateTime, "Weigh-in datetime");
+      await onSaveFight({
+        status,
+        amateurOrPro,
+        boutDate: parseRequiredDateYYYYMMDD(boutDate, "Bout date"),
+        ...(parsedWeighInDateTime ? { weighInDateTime: parsedWeighInDateTime } : {}),
+        weighInType,
+        rounds: parseRequiredPositiveInteger(rounds, "Rounds"),
+        roundMinutes: parseRequiredPositiveNumber(roundMinutes, "Round minutes"),
+        restSeconds: parseRequiredPositiveInteger(restSeconds, "Rest seconds"),
+        targetClassLabel: validateNonEmptyText(targetClassLabel, "Target class label"),
+        targetLimitKg: contractedKg,
+        contractedWeightKg: contractedKg,
+        allowanceKg: parseRequiredNonNegativeNumber(allowanceKg, "Allowance"),
+        hydrationTestingRequired,
+        ...(cap === undefined ? {} : { postWeighInWeightCapKg: cap }),
+        timezone: "America/Vancouver"
+      });
     });
   };
 
   const saveTournament = async () => {
-    await onSaveTournament({
-      tournamentStartDate,
-      tournamentEndDate,
-      possibleBoutDates: possibleBoutDates.split(",").map((item) => item.trim()).filter(Boolean),
-      dailyWeighIns,
-      weighInTimeEachDay,
-      sameDayBoutLikely,
-      numberOfPotentialBouts: Math.max(1, Math.round(parseNumber(numberOfPotentialBouts, defaultTournament.numberOfPotentialBouts))),
-      rehydrationWindowHoursByDay: rehydrationWindowHoursByDay.split(",").map((item) => Math.max(0, parseNumber(item.trim(), 0))),
-      strategyMode
+    await runWithMessage(async () => {
+      await onSaveTournament({
+        tournamentStartDate: parseRequiredDateYYYYMMDD(tournamentStartDate, "Tournament start date"),
+        tournamentEndDate: parseRequiredDateYYYYMMDD(tournamentEndDate, "Tournament end date"),
+        possibleBoutDates: validateCommaSeparatedDates(possibleBoutDates, "Possible bout dates"),
+        dailyWeighIns,
+        weighInTimeEachDay: parseRequiredTimeHHMM(weighInTimeEachDay, "Weigh-in time"),
+        sameDayBoutLikely,
+        numberOfPotentialBouts: parseRequiredPositiveInteger(numberOfPotentialBouts, "Possible bouts"),
+        rehydrationWindowHoursByDay: parseHourList(rehydrationWindowHoursByDay),
+        strategyMode
+      });
     });
   };
 
@@ -108,6 +126,7 @@ export function FightSetupScreen({ asOfDate, busy, hasActiveFightOrTournament, i
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>{hasActiveFightOrTournament ? "Fight or tournament setup" : "Add fight or tournament"}</Text>
+        {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
         {weighInType === "unknown" && mode === "fight" ? <Text style={screenStyles.callout}>This cut is blocked until weigh-in timing is confirmed.</Text> : null}
         {isMinor ? <Text style={screenStyles.subtle}>Minor athletes stay safety-first; CornerIQ will not offer acute cut protocol wording.</Text> : null}
         {hydrationTestingRequired && mode === "fight" ? <Text style={screenStyles.subtle}>Hydration testing will appear as a review caution in the engine.</Text> : null}

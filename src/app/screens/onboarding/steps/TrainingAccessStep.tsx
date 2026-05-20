@@ -15,7 +15,7 @@ export function TrainingAccessStep({ draft, updateDraft }: OnboardingStepProps) 
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Training access</Text>
-      <Text style={screenStyles.subtle}>Manual schedule input is enough. Wearables are never required.</Text>
+      <Text style={screenStyles.subtle}>Required. Manual schedule input is enough. Use none/bodyweight if you train without equipment; wearables are never required.</Text>
       <TextInput
         onChangeText={(value) => {
           setEquipment(value);

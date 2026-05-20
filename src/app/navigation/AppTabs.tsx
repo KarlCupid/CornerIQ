@@ -48,15 +48,17 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFi
             <TodayScreen
               busy={busy}
               cycleQuickLogEnabled={state.cycle.trackingEnabled}
+              cycleContext={state.viewModels.cycle}
               cycleSymptomOptions={cycleSymptomOptions}
               message={message}
               quickLogs={quickLogs}
+              recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.today}
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Fuel">{() => <FuelScreen busy={busy} message={message} quickLogs={quickLogs} viewModel={state.viewModels.fuel} />}</Tab.Screen>
-        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} quickLogs={quickLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
+        <Tab.Screen name="Fuel">{() => <FuelScreen busy={busy} message={message} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.fuel} />}</Tab.Screen>
+        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
         <Tab.Screen name="Plan">
           {() => (
             <PlanScreen
@@ -76,10 +78,12 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFi
               asOfDate={asOfDate}
               busy={busy}
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
+              cycleContext={state.viewModels.cycle}
               equipmentAccess={state.athlete.equipmentAccess}
               onSignOut={onSignOut}
               onUpdateSettings={onUpdateProfileSettings}
               preferredUnits={state.athlete.preferredUnits}
+              recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.profile}
               wearablePreference={state.athlete.wearablePreference}
               wearableStatus={state.wearable.hasWearable ? state.wearable.platforms.join(", ") : "manual only"}

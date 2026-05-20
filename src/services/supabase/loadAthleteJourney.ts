@@ -126,6 +126,7 @@ export async function loadAthleteJourney(input: {
       cycleSymptomLogs,
       readinessHistory,
       wearableSignalHistory,
+      completedTrainingSessions,
       trainingHistory,
       safetyFlags,
       journeyEvents
@@ -141,6 +142,7 @@ export async function loadAthleteJourney(input: {
       input.repositories.cycle.listSymptomLogs(userId),
       input.repositories.readiness.listCheckIns(userId),
       input.repositories.wearable.listSignals(userId),
+      input.repositories.training.listCompletedTrainingSessions(userId),
       input.repositories.training.listGeneratedSessions(userId),
       input.repositories.engineRun.listActiveRiskFlags(userId),
       input.repositories.journey.listEvents(userId)
@@ -164,6 +166,7 @@ export async function loadAthleteJourney(input: {
       cycleHistory,
       readinessHistory,
       wearableSignalHistory,
+      completedTrainingSessions,
       trainingHistory,
       protectedWorkouts,
       safetyFlags,

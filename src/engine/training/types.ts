@@ -26,6 +26,18 @@ export interface ProtectedWorkout {
   note?: string | undefined;
 }
 
+export interface CompletedTrainingSession {
+  id: string;
+  date: ISODateString;
+  type: ProtectedWorkoutType;
+  durationMinutes: number;
+  intensity: SessionIntensity;
+  rounds?: number | undefined;
+  note?: string | undefined;
+  source: "manual" | "generated_session" | "protected_anchor";
+  linkedProtectedWorkoutId?: string | undefined;
+}
+
 export type GeneratedSessionFamily =
   | "strength_lower"
   | "strength_upper"

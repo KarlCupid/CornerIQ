@@ -1,43 +1,55 @@
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { colors, spacing } from "../../../../design/theme";
 import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 
-function updatePositiveNumber(value: string, onValid: (value: number) => void) {
+function positiveOrInvalid(value: string): number {
   const parsed = Number(value);
-  if (Number.isFinite(parsed) && parsed > 0) {
-    onValid(parsed);
-  }
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : Number.NaN;
 }
 
 export function BodyMassStep({ draft, updateDraft }: OnboardingStepProps) {
+  const [currentMassText, setCurrentMassText] = useState(`${draft.bodyMass.currentBodyMassKg}`);
+  const [walkAroundText, setWalkAroundText] = useState(`${draft.bodyMass.typicalWalkAroundWeightKg}`);
+  const [heightText, setHeightText] = useState(`${draft.bodyMass.heightCm}`);
+
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Body mass</Text>
+      <Text style={screenStyles.subtle}>Required. These values keep weight-class decisions conservative; missing or invalid data stays unknown.</Text>
       <TextInput
         keyboardType="decimal-pad"
-        onChangeText={(value) => updatePositiveNumber(value, (currentBodyMassKg) => updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, currentBodyMassKg } })))}
+        onChangeText={(value) => {
+          setCurrentMassText(value);
+          updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, currentBodyMassKg: positiveOrInvalid(value) } }));
+        }}
         placeholder="Current body mass kg"
         placeholderTextColor={colors.wrap}
         style={screenStyles.input}
-        value={`${draft.bodyMass.currentBodyMassKg}`}
+        value={currentMassText}
       />
       <TextInput
         keyboardType="decimal-pad"
-        onChangeText={(value) => updatePositiveNumber(value, (typicalWalkAroundWeightKg) => updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, typicalWalkAroundWeightKg } })))}
+        onChangeText={(value) => {
+          setWalkAroundText(value);
+          updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, typicalWalkAroundWeightKg: positiveOrInvalid(value) } }));
+        }}
         placeholder="Typical walk-around kg"
         placeholderTextColor={colors.wrap}
         style={screenStyles.input}
-        value={`${draft.bodyMass.typicalWalkAroundWeightKg}`}
+        value={walkAroundText}
       />
       <TextInput
         keyboardType="decimal-pad"
-        onChangeText={(value) => updatePositiveNumber(value, (heightCm) => updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, heightCm } })))}
+        onChangeText={(value) => {
+          setHeightText(value);
+          updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, heightCm: positiveOrInvalid(value) } }));
+        }}
         placeholder="Height cm"
         placeholderTextColor={colors.wrap}
         style={screenStyles.input}
-        value={`${draft.bodyMass.heightCm}`}
+        value={heightText}
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         {(["metric", "imperial"] as const).map((option) => (

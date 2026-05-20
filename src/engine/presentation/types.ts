@@ -1,10 +1,39 @@
 import type { ConfidenceLevel } from "../core/sharedTypes";
 import type { GeneratedSessionIntensity } from "../training/types";
 
+export interface DecisionStackItem {
+  label: string;
+  summary: string;
+  why: string;
+  severity: "info" | "caution" | "high" | "critical";
+  confidence: ConfidenceLevel;
+}
+
+export interface FuelContextCard {
+  title: string;
+  status: "info" | "caution" | "blocked" | "active";
+  summary: string;
+  actions: readonly string[];
+}
+
+export interface RecentLogsViewModel {
+  today: readonly string[];
+  fuel: readonly string[];
+  training: readonly string[];
+  cycle: readonly string[];
+  profile: readonly string[];
+  bodyMassTrendSummary: string;
+  readinessLastCheckSummary: string;
+  foodLogCountToday: string;
+  cycleLastLogSummary: string;
+  trainingRecentSummary: string;
+}
+
 export interface TodayViewModel {
   title: string;
   whatChanged: string;
   primaryAction: string;
+  decisionStack: readonly DecisionStackItem[];
   trainingPriority: string;
   fuelPriority: string;
   bodyMassStatus: string;
@@ -25,6 +54,10 @@ export interface FuelViewModel {
   bodyMassSummary: string;
   cycleNote: string | null;
   fightOrTournamentNote: string | null;
+  fightWeekFuel: FuelContextCard | null;
+  tournamentFuel: FuelContextCard | null;
+  rehydrationPlan: FuelContextCard | null;
+  underFuelingRisk: FuelContextCard | null;
   riskSummary: readonly string[];
   why: string;
 }
@@ -60,6 +93,15 @@ export interface CycleViewModel {
   context: string;
   confidence: ConfidenceLevel;
   actions: readonly string[];
+  trackingStatus: string;
+  estimatedPhase: string;
+  symptomBurden: string;
+  scaleNoiseNote: string;
+  trainingAdjustment: string;
+  nutritionAdjustment: string;
+  safetyFlags: readonly string[];
+  privacyReminder: string;
+  historySummary: string;
 }
 
 export interface ProfileViewModel {
@@ -75,4 +117,5 @@ export interface EngineViewModels {
   plan: PlanViewModel;
   cycle: CycleViewModel | null;
   profile: ProfileViewModel;
+  recentLogs: RecentLogsViewModel;
 }

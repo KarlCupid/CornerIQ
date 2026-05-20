@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, Text, View } from "react-native";
-import type { FuelViewModel } from "../../engine/core/types";
+import type { FuelContextCard, FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -11,10 +11,23 @@ export interface FuelScreenProps {
   busy: boolean;
   message: string | null;
   quickLogs: QuickLogActions;
+  recentLogs: RecentLogsViewModel;
   viewModel: FuelViewModel;
 }
 
-export function FuelScreen({ busy, message, quickLogs, viewModel }: FuelScreenProps) {
+function FuelContextCardView({ card }: { card: FuelContextCard }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }}>
+        <Text style={screenStyles.sectionTitle}>{card.title}</Text>
+        <Text style={screenStyles.body}>{card.summary}</Text>
+        {card.actions.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+      </View>
+    </EngineCard>
+  );
+}
+
+export function FuelScreen({ busy, message, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -22,6 +35,17 @@ export function FuelScreen({ busy, message, quickLogs, viewModel }: FuelScreenPr
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Hit these first</Text>
           {viewModel.hitTheseFirst.map((item) => <Text key={item} style={screenStyles.callout}>{item}</Text>)}
+        </View>
+      </EngineCard>
+      {viewModel.fightWeekFuel ? <FuelContextCardView card={viewModel.fightWeekFuel} /> : null}
+      {viewModel.tournamentFuel ? <FuelContextCardView card={viewModel.tournamentFuel} /> : null}
+      {viewModel.rehydrationPlan ? <FuelContextCardView card={viewModel.rehydrationPlan} /> : null}
+      {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Recent fuel logs</Text>
+          <Text style={screenStyles.body}>{recentLogs.foodLogCountToday}</Text>
+          {recentLogs.fuel.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
         </View>
       </EngineCard>
       <EngineCard>

@@ -67,6 +67,7 @@ export const AthleteProfileSchema = z.object({
 });
 
 export const TournamentDetailsSchema = z.object({
+  id: z.string().min(1).optional(),
   tournamentStartDate: ISODateSchema,
   tournamentEndDate: ISODateSchema,
   possibleBoutDates: z.array(ISODateSchema),
@@ -282,6 +283,7 @@ export const JourneyEventSchema = z.object({
     "WearablePermissionGranted",
     "WearablePermissionRevoked",
     "WearableDataSynced",
+    "ProtectedWorkoutPlanned",
     "TrainingSessionCompleted",
     "ReadinessLogged",
     "SafetyFlagRaised",
@@ -327,6 +329,18 @@ export const GeneratedTrainingSessionSchema = z.object({
   fuelDemand: z.enum(["low", "moderate", "high"])
 });
 
+export const CompletedTrainingSessionSchema = z.object({
+  id: z.string().min(1),
+  date: ISODateSchema,
+  type: z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]),
+  durationMinutes: z.number().int().positive(),
+  intensity: z.enum(["easy", "moderate", "hard", "max"]),
+  rounds: z.number().int().nonnegative().optional(),
+  note: z.string().optional(),
+  source: z.enum(["manual", "generated_session", "protected_anchor"]),
+  linkedProtectedWorkoutId: z.string().min(1).optional()
+});
+
 export const AthleteJourneySchema = z.object({
   athlete: AthleteProfileSchema,
   activePhase: z.enum(["onboarding", "build", "camp", "short_notice_camp", "fight_week", "tournament", "weigh_in_day", "post_weigh_in", "bout_day", "recovery", "deload", "maintenance"]).nullable(),
@@ -341,6 +355,7 @@ export const AthleteJourneySchema = z.object({
   cycleHistory: z.array(CycleLogSchema),
   readinessHistory: z.array(ReadinessCheckInSchema),
   wearableSignalHistory: z.array(WearableSignalSchema),
+  completedTrainingSessions: z.array(CompletedTrainingSessionSchema),
   trainingHistory: z.array(GeneratedTrainingSessionSchema),
   protectedWorkouts: z.array(ProtectedWorkoutSchema),
   safetyFlags: z.array(RiskFlagSchema),

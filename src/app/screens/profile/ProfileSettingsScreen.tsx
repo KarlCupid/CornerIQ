@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { useFormMessage } from "../../forms/useFormMessage";
+import { parseRequiredDateYYYYMMDD, parseRequiredPositiveInteger } from "../../forms/validation";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import type { ISODateString } from "../../../engine/core/types";
@@ -38,35 +40,44 @@ export function ProfileSettingsScreen({
   const [units, setUnits] = useState(preferredUnits);
   const [equipment, setEquipment] = useState(equipmentAccess.join(", "));
   const [protectedType, setProtectedType] = useState<"technical_session" | "pads_mitts" | "bag_work" | "sparring" | "roadwork" | "coach_assigned_strength" | "recovery_day">("technical_session");
+  const [protectedDate, setProtectedDate] = useState(asOfDate);
   const [durationMinutes, setDurationMinutes] = useState("");
+  const { message: error, runWithMessage } = useFormMessage("Profile settings could not be saved.");
 
   const save = async () => {
-    const duration = Number(durationMinutes);
-    await onUpdateSettings({
-      cycleTrackingPreference: cyclePreference,
-      wearablePreference: wearable,
-      preferredUnits: units,
-      equipmentAccess: equipment.split(",").map((item) => item.trim()).filter(Boolean),
-      ...(Number.isFinite(duration) && duration > 0
-        ? {
-            protectedWorkout: {
+    await runWithMessage(async () => {
+      const equipmentAccessDraft = equipment.split(",").map((item) => item.trim()).filter(Boolean);
+      if (equipmentAccessDraft.length === 0) {
+        throw new Error("Equipment access is required. Enter none/bodyweight if that is the honest setup.");
+      }
+      const protectedWorkout =
+        durationMinutes.trim().length > 0
+          ? {
               type: protectedType,
-              date: asOfDate,
-              durationMinutes: Math.round(duration),
-              intensity: "moderate",
+              date: parseRequiredDateYYYYMMDD(protectedDate, "Protected anchor date"),
+              durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Protected anchor duration"),
+              intensity: "moderate" as const,
               note: "Profile schedule edit"
             }
-          }
-        : {})
+          : undefined;
+      await onUpdateSettings({
+        cycleTrackingPreference: cyclePreference,
+        wearablePreference: wearable,
+        preferredUnits: units,
+        equipmentAccess: equipmentAccessDraft,
+        ...(protectedWorkout ? { protectedWorkout } : {})
+      });
+      setDurationMinutes("");
     });
-    setDurationMinutes("");
   };
 
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Settings</Text>
-        <Text style={screenStyles.subtle}>Cycle support is optional and private. Wearables can be added later; manual input stays first-class.</Text>
+        <Text style={screenStyles.subtle}>Cycle support is optional and private. Manual input stays complete. If imperial is selected, CornerIQ still stores kg internally for now.</Text>
+        {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        {cycleTrackingPreference === "enabled" && cyclePreference === "disabled" ? <Text style={screenStyles.subtle}>This hides cycle context but does not delete prior logs.</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["enabled", "disabled", "undecided"] as const).map((option) => (
             <OptionButton active={cyclePreference === option} busy={busy} key={option} label={`Cycle ${option}`} onPress={() => setCyclePreference(option)} />
@@ -88,6 +99,7 @@ export function ProfileSettingsScreen({
             <OptionButton active={protectedType === option} busy={busy} key={option} label={option.replace(/_/g, " ")} onPress={() => setProtectedType(option)} />
           ))}
         </View>
+        <TextInput onChangeText={setProtectedDate} placeholder="Protected anchor date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={protectedDate} />
         <TextInput keyboardType="number-pad" onChangeText={setDurationMinutes} placeholder="Add protected session minutes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={durationMinutes} />
         <Pressable accessibilityRole="button" disabled={busy} onPress={save} style={screenStyles.button}>
           <Text style={screenStyles.buttonText}>Save settings</Text>

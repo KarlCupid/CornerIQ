@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, Text, View } from "react-native";
-import type { TrainViewModel } from "../../engine/core/types";
+import type { RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -10,10 +10,11 @@ import { screenStyles } from "./screenStyles";
 export interface TrainScreenProps {
   busy: boolean;
   quickLogs: QuickLogActions;
+  recentLogs: RecentLogsViewModel;
   viewModel: TrainViewModel;
 }
 
-export function TrainScreen({ busy, quickLogs, viewModel }: TrainScreenProps) {
+export function TrainScreen({ busy, quickLogs, recentLogs, viewModel }: TrainScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -36,6 +37,12 @@ export function TrainScreen({ busy, quickLogs, viewModel }: TrainScreenProps) {
           </View>
         </EngineCard>
       ))}
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Recent training</Text>
+          {recentLogs.training.map((item) => <Text key={item} style={screenStyles.body}>{item}</Text>)}
+        </View>
+      </EngineCard>
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Risk summary</Text>

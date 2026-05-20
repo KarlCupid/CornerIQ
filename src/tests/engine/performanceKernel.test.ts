@@ -3,6 +3,7 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import {
   apple_health_wearable_enhanced,
   fixtureAsOfDate,
+  hormonal_contraception_athlete_symptom_based,
   menstruating_athlete_build_phase_scale_noise,
   menstruating_athlete_camp_heavy_symptoms,
   minor_athlete_weight_cut_blocked,
@@ -76,5 +77,25 @@ describe("Corner Engine performance kernel", () => {
 
     expect(state.decisionTrace.map((trace) => trace.step)).toEqual(["phase", "body_mass_feasibility", "training", "nutrition"]);
     expect(state.decisionTrace.find((trace) => trace.step === "body_mass_feasibility")?.rejectedAlternatives).toContain("automatic acute protocol");
+  });
+
+  it("builds Today decision stack and recent log summaries from engine view models", () => {
+    const state = resolvePerformanceState({ journey: no_data_low_confidence, asOfDate: fixtureAsOfDate });
+
+    expect(state.viewModels.today.decisionStack[0]?.label).toBe("Primary action");
+    expect(state.viewModels.today.decisionStack.some((item) => item.label === "Body mass" && item.summary.includes("Trend unknown"))).toBe(true);
+    expect(state.viewModels.recentLogs.bodyMassTrendSummary).toContain("unknown");
+    expect(state.viewModels.recentLogs.today.length).toBeGreaterThan(0);
+  });
+
+  it("surfaces risk, fuel, and cycle context without unsafe acute-cut instructions", () => {
+    const blocked = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
+    const cycle = resolvePerformanceState({ journey: hormonal_contraception_athlete_symptom_based, asOfDate: fixtureAsOfDate });
+
+    expect(blocked.viewModels.today.decisionStack.some((item) => item.label === "Safety" && item.severity !== "info")).toBe(true);
+    expect(blocked.viewModels.fuel.fightWeekFuel?.summary).toBeTruthy();
+    expect(JSON.stringify(blocked.viewModels.fuel.fightWeekFuel)).not.toMatch(/dehydrat|water cut/i);
+    expect(cycle.viewModels.cycle?.privacyReminder).toContain("not fertility tracking");
+    expect(cycle.viewModels.cycle?.estimatedPhase).toContain("hormonal contraception");
   });
 });

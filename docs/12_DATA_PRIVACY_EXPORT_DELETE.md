@@ -36,7 +36,7 @@ Include every user-owned table:
 
 ## Delete Scope
 
-Delete by `user_id` for all user-owned tables. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
+Delete by `user_id` for all user-owned tables, using dependency-aware ordering: projection/result tables first, source/profile tables later, and `users_public` last. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
 
 Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, and `deleteUserOwnedData(userId, client, confirmation)`. These helpers use the anon client under RLS and never delete from `auth.users`.
 

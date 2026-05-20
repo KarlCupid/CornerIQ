@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { colors, spacing } from "../../../../design/theme";
 import type { OnboardingDraft } from "../../../../services/supabase/onboardingService";
@@ -18,16 +18,17 @@ function OptionButton({ active, label, onPress }: { active: boolean; label: stri
 }
 
 export function BoxerBasicsStep({ draft, updateDraft }: OnboardingStepProps) {
+  const [trainingAgeText, setTrainingAgeText] = useState(`${draft.boxing.trainingAgeYears}`);
   const updateTrainingAge = (value: string) => {
+    setTrainingAgeText(value);
     const parsed = Number(value);
-    if (Number.isFinite(parsed) && parsed >= 0) {
-      updateDraft((current) => ({ ...current, boxing: { ...current.boxing, trainingAgeYears: parsed } }));
-    }
+    updateDraft((current) => ({ ...current, boxing: { ...current.boxing, trainingAgeYears: Number.isFinite(parsed) && parsed >= 0 ? parsed : Number.NaN } }));
   };
 
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Boxing identity</Text>
+      <Text style={screenStyles.subtle}>Required. This keeps CornerIQ boxer-first across amateur and pro contexts.</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         {(["amateur", "pro"] as const).map((option) => (
           <OptionButton active={draft.boxing.amateurOrPro === option} key={option} label={option} onPress={() => updateDraft((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: option } }))} />
@@ -38,7 +39,7 @@ export function BoxerBasicsStep({ draft, updateDraft }: OnboardingStepProps) {
           <OptionButton active={draft.boxing.boxingLevel === option} key={option} label={option.replace(/_/g, " ")} onPress={() => updateDraft((current) => ({ ...current, boxing: { ...current.boxing, boxingLevel: option } }))} />
         ))}
       </View>
-      <TextInput keyboardType="decimal-pad" onChangeText={updateTrainingAge} placeholder="Training age years" placeholderTextColor={colors.wrap} style={screenStyles.input} value={`${draft.boxing.trainingAgeYears}`} />
+      <TextInput keyboardType="decimal-pad" onChangeText={updateTrainingAge} placeholder="Training age years" placeholderTextColor={colors.wrap} style={screenStyles.input} value={trainingAgeText} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         {(["orthodox", "southpaw", "switch", "unknown"] as const).map((option) => (
           <OptionButton active={draft.boxing.stance === option} key={option} label={option} onPress={() => updateDraft((current) => ({ ...current, boxing: { ...current.boxing, stance: option } }))} />

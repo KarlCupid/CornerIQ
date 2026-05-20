@@ -20,6 +20,7 @@ import { hardStopsFromCheckIn } from "../safety/hardStops";
 import { buildFuelViewModel } from "../presentation/fuelViewModel";
 import { buildPlanViewModel } from "../presentation/planViewModel";
 import { buildProfileViewModel } from "../presentation/profileViewModel";
+import { buildRecentLogsViewModel } from "../presentation/recentLogsViewModel";
 import { buildTodayViewModel } from "../presentation/todayViewModel";
 import { buildTrainViewModel } from "../presentation/trainViewModel";
 
@@ -196,6 +197,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   } satisfies Omit<PerformanceState, "viewModels">;
 
   const viewModelInput = { ...stateWithoutViewModels, viewModels: {} as EngineViewModels };
+  const recentLogs = buildRecentLogsViewModel(journey, viewModelInput);
   const viewModels: EngineViewModels = {
     today: buildTodayViewModel(viewModelInput),
     fuel: buildFuelViewModel(viewModelInput),
@@ -209,10 +211,20 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
           actions:
             cycle.cycleRelatedWeightNoiseRisk === "high"
               ? ["Use the 7-day trend", "Keep fluids and sodium consistent", "Do not chase today's spike"]
-              : ["Log symptoms when relevant", "Use cycle context as one signal"]
+              : ["Log symptoms when relevant", "Use cycle context as one signal"],
+          trackingStatus: "enabled",
+          estimatedPhase: cycle.estimatedPhase.replace(/_/g, " "),
+          symptomBurden: cycle.symptomBurden,
+          scaleNoiseNote: cycle.bodyMassInterpretation,
+          trainingAdjustment: cycle.trainingAdjustment,
+          nutritionAdjustment: cycle.nutritionAdjustment,
+          safetyFlags: cycle.safetyFlags.map((flag) => flag.message),
+          privacyReminder: "Cycle support is optional, private, symptom-aware, and not fertility tracking.",
+          historySummary: recentLogs.cycleLastLogSummary
         }
       : null,
-    profile: buildProfileViewModel(viewModelInput)
+    profile: buildProfileViewModel(viewModelInput),
+    recentLogs
   };
 
   return {

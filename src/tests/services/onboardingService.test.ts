@@ -22,6 +22,7 @@ function createOnboardingRepositories() {
     fights: [] as FightOpportunity[],
     profile: null as AthleteProfile | null,
     protectedWorkouts: [] as ProtectedWorkout[],
+    supersededTournamentIds: new Set<string>(),
     tournaments: [] as TournamentDetails[]
   };
   const repositories = {
@@ -35,15 +36,34 @@ function createOnboardingRepositories() {
     fight: {
       listFightOpportunities: vi.fn(async () => store.fights),
       insertFightOpportunity: vi.fn(async (_userId: string, fight: FightOpportunity) => {
-        store.fights.push(fight);
-        return { id: "fight_1" };
+        const stored = { ...fight, id: fight.id.startsWith("fight_") ? `fight_${store.fights.length + 1}` : fight.id };
+        store.fights.push(stored);
+        return { id: stored.id };
+      }),
+      updateFightOpportunity: vi.fn(async (_userId: string, fight: FightOpportunity) => {
+        const index = store.fights.findIndex((item) => item.id === fight.id);
+        if (index >= 0) {
+          store.fights[index] = fight;
+        }
+        return { id: fight.id };
       })
     },
     tournament: {
-      listTournamentPlans: vi.fn(async () => store.tournaments),
+      listTournamentPlans: vi.fn(async (_userId: string, options?: { includeSuperseded?: boolean }) => (options?.includeSuperseded ? store.tournaments : store.tournaments.filter((tournament) => !tournament.id || !store.supersededTournamentIds.has(tournament.id)))),
       insertTournamentPlan: vi.fn(async (_userId: string, tournament: TournamentDetails) => {
-        store.tournaments.push(tournament);
-        return { id: "tournament_1" };
+        const stored = { ...tournament, id: tournament.id ?? `tournament_${store.tournaments.length + 1}` };
+        store.tournaments.push(stored);
+        return { id: stored.id };
+      }),
+      updateTournamentPlan: vi.fn(async (_userId: string, tournamentId: string, tournament: TournamentDetails, metadata?: Record<string, unknown>) => {
+        const index = store.tournaments.findIndex((item) => item.id === tournamentId);
+        if (index >= 0) {
+          store.tournaments[index] = { ...tournament, id: tournamentId };
+        }
+        if (typeof metadata?.supersededAt === "string") {
+          store.supersededTournamentIds.add(tournamentId);
+        }
+        return { id: tournamentId };
       })
     },
     protectedWorkout: {
@@ -69,7 +89,7 @@ function createOnboardingRepositories() {
     cycle: { listCycleLogs: vi.fn(async () => []), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn(), insertCycleLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => []), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => []) },
-    training: { listGeneratedSessions: vi.fn(async () => []) },
+    training: { listCompletedTrainingSessions: vi.fn(async () => []), listGeneratedSessions: vi.fn(async () => []), insertCompletedTrainingSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => []),
       saveDecisionTracesForRun: vi.fn(),
@@ -206,6 +226,50 @@ describe("onboardingService", () => {
     expect(store.fights).toHaveLength(1);
     expect(store.tournaments).toHaveLength(1);
     expect(store.events.map((event) => event.type)).toEqual(expect.arrayContaining(["FightOpportunityCreated", "CampStarted", "TournamentStarted"]));
+  });
+
+  it("saving a second active fight cancels the older active setup without deleting it", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+
+    await saveFightSetup({ userId: "user_1", draft: { ...createDefaultFightDraft(fixtureAsOfDate), boutDate: "2026-06-01" }, repositories });
+    await saveFightSetup({ userId: "user_1", draft: { ...createDefaultFightDraft(fixtureAsOfDate), boutDate: "2026-06-20", status: "confirmed" }, repositories });
+
+    expect(store.fights).toHaveLength(2);
+    expect(store.fights.filter((fight) => ["tentative", "confirmed", "short_notice"].includes(fight.status))).toHaveLength(1);
+    expect(store.fights.some((fight) => fight.status === "canceled")).toBe(true);
+    expect(store.events.map((event) => event.type)).toContain("FightOpportunityCreated");
+  });
+
+  it("editing a fight draft with an id updates the existing record", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+
+    await saveFightSetup({ userId: "user_1", draft: { ...createDefaultFightDraft(fixtureAsOfDate), boutDate: "2026-06-01" }, repositories });
+    const existingId = store.fights[0]?.id;
+    if (!existingId) {
+      throw new Error("fight missing");
+    }
+    await saveFightSetup({ userId: "user_1", draft: { ...createDefaultFightDraft(fixtureAsOfDate), id: existingId, boutDate: "2026-06-22" }, repositories });
+
+    expect(store.fights).toHaveLength(1);
+    expect(store.fights[0]?.boutDate).toBe("2026-06-22");
+    expect(repositories.fight.updateFightOpportunity).toHaveBeenCalled();
+  });
+
+  it("saving a tournament supersedes the upcoming tournament while keeping history readable", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+
+    await saveTournamentSetup({ userId: "user_1", draft: { ...createDefaultTournamentDraft(fixtureAsOfDate), tournamentStartDate: "2026-06-01", tournamentEndDate: "2026-06-02", possibleBoutDates: ["2026-06-01"] }, repositories });
+    await saveTournamentSetup({ userId: "user_1", draft: { ...createDefaultTournamentDraft(fixtureAsOfDate), tournamentStartDate: "2026-07-01", tournamentEndDate: "2026-07-02", possibleBoutDates: ["2026-07-01"] }, repositories });
+
+    expect(store.tournaments).toHaveLength(2);
+    expect(await repositories.tournament.listTournamentPlans("user_1")).toHaveLength(1);
+    expect(await repositories.tournament.listTournamentPlans("user_1", { includeSuperseded: true })).toHaveLength(2);
+    const journey = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+    expect(journey.status).toBe("ready");
+    if (journey.status === "ready") {
+      expect(journey.journey.activeTournament?.tournamentStartDate).toBe("2026-07-01");
+    }
   });
 
   it("profile settings update writes profile, protected workout, and preference event", async () => {

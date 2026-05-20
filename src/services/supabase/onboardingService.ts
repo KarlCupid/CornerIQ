@@ -48,6 +48,7 @@ export const FightSetupDraftSchema = z.object({
 });
 
 export const TournamentSetupDraftSchema = z.object({
+  id: z.string().min(1).optional(),
   tournamentStartDate: ISODateSchema,
   tournamentEndDate: ISODateSchema,
   possibleBoutDates: z.array(ISODateSchema).min(1),
@@ -174,6 +175,7 @@ export function tournamentDetailsFromDraft(draft: TournamentSetupDraft): Tournam
   return parseWithSchema(
     TournamentDetailsSchema,
     {
+      ...(draft.id ? { id: draft.id } : {}),
       tournamentStartDate: draft.tournamentStartDate,
       tournamentEndDate: draft.tournamentEndDate,
       possibleBoutDates: draft.possibleBoutDates,
@@ -235,6 +237,54 @@ function eventForFightStatus(status: FightOpportunity["status"]): JourneyEventTy
   return status === "confirmed" ? "FightOpportunityConfirmed" : "FightOpportunityCreated";
 }
 
+const ACTIVE_FIGHT_STATUSES: readonly FightOpportunity["status"][] = ["tentative", "confirmed", "short_notice"];
+
+function isActiveFight(fight: FightOpportunity): boolean {
+  return ACTIVE_FIGHT_STATUSES.includes(fight.status);
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+async function supersedeOtherActiveFights(input: {
+  userId: string;
+  fight: FightOpportunity;
+  repositories: AthleteJourneyRepositories;
+  supersededBy: string;
+}): Promise<FightOpportunity[]> {
+  const existing = await input.repositories.fight.listFightOpportunities(input.userId);
+  const superseded = existing.filter((fight) => fight.id !== input.fight.id && fight.id !== input.supersededBy && isActiveFight(fight));
+  for (const fight of superseded) {
+    await input.repositories.fight.updateFightOpportunity(
+      input.userId,
+      { ...fight, status: "canceled" },
+      { supersededAt: nowIso(), supersededBy: input.supersededBy, supersededByBoutDate: input.fight.boutDate }
+    );
+  }
+  return superseded;
+}
+
+async function supersedeOtherUpcomingTournaments(input: {
+  userId: string;
+  tournament: TournamentDetails;
+  repositories: AthleteJourneyRepositories;
+  supersededBy: string;
+}): Promise<TournamentDetails[]> {
+  const existing = await input.repositories.tournament.listTournamentPlans(input.userId);
+  const superseded = existing.filter((tournament) => tournament.id !== input.tournament.id && tournament.id !== input.supersededBy);
+  for (const tournament of superseded) {
+    if (tournament.id) {
+      await input.repositories.tournament.updateTournamentPlan(input.userId, tournament.id, tournament, {
+        supersededAt: nowIso(),
+        supersededBy: input.supersededBy,
+        supersededByTournamentStartDate: input.tournament.tournamentStartDate
+      });
+    }
+  }
+  return superseded;
+}
+
 export async function completeOnboarding(input: {
   userId: string;
   asOfDate: ISODateString;
@@ -253,16 +303,11 @@ export async function completeOnboarding(input: {
   }
 
   if (draft.goal.phase === "fight_known") {
-    const fight = fightOpportunityFromDraft(draft.goal.fight);
-    await input.repositories.fight.insertFightOpportunity(userId, fight);
-    await input.repositories.journey.appendEvent(userId, eventForFightStatus(fight.status), { boutDate: fight.boutDate, weighInType: fight.weighInType });
-    await input.repositories.journey.appendEvent(userId, "CampStarted", { source: "onboarding", boutDate: fight.boutDate, status: fight.status });
+    await saveFightSetup({ userId, draft: draft.goal.fight, repositories: input.repositories, source: "onboarding" });
   }
 
   if (draft.goal.phase === "tournament_known") {
-    const tournament = tournamentDetailsFromDraft(draft.goal.tournament);
-    await input.repositories.tournament.insertTournamentPlan(userId, tournament);
-    await input.repositories.journey.appendEvent(userId, "TournamentStarted", { source: "onboarding", tournamentStartDate: tournament.tournamentStartDate });
+    await saveTournamentSetup({ userId, draft: draft.goal.tournament, repositories: input.repositories, source: "onboarding" });
   }
 
   if (draft.goal.phase === "build") {
@@ -285,25 +330,42 @@ export async function saveFightSetup(input: {
   userId: string;
   draft: FightSetupDraft;
   repositories: AthleteJourneyRepositories;
+  source?: "onboarding" | "settings" | "plan";
 }): Promise<void> {
   const userId = assertUserId(input.userId, "fightSetup.saveFightSetup");
   const draft = parseWithSchema(FightSetupDraftSchema, input.draft, "fightSetup.saveFightSetup");
   const fight = fightOpportunityFromDraft(draft);
-  await input.repositories.fight.insertFightOpportunity(userId, fight);
-  await input.repositories.journey.appendEvent(userId, eventForFightStatus(fight.status), { boutDate: fight.boutDate, weighInType: fight.weighInType });
-  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status });
+  const existing = await input.repositories.fight.listFightOpportunities(userId);
+  const existingDraftFight = draft.id ? existing.find((item) => item.id === draft.id) ?? null : null;
+  const result = existingDraftFight ? await input.repositories.fight.updateFightOpportunity(userId, fight) : await input.repositories.fight.insertFightOpportunity(userId, fight);
+  const superseded = await supersedeOtherActiveFights({ userId, fight, repositories: input.repositories, supersededBy: result.id });
+  const eventType = existingDraftFight && existingDraftFight.boutDate !== fight.boutDate ? "FightOpportunityRescheduled" : eventForFightStatus(fight.status);
+  await input.repositories.journey.appendEvent(userId, eventType, {
+    boutDate: fight.boutDate,
+    previousBoutDate: existingDraftFight?.boutDate,
+    supersededFightCount: superseded.length,
+    weighInType: fight.weighInType,
+    source: input.source ?? "plan"
+  });
+  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, source: input.source ?? "plan" });
 }
 
 export async function saveTournamentSetup(input: {
   userId: string;
   draft: TournamentSetupDraft;
   repositories: AthleteJourneyRepositories;
+  source?: "onboarding" | "settings" | "plan";
 }): Promise<void> {
   const userId = assertUserId(input.userId, "fightSetup.saveTournamentSetup");
   const draft = parseWithSchema(TournamentSetupDraftSchema, input.draft, "fightSetup.saveTournamentSetup");
   const tournament = tournamentDetailsFromDraft(draft);
-  await input.repositories.tournament.insertTournamentPlan(userId, tournament);
-  await input.repositories.journey.appendEvent(userId, "TournamentStarted", { tournamentStartDate: tournament.tournamentStartDate });
+  const result = draft.id ? await input.repositories.tournament.updateTournamentPlan(userId, draft.id, tournament) : await input.repositories.tournament.insertTournamentPlan(userId, tournament, { supersedesExisting: true });
+  const superseded = await supersedeOtherUpcomingTournaments({ userId, tournament, repositories: input.repositories, supersededBy: result.id });
+  await input.repositories.journey.appendEvent(userId, "TournamentStarted", {
+    tournamentStartDate: tournament.tournamentStartDate,
+    supersededTournamentCount: superseded.length,
+    source: input.source ?? "plan"
+  });
 }
 
 export async function updateProfileSettings(input: {

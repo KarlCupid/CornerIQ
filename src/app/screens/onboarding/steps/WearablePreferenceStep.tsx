@@ -8,7 +8,7 @@ export function WearablePreferenceStep({ draft, updateDraft }: OnboardingStepPro
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Wearable preference</Text>
-      <Text style={screenStyles.subtle}>Manual only is a complete setup. Wearables can increase confidence later when data is fresh and consistent.</Text>
+      <Text style={screenStyles.subtle}>Required choice. Manual-only is a complete setup. Wearables can increase confidence later when data is fresh and consistent.</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         {(["manual_only", "wearable_connected", "undecided"] as const).map((option) => (
           <Pressable

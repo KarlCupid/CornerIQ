@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { CycleLog, CycleSymptom, ISODateString, ProtectedWorkout } from "../engine/core/types";
+import type { CompletedTrainingSession, CycleLog, CycleSymptom, ISODateString, ProtectedWorkout } from "../engine/core/types";
 import type { ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 
@@ -73,6 +73,7 @@ export interface FoodQuickLogInput {
 
 export type ProtectedWorkoutQuickLogInput = Omit<ProtectedWorkout, "id" | "date" | "protected"> & {
   date?: ISODateString;
+  logKind?: "completed" | "planned";
 };
 
 export interface QuickLogActions {
@@ -167,8 +168,10 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
       logProtectedWorkout: (workoutInput) =>
         runQuickLog(async () => {
           const date = workoutInput.date ?? input.asOfDate;
+          const logKind = workoutInput.logKind ?? "completed";
+          const id = `manual_${workoutInput.type}_${date}_${Date.now()}`;
           const workout: ProtectedWorkout = {
-            id: `manual_${workoutInput.type}_${date}_${Date.now()}`,
+            id,
             type: workoutInput.type,
             date,
             durationMinutes: workoutInput.durationMinutes,
@@ -181,14 +184,38 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
           if (workoutInput.note) {
             workout.note = workoutInput.note;
           }
-          await input.repositories.protectedWorkout.insertProtectedWorkout(input.userId, workout);
+          if (logKind === "planned") {
+            await input.repositories.protectedWorkout.insertProtectedWorkout(input.userId, workout);
+            await input.repositories.journey.appendEvent(input.userId, "ProtectedWorkoutPlanned", {
+              date,
+              type: workout.type,
+              durationMinutes: workout.durationMinutes,
+              source: "planned_anchor_created"
+            });
+            return;
+          }
+          const completed: CompletedTrainingSession = {
+            id,
+            date,
+            type: workoutInput.type,
+            durationMinutes: workoutInput.durationMinutes,
+            intensity: workoutInput.intensity,
+            source: "manual"
+          };
+          if (workoutInput.rounds !== undefined) {
+            completed.rounds = workoutInput.rounds;
+          }
+          if (workoutInput.note) {
+            completed.note = workoutInput.note;
+          }
+          await input.repositories.training.insertCompletedTrainingSession(input.userId, completed);
           await input.repositories.journey.appendEvent(input.userId, "TrainingSessionCompleted", {
             date,
-            type: workout.type,
-            durationMinutes: workout.durationMinutes,
-            source: "protected_workout_log"
+            type: completed.type,
+            durationMinutes: completed.durationMinutes,
+            source: "completed_training_session"
           });
-        }, "Protected workout logged.")
+        }, "Training log saved.")
     }),
     [input, runQuickLog]
   );

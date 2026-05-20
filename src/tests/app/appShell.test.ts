@@ -3,7 +3,7 @@ import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
-import type { CycleSymptom, FuelViewModel, PlanViewModel, ProfileViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
+import type { CycleSymptom, FuelViewModel, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
@@ -57,6 +57,15 @@ const todayViewModel: TodayViewModel = {
   title: "Today",
   whatChanged: "Low confidence because several inputs are missing.",
   primaryAction: "Log readiness",
+  decisionStack: [
+    {
+      label: "Primary action",
+      summary: "Log readiness",
+      why: "The engine is waiting for fresh manual inputs.",
+      severity: "caution",
+      confidence: "low"
+    }
+  ],
   trainingPriority: "Keep technical work steady.",
   fuelPriority: "Hit fluids and carbs first.",
   bodyMassStatus: "No trend yet.",
@@ -77,6 +86,10 @@ const fuelViewModel: FuelViewModel = {
   bodyMassSummary: "Trend unknown",
   cycleNote: null,
   fightOrTournamentNote: null,
+  fightWeekFuel: null,
+  tournamentFuel: null,
+  rehydrationPlan: null,
+  underFuelingRisk: null,
   riskSummary: ["No active fuel risk"],
   why: "Fuel supports the planned session."
 };
@@ -115,6 +128,19 @@ const profileViewModel: ProfileViewModel = {
   privacyNotes: ["Cycle tracking is optional and private."]
 };
 
+const recentLogsViewModel: RecentLogsViewModel = {
+  today: ["Last body mass: 66.4 kg on 2026-05-19."],
+  fuel: ["2026-05-19: 2200 kcal, 130g protein, 260g carbs."],
+  training: ["2026-05-19: technical session for 45 min."],
+  cycle: ["No cycle log yet.", "Cycle support is not fertility tracking."],
+  profile: ["Last journey event: OnboardingCompleted on 2026-05-19."],
+  bodyMassTrendSummary: "Body mass trend unknown until 4 logs.",
+  readinessLastCheckSummary: "Last readiness 2026-05-19: energy 4/5.",
+  foodLogCountToday: "1 food log today.",
+  cycleLastLogSummary: "No cycle log yet.",
+  trainingRecentSummary: "Last completed session 2026-05-19: technical session."
+};
+
 const quickLogActions: QuickLogActions = {
   logBodyMass: vi.fn(),
   logCycle: vi.fn(),
@@ -135,12 +161,30 @@ function render(element: React.ReactElement): ReactTestRenderer {
   return renderer;
 }
 
+type TestInstance = {
+  props: Record<string, unknown>;
+  findAllByType: (type: string) => TestInstance[];
+};
+
 function press(button: { props: unknown } | undefined): unknown {
   const onPress = (button?.props as { onPress?: () => unknown } | undefined)?.onPress;
   if (typeof onPress !== "function") {
     throw new Error("Pressable did not expose an onPress handler.");
   }
   return onPress();
+}
+
+function changeInput(renderer: ReactTestRenderer, placeholder: string, value: string): void {
+  const input = (renderer.root.findAllByType("TextInput") as TestInstance[]).find((item) => (item.props as { placeholder?: string }).placeholder === placeholder);
+  const onChangeText = (input?.props as { onChangeText?: (text: string) => void } | undefined)?.onChangeText;
+  if (typeof onChangeText !== "function") {
+    throw new Error(`TextInput ${placeholder} did not expose an onChangeText handler.`);
+  }
+  onChangeText(value);
+}
+
+function pressableWithText(renderer: ReactTestRenderer, text: string): TestInstance | undefined {
+  return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)).includes(text));
 }
 
 function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"): AthleteJourneyRepositories {
@@ -164,7 +208,7 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
     cycle: { listCycleLogs: vi.fn(async () => journey.cycleHistory), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
-    training: { listGeneratedSessions: vi.fn(async () => journey.trainingHistory) },
+    training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
       saveDecisionTracesForRun: vi.fn(),
@@ -216,6 +260,8 @@ describe("minimal app screens", () => {
     const tree = render(
       React.createElement(TodayScreen, {
         viewModel: todayViewModel,
+        recentLogs: recentLogsViewModel,
+        cycleContext: null,
         quickLogs: quickLogActions,
         cycleQuickLogEnabled: false,
         cycleSymptomOptions: ["cramps"],
@@ -232,6 +278,8 @@ describe("minimal app screens", () => {
       render(
         React.createElement(TodayScreen, {
           viewModel: todayViewModel,
+          recentLogs: recentLogsViewModel,
+          cycleContext: null,
           quickLogs: quickLogActions,
           cycleQuickLogEnabled: false,
           cycleSymptomOptions: ["cramps"],
@@ -245,16 +293,16 @@ describe("minimal app screens", () => {
 
   it("FuelScreen renders hitTheseFirst before raw details", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
-    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, viewModel: fuelViewModel })).toJSON());
+    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel })).toJSON());
     expect(output.indexOf("Water")).toBeLessThan(output.indexOf("2200 kcal target"));
     expect(output).toContain("Food quick log");
   });
 
   it("TrainScreen renders session rationale", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
-    const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, viewModel: trainViewModel })).toJSON());
+    const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel })).toJSON());
     expect(output).toContain("Protects the boxing anchor.");
-    expect(output).toContain("Protected workout");
+    expect(output).toContain("Training log");
   });
 
   it("PlanScreen renders warnings", async () => {
@@ -291,6 +339,53 @@ describe("minimal app screens", () => {
     ).toContain("Add fight or tournament");
   });
 
+  it("FightSetupScreen rejects invalid fight and tournament setup before saving", async () => {
+    const { FightSetupScreen } = await import("../../app/screens/fight/FightSetupScreen");
+    const onSaveFight = vi.fn();
+    const onSaveTournament = vi.fn();
+    const renderer = render(
+      React.createElement(FightSetupScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFight,
+        onSaveTournament
+      })
+    );
+
+    act(() => {
+      changeInput(renderer, "Contracted weight kg", "abc");
+    });
+    await act(async () => {
+      await press(renderer.root.findAllByType("Pressable").at(-1));
+    });
+    expect(onSaveFight).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("Contracted weight");
+
+    act(() => {
+      changeInput(renderer, "Contracted weight kg", "64");
+      changeInput(renderer, "Bout date YYYY-MM-DD", "2026-02-30");
+    });
+    await act(async () => {
+      await press(renderer.root.findAllByType("Pressable").at(-1));
+    });
+    expect(onSaveFight).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("Bout date");
+
+    await act(async () => {
+      press(renderer.root.findAllByType("Pressable")[1]);
+    });
+    act(() => {
+      changeInput(renderer, "Possible bout dates, comma-separated", "2026-02-30");
+    });
+    await act(async () => {
+      await press(renderer.root.findAllByType("Pressable").at(-1));
+    });
+    expect(onSaveTournament).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("Possible bout dates");
+  });
+
   it("ProfileScreen renders privacy notes", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     expect(
@@ -300,10 +395,12 @@ describe("minimal app screens", () => {
             asOfDate: fixtureAsOfDate,
             busy: false,
             cycleTrackingStatus: "undecided",
+            cycleContext: null,
             equipmentAccess: ["jump_rope"],
             onSignOut: vi.fn(),
             onUpdateSettings: vi.fn(),
             preferredUnits: "metric",
+            recentLogs: recentLogsViewModel,
             viewModel: profileViewModel,
             wearablePreference: "manual_only",
             wearableStatus: "manual only"
@@ -321,7 +418,7 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("Boxer setup");
     expect(output).toContain("Boxing identity");
-    expect(output).toContain("Create safe demo boxer profile");
+    expect(output).toContain("Development shortcut: create safe demo boxer");
   });
 
   it("log cards validate required fields before calling insert actions", async () => {
@@ -346,6 +443,109 @@ describe("minimal app screens", () => {
     expect(actions.logBodyMass).not.toHaveBeenCalled();
     expect(actions.logFood).not.toHaveBeenCalled();
     expect(actions.logProtectedWorkout).not.toHaveBeenCalled();
+  });
+
+  it("log cards reject invalid readiness, food, and training values with visible copy", async () => {
+    const { FoodQuickLogCard, ProtectedWorkoutLogCard, ReadinessCheckInCard } = await import("../../app/screens/logging/LogCards");
+    const actions: QuickLogActions = {
+      logBodyMass: vi.fn(),
+      logCycle: vi.fn(),
+      logFood: vi.fn(),
+      logHydration: vi.fn(),
+      logProtectedWorkout: vi.fn(),
+      logReadiness: vi.fn()
+    };
+
+    const readiness = render(React.createElement(ReadinessCheckInCard, { actions, busy: false }));
+    await act(async () => {
+      changeInput(readiness, "Sleep hours", "7");
+      changeInput(readiness, "Sleep quality 1-5", "6");
+      changeInput(readiness, "Energy 1-5", "4");
+      changeInput(readiness, "Soreness 1-5", "2");
+      changeInput(readiness, "Stress 1-5", "2");
+      changeInput(readiness, "Mood 1-5", "4");
+      await press(readiness.root.findAllByType("Pressable").at(-1));
+    });
+    expect(actions.logReadiness).not.toHaveBeenCalled();
+    expect(JSON.stringify(readiness.toJSON())).toContain("Sleep quality");
+
+    const food = render(React.createElement(FoodQuickLogCard, { actions, busy: false }));
+    await act(async () => {
+      changeInput(food, "Calories", "-1");
+      changeInput(food, "Protein g", "120");
+      changeInput(food, "Carbs g", "200");
+      changeInput(food, "Fat g", "70");
+      await press(food.root.findAllByType("Pressable").at(-1));
+    });
+    expect(actions.logFood).not.toHaveBeenCalled();
+    expect(JSON.stringify(food.toJSON())).toContain("Calories");
+
+    const training = render(React.createElement(ProtectedWorkoutLogCard, { actions, busy: false }));
+    await act(async () => {
+      changeInput(training, "Duration minutes", "0");
+      await press(training.root.findAllByType("Pressable").at(-1));
+    });
+    expect(actions.logProtectedWorkout).not.toHaveBeenCalled();
+    expect(JSON.stringify(training.toJSON())).toContain("Duration");
+  });
+
+  it("onboarding blocks invalid body mass before Next", async () => {
+    const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
+    const onComplete = vi.fn();
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn() }));
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Next"));
+    });
+    act(() => {
+      changeInput(renderer, "Current body mass kg", "not a number");
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Next"));
+    });
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("Current body mass is required.");
+  });
+
+  it("quick training logs separate completed sessions from planned anchors", async () => {
+    const insertCompletedTrainingSession = vi.fn(async () => ({ id: "completed_1" }));
+    const insertProtectedWorkout = vi.fn(async () => ({ id: "protected_1" }));
+    const appendEvent = vi.fn();
+    const repositories = {
+      bodyMass: { insertManualLog: vi.fn() },
+      cycle: { insertCycleLog: vi.fn() },
+      hydration: { insertWaterLog: vi.fn(), insertElectrolyteLog: vi.fn() },
+      journey: { appendEvent },
+      nutrition: { insertFoodLog: vi.fn() },
+      protectedWorkout: { insertProtectedWorkout },
+      readiness: { insertCheckIn: vi.fn() },
+      training: { insertCompletedTrainingSession }
+    } as unknown as AthleteJourneyRepositories;
+    let quickLogs: QuickLogsHook | null = null;
+    function Probe() {
+      quickLogs = useQuickLogs({
+        asOfDate: "2026-05-19",
+        onRefresh: vi.fn(async () => ({ status: "error" as const, error: "noop" })),
+        repositories,
+        userId: "user_1"
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await quickLogs?.actions.logProtectedWorkout({ type: "technical_session", durationMinutes: 45, intensity: "moderate" });
+    });
+    expect(insertCompletedTrainingSession).toHaveBeenCalled();
+    expect(insertProtectedWorkout).not.toHaveBeenCalled();
+    expect(appendEvent).toHaveBeenCalledWith("user_1", "TrainingSessionCompleted", expect.objectContaining({ source: "completed_training_session" }));
+
+    await act(async () => {
+      await quickLogs?.actions.logProtectedWorkout({ logKind: "planned", type: "technical_session", durationMinutes: 45, intensity: "moderate" });
+    });
+    expect(insertProtectedWorkout).toHaveBeenCalled();
+    expect(appendEvent).toHaveBeenCalledWith("user_1", "ProtectedWorkoutPlanned", expect.objectContaining({ source: "planned_anchor_created" }));
   });
 
   it("ProfileSettingsScreen can update cycle and wearable preference", async () => {

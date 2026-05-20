@@ -23,6 +23,40 @@ export interface OnboardingScreenProps {
   onCreateDemoProfile: () => void;
 }
 
+function stepWhy(stepIndex: number): string {
+  switch (stepIndex) {
+    case 0:
+      return "Required: boxing status, level, and training age help the engine avoid broad combat-sport defaults.";
+    case 1:
+      return "Required: body mass, walk-around weight, and height anchor weight-class safety without assuming missing data is safe.";
+    case 2:
+      return "Required: equipment and availability can be simple. none/bodyweight is valid if that is the setup.";
+    case 3:
+      return "Optional but recommended: protected anchors tell CornerIQ what boxing work must stay first.";
+    case 4:
+      return "Required choice, optional tracking: cycle support is private, symptom-aware, and not fertility tracking.";
+    case 5:
+      return "Required choice: manual-only is complete. Wearables only raise confidence when fresh and consistent.";
+    case 6:
+      return "Required: safety screening blocks unsafe weight pressure and flags professional-review needs.";
+    default:
+      return "Required: choose build, fight, tournament, or recovery so Today and Plan can explain their priorities.";
+  }
+}
+
+function goalSummary(draft: OnboardingDraft): string {
+  if (draft.goal.phase === "fight_known") {
+    return `Summary: fight setup for ${draft.goal.fight.boutDate}, ${draft.goal.fight.contractedWeightKg} kg, weigh-in ${draft.goal.fight.weighInType.replace(/_/g, " ")}.`;
+  }
+  if (draft.goal.phase === "tournament_known") {
+    return `Summary: tournament from ${draft.goal.tournament.tournamentStartDate} to ${draft.goal.tournament.tournamentEndDate}; strategy stays near weight.`;
+  }
+  if (draft.goal.phase === "maintenance_recovery") {
+    return "Summary: recovery/maintenance phase. Safety and consistency stay ahead of pressure.";
+  }
+  return "Summary: build phase. The engine will protect boxing anchors and fill support work around them.";
+}
+
 export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {
   const onboarding = useOnboardingDraft(asOfDate);
   const stepProps = { draft: onboarding.draft, updateDraft: onboarding.updateDraft };
@@ -55,8 +89,12 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
           <Text style={screenStyles.callout}>
             Step {onboarding.stepIndex + 1} of {onboarding.stepTotal}: {onboarding.stepLabel}
           </Text>
+          <Text style={screenStyles.subtle}>{stepWhy(onboarding.stepIndex)}</Text>
+          <Text style={screenStyles.subtle}>{onboarding.storageStatus}</Text>
           {message ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{message}</Text> : null}
+          {onboarding.stepError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{onboarding.stepError}</Text> : null}
           {step}
+          {onboarding.isLastStep ? <Text style={screenStyles.callout}>{goalSummary(onboarding.draft)}</Text> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             {!onboarding.isFirstStep ? (
               <Pressable accessibilityRole="button" disabled={busy} onPress={onboarding.back} style={screenStyles.quietButton}>
@@ -64,7 +102,16 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
               </Pressable>
             ) : null}
             {onboarding.isLastStep ? (
-              <Pressable accessibilityRole="button" disabled={busy} onPress={() => void onComplete(onboarding.draft)} style={screenStyles.button}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                onPress={() => {
+                  if (!onboarding.validateCurrentStep()) {
+                    void onComplete(onboarding.draft);
+                  }
+                }}
+                style={screenStyles.button}
+              >
                 <Text style={screenStyles.buttonText}>{busy ? "Saving..." : "Finish setup"}</Text>
               </Pressable>
             ) : (
@@ -74,7 +121,7 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
             )}
           </View>
           <Pressable accessibilityRole="button" disabled={busy} onPress={onCreateDemoProfile} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>Create safe demo boxer profile</Text>
+            <Text style={screenStyles.quietButtonText}>Development shortcut: create safe demo boxer</Text>
           </Pressable>
         </View>
       </EngineCard>

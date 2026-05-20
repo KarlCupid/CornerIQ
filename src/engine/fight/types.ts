@@ -17,6 +17,7 @@ export interface WeightClassTarget {
 }
 
 export interface TournamentDetails {
+  id?: string | undefined;
   tournamentStartDate: ISODateString;
   tournamentEndDate: ISODateString;
   possibleBoutDates: readonly ISODateString[];

@@ -1,5 +1,14 @@
 ﻿import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { useFormMessage } from "../../forms/useFormMessage";
+import {
+  parseOptionalNonNegativeNumber,
+  parseOptionalPositiveInteger,
+  parseRequiredNonNegativeNumber,
+  parseRequiredPositiveInteger,
+  parseRequiredPositiveNumber,
+  validateOneToFive
+} from "../../forms/validation";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import type { QuickLogActions } from "../../../hooks/useQuickLogs";
@@ -14,37 +23,6 @@ interface QuickLogCardProps extends LogCardProps {
   actions: QuickLogActions;
 }
 
-function parseRequiredNumber(value: string, label: string, minimum = 0): number {
-  if (!value.trim()) {
-    throw new Error(`${label} is required.`);
-  }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < minimum) {
-    throw new Error(`${label} is required.`);
-  }
-  return parsed;
-}
-
-function parseOptionalNumber(value: string, label: string, minimum = 0): number | undefined {
-  if (!value.trim()) {
-    return undefined;
-  }
-  return parseRequiredNumber(value, label, minimum);
-}
-
-function useCardError() {
-  const [error, setError] = useState<string | null>(null);
-  const run = async (action: () => Promise<void>) => {
-    setError(null);
-    try {
-      await action();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Log failed.");
-    }
-  };
-  return { error, run };
-}
-
 function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" disabled={busy} onPress={onPress} style={[screenStyles.quietButton, active ? { borderColor: colors.blueIQ } : null]}>
@@ -55,7 +33,7 @@ function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy:
 
 export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
   const [bodyMassKg, setBodyMassKg] = useState("");
-  const { error, run } = useCardError();
+  const { message: error, runWithMessage } = useFormMessage("Body mass log failed.");
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -66,8 +44,8 @@ export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
           accessibilityRole="button"
           disabled={busy}
           onPress={() =>
-            run(async () => {
-              await actions.logBodyMass({ bodyMassKg: parseRequiredNumber(bodyMassKg, "Body mass", 0.1) });
+            runWithMessage(async () => {
+              await actions.logBodyMass({ bodyMassKg: parseRequiredPositiveNumber(bodyMassKg, "Body mass", { example: "66.4" }) });
               setBodyMassKg("");
             })
           }
@@ -91,7 +69,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
   const [illness, setIllness] = useState(false);
   const [dizziness, setDizziness] = useState(false);
   const [fainting, setFainting] = useState(false);
-  const { error, run } = useCardError();
+  const { message: error, runWithMessage } = useFormMessage("Readiness log failed.");
 
   const clear = () => {
     setSleepHours("");
@@ -127,14 +105,14 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
           accessibilityRole="button"
           disabled={busy}
           onPress={() =>
-            run(async () => {
+            runWithMessage(async () => {
               await actions.logReadiness({
-                sleepHours: parseRequiredNumber(sleepHours, "Sleep hours"),
-                sleepQuality1To5: parseRequiredNumber(sleepQuality, "Sleep quality", 1),
-                energy1To5: parseRequiredNumber(energy, "Energy", 1),
-                soreness1To5: parseRequiredNumber(soreness, "Soreness", 1),
-                stress1To5: parseRequiredNumber(stress, "Stress", 1),
-                mood1To5: parseRequiredNumber(mood, "Mood", 1),
+                sleepHours: parseRequiredNonNegativeNumber(sleepHours, "Sleep hours", { example: "7.5" }),
+                sleepQuality1To5: validateOneToFive(sleepQuality, "Sleep quality"),
+                energy1To5: validateOneToFive(energy, "Energy"),
+                soreness1To5: validateOneToFive(soreness, "Soreness"),
+                stress1To5: validateOneToFive(stress, "Stress"),
+                mood1To5: validateOneToFive(mood, "Mood"),
                 painNotes: painNotes.trim() ? [painNotes.trim()] : [],
                 illnessSymptoms: illness ? ["illness"] : [],
                 dizziness,
@@ -155,7 +133,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
 export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
-  const { error, run } = useCardError();
+  const { message: error, runWithMessage } = useFormMessage("Hydration log failed.");
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -167,9 +145,9 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
           accessibilityRole="button"
           disabled={busy}
           onPress={() =>
-            run(async () => {
-              const sodium = parseOptionalNumber(sodiumMg, "Sodium");
-              const payload = { liters: parseRequiredNumber(liters, "Water liters") };
+            runWithMessage(async () => {
+              const sodium = parseOptionalNonNegativeNumber(sodiumMg, "Sodium");
+              const payload = { liters: parseRequiredNonNegativeNumber(liters, "Water liters", { example: "2.5" }) };
               await actions.logHydration(sodium === undefined ? payload : { ...payload, sodiumMg: sodium });
               setLiters("");
               setSodiumMg("");
@@ -190,7 +168,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
   const [bleedStart, setBleedStart] = useState(false);
   const [bleedEnd, setBleedEnd] = useState(false);
   const [hormonalContraception, setHormonalContraception] = useState<"none" | "combined_pill" | "progestin_only_pill" | "hormonal_iud" | "copper_iud" | "implant" | "injection" | "patch" | "ring" | "unknown">("unknown");
-  const { error, run } = useCardError();
+  const { message: error, runWithMessage } = useFormMessage("Cycle log failed.");
 
   const toggleSymptom = (symptom: CycleSymptom) => {
     setSymptoms((current) => (current.includes(symptom) ? current.filter((item) => item !== symptom) : [...current, symptom]));
@@ -221,7 +199,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
           accessibilityRole="button"
           disabled={busy}
           onPress={() =>
-            run(async () => {
+            runWithMessage(async () => {
               await actions.logCycle({
                 flowLevel,
                 symptoms,
@@ -250,7 +228,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
   const [fat, setFat] = useState("");
   const [fiber, setFiber] = useState("");
   const [sodium, setSodium] = useState("");
-  const { error, run } = useCardError();
+  const { message: error, runWithMessage } = useFormMessage("Food log failed.");
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -266,15 +244,15 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
           accessibilityRole="button"
           disabled={busy}
           onPress={() =>
-            run(async () => {
+            runWithMessage(async () => {
               const payload = {
-                calories: parseRequiredNumber(calories, "Calories"),
-                proteinGrams: parseRequiredNumber(protein, "Protein"),
-                carbohydrateGrams: parseRequiredNumber(carbs, "Carbs"),
-                fatGrams: parseRequiredNumber(fat, "Fat")
+                calories: parseRequiredNonNegativeNumber(calories, "Calories"),
+                proteinGrams: parseRequiredNonNegativeNumber(protein, "Protein"),
+                carbohydrateGrams: parseRequiredNonNegativeNumber(carbs, "Carbs"),
+                fatGrams: parseRequiredNonNegativeNumber(fat, "Fat")
               };
-              const fiberGrams = parseOptionalNumber(fiber, "Fiber");
-              const sodiumMg = parseOptionalNumber(sodium, "Sodium");
+              const fiberGrams = parseOptionalNonNegativeNumber(fiber, "Fiber");
+              const sodiumMg = parseOptionalNonNegativeNumber(sodium, "Sodium");
               await actions.logFood({
                 ...payload,
                 ...(fiberGrams === undefined ? {} : { fiberGrams }),
@@ -298,17 +276,23 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
 }
 
 export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
+  const [logKind, setLogKind] = useState<"completed" | "planned">("completed");
   const [type, setType] = useState<"technical_session" | "pads_mitts" | "bag_work" | "sparring" | "roadwork" | "coach_assigned_strength" | "recovery_day">("technical_session");
   const [durationMinutes, setDurationMinutes] = useState("");
   const [intensity, setIntensity] = useState<"easy" | "moderate" | "hard" | "max">("moderate");
   const [rounds, setRounds] = useState("");
   const [note, setNote] = useState("");
-  const { error, run } = useCardError();
+  const { message: error, runWithMessage } = useFormMessage("Training log failed.");
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Protected workout</Text>
+        <Text style={screenStyles.sectionTitle}>Training log</Text>
+        <Text style={screenStyles.subtle}>Completed sessions are history. Planned anchors are protected boxing commitments.</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <ToggleButton active={logKind === "completed"} busy={busy} label="Completed session" onPress={() => setLogKind("completed")} />
+          <ToggleButton active={logKind === "planned"} busy={busy} label="Planned anchor" onPress={() => setLogKind("planned")} />
+        </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["technical_session", "pads_mitts", "bag_work", "sparring", "roadwork", "coach_assigned_strength", "recovery_day"] as const).map((option) => (
             <ToggleButton active={type === option} busy={busy} key={option} label={option.replace(/_/g, " ")} onPress={() => setType(option)} />
@@ -326,11 +310,12 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
           accessibilityRole="button"
           disabled={busy}
           onPress={() =>
-            run(async () => {
-              const parsedRounds = parseOptionalNumber(rounds, "Rounds");
+            runWithMessage(async () => {
+              const parsedRounds = parseOptionalPositiveInteger(rounds, "Rounds");
               await actions.logProtectedWorkout({
+                logKind,
                 type,
-                durationMinutes: parseRequiredNumber(durationMinutes, "Duration", 1),
+                durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Duration"),
                 intensity,
                 ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
                 ...(note.trim() ? { note: note.trim() } : {})
@@ -342,7 +327,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>Log protected workout</Text>
+          <Text style={screenStyles.buttonText}>{logKind === "completed" ? "Log completed session" : "Save planned anchor"}</Text>
         </Pressable>
       </View>
     </EngineCard>
