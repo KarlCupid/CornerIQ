@@ -44,6 +44,18 @@ Date: 2026-05-19
 - `npm run smoke:live-db`: ran and skipped as designed because `CORNERIQ_LIVE_DB_SMOKE`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `CORNERIQ_SMOKE_EMAIL`, and `CORNERIQ_SMOKE_PASSWORD` were absent.
 - No secrets were committed.
 
+## Local Credential Setup
+
+Date: 2026-05-20
+
+- Supabase project credentials were saved to local `.env`.
+- `.env` is ignored by git via `.gitignore`; `git status --ignored .env` reports it as ignored.
+- `.env.example` contains blank placeholders only.
+- No secrets were copied into tracked docs or source files.
+- Supabase CLI was installed as a pinned local dev dependency: `supabase@2.100.1`.
+- Local binary verification: `node_modules/.bin/supabase --version` reports `2.100.1` when run with normal user-directory write access. Sandboxed runs may fail when the CLI writes `~/.supabase/telemetry.json`.
+- Future remote commands should use the local binary instead of unpinned `npx supabase`.
+
 To apply 003 remotely when credentials are available:
 
 ```sh
