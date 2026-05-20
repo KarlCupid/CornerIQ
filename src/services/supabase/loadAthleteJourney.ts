@@ -15,6 +15,7 @@ import { createReadinessRepository } from "./readinessRepository";
 import { assertUserId, parseWithSchema } from "./repositoryTypes";
 import { createTournamentRepository } from "./tournamentRepository";
 import { createTrainingBlockRepository } from "./trainingBlockRepository";
+import { createTrainingProgressionRepository } from "./trainingProgressionRepository";
 import { createTrainingRepository } from "./trainingRepository";
 import { createWearableRepository } from "./wearableRepository";
 
@@ -36,6 +37,7 @@ export interface AthleteJourneyRepositories {
   wearable: ReturnType<typeof createWearableRepository>;
   training: ReturnType<typeof createTrainingRepository>;
   trainingBlock: ReturnType<typeof createTrainingBlockRepository>;
+  trainingProgression: ReturnType<typeof createTrainingProgressionRepository>;
   engineRun: ReturnType<typeof createEngineRunRepository>;
   exerciseResult: ReturnType<typeof createExerciseResultRepository>;
   journey: ReturnType<typeof createJourneyRepository>;
@@ -55,6 +57,7 @@ export function createAthleteJourneyRepositories(client: CornerSupabaseClient): 
     wearable: createWearableRepository(client),
     training: createTrainingRepository(client),
     trainingBlock: createTrainingBlockRepository(client),
+    trainingProgression: createTrainingProgressionRepository(client),
     engineRun: createEngineRunRepository(client),
     exerciseResult: createExerciseResultRepository(client),
     journey: createJourneyRepository(client)
@@ -136,6 +139,7 @@ export async function loadAthleteJourney(input: {
       exerciseResults,
       trainingHistory,
       trainingPlanAdjustments,
+      activeTrainingBlock,
       safetyFlags,
       journeyEvents
     ] = await Promise.all([
@@ -154,6 +158,7 @@ export async function loadAthleteJourney(input: {
       input.repositories.exerciseResult.listRecentExerciseResults(userId),
       input.repositories.training.listGeneratedSessions(userId),
       input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, null),
+      input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate),
       input.repositories.engineRun.listActiveRiskFlags(userId),
       input.repositories.journey.listEvents(userId)
     ]);
@@ -161,6 +166,13 @@ export async function loadAthleteJourney(input: {
     const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
     const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
+    const [trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
+      ? await Promise.all([
+          input.repositories.trainingProgression.listTrainingWeekSummaries(userId, activeTrainingBlock.id),
+          input.repositories.trainingProgression.listTrainingProgressionDecisions(userId, activeTrainingBlock.id),
+          input.repositories.trainingProgression.listTrainingBlockTimelineEvents(userId, activeTrainingBlock.id)
+        ])
+      : [[], [], []];
 
     const journey: AthleteJourney = {
       athlete,
@@ -168,7 +180,11 @@ export async function loadAthleteJourney(input: {
       activeObjective: objectiveFromContext(activeFightOpportunity, activeTournament),
       activeFightOpportunity,
       activeTournament,
-      currentTrainingBlock: null,
+      currentTrainingBlock: activeTrainingBlock?.id ?? null,
+      activeTrainingBlock: activeTrainingBlock?.block ?? null,
+      trainingWeekSummaries,
+      trainingProgressionDecisions,
+      trainingBlockTimelineEvents,
       bodyMassHistory,
       nutritionHistory,
       hydrationHistory,

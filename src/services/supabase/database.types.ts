@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -730,6 +730,44 @@ export type Database = {
         }
         Relationships: []
       }
+      training_block_timeline_events: {
+        Row: {
+          created_at: string
+          event_date: string
+          event_payload: Json
+          event_type: string
+          id: string
+          training_block_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_date: string
+          event_payload?: Json
+          event_type: string
+          id?: string
+          training_block_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_date?: string
+          event_payload?: Json
+          event_type?: string
+          id?: string
+          training_block_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_block_timeline_events_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_blocks: {
         Row: {
           athlete_id: string
@@ -960,6 +998,168 @@ export type Database = {
             columns: ["training_block_id"]
             isOneToOne: false
             referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_progression_decisions: {
+        Row: {
+          created_at: string
+          decision: string
+          decision_payload: Json
+          engine_version: string
+          id: string
+          input_hash: string
+          next_week_phase: string | null
+          output_hash: string
+          reason: string
+          training_block_id: string
+          updated_at: string
+          user_id: string
+          week_index: number
+          week_summary_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          decision_payload?: Json
+          engine_version: string
+          id?: string
+          input_hash: string
+          next_week_phase?: string | null
+          output_hash: string
+          reason: string
+          training_block_id: string
+          updated_at?: string
+          user_id: string
+          week_index: number
+          week_summary_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          decision_payload?: Json
+          engine_version?: string
+          id?: string
+          input_hash?: string
+          next_week_phase?: string | null
+          output_hash?: string
+          reason?: string
+          training_block_id?: string
+          updated_at?: string
+          user_id?: string
+          week_index?: number
+          week_summary_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_progression_decisions_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_progression_decisions_week_summary_id_fkey"
+            columns: ["week_summary_id"]
+            isOneToOne: false
+            referencedRelation: "training_week_summaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_week_summaries: {
+        Row: {
+          average_exercise_rpe: number | null
+          average_session_rpe: number | null
+          completed_result_count: number
+          completion_count: number
+          created_at: string
+          generated_support_count: number
+          hard_days_completed: number
+          high_cycle_symptom_flag: boolean
+          id: string
+          pain_flag_count: number
+          partial_result_count: number
+          prescribed_only_count: number
+          protected_anchor_count: number
+          safety_flag_count: number
+          skipped_count: number
+          summary_payload: Json
+          training_block_id: string
+          training_microcycle_id: string | null
+          underfueling_flag: boolean
+          updated_at: string
+          user_id: string
+          week_end_date: string
+          week_index: number
+          week_start_date: string
+        }
+        Insert: {
+          average_exercise_rpe?: number | null
+          average_session_rpe?: number | null
+          completed_result_count?: number
+          completion_count?: number
+          created_at?: string
+          generated_support_count?: number
+          hard_days_completed?: number
+          high_cycle_symptom_flag?: boolean
+          id?: string
+          pain_flag_count?: number
+          partial_result_count?: number
+          prescribed_only_count?: number
+          protected_anchor_count?: number
+          safety_flag_count?: number
+          skipped_count?: number
+          summary_payload?: Json
+          training_block_id: string
+          training_microcycle_id?: string | null
+          underfueling_flag?: boolean
+          updated_at?: string
+          user_id: string
+          week_end_date: string
+          week_index: number
+          week_start_date: string
+        }
+        Update: {
+          average_exercise_rpe?: number | null
+          average_session_rpe?: number | null
+          completed_result_count?: number
+          completion_count?: number
+          created_at?: string
+          generated_support_count?: number
+          hard_days_completed?: number
+          high_cycle_symptom_flag?: boolean
+          id?: string
+          pain_flag_count?: number
+          partial_result_count?: number
+          prescribed_only_count?: number
+          protected_anchor_count?: number
+          safety_flag_count?: number
+          skipped_count?: number
+          summary_payload?: Json
+          training_block_id?: string
+          training_microcycle_id?: string | null
+          underfueling_flag?: boolean
+          updated_at?: string
+          user_id?: string
+          week_end_date?: string
+          week_index?: number
+          week_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_week_summaries_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_week_summaries_training_microcycle_id_fkey"
+            columns: ["training_microcycle_id"]
+            isOneToOne: false
+            referencedRelation: "training_microcycles"
             referencedColumns: ["id"]
           },
         ]

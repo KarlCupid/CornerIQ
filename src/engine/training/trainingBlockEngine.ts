@@ -14,6 +14,7 @@ import type {
   TrainingBlock,
   TrainingBlockGoal,
   TrainingBlockPhase,
+  TrainingBlockHistory,
   TrainingBlockRecommendation,
   TrainingDayPlan,
   TrainingMicrocycle
@@ -35,6 +36,8 @@ export interface TrainingBlockEngineInput {
   safetyFlags: readonly RiskFlag[];
   asOfDate: string;
   engineVersion: string;
+  activeTrainingBlock?: TrainingBlock | null | undefined;
+  blockHistory?: TrainingBlockHistory | undefined;
 }
 
 function isUnderFuelingRisk(flags: readonly RiskFlag[]): boolean {
@@ -108,6 +111,34 @@ function goalsForPhase(phase: TrainingBlockPhase): { primaryGoal: TrainingBlockG
   }
 }
 
+function blockStartDate(input: TrainingBlockEngineInput): string {
+  const existing = input.activeTrainingBlock;
+  if (existing && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
+    return existing.startDate;
+  }
+  return input.asOfDate;
+}
+
+function blockEndDate(input: TrainingBlockEngineInput): string {
+  const existing = input.activeTrainingBlock;
+  if (existing && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
+    return existing.endDate;
+  }
+  return addDays(input.asOfDate, 27);
+}
+
+function weekIndexFor(input: TrainingBlockEngineInput): number {
+  const startDate = blockStartDate(input);
+  const calendarWeekIndex = Math.max(1, Math.floor(daysBetween(startDate, input.asOfDate) / 7) + 1);
+  const summaries = input.blockHistory?.summaries ?? [];
+  const latestSummary = summaries.reduce<(typeof summaries)[number] | null>((latest, summary) => (!latest || summary.weekIndex > latest.weekIndex ? summary : latest), null);
+  const latestPersistedIndex = input.blockHistory?.latestWeekIndex ?? 0;
+  if (latestSummary && latestSummary.weekEndDate < input.asOfDate) {
+    return Math.max(calendarWeekIndex, latestSummary.weekIndex + 1, latestPersistedIndex + 1);
+  }
+  return Math.max(calendarWeekIndex, latestSummary?.weekIndex ?? 0, latestPersistedIndex);
+}
+
 export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): TrainingBlockRecommendation {
   const underFueling = isUnderFuelingRisk(input.safetyFlags);
   const repeatedPain = hasRepeatedPain(input);
@@ -179,7 +210,7 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
               ? "Confirmed fight context makes boxing protection and specificity the priority."
               : "Build phase uses boxing level and completion history to choose the first block.",
     progressionState: {
-      weekIndex: 1,
+      weekIndex: weekIndexFor(input),
       status: progressionStatus,
       progressionRecommendation,
       reason: underFueling ? "Under-fueling risk is active, so progression is held." : progression.why
@@ -195,6 +226,8 @@ export function resolveTrainingBlock(input: TrainingBlockEngineInput): {
   blockRecommendation: TrainingBlockRecommendation;
 } {
   const recommendation = recommendTrainingBlockPhase(input);
+  const startDate = blockStartDate(input);
+  const endDate = blockEndDate(input);
   const microcycle = buildWeeklyMicrocycle({
     asOfDate: input.asOfDate,
     blockPhase: recommendation.phase,
@@ -208,10 +241,10 @@ export function resolveTrainingBlock(input: TrainingBlockEngineInput): {
   });
   return {
     activeBlock: {
-      id: `block:${input.athlete.athleteId}:${input.asOfDate}:${recommendation.phase}`,
+      id: input.activeTrainingBlock?.id ?? `block:${input.athlete.athleteId}:${startDate}:${recommendation.phase}`,
       athleteId: input.athlete.athleteId,
-      startDate: input.asOfDate,
-      endDate: addDays(input.asOfDate, 27),
+      startDate,
+      endDate,
       phase: recommendation.phase,
       primaryGoal: recommendation.primaryGoal,
       secondaryGoals: recommendation.secondaryGoals,

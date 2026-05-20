@@ -1,15 +1,17 @@
 # Supabase Remote Status
 
-Date: 2026-05-19 22:49 America/Vancouver
+Date: 2026-05-19 23:42 America/Vancouver
 
-Latest commit before this pass: `b2ac797feaa9271a8307b625aa28b6e3c1eb1c23` (`Add weekly boxing training block engine`).
+Latest commit before this pass: `3737a8a57e7e32eef715cac28353829bbebf6634` (`Persist training blocks and plan adjustments`).
 
-Working tree handoff prepared before final commit. Final commit hash should be checked by auditor.
+Current `git rev-parse HEAD`: `3737a8a57e7e32eef715cac28353829bbebf6634`
+
+Working tree handoff prepared before final commit; final hash must be checked by auditor.
 
 ## Project Link
 
 - Supabase CLI: pinned local dev dependency `supabase@2.100.1`.
-- Latest verification command: `npm exec supabase -- --version`.
+- Latest verification command: `cmd /c npm exec supabase -- --version`.
 - Verified CLI version: `2.100.1`.
 - Linked project ref: `fohdypahnobcchfmcrrn`.
 - Dashboard: https://supabase.com/dashboard/project/fohdypahnobcchfmcrrn
@@ -18,7 +20,7 @@ Working tree handoff prepared before final commit. Final commit hash should be c
 
 ## Remote Migration Status
 
-Latest `npm exec supabase -- migration list` result after this pass:
+Latest `cmd /c npm exec supabase -- migration list` result after this pass:
 
 | Local | Remote | Status |
 | --- | --- | --- |
@@ -26,15 +28,17 @@ Latest `npm exec supabase -- migration list` result after this pass:
 | `002` | `002` | applied remotely |
 | `003` | `003` | applied remotely |
 | `004` | `004` | applied remotely |
+| `005` | `005` | applied remotely |
 
-`004_training_block_persistence.sql` was applied remotely in this pass. It adds:
+`005_training_block_weekly_progression.sql` was applied remotely in this pass. It adds:
 
-- `training_blocks`
-- `training_microcycles`
-- `training_day_plans`
-- `training_plan_adjustments`
+- `training_week_summaries`
+- `training_progression_decisions`
+- `training_block_timeline_events`
+- an additive `training_plan_adjustments` check update allowing athlete `note`
+- comments documenting the new records as engine audit/progression records, not medical/coaching directives
 
-Latest `npm exec supabase -- db push --dry-run` result:
+Latest `cmd /c npm exec supabase -- db push --dry-run` result:
 
 - Succeeded.
 - Reported: `Remote database is up to date.`
@@ -44,18 +48,18 @@ Note: Supabase CLI commands were run outside the workspace sandbox because the C
 
 ## Generated Types
 
-- `src/services/supabase/database.types.ts` was regenerated from the linked remote schema after applying 004.
+- `src/services/supabase/database.types.ts` was regenerated from the linked remote schema after applying 005.
 - Windows redirection wrote the generated file as UTF-16 first; it was converted back to UTF-8 before tests/lint handoff.
-- Generated types now include training block, microcycle, day-plan, and adjustment tables.
+- Generated types now include training block, microcycle, day-plan, adjustment, weekly summary, progression decision, and block timeline event tables.
 
 ## Live Smoke Status
 
 Latest authenticated smoke result:
 
-- Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `npm run smoke:live-db`.
+- Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`.
 - Runtime used public Supabase URL and anon key only.
 - Result: passed, `1 passed`.
-- Verified sign-in, scoped manual writes, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, smoke cleanup, and prior profile restore.
+- Verified sign-in, scoped manual writes, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, smoke cleanup scoped to smoke-created rows, and prior profile restore.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
 
@@ -64,10 +68,10 @@ The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips 
 Final checks for this pass:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `173` tests and `1` live smoke test skipped.
-- `cmd /c npm run quality`: passed with `173` tests and `1` live smoke test skipped.
+- `cmd /c npm test`: passed with `185` tests and `1` live smoke test skipped.
+- `cmd /c npm run quality`: passed with `185` tests and `1` live smoke test skipped.
 - `cmd /c npm run lint`: passed.
-- `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db` with ignored `.env` loaded: passed with `1` test.
+- `CORNERIQ_LIVE_DB_SMOKE=1` with ignored `.env` loaded, then `cmd /c npm run smoke:live-db`: passed with `1` test.
 
 Vitest and Supabase CLI required approved escalation in this Codex environment for local filesystem/network reasons. That did not require service role keys.
 

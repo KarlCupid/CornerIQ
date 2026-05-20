@@ -2,6 +2,10 @@ import { AthleteJourneySchema } from "../../engine/core/schemas";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
+import { buildProfileViewModel } from "../../engine/presentation/profileViewModel";
+import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
+import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
+import type { TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/training/types";
 import {
   type AthleteJourneyRepositories,
   type LoadAthleteJourneyResult,
@@ -57,13 +61,56 @@ function errorResult(error: unknown, message: string): ResolveAndPersistPerforma
   };
 }
 
-function withBlockPersistenceStatus(state: PerformanceState, trainingBlockId: string): PerformanceState {
+function mergedSummaries(existing: readonly TrainingWeekSummary[], summary: TrainingWeekSummary): readonly TrainingWeekSummary[] {
+  const withoutCurrent = existing.filter((item) => item.weekIndex !== summary.weekIndex);
+  return [...withoutCurrent, summary].sort((left, right) => left.weekIndex - right.weekIndex);
+}
+
+function mergedDecisions(existing: readonly TrainingProgressionDecision[], decision: TrainingProgressionDecision): readonly TrainingProgressionDecision[] {
+  const duplicate = existing.some((item) => item.weekIndex === decision.weekIndex && item.decision === decision.decision && item.reason === decision.reason);
+  return duplicate ? existing : [...existing, decision].sort((left, right) => left.weekIndex - right.weekIndex);
+}
+
+function timelineDuplicate(existing: readonly TrainingBlockTimelineEvent[], event: TrainingBlockTimelineEvent, inputHash: string, outputHash: string): boolean {
+  return existing.some(
+    (item) =>
+      item.eventType === event.eventType &&
+      item.eventDate === event.eventDate &&
+      item.payload.weekIndex === event.payload.weekIndex &&
+      item.payload.inputHash === inputHash &&
+      item.payload.outputHash === outputHash
+  );
+}
+
+function withTrainingPersistenceStatus(input: {
+  state: PerformanceState;
+  trainingBlockId: string;
+  currentWeekSummary: TrainingWeekSummary;
+  latestProgressionDecision: TrainingProgressionDecision;
+  timelineEvents: readonly TrainingBlockTimelineEvent[];
+}): PerformanceState {
+  const summaries = mergedSummaries(input.state.training.blockHistory.summaries, input.currentWeekSummary);
+  const decisions = mergedDecisions(input.state.training.blockHistory.decisions, input.latestProgressionDecision);
+  const timelineEvents = [...input.state.training.timelineEvents, ...input.timelineEvents].filter(
+    (event, index, events) =>
+      events.findIndex((candidate) => candidate.eventType === event.eventType && candidate.eventDate === event.eventDate && candidate.summary === event.summary) === index
+  );
   const nextState: PerformanceState = {
-    ...state,
+    ...input.state,
     training: {
-      ...state.training,
+      ...input.state.training,
+      blockHistory: {
+        blockId: input.trainingBlockId,
+        summaries,
+        decisions,
+        timelineEvents,
+        latestWeekIndex: Math.max(input.currentWeekSummary.weekIndex, input.latestProgressionDecision.weekIndex, input.state.training.blockHistory.latestWeekIndex)
+      },
+      currentWeekSummary: input.currentWeekSummary,
+      latestProgressionDecision: input.latestProgressionDecision,
+      timelineEvents,
       blockPersistenceStatus: {
-        trainingBlockId,
+        trainingBlockId: input.trainingBlockId,
         status: "active"
       }
     }
@@ -72,12 +119,23 @@ function withBlockPersistenceStatus(state: PerformanceState, trainingBlockId: st
     ...nextState,
     viewModels: {
       ...nextState.viewModels,
-      plan: buildPlanViewModel(nextState)
+      plan: buildPlanViewModel(nextState),
+      profile: buildProfileViewModel(nextState)
     }
   };
 }
 
-async function persistTrainingBlockProjection(userId: string, inputHash: string, state: PerformanceState, repositories: AthleteJourneyRepositories): Promise<{ trainingBlockId: string }> {
+async function persistTrainingBlockProjection(
+  userId: string,
+  inputHash: string,
+  state: PerformanceState,
+  repositories: AthleteJourneyRepositories
+): Promise<{
+  trainingBlockId: string;
+  currentWeekSummary: TrainingWeekSummary;
+  latestProgressionDecision: TrainingProgressionDecision;
+  timelineEvents: readonly TrainingBlockTimelineEvent[];
+}> {
   const block = await repositories.trainingBlock.upsertActiveTrainingBlock({
     userId,
     block: state.training.activeBlock,
@@ -96,6 +154,87 @@ async function persistTrainingBlockProjection(userId: string, inputHash: string,
     trainingMicrocycleId: microcycle.id,
     dayPlans: state.training.dayPlans
   });
+
+  const weekSummary = summarizeTrainingWeek({
+    asOfDate: state.asOfDate,
+    trainingBlock: state.training.activeBlock,
+    trainingBlockId: block.id,
+    microcycle: state.training.currentMicrocycle,
+    dayPlans: state.training.dayPlans,
+    completedSessions: state.training.completedSessions,
+    exerciseResults: state.training.recentExerciseResults,
+    safetyFlags: state.safety.riskFlags,
+    cycle: state.cycle,
+    nutrition: state.nutrition,
+    protectedWorkouts: state.training.protectedAnchors,
+    weekIndex: state.training.activeBlock.progressionState.weekIndex
+  });
+  const persistedWeekSummary = await repositories.trainingProgression.upsertTrainingWeekSummary({
+    userId,
+    trainingBlockId: block.id,
+    trainingMicrocycleId: microcycle.id,
+    summary: weekSummary
+  });
+  const rollForward = rollForwardTrainingBlock({
+    asOfDate: state.asOfDate,
+    generatedAt: state.generatedAt,
+    currentBlock: state.training.activeBlock,
+    currentMicrocycle: state.training.currentMicrocycle,
+    weekSummary,
+    fight: state.fightContext,
+    tournament: state.tournamentContext,
+    safetyFlags: state.safety.riskFlags,
+    readiness: state.readiness,
+    cycle: state.cycle,
+    activeAdjustments: state.training.activeAdjustments
+  });
+  await repositories.trainingProgression.insertTrainingProgressionDecision({
+    userId,
+    trainingBlockId: block.id,
+    weekSummaryId: persistedWeekSummary.id,
+    weekIndex: weekSummary.weekIndex,
+    decision: rollForward.decision,
+    engineVersion: state.engineVersion,
+    inputHash,
+    outputHash: state.outputHash
+  });
+  const existingTimelineEvents = await repositories.trainingProgression.listTrainingBlockTimelineEvents(userId, block.id);
+  const timelineEvents = [
+    ...(block.lifecycle === "created"
+      ? [
+          {
+            eventType: "block_started" as const,
+            eventDate: state.training.activeBlock.startDate,
+            title: "Block started",
+            summary: `${state.training.activeBlock.phase.replaceAll("_", " ")} block started.`,
+            payload: {
+              blockId: block.id,
+              blockKey: block.blockKey,
+              inputHash,
+              outputHash: state.outputHash
+            }
+          }
+        ]
+      : []),
+    ...rollForward.timelineEvents.map((event) => ({
+      ...event,
+      payload: {
+        ...event.payload,
+        blockId: block.id,
+        inputHash,
+        outputHash: state.outputHash
+      }
+    }))
+  ];
+  for (const event of timelineEvents) {
+    if (!timelineDuplicate(existingTimelineEvents, event, inputHash, state.outputHash)) {
+      await repositories.trainingProgression.insertTrainingBlockTimelineEvent({
+        userId,
+        trainingBlockId: block.id,
+        event
+      });
+    }
+  }
 
   if (block.lifecycle === "created" || block.lifecycle === "superseded_previous") {
     await repositories.journey.appendEvent(userId, "TrainingBlockStarted", {
@@ -121,7 +260,12 @@ async function persistTrainingBlockProjection(userId: string, inputHash: string,
     });
   }
 
-  return { trainingBlockId: block.id };
+  return {
+    trainingBlockId: block.id,
+    currentWeekSummary: weekSummary,
+    latestProgressionDecision: rollForward.decision,
+    timelineEvents
+  };
 }
 
 async function persistPerformanceState(userId: string, inputHash: string, state: PerformanceState, repositories: AthleteJourneyRepositories): Promise<PerformanceState> {
@@ -133,7 +277,13 @@ async function persistPerformanceState(userId: string, inputHash: string, state:
     state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash))
   );
   const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories);
-  return withBlockPersistenceStatus(state, blockPersistence.trainingBlockId);
+  return withTrainingPersistenceStatus({
+    state,
+    trainingBlockId: blockPersistence.trainingBlockId,
+    currentWeekSummary: blockPersistence.currentWeekSummary,
+    latestProgressionDecision: blockPersistence.latestProgressionDecision,
+    timelineEvents: blockPersistence.timelineEvents
+  });
 }
 
 export async function resolveAndPersistPerformanceState(input: {

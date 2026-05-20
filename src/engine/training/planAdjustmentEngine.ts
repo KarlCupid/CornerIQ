@@ -1,6 +1,12 @@
 import type { TrainingBlock, TrainingDayPlan } from "./trainingBlockTypes";
 import type { GeneratedTrainingSession, ProtectedWorkout } from "./types";
-import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentCommand, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
+import {
+  actorForAdjustmentCommand,
+  type PersistedTrainingPlanAdjustment,
+  type TrainingPlanAdjustmentActor,
+  type TrainingPlanAdjustmentCommand,
+  type TrainingPlanAdjustmentResult
+} from "./planAdjustmentTypes";
 
 export interface TrainingPlanAdjustmentEngineInput {
   activeBlock: TrainingBlock;
@@ -83,14 +89,50 @@ function result(input: {
     safetyFlags: input.safetyFlags ?? [],
     persistedAdjustmentPayload: {
       command: input.command,
+      actor: actorForAdjustmentCommand(input.command, defaultActor()),
       explanation: input.explanation,
       modifiedDayPlanDates: input.modifiedDayPlans.map((day) => day.date)
     }
   };
 }
 
+function defaultActor(): TrainingPlanAdjustmentActor {
+  return {
+    actorType: "athlete",
+    actorId: "unknown"
+  };
+}
+
+function actorAllowed(actor: TrainingPlanAdjustmentActor, command: TrainingPlanAdjustmentCommand): boolean {
+  switch (actor.actorType) {
+    case "athlete":
+      return command.type === "protect_day" || command.type === "mark_unavailable" || command.type === "request_deload" || command.type === "restore_engine_plan" || command.type === "note";
+    case "coach":
+      return (
+        command.type === "coach_note" ||
+        command.type === "move_generated_session" ||
+        command.type === "protect_day" ||
+        command.type === "request_deload" ||
+        command.type === "mark_unavailable" ||
+        command.type === "restore_engine_plan"
+      );
+    case "engine":
+      return command.type === "restore_engine_plan";
+  }
+}
+
 export function applyTrainingPlanAdjustment(input: TrainingPlanAdjustmentEngineInput): TrainingPlanAdjustmentResult {
   const { command, dayPlans } = input;
+  const actor = actorForAdjustmentCommand(command, defaultActor());
+  if (!actorAllowed(actor, command)) {
+    return result({
+      status: "rejected",
+      explanation: `${actor.actorType} actor is not permitted to create ${command.type.replaceAll("_", " ")} adjustments.`,
+      modifiedDayPlans: [],
+      safetyFlags: ["training_adjustment_permission_rejected"],
+      command
+    });
+  }
 
   switch (command.type) {
     case "protect_day": {
@@ -179,6 +221,10 @@ export function applyTrainingPlanAdjustment(input: TrainingPlanAdjustmentEngineI
 
     case "restore_engine_plan": {
       return result({ status: "applied", explanation: "Restore engine plan accepted; matching active adjustments can be superseded by the service.", modifiedDayPlans: [], command });
+    }
+
+    case "note": {
+      return result({ status: "applied", explanation: "Athlete note recorded for audit; no programming change was made.", modifiedDayPlans: [], command });
     }
 
     case "coach_note": {

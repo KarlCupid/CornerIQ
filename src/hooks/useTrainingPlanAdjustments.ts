@@ -39,6 +39,10 @@ export function useTrainingPlanAdjustments(input: {
         const result = await applyTrainingPlanAdjustmentService({
           userId: input.userId,
           state: input.state,
+          actor: {
+            actorType: "athlete",
+            actorId: input.userId
+          },
           command,
           repositories: input.repositories
         });
@@ -72,6 +76,7 @@ export function useTrainingPlanAdjustments(input: {
           date,
           reason: "Athlete requested protected recovery day.",
           requestedBy: "user",
+          actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()
         }),
       markUnavailable: (date) =>
@@ -80,6 +85,7 @@ export function useTrainingPlanAdjustments(input: {
           date,
           reason: "Athlete is unavailable for generated support.",
           requestedBy: "user",
+          actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()
         }),
       requestDeload: (startDate, endDate) =>
@@ -89,6 +95,7 @@ export function useTrainingPlanAdjustments(input: {
           endDate,
           reason: "Athlete requested a deload review.",
           requestedBy: "user",
+          actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()
         }),
       restoreEnginePlan: (date) =>
@@ -97,6 +104,7 @@ export function useTrainingPlanAdjustments(input: {
           date,
           reason: "Athlete restored the engine plan for this date.",
           requestedBy: "user",
+          actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()
         }),
       moveGeneratedSession: (sessionId, fromDate, toDate) =>
@@ -107,6 +115,7 @@ export function useTrainingPlanAdjustments(input: {
           toDate,
           reason: "Athlete requested a generated support move.",
           requestedBy: "user",
+          actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()
         })
     }

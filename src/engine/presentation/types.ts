@@ -1,5 +1,12 @@
 import type { ConfidenceLevel } from "../core/sharedTypes";
-import type { DetailedTrainingSession, GeneratedSessionIntensity, ProgressionRecommendation, TrainingBlockPhase, TrainingDayRole } from "../training/types";
+import type {
+  DetailedTrainingSession,
+  GeneratedSessionIntensity,
+  ProgressionRecommendation,
+  TrainingBlockPhase,
+  TrainingBlockTimelineEventType,
+  TrainingDayRole
+} from "../training/types";
 
 export interface DecisionStackItem {
   label: string;
@@ -140,10 +147,34 @@ export interface TrainViewModel {
   riskSummary: readonly string[];
 }
 
+export interface TrainingWeekSummaryViewModel {
+  title: string;
+  summary: string;
+  rows: readonly string[];
+}
+
+export interface TrainingProgressionTimelineViewModel {
+  eventType: TrainingBlockTimelineEventType;
+  eventDate: string;
+  title: string;
+  summary: string;
+}
+
+export interface TrainingBlockHistoryViewModel {
+  activeBlockHistoryCount: number;
+  latestEventSummary: string | null;
+  currentWeekIndex: number;
+}
+
 export interface PlanViewModel {
   title: string;
   weeklySummary: string;
   weeklyTrainingStructure: string;
+  blockHistorySummary: TrainingBlockHistoryViewModel;
+  weekIndex: number;
+  currentWeekSummary: TrainingWeekSummaryViewModel | null;
+  latestProgressionDecision: string | null;
+  timelineEvents: readonly TrainingProgressionTimelineViewModel[];
   blockPhase: TrainingBlockPhase;
   blockGoal: string;
   hardDayCap: number;
@@ -195,6 +226,7 @@ export interface CycleViewModel {
 export interface ProfileViewModel {
   title: string;
   summary: string;
+  trainingAuditSummary: TrainingBlockHistoryViewModel;
   privacyNotes: readonly string[];
 }
 

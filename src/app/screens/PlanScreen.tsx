@@ -29,8 +29,30 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Active block</Text>
           <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} - {viewModel.blockGoal}</Text>
+          <Text style={screenStyles.body}>Week {viewModel.weekIndex}</Text>
           <Text style={screenStyles.subtle}>Hard days: {viewModel.plannedHardDays}/{viewModel.hardDayCap}</Text>
           <Text style={screenStyles.subtle}>{viewModel.blockPersistenceStatus}</Text>
+        </View>
+      </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Block timeline</Text>
+          <Text style={screenStyles.body}>History weeks: {viewModel.blockHistorySummary.activeBlockHistoryCount}</Text>
+          {viewModel.latestProgressionDecision ? <Text style={screenStyles.body}>{viewModel.latestProgressionDecision}</Text> : <Text style={screenStyles.body}>No persisted progression decision yet.</Text>}
+          {viewModel.currentWeekSummary ? (
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.callout}>{viewModel.currentWeekSummary.title}</Text>
+              <Text style={screenStyles.body}>{viewModel.currentWeekSummary.summary}</Text>
+              {viewModel.currentWeekSummary.rows.map((row) => <Text key={row} style={screenStyles.subtle}>{row}</Text>)}
+            </View>
+          ) : (
+            <Text style={screenStyles.body}>Current week summary is pending persistence.</Text>
+          )}
+          {viewModel.timelineEvents.length > 0
+            ? viewModel.timelineEvents.map((event) => (
+                <Text key={`${event.eventType}:${event.eventDate}:${event.title}`} style={screenStyles.subtle}>{event.eventDate} - {event.title}: {event.summary}</Text>
+              ))
+            : <Text style={screenStyles.subtle}>No block timeline events yet.</Text>}
         </View>
       </EngineCard>
       <EngineCard>

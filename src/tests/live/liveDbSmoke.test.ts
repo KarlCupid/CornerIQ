@@ -71,11 +71,17 @@ describeLive("live Supabase CRUD smoke", () => {
     let existingNutritionTargets: Pick<TableRow<"nutrition_targets">, "id" | "target_payload">[] = [];
     let existingRiskFlags: Pick<TableRow<"risk_flags">, "id" | "severity" | "flag_payload">[] = [];
     let existingTrainingBlockIds = new Set<string>();
+    let existingTrainingWeekSummaryIds = new Set<string>();
+    let existingTrainingProgressionDecisionIds = new Set<string>();
+    let existingTrainingBlockTimelineEventIds = new Set<string>();
     let inputHash: string | null = null;
     let engineRunIds: string[] = [];
     let completedTrainingSessionId: string | null = null;
     let trainingAdjustmentId: string | null = null;
     let trainingBlockId: string | null = null;
+    const smokeTrainingWeekSummaryIds: string[] = [];
+    const smokeTrainingProgressionDecisionIds: string[] = [];
+    const smokeTrainingBlockTimelineEventIds: string[] = [];
 
     const signedIn = await auth.signInWithPassword(email, password);
     expect(signedIn.error).toBeNull();
@@ -106,6 +112,15 @@ describeLive("live Supabase CRUD smoke", () => {
       const existingTrainingBlocksResponse = await client.from("training_blocks").select("id").eq("user_id", userId);
       expect(existingTrainingBlocksResponse.error).toBeNull();
       existingTrainingBlockIds = new Set((existingTrainingBlocksResponse.data ?? []).map((row) => row.id));
+      const existingWeekSummaryResponse = await client.from("training_week_summaries").select("id").eq("user_id", userId);
+      expect(existingWeekSummaryResponse.error).toBeNull();
+      existingTrainingWeekSummaryIds = new Set((existingWeekSummaryResponse.data ?? []).map((row) => row.id));
+      const existingProgressionDecisionResponse = await client.from("training_progression_decisions").select("id").eq("user_id", userId);
+      expect(existingProgressionDecisionResponse.error).toBeNull();
+      existingTrainingProgressionDecisionIds = new Set((existingProgressionDecisionResponse.data ?? []).map((row) => row.id));
+      const existingTimelineResponse = await client.from("training_block_timeline_events").select("id").eq("user_id", userId);
+      expect(existingTimelineResponse.error).toBeNull();
+      existingTrainingBlockTimelineEventIds = new Set((existingTimelineResponse.data ?? []).map((row) => row.id));
 
       await repositories.athlete.upsertProfile(userId, buildDemoAthleteProfile(userId));
       await client.from("athlete_profiles").update({ sensitive_medical: { smokeRunId } }).eq("user_id", userId);
@@ -149,6 +164,45 @@ describeLive("live Supabase CRUD smoke", () => {
       const dayPlanResponse = await client.from("training_day_plans").select("id, day_payload").eq("user_id", userId).eq("training_block_id", trainingBlockId!);
       expect(dayPlanResponse.error).toBeNull();
       expect(dayPlanResponse.data?.length ?? 0).toBeGreaterThan(0);
+      const weekSummaryResponse = await client
+        .from("training_week_summaries")
+        .select("id, summary_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!);
+      expect(weekSummaryResponse.error).toBeNull();
+      expect(weekSummaryResponse.data?.length ?? 0).toBeGreaterThan(0);
+      for (const row of weekSummaryResponse.data ?? []) {
+        if (!existingTrainingWeekSummaryIds.has(row.id)) {
+          smokeTrainingWeekSummaryIds.push(row.id);
+          await client.from("training_week_summaries").update({ summary_payload: smokePayload(row.summary_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
+      const progressionDecisionResponse = await client
+        .from("training_progression_decisions")
+        .select("id, decision_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!);
+      expect(progressionDecisionResponse.error).toBeNull();
+      expect(progressionDecisionResponse.data?.length ?? 0).toBeGreaterThan(0);
+      for (const row of progressionDecisionResponse.data ?? []) {
+        if (!existingTrainingProgressionDecisionIds.has(row.id)) {
+          smokeTrainingProgressionDecisionIds.push(row.id);
+          await client.from("training_progression_decisions").update({ decision_payload: smokePayload(row.decision_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
+      const timelineResponse = await client
+        .from("training_block_timeline_events")
+        .select("id, event_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!);
+      expect(timelineResponse.error).toBeNull();
+      expect(timelineResponse.data?.length ?? 0).toBeGreaterThan(0);
+      for (const row of timelineResponse.data ?? []) {
+        if (!existingTrainingBlockTimelineEventIds.has(row.id)) {
+          smokeTrainingBlockTimelineEventIds.push(row.id);
+          await client.from("training_block_timeline_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
 
       if (!existingTrainingBlockIds.has(trainingBlockId!)) {
         await client.from("training_blocks").update({ block_payload: smokePayload(blockResponse.data?.block_payload ?? {}, smokeRunId) }).eq("id", trainingBlockId!).eq("user_id", userId);
@@ -174,6 +228,12 @@ describeLive("live Supabase CRUD smoke", () => {
         userId,
         state: resolved.state,
         repositories,
+        actor: {
+          actorType: "coach",
+          actorId: userId,
+          actorLabel: "Live smoke trusted coach"
+        },
+        trustedActor: true,
         command: {
           type: "coach_note",
           date: asOfDate,
@@ -185,17 +245,31 @@ describeLive("live Supabase CRUD smoke", () => {
       trainingAdjustmentId = adjustment.adjustmentId;
       const adjustmentResponse = await client
         .from("training_plan_adjustments")
-        .select("id, engine_response_payload")
+        .select("id, adjustment_payload, engine_response_payload")
         .eq("user_id", userId)
         .eq("id", trainingAdjustmentId)
         .maybeSingle();
       expect(adjustmentResponse.error).toBeNull();
       expect(adjustmentResponse.data?.id).toBe(trainingAdjustmentId);
+      expect((adjustmentResponse.data?.adjustment_payload as Record<string, unknown> | null)?.actor).toMatchObject({ actorType: "coach" });
       await client
         .from("training_plan_adjustments")
         .update({ engine_response_payload: smokePayload(adjustmentResponse.data?.engine_response_payload ?? {}, smokeRunId) })
         .eq("id", trainingAdjustmentId)
         .eq("user_id", userId);
+      const adjustmentTimelineResponse = await client
+        .from("training_block_timeline_events")
+        .select("id, event_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!)
+        .eq("event_type", "adjustment_applied");
+      expect(adjustmentTimelineResponse.error).toBeNull();
+      for (const row of adjustmentTimelineResponse.data ?? []) {
+        if (!existingTrainingBlockTimelineEventIds.has(row.id) && !smokeTrainingBlockTimelineEventIds.includes(row.id)) {
+          smokeTrainingBlockTimelineEventIds.push(row.id);
+          await client.from("training_block_timeline_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
       const adjustmentEventResponse = await client
         .from("athlete_journey_events")
         .select("id, event_payload")
@@ -299,6 +373,15 @@ describeLive("live Supabase CRUD smoke", () => {
         }
       }
     } finally {
+      for (const id of smokeTrainingBlockTimelineEventIds) {
+        await client.from("training_block_timeline_events").delete().eq("user_id", userId).eq("id", id).filter("event_payload->>smokeRunId", "eq", smokeRunId);
+      }
+      for (const id of smokeTrainingProgressionDecisionIds) {
+        await client.from("training_progression_decisions").delete().eq("user_id", userId).eq("id", id).filter("decision_payload->>smokeRunId", "eq", smokeRunId);
+      }
+      for (const id of smokeTrainingWeekSummaryIds) {
+        await client.from("training_week_summaries").delete().eq("user_id", userId).eq("id", id).filter("summary_payload->>smokeRunId", "eq", smokeRunId);
+      }
       if (trainingAdjustmentId) {
         await client.from("training_plan_adjustments").delete().eq("user_id", userId).eq("id", trainingAdjustmentId);
       }

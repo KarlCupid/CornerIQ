@@ -11,6 +11,8 @@ import type {
   ReadinessState,
   RiskFlag,
   TournamentDetails,
+  TrainingBlock,
+  TrainingBlockHistory,
   TrainingState
 } from "../core/types";
 import { buildLoadLedger } from "./loadLedger";
@@ -48,6 +50,8 @@ export function resolveWeeklyTrainingPlan(input: {
   safetyBlocks?: boolean;
   engineVersion?: string | undefined;
   trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
+  activeTrainingBlock?: TrainingBlock | null | undefined;
+  blockHistory?: TrainingBlockHistory | undefined;
 }): TrainingState {
   const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
   const targetSessions =
@@ -101,7 +105,7 @@ export function resolveWeeklyTrainingPlan(input: {
       boxingLevel: input.athlete.boxingLevel,
       equipmentAccess: input.athlete.equipmentAccess
     });
-    })
+  })
     .filter((session) => session !== null)
     .filter((session) => input.phase.phase === "tournament" || session.intensity !== "hard" || !input.highCycleSymptoms)
     .filter((session) => !underFuelingRisk || session.intensity !== "hard")
@@ -121,7 +125,9 @@ export function resolveWeeklyTrainingPlan(input: {
     cycle: input.cycle,
     safetyFlags: input.safetyFlags ?? [],
     asOfDate: input.asOfDate,
-    engineVersion: input.engineVersion ?? "unversioned"
+    engineVersion: input.engineVersion ?? "unversioned",
+    activeTrainingBlock: input.activeTrainingBlock ?? null,
+    blockHistory: input.blockHistory
   });
   const adjustmentApplication = applyTrainingPlanAdjustments({
     activeBlock: block.activeBlock,
@@ -155,6 +161,17 @@ export function resolveWeeklyTrainingPlan(input: {
     adjustmentHistory: input.trainingPlanAdjustments ?? [],
     activeAdjustments: adjustmentApplication.activeAdjustments,
     adjustmentDecisions: adjustmentApplication.decisions,
+    blockHistory:
+      input.blockHistory ?? {
+        blockId: null,
+        summaries: [],
+        decisions: [],
+        timelineEvents: [],
+        latestWeekIndex: 0
+      },
+    currentWeekSummary: null,
+    latestProgressionDecision: input.blockHistory?.decisions.at(-1) ?? null,
+    timelineEvents: input.blockHistory?.timelineEvents ?? [],
     loadLedger: ledger,
     explanation:
       underFuelingRisk

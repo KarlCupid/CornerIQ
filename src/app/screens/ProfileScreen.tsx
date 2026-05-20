@@ -61,6 +61,18 @@ export function ProfileScreen({
           {viewModel.privacyNotes.map((note) => <Text key={note} style={screenStyles.body}>{note}</Text>)}
         </View>
       </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Training audit</Text>
+          <Text style={screenStyles.body}>Current block week {viewModel.trainingAuditSummary.currentWeekIndex}</Text>
+          <Text style={screenStyles.body}>Persisted week summaries: {viewModel.trainingAuditSummary.activeBlockHistoryCount}</Text>
+          {viewModel.trainingAuditSummary.latestEventSummary ? (
+            <Text style={screenStyles.subtle}>{viewModel.trainingAuditSummary.latestEventSummary}</Text>
+          ) : (
+            <Text style={screenStyles.subtle}>No block timeline event has been persisted yet.</Text>
+          )}
+        </View>
+      </EngineCard>
       <CycleContextCard cycleContext={cycleContext} minimal trackingStatus={cycleTrackingStatus} />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>

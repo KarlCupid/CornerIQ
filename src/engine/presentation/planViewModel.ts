@@ -8,6 +8,8 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const adjustmentHistory = state.training.adjustmentHistory;
   const activeAdjustments = adjustmentHistory.filter((adjustment) => adjustment.status === "applied" || adjustment.status === "requested");
   const rejectedAdjustments = adjustmentHistory.filter((adjustment) => adjustment.status === "rejected");
+  const currentWeekSummary = state.training.currentWeekSummary;
+  const latestTimelineEvent = state.training.timelineEvents.at(-1) ?? state.training.blockHistory.timelineEvents.at(-1) ?? null;
   const notesForDate = (date: string): readonly string[] =>
     adjustmentHistory
       .filter((adjustment) => adjustment.planDate === date)
@@ -16,6 +18,34 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     title: "Weekly plan",
     weeklySummary: state.training.activeBlock.weeklyStructure.summary,
     weeklyTrainingStructure: state.training.activeBlock.weeklyStructure.summary,
+    blockHistorySummary: {
+      activeBlockHistoryCount: state.training.blockHistory.summaries.length,
+      latestEventSummary: latestTimelineEvent ? `${latestTimelineEvent.title}: ${latestTimelineEvent.summary}` : null,
+      currentWeekIndex: state.training.activeBlock.progressionState.weekIndex
+    },
+    weekIndex: state.training.activeBlock.progressionState.weekIndex,
+    currentWeekSummary: currentWeekSummary
+      ? {
+          title: `Week ${currentWeekSummary.weekIndex} summary`,
+          summary: currentWeekSummary.summary,
+          rows: [
+            `${currentWeekSummary.completionCount} completed session(s), ${currentWeekSummary.skippedCount} skipped.`,
+            `${currentWeekSummary.completedResultCount} completed exercise result(s), ${currentWeekSummary.partialResultCount} partial, ${currentWeekSummary.prescribedOnlyCount} prescribed-only.`,
+            currentWeekSummary.averageSessionRpe === null ? "Average session RPE unknown." : `Average session RPE ${currentWeekSummary.averageSessionRpe}.`,
+            currentWeekSummary.averageExerciseRpe === null ? "Average exercise RPE unknown." : `Average exercise RPE ${currentWeekSummary.averageExerciseRpe}.`,
+            `${currentWeekSummary.painFlagCount} pain flag(s), ${currentWeekSummary.safetyFlagCount} active safety flag(s).`
+          ]
+        }
+      : null,
+    latestProgressionDecision: state.training.latestProgressionDecision
+      ? `${state.training.latestProgressionDecision.decision.replaceAll("_", " ")}: ${state.training.latestProgressionDecision.reason}`
+      : null,
+    timelineEvents: state.training.timelineEvents.map((event) => ({
+      eventType: event.eventType,
+      eventDate: event.eventDate,
+      title: event.title,
+      summary: event.summary
+    })),
     blockPhase: state.training.activeBlock.phase,
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),
     hardDayCap: state.training.activeBlock.weeklyStructure.hardDayCap,

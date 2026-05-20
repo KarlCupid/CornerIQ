@@ -66,6 +66,15 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
       insertTrainingPlanAdjustment: vi.fn(),
       supersedeTrainingPlanAdjustments: vi.fn()
     },
+    trainingProgression: {
+      upsertTrainingWeekSummary: vi.fn(),
+      listTrainingWeekSummaries: vi.fn(async () => journey.trainingWeekSummaries),
+      insertTrainingProgressionDecision: vi.fn(),
+      listTrainingProgressionDecisions: vi.fn(async () => journey.trainingProgressionDecisions),
+      insertTrainingBlockTimelineEvent: vi.fn(),
+      listTrainingBlockTimelineEvents: vi.fn(async () => journey.trainingBlockTimelineEvents),
+      getLatestWeekIndex: vi.fn(async () => 0)
+    },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
@@ -296,6 +305,14 @@ describe("Supabase repositories", () => {
     expect(source).toContain("generated_session_key: string | null");
   });
 
+  it("database types include 005 training progression tables", () => {
+    const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
+
+    expect(source).toContain("training_week_summaries");
+    expect(source).toContain("training_progression_decisions");
+    expect(source).toContain("training_block_timeline_events");
+  });
+
   it("004 migration creates training block persistence tables, RLS, and indexes", () => {
     const source = readFileSync("supabase/migrations/004_training_block_persistence.sql", "utf8");
 
@@ -308,6 +325,22 @@ describe("Supabase repositories", () => {
     expect(source).toContain("training_blocks_user_key_active_uidx");
     expect(source).toContain("training_plan_adjustments_type_known");
     expect(source).toContain("Screens submit commands");
+  });
+
+  it("005 migration creates weekly progression tables, RLS, indexes, and adjustment note support", () => {
+    const source = readFileSync("supabase/migrations/005_training_block_weekly_progression.sql", "utf8");
+
+    expect(source).toContain("create table if not exists public.training_week_summaries");
+    expect(source).toContain("create table if not exists public.training_progression_decisions");
+    expect(source).toContain("create table if not exists public.training_block_timeline_events");
+    expect(source).toContain("alter table public.training_week_summaries enable row level security");
+    expect(source).toContain("auth.uid() = user_id");
+    expect(source).toContain("training_week_summaries_user_block_week_uidx");
+    expect(source).toContain("training_progression_decisions_user_block_week_created_idx");
+    expect(source).toContain("training_block_timeline_events_user_block_event_created_idx");
+    expect(source).toContain("'note'");
+    expect(source).toContain("not medical or coaching directives");
+    expect(source).toContain("screens must not mutate training");
   });
 
   it("trainingBlockRepository persists typed block, microcycle, day plan, and adjustment payloads", () => {
@@ -324,6 +357,19 @@ describe("Supabase repositories", () => {
     expect(source).toContain("training_microcycle_id: input.trainingMicrocycleId");
     expect(source).toContain("async insertTrainingPlanAdjustment");
     expect(source).toContain("TrainingPlanAdjustmentCommandSchema");
+  });
+
+  it("trainingProgressionRepository persists typed weekly summaries, decisions, timeline events, and latest week index", () => {
+    const source = readFileSync("src/services/supabase/trainingProgressionRepository.ts", "utf8");
+
+    expect(source).toContain("async upsertTrainingWeekSummary");
+    expect(source).toContain("TrainingWeekSummarySchema");
+    expect(source).toContain("onConflict: \"user_id,training_block_id,week_index\"");
+    expect(source).toContain("async insertTrainingProgressionDecision");
+    expect(source).toContain("input_hash");
+    expect(source).toContain("output_hash");
+    expect(source).toContain("async insertTrainingBlockTimelineEvent");
+    expect(source).toContain("async getLatestWeekIndex");
   });
 
   it("trainingBlockRepository blocks missing userId before Supabase writes", async () => {
@@ -394,9 +440,12 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("training_microcycles");
     expect(USER_OWNED_TABLES).toContain("training_day_plans");
     expect(USER_OWNED_TABLES).toContain("training_plan_adjustments");
+    expect(USER_OWNED_TABLES).toContain("training_week_summaries");
+    expect(USER_OWNED_TABLES).toContain("training_progression_decisions");
+    expect(USER_OWNED_TABLES).toContain("training_block_timeline_events");
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
-    expect(USER_OWNED_TABLES).toHaveLength(31);
+    expect(USER_OWNED_TABLES).toHaveLength(34);
   });
 
   it("Expo-side services do not reference service role keys", () => {
@@ -450,6 +499,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/hydrationRepository.ts",
       "src/services/supabase/trainingRepository.ts",
       "src/services/supabase/trainingBlockRepository.ts",
+      "src/services/supabase/trainingProgressionRepository.ts",
       "src/services/supabase/exerciseResultRepository.ts",
       "src/services/supabase/engineRunRepository.ts",
       "src/services/supabase/userDataService.ts"

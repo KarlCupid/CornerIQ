@@ -5,7 +5,17 @@ import type { FightOpportunity, TournamentDetails } from "../fight/types";
 import type { FoodLog, ElectrolyteLog, WaterLog } from "../nutrition/types";
 import type { ReadinessCheckIn } from "../readiness/types";
 import type { RiskFlag } from "../safety/types";
-import type { CompletedTrainingSession, ExerciseResultRecord, GeneratedTrainingSession, PersistedTrainingPlanAdjustment, ProtectedWorkout } from "../training/types";
+import type {
+  CompletedTrainingSession,
+  ExerciseResultRecord,
+  GeneratedTrainingSession,
+  PersistedTrainingPlanAdjustment,
+  ProtectedWorkout,
+  TrainingBlock,
+  TrainingBlockTimelineEvent,
+  TrainingProgressionDecision,
+  TrainingWeekSummary
+} from "../training/types";
 import type { WearablePreference, WearableSignal } from "../wearable/types";
 import type { Phase } from "../phase/phaseTypes";
 
@@ -114,6 +124,10 @@ export interface AthleteJourney {
   activeFightOpportunity: FightOpportunity | null;
   activeTournament: TournamentDetails | null;
   currentTrainingBlock: string | null;
+  activeTrainingBlock: TrainingBlock | null;
+  trainingWeekSummaries: readonly TrainingWeekSummary[];
+  trainingProgressionDecisions: readonly TrainingProgressionDecision[];
+  trainingBlockTimelineEvents: readonly TrainingBlockTimelineEvent[];
   bodyMassHistory: readonly BodyMassLog[];
   nutritionHistory: readonly FoodLog[];
   hydrationHistory: readonly WaterLog[];

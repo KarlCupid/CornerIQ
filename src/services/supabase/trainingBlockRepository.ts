@@ -176,26 +176,10 @@ export function createTrainingBlockRepository(client: CornerSupabaseClient) {
         .maybeSingle();
       const existing = readMaybeDataOrThrow(existingResponse, "training_blocks.upsertActiveTrainingBlock.findExisting");
 
-      if (existing && existing.input_hash === input.inputHash && existing.output_hash === input.outputHash) {
-        const updateResponse = await client.from("training_blocks").update(record).eq("id", existing.id).eq("user_id", safeUserId).select("id").single();
-        const updated = readDataOrThrow(updateResponse, "training_blocks.upsertActiveTrainingBlock.updateIdentical");
-        return { id: updated.id, blockKey, lifecycle: "updated" };
-      }
-
       if (existing) {
-        const supersedeResponse = await client
-          .from("training_blocks")
-          .update({ status: "superseded", superseded_at: new Date().toISOString() })
-          .eq("id", existing.id)
-          .eq("user_id", safeUserId)
-          .select("id")
-          .single();
-        readDataOrThrow(supersedeResponse, "training_blocks.upsertActiveTrainingBlock.supersedeExisting");
-        const insertResponse = await client.from("training_blocks").insert(record).select("id").single();
-        const inserted = readDataOrThrow(insertResponse, "training_blocks.upsertActiveTrainingBlock.insertAfterSupersede");
-        const linkResponse = await client.from("training_blocks").update({ superseded_by: inserted.id }).eq("id", existing.id).eq("user_id", safeUserId);
-        readDataOrThrow({ data: [], error: linkResponse.error }, "training_blocks.upsertActiveTrainingBlock.linkSupersededBy");
-        return { id: inserted.id, blockKey, lifecycle: "superseded_previous" };
+        const updateResponse = await client.from("training_blocks").update(record).eq("id", existing.id).eq("user_id", safeUserId).select("id").single();
+        const updated = readDataOrThrow(updateResponse, "training_blocks.upsertActiveTrainingBlock.updateActiveBlock");
+        return { id: updated.id, blockKey, lifecycle: "updated" };
       }
 
       const response = await client.from("training_blocks").insert(record).select("id").single();

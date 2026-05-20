@@ -14,6 +14,9 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
   const blockStore = new Map<string, string>();
   const microcycleStore = new Map<string, string>();
   const dayPlanStore = new Map<string, string>();
+  const weekSummaryStore = new Map<string, string>();
+  const progressionDecisionStore = new Map<string, string>();
+  const timelineEvents: unknown[] = [];
   const upsertRun = vi.fn(async (record: { as_of_date: string; engine_version: string; input_hash: string; user_id: string }) => {
     if (options.persistenceFailure) {
       throw new Error("remote insert failed");
@@ -113,6 +116,36 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
       insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
       supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
     },
+    trainingProgression: {
+      upsertTrainingWeekSummary: vi.fn(async (record: { summary: { weekIndex: number }; trainingBlockId: string; userId: string }) => {
+        const key = `${record.userId}:${record.trainingBlockId}:${record.summary.weekIndex}`;
+        const existing = weekSummaryStore.get(key);
+        if (existing) {
+          return { id: existing };
+        }
+        const id = `week_summary_${weekSummaryStore.size + 1}`;
+        weekSummaryStore.set(key, id);
+        return { id };
+      }),
+      listTrainingWeekSummaries: vi.fn(async () => journey.trainingWeekSummaries),
+      insertTrainingProgressionDecision: vi.fn(async (record: { decision: { decision: string }; inputHash: string; outputHash: string; trainingBlockId: string; userId: string; weekIndex: number }) => {
+        const key = `${record.userId}:${record.trainingBlockId}:${record.weekIndex}:${record.inputHash}:${record.outputHash}:${record.decision.decision}`;
+        const existing = progressionDecisionStore.get(key);
+        if (existing) {
+          return { id: existing };
+        }
+        const id = `progression_decision_${progressionDecisionStore.size + 1}`;
+        progressionDecisionStore.set(key, id);
+        return { id };
+      }),
+      listTrainingProgressionDecisions: vi.fn(async () => journey.trainingProgressionDecisions),
+      insertTrainingBlockTimelineEvent: vi.fn(async (record: unknown) => {
+        timelineEvents.push(record);
+        return { id: `timeline_event_${timelineEvents.length}` };
+      }),
+      listTrainingBlockTimelineEvents: vi.fn(async () => journey.trainingBlockTimelineEvents),
+      getLatestWeekIndex: vi.fn(async () => 0)
+    },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
@@ -127,7 +160,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
 
   return {
     repositories,
-    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, runStore, tracesByRun },
+    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
     calls: { saveDecisionTracesForRun, upsertActiveTrainingBlock, upsertGeneratedSessions, upsertNutritionTarget, upsertRiskFlags, upsertRun, upsertTrainingDayPlans, upsertTrainingMicrocycle }
   };
 }
@@ -173,6 +206,22 @@ describe("resolveAndPersistPerformanceState", () => {
       })
     );
     expect(repositories.journey.appendEvent).toHaveBeenCalledWith("user_1", "TrainingBlockStarted", expect.objectContaining({ blockId: "training_block_1", phase: expect.any(String) }));
+  });
+
+  it("persists week summary, progression decision, and timeline event after block projection", async () => {
+    const { repositories, stores } = createRepositories();
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.state.training.currentWeekSummary?.weekIndex).toBe(1);
+      expect(result.state.training.latestProgressionDecision?.weekIndex).toBe(1);
+      expect(result.state.viewModels.plan.weekIndex).toBe(1);
+      expect(result.state.viewModels.plan.timelineEvents.length).toBeGreaterThan(0);
+    }
+    expect(stores.weekSummaryStore.size).toBe(1);
+    expect(stores.progressionDecisionStore.size).toBe(1);
+    expect(stores.timelineEvents.length).toBeGreaterThan(0);
   });
 
   it("returns needs_profile without persisting when profile is missing", async () => {
@@ -263,11 +312,15 @@ describe("resolveAndPersistPerformanceState", () => {
     const firstBlockCount = stores.blockStore.size;
     const firstMicrocycleCount = stores.microcycleStore.size;
     const firstDayPlanCount = stores.dayPlanStore.size;
+    const firstWeekSummaryCount = stores.weekSummaryStore.size;
+    const firstProgressionDecisionCount = stores.progressionDecisionStore.size;
     await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
 
     expect(stores.blockStore.size).toBe(firstBlockCount);
     expect(stores.microcycleStore.size).toBe(firstMicrocycleCount);
     expect(stores.dayPlanStore.size).toBe(firstDayPlanCount);
+    expect(stores.weekSummaryStore.size).toBe(firstWeekSummaryCount);
+    expect(stores.progressionDecisionStore.size).toBe(firstProgressionDecisionCount);
   });
 
   it("upserts active risk flags by user/domain/code/status", async () => {

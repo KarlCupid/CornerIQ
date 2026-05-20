@@ -178,6 +178,26 @@ const planViewModel: PlanViewModel = {
   title: "Plan",
   weeklySummary: "Three support days.",
   weeklyTrainingStructure: "Three support days.",
+  blockHistorySummary: {
+    activeBlockHistoryCount: 1,
+    latestEventSummary: "Week 1 summarized: Week summary persisted.",
+    currentWeekIndex: 2
+  },
+  weekIndex: 2,
+  currentWeekSummary: {
+    title: "Week 2 summary",
+    summary: "Week summary: 1 completed session(s), 0 skipped session(s), 1 completed exercise result(s), 0 partial exercise result(s).",
+    rows: ["1 completed session(s), 0 skipped.", "1 completed exercise result(s), 0 partial, 0 prescribed-only."]
+  },
+  latestProgressionDecision: "progress: The week has structured completions.",
+  timelineEvents: [
+    {
+      eventType: "week_completed",
+      eventDate: "2026-05-19",
+      title: "Week 1 summarized",
+      summary: "Week summary persisted."
+    }
+  ],
   blockPhase: "build_strength",
   blockGoal: "strength base",
   hardDayCap: 3,
@@ -211,6 +231,11 @@ const planViewModel: PlanViewModel = {
 const profileViewModel: ProfileViewModel = {
   title: "Profile",
   summary: "Amateur novice boxer.",
+  trainingAuditSummary: {
+    activeBlockHistoryCount: 1,
+    latestEventSummary: "Week 1 summarized: Week summary persisted.",
+    currentWeekIndex: 2
+  },
   privacyNotes: ["Cycle tracking is optional and private."]
 };
 
@@ -305,6 +330,15 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
       supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
       insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
       supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
+    },
+    trainingProgression: {
+      upsertTrainingWeekSummary: vi.fn(async () => ({ id: "week_summary_1" })),
+      listTrainingWeekSummaries: vi.fn(async () => []),
+      insertTrainingProgressionDecision: vi.fn(async () => ({ id: "progression_decision_1" })),
+      listTrainingProgressionDecisions: vi.fn(async () => []),
+      insertTrainingBlockTimelineEvent: vi.fn(async () => ({ id: "timeline_event_1" })),
+      listTrainingBlockTimelineEvents: vi.fn(async () => []),
+      getLatestWeekIndex: vi.fn(async () => 0)
     },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
@@ -677,12 +711,7 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Protect day"));
     });
     expect(adjustmentActions.protectDay).toHaveBeenCalledWith("2026-05-19");
-
-    await act(async () => {
-      await press(pressableWithText(renderer, "Apply move"));
-    });
-    expect(adjustmentActions.moveGeneratedSession).toHaveBeenCalledWith("generated_1", "2026-05-19", "2026-05-19");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Move rejected");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Apply move");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Request deload"));
@@ -715,6 +744,9 @@ describe("minimal app screens", () => {
     expect(output).toContain("protect day");
     expect(output).toContain("Move rejected.");
     expect(output).toContain("training_block_1");
+    expect(output).toContain("Week 2");
+    expect(output).toContain("progress: The week has structured completions.");
+    expect(output).toContain("Week 1 summarized");
   });
 
   it("FightSetupScreen rejects invalid fight and tournament setup before saving", async () => {
@@ -766,10 +798,9 @@ describe("minimal app screens", () => {
 
   it("ProfileScreen renders privacy notes", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
-    expect(
-      JSON.stringify(
-        render(
-          React.createElement(ProfileScreen, {
+    const output = JSON.stringify(
+      render(
+        React.createElement(ProfileScreen, {
             asOfDate: fixtureAsOfDate,
             busy: false,
             cycleTrackingStatus: "undecided",
@@ -782,10 +813,12 @@ describe("minimal app screens", () => {
             viewModel: profileViewModel,
             wearablePreference: "manual_only",
             wearableStatus: "manual only"
-          })
-        ).toJSON()
-      )
-    ).toContain("Cycle tracking is optional and private.");
+        })
+      ).toJSON()
+    );
+    expect(output).toContain("Cycle tracking is optional and private.");
+    expect(output).toContain("Training audit");
+    expect(output).toContain("Current block week");
   });
 
   it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {

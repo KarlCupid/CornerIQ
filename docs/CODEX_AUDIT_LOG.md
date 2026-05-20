@@ -1,5 +1,49 @@
 # Codex Audit Log
 
+## 2026-05-19 23:42 America/Vancouver
+
+Goal summary:
+- Add persisted multi-week training block progression records.
+- Summarize completed training weeks and decide next-week roll-forward conservatively.
+- Show an audit-friendly block history on Plan/Profile.
+- Add simple athlete/coach/engine actor boundaries for plan adjustments.
+- Apply and verify additive Supabase migration 005 remotely.
+
+Key changes:
+- Added `005_training_block_weekly_progression.sql` with `training_week_summaries`, `training_progression_decisions`, and `training_block_timeline_events`.
+- Regenerated `src/services/supabase/database.types.ts` from the linked remote schema after applying 005.
+- Added `trainingBlockHistoryTypes`, `trainingWeekSummaryEngine`, and `trainingRollForwardEngine`.
+- Added `trainingProgressionRepository` with Zod validation, idempotent week-summary upsert, idempotent decision insert, append-only timeline events, and latest-week lookup.
+- Updated `resolveAndPersistPerformanceState` to persist week summaries, progression decisions, and timeline events after block/microcycle/day-plan persistence.
+- Updated block resolution to preserve active block identity and advance `weekIndex` from persisted summaries/decisions instead of always scaffolding `1`.
+- Loaded active block history into `AthleteJourney` and projected it into `TrainingState`, Plan view models, and Profile audit summary.
+- Added athlete/coach/engine adjustment actors, blocked coach-only commands for athlete/default UI actors, accepted coach actors only through trusted service/test calls, and persisted rejected permission explanations.
+- Extended live smoke to verify the new progression tables, actor-scoped adjustment payloads, and scoped cleanup.
+- Added `docs/16_TRAINING_BLOCK_LIFECYCLE.md`.
+
+Command results:
+- `cmd /c npm run typecheck`: passed.
+- `cmd /c npm test`: passed, `17` files passed and `1` skipped; `185` tests passed and `1` skipped.
+- `cmd /c npm run quality`: passed, including typecheck plus Vitest; `17` files passed and `1` skipped; `185` tests passed and `1` skipped.
+- `cmd /c npm run lint`: passed.
+- `cmd /c npm exec supabase -- --version`: passed with CLI `2.100.1`.
+- `cmd /c npm exec supabase -- migration list`: passed; `001`, `002`, `003`, `004`, and `005` aligned local/remote after push.
+- `cmd /c npm exec supabase -- db push --dry-run`: passed before push and reported 005 would be pushed; passed after push and reported `Remote database is up to date.`
+- `cmd /c npm exec supabase -- db push`: applied `005_training_block_weekly_progression.sql`.
+- `cmd /c npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts`: passed; generated file was converted to UTF-8 after Windows redirection wrote UTF-16.
+- Ignored `.env` loaded into process with `CORNERIQ_LIVE_DB_SMOKE=1`; `cmd /c npm run smoke:live-db`: passed, `1 passed`.
+- `git diff --check`: passed; Git printed Windows LF-to-CRLF working-copy warnings only.
+
+Known gaps:
+- Progression decisions are persisted and surfaced, but future-week dose/materialization remains conservative and does not infer numeric load changes.
+- Block history UI is a simple Plan/Profile audit surface, not a polished timeline detail screen.
+- Coach accounts and Supabase coach/team relationships are not implemented; trusted coach actors are service/test only.
+- Exercise-history detail screen remains missing.
+- Drag/drop calendar polish remains intentionally deferred.
+
+Next recommendation:
+- Materialize next-week programming shape from persisted progression decisions, add a block history detail screen, and design the coach/team authorization schema before exposing coach actions in app UI.
+
 ## 2026-05-19 22:49 America/Vancouver
 
 Goal summary:

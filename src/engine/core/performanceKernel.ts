@@ -23,6 +23,7 @@ import { buildProfileViewModel } from "../presentation/profileViewModel";
 import { buildRecentLogsViewModel } from "../presentation/recentLogsViewModel";
 import { buildTodayViewModel } from "../presentation/todayViewModel";
 import { buildTrainViewModel } from "../presentation/trainViewModel";
+import type { TrainingBlockHistory } from "../training/types";
 
 export const ENGINE_VERSION = "0.2.0";
 
@@ -34,6 +35,18 @@ function stableHash(value: unknown): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(16);
+}
+
+function trainingBlockHistoryFor(journey: ResolvePerformanceStateInput["journey"]): TrainingBlockHistory {
+  const latestSummaryIndex = journey.trainingWeekSummaries.reduce((latest, summary) => Math.max(latest, summary.weekIndex), 0);
+  const latestDecisionIndex = journey.trainingProgressionDecisions.reduce((latest, decision) => Math.max(latest, decision.weekIndex), 0);
+  return {
+    blockId: journey.currentTrainingBlock,
+    summaries: journey.trainingWeekSummaries,
+    decisions: journey.trainingProgressionDecisions,
+    timelineEvents: journey.trainingBlockTimelineEvents,
+    latestWeekIndex: Math.max(latestSummaryIndex, latestDecisionIndex)
+  };
 }
 
 export function resolvePerformanceState(input: ResolvePerformanceStateInput): PerformanceState {
@@ -56,6 +69,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   const todayCheckIn = journey.readinessHistory.find((checkIn) => checkIn.date === input.asOfDate);
   const trend = resolveBodyMassTrend(journey.bodyMassHistory, input.asOfDate);
   const anchors = [...journey.athlete.protectedBoxingSchedule, ...journey.protectedWorkouts];
+  const blockHistory = trainingBlockHistoryFor(journey);
   const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,
     anchors,
@@ -70,7 +84,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: journey.safetyFlags,
     engineVersion: ENGINE_VERSION,
-    trainingPlanAdjustments: journey.trainingPlanAdjustments
+    trainingPlanAdjustments: journey.trainingPlanAdjustments,
+    activeTrainingBlock: journey.activeTrainingBlock,
+    blockHistory
   });
   const earlySafetyFlags = [
     ...journey.safetyFlags,
@@ -113,7 +129,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     safetyFlags: safety.riskFlags,
     safetyBlocks: safety.blocksPlan,
     engineVersion: ENGINE_VERSION,
-    trainingPlanAdjustments: journey.trainingPlanAdjustments
+    trainingPlanAdjustments: journey.trainingPlanAdjustments,
+    activeTrainingBlock: journey.activeTrainingBlock,
+    blockHistory
   });
   const weighInContext = resolveWeighInContext(journey.activeFightOpportunity, input.asOfDate);
   const tournamentStrategy = resolveTournamentStrategy(journey.activeTournament ?? journey.activeFightOpportunity?.tournamentDetails ?? null, trend);
@@ -230,6 +248,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       asOfDate: input.asOfDate,
       athleteId: journey.athlete.athleteId,
       phase: phase.phase,
+      weekIndex: training.activeBlock.progressionState.weekIndex,
       risks: safety.riskFlags.map((flag) => flag.id),
       nutrition: nutrition.dailyCaloriesTarget,
       sessions: training.generatedSessions.map((session) => session.id),

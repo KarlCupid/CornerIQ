@@ -94,12 +94,15 @@ const activeBlock: TrainingBlock = {
   engineVersion: "test"
 };
 
+const athleteActor = { actorType: "athlete" as const, actorId: "athlete_1" };
+const coachActor = { actorType: "coach" as const, actorId: "coach_1" };
+
 describe("planAdjustmentEngine", () => {
   it("protect_day removes generated work while protected boxing remains untouched", () => {
     const result = applyTrainingPlanAdjustment({
       activeBlock,
       dayPlans: [supportDay, sparringDay],
-      command: { type: "protect_day", date: "2026-05-20", reason: "Family conflict", requestedBy: "user" }
+      command: { type: "protect_day", date: "2026-05-20", reason: "Family conflict", requestedBy: "user", actor: athleteActor }
     });
 
     expect(result.status).toBe("applied");
@@ -111,7 +114,7 @@ describe("planAdjustmentEngine", () => {
     const result = applyTrainingPlanAdjustment({
       activeBlock,
       dayPlans: [supportDay, sparringDay],
-      command: { type: "move_generated_session", sessionId: "generated_hard_1", fromDate: "2026-05-20", toDate: "2026-05-21", reason: "Schedule change", requestedBy: "user" }
+      command: { type: "move_generated_session", sessionId: "generated_hard_1", fromDate: "2026-05-20", toDate: "2026-05-21", reason: "Schedule change", requestedBy: "coach", actor: coachActor }
     });
 
     expect(result.status).toBe("rejected");
@@ -123,7 +126,7 @@ describe("planAdjustmentEngine", () => {
     const result = applyTrainingPlanAdjustment({
       activeBlock,
       dayPlans: [supportDay, sparringDay, openDay],
-      command: { type: "move_generated_session", sessionId: "generated_hard_1", fromDate: "2026-05-20", toDate: "2026-05-22", reason: "Work travel", requestedBy: "user" }
+      command: { type: "move_generated_session", sessionId: "generated_hard_1", fromDate: "2026-05-20", toDate: "2026-05-22", reason: "Work travel", requestedBy: "coach", actor: coachActor }
     });
 
     expect(result.status).toBe("applied");
@@ -134,7 +137,7 @@ describe("planAdjustmentEngine", () => {
     const result = applyTrainingPlanAdjustment({
       activeBlock,
       dayPlans: [supportDay, hardStopDay],
-      command: { type: "move_generated_session", sessionId: "generated_hard_1", fromDate: "2026-05-20", toDate: "2026-05-23", reason: "Schedule change", requestedBy: "user" }
+      command: { type: "move_generated_session", sessionId: "generated_hard_1", fromDate: "2026-05-20", toDate: "2026-05-23", reason: "Schedule change", requestedBy: "coach", actor: coachActor }
     });
 
     expect(result.status).toBe("rejected");
@@ -147,7 +150,7 @@ describe("planAdjustmentEngine", () => {
       trainingBlockId: "training_block_1",
       planDate: "2026-05-20",
       adjustmentType: "request_deload",
-      command: { type: "request_deload", startDate: "2026-05-20", endDate: "2026-05-22", reason: "Accumulated fatigue", requestedBy: "user" },
+      command: { type: "request_deload", startDate: "2026-05-20", endDate: "2026-05-22", reason: "Accumulated fatigue", requestedBy: "user", actor: athleteActor },
       status: "applied",
       engineResponse: {
         status: "applied",
@@ -169,16 +172,33 @@ describe("planAdjustmentEngine", () => {
     const unavailable = applyTrainingPlanAdjustment({
       activeBlock,
       dayPlans: [supportDay],
-      command: { type: "mark_unavailable", date: "2026-05-20", reason: "Travel", requestedBy: "user" }
+      command: { type: "mark_unavailable", date: "2026-05-20", reason: "Travel", requestedBy: "user", actor: athleteActor }
     });
     const restore = applyTrainingPlanAdjustment({
       activeBlock,
       dayPlans: [supportDay],
-      command: { type: "restore_engine_plan", date: "2026-05-20", reason: "Undo protection", requestedBy: "user" }
+      command: { type: "restore_engine_plan", date: "2026-05-20", reason: "Undo protection", requestedBy: "user", actor: athleteActor }
     });
 
     expect(unavailable.modifiedDayPlans[0]?.generatedSessions).toHaveLength(0);
     expect(restore.status).toBe("applied");
     expect(restore.modifiedDayPlans).toHaveLength(0);
+  });
+
+  it("blocks athlete actors from coach-only commands while allowing athlete notes", () => {
+    const coachOnly = applyTrainingPlanAdjustment({
+      activeBlock,
+      dayPlans: [supportDay],
+      command: { type: "coach_note", date: "2026-05-20", note: "Coach-only review", actor: athleteActor }
+    });
+    const athleteNote = applyTrainingPlanAdjustment({
+      activeBlock,
+      dayPlans: [supportDay],
+      command: { type: "note", date: "2026-05-20", note: "Athlete schedule context", actor: athleteActor }
+    });
+
+    expect(coachOnly.status).toBe("rejected");
+    expect(coachOnly.safetyFlags).toContain("training_adjustment_permission_rejected");
+    expect(athleteNote.status).toBe("applied");
   });
 });

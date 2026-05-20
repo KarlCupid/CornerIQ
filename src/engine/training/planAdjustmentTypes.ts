@@ -5,14 +5,24 @@ import type { TrainingDayPlan } from "./trainingBlockTypes";
 
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const isoDateTimeSchema = z.string().datetime();
-const requesterSchema = z.enum(["user", "coach"]);
+const requesterSchema = z.enum(["user", "coach"]).optional();
 const reasonSchema = z.string().min(1);
+export const TrainingPlanAdjustmentActorSchema = z.object({
+  actorType: z.enum(["athlete", "coach", "engine"]),
+  actorId: z.string().min(1),
+  actorLabel: z.string().min(1).optional()
+});
+
+export type TrainingPlanAdjustmentActor = z.infer<typeof TrainingPlanAdjustmentActorSchema>;
+
+const actorFieldSchema = TrainingPlanAdjustmentActorSchema.optional();
 
 const protectDayCommandSchema = z.object({
   type: z.literal("protect_day"),
   date: isoDateSchema,
   reason: reasonSchema,
   requestedBy: requesterSchema,
+  actor: actorFieldSchema,
   createdAt: isoDateTimeSchema.optional()
 });
 
@@ -23,6 +33,7 @@ const moveGeneratedSessionCommandSchema = z.object({
   toDate: isoDateSchema,
   reason: reasonSchema,
   requestedBy: requesterSchema,
+  actor: actorFieldSchema,
   createdAt: isoDateTimeSchema.optional()
 });
 
@@ -32,6 +43,7 @@ const requestDeloadCommandSchema = z.object({
   endDate: isoDateSchema,
   reason: reasonSchema,
   requestedBy: requesterSchema,
+  actor: actorFieldSchema,
   createdAt: isoDateTimeSchema.optional()
 });
 
@@ -40,6 +52,7 @@ const markUnavailableCommandSchema = z.object({
   date: isoDateSchema,
   reason: reasonSchema,
   requestedBy: requesterSchema,
+  actor: actorFieldSchema,
   createdAt: isoDateTimeSchema.optional()
 });
 
@@ -49,6 +62,17 @@ const restoreEnginePlanCommandSchema = z.object({
   sessionId: z.string().min(1).optional(),
   reason: reasonSchema,
   requestedBy: requesterSchema,
+  actor: actorFieldSchema,
+  createdAt: isoDateTimeSchema.optional()
+});
+
+const noteCommandSchema = z.object({
+  type: z.literal("note"),
+  date: isoDateSchema.optional(),
+  note: z.string().min(1),
+  reason: z.string().min(1).optional(),
+  requestedBy: requesterSchema,
+  actor: actorFieldSchema,
   createdAt: isoDateTimeSchema.optional()
 });
 
@@ -57,7 +81,8 @@ const coachNoteCommandSchema = z.object({
   date: isoDateSchema.optional(),
   note: z.string().min(1),
   reason: z.string().min(1).optional(),
-  requestedBy: z.literal("coach"),
+  requestedBy: z.literal("coach").optional(),
+  actor: actorFieldSchema,
   createdAt: isoDateTimeSchema.optional()
 });
 
@@ -67,6 +92,7 @@ export const TrainingPlanAdjustmentCommandSchema = z.discriminatedUnion("type", 
   requestDeloadCommandSchema,
   markUnavailableCommandSchema,
   restoreEnginePlanCommandSchema,
+  noteCommandSchema,
   coachNoteCommandSchema
 ]);
 
@@ -109,7 +135,7 @@ export const PersistedTrainingPlanAdjustmentSchema: z.ZodType<PersistedTrainingP
   userId: z.string().min(1).optional(),
   trainingBlockId: z.string().min(1).nullable(),
   planDate: isoDateSchema.nullable(),
-  adjustmentType: z.enum(["protect_day", "move_generated_session", "request_deload", "mark_unavailable", "restore_engine_plan", "coach_note"]),
+  adjustmentType: z.enum(["protect_day", "move_generated_session", "request_deload", "mark_unavailable", "restore_engine_plan", "note", "coach_note"]),
   command: TrainingPlanAdjustmentCommandSchema,
   status: z.enum(["requested", "applied", "rejected", "superseded"]),
   engineResponse: TrainingPlanAdjustmentResultSchema,
@@ -128,7 +154,31 @@ export function planDateForAdjustment(command: TrainingPlanAdjustmentCommand): I
       return command.startDate;
     case "restore_engine_plan":
       return command.date ?? null;
+    case "note":
+      return command.date ?? null;
     case "coach_note":
       return command.date ?? null;
   }
+}
+
+export function actorForAdjustmentCommand(command: TrainingPlanAdjustmentCommand, fallbackActor: TrainingPlanAdjustmentActor): TrainingPlanAdjustmentActor {
+  if (command.actor) {
+    return command.actor;
+  }
+  if (command.requestedBy === "coach") {
+    return {
+      actorType: "coach",
+      actorId: fallbackActor.actorId,
+      actorLabel: "Legacy coach actor"
+    };
+  }
+  return fallbackActor;
+}
+
+export function commandWithActor(command: TrainingPlanAdjustmentCommand, actor: TrainingPlanAdjustmentActor): TrainingPlanAdjustmentCommand {
+  return {
+    ...command,
+    actor,
+    requestedBy: actor.actorType === "coach" ? "coach" : "user"
+  } as TrainingPlanAdjustmentCommand;
 }
