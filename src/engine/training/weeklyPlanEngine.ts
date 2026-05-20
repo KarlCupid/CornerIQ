@@ -6,6 +6,7 @@ import type {
   CycleState,
   ExerciseResultRecord,
   FightOpportunity,
+  ISODateString,
   PhaseState,
   ProtectedWorkout,
   ReadinessState,
@@ -21,6 +22,8 @@ import { anchorsForDate, hasProtectedCompetition, hasProtectedSparring } from ".
 import { applyTrainingPlanAdjustments } from "./planAdjustmentEngine";
 import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
+import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine";
+import type { TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 
 function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(
@@ -34,10 +37,14 @@ function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean
   );
 }
 
+function latestByWeekIndex<T extends { weekIndex: number }>(items: readonly T[] | undefined): T | null {
+  return items?.reduce<T | null>((latest, item) => (!latest || item.weekIndex > latest.weekIndex ? item : latest), null) ?? null;
+}
+
 export function resolveWeeklyTrainingPlan(input: {
   athlete: AthleteProfile;
   anchors: readonly ProtectedWorkout[];
-  asOfDate: string;
+  asOfDate: ISODateString;
   phase: PhaseState;
   readiness: ReadinessState;
   cycle: CycleState;
@@ -147,6 +154,33 @@ export function resolveWeeklyTrainingPlan(input: {
         ? [...block.currentMicrocycle.notes, `${adjustmentApplication.decisions.length} engine-owned adjustment decision(s) applied or reviewed.`]
         : block.currentMicrocycle.notes
   };
+  const blockHistory =
+    input.blockHistory ?? {
+      blockId: null,
+      summaries: [],
+      decisions: [],
+      timelineEvents: [],
+      latestWeekIndex: 0
+    };
+  const latestWeekSummary = latestByWeekIndex<TrainingWeekSummary>(blockHistory.summaries);
+  const latestProgressionDecision = latestByWeekIndex<TrainingProgressionDecision>(blockHistory.decisions);
+  const nextWeekMaterialization = materializeNextWeekTrainingPlan({
+    currentTrainingBlock: adjustmentApplication.activeBlock,
+    currentMicrocycle: adjustedMicrocycle,
+    currentTrainingDayPlans: adjustmentApplication.dayPlans,
+    latestTrainingWeekSummary: latestWeekSummary,
+    latestTrainingProgressionDecision: latestProgressionDecision,
+    completedTrainingSessions: input.completedSessions ?? [],
+    exerciseResults: input.recentExerciseResults ?? [],
+    protectedWorkouts: input.anchors,
+    fight: input.fight ?? null,
+    tournament: input.tournament ?? null,
+    readiness: input.readiness,
+    cycle: input.cycle,
+    safetyFlags: input.safetyFlags ?? [],
+    asOfDate: input.asOfDate,
+    engineVersion: input.engineVersion ?? "unversioned"
+  });
 
   return {
     protectedAnchors: input.anchors,
@@ -161,17 +195,11 @@ export function resolveWeeklyTrainingPlan(input: {
     adjustmentHistory: input.trainingPlanAdjustments ?? [],
     activeAdjustments: adjustmentApplication.activeAdjustments,
     adjustmentDecisions: adjustmentApplication.decisions,
-    blockHistory:
-      input.blockHistory ?? {
-        blockId: null,
-        summaries: [],
-        decisions: [],
-        timelineEvents: [],
-        latestWeekIndex: 0
-      },
+    blockHistory,
     currentWeekSummary: null,
-    latestProgressionDecision: input.blockHistory?.decisions.at(-1) ?? null,
-    timelineEvents: input.blockHistory?.timelineEvents ?? [],
+    latestProgressionDecision,
+    nextWeekMaterialization,
+    timelineEvents: blockHistory.timelineEvents,
     loadLedger: ledger,
     explanation:
       underFuelingRisk

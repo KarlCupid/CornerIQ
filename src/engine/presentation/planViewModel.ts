@@ -1,7 +1,68 @@
-import type { PerformanceState, PlanViewModel } from "../core/types";
+import type { NextWeekPreviewViewModel, PerformanceState, PlanViewModel, TrainingBlockHistoryDetailViewModel } from "../core/types";
 
 function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel {
+  const preview = state.training.nextWeekMaterialization;
+  return {
+    weekIndex: preview.nextWeekIndex,
+    phase: preview.materializedPhase,
+    decision: preview.materializedDecision.replaceAll("_", " "),
+    volumeStrategy: preview.materializedVolumeStrategy,
+    hardDayCap: preview.targetHardDayCap,
+    supportBias: preview.generatedSupportBias,
+    explanation: preview.explanation,
+    safetyNotes: preview.safetyNotes,
+    dayPlanPreview: preview.nextWeekDayPlanPreview.map((day) => ({
+      date: day.date,
+      role: day.role.replaceAll("_", " "),
+      protectedAnchors: day.protectedAnchors.length > 0 ? day.protectedAnchors.join(", ") : "No protected anchors.",
+      generatedSupport: day.generatedSupport,
+      marker:
+        day.role === "tournament_conservation_day"
+          ? "Tournament conservation"
+          : day.role === "taper_day"
+            ? "Taper"
+            : day.role === "recovery_day"
+              ? "Recovery"
+              : day.hardDay
+                ? "Hard day"
+                : "Support",
+      fuelDemand: day.fuelDemand,
+      explanation: day.explanation
+    }))
+  };
+}
+
+function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextWeekPreviewViewModel): TrainingBlockHistoryDetailViewModel {
+  const history = state.training.blockHistory;
+  const adjustmentEvents = state.training.adjustmentHistory.map(
+    (adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`
+  );
+  const progressionDecisions = history.decisions.map((decision) => `Week ${decision.weekIndex}: ${decision.decision.replaceAll("_", " ")} - ${decision.reason}`);
+  const weekSummaries = history.summaries.map((summary) => `Week ${summary.weekIndex}: ${summary.summary}`);
+  return {
+    activeBlockSummary: `${state.training.activeBlock.phase.replaceAll("_", " ")} block, week ${state.training.activeBlock.progressionState.weekIndex}, ${state.training.activeBlock.primaryGoal.replaceAll("_", " ")} focus.`,
+    weekSummaries,
+    progressionDecisions,
+    timelineEvents: state.training.timelineEvents.map((event) => ({
+      eventType: event.eventType,
+      eventDate: event.eventDate,
+      title: event.title,
+      summary: event.summary
+    })),
+    adjustmentEvents,
+    latestNextWeekPreview: nextWeekPreview,
+    safetyFlags: state.safety.riskFlags.filter((flag) => flag.status === "active").map((flag) => flag.message),
+    whatChangedAndWhy: [
+      state.training.latestProgressionDecision
+        ? `Latest decision: ${state.training.latestProgressionDecision.decision.replaceAll("_", " ")} because ${state.training.latestProgressionDecision.reason}`
+        : "No persisted progression decision yet; next week stays conservative.",
+      nextWeekPreview.explanation
+    ]
+  };
 }
 
 export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
@@ -10,6 +71,8 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const rejectedAdjustments = adjustmentHistory.filter((adjustment) => adjustment.status === "rejected");
   const currentWeekSummary = state.training.currentWeekSummary;
   const latestTimelineEvent = state.training.timelineEvents.at(-1) ?? state.training.blockHistory.timelineEvents.at(-1) ?? null;
+  const nextWeekPreview = buildNextWeekPreview(state);
+  const blockHistoryDetail = buildBlockHistoryDetail(state, nextWeekPreview);
   const notesForDate = (date: string): readonly string[] =>
     adjustmentHistory
       .filter((adjustment) => adjustment.planDate === date)
@@ -40,6 +103,8 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     latestProgressionDecision: state.training.latestProgressionDecision
       ? `${state.training.latestProgressionDecision.decision.replaceAll("_", " ")}: ${state.training.latestProgressionDecision.reason}`
       : null,
+    nextWeekPreview,
+    blockHistoryDetail,
     timelineEvents: state.training.timelineEvents.map((event) => ({
       eventType: event.eventType,
       eventDate: event.eventDate,

@@ -1,6 +1,7 @@
 import type { CycleTrainingDecisionViewModel, PerformanceState, TrainViewModel, TrainingDayPlan } from "../core/types";
 import { buildDetailedTrainingSession } from "../training/detailedSessionEngine";
 import { buildTrainingAnalytics } from "../training/trainingAnalytics";
+import { buildExerciseHistoryViewModel } from "./exerciseHistoryViewModel";
 import { riskSummary } from "./explanationCopy";
 
 function todayPlan(state: PerformanceState): TrainingDayPlan | null {
@@ -151,6 +152,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     readiness: state.readiness,
     safetyFlags: state.safety.riskFlags
   });
+  const exerciseHistory = buildExerciseHistoryViewModel(state.training.recentExerciseResults);
   const hints = fuelHints(state, plan);
   return {
     title: "Train for boxing",
@@ -178,6 +180,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     detailedTodaySessions,
     progressionSummary: analytics.progressionRecommendation,
     analytics,
+    exerciseHistory,
     protectedAnchorSummary:
       todayAnchors.length > 0
         ? todayAnchors.map((anchor) => `${anchor.type.replaceAll("_", " ")} (${anchor.intensity})`).join(", ")

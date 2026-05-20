@@ -99,6 +99,36 @@ export type Database = {
         }
         Relationships: []
       }
+      athlete_coach_relationships: {
+        Row: {
+          athlete_user_id: string
+          coach_user_id: string
+          created_at: string
+          id: string
+          permissions: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_user_id: string
+          coach_user_id: string
+          created_at?: string
+          id?: string
+          permissions?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_user_id?: string
+          coach_user_id?: string
+          created_at?: string
+          id?: string
+          permissions?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       body_mass_logs: {
         Row: {
           body_mass_kg: number

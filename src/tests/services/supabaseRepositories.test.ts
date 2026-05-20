@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import { createBodyMassRepository, mapBodyMassLogRow } from "../../services/supabase/bodyMassRepository";
+import { createCoachRelationshipRepository } from "../../services/supabase/coachRelationshipRepository";
 import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/supabase/cycleRepository";
 import { createHydrationRepository } from "../../services/supabase/hydrationRepository";
 import { loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
@@ -343,6 +344,28 @@ describe("Supabase repositories", () => {
     expect(source).toContain("screens must not mutate training");
   });
 
+  it("006 migration creates conservative coach relationship scaffold with RLS", () => {
+    const source = readFileSync("supabase/migrations/006_coach_team_relationships.sql", "utf8");
+
+    expect(source).toContain("create table if not exists public.athlete_coach_relationships");
+    expect(source).toContain("athlete_user_id uuid not null references auth.users");
+    expect(source).toContain("coach_user_id uuid not null references auth.users");
+    expect(source).toContain("status in ('pending', 'active', 'revoked')");
+    expect(source).toContain("alter table public.athlete_coach_relationships enable row level security");
+    expect(source).toContain("participant read");
+    expect(source).toContain("athlete request");
+    expect(source).toContain("participant revoke only");
+    expect(source).toContain("active status requires trusted server-side approval");
+  });
+
+  it("database types include coach relationship table", () => {
+    const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
+
+    expect(source).toContain("athlete_coach_relationships");
+    expect(source).toContain("athlete_user_id: string");
+    expect(source).toContain("coach_user_id: string");
+  });
+
   it("trainingBlockRepository persists typed block, microcycle, day plan, and adjustment payloads", () => {
     const source = readFileSync("src/services/supabase/trainingBlockRepository.ts", "utf8");
 
@@ -370,6 +393,25 @@ describe("Supabase repositories", () => {
     expect(source).toContain("output_hash");
     expect(source).toContain("async insertTrainingBlockTimelineEvent");
     expect(source).toContain("async getLatestWeekIndex");
+  });
+
+  it("coachRelationshipRepository scopes athlete and coach queries without service-role access", () => {
+    const source = readFileSync("src/services/supabase/coachRelationshipRepository.ts", "utf8");
+
+    expect(source).toContain("listCoachRelationshipsForAthlete");
+    expect(source).toContain('.eq("athlete_user_id", safeAthleteUserId)');
+    expect(source).toContain("listAthletesForCoach");
+    expect(source).toContain('.eq("coach_user_id", safeCoachUserId)');
+    expect(source).toContain('.eq("status", "active")');
+    expect(source).toContain("hasActiveCoachRelationship");
+    expect(source.toLowerCase()).not.toContain("service_role");
+  });
+
+  it("coachRelationshipRepository blocks missing user ids before writes", async () => {
+    const client = { from: vi.fn() } as unknown as CornerSupabaseClient;
+    await expect(createCoachRelationshipRepository(client).requestCoachRelationship({ athleteUserId: "", coachUserId: "coach_1" })).rejects.toBeInstanceOf(RepositoryError);
+    await expect(createCoachRelationshipRepository(client).requestCoachRelationship({ athleteUserId: "user_1", coachUserId: "" })).rejects.toBeInstanceOf(RepositoryError);
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("trainingBlockRepository blocks missing userId before Supabase writes", async () => {
@@ -451,14 +493,17 @@ describe("Supabase repositories", () => {
   it("Expo-side services do not reference service role keys", () => {
     const files = [
       "src/services/supabase/client.ts",
+      "src/services/supabase/coachRelationshipRepository.ts",
       "src/services/supabase/userDataService.ts",
       "src/hooks/useUserDataControls.ts",
-      "src/app/screens/ProfileScreen.tsx"
+      "src/app/screens/ProfileScreen.tsx",
+      "src/app/screens/plan/PlanAdjustmentControls.tsx"
     ];
 
     for (const file of files) {
       expect(readFileSync(file, "utf8").toLowerCase()).not.toContain("service_role");
     }
+    expect(readFileSync("src/app/screens/plan/PlanAdjustmentControls.tsx", "utf8")).not.toContain("coach_note");
   });
 
   it("export and delete scope every table by user_id", async () => {
@@ -500,6 +545,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/trainingRepository.ts",
       "src/services/supabase/trainingBlockRepository.ts",
       "src/services/supabase/trainingProgressionRepository.ts",
+      "src/services/supabase/coachRelationshipRepository.ts",
       "src/services/supabase/exerciseResultRepository.ts",
       "src/services/supabase/engineRunRepository.ts",
       "src/services/supabase/userDataService.ts"

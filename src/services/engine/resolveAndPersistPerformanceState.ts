@@ -3,6 +3,7 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import { buildProfileViewModel } from "../../engine/presentation/profileViewModel";
+import { materializeNextWeekTrainingPlan } from "../../engine/training/nextWeekMaterializationEngine";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
 import type { TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/training/types";
@@ -95,6 +96,23 @@ function withTrainingPersistenceStatus(input: {
     (event, index, events) =>
       events.findIndex((candidate) => candidate.eventType === event.eventType && candidate.eventDate === event.eventDate && candidate.summary === event.summary) === index
   );
+  const nextWeekMaterialization = materializeNextWeekTrainingPlan({
+    currentTrainingBlock: input.state.training.activeBlock,
+    currentMicrocycle: input.state.training.currentMicrocycle,
+    currentTrainingDayPlans: input.state.training.dayPlans,
+    latestTrainingWeekSummary: input.currentWeekSummary,
+    latestTrainingProgressionDecision: input.latestProgressionDecision,
+    completedTrainingSessions: input.state.training.completedSessions,
+    exerciseResults: input.state.training.recentExerciseResults,
+    protectedWorkouts: input.state.training.protectedAnchors,
+    fight: input.state.fightContext,
+    tournament: input.state.tournamentContext,
+    readiness: input.state.readiness,
+    cycle: input.state.cycle,
+    safetyFlags: input.state.safety.riskFlags,
+    asOfDate: input.state.asOfDate,
+    engineVersion: input.state.engineVersion
+  });
   const nextState: PerformanceState = {
     ...input.state,
     training: {
@@ -108,6 +126,7 @@ function withTrainingPersistenceStatus(input: {
       },
       currentWeekSummary: input.currentWeekSummary,
       latestProgressionDecision: input.latestProgressionDecision,
+      nextWeekMaterialization,
       timelineEvents,
       blockPersistenceStatus: {
         trainingBlockId: input.trainingBlockId,

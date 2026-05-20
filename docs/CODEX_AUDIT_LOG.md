@@ -1,5 +1,51 @@
 # Codex Audit Log
 
+## 2026-05-20 00:20 America/Vancouver
+
+Goal summary:
+- Materialize persisted progression decisions into read-only next-week programming shape.
+- Add block history detail and exercise history panels without putting business logic in screens.
+- Begin Supabase coach/team relationship modeling safely, with no exposed coach UI.
+- Harden plan adjustment permissions around active coach relationships or trusted test flags.
+- Apply and verify additive Supabase migration 006 remotely.
+
+Key changes:
+- Added `nextWeekMaterializationEngine` and `NextWeekTrainingMaterialization` types.
+- Wired `TrainingState.nextWeekMaterialization` and `PlanViewModel.nextWeekPreview`.
+- Recomputed next-week materialization after week-summary/progression persistence so the preview uses the latest persisted decision.
+- Added `TrainingBlockHistoryPanel` on Plan with active block summary, week summaries, progression decisions, timeline events, adjustment events, safety flags, and latest preview context.
+- Added `exerciseHistoryViewModel` and `ExerciseHistoryPanel` on Train with recent exercise results, status counts, pain flags, RPE values, strength summary, repeated exercise, and free-text load caution.
+- Added `006_coach_team_relationships.sql` with `athlete_coach_relationships`, participant read RLS, athlete pending requests, participant revoke-only updates, indexes, and comments requiring trusted server-side activation for active coach status.
+- Added `coachRelationshipRepository` and optional repository wiring.
+- Hardened `applyTrainingPlanAdjustmentService` so coach actors require an active relationship lookup or `trustedActor`; athlete/default actors still cannot perform coach-only commands.
+- Extended live smoke with a safe RLS read of coach relationships for the signed-in athlete.
+
+Command results:
+- `cmd /c npm run typecheck`: passed.
+- `cmd /c npm test`: passed, `19` files passed and `1` skipped; `198` tests passed and `1` skipped.
+- `cmd /c npm run quality`: passed, including typecheck plus Vitest; `19` files passed and `1` skipped; `198` tests passed and `1` skipped.
+- `cmd /c npm run lint`: passed.
+- `cmd /c npm exec supabase -- --version`: passed with CLI `2.100.1`.
+- `cmd /c npm exec supabase -- db push --dry-run`: before push, passed and reported only `006_coach_team_relationships.sql` would be pushed; after push, passed and reported `Remote database is up to date.`
+- `cmd /c npm exec supabase -- db push`: applied `006_coach_team_relationships.sql`.
+- `cmd /c npm exec supabase -- migration list`: passed after push; `001` through `006` aligned local/remote.
+- Ignored `.env` loaded into process with `CORNERIQ_LIVE_DB_SMOKE=1`; `cmd /c npm run smoke:live-db`: passed, `1` test passed.
+- `git rev-parse HEAD`: `4196ab41c6256d8874e8d55d6586452811d01f5e`; no commit was created in this pass.
+- `git status --short`: listed the modified/new files captured in `docs/CODEX_LAST_HANDOFF.md`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `rg -n "service_role|SERVICE_ROLE|smoke password|password" docs src supabase`: no service-role key or smoke-password value found; matches were ordinary password UI/test variable references plus tests/docs asserting no service role.
+
+Known gaps:
+- Next-week materialization is preview-only; persistence to a `training_next_week_previews` table is deferred.
+- Numeric load progression remains intentionally deferred; free-text `loadText` remains notes only.
+- Active coach relationship approval requires a future trusted server-side function; coach UI remains hidden.
+- `coach_team_memberships` is deferred.
+- Block history and exercise history are lightweight panels, not full drill-down navigation.
+- Drag/drop calendar polish remains intentionally deferred.
+
+Next recommendation:
+- Add optional persisted next-week preview projections with input/output hashes, create a trusted active-coach approval path, and deepen history drilldowns without moving logic into screens.
+
 ## 2026-05-19 23:42 America/Vancouver
 
 Goal summary:

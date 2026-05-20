@@ -87,6 +87,77 @@ describe("applyTrainingPlanAdjustmentService", () => {
     );
   });
 
+  it("rejects athlete attempts to perform coach-only generated-session moves", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const session = state.training.generatedSessions[0];
+    if (!session) {
+      throw new Error("fixture did not generate support");
+    }
+    const { repositories, calls } = createAdjustmentRepositories();
+
+    const result = await applyTrainingPlanAdjustmentService({
+      userId: "user_1",
+      state,
+      repositories,
+      command: {
+        type: "move_generated_session",
+        sessionId: session.id,
+        fromDate: session.date,
+        toDate: fixtureAsOfDate,
+        reason: "Athlete tries to move generated support",
+        requestedBy: "user"
+      }
+    });
+
+    expect(result.status).toBe("rejected");
+    expect(result.explanation).toContain("athlete actor");
+    expect(calls.insertTrainingPlanAdjustment).toHaveBeenCalledWith(expect.objectContaining({ result: expect.objectContaining({ status: "rejected" }) }));
+  });
+
+  it("allows coach actor only with active relationship lookup or trusted test flag", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const { repositories } = createAdjustmentRepositories();
+    const baseCommand = {
+      type: "coach_note" as const,
+      date: fixtureAsOfDate,
+      note: "Active relationship coach note",
+      requestedBy: "coach" as const
+    };
+
+    const rejected = await applyTrainingPlanAdjustmentService({
+      userId: "user_1",
+      state,
+      repositories,
+      actor: { actorType: "coach", actorId: "coach_1" },
+      command: baseCommand
+    });
+    expect(rejected.status).toBe("rejected");
+
+    const active = await applyTrainingPlanAdjustmentService({
+      userId: "user_1",
+      state,
+      repositories: {
+        ...repositories,
+        coachRelationship: {
+          hasActiveCoachRelationship: vi.fn(async (athleteUserId: string, coachUserId: string) => athleteUserId === "user_1" && coachUserId === "coach_1")
+        }
+      },
+      actor: { actorType: "coach", actorId: "coach_1" },
+      command: baseCommand
+    });
+    expect(active.status).toBe("applied");
+
+    const trusted = await applyTrainingPlanAdjustmentService({
+      userId: "user_1",
+      state,
+      repositories,
+      actor: { actorType: "coach", actorId: "coach_1" },
+      trustedActor: true,
+      command: baseCommand
+    });
+    expect(trusted.status).toBe("applied");
+  });
+
   it("appends TrainingPlanAdjusted and TrainingDeloadRequested for deload commands", async () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const { repositories, calls } = createAdjustmentRepositories();

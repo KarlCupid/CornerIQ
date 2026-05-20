@@ -171,6 +171,21 @@ const trainViewModel: TrainViewModel = {
     },
     nextBestTrainingAction: "Complete or skip the next generated support session so the engine can learn from real history."
   },
+  exerciseHistory: {
+    title: "Exercise history",
+    recentExerciseResults: [],
+    statusCounts: {
+      completed: 0,
+      partial: 0,
+      prescribedOnly: 0,
+      skipped: 0
+    },
+    painFlagsByExercise: [],
+    recentRpeValues: [],
+    latestStrengthExerciseSummary: null,
+    loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
+    mostRepeatedExercise: null
+  },
   riskSummary: []
 };
 
@@ -190,6 +205,44 @@ const planViewModel: PlanViewModel = {
     rows: ["1 completed session(s), 0 skipped.", "1 completed exercise result(s), 0 partial, 0 prescribed-only."]
   },
   latestProgressionDecision: "progress: The week has structured completions.",
+  nextWeekPreview: {
+    weekIndex: 3,
+    phase: "build_strength",
+    decision: "progress",
+    volumeStrategy: "progress_small",
+    hardDayCap: 3,
+    supportBias: "strength",
+    explanation: "Persisted progression supports a small next-week increase.",
+    safetyNotes: ["Preview only: current week is not mutated and future sessions are not persisted here."],
+    dayPlanPreview: [
+      {
+        date: "2026-05-26",
+        role: "support day",
+        protectedAnchors: "No protected anchors.",
+        generatedSupport: "Small strength support progression; no numeric load jump inferred.",
+        marker: "Support",
+        fuelDemand: "moderate",
+        explanation: "Progression stays small, boxing-specific, and conditional."
+      }
+    ]
+  },
+  blockHistoryDetail: {
+    activeBlockSummary: "build strength block, week 2, strength base focus.",
+    weekSummaries: ["Week 2: Week summary persisted."],
+    progressionDecisions: ["Week 2: progress - The week has structured completions."],
+    timelineEvents: [
+      {
+        eventType: "week_completed",
+        eventDate: "2026-05-19",
+        title: "Week 1 summarized",
+        summary: "Week summary persisted."
+      }
+    ],
+    adjustmentEvents: ["protect day applied: Protect day applied."],
+    latestNextWeekPreview: null,
+    safetyFlags: [],
+    whatChangedAndWhy: ["Latest decision: progress because The week has structured completions."]
+  },
   timelineEvents: [
     {
       eventType: "week_completed",
@@ -487,6 +540,8 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel })).toJSON());
     expect(output).toContain("Protects the boxing anchor.");
     expect(output).toContain("Training log");
+    expect(output).toContain("Exercise history");
+    expect(output).toContain("Free-text load");
   });
 
   it("TrainScreen renders detailed session panel", async () => {
@@ -640,6 +695,39 @@ describe("minimal app screens", () => {
     expect(output).toContain("build strength");
     expect(output).toContain("sparring (hard)");
     expect(output).toContain("Hard day");
+    expect(output).toContain("Next week preview");
+    expect(output).toContain("Engine preview, not a user-edited plan.");
+  });
+
+  it("Plan next-week preview uses progression context without mutating current week", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const currentWeekDates = state.viewModels.plan.dayPlans.map((day) => day.date);
+    const output = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: {
+            ...state.viewModels.plan,
+            nextWeekPreview: {
+              ...state.viewModels.plan.nextWeekPreview,
+              decision: "progress",
+              volumeStrategy: "progress_small",
+              explanation: "Persisted progression decision shaped this preview."
+            }
+          }
+        })
+      ).toJSON()
+    );
+
+    expect(output).toContain("progress small");
+    expect(output).toContain("Persisted progression decision shaped this preview.");
+    expect(state.viewModels.plan.dayPlans.map((day) => day.date)).toEqual(currentWeekDates);
   });
 
   it("PlanScreen renders recovery and tournament warning markers", async () => {
@@ -747,6 +835,38 @@ describe("minimal app screens", () => {
     expect(output).toContain("Week 2");
     expect(output).toContain("progress: The week has structured completions.");
     expect(output).toContain("Week 1 summarized");
+    expect(output).toContain("Block history detail");
+    expect(output).toContain("Week 2: Week summary persisted.");
+    expect(output).toContain("protect day applied");
+  });
+
+  it("ExerciseHistoryPanel renders counts, pain flags, and load-text caution", async () => {
+    const { ExerciseHistoryPanel } = await import("../../app/screens/train/ExerciseHistoryPanel");
+    const output = JSON.stringify(
+      render(
+        React.createElement(ExerciseHistoryPanel, {
+          history: {
+            title: "Exercise history",
+            recentExerciseResults: ["2026-05-19: Split squat completed, RPE 7, load note: bodyweight plus band, pain flagged"],
+            statusCounts: {
+              completed: 1,
+              partial: 1,
+              prescribedOnly: 1,
+              skipped: 0
+            },
+            painFlagsByExercise: ["Split squat"],
+            recentRpeValues: ["Split squat: RPE 7"],
+            latestStrengthExerciseSummary: "Split squat: completed, bodyweight plus band; notes only, no numeric load progression inferred",
+            loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
+            mostRepeatedExercise: "Split squat (2 completed or partial result row(s))"
+          }
+        })
+      ).toJSON()
+    );
+
+    expect(output).toContain("Completed/partial/prescribed-only/skipped: 1/1/1/0");
+    expect(output).toContain("Pain flag: Split squat");
+    expect(output).toContain("no numeric load progression inferred");
   });
 
   it("FightSetupScreen rejects invalid fight and tournament setup before saving", async () => {

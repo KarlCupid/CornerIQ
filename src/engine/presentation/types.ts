@@ -2,6 +2,8 @@ import type { ConfidenceLevel } from "../core/sharedTypes";
 import type {
   DetailedTrainingSession,
   GeneratedSessionIntensity,
+  NextWeekGeneratedSupportBias,
+  NextWeekTrainingVolumeStrategy,
   ProgressionRecommendation,
   TrainingBlockPhase,
   TrainingBlockTimelineEventType,
@@ -97,6 +99,22 @@ export interface TrainingAnalyticsViewModel {
   nextBestTrainingAction: string;
 }
 
+export interface ExerciseHistoryViewModel {
+  title: string;
+  recentExerciseResults: readonly string[];
+  statusCounts: {
+    completed: number;
+    partial: number;
+    prescribedOnly: number;
+    skipped: number;
+  };
+  painFlagsByExercise: readonly string[];
+  recentRpeValues: readonly string[];
+  latestStrengthExerciseSummary: string | null;
+  loadProgressionNote: string;
+  mostRepeatedExercise: string | null;
+}
+
 export interface CycleTrainingDecisionViewModel {
   status: "none" | "symptom_trim" | "scale_noise" | "safety_review";
   summary: string;
@@ -143,6 +161,7 @@ export interface TrainViewModel {
   }[];
   progressionSummary: ProgressionRecommendation;
   analytics: TrainingAnalyticsViewModel;
+  exerciseHistory: ExerciseHistoryViewModel;
   protectedAnchorSummary: string;
   riskSummary: readonly string[];
 }
@@ -166,6 +185,37 @@ export interface TrainingBlockHistoryViewModel {
   currentWeekIndex: number;
 }
 
+export interface NextWeekPreviewViewModel {
+  weekIndex: number;
+  phase: TrainingBlockPhase;
+  decision: string;
+  volumeStrategy: NextWeekTrainingVolumeStrategy;
+  hardDayCap: number;
+  supportBias: NextWeekGeneratedSupportBias;
+  explanation: string;
+  safetyNotes: readonly string[];
+  dayPlanPreview: readonly {
+    date: string;
+    role: string;
+    protectedAnchors: string;
+    generatedSupport: string;
+    marker: string;
+    fuelDemand: "low" | "moderate" | "high";
+    explanation: string;
+  }[];
+}
+
+export interface TrainingBlockHistoryDetailViewModel {
+  activeBlockSummary: string;
+  weekSummaries: readonly string[];
+  progressionDecisions: readonly string[];
+  timelineEvents: readonly TrainingProgressionTimelineViewModel[];
+  adjustmentEvents: readonly string[];
+  latestNextWeekPreview: NextWeekPreviewViewModel | null;
+  safetyFlags: readonly string[];
+  whatChangedAndWhy: readonly string[];
+}
+
 export interface PlanViewModel {
   title: string;
   weeklySummary: string;
@@ -174,6 +224,8 @@ export interface PlanViewModel {
   weekIndex: number;
   currentWeekSummary: TrainingWeekSummaryViewModel | null;
   latestProgressionDecision: string | null;
+  nextWeekPreview: NextWeekPreviewViewModel;
+  blockHistoryDetail: TrainingBlockHistoryDetailViewModel;
   timelineEvents: readonly TrainingProgressionTimelineViewModel[];
   blockPhase: TrainingBlockPhase;
   blockGoal: string;

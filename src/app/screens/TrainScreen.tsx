@@ -7,6 +7,7 @@ import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
+import { ExerciseHistoryPanel } from "./train/ExerciseHistoryPanel";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 
 export interface TrainScreenProps {
@@ -106,6 +107,9 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
           {viewModel.analytics.painFlagExercises.map((exercise) => <Text key={exercise} style={screenStyles.subtle}>Pain flag exercise: {exercise}</Text>)}
           <Text style={screenStyles.subtle}>Today's completion will influence next week's dose.</Text>
         </View>
+      </EngineCard>
+      <EngineCard>
+        <ExerciseHistoryPanel history={viewModel.exerciseHistory} />
       </EngineCard>
       <EngineCard>
         <View style={{ gap: spacing.sm }}>

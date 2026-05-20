@@ -7,6 +7,7 @@ import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanA
 import type { FightSetupDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import { FightSetupScreen } from "./fight/FightSetupScreen";
 import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
+import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
 
 export interface PlanScreenProps {
@@ -72,6 +73,28 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
           <Text style={screenStyles.body}>{viewModel.protectedAnchorSummary}</Text>
           {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
         </View>
+      </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Next week preview</Text>
+          <Text style={screenStyles.body}>Engine preview, not a user-edited plan.</Text>
+          <Text style={screenStyles.body}>Week {viewModel.nextWeekPreview.weekIndex}: {viewModel.nextWeekPreview.phase.replaceAll("_", " ")} - {viewModel.nextWeekPreview.decision}</Text>
+          <Text style={screenStyles.callout}>{viewModel.nextWeekPreview.volumeStrategy.replaceAll("_", " ")} - hard day cap {viewModel.nextWeekPreview.hardDayCap}</Text>
+          <Text style={screenStyles.body}>Support bias: {viewModel.nextWeekPreview.supportBias.replaceAll("_", " ")}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.explanation}</Text>
+          {viewModel.nextWeekPreview.safetyNotes.map((note) => <Text key={note} style={screenStyles.subtle}>Safety: {note}</Text>)}
+          {viewModel.nextWeekPreview.dayPlanPreview.map((day) => (
+            <View key={day.date} style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.callout}>{day.date} - {day.marker} - fuel demand {day.fuelDemand}</Text>
+              <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
+              <Text style={screenStyles.subtle}>Generated preview: {day.generatedSupport}</Text>
+              <Text style={screenStyles.subtle}>{day.explanation}</Text>
+            </View>
+          ))}
+        </View>
+      </EngineCard>
+      <EngineCard>
+        <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
       </EngineCard>
       {viewModel.dayPlans.map((day) => (
         <EngineCard key={day.date}>

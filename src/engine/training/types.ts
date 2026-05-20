@@ -1,8 +1,16 @@
 import type { Confidence, ISODateString } from "../core/sharedTypes";
+import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import type { TrainingBlock, TrainingBlockRecommendation, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 
+export type {
+  NextWeekDayPlanPreview,
+  NextWeekGeneratedSupportBias,
+  NextWeekMaterializationInput,
+  NextWeekTrainingMaterialization,
+  NextWeekTrainingVolumeStrategy
+} from "./nextWeekMaterializationEngine";
 export type {
   PersistedTrainingPlanAdjustment,
   PersistedTrainingPlanAdjustmentStatus,
@@ -280,6 +288,7 @@ export interface TrainingState {
   blockHistory: TrainingBlockHistory;
   currentWeekSummary: TrainingWeekSummary | null;
   latestProgressionDecision: TrainingProgressionDecision | null;
+  nextWeekMaterialization: NextWeekTrainingMaterialization;
   timelineEvents: readonly TrainingBlockTimelineEvent[];
   blockPersistenceStatus?: {
     trainingBlockId: string;

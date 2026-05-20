@@ -1,64 +1,55 @@
 # Codex Last Handoff
 
-Date/time: 2026-05-19 23:42 America/Vancouver
+Date/time: 2026-05-20 00:20 America/Vancouver
 
 Branch: `main`
 
-Latest commit before pass: `3737a8a57e7e32eef715cac28353829bbebf6634` (`Persist training blocks and plan adjustments`)
+Latest known commit from prompt: `3737a8a57e7e32eef715cac28353829bbebf6634` (`Persist training blocks and plan adjustments`)
 
-Current `git rev-parse HEAD`: `3737a8a57e7e32eef715cac28353829bbebf6634`
+Latest commit before pass from `git log`: `4196ab41c6256d8874e8d55d6586452811d01f5e` (`Add multi-week training block progression history`)
 
-Working tree handoff prepared before final commit; final hash must be checked by auditor.
+Current `git rev-parse HEAD` at handoff time: `4196ab41c6256d8874e8d55d6586452811d01f5e`
+
+Commit created in this run: none. Final commit hash is not applicable unless the user or next agent commits these working-tree changes.
 
 ## Summary
 
-This pass adds the first persisted multi-week programming history layer. It creates additive migration `005_training_block_weekly_progression.sql`, persists week summaries, progression decisions, and block timeline events, advances `weekIndex` from persisted history instead of always scaffolding `1`, adds conservative roll-forward decisions, exposes audit-friendly block history on Plan/Profile, and introduces a simple athlete/coach/engine actor permission model for training plan adjustments.
+This thirteenth pass turns persisted progression decisions into visible next-week programming intelligence. It adds a deterministic `nextWeekMaterializationEngine`, wires `TrainingState` and `PlanViewModel` with a read-only next-week preview, adds Plan block-history detail and Train exercise-history panels, creates additive Supabase migration `006_coach_team_relationships.sql`, adds a coach relationship repository, and hardens plan-adjustment coach permissions so active coach relationships or a trusted test flag are required before coach actors can act.
+
+Next-week preview is intentionally a preview, not persisted future sessions. It adjusts phase, hard-day cap, volume strategy, support bias, and day-plan preview rows from persisted week summaries/decisions while blocking unsafe progress for under-fueling, hard stops, pain/review flags, fight week, tournament context, and high cycle symptoms.
 
 ## Files Changed
 
-Supabase/migrations:
-- `supabase/migrations/005_training_block_weekly_progression.sql`
-- `src/services/supabase/database.types.ts`
-
 Engine/domain:
-- `src/engine/training/trainingBlockHistoryTypes.ts`
-- `src/engine/training/trainingWeekSummaryEngine.ts`
-- `src/engine/training/trainingRollForwardEngine.ts`
-- `src/engine/training/trainingBlockEngine.ts`
-- `src/engine/training/weeklyPlanEngine.ts`
+- `src/engine/training/nextWeekMaterializationEngine.ts`
 - `src/engine/training/types.ts`
-- `src/engine/training/planAdjustmentTypes.ts`
-- `src/engine/training/planAdjustmentEngine.ts`
-- `src/engine/core/performanceKernel.ts`
-- `src/engine/core/schemas.ts`
-- `src/engine/athlete/types.ts`
-
-View models/UI/hooks:
+- `src/engine/training/weeklyPlanEngine.ts`
+- `src/services/engine/resolveAndPersistPerformanceState.ts`
 - `src/engine/presentation/types.ts`
 - `src/engine/presentation/planViewModel.ts`
-- `src/engine/presentation/profileViewModel.ts`
-- `src/app/screens/PlanScreen.tsx`
-- `src/app/screens/ProfileScreen.tsx`
-- `src/app/screens/plan/PlanAdjustmentControls.tsx`
-- `src/hooks/useTrainingPlanAdjustments.ts`
+- `src/engine/presentation/trainViewModel.ts`
+- `src/engine/presentation/exerciseHistoryViewModel.ts`
 
-Services/repositories:
-- `src/services/supabase/trainingProgressionRepository.ts`
-- `src/services/supabase/trainingBlockRepository.ts`
+UI/view-model surfaces:
+- `src/app/screens/PlanScreen.tsx`
+- `src/app/screens/TrainScreen.tsx`
+- `src/app/screens/plan/TrainingBlockHistoryPanel.tsx`
+- `src/app/screens/train/ExerciseHistoryPanel.tsx`
+
+Supabase/services:
+- `supabase/migrations/006_coach_team_relationships.sql`
+- `src/services/supabase/database.types.ts`
 - `src/services/supabase/loadAthleteJourney.ts`
-- `src/services/supabase/userDataService.ts`
-- `src/services/engine/resolveAndPersistPerformanceState.ts`
+- `src/services/supabase/coachRelationshipRepository.ts`
 - `src/services/training/applyTrainingPlanAdjustment.ts`
 
 Tests/smoke:
-- `src/tests/engine/trainingBlockProgression.test.ts`
-- `src/tests/engine/planAdjustmentEngine.test.ts`
-- `src/tests/services/supabaseRepositories.test.ts`
-- `src/tests/services/engineResolvePersistence.test.ts`
-- `src/tests/services/trainingPlanAdjustmentService.test.ts`
+- `src/tests/engine/nextWeekMaterializationEngine.test.ts`
+- `src/tests/engine/exerciseHistoryViewModel.test.ts`
 - `src/tests/app/appShell.test.ts`
+- `src/tests/services/supabaseRepositories.test.ts`
+- `src/tests/services/trainingPlanAdjustmentService.test.ts`
 - `src/tests/live/liveDbSmoke.test.ts`
-- `src/tests/fixtures/engineFixtures.ts`
 
 Docs:
 - `docs/CODEX_LAST_HANDOFF.md`
@@ -72,40 +63,44 @@ Docs:
 
 Baseline:
 - `git status`: clean `main`, up to date with `origin/main`; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
-- `git log --oneline --decorate -8`: latest local commit was `3737a8a` (`Persist training blocks and plan adjustments`).
-- `npm run typecheck`: PowerShell `npm.ps1` blocked by execution policy. Reran `cmd /c npm run typecheck`; passed.
-- `cmd /c npm test`: sandboxed run hit Vitest/esbuild access-denied behavior; reran with approved escalation; passed.
-- `cmd /c npm run quality`: sandboxed run hit the same Vitest/esbuild access-denied behavior; reran with approved escalation; passed.
+- `git log --oneline --decorate -8`: latest local commit was `4196ab4` (`Add multi-week training block progression history`), not the prompt's older `3737a8a`.
+- `npm run typecheck`: failed in PowerShell because `npm.ps1` is blocked by execution policy.
+- `cmd /c npm run typecheck`: passed.
+- `cmd /c npm test`: sandboxed run failed with Vitest/esbuild parent-directory access denied; reran with approved escalation and passed, `17` files passed / `1` skipped, `185` tests passed / `1` skipped.
+- `cmd /c npm run quality`: sandboxed run hit the same Vitest/esbuild access denied; reran with approved escalation and passed, `17` files passed / `1` skipped, `185` tests passed / `1` skipped.
 - `cmd /c npm run lint`: passed.
-- `cmd /c npm exec supabase -- --version`: sandboxed run could not write Supabase CLI telemetry under the user profile; reran with approved escalation and returned `2.100.1`.
-- `cmd /c npm exec supabase -- migration list`: passed; local/remote migrations `001`, `002`, `003`, and `004` aligned before this pass.
+- `cmd /c npm exec supabase -- --version`: sandboxed run failed writing `C:\Users\karll\.supabase\telemetry.json`; reran with approved escalation and returned `2.100.1`.
+- `cmd /c npm exec supabase -- migration list`: passed; local/remote migrations `001` through `005` aligned before this pass.
 - `cmd /c npm exec supabase -- db push --dry-run`: passed before this pass; remote DB was up to date.
-- Ignored `.env` loaded into process with `CORNERIQ_LIVE_DB_SMOKE=1`; `cmd /c npm run smoke:live-db`: passed before this pass, `1 passed`.
+- `cmd /c "set CORNERIQ_LIVE_DB_SMOKE=1&& npm run smoke:live-db"`: failed before loading `.env`; missing variable names were `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` loaded into the process without printing values, then `CORNERIQ_LIVE_DB_SMOKE=1 cmd /c npm run smoke:live-db`: passed before changes, `1` test passed.
 
-Migration/typegen:
-- `cmd /c npm exec supabase -- db push --dry-run`: passed; reported migration `005_training_block_weekly_progression.sql` would be pushed.
-- `cmd /c npm exec supabase -- db push`: applied `005_training_block_weekly_progression.sql` remotely.
-- `cmd /c npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts`: passed. Windows redirection wrote UTF-16 initially; generated file was converted back to UTF-8 before tests.
-- `cmd /c npm exec supabase -- migration list`: passed after push; local/remote migrations `001`, `002`, `003`, `004`, and `005` aligned.
+Migration:
+- `cmd /c npm exec supabase -- db push --dry-run`: passed; reported only `006_coach_team_relationships.sql` would be pushed.
+- `cmd /c npm exec supabase -- db push`: applied `006_coach_team_relationships.sql` remotely.
+- `cmd /c npm exec supabase -- migration list`: passed after push; local/remote migrations `001`, `002`, `003`, `004`, `005`, and `006` aligned.
 - `cmd /c npm exec supabase -- db push --dry-run`: passed after push; reported `Remote database is up to date.`
 
 Final verification:
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed, `17` files passed and `1` skipped; `185` tests passed and `1` skipped.
-- `cmd /c npm run quality`: passed, including typecheck plus Vitest; `17` files passed and `1` skipped; `185` tests passed and `1` skipped.
+- `cmd /c npm test`: passed, `19` files passed / `1` skipped; `198` tests passed / `1` skipped.
+- `cmd /c npm run quality`: passed, including typecheck plus Vitest; `19` files passed / `1` skipped; `198` tests passed / `1` skipped.
 - `cmd /c npm run lint`: passed.
-- Ignored `.env` loaded into process with `CORNERIQ_LIVE_DB_SMOKE=1`; `cmd /c npm run smoke:live-db`: passed, `1 passed`.
-- `git diff --check`: passed; Git printed Windows LF-to-CRLF working-copy warnings only.
-- `git rev-parse HEAD`: `3737a8a57e7e32eef715cac28353829bbebf6634`.
-- `git diff --name-only`: listed the source, migration, test, and doc files above.
+- Ignored `.env` loaded into process with `CORNERIQ_LIVE_DB_SMOKE=1`; `cmd /c npm run smoke:live-db`: passed, `1` test passed, test body about `8988ms`.
+- `git rev-parse HEAD`: `4196ab41c6256d8874e8d55d6586452811d01f5e`.
+- `git status --short`: listed the modified/new files named in `Files Changed`; Git again warned it could not read `C:\Users\karll/.config/git/ignore`.
+- `git diff --check`: exit `0`; Git printed Windows LF-to-CRLF working-copy warnings only.
+- `rg -n "service_role|SERVICE_ROLE|smoke password|password" docs src supabase`: no service-role key or smoke-password value found; matches were ordinary password UI/test variable references plus tests/docs asserting no service role.
 
 ## Live Smoke Result
 
-Passed after 005. Smoke now verifies auth, manual writes, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, `training_plan_adjustments`, generated workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine persistence, cleanup, prior profile restore, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, and cleanup scoped to smoke-created progression rows.
+Passed after migration 006. Smoke verifies auth, manual writes, safe read access to `athlete_coach_relationships` through `coachRelationshipRepository.listCoachRelationshipsForAthlete`, `AthleteJourney` load, `PerformanceState` resolution, training blocks, microcycles, day plans, plan adjustments, week summaries, progression decisions, timeline events, actor-scoped adjustment payloads, generated workout completion, `completed_training_sessions`, `exercise_results`, journey events, engine persistence, cleanup scoped to smoke-created rows, and prior profile restore.
 
 ## Migration Status
 
-Supabase CLI `2.100.1` verified. Remote migration list shows `001`, `002`, `003`, `004`, and `005` applied. Final dry run reports `Remote database is up to date.`
+Supabase CLI `2.100.1` verified. Remote migration list now shows `001` through `006` applied. Final dry run reports `Remote database is up to date.`
+
+Migration `006_coach_team_relationships.sql` adds `athlete_coach_relationships` with participant read RLS, athlete-only pending requests, participant revoke-only updates, active/pending unique pair guard, and comments that active coach status requires trusted server-side approval. No coach UI was exposed.
 
 ## Secrets
 
@@ -113,41 +108,40 @@ Ignored local `.env` values were loaded into the process for live smoke. No secr
 
 ## What Tests Prove
 
-- Migration/source tests prove 005 creates weekly summary, progression decision, and timeline tables with owner RLS, comments, updated-at triggers, indexes, and generated DB types.
-- Week summary tests prove completed/skipped counts, `prescribed_only` handling, partial result counts, pain flags, structured RPE averaging, under-fueling flags, cycle symptom flags, and unknown-data copy.
-- Roll-forward tests prove good weeks progress, skipped weeks repeat, pain flags trigger coach review, red readiness deloads, under-fueling holds, fight/tournament weeks taper/conserve, missing history does not fake progress, and persisted history advances `weekIndex`.
-- Repository tests prove Zod payload validation, idempotent week summary upsert, idempotent decision insert, append-only timeline events, latest week index lookup, missing user id rejection, and no explicit `any`.
-- Resolve persistence tests prove state resolution persists summaries/decisions/timeline events, identical resolves avoid duplicate summaries/decisions, and persistence failures return ready state with `persistenceWarning`.
-- Plan/Profile app tests prove Plan renders week index, current week summary, latest progression decision, and timeline events; Profile renders a compact training audit card; screens still do not query repositories directly.
-- Actor permission tests prove athlete defaults, athlete protect day/request deload, athlete coach-note rejection, trusted coach acceptance in service tests, and rejected permission explanations persist.
-- Live smoke proves the remote 005 tables and actor-scoped adjustment payloads work with public Supabase URL plus anon key.
+- `nextWeekMaterializationEngine` tests prove progress/repeat/deload/coach-review strategies, under-fueling blocks progress, fight week tapers, tournament conserves, high cycle symptoms trim optional volume without faking deload, persisted history advances `nextWeekIndex`, and generated preview copy does not prescribe sparring/contact.
+- Plan tests prove next-week preview renders, uses progression context, and does not mutate current-week day plans.
+- Block history panel tests prove week summaries, progression decisions, timeline events, adjustment events, and next-week preview context render from view models.
+- Exercise history tests prove recent result rows render, pain flags surface, `prescribed_only` rows stay out of completed counts, and nonnumeric `loadText` remains notes only with no numeric progression.
+- Coach relationship tests prove migration/table/RLS comments exist, DB types include the table, repository athlete/coach queries are scoped, missing IDs are rejected before writes, no service role key is referenced, and coach UI commands remain hidden.
+- Adjustment permission tests prove athlete-safe commands still work, athlete coach-only commands are rejected and persisted, coach actors require an active relationship lookup or trusted test flag, and rejected permission explanations persist.
+- Full suite and live smoke prove existing training persistence, progression decisions, workout completion, engine persistence, and cleanup still pass after migration 006.
 
 ## Known Gaps
 
-- Weekly progression decisions are persisted and surfaced, but there is not yet a full future-week dose/materialization engine that changes numeric loads or generates a complete next microcycle from the decision.
-- Block history UI is intentionally simple cards/lists, not a polished drill-down timeline.
-- Coach accounts/team relationships are not implemented; coach actors are accepted only through trusted service/test paths.
-- Numeric load progression remains intentionally deferred because free-text `loadText` is not parsed into load math.
-- Exercise-history detail screen is still missing.
-- Calendar drag/drop and polished plan adjustment workflow remain deferred.
+- Next-week materialization is an engine preview only. `training_next_week_previews` persistence was deferred to keep this pass focused after adding coach relationship migration 006.
+- Materialization shapes phase, hard-day cap, support bias, and day previews, but does not infer numeric load progression or persist fake future sessions.
+- Active coach relationship approval is scaffolded only; production activation needs a trusted server-side function before coach UI can be exposed.
+- `coach_team_memberships` was deferred; only athlete-coach relationships were added.
+- Block history detail is a simple Plan panel, not a routed drill-down screen.
+- Exercise history is a lightweight Train panel, not a full exercise drill-down screen.
+- Calendar drag/drop and polished plan adjustment workflow remain intentionally deferred.
 
 ## Recommended Next Prompt Direction
 
-Build the next pass around applying persisted progression decisions to future-week programming shape: materialize next-week phase/volume changes from the roll-forward result, add a block history detail screen, and formalize Supabase coach/team relationships before exposing coach actions in UI.
+Persist optional next-week previews with an input/output hash table, add a trusted server-side coach relationship activation path, and deepen block/exercise history navigation while keeping screens view-model-only and generated training non-contact.
 
 ## Inspect First
 
-1. `supabase/migrations/005_training_block_weekly_progression.sql`
-2. `src/engine/training/trainingBlockHistoryTypes.ts`
-3. `src/engine/training/trainingWeekSummaryEngine.ts`
-4. `src/engine/training/trainingRollForwardEngine.ts`
-5. `src/services/supabase/trainingProgressionRepository.ts`
-6. `src/services/engine/resolveAndPersistPerformanceState.ts`
-7. `src/engine/training/trainingBlockEngine.ts`
-8. `src/engine/training/planAdjustmentTypes.ts`
-9. `src/engine/training/planAdjustmentEngine.ts`
+1. `src/engine/training/nextWeekMaterializationEngine.ts`
+2. `src/tests/engine/nextWeekMaterializationEngine.test.ts`
+3. `src/engine/presentation/planViewModel.ts`
+4. `src/app/screens/PlanScreen.tsx`
+5. `src/app/screens/plan/TrainingBlockHistoryPanel.tsx`
+6. `src/engine/presentation/exerciseHistoryViewModel.ts`
+7. `src/app/screens/train/ExerciseHistoryPanel.tsx`
+8. `supabase/migrations/006_coach_team_relationships.sql`
+9. `src/services/supabase/coachRelationshipRepository.ts`
 10. `src/services/training/applyTrainingPlanAdjustment.ts`
-11. `src/engine/presentation/planViewModel.ts`
-12. `src/app/screens/PlanScreen.tsx`
-13. `src/app/screens/ProfileScreen.tsx`
-14. `src/tests/live/liveDbSmoke.test.ts`
+11. `src/tests/services/trainingPlanAdjustmentService.test.ts`
+12. `src/tests/services/supabaseRepositories.test.ts`
+13. `src/tests/live/liveDbSmoke.test.ts`

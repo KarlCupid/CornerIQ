@@ -11,6 +11,9 @@ import {
 import type { PerformanceState } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../supabase/loadAthleteJourney";
 import { assertUserId, parseWithSchema } from "../supabase/repositoryTypes";
+import type { createCoachRelationshipRepository } from "../supabase/coachRelationshipRepository";
+
+type CoachRelationshipAccess = Pick<ReturnType<typeof createCoachRelationshipRepository>, "hasActiveCoachRelationship">;
 
 export interface ApplyTrainingPlanAdjustmentInput {
   userId: string;
@@ -18,7 +21,9 @@ export interface ApplyTrainingPlanAdjustmentInput {
   actor?: TrainingPlanAdjustmentActor | undefined;
   trustedActor?: boolean | undefined;
   command: TrainingPlanAdjustmentCommand;
-  repositories: Pick<AthleteJourneyRepositories, "journey" | "trainingBlock" | "trainingProgression">;
+  repositories: Pick<AthleteJourneyRepositories, "journey" | "trainingBlock" | "trainingProgression"> & {
+    coachRelationship?: CoachRelationshipAccess | undefined;
+  };
 }
 
 export interface ApplyTrainingPlanAdjustmentServiceResult extends TrainingPlanAdjustmentResult {
@@ -57,14 +62,28 @@ function permissionRejectedResult(command: TrainingPlanAdjustmentCommand, actor:
   };
 }
 
+async function coachActorTrusted(input: Pick<ApplyTrainingPlanAdjustmentInput, "repositories" | "trustedActor"> & { athleteUserId: string; actor: TrainingPlanAdjustmentActor }): Promise<boolean> {
+  if (input.actor.actorType !== "coach") {
+    return true;
+  }
+  if (input.trustedActor) {
+    return true;
+  }
+  if (!input.repositories.coachRelationship) {
+    return false;
+  }
+  return input.repositories.coachRelationship.hasActiveCoachRelationship(input.athleteUserId, input.actor.actorId);
+}
+
 export async function applyTrainingPlanAdjustmentService(input: ApplyTrainingPlanAdjustmentInput): Promise<ApplyTrainingPlanAdjustmentServiceResult> {
   const userId = assertUserId(input.userId, "applyTrainingPlanAdjustmentService");
   const parsedCommand = parseWithSchema(TrainingPlanAdjustmentCommandSchema, input.command, "applyTrainingPlanAdjustmentService.command");
   const actor = actorForAdjustmentCommand(parsedCommand, input.actor ?? defaultAthleteActor(userId));
   const command = commandWithActor(parsedCommand, actor);
   const trainingBlockId = await resolveTrainingBlockId({ ...input, userId, command });
+  const trustedCoach = await coachActorTrusted({ repositories: input.repositories, trustedActor: input.trustedActor, athleteUserId: userId, actor });
   const result =
-    actor.actorType === "coach" && !input.trustedActor
+    actor.actorType === "coach" && !trustedCoach
       ? permissionRejectedResult(command, actor)
       : applyTrainingPlanAdjustment({
           activeBlock: input.state.training.activeBlock,

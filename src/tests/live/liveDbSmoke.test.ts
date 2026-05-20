@@ -92,6 +92,8 @@ describeLive("live Supabase CRUD smoke", () => {
 
     try {
       const repositories = createAthleteJourneyRepositories(client);
+      const coachRelationships = await repositories.coachRelationship?.listCoachRelationshipsForAthlete(userId);
+      expect(Array.isArray(coachRelationships)).toBe(true);
       const existingProfileResponse = await client
         .from("athlete_profiles")
         .select("id, profile, sensitive_medical, sensitive_cycle")

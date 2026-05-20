@@ -3,6 +3,7 @@ import type { AthleteJourney, FightOpportunity, ISODateString, TournamentDetails
 import type { CornerSupabaseClient } from "./client";
 import { createAthleteRepository } from "./athleteRepository";
 import { createBodyMassRepository } from "./bodyMassRepository";
+import { createCoachRelationshipRepository } from "./coachRelationshipRepository";
 import { createCycleRepository } from "./cycleRepository";
 import { createEngineRunRepository } from "./engineRunRepository";
 import { createExerciseResultRepository } from "./exerciseResultRepository";
@@ -41,6 +42,7 @@ export interface AthleteJourneyRepositories {
   engineRun: ReturnType<typeof createEngineRunRepository>;
   exerciseResult: ReturnType<typeof createExerciseResultRepository>;
   journey: ReturnType<typeof createJourneyRepository>;
+  coachRelationship?: ReturnType<typeof createCoachRelationshipRepository> | undefined;
 }
 
 export function createAthleteJourneyRepositories(client: CornerSupabaseClient): AthleteJourneyRepositories {
@@ -60,7 +62,8 @@ export function createAthleteJourneyRepositories(client: CornerSupabaseClient): 
     trainingProgression: createTrainingProgressionRepository(client),
     engineRun: createEngineRunRepository(client),
     exerciseResult: createExerciseResultRepository(client),
-    journey: createJourneyRepository(client)
+    journey: createJourneyRepository(client),
+    coachRelationship: createCoachRelationshipRepository(client)
   };
 }
 
