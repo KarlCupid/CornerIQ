@@ -7,6 +7,7 @@ export * from "../cycle/types";
 export * from "../wearable/types";
 export * from "../training/types";
 export * from "../nutrition/types";
+export * from "../nutrition/fuelCommandTypes";
 export * from "../bodyMass/types";
 export * from "../readiness/types";
 export * from "../safety/types";

@@ -18,6 +18,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
   const progressionDecisionStore = new Map<string, string>();
   const nextWeekPreviewStore = new Map<string, string>();
   const timelineEvents: unknown[] = [];
+  const nutritionTargets: unknown[] = [];
   const upsertRun = vi.fn(async (record: { as_of_date: string; engine_version: string; input_hash: string; user_id: string }) => {
     if (options.persistenceFailure) {
       throw new Error("remote insert failed");
@@ -42,7 +43,9 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
       }
     }
   });
-  const upsertNutritionTarget = vi.fn(async () => undefined);
+  const upsertNutritionTarget = vi.fn(async (record: unknown) => {
+    nutritionTargets.push(record);
+  });
   const upsertGeneratedSessions = vi.fn(async (records: readonly { engine_version: string; generated_session_key?: string | null; planned_date: string; user_id: string }[]) => {
     for (const record of records) {
       generatedSessionStore.set(`${record.user_id}:${record.planned_date}:${record.engine_version}:${record.generated_session_key ?? ""}`, record);
@@ -220,7 +223,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
 
   return {
     repositories,
-    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, nextWeekPreviewStore, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
+    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, nextWeekPreviewStore, nutritionTargets, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
     calls: {
       saveDecisionTracesForRun,
       upsertActiveTrainingBlock,
@@ -317,6 +320,18 @@ describe("resolveAndPersistPerformanceState", () => {
         })
       })
     );
+  });
+
+  it("persists the fuel command snapshot in the nutrition target audit payload", async () => {
+    const { repositories, stores } = createRepositories();
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(stores.nutritionTargets).toHaveLength(1);
+    const record = stores.nutritionTargets[0] as { target_payload: { nutrition: { commandCenter?: { primaryFuelAction?: string }; nutritionSafetyReview?: unknown; tournamentFuelPlan?: unknown; weightClassStatus?: unknown } } };
+    expect(record.target_payload.nutrition.commandCenter?.primaryFuelAction).toContain("Fuel");
+    expect(record.target_payload.nutrition.weightClassStatus).toBeTruthy();
+    expect(record.target_payload.nutrition.tournamentFuelPlan).toBeTruthy();
+    expect(record.target_payload.nutrition.nutritionSafetyReview).toBeTruthy();
   });
 
   it("returns needs_profile without persisting when profile is missing", async () => {

@@ -81,6 +81,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
+      onRequestNutritionSafetyReview={performance.requestNutritionSafetyReview}
       onSignOut={onSignOut}
       onSaveFightSetup={performance.saveFightSetup}
       onSaveTournamentSetup={performance.saveTournamentSetup}

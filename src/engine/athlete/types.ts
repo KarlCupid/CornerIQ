@@ -105,6 +105,7 @@ export type JourneyEventType =
   | "TrainingBlockSuperseded"
   | "TrainingPlanAdjusted"
   | "TrainingDeloadRequested"
+  | "NutritionSafetyReviewRequested"
   | "ReadinessLogged"
   | "SafetyFlagRaised"
   | "ProfessionalReviewRequired"

@@ -6,16 +6,19 @@ import type {
   CycleState,
   FightOpportunity,
   NutritionState,
+  ElectrolyteLog,
   FoodLog,
   PhaseState,
   ReadinessState,
   RiskFlag,
   TournamentStrategy,
   TrainingState,
+  WaterLog,
   WeighInContext
 } from "../core/types";
 import { toKg } from "../core/units";
 import { calculateMacroTargets } from "./macroTargets";
+import { resolveFuelCommandCenter } from "./fuelCommandEngine";
 import { summarizeFoodLogs } from "./foodLogSummary";
 import { resolveRehydrationPlan } from "./rehydrationEngine";
 import { sessionFuelingGuidance } from "./sessionFueling";
@@ -34,6 +37,8 @@ export function resolveNutrition(input: {
   safetyFlags: readonly RiskFlag[];
   acuteProtocolEligibility: AcuteProtocolEligibility;
   foodLogs: readonly FoodLog[];
+  waterLogs: readonly WaterLog[];
+  electrolyteLogs: readonly ElectrolyteLog[];
   foodLogCount: number;
   asOfDate: string;
 }): NutritionState {
@@ -76,6 +81,51 @@ export function resolveNutrition(input: {
     carbohydrateGrams: macros.carbohydrateGrams,
     fatGrams: macros.fatGrams
   });
+  const waterLiters = Number(Math.max(2.2, kg * 0.035).toFixed(1));
+  const sodiumGuidance = riskFlags.some((flag) => flag.code === "excess_plain_water_low_sodium")
+    ? "Do not keep adding plain water without sodium. Hydration needs electrolytes."
+    : "Keep sodium consistent unless a qualified review changes the plan.";
+  const sessionFueling = sessionFuelingGuidance(input.training);
+  const hitTheseFirst =
+    input.training.protectedAnchors.some((anchor) => anchor.type === "sparring")
+      ? ["Carbs before sparring", "Protein after", "Fluids plus electrolytes"]
+      : ["Protein steady", "Carbs around boxing", "Fluids consistent"];
+  const underFuelingRiskNote = underFuelingBlocked ? "Under-fueling risk is active, so deficit pressure is blocked and recovery fuel is protected." : null;
+  const command = resolveFuelCommandCenter({
+    athlete: input.athlete,
+    phase: input.phase,
+    fight: input.fight,
+    tournament: input.fight?.tournamentDetails ?? null,
+    tournamentStrategy: input.tournamentStrategy,
+    weighInContext: input.weighInContext,
+    bodyMass: input.bodyMass,
+    hydration: {
+      waterLiters,
+      electrolyteGuidance: sodiumGuidance,
+      riskFlags,
+      confidence: input.bodyMass.confidence
+    },
+    readiness: input.readiness,
+    cycle: input.cycle,
+    training: input.training,
+    safetyFlags: input.safetyFlags,
+    acuteProtocolEligibility: input.acuteProtocolEligibility,
+    rehydrationPlan,
+    foodLogs: input.foodLogs,
+    waterLogs: input.waterLogs,
+    electrolyteLogs: input.electrolyteLogs,
+    asOfDate: input.asOfDate,
+    nutritionTargets: {
+      dailyCaloriesTarget: macros.calories,
+      carbohydrateGrams: macros.carbohydrateGrams,
+      waterLiters,
+      sodiumGuidance,
+      sessionFueling,
+      lowResidueGuidance,
+      underFuelingRiskNote,
+      foodLogCountToday: input.foodLogCount
+    }
+  });
 
   return {
     dailyCaloriesTarget: macros.calories,
@@ -88,15 +138,10 @@ export function resolveNutrition(input: {
     fatGrams: macros.fatGrams,
     fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
     actualIntakeSummary,
-    waterLiters: Number(Math.max(2.2, kg * 0.035).toFixed(1)),
-    sodiumGuidance: riskFlags.some((flag) => flag.code === "excess_plain_water_low_sodium")
-      ? "Do not keep adding plain water without sodium. Hydration needs electrolytes."
-      : "Keep sodium consistent unless a qualified review changes the plan.",
-    sessionFueling: sessionFuelingGuidance(input.training),
-    hitTheseFirst:
-      input.training.protectedAnchors.some((anchor) => anchor.type === "sparring")
-        ? ["Carbs before sparring", "Protein after", "Fluids plus electrolytes"]
-        : ["Protein steady", "Carbs around boxing", "Fluids consistent"],
+    waterLiters,
+    sodiumGuidance,
+    sessionFueling,
+    hitTheseFirst,
     bodyMassNote: input.bodyMass.feasibility.explanation,
     cycleNote: input.cycle.trackingEnabled && input.cycle.nutritionAdjustment !== "No cycle nutrition adjustment applied." ? input.cycle.nutritionAdjustment : null,
     acuteProtocolStatus,
@@ -104,7 +149,14 @@ export function resolveNutrition(input: {
     lowResidueGuidance,
     tournamentFuelingGuidance,
     rehydrationPlan,
-    underFuelingRiskNote: underFuelingBlocked ? "Under-fueling risk is active, so deficit pressure is blocked and recovery fuel is protected." : null,
+    commandCenter: command.commandCenter,
+    weightClassStatus: command.weightClassStatus,
+    fightWeekFuelPlan: command.fightWeekFuelPlan,
+    rehydrationChecklist: command.rehydrationChecklist,
+    tournamentFuelPlan: command.tournamentFuelPlan,
+    nutritionSafetyReview: command.nutritionSafetyReview,
+    decisionStack: command.decisionStack,
+    underFuelingRiskNote,
     explanation:
       blocked
         ? "Nutrition target protects safety because a hard stop is active."

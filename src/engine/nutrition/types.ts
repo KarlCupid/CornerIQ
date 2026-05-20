@@ -1,6 +1,15 @@
 import type { Confidence, ConfidenceLevel, ISODateString } from "../core/sharedTypes";
 import type { AcuteProtocolEligibility, AcuteProtocolStatus } from "../fight/types";
 import type { RiskFlag } from "../safety/types";
+import type {
+  FightWeekFuelPlan,
+  FuelCommandCenterState,
+  FuelCommandDecisionItem,
+  NutritionSafetyReview,
+  RehydrationChecklist,
+  TournamentFuelPlan,
+  WeightClassStatus
+} from "./fuelCommandTypes";
 import type { FoodLogActualSummary } from "./foodLogSummary";
 
 export interface FoodLog {
@@ -60,6 +69,13 @@ export interface NutritionState {
   lowResidueGuidance: string | null;
   tournamentFuelingGuidance: string | null;
   rehydrationPlan: RehydrationPlan;
+  commandCenter: FuelCommandCenterState;
+  weightClassStatus: WeightClassStatus;
+  fightWeekFuelPlan: FightWeekFuelPlan;
+  rehydrationChecklist: RehydrationChecklist;
+  tournamentFuelPlan: TournamentFuelPlan;
+  nutritionSafetyReview: NutritionSafetyReview;
+  decisionStack: readonly FuelCommandDecisionItem[];
   underFuelingRiskNote: string | null;
   explanation: string;
   riskFlags: readonly RiskFlag[];

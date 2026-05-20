@@ -159,6 +159,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     safetyFlags: safety.riskFlags,
     acuteProtocolEligibility,
     foodLogs: journey.nutritionHistory,
+    waterLogs: journey.hydrationHistory,
+    electrolyteLogs: journey.electrolyteHistory,
     asOfDate: input.asOfDate,
     foodLogCount: journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length
   });

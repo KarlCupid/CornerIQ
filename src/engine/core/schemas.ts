@@ -291,6 +291,7 @@ export const JourneyEventSchema = z.object({
     "TrainingBlockSuperseded",
     "TrainingPlanAdjusted",
     "TrainingDeloadRequested",
+    "NutritionSafetyReviewRequested",
     "ReadinessLogged",
     "SafetyFlagRaised",
     "ProfessionalReviewRequired",

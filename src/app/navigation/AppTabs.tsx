@@ -27,6 +27,7 @@ export interface AppTabsProps {
   nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
+  onRequestNutritionSafetyReview?: (() => Promise<void>) | undefined;
   onSignOut: () => Promise<void>;
   onUpdateProfileSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   quickLogs: QuickLogActions;
@@ -36,7 +37,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeekPreviewActions, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeekPreviewActions, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -66,7 +67,18 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeek
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Fuel">{() => <FuelScreen busy={busy} message={message} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.fuel} />}</Tab.Screen>
+        <Tab.Screen name="Fuel">
+          {() => (
+            <FuelScreen
+              busy={busy}
+              message={message}
+              onRequestNutritionSafetyReview={onRequestNutritionSafetyReview}
+              quickLogs={quickLogs}
+              recentLogs={state.viewModels.recentLogs}
+              viewModel={state.viewModels.fuel}
+            />
+          )}
+        </Tab.Screen>
         <Tab.Screen name="Train">{() => <TrainScreen busy={busy} completionActions={workoutCompletion} completionMessage={message} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
         <Tab.Screen name="Plan">
           {() => (

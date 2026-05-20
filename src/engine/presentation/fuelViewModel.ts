@@ -22,6 +22,13 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
   const rehydration = state.nutrition.rehydrationPlan.status === "not_applicable" ? null : state.nutrition.rehydrationPlan;
   return {
     title: "Fuel the rounds",
+    commandCenter: state.nutrition.commandCenter,
+    weightClassStatus: state.nutrition.weightClassStatus,
+    fightWeekFuelPlan: state.nutrition.fightWeekFuelPlan,
+    rehydrationChecklist: state.nutrition.rehydrationChecklist,
+    tournamentFuelPlan: state.nutrition.tournamentFuelPlan,
+    nutritionSafetyReview: state.nutrition.nutritionSafetyReview,
+    decisionStack: state.nutrition.decisionStack,
     hitTheseFirst: state.nutrition.hitTheseFirst,
     calorieSummary: `${state.nutrition.dailyCaloriesTarget} kcal target (${state.nutrition.calorieRange.min}-${state.nutrition.calorieRange.max})`,
     macroSummary: `${state.nutrition.proteinGrams}g protein, ${state.nutrition.carbohydrateGrams}g carbs, ${state.nutrition.fatGrams}g fat`,

@@ -1,5 +1,54 @@
 # Codex Audit Log
 
+## 2026-05-20 11:08 America/Vancouver
+
+Goal summary:
+- Build a boxing-specific Fuel / Weight-Class Command Center.
+- Keep nutrition, body-mass, fight-week, tournament, cycle, readiness, and safety logic in deterministic engine modules.
+- Surface athlete-readable fuel actions before raw data.
+- Persist the fuel command audit through existing tables without adding unsafe weight-cut guidance.
+- Add a safety-review request skeleton without allowing self-clear.
+
+Key changes:
+- Added `fuelCommandTypes` and `fuelCommandEngine` with command center, weight-class status, fight-week plan, rehydration checklist, tournament plan, nutrition safety review, and decision stack.
+- Integrated Fuel command outputs into `NutritionState` and `FuelViewModel`.
+- Updated Fuel screen and added `FuelCommandCards` so primary action, safety review, weight-class status, session fuel, actual intake, hydration, fight-week/tournament/rehydration, quick logs, and recent logs render in that order.
+- Added `requestNutritionSafetyReview` service plus `NutritionSafetyReviewRequested` journey event type/schema. The service records review need but does not clear hard stops.
+- Reused existing `nutrition_targets.target_payload` for command snapshot persistence; no `008` migration was added.
+- Extended live smoke to verify persisted nutrition target payload includes command center/weight-class status and excludes tested unsafe terms.
+- Added `docs/18_NUTRITION_WEIGHT_CLASS_LIFECYCLE.md`.
+
+Command results:
+- Baseline direct `npm run typecheck`: blocked by PowerShell `npm.ps1` execution policy; `cmd /c npm run typecheck` passed.
+- Baseline `cmd /c npm test`: sandboxed Vitest failed with config access denied; outside sandbox passed with `258` tests passed and `1` skipped.
+- Baseline `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; outside sandbox passed.
+- Baseline `cmd /c npm run lint`: passed.
+- Supabase CLI version: `2.100.1`.
+- Supabase migration list: local/remote `001` through `007` aligned.
+- Supabase dry run: `Remote database is up to date.`
+- Initial live smoke without loading `.env`: failed before assertions with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`; ignored `.env` contained required smoke variable names without printing values.
+- Baseline live smoke with ignored `.env` loaded: passed, `1` test, test body `10882ms`.
+- Targeted `fuelCommandEngine` test: after two assertion/priority fixes, passed with `15` tests.
+- Targeted Fuel UI, review service, and persistence tests: passed with `73` tests.
+- Final `cmd /c npm test`: passed with `27` files passed and `1` skipped; `280` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with `27` files passed and `1` skipped; `280` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final `cmd /c npm run smoke:live-db` with ignored `.env` and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `11139ms`.
+- Final Supabase migration list/dry-run: `001` through `007` aligned and remote DB up to date.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- Secret/service-role scan across app/hooks/engine/services/docs excluding tests: no secret values; matches were documented variable names and Edge Function boundary docs only.
+- `git rev-parse HEAD`: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a`.
+- No commit was created in this pass.
+
+Known gaps:
+- Dedicated nutrition-command audit tables were deferred; command snapshots use `nutrition_targets`.
+- Safety review is a request skeleton only; no clinician/coach messaging or cleared-status workflow.
+- Food logging remains manual/basic; no barcode scanning, full meal planning, detailed food database, or nutrition drill-down.
+- Coach UI, production coach audit logging/admin/team policy, numeric load progression, and scheduled/background roll-forward remain deferred.
+
+Next recommendation:
+- Build a permissioned nutrition safety-review lifecycle after coach/clinician permissions are ready, or deepen manual food logging history while keeping barcode scanning and meal planning deferred.
+
 ## 2026-05-20 10:31 America/Vancouver
 
 Goal summary:

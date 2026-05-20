@@ -545,8 +545,13 @@ describeLive("live Supabase CRUD smoke", () => {
       }
       const targetResponse = await client.from("nutrition_targets").select("id, target_payload").eq("user_id", userId).filter("target_payload->>inputHash", "eq", inputHash);
       expect(targetResponse.error).toBeNull();
+      expect(targetResponse.data?.length ?? 0).toBeGreaterThan(0);
       const existingTargetIds = new Set(existingNutritionTargets.map((row) => row.id));
       for (const row of targetResponse.data ?? []) {
+        const serializedTarget = JSON.stringify(row.target_payload).toLowerCase();
+        expect(serializedTarget).toContain("commandcenter");
+        expect(serializedTarget).toContain("weightclassstatus");
+        expect(serializedTarget).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/);
         if (!existingTargetIds.has(row.id)) {
           await client.from("nutrition_targets").update({ target_payload: smokePayload(row.target_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
         }

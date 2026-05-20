@@ -1,14 +1,14 @@
 # Codex Last Handoff
 
-Date/time: 2026-05-20 10:31 America/Vancouver
+Date/time: 2026-05-20 11:08 America/Vancouver
 
 Branch: `main`
 
-Latest known commit from prompt: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee` (`Persist generated sessions from next-week previews`)
+Latest known commit from prompt: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a` (`Refine boxing safety rules and engine-first guidance`)
 
-Latest commit before pass from `git log`: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee` (`Persist generated sessions from next-week previews`)
+Latest commit before pass from `git log`: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a` (`Refine boxing safety rules and engine-first guidance`)
 
-Current `git rev-parse HEAD` at handoff time: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee`
+Current `git rev-parse HEAD` at handoff time: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a`
 
 Commit created in this run: none. This pass leaves working-tree changes for the user/auditor to commit.
 
@@ -18,93 +18,110 @@ Post-commit hash should be checked by auditor: yes.
 
 ## Summary
 
-This sixteenth implementation pass adds a safe automatic week-boundary roll-forward policy. Accepted next-week previews now auto-materialize through app refresh when the athlete reaches the preview week, while unaccepted previews stay review-only, hold-for-review previews remain blocked without explicit approval, hard-stop safety blocks materialization, and stale previews do not mutate previous weeks.
+This seventeenth implementation pass brings Fuel/weight-class intelligence closer to the training moat without adding unsafe cut instructions. The new engine-owned Fuel Command Center turns existing nutrition, body-mass, fight-week, tournament, cycle, readiness, hydration, and safety signals into athlete-readable actions.
 
-The implementation keeps programming logic in services/hooks/view models, not screens. `autoRollForwardTrainingPlan` wraps the existing materializer, adds idempotency/loop protection, returns refresh guidance, and writes audit-friendly timeline/journey payloads with `autoRollForward: true`. Plan now shows roll-forward status copy, and Train/Plan tests prove future generated sessions stay date-scoped.
+The Fuel screen now starts with interpretation and action, then safety review, weight-class status, session fueling, actual-vs-target intake, hydration/electrolytes, fight-week/tournament/rehydration cards, quick logs, recent logs, and risk explanation. Screens still do not import low-level nutrition/body-mass/fight/safety engines.
 
-Coach approval was hardened by extracting pure policy helpers, adding helper tests/static checks, and documenting deployment, env vars, permission keys, service-role boundary, revocation, and limitations. Coach UI remains hidden.
+No `008` migration was added. Existing `nutrition_targets.target_payload` now persists the resolved command snapshot because it stores `state.nutrition`; the live smoke verifies the persisted payload includes the command center and weight-class status.
+
+## Internal Implementation Note
+
+What already existed:
+- Macro/hydration targets, actual-vs-target food summary, under-fueling risk flags, body-mass feasibility, acute protocol gates, low-residue copy, tournament strategy, rehydration engine, and safety hard stops already existed.
+
+What was reused:
+- `resolveNutrition`, `resolveWeightClassFeasibility`, `resolveAcuteProtocolEligibility`, `resolveTournamentStrategy`, `resolveRehydrationPlan`, cycle scale-noise output, readiness color, and existing `nutrition_targets` persistence.
+
+What was added:
+- Fuel command domain types, `resolveFuelCommandCenter`, FuelViewModel command fields, Fuel command UI cards, review-request service skeleton, journey event type `NutritionSafetyReviewRequested`, command snapshot persistence test, live smoke payload assertion, and `docs/18_NUTRITION_WEIGHT_CLASS_LIFECYCLE.md`.
+
+What was deliberately deferred:
+- Dedicated `008_nutrition_command_audit.sql`, clinician/coach messaging, review-cleared workflow, barcode scanning, full meal planning, detailed food database/history, and any unsafe acute weight-cut protocol detail.
 
 ## Files Changed By Domain
 
-Auto roll-forward policy and app data flow:
-- `src/services/training/autoRollForwardTrainingPlan.ts`
-- `src/hooks/useAutoRollForward.ts`
-- `src/hooks/usePerformanceState.ts`
-- `src/services/engine/resolveAndPersistPerformanceState.ts`
-- `src/services/training/materializeNextWeekTrainingPlan.ts`
+Fuel command engine and types:
+- `src/engine/nutrition/fuelCommandTypes.ts`
+- `src/engine/nutrition/fuelCommandEngine.ts`
+- `src/engine/nutrition/types.ts`
+- `src/engine/nutrition/nutritionEngine.ts`
+- `src/engine/core/performanceKernel.ts`
+- `src/engine/core/types.ts`
 
-Plan view model and UI:
+Journey/review typing:
+- `src/engine/athlete/types.ts`
+- `src/engine/core/schemas.ts`
+
+Fuel view model and UI:
 - `src/engine/presentation/types.ts`
-- `src/engine/presentation/planViewModel.ts`
-- `src/app/screens/PlanScreen.tsx`
+- `src/engine/presentation/fuelViewModel.ts`
+- `src/app/screens/FuelScreen.tsx`
+- `src/app/screens/fuel/FuelCommandCards.tsx`
+- `src/app/navigation/AppTabs.tsx`
+- `src/app/App.tsx`
 
-Coach approval hardening:
-- `supabase/functions/approve-coach-relationship/index.ts`
-- `supabase/functions/approve-coach-relationship/policy.ts`
-- `supabase/functions/approve-coach-relationship/README.md`
+Safety review service/hook:
+- `src/services/nutrition/requestNutritionSafetyReview.ts`
+- `src/hooks/usePerformanceState.ts`
 
 Tests and live smoke:
-- `src/tests/services/autoRollForwardTrainingPlan.test.ts`
-- `src/tests/services/coachApprovalPolicy.test.ts`
-- `src/tests/services/supabaseRepositories.test.ts`
+- `src/tests/engine/fuelCommandEngine.test.ts`
 - `src/tests/app/appShell.test.ts`
-- `src/tests/engine/kernelViewModelsPersistence.test.ts`
+- `src/tests/services/nutritionSafetyReviewService.test.ts`
+- `src/tests/services/engineResolvePersistence.test.ts`
 - `src/tests/live/liveDbSmoke.test.ts`
 
 Audit/status docs:
+- `docs/18_NUTRITION_WEIGHT_CLASS_LIFECYCLE.md`
 - `docs/CODEX_LAST_HANDOFF.md`
 - `docs/CODEX_AUDIT_LOG.md`
 - `docs/FEATURE_STATUS.md`
 - `docs/KNOWN_GAPS.md`
 - `docs/11_SUPABASE_REMOTE_STATUS.md`
-- `docs/16_TRAINING_BLOCK_LIFECYCLE.md`
-- `docs/17_COACH_TEAM_PERMISSIONS.md`
 
 ## Commands And Results
 
 Baseline:
-- `git status`: clean working tree before implementation; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
-- `git log --oneline --decorate -8`: latest commit was `21aeeb3 (HEAD -> main, origin/main) Persist generated sessions from next-week previews`.
+- `git status --short`: clean working tree before implementation; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- `git log --oneline --decorate -8`: latest commit was `8aed088 (HEAD -> main, origin/main) Refine boxing safety rules and engine-first guidance`.
 - Direct `npm run typecheck`: blocked by PowerShell `npm.ps1` execution policy.
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: sandboxed Vitest failed with config access denied; rerun outside sandbox passed with `23` test files passed, `1` skipped, `240` tests passed, `1` skipped.
-- `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; rerun outside sandbox passed with `240` tests passed and `1` skipped.
+- `cmd /c npm test`: sandboxed Vitest failed with config access denied; rerun outside sandbox passed with `25` test files passed, `1` skipped, `258` tests passed, `1` skipped.
+- `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; rerun outside sandbox passed with `258` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
 - `cmd /c npm exec supabase -- --version`: sandboxed CLI failed writing `C:\Users\karll\.supabase\telemetry.json`; rerun outside sandbox returned `2.100.1`.
 - `cmd /c npm exec supabase -- migration list`: local/remote `001` through `007` aligned.
 - `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
 - `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db` without loading `.env`: failed before live assertions with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-- Ignored `.env` name check found `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `CORNERIQ_SMOKE_EMAIL`, and `CORNERIQ_SMOKE_PASSWORD` without printing values.
-- Ignored `.env` loaded into the process with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: baseline smoke passed, `1` test passed.
+- Ignored `.env` name check found `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `CORNERIQ_LIVE_DB_SMOKE`, `CORNERIQ_SMOKE_EMAIL`, and `CORNERIQ_SMOKE_PASSWORD` without printing values.
+- Ignored `.env` loaded into the process with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: baseline smoke passed, `1` test passed, test body `10882ms`.
 
 Implementation verification:
 - `cmd /c npm run typecheck`: passed after edits.
-- Targeted `cmd /c npm test -- src/tests/services/autoRollForwardTrainingPlan.test.ts src/tests/app/appShell.test.ts src/tests/services/coachApprovalPolicy.test.ts src/tests/services/supabaseRepositories.test.ts src/tests/services/materializeNextWeekTrainingPlan.test.ts`: first run found fixture/static-test issues; after fixes, passed with `103` tests.
-- Targeted `cmd /c npm test -- src/tests/engine/kernelViewModelsPersistence.test.ts`: passed with `7` tests after the Plan view-model fixture was corrected.
-- `cmd /c npm run lint`: passed.
-- Final `cmd /c npm test`: passed; `25` test files passed, `1` skipped, `258` tests passed, `1` skipped.
-- Final `cmd /c npm run quality`: passed; quality reran typecheck plus tests, `25` files passed, `1` skipped, `258` tests passed, `1` skipped.
-- Final `cmd /c npm exec supabase -- --version`: passed, `2.100.1`.
+- Targeted `cmd /c npx vitest run src/tests/engine/fuelCommandEngine.test.ts`: first run found two assertion/priority issues; after fixes, passed with `15` tests.
+- Targeted `cmd /c npx vitest run src/tests/app/appShell.test.ts src/tests/services/nutritionSafetyReviewService.test.ts src/tests/services/engineResolvePersistence.test.ts`: passed with `3` files and `73` tests.
+- Final `cmd /c npm test`: passed with `27` test files passed, `1` skipped, `280` tests passed, `1` skipped.
+- Final `cmd /c npm run quality`: passed; quality reran typecheck plus tests with `27` files passed, `1` skipped, `280` tests passed, `1` skipped.
+- Final `cmd /c npm run lint`: passed.
 - Final `cmd /c npm exec supabase -- migration list`: passed; local/remote `001` through `007` aligned.
 - Final `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
-- Extended live smoke using ignored `.env` values and `CORNERIQ_LIVE_DB_SMOKE=1`: passed, `src/tests/live/liveDbSmoke.test.ts`, `1` test passed, test body `12284ms`.
+- Extended live smoke using ignored `.env` values and `CORNERIQ_LIVE_DB_SMOKE=1`: passed, `src/tests/live/liveDbSmoke.test.ts`, `1` test passed, test body `11139ms`.
 - `git diff --check`: passed with Windows LF-to-CRLF warnings only.
-- `rg -n "SERVICE_ROLE|service_role|SUPABASE_SERVICE_ROLE_KEY" src\app src\hooks src\engine src\services --glob "!src/tests/**"`: no matches.
-- `rg -n "CORNERIQ_SMOKE_PASSWORD|CORNERIQ_SMOKE_EMAIL|smoke password|password" docs src\engine src\services src\app supabase\functions`: only ordinary auth UI/service password references plus docs stating smoke secrets were not printed.
-- `git rev-parse HEAD`: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee`.
-- `git status --short`: listed only this pass's modified/new files; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Secret/service-role scan across app/hooks/engine/services/docs excluding tests: no secret values found; matches were documented variable names and existing Edge Function service-role boundary docs only.
+- `git rev-parse HEAD`: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a`.
+- `git status --short`: listed this pass's modified/new files only; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
 
 ## Live Smoke Result
 
 Passed with ignored `.env` loaded into the process and `CORNERIQ_LIVE_DB_SMOKE=1`.
 
-The live smoke now verifies auth, manual writes, safe coach relationship RLS read, `AthleteJourney` load, `PerformanceState` resolution, training blocks, microcycles, day plans, persisted next-week previews, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, generated workout completion, `completed_training_sessions`, `exercise_results`, engine persistence, tagged cleanup/restoration of smoke-created or smoke-touched rows, and prior profile restore.
+The live smoke verifies auth, manual writes, safe coach relationship RLS read, `AthleteJourney` load, `PerformanceState` resolution, training blocks, microcycles, day plans, persisted next-week previews, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, generated workout completion, `completed_training_sessions`, `exercise_results`, engine persistence, nutrition target command-center payload, no tested unsafe terms in the persisted fuel command payload, tagged cleanup/restoration of smoke-created or smoke-touched rows, and prior profile restore.
 
 ## Migration Status
 
 Supabase CLI `2.100.1` verified. Remote migration list shows `001` through `007` applied. Final dry run reports `Remote database is up to date.`
 
-No migration was added or applied in this pass. Auto roll-forward reuses existing `training_next_week_previews`, `training_microcycles`, `training_day_plans`, `generated_training_sessions`, `training_block_timeline_events`, and `athlete_journey_events`.
+No migration was added or applied in this pass. Nutrition command audit uses existing `nutrition_targets.target_payload`, which already has owner RLS and idempotent `user_id,target_date,engine_version` upsert behavior.
 
 ## Secrets Confirmation
 
@@ -112,43 +129,41 @@ Ignored local `.env` values were loaded only into command processes for live smo
 
 ## What Tests Prove
 
-- `autoRollForwardTrainingPlan` tests prove no-op behavior with no accepted preview, no auto materialization before boundary, materialization at boundary, idempotency after materialized status, hard-stop blocking, hold-for-review blocking, wrong user/block rejection, refresh flag truthiness only on materialization, audit payloads, journey audit event append, and no generated sparring/contact prescriptions.
-- `usePerformanceState` tests prove ready-state refresh calls auto roll-forward when due, materialized roll-forward refreshes state once, stale-repo loop protection prevents repeated materialization for the same preview, and auto errors are non-fatal messages that keep existing ready state visible.
-- Plan view-model/UI tests prove accepted-waiting, materialized, blocked, hold-for-review, and unaccepted-at-boundary copy; screens still do not import low-level engine modules or `autoRollForwardTrainingPlan`.
-- Future generated-session tests prove materialized future sessions are excluded from Train before their date, included on their planned date, detailed sessions can build from them, Plan shows generated support on the future date, and duplicate persisted/generated sessions are merged.
-- Materialization tests still prove boundary persistence, generated-session deterministic keys, hard-stop/hold-for-review gates, conservative tournament behavior, and no preview materialized status if generated-session persistence fails.
-- Coach approval tests prove missing auth parsing, invalid payload rejection, unsupported permission key rejection, athlete-only pending approval, no service role in Expo/client code, and hidden coach UI.
-- Live smoke proves the remote auto-roll-forward path creates preview-week microcycle/day-plan rows, future generated sessions, materialized preview status, auto timeline payload, no duplicate materialization on repeat, and scoped cleanup using smoke metadata.
+- `fuelCommandEngine.test.ts` proves build/camp/fight-week/tournament/post-weigh-in states, on-track/behind/ahead weight-class status, same-day aggressive cut block, day-before staged rehydration, same-day conservative rehydration, minor block, possible pregnancy block, heavy bleeding plus dizziness block, cycle scale-noise protection, under-fueling block, red-readiness protection, high-demand session carb/fluid priority, and absence of tested unsafe output terms.
+- `appShell.test.ts` proves Fuel renders command-first, keeps actual-vs-target non-shaming, shows safety review up front, hides dangerous instructions, renders staged rehydration warning symptoms, renders tournament stay-near-weight priorities, and screens do not import low-level engine modules.
+- `nutritionSafetyReviewService.test.ts` proves review requests append `NutritionSafetyReviewRequested`, hard stops remain hard stops, no self-clear event is created when review is not required, and missing `userId` is blocked before persistence.
+- `engineResolvePersistence.test.ts` proves the Fuel command snapshot persists through `nutrition_targets.target_payload` with command center, weight-class status, tournament plan, and safety review fields.
+- `liveDbSmoke.test.ts` proves the remote resolved/persisted fuel command payload exists and does not contain the tested unsafe terms.
+- Existing training tests remain green, proving this pass did not regress the training moat.
 
 ## Known Gaps
 
-- Numeric load progression remains deferred until structured load fields exist; free-text load is still notes only.
-- Coach UI remains hidden.
-- Coach approval still needs production audit logging, deployed function tests, admin/team policy, and athlete-facing consent copy before any coach controls ship.
-- Team memberships remain deferred.
-- Calendar drag/drop polish remains deferred.
-- Server-scheduled/background roll-forward remains deferred; app refresh now performs the automatic boundary policy.
-- Generated-session template depth is intentionally conservative and should expand only with additional safety tests.
-- Block history and exercise history remain panels, not routed drill-down screens.
+- No dedicated `nutrition_command_snapshots` or `nutrition_safety_reviews` tables yet; existing `nutrition_targets` and journey events are used.
+- Safety review is a request/acknowledgement skeleton only; no clinician/coach messaging, review status lifecycle, or cleared state.
+- Food logging remains manual macro/fiber/sodium quick entry.
+- No barcode scanning.
+- No full meal-planning system or detailed food database.
+- Numeric load progression remains deferred until structured load fields exist.
+- Coach UI remains hidden and coach production audit logging/admin/team policy remains deferred.
+- Scheduled/background roll-forward remains deferred; app refresh performs automatic boundary policy.
 
 ## Recommended Next Prompt Direction
 
-Add production audit/deployment coverage for coach approval and decide whether app-refresh auto roll-forward should later be supplemented by a scheduled server job. Keep routed history screens and calendar polish deferred until the safety/audit surfaces remain stable.
+Build the nutrition safety-review lifecycle only after coach/clinician permission boundaries are ready, or deepen manual food logging history first. Keep barcode scanning and full meal planning deferred.
 
 ## Inspect First
 
-1. `src/services/training/autoRollForwardTrainingPlan.ts`
-2. `src/hooks/useAutoRollForward.ts`
-3. `src/hooks/usePerformanceState.ts`
-4. `src/services/engine/resolveAndPersistPerformanceState.ts`
-5. `src/services/training/materializeNextWeekTrainingPlan.ts`
-6. `src/engine/presentation/planViewModel.ts`
-7. `src/app/screens/PlanScreen.tsx`
-8. `supabase/functions/approve-coach-relationship/policy.ts`
-9. `supabase/functions/approve-coach-relationship/index.ts`
-10. `supabase/functions/approve-coach-relationship/README.md`
-11. `src/tests/services/autoRollForwardTrainingPlan.test.ts`
-12. `src/tests/app/appShell.test.ts`
+1. `src/engine/nutrition/fuelCommandEngine.ts`
+2. `src/engine/nutrition/fuelCommandTypes.ts`
+3. `src/engine/nutrition/nutritionEngine.ts`
+4. `src/engine/presentation/fuelViewModel.ts`
+5. `src/app/screens/FuelScreen.tsx`
+6. `src/app/screens/fuel/FuelCommandCards.tsx`
+7. `src/services/nutrition/requestNutritionSafetyReview.ts`
+8. `src/hooks/usePerformanceState.ts`
+9. `src/tests/engine/fuelCommandEngine.test.ts`
+10. `src/tests/app/appShell.test.ts`
+11. `src/tests/services/nutritionSafetyReviewService.test.ts`
+12. `src/tests/services/engineResolvePersistence.test.ts`
 13. `src/tests/live/liveDbSmoke.test.ts`
-14. `docs/16_TRAINING_BLOCK_LIFECYCLE.md`
-15. `docs/17_COACH_TEAM_PERMISSIONS.md`
+14. `docs/18_NUTRITION_WEIGHT_CLASS_LIFECYCLE.md`

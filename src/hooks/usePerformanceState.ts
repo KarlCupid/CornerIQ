@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import type { ISODateString } from "../engine/core/types";
 import { useAutoRollForward } from "./useAutoRollForward";
 import { resolveAndPersistPerformanceState, type ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
+import { requestNutritionSafetyReview as requestNutritionSafetyReviewService } from "../services/nutrition/requestNutritionSafetyReview";
 import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, type AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 import {
@@ -33,6 +34,7 @@ export interface PerformanceStateHook {
   message: string | null;
   refresh: () => Promise<ResolveAndPersistPerformanceStateResult>;
   repositories: AthleteJourneyRepositories;
+  requestNutritionSafetyReview: () => Promise<void>;
   result: ResolveAndPersistPerformanceStateResult | null;
   saveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   saveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
@@ -170,6 +172,28 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     [refresh, repositories, result, userId]
   );
 
+  const requestNutritionSafetyReview = useCallback(async () => {
+    if (result?.status !== "ready") {
+      setMessage("Safety review can be logged after engine state loads.");
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
+    try {
+      const reviewResult = await requestNutritionSafetyReviewService({
+        userId,
+        asOfDate,
+        repositories,
+        review: result.state.viewModels.fuel.nutritionSafetyReview
+      });
+      await refresh();
+      setMessage(reviewResult.message);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Nutrition safety review request failed.");
+      setLoading(false);
+    }
+  }, [asOfDate, refresh, repositories, result, userId]);
+
   return {
     asOfDate,
     completeOnboarding: finishOnboarding,
@@ -178,6 +202,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     message,
     refresh,
     repositories,
+    requestNutritionSafetyReview,
     result,
     saveFightSetup: saveFight,
     saveTournamentSetup: saveTournament,

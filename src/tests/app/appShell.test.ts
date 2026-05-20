@@ -16,7 +16,7 @@ import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useU
 import { usePerformanceState } from "../../hooks/usePerformanceState";
 import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
-import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper } from "../fixtures/engineFixtures";
+import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { createDefaultOnboardingDraft } from "../../services/supabase/onboardingService";
 import { validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
@@ -82,8 +82,89 @@ const todayViewModel: TodayViewModel = {
   quickLogs: ["Body mass", "Readiness", "Water"]
 };
 
+const fuelDecisionStack = [
+  {
+    label: "Primary action",
+    summary: "Fuel the boxing work first.",
+    why: "Safety and boxing performance stay ahead of weight-class pressure.",
+    severity: "info" as const,
+    confidence: "medium" as const
+  }
+];
+
+const fuelCommandCenter = {
+  phase: "build" as const,
+  primaryFuelAction: "Fuel today's boxing work before changing body composition pressure.",
+  bodyMassAction: "Fuel training quality; no weight-class action is active.",
+  sessionFuelAction: "Use familiar carbs around boxing practice.",
+  hydrationAction: "2.5L target context. Keep sodium consistent.",
+  cycleAction: "No cycle assumptions are applied.",
+  safetyAction: "No nutrition hard stop is active.",
+  confidence: {
+    level: "medium" as const,
+    score: 0.7,
+    reasons: ["test fuel command"],
+    missingInputs: []
+  },
+  decisionStack: fuelDecisionStack
+};
+
 const fuelViewModel: FuelViewModel = {
   title: "Fuel",
+  commandCenter: fuelCommandCenter,
+  weightClassStatus: {
+    status: "no_active_weight_target",
+    latestBodyMassKg: null,
+    trendSummary: "Trend unknown until a current body-mass log exists.",
+    targetSummary: "No active weight-class target today.",
+    projectedReadiness: "Readiness supports normal boxing fuel priorities.",
+    explanation: "No fight or tournament weight-class target is active today.",
+    nextAction: "Fuel training quality and keep manual body-mass logging optional.",
+    safetyFlags: []
+  },
+  fightWeekFuelPlan: {
+    status: "build_phase",
+    fiberGuidance: "Keep normal fiber from familiar foods unless fight-week gut comfort is active.",
+    sodiumGuidance: "Keep sodium consistent.",
+    carbohydrateGuidance: "Keep carbs steady around boxing work.",
+    hydrationGuidance: "Use steady fluids with electrolytes.",
+    gutComfortGuidance: "Use familiar foods.",
+    blockedReasons: [],
+    reviewReasons: [],
+    safeActions: ["Protect calories."],
+    unsafeActionsHidden: true,
+    explanation: "Fuel plan separates body-composition trajectory from fight-week gut comfort."
+  },
+  rehydrationChecklist: {
+    status: "not_applicable",
+    timeWindowHours: null,
+    immediateActions: [],
+    firstMeal: null,
+    nextMeal: null,
+    fluidsAndElectrolytes: null,
+    carbPriority: null,
+    gutComfortRules: [],
+    warningSymptoms: [],
+    confidence: { level: "medium", score: 0.7, reasons: ["not post-weigh-in"], missingInputs: [] }
+  },
+  tournamentFuelPlan: {
+    status: "not_applicable",
+    stayNearWeightStrategy: "No tournament fuel mode is active.",
+    dailyWeighInPriorities: [],
+    betweenBoutPriorities: [],
+    eveningMealGuidance: "No tournament evening meal guidance is active.",
+    travelFoodGuidance: "Keep familiar travel foods available when a tournament is scheduled.",
+    warningFlags: [],
+    explanation: "No active tournament context."
+  },
+  nutritionSafetyReview: {
+    required: false,
+    reasons: [],
+    blockingFlags: [],
+    suggestedNextSteps: ["No safety review is required for the current fuel command."],
+    professionalReviewCopy: "No professional review gate is active for today."
+  },
+  decisionStack: fuelDecisionStack,
   hitTheseFirst: ["Water", "Carbs"],
   calorieSummary: "2200 kcal target",
   macroSummary: "130g protein",
@@ -570,7 +651,8 @@ describe("minimal app screens", () => {
   it("FuelScreen renders hitTheseFirst before raw details", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel })).toJSON());
-    expect(output.indexOf("Water")).toBeLessThan(output.indexOf("2200 kcal target"));
+    expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("2200 kcal target"));
+    expect(output.indexOf("Carbs")).toBeLessThan(output.indexOf("2200 kcal target"));
     expect(output).toContain("Food quick log");
   });
 
@@ -584,6 +666,20 @@ describe("minimal app screens", () => {
         confidence: "low",
         rows: ["0 kcal logged (0% of target)", "8g fiber logged", "700mg sodium logged"]
       },
+      fightWeekFuelPlan: {
+        ...fuelViewModel.fightWeekFuelPlan,
+        status: "fight_week_ready",
+        carbohydrateGuidance: "Keep fight-week carbs steady.",
+        explanation: "Fight-week fuel stays steady."
+      },
+      tournamentFuelPlan: {
+        ...fuelViewModel.tournamentFuelPlan,
+        status: "active",
+        stayNearWeightStrategy: "Stay near weight between bouts.",
+        dailyWeighInPriorities: ["Morning body mass context"],
+        betweenBoutPriorities: ["Predictable carbs."],
+        explanation: "Tournament mode is active."
+      },
       fightWeekFuel: { title: "Fight-week fuel", status: "info", summary: "Keep fuel steady.", actions: ["Lower fiber does not mean lower calories."] },
       tournamentFuel: { title: "Tournament fuel", status: "info", summary: "Stay near weight.", actions: ["Predictable carbs."] }
     };
@@ -594,6 +690,64 @@ describe("minimal app screens", () => {
     expect(output).toContain("700mg sodium");
     expect(output).toContain("Fight-week fuel");
     expect(output).toContain("Tournament fuel");
+  });
+
+  it("FuelScreen renders safety review up front without dangerous instructions", async () => {
+    const { FuelScreen } = await import("../../app/screens/FuelScreen");
+    const state = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
+    const onRequestNutritionSafetyReview = vi.fn();
+    const output = JSON.stringify(
+      render(
+        React.createElement(FuelScreen, {
+          busy: false,
+          message: null,
+          onRequestNutritionSafetyReview,
+          quickLogs: quickLogActions,
+          recentLogs: recentLogsViewModel,
+          viewModel: state.viewModels.fuel
+        })
+      ).toJSON()
+    );
+
+    expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("Actual vs target today"));
+    expect(output).toContain("Safety review");
+    expect(output).toContain("Review required before this plan can continue");
+    expect(output).toContain("Acknowledge / log review needed");
+    expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
+  });
+
+  it("FuelScreen renders staged rehydration checklist with warning symptoms", async () => {
+    const { FuelScreen } = await import("../../app/screens/FuelScreen");
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_8_round_camp_day_before_weigh_in,
+        activeFightOpportunity: {
+          ...pro_8_round_camp_day_before_weigh_in.activeFightOpportunity!,
+          boutDate: "2026-05-21",
+          weighInDateTime: "2026-05-18T10:00:00.000Z",
+          weighInType: "day_before"
+        }
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel })).toJSON());
+
+    expect(output).toContain("Rehydration checklist");
+    expect(output).toContain("First meal");
+    expect(output).toContain("Fluids/electrolytes");
+    expect(output).toContain("Warning symptoms");
+    expect(output).toContain("fainting");
+  });
+
+  it("FuelScreen renders tournament stay-near-weight priorities", async () => {
+    const { FuelScreen } = await import("../../app/screens/FuelScreen");
+    const state = resolvePerformanceState({ journey: amateur_open_tournament, asOfDate: fixtureAsOfDate });
+    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel })).toJSON());
+
+    expect(output).toContain("Tournament fuel");
+    expect(output).toContain("Stay close enough");
+    expect(output).toContain("Daily weigh-in priorities");
+    expect(output).toContain("Between bouts");
   });
 
   it("TrainScreen renders session rationale", async () => {

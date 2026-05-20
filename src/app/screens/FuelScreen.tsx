@@ -4,12 +4,22 @@ import type { FuelContextCard, FuelViewModel, RecentLogsViewModel } from "../../
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
-import { FoodQuickLogCard } from "./logging/LogCards";
+import {
+  FightWeekFuelCard,
+  FuelCommandCard,
+  NutritionSafetyReviewCard,
+  RehydrationChecklistCard,
+  SessionFuelingCard,
+  TournamentFuelCard,
+  WeightClassStatusCard
+} from "./fuel/FuelCommandCards";
+import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
 export interface FuelScreenProps {
   busy: boolean;
   message: string | null;
+  onRequestNutritionSafetyReview?: (() => void | Promise<void>) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: FuelViewModel;
@@ -27,19 +37,14 @@ function FuelContextCardView({ card }: { card: FuelContextCard }) {
   );
 }
 
-export function FuelScreen({ busy, message, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
+export function FuelScreen({ busy, message, onRequestNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
-      <EngineCard>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Hit these first</Text>
-          {viewModel.hitTheseFirst.map((item) => <Text key={item} style={screenStyles.callout}>{item}</Text>)}
-        </View>
-      </EngineCard>
-      {viewModel.fightWeekFuel ? <FuelContextCardView card={viewModel.fightWeekFuel} /> : null}
-      {viewModel.tournamentFuel ? <FuelContextCardView card={viewModel.tournamentFuel} /> : null}
-      {viewModel.rehydrationPlan ? <FuelContextCardView card={viewModel.rehydrationPlan} /> : null}
+      <FuelCommandCard command={viewModel.commandCenter} />
+      <NutritionSafetyReviewCard onRequestReview={onRequestNutritionSafetyReview} review={viewModel.nutritionSafetyReview} />
+      <WeightClassStatusCard status={viewModel.weightClassStatus} />
+      <SessionFuelingCard command={viewModel.commandCenter} hitTheseFirst={viewModel.hitTheseFirst} />
       {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
@@ -51,11 +56,14 @@ export function FuelScreen({ busy, message, quickLogs, recentLogs, viewModel }: 
       </EngineCard>
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Recent fuel logs</Text>
-          <Text style={screenStyles.body}>{recentLogs.foodLogCountToday}</Text>
-          {recentLogs.fuel.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+          <Text style={screenStyles.sectionTitle}>Hydration and electrolytes</Text>
+          <Text style={screenStyles.body}>{viewModel.commandCenter.hydrationAction}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.hydrationSummary}</Text>
         </View>
       </EngineCard>
+      <FightWeekFuelCard plan={viewModel.fightWeekFuelPlan} />
+      <RehydrationChecklistCard checklist={viewModel.rehydrationChecklist} />
+      <TournamentFuelCard plan={viewModel.tournamentFuelPlan} />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Targets</Text>
@@ -67,6 +75,15 @@ export function FuelScreen({ busy, message, quickLogs, recentLogs, viewModel }: 
           {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
         </View>
       </EngineCard>
+      <FoodQuickLogCard actions={quickLogs} busy={busy} />
+      <HydrationLogCard actions={quickLogs} busy={busy} />
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Recent fuel logs</Text>
+          <Text style={screenStyles.body}>{recentLogs.foodLogCountToday}</Text>
+          {recentLogs.fuel.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+        </View>
+      </EngineCard>
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Risks and why</Text>
@@ -75,7 +92,6 @@ export function FuelScreen({ busy, message, quickLogs, recentLogs, viewModel }: 
           {message ? <Text style={screenStyles.subtle}>{message}</Text> : null}
         </View>
       </EngineCard>
-      <FoodQuickLogCard actions={quickLogs} busy={busy} />
     </ScrollView>
   );
 }

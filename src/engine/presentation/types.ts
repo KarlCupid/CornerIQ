@@ -1,5 +1,14 @@
 import type { ConfidenceLevel } from "../core/sharedTypes";
 import type {
+  FightWeekFuelPlan,
+  FuelCommandCenterState,
+  FuelCommandDecisionItem,
+  NutritionSafetyReview,
+  RehydrationChecklist,
+  TournamentFuelPlan,
+  WeightClassStatus
+} from "../nutrition/fuelCommandTypes";
+import type {
   DetailedTrainingSession,
   GeneratedSessionIntensity,
   NextWeekGeneratedSupportBias,
@@ -56,6 +65,13 @@ export interface TodayViewModel {
 
 export interface FuelViewModel {
   title: string;
+  commandCenter: FuelCommandCenterState;
+  weightClassStatus: WeightClassStatus;
+  fightWeekFuelPlan: FightWeekFuelPlan;
+  rehydrationChecklist: RehydrationChecklist;
+  tournamentFuelPlan: TournamentFuelPlan;
+  nutritionSafetyReview: NutritionSafetyReview;
+  decisionStack: readonly FuelCommandDecisionItem[];
   hitTheseFirst: readonly string[];
   calorieSummary: string;
   macroSummary: string;
