@@ -1,6 +1,15 @@
 import type { Confidence, ISODateString } from "../core/sharedTypes";
+import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlock, TrainingBlockRecommendation, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 
+export type {
+  PersistedTrainingPlanAdjustment,
+  PersistedTrainingPlanAdjustmentStatus,
+  TrainingPlanAdjustmentCommand,
+  TrainingPlanAdjustmentDecisionStatus,
+  TrainingPlanAdjustmentResult,
+  TrainingPlanAdjustmentType
+} from "./planAdjustmentTypes";
 export type {
   BlockProgressionState,
   BlockProgressionStatus,
@@ -255,6 +264,13 @@ export interface TrainingState {
   currentMicrocycle: TrainingMicrocycle;
   dayPlans: readonly TrainingDayPlan[];
   blockRecommendation: TrainingBlockRecommendation;
+  adjustmentHistory: readonly PersistedTrainingPlanAdjustment[];
+  activeAdjustments: readonly PersistedTrainingPlanAdjustment[];
+  adjustmentDecisions: readonly TrainingPlanAdjustmentResult[];
+  blockPersistenceStatus?: {
+    trainingBlockId: string;
+    status: "active" | "superseded" | "completed" | "canceled";
+  } | undefined;
   loadLedger: TrainingLoadLedger;
   explanation: string;
   confidence: Confidence;

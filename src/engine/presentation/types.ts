@@ -149,14 +149,24 @@ export interface PlanViewModel {
   hardDayCap: number;
   plannedHardDays: number;
   recoveryDays: readonly string[];
+  adjustmentSummary: string;
+  activeAdjustments: readonly string[];
+  trainingBlockId: string | null;
+  blockPersistenceStatus: string;
   dayPlans: readonly {
     date: string;
     label: string;
     protectedAnchors: string;
     generatedSupport: string;
+    generatedSessions: readonly {
+      id: string;
+      title: string;
+      date: string;
+    }[];
     marker: string;
     fuelDemand: "low" | "moderate" | "high";
     warningSummary: string | null;
+    adjustmentNotes: readonly string[];
     explanation: string;
   }[];
   hardDaySummary: string;

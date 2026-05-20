@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PersistedTrainingPlanAdjustment } from "../training/types";
 
 const ISODateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const ISODateTimeSchema = z.string().datetime();
@@ -285,6 +286,10 @@ export const JourneyEventSchema = z.object({
     "WearableDataSynced",
     "ProtectedWorkoutPlanned",
     "TrainingSessionCompleted",
+    "TrainingBlockStarted",
+    "TrainingBlockSuperseded",
+    "TrainingPlanAdjusted",
+    "TrainingDeloadRequested",
     "ReadinessLogged",
     "SafetyFlagRaised",
     "ProfessionalReviewRequired",
@@ -459,7 +464,7 @@ export const TrainingBlockSchema = z.object({
   linkedTournamentId: z.string().min(1).optional(),
   weeklyStructure: WeeklyTrainingStructureSchema,
   progressionState: BlockProgressionStateSchema,
-  createdBy: z.enum(["engine", "user"]),
+  createdBy: z.enum(["engine", "user", "coach"]),
   engineVersion: z.string().min(1)
 });
 
@@ -480,6 +485,7 @@ export const AthleteJourneySchema = z.object({
   completedTrainingSessions: z.array(CompletedTrainingSessionSchema),
   exerciseResults: z.array(ExerciseResultRecordSchema),
   trainingHistory: z.array(GeneratedTrainingSessionSchema),
+  trainingPlanAdjustments: z.array(z.custom<PersistedTrainingPlanAdjustment>()),
   protectedWorkouts: z.array(ProtectedWorkoutSchema),
   safetyFlags: z.array(RiskFlagSchema),
   journeyEvents: z.array(JourneyEventSchema)

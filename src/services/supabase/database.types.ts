@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -729,6 +729,240 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      training_blocks: {
+        Row: {
+          athlete_id: string
+          block_key: string
+          block_payload: Json
+          block_phase: string
+          created_at: string
+          created_by: string
+          end_date: string
+          engine_version: string
+          id: string
+          input_hash: string
+          linked_fight_id: string | null
+          linked_tournament_id: string | null
+          output_hash: string
+          primary_goal: string
+          start_date: string
+          status: string
+          superseded_at: string | null
+          superseded_by: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          athlete_id: string
+          block_key: string
+          block_payload?: Json
+          block_phase: string
+          created_at?: string
+          created_by?: string
+          end_date: string
+          engine_version: string
+          id?: string
+          input_hash: string
+          linked_fight_id?: string | null
+          linked_tournament_id?: string | null
+          output_hash: string
+          primary_goal: string
+          start_date: string
+          status?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          athlete_id?: string
+          block_key?: string
+          block_payload?: Json
+          block_phase?: string
+          created_at?: string
+          created_by?: string
+          end_date?: string
+          engine_version?: string
+          id?: string
+          input_hash?: string
+          linked_fight_id?: string | null
+          linked_tournament_id?: string | null
+          output_hash?: string
+          primary_goal?: string
+          start_date?: string
+          status?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_blocks_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_day_plans: {
+        Row: {
+          created_at: string
+          day_payload: Json
+          fuel_demand: string
+          hard_day: boolean
+          id: string
+          plan_date: string
+          recovery_priority: string
+          role: string
+          training_block_id: string
+          training_microcycle_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_payload?: Json
+          fuel_demand: string
+          hard_day?: boolean
+          id?: string
+          plan_date: string
+          recovery_priority: string
+          role: string
+          training_block_id: string
+          training_microcycle_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_payload?: Json
+          fuel_demand?: string
+          hard_day?: boolean
+          id?: string
+          plan_date?: string
+          recovery_priority?: string
+          role?: string
+          training_block_id?: string
+          training_microcycle_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_day_plans_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_day_plans_training_microcycle_id_fkey"
+            columns: ["training_microcycle_id"]
+            isOneToOne: false
+            referencedRelation: "training_microcycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_microcycles: {
+        Row: {
+          created_at: string
+          hard_day_cap: number
+          id: string
+          microcycle_payload: Json
+          planned_hard_days: number
+          training_block_id: string
+          updated_at: string
+          user_id: string
+          week_end_date: string
+          week_index: number
+          week_start_date: string
+        }
+        Insert: {
+          created_at?: string
+          hard_day_cap: number
+          id?: string
+          microcycle_payload?: Json
+          planned_hard_days: number
+          training_block_id: string
+          updated_at?: string
+          user_id: string
+          week_end_date: string
+          week_index?: number
+          week_start_date: string
+        }
+        Update: {
+          created_at?: string
+          hard_day_cap?: number
+          id?: string
+          microcycle_payload?: Json
+          planned_hard_days?: number
+          training_block_id?: string
+          updated_at?: string
+          user_id?: string
+          week_end_date?: string
+          week_index?: number
+          week_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_microcycles_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_plan_adjustments: {
+        Row: {
+          adjustment_payload: Json
+          adjustment_type: string
+          created_at: string
+          engine_response_payload: Json
+          id: string
+          plan_date: string | null
+          status: string
+          training_block_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          adjustment_payload?: Json
+          adjustment_type: string
+          created_at?: string
+          engine_response_payload?: Json
+          id?: string
+          plan_date?: string | null
+          status?: string
+          training_block_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          adjustment_payload?: Json
+          adjustment_type?: string
+          created_at?: string
+          engine_response_payload?: Json
+          id?: string
+          plan_date?: string | null
+          status?: string
+          training_block_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_plan_adjustments_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users_public: {
         Row: {

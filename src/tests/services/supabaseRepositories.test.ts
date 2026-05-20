@@ -11,11 +11,13 @@ import { exportUserOwnedData, deleteUserOwnedData, previewUserOwnedDataExport, U
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
 import { createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
+import { createTrainingBlockRepository } from "../../services/supabase/trainingBlockRepository";
 import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
 import { mapJourneyEventRow } from "../../services/supabase/journeyRepository";
 import { createTournamentRepository } from "../../services/supabase/tournamentRepository";
 import { mapWearableSignalRow } from "../../services/supabase/wearableRepository";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
+import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
 function createInsertClient() {
@@ -53,6 +55,17 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
     training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    trainingBlock: {
+      listTrainingPlanAdjustments: vi.fn(async () => journey.trainingPlanAdjustments),
+      upsertActiveTrainingBlock: vi.fn(),
+      upsertTrainingMicrocycle: vi.fn(),
+      upsertTrainingDayPlans: vi.fn(),
+      listActiveTrainingBlocks: vi.fn(),
+      getActiveTrainingBlockForDate: vi.fn(),
+      supersedeActiveTrainingBlocks: vi.fn(),
+      insertTrainingPlanAdjustment: vi.fn(),
+      supersedeTrainingPlanAdjustments: vi.fn()
+    },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
@@ -283,6 +296,61 @@ describe("Supabase repositories", () => {
     expect(source).toContain("generated_session_key: string | null");
   });
 
+  it("004 migration creates training block persistence tables, RLS, and indexes", () => {
+    const source = readFileSync("supabase/migrations/004_training_block_persistence.sql", "utf8");
+
+    expect(source).toContain("create table if not exists public.training_blocks");
+    expect(source).toContain("create table if not exists public.training_microcycles");
+    expect(source).toContain("create table if not exists public.training_day_plans");
+    expect(source).toContain("create table if not exists public.training_plan_adjustments");
+    expect(source).toContain("alter table public.training_blocks enable row level security");
+    expect(source).toContain("auth.uid() = user_id");
+    expect(source).toContain("training_blocks_user_key_active_uidx");
+    expect(source).toContain("training_plan_adjustments_type_known");
+    expect(source).toContain("Screens submit commands");
+  });
+
+  it("trainingBlockRepository persists typed block, microcycle, day plan, and adjustment payloads", () => {
+    const source = readFileSync("src/services/supabase/trainingBlockRepository.ts", "utf8");
+
+    expect(source).toContain("async upsertActiveTrainingBlock");
+    expect(source).toContain("block_phase: block.phase");
+    expect(source).toContain("primary_goal: block.primaryGoal");
+    expect(source).toContain("input_hash: input.inputHash");
+    expect(source).toContain("output_hash: input.outputHash");
+    expect(source).toContain("async upsertTrainingMicrocycle");
+    expect(source).toContain("week_index: input.weekIndex");
+    expect(source).toContain("async upsertTrainingDayPlans");
+    expect(source).toContain("training_microcycle_id: input.trainingMicrocycleId");
+    expect(source).toContain("async insertTrainingPlanAdjustment");
+    expect(source).toContain("TrainingPlanAdjustmentCommandSchema");
+  });
+
+  it("trainingBlockRepository blocks missing userId before Supabase writes", async () => {
+    const client = { from: vi.fn() } as unknown as CornerSupabaseClient;
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+
+    await expect(
+      createTrainingBlockRepository(client).upsertActiveTrainingBlock({
+        userId: "",
+        block: state.training.activeBlock,
+        inputHash: "input",
+        outputHash: "output"
+      })
+    ).rejects.toBeInstanceOf(RepositoryError);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("trainingBlockRepository active queries and supersede operations are scoped by user_id", () => {
+    const source = readFileSync("src/services/supabase/trainingBlockRepository.ts", "utf8");
+
+    expect(source).toContain("listActiveTrainingBlocks");
+    expect(source).toContain("getActiveTrainingBlockForDate");
+    expect(source).toContain('eq("user_id", safeUserId)');
+    expect(source).toContain("async supersedeActiveTrainingBlocks");
+    expect(source).toContain('neq("id", supersededById)');
+  });
+
   it("live smoke cleanup is scoped by smokeRunId where payload columns exist", () => {
     const source = readFileSync("src/tests/live/liveDbSmoke.test.ts", "utf8");
 
@@ -305,6 +373,7 @@ describe("Supabase repositories", () => {
       expect(result.journey.bodyMassHistory).toHaveLength(no_wearable_manual_only.bodyMassHistory.length);
       expect(result.journey.protectedWorkouts).toHaveLength(no_wearable_manual_only.protectedWorkouts.length);
       expect(result.journey.activeObjective).toBe("build");
+      expect(result.journey.trainingPlanAdjustments).toEqual([]);
     }
   });
 
@@ -321,9 +390,13 @@ describe("Supabase repositories", () => {
 
   it("userDataService includes every user-owned table", () => {
     expect(USER_OWNED_TABLES).toContain("exercise_results");
+    expect(USER_OWNED_TABLES).toContain("training_blocks");
+    expect(USER_OWNED_TABLES).toContain("training_microcycles");
+    expect(USER_OWNED_TABLES).toContain("training_day_plans");
+    expect(USER_OWNED_TABLES).toContain("training_plan_adjustments");
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
-    expect(USER_OWNED_TABLES).toHaveLength(27);
+    expect(USER_OWNED_TABLES).toHaveLength(31);
   });
 
   it("Expo-side services do not reference service role keys", () => {
@@ -376,6 +449,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/nutritionRepository.ts",
       "src/services/supabase/hydrationRepository.ts",
       "src/services/supabase/trainingRepository.ts",
+      "src/services/supabase/trainingBlockRepository.ts",
       "src/services/supabase/exerciseResultRepository.ts",
       "src/services/supabase/engineRunRepository.ts",
       "src/services/supabase/userDataService.ts"

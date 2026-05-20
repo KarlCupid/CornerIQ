@@ -1,8 +1,10 @@
 # Supabase Remote Status
 
-Date: 2026-05-19 22:11 America/Vancouver
+Date: 2026-05-19 22:49 America/Vancouver
 
-Latest commit before this pass: `80e24c910ee298c0fc330355f8990492ada2cedc` (`Refine engine tests for boxing safety rules`).
+Latest commit before this pass: `b2ac797feaa9271a8307b625aa28b6e3c1eb1c23` (`Add weekly boxing training block engine`).
+
+Working tree handoff prepared before final commit. Final commit hash should be checked by auditor.
 
 ## Project Link
 
@@ -16,37 +18,44 @@ Latest commit before this pass: `80e24c910ee298c0fc330355f8990492ada2cedc` (`Ref
 
 ## Remote Migration Status
 
-Latest `npm exec supabase -- migration list` result:
+Latest `npm exec supabase -- migration list` result after this pass:
 
 | Local | Remote | Status |
 | --- | --- | --- |
 | `001` | `001` | applied remotely |
 | `002` | `002` | applied remotely |
 | `003` | `003` | applied remotely |
+| `004` | `004` | applied remotely |
 
-`003_projection_and_exercise_result_hardening.sql` remains applied remotely. No pending local migration was found.
+`004_training_block_persistence.sql` was applied remotely in this pass. It adds:
+
+- `training_blocks`
+- `training_microcycles`
+- `training_day_plans`
+- `training_plan_adjustments`
 
 Latest `npm exec supabase -- db push --dry-run` result:
 
 - Succeeded.
 - Reported: `Remote database is up to date.`
-- No migration was pushed during the dry run.
+- No migration was pushed during the final dry run.
 
-Note: Supabase CLI commands were run outside the workspace sandbox because the CLI writes telemetry metadata under the user profile.
+Note: Supabase CLI commands were run outside the workspace sandbox because the CLI writes telemetry metadata under the user profile and uses linked-project network access.
 
 ## Generated Types
 
-- Database types were not regenerated in this pass because there was no schema migration.
-- `src/services/supabase/database.types.ts` already includes the additive 003 columns for engine runs, generated sessions, completed sessions, and exercise results.
+- `src/services/supabase/database.types.ts` was regenerated from the linked remote schema after applying 004.
+- Windows redirection wrote the generated file as UTF-16 first; it was converted back to UTF-8 before tests/lint handoff.
+- Generated types now include training block, microcycle, day-plan, and adjustment tables.
 
 ## Live Smoke Status
 
 Latest authenticated smoke result:
 
-- Command: `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `npm run smoke:live-db`.
+- Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `npm run smoke:live-db`.
 - Runtime used public Supabase URL and anon key only.
-- Result: passed.
-- Verified sign-in, scoped manual writes, `AthleteJourney` load, `PerformanceState` resolution, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted` journey event, engine run/projection persistence, smoke cleanup, and prior profile restore.
+- Result: passed, `1 passed`.
+- Verified sign-in, scoped manual writes, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, smoke cleanup, and prior profile restore.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
 
@@ -55,8 +64,8 @@ The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips 
 Final checks for this pass:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `155` tests and `1` live smoke test skipped.
-- `cmd /c npm run quality`: passed.
+- `cmd /c npm test`: passed with `173` tests and `1` live smoke test skipped.
+- `cmd /c npm run quality`: passed with `173` tests and `1` live smoke test skipped.
 - `cmd /c npm run lint`: passed.
 - `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db` with ignored `.env` loaded: passed with `1` test.
 

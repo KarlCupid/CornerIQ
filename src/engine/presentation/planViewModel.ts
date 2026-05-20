@@ -5,6 +5,13 @@ function dayLabel(date: string): string {
 }
 
 export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
+  const adjustmentHistory = state.training.adjustmentHistory;
+  const activeAdjustments = adjustmentHistory.filter((adjustment) => adjustment.status === "applied" || adjustment.status === "requested");
+  const rejectedAdjustments = adjustmentHistory.filter((adjustment) => adjustment.status === "rejected");
+  const notesForDate = (date: string): readonly string[] =>
+    adjustmentHistory
+      .filter((adjustment) => adjustment.planDate === date)
+      .map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`);
   return {
     title: "Weekly plan",
     weeklySummary: state.training.activeBlock.weeklyStructure.summary,
@@ -14,6 +21,15 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     hardDayCap: state.training.activeBlock.weeklyStructure.hardDayCap,
     plannedHardDays: state.training.activeBlock.weeklyStructure.plannedHardDays,
     recoveryDays: state.training.activeBlock.weeklyStructure.recoveryDays,
+    adjustmentSummary:
+      adjustmentHistory.length > 0
+        ? `${activeAdjustments.length} active engine-owned adjustment(s), ${rejectedAdjustments.length} rejected adjustment(s) retained for audit.`
+        : "No engine-owned plan adjustments yet.",
+    activeAdjustments: activeAdjustments.map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")}: ${adjustment.engineResponse.explanation}`),
+    trainingBlockId: state.training.blockPersistenceStatus?.trainingBlockId ?? null,
+    blockPersistenceStatus: state.training.blockPersistenceStatus
+      ? `Persisted training block ${state.training.blockPersistenceStatus.trainingBlockId} (${state.training.blockPersistenceStatus.status}).`
+      : "Training block persistence is pending.",
     dayPlans: state.training.dayPlans.map((day) => ({
       date: day.date,
       label: dayLabel(day.date),
@@ -25,6 +41,11 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
         day.generatedSessions.length > 0
           ? day.generatedSessions.map((session) => `${session.title} (${session.intensity})`).join(", ")
           : "No generated support.",
+      generatedSessions: day.generatedSessions.map((session) => ({
+        id: session.id,
+        title: session.title,
+        date: session.date
+      })),
       marker:
         day.role === "tournament_conservation_day"
           ? "Tournament conservation"
@@ -37,6 +58,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
                 : "Support",
       fuelDemand: day.fuelDemand,
       warningSummary: day.safetyFlags.length > 0 ? day.safetyFlags.join(" ") : null,
+      adjustmentNotes: notesForDate(day.date),
       explanation: day.explanation
     })),
     hardDaySummary: `${state.training.activeBlock.weeklyStructure.plannedHardDays}/${state.training.activeBlock.weeklyStructure.hardDayCap} planned hard days used.`,

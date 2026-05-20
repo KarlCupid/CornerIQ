@@ -90,6 +90,17 @@ function createOnboardingRepositories() {
     readiness: { listCheckIns: vi.fn(async () => []), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => []) },
     training: { listCompletedTrainingSessions: vi.fn(async () => []), listGeneratedSessions: vi.fn(async () => []), insertCompletedTrainingSession: vi.fn() },
+    trainingBlock: {
+      listTrainingPlanAdjustments: vi.fn(async () => []),
+      upsertActiveTrainingBlock: vi.fn(async () => ({ id: "training_block_1", blockKey: "block:user_1", lifecycle: "created" })),
+      upsertTrainingMicrocycle: vi.fn(async () => ({ id: "training_microcycle_1" })),
+      upsertTrainingDayPlans: vi.fn(async () => ({ ids: [] })),
+      listActiveTrainingBlocks: vi.fn(async () => []),
+      getActiveTrainingBlockForDate: vi.fn(async () => null),
+      supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
+      insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
+      supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
+    },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => []), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => []),

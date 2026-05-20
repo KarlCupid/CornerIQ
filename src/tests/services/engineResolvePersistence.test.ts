@@ -5,12 +5,15 @@ import type { AthleteJourneyRepositories } from "../../services/supabase/loadAth
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { fixtureAsOfDate, menstruating_athlete_camp_heavy_symptoms, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
-function createRepositories(options: { journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; repositoryFailure?: boolean } = {}) {
+function createRepositories(options: { blockPersistenceFailure?: boolean; journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; repositoryFailure?: boolean } = {}) {
   const journey = options.journey ?? no_wearable_manual_only;
   const runStore = new Map<string, string>();
   const generatedSessionStore = new Map<string, unknown>();
   const activeRiskFlagStore = new Map<string, unknown>();
   const tracesByRun = new Map<string, readonly unknown[]>();
+  const blockStore = new Map<string, string>();
+  const microcycleStore = new Map<string, string>();
+  const dayPlanStore = new Map<string, string>();
   const upsertRun = vi.fn(async (record: { as_of_date: string; engine_version: string; input_hash: string; user_id: string }) => {
     if (options.persistenceFailure) {
       throw new Error("remote insert failed");
@@ -41,6 +44,43 @@ function createRepositories(options: { journey?: AthleteJourney; missingProfile?
       generatedSessionStore.set(`${record.user_id}:${record.planned_date}:${record.engine_version}:${record.generated_session_key ?? ""}`, record);
     }
   });
+  const upsertActiveTrainingBlock = vi.fn(async (record: { block: { athleteId: string; endDate: string; phase: string; primaryGoal: string; startDate: string; weeklyStructure: unknown }; inputHash: string; outputHash: string; userId: string }) => {
+    if (options.blockPersistenceFailure) {
+      throw new Error("block projection failed");
+    }
+    const blockKey = `block:${record.block.athleteId}:${record.block.startDate}:${record.block.endDate}`;
+    const key = `${record.userId}:${blockKey}:${record.inputHash}:${record.outputHash}`;
+    const existing = blockStore.get(key);
+    if (existing) {
+      return { id: existing, blockKey, lifecycle: "updated" as const };
+    }
+    const id = `training_block_${blockStore.size + 1}`;
+    blockStore.set(key, id);
+    return { id, blockKey, lifecycle: "created" as const };
+  });
+  const upsertTrainingMicrocycle = vi.fn(async (record: { microcycle: { weekStartDate: string }; trainingBlockId: string; userId: string; weekIndex: number }) => {
+    const key = `${record.userId}:${record.trainingBlockId}:${record.microcycle.weekStartDate}`;
+    const existing = microcycleStore.get(key);
+    if (existing) {
+      return { id: existing };
+    }
+    const id = `training_microcycle_${microcycleStore.size + 1}`;
+    microcycleStore.set(key, id);
+    return { id };
+  });
+  const upsertTrainingDayPlans = vi.fn(async (record: { dayPlans: readonly { date: string }[]; trainingBlockId: string; trainingMicrocycleId: string; userId: string }) => {
+    const ids = record.dayPlans.map((day) => {
+      const key = `${record.userId}:${record.trainingBlockId}:${day.date}`;
+      const existing = dayPlanStore.get(key);
+      if (existing) {
+        return existing;
+      }
+      const id = `training_day_plan_${dayPlanStore.size + 1}`;
+      dayPlanStore.set(key, id);
+      return id;
+    });
+    return { ids };
+  });
 
   const repositories = {
     athlete: {
@@ -62,6 +102,17 @@ function createRepositories(options: { journey?: AthleteJourney; missingProfile?
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
     training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    trainingBlock: {
+      listTrainingPlanAdjustments: vi.fn(async () => journey.trainingPlanAdjustments),
+      upsertActiveTrainingBlock,
+      upsertTrainingMicrocycle,
+      upsertTrainingDayPlans,
+      listActiveTrainingBlocks: vi.fn(async () => []),
+      getActiveTrainingBlockForDate: vi.fn(async () => null),
+      supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
+      insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
+      supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
+    },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
@@ -71,13 +122,13 @@ function createRepositories(options: { journey?: AthleteJourney; missingProfile?
       upsertNutritionTarget,
       upsertGeneratedSessions
     },
-    journey: { listEvents: vi.fn(async () => journey.journeyEvents), appendEvent: vi.fn() }
+    journey: { listEvents: vi.fn(async () => journey.journeyEvents), appendEvent: vi.fn(async () => ({ id: "event_1" })) }
   } as unknown as AthleteJourneyRepositories;
 
   return {
     repositories,
-    stores: { activeRiskFlagStore, generatedSessionStore, runStore, tracesByRun },
-    calls: { saveDecisionTracesForRun, upsertGeneratedSessions, upsertNutritionTarget, upsertRiskFlags, upsertRun }
+    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, runStore, tracesByRun },
+    calls: { saveDecisionTracesForRun, upsertActiveTrainingBlock, upsertGeneratedSessions, upsertNutritionTarget, upsertRiskFlags, upsertRun, upsertTrainingDayPlans, upsertTrainingMicrocycle }
   };
 }
 
@@ -95,6 +146,33 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(calls.saveDecisionTracesForRun).toHaveBeenCalledTimes(1);
     expect(calls.upsertNutritionTarget).toHaveBeenCalledTimes(1);
     expect(calls.upsertGeneratedSessions).toHaveBeenCalledTimes(1);
+    expect(calls.upsertActiveTrainingBlock).toHaveBeenCalledTimes(1);
+    expect(calls.upsertTrainingMicrocycle).toHaveBeenCalledTimes(1);
+    expect(calls.upsertTrainingDayPlans).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists active block, microcycle, day plans, and a block-started journey event", async () => {
+    const { repositories, calls } = createRepositories();
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.state.training.blockPersistenceStatus?.trainingBlockId).toBe("training_block_1");
+      expect(result.state.viewModels.plan.blockPersistenceStatus).toContain("training_block_1");
+    }
+    expect(calls.upsertActiveTrainingBlock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_1",
+        inputHash: expect.any(String),
+        outputHash: expect.any(String),
+        block: expect.objectContaining({
+          phase: expect.any(String),
+          primaryGoal: expect.any(String),
+          weeklyStructure: expect.objectContaining({ dayPlans: expect.any(Array) })
+        })
+      })
+    );
+    expect(repositories.journey.appendEvent).toHaveBeenCalledWith("user_1", "TrainingBlockStarted", expect.objectContaining({ blockId: "training_block_1", phase: expect.any(String) }));
   });
 
   it("returns needs_profile without persisting when profile is missing", async () => {
@@ -113,6 +191,17 @@ describe("resolveAndPersistPerformanceState", () => {
     if (result.status === "ready") {
       expect(result.state.outputHash).not.toBe("");
       expect(result.persistenceWarning).toContain("remote insert failed");
+    }
+  });
+
+  it("returns ready state with a warning when block persistence fails after engine resolution", async () => {
+    const { repositories } = createRepositories({ blockPersistenceFailure: true });
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.state.outputHash).not.toBe("");
+      expect(result.persistenceWarning).toContain("block projection failed");
     }
   });
 
@@ -165,6 +254,20 @@ describe("resolveAndPersistPerformanceState", () => {
 
     expect(stores.runStore.size).toBe(firstRunCount);
     expect(stores.generatedSessionStore.size).toBe(firstGeneratedSessionCount);
+  });
+
+  it("does not duplicate block, microcycle, or day-plan projections for identical resolves", async () => {
+    const { repositories, stores } = createRepositories();
+
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+    const firstBlockCount = stores.blockStore.size;
+    const firstMicrocycleCount = stores.microcycleStore.size;
+    const firstDayPlanCount = stores.dayPlanStore.size;
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(stores.blockStore.size).toBe(firstBlockCount);
+    expect(stores.microcycleStore.size).toBe(firstMicrocycleCount);
+    expect(stores.dayPlanStore.size).toBe(firstDayPlanCount);
   });
 
   it("upserts active risk flags by user/domain/code/status", async () => {

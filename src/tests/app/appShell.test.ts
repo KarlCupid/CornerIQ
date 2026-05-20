@@ -183,15 +183,21 @@ const planViewModel: PlanViewModel = {
   hardDayCap: 3,
   plannedHardDays: 2,
   recoveryDays: ["2026-05-21"],
+  adjustmentSummary: "No engine-owned plan adjustments yet.",
+  activeAdjustments: [],
+  trainingBlockId: "training_block_1",
+  blockPersistenceStatus: "Persisted training block training_block_1 (active).",
   dayPlans: [
     {
       date: "2026-05-19",
       label: "Tue, May 19",
       protectedAnchors: "sparring (hard)",
       generatedSupport: "Sparring support microdose (easy)",
+      generatedSessions: [{ id: "generated_1", title: "Sparring support microdose", date: "2026-05-19" }],
       marker: "Hard day",
       fuelDemand: "high",
       warningSummary: null,
+      adjustmentNotes: [],
       explanation: "Protected boxing owns the day."
     }
   ],
@@ -289,6 +295,17 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
     training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    trainingBlock: {
+      listTrainingPlanAdjustments: vi.fn(async () => journey.trainingPlanAdjustments),
+      upsertActiveTrainingBlock: vi.fn(async () => ({ id: "training_block_1", blockKey: "block:user_1", lifecycle: "created" })),
+      upsertTrainingMicrocycle: vi.fn(async () => ({ id: "training_microcycle_1" })),
+      upsertTrainingDayPlans: vi.fn(async () => ({ ids: [] })),
+      listActiveTrainingBlocks: vi.fn(async () => []),
+      getActiveTrainingBlockForDate: vi.fn(async () => null),
+      supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
+      insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
+      supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
+    },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
@@ -631,6 +648,73 @@ describe("minimal app screens", () => {
     expect(redOutput).toContain("Recovery");
     expect(tournamentOutput).toContain("Tournament conservation");
     expect(tournamentOutput).toContain("Tournament week conserves");
+  });
+
+  it("PlanAdjustmentControls render and call engine-owned adjustment actions", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const adjustmentActions = {
+      protectDay: vi.fn(async () => ({ status: "applied" as const, explanation: "Protect day applied.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
+      markUnavailable: vi.fn(async () => ({ status: "applied" as const, explanation: "Unavailable day applied.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
+      requestDeload: vi.fn(async () => ({ status: "applied" as const, explanation: "Deload requested.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
+      restoreEnginePlan: vi.fn(async () => ({ status: "applied" as const, explanation: "Engine plan restored.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
+      moveGeneratedSession: vi.fn(async () => ({ status: "rejected" as const, explanation: "Move rejected: generated work cannot be moved onto protected sparring day.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} }))
+    };
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        adjustmentActions,
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    expect(JSON.stringify(renderer.toJSON())).toContain("Engine-owned adjustment");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Protect day"));
+    });
+    expect(adjustmentActions.protectDay).toHaveBeenCalledWith("2026-05-19");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Apply move"));
+    });
+    expect(adjustmentActions.moveGeneratedSession).toHaveBeenCalledWith("generated_1", "2026-05-19", "2026-05-19");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Move rejected");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Request deload"));
+    });
+    expect(adjustmentActions.requestDeload).toHaveBeenCalledWith("2026-05-19", "2026-05-19");
+  });
+
+  it("PlanScreen renders adjustment summary, rejection notes, and persisted block id", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const output = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: {
+            ...planViewModel,
+            adjustmentSummary: "1 active engine-owned adjustment(s), 1 rejected adjustment(s) retained for audit.",
+            activeAdjustments: ["protect day: Protect day applied."],
+            dayPlans: [{ ...planViewModel.dayPlans[0]!, adjustmentNotes: ["move generated session rejected: Move rejected."] }]
+          }
+        })
+      ).toJSON()
+    );
+
+    expect(output).toContain("1 active engine-owned adjustment");
+    expect(output).toContain("protect day");
+    expect(output).toContain("Move rejected.");
+    expect(output).toContain("training_block_1");
   });
 
   it("FightSetupScreen rejects invalid fight and tournament setup before saving", async () => {

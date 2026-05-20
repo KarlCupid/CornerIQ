@@ -16,6 +16,8 @@ import type {
 import { buildLoadLedger } from "./loadLedger";
 import { generateSupportSession } from "./sessionGenerator";
 import { anchorsForDate, hasProtectedCompetition, hasProtectedSparring } from "./protectedAnchors";
+import { applyTrainingPlanAdjustments } from "./planAdjustmentEngine";
+import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
 
 function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean {
@@ -45,6 +47,7 @@ export function resolveWeeklyTrainingPlan(input: {
   safetyFlags?: readonly RiskFlag[] | undefined;
   safetyBlocks?: boolean;
   engineVersion?: string | undefined;
+  trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
 }): TrainingState {
   const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
   const targetSessions =
@@ -104,8 +107,6 @@ export function resolveWeeklyTrainingPlan(input: {
     .filter((session) => !underFuelingRisk || session.intensity !== "hard")
     .slice(0, targetSessions);
 
-  const todaySessions = generated.filter((session) => session.date === input.asOfDate);
-  const ledger = buildLoadLedger(input.anchors, generated);
   const todayAnchors = anchorsForDate(input.anchors, input.asOfDate);
   const block = resolveTrainingBlock({
     athlete: input.athlete,
@@ -122,17 +123,38 @@ export function resolveWeeklyTrainingPlan(input: {
     asOfDate: input.asOfDate,
     engineVersion: input.engineVersion ?? "unversioned"
   });
+  const adjustmentApplication = applyTrainingPlanAdjustments({
+    activeBlock: block.activeBlock,
+    dayPlans: block.dayPlans,
+    adjustments: input.trainingPlanAdjustments ?? []
+  });
+  const adjustedGeneratedSessions = adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions);
+  const todaySessions = adjustedGeneratedSessions.filter((session) => session.date === input.asOfDate);
+  const ledger = buildLoadLedger(input.anchors, adjustedGeneratedSessions);
+  const adjustedMicrocycle = {
+    ...block.currentMicrocycle,
+    plannedHardDays: adjustmentApplication.dayPlans.filter((day) => day.hardDay).length,
+    generatedSupportCount: adjustedGeneratedSessions.length,
+    recoveryDays: adjustmentApplication.dayPlans.filter((day) => day.role === "recovery_day" || day.recoveryPriority === "high" || day.recoveryPriority === "hard_stop").map((day) => day.date),
+    notes:
+      adjustmentApplication.decisions.length > 0
+        ? [...block.currentMicrocycle.notes, `${adjustmentApplication.decisions.length} engine-owned adjustment decision(s) applied or reviewed.`]
+        : block.currentMicrocycle.notes
+  };
 
   return {
     protectedAnchors: input.anchors,
     completedSessions: input.completedSessions ?? [],
     recentExerciseResults: input.recentExerciseResults ?? [],
-    generatedSessions: generated,
+    generatedSessions: adjustedGeneratedSessions,
     todaySessions,
-    activeBlock: block.activeBlock,
-    currentMicrocycle: block.currentMicrocycle,
-    dayPlans: block.dayPlans,
+    activeBlock: adjustmentApplication.activeBlock,
+    currentMicrocycle: adjustedMicrocycle,
+    dayPlans: adjustmentApplication.dayPlans,
     blockRecommendation: block.blockRecommendation,
+    adjustmentHistory: input.trainingPlanAdjustments ?? [],
+    activeAdjustments: adjustmentApplication.activeAdjustments,
+    adjustmentDecisions: adjustmentApplication.decisions,
     loadLedger: ledger,
     explanation:
       underFuelingRisk

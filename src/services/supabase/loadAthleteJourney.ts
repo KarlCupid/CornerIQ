@@ -14,6 +14,7 @@ import { createProtectedWorkoutRepository } from "./protectedWorkoutRepository";
 import { createReadinessRepository } from "./readinessRepository";
 import { assertUserId, parseWithSchema } from "./repositoryTypes";
 import { createTournamentRepository } from "./tournamentRepository";
+import { createTrainingBlockRepository } from "./trainingBlockRepository";
 import { createTrainingRepository } from "./trainingRepository";
 import { createWearableRepository } from "./wearableRepository";
 
@@ -34,6 +35,7 @@ export interface AthleteJourneyRepositories {
   readiness: ReturnType<typeof createReadinessRepository>;
   wearable: ReturnType<typeof createWearableRepository>;
   training: ReturnType<typeof createTrainingRepository>;
+  trainingBlock: ReturnType<typeof createTrainingBlockRepository>;
   engineRun: ReturnType<typeof createEngineRunRepository>;
   exerciseResult: ReturnType<typeof createExerciseResultRepository>;
   journey: ReturnType<typeof createJourneyRepository>;
@@ -52,6 +54,7 @@ export function createAthleteJourneyRepositories(client: CornerSupabaseClient): 
     readiness: createReadinessRepository(client),
     wearable: createWearableRepository(client),
     training: createTrainingRepository(client),
+    trainingBlock: createTrainingBlockRepository(client),
     engineRun: createEngineRunRepository(client),
     exerciseResult: createExerciseResultRepository(client),
     journey: createJourneyRepository(client)
@@ -132,6 +135,7 @@ export async function loadAthleteJourney(input: {
       completedTrainingSessions,
       exerciseResults,
       trainingHistory,
+      trainingPlanAdjustments,
       safetyFlags,
       journeyEvents
     ] = await Promise.all([
@@ -149,6 +153,7 @@ export async function loadAthleteJourney(input: {
       input.repositories.training.listCompletedTrainingSessions(userId),
       input.repositories.exerciseResult.listRecentExerciseResults(userId),
       input.repositories.training.listGeneratedSessions(userId),
+      input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, null),
       input.repositories.engineRun.listActiveRiskFlags(userId),
       input.repositories.journey.listEvents(userId)
     ]);
@@ -174,6 +179,7 @@ export async function loadAthleteJourney(input: {
       completedTrainingSessions,
       exerciseResults,
       trainingHistory,
+      trainingPlanAdjustments,
       protectedWorkouts,
       safetyFlags,
       journeyEvents

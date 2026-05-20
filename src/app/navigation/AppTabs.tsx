@@ -11,6 +11,7 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TrainScreen } from "../screens/TrainScreen";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import type { FightSetupDraft, ProfileSettingsDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
@@ -28,11 +29,12 @@ export interface AppTabsProps {
   onUpdateProfileSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   quickLogs: QuickLogActions;
   state: PerformanceState;
+  trainingPlanAdjustments?: TrainingPlanAdjustmentsHook | undefined;
   userDataControls?: UserDataControlsHook | undefined;
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -68,7 +70,9 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFi
           {() => (
             <PlanScreen
               asOfDate={asOfDate}
-              busy={busy}
+              adjustmentActions={trainingPlanAdjustments?.actions}
+              adjustmentMessage={trainingPlanAdjustments?.message}
+              busy={busy || Boolean(trainingPlanAdjustments?.busy)}
               hasActiveFightOrTournament={Boolean(state.fightContext || state.tournamentContext)}
               isMinor={(state.athlete.ageYears ?? 99) < 18}
               onSaveFightSetup={onSaveFightSetup}

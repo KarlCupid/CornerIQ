@@ -91,6 +91,6 @@ export interface TrainingBlock {
   linkedTournamentId?: string | undefined;
   weeklyStructure: WeeklyTrainingStructure;
   progressionState: BlockProgressionState;
-  createdBy: "engine" | "user";
+  createdBy: "engine" | "user" | "coach";
   engineVersion: string;
 }

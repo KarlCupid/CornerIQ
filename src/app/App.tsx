@@ -9,6 +9,7 @@ import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useQuickLogs } from "../hooks/useQuickLogs";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
+import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion } from "../hooks/useWorkoutCompletion";
 import type { CornerSupabaseClient } from "../services/supabase/client";
@@ -30,6 +31,13 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   const userDataControls = useUserDataControls({
     client,
     onAfterDelete: onSignOut,
+    userId: session.user.id
+  });
+  const readyState = performance.result?.status === "ready" ? performance.result.state : null;
+  const trainingPlanAdjustments = useTrainingPlanAdjustments({
+    onRefresh: performance.refresh,
+    repositories: performance.repositories,
+    state: readyState,
     userId: session.user.id
   });
 
@@ -63,7 +71,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
 
   return (
     <AppTabs
-      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy}
+      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onSignOut={onSignOut}
@@ -73,6 +81,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       quickLogs={quickLogs.actions}
       asOfDate={performance.asOfDate}
       state={performance.result.state}
+      trainingPlanAdjustments={trainingPlanAdjustments}
       userDataControls={userDataControls}
       workoutCompletion={workoutCompletion.actions}
     />

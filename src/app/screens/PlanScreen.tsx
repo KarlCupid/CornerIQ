@@ -3,11 +3,15 @@ import { ScrollView, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
+import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { FightSetupDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import { FightSetupScreen } from "./fight/FightSetupScreen";
+import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
 import { screenStyles } from "./screenStyles";
 
 export interface PlanScreenProps {
+  adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
+  adjustmentMessage?: string | null | undefined;
   asOfDate: ISODateString;
   busy: boolean;
   hasActiveFightOrTournament: boolean;
@@ -17,7 +21,7 @@ export interface PlanScreenProps {
   viewModel: PlanViewModel;
 }
 
-export function PlanScreen({ asOfDate, busy, hasActiveFightOrTournament, isMinor, onSaveFightSetup, onSaveTournamentSetup, viewModel }: PlanScreenProps) {
+export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, busy, hasActiveFightOrTournament, isMinor, onSaveFightSetup, onSaveTournamentSetup, viewModel }: PlanScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -26,6 +30,15 @@ export function PlanScreen({ asOfDate, busy, hasActiveFightOrTournament, isMinor
           <Text style={screenStyles.sectionTitle}>Active block</Text>
           <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} - {viewModel.blockGoal}</Text>
           <Text style={screenStyles.subtle}>Hard days: {viewModel.plannedHardDays}/{viewModel.hardDayCap}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.blockPersistenceStatus}</Text>
+        </View>
+      </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Adjustment audit</Text>
+          <Text style={screenStyles.body}>{viewModel.adjustmentSummary}</Text>
+          {viewModel.activeAdjustments.length > 0 ? viewModel.activeAdjustments.map((adjustment) => <Text key={adjustment} style={screenStyles.subtle}>{adjustment}</Text>) : null}
+          {adjustmentMessage ? <Text style={screenStyles.subtle}>{adjustmentMessage}</Text> : null}
         </View>
       </EngineCard>
       <EngineCard>
@@ -46,7 +59,9 @@ export function PlanScreen({ asOfDate, busy, hasActiveFightOrTournament, isMinor
             <Text style={screenStyles.body}>Protected: {day.protectedAnchors}</Text>
             <Text style={screenStyles.body}>Generated: {day.generatedSupport}</Text>
             <Text style={screenStyles.subtle}>{day.explanation}</Text>
+            {day.adjustmentNotes.map((note) => <Text key={note} style={screenStyles.subtle}>{note}</Text>)}
             {day.warningSummary ? <Text style={screenStyles.subtle}>Warning: {day.warningSummary}</Text> : null}
+            <PlanAdjustmentControls actions={adjustmentActions} busy={busy} date={day.date as ISODateString} generatedSessions={day.generatedSessions} />
           </View>
         </EngineCard>
       ))}

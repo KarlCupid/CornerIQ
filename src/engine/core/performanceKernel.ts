@@ -69,7 +69,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     recentExerciseResults: journey.exerciseResults,
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: journey.safetyFlags,
-    engineVersion: ENGINE_VERSION
+    engineVersion: ENGINE_VERSION,
+    trainingPlanAdjustments: journey.trainingPlanAdjustments
   });
   const earlySafetyFlags = [
     ...journey.safetyFlags,
@@ -111,7 +112,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: safety.riskFlags,
     safetyBlocks: safety.blocksPlan,
-    engineVersion: ENGINE_VERSION
+    engineVersion: ENGINE_VERSION,
+    trainingPlanAdjustments: journey.trainingPlanAdjustments
   });
   const weighInContext = resolveWeighInContext(journey.activeFightOpportunity, input.asOfDate);
   const tournamentStrategy = resolveTournamentStrategy(journey.activeTournament ?? journey.activeFightOpportunity?.tournamentDetails ?? null, trend);
@@ -176,6 +178,21 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       confidence: training.confidence,
       timestamp: generatedAt
     }),
+    ...(training.adjustmentDecisions.length > 0
+      ? [
+          traceDecision({
+            engine: "Corner Engine",
+            step: "training_plan_adjustments",
+            inputSummary: `${training.activeAdjustments.length} active adjustment command(s)`,
+            selectedDecision: training.adjustmentDecisions.map((decision) => decision.status).join(", "),
+            rejectedAlternatives: training.adjustmentDecisions.filter((decision) => decision.status === "rejected").map((decision) => decision.explanation),
+            rationale: training.adjustmentDecisions.map((decision) => decision.explanation).join(" "),
+            safetyFlags: training.adjustmentDecisions.flatMap((decision) => decision.safetyFlags),
+            confidence: training.confidence,
+            timestamp: generatedAt
+          })
+        ]
+      : []),
     traceDecision({
       engine: "Corner Engine",
       step: "nutrition",
@@ -215,7 +232,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       phase: phase.phase,
       risks: safety.riskFlags.map((flag) => flag.id),
       nutrition: nutrition.dailyCaloriesTarget,
-      sessions: training.generatedSessions.map((session) => session.id)
+      sessions: training.generatedSessions.map((session) => session.id),
+      adjustments: training.activeAdjustments.map((adjustment) => adjustment.id)
     }),
     generatedAt,
     asOfDate: input.asOfDate

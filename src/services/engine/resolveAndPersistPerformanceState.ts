@@ -1,6 +1,7 @@
 import { AthleteJourneySchema } from "../../engine/core/schemas";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
+import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import {
   type AthleteJourneyRepositories,
   type LoadAthleteJourneyResult,
@@ -56,7 +57,74 @@ function errorResult(error: unknown, message: string): ResolveAndPersistPerforma
   };
 }
 
-async function persistPerformanceState(userId: string, inputHash: string, state: PerformanceState, repositories: AthleteJourneyRepositories): Promise<void> {
+function withBlockPersistenceStatus(state: PerformanceState, trainingBlockId: string): PerformanceState {
+  const nextState: PerformanceState = {
+    ...state,
+    training: {
+      ...state.training,
+      blockPersistenceStatus: {
+        trainingBlockId,
+        status: "active"
+      }
+    }
+  };
+  return {
+    ...nextState,
+    viewModels: {
+      ...nextState.viewModels,
+      plan: buildPlanViewModel(nextState)
+    }
+  };
+}
+
+async function persistTrainingBlockProjection(userId: string, inputHash: string, state: PerformanceState, repositories: AthleteJourneyRepositories): Promise<{ trainingBlockId: string }> {
+  const block = await repositories.trainingBlock.upsertActiveTrainingBlock({
+    userId,
+    block: state.training.activeBlock,
+    inputHash,
+    outputHash: state.outputHash
+  });
+  const microcycle = await repositories.trainingBlock.upsertTrainingMicrocycle({
+    userId,
+    trainingBlockId: block.id,
+    microcycle: state.training.currentMicrocycle,
+    weekIndex: state.training.activeBlock.progressionState.weekIndex
+  });
+  await repositories.trainingBlock.upsertTrainingDayPlans({
+    userId,
+    trainingBlockId: block.id,
+    trainingMicrocycleId: microcycle.id,
+    dayPlans: state.training.dayPlans
+  });
+
+  if (block.lifecycle === "created" || block.lifecycle === "superseded_previous") {
+    await repositories.journey.appendEvent(userId, "TrainingBlockStarted", {
+      blockId: block.id,
+      blockKey: block.blockKey,
+      phase: state.training.activeBlock.phase,
+      primaryGoal: state.training.activeBlock.primaryGoal,
+      inputHash,
+      outputHash: state.outputHash,
+      source: "engine_training_block_projection"
+    });
+  }
+
+  if (block.lifecycle === "superseded_previous") {
+    await repositories.journey.appendEvent(userId, "TrainingBlockSuperseded", {
+      blockId: block.id,
+      blockKey: block.blockKey,
+      phase: state.training.activeBlock.phase,
+      reason: "Engine inputs changed for the active block key.",
+      inputHash,
+      outputHash: state.outputHash,
+      source: "engine_training_block_projection"
+    });
+  }
+
+  return { trainingBlockId: block.id };
+}
+
+async function persistPerformanceState(userId: string, inputHash: string, state: PerformanceState, repositories: AthleteJourneyRepositories): Promise<PerformanceState> {
   const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
   await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
   await repositories.engineRun.upsertRiskFlags(state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash)));
@@ -64,6 +132,8 @@ async function persistPerformanceState(userId: string, inputHash: string, state:
   await repositories.engineRun.upsertGeneratedSessions(
     state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash))
   );
+  const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories);
+  return withBlockPersistenceStatus(state, blockPersistence.trainingBlockId);
 }
 
 export async function resolveAndPersistPerformanceState(input: {
@@ -118,8 +188,8 @@ export async function resolveAndPersistPerformanceState(input: {
   }
 
   try {
-    await persistPerformanceState(userId, inputHash, state, input.repositories);
-    return { status: "ready", state, inputHash };
+    const persistedState = await persistPerformanceState(userId, inputHash, state, input.repositories);
+    return { status: "ready", state: persistedState, inputHash };
   } catch (error) {
     return {
       status: "ready",

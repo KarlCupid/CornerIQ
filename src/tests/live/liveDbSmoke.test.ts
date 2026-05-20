@@ -8,6 +8,7 @@ import type { TableRow } from "../../services/supabase/repositoryTypes";
 import { resolveAndPersistPerformanceState } from "../../services/engine/resolveAndPersistPerformanceState";
 import type { DetailedTrainingSession, ExerciseResultDraft, ISODateString, ProtectedWorkout } from "../../engine/core/types";
 import { completeWorkoutService, completedSessionTypeForFamily } from "../../services/training/completeWorkoutService";
+import { applyTrainingPlanAdjustmentService } from "../../services/training/applyTrainingPlanAdjustment";
 
 const runLiveSmoke = process.env.CORNERIQ_LIVE_DB_SMOKE === "1";
 const describeLive = runLiveSmoke ? describe : describe.skip;
@@ -69,9 +70,12 @@ describeLive("live Supabase CRUD smoke", () => {
     let existingGeneratedSessions: Pick<TableRow<"generated_training_sessions">, "id" | "session_payload">[] = [];
     let existingNutritionTargets: Pick<TableRow<"nutrition_targets">, "id" | "target_payload">[] = [];
     let existingRiskFlags: Pick<TableRow<"risk_flags">, "id" | "severity" | "flag_payload">[] = [];
+    let existingTrainingBlockIds = new Set<string>();
     let inputHash: string | null = null;
     let engineRunIds: string[] = [];
     let completedTrainingSessionId: string | null = null;
+    let trainingAdjustmentId: string | null = null;
+    let trainingBlockId: string | null = null;
 
     const signedIn = await auth.signInWithPassword(email, password);
     expect(signedIn.error).toBeNull();
@@ -99,6 +103,9 @@ describeLive("live Supabase CRUD smoke", () => {
       const existingRiskResponse = await client.from("risk_flags").select("id, severity, flag_payload").eq("user_id", userId);
       expect(existingRiskResponse.error).toBeNull();
       existingRiskFlags = existingRiskResponse.data ?? [];
+      const existingTrainingBlocksResponse = await client.from("training_blocks").select("id").eq("user_id", userId);
+      expect(existingTrainingBlocksResponse.error).toBeNull();
+      existingTrainingBlockIds = new Set((existingTrainingBlocksResponse.data ?? []).map((row) => row.id));
 
       await repositories.athlete.upsertProfile(userId, buildDemoAthleteProfile(userId));
       await client.from("athlete_profiles").update({ sensitive_medical: { smokeRunId } }).eq("user_id", userId);
@@ -131,6 +138,75 @@ describeLive("live Supabase CRUD smoke", () => {
       expect(resolved.status).toBe("ready");
       expect(resolved.persistenceWarning).toBeUndefined();
       inputHash = resolved.inputHash;
+      trainingBlockId = resolved.state.training.blockPersistenceStatus?.trainingBlockId ?? null;
+      expect(trainingBlockId).toBeTruthy();
+      const blockResponse = await client.from("training_blocks").select("id, block_payload").eq("user_id", userId).eq("id", trainingBlockId!).maybeSingle();
+      expect(blockResponse.error).toBeNull();
+      expect(blockResponse.data?.id).toBe(trainingBlockId);
+      const microcycleResponse = await client.from("training_microcycles").select("id, microcycle_payload").eq("user_id", userId).eq("training_block_id", trainingBlockId!);
+      expect(microcycleResponse.error).toBeNull();
+      expect(microcycleResponse.data?.length ?? 0).toBeGreaterThan(0);
+      const dayPlanResponse = await client.from("training_day_plans").select("id, day_payload").eq("user_id", userId).eq("training_block_id", trainingBlockId!);
+      expect(dayPlanResponse.error).toBeNull();
+      expect(dayPlanResponse.data?.length ?? 0).toBeGreaterThan(0);
+
+      if (!existingTrainingBlockIds.has(trainingBlockId!)) {
+        await client.from("training_blocks").update({ block_payload: smokePayload(blockResponse.data?.block_payload ?? {}, smokeRunId) }).eq("id", trainingBlockId!).eq("user_id", userId);
+        for (const row of microcycleResponse.data ?? []) {
+          await client.from("training_microcycles").update({ microcycle_payload: smokePayload(row.microcycle_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+        for (const row of dayPlanResponse.data ?? []) {
+          await client.from("training_day_plans").update({ day_payload: smokePayload(row.day_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+        const blockEventResponse = await client
+          .from("athlete_journey_events")
+          .select("id, event_payload")
+          .eq("user_id", userId)
+          .eq("event_type", "TrainingBlockStarted")
+          .filter("event_payload->>blockId", "eq", trainingBlockId!);
+        expect(blockEventResponse.error).toBeNull();
+        for (const row of blockEventResponse.data ?? []) {
+          await client.from("athlete_journey_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
+
+      const adjustment = await applyTrainingPlanAdjustmentService({
+        userId,
+        state: resolved.state,
+        repositories,
+        command: {
+          type: "coach_note",
+          date: asOfDate,
+          note: `Live smoke plan audit ${smokeRunId}`,
+          requestedBy: "coach",
+          createdAt: new Date().toISOString()
+        }
+      });
+      trainingAdjustmentId = adjustment.adjustmentId;
+      const adjustmentResponse = await client
+        .from("training_plan_adjustments")
+        .select("id, engine_response_payload")
+        .eq("user_id", userId)
+        .eq("id", trainingAdjustmentId)
+        .maybeSingle();
+      expect(adjustmentResponse.error).toBeNull();
+      expect(adjustmentResponse.data?.id).toBe(trainingAdjustmentId);
+      await client
+        .from("training_plan_adjustments")
+        .update({ engine_response_payload: smokePayload(adjustmentResponse.data?.engine_response_payload ?? {}, smokeRunId) })
+        .eq("id", trainingAdjustmentId)
+        .eq("user_id", userId);
+      const adjustmentEventResponse = await client
+        .from("athlete_journey_events")
+        .select("id, event_payload")
+        .eq("user_id", userId)
+        .eq("event_type", "TrainingPlanAdjusted")
+        .filter("event_payload->>adjustmentId", "eq", trainingAdjustmentId);
+      expect(adjustmentEventResponse.error).toBeNull();
+      for (const row of adjustmentEventResponse.data ?? []) {
+        await client.from("athlete_journey_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+      }
+
       const detailedSession = resolved.state.viewModels.train.detailedTodaySessions.find((session) => session.detail)?.detail;
       if (!detailedSession) {
         throw new Error("Live smoke did not generate a detailed session to complete.");
@@ -223,6 +299,10 @@ describeLive("live Supabase CRUD smoke", () => {
         }
       }
     } finally {
+      if (trainingAdjustmentId) {
+        await client.from("training_plan_adjustments").delete().eq("user_id", userId).eq("id", trainingAdjustmentId);
+      }
+      await client.from("training_plan_adjustments").delete().eq("user_id", userId).filter("engine_response_payload->>smokeRunId", "eq", smokeRunId);
       if (completedTrainingSessionId) {
         await client.from("exercise_results").delete().eq("user_id", userId).eq("completed_training_session_id", completedTrainingSessionId).filter("result_payload->>smokeRunId", "eq", smokeRunId);
         await client.from("completed_training_sessions").delete().eq("user_id", userId).eq("id", completedTrainingSessionId).filter("session_payload->>smokeRunId", "eq", smokeRunId);
@@ -247,6 +327,9 @@ describeLive("live Supabase CRUD smoke", () => {
       }
       if (inputHash) {
         await client.from("engine_runs").delete().eq("user_id", userId).eq("input_hash", inputHash).filter("run_payload->>smokeRunId", "eq", smokeRunId);
+      }
+      if (trainingBlockId && !existingTrainingBlockIds.has(trainingBlockId)) {
+        await client.from("training_blocks").delete().eq("user_id", userId).eq("id", trainingBlockId).filter("block_payload->>smokeRunId", "eq", smokeRunId);
       }
       if (insertedIds.bodyMass) {
         await client.from("body_mass_logs").delete().eq("user_id", userId).eq("id", insertedIds.bodyMass);

@@ -5,7 +5,7 @@ import type { FightOpportunity, TournamentDetails } from "../fight/types";
 import type { FoodLog, ElectrolyteLog, WaterLog } from "../nutrition/types";
 import type { ReadinessCheckIn } from "../readiness/types";
 import type { RiskFlag } from "../safety/types";
-import type { CompletedTrainingSession, ExerciseResultRecord, GeneratedTrainingSession, ProtectedWorkout } from "../training/types";
+import type { CompletedTrainingSession, ExerciseResultRecord, GeneratedTrainingSession, PersistedTrainingPlanAdjustment, ProtectedWorkout } from "../training/types";
 import type { WearablePreference, WearableSignal } from "../wearable/types";
 import type { Phase } from "../phase/phaseTypes";
 
@@ -91,6 +91,10 @@ export type JourneyEventType =
   | "WearableDataSynced"
   | "ProtectedWorkoutPlanned"
   | "TrainingSessionCompleted"
+  | "TrainingBlockStarted"
+  | "TrainingBlockSuperseded"
+  | "TrainingPlanAdjusted"
+  | "TrainingDeloadRequested"
   | "ReadinessLogged"
   | "SafetyFlagRaised"
   | "ProfessionalReviewRequired"
@@ -120,6 +124,7 @@ export interface AthleteJourney {
   completedTrainingSessions: readonly CompletedTrainingSession[];
   exerciseResults: readonly ExerciseResultRecord[];
   trainingHistory: readonly GeneratedTrainingSession[];
+  trainingPlanAdjustments: readonly PersistedTrainingPlanAdjustment[];
   protectedWorkouts: readonly ProtectedWorkout[];
   safetyFlags: readonly RiskFlag[];
   journeyEvents: readonly JourneyEvent[];
