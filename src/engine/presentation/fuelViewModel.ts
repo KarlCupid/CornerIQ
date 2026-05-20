@@ -27,7 +27,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     macroSummary: `${state.nutrition.proteinGrams}g protein, ${state.nutrition.carbohydrateGrams}g carbs, ${state.nutrition.fatGrams}g fat`,
     hydrationSummary: `${state.nutrition.waterLiters}L fluids. ${state.nutrition.sodiumGuidance}`,
     actualIntakeSummary: {
-      title: "Actual intake today",
+      title: "Actual vs target today",
       summary: state.nutrition.actualIntakeSummary.summaryCopy,
       confidence: state.nutrition.actualIntakeSummary.confidence.level,
       rows: state.nutrition.actualIntakeSummary.rows

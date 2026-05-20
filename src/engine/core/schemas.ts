@@ -336,9 +336,39 @@ export const CompletedTrainingSessionSchema = z.object({
   durationMinutes: z.number().int().positive(),
   intensity: z.enum(["easy", "moderate", "hard", "max"]),
   rounds: z.number().int().nonnegative().optional(),
+  completionStatus: z.enum(["completed", "skipped"]),
+  sessionRpe: z.number().min(1).max(10).optional(),
+  painNotes: z.array(z.string()),
+  athleteNotes: z.string().optional(),
+  generatedSessionId: z.string().min(1).optional(),
+  engineVersion: z.string().min(1).optional(),
+  completionSource: z.enum(["manual", "generated_session", "protected_anchor"]),
+  smokeRunId: z.string().min(1).optional(),
   note: z.string().optional(),
-  source: z.enum(["manual", "generated_session", "protected_anchor"]),
+  source: z.enum(["manual", "generated_session", "protected_anchor"]).optional(),
   linkedProtectedWorkoutId: z.string().min(1).optional()
+});
+
+export const ExerciseResultRecordSchema = z.object({
+  id: z.string().min(1),
+  exerciseId: z.string().min(1),
+  exerciseName: z.string().min(1),
+  section: z.string().min(1),
+  prescribed: z.record(z.unknown()),
+  resultStatus: z.enum(["prescribed_only", "completed", "partial", "skipped"]),
+  completedSets: z.number().int().nonnegative().optional(),
+  loadText: z.string().optional(),
+  rpe: z.number().min(1).max(10).optional(),
+  notes: z.string().optional(),
+  painFlag: z.boolean().optional(),
+  source: z.string().min(1),
+  engineVersion: z.string().min(1),
+  generatedSessionId: z.string().min(1).optional(),
+  smokeRunId: z.string().min(1).optional(),
+  completedTrainingSessionId: z.string().nullable(),
+  generatedTrainingSessionDbId: z.string().nullable(),
+  recordedAt: ISODateTimeSchema,
+  completedAt: ISODateTimeSchema.nullable()
 });
 
 export const AthleteJourneySchema = z.object({
@@ -356,6 +386,7 @@ export const AthleteJourneySchema = z.object({
   readinessHistory: z.array(ReadinessCheckInSchema),
   wearableSignalHistory: z.array(WearableSignalSchema),
   completedTrainingSessions: z.array(CompletedTrainingSessionSchema),
+  exerciseResults: z.array(ExerciseResultRecordSchema),
   trainingHistory: z.array(GeneratedTrainingSessionSchema),
   protectedWorkouts: z.array(ProtectedWorkoutSchema),
   safetyFlags: z.array(RiskFlagSchema),

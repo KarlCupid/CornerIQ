@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CornerSupabaseClient } from "../services/supabase/client";
-import { deleteUserOwnedData, previewUserOwnedDataExport, type UserOwnedDataExportPreview } from "../services/supabase/userDataService";
+import { deleteUserOwnedData, groupUserOwnedPreviewCounts, previewUserOwnedDataExport, type UserOwnedDataExportPreview } from "../services/supabase/userDataService";
 
 export interface UserDataControlsHook {
   busy: boolean;
@@ -41,6 +41,10 @@ export function useUserDataControls(input: {
     setBusy(true);
     setMessage(null);
     try {
+      if (!preview) {
+        setMessage("Preview export before deleting app data.");
+        return;
+      }
       await deleteUserOwnedData(input.userId, input.client, deleteConfirmation);
       setPreview(null);
       setDeleteConfirmation("");
@@ -51,9 +55,9 @@ export function useUserDataControls(input: {
     } finally {
       setBusy(false);
     }
-  }, [deleteConfirmation, input]);
+  }, [deleteConfirmation, input, preview]);
 
-  const previewRows = useMemo(() => (preview ? Object.entries(preview).map(([table, count]) => `${table}: ${count}`) : []), [preview]);
+  const previewRows = useMemo(() => (preview ? Object.entries(groupUserOwnedPreviewCounts(preview)).map(([category, count]) => `${category}: ${count}`) : []), [preview]);
 
   return {
     busy,

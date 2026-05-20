@@ -10,6 +10,7 @@ import { createReadinessRepository } from "../../services/supabase/readinessRepo
 import { exportUserOwnedData, deleteUserOwnedData, previewUserOwnedDataExport, USER_OWNED_TABLES } from "../../services/supabase/userDataService";
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
+import { createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
 import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
 import { mapJourneyEventRow } from "../../services/supabase/journeyRepository";
 import { createTournamentRepository } from "../../services/supabase/tournamentRepository";
@@ -52,6 +53,7 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
     training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
       upsertRun: vi.fn(),
@@ -183,6 +185,48 @@ describe("Supabase repositories", () => {
     expect(inserted[3]?.record).toMatchObject({ user_id: "user_1", log_date: fixtureAsOfDate });
   });
 
+  it("completed training sessions persist structured completion payloads and map legacy rows", async () => {
+    const { client, inserted } = createInsertClient();
+    await createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
+      id: "completed_1",
+      date: fixtureAsOfDate,
+      type: "coach_assigned_strength",
+      durationMinutes: 35,
+      intensity: "moderate",
+      completionStatus: "completed",
+      sessionRpe: 7,
+      painNotes: ["left shoulder tight"],
+      athleteNotes: "Clean work",
+      generatedSessionId: "generated_1",
+      engineVersion: "test",
+      completionSource: "generated_session",
+      smokeRunId: "smoke_1",
+      note: "Display copy only"
+    });
+
+    expect(inserted[0]?.record).toMatchObject({
+      user_id: "user_1",
+      completed_date: fixtureAsOfDate,
+      session_payload: expect.objectContaining({
+        completionStatus: "completed",
+        sessionRpe: 7,
+        painNotes: ["left shoulder tight"],
+        athleteNotes: "Clean work",
+        completionSource: "generated_session",
+        smokeRunId: "smoke_1"
+      })
+    });
+
+    const mapped = mapCompletedTrainingSessionRow({
+      id: "legacy_completed_1",
+      completed_date: fixtureAsOfDate,
+      session_payload: { type: "coach_assigned_strength", durationMinutes: 30, intensity: "moderate", source: "generated_session", note: "Session RPE: 8" }
+    });
+    expect(mapped.completionStatus).toBe("completed");
+    expect(mapped.completionSource).toBe("generated_session");
+    expect(mapped.painNotes).toEqual([]);
+  });
+
   it("fight and tournament repositories insert validated setup rows", async () => {
     const { client, inserted } = createInsertClient();
     await createFightRepository(client).insertFightOpportunity("user_1", {
@@ -244,6 +288,8 @@ describe("Supabase repositories", () => {
 
     expect(source).toContain("smokeRunId");
     expect(source).toContain('filter("session_payload->>smokeRunId"');
+    expect(source).toContain('filter("result_payload->>smokeRunId"');
+    expect(source).toContain("completeWorkoutService");
     expect(source).toContain('filter("target_payload->>smokeRunId"');
     expect(source).toContain('filter("flag_payload->>smokeRunId"');
     expect(source).toContain("existingProfile");

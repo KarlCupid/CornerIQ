@@ -61,7 +61,7 @@ export function ProfileScreen({
           {viewModel.privacyNotes.map((note) => <Text key={note} style={screenStyles.body}>{note}</Text>)}
         </View>
       </EngineCard>
-      <CycleContextCard cycleContext={cycleContext} minimal />
+      <CycleContextCard cycleContext={cycleContext} minimal trackingStatus={cycleTrackingStatus} />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Journey history</Text>
@@ -80,15 +80,16 @@ export function ProfileScreen({
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Data controls</Text>
-          <Text style={screenStyles.body}>Export preview counts user-owned tables. Delete requires the exact word DELETE and never deletes auth.users from the Expo app.</Text>
+          <Text style={screenStyles.body}>Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.</Text>
+          <Text style={screenStyles.subtle}>This does not delete your Supabase auth account.</Text>
           <Pressable accessibilityRole="button" disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
             <Text style={screenStyles.quietButtonText}>Preview export</Text>
           </Pressable>
           {userDataControls?.previewRows.map((row) => <Text key={row} style={screenStyles.subtle}>{row}</Text>)}
           {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
           <TextInput onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
-          <Pressable accessibilityRole="button" disabled={deleteConfirmation !== "DELETE" || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>Delete data requires DELETE</Text>
+          <Pressable accessibilityRole="button" disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>Delete app data</Text>
           </Pressable>
           <Text style={screenStyles.subtle}>Account deletion requires a server-side function later; this only removes user-owned app data.</Text>
         </View>

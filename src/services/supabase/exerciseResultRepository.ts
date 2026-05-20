@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ExerciseResultDraft, ISODateTimeString } from "../../engine/core/types";
+import type { ExerciseResultDraft, ExerciseResultRecord, ExerciseResultStatus } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
@@ -9,6 +9,7 @@ const ExerciseResultPayloadSchema = z.object({
   exerciseName: z.string().min(1),
   section: z.string().min(1),
   prescribed: z.record(z.unknown()),
+  resultStatus: z.enum(["prescribed_only", "completed", "partial", "skipped"]).optional(),
   completedSets: z.number().int().nonnegative().optional(),
   loadText: z.string().optional(),
   rpe: z.number().min(1).max(10).optional(),
@@ -16,28 +17,9 @@ const ExerciseResultPayloadSchema = z.object({
   painFlag: z.boolean().optional(),
   source: z.string().min(1),
   engineVersion: z.string().min(1),
-  generatedSessionId: z.string().min(1).optional()
+  generatedSessionId: z.string().min(1).optional(),
+  smokeRunId: z.string().min(1).optional()
 });
-
-export interface ExerciseResultRecord {
-  id: string;
-  exerciseId: string;
-  exerciseName: string;
-  section: string;
-  prescribed: Record<string, unknown>;
-  completedSets?: number | undefined;
-  loadText?: string | undefined;
-  rpe?: number | undefined;
-  notes?: string | undefined;
-  painFlag?: boolean | undefined;
-  source: string;
-  engineVersion: string;
-  generatedSessionId?: string | undefined;
-  completedTrainingSessionId: string | null;
-  generatedTrainingSessionDbId: string | null;
-  recordedAt: ISODateTimeString;
-  completedAt: ISODateTimeString | null;
-}
 
 export interface InsertExerciseResultInput {
   userId: string;
@@ -49,6 +31,7 @@ export interface InsertExerciseResultInput {
   engineVersion: string;
   recordedAt?: string | undefined;
   completedAt?: string | undefined;
+  smokeRunId?: string | undefined;
 }
 
 export type ExerciseResultRow = Pick<
@@ -67,12 +50,14 @@ export type ExerciseResultRow = Pick<
 
 export function mapExerciseResultRow(row: ExerciseResultRow): ExerciseResultRecord {
   const payload = parseWithSchema(ExerciseResultPayloadSchema, payloadObject(row.result_payload, "exercise_results.result_payload"), "exercise_results");
+  const resultStatus = payload.resultStatus ?? inferLegacyResultStatus(payload);
   return {
     id: row.id,
     exerciseId: payload.exerciseId,
     exerciseName: payload.exerciseName,
     section: payload.section,
     prescribed: payload.prescribed,
+    resultStatus,
     ...(payload.completedSets === undefined ? {} : { completedSets: payload.completedSets }),
     ...(payload.loadText === undefined ? {} : { loadText: payload.loadText }),
     ...(payload.rpe === undefined ? {} : { rpe: payload.rpe }),
@@ -81,11 +66,19 @@ export function mapExerciseResultRow(row: ExerciseResultRow): ExerciseResultReco
     source: row.source ?? payload.source,
     engineVersion: payload.engineVersion,
     ...(payload.generatedSessionId === undefined ? {} : { generatedSessionId: payload.generatedSessionId }),
+    ...(payload.smokeRunId === undefined ? {} : { smokeRunId: payload.smokeRunId }),
     completedTrainingSessionId: row.completed_training_session_id,
     generatedTrainingSessionDbId: row.generated_training_session_id,
     recordedAt: isoDateTimeValue(row.recorded_at, "exercise_results.recorded_at"),
     completedAt: row.completed_at ? isoDateTimeValue(row.completed_at, "exercise_results.completed_at") : null
   };
+}
+
+function inferLegacyResultStatus(payload: z.infer<typeof ExerciseResultPayloadSchema>): ExerciseResultStatus {
+  if (payload.completedSets !== undefined || payload.loadText || payload.rpe !== undefined || payload.notes || payload.painFlag) {
+    return "partial";
+  }
+  return "prescribed_only";
 }
 
 function resultPayload(input: InsertExerciseResultInput): z.infer<typeof ExerciseResultPayloadSchema> {
@@ -96,6 +89,7 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
       exerciseName: input.result.exerciseName,
       section: input.result.section,
       prescribed: input.result.prescribed,
+      resultStatus: input.result.resultStatus,
       ...(input.result.completedSets === undefined ? {} : { completedSets: input.result.completedSets }),
       ...(input.result.loadText === undefined ? {} : { loadText: input.result.loadText }),
       ...(input.result.rpe === undefined ? {} : { rpe: input.result.rpe }),
@@ -103,7 +97,8 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
       ...(input.result.painFlag === undefined ? {} : { painFlag: input.result.painFlag }),
       source: input.source,
       engineVersion: input.engineVersion,
-      ...(input.generatedSessionId === undefined ? {} : { generatedSessionId: input.generatedSessionId })
+      ...(input.generatedSessionId === undefined ? {} : { generatedSessionId: input.generatedSessionId }),
+      ...(input.smokeRunId === undefined ? {} : { smokeRunId: input.smokeRunId })
     },
     "exercise_results.insertExerciseResult"
   );
@@ -147,6 +142,17 @@ export function createExerciseResultRepository(client: CornerSupabaseClient) {
         .eq("completed_training_session_id", completedTrainingSessionId)
         .order("recorded_at", { ascending: true });
       return readDataOrThrow(response, "exercise_results.listExerciseResultsForCompletedSession").map(mapExerciseResultRow);
+    },
+
+    async listRecentExerciseResults(userId: string, limit = 25): Promise<ExerciseResultRecord[]> {
+      const safeUserId = assertUserId(userId, "exercise_results.listRecentExerciseResults");
+      const response = await client
+        .from("exercise_results")
+        .select("id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, recorded_at, completed_at, source, result_payload")
+        .eq("user_id", safeUserId)
+        .order("recorded_at", { ascending: false })
+        .limit(limit);
+      return readDataOrThrow(response, "exercise_results.listRecentExerciseResults").map(mapExerciseResultRow);
     }
   };
 }

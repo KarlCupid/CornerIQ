@@ -130,6 +130,7 @@ export async function loadAthleteJourney(input: {
       readinessHistory,
       wearableSignalHistory,
       completedTrainingSessions,
+      exerciseResults,
       trainingHistory,
       safetyFlags,
       journeyEvents
@@ -146,6 +147,7 @@ export async function loadAthleteJourney(input: {
       input.repositories.readiness.listCheckIns(userId),
       input.repositories.wearable.listSignals(userId),
       input.repositories.training.listCompletedTrainingSessions(userId),
+      input.repositories.exerciseResult.listRecentExerciseResults(userId),
       input.repositories.training.listGeneratedSessions(userId),
       input.repositories.engineRun.listActiveRiskFlags(userId),
       input.repositories.journey.listEvents(userId)
@@ -170,6 +172,7 @@ export async function loadAthleteJourney(input: {
       readinessHistory,
       wearableSignalHistory,
       completedTrainingSessions,
+      exerciseResults,
       trainingHistory,
       protectedWorkouts,
       safetyFlags,

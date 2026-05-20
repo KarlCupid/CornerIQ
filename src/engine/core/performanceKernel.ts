@@ -63,6 +63,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     phase,
     readiness,
     completedSessions: journey.completedTrainingSessions,
+    recentExerciseResults: journey.exerciseResults,
     highCycleSymptoms: cycle.symptomBurden === "high"
   });
   const earlySafetyFlags = [

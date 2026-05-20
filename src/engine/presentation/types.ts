@@ -68,6 +68,19 @@ export interface FuelViewModel {
   why: string;
 }
 
+export interface TrainingAnalyticsViewModel {
+  lastCompletedSession: string | null;
+  lastSkippedSession: string | null;
+  completionCountLast7Days: number;
+  generatedSessionsCompleted: number;
+  generatedSessionsSkipped: number;
+  painFlagCount: number;
+  averageSessionRpe: number | null;
+  mostRecentExerciseResultSummary: string | null;
+  progressionRecommendation: ProgressionRecommendation;
+  nextBestTrainingAction: string;
+}
+
 export interface TrainViewModel {
   title: string;
   todaySummary: string;
@@ -94,6 +107,7 @@ export interface TrainViewModel {
     detail: DetailedTrainingSession | null;
   }[];
   progressionSummary: ProgressionRecommendation;
+  analytics: TrainingAnalyticsViewModel;
   protectedAnchorSummary: string;
   riskSummary: readonly string[];
 }

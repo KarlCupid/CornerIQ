@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { CompletedTrainingSession, DetailedTrainingSession, JourneyEvent, ReadinessState } from "../../engine/core/types";
+import type { CompletedTrainingSession, DetailedTrainingSession, ExerciseResultRecord, GeneratedSessionFamily, GeneratedTrainingSession, JourneyEvent, ReadinessState } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { exerciseCatalog } from "../../engine/training/exerciseCatalog";
 import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
+import { buildTrainingAnalytics } from "../../engine/training/trainingAnalytics";
 import { recommendTrainingProgression } from "../../engine/training/progressionEngine";
 import { summarizeFoodLogs } from "../../engine/nutrition/foodLogSummary";
 import {
   amateur_novice_build,
   fixtureAsOfDate,
+  menstruating_athlete_camp_heavy_symptoms,
   no_wearable_manual_only,
   pro_12_round_taper,
   pro_4_round_build_strength
@@ -52,11 +54,65 @@ const completedSession: CompletedTrainingSession = {
   type: "coach_assigned_strength",
   durationMinutes: 35,
   intensity: "moderate",
+  completionStatus: "completed",
+  sessionRpe: 7,
+  painNotes: [],
+  completionSource: "generated_session",
   source: "generated_session",
   note: "Session RPE: 7"
 };
 
+function generatedSession(family: GeneratedSessionFamily, overrides: Partial<GeneratedTrainingSession> = {}): GeneratedTrainingSession {
+  return {
+    id: `generated:${fixtureAsOfDate}:${family}`,
+    date: fixtureAsOfDate,
+    family,
+    title: family.replaceAll("_", " "),
+    durationMinutes: 35,
+    intensity: family.includes("recovery") ? "recovery" : "hard",
+    prescription: ["test"],
+    rationale: "test",
+    protects: ["boxing quality"],
+    modifications: [],
+    fuelDemand: "moderate",
+    ...overrides
+  };
+}
+
+function buildFamilyDetail(family: GeneratedSessionFamily, journey = pro_4_round_build_strength, overrides: Partial<Parameters<typeof buildDetailedTrainingSession>[0]> = {}): DetailedTrainingSession {
+  const state = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate });
+  return buildDetailedTrainingSession({
+    generatedSession: generatedSession(family),
+    athlete: state.athlete,
+    readiness: state.readiness,
+    cycle: state.cycle,
+    phase: state.phase,
+    protectedWorkouts: [],
+    equipmentAccess: state.athlete.equipmentAccess,
+    ...overrides
+  });
+}
+
 describe("exercise catalog safety", () => {
+  it("catalog has broad boxer-specific coverage with transfer and stop conditions", () => {
+    expect(exerciseCatalog.length).toBeGreaterThanOrEqual(25);
+    expect(exerciseCatalog.every((exercise) => exercise.boxingTransfer.length > 0 && exercise.stopConditions.length > 0)).toBe(true);
+
+    const allText = exerciseCatalog
+      .flatMap((exercise) => [
+        exercise.name,
+        exercise.loadGuidance,
+        exercise.boxingTransfer,
+        ...exercise.coachingNotes,
+        ...exercise.safetyNotes,
+        ...exercise.stopConditions,
+        ...exercise.substitutions.flatMap((substitution) => [substitution.name, substitution.reason, substitution.loadGuidance, ...substitution.coachingNotes])
+      ])
+      .join(" ")
+      .toLowerCase();
+    expect(allText).not.toMatch(/sparring|contact|neck bridge|olympic|snatch|jerk/);
+  });
+
   it("catalog avoids generated partner-impact instruction and novice Olympic derivatives", () => {
     const catalogInstructionText = exerciseCatalog
       .flatMap((exercise) => [exercise.name, exercise.boxingTransfer, ...exercise.coachingNotes, ...exercise.substitutions.map((substitution) => substitution.name)])
@@ -82,6 +138,54 @@ describe("exercise catalog safety", () => {
 });
 
 describe("detailed training session engine", () => {
+  it("builds detailed sessions for expanded families", () => {
+    const families: readonly GeneratedSessionFamily[] = [
+      "strength_lower",
+      "strength_upper",
+      "power_lower",
+      "power_upper",
+      "roadwork_tempo",
+      "roadwork_intervals",
+      "alactic_sprints",
+      "round_based_conditioning",
+      "trunk_durability",
+      "wrist_hand_durability",
+      "hip_ankle_mobility"
+    ];
+
+    for (const family of families) {
+      const detail = buildFamilyDetail(family);
+      expect(detail.sections.length).toBeGreaterThan(0);
+      expect(detail.sections.flatMap((section) => section.exercises).length).toBeGreaterThan(0);
+      expect(exercisePrescriptionText(detail).toLowerCase()).not.toMatch(/sparring|contact/);
+    }
+  });
+
+  it("downgrades hard families for hard boxing days, tournament mode, fight week, and high cycle symptoms", () => {
+    const sparringDay = buildFamilyDetail("alactic_sprints", no_wearable_manual_only, {
+      protectedWorkouts: no_wearable_manual_only.protectedWorkouts
+    });
+    expect(sparringDay.family).toBe("shoulder_scap_durability");
+    expect(sparringDay.intensity).toBe("easy");
+
+    const tournamentState = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const tournament = buildFamilyDetail("round_based_conditioning", pro_4_round_build_strength, {
+      phase: { ...tournamentState.phase, phase: "tournament" }
+    });
+    expect(tournament.family).toBe("hip_ankle_mobility");
+    expect(tournament.readinessModifications.join(" ")).toContain("Tournament mode");
+
+    const fightWeek = buildFamilyDetail("strength_lower", pro_4_round_build_strength, {
+      phase: { ...tournamentState.phase, phase: "fight_week" }
+    });
+    expect(fightWeek.family).toBe("taper_maintenance");
+    expect(fightWeek.durationMinutes).toBeLessThanOrEqual(25);
+
+    const highSymptoms = buildFamilyDetail("strength_lower", menstruating_athlete_camp_heavy_symptoms, { readiness: greenReadiness });
+    expect(highSymptoms.cycleModifications.join(" ")).toContain("High cycle symptoms");
+    expect(highSymptoms.sections.flatMap((section) => section.exercises).some((exercise) => exercise.safetyNotes.join(" ").includes("Optional volume trimmed"))).toBe(true);
+  });
+
   it("full-body strength detail has warm-up, main, accessory, and cooldown sections", () => {
     const detail = detailForFixture(pro_4_round_build_strength);
     const names = detail.sections.map((section) => section.name).join(" ");
@@ -192,6 +296,43 @@ describe("progression and train view model", () => {
     expect(pain.viewModels.train.progressionSummary.status).toBe("coach_review");
 
     expect(ready.viewModels.train.progressionSummary.status).toBe("unknown");
+  });
+
+  it("training analytics counts completions, skips, pain flags, average RPE, and next action", () => {
+    const exerciseResult: ExerciseResultRecord = {
+      id: "exercise_result_1",
+      exerciseId: "pallof_press",
+      exerciseName: "Pallof press",
+      section: "Trunk",
+      prescribed: {},
+      resultStatus: "partial",
+      painFlag: true,
+      source: "test",
+      engineVersion: "test",
+      completedTrainingSessionId: "completed_1",
+      generatedTrainingSessionDbId: null,
+      recordedAt: "2026-05-19T12:00:00.000Z",
+      completedAt: "2026-05-19T12:00:00.000Z"
+    };
+    const analytics = buildTrainingAnalytics({
+      asOfDate: fixtureAsOfDate,
+      completedTrainingSessions: [
+        { ...completedSession, sessionRpe: 7, painNotes: [] },
+        { ...completedSession, id: "skipped_1", completionStatus: "skipped", sessionRpe: undefined, painNotes: ["sharp shoulder pain"] }
+      ],
+      exerciseResults: [exerciseResult],
+      readiness: greenReadiness,
+      safetyFlags: []
+    });
+
+    expect(analytics.completionCountLast7Days).toBe(1);
+    expect(analytics.generatedSessionsCompleted).toBe(1);
+    expect(analytics.generatedSessionsSkipped).toBe(1);
+    expect(analytics.painFlagCount).toBe(2);
+    expect(analytics.averageSessionRpe).toBe(7);
+    expect(analytics.mostRecentExerciseResultSummary).toContain("Pallof press");
+    expect(analytics.progressionRecommendation.status).toBe("coach_review");
+    expect(analytics.nextBestTrainingAction).toContain("coach");
   });
 });
 

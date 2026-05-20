@@ -28,6 +28,7 @@ function firstExerciseResult(session: DetailedTrainingSession): ExerciseResultDr
     exerciseName: firstExercise.name,
     section: firstSection.name,
     prescribed: firstExercise,
+    resultStatus: "completed",
     completedSets: 2,
     loadText: "bodyweight",
     rpe: 6,
@@ -98,14 +99,27 @@ describe("workout completion service", () => {
     });
 
     expect(result.completedTrainingSessionId).toBe("completed_1");
-    expect(insertCompletedTrainingSession).toHaveBeenCalledWith("user_1", expect.objectContaining({ source: "generated_session", type: "coach_assigned_strength" }));
+    expect(insertCompletedTrainingSession).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({
+        completionStatus: "completed",
+        completionSource: "generated_session",
+        generatedSessionId: session.generatedSessionId,
+        sessionRpe: 7,
+        painNotes: [],
+        athleteNotes: "Good session",
+        engineVersion: "test",
+        source: "generated_session",
+        type: "coach_assigned_strength"
+      })
+    );
     expect(insertExerciseResults).toHaveBeenCalledWith([expect.objectContaining({ completedTrainingSessionId: "completed_1", source: "generated_session_completion" })]);
     expect(appendEvent).toHaveBeenCalledWith("user_1", "TrainingSessionCompleted", expect.objectContaining({ status: "completed", exerciseResultCount: 1 }));
   });
 
   it("skipped workout creates an event and no exercise results", async () => {
     const session = detailedSession();
-    const insertCompletedTrainingSession = vi.fn();
+    const insertCompletedTrainingSession = vi.fn(async () => ({ id: "skipped_1" }));
     const insertExerciseResults = vi.fn();
     const appendEvent = vi.fn(async () => ({ id: "event_1" }));
 
@@ -130,7 +144,8 @@ describe("workout completion service", () => {
     });
 
     expect(result.status).toBe("skipped");
-    expect(insertCompletedTrainingSession).not.toHaveBeenCalled();
+    expect(result.completedTrainingSessionId).toBe("skipped_1");
+    expect(insertCompletedTrainingSession).toHaveBeenCalledWith("user_1", expect.objectContaining({ completionStatus: "skipped", completionSource: "generated_session" }));
     expect(insertExerciseResults).not.toHaveBeenCalled();
     expect(appendEvent).toHaveBeenCalledWith("user_1", "TrainingSessionCompleted", expect.objectContaining({ status: "skipped" }));
   });
@@ -201,6 +216,31 @@ describe("exerciseResultRepository", () => {
     });
     expect(mapped.recordedAt).toBe("2026-05-19T12:00:00.000Z");
     expect(mapped.generatedSessionId).toBe(session.generatedSessionId);
+    expect(mapped.resultStatus).toBe("partial");
+  });
+
+  it("persists exercise result intent and smoke metadata", async () => {
+    const session = detailedSession();
+    const { client, inserted } = createInsertClient();
+    const result = { ...firstExerciseResult(session), resultStatus: "partial" as const, painFlag: true };
+
+    await createExerciseResultRepository(client).insertExerciseResult({
+      userId: "user_1",
+      completedTrainingSessionId: "completed_1",
+      generatedSessionId: session.generatedSessionId,
+      result,
+      source: "test",
+      engineVersion: "0.2.0",
+      smokeRunId: "smoke_1"
+    });
+
+    expect(inserted[0]?.record).toMatchObject({
+      result_payload: expect.objectContaining({
+        resultStatus: "partial",
+        painFlag: true,
+        smokeRunId: "smoke_1"
+      })
+    });
   });
 
   it("rejects malformed exercise result drafts before insert", async () => {

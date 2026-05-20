@@ -169,7 +169,7 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
         coachingNotes: ["Own the reach", "Stop if shoulder pinches"]
       }
     ],
-    safetyNotes: ["Keep neck neutral; no loaded neck bridging."],
+    safetyNotes: ["Keep neck neutral; no aggressive neck loading."],
     stopConditions: ["Stop if shoulder pain, numbness, or tingling appears."]
   },
   {
@@ -195,7 +195,7 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
         coachingNotes: ["Thumbs up", "Do not crank the neck"]
       }
     ],
-    safetyNotes: ["Avoid jerky reps."],
+    safetyNotes: ["Avoid abrupt reps."],
     stopConditions: ["Stop if shoulder or neck symptoms increase."]
   },
   {
@@ -359,6 +359,526 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
     ],
     safetyNotes: ["Recovery is not a hidden conditioning session."],
     stopConditions: ["Stop if dizziness, unusual pain, or symptoms worsen."]
+  },
+  {
+    exerciseId: "rear_foot_elevated_split_squat",
+    name: "Rear-foot-elevated split squat",
+    category: "secondary_strength",
+    families: ["strength_lower", "strength_full_body"],
+    requiredEquipment: ["bench", "dumbbells"],
+    noviceEligible: false,
+    repsText: "2-3 x 5/side",
+    loadGuidance: "Light-moderate dumbbells; stop with two clean reps in reserve.",
+    rpeTarget: 7,
+    rirTarget: 2,
+    restText: "90 sec between sides",
+    coachingNotes: ["Front foot owns the floor", "Tall torso", "No grinding through the bottom"],
+    boxingTransfer: "Builds single-leg stance force for level changes, exits, and repeated stance resets.",
+    substitutions: [
+      {
+        exerciseId: "split_squat_iso",
+        name: "Split squat iso hold",
+        reason: "No bench, no load, or simpler option needed",
+        equipmentNeeded: [],
+        loadGuidance: "Bodyweight hold in a pain-free range.",
+        coachingNotes: ["Use support for balance", "Stop before shaking changes posture"]
+      }
+    ],
+    safetyNotes: ["Use a stable rear-foot support and keep range pain-free."],
+    stopConditions: ["Stop if knee, hip, or ankle pain rises or rep speed drops."]
+  },
+  {
+    exerciseId: "hip_hinge_rdl",
+    name: "Dumbbell Romanian deadlift",
+    category: "main_strength",
+    families: ["strength_lower", "strength_full_body"],
+    requiredEquipment: ["dumbbells"],
+    noviceEligible: true,
+    repsText: "3 x 6",
+    loadGuidance: "RPE 6-7, hamstrings loaded without back strain.",
+    rpeTarget: 7,
+    rirTarget: 2,
+    tempo: "2 sec down, smooth up",
+    restText: "90-120 sec",
+    coachingNotes: ["Hips move back", "Ribs stay stacked", "Keep the load close"],
+    boxingTransfer: "Builds posterior-chain force for stance braking and hip-driven punch transfer.",
+    substitutions: [
+      {
+        exerciseId: "hip_hinge_reach",
+        name: "Bodyweight hip-hinge reach",
+        reason: "No external load or hinge is still being learned",
+        equipmentNeeded: [],
+        loadGuidance: "Slow bodyweight hinge with hands reaching forward.",
+        coachingNotes: ["Keep shins mostly vertical", "Stop before back tension builds"]
+      }
+    ],
+    safetyNotes: ["No max pulls and no reps through back pain."],
+    stopConditions: ["Stop if back position changes, hamstring pain appears, or speed drops into a grind."]
+  },
+  {
+    exerciseId: "calf_ankle_capacity",
+    name: "Calf and ankle capacity raise",
+    category: "durability",
+    families: ["strength_lower", "hip_ankle_mobility", "power_lower"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "2 x 10-15",
+    loadGuidance: "Bodyweight, slow enough to control the top and bottom.",
+    rpeTarget: 6,
+    restText: "45 sec",
+    coachingNotes: ["Own the big toe", "Control the lowering", "Keep reps quiet"],
+    boxingTransfer: "Supports footwork bounce, braking, and repeat direction changes.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Keep range pain-free after roadwork or jumping."],
+    stopConditions: ["Stop if Achilles, calf, or foot pain changes gait."]
+  },
+  {
+    exerciseId: "lateral_lunge_regression",
+    name: "Lateral lunge regression",
+    category: "mobility",
+    families: ["strength_lower", "hip_ankle_mobility"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "2 x 5/side",
+    loadGuidance: "Bodyweight only unless position is easy and stable.",
+    rpeTarget: 5,
+    restText: "45 sec",
+    coachingNotes: ["Use a short range", "Keep the planted foot rooted", "Return without bouncing"],
+    boxingTransfer: "Builds lateral stance range for pivots and angle changes.",
+    substitutions: [
+      {
+        exerciseId: "side_rockback",
+        name: "Side rockback",
+        reason: "Lunge range is too much today",
+        equipmentNeeded: [],
+        loadGuidance: "Gentle mobility only.",
+        coachingNotes: ["Keep it smooth", "No forced depth"]
+      }
+    ],
+    safetyNotes: ["Do not force hip or groin range."],
+    stopConditions: ["Stop if groin, knee, or hip pain rises."]
+  },
+  {
+    exerciseId: "landmine_press",
+    name: "Half-kneeling landmine press",
+    category: "main_strength",
+    families: ["strength_upper", "power_upper"],
+    requiredEquipment: ["landmine"],
+    noviceEligible: true,
+    repsText: "3 x 5/side",
+    loadGuidance: "RPE 6-7 with a clean reach at the top.",
+    rpeTarget: 7,
+    rirTarget: 2,
+    restText: "75-90 sec",
+    coachingNotes: ["Glute on the down-knee side lightly on", "Reach without shrugging", "Ribs stay down"],
+    boxingTransfer: "Builds pressing and reaching strength for guard resilience without overhead max loading.",
+    substitutions: [
+      {
+        exerciseId: "band_press_split_stance",
+        name: "Band press in split stance",
+        reason: "No landmine setup",
+        equipmentNeeded: ["bands"],
+        loadGuidance: "Light-moderate band, smooth reach.",
+        coachingNotes: ["Press and relax", "No trunk twist"]
+      },
+      {
+        exerciseId: "incline_push_up",
+        name: "Incline push-up",
+        reason: "No pressing equipment",
+        equipmentNeeded: [],
+        loadGuidance: "Use a height that keeps reps clean.",
+        coachingNotes: ["Reach at the top", "Stop before shoulder pinch"]
+      }
+    ],
+    safetyNotes: ["No max overhead loading."],
+    stopConditions: ["Stop if shoulder pinches, ribs flare hard, or press speed drops."]
+  },
+  {
+    exerciseId: "one_arm_row",
+    name: "One-arm dumbbell row",
+    category: "secondary_strength",
+    families: ["strength_upper", "power_upper", "shoulder_scap_durability"],
+    requiredEquipment: ["dumbbells"],
+    noviceEligible: true,
+    repsText: "2-3 x 8/side",
+    loadGuidance: "RPE 6, pause lightly without shrugging.",
+    rpeTarget: 6,
+    restText: "60 sec",
+    coachingNotes: ["Elbow toward back pocket", "Neck relaxed", "No torso yank"],
+    boxingTransfer: "Balances punching volume with upper-back strength for guard and shoulder control.",
+    substitutions: [
+      {
+        exerciseId: "towel_row_iso",
+        name: "Towel row iso",
+        reason: "No dumbbell or band anchor",
+        equipmentNeeded: [],
+        loadGuidance: "Gentle self-resisted pull for 10-20 sec.",
+        coachingNotes: ["Keep neck relaxed", "Stop before cramping"]
+      }
+    ],
+    safetyNotes: ["Avoid yanking the shoulder through fatigue."],
+    stopConditions: ["Stop if neck, shoulder, numbness, or tingling symptoms appear."]
+  },
+  {
+    exerciseId: "serratus_wall_slide",
+    name: "Serratus wall slide",
+    category: "durability",
+    families: ["strength_upper", "shoulder_scap_durability", "power_upper"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "2 x 8",
+    loadGuidance: "Light wall pressure; own the reach.",
+    rpeTarget: 4,
+    restText: "30-45 sec",
+    coachingNotes: ["Forearms glide", "Reach without shrugging", "Keep ribs quiet"],
+    boxingTransfer: "Supports upward rotation and reach control for guard, jabs, and punch deceleration.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Small range is fine if shoulders are sensitive."],
+    stopConditions: ["Stop if shoulder pinching, numbness, or tingling appears."]
+  },
+  {
+    exerciseId: "med_ball_scoop_toss",
+    name: "Medicine-ball scoop toss",
+    category: "power",
+    families: ["power_rotational"],
+    requiredEquipment: ["medicine_ball"],
+    noviceEligible: true,
+    repsText: "4 x 3/side",
+    loadGuidance: "Light ball, fast throw, full reset between reps.",
+    rpeTarget: 6,
+    restText: "60-90 sec",
+    coachingNotes: ["Load the hip", "Throw and relax", "Reset stance before each rep"],
+    boxingTransfer: "Trains hip-led rotation for punch transfer without chasing fatigue.",
+    substitutions: [
+      {
+        exerciseId: "step_and_snap_rotation",
+        name: "Step-and-snap rotation",
+        reason: "No ball or throwing wall",
+        equipmentNeeded: [],
+        loadGuidance: "Bodyweight speed only.",
+        coachingNotes: ["Fast and relaxed", "Stop when timing fades"]
+      }
+    ],
+    safetyNotes: ["Use a clear throwing lane and light implement."],
+    stopConditions: ["Stop when speed drops, timing gets sloppy, or pain appears."]
+  },
+  {
+    exerciseId: "med_ball_shot_put_throw",
+    name: "Medicine-ball shot-put throw",
+    category: "power",
+    families: ["power_upper"],
+    requiredEquipment: ["medicine_ball"],
+    noviceEligible: true,
+    repsText: "4 x 3/side",
+    loadGuidance: "Light ball, crisp throw, no fatigue accumulation.",
+    rpeTarget: 6,
+    restText: "60-90 sec",
+    coachingNotes: ["Drive from the floor", "Punch the ball through", "Reset completely"],
+    boxingTransfer: "Supports upper-body power expression while keeping impact away from a partner.",
+    substitutions: [
+      {
+        exerciseId: "band_press_split_stance",
+        name: "Band press in split stance",
+        reason: "No safe throw setup",
+        equipmentNeeded: ["bands"],
+        loadGuidance: "Light band speed reps.",
+        coachingNotes: ["Snap and relax", "Stop when speed fades"]
+      },
+      {
+        exerciseId: "fast_wall_push",
+        name: "Fast wall push",
+        reason: "No equipment",
+        equipmentNeeded: [],
+        loadGuidance: "Low force, fast intent into a wall.",
+        coachingNotes: ["Keep it snappy", "No shoulder irritation"]
+      }
+    ],
+    safetyNotes: ["No heavy throws through shoulder symptoms."],
+    stopConditions: ["Stop when speed drops, accuracy fades, or shoulder pain appears."]
+  },
+  {
+    exerciseId: "low_amplitude_pogo",
+    name: "Low-amplitude pogo",
+    category: "power",
+    families: ["power_lower", "alactic_sprints"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "3 x 8-12 sec",
+    loadGuidance: "Tiny, quiet ground strikes at RPE 5-6.",
+    rpeTarget: 6,
+    restText: "60 sec",
+    coachingNotes: ["Stay tall", "Quiet feet", "Stop before calf burn"],
+    boxingTransfer: "Keeps ankle stiffness and rhythm available for footwork without a hard finisher.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Skip if Achilles, calf, or foot pain is present."],
+    stopConditions: ["Stop when speed drops, ground strikes get loud, or lower-leg pain appears."]
+  },
+  {
+    exerciseId: "snap_down_landing",
+    name: "Snap-down landing mechanics",
+    category: "power",
+    families: ["power_lower", "alactic_sprints", "taper_maintenance"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "3 x 3",
+    loadGuidance: "Bodyweight only; quiet stick, then reset.",
+    rpeTarget: 5,
+    restText: "45-60 sec",
+    coachingNotes: ["Land quiet", "Knees track over toes", "Hold two seconds"],
+    boxingTransfer: "Improves braking and landing control for exits and angle changes.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["No depth jumps or fatigue jumping."],
+    stopConditions: ["Stop when speed drops, landing gets loud, or pain appears."]
+  },
+  {
+    exerciseId: "wrist_pronation_supination",
+    name: "Forearm pronation-supination",
+    category: "durability",
+    families: ["wrist_hand_durability"],
+    requiredEquipment: ["dumbbells"],
+    noviceEligible: true,
+    repsText: "2 x 8/side",
+    loadGuidance: "Very light load; smooth wrist rotation.",
+    rpeTarget: 4,
+    restText: "30 sec",
+    coachingNotes: ["Elbow supported", "Small range is fine", "No gripping hard"],
+    boxingTransfer: "Builds forearm capacity for wraps, bag rounds, and relaxed guard tension.",
+    substitutions: [
+      {
+        exerciseId: "open_close_hand_pump",
+        name: "Open-close hand pump",
+        reason: "No light implement or wrist is sensitive",
+        equipmentNeeded: [],
+        loadGuidance: "Easy range only.",
+        coachingNotes: ["Relax between reps", "Stop before forearm ache"]
+      }
+    ],
+    safetyNotes: ["Do not load through wrist pain."],
+    stopConditions: ["Stop if wrist, elbow, numbness, or tingling symptoms appear."]
+  },
+  {
+    exerciseId: "grip_endurance_carry",
+    name: "Light grip endurance carry",
+    category: "durability",
+    families: ["wrist_hand_durability", "strength_upper"],
+    requiredEquipment: ["dumbbells"],
+    noviceEligible: true,
+    durationText: "2 x 20-30 sec",
+    loadGuidance: "Light carries only; shoulders down and breathing steady.",
+    rpeTarget: 5,
+    restText: "45-60 sec",
+    coachingNotes: ["Walk tall", "Relax jaw and shoulders", "Stop before grip locks up"],
+    boxingTransfer: "Builds hand and forearm endurance without turning grip tension into a skill limiter.",
+    substitutions: [
+      {
+        exerciseId: "towel_squeeze_breathing",
+        name: "Towel squeeze breathing",
+        reason: "No weights or limited space",
+        equipmentNeeded: [],
+        loadGuidance: "Gentle squeeze and full relax.",
+        coachingNotes: ["Breathe through the squeeze", "Fully release"]
+      }
+    ],
+    safetyNotes: ["Avoid heavy carries before boxing skill work."],
+    stopConditions: ["Stop if forearm pain, numbness, or tingling appears."]
+  },
+  {
+    exerciseId: "ytwl_raise",
+    name: "Prone YTWL raise",
+    category: "durability",
+    families: ["shoulder_scap_durability", "strength_upper"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "1-2 x 4 each shape",
+    loadGuidance: "Bodyweight only; tiny clean range.",
+    rpeTarget: 4,
+    restText: "30-45 sec",
+    coachingNotes: ["Thumbs up", "Neck relaxed", "Stop before shrugging"],
+    boxingTransfer: "Builds low-load shoulder blade control for guard posture and punch deceleration.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["No aggressive neck extension."],
+    stopConditions: ["Stop if shoulder, neck, numbness, or tingling symptoms appear."]
+  },
+  {
+    exerciseId: "dead_bug_anti_extension",
+    name: "Dead bug anti-extension",
+    category: "durability",
+    families: ["trunk_durability", "strength_lower", "strength_full_body"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "2 x 5/side",
+    loadGuidance: "Slow bodyweight reps with full exhale.",
+    rpeTarget: 5,
+    restText: "45 sec",
+    coachingNotes: ["Low back stays quiet", "Exhale before reaching", "Own the return"],
+    boxingTransfer: "Builds anti-extension control so force transfers through the trunk instead of rib flare.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Do not brace so hard that breathing stops."],
+    stopConditions: ["Stop if back pain or rib flare increases."]
+  },
+  {
+    exerciseId: "adductor_side_plank_regression",
+    name: "Adductor side-plank regression",
+    category: "durability",
+    families: ["trunk_durability", "hip_ankle_mobility"],
+    requiredEquipment: ["bench"],
+    noviceEligible: true,
+    durationText: "2 x 10-20 sec/side",
+    loadGuidance: "Short lever and easy effort; no max holds.",
+    rpeTarget: 5,
+    restText: "45 sec",
+    coachingNotes: ["Use bent knee if needed", "Hips stacked", "Stop before shaking"],
+    boxingTransfer: "Supports adductor and trunk capacity for stance width, pivots, and lateral exits.",
+    substitutions: [
+      {
+        exerciseId: "side_plank_knee_down",
+        name: "Knee-down side plank",
+        reason: "No bench or adductor symptoms",
+        equipmentNeeded: [],
+        loadGuidance: "Short easy hold.",
+        coachingNotes: ["Stack ribs over pelvis", "Stop before compensation"]
+      }
+    ],
+    safetyNotes: ["No long max-effort groin holds."],
+    stopConditions: ["Stop if groin, hip, or back pain appears."]
+  },
+  {
+    exerciseId: "tempo_roadwork",
+    name: "Tempo roadwork",
+    category: "conditioning",
+    families: ["roadwork_tempo", "roadwork_intervals"],
+    requiredEquipment: [],
+    noviceEligible: false,
+    durationText: "3-5 x 3 min tempo",
+    loadGuidance: "RPE 6-7 with one easy round between; never all-out.",
+    rpeTarget: 7,
+    restText: "2-3 min easy walk or jog",
+    coachingNotes: ["Smooth rhythm", "Stop before form changes", "Keep breathing controlled"],
+    boxingTransfer: "Supports sustained pressure without turning roadwork into a race.",
+    substitutions: [
+      {
+        exerciseId: "zone2_roadwork_talk_test",
+        name: "Zone 2 roadwork talk-test",
+        reason: "Novice, high symptoms, or no tempo today",
+        equipmentNeeded: [],
+        loadGuidance: "RPE 3-4 talk-test effort.",
+        coachingNotes: ["Run-walk is valid", "Keep it repeatable"]
+      }
+    ],
+    safetyNotes: ["Do not use tempo work on red readiness, tournament days, or hard boxing days."],
+    stopConditions: ["Stop if gait changes, breathing spikes unexpectedly, or dizziness appears."]
+  },
+  {
+    exerciseId: "bike_rower_zone2",
+    name: "Bike or rower aerobic alternative",
+    category: "conditioning",
+    families: ["roadwork_zone2", "roadwork_intervals"],
+    requiredEquipment: ["bike"],
+    noviceEligible: true,
+    durationText: "20-35 min",
+    loadGuidance: "RPE 3-4 talk-test effort; use when running impact is not the right choice.",
+    rpeTarget: 4,
+    restText: "Continuous easy effort.",
+    coachingNotes: ["Smooth cadence", "Easy enough to repeat", "No chasing device metrics"],
+    boxingTransfer: "Keeps aerobic support available when joints or schedule make running a poor fit.",
+    substitutions: [
+      {
+        exerciseId: "zone2_roadwork_talk_test",
+        name: "Zone 2 walk-run",
+        reason: "No bike or rower",
+        equipmentNeeded: [],
+        loadGuidance: "RPE 3-4 talk-test effort.",
+        coachingNotes: ["Walk-run is valid", "Keep gait pain-free"]
+      }
+    ],
+    safetyNotes: ["Manual effort is enough; no wearable is required."],
+    stopConditions: ["Stop if dizziness, chest pain, or unusual symptoms appear."]
+  },
+  {
+    exerciseId: "alactic_sprint_gated",
+    name: "Alactic sprint with gates",
+    category: "conditioning",
+    families: ["alactic_sprints"],
+    requiredEquipment: [],
+    noviceEligible: false,
+    repsText: "4-6 x 6-8 sec",
+    loadGuidance: "Only if green/amber readiness, pain-free gait, and full recovery between efforts.",
+    rpeTarget: 8,
+    restText: "2-3 min full recovery",
+    coachingNotes: ["Flat surface only", "Fast relaxed effort", "End while speed is high"],
+    boxingTransfer: "Supports short burst qualities for entries and exits without conditioning fatigue.",
+    substitutions: [
+      {
+        exerciseId: "low_amplitude_pogo",
+        name: "Low-amplitude pogo",
+        reason: "Sprint gates are not met",
+        equipmentNeeded: [],
+        loadGuidance: "Tiny ground strikes only.",
+        coachingNotes: ["Quiet feet", "Stop before fatigue"]
+      }
+    ],
+    safetyNotes: ["No sprinting on red readiness, hard boxing days, tournament days, or active pain."],
+    stopConditions: ["Stop when speed drops, stride changes, or any pain appears."]
+  },
+  {
+    exerciseId: "round_based_conditioning_support",
+    name: "Solo round-based conditioning support",
+    category: "conditioning",
+    families: ["round_based_conditioning"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "3-4 x 2-3 min",
+    loadGuidance: "RPE 5-6. Use footwork, shadow rhythm, or low-impact movement only.",
+    rpeTarget: 6,
+    restText: "60 sec easy breathing",
+    coachingNotes: ["Move smoothly", "Keep technique relaxed", "No fatigue finisher"],
+    boxingTransfer: "Matches boxing round structure while keeping support work controlled and solo.",
+    substitutions: [
+      {
+        exerciseId: "easy_walk_reset",
+        name: "Easy walk reset",
+        reason: "Round structure is too much today",
+        equipmentNeeded: [],
+        loadGuidance: "RPE 2-3 relaxed pace.",
+        coachingNotes: ["Keep it restorative", "Stop if symptoms increase"]
+      }
+    ],
+    safetyNotes: ["No partner-impact drills and no hard conditioning when readiness or schedule says no."],
+    stopConditions: ["Stop if speed drops, coordination fades, dizziness appears, or pain changes movement."]
+  },
+  {
+    exerciseId: "mobility_reset_flow",
+    name: "Mobility reset flow",
+    category: "mobility",
+    families: ["hip_ankle_mobility", "recovery_reset", "strength_lower", "power_lower"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "6-10 min",
+    loadGuidance: "Pain-free range with easy breathing.",
+    rpeTarget: 3,
+    restText: "As needed.",
+    coachingNotes: ["Hips, ankles, T-spine", "No forced end range", "Leave looser"],
+    boxingTransfer: "Restores stance positions and rotation without adding fatigue.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Mobility is not a hidden workout."],
+    stopConditions: ["Stop if pain, dizziness, or symptoms increase."]
+  },
+  {
+    exerciseId: "easy_walk_reset",
+    name: "Easy walk reset",
+    category: "recovery",
+    families: ["recovery_reset", "hip_ankle_mobility"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "10-25 min",
+    loadGuidance: "RPE 2-3 relaxed pace; conversation should be easy.",
+    rpeTarget: 3,
+    restText: "Continuous easy effort.",
+    coachingNotes: ["Keep it easy", "Use nasal breathing only if comfortable", "Turn around before fatigue"],
+    boxingTransfer: "Supports recovery between boxing sessions without adding another hard stress.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Do not turn recovery walking into conditioning."],
+    stopConditions: ["Stop if dizziness, chest pain, gait-changing pain, or unusual symptoms appear."]
   }
 ];
 

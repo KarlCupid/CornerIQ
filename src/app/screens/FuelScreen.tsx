@@ -45,7 +45,7 @@ export function FuelScreen({ busy, message, quickLogs, recentLogs, viewModel }: 
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>{viewModel.actualIntakeSummary.title}</Text>
           <Text style={screenStyles.body}>{viewModel.actualIntakeSummary.summary}</Text>
-          <Text style={screenStyles.subtle}>Confidence: {viewModel.actualIntakeSummary.confidence}</Text>
+          <Text style={screenStyles.subtle}>Confidence: {viewModel.actualIntakeSummary.confidence}. One day of food logging informs context only; targets stay engine-led.</Text>
           {viewModel.actualIntakeSummary.rows.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
         </View>
       </EngineCard>

@@ -1,6 +1,6 @@
 import { makeConfidence } from "../core/confidence";
 import { addDays } from "../core/dates";
-import type { AthleteProfile, CompletedTrainingSession, PhaseState, ProtectedWorkout, ReadinessState, TrainingState } from "../core/types";
+import type { AthleteProfile, CompletedTrainingSession, ExerciseResultRecord, PhaseState, ProtectedWorkout, ReadinessState, TrainingState } from "../core/types";
 import { buildLoadLedger } from "./loadLedger";
 import { generateSupportSession } from "./sessionGenerator";
 import { anchorsForDate, hasProtectedCompetition, hasProtectedSparring } from "./protectedAnchors";
@@ -12,6 +12,7 @@ export function resolveWeeklyTrainingPlan(input: {
   phase: PhaseState;
   readiness: ReadinessState;
   completedSessions?: readonly CompletedTrainingSession[];
+  recentExerciseResults?: readonly ExerciseResultRecord[];
   highCycleSymptoms: boolean;
   safetyBlocks?: boolean;
 }): TrainingState {
@@ -76,6 +77,7 @@ export function resolveWeeklyTrainingPlan(input: {
   return {
     protectedAnchors: input.anchors,
     completedSessions: input.completedSessions ?? [],
+    recentExerciseResults: input.recentExerciseResults ?? [],
     generatedSessions: generated,
     todaySessions,
     loadLedger: ledger,

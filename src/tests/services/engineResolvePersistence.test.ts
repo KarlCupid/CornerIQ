@@ -62,6 +62,7 @@ function createRepositories(options: { journey?: AthleteJourney; missingProfile?
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
     training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
       upsertRun,

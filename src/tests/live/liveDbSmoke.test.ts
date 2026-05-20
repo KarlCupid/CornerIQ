@@ -6,7 +6,8 @@ import { createCornerSupabaseClient, getSupabaseConfigFromEnv } from "../../serv
 import type { Json } from "../../services/supabase/database.types";
 import type { TableRow } from "../../services/supabase/repositoryTypes";
 import { resolveAndPersistPerformanceState } from "../../services/engine/resolveAndPersistPerformanceState";
-import type { ISODateString, ProtectedWorkout } from "../../engine/core/types";
+import type { DetailedTrainingSession, ExerciseResultDraft, ISODateString, ProtectedWorkout } from "../../engine/core/types";
+import { completeWorkoutService, completedSessionTypeForFamily } from "../../services/training/completeWorkoutService";
 
 const runLiveSmoke = process.env.CORNERIQ_LIVE_DB_SMOKE === "1";
 const describeLive = runLiveSmoke ? describe : describe.skip;
@@ -31,6 +32,25 @@ function smokePayload(value: Json, smokeRunId: string): Json {
   return { ...base, smokeRunId } as Json;
 }
 
+function smokeExerciseResult(session: DetailedTrainingSession): ExerciseResultDraft {
+  const section = session.sections[0];
+  const exercise = section?.exercises[0];
+  if (!section || !exercise) {
+    throw new Error("Detailed smoke session did not include an exercise.");
+  }
+  return {
+    exerciseId: exercise.exerciseId,
+    exerciseName: exercise.name,
+    section: section.name,
+    prescribed: exercise,
+    resultStatus: "completed",
+    completedSets: Math.max(1, exercise.sets.length),
+    loadText: "smoke controlled load",
+    rpe: 6,
+    notes: "Live smoke actual result"
+  };
+}
+
 describeLive("live Supabase CRUD smoke", () => {
   it("signs in, writes manual logs, resolves projections, and cleans up created rows", async () => {
     const config = getSupabaseConfigFromEnv(process.env);
@@ -51,6 +71,7 @@ describeLive("live Supabase CRUD smoke", () => {
     let existingRiskFlags: Pick<TableRow<"risk_flags">, "id" | "severity" | "flag_payload">[] = [];
     let inputHash: string | null = null;
     let engineRunIds: string[] = [];
+    let completedTrainingSessionId: string | null = null;
 
     const signedIn = await auth.signInWithPassword(email, password);
     expect(signedIn.error).toBeNull();
@@ -110,8 +131,55 @@ describeLive("live Supabase CRUD smoke", () => {
       expect(resolved.status).toBe("ready");
       expect(resolved.persistenceWarning).toBeUndefined();
       inputHash = resolved.inputHash;
-      // Gated TODO: extend this smoke to complete one generated support session, verify exercise_results,
-      // and clean those rows by smokeRunId once workout completion has been exercised against remote data.
+      const detailedSession = resolved.state.viewModels.train.detailedTodaySessions.find((session) => session.detail)?.detail;
+      if (!detailedSession) {
+        throw new Error("Live smoke did not generate a detailed session to complete.");
+      }
+      const workoutCompletion = await completeWorkoutService({
+        userId,
+        asOfDate,
+        detailedSession,
+        completion: {
+          generatedSessionId: detailedSession.generatedSessionId,
+          completedSessionType: completedSessionTypeForFamily(detailedSession.family),
+          status: "completed",
+          sessionRpe: 6,
+          painNotes: [],
+          athleteNotes: "Live smoke workout completion",
+          exerciseResults: [smokeExerciseResult(detailedSession)],
+          smokeRunId
+        },
+        repositories,
+        engineVersion: resolved.state.engineVersion
+      });
+      completedTrainingSessionId = workoutCompletion.completedTrainingSessionId ?? null;
+      expect(completedTrainingSessionId).toBeTruthy();
+
+      const completedSessionResponse = await client
+        .from("completed_training_sessions")
+        .select("id, session_payload")
+        .eq("user_id", userId)
+        .eq("id", completedTrainingSessionId!)
+        .filter("session_payload->>smokeRunId", "eq", smokeRunId)
+        .maybeSingle();
+      expect(completedSessionResponse.error).toBeNull();
+      expect(completedSessionResponse.data?.id).toBe(completedTrainingSessionId);
+      const exerciseResultResponse = await client
+        .from("exercise_results")
+        .select("id, result_payload")
+        .eq("user_id", userId)
+        .eq("completed_training_session_id", completedTrainingSessionId!)
+        .filter("result_payload->>smokeRunId", "eq", smokeRunId);
+      expect(exerciseResultResponse.error).toBeNull();
+      expect(exerciseResultResponse.data?.length ?? 0).toBeGreaterThan(0);
+      const completionEventResponse = await client
+        .from("athlete_journey_events")
+        .select("id, event_payload")
+        .eq("user_id", userId)
+        .eq("event_type", "TrainingSessionCompleted")
+        .filter("event_payload->>smokeRunId", "eq", smokeRunId);
+      expect(completionEventResponse.error).toBeNull();
+      expect(completionEventResponse.data?.length ?? 0).toBeGreaterThan(0);
 
       const runResponse = await client.from("engine_runs").select("id").eq("user_id", userId).eq("input_hash", inputHash);
       expect(runResponse.error).toBeNull();
@@ -155,6 +223,13 @@ describeLive("live Supabase CRUD smoke", () => {
         }
       }
     } finally {
+      if (completedTrainingSessionId) {
+        await client.from("exercise_results").delete().eq("user_id", userId).eq("completed_training_session_id", completedTrainingSessionId).filter("result_payload->>smokeRunId", "eq", smokeRunId);
+        await client.from("completed_training_sessions").delete().eq("user_id", userId).eq("id", completedTrainingSessionId).filter("session_payload->>smokeRunId", "eq", smokeRunId);
+      }
+      await client.from("exercise_results").delete().eq("user_id", userId).filter("result_payload->>smokeRunId", "eq", smokeRunId);
+      await client.from("completed_training_sessions").delete().eq("user_id", userId).filter("session_payload->>smokeRunId", "eq", smokeRunId);
+      await client.from("athlete_journey_events").delete().eq("user_id", userId).filter("event_payload->>smokeRunId", "eq", smokeRunId);
       if (engineRunIds.length > 0) {
         await client.from("decision_traces").delete().eq("user_id", userId).in("engine_run_id", engineRunIds).filter("trace_payload->>smokeRunId", "eq", smokeRunId);
       }

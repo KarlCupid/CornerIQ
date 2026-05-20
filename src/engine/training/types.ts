@@ -43,8 +43,16 @@ export interface CompletedTrainingSession {
   durationMinutes: number;
   intensity: SessionIntensity;
   rounds?: number | undefined;
+  completionStatus: "completed" | "skipped";
+  sessionRpe?: number | undefined;
+  painNotes: readonly string[];
+  athleteNotes?: string | undefined;
+  generatedSessionId?: string | undefined;
+  engineVersion?: string | undefined;
+  completionSource: "generated_session" | "protected_anchor" | "manual";
+  smokeRunId?: string | undefined;
   note?: string | undefined;
-  source: "manual" | "generated_session" | "protected_anchor";
+  source?: "manual" | "generated_session" | "protected_anchor" | undefined;
   linkedProtectedWorkoutId?: string | undefined;
 }
 
@@ -125,6 +133,8 @@ export interface ExercisePrescription {
   stopConditions: readonly string[];
 }
 
+export type ExerciseResultStatus = "prescribed_only" | "completed" | "partial" | "skipped";
+
 export interface WorkoutSection {
   name: string;
   intent: string;
@@ -153,11 +163,34 @@ export interface ExerciseResultDraft {
   exerciseName: string;
   section: string;
   prescribed: ExercisePrescription;
+  resultStatus: ExerciseResultStatus;
   completedSets?: number | undefined;
   loadText?: string | undefined;
   rpe?: number | undefined;
   notes?: string | undefined;
   painFlag?: boolean | undefined;
+}
+
+export interface ExerciseResultRecord {
+  id: string;
+  exerciseId: string;
+  exerciseName: string;
+  section: string;
+  prescribed: Record<string, unknown>;
+  resultStatus: ExerciseResultStatus;
+  completedSets?: number | undefined;
+  loadText?: string | undefined;
+  rpe?: number | undefined;
+  notes?: string | undefined;
+  painFlag?: boolean | undefined;
+  source: string;
+  engineVersion: string;
+  generatedSessionId?: string | undefined;
+  smokeRunId?: string | undefined;
+  completedTrainingSessionId: string | null;
+  generatedTrainingSessionDbId: string | null;
+  recordedAt: string;
+  completedAt: string | null;
 }
 
 export interface WorkoutCompletionDraft {
@@ -166,8 +199,10 @@ export interface WorkoutCompletionDraft {
   status: "completed" | "skipped";
   sessionRpe?: number | undefined;
   painNotes: readonly string[];
-  notes: string;
+  athleteNotes?: string | undefined;
+  notes?: string | undefined;
   exerciseResults: readonly ExerciseResultDraft[];
+  smokeRunId?: string | undefined;
 }
 
 export interface WorkoutCompletionResult {
@@ -198,6 +233,7 @@ export interface TrainingLoadLedger {
 export interface TrainingState {
   protectedAnchors: readonly ProtectedWorkout[];
   completedSessions: readonly CompletedTrainingSession[];
+  recentExerciseResults: readonly ExerciseResultRecord[];
   generatedSessions: readonly GeneratedTrainingSession[];
   todaySessions: readonly GeneratedTrainingSession[];
   loadLedger: TrainingLoadLedger;

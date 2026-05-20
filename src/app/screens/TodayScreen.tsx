@@ -14,12 +14,13 @@ export interface TodayScreenProps {
   cycleContext: CycleViewModel | null;
   quickLogs: QuickLogActions;
   cycleQuickLogEnabled: boolean;
+  cycleTrackingStatus: "enabled" | "disabled" | "undecided" | string;
   cycleSymptomOptions: readonly CycleSymptom[];
   busy: boolean;
   message: string | null;
 }
 
-export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cycleQuickLogEnabled, cycleSymptomOptions, busy, message }: TodayScreenProps) {
+export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cycleQuickLogEnabled, cycleTrackingStatus, cycleSymptomOptions, busy, message }: TodayScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -51,7 +52,7 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
           <Text style={screenStyles.body}>Readiness: {viewModel.readinessContext}</Text>
         </View>
       </EngineCard>
-      <CycleContextCard cycleContext={cycleContext} />
+      <CycleContextCard cycleContext={cycleContext} trackingStatus={cycleTrackingStatus} />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Recent logs</Text>

@@ -25,6 +25,13 @@ function sessionRpeFromNote(note: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function sessionRpe(session: CompletedTrainingSession): number | null {
+  if (session.sessionRpe !== undefined) {
+    return session.sessionRpe;
+  }
+  return sessionRpeFromNote(session.note);
+}
+
 function skippedRecently(events: readonly JourneyEvent[] | undefined): boolean {
   return Boolean(events?.some((event) => event.type === "TrainingSessionCompleted" && event.payload.status === "skipped"));
 }
@@ -32,9 +39,11 @@ function skippedRecently(events: readonly JourneyEvent[] | undefined): boolean {
 export function recommendTrainingProgression(input: ProgressionEngineInput): ProgressionRecommendation {
   const notes = [
     ...(input.painNotes ?? []),
+    ...input.completedTrainingSessions.flatMap((session) => session.painNotes),
+    ...input.completedTrainingSessions.flatMap((session) => (session.athleteNotes ? [session.athleteNotes] : [])),
     ...input.completedTrainingSessions.flatMap((session) => (session.note ? [session.note] : []))
   ];
-  if (notes.some(textIncludesConcern) || input.completedTrainingSessions.some((session) => (session.note ? sessionRpeFromNote(session.note) ?? 0 : 0) >= 9)) {
+  if (notes.some(textIncludesConcern) || input.completedTrainingSessions.some((session) => (sessionRpe(session) ?? 0) >= 9)) {
     return {
       status: "coach_review",
       summary: "Hold progression for coach review.",
@@ -50,7 +59,7 @@ export function recommendTrainingProgression(input: ProgressionEngineInput): Pro
     };
   }
 
-  if (skippedRecently(input.journeyEvents)) {
+  if (input.completedTrainingSessions.some((session) => session.completionStatus === "skipped") || skippedRecently(input.journeyEvents)) {
     return {
       status: "repeat",
       summary: "Repeat the last safe prescription.",
@@ -67,7 +76,7 @@ export function recommendTrainingProgression(input: ProgressionEngineInput): Pro
   }
 
   const latest = input.completedTrainingSessions.at(-1);
-  const latestRpe = sessionRpeFromNote(latest?.note);
+  const latestRpe = latest ? sessionRpe(latest) : null;
   if (latestRpe !== null && latestRpe >= 8.5) {
     return {
       status: "repeat",

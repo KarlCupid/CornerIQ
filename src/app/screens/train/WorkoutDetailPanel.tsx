@@ -25,6 +25,24 @@ function emptyExerciseResultInputs(): ExerciseResultInputs {
   };
 }
 
+function hasActualExerciseInput(input: ExerciseResultInputs): boolean {
+  return Boolean(input.completedSets.trim() || input.loadText.trim() || input.rpe.trim() || input.notes.trim() || input.painFlag);
+}
+
+function resultStatus(exerciseSetCount: number, input: ExerciseResultInputs, completedSets: number | undefined): ExerciseResultDraft["resultStatus"] {
+  // CornerIQ stores prescribed_only rows intentionally so history can distinguish a prescribed exercise from a logged result.
+  if (!hasActualExerciseInput(input)) {
+    return "prescribed_only";
+  }
+  if (completedSets === 0) {
+    return "skipped";
+  }
+  if (completedSets !== undefined && completedSets >= exerciseSetCount && !input.painFlag) {
+    return "completed";
+  }
+  return "partial";
+}
+
 function parseExerciseResult(session: DetailedTrainingSession, values: Record<string, ExerciseResultInputs>): ExerciseResultDraft[] {
   return session.sections.flatMap((section) =>
     section.exercises.map((exercise) => {
@@ -39,6 +57,7 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
         exerciseName: exercise.name,
         section: section.name,
         prescribed: exercise,
+        resultStatus: resultStatus(exercise.sets.length, input, completedSets),
         ...(completedSets === undefined ? {} : { completedSets }),
         ...(input.loadText.trim() ? { loadText: input.loadText.trim() } : {}),
         ...(rpe === undefined ? {} : { rpe }),

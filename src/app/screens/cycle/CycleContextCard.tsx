@@ -5,13 +5,31 @@ import { EngineCard } from "../../../design/components/EngineCard";
 import { spacing } from "../../../design/theme";
 import { screenStyles } from "../screenStyles";
 
-export function CycleContextCard({ cycleContext, minimal = false }: { cycleContext: CycleViewModel | null; minimal?: boolean | undefined }) {
+export function CycleContextCard({
+  cycleContext,
+  minimal = false,
+  trackingStatus
+}: {
+  cycleContext: CycleViewModel | null;
+  minimal?: boolean | undefined;
+  trackingStatus?: "enabled" | "disabled" | "undecided" | string | undefined;
+}) {
   if (!cycleContext) {
+    if (trackingStatus === "undecided") {
+      return (
+        <EngineCard>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={screenStyles.sectionTitle}>Cycle context</Text>
+            <Text style={screenStyles.body}>Cycle support is optional and private. You can decide later; no cycle assumptions are applied.</Text>
+          </View>
+        </EngineCard>
+      );
+    }
     return minimal ? (
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Cycle context</Text>
-          <Text style={screenStyles.body}>Cycle tracking is off or undecided. No cycle assumptions are applied.</Text>
+          <Text style={screenStyles.body}>Cycle tracking is off. No cycle assumptions are applied.</Text>
         </View>
       </EngineCard>
     ) : null;

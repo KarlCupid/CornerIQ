@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-Latest commit before this pass: `c1bc58b2a27ae6231c3168b60de297ba0be886e9` (`Fix Supabase smoke auth and timestamp mapping`).
+Latest commit before this pass: `8a9913f76c56e8ec579498ebf66a09a96352050a` (`Refine training moat and onboarding safety`).
 
 ## Project Link
 
@@ -52,11 +52,10 @@ Latest `npm exec supabase -- db push --dry-run` result:
 Latest authenticated smoke attempt:
 
 - Command attempted with ignored local `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: `npm run smoke:live-db`.
-- Smoke user setup: created through the public anon signup path; email confirmation was then applied to that exact smoke account through the linked database admin connection. No service role key was used.
+- Smoke runtime: public Supabase URL and anon key only; no service role key was used.
 - Result: passed.
-- Authenticated CRUD smoke passed: sign-in, scoped manual writes, `AthleteJourney` load, `PerformanceState` resolution, engine run/projection persistence, engine run confirmation, smoke-row cleanup, and prior profile restore all completed.
-- Local fix required: repository timestamp mappers now normalize Postgres timestamp strings to strict ISO datetimes before engine schema validation.
-- Workout completion smoke extension: still gated as a TODO in `src/tests/live/liveDbSmoke.test.ts`; it should complete one generated support session, verify at least one `exercise_results` row, and clean those rows by smoke marker once remote workout completion coverage is expanded.
+- Authenticated CRUD smoke passed: sign-in, scoped manual writes, `AthleteJourney` load, `PerformanceState` resolution, generated support workout completion, `completed_training_sessions` verification, `exercise_results` verification, `TrainingSessionCompleted` journey event verification, engine run/projection persistence, engine run confirmation, smoke-row cleanup, and prior profile restore all completed.
+- Workout completion smoke extension: passed. The smoke completes one generated detailed session through `completeWorkoutService`, writes a structured completed-session payload plus an exercise result, verifies the journey event, and deletes only rows scoped by `smokeRunId` or the smoke-created completed session id.
 
 The regular test suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips when `CORNERIQ_LIVE_DB_SMOKE` is not set.
 
@@ -65,7 +64,7 @@ The regular test suite still includes `src/tests/live/liveDbSmoke.test.ts`; it s
 Latest local checks:
 
 - `npm run typecheck`: passed.
-- `npm test`: passed with `133` tests passing and `1` live smoke test skipped.
+- `npm test`: passed with `142` tests passing and `1` live smoke test skipped.
 - `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db`: passed with ignored local `.env` values loaded into the process.
 - `npm run quality`: passed.
 - `npm run lint`: passed.

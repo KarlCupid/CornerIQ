@@ -53,6 +53,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFi
               busy={busy}
               cycleQuickLogEnabled={state.cycle.trackingEnabled}
               cycleContext={state.viewModels.cycle}
+              cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
               cycleSymptomOptions={cycleSymptomOptions}
               message={message}
               quickLogs={quickLogs}

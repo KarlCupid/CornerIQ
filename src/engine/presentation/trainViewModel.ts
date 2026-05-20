@@ -1,6 +1,6 @@
 import type { PerformanceState, TrainViewModel } from "../core/types";
 import { buildDetailedTrainingSession } from "../training/detailedSessionEngine";
-import { recommendTrainingProgression } from "../training/progressionEngine";
+import { buildTrainingAnalytics } from "../training/trainingAnalytics";
 import { riskSummary } from "./explanationCopy";
 
 export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
@@ -12,6 +12,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
         athlete: state.athlete,
         readiness: state.readiness,
         cycle: state.cycle,
+        phase: state.phase,
         protectedWorkouts: todayAnchors,
         equipmentAccess: state.athlete.equipmentAccess
       });
@@ -44,8 +45,10 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       };
     }
   });
-  const progressionSummary = recommendTrainingProgression({
+  const analytics = buildTrainingAnalytics({
+    asOfDate: state.asOfDate,
     completedTrainingSessions: state.training.completedSessions,
+    exerciseResults: state.training.recentExerciseResults,
     readiness: state.readiness,
     safetyFlags: state.safety.riskFlags
   });
@@ -62,7 +65,8 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       fuelDemand: session.fuelDemand
     })),
     detailedTodaySessions,
-    progressionSummary,
+    progressionSummary: analytics.progressionRecommendation,
+    analytics,
     protectedAnchorSummary:
       todayAnchors.length > 0
         ? todayAnchors.map((anchor) => `${anchor.type.replaceAll("_", " ")} (${anchor.intensity})`).join(", ")

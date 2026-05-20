@@ -35,12 +35,54 @@ export const USER_OWNED_TABLES = [
 export type UserOwnedTable = (typeof USER_OWNED_TABLES)[number];
 export type UserOwnedDataExport = Record<UserOwnedTable, unknown[]>;
 export type UserOwnedDataExportPreview = Record<UserOwnedTable, number>;
+export type UserOwnedDataCategory = "profile" | "logs" | "training" | "nutrition" | "cycle/wearable" | "projections/traces";
+export type UserOwnedDataExportPreviewGrouped = Record<UserOwnedDataCategory, number>;
 export type UserOwnedDeleteResult = {
   [TTable in UserOwnedTable]: {
     count: number | null;
     status: "deleted";
   };
 };
+
+export const USER_OWNED_TABLE_CATEGORIES: Record<UserOwnedTable, UserOwnedDataCategory> = {
+  users_public: "profile",
+  athlete_profiles: "profile",
+  athlete_journey_events: "profile",
+  body_mass_logs: "logs",
+  readiness_checkins: "logs",
+  water_logs: "logs",
+  electrolyte_logs: "logs",
+  protected_workouts: "training",
+  completed_training_sessions: "training",
+  generated_training_sessions: "training",
+  generated_training_blocks: "training",
+  exercise_results: "training",
+  food_logs: "nutrition",
+  nutrition_targets: "nutrition",
+  fight_week_protocols: "nutrition",
+  rehydration_plans: "nutrition",
+  cycle_logs: "cycle/wearable",
+  cycle_symptom_logs: "cycle/wearable",
+  wearable_connections: "cycle/wearable",
+  wearable_signal_logs: "cycle/wearable",
+  engine_runs: "projections/traces",
+  decision_traces: "projections/traces",
+  risk_flags: "projections/traces",
+  weight_class_plans: "projections/traces",
+  weigh_in_logs: "projections/traces",
+  fight_opportunities: "profile",
+  tournament_plans: "profile"
+};
+
+const USER_OWNED_DATA_CATEGORIES: readonly UserOwnedDataCategory[] = ["profile", "logs", "training", "nutrition", "cycle/wearable", "projections/traces"];
+
+export function groupUserOwnedPreviewCounts(preview: UserOwnedDataExportPreview): UserOwnedDataExportPreviewGrouped {
+  const grouped = Object.fromEntries(USER_OWNED_DATA_CATEGORIES.map((category) => [category, 0])) as UserOwnedDataExportPreviewGrouped;
+  for (const table of USER_OWNED_TABLES) {
+    grouped[USER_OWNED_TABLE_CATEGORIES[table]] += preview[table];
+  }
+  return grouped;
+}
 
 export async function exportUserOwnedData(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDataExport> {
   const safeUserId = assertUserId(userId, "userDataService.exportUserOwnedData");

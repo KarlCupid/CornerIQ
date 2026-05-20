@@ -125,6 +125,22 @@ const trainViewModel: TrainViewModel = {
     summary: "Progression is unknown until completion history exists.",
     why: "Missing history is unknown, not a reason to progress automatically."
   },
+  analytics: {
+    lastCompletedSession: null,
+    lastSkippedSession: null,
+    completionCountLast7Days: 0,
+    generatedSessionsCompleted: 0,
+    generatedSessionsSkipped: 0,
+    painFlagCount: 0,
+    averageSessionRpe: null,
+    mostRecentExerciseResultSummary: null,
+    progressionRecommendation: {
+      status: "unknown",
+      summary: "Progression is unknown until completion history exists.",
+      why: "Missing history is unknown, not a reason to progress automatically."
+    },
+    nextBestTrainingAction: "Complete or skip the next generated support session so the engine can learn from real history."
+  },
   riskSummary: []
 };
 
@@ -225,6 +241,7 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
     training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
       saveDecisionTracesForRun: vi.fn(),
@@ -308,6 +325,7 @@ describe("minimal app screens", () => {
         cycleContext: null,
         quickLogs: quickLogActions,
         cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
         cycleSymptomOptions: ["cramps"],
         busy: false,
         message: null
@@ -326,6 +344,7 @@ describe("minimal app screens", () => {
           cycleContext: null,
           quickLogs: quickLogActions,
           cycleQuickLogEnabled: false,
+          cycleTrackingStatus: "disabled",
           cycleSymptomOptions: ["cramps"],
           busy: false,
           message: null
@@ -342,6 +361,28 @@ describe("minimal app screens", () => {
     expect(output).toContain("Food quick log");
   });
 
+  it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
+    const { FuelScreen } = await import("../../app/screens/FuelScreen");
+    const viewModel: FuelViewModel = {
+      ...fuelViewModel,
+      actualIntakeSummary: {
+        title: "Actual vs target today",
+        summary: "No food logged yet today. That is a low-confidence signal, not a judgment; keep the target steady until more data exists.",
+        confidence: "low",
+        rows: ["0 kcal logged (0% of target)", "8g fiber logged", "700mg sodium logged"]
+      },
+      fightWeekFuel: { title: "Fight-week fuel", status: "info", summary: "Keep fuel steady.", actions: ["Lower fiber does not mean lower calories."] },
+      tournamentFuel: { title: "Tournament fuel", status: "info", summary: "Stay near weight.", actions: ["Predictable carbs."] }
+    };
+    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel })).toJSON());
+    expect(output).toContain("Actual vs target today");
+    expect(output).toContain("not a judgment");
+    expect(output).toContain("8g fiber");
+    expect(output).toContain("700mg sodium");
+    expect(output).toContain("Fight-week fuel");
+    expect(output).toContain("Tournament fuel");
+  });
+
   it("TrainScreen renders session rationale", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel })).toJSON());
@@ -355,6 +396,22 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train })).toJSON());
     expect(output).toContain("Open workout detail");
     expect(output).toContain("Progression");
+  });
+
+  it("TrainScreen puts primary detail before history and opens completion controls", async () => {
+    const { TrainScreen } = await import("../../app/screens/TrainScreen");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
+    const closedOutput = JSON.stringify(renderer.toJSON());
+    expect(closedOutput.indexOf("Open workout detail")).toBeLessThan(closedOutput.indexOf("Recent training"));
+    expect(closedOutput).toContain("Stop:");
+    expect(closedOutput).toContain("Progression / next best action");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Open workout detail"));
+    });
+    const openOutput = JSON.stringify(renderer.toJSON());
+    expect(openOutput).toContain("Mark completed");
+    expect(openOutput).toContain("Skip session");
   });
 
   it("ExercisePrescriptionCard shows transfer, substitutions, and stop conditions", async () => {
@@ -499,7 +556,7 @@ describe("minimal app screens", () => {
           message: "Export preview loaded.",
           preview: null,
           previewExport,
-          previewRows: ["exercise_results: 1"],
+          previewRows: ["training: 1"],
           setDeleteConfirmation: vi.fn()
         },
         viewModel: profileViewModel,
@@ -511,8 +568,8 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Preview export"));
     });
     expect(previewExport).toHaveBeenCalled();
-    expect(JSON.stringify(renderer.toJSON())).toContain("exercise_results: 1");
-    const deleteButton = pressableWithText(renderer, "Delete data requires DELETE");
+    expect(JSON.stringify(renderer.toJSON())).toContain("training: 1");
+    const deleteButton = pressableWithText(renderer, "Delete app data");
     expect(deleteButton?.props.disabled).toBe(true);
   });
 
@@ -530,7 +587,7 @@ describe("minimal app screens", () => {
       await snapshot.current?.previewExport();
     });
     expect(selected.length).toBeGreaterThan(0);
-    expect(snapshot.current?.previewRows.join(" ")).toContain("exercise_results");
+    expect(snapshot.current?.previewRows.join(" ")).toContain("training");
 
     await act(async () => {
       await snapshot.current?.deleteData();
@@ -546,6 +603,27 @@ describe("minimal app screens", () => {
     });
     expect(deleted.length).toBeGreaterThan(0);
     expect(onAfterDelete).toHaveBeenCalled();
+  });
+
+  it("useUserDataControls blocks delete until a preview is loaded", async () => {
+    const { client, deleted } = createUserDataClient();
+    const onAfterDelete = vi.fn();
+    const snapshot: { current: UserDataControlsHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = useUserDataControls({ client, onAfterDelete, userId: "user_1" });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      snapshot.current?.setDeleteConfirmation("DELETE");
+    });
+    await act(async () => {
+      await snapshot.current?.deleteData();
+    });
+    expect(deleted).toHaveLength(0);
+    expect(onAfterDelete).not.toHaveBeenCalled();
+    expect(snapshot.current?.message).toContain("Preview export");
   });
 
   it("OnboardingScreen renders the first setup step with demo as secondary action", async () => {
@@ -700,6 +778,9 @@ describe("minimal app screens", () => {
 
     const disabledOutput = JSON.stringify(render(React.createElement(CycleContextCard, { cycleContext: null, minimal: true })).toJSON());
     expect(disabledOutput).toContain("No cycle assumptions");
+
+    const undecidedOutput = JSON.stringify(render(React.createElement(CycleContextCard, { cycleContext: null, trackingStatus: "undecided" })).toJSON());
+    expect(undecidedOutput).toContain("optional and private");
   });
 
   it("quick training logs separate completed sessions from planned anchors", async () => {

@@ -200,6 +200,9 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
             type: workoutInput.type,
             durationMinutes: workoutInput.durationMinutes,
             intensity: workoutInput.intensity,
+            completionStatus: "completed",
+            painNotes: [],
+            completionSource: "manual",
             source: "manual"
           };
           if (workoutInput.rounds !== undefined) {

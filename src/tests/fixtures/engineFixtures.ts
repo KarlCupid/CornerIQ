@@ -117,6 +117,7 @@ function journey(overrides: Partial<AthleteJourney> = {}): AthleteJourney {
     readinessHistory: [readiness()],
     wearableSignalHistory: [],
     completedTrainingSessions: [],
+    exerciseResults: [],
     trainingHistory: [],
     protectedWorkouts: [],
     safetyFlags: [],

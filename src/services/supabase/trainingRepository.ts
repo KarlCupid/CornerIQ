@@ -20,12 +20,24 @@ export function mapGeneratedTrainingSessionRow(row: GeneratedTrainingSessionRow)
 }
 
 export function mapCompletedTrainingSessionRow(row: CompletedTrainingSessionRow): CompletedTrainingSession {
+  const payload = payloadObject(row.session_payload, "completed_training_sessions.session_payload");
+  const legacySource = payload.source === "manual" || payload.source === "generated_session" || payload.source === "protected_anchor" ? payload.source : undefined;
+  const completionSource =
+    payload.completionSource === "manual" || payload.completionSource === "generated_session" || payload.completionSource === "protected_anchor"
+      ? payload.completionSource
+      : legacySource ?? "manual";
+  const completionStatus = payload.completionStatus === "skipped" ? "skipped" : "completed";
+  const painNotes = Array.isArray(payload.painNotes) ? payload.painNotes.filter((item): item is string => typeof item === "string") : [];
   return parseWithSchema(
     CompletedTrainingSessionSchema,
     {
-      ...payloadObject(row.session_payload, "completed_training_sessions.session_payload"),
+      ...payload,
       id: row.id,
-      date: row.completed_date
+      date: row.completed_date,
+      completionStatus,
+      painNotes,
+      completionSource,
+      ...(payload.source === undefined ? {} : { source: legacySource })
     },
     "completed_training_sessions"
   );
@@ -64,8 +76,16 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
           durationMinutes: validated.durationMinutes,
           intensity: validated.intensity,
           rounds: validated.rounds,
+          completionStatus: validated.completionStatus,
+          sessionRpe: validated.sessionRpe,
+          painNotes: validated.painNotes,
+          athleteNotes: validated.athleteNotes,
+          generatedSessionId: validated.generatedSessionId,
+          engineVersion: validated.engineVersion,
+          completionSource: validated.completionSource,
+          smokeRunId: validated.smokeRunId,
           note: validated.note,
-          source: validated.source,
+          source: validated.source ?? validated.completionSource,
           linkedProtectedWorkoutId: validated.linkedProtectedWorkoutId
         })
       };

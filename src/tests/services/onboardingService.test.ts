@@ -90,6 +90,7 @@ function createOnboardingRepositories() {
     readiness: { listCheckIns: vi.fn(async () => []), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => []) },
     training: { listCompletedTrainingSessions: vi.fn(async () => []), listGeneratedSessions: vi.fn(async () => []), insertCompletedTrainingSession: vi.fn() },
+    exerciseResult: { listRecentExerciseResults: vi.fn(async () => []), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => []),
       saveDecisionTracesForRun: vi.fn(),
