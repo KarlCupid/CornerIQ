@@ -2,27 +2,33 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
-import type { CycleSymptom, PerformanceState } from "../../engine/core/types";
+import type { CycleSymptom, ISODateString, PerformanceState } from "../../engine/core/types";
 import { colors } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen } from "../screens/FuelScreen";
 import { PlanScreen } from "../screens/PlanScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
-import { TodayScreen, type TodayQuickLogActions } from "../screens/TodayScreen";
+import { TodayScreen } from "../screens/TodayScreen";
 import { TrainScreen } from "../screens/TrainScreen";
+import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import type { FightSetupDraft, ProfileSettingsDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export interface AppTabsProps {
+  asOfDate: ISODateString;
   busy: boolean;
   cycleSymptomOptions: readonly CycleSymptom[];
   message: string | null;
+  onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
+  onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   onSignOut: () => Promise<void>;
-  quickLogs: TodayQuickLogActions;
+  onUpdateProfileSettings: (draft: ProfileSettingsDraft) => Promise<void>;
+  quickLogs: QuickLogActions;
   state: PerformanceState;
 }
 
-export function AppTabs({ busy, cycleSymptomOptions, message, onSignOut, quickLogs, state }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -49,15 +55,33 @@ export function AppTabs({ busy, cycleSymptomOptions, message, onSignOut, quickLo
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Fuel">{() => <FuelScreen viewModel={state.viewModels.fuel} />}</Tab.Screen>
-        <Tab.Screen name="Train">{() => <TrainScreen viewModel={state.viewModels.train} />}</Tab.Screen>
-        <Tab.Screen name="Plan">{() => <PlanScreen viewModel={state.viewModels.plan} />}</Tab.Screen>
+        <Tab.Screen name="Fuel">{() => <FuelScreen busy={busy} message={message} quickLogs={quickLogs} viewModel={state.viewModels.fuel} />}</Tab.Screen>
+        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} quickLogs={quickLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
+        <Tab.Screen name="Plan">
+          {() => (
+            <PlanScreen
+              asOfDate={asOfDate}
+              busy={busy}
+              hasActiveFightOrTournament={Boolean(state.fightContext || state.tournamentContext)}
+              isMinor={(state.athlete.ageYears ?? 99) < 18}
+              onSaveFightSetup={onSaveFightSetup}
+              onSaveTournamentSetup={onSaveTournamentSetup}
+              viewModel={state.viewModels.plan}
+            />
+          )}
+        </Tab.Screen>
         <Tab.Screen name="Profile">
           {() => (
             <ProfileScreen
+              asOfDate={asOfDate}
+              busy={busy}
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
+              equipmentAccess={state.athlete.equipmentAccess}
               onSignOut={onSignOut}
+              onUpdateSettings={onUpdateProfileSettings}
+              preferredUnits={state.athlete.preferredUnits}
               viewModel={state.viewModels.profile}
+              wearablePreference={state.athlete.wearablePreference}
               wearableStatus={state.wearable.hasWearable ? state.wearable.platforms.join(", ") : "manual only"}
             />
           )}

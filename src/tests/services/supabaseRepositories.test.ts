@@ -7,10 +7,11 @@ import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/sup
 import { createHydrationRepository } from "../../services/supabase/hydrationRepository";
 import { loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
 import { createReadinessRepository } from "../../services/supabase/readinessRepository";
-import { exportUserOwnedData, deleteUserOwnedData, USER_OWNED_TABLES } from "../../services/supabase/userDataService";
+import { exportUserOwnedData, deleteUserOwnedData, previewUserOwnedDataExport, USER_OWNED_TABLES } from "../../services/supabase/userDataService";
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
-import { mapFightOpportunityRow } from "../../services/supabase/fightRepository";
+import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
+import { createTournamentRepository } from "../../services/supabase/tournamentRepository";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
@@ -146,6 +147,40 @@ describe("Supabase repositories", () => {
     expect(inserted[3]?.record).toMatchObject({ user_id: "user_1", log_date: fixtureAsOfDate });
   });
 
+  it("fight and tournament repositories insert validated setup rows", async () => {
+    const { client, inserted } = createInsertClient();
+    await createFightRepository(client).insertFightOpportunity("user_1", {
+      id: "fight_1",
+      status: "tentative",
+      boutDate: "2026-06-20",
+      weighInType: "unknown",
+      amateurOrPro: "amateur",
+      rounds: 3,
+      roundMinutes: 3,
+      restSeconds: 60,
+      targetWeightClass: { label: "64 kg", limitKg: 64 },
+      contractedWeightKg: 64,
+      allowanceKg: 0,
+      timezone: "America/Vancouver",
+      hydrationTestingRequired: true
+    });
+    await createTournamentRepository(client).insertTournamentPlan("user_1", {
+      tournamentStartDate: "2026-06-01",
+      tournamentEndDate: "2026-06-03",
+      possibleBoutDates: ["2026-06-01", "2026-06-02"],
+      dailyWeighIns: true,
+      weighInTimeEachDay: "08:00",
+      sameDayBoutLikely: true,
+      numberOfPotentialBouts: 3,
+      rehydrationWindowHoursByDay: [4, 4, 4],
+      strategyMode: "stay_near_weight"
+    });
+
+    expect(inserted.map((item) => item.table)).toEqual(["fight_opportunities", "tournament_plans"]);
+    expect(inserted[0]?.record).toMatchObject({ user_id: "user_1", status: "tentative", bout_date: "2026-06-20", weigh_in_type: "unknown" });
+    expect(inserted[1]?.record).toMatchObject({ user_id: "user_1", tournament_start_date: "2026-06-01", tournament_end_date: "2026-06-03" });
+  });
+
   it("engineRunRepository uses idempotent projection methods", () => {
     const source = readFileSync("src/services/supabase/engineRunRepository.ts", "utf8");
 
@@ -166,6 +201,16 @@ describe("Supabase repositories", () => {
     expect(source).toContain("generated_training_session_id: string | null");
     expect(source).toContain("exercise_id: string | null");
     expect(source).toContain("generated_session_key: string | null");
+  });
+
+  it("live smoke cleanup is scoped by smokeRunId where payload columns exist", () => {
+    const source = readFileSync("src/tests/live/liveDbSmoke.test.ts", "utf8");
+
+    expect(source).toContain("smokeRunId");
+    expect(source).toContain('filter("session_payload->>smokeRunId"');
+    expect(source).toContain('filter("target_payload->>smokeRunId"');
+    expect(source).toContain('filter("flag_payload->>smokeRunId"');
+    expect(source).toContain("existingProfile");
   });
 
   it("loadAthleteJourney assembles fixture-equivalent data from mocked repositories", async () => {
@@ -203,9 +248,10 @@ describe("Supabase repositories", () => {
     const { client, deleted, selected } = createUserDataClient();
 
     await exportUserOwnedData("user_1", client);
-    await deleteUserOwnedData("user_1", client);
+    await previewUserOwnedDataExport("user_1", client);
+    await deleteUserOwnedData("user_1", client, "DELETE");
 
-    expect(selected.map((item) => item.table)).toEqual([...USER_OWNED_TABLES]);
+    expect(selected.map((item) => item.table)).toEqual([...USER_OWNED_TABLES, ...USER_OWNED_TABLES]);
     expect(deleted.map((item) => item.table)).toEqual([...USER_OWNED_TABLES]);
     expect(selected.every((item) => item.userId === "user_id:user_1")).toBe(true);
     expect(deleted.every((item) => item.userId === "user_id:user_1")).toBe(true);
@@ -215,7 +261,8 @@ describe("Supabase repositories", () => {
     const { client, deleted, selected } = createUserDataClient();
 
     await expect(exportUserOwnedData(undefined as unknown as string, client)).rejects.toBeInstanceOf(RepositoryError);
-    await expect(deleteUserOwnedData("", client)).rejects.toBeInstanceOf(RepositoryError);
+    await expect(deleteUserOwnedData("", client, "DELETE")).rejects.toBeInstanceOf(RepositoryError);
+    await expect(deleteUserOwnedData("user_1", client, "delete")).rejects.toThrow(/DELETE confirmation/);
     expect(selected).toHaveLength(0);
     expect(deleted).toHaveLength(0);
   });

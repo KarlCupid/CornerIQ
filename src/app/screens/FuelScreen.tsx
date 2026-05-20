@@ -3,13 +3,18 @@ import { ScrollView, Text, View } from "react-native";
 import type { FuelViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
+import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import { FoodQuickLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
 export interface FuelScreenProps {
+  busy: boolean;
+  message: string | null;
+  quickLogs: QuickLogActions;
   viewModel: FuelViewModel;
 }
 
-export function FuelScreen({ viewModel }: FuelScreenProps) {
+export function FuelScreen({ busy, message, quickLogs, viewModel }: FuelScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -35,8 +40,10 @@ export function FuelScreen({ viewModel }: FuelScreenProps) {
           <Text style={screenStyles.sectionTitle}>Risks and why</Text>
           {viewModel.riskSummary.map((risk) => <Text key={risk} style={screenStyles.body}>{risk}</Text>)}
           <Text style={screenStyles.subtle}>{viewModel.why}</Text>
+          {message ? <Text style={screenStyles.subtle}>{message}</Text> : null}
         </View>
       </EngineCard>
+      <FoodQuickLogCard actions={quickLogs} busy={busy} />
     </ScrollView>
   );
 }

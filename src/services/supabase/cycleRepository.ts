@@ -13,6 +13,11 @@ export interface CreateCycleSymptomLogInput {
   symptoms: readonly CycleSymptom[];
 }
 
+export type CreateCycleLogInput = CycleLog & {
+  userId: string;
+  metadata?: Record<string, unknown>;
+};
+
 export function mapCycleLogRow(row: CycleLogRow): CycleLog {
   const payload = payloadObject(row.cycle_payload, "cycle_logs.cycle_payload");
   return parseWithSchema(
@@ -77,6 +82,36 @@ export function createCycleRepository(client: CornerSupabaseClient) {
       };
       const response = await client.from("cycle_symptom_logs").insert(insert).select("id").single();
       return readDataOrThrow(response, "cycle_symptom_logs.insertSymptomLog");
+    },
+
+    async insertCycleLog(input: CreateCycleLogInput): Promise<{ id: string }> {
+      const safeUserId = assertUserId(input.userId, "cycle_logs.insertCycleLog");
+      const log = parseWithSchema(
+        CycleLogSchema,
+        {
+          date: input.date,
+          bleedStart: input.bleedStart,
+          bleedEnd: input.bleedEnd,
+          flowLevel: input.flowLevel,
+          symptoms: input.symptoms,
+          hormonalContraception: input.hormonalContraception
+        },
+        "cycle_logs.insertCycleLog"
+      );
+      const insert: TableInsert<"cycle_logs"> = {
+        user_id: safeUserId,
+        log_date: log.date,
+        cycle_payload: toJson({
+          bleedStart: log.bleedStart,
+          bleedEnd: log.bleedEnd,
+          flowLevel: log.flowLevel,
+          symptoms: log.symptoms,
+          hormonalContraception: log.hormonalContraception,
+          metadata: input.metadata
+        })
+      };
+      const response = await client.from("cycle_logs").insert(insert).select("id").single();
+      return readDataOrThrow(response, "cycle_logs.insertCycleLog");
     }
   };
 }

@@ -1,14 +1,14 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
-import type { FuelViewModel, PlanViewModel, ProfileViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
+import type { CycleSymptom, FuelViewModel, PlanViewModel, ProfileViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
-import type { QuickLogsHook } from "../../hooks/useQuickLogs";
+import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
 import { useSupabaseSession } from "../../hooks/useSupabaseSession";
 import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
 import { usePerformanceState } from "../../hooks/usePerformanceState";
@@ -115,6 +115,15 @@ const profileViewModel: ProfileViewModel = {
   privacyNotes: ["Cycle tracking is optional and private."]
 };
 
+const quickLogActions: QuickLogActions = {
+  logBodyMass: vi.fn(),
+  logCycle: vi.fn(),
+  logFood: vi.fn(),
+  logHydration: vi.fn(),
+  logProtectedWorkout: vi.fn(),
+  logReadiness: vi.fn()
+};
+
 function render(element: React.ReactElement): ReactTestRenderer {
   let renderer: ReactTestRenderer | null = null;
   act(() => {
@@ -124,6 +133,14 @@ function render(element: React.ReactElement): ReactTestRenderer {
     throw new Error("render failed");
   }
   return renderer;
+}
+
+function press(button: { props: unknown } | undefined): unknown {
+  const onPress = (button?.props as { onPress?: () => unknown } | undefined)?.onPress;
+  if (typeof onPress !== "function") {
+    throw new Error("Pressable did not expose an onPress handler.");
+  }
+  return onPress();
 }
 
 function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"): AthleteJourneyRepositories {
@@ -199,7 +216,7 @@ describe("minimal app screens", () => {
     const tree = render(
       React.createElement(TodayScreen, {
         viewModel: todayViewModel,
-        quickLogs: { logBodyMass: vi.fn(), logReadiness: vi.fn(), logWater: vi.fn(), logCycleSymptom: vi.fn() },
+        quickLogs: quickLogActions,
         cycleQuickLogEnabled: false,
         cycleSymptomOptions: ["cramps"],
         busy: false,
@@ -215,7 +232,7 @@ describe("minimal app screens", () => {
       render(
         React.createElement(TodayScreen, {
           viewModel: todayViewModel,
-          quickLogs: { logBodyMass: vi.fn(), logReadiness: vi.fn(), logWater: vi.fn(), logCycleSymptom: vi.fn() },
+          quickLogs: quickLogActions,
           cycleQuickLogEnabled: false,
           cycleSymptomOptions: ["cramps"],
           busy: false,
@@ -228,33 +245,145 @@ describe("minimal app screens", () => {
 
   it("FuelScreen renders hitTheseFirst before raw details", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
-    const output = JSON.stringify(render(React.createElement(FuelScreen, { viewModel: fuelViewModel })).toJSON());
+    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, viewModel: fuelViewModel })).toJSON());
     expect(output.indexOf("Water")).toBeLessThan(output.indexOf("2200 kcal target"));
+    expect(output).toContain("Food quick log");
   });
 
   it("TrainScreen renders session rationale", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
-    expect(JSON.stringify(render(React.createElement(TrainScreen, { viewModel: trainViewModel })).toJSON())).toContain("Protects the boxing anchor.");
+    const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, viewModel: trainViewModel })).toJSON());
+    expect(output).toContain("Protects the boxing anchor.");
+    expect(output).toContain("Protected workout");
   });
 
   it("PlanScreen renders warnings", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
-    expect(JSON.stringify(render(React.createElement(PlanScreen, { viewModel: planViewModel })).toJSON())).toContain("Missing readiness lowers confidence.");
+    expect(
+      JSON.stringify(
+        render(
+          React.createElement(PlanScreen, {
+            asOfDate: fixtureAsOfDate,
+            busy: false,
+            hasActiveFightOrTournament: false,
+            isMinor: false,
+            onSaveFightSetup: vi.fn(),
+            onSaveTournamentSetup: vi.fn(),
+            viewModel: planViewModel
+          })
+        ).toJSON()
+      )
+    ).toContain("Missing readiness lowers confidence.");
+    expect(
+      JSON.stringify(
+        render(
+          React.createElement(PlanScreen, {
+            asOfDate: fixtureAsOfDate,
+            busy: false,
+            hasActiveFightOrTournament: false,
+            isMinor: false,
+            onSaveFightSetup: vi.fn(),
+            onSaveTournamentSetup: vi.fn(),
+            viewModel: planViewModel
+          })
+        ).toJSON()
+      )
+    ).toContain("Add fight or tournament");
   });
 
   it("ProfileScreen renders privacy notes", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     expect(
       JSON.stringify(
-        render(React.createElement(ProfileScreen, { viewModel: profileViewModel, wearableStatus: "manual only", cycleTrackingStatus: "undecided", onSignOut: vi.fn() })).toJSON()
+        render(
+          React.createElement(ProfileScreen, {
+            asOfDate: fixtureAsOfDate,
+            busy: false,
+            cycleTrackingStatus: "undecided",
+            equipmentAccess: ["jump_rope"],
+            onSignOut: vi.fn(),
+            onUpdateSettings: vi.fn(),
+            preferredUnits: "metric",
+            viewModel: profileViewModel,
+            wearablePreference: "manual_only",
+            wearableStatus: "manual only"
+          })
+        ).toJSON()
       )
     ).toContain("Cycle tracking is optional and private.");
   });
 
+  it("OnboardingScreen renders the first setup step with demo as secondary action", async () => {
+    const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
+    const output = JSON.stringify(
+      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn() })).toJSON()
+    );
+
+    expect(output).toContain("Boxer setup");
+    expect(output).toContain("Boxing identity");
+    expect(output).toContain("Create safe demo boxer profile");
+  });
+
+  it("log cards validate required fields before calling insert actions", async () => {
+    const { BodyMassLogCard, FoodQuickLogCard, ProtectedWorkoutLogCard } = await import("../../app/screens/logging/LogCards");
+    const actions: QuickLogActions = {
+      logBodyMass: vi.fn(),
+      logCycle: vi.fn(),
+      logFood: vi.fn(),
+      logHydration: vi.fn(),
+      logProtectedWorkout: vi.fn(),
+      logReadiness: vi.fn()
+    };
+
+    for (const Card of [BodyMassLogCard, FoodQuickLogCard, ProtectedWorkoutLogCard]) {
+      const renderer = render(React.createElement(Card, { actions, busy: false }));
+      const buttons = renderer.root.findAllByType("Pressable");
+      await act(async () => {
+        await press(buttons[buttons.length - 1]);
+      });
+    }
+
+    expect(actions.logBodyMass).not.toHaveBeenCalled();
+    expect(actions.logFood).not.toHaveBeenCalled();
+    expect(actions.logProtectedWorkout).not.toHaveBeenCalled();
+  });
+
+  it("ProfileSettingsScreen can update cycle and wearable preference", async () => {
+    const { ProfileSettingsScreen } = await import("../../app/screens/profile/ProfileSettingsScreen");
+    const onUpdateSettings = vi.fn();
+    const renderer = render(
+      React.createElement(ProfileSettingsScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        cycleTrackingPreference: "enabled",
+        equipmentAccess: ["jump_rope"],
+        onUpdateSettings,
+        preferredUnits: "metric",
+        wearablePreference: "manual_only"
+      })
+    );
+    const buttons = renderer.root.findAllByType("Pressable");
+
+    await act(async () => {
+      press(buttons[1]);
+      press(buttons[5]);
+    });
+    await act(async () => {
+      await press(buttons[buttons.length - 1]);
+    });
+
+    expect(onUpdateSettings).toHaveBeenCalledWith(expect.objectContaining({ cycleTrackingPreference: "disabled", wearablePreference: "undecided" }));
+  });
+
   it("screens do not import low-level engine calculation modules", () => {
-    const screenFiles = readdirSync("src/app/screens").filter((file) => file.endsWith(".tsx"));
+    const collectScreens = (dir: string): string[] =>
+      readdirSync(dir).flatMap((entry) => {
+        const path = `${dir}/${entry}`;
+        return statSync(path).isDirectory() ? collectScreens(path) : path.endsWith(".tsx") ? [path] : [];
+      });
+    const screenFiles = collectScreens("src/app/screens");
     for (const file of screenFiles) {
-      const source = readFileSync(`src/app/screens/${file}`, "utf8");
+      const source = readFileSync(file, "utf8");
       expect(source).not.toMatch(/engine\/(bodyMass|cycle|fight|nutrition|readiness|safety|training|core\/performanceKernel)/);
     }
   });
@@ -329,13 +458,43 @@ describe("minimal app screens", () => {
     await expect(refreshWith("error")).resolves.toBe("error");
   });
 
+  it("usePerformanceState refreshes engine state after profile settings update", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+    await act(async () => {
+      await snapshot.current?.updateProfileSettings({ cycleTrackingPreference: "disabled" });
+    });
+
+    expect(repositories.athlete.upsertProfile).toHaveBeenCalled();
+    expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+  });
+
   it("cycle quick log rejects unknown symptoms and inserts valid payloads", async () => {
     expect(normalizeCycleSymptom("not a symptom")).toBeNull();
-    const insertSymptomLog = vi.fn(async () => ({ id: "cycle_1" }));
+    const insertCycleLog = vi.fn(async () => ({ id: "cycle_1" }));
+    const appendEvent = vi.fn();
     const repositories = {
       bodyMass: { insertManualLog: vi.fn() },
-      cycle: { insertSymptomLog },
-      hydration: { insertWaterLog: vi.fn() },
+      cycle: { insertCycleLog },
+      hydration: { insertWaterLog: vi.fn(), insertElectrolyteLog: vi.fn() },
+      journey: { appendEvent },
+      nutrition: { insertFoodLog: vi.fn() },
+      protectedWorkout: { insertProtectedWorkout: vi.fn() },
       readiness: { insertCheckIn: vi.fn() }
     } as unknown as AthleteJourneyRepositories;
     let quickLogs: QuickLogsHook | null = null;
@@ -351,13 +510,13 @@ describe("minimal app screens", () => {
 
     render(React.createElement(Probe));
     await act(async () => {
-      await quickLogs?.actions.logCycleSymptom("not a symptom");
+      await quickLogs?.actions.logCycle({ flowLevel: "unknown", symptoms: ["not a symptom" as CycleSymptom], hormonalContraception: "unknown" });
     });
-    expect(insertSymptomLog).not.toHaveBeenCalled();
+    expect(insertCycleLog).not.toHaveBeenCalled();
 
     await act(async () => {
-      await quickLogs?.actions.logCycleSymptom("cramps");
+      await quickLogs?.actions.logCycle({ flowLevel: "unknown", symptoms: ["cramps"], hormonalContraception: "unknown" });
     });
-    expect(insertSymptomLog).toHaveBeenCalledWith({ userId: "user_1", date: "2026-05-19", symptoms: ["cramps"] });
+    expect(insertCycleLog).toHaveBeenCalledWith({ userId: "user_1", date: "2026-05-19", flowLevel: "unknown", symptoms: ["cramps"], hormonalContraception: "unknown" });
   });
 });

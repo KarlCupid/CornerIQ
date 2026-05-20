@@ -2,7 +2,7 @@ import { ElectrolyteLogSchema, WaterLogSchema } from "../../engine/core/schemas"
 import type { ElectrolyteLog, ISODateString, WaterLog } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, numericValue, parseWithSchema, readDataOrThrow } from "./repositoryTypes";
+import { assertUserId, numericValue, parseWithSchema, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type WaterLogRow = Pick<TableRow<"water_logs">, "log_date" | "liters">;
 export type ElectrolyteLogRow = Pick<TableRow<"electrolyte_logs">, "log_date" | "sodium_mg">;
@@ -11,6 +11,13 @@ export interface CreateWaterLogInput {
   userId: string;
   date: ISODateString;
   liters: number;
+}
+
+export interface CreateElectrolyteLogInput {
+  userId: string;
+  date: ISODateString;
+  sodiumMg: number;
+  metadata?: Record<string, unknown>;
 }
 
 export function mapWaterLogRow(row: WaterLogRow): WaterLog {
@@ -45,6 +52,19 @@ export function createHydrationRepository(client: CornerSupabaseClient) {
       };
       const response = await client.from("water_logs").insert(insert).select("id").single();
       return readDataOrThrow(response, "water_logs.insertWaterLog");
+    },
+
+    async insertElectrolyteLog(input: CreateElectrolyteLogInput): Promise<{ id: string }> {
+      const safeUserId = assertUserId(input.userId, "electrolyte_logs.insertElectrolyteLog");
+      const log = parseWithSchema(ElectrolyteLogSchema, { date: input.date, sodiumMg: input.sodiumMg }, "electrolyte_logs.insertElectrolyteLog");
+      const insert: TableInsert<"electrolyte_logs"> = {
+        user_id: safeUserId,
+        log_date: log.date,
+        sodium_mg: log.sodiumMg,
+        electrolyte_payload: toJson(input.metadata ? { metadata: input.metadata } : {})
+      };
+      const response = await client.from("electrolyte_logs").insert(insert).select("id").single();
+      return readDataOrThrow(response, "electrolyte_logs.insertElectrolyteLog");
     }
   };
 }

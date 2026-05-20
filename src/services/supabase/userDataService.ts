@@ -34,6 +34,7 @@ export const USER_OWNED_TABLES = [
 
 export type UserOwnedTable = (typeof USER_OWNED_TABLES)[number];
 export type UserOwnedDataExport = Record<UserOwnedTable, unknown[]>;
+export type UserOwnedDataExportPreview = Record<UserOwnedTable, number>;
 export type UserOwnedDeleteResult = {
   [TTable in UserOwnedTable]: {
     count: number | null;
@@ -53,8 +54,20 @@ export async function exportUserOwnedData(userId: string, client: CornerSupabase
   return output as UserOwnedDataExport;
 }
 
-export async function deleteUserOwnedData(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDeleteResult> {
+export async function previewUserOwnedDataExport(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDataExportPreview> {
+  const exported = await exportUserOwnedData(userId, client);
+  const preview: Partial<UserOwnedDataExportPreview> = {};
+  for (const table of USER_OWNED_TABLES) {
+    preview[table] = exported[table].length;
+  }
+  return preview as UserOwnedDataExportPreview;
+}
+
+export async function deleteUserOwnedData(userId: string, client: CornerSupabaseClient, confirmation: string): Promise<UserOwnedDeleteResult> {
   const safeUserId = assertUserId(userId, "userDataService.deleteUserOwnedData");
+  if (confirmation !== "DELETE") {
+    throw new Error("userDataService.deleteUserOwnedData: explicit DELETE confirmation is required");
+  }
   const result: Partial<UserOwnedDeleteResult> = {};
 
   for (const table of USER_OWNED_TABLES) {

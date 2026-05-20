@@ -38,7 +38,9 @@ Include every user-owned table:
 
 Delete by `user_id` for all user-owned tables. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
 
-Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, and `deleteUserOwnedData(userId, client)`. These helpers use the anon client under RLS and never delete from `auth.users`.
+Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, and `deleteUserOwnedData(userId, client, confirmation)`. These helpers use the anon client under RLS and never delete from `auth.users`.
+
+Deletion requires the exact confirmation string `DELETE`. Production account deletion must later call a server-side Edge Function or other trusted backend path to delete `auth.users`; Expo/client code must not use a service role key.
 
 ## Sensitive Data Notes
 
@@ -54,3 +56,4 @@ Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TA
 - Verify export includes JSON payload fields without silently dropping unknown keys.
 - Verify delete removes generated projections as well as source logs.
 - Verify no service role key is used from Expo or client runtime code.
+- Verify account deletion is double-confirmed in production UI and routed through a server-side function for `auth.users`.

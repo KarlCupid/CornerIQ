@@ -2,10 +2,10 @@ import React, { useEffect } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AppProviders } from "./providers/AppProviders";
 import { AppErrorState } from "./components/AppErrorState";
-import { NeedsProfileState } from "./components/NeedsProfileState";
 import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
+import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useQuickLogs } from "../hooks/useQuickLogs";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
@@ -29,7 +29,15 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   }
 
   if (performance.result?.status === "needs_profile") {
-    return <NeedsProfileState busy={performance.loading} onCreateDemoProfile={() => void performance.createDemoProfile()} />;
+    return (
+      <OnboardingScreen
+        asOfDate={performance.asOfDate}
+        busy={performance.loading}
+        message={performance.message}
+        onComplete={performance.completeOnboarding}
+        onCreateDemoProfile={() => void performance.createDemoProfile()}
+      />
+    );
   }
 
   if (performance.result?.status === "error") {
@@ -46,7 +54,11 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       message={quickLogs.message ?? performance.message}
       onSignOut={onSignOut}
+      onSaveFightSetup={performance.saveFightSetup}
+      onSaveTournamentSetup={performance.saveTournamentSetup}
+      onUpdateProfileSettings={performance.updateProfileSettings}
       quickLogs={quickLogs.actions}
+      asOfDate={performance.asOfDate}
       state={performance.result.state}
     />
   );

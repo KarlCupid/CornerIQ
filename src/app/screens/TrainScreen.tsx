@@ -3,13 +3,17 @@ import { ScrollView, Text, View } from "react-native";
 import type { TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
+import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
 export interface TrainScreenProps {
+  busy: boolean;
+  quickLogs: QuickLogActions;
   viewModel: TrainViewModel;
 }
 
-export function TrainScreen({ viewModel }: TrainScreenProps) {
+export function TrainScreen({ busy, quickLogs, viewModel }: TrainScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -38,6 +42,7 @@ export function TrainScreen({ viewModel }: TrainScreenProps) {
           {viewModel.riskSummary.length > 0 ? viewModel.riskSummary.map((risk) => <Text key={risk} style={screenStyles.body}>{risk}</Text>) : <Text style={screenStyles.body}>No active training warnings.</Text>}
         </View>
       </EngineCard>
+      <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} />
     </ScrollView>
   );
 }

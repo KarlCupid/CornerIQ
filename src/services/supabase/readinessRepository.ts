@@ -19,6 +19,7 @@ export interface CreateReadinessCheckInInput {
   illnessSymptoms?: readonly string[];
   dizziness?: boolean;
   fainting?: boolean;
+  metadata?: Record<string, unknown>;
   urineColor?: ReadinessCheckIn["urineColor"];
 }
 
@@ -61,14 +62,18 @@ export function createReadinessRepository(client: CornerSupabaseClient) {
           illnessSymptoms: input.illnessSymptoms ?? [],
           dizziness: input.dizziness ?? false,
           fainting: input.fainting ?? false,
-          urineColor: input.urineColor
+          urineColor: input.urineColor,
+          metadata: input.metadata
         },
         "readiness_checkins.insertCheckIn"
       );
       const insert: TableInsert<"readiness_checkins"> = {
         user_id: safeUserId,
         checkin_date: input.date,
-        checkin_payload: toJson(checkIn)
+        checkin_payload: toJson({
+          ...checkIn,
+          metadata: input.metadata
+        })
       };
       const response = await client.from("readiness_checkins").insert(insert).select("id").single();
       return readDataOrThrow(response, "readiness_checkins.insertCheckIn");
