@@ -26,7 +26,7 @@ Latest `npm exec supabase -- migration list` result:
 
 `003_projection_and_exercise_result_hardening.sql` is applied remotely. There is no pending local migration.
 
-Current pass note: remote Supabase commands were not rerun in this Codex process because no Supabase or smoke environment variables were exposed. The prior verified remote status above remains the latest remote check available in this document.
+Current pass note: remote Supabase commands were rerun from Codex with the linked project config. The CLI required running outside the workspace sandbox because it writes local telemetry metadata under the user profile.
 
 Latest `npm exec supabase -- db push --dry-run` result:
 
@@ -52,10 +52,11 @@ Latest `npm exec supabase -- db push --dry-run` result:
 Latest authenticated smoke attempt:
 
 - Command attempted with ignored local `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: `npm run smoke:live-db`.
-- Smoke user setup: created through the public anon signup path for masked user `karllager333@...`; email confirmation was then applied to that exact smoke account through the linked database admin connection. No service role key was used.
+- Smoke user setup: created through the public anon signup path; email confirmation was then applied to that exact smoke account through the linked database admin connection. No service role key was used.
 - Result: passed.
 - Authenticated CRUD smoke passed: sign-in, scoped manual writes, `AthleteJourney` load, `PerformanceState` resolution, engine run/projection persistence, engine run confirmation, smoke-row cleanup, and prior profile restore all completed.
 - Local fix required: repository timestamp mappers now normalize Postgres timestamp strings to strict ISO datetimes before engine schema validation.
+- Workout completion smoke extension: still gated as a TODO in `src/tests/live/liveDbSmoke.test.ts`; it should complete one generated support session, verify at least one `exercise_results` row, and clean those rows by smoke marker once remote workout completion coverage is expanded.
 
 The regular test suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips when `CORNERIQ_LIVE_DB_SMOKE` is not set.
 
@@ -65,7 +66,7 @@ Latest local checks:
 
 - `npm run typecheck`: passed.
 - `npm test`: passed with `133` tests passing and `1` live smoke test skipped.
-- `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db`: not run in the current pass because the required Supabase/smoke environment variables were not exposed to this process. The latest authenticated live smoke attempt above remains the prior passing smoke.
+- `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db`: passed with ignored local `.env` values loaded into the process.
 - `npm run quality`: passed.
 - `npm run lint`: passed.
 
