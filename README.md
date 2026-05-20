@@ -17,7 +17,7 @@ Implemented so far:
 - Domain-split engine type exports with compatibility barrel at `src/engine/core/types.ts`.
 - First deterministic performance kernel vertical slice.
 - Body-mass trend, cycle context, readiness, wearable confidence, safety flags, weigh-in eligibility, tournament strategy, nutrition targets, structured rehydration, training support generation, and presentation view models.
-- Supabase schema migration draft at `supabase/migrations/001_core_schema.sql`.
+- Supabase migrations through `003_projection_and_exercise_result_hardening.sql`, including idempotent engine projection keys and exercise result hardening.
 - Engine fixtures and tests for safety, cycle, wearable/manual, nutrition, training, body mass, validation, and persistence schema checks.
 
 ## Install
@@ -71,6 +71,21 @@ npm run quality
 ```
 
 `quality` runs strict TypeScript typecheck and the engine test suite.
+
+## Live DB Smoke
+
+The live Supabase smoke test is skipped by default. To run it, use a dedicated smoke user and set:
+
+```sh
+CORNERIQ_LIVE_DB_SMOKE=1
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+CORNERIQ_SMOKE_EMAIL=
+CORNERIQ_SMOKE_PASSWORD=
+npm run smoke:live-db
+```
+
+The smoke test uses the anon key only, signs in as the smoke user, writes scoped manual logs, resolves engine projections, and cleans up rows it can identify from the run.
 
 ## Environment
 

@@ -18,7 +18,8 @@ import { createWearableRepository } from "./wearableRepository";
 
 export type LoadAthleteJourneyResult =
   | { status: "ready"; journey: AthleteJourney }
-  | { status: "needs_profile"; userId: string; asOfDate: ISODateString; reason: string };
+  | { status: "needs_profile"; userId: string; asOfDate: ISODateString; reason: string }
+  | { status: "error"; error: string; cause?: string };
 
 export interface AthleteJourneyRepositories {
   athlete: ReturnType<typeof createAthleteRepository>;
@@ -83,81 +84,97 @@ function objectiveFromContext(fight: FightOpportunity | null, tournament: Tourna
   return "build";
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown repository error";
+}
+
+function loadError(error: unknown, message: string): LoadAthleteJourneyResult {
+  return {
+    status: "error",
+    error: message,
+    cause: errorMessage(error)
+  };
+}
+
 export async function loadAthleteJourney(input: {
   userId: string;
   asOfDate: ISODateString;
   repositories: AthleteJourneyRepositories;
 }): Promise<LoadAthleteJourneyResult> {
-  const userId = assertUserId(input.userId, "loadAthleteJourney");
-  const athlete = await input.repositories.athlete.getProfile(userId);
+  try {
+    const userId = assertUserId(input.userId, "loadAthleteJourney");
+    const athlete = await input.repositories.athlete.getProfile(userId);
 
-  if (!athlete) {
-    return {
-      status: "needs_profile",
-      userId,
-      asOfDate: input.asOfDate,
-      reason: "No athlete profile exists for this Supabase user."
+    if (!athlete) {
+      return {
+        status: "needs_profile",
+        userId,
+        asOfDate: input.asOfDate,
+        reason: "No athlete profile exists for this Supabase user."
+      };
+    }
+
+    const [
+      fights,
+      tournaments,
+      protectedWorkouts,
+      bodyMassHistory,
+      nutritionHistory,
+      hydrationHistory,
+      electrolyteHistory,
+      cycleLogs,
+      cycleSymptomLogs,
+      readinessHistory,
+      wearableSignalHistory,
+      trainingHistory,
+      safetyFlags,
+      journeyEvents
+    ] = await Promise.all([
+      input.repositories.fight.listFightOpportunities(userId),
+      input.repositories.tournament.listTournamentPlans(userId),
+      input.repositories.protectedWorkout.listProtectedWorkouts(userId),
+      input.repositories.bodyMass.listLogs(userId),
+      input.repositories.nutrition.listFoodLogs(userId),
+      input.repositories.hydration.listWaterLogs(userId),
+      input.repositories.hydration.listElectrolyteLogs(userId),
+      input.repositories.cycle.listCycleLogs(userId),
+      input.repositories.cycle.listSymptomLogs(userId),
+      input.repositories.readiness.listCheckIns(userId),
+      input.repositories.wearable.listSignals(userId),
+      input.repositories.training.listGeneratedSessions(userId),
+      input.repositories.engineRun.listActiveRiskFlags(userId),
+      input.repositories.journey.listEvents(userId)
+    ]);
+
+    const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
+    const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
+    const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
+
+    const journey: AthleteJourney = {
+      athlete,
+      activePhase: null,
+      activeObjective: objectiveFromContext(activeFightOpportunity, activeTournament),
+      activeFightOpportunity,
+      activeTournament,
+      currentTrainingBlock: null,
+      bodyMassHistory,
+      nutritionHistory,
+      hydrationHistory,
+      electrolyteHistory,
+      cycleHistory,
+      readinessHistory,
+      wearableSignalHistory,
+      trainingHistory,
+      protectedWorkouts,
+      safetyFlags,
+      journeyEvents
     };
+
+    return {
+      status: "ready",
+      journey: parseWithSchema(AthleteJourneySchema, journey, "loadAthleteJourney")
+    };
+  } catch (error) {
+    return loadError(error, "Unable to load athlete journey.");
   }
-
-  const [
-    fights,
-    tournaments,
-    protectedWorkouts,
-    bodyMassHistory,
-    nutritionHistory,
-    hydrationHistory,
-    electrolyteHistory,
-    cycleLogs,
-    cycleSymptomLogs,
-    readinessHistory,
-    wearableSignalHistory,
-    trainingHistory,
-    safetyFlags,
-    journeyEvents
-  ] = await Promise.all([
-    input.repositories.fight.listFightOpportunities(userId),
-    input.repositories.tournament.listTournamentPlans(userId),
-    input.repositories.protectedWorkout.listProtectedWorkouts(userId),
-    input.repositories.bodyMass.listLogs(userId),
-    input.repositories.nutrition.listFoodLogs(userId),
-    input.repositories.hydration.listWaterLogs(userId),
-    input.repositories.hydration.listElectrolyteLogs(userId),
-    input.repositories.cycle.listCycleLogs(userId),
-    input.repositories.cycle.listSymptomLogs(userId),
-    input.repositories.readiness.listCheckIns(userId),
-    input.repositories.wearable.listSignals(userId),
-    input.repositories.training.listGeneratedSessions(userId),
-    input.repositories.engineRun.listActiveRiskFlags(userId),
-    input.repositories.journey.listEvents(userId)
-  ]);
-
-  const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
-  const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
-  const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
-
-  const journey: AthleteJourney = {
-    athlete,
-    activePhase: null,
-    activeObjective: objectiveFromContext(activeFightOpportunity, activeTournament),
-    activeFightOpportunity,
-    activeTournament,
-    currentTrainingBlock: null,
-    bodyMassHistory,
-    nutritionHistory,
-    hydrationHistory,
-    electrolyteHistory,
-    cycleHistory,
-    readinessHistory,
-    wearableSignalHistory,
-    trainingHistory,
-    protectedWorkouts,
-    safetyFlags,
-    journeyEvents
-  };
-
-  return {
-    status: "ready",
-    journey: parseWithSchema(AthleteJourneySchema, journey, "loadAthleteJourney")
-  };
 }

@@ -1,0 +1,70 @@
+import type { CornerSupabaseClient } from "./client";
+import type { TableName } from "./repositoryTypes";
+import { assertUserId, readDataOrThrow } from "./repositoryTypes";
+
+export const USER_OWNED_TABLES = [
+  "users_public",
+  "athlete_profiles",
+  "athlete_journey_events",
+  "fight_opportunities",
+  "tournament_plans",
+  "protected_workouts",
+  "readiness_checkins",
+  "body_mass_logs",
+  "food_logs",
+  "water_logs",
+  "electrolyte_logs",
+  "cycle_logs",
+  "cycle_symptom_logs",
+  "wearable_connections",
+  "wearable_signal_logs",
+  "generated_training_blocks",
+  "generated_training_sessions",
+  "completed_training_sessions",
+  "exercise_results",
+  "nutrition_targets",
+  "weight_class_plans",
+  "fight_week_protocols",
+  "weigh_in_logs",
+  "rehydration_plans",
+  "risk_flags",
+  "decision_traces",
+  "engine_runs"
+] as const satisfies readonly TableName[];
+
+export type UserOwnedTable = (typeof USER_OWNED_TABLES)[number];
+export type UserOwnedDataExport = Record<UserOwnedTable, unknown[]>;
+export type UserOwnedDeleteResult = {
+  [TTable in UserOwnedTable]: {
+    count: number | null;
+    status: "deleted";
+  };
+};
+
+export async function exportUserOwnedData(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDataExport> {
+  const safeUserId = assertUserId(userId, "userDataService.exportUserOwnedData");
+  const output: Partial<UserOwnedDataExport> = {};
+
+  for (const table of USER_OWNED_TABLES) {
+    const response = await client.from(table).select("*").eq("user_id", safeUserId);
+    output[table] = readDataOrThrow(response, `userDataService.exportUserOwnedData.${table}`);
+  }
+
+  return output as UserOwnedDataExport;
+}
+
+export async function deleteUserOwnedData(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDeleteResult> {
+  const safeUserId = assertUserId(userId, "userDataService.deleteUserOwnedData");
+  const result: Partial<UserOwnedDeleteResult> = {};
+
+  for (const table of USER_OWNED_TABLES) {
+    const response = await client.from(table).delete({ count: "exact" }).eq("user_id", safeUserId);
+    readDataOrThrow({ data: [], error: response.error }, `userDataService.deleteUserOwnedData.${table}`);
+    result[table] = {
+      count: response.count ?? null,
+      status: "deleted"
+    };
+  }
+
+  return result as UserOwnedDeleteResult;
+}

@@ -27,13 +27,48 @@ Date: 2026-05-19
   - Local `001` matches remote `001`
   - Local `002` matches remote `002`
 
+## Fourth Pass Update
+
+Date: 2026-05-19
+
+- Added local migration: `supabase/migrations/003_projection_and_exercise_result_hardening.sql`
+- Purpose:
+  - Patches `exercise_results` with generated-session linkage, `exercise_id`, `exercise_name`, `completed_at`, `source`, comments, and indexes.
+  - Adds idempotency support for `engine_runs`, `nutrition_targets`, `generated_training_sessions`, active `risk_flags`, and `decision_traces.engine_run_id`.
+  - Creates unique indexes only when existing duplicate data does not make them unsafe.
+- `npx supabase migration list`: not run in this Codex shell because Supabase credentials/env vars were absent.
+- `npx supabase db push --dry-run`: not run in this Codex shell because `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_ACCESS_TOKEN` were absent.
+- `npx supabase db push`: not run for the same missing-credentials reason.
+- `npx supabase gen types typescript --linked > src/services/supabase/database.types.ts`: not run for the same missing-credentials reason.
+- `src/services/supabase/database.types.ts` was patched locally to match the additive 003 schema so app code and tests can compile until remote type generation is available.
+- `npm run smoke:live-db`: ran and skipped as designed because `CORNERIQ_LIVE_DB_SMOKE`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `CORNERIQ_SMOKE_EMAIL`, and `CORNERIQ_SMOKE_PASSWORD` were absent.
+- No secrets were committed.
+
+To apply 003 remotely when credentials are available:
+
+```sh
+npx supabase migration list
+npx supabase db push --dry-run
+npx supabase db push
+npx supabase gen types typescript --linked > src/services/supabase/database.types.ts
+```
+
+To run the authenticated live CRUD smoke:
+
+```sh
+CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db
+```
+
 ## Migration Status
 
 - Remote migrations applied:
   - `supabase/migrations/001_core_schema.sql`
   - `supabase/migrations/002_schema_hardening.sql`
+- Local pending migration:
+  - `supabase/migrations/003_projection_and_exercise_result_hardening.sql`
 - `001_core_schema.sql` was not previously applied to this remote, so it was applied as-is.
 - `002_schema_hardening.sql` remains additive and includes `exercise_results`, RLS, owner policy, trigger, common-read indexes, safe check constraints, and sensitive-data comments.
+- `003_projection_and_exercise_result_hardening.sql` is additive and should be pushed before the next remote type generation.
 
 ## Generated Types
 

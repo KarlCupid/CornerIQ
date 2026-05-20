@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "quality": "npm run typecheck && npm run test"
+    "quality": "npm run typecheck && npm run test",
+    "smoke:live-db": "vitest run src/tests/live/liveDbSmoke.test.ts"
   },
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.4.0",

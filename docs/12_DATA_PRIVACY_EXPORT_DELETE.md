@@ -38,6 +38,8 @@ Include every user-owned table:
 
 Delete by `user_id` for all user-owned tables. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
 
+Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, and `deleteUserOwnedData(userId, client)`. These helpers use the anon client under RLS and never delete from `auth.users`.
+
 ## Sensitive Data Notes
 
 - Cycle data is optional, private, and symptom-aware. Export/delete must include `cycle_logs`, `cycle_symptom_logs`, and `athlete_profiles.sensitive_cycle`.

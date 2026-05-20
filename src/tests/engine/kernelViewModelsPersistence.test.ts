@@ -62,8 +62,10 @@ describe("kernel immutability, view models, and persistence schema", () => {
   it("migrations contain RLS, owner policies, indexes, comments, and exercise results", () => {
     const sql = [
       readFileSync("supabase/migrations/001_core_schema.sql", "utf8"),
-      readFileSync("supabase/migrations/002_schema_hardening.sql", "utf8")
+      readFileSync("supabase/migrations/002_schema_hardening.sql", "utf8"),
+      readFileSync("supabase/migrations/003_projection_and_exercise_result_hardening.sql", "utf8")
     ].join("\n");
+    const migration003 = readFileSync("supabase/migrations/003_projection_and_exercise_result_hardening.sql", "utf8");
     const tables = [
       "users_public",
       "athlete_profiles",
@@ -112,7 +114,19 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(sql).toContain("comment on table public.readiness_checkins");
     expect(sql).toContain("comment on table public.wearable_signal_logs");
     expect(sql).toContain("comment on table public.risk_flags");
+    expect(migration003).toContain("generated_training_session_id uuid references public.generated_training_sessions");
+    expect(migration003).toContain("exercise_id text");
+    expect(migration003).toContain("exercise_results_exercise_id_present");
+    expect(migration003).toContain("exercise_results_user_completed_session_idx");
+    expect(migration003).toContain("exercise_results_user_generated_session_idx");
+    expect(migration003).toContain("exercise_results_user_exercise_id_idx");
+    expect(migration003).toContain("engine_runs_user_date_version_input_hash_uidx");
+    expect(migration003).toContain("nutrition_targets_user_date_version_uidx");
+    expect(migration003).toContain("generated_sessions_user_date_version_key_uidx");
+    expect(migration003).toContain("risk_flags_active_user_domain_code_status_uidx");
+    expect(migration003).toContain("decision_traces_user_engine_run_idx");
     expect(readFileSync("supabase/migrations/002_schema_hardening.sql", "utf8")).not.toMatch(/\bdrop\s+(table|column|constraint)\b/i);
+    expect(migration003).not.toMatch(/\bdrop\s+(table|column|constraint)\b/i);
   });
 
   it("repository mappers convert DB rows to engine types", () => {

@@ -17,6 +17,7 @@ export interface TodayScreenProps {
   viewModel: TodayViewModel;
   quickLogs: TodayQuickLogActions;
   cycleQuickLogEnabled: boolean;
+  cycleSymptomOptions: readonly string[];
   busy: boolean;
   message: string | null;
 }
@@ -26,11 +27,11 @@ function parsePositiveNumber(value: string): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-export function TodayScreen({ viewModel, quickLogs, cycleQuickLogEnabled, busy, message }: TodayScreenProps) {
+export function TodayScreen({ viewModel, quickLogs, cycleQuickLogEnabled, cycleSymptomOptions, busy, message }: TodayScreenProps) {
   const [bodyMass, setBodyMass] = useState("");
   const [energy, setEnergy] = useState("");
   const [water, setWater] = useState("");
-  const [symptom, setSymptom] = useState("cramps");
+  const [symptom, setSymptom] = useState(cycleSymptomOptions[0] ?? "");
 
   const submitNumber = async (value: string, action: (parsed: number) => Promise<void>, clear: () => void) => {
     const parsed = parsePositiveNumber(value);
@@ -86,8 +87,20 @@ export function TodayScreen({ viewModel, quickLogs, cycleQuickLogEnabled, busy, 
           </Pressable>
           {cycleQuickLogEnabled ? (
             <>
-              <TextInput autoCapitalize="none" onChangeText={setSymptom} placeholder="Cycle symptom" placeholderTextColor={colors.wrap} style={screenStyles.input} value={symptom} />
-              <Pressable disabled={busy} onPress={() => quickLogs.logCycleSymptom(symptom.trim())} style={screenStyles.quietButton}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {cycleSymptomOptions.map((option) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={busy}
+                    key={option}
+                    onPress={() => setSymptom(option)}
+                    style={[screenStyles.quietButton, option === symptom ? { borderColor: colors.blueIQ } : null]}
+                  >
+                    <Text style={screenStyles.quietButtonText}>{option.replace(/_/g, " ")}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Pressable disabled={busy || !symptom} onPress={() => quickLogs.logCycleSymptom(symptom)} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Log cycle symptom</Text>
               </Pressable>
             </>

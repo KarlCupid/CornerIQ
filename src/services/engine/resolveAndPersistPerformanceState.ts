@@ -27,6 +27,11 @@ export type ResolveAndPersistPerformanceStateResult =
       userId: string;
       asOfDate: ISODateString;
       reason: string;
+    }
+  | {
+      status: "error";
+      error: string;
+      cause?: string;
     };
 
 function stableHash(value: unknown): string {
@@ -40,15 +45,25 @@ function stableHash(value: unknown): string {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown persistence error";
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function errorResult(error: unknown, message: string): ResolveAndPersistPerformanceStateResult {
+  return {
+    status: "error",
+    error: message,
+    cause: errorMessage(error)
+  };
 }
 
 async function persistPerformanceState(userId: string, inputHash: string, state: PerformanceState, repositories: AthleteJourneyRepositories): Promise<void> {
-  await repositories.engineRun.saveRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
-  await repositories.engineRun.saveDecisionTraces(state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, trace)));
-  await repositories.engineRun.saveRiskFlags(state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag)));
-  await repositories.engineRun.saveNutritionTarget(mapNutritionTargetToRow(userId, state));
-  await repositories.engineRun.saveGeneratedSessions(state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session)));
+  const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
+  await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
+  await repositories.engineRun.upsertRiskFlags(state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash)));
+  await repositories.engineRun.upsertNutritionTarget(mapNutritionTargetToRow(userId, state, inputHash));
+  await repositories.engineRun.upsertGeneratedSessions(
+    state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash))
+  );
 }
 
 export async function resolveAndPersistPerformanceState(input: {
@@ -58,7 +73,13 @@ export async function resolveAndPersistPerformanceState(input: {
   generatedAt?: string;
   journeyResult?: LoadAthleteJourneyResult;
 }): Promise<ResolveAndPersistPerformanceStateResult> {
-  const userId = assertUserId(input.userId, "resolveAndPersistPerformanceState");
+  let userId: string;
+  try {
+    userId = assertUserId(input.userId, "resolveAndPersistPerformanceState");
+  } catch (error) {
+    return errorResult(error, "Unable to resolve engine state.");
+  }
+
   const journeyResult =
     input.journeyResult ??
     (await loadAthleteJourney({
@@ -67,24 +88,34 @@ export async function resolveAndPersistPerformanceState(input: {
       repositories: input.repositories
     }));
 
+  if (journeyResult.status === "error") {
+    return journeyResult;
+  }
+
   if (journeyResult.status === "needs_profile") {
     return journeyResult;
   }
 
-  const journey = parseWithSchema(AthleteJourneySchema, journeyResult.journey, "resolveAndPersistPerformanceState.journey");
-  const inputHash = stableHash({ asOfDate: input.asOfDate, journey });
-  const state = resolvePerformanceState(
-    input.generatedAt
-      ? {
-          journey,
-          asOfDate: input.asOfDate,
-          generatedAt: input.generatedAt
-        }
-      : {
-          journey,
-          asOfDate: input.asOfDate
-        }
-  );
+  let inputHash: string;
+  let state: PerformanceState;
+  try {
+    const journey = parseWithSchema(AthleteJourneySchema, journeyResult.journey, "resolveAndPersistPerformanceState.journey");
+    inputHash = stableHash({ asOfDate: input.asOfDate, journey });
+    state = resolvePerformanceState(
+      input.generatedAt
+        ? {
+            journey,
+            asOfDate: input.asOfDate,
+            generatedAt: input.generatedAt
+          }
+        : {
+            journey,
+            asOfDate: input.asOfDate
+          }
+    );
+  } catch (error) {
+    return errorResult(error, "Unable to resolve engine state.");
+  }
 
   try {
     await persistPerformanceState(userId, inputHash, state, input.repositories);

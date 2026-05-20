@@ -217,6 +217,7 @@ export type Database = {
         Row: {
           created_at: string
           engine: string
+          engine_run_id: string | null
           id: string
           step: string
           trace_payload: Json
@@ -226,6 +227,7 @@ export type Database = {
         Insert: {
           created_at?: string
           engine: string
+          engine_run_id?: string | null
           id?: string
           step: string
           trace_payload?: Json
@@ -235,13 +237,22 @@ export type Database = {
         Update: {
           created_at?: string
           engine?: string
+          engine_run_id?: string | null
           id?: string
           step?: string
           trace_payload?: Json
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "decision_traces_engine_run_id_fkey"
+            columns: ["engine_run_id"]
+            isOneToOne: false
+            referencedRelation: "engine_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       electrolyte_logs: {
         Row: {
@@ -317,32 +328,47 @@ export type Database = {
       }
       exercise_results: {
         Row: {
+          completed_at: string | null
           completed_training_session_id: string | null
           created_at: string
+          exercise_id: string | null
           exercise_key: string
+          exercise_name: string | null
+          generated_training_session_id: string | null
           id: string
           recorded_at: string
           result_payload: Json
+          source: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          completed_at?: string | null
           completed_training_session_id?: string | null
           created_at?: string
+          exercise_id?: string | null
           exercise_key: string
+          exercise_name?: string | null
+          generated_training_session_id?: string | null
           id?: string
           recorded_at?: string
           result_payload?: Json
+          source?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          completed_at?: string | null
           completed_training_session_id?: string | null
           created_at?: string
+          exercise_id?: string | null
           exercise_key?: string
+          exercise_name?: string | null
+          generated_training_session_id?: string | null
           id?: string
           recorded_at?: string
           result_payload?: Json
+          source?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -352,6 +378,13 @@ export type Database = {
             columns: ["completed_training_session_id"]
             isOneToOne: false
             referencedRelation: "completed_training_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_results_generated_training_session_id_fkey"
+            columns: ["generated_training_session_id"]
+            isOneToOne: false
+            referencedRelation: "generated_training_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -478,6 +511,7 @@ export type Database = {
           block_id: string | null
           created_at: string
           engine_version: string
+          generated_session_key: string | null
           id: string
           planned_date: string
           session_payload: Json
@@ -488,6 +522,7 @@ export type Database = {
           block_id?: string | null
           created_at?: string
           engine_version: string
+          generated_session_key?: string | null
           id?: string
           planned_date: string
           session_payload?: Json
@@ -498,6 +533,7 @@ export type Database = {
           block_id?: string | null
           created_at?: string
           engine_version?: string
+          generated_session_key?: string | null
           id?: string
           planned_date?: string
           session_payload?: Json

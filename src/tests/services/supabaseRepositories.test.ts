@@ -7,9 +7,11 @@ import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/sup
 import { createHydrationRepository } from "../../services/supabase/hydrationRepository";
 import { loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
 import { createReadinessRepository } from "../../services/supabase/readinessRepository";
+import { exportUserOwnedData, deleteUserOwnedData, USER_OWNED_TABLES } from "../../services/supabase/userDataService";
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
 import { mapFightOpportunityRow } from "../../services/supabase/fightRepository";
+import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
 function createInsertClient() {
@@ -49,14 +51,42 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
     training: { listGeneratedSessions: vi.fn(async () => journey.trainingHistory) },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
-      saveRun: vi.fn(),
-      saveDecisionTraces: vi.fn(),
-      saveRiskFlags: vi.fn(),
-      saveNutritionTarget: vi.fn(),
-      saveGeneratedSessions: vi.fn()
+      upsertRun: vi.fn(),
+      saveDecisionTracesForRun: vi.fn(),
+      upsertRiskFlags: vi.fn(),
+      upsertNutritionTarget: vi.fn(),
+      upsertGeneratedSessions: vi.fn()
     },
     journey: { listEvents: vi.fn(async () => journey.journeyEvents), appendEvent: vi.fn() }
   } as unknown as AthleteJourneyRepositories;
+}
+
+function createUserDataClient() {
+  const selected: { table: string; userId: string }[] = [];
+  const deleted: { table: string; userId: string }[] = [];
+  const client = {
+    from(table: string) {
+      return {
+        select() {
+          return {
+            eq(column: string, value: string) {
+              selected.push({ table, userId: `${column}:${value}` });
+              return Promise.resolve({ data: [], error: null });
+            }
+          };
+        },
+        delete() {
+          return {
+            eq(column: string, value: string) {
+              deleted.push({ table, userId: `${column}:${value}` });
+              return Promise.resolve({ data: [], error: null, count: 0 });
+            }
+          };
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, deleted, selected };
 }
 
 describe("Supabase repositories", () => {
@@ -116,6 +146,28 @@ describe("Supabase repositories", () => {
     expect(inserted[3]?.record).toMatchObject({ user_id: "user_1", log_date: fixtureAsOfDate });
   });
 
+  it("engineRunRepository uses idempotent projection methods", () => {
+    const source = readFileSync("src/services/supabase/engineRunRepository.ts", "utf8");
+
+    expect(source).toContain("async upsertRun");
+    expect(source).toContain(".upsert(record, { onConflict: \"user_id,as_of_date,engine_version,input_hash\" })");
+    expect(source).toContain("async saveDecisionTracesForRun");
+    expect(source).toContain("async upsertRiskFlags");
+    expect(source).toContain("async upsertNutritionTarget");
+    expect(source).toContain("async upsertGeneratedSessions");
+    expect(source).toContain("generated_session_key");
+    expect(source).not.toContain("async saveGeneratedSessions");
+  });
+
+  it("database types include 003 projection columns", () => {
+    const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
+
+    expect(source).toContain("engine_run_id: string | null");
+    expect(source).toContain("generated_training_session_id: string | null");
+    expect(source).toContain("exercise_id: string | null");
+    expect(source).toContain("generated_session_key: string | null");
+  });
+
   it("loadAthleteJourney assembles fixture-equivalent data from mocked repositories", async () => {
     const repositories = createJourneyRepositories();
     const result = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
@@ -127,6 +179,45 @@ describe("Supabase repositories", () => {
       expect(result.journey.protectedWorkouts).toHaveLength(no_wearable_manual_only.protectedWorkouts.length);
       expect(result.journey.activeObjective).toBe("build");
     }
+  });
+
+  it("loadAthleteJourney returns an error union for repository failures", async () => {
+    const repositories = createJourneyRepositories();
+    repositories.athlete.getProfile = vi.fn(async () => {
+      throw new RepositoryError("remote_error", "athlete_profiles.getProfile", "read failed");
+    });
+
+    const result = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result).toMatchObject({ status: "error", cause: expect.stringContaining("read failed") });
+  });
+
+  it("userDataService includes every user-owned table", () => {
+    expect(USER_OWNED_TABLES).toContain("exercise_results");
+    expect(USER_OWNED_TABLES).toContain("decision_traces");
+    expect(USER_OWNED_TABLES).toContain("engine_runs");
+    expect(USER_OWNED_TABLES).toHaveLength(27);
+  });
+
+  it("export and delete scope every table by user_id", async () => {
+    const { client, deleted, selected } = createUserDataClient();
+
+    await exportUserOwnedData("user_1", client);
+    await deleteUserOwnedData("user_1", client);
+
+    expect(selected.map((item) => item.table)).toEqual([...USER_OWNED_TABLES]);
+    expect(deleted.map((item) => item.table)).toEqual([...USER_OWNED_TABLES]);
+    expect(selected.every((item) => item.userId === "user_id:user_1")).toBe(true);
+    expect(deleted.every((item) => item.userId === "user_id:user_1")).toBe(true);
+  });
+
+  it("userDataService rejects missing user ids before Supabase calls", async () => {
+    const { client, deleted, selected } = createUserDataClient();
+
+    await expect(exportUserOwnedData(undefined as unknown as string, client)).rejects.toBeInstanceOf(RepositoryError);
+    await expect(deleteUserOwnedData("", client)).rejects.toBeInstanceOf(RepositoryError);
+    expect(selected).toHaveLength(0);
+    expect(deleted).toHaveLength(0);
   });
 
   it("repository mapper files avoid explicit any", () => {
@@ -143,7 +234,8 @@ describe("Supabase repositories", () => {
       "src/services/supabase/nutritionRepository.ts",
       "src/services/supabase/hydrationRepository.ts",
       "src/services/supabase/trainingRepository.ts",
-      "src/services/supabase/engineRunRepository.ts"
+      "src/services/supabase/engineRunRepository.ts",
+      "src/services/supabase/userDataService.ts"
     ];
 
     for (const file of files) {
