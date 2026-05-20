@@ -1,14 +1,14 @@
 # Codex Last Handoff
 
-Date/time: 2026-05-20 09:37 America/Vancouver
+Date/time: 2026-05-20 10:31 America/Vancouver
 
 Branch: `main`
 
-Latest known commit from prompt: `ccba81c712b1d982a8bffac45d29e4a680c7d925` (`Add next-week materialization and coach relationships`)
+Latest known commit from prompt: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee` (`Persist generated sessions from next-week previews`)
 
-Latest commit before pass from `git log`: `1689c5752a4e4a95128db0647a38937ac01089bd` (`Persist next-week previews and add materialization flow`)
+Latest commit before pass from `git log`: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee` (`Persist generated sessions from next-week previews`)
 
-Current `git rev-parse HEAD` at handoff time: `1689c5752a4e4a95128db0647a38937ac01089bd`
+Current `git rev-parse HEAD` at handoff time: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee`
 
 Commit created in this run: none. This pass leaves working-tree changes for the user/auditor to commit.
 
@@ -18,36 +18,37 @@ Post-commit hash should be checked by auditor: yes.
 
 ## Summary
 
-This fifteenth implementation pass completes the safe path from an accepted next-week preview to persisted future generated support sessions. The new engine maps preview strategies into deterministic, non-contact, boxer-specific generated sessions without parsing free-text load or adding unsafe weight-cut instructions. Boundary materialization now persists the next-week microcycle, day plans, generated sessions, preview materialized status, and a timeline event with `generatedSessionCount`.
+This sixteenth implementation pass adds a safe automatic week-boundary roll-forward policy. Accepted next-week previews now auto-materialize through app refresh when the athlete reaches the preview week, while unaccepted previews stay review-only, hold-for-review previews remain blocked without explicit approval, hard-stop safety blocks materialization, and stale previews do not mutate previous weeks.
 
-Plan and Train view models now surface materialization status, generated-session counts, and materialized summaries while still keeping future sessions out of today's work until their planned date. Coach UI remains hidden, but the coach approval Edge Function skeleton now validates payloads, requires a Bearer JWT, verifies the caller with Supabase Auth, and only lets the athlete approve a pending relationship.
+The implementation keeps programming logic in services/hooks/view models, not screens. `autoRollForwardTrainingPlan` wraps the existing materializer, adds idempotency/loop protection, returns refresh guidance, and writes audit-friendly timeline/journey payloads with `autoRollForward: true`. Plan now shows roll-forward status copy, and Train/Plan tests prove future generated sessions stay date-scoped.
+
+Coach approval was hardened by extracting pure policy helpers, adding helper tests/static checks, and documenting deployment, env vars, permission keys, service-role boundary, revocation, and limitations. Coach UI remains hidden.
 
 ## Files Changed By Domain
 
-Generated session engine and roll-forward:
-- `src/engine/training/nextWeekGeneratedSessionEngine.ts`
+Auto roll-forward policy and app data flow:
+- `src/services/training/autoRollForwardTrainingPlan.ts`
+- `src/hooks/useAutoRollForward.ts`
+- `src/hooks/usePerformanceState.ts`
+- `src/services/engine/resolveAndPersistPerformanceState.ts`
 - `src/services/training/materializeNextWeekTrainingPlan.ts`
-- `src/services/supabase/engineRunRepository.ts`
-- `src/engine/training/weeklyPlanEngine.ts`
-- `src/engine/core/performanceKernel.ts`
 
-Plan/Train presentation and UI:
+Plan view model and UI:
 - `src/engine/presentation/types.ts`
 - `src/engine/presentation/planViewModel.ts`
-- `src/engine/presentation/exerciseHistoryViewModel.ts`
 - `src/app/screens/PlanScreen.tsx`
-- `src/app/screens/plan/TrainingBlockHistoryPanel.tsx`
-- `src/app/screens/train/ExerciseHistoryPanel.tsx`
 
-Coach approval and permission docs:
+Coach approval hardening:
 - `supabase/functions/approve-coach-relationship/index.ts`
-- `docs/17_COACH_TEAM_PERMISSIONS.md`
+- `supabase/functions/approve-coach-relationship/policy.ts`
+- `supabase/functions/approve-coach-relationship/README.md`
 
 Tests and live smoke:
-- `src/tests/engine/nextWeekGeneratedSessionEngine.test.ts`
-- `src/tests/services/materializeNextWeekTrainingPlan.test.ts`
-- `src/tests/app/appShell.test.ts`
+- `src/tests/services/autoRollForwardTrainingPlan.test.ts`
+- `src/tests/services/coachApprovalPolicy.test.ts`
 - `src/tests/services/supabaseRepositories.test.ts`
+- `src/tests/app/appShell.test.ts`
+- `src/tests/engine/kernelViewModelsPersistence.test.ts`
 - `src/tests/live/liveDbSmoke.test.ts`
 
 Audit/status docs:
@@ -62,47 +63,48 @@ Audit/status docs:
 ## Commands And Results
 
 Baseline:
-- `git status`: no tracked changes before implementation; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
-- `git log --oneline --decorate -8`: latest commit was `1689c57 (HEAD -> main, origin/main) Persist next-week previews and add materialization flow`.
+- `git status`: clean working tree before implementation; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- `git log --oneline --decorate -8`: latest commit was `21aeeb3 (HEAD -> main, origin/main) Persist generated sessions from next-week previews`.
 - Direct `npm run typecheck`: blocked by PowerShell `npm.ps1` execution policy.
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: sandboxed Vitest failed with config access denied; rerun outside sandbox passed with `222` tests passed and `1` skipped.
-- `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; rerun outside sandbox passed.
+- `cmd /c npm test`: sandboxed Vitest failed with config access denied; rerun outside sandbox passed with `23` test files passed, `1` skipped, `240` tests passed, `1` skipped.
+- `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; rerun outside sandbox passed with `240` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- `cmd /c npm exec supabase -- --version`: sandboxed CLI failed writing user-profile telemetry; rerun outside sandbox returned `2.100.1`.
+- `cmd /c npm exec supabase -- --version`: sandboxed CLI failed writing `C:\Users\karll\.supabase\telemetry.json`; rerun outside sandbox returned `2.100.1`.
 - `cmd /c npm exec supabase -- migration list`: local/remote `001` through `007` aligned.
 - `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
-- `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db` without loading `.env`: did not run smoke assertions; missing non-secret variable names were `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db` without loading `.env`: failed before live assertions with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` name check found `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `CORNERIQ_SMOKE_EMAIL`, and `CORNERIQ_SMOKE_PASSWORD` without printing values.
 - Ignored `.env` loaded into the process with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: baseline smoke passed, `1` test passed.
 
 Implementation verification:
-- Targeted `cmd /c npm test -- src/tests/engine/nextWeekGeneratedSessionEngine.test.ts src/tests/services/materializeNextWeekTrainingPlan.test.ts src/tests/app/appShell.test.ts src/tests/services/supabaseRepositories.test.ts`: passed, `97` tests.
-- `cmd /c npm run typecheck`: passed.
-- `cmd /c npm run lint`: first run failed on one unused type import in `nextWeekGeneratedSessionEngine.ts`; after cleanup, passed.
-- `cmd /c npm test`: passed; `23` test files passed, `1` skipped, `240` tests passed, `1` skipped.
-- `cmd /c npm run quality`: passed; ran typecheck plus tests, `23` test files passed, `1` skipped, `240` tests passed, `1` skipped.
-- `cmd /c npm exec supabase -- --version`: passed, `2.100.1`.
-- `cmd /c npm exec supabase -- migration list`: passed; local/remote `001` through `007` aligned.
-- `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
-- An inline PowerShell/Node smoke launcher failed before running assertions because of Windows quoting; no smoke result was counted from that attempt.
-- Extended live smoke using ignored `.env` values and `CORNERIQ_LIVE_DB_SMOKE=1`: passed, `src/tests/live/liveDbSmoke.test.ts`, `1` test passed, test body `11380ms`.
+- `cmd /c npm run typecheck`: passed after edits.
+- Targeted `cmd /c npm test -- src/tests/services/autoRollForwardTrainingPlan.test.ts src/tests/app/appShell.test.ts src/tests/services/coachApprovalPolicy.test.ts src/tests/services/supabaseRepositories.test.ts src/tests/services/materializeNextWeekTrainingPlan.test.ts`: first run found fixture/static-test issues; after fixes, passed with `103` tests.
+- Targeted `cmd /c npm test -- src/tests/engine/kernelViewModelsPersistence.test.ts`: passed with `7` tests after the Plan view-model fixture was corrected.
+- `cmd /c npm run lint`: passed.
+- Final `cmd /c npm test`: passed; `25` test files passed, `1` skipped, `258` tests passed, `1` skipped.
+- Final `cmd /c npm run quality`: passed; quality reran typecheck plus tests, `25` files passed, `1` skipped, `258` tests passed, `1` skipped.
+- Final `cmd /c npm exec supabase -- --version`: passed, `2.100.1`.
+- Final `cmd /c npm exec supabase -- migration list`: passed; local/remote `001` through `007` aligned.
+- Final `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
+- Extended live smoke using ignored `.env` values and `CORNERIQ_LIVE_DB_SMOKE=1`: passed, `src/tests/live/liveDbSmoke.test.ts`, `1` test passed, test body `12284ms`.
 - `git diff --check`: passed with Windows LF-to-CRLF warnings only.
 - `rg -n "SERVICE_ROLE|service_role|SUPABASE_SERVICE_ROLE_KEY" src\app src\hooks src\engine src\services --glob "!src/tests/**"`: no matches.
-- `rg -n "smoke password|CORNERIQ_SMOKE_PASSWORD|CORNERIQ_SMOKE_EMAIL|password" docs src\engine src\services src\app supabase\functions`: only ordinary auth UI/service password references plus docs stating smoke secrets were not printed.
-- `git status --short`: listed the changed files in this handoff plus new `docs/17_COACH_TEAM_PERMISSIONS.md`, `src/engine/training/nextWeekGeneratedSessionEngine.ts`, and `src/tests/engine/nextWeekGeneratedSessionEngine.test.ts`; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
-- `git rev-parse HEAD`: `1689c5752a4e4a95128db0647a38937ac01089bd`.
+- `rg -n "CORNERIQ_SMOKE_PASSWORD|CORNERIQ_SMOKE_EMAIL|smoke password|password" docs src\engine src\services src\app supabase\functions`: only ordinary auth UI/service password references plus docs stating smoke secrets were not printed.
+- `git rev-parse HEAD`: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee`.
+- `git status --short`: listed only this pass's modified/new files; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
 
 ## Live Smoke Result
 
 Passed with ignored `.env` loaded into the process and `CORNERIQ_LIVE_DB_SMOKE=1`.
 
-The live smoke now verifies auth, manual writes, `AthleteJourney` load, `PerformanceState` resolution, training blocks, microcycles, day plans, persisted next-week previews, accept-preview service action, safe non-materialization before the preview week boundary, smoke-only boundary materialization, future `generated_training_sessions` rows for the preview week, materialized preview status, `generatedSessionCount` in the `next_week_materialized` timeline event, coach relationship RLS read, generated workout completion, `completed_training_sessions`, `exercise_results`, engine persistence, tagged cleanup/restoration of smoke-created or smoke-touched rows, and prior profile restore.
+The live smoke now verifies auth, manual writes, safe coach relationship RLS read, `AthleteJourney` load, `PerformanceState` resolution, training blocks, microcycles, day plans, persisted next-week previews, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, generated workout completion, `completed_training_sessions`, `exercise_results`, engine persistence, tagged cleanup/restoration of smoke-created or smoke-touched rows, and prior profile restore.
 
 ## Migration Status
 
 Supabase CLI `2.100.1` verified. Remote migration list shows `001` through `007` applied. Final dry run reports `Remote database is up to date.`
 
-No migration was added or applied in this pass. The generated-session materialization reuses existing `generated_training_sessions`, `training_microcycles`, `training_day_plans`, `training_next_week_previews`, and `training_block_timeline_events` tables.
+No migration was added or applied in this pass. Auto roll-forward reuses existing `training_next_week_previews`, `training_microcycles`, `training_day_plans`, `generated_training_sessions`, `training_block_timeline_events`, and `athlete_journey_events`.
 
 ## Secrets Confirmation
 
@@ -110,12 +112,13 @@ Ignored local `.env` values were loaded only into command processes for live smo
 
 ## What Tests Prove
 
-- `nextWeekGeneratedSessionEngine` tests prove deterministic IDs, safe session families by preview strategy, no novelty for `repeat_same`, reduced volume for `reduce_volume`, recovery-only behavior for deload/hold/hard-stop style states, conservative tournament/taper behavior, protected hard-day handling, under-fueling blocking progression, high cycle symptom trimming, and no prohibited generated terms.
-- Roll-forward service tests prove boundary materialization persists generated sessions, pre-boundary calls do not persist sessions, generated-session keys are idempotent, hard-stop safety blocks generated sessions, hold-for-review does not create hard work, tournament conserve stays conservative, generated IDs are returned, and preview materialized status is not written when generated-session persistence fails.
-- Plan/Train tests prove Plan shows persisted versus materialized preview state, generated-session count and summaries render after materialization, future materialized sessions do not show as today's Train work early, and those sessions load into training state on their planned date.
-- Static coach tests prove the Edge Function exists, rejects requests without Authorization before env work, validates payload shape, returns safe env errors, keeps the service role out of Expo/client code, keeps coach UI hidden, and does not let the client relationship repository activate a relationship.
-- History panel tests prove grouped block-history headings, generated-session count display, grouped exercise-history headings, pain flag warning, and no fake numeric load progression copy.
-- Live smoke proves the remote accepted-preview materialization path creates preview-week microcycle/day-plan rows, future generated sessions, materialized preview status, timeline `generatedSessionCount`, and scoped cleanup using smoke metadata.
+- `autoRollForwardTrainingPlan` tests prove no-op behavior with no accepted preview, no auto materialization before boundary, materialization at boundary, idempotency after materialized status, hard-stop blocking, hold-for-review blocking, wrong user/block rejection, refresh flag truthiness only on materialization, audit payloads, journey audit event append, and no generated sparring/contact prescriptions.
+- `usePerformanceState` tests prove ready-state refresh calls auto roll-forward when due, materialized roll-forward refreshes state once, stale-repo loop protection prevents repeated materialization for the same preview, and auto errors are non-fatal messages that keep existing ready state visible.
+- Plan view-model/UI tests prove accepted-waiting, materialized, blocked, hold-for-review, and unaccepted-at-boundary copy; screens still do not import low-level engine modules or `autoRollForwardTrainingPlan`.
+- Future generated-session tests prove materialized future sessions are excluded from Train before their date, included on their planned date, detailed sessions can build from them, Plan shows generated support on the future date, and duplicate persisted/generated sessions are merged.
+- Materialization tests still prove boundary persistence, generated-session deterministic keys, hard-stop/hold-for-review gates, conservative tournament behavior, and no preview materialized status if generated-session persistence fails.
+- Coach approval tests prove missing auth parsing, invalid payload rejection, unsupported permission key rejection, athlete-only pending approval, no service role in Expo/client code, and hidden coach UI.
+- Live smoke proves the remote auto-roll-forward path creates preview-week microcycle/day-plan rows, future generated sessions, materialized preview status, auto timeline payload, no duplicate materialization on repeat, and scoped cleanup using smoke metadata.
 
 ## Known Gaps
 
@@ -124,26 +127,28 @@ Ignored local `.env` values were loaded only into command processes for live smo
 - Coach approval still needs production audit logging, deployed function tests, admin/team policy, and athlete-facing consent copy before any coach controls ship.
 - Team memberships remain deferred.
 - Calendar drag/drop polish remains deferred.
-- Automatic background roll-forward from accepted preview to materialized next week is not wired; the service supports explicit boundary materialization.
+- Server-scheduled/background roll-forward remains deferred; app refresh now performs the automatic boundary policy.
 - Generated-session template depth is intentionally conservative and should expand only with additional safety tests.
-- Block history and exercise history are improved panels, not routed drill-down screens.
+- Block history and exercise history remain panels, not routed drill-down screens.
 
 ## Recommended Next Prompt Direction
 
-Add production audit/deployment coverage for coach approval, decide whether accepted previews should materialize through app refresh or a scheduled server job at week boundary, and deepen routed history screens without moving programming logic into UI.
+Add production audit/deployment coverage for coach approval and decide whether app-refresh auto roll-forward should later be supplemented by a scheduled server job. Keep routed history screens and calendar polish deferred until the safety/audit surfaces remain stable.
 
 ## Inspect First
 
-1. `src/engine/training/nextWeekGeneratedSessionEngine.ts`
-2. `src/services/training/materializeNextWeekTrainingPlan.ts`
-3. `src/services/supabase/engineRunRepository.ts`
-4. `src/engine/training/weeklyPlanEngine.ts`
-5. `src/engine/core/performanceKernel.ts`
+1. `src/services/training/autoRollForwardTrainingPlan.ts`
+2. `src/hooks/useAutoRollForward.ts`
+3. `src/hooks/usePerformanceState.ts`
+4. `src/services/engine/resolveAndPersistPerformanceState.ts`
+5. `src/services/training/materializeNextWeekTrainingPlan.ts`
 6. `src/engine/presentation/planViewModel.ts`
 7. `src/app/screens/PlanScreen.tsx`
-8. `supabase/functions/approve-coach-relationship/index.ts`
-9. `docs/17_COACH_TEAM_PERMISSIONS.md`
-10. `src/tests/engine/nextWeekGeneratedSessionEngine.test.ts`
-11. `src/tests/services/materializeNextWeekTrainingPlan.test.ts`
+8. `supabase/functions/approve-coach-relationship/policy.ts`
+9. `supabase/functions/approve-coach-relationship/index.ts`
+10. `supabase/functions/approve-coach-relationship/README.md`
+11. `src/tests/services/autoRollForwardTrainingPlan.test.ts`
 12. `src/tests/app/appShell.test.ts`
 13. `src/tests/live/liveDbSmoke.test.ts`
+14. `docs/16_TRAINING_BLOCK_LIFECYCLE.md`
+15. `docs/17_COACH_TEAM_PERMISSIONS.md`

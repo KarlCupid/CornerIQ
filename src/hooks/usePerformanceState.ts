@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { ISODateString } from "../engine/core/types";
+import { useAutoRollForward } from "./useAutoRollForward";
 import { resolveAndPersistPerformanceState, type ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, type AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
@@ -18,6 +19,7 @@ import type { CornerSupabaseClient } from "../services/supabase/client";
 
 export interface UsePerformanceStateInput {
   asOfDate?: ISODateString;
+  autoRollForwardEnabled?: boolean | undefined;
   client: CornerSupabaseClient;
   repositories?: AthleteJourneyRepositories;
   session: Session;
@@ -48,6 +50,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const asOfDate = input.asOfDate ?? todayLocalISODate();
   const userId = input.session.user.id;
   const repositories = useMemo(() => input.repositories ?? createAthleteJourneyRepositories(input.client), [input.client, input.repositories]);
+  const { runAutoRollForward } = useAutoRollForward({ asOfDate, enabled: input.autoRollForwardEnabled ?? true, repositories, userId });
   const [result, setResult] = useState<ResolveAndPersistPerformanceStateResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -60,11 +63,31 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       asOfDate,
       repositories
     });
-    setResult(next);
-    setMessage(next.status === "ready" ? next.persistenceWarning ?? null : null);
+    let final = next;
+    let nextMessage = next.status === "ready" ? next.persistenceWarning ?? null : null;
+    if (next.status === "ready") {
+      const auto = await runAutoRollForward(next.state);
+      if (auto.status === "materialized" && auto.shouldRefreshState) {
+        final = await resolveAndPersistPerformanceState({
+          userId,
+          asOfDate,
+          repositories
+        });
+        nextMessage =
+          final.status === "ready"
+            ? auto.explanation
+            : `${auto.explanation} Refresh failed; existing engine state is still visible.`;
+      } else if (auto.status === "blocked" && auto.previewId) {
+        nextMessage = auto.explanation;
+      } else if (auto.status === "error") {
+        nextMessage = `Auto roll-forward could not run: ${auto.explanation}`;
+      }
+    }
+    setResult(final);
+    setMessage(nextMessage);
     setLoading(false);
-    return next;
-  }, [asOfDate, repositories, userId]);
+    return final;
+  }, [asOfDate, repositories, runAutoRollForward, userId]);
 
   const createDemoProfile = useCallback(async () => {
     setLoading(true);

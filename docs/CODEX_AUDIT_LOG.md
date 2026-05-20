@@ -1,5 +1,57 @@
 # Codex Audit Log
 
+## 2026-05-20 10:31 America/Vancouver
+
+Goal summary:
+- Implement safe automatic week-boundary roll-forward for accepted next-week previews.
+- Keep roll-forward service-owned, idempotent, safety-gated, and refresh-loop protected.
+- Surface roll-forward status in Plan without moving programming logic into screens.
+- Verify future materialized sessions stay date-scoped for Train/Plan.
+- Harden coach approval deployment/audit documentation and testable policy helpers while keeping coach UI hidden.
+
+Key changes:
+- Added `src/services/training/autoRollForwardTrainingPlan.ts` with statuses `not_needed`, `materialized`, `blocked`, and `error`, plus `shouldRefreshState`, generated session ids, day-plan ids, timeline id, warnings, review approvals, test boundary override, and handled-preview loop protection.
+- Added `src/hooks/useAutoRollForward.ts` and integrated it into `usePerformanceState`; materialized auto roll-forward refreshes once, repeated stale-preview attempts are guarded, blocked/error states are non-fatal messages, and existing engine state remains visible.
+- Updated `resolveAndPersistPerformanceState` so due accepted previews are not superseded before the auto policy can materialize them during the boundary refresh.
+- Updated `materializeNextWeekTrainingPlan` timeline payload ordering and journey audit append so auto materialization writes `autoRollForward: true`, `source: auto_roll_forward`, `reason`, `previewId`, `weekIndex`, and `generatedSessionCount`.
+- Added Plan roll-forward fields/copy: accepted waiting, eligible, materialized, blocked, not available, boundary date, accepted preview status, and last auto-roll-forward message.
+- Extended Train/Plan tests for future materialized sessions, same-date detail building, Plan future support display, and duplicate generated-session merge behavior.
+- Extracted `approve-coach-relationship/policy.ts`, kept `index.ts` as a thin Deno wrapper, and added `README.md` with deploy/local/env/security/revocation/limitations docs.
+- Extended live smoke to use `autoRollForwardTrainingPlan`, prove pre-boundary non-materialization, smoke-only boundary materialization, `autoRollForward` timeline payload, and no duplicate materialization on a second call.
+
+Command results:
+- Baseline direct `npm run typecheck`: blocked by PowerShell `npm.ps1` execution policy; `cmd /c npm run typecheck` passed.
+- Baseline `cmd /c npm test`: sandboxed Vitest failed with config access denied; outside sandbox passed with `240` tests passed and `1` skipped.
+- Baseline `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; outside sandbox passed.
+- Baseline `cmd /c npm run lint`: passed.
+- Supabase CLI version: `2.100.1`.
+- Supabase migration list: local/remote `001` through `007` aligned.
+- Supabase dry run: `Remote database is up to date.`
+- Initial live smoke without loading `.env`: failed before assertions with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`; ignored `.env` contained required smoke variable names without printing values.
+- Baseline live smoke with ignored `.env` loaded: passed, `1` test.
+- Targeted auto/hook/UI/coach/materialization tests: after fixture/static-test fixes, passed with `103` tests.
+- Targeted Plan view-model test: passed with `7` tests after fixture strategy correction.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm run lint`: passed.
+- Final `cmd /c npm test`: passed with `25` files passed and `1` skipped; `258` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with `25` files passed and `1` skipped; `258` tests passed and `1` skipped.
+- Final `cmd /c npm run smoke:live-db` with ignored `.env` and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12284ms`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- Service-role scan in app/hooks/engine/services excluding tests: no matches.
+- Smoke credential scan: no credential values; matches were ordinary auth password references plus docs saying smoke secrets were not printed.
+- `git rev-parse HEAD`: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee`.
+- No commit was created in this pass.
+
+Known gaps:
+- Numeric load progression remains deferred until structured load fields exist.
+- Coach UI remains hidden.
+- Coach approval still needs production audit logging, deployed function tests, admin/team policy, and athlete-facing consent copy.
+- Team memberships, calendar drag/drop polish, scheduled/background roll-forward, and routed history drill-downs remain deferred.
+- Generated-session template depth is intentionally conservative.
+
+Next recommendation:
+- Add production audit/deployment coverage for coach approval and decide whether app-refresh auto roll-forward should later be supplemented by a scheduled server job.
+
 ## 2026-05-20 09:37 America/Vancouver
 
 Goal summary:

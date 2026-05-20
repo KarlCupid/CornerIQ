@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 import type { CycleSymptom, FuelViewModel, GeneratedTrainingSession, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
+import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
@@ -191,6 +192,8 @@ const trainViewModel: TrainViewModel = {
 
 const planViewModel: PlanViewModel = {
   title: "Plan",
+  acceptedPreviewStatus: "preview",
+  boundaryDate: "2026-05-26",
   weeklySummary: "Three support days.",
   weeklyTrainingStructure: "Three support days.",
   blockHistorySummary: {
@@ -238,6 +241,9 @@ const planViewModel: PlanViewModel = {
       }
     ]
   },
+  rollForwardStatus: "not_available",
+  rollForwardMessage: "No accepted preview is ready for automatic materialization.",
+  lastAutoRollForwardMessage: null,
   blockHistoryDetail: {
     activeBlockSummary: "build strength block, week 2, strength base focus.",
     weekSummaries: ["Week 2: Week summary persisted."],
@@ -433,6 +439,34 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
   } as unknown as AthleteJourneyRepositories;
 }
 
+function persistedPreviewForState(state: ReturnType<typeof resolvePerformanceState>, overrides: Partial<PersistedTrainingNextWeekPreview> = {}): PersistedTrainingNextWeekPreview {
+  const preview = state.training.nextWeekMaterialization;
+  return {
+    id: "accepted_preview_1",
+    userId: "user_1",
+    trainingBlockId: "training_block_1",
+    weekIndex: preview.nextWeekIndex,
+    weekStartDate: preview.nextWeekStartDate,
+    weekEndDate: preview.nextWeekEndDate,
+    materializedPhase: preview.materializedPhase,
+    materializedDecision: preview.materializedDecision,
+    volumeStrategy: preview.materializedVolumeStrategy,
+    generatedSupportBias: preview.generatedSupportBias,
+    targetHardDayCap: preview.targetHardDayCap,
+    engineVersion: state.engineVersion,
+    inputHash: "input_1",
+    outputHash: "preview_output_1",
+    status: "accepted",
+    acceptedAt: "2026-05-20T00:00:00.000Z",
+    materializedAt: null,
+    supersededAt: null,
+    preview,
+    createdAt: "2026-05-20T00:00:00.000Z",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+    ...overrides
+  };
+}
+
 function createUserDataClient() {
   const deleted: string[] = [];
   const selected: string[] = [];
@@ -580,6 +614,7 @@ describe("minimal app screens", () => {
   });
 
   it("TrainScreen does not show future materialized sessions early but loads them on their date", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const persistedSession: GeneratedTrainingSession = {
       id: "next-week:materialized",
@@ -608,6 +643,37 @@ describe("minimal app screens", () => {
 
     expect(beforeOutput).not.toContain("Materialized future support");
     expect(onDateOutput).toContain("Materialized future support");
+    expect(onDate.viewModels.train.detailedTodaySessions[0]?.canOpenDetail).toBe(true);
+    expect(onDate.viewModels.train.detailedTodaySessions[0]?.detail?.noGeneratedSparring).toBe(true);
+    const planOutput = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: "2026-05-26",
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: onDate.viewModels.plan
+        })
+      ).toJSON()
+    );
+    expect(planOutput).toContain("Materialized future support");
+  });
+
+  it("generated session merging avoids duplicate persisted support", () => {
+    const base = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const duplicate = base.training.generatedSessions[0];
+    if (!duplicate) {
+      throw new Error("missing generated session fixture");
+    }
+    const withDuplicate = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, trainingHistory: [duplicate] },
+      asOfDate: fixtureAsOfDate
+    });
+    const duplicateCount = withDuplicate.training.generatedSessions.filter((session) => session.date === duplicate.date && session.family === duplicate.family && session.title === duplicate.title).length;
+
+    expect(duplicateCount).toBe(1);
   });
 
   it("TrainScreen shows active block context and special day roles", async () => {
@@ -814,6 +880,58 @@ describe("minimal app screens", () => {
     expect(materializeNextWeek).not.toHaveBeenCalled();
   });
 
+  it("Plan roll-forward status renders accepted waiting and blocked copy", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const acceptedWaiting = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: {
+            ...planViewModel,
+            acceptedPreviewStatus: "accepted",
+            rollForwardStatus: "accepted_waiting",
+            rollForwardMessage: "Accepted preview will become active on 2026-05-26 if safety still allows.",
+            nextWeekPreview: {
+              ...planViewModel.nextWeekPreview,
+              persistedStatus: "accepted",
+              canAccept: false
+            }
+          }
+        })
+      ).toJSON()
+    );
+    expect(acceptedWaiting).toContain("Accepted preview will become active on 2026-05-26 if safety still allows.");
+
+    const blocked = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: "2026-05-26",
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: {
+            ...planViewModel,
+            rollForwardStatus: "blocked",
+            rollForwardMessage: "Safety is blocking automatic materialization today.",
+            nextWeekPreview: {
+              ...planViewModel.nextWeekPreview,
+              persistedStatus: "accepted",
+              canAccept: false
+            }
+          }
+        })
+      ).toJSON()
+    );
+    expect(blocked).toContain("Safety is blocking automatic materialization today.");
+  });
+
   it("Plan materialize action is hidden before boundary and review-gated for hold_for_review", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const beforeBoundary = JSON.stringify(
@@ -843,6 +961,8 @@ describe("minimal app screens", () => {
         onSaveTournamentSetup: vi.fn(),
         viewModel: {
           ...planViewModel,
+          rollForwardStatus: "blocked",
+          rollForwardMessage: "Review required before materialization.",
           nextWeekPreview: {
             ...planViewModel.nextWeekPreview,
             volumeStrategy: "hold_for_review",
@@ -987,6 +1107,10 @@ describe("minimal app screens", () => {
           onSaveTournamentSetup: vi.fn(),
           viewModel: {
             ...planViewModel,
+            acceptedPreviewStatus: "materialized",
+            rollForwardStatus: "materialized",
+            rollForwardMessage: "Next week materialized.",
+            lastAutoRollForwardMessage: "Next week materialized: Accepted preview was materialized. Generated sessions: 1.",
             nextWeekPreview: {
               ...planViewModel.nextWeekPreview,
               persistedStatus: "materialized",
@@ -1498,6 +1622,7 @@ describe("minimal app screens", () => {
     for (const file of screenFiles) {
       const source = readFileSync(file, "utf8");
       expect(source).not.toMatch(/engine\/(bodyMass|cycle|fight|nutrition|readiness|safety|training|core\/performanceKernel)/);
+      expect(source).not.toContain("autoRollForwardTrainingPlan");
     }
   });
 
@@ -1595,6 +1720,112 @@ describe("minimal app screens", () => {
 
     expect(repositories.athlete.upsertProfile).toHaveBeenCalled();
     expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it("usePerformanceState auto-materializes due accepted previews and refreshes once", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    const previousState = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    let preview = persistedPreviewForState(previousState, {
+      volumeStrategy: "progress_small",
+      preview: {
+        ...previousState.training.nextWeekMaterialization,
+        materializedVolumeStrategy: "progress_small"
+      }
+    });
+    repositories.trainingNextWeekPreview.listPreviewsForBlock = vi.fn(async () => [preview]);
+    repositories.trainingNextWeekPreview.markPreviewMaterialized = vi.fn(async () => {
+      preview = { ...preview, status: "materialized", materializedAt: "2026-05-26T00:00:00.000Z" };
+      return preview;
+    });
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: previousState.training.nextWeekMaterialization.nextWeekStartDate,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(repositories.trainingNextWeekPreview.markPreviewMaterialized).toHaveBeenCalledWith("user_1", "accepted_preview_1");
+    expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+    expect(snapshot.current?.message).toBe("Next week was materialized from your accepted preview.");
+  });
+
+  it("usePerformanceState guards against repeated auto materialization for the same preview", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    const previousState = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const preview = persistedPreviewForState(previousState, {
+      volumeStrategy: "progress_small",
+      preview: {
+        ...previousState.training.nextWeekMaterialization,
+        materializedVolumeStrategy: "progress_small"
+      }
+    });
+    repositories.trainingNextWeekPreview.listPreviewsForBlock = vi.fn(async () => [preview]);
+    repositories.trainingNextWeekPreview.markPreviewMaterialized = vi.fn(async () => ({ ...preview, status: "materialized" as const, materializedAt: "2026-05-26T00:00:00.000Z" }));
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: previousState.training.nextWeekMaterialization.nextWeekStartDate,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(repositories.trainingNextWeekPreview.markPreviewMaterialized).toHaveBeenCalledTimes(1);
+  });
+
+  it("usePerformanceState keeps ready state when auto materialization fails non-fatally", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    const previousState = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const preview = persistedPreviewForState(previousState, {
+      volumeStrategy: "progress_small",
+      preview: {
+        ...previousState.training.nextWeekMaterialization,
+        materializedVolumeStrategy: "progress_small"
+      }
+    });
+    repositories.trainingNextWeekPreview.listPreviewsForBlock = vi.fn(async () => [preview]);
+    repositories.engineRun.upsertGeneratedSessions = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("auto write failed"));
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: previousState.training.nextWeekMaterialization.nextWeekStartDate,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(snapshot.current?.result?.status).toBe("ready");
+    expect(snapshot.current?.message).toContain("Auto roll-forward could not run");
+    expect(snapshot.current?.message).toContain("auto write failed");
   });
 
   it("cycle quick log rejects unknown symptoms and inserts valid payloads", async () => {

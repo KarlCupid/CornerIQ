@@ -134,6 +134,7 @@ function timelineEvent(input: {
     title: input.title,
     summary: input.summary,
     payload: {
+      ...(input.auditMetadata ?? {}),
       blockId: input.blockId,
       previewId: input.preview.id,
       previewStatus: input.preview.status,
@@ -142,8 +143,7 @@ function timelineEvent(input: {
       weekEndDate: input.preview.weekEndDate,
       volumeStrategy: input.preview.volumeStrategy,
       ...(input.generatedSessionCount === undefined ? {} : { generatedSessionCount: input.generatedSessionCount }),
-      ...(input.generatedSessionIds === undefined ? {} : { generatedSessionIds: input.generatedSessionIds }),
-      ...(input.auditMetadata ?? {})
+      ...(input.generatedSessionIds === undefined ? {} : { generatedSessionIds: input.generatedSessionIds })
     }
   };
 }
@@ -320,6 +320,20 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
         auditMetadata: input.auditMetadata
       })
     });
+    const journeyWarnings: string[] = [];
+    try {
+      await input.repositories.journey.appendEvent(userId, "TrainingPlanAdjusted", {
+        blockId: trainingBlockId,
+        previewId: materialized.id,
+        status: "materialized",
+        source: typeof input.auditMetadata?.source === "string" ? input.auditMetadata.source : "next_week_preview_materialization",
+        generatedSessionCount: generatedSessions.length,
+        weekIndex: preview.weekIndex,
+        ...(input.auditMetadata ?? {})
+      });
+    } catch (error) {
+      journeyWarnings.push(error instanceof Error ? `Journey audit event failed: ${error.message}` : "Journey audit event failed.");
+    }
 
     return {
       status: "materialized",
@@ -331,8 +345,8 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       timelineEventId: eventId,
       warnings:
         generatedSessions.length > 0
-          ? ["Generated support sessions are persisted for their future dates only."]
-          : ["No generated sessions were created; preview remained conservative."]
+          ? ["Generated support sessions are persisted for their future dates only.", ...journeyWarnings]
+          : ["No generated sessions were created; preview remained conservative.", ...journeyWarnings]
     };
   } catch (error) {
     return serviceError(error);

@@ -80,6 +80,8 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Next week preview</Text>
           <Text style={screenStyles.body}>Engine preview, not a user-edited plan.</Text>
+          <Text style={screenStyles.callout}>{viewModel.rollForwardMessage}</Text>
+          {viewModel.lastAutoRollForwardMessage ? <Text style={screenStyles.subtle}>{viewModel.lastAutoRollForwardMessage}</Text> : null}
           <Text style={screenStyles.body}>{viewModel.nextWeekPreview.persistedStatusLabel}</Text>
           <Text style={screenStyles.body}>
             Generated sessions: {viewModel.nextWeekPreview.generatedSessionCount} ({viewModel.nextWeekPreview.generatedSessionPersistence.replaceAll("_", " ")})

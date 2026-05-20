@@ -1,47 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-type ApprovalRequest = {
-  relationshipId?: unknown;
-  permissions?: unknown;
-};
-
-const allowedPermissionKeys = new Set(["view_training_plan", "view_readiness_context", "comment_on_plan", "suggest_adjustments"]);
+import { approvalEligibility, bearerToken, validatePayload, type ApprovalRequest } from "./policy.ts";
 
 function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" }
   });
-}
-
-function bearerToken(authorization: string | null): string | null {
-  const match = authorization?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
-}
-
-function objectRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
-
-function validatePayload(payload: ApprovalRequest): { relationshipId: string; permissions: Record<string, boolean> } | { error: string } {
-  if (typeof payload.relationshipId !== "string" || payload.relationshipId.trim().length === 0) {
-    return { error: "relationshipId is required." };
-  }
-  const sourcePermissions = payload.permissions === undefined ? {} : objectRecord(payload.permissions);
-  if (!sourcePermissions) {
-    return { error: "permissions must be an object when provided." };
-  }
-  const permissions: Record<string, boolean> = {};
-  for (const [key, value] of Object.entries(sourcePermissions)) {
-    if (!allowedPermissionKeys.has(key)) {
-      return { error: `Unsupported permission: ${key}` };
-    }
-    if (typeof value !== "boolean") {
-      return { error: `Permission ${key} must be boolean.` };
-    }
-    permissions[key] = value;
-  }
-  return { relationshipId: payload.relationshipId, permissions };
 }
 
 Deno.serve(async (request) => {
@@ -87,8 +51,9 @@ Deno.serve(async (request) => {
   if (!relationshipResponse.data) {
     return jsonResponse({ error: "Pending relationship was not found." }, 404);
   }
-  if (relationshipResponse.data.athlete_user_id !== callerUserId) {
-    return jsonResponse({ error: "Only the athlete can approve this pending relationship." }, 403);
+  const eligibility = approvalEligibility({ callerUserId, relationship: relationshipResponse.data });
+  if (!eligibility.allowed) {
+    return jsonResponse({ error: eligibility.error }, eligibility.status);
   }
 
   // Future admin approval must be asserted by trusted server-side policy, not

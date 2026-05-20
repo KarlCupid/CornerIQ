@@ -237,6 +237,8 @@ export interface TrainingBlockHistoryDetailViewModel {
 
 export interface PlanViewModel {
   title: string;
+  acceptedPreviewStatus: NextWeekPreviewViewModel["persistedStatus"];
+  boundaryDate: string;
   weeklySummary: string;
   weeklyTrainingStructure: string;
   blockHistorySummary: TrainingBlockHistoryViewModel;
@@ -244,6 +246,9 @@ export interface PlanViewModel {
   currentWeekSummary: TrainingWeekSummaryViewModel | null;
   latestProgressionDecision: string | null;
   nextWeekPreview: NextWeekPreviewViewModel;
+  rollForwardStatus: "eligible" | "accepted_waiting" | "materialized" | "blocked" | "not_available";
+  rollForwardMessage: string;
+  lastAutoRollForwardMessage: string | null;
   blockHistoryDetail: TrainingBlockHistoryDetailViewModel;
   timelineEvents: readonly TrainingProgressionTimelineViewModel[];
   blockPhase: TrainingBlockPhase;

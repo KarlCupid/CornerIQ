@@ -69,6 +69,72 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
   };
 }
 
+function activeHardStop(state: PerformanceState): boolean {
+  return state.readiness.color === "red" || state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop);
+}
+
+function rollForwardStatus(state: PerformanceState, preview: NextWeekPreviewViewModel): Pick<PlanViewModel, "rollForwardStatus" | "rollForwardMessage"> {
+  if (preview.persistedStatus === "materialized") {
+    return {
+      rollForwardStatus: "materialized",
+      rollForwardMessage: "Next week materialized."
+    };
+  }
+  if (preview.persistedStatus === "accepted") {
+    if (state.asOfDate < preview.weekStartDate) {
+      return {
+        rollForwardStatus: "accepted_waiting",
+        rollForwardMessage: `Accepted preview will become active on ${preview.weekStartDate} if safety still allows.`
+      };
+    }
+    if (preview.requiresReview) {
+      return {
+        rollForwardStatus: "blocked",
+        rollForwardMessage: "Review required before materialization."
+      };
+    }
+    if (activeHardStop(state)) {
+      return {
+        rollForwardStatus: "blocked",
+        rollForwardMessage: "Safety is blocking automatic materialization today."
+      };
+    }
+    return {
+      rollForwardStatus: "eligible",
+      rollForwardMessage: "Accepted preview is eligible to materialize now."
+    };
+  }
+  if (preview.persistedStatus === "preview" && state.asOfDate >= preview.weekStartDate) {
+    return {
+      rollForwardStatus: "not_available",
+      rollForwardMessage: "Preview is available but not accepted. Review before materializing."
+    };
+  }
+  if (preview.requiresReview) {
+    return {
+      rollForwardStatus: "blocked",
+      rollForwardMessage: "Review required before materialization."
+    };
+  }
+  return {
+    rollForwardStatus: "not_available",
+    rollForwardMessage: "No accepted preview is ready for automatic materialization."
+  };
+}
+
+function lastAutoRollForwardMessage(state: PerformanceState): string | null {
+  const event = [...state.training.timelineEvents]
+    .reverse()
+    .find((item) => item.eventType === "next_week_materialized" && item.payload.autoRollForward === true);
+  if (!event) {
+    return null;
+  }
+  const generatedSessionCount = event.payload.generatedSessionCount;
+  return typeof generatedSessionCount === "number"
+    ? `${event.title}: ${event.summary} Generated sessions: ${generatedSessionCount}.`
+    : `${event.title}: ${event.summary}`;
+}
+
 function timelineSummary(event: TrainingBlockTimelineEvent): string {
   const generatedSessionCount = event.payload.generatedSessionCount;
   return typeof generatedSessionCount === "number" ? `${event.summary} Generated sessions: ${generatedSessionCount}.` : event.summary;
@@ -110,6 +176,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const currentWeekSummary = state.training.currentWeekSummary;
   const latestTimelineEvent = state.training.timelineEvents.at(-1) ?? state.training.blockHistory.timelineEvents.at(-1) ?? null;
   const nextWeekPreview = buildNextWeekPreview(state);
+  const rollForward = rollForwardStatus(state, nextWeekPreview);
   const blockHistoryDetail = buildBlockHistoryDetail(state, nextWeekPreview);
   const notesForDate = (date: string): readonly string[] =>
     adjustmentHistory
@@ -117,6 +184,8 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       .map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`);
   return {
     title: "Weekly plan",
+    acceptedPreviewStatus: nextWeekPreview.persistedStatus,
+    boundaryDate: nextWeekPreview.weekStartDate,
     weeklySummary: state.training.activeBlock.weeklyStructure.summary,
     weeklyTrainingStructure: state.training.activeBlock.weeklyStructure.summary,
     blockHistorySummary: {
@@ -142,6 +211,9 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       ? `${state.training.latestProgressionDecision.decision.replaceAll("_", " ")}: ${state.training.latestProgressionDecision.reason}`
       : null,
     nextWeekPreview,
+    rollForwardStatus: rollForward.rollForwardStatus,
+    rollForwardMessage: rollForward.rollForwardMessage,
+    lastAutoRollForwardMessage: lastAutoRollForwardMessage(state),
     blockHistoryDetail,
     timelineEvents: state.training.timelineEvents.map((event) => ({
       eventType: event.eventType,

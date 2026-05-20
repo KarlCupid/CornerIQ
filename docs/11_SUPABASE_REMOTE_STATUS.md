@@ -1,12 +1,12 @@
 # Supabase Remote Status
 
-Date: 2026-05-20 09:37 America/Vancouver
+Date: 2026-05-20 10:31 America/Vancouver
 
-Latest known commit from prompt: `ccba81c712b1d982a8bffac45d29e4a680c7d925` (`Add next-week materialization and coach relationships`).
+Latest known commit from prompt: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee` (`Persist generated sessions from next-week previews`).
 
-Latest commit before this pass from `git log`: `1689c5752a4e4a95128db0647a38937ac01089bd` (`Persist next-week previews and add materialization flow`).
+Latest commit before this pass from `git log`: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee` (`Persist generated sessions from next-week previews`).
 
-Current `git rev-parse HEAD`: `1689c5752a4e4a95128db0647a38937ac01089bd`
+Current `git rev-parse HEAD`: `21aeeb3d2b3b0f830347856d1263ffc68a9ea8ee`
 
 Commit created in this run: none.
 
@@ -36,7 +36,7 @@ Latest `cmd /c npm exec supabase -- migration list` result after this pass:
 | `006` | `006` | applied remotely |
 | `007` | `007` | applied remotely |
 
-`007_training_next_week_previews.sql` is applied remotely. It adds:
+`007_training_next_week_previews.sql` remains the latest applied migration. It adds:
 
 - `training_next_week_previews`
 - owner RLS for select/insert/update/delete
@@ -66,8 +66,8 @@ Latest authenticated smoke result:
 
 - Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`.
 - Runtime used public Supabase URL and anon key only.
-- Result: passed, `1` test passed; test body `11380ms`.
-- Verified sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, pre-boundary non-materialization, smoke-only boundary materialization, future `generated_training_sessions` for the preview week, materialized preview status, `generatedSessionCount` in the `next_week_materialized` timeline event, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
+- Result: passed, `1` test passed; test body `12284ms`.
+- Verified sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions` for the preview week, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
 
@@ -76,8 +76,8 @@ The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips 
 Implementation and final handoff checks completed:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `240` tests and `1` live smoke test skipped.
-- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `240` tests and `1` live smoke test skipped.
+- `cmd /c npm test`: passed with `258` tests and `1` live smoke test skipped.
+- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `258` tests and `1` live smoke test skipped.
 - `cmd /c npm run lint`: passed.
 - `CORNERIQ_LIVE_DB_SMOKE=1` with ignored `.env` loaded, then `cmd /c npm run smoke:live-db`: passed with `1` test.
 
@@ -86,7 +86,7 @@ Vitest and Supabase CLI required approved escalation in this Codex environment f
 ## Secrets
 
 - No service role key was used in Expo/client code.
-- The Edge Function skeleton references `SUPABASE_SERVICE_ROLE_KEY` only through `Deno.env.get`.
+- The Edge Function references `SUPABASE_SERVICE_ROLE_KEY` only through `Deno.env.get`.
 - No smoke email or password was printed into logs or docs.
 - No secret values were committed or written into tracked files.
 - `.env` remains ignored by git.

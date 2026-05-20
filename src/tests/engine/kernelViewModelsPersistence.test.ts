@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 import { mapBodyMassLogRow } from "../../services/supabase/bodyMassRepository";
 import { mapCycleLogRow } from "../../services/supabase/cycleRepository";
@@ -57,6 +58,87 @@ describe("kernel immutability, view models, and persistence schema", () => {
 
     expect(disabled.viewModels.today.cycleContext).toBeNull();
     expect(enabledRelevant.viewModels.today.cycleContext).not.toBeNull();
+  });
+
+  it("PlanViewModel derives roll-forward status from preview lifecycle and safety state", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const preview = state.training.nextWeekMaterialization;
+    const safePreview = {
+      ...preview,
+      materializedVolumeStrategy: "progress_small" as const
+    };
+    const persistence = {
+      previewId: "preview_1",
+      status: "accepted" as const,
+      weekStartDate: preview.nextWeekStartDate,
+      weekEndDate: preview.nextWeekEndDate,
+      acceptedAt: "2026-05-20T00:00:00.000Z",
+      materializedAt: null
+    };
+    const acceptedWaiting = buildPlanViewModel({
+      ...state,
+      training: {
+        ...state.training,
+        nextWeekPreviewPersistenceStatus: persistence
+      }
+    });
+    const eligible = buildPlanViewModel({
+      ...state,
+      asOfDate: preview.nextWeekStartDate,
+      training: {
+        ...state.training,
+        nextWeekMaterialization: safePreview,
+        nextWeekPreviewPersistenceStatus: persistence
+      }
+    });
+    const holdForReview = buildPlanViewModel({
+      ...state,
+      asOfDate: preview.nextWeekStartDate,
+      training: {
+        ...state.training,
+        nextWeekMaterialization: {
+          ...preview,
+          materializedVolumeStrategy: "hold_for_review"
+        },
+        nextWeekPreviewPersistenceStatus: persistence
+      }
+    });
+    const unaccepted = buildPlanViewModel({
+      ...state,
+      asOfDate: preview.nextWeekStartDate,
+      training: {
+        ...state.training,
+        nextWeekMaterialization: safePreview,
+        nextWeekPreviewPersistenceStatus: { ...persistence, status: "preview", acceptedAt: null }
+      }
+    });
+    const materialized = buildPlanViewModel({
+      ...state,
+      training: {
+        ...state.training,
+        nextWeekMaterialization: safePreview,
+        nextWeekPreviewPersistenceStatus: { ...persistence, status: "materialized", materializedAt: "2026-05-26T00:00:00.000Z" },
+        timelineEvents: [
+          ...state.training.timelineEvents,
+          {
+            eventType: "next_week_materialized",
+            eventDate: preview.nextWeekStartDate,
+            title: "Next week materialized",
+            summary: "Accepted preview was materialized.",
+            payload: { autoRollForward: true, generatedSessionCount: 2 }
+          }
+        ]
+      }
+    });
+
+    expect(acceptedWaiting.rollForwardStatus).toBe("accepted_waiting");
+    expect(acceptedWaiting.rollForwardMessage).toContain(preview.nextWeekStartDate);
+    expect(eligible.rollForwardStatus).toBe("eligible");
+    expect(holdForReview.rollForwardStatus).toBe("blocked");
+    expect(holdForReview.rollForwardMessage).toContain("Review required");
+    expect(unaccepted.rollForwardMessage).toContain("not accepted");
+    expect(materialized.rollForwardStatus).toBe("materialized");
+    expect(materialized.lastAutoRollForwardMessage).toContain("Generated sessions: 2");
   });
 
   it("migrations contain RLS, owner policies, indexes, comments, and exercise results", () => {

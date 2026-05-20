@@ -104,6 +104,13 @@ function previewPersistenceStatus(input: {
   };
 }
 
+function hasDueAcceptedPreview(input: {
+  previews: readonly { status: NextWeekPreviewPersistenceStatus["status"]; weekEndDate: string; weekStartDate: string }[];
+  asOfDate: ISODateString;
+}): boolean {
+  return input.previews.some((preview) => preview.status === "accepted" && preview.weekStartDate <= input.asOfDate && input.asOfDate <= preview.weekEndDate);
+}
+
 function withTrainingPersistenceStatus(input: {
   state: PerformanceState;
   trainingBlockId: string;
@@ -317,7 +324,10 @@ async function persistTrainingBlockProjection(
       inputHash,
       outputHash: stableHash(nextWeekMaterialization)
     });
-    await repositories.trainingNextWeekPreview.supersedePreviewsForBlock(userId, block.id, preview.id);
+    const existingPreviews = await repositories.trainingNextWeekPreview.listPreviewsForBlock(userId, block.id);
+    if (!hasDueAcceptedPreview({ previews: existingPreviews, asOfDate: state.asOfDate })) {
+      await repositories.trainingNextWeekPreview.supersedePreviewsForBlock(userId, block.id, preview.id);
+    }
     nextWeekPreviewPersistenceStatus = previewPersistenceStatus(preview);
   } catch (error) {
     previewPersistenceWarning = `Next-week preview persistence failed: ${errorMessage(error)}`;

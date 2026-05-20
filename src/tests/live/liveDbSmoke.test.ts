@@ -9,6 +9,7 @@ import { resolveAndPersistPerformanceState } from "../../services/engine/resolve
 import type { DetailedTrainingSession, ExerciseResultDraft, ISODateString, ProtectedWorkout } from "../../engine/core/types";
 import { completeWorkoutService, completedSessionTypeForFamily } from "../../services/training/completeWorkoutService";
 import { applyTrainingPlanAdjustmentService } from "../../services/training/applyTrainingPlanAdjustment";
+import { autoRollForwardTrainingPlan } from "../../services/training/autoRollForwardTrainingPlan";
 import { materializeNextWeekTrainingPlan } from "../../services/training/materializeNextWeekTrainingPlan";
 
 const runLiveSmoke = process.env.CORNERIQ_LIVE_DB_SMOKE === "1";
@@ -277,19 +278,48 @@ describeLive("live Supabase CRUD smoke", () => {
       expect(existingPreviewWeekDayPlanResponse.error).toBeNull();
       existingPreviewWeekDayPlans = existingPreviewWeekDayPlanResponse.data ?? [];
 
-      const materializedPreview = await materializeNextWeekTrainingPlan({
+      const preBoundaryAuto = await autoRollForwardTrainingPlan({
         userId,
         current: resolved.state,
-        previewId: smokePreview.id,
+        repositories,
+        asOfDate,
+        options: {
+          enabled: true,
+          auditMetadata: { smokeRunId }
+        }
+      });
+      expect(preBoundaryAuto.status).toBe("not_needed");
+      expect(preBoundaryAuto.shouldRefreshState).toBe(false);
+
+      const materializedPreview = await autoRollForwardTrainingPlan({
+        userId,
+        current: resolved.state,
         repositories,
         asOfDate: smokePreview.week_start_date as ISODateString,
-        mode: "materialize_if_week_boundary",
-        allowBoundaryOverride: true,
-        reviewApproved: true,
-        auditMetadata: { smokeRunId }
+        options: {
+          enabled: true,
+          allowBoundaryOverrideForTests: true,
+          reviewApprovedPreviewIds: [smokePreview.id],
+          auditMetadata: { smokeRunId }
+        }
       });
       expect(materializedPreview.status).toBe("materialized");
+      expect(materializedPreview.shouldRefreshState).toBe(true);
       expect(materializedPreview.generatedSessionIds?.length ?? 0).toBeGreaterThan(0);
+      const repeatedAuto = await autoRollForwardTrainingPlan({
+        userId,
+        current: resolved.state,
+        repositories,
+        asOfDate: smokePreview.week_start_date as ISODateString,
+        options: {
+          enabled: true,
+          allowBoundaryOverrideForTests: true,
+          reviewApprovedPreviewIds: [smokePreview.id],
+          auditMetadata: { smokeRunId }
+        }
+      });
+      expect(repeatedAuto.status).toBe("not_needed");
+      expect(repeatedAuto.shouldRefreshState).toBe(false);
       const materializedPreviewRow = await client
         .from("training_next_week_previews")
         .select("id, status")
@@ -351,6 +381,7 @@ describeLive("live Supabase CRUD smoke", () => {
       const materializedTimeline = (materializedTimelineResponse.data ?? []).find((row) => JSON.stringify(row.event_payload).includes(smokePreview.id));
       expect(materializedTimeline).toBeTruthy();
       expect(JSON.stringify(materializedTimeline?.event_payload ?? {})).toContain("generatedSessionCount");
+      expect(JSON.stringify(materializedTimeline?.event_payload ?? {})).toContain("autoRollForward");
       for (const row of materializedTimelineResponse.data ?? []) {
         if (!existingTrainingBlockTimelineEventIds.has(row.id) && JSON.stringify(row.event_payload).includes(smokePreview.id)) {
           if (!smokeTrainingBlockTimelineEventIds.includes(row.id)) {

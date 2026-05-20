@@ -434,6 +434,7 @@ describe("Supabase repositories", () => {
 
   it("coach approval function skeleton keeps service role server-side and client UI hidden", () => {
     const functionSource = readFileSync("supabase/functions/approve-coach-relationship/index.ts", "utf8");
+    const policySource = readFileSync("supabase/functions/approve-coach-relationship/policy.ts", "utf8");
     const appFiles = [
       "src/services/supabase/client.ts",
       "src/services/supabase/coachRelationshipRepository.ts",
@@ -447,8 +448,9 @@ describe("Supabase repositories", () => {
     expect(functionSource).toContain("Authorization Bearer token is required.");
     expect(functionSource).toContain("admin.auth.getUser(token)");
     expect(functionSource).toContain(".eq(\"athlete_user_id\", callerUserId)");
-    expect(functionSource).toContain("Only the athlete can approve this pending relationship.");
-    expect(functionSource).toContain("permissions must be an object when provided.");
+    expect(policySource).toContain("Only the athlete can approve this pending relationship.");
+    expect(policySource).toContain("permissions must be an object when provided.");
+    expect(policySource).toContain("Unsupported permission");
     expect(functionSource).toContain("Function environment is missing trusted Supabase credentials.");
     for (const file of appFiles) {
       expect(readFileSync(file, "utf8").toLowerCase()).not.toContain("service_role");
@@ -506,8 +508,10 @@ describe("Supabase repositories", () => {
     expect(source).toContain("smokeRunId");
     expect(source).toContain("training_next_week_previews");
     expect(source).toContain("accept_preview");
-    expect(source).toContain("materialize_if_week_boundary");
+    expect(source).toContain("autoRollForwardTrainingPlan");
+    expect(source).toContain("allowBoundaryOverrideForTests");
     expect(source).toContain("generatedSessionCount");
+    expect(source).toContain("autoRollForward");
     expect(source).toContain("next_week_preview_accepted");
     expect(source).toContain("next_week_materialized");
     expect(source).toContain('filter("session_payload->>smokeRunId"');

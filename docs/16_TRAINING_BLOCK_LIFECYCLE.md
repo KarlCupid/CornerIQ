@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document is for future Codex/ChatGPT audits of CornerIQ's weekly boxing programming lifecycle. It describes how current week plans are generated, how summaries/decisions/previews persist, how accepted previews materialize into future support sessions, how coach approval is gated server-side, and where the current implementation still stops.
+This document is for future Codex/ChatGPT audits of CornerIQ's weekly boxing programming lifecycle. It describes how current week plans are generated, how summaries/decisions/previews persist, how accepted previews auto-materialize into future support sessions at the week boundary, how coach approval is gated server-side, and where the current implementation still stops.
 
 ## Scope Rules
 
@@ -63,7 +63,7 @@ It counts completed/skipped sessions, completed/partial/prescribed-only/skipped 
 - High cycle symptoms can trim or hold optional volume without automatic deload.
 - Missing history does not fake progress.
 
-`resolveAndPersistPerformanceState` persists block, microcycle, day plans, week summary, progression decision, timeline events, and then the next-week preview.
+`resolveAndPersistPerformanceState` persists block, microcycle, day plans, week summary, progression decision, timeline events, and then the next-week preview. During a boundary refresh it preserves due accepted previews long enough for `autoRollForwardTrainingPlan` to materialize them instead of superseding them with the next preview first.
 
 ## Next-Week Preview Persistence
 
@@ -119,6 +119,7 @@ Materialization output:
 - `generated_training_sessions` are upserted with deterministic keys and smoke/audit metadata where supplied.
 - The preview is marked materialized only after generated-session persistence succeeds.
 - The `next_week_materialized` timeline event records `generatedSessionCount`.
+- Journey audit receives `TrainingPlanAdjusted` with `source`, `previewId`, `weekIndex`, and `generatedSessionCount`; auto paths use `source: auto_roll_forward`.
 
 Primary files:
 - `src/engine/training/nextWeekPreviewToMicrocycle.ts`
@@ -126,6 +127,30 @@ Primary files:
 - `src/services/training/materializeNextWeekTrainingPlan.ts`
 - `src/hooks/useNextWeekPreviewActions.ts`
 - `src/app/screens/PlanScreen.tsx`
+
+## Automatic Week-Boundary Roll-Forward
+
+`src/services/training/autoRollForwardTrainingPlan.ts` defines the app-refresh policy for accepted previews.
+
+It auto-materializes only when:
+- auto roll-forward is enabled;
+- the active block is persisted;
+- a preview with status `accepted` belongs to the current user and active block;
+- `asOfDate >= preview.weekStartDate`, except for explicit smoke/test boundary override;
+- the preview week has not already passed;
+- hard-stop safety is not active;
+- `hold_for_review` has explicit approval.
+
+It does not materialize when:
+- no accepted preview exists;
+- the preview is still before the boundary;
+- an unaccepted preview is available at boundary;
+- the preview is already materialized/superseded/rejected;
+- the same preview was already handled by the hook loop guard.
+
+`src/hooks/useAutoRollForward.ts` tracks handled preview ids for the current app session so stale repository reads cannot trigger repeated materialization loops. `usePerformanceState` calls auto roll-forward after ready state resolves. If `shouldRefreshState` is true, it resolves/persists once more so Plan and Train read the materialized sessions through normal engine state. Errors are non-fatal app messages and do not hide the existing ready state.
+
+Automatic materialization passes audit metadata into `materializeNextWeekTrainingPlan`, so `training_block_timeline_events` includes `event_type: next_week_materialized`, `autoRollForward: true`, `previewId`, `weekIndex`, `reason`, and `generatedSessionCount`.
 
 ## Coach Approval Scaffold
 
@@ -138,8 +163,10 @@ Coach/team relationship scaffold:
 
 Trusted approval skeleton:
 - `supabase/functions/approve-coach-relationship/index.ts` reads `SUPABASE_SERVICE_ROLE_KEY` only from the Supabase function environment.
+- `supabase/functions/approve-coach-relationship/policy.ts` owns testable auth/payload/eligibility helpers.
 - It validates request shape, requires an Authorization Bearer JWT, verifies the caller through Supabase Auth, and only allows the `athlete_user_id` on a pending row to approve.
 - It sanitizes known permission keys and returns only status plus relationship id.
+- `supabase/functions/approve-coach-relationship/README.md` documents deploy command, local serve command, required env vars, permission meanings, service-role boundary, revocation, and known limitations.
 - Production still needs audit events, deployed function tests, admin/team policy, and athlete-facing consent copy before coach UI is exposed.
 
 Coach UI remains hidden. `PlanAdjustmentControls` exposes only athlete-safe actions.
@@ -149,6 +176,7 @@ Coach UI remains hidden. `PlanAdjustmentControls` exposes only athlete-safe acti
 Plan:
 - active block summary;
 - persisted preview status;
+- roll-forward status and athlete-facing copy;
 - materialized generated session count and summaries;
 - accept-preview action;
 - materialize action only when the view model says the boundary is reached;
@@ -165,23 +193,24 @@ Train:
 
 Local:
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed, `240` tests passed and `1` skipped.
-- `cmd /c npm run quality`: passed, including typecheck plus tests with `240` tests passed and `1` skipped.
+- `cmd /c npm test`: passed, `258` tests passed and `1` skipped.
+- `cmd /c npm run quality`: passed, including typecheck plus tests with `258` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- Extended live smoke: passed, `1` test passed, test body `11380ms`.
+- Extended live smoke: passed, `1` test passed, test body `12284ms`.
 
 Remote:
 - Supabase migration list shows `001` through `007` applied.
 - Supabase dry run reports `Remote database is up to date.`
 - Live smoke passes with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`.
 
-Smoke coverage includes weekly summaries, progression decisions, timeline events, persisted next-week previews, accept-preview action, pre-boundary non-materialization, smoke-only boundary materialization, future generated support sessions, `generatedSessionCount`, actor-scoped adjustment payloads, safe coach relationship RLS read, and scoped cleanup/restoration of smoke-created or smoke-touched rows.
+Smoke coverage includes weekly summaries, progression decisions, timeline events, persisted next-week previews, accept-preview action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future generated support sessions, `autoRollForward`, `generatedSessionCount`, repeated-call no-duplicate behavior, actor-scoped adjustment payloads, safe coach relationship RLS read, and scoped cleanup/restoration of smoke-created or smoke-touched rows.
 
 ## Still Scaffolded
 
 - Numeric load progression is intentionally deferred until structured load fields exist.
 - Coach UI remains hidden while approval audit/admin/team policy matures.
 - Team memberships are deferred.
+- Server-scheduled/background roll-forward is deferred; app-refresh automation is implemented.
 - Block history UI is a panel, not routed drill-down navigation.
 - Exercise history UI is a panel, not full exercise drill-down navigation.
 - Calendar drag/drop polish is intentionally deferred.
@@ -190,12 +219,15 @@ Smoke coverage includes weekly summaries, progression decisions, timeline events
 
 1. `supabase/migrations/007_training_next_week_previews.sql`
 2. `src/services/supabase/trainingNextWeekPreviewRepository.ts`
-3. `src/services/engine/resolveAndPersistPerformanceState.ts`
-4. `src/services/training/materializeNextWeekTrainingPlan.ts`
-5. `src/engine/training/nextWeekGeneratedSessionEngine.ts`
-6. `src/engine/training/nextWeekPreviewToMicrocycle.ts`
-7. `src/hooks/useNextWeekPreviewActions.ts`
-8. `src/app/screens/PlanScreen.tsx`
-9. `supabase/functions/approve-coach-relationship/index.ts`
-10. `docs/17_COACH_TEAM_PERMISSIONS.md`
-11. `src/tests/live/liveDbSmoke.test.ts`
+3. `src/services/training/autoRollForwardTrainingPlan.ts`
+4. `src/hooks/useAutoRollForward.ts`
+5. `src/hooks/usePerformanceState.ts`
+6. `src/services/engine/resolveAndPersistPerformanceState.ts`
+7. `src/services/training/materializeNextWeekTrainingPlan.ts`
+8. `src/engine/training/nextWeekGeneratedSessionEngine.ts`
+9. `src/engine/training/nextWeekPreviewToMicrocycle.ts`
+10. `src/app/screens/PlanScreen.tsx`
+11. `supabase/functions/approve-coach-relationship/policy.ts`
+12. `supabase/functions/approve-coach-relationship/index.ts`
+13. `docs/17_COACH_TEAM_PERMISSIONS.md`
+14. `src/tests/live/liveDbSmoke.test.ts`
