@@ -1,5 +1,53 @@
 # Codex Audit Log
 
+## 2026-05-20 09:37 America/Vancouver
+
+Goal summary:
+- Materialize accepted next-week previews into future generated support sessions safely.
+- Keep generated support boxing-specific, non-contact, deterministic, and conservative under safety pressure.
+- Surface materialization status and generated-session counts in Plan/Train without showing future work early.
+- Harden the coach approval Edge Function boundary while keeping coach UI hidden.
+- Extend live smoke and update auditor docs for ChatGPT.
+
+Key changes:
+- Added `nextWeekGeneratedSessionEngine` with strategy-aware support mappings for progress, repeat, reduce, deload, taper, tournament conserve, and hold-for-review.
+- Updated `materializeNextWeekTrainingPlan` to persist generated sessions at the week boundary, return `generatedSessionIds`, include `generatedSessionCount` in timeline events, and avoid marking previews materialized if generated-session persistence fails.
+- Updated generated-session repository mapping so materialization can attach preview/smoke metadata while preserving deterministic upsert keys.
+- Merged persisted generated sessions into the training plan by planned date so future sessions do not appear as today's work until their date.
+- Updated Plan and Train view models/screens to show materialization status, generated-session counts, materialized summaries, and clearer block/exercise history groupings.
+- Hardened `approve-coach-relationship` with method checks, payload validation, Bearer JWT requirement, Supabase Auth caller verification, athlete-only pending approval, sanitized permissions, and safe JSON responses.
+- Added `docs/17_COACH_TEAM_PERMISSIONS.md`.
+- Extended live smoke to accept a preview, materialize at a smoke-only boundary override, verify future generated sessions and `generatedSessionCount`, and clean up only smoke-created or smoke-touched rows.
+
+Command results:
+- Baseline `git log --oneline --decorate -8`: latest commit was `1689c57` (`Persist next-week previews and add materialization flow`), while the prompt's latest known commit was `ccba81c`.
+- Baseline `cmd /c npm run typecheck`: passed.
+- Baseline `cmd /c npm test`: passed outside sandbox with `222` tests passed and `1` skipped.
+- Baseline `cmd /c npm run quality`: passed outside sandbox.
+- Baseline `cmd /c npm run lint`: passed.
+- `cmd /c npm exec supabase -- --version`: passed with CLI `2.100.1`.
+- `cmd /c npm exec supabase -- migration list`: passed; local/remote `001` through `007` aligned.
+- `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
+- Targeted test command for new engine/service/UI/static checks: passed with `97` tests.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm test`: passed with `23` files passed and `1` skipped; `240` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with `23` files passed and `1` skipped; `240` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed after removing one unused type import.
+- Ignored `.env` loaded into process with `CORNERIQ_LIVE_DB_SMOKE=1`; extended `cmd /c npm run smoke:live-db`: passed with `1` test passed, test body `11380ms`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `git rev-parse HEAD`: `1689c5752a4e4a95128db0647a38937ac01089bd`.
+- No commit was created in this pass.
+
+Known gaps:
+- Numeric load progression remains deferred until structured load fields exist.
+- Coach UI remains hidden.
+- Coach approval needs production audit logging, deployed function tests, admin/team policy, and athlete-facing consent copy.
+- Team memberships, calendar drag/drop polish, automatic background roll-forward, and routed history drill-downs remain deferred.
+- Generated-session template depth is intentionally conservative.
+
+Next recommendation:
+- Add production audit/deployment coverage for coach approval, choose the automatic week-boundary roll-forward trigger, and deepen block/exercise history routes without moving programming logic into screens.
+
 ## 2026-05-20 01:09 America/Vancouver
 
 Goal summary:

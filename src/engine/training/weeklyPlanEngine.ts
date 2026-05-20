@@ -14,6 +14,7 @@ import type {
   TournamentDetails,
   TrainingBlock,
   TrainingBlockHistory,
+  GeneratedTrainingSession,
   TrainingState
 } from "../core/types";
 import { buildLoadLedger } from "./loadLedger";
@@ -41,6 +42,17 @@ function latestByWeekIndex<T extends { weekIndex: number }>(items: readonly T[] 
   return items?.reduce<T | null>((latest, item) => (!latest || item.weekIndex > latest.weekIndex ? item : latest), null) ?? null;
 }
 
+function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSession[], persistedSessions: readonly GeneratedTrainingSession[], asOfDate: ISODateString): readonly GeneratedTrainingSession[] {
+  const merged = new Map<string, GeneratedTrainingSession>();
+  for (const session of engineSessions) {
+    merged.set(`${session.date}:${session.family}:${session.title}`, session);
+  }
+  for (const session of persistedSessions.filter((item) => item.date >= asOfDate)) {
+    merged.set(`${session.date}:${session.family}:${session.title}`, session);
+  }
+  return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
+}
+
 export function resolveWeeklyTrainingPlan(input: {
   athlete: AthleteProfile;
   anchors: readonly ProtectedWorkout[];
@@ -59,6 +71,7 @@ export function resolveWeeklyTrainingPlan(input: {
   trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
   activeTrainingBlock?: TrainingBlock | null | undefined;
   blockHistory?: TrainingBlockHistory | undefined;
+  persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
 }): TrainingState {
   const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
   const targetSessions =
@@ -142,13 +155,18 @@ export function resolveWeeklyTrainingPlan(input: {
     adjustments: input.trainingPlanAdjustments ?? []
   });
   const adjustedGeneratedSessions = adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions);
-  const todaySessions = adjustedGeneratedSessions.filter((session) => session.date === input.asOfDate);
-  const ledger = buildLoadLedger(input.anchors, adjustedGeneratedSessions);
+  const mergedGeneratedSessions = mergeGeneratedSessions(adjustedGeneratedSessions, input.persistedGeneratedSessions ?? [], input.asOfDate);
+  const adjustedDayPlans = adjustmentApplication.dayPlans.map((dayPlan) => {
+    const generatedSessions = mergedGeneratedSessions.filter((session) => session.date === dayPlan.date);
+    return generatedSessions.length > 0 ? { ...dayPlan, generatedSessions } : dayPlan;
+  });
+  const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
+  const ledger = buildLoadLedger(input.anchors, mergedGeneratedSessions);
   const adjustedMicrocycle = {
     ...block.currentMicrocycle,
-    plannedHardDays: adjustmentApplication.dayPlans.filter((day) => day.hardDay).length,
-    generatedSupportCount: adjustedGeneratedSessions.length,
-    recoveryDays: adjustmentApplication.dayPlans.filter((day) => day.role === "recovery_day" || day.recoveryPriority === "high" || day.recoveryPriority === "hard_stop").map((day) => day.date),
+    plannedHardDays: adjustedDayPlans.filter((day) => day.hardDay || day.generatedSessions.some((session) => session.intensity === "hard")).length,
+    generatedSupportCount: mergedGeneratedSessions.length,
+    recoveryDays: adjustedDayPlans.filter((day) => day.role === "recovery_day" || day.recoveryPriority === "high" || day.recoveryPriority === "hard_stop").map((day) => day.date),
     notes:
       adjustmentApplication.decisions.length > 0
         ? [...block.currentMicrocycle.notes, `${adjustmentApplication.decisions.length} engine-owned adjustment decision(s) applied or reviewed.`]
@@ -186,11 +204,11 @@ export function resolveWeeklyTrainingPlan(input: {
     protectedAnchors: input.anchors,
     completedSessions: input.completedSessions ?? [],
     recentExerciseResults: input.recentExerciseResults ?? [],
-    generatedSessions: adjustedGeneratedSessions,
+    generatedSessions: mergedGeneratedSessions,
     todaySessions,
     activeBlock: adjustmentApplication.activeBlock,
     currentMicrocycle: adjustedMicrocycle,
-    dayPlans: adjustmentApplication.dayPlans,
+    dayPlans: adjustedDayPlans,
     blockRecommendation: block.blockRecommendation,
     adjustmentHistory: input.trainingPlanAdjustments ?? [],
     activeAdjustments: adjustmentApplication.activeAdjustments,

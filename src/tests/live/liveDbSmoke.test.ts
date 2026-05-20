@@ -76,6 +76,8 @@ describeLive("live Supabase CRUD smoke", () => {
     let existingTrainingProgressionDecisionIds = new Set<string>();
     let existingTrainingBlockTimelineEventIds = new Set<string>();
     let existingTrainingNextWeekPreviewIds = new Set<string>();
+    let existingPreviewWeekMicrocycles: Pick<TableRow<"training_microcycles">, "id" | "hard_day_cap" | "planned_hard_days" | "microcycle_payload">[] = [];
+    let existingPreviewWeekDayPlans: Pick<TableRow<"training_day_plans">, "id" | "role" | "hard_day" | "recovery_priority" | "fuel_demand" | "day_payload">[] = [];
     let inputHash: string | null = null;
     let engineRunIds: string[] = [];
     let completedTrainingSessionId: string | null = null;
@@ -85,6 +87,8 @@ describeLive("live Supabase CRUD smoke", () => {
     const smokeTrainingProgressionDecisionIds: string[] = [];
     const smokeTrainingBlockTimelineEventIds: string[] = [];
     const smokeTrainingNextWeekPreviewIds: string[] = [];
+    const smokeTrainingMicrocycleIds: string[] = [];
+    const smokeTrainingDayPlanIds: string[] = [];
 
     const signedIn = await auth.signInWithPassword(email, password);
     expect(signedIn.error).toBeNull();
@@ -253,6 +257,108 @@ describeLive("live Supabase CRUD smoke", () => {
         }
       }
       expect(taggedPreviewTimelineCount).toBeGreaterThan(0);
+
+      const existingPreviewWeekMicrocycleResponse = await client
+        .from("training_microcycles")
+        .select("id, hard_day_cap, planned_hard_days, microcycle_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!)
+        .eq("week_start_date", smokePreview.week_start_date);
+      expect(existingPreviewWeekMicrocycleResponse.error).toBeNull();
+      existingPreviewWeekMicrocycles = existingPreviewWeekMicrocycleResponse.data ?? [];
+      const previewWeekEndDate = (acceptedPreview.status === "accepted" ? resolved.state.training.nextWeekMaterialization.nextWeekEndDate : smokePreview.week_start_date) as ISODateString;
+      const existingPreviewWeekDayPlanResponse = await client
+        .from("training_day_plans")
+        .select("id, role, hard_day, recovery_priority, fuel_demand, day_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!)
+        .gte("plan_date", smokePreview.week_start_date)
+        .lte("plan_date", previewWeekEndDate);
+      expect(existingPreviewWeekDayPlanResponse.error).toBeNull();
+      existingPreviewWeekDayPlans = existingPreviewWeekDayPlanResponse.data ?? [];
+
+      const materializedPreview = await materializeNextWeekTrainingPlan({
+        userId,
+        current: resolved.state,
+        previewId: smokePreview.id,
+        repositories,
+        asOfDate: smokePreview.week_start_date as ISODateString,
+        mode: "materialize_if_week_boundary",
+        allowBoundaryOverride: true,
+        reviewApproved: true,
+        auditMetadata: { smokeRunId }
+      });
+      expect(materializedPreview.status).toBe("materialized");
+      expect(materializedPreview.generatedSessionIds?.length ?? 0).toBeGreaterThan(0);
+      const materializedPreviewRow = await client
+        .from("training_next_week_previews")
+        .select("id, status")
+        .eq("user_id", userId)
+        .eq("id", smokePreview.id)
+        .maybeSingle();
+      expect(materializedPreviewRow.error).toBeNull();
+      expect(materializedPreviewRow.data?.status).toBe("materialized");
+      const materializedMicrocycleResponse = await client
+        .from("training_microcycles")
+        .select("id, microcycle_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!)
+        .eq("week_start_date", smokePreview.week_start_date);
+      expect(materializedMicrocycleResponse.error).toBeNull();
+      expect(materializedMicrocycleResponse.data?.length ?? 0).toBeGreaterThan(0);
+      const existingPreviewWeekMicrocycleIds = new Set(existingPreviewWeekMicrocycles.map((row) => row.id));
+      for (const row of materializedMicrocycleResponse.data ?? []) {
+        if (!existingPreviewWeekMicrocycleIds.has(row.id)) {
+          smokeTrainingMicrocycleIds.push(row.id);
+          await client.from("training_microcycles").update({ microcycle_payload: smokePayload(row.microcycle_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
+      const materializedDayPlanResponse = await client
+        .from("training_day_plans")
+        .select("id, day_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!)
+        .gte("plan_date", smokePreview.week_start_date)
+        .lte("plan_date", previewWeekEndDate);
+      expect(materializedDayPlanResponse.error).toBeNull();
+      expect(materializedDayPlanResponse.data?.length ?? 0).toBeGreaterThan(0);
+      const existingPreviewWeekDayPlanIds = new Set(existingPreviewWeekDayPlans.map((row) => row.id));
+      for (const row of materializedDayPlanResponse.data ?? []) {
+        if (!existingPreviewWeekDayPlanIds.has(row.id)) {
+          smokeTrainingDayPlanIds.push(row.id);
+          await client.from("training_day_plans").update({ day_payload: smokePayload(row.day_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
+      const materializedGeneratedResponse = await client
+        .from("generated_training_sessions")
+        .select("id, session_payload")
+        .eq("user_id", userId)
+        .gte("planned_date", smokePreview.week_start_date)
+        .lte("planned_date", previewWeekEndDate)
+        .filter("session_payload->>previewId", "eq", smokePreview.id);
+      expect(materializedGeneratedResponse.error).toBeNull();
+      expect(materializedGeneratedResponse.data?.length ?? 0).toBeGreaterThan(0);
+      for (const row of materializedGeneratedResponse.data ?? []) {
+        await client.from("generated_training_sessions").update({ session_payload: smokePayload(row.session_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+      }
+      const materializedTimelineResponse = await client
+        .from("training_block_timeline_events")
+        .select("id, event_payload")
+        .eq("user_id", userId)
+        .eq("training_block_id", trainingBlockId!)
+        .eq("event_type", "next_week_materialized");
+      expect(materializedTimelineResponse.error).toBeNull();
+      const materializedTimeline = (materializedTimelineResponse.data ?? []).find((row) => JSON.stringify(row.event_payload).includes(smokePreview.id));
+      expect(materializedTimeline).toBeTruthy();
+      expect(JSON.stringify(materializedTimeline?.event_payload ?? {})).toContain("generatedSessionCount");
+      for (const row of materializedTimelineResponse.data ?? []) {
+        if (!existingTrainingBlockTimelineEventIds.has(row.id) && JSON.stringify(row.event_payload).includes(smokePreview.id)) {
+          if (!smokeTrainingBlockTimelineEventIds.includes(row.id)) {
+            smokeTrainingBlockTimelineEventIds.push(row.id);
+          }
+          await client.from("training_block_timeline_events").update({ event_payload: smokePayload(row.event_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
+        }
+      }
 
       if (!existingTrainingBlockIds.has(trainingBlockId!)) {
         await client.from("training_blocks").update({ block_payload: smokePayload(blockResponse.data?.block_payload ?? {}, smokeRunId) }).eq("id", trainingBlockId!).eq("user_id", userId);
@@ -425,6 +531,36 @@ describeLive("live Supabase CRUD smoke", () => {
     } finally {
       for (const id of smokeTrainingBlockTimelineEventIds) {
         await client.from("training_block_timeline_events").delete().eq("user_id", userId).eq("id", id).filter("event_payload->>smokeRunId", "eq", smokeRunId);
+      }
+      for (const row of existingPreviewWeekDayPlans) {
+        await client
+          .from("training_day_plans")
+          .update({
+            role: row.role,
+            hard_day: row.hard_day,
+            recovery_priority: row.recovery_priority,
+            fuel_demand: row.fuel_demand,
+            day_payload: row.day_payload
+          })
+          .eq("user_id", userId)
+          .eq("id", row.id);
+      }
+      for (const row of existingPreviewWeekMicrocycles) {
+        await client
+          .from("training_microcycles")
+          .update({
+            hard_day_cap: row.hard_day_cap,
+            planned_hard_days: row.planned_hard_days,
+            microcycle_payload: row.microcycle_payload
+          })
+          .eq("user_id", userId)
+          .eq("id", row.id);
+      }
+      for (const id of smokeTrainingDayPlanIds) {
+        await client.from("training_day_plans").delete().eq("user_id", userId).eq("id", id).filter("day_payload->>smokeRunId", "eq", smokeRunId);
+      }
+      for (const id of smokeTrainingMicrocycleIds) {
+        await client.from("training_microcycles").delete().eq("user_id", userId).eq("id", id).filter("microcycle_payload->>smokeRunId", "eq", smokeRunId);
       }
       for (const id of smokeTrainingNextWeekPreviewIds) {
         await client.from("training_next_week_previews").delete().eq("user_id", userId).eq("id", id).filter("preview_payload->>smokeRunId", "eq", smokeRunId);

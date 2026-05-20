@@ -444,13 +444,28 @@ describe("Supabase repositories", () => {
     ];
 
     expect(functionSource).toContain('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")');
-    expect(functionSource).toContain("authorizationVerified = false");
-    expect(functionSource).toContain("Coach approval authorization is not implemented yet.");
+    expect(functionSource).toContain("Authorization Bearer token is required.");
+    expect(functionSource).toContain("admin.auth.getUser(token)");
+    expect(functionSource).toContain(".eq(\"athlete_user_id\", callerUserId)");
+    expect(functionSource).toContain("Only the athlete can approve this pending relationship.");
+    expect(functionSource).toContain("permissions must be an object when provided.");
+    expect(functionSource).toContain("Function environment is missing trusted Supabase credentials.");
     for (const file of appFiles) {
       expect(readFileSync(file, "utf8").toLowerCase()).not.toContain("service_role");
       expect(readFileSync(file, "utf8")).not.toContain("approve-coach-relationship");
     }
     expect(readFileSync("src/services/supabase/coachRelationshipRepository.ts", "utf8")).not.toContain("approveCoachRelationship");
+  });
+
+  it("coach approval docs and static checks keep activation server-side", () => {
+    const docs = readFileSync("docs/17_COACH_TEAM_PERMISSIONS.md", "utf8");
+    const repositorySource = readFileSync("src/services/supabase/coachRelationshipRepository.ts", "utf8");
+
+    expect(docs).toContain("Relationship lifecycle");
+    expect(docs).toContain("service role");
+    expect(docs).toContain("Coach UI stays hidden");
+    expect(repositorySource).not.toContain("status: \"active\"");
+    expect(repositorySource).not.toContain("approveCoachRelationship");
   });
 
   it("coachRelationshipRepository blocks missing user ids before writes", async () => {
@@ -491,10 +506,15 @@ describe("Supabase repositories", () => {
     expect(source).toContain("smokeRunId");
     expect(source).toContain("training_next_week_previews");
     expect(source).toContain("accept_preview");
+    expect(source).toContain("materialize_if_week_boundary");
+    expect(source).toContain("generatedSessionCount");
     expect(source).toContain("next_week_preview_accepted");
+    expect(source).toContain("next_week_materialized");
     expect(source).toContain('filter("session_payload->>smokeRunId"');
     expect(source).toContain('filter("result_payload->>smokeRunId"');
     expect(source).toContain('filter("preview_payload->>smokeRunId"');
+    expect(source).toContain('filter("day_payload->>smokeRunId"');
+    expect(source).toContain('filter("microcycle_payload->>smokeRunId"');
     expect(source).toContain("completeWorkoutService");
     expect(source).toContain('filter("target_payload->>smokeRunId"');
     expect(source).toContain('filter("flag_payload->>smokeRunId"');

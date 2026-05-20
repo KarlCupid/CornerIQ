@@ -1,4 +1,4 @@
-import type { NextWeekPreviewViewModel, PerformanceState, PlanViewModel, TrainingBlockHistoryDetailViewModel } from "../core/types";
+import type { NextWeekPreviewViewModel, PerformanceState, PlanViewModel, TrainingBlockHistoryDetailViewModel, TrainingBlockTimelineEvent } from "../core/types";
 
 function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
@@ -9,6 +9,19 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
   const persisted = state.training.nextWeekPreviewPersistenceStatus;
   const persistedStatus = persisted?.status ?? "not_persisted";
   const requiresReview = preview.materializedVolumeStrategy === "hold_for_review";
+  const materializedGeneratedSessions =
+    persistedStatus === "materialized"
+      ? state.training.generatedSessions
+          .filter((session) => session.date >= preview.nextWeekStartDate && session.date <= preview.nextWeekEndDate)
+          .map((session) => ({
+            id: session.id,
+            title: session.title,
+            date: session.date,
+            intensity: session.intensity,
+            durationMinutes: session.durationMinutes,
+            fuelDemand: session.fuelDemand
+          }))
+      : [];
   return {
     previewId: persisted?.previewId ?? null,
     weekIndex: preview.nextWeekIndex,
@@ -23,9 +36,14 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
     persistedStatusLabel:
       persistedStatus === "not_persisted"
         ? "Preview persistence pending."
-        : `Persisted preview ${persisted?.previewId ?? "unknown"} (${persistedStatus.replaceAll("_", " ")}).`,
+        : `Persisted preview ${persisted?.previewId ?? "unknown"} (${persistedStatus.replaceAll("_", " ")}).${
+            persistedStatus === "materialized" ? ` Generated sessions: ${materializedGeneratedSessions.length}.` : ""
+          }`,
+    generatedSessionCount: materializedGeneratedSessions.length,
+    generatedSessionPersistence: persistedStatus === "materialized" && materializedGeneratedSessions.length > 0 ? "persisted" : "preview_only",
+    materializedGeneratedSessions,
     canAccept: persistedStatus === "preview",
-    showMaterializeAction: Boolean(persisted?.previewId && state.asOfDate >= preview.nextWeekStartDate && persistedStatus !== "materialized" && persistedStatus !== "rejected" && persistedStatus !== "superseded"),
+    showMaterializeAction: Boolean(persisted?.previewId && state.asOfDate >= preview.nextWeekStartDate && persistedStatus === "accepted"),
     requiresReview,
     actionCopy: requiresReview ? "Review required before materializing." : "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
     explanation: preview.explanation,
@@ -51,6 +69,11 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
   };
 }
 
+function timelineSummary(event: TrainingBlockTimelineEvent): string {
+  const generatedSessionCount = event.payload.generatedSessionCount;
+  return typeof generatedSessionCount === "number" ? `${event.summary} Generated sessions: ${generatedSessionCount}.` : event.summary;
+}
+
 function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextWeekPreviewViewModel): TrainingBlockHistoryDetailViewModel {
   const history = state.training.blockHistory;
   const adjustmentEvents = state.training.adjustmentHistory.map(
@@ -66,7 +89,7 @@ function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextW
       eventType: event.eventType,
       eventDate: event.eventDate,
       title: event.title,
-      summary: event.summary
+      summary: timelineSummary(event)
     })),
     adjustmentEvents,
     latestNextWeekPreview: nextWeekPreview,
@@ -124,7 +147,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       eventType: event.eventType,
       eventDate: event.eventDate,
       title: event.title,
-      summary: event.summary
+      summary: timelineSummary(event)
     })),
     blockPhase: state.training.activeBlock.phase,
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),

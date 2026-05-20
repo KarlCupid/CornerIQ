@@ -15,9 +15,10 @@ export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
     <View style={{ gap: spacing.sm }}>
       <Text style={screenStyles.sectionTitle}>{history.title}</Text>
       {hasNoHistory ? <Text style={screenStyles.body}>No exercise history yet. Prescribed-only rows are still useful; missing load is unknown, not safe.</Text> : null}
-      <Text style={screenStyles.callout}>Prescribed-only counts</Text>
+      <Text style={screenStyles.callout}>Prescribed-only rows</Text>
       <Text style={screenStyles.body}>{counts}</Text>
-      <Text style={screenStyles.subtle}>No fake load progression. Free-text load notes stay notes until the engine has safe structured evidence.</Text>
+      <Text style={screenStyles.subtle}>Free-text load is not used for numeric progression yet.</Text>
+      <Text style={screenStyles.subtle}>Pain flags stop automatic progression.</Text>
       <Text style={screenStyles.subtle}>{history.loadProgressionNote}</Text>
       <Text style={screenStyles.callout}>Strength notes</Text>
       {history.latestStrengthExerciseSummary ? <Text style={screenStyles.subtle}>Latest strength: {history.latestStrengthExerciseSummary}</Text> : null}
@@ -26,7 +27,7 @@ export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
       {history.recentRpeValues.length > 0 ? history.recentRpeValues.map((rpe) => <Text key={rpe} style={screenStyles.subtle}>{rpe}</Text>) : <Text style={screenStyles.subtle}>No recent exercise RPE values.</Text>}
       <Text style={screenStyles.callout}>Pain flags</Text>
       {history.painFlagsByExercise.length > 0 ? history.painFlagsByExercise.map((exercise) => <Text key={exercise} style={screenStyles.subtle}>{`Pain flag: ${exercise}`}</Text>) : <Text style={screenStyles.subtle}>No exercise pain flags.</Text>}
-      <Text style={screenStyles.callout}>Recent results</Text>
+      <Text style={screenStyles.callout}>Recent actuals</Text>
       {history.recentExerciseResults.length > 0 ? history.recentExerciseResults.map((result) => <Text key={result} style={screenStyles.subtle}>{result}</Text>) : <Text style={screenStyles.subtle}>No exercise result history yet.</Text>}
     </View>
   );

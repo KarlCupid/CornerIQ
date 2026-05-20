@@ -197,6 +197,16 @@ export interface NextWeekPreviewViewModel {
   supportBias: NextWeekGeneratedSupportBias;
   persistedStatus: "preview" | "accepted" | "materialized" | "superseded" | "rejected" | "not_persisted";
   persistedStatusLabel: string;
+  generatedSessionCount: number;
+  generatedSessionPersistence: "preview_only" | "persisted";
+  materializedGeneratedSessions: readonly {
+    id: string;
+    title: string;
+    date: string;
+    intensity: GeneratedSessionIntensity;
+    durationMinutes: number;
+    fuelDemand: "low" | "moderate" | "high";
+  }[];
   canAccept: boolean;
   showMaterializeAction: boolean;
   requiresReview: boolean;

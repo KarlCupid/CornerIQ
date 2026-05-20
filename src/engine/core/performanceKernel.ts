@@ -86,7 +86,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     engineVersion: ENGINE_VERSION,
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
-    blockHistory
+    blockHistory,
+    persistedGeneratedSessions: journey.trainingHistory
   });
   const earlySafetyFlags = [
     ...journey.safetyFlags,
@@ -131,7 +132,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     engineVersion: ENGINE_VERSION,
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
-    blockHistory
+    blockHistory,
+    persistedGeneratedSessions: journey.trainingHistory
   });
   const weighInContext = resolveWeighInContext(journey.activeFightOpportunity, input.asOfDate);
   const tournamentStrategy = resolveTournamentStrategy(journey.activeTournament ?? journey.activeFightOpportunity?.tournamentDetails ?? null, trend);

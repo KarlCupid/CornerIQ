@@ -3,7 +3,7 @@ import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
-import type { CycleSymptom, FuelViewModel, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
+import type { CycleSymptom, FuelViewModel, GeneratedTrainingSession, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
@@ -217,6 +217,9 @@ const planViewModel: PlanViewModel = {
     supportBias: "strength",
     persistedStatus: "preview",
     persistedStatusLabel: "Persisted preview preview_1 (preview).",
+    generatedSessionCount: 0,
+    generatedSessionPersistence: "preview_only",
+    materializedGeneratedSessions: [],
     canAccept: true,
     showMaterializeAction: false,
     requiresReview: false,
@@ -576,6 +579,37 @@ describe("minimal app screens", () => {
     expect(output).toContain("Progression");
   });
 
+  it("TrainScreen does not show future materialized sessions early but loads them on their date", async () => {
+    const { TrainScreen } = await import("../../app/screens/TrainScreen");
+    const persistedSession: GeneratedTrainingSession = {
+      id: "next-week:materialized",
+      date: "2026-05-26",
+      family: "trunk_durability",
+      title: "Materialized future support",
+      durationMinutes: 22,
+      intensity: "easy",
+      prescription: ["Breathing reset", "Anti-rotation hold", "Mobility reset"],
+      rationale: "Persisted next-week support stays date-scoped.",
+      protects: ["trunk control"],
+      modifications: [],
+      fuelDemand: "low"
+    };
+    const before = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, trainingHistory: [persistedSession] },
+      asOfDate: fixtureAsOfDate
+    });
+    const onDate = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, trainingHistory: [persistedSession] },
+      asOfDate: "2026-05-26"
+    });
+
+    const beforeOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: before.viewModels.train })).toJSON());
+    const onDateOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: onDate.viewModels.train })).toJSON());
+
+    expect(beforeOutput).not.toContain("Materialized future support");
+    expect(onDateOutput).toContain("Materialized future support");
+  });
+
   it("TrainScreen shows active block context and special day roles", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const taper = resolvePerformanceState({ journey: pro_12_round_taper, asOfDate: fixtureAsOfDate });
@@ -931,11 +965,65 @@ describe("minimal app screens", () => {
     expect(output).toContain("Week 1 summarized");
     expect(output).toContain("Block history detail");
     expect(output).toContain("Current block");
+    expect(output).toContain("Current week");
     expect(output).toContain("Next-week preview");
+    expect(output).toContain("Materialization status");
     expect(output).toContain("Adjustments");
-    expect(output).toContain("Safety events");
+    expect(output).toContain("Timeline");
     expect(output).toContain("Week 2: Week summary persisted.");
     expect(output).toContain("protect day applied");
+  });
+
+  it("PlanScreen shows materialized generated session count and summaries", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const output = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: "2026-05-26",
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: {
+            ...planViewModel,
+            nextWeekPreview: {
+              ...planViewModel.nextWeekPreview,
+              persistedStatus: "materialized",
+              persistedStatusLabel: "Persisted preview preview_1 (materialized). Generated sessions: 1.",
+              generatedSessionCount: 1,
+              generatedSessionPersistence: "persisted",
+              materializedGeneratedSessions: [
+                {
+                  id: "next-week:abc",
+                  title: "Trunk durability",
+                  date: "2026-05-26",
+                  intensity: "easy",
+                  durationMinutes: 22,
+                  fuelDemand: "low"
+                }
+              ]
+            },
+            blockHistoryDetail: {
+              ...planViewModel.blockHistoryDetail,
+              latestNextWeekPreview: {
+                ...planViewModel.nextWeekPreview,
+                persistedStatus: "materialized",
+                persistedStatusLabel: "Persisted preview preview_1 (materialized). Generated sessions: 1.",
+                generatedSessionCount: 1,
+                generatedSessionPersistence: "persisted",
+                materializedGeneratedSessions: []
+              }
+            }
+          }
+        })
+      ).toJSON()
+    );
+
+    expect(output).toContain("Generated sessions: 1");
+    expect(output).toContain("Materialized");
+    expect(output).toContain("Trunk durability");
+    expect(output).toContain("persisted");
   });
 
   it("ExerciseHistoryPanel renders counts, pain flags, and load-text caution", async () => {
@@ -963,11 +1051,12 @@ describe("minimal app screens", () => {
     );
 
     expect(output).toContain("Completed/partial/prescribed-only/skipped: 1/1/1/0");
-    expect(output).toContain("Prescribed-only counts");
+    expect(output).toContain("Prescribed-only rows");
     expect(output).toContain("RPE");
     expect(output).toContain("Strength notes");
     expect(output).toContain("Pain flag: Split squat");
-    expect(output).toContain("No fake load progression");
+    expect(output).toContain("Free-text load is not used for numeric progression yet.");
+    expect(output).toContain("Pain flags stop automatic progression.");
     expect(output).toContain("no numeric load progression inferred");
   });
 

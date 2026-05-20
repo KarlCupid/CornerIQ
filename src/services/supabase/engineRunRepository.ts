@@ -81,7 +81,14 @@ export function generatedTrainingSessionKey(session: GeneratedTrainingSession): 
   return `${session.id}:${session.date}:${session.family}`;
 }
 
-export function mapGeneratedSessionToRow(userId: string, engineVersion: string, session: GeneratedTrainingSession, inputHash: string, outputHash: string): TableInsert<"generated_training_sessions"> {
+export function mapGeneratedSessionToRow(
+  userId: string,
+  engineVersion: string,
+  session: GeneratedTrainingSession,
+  inputHash: string,
+  outputHash: string,
+  metadata: Record<string, unknown> = {}
+): TableInsert<"generated_training_sessions"> {
   const generatedSessionKey = generatedTrainingSessionKey(session);
   return {
     user_id: userId,
@@ -92,7 +99,8 @@ export function mapGeneratedSessionToRow(userId: string, engineVersion: string, 
       generatedSessionKey,
       inputHash,
       outputHash,
-      projectionSource: "engine_projection"
+      projectionSource: "engine_projection",
+      ...metadata
     }),
     engine_version: engineVersion,
     block_id: null

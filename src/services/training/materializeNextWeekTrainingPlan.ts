@@ -1,6 +1,9 @@
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
+import { materializeGeneratedSessionsFromPreview } from "../../engine/training/nextWeekGeneratedSessionEngine";
 import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
 import type { TrainingBlockTimelineEvent } from "../../engine/training/types";
+import type { TrainingDayPlan, TrainingMicrocycle } from "../../engine/training/trainingBlockTypes";
+import { mapGeneratedSessionToRow } from "../supabase/engineRunRepository";
 import type { AthleteJourneyRepositories } from "../supabase/loadAthleteJourney";
 import { assertUserId } from "../supabase/repositoryTypes";
 import type { PersistedTrainingNextWeekPreview } from "../supabase/trainingNextWeekPreviewRepository";
@@ -10,6 +13,7 @@ export type NextWeekTrainingPlanMaterializationStatus = "preview_only" | "accept
 
 export interface MaterializeNextWeekTrainingPlanRepositories {
   journey: Pick<AthleteJourneyRepositories["journey"], "appendEvent">;
+  engineRun: Pick<AthleteJourneyRepositories["engineRun"], "upsertGeneratedSessions">;
   trainingBlock: Pick<AthleteJourneyRepositories["trainingBlock"], "upsertTrainingDayPlans" | "upsertTrainingMicrocycle">;
   trainingNextWeekPreview: Pick<
     AthleteJourneyRepositories["trainingNextWeekPreview"],
@@ -36,6 +40,7 @@ export interface MaterializeNextWeekTrainingPlanResult {
   previewId?: string | undefined;
   materializedMicrocycleId?: string | undefined;
   materializedDayPlanIds?: readonly string[] | undefined;
+  generatedSessionIds?: readonly string[] | undefined;
   timelineEventId?: string | undefined;
   warnings: readonly string[];
 }
@@ -78,6 +83,40 @@ function serviceError(error: unknown): MaterializeNextWeekTrainingPlanResult {
   };
 }
 
+function attachGeneratedSessions(input: {
+  microcycle: TrainingMicrocycle;
+  dayPlans: readonly TrainingDayPlan[];
+  sessions: ReturnType<typeof materializeGeneratedSessionsFromPreview>;
+}): { microcycle: TrainingMicrocycle; dayPlans: readonly TrainingDayPlan[] } {
+  const dayPlans = input.dayPlans.map((dayPlan) => {
+    const generatedSessions = input.sessions.filter((session) => session.date === dayPlan.date);
+    return {
+      ...dayPlan,
+      generatedSessions,
+      fuelDemand: generatedSessions.some((session) => session.fuelDemand === "high") ? "high" : dayPlan.fuelDemand,
+      explanation:
+        generatedSessions.length > 0
+          ? `${dayPlan.explanation} ${generatedSessions.length} generated support session(s) were safely materialized for this future date.`
+          : dayPlan.explanation
+    };
+  });
+  return {
+    dayPlans,
+    microcycle: {
+      ...input.microcycle,
+      generatedSupportCount: input.sessions.length,
+      plannedHardDays: dayPlans.filter((dayPlan) => dayPlan.hardDay || dayPlan.generatedSessions.some((session) => session.intensity === "hard")).length,
+      recoveryDays: dayPlans
+        .filter((dayPlan) => dayPlan.role === "recovery_day" || dayPlan.recoveryPriority === "high" || dayPlan.recoveryPriority === "hard_stop")
+        .map((dayPlan) => dayPlan.date),
+      notes: [
+        ...input.microcycle.notes.filter((note) => !note.includes("no future generated session objects")),
+        `${input.sessions.length} generated support session(s) materialized from the accepted preview.`
+      ]
+    }
+  };
+}
+
 function timelineEvent(input: {
   asOfDate: ISODateString;
   blockId: string;
@@ -85,6 +124,8 @@ function timelineEvent(input: {
   title: string;
   summary: string;
   preview: PersistedTrainingNextWeekPreview;
+  generatedSessionCount?: number | undefined;
+  generatedSessionIds?: readonly string[] | undefined;
   auditMetadata?: Record<string, unknown> | undefined;
 }): TrainingBlockTimelineEvent {
   return {
@@ -100,6 +141,8 @@ function timelineEvent(input: {
       weekStartDate: input.preview.weekStartDate,
       weekEndDate: input.preview.weekEndDate,
       volumeStrategy: input.preview.volumeStrategy,
+      ...(input.generatedSessionCount === undefined ? {} : { generatedSessionCount: input.generatedSessionCount }),
+      ...(input.generatedSessionIds === undefined ? {} : { generatedSessionIds: input.generatedSessionIds }),
       ...(input.auditMetadata ?? {})
     }
   };
@@ -192,8 +235,12 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
         status: "materialized",
         explanation: "Next-week preview is already materialized.",
         previewId: preview.id,
+        generatedSessionIds: [],
         warnings: []
       };
+    }
+    if (preview.status !== "accepted") {
+      return rejected("Next-week preview must be accepted before it can be materialized.", preview.id, ["No future sessions were created."]);
     }
     if (input.asOfDate < preview.weekStartDate && !input.allowBoundaryOverride) {
       return rejected("Next-week preview is not at the week boundary yet; no future day plans were materialized.", preview.id, ["Current week was not mutated."]);
@@ -211,19 +258,52 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       protectedWorkouts: input.current.training.protectedAnchors,
       asOfDate: input.asOfDate
     });
+    const generatedSessions = materializeGeneratedSessionsFromPreview({
+      materialization: preview.preview,
+      microcycle: projection.microcycle,
+      dayPlans: projection.dayPlans,
+      athlete: input.current.athlete,
+      protectedWorkouts: input.current.training.protectedAnchors,
+      readiness: input.current.readiness,
+      cycle: input.current.cycle,
+      safetyFlags: input.current.safety.riskFlags,
+      fight: input.current.fightContext,
+      tournament: input.current.tournamentContext,
+      engineVersion: input.current.engineVersion,
+      previewId: preview.id,
+      previewHash: preview.outputHash
+    });
+    const materializedProjection = attachGeneratedSessions({
+      microcycle: projection.microcycle,
+      dayPlans: projection.dayPlans,
+      sessions: generatedSessions
+    });
     const microcycle = await input.repositories.trainingBlock.upsertTrainingMicrocycle({
       userId,
       trainingBlockId,
-      microcycle: projection.microcycle,
+      microcycle: materializedProjection.microcycle,
       weekIndex: preview.weekIndex
     });
     const dayPlans = await input.repositories.trainingBlock.upsertTrainingDayPlans({
       userId,
       trainingBlockId,
       trainingMicrocycleId: microcycle.id,
-      dayPlans: projection.dayPlans
+      dayPlans: materializedProjection.dayPlans
     });
+    await input.repositories.engineRun.upsertGeneratedSessions(
+      generatedSessions.map((session) =>
+        mapGeneratedSessionToRow(userId, input.current.engineVersion, session, preview.inputHash, preview.outputHash, {
+          projectionSource: "next_week_preview_materialization",
+          trainingBlockId,
+          previewId: preview.id,
+          weekIndex: preview.weekIndex,
+          materializedFromPreview: true,
+          ...(input.auditMetadata ?? {})
+        })
+      )
+    );
     const materialized = await input.repositories.trainingNextWeekPreview.markPreviewMaterialized(userId, preview.id);
+    const generatedSessionIds = generatedSessions.map((session) => session.id);
     const eventId = await appendTimelineEvent({
       repositories: input.repositories,
       userId,
@@ -233,8 +313,10 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
         blockId: trainingBlockId,
         eventType: "next_week_materialized",
         title: "Next week materialized",
-        summary: "Accepted preview was materialized into next-week microcycle and day-plan projections without creating generated sessions.",
+        summary: `Accepted preview was materialized into next-week microcycle, day-plan projections, and ${generatedSessions.length} generated support session(s).`,
         preview: materialized,
+        generatedSessionCount: generatedSessions.length,
+        generatedSessionIds,
         auditMetadata: input.auditMetadata
       })
     });
@@ -245,8 +327,12 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       previewId: materialized.id,
       materializedMicrocycleId: microcycle.id,
       materializedDayPlanIds: dayPlans.ids,
+      generatedSessionIds,
       timelineEventId: eventId,
-      warnings: ["Generated support remains summary-only; no future generated session objects were created."]
+      warnings:
+        generatedSessions.length > 0
+          ? ["Generated support sessions are persisted for their future dates only."]
+          : ["No generated sessions were created; preview remained conservative."]
     };
   } catch (error) {
     return serviceError(error);

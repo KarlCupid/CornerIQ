@@ -24,9 +24,9 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
       <Text style={screenStyles.body}>{history.activeBlockSummary}</Text>
       <Text style={screenStyles.callout}>What changed and why</Text>
       {history.whatChangedAndWhy.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
-      <Text style={screenStyles.callout}>Week summaries</Text>
+      <Text style={screenStyles.callout}>Current week</Text>
       {history.weekSummaries.length > 0 ? history.weekSummaries.map((summary) => <Text key={summary} style={screenStyles.subtle}>{summary}</Text>) : <Text style={screenStyles.subtle}>No persisted week summaries yet.</Text>}
-      <Text style={screenStyles.callout}>Progression decisions</Text>
+      <Text style={screenStyles.callout}>Decisions</Text>
       {history.progressionDecisions.length > 0 ? history.progressionDecisions.map((decision) => <Text key={decision} style={screenStyles.subtle}>{decision}</Text>) : <Text style={screenStyles.subtle}>No persisted progression decisions yet.</Text>}
       <Text style={screenStyles.callout}>Next-week preview</Text>
       {history.latestNextWeekPreview ? (
@@ -35,6 +35,12 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
           <Text style={screenStyles.subtle}>{history.latestNextWeekPreview.explanation}</Text>
         </>
       ) : <Text style={screenStyles.subtle}>No persisted next-week preview yet.</Text>}
+      <Text style={screenStyles.callout}>Materialization status</Text>
+      {history.latestNextWeekPreview ? (
+        <Text style={screenStyles.subtle}>
+          {history.latestNextWeekPreview.persistedStatusLabel} Generated sessions: {history.latestNextWeekPreview.generatedSessionCount}.
+        </Text>
+      ) : <Text style={screenStyles.subtle}>No materialized preview yet.</Text>}
       <Text style={screenStyles.callout}>Adjustments</Text>
       {history.adjustmentEvents.length > 0 ? history.adjustmentEvents.map((event) => <Text key={event} style={screenStyles.subtle}>{event}</Text>) : <Text style={screenStyles.subtle}>No adjustment events yet.</Text>}
       <Text style={screenStyles.callout}>Safety events</Text>

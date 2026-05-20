@@ -81,6 +81,9 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
           <Text style={screenStyles.sectionTitle}>Next week preview</Text>
           <Text style={screenStyles.body}>Engine preview, not a user-edited plan.</Text>
           <Text style={screenStyles.body}>{viewModel.nextWeekPreview.persistedStatusLabel}</Text>
+          <Text style={screenStyles.body}>
+            Generated sessions: {viewModel.nextWeekPreview.generatedSessionCount} ({viewModel.nextWeekPreview.generatedSessionPersistence.replaceAll("_", " ")})
+          </Text>
           <Text style={screenStyles.body}>Week {viewModel.nextWeekPreview.weekIndex}: {viewModel.nextWeekPreview.phase.replaceAll("_", " ")} - {viewModel.nextWeekPreview.decision}</Text>
           <Text style={screenStyles.body}>{viewModel.nextWeekPreview.weekStartDate} to {viewModel.nextWeekPreview.weekEndDate}</Text>
           <Text style={screenStyles.callout}>{viewModel.nextWeekPreview.volumeStrategy.replaceAll("_", " ")} - hard day cap {viewModel.nextWeekPreview.hardDayCap}</Text>
@@ -98,6 +101,11 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
             </Pressable>
           ) : null}
           <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.explanation}</Text>
+          {viewModel.nextWeekPreview.materializedGeneratedSessions.map((session) => (
+            <Text key={session.id} style={screenStyles.subtle}>
+              Materialized: {session.date} - {session.title} ({session.intensity}, {session.durationMinutes} min, fuel {session.fuelDemand})
+            </Text>
+          ))}
           {viewModel.nextWeekPreview.safetyNotes.map((note) => <Text key={note} style={screenStyles.subtle}>Safety: {note}</Text>)}
           {viewModel.nextWeekPreview.dayPlanPreview.map((day) => (
             <View key={day.date} style={{ gap: spacing.sm }}>

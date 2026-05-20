@@ -58,7 +58,7 @@ export function buildExerciseHistoryViewModel(results: readonly ExerciseResultRe
     painFlagsByExercise,
     recentRpeValues: rpes,
     latestStrengthExerciseSummary: latestStrengthSummary(results),
-    loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
+    loadProgressionNote: "Free-text load is not used for numeric progression yet. Pain flags stop automatic progression.",
     mostRepeatedExercise: mostRepeatedExercise(results)
   };
 }
