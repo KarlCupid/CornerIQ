@@ -2,7 +2,7 @@ import { BodyMassLogSchema } from "../../engine/core/schemas";
 import type { BodyMassLog, ISODateString, ISODateTimeString } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, numericValue, parseWithSchema, readDataOrThrow } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, numericValue, parseWithSchema, readDataOrThrow } from "./repositoryTypes";
 
 export type BodyMassLogRow = Pick<TableRow<"body_mass_logs">, "log_date" | "body_mass_kg" | "source" | "recorded_at">;
 
@@ -19,7 +19,7 @@ export function mapBodyMassLogRow(row: BodyMassLogRow): BodyMassLog {
     bodyMassKg: numericValue(row.body_mass_kg, "body_mass_logs.body_mass_kg"),
     source: row.source
   };
-  const candidate = row.recorded_at ? { ...base, recordedAt: row.recorded_at } : base;
+  const candidate = row.recorded_at ? { ...base, recordedAt: isoDateTimeValue(row.recorded_at, "body_mass_logs.recorded_at") } : base;
   return parseWithSchema(BodyMassLogSchema, candidate, "body_mass_logs");
 }
 

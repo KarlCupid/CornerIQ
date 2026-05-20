@@ -2,7 +2,7 @@ import { JourneyEventSchema } from "../../engine/core/schemas";
 import type { JourneyEvent, JourneyEventType } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type JourneyEventRow = Pick<TableRow<"athlete_journey_events">, "id" | "event_type" | "event_payload" | "occurred_at">;
 
@@ -12,7 +12,7 @@ export function mapJourneyEventRow(row: JourneyEventRow): JourneyEvent {
     {
       id: row.id,
       type: row.event_type,
-      occurredAt: row.occurred_at,
+      occurredAt: isoDateTimeValue(row.occurred_at, "athlete_journey_events.occurred_at"),
       payload: payloadObject(row.event_payload, "athlete_journey_events.event_payload")
     },
     "athlete_journey_events"

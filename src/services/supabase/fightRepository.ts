@@ -2,7 +2,7 @@ import { FightOpportunitySchema } from "../../engine/core/schemas";
 import type { FightOpportunity } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type FightOpportunityRow = Pick<TableRow<"fight_opportunities">, "id" | "status" | "bout_date" | "weigh_in_datetime" | "weigh_in_type" | "fight_payload">;
 
@@ -14,7 +14,7 @@ export function mapFightOpportunityRow(row: FightOpportunityRow): FightOpportuni
     status: row.status,
     boutDate: row.bout_date,
     weighInType: row.weigh_in_type,
-    ...(row.weigh_in_datetime ? { weighInDateTime: row.weigh_in_datetime } : {})
+    ...(row.weigh_in_datetime ? { weighInDateTime: isoDateTimeValue(row.weigh_in_datetime, "fight_opportunities.weigh_in_datetime") } : {})
   };
   return parseWithSchema(FightOpportunitySchema, candidate, "fight_opportunities");
 }

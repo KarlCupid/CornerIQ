@@ -75,6 +75,14 @@ export function numericValue(value: number | string, context: string): number {
   return parsed;
 }
 
+export function isoDateTimeValue(value: string, context: string): string {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new RepositoryError("malformed_payload", context, "expected a valid date-time value");
+  }
+  return parsed.toISOString();
+}
+
 export function payloadObject(value: Json, context: string): Record<string, unknown> {
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;

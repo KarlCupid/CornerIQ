@@ -97,13 +97,17 @@ describeLive("live Supabase CRUD smoke", () => {
       insertedIds.protectedWorkout = (await repositories.protectedWorkout.insertProtectedWorkout(userId, protectedWorkout, { metadata: { smokeRunId } })).id;
 
       const journey = await loadAthleteJourney({ userId, asOfDate, repositories });
+      if (journey.status !== "ready") {
+        const detail = journey.status === "error" ? journey.cause : journey.reason;
+        throw new Error(`AthleteJourney did not load during live smoke: ${journey.status}; ${detail}`);
+      }
       expect(journey.status).toBe("ready");
 
       const resolved = await resolveAndPersistPerformanceState({ userId, asOfDate, repositories, journeyResult: journey });
-      expect(resolved.status).toBe("ready");
       if (resolved.status !== "ready") {
-        throw new Error("Engine did not resolve during live smoke.");
+        throw new Error(`PerformanceState did not resolve during live smoke: ${resolved.status}`);
       }
+      expect(resolved.status).toBe("ready");
       expect(resolved.persistenceWarning).toBeUndefined();
       inputHash = resolved.inputHash;
 

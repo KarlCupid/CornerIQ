@@ -2,7 +2,7 @@ import { WearableSignalSchema } from "../../engine/core/schemas";
 import type { WearableSignal } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableRow } from "./repositoryTypes";
-import { assertUserId, numericValue, parseWithSchema, readDataOrThrow } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, numericValue, parseWithSchema, readDataOrThrow } from "./repositoryTypes";
 
 export type WearableSignalRow = Pick<TableRow<"wearable_signal_logs">, "signal_type" | "signal_value" | "signal_unit" | "source_platform" | "recorded_at">;
 
@@ -14,7 +14,7 @@ export function mapWearableSignalRow(row: WearableSignalRow): WearableSignal {
       value: numericValue(row.signal_value, "wearable_signal_logs.signal_value"),
       unit: row.signal_unit,
       source: row.source_platform,
-      recordedAt: row.recorded_at
+      recordedAt: isoDateTimeValue(row.recorded_at, "wearable_signal_logs.recorded_at")
     },
     "wearable_signal_logs"
   );

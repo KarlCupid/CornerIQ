@@ -11,7 +11,9 @@ import { exportUserOwnedData, deleteUserOwnedData, previewUserOwnedDataExport, U
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
 import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
+import { mapJourneyEventRow } from "../../services/supabase/journeyRepository";
 import { createTournamentRepository } from "../../services/supabase/tournamentRepository";
+import { mapWearableSignalRow } from "../../services/supabase/wearableRepository";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
@@ -100,8 +102,22 @@ describe("Supabase repositories", () => {
 
   it("mapper functions convert DB rows to engine types and reject malformed payloads", () => {
     expect(mapBodyMassLogRow({ log_date: "2026-05-19", body_mass_kg: 66.4, source: "manual", recorded_at: "2026-05-19T07:00:00.000Z" }).bodyMassKg).toBe(66.4);
+    expect(mapBodyMassLogRow({ log_date: "2026-05-19", body_mass_kg: 66.4, source: "manual", recorded_at: "2026-05-20 02:48:34.495071+00" }).recordedAt).toBe(
+      "2026-05-20T02:48:34.495Z"
+    );
     expect(mapFoodLogRow({ log_date: "2026-05-19", meal_payload: { calories: 2200, proteinGrams: 130, carbohydrateGrams: 260, fatGrams: 70, confidence: "medium" } }).calories).toBe(2200);
     expect(mapCycleSymptomLogRow({ log_date: "2026-05-19", symptom_payload: { symptoms: ["cramps"] } }).symptoms).toContain("cramps");
+    expect(mapWearableSignalRow({ signal_type: "sleep_duration", signal_value: 7.5, signal_unit: "h", source_platform: "apple_health", recorded_at: "2026-05-20 02:48:34.495071+00" }).recordedAt).toBe(
+      "2026-05-20T02:48:34.495Z"
+    );
+    expect(
+      mapJourneyEventRow({
+        id: "journey_1",
+        event_type: "OnboardingCompleted",
+        event_payload: { source: "test" },
+        occurred_at: "2026-05-20 02:48:34.495071+00"
+      }).occurredAt
+    ).toBe("2026-05-20T02:48:34.495Z");
     expect(
       mapProtectedWorkoutRow({
         id: "protected_1",
@@ -130,6 +146,26 @@ describe("Supabase repositories", () => {
         }
       }).rounds
     ).toBe(3);
+    expect(
+      mapFightOpportunityRow({
+        id: "fight_2",
+        status: "confirmed",
+        bout_date: "2026-06-20",
+        weigh_in_datetime: "2026-06-20 08:00:00+00",
+        weigh_in_type: "same_day",
+        fight_payload: {
+          amateurOrPro: "amateur",
+          rounds: 3,
+          roundMinutes: 3,
+          restSeconds: 60,
+          targetWeightClass: { label: "64 kg", limitKg: 64 },
+          contractedWeightKg: 64,
+          allowanceKg: 0.2,
+          timezone: "America/Vancouver",
+          hydrationTestingRequired: false
+        }
+      }).weighInDateTime
+    ).toBe("2026-06-20T08:00:00.000Z");
     expect(() => mapFoodLogRow({ log_date: "2026-05-19", meal_payload: { calories: -1 } })).toThrow(/food_logs/);
   });
 
