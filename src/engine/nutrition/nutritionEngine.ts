@@ -17,6 +17,8 @@ import type {
   WeighInContext
 } from "../core/types";
 import { toKg } from "../core/units";
+import { buildFuelHistoryViewModel } from "../presentation/fuelHistoryViewModel";
+import type { PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 import { calculateMacroTargets } from "./macroTargets";
 import { resolveFuelCommandCenter } from "./fuelCommandEngine";
 import { summarizeFoodLogs } from "./foodLogSummary";
@@ -39,11 +41,13 @@ export function resolveNutrition(input: {
   foodLogs: readonly FoodLog[];
   waterLogs: readonly WaterLog[];
   electrolyteLogs: readonly ElectrolyteLog[];
+  activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   foodLogCount: number;
   asOfDate: string;
 }): NutritionState {
   const kg = toKg(input.athlete.currentBodyMass) ?? input.bodyMass.trend.latestKg ?? input.athlete.typicalWalkAroundWeightKg ?? 75;
-  const blocked = input.safetyFlags.some((flag) => flag.hardStop);
+  const activeReviewHardStop = input.activeNutritionSafetyReviews.some((review) => review.hardStop);
+  const blocked = input.safetyFlags.some((flag) => flag.hardStop) || activeReviewHardStop;
   const underFuelingBlocked = input.safetyFlags.some((flag) => flag.code === "rapid_weight_loss" || flag.code === "repeated_low_intake" || flag.code === "missed_period_underfueling_risk");
   const cycleNoisy = input.bodyMass.feasibility.status === "cycle_noisy" || input.cycle.cycleRelatedWeightNoiseRisk === "high";
   const applyDeficit =
@@ -91,6 +95,21 @@ export function resolveNutrition(input: {
       ? ["Carbs before sparring", "Protein after", "Fluids plus electrolytes"]
       : ["Protein steady", "Carbs around boxing", "Fluids consistent"];
   const underFuelingRiskNote = underFuelingBlocked ? "Under-fueling risk is active, so deficit pressure is blocked and recovery fuel is protected." : null;
+  const fuelHistory = buildFuelHistoryViewModel({
+    asOfDate: input.asOfDate,
+    foodLogs: input.foodLogs,
+    waterLogs: input.waterLogs,
+    electrolyteLogs: input.electrolyteLogs,
+    nutritionTargets: {
+      calories: macros.calories,
+      proteinGrams: macros.proteinGrams,
+      carbohydrateGrams: macros.carbohydrateGrams,
+      fatGrams: macros.fatGrams,
+      fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
+      waterLiters
+    },
+    fightWeekActive: input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day"
+  });
   const command = resolveFuelCommandCenter({
     athlete: input.athlete,
     phase: input.phase,
@@ -114,6 +133,7 @@ export function resolveNutrition(input: {
     foodLogs: input.foodLogs,
     waterLogs: input.waterLogs,
     electrolyteLogs: input.electrolyteLogs,
+    activeNutritionSafetyReviews: input.activeNutritionSafetyReviews,
     asOfDate: input.asOfDate,
     nutritionTargets: {
       dailyCaloriesTarget: macros.calories,
@@ -138,6 +158,8 @@ export function resolveNutrition(input: {
     fatGrams: macros.fatGrams,
     fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
     actualIntakeSummary,
+    fuelHistory,
+    activeNutritionSafetyReviews: input.activeNutritionSafetyReviews,
     waterLiters,
     sodiumGuidance,
     sessionFueling,
@@ -159,7 +181,9 @@ export function resolveNutrition(input: {
     underFuelingRiskNote,
     explanation:
       blocked
-        ? "Nutrition target protects safety because a hard stop is active."
+        ? activeReviewHardStop
+          ? "Nutrition target protects safety because a persisted review hard stop remains active."
+          : "Nutrition target protects safety because a hard stop is active."
         : underFuelingBlocked
           ? "Nutrition target blocks deficit pressure because under-fueling risk is active."
         : cycleNoisy

@@ -2,8 +2,11 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type {
   FightWeekFuelPlan,
+  BodyMassTrajectoryViewModel,
+  FuelHistoryViewModel,
   FuelCommandCenterState,
   NutritionSafetyReview,
+  PersistedNutritionSafetyReview,
   RehydrationChecklist,
   TournamentFuelPlan,
   WeightClassStatus
@@ -48,27 +51,89 @@ export function FuelCommandCard({ command }: { command: FuelCommandCenterState }
 }
 
 export function NutritionSafetyReviewCard({
+  activeReviews,
+  onAcknowledgeReview,
   onRequestReview,
   review
 }: {
+  activeReviews?: readonly PersistedNutritionSafetyReview[] | undefined;
+  onAcknowledgeReview?: ((reviewId: string) => void | Promise<void>) | undefined;
   onRequestReview?: (() => void | Promise<void>) | undefined;
   review: NutritionSafetyReview;
 }) {
-  if (!review.required) {
+  const activeReview = activeReviews?.[0] ?? review.activeReview ?? null;
+  if (!review.required && !activeReview) {
     return null;
   }
+  const reasons = activeReview?.reasons.length ? activeReview.reasons : review.reasons;
+  const blockingFlags = activeReview?.blockingFlags.length ? activeReview.blockingFlags : review.blockingFlags;
+  const suggestedNextSteps = activeReview?.suggestedNextSteps.length ? activeReview.suggestedNextSteps : review.suggestedNextSteps;
+  const canAcknowledge = Boolean(activeReview && (activeReview.status === "requested" || activeReview.status === "blocked") && onAcknowledgeReview);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={[screenStyles.sectionTitle, { color: colors.redCorner }]}>Safety review</Text>
         <Text style={screenStyles.callout}>{review.professionalReviewCopy}</Text>
-        <Lines items={review.reasons.length > 0 ? review.reasons : ["Safety review is active."]} />
-        <Lines items={review.suggestedNextSteps} tone="body" />
-        {onRequestReview ? (
+        {activeReview ? <Text style={screenStyles.body}>Review {activeReview.id}: {statusLabel(activeReview.status)}.</Text> : null}
+        {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Hard stop remains active.</Text> : null}
+        <Text style={screenStyles.subtle}>This does not clear the plan. Athletes cannot self-clear nutrition hard stops.</Text>
+        <Lines items={reasons.length > 0 ? reasons : ["Safety review is active."]} />
+        {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Blocking flags</Text> : null}
+        <Lines items={blockingFlags} />
+        <Lines items={suggestedNextSteps} tone="body" />
+        {!activeReview && onRequestReview ? (
           <Pressable accessibilityRole="button" onPress={() => void onRequestReview()} style={screenStyles.button}>
-            <Text style={screenStyles.buttonText}>Acknowledge / log review needed</Text>
+            <Text style={screenStyles.buttonText}>Request safety review</Text>
           </Pressable>
         ) : null}
+        {canAcknowledge && activeReview ? (
+          <Pressable accessibilityRole="button" onPress={() => void onAcknowledgeReview?.(activeReview.id)} style={screenStyles.button}>
+            <Text style={screenStyles.buttonText}>Acknowledge review status</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </EngineCard>
+  );
+}
+
+export function BodyMassTrajectoryCard({ trajectory }: { trajectory: BodyMassTrajectoryViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }}>
+        <Text style={screenStyles.sectionTitle}>Body-mass trajectory</Text>
+        <Text style={screenStyles.callout}>{trajectory.status}</Text>
+        <Text style={screenStyles.body}>{trajectory.nextSafeAction}</Text>
+        <Text style={screenStyles.subtle}>{trajectory.latestWeight}</Text>
+        <Text style={screenStyles.subtle}>{trajectory.logCount7Day}</Text>
+        <Text style={screenStyles.subtle}>{trajectory.trend}</Text>
+        <Text style={screenStyles.subtle}>{trajectory.target}</Text>
+        <Text style={screenStyles.subtle}>{trajectory.daysToWeighIn}</Text>
+        <Text style={screenStyles.subtle}>{trajectory.cycleNoiseNote}</Text>
+        <Text style={screenStyles.subtle}>{trajectory.missingDataCopy}</Text>
+        {trajectory.reviewActionVisible ? <Text style={screenStyles.body}>Review action is required before weight-class pressure continues.</Text> : null}
+      </View>
+    </EngineCard>
+  );
+}
+
+export function FuelHistoryCard({ history }: { history: FuelHistoryViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }}>
+        <Text style={screenStyles.sectionTitle}>Recent fuel history</Text>
+        <Text style={screenStyles.callout}>{history.todaySummary}</Text>
+        <Text style={screenStyles.subtle}>Confidence: {history.loggingConfidence}</Text>
+        <Text style={screenStyles.body}>Recent meals</Text>
+        <Lines items={history.recentMeals} />
+        <Text style={screenStyles.body}>7-day macros</Text>
+        <Lines items={history.macroTrend7Day} />
+        <Text style={screenStyles.body}>Hydration and electrolytes</Text>
+        <Lines items={history.hydrationTrend7Day} />
+        <Text style={screenStyles.subtle}>{history.electrolyteSummary}</Text>
+        <Text style={screenStyles.body}>Fiber and sodium</Text>
+        <Text style={screenStyles.subtle}>{history.fiberSodiumSummary}</Text>
+        <Text style={screenStyles.subtle}>{history.missingDataCopy}</Text>
+        <Lines items={history.warnings} />
       </View>
     </EngineCard>
   );

@@ -6,7 +6,9 @@ import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import {
   FightWeekFuelCard,
+  BodyMassTrajectoryCard,
   FuelCommandCard,
+  FuelHistoryCard,
   NutritionSafetyReviewCard,
   RehydrationChecklistCard,
   SessionFuelingCard,
@@ -19,6 +21,7 @@ import { screenStyles } from "./screenStyles";
 export interface FuelScreenProps {
   busy: boolean;
   message: string | null;
+  onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
   onRequestNutritionSafetyReview?: (() => void | Promise<void>) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
@@ -37,13 +40,19 @@ function FuelContextCardView({ card }: { card: FuelContextCard }) {
   );
 }
 
-export function FuelScreen({ busy, message, onRequestNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
+export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <FuelCommandCard command={viewModel.commandCenter} />
-      <NutritionSafetyReviewCard onRequestReview={onRequestNutritionSafetyReview} review={viewModel.nutritionSafetyReview} />
+      <NutritionSafetyReviewCard
+        activeReviews={viewModel.activeNutritionSafetyReviews}
+        onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
+        onRequestReview={onRequestNutritionSafetyReview}
+        review={viewModel.nutritionSafetyReview}
+      />
       <WeightClassStatusCard status={viewModel.weightClassStatus} />
+      <BodyMassTrajectoryCard trajectory={viewModel.bodyMassTrajectory} />
       <SessionFuelingCard command={viewModel.commandCenter} hitTheseFirst={viewModel.hitTheseFirst} />
       {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
       <EngineCard>
@@ -54,6 +63,7 @@ export function FuelScreen({ busy, message, onRequestNutritionSafetyReview, quic
           {viewModel.actualIntakeSummary.rows.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
         </View>
       </EngineCard>
+      <FuelHistoryCard history={viewModel.fuelHistory} />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Hydration and electrolytes</Text>

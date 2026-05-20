@@ -1,4 +1,5 @@
 import type { FuelViewModel, PerformanceState } from "../core/types";
+import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import { riskSummary } from "./explanationCopy";
 
 export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
@@ -28,6 +29,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     rehydrationChecklist: state.nutrition.rehydrationChecklist,
     tournamentFuelPlan: state.nutrition.tournamentFuelPlan,
     nutritionSafetyReview: state.nutrition.nutritionSafetyReview,
+    activeNutritionSafetyReviews: state.nutrition.activeNutritionSafetyReviews,
     decisionStack: state.nutrition.decisionStack,
     hitTheseFirst: state.nutrition.hitTheseFirst,
     calorieSummary: `${state.nutrition.dailyCaloriesTarget} kcal target (${state.nutrition.calorieRange.min}-${state.nutrition.calorieRange.max})`,
@@ -39,6 +41,13 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
       confidence: state.nutrition.actualIntakeSummary.confidence.level,
       rows: state.nutrition.actualIntakeSummary.rows
     },
+    fuelHistory: state.nutrition.fuelHistory,
+    bodyMassTrajectory: buildBodyMassTrajectoryViewModel({
+      bodyMass: state.bodyMass,
+      cycle: state.cycle,
+      weighInContext: state.weighInContext,
+      weightClassStatus: state.nutrition.weightClassStatus
+    }),
     bodyMassSummary: state.nutrition.bodyMassNote,
     cycleNote: state.nutrition.cycleNote,
     fightOrTournamentNote: state.nutrition.tournamentFuelingGuidance ?? state.nutrition.lowResidueGuidance,

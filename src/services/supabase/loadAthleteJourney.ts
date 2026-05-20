@@ -11,6 +11,7 @@ import { createFightRepository } from "./fightRepository";
 import { createHydrationRepository } from "./hydrationRepository";
 import { createJourneyRepository } from "./journeyRepository";
 import { createNutritionRepository } from "./nutritionRepository";
+import { createNutritionSafetyReviewRepository } from "./nutritionSafetyReviewRepository";
 import { createProtectedWorkoutRepository } from "./protectedWorkoutRepository";
 import { createReadinessRepository } from "./readinessRepository";
 import { assertUserId, parseWithSchema } from "./repositoryTypes";
@@ -33,6 +34,7 @@ export interface AthleteJourneyRepositories {
   protectedWorkout: ReturnType<typeof createProtectedWorkoutRepository>;
   bodyMass: ReturnType<typeof createBodyMassRepository>;
   nutrition: ReturnType<typeof createNutritionRepository>;
+  nutritionSafetyReview?: ReturnType<typeof createNutritionSafetyReviewRepository> | undefined;
   hydration: ReturnType<typeof createHydrationRepository>;
   cycle: ReturnType<typeof createCycleRepository>;
   readiness: ReturnType<typeof createReadinessRepository>;
@@ -55,6 +57,7 @@ export function createAthleteJourneyRepositories(client: CornerSupabaseClient): 
     protectedWorkout: createProtectedWorkoutRepository(client),
     bodyMass: createBodyMassRepository(client),
     nutrition: createNutritionRepository(client),
+    nutritionSafetyReview: createNutritionSafetyReviewRepository(client),
     hydration: createHydrationRepository(client),
     cycle: createCycleRepository(client),
     readiness: createReadinessRepository(client),
@@ -135,6 +138,7 @@ export async function loadAthleteJourney(input: {
       protectedWorkouts,
       bodyMassHistory,
       nutritionHistory,
+      nutritionSafetyReviews,
       hydrationHistory,
       electrolyteHistory,
       cycleLogs,
@@ -154,6 +158,7 @@ export async function loadAthleteJourney(input: {
       input.repositories.protectedWorkout.listProtectedWorkouts(userId),
       input.repositories.bodyMass.listLogs(userId),
       input.repositories.nutrition.listFoodLogs(userId),
+      input.repositories.nutritionSafetyReview?.listActiveNutritionSafetyReviews(userId) ?? Promise.resolve([]),
       input.repositories.hydration.listWaterLogs(userId),
       input.repositories.hydration.listElectrolyteLogs(userId),
       input.repositories.cycle.listCycleLogs(userId),
@@ -193,6 +198,7 @@ export async function loadAthleteJourney(input: {
       trainingBlockTimelineEvents,
       bodyMassHistory,
       nutritionHistory,
+      nutritionSafetyReviews,
       hydrationHistory,
       electrolyteHistory,
       cycleHistory,

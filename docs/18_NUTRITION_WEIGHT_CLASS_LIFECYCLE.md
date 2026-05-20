@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document describes the seventeenth implementation pass for the Fuel / Weight-Class Command Center.
+This document describes the eighteenth implementation pass for the Fuel / Weight-Class Command Center. The pass turns nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle and makes manual fuel history more useful without adding barcode scanning, full meal planning, a detailed food database, or unsafe weight-cut instructions.
 
 ## Engine Shape
 
@@ -12,102 +12,155 @@ Primary files:
 
 - `src/engine/nutrition/fuelCommandTypes.ts`
 - `src/engine/nutrition/fuelCommandEngine.ts`
+- `src/engine/nutrition/nutritionSafetyReviewTypes.ts`
 - `src/engine/nutrition/nutritionEngine.ts`
 - `src/engine/presentation/fuelViewModel.ts`
+- `src/engine/presentation/fuelHistoryViewModel.ts`
+- `src/engine/presentation/bodyMassTrajectoryViewModel.ts`
+- `src/services/nutrition/requestNutritionSafetyReview.ts`
+- `src/services/supabase/nutritionSafetyReviewRepository.ts`
 - `src/app/screens/FuelScreen.tsx`
 - `src/app/screens/fuel/FuelCommandCards.tsx`
 
-## Phases
+## Persisted Review Lifecycle
 
-The command center normalizes nutrition-facing phases to:
+Migration `008_nutrition_safety_reviews.sql` adds:
 
-- `build`: fuel training quality, keep body composition pressure conservative, avoid aggressive deficits.
-- `camp`: monitor safe weight-class trajectory while protecting boxing-session carbohydrates.
-- `fight_week`: separate chronic body-composition work from gut-comfort choices; lower-fiber guidance never means lower calories.
-- `tournament`: favor stay-near-weight, repeated fueling, travel food control, and between-bout recovery.
-- `weigh_in_day`: same-day weigh-ins stay conservative and function-first.
-- `post_weigh_in`: staged refuel and rehydration checklist can appear when safe.
-- `bout_day`: protect usable fuel and gut comfort.
-- `recovery`: protect calories, fluids, and recovery.
+- `nutrition_safety_reviews`
+- `nutrition_safety_review_events`
 
-## Body-Mass Status
+Both tables are owner-scoped with RLS using `auth.uid() = user_id`. No permissive coach, clinician, dietitian, admin, or reviewer write policy was added.
 
-`WeightClassStatus` translates existing body-mass feasibility into athlete-readable action:
+Review statuses:
 
-- `no_active_weight_target`: no fight/tournament class pressure today.
-- `on_track`: hold conservative trajectory and fuel boxing.
-- `behind`: do not force an acute cut; review class/timeline/fuel.
-- `ahead`: protect calories and recovery instead of continuing pressure.
-- `cycle_noisy`: use the 7-day trend; do not react to a short-term cycle spike.
-- `unsafe` / `blocked`: stop automatic weight-class pressure and require review.
-- `needs_review`: keep training fuel while the target is reviewed.
-- `unknown`: missing data stays unknown, not safe.
+- `requested`
+- `acknowledged`
+- `in_review`
+- `cleared_by_reviewer`
+- `blocked`
+- `superseded`
 
-## Cycle And Scale Noise
+`cleared_by_reviewer` exists in the schema and mappers for future permissioned workflows only. The current client exposes no athlete method or button that can set it.
 
-Cycle support remains optional, private, and symptom-aware. Cycle-related scale noise can lower weight-class confidence and prevents calorie cuts from short-term spikes. Heavy flow, heavy symptoms, dizziness, or hard-stop cycle flags raise safety/review copy rather than pressure.
+Event types:
 
-## Under-Fueling Safety
+- `requested`
+- `acknowledged`
+- `reviewer_assigned`
+- `reviewer_note`
+- `cleared_by_reviewer`
+- `blocked`
+- `superseded`
 
-Rapid loss, repeated low intake, or missed-period under-fueling risk blocks deficit pressure. Red readiness protects calories and recovery fuel. Food logs increase confidence, but missing logs are not treated as failure or permission to cut.
+Current athlete actions:
 
-## Fight Week
+- Request a nutrition safety review when the engine says one is required.
+- Acknowledge an active requested or blocked review.
+- See active review status, review id, reasons, blocking flags, and suggested next steps.
 
-Fight-week fuel plan fields cover fiber, sodium, carbohydrates, hydration, gut comfort, safe actions, blocked reasons, and review reasons.
+Current athlete non-actions:
+
+- Cannot clear a hard stop.
+- Cannot mark a review as `cleared_by_reviewer`.
+- Cannot assign a reviewer.
+- Cannot write coach, clinician, dietitian, or admin review events.
+
+Hard stops remain active after request and acknowledgement. They can only be lifted by future permissioned reviewer infrastructure with relationship policy or a trusted server-side function.
+
+## Review Persistence
+
+`requestNutritionSafetyReview` now:
+
+- Upserts a `nutrition_safety_reviews` row.
+- Appends a `nutrition_safety_review_events` row.
+- Appends the existing `NutritionSafetyReviewRequested` journey event.
+- Returns `requested`, `already_active`, `not_required`, or `error`.
+- Keeps `hardStopRemains` true for hard-stop states.
+
+`resolveAndPersistPerformanceState` now:
+
+- Persists review-required Fuel Command Center states.
+- Appends an engine-origin review event only when a row is newly created.
+- Avoids duplicating an existing active review with the same user/date/type/hash identity.
+- Returns a ready state plus `persistenceWarning` if review persistence fails after engine resolution.
+- Does not hide the engine state when persistence fails.
+
+Active reviews are loaded through `loadAthleteJourney`, flow into the nutrition engine, and appear in the Fuel view model.
+
+## Review UI
+
+`NutritionSafetyReviewCard` now shows:
+
+- Active review status.
+- Review id.
+- Reasons.
+- Blocking flags.
+- Suggested next steps.
+- Request action when required but not yet persisted.
+- Acknowledge action for active requested or blocked reviews.
+- Hard-stop-remains copy.
+- "This does not clear the plan" copy.
+
+There is no clear button in the client.
+
+## Manual Fuel History
+
+`fuelHistoryViewModel` summarizes manual inputs without turning CornerIQ into a generic diet app:
+
+- Today summary.
+- Recent manual meals.
+- 7-day macro trend.
+- 7-day hydration trend.
+- Electrolyte summary.
+- Fiber/sodium summary.
+- Logging confidence.
+- Missing-data copy.
+- Fight-week warnings when relevant.
 
 Rules:
 
-- Lower-residue guidance is only gut-comfort guidance; calories stay protected.
-- Sodium and hydration guidance is conservative and safety-gated.
-- Same-day weigh-ins are function-first and conservative.
-- Day-before weigh-ins can show a fuller staged post-weigh-in checklist when safe.
-- Minors and possible/confirmed pregnancy block acute protocols.
-- Heavy bleeding plus dizziness blocks cut pressure.
+- Food history does not change targets by itself.
+- Missing logs are low confidence, not failure.
+- Sodium/fiber context is for consistency and gut comfort, not acute cut instructions.
+- Barcode scanning is not required or implemented.
+- Full meal planning is not implemented.
 
-## Rehydration Checklist
+## Body-Mass Trajectory
 
-`RehydrationChecklist` is now athlete-usable:
+`bodyMassTrajectoryViewModel` adds a non-chart trajectory panel:
 
-- immediate actions
-- first meal
-- next meal
-- fluids/electrolytes
-- carb priority
-- gut comfort rules
-- warning symptoms
-- confidence
+- Latest weight.
+- 7-day log count.
+- Trend.
+- Target.
+- Days to weigh-in.
+- Status.
+- Cycle-noise note.
+- Next safe action.
+- Missing-data copy.
+- Review-action visibility for blocked/unsafe states.
 
-Same-day windows stay small and conservative. Day-before windows can stage fluids, electrolytes, sodium-containing foods, and carbohydrate restoration when safety allows. Warning symptoms remain visible.
+Rules:
 
-## Tournament Mode
+- No calorie cuts based on cycle scale spikes.
+- No acute protocol details.
+- Unknown data stays unknown.
+- Blocked/unsafe state points back to review action.
 
-`TournamentFuelPlan` makes amateur tournament support first-class:
+## Persistence Tables
 
-- stay-near-weight strategy
-- daily weigh-in priorities
-- between-bout priorities
-- evening meal guidance
-- travel/hotel food guidance
-- warning flags
-- explanation
+Nutrition review persistence:
 
-The plan avoids large repeated scale swings and recommends review, a safer class, or stopping automatic pressure when unsafe.
+- `nutrition_safety_reviews`: one auditable review row per user/date/type/engine/input/output identity.
+- `nutrition_safety_review_events`: append-only event history for the review row.
 
-## Safety Review Workflow
+Existing nutrition command persistence remains:
 
-`NutritionSafetyReview` is a service-level skeleton, not a clinician workflow. The UI can log that review is needed through `requestNutritionSafetyReview`, which appends `NutritionSafetyReviewRequested` to journey events. This does not self-clear a hard stop.
+- `nutrition_targets.target_payload`: stores the resolved nutrition/Fuel Command Center snapshot.
+- `engine_runs` and `decision_traces`: store engine-level audit context.
+- `athlete_journey_events`: records journey-level review requests.
 
-## Persistence Status
-
-No `008` migration was added. Existing tables are sufficient for this pass:
-
-- `nutrition_targets.target_payload` now persists the resolved fuel command snapshot because `mapNutritionTargetToRow` stores `state.nutrition`.
-- `engine_runs` and `decision_traces` still persist engine-level audit context.
-- `athlete_journey_events` records safety-review requests.
-
-The live smoke now verifies that the persisted nutrition target payload contains the command center and weight-class status and does not contain the tested unsafe terms.
-
-## Intentionally Not Shown
+## Safety Boundaries
 
 The Fuel system does not show or prescribe:
 
@@ -121,11 +174,31 @@ The Fuel system does not show or prescribe:
 - barcode scanning
 - full meal planning
 
+## Smoke Status
+
+Latest live smoke passed after migration 008 was applied remotely.
+
+The smoke verifies:
+
+- Manual food, water, electrolyte, readiness, body-mass, and protected-workout writes.
+- Fuel history resolves after manual food/water logs.
+- Body-mass trajectory resolves after a manual body-mass log.
+- Nutrition target command snapshot persists and excludes tested unsafe terms.
+- A benign `general_nutrition` safety review can be requested through the service.
+- A `nutrition_safety_reviews` row is written.
+- A `nutrition_safety_review_events` requested event is written.
+- A `NutritionSafetyReviewRequested` journey event is written.
+- Athlete acknowledgement updates status to `acknowledged`.
+- No hard stop is cleared by request or acknowledgement.
+- Smoke-created review/event rows are cleaned up.
+
 ## Known Gaps
 
-- Food logging remains manual and simple.
+- No permissioned clinician, dietitian, admin, or coach reviewer workflow yet.
+- No reviewer-cleared workflow is exposed to the app.
+- No coach/clinician messaging.
 - No full meal-planning system.
 - No barcode scanning.
-- No clinician/coach messaging integration for review requests.
-- No dedicated nutrition audit table yet; existing `nutrition_targets` is used for command snapshots.
-- No detailed nutrition history drill-down.
+- No detailed food database.
+- Manual food history is useful but still basic.
+- Nutrition command snapshots still use `nutrition_targets.target_payload`; no dedicated nutrition command snapshot table exists.

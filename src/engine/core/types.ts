@@ -8,6 +8,7 @@ export * from "../wearable/types";
 export * from "../training/types";
 export * from "../nutrition/types";
 export * from "../nutrition/fuelCommandTypes";
+export * from "../nutrition/nutritionSafetyReviewTypes";
 export * from "../bodyMass/types";
 export * from "../readiness/types";
 export * from "../safety/types";

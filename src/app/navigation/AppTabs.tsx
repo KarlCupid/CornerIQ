@@ -25,6 +25,7 @@ export interface AppTabsProps {
   cycleSymptomOptions: readonly CycleSymptom[];
   message: string | null;
   nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
+  onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => Promise<void>) | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   onRequestNutritionSafetyReview?: (() => Promise<void>) | undefined;
@@ -37,7 +38,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeekPreviewActions, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -72,6 +73,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeek
             <FuelScreen
               busy={busy}
               message={message}
+              onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
               onRequestNutritionSafetyReview={onRequestNutritionSafetyReview}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}

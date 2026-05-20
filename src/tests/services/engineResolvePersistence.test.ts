@@ -1,11 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AthleteJourney, ISODateString } from "../../engine/core/types";
+import type { AthleteJourney, ISODateString, PersistedNutritionSafetyReview } from "../../engine/core/types";
+import type { NutritionSafetyReviewRequest } from "../../engine/nutrition/nutritionSafetyReviewTypes";
 import { resolveAndPersistPerformanceState } from "../../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { fixtureAsOfDate, menstruating_athlete_camp_heavy_symptoms, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
-function createRepositories(options: { blockPersistenceFailure?: boolean; journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; previewPersistenceFailure?: boolean; repositoryFailure?: boolean } = {}) {
+function persistedNutritionSafetyReview(overrides: Partial<PersistedNutritionSafetyReview> = {}): PersistedNutritionSafetyReview {
+  return {
+    id: "nutrition_review_1",
+    userId: "user_1",
+    asOfDate: fixtureAsOfDate,
+    reviewType: "weight_class",
+    status: "requested",
+    severity: "critical",
+    hardStop: true,
+    blockingFlags: ["acute_protocol_blocked"],
+    reasons: ["Same-day acute loss is blocked."],
+    suggestedNextSteps: ["Pause weight-class pressure."],
+    sourcePayload: { source: "fuel_command_center" },
+    reviewerUserId: null,
+    reviewerRole: null,
+    reviewedAt: null,
+    engineVersion: "0.2.0",
+    inputHash: "input_hash",
+    outputHash: "output_hash",
+    createdAt: "2026-05-19T00:00:00.000Z",
+    updatedAt: "2026-05-19T00:00:00.000Z",
+    ...overrides
+  };
+}
+
+function createRepositories(options: { blockPersistenceFailure?: boolean; journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; previewPersistenceFailure?: boolean; repositoryFailure?: boolean; reviewPersistenceFailure?: boolean } = {}) {
   const journey = options.journey ?? no_wearable_manual_only;
   const runStore = new Map<string, string>();
   const generatedSessionStore = new Map<string, unknown>();
@@ -19,6 +45,8 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
   const nextWeekPreviewStore = new Map<string, string>();
   const timelineEvents: unknown[] = [];
   const nutritionTargets: unknown[] = [];
+  const nutritionSafetyReviews = new Map<string, PersistedNutritionSafetyReview>();
+  const nutritionSafetyReviewEvents: unknown[] = [];
   const upsertRun = vi.fn(async (record: { as_of_date: string; engine_version: string; input_hash: string; user_id: string }) => {
     if (options.persistenceFailure) {
       throw new Error("remote insert failed");
@@ -45,6 +73,47 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
   });
   const upsertNutritionTarget = vi.fn(async (record: unknown) => {
     nutritionTargets.push(record);
+  });
+  const upsertNutritionSafetyReview = vi.fn(async (request: NutritionSafetyReviewRequest) => {
+    if (options.reviewPersistenceFailure) {
+      throw new Error("nutrition review projection failed");
+    }
+    const key = `${request.userId}:${request.asOfDate}:${request.reviewType}:${request.engineVersion}:${request.inputHash}:${request.outputHash}`;
+    const existing = nutritionSafetyReviews.get(key);
+    if (existing) {
+      return { lifecycle: "existing" as const, review: existing };
+    }
+    const review = persistedNutritionSafetyReview({
+      id: `nutrition_review_${nutritionSafetyReviews.size + 1}`,
+      userId: request.userId,
+      asOfDate: request.asOfDate,
+      reviewType: request.reviewType,
+      status: request.status ?? "requested",
+      severity: request.severity,
+      hardStop: request.hardStop,
+      blockingFlags: request.blockingFlags,
+      reasons: request.reasons,
+      suggestedNextSteps: request.suggestedNextSteps,
+      sourcePayload: request.sourcePayload,
+      engineVersion: request.engineVersion,
+      inputHash: request.inputHash,
+      outputHash: request.outputHash
+    });
+    nutritionSafetyReviews.set(key, review);
+    return { lifecycle: "created" as const, review };
+  });
+  const appendNutritionSafetyReviewEvent = vi.fn(async (record: unknown) => {
+    nutritionSafetyReviewEvents.push(record);
+    return {
+      id: `nutrition_review_event_${nutritionSafetyReviewEvents.length}`,
+      userId: "user_1",
+      nutritionSafetyReviewId: "nutrition_review_1",
+      eventType: "requested" as const,
+      actorType: "engine" as const,
+      actorUserId: null,
+      eventPayload: {},
+      createdAt: "2026-05-19T00:00:00.000Z"
+    };
   });
   const upsertGeneratedSessions = vi.fn(async (records: readonly { engine_version: string; generated_session_key?: string | null; planned_date: string; user_id: string }[]) => {
     for (const record of records) {
@@ -155,6 +224,15 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
     protectedWorkout: { listProtectedWorkouts: vi.fn(async () => journey.protectedWorkouts), insertProtectedWorkout: vi.fn() },
     bodyMass: { listLogs: vi.fn(async () => journey.bodyMassHistory), insertManualLog: vi.fn() },
     nutrition: { listFoodLogs: vi.fn(async () => journey.nutritionHistory) },
+    nutritionSafetyReview: {
+      listActiveNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
+      listNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
+      getNutritionSafetyReviewById: vi.fn(async () => null),
+      upsertNutritionSafetyReview,
+      appendNutritionSafetyReviewEvent,
+      acknowledgeNutritionSafetyReview: vi.fn(async (_userId: string, reviewId: string) => persistedNutritionSafetyReview({ id: reviewId, status: "acknowledged" })),
+      supersedeNutritionSafetyReviews: vi.fn(async () => ({ ids: [] }))
+    },
     hydration: { listWaterLogs: vi.fn(async () => journey.hydrationHistory), listElectrolyteLogs: vi.fn(async () => journey.electrolyteHistory), insertWaterLog: vi.fn() },
     cycle: { listCycleLogs: vi.fn(async () => journey.cycleHistory), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
@@ -223,9 +301,11 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
 
   return {
     repositories,
-    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, nextWeekPreviewStore, nutritionTargets, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
+    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, nextWeekPreviewStore, nutritionSafetyReviewEvents, nutritionSafetyReviews, nutritionTargets, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
     calls: {
+      appendNutritionSafetyReviewEvent,
       saveDecisionTracesForRun,
+      upsertNutritionSafetyReview,
       upsertActiveTrainingBlock,
       upsertGeneratedSessions,
       upsertNutritionTarget,
@@ -332,6 +412,77 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(record.target_payload.nutrition.weightClassStatus).toBeTruthy();
     expect(record.target_payload.nutrition.tournamentFuelPlan).toBeTruthy();
     expect(record.target_payload.nutrition.nutritionSafetyReview).toBeTruthy();
+  });
+
+  it("persists a required nutrition safety review during resolve and keeps the Fuel view model aware of it", async () => {
+    const { repositories, calls, stores } = createRepositories({ journey: menstruating_athlete_camp_heavy_symptoms });
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    expect(calls.upsertNutritionSafetyReview).toHaveBeenCalledTimes(1);
+    expect(calls.upsertNutritionSafetyReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePayload: expect.objectContaining({
+          commandPhase: expect.any(String),
+          weightClassStatus: expect.any(String)
+        })
+      })
+    );
+    expect(calls.appendNutritionSafetyReviewEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: "requested", actorType: "engine" }));
+    expect(stores.nutritionSafetyReviews.size).toBe(1);
+    if (result.status === "ready") {
+      expect(result.state.viewModels.fuel.activeNutritionSafetyReviews).toHaveLength(1);
+      expect(result.state.viewModels.fuel.nutritionSafetyReview.activeReview?.id).toBe("nutrition_review_1");
+      expect(result.state.viewModels.fuel.nutritionSafetyReview.activeReview?.hardStop).toBe(true);
+      expect(JSON.stringify(result.state.viewModels.fuel.nutritionSafetyReview.activeReview?.sourcePayload)).not.toMatch(/sauna|sweat suit|laxative|diuretic|water cut|make weight at all costs/i);
+    }
+  });
+
+  it("does not create a nutrition safety review row when review is not required", async () => {
+    const { repositories, calls, stores } = createRepositories();
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(calls.upsertNutritionSafetyReview).not.toHaveBeenCalled();
+    expect(stores.nutritionSafetyReviews.size).toBe(0);
+  });
+
+  it("returns ready state with a warning when nutrition safety review persistence fails", async () => {
+    const { repositories } = createRepositories({ journey: menstruating_athlete_camp_heavy_symptoms, reviewPersistenceFailure: true });
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.persistenceWarning).toContain("nutrition review projection failed");
+      expect(result.state.viewModels.fuel.nutritionSafetyReview.required).toBe(true);
+    }
+  });
+
+  it("does not duplicate existing active nutrition safety review projections for identical resolves", async () => {
+    const { repositories, calls, stores } = createRepositories({ journey: menstruating_athlete_camp_heavy_symptoms });
+
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(calls.upsertNutritionSafetyReview).toHaveBeenCalledTimes(2);
+    expect(stores.nutritionSafetyReviews.size).toBe(1);
+    expect(stores.nutritionSafetyReviewEvents).toHaveLength(1);
+  });
+
+  it("keeps a loaded hard-stop review active even after acknowledgement", async () => {
+    const acknowledgedReview = persistedNutritionSafetyReview({ status: "acknowledged" });
+    const journey: AthleteJourney = {
+      ...no_wearable_manual_only,
+      nutritionSafetyReviews: [acknowledgedReview]
+    };
+    const { repositories } = createRepositories({ journey });
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.state.nutrition.nutritionSafetyReview.required).toBe(true);
+      expect(result.state.viewModels.fuel.activeNutritionSafetyReviews[0]?.status).toBe("acknowledged");
+      expect(result.state.viewModels.fuel.nutritionSafetyReview.professionalReviewCopy).toContain("will not let an athlete self-clear");
+    }
   });
 
   it("returns needs_profile without persisting when profile is missing", async () => {

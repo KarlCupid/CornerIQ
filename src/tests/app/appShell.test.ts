@@ -164,6 +164,7 @@ const fuelViewModel: FuelViewModel = {
     suggestedNextSteps: ["No safety review is required for the current fuel command."],
     professionalReviewCopy: "No professional review gate is active for today."
   },
+  activeNutritionSafetyReviews: [],
   decisionStack: fuelDecisionStack,
   hitTheseFirst: ["Water", "Carbs"],
   calorieSummary: "2200 kcal target",
@@ -174,6 +175,29 @@ const fuelViewModel: FuelViewModel = {
     summary: "1 food log recorded today.",
     confidence: "low",
     rows: ["1200 kcal logged"]
+  },
+  fuelHistory: {
+    todaySummary: "1200 kcal logged today: 80g protein, 140g carbs, 35g fat.",
+    recentMeals: ["2026-05-19: 1200 kcal, 80g protein, 140g carbs, confidence low."],
+    macroTrend7Day: ["7-day average: 1200 kcal against 2200 kcal target context."],
+    hydrationTrend7Day: ["Today: 2.5L logged. 7-day average: 2.5L against 2.5L target context."],
+    electrolyteSummary: "No electrolyte logs in the last 7 days. That lowers confidence; it does not assume unsafe or safe.",
+    fiberSodiumSummary: "Today fiber/sodium: 18g fiber, 1800mg sodium. 7-day context: 18g fiber, 1800mg sodium.",
+    loggingConfidence: "low",
+    missingDataCopy: "Manual history improves context only; targets remain engine-led.",
+    warnings: []
+  },
+  bodyMassTrajectory: {
+    latestWeight: "Latest: unknown",
+    logCount7Day: "0 body-mass log(s) in the last 7 days.",
+    trend: "Trend unknown until more body-mass logs exist.",
+    target: "No active weight-class target today.",
+    daysToWeighIn: "Weigh-in timing unknown.",
+    status: "no active weight target",
+    cycleNoiseNote: "Scale-noise risk unknown.",
+    nextSafeAction: "Log body mass manually if it feels safe and useful.",
+    missingDataCopy: "Unknown data stays unknown. The engine does not assume missing scale data is safe.",
+    reviewActionVisible: false
   },
   bodyMassSummary: "Trend unknown",
   cycleNote: null,
@@ -467,6 +491,67 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
     protectedWorkout: { listProtectedWorkouts: vi.fn(async () => journey.protectedWorkouts), insertProtectedWorkout: vi.fn() },
     bodyMass: { listLogs: vi.fn(async () => journey.bodyMassHistory), insertManualLog: vi.fn() },
     nutrition: { listFoodLogs: vi.fn(async () => journey.nutritionHistory) },
+    nutritionSafetyReview: {
+      listActiveNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
+      listNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
+      getNutritionSafetyReviewById: vi.fn(async () => null),
+      upsertNutritionSafetyReview: vi.fn(async () => ({
+        lifecycle: "created" as const,
+        review: {
+          id: "review_1",
+          userId: "user_1",
+          asOfDate: fixtureAsOfDate,
+          reviewType: "weight_class" as const,
+          status: "requested" as const,
+          severity: "critical" as const,
+          hardStop: true,
+          blockingFlags: ["acute_protocol_blocked"],
+          reasons: ["Review required."],
+          suggestedNextSteps: ["Keep regular meals and fluids steady."],
+          sourcePayload: { source: "test" },
+          reviewerUserId: null,
+          reviewerRole: null,
+          reviewedAt: null,
+          engineVersion: "0.2.0",
+          inputHash: "input",
+          outputHash: "output",
+          createdAt: "2026-05-19T00:00:00.000Z",
+          updatedAt: "2026-05-19T00:00:00.000Z"
+        }
+      })),
+      appendNutritionSafetyReviewEvent: vi.fn(async () => ({
+        id: "review_event_1",
+        userId: "user_1",
+        nutritionSafetyReviewId: "review_1",
+        eventType: "requested" as const,
+        actorType: "athlete" as const,
+        actorUserId: "user_1",
+        eventPayload: {},
+        createdAt: "2026-05-19T00:00:00.000Z"
+      })),
+      acknowledgeNutritionSafetyReview: vi.fn(async (_userId: string, reviewId: string) => ({
+        id: reviewId,
+        userId: "user_1",
+        asOfDate: fixtureAsOfDate,
+        reviewType: "weight_class" as const,
+        status: "acknowledged" as const,
+        severity: "critical" as const,
+        hardStop: true,
+        blockingFlags: ["acute_protocol_blocked"],
+        reasons: ["Review required."],
+        suggestedNextSteps: ["Keep regular meals and fluids steady."],
+        sourcePayload: { source: "test" },
+        reviewerUserId: null,
+        reviewerRole: null,
+        reviewedAt: null,
+        engineVersion: "0.2.0",
+        inputHash: "input",
+        outputHash: "output",
+        createdAt: "2026-05-19T00:00:00.000Z",
+        updatedAt: "2026-05-19T00:00:00.000Z"
+      })),
+      supersedeNutritionSafetyReviews: vi.fn(async () => ({ ids: [] }))
+    },
     hydration: { listWaterLogs: vi.fn(async () => journey.hydrationHistory), listElectrolyteLogs: vi.fn(async () => journey.electrolyteHistory), insertWaterLog: vi.fn() },
     cycle: { listCycleLogs: vi.fn(async () => journey.cycleHistory), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
@@ -653,6 +738,8 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel })).toJSON());
     expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("2200 kcal target"));
     expect(output.indexOf("Carbs")).toBeLessThan(output.indexOf("2200 kcal target"));
+    expect(output).toContain("Body-mass trajectory");
+    expect(output).toContain("Recent fuel history");
     expect(output).toContain("Food quick log");
   });
 
@@ -696,24 +783,121 @@ describe("minimal app screens", () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const state = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
     const onRequestNutritionSafetyReview = vi.fn();
-    const output = JSON.stringify(
-      render(
-        React.createElement(FuelScreen, {
-          busy: false,
-          message: null,
-          onRequestNutritionSafetyReview,
-          quickLogs: quickLogActions,
-          recentLogs: recentLogsViewModel,
-          viewModel: state.viewModels.fuel
-        })
-      ).toJSON()
+    const renderer = render(
+      React.createElement(FuelScreen, {
+        busy: false,
+        message: null,
+        onRequestNutritionSafetyReview,
+        quickLogs: quickLogActions,
+        recentLogs: recentLogsViewModel,
+        viewModel: state.viewModels.fuel
+      })
     );
+    const output = JSON.stringify(renderer.toJSON());
 
     expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("Actual vs target today"));
     expect(output).toContain("Safety review");
     expect(output).toContain("Review required before this plan can continue");
-    expect(output).toContain("Acknowledge / log review needed");
+    expect(output).toContain("Request safety review");
+    expect(output).toContain("This does not clear the plan");
+    const requestPress = renderer.root.findAllByType("Pressable")[0]?.props.onPress;
+    await act(async () => {
+      if (typeof requestPress === "function") {
+        requestPress();
+      }
+    });
+    expect(onRequestNutritionSafetyReview).toHaveBeenCalledTimes(1);
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
+  });
+
+  it("FuelScreen renders active review status, acknowledge action, and no clear button", async () => {
+    const { FuelScreen } = await import("../../app/screens/FuelScreen");
+    const onAcknowledgeNutritionSafetyReview = vi.fn();
+    const viewModel: FuelViewModel = {
+      ...fuelViewModel,
+      nutritionSafetyReview: {
+        required: true,
+        reasons: ["Qualified review is required."],
+        blockingFlags: ["acute_protocol_blocked"],
+        suggestedNextSteps: ["Keep regular meals and fluids steady."],
+        professionalReviewCopy: "Review required before this plan can continue. The app will not let an athlete self-clear a hard stop.",
+        activeReview: {
+          id: "review_1",
+          userId: "user_1",
+          asOfDate: fixtureAsOfDate,
+          reviewType: "weight_class",
+          status: "requested",
+          severity: "critical",
+          hardStop: true,
+          blockingFlags: ["acute_protocol_blocked"],
+          reasons: ["Qualified review is required."],
+          suggestedNextSteps: ["Keep regular meals and fluids steady."],
+          sourcePayload: { source: "test" },
+          reviewerUserId: null,
+          reviewerRole: null,
+          reviewedAt: null,
+          engineVersion: "0.2.0",
+          inputHash: "input",
+          outputHash: "output",
+          createdAt: "2026-05-19T00:00:00.000Z",
+          updatedAt: "2026-05-19T00:00:00.000Z"
+        }
+      },
+      activeNutritionSafetyReviews: [
+        {
+          id: "review_1",
+          userId: "user_1",
+          asOfDate: fixtureAsOfDate,
+          reviewType: "weight_class",
+          status: "requested",
+          severity: "critical",
+          hardStop: true,
+          blockingFlags: ["acute_protocol_blocked"],
+          reasons: ["Qualified review is required."],
+          suggestedNextSteps: ["Keep regular meals and fluids steady."],
+          sourcePayload: { source: "test" },
+          reviewerUserId: null,
+          reviewerRole: null,
+          reviewedAt: null,
+          engineVersion: "0.2.0",
+          inputHash: "input",
+          outputHash: "output",
+          createdAt: "2026-05-19T00:00:00.000Z",
+          updatedAt: "2026-05-19T00:00:00.000Z"
+        }
+      ]
+    };
+    const renderer = render(
+      React.createElement(FuelScreen, {
+        busy: false,
+        message: null,
+        onAcknowledgeNutritionSafetyReview,
+        quickLogs: quickLogActions,
+        recentLogs: recentLogsViewModel,
+        viewModel
+      })
+    );
+    const output = JSON.stringify(renderer.toJSON());
+
+    expect(output).toContain("review_1");
+    expect(output).toContain("Acknowledge review status");
+    expect(output).toContain("Hard stop remains active");
+    const acknowledgePress = renderer.root.findAllByType("Pressable")[0]?.props.onPress;
+    await act(async () => {
+      if (typeof acknowledgePress === "function") {
+        acknowledgePress();
+      }
+    });
+    expect(onAcknowledgeNutritionSafetyReview).toHaveBeenCalledWith("review_1");
+    expect(output).not.toMatch(/clear review|clear hard stop|cleared/i);
+  });
+
+  it("Fuel screens do not import nutrition safety review repositories directly", () => {
+    for (const file of ["src/app/screens/FuelScreen.tsx", "src/app/screens/fuel/FuelCommandCards.tsx"]) {
+      const source = readFileSync(file, "utf8");
+      expect(source).not.toContain("nutritionSafetyReviewRepository");
+      expect(source).not.toContain("createNutritionSafetyReviewRepository");
+    }
   });
 
   it("FuelScreen renders staged rehydration checklist with warning symptoms", async () => {
@@ -1874,6 +2058,32 @@ describe("minimal app screens", () => {
 
     expect(repositories.athlete.upsertProfile).toHaveBeenCalled();
     expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it("usePerformanceState acknowledges nutrition safety reviews and refreshes state", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return null;
+    }
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+    await act(async () => {
+      await snapshot.current?.acknowledgeNutritionSafetyReview("review_1");
+    });
+
+    expect(repositories.nutritionSafetyReview?.acknowledgeNutritionSafetyReview).toHaveBeenCalledWith("user_1", "review_1");
+    expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+    expect(snapshot.current?.message).toContain("does not clear");
   });
 
   it("usePerformanceState auto-materializes due accepted previews and refreshes once", async () => {

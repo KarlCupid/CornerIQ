@@ -1,5 +1,61 @@
 # Codex Audit Log
 
+## 2026-05-20 11:51 America/Vancouver
+
+Goal summary:
+- Add additive migration 008 for persisted nutrition safety reviews and review events.
+- Persist review-required Fuel states from service requests and engine resolution.
+- Let athletes request or acknowledge reviews while keeping all hard stops active.
+- Load active reviews into AthleteJourney and Fuel view models.
+- Add manual Fuel History and Body Mass Trajectory panels without barcode scanning, meal planning, or unsafe cut language.
+- Extend live smoke to verify the new review tables and manual history projections.
+
+Key changes:
+- Added `008_nutrition_safety_reviews.sql` with `nutrition_safety_reviews`, `nutrition_safety_review_events`, owner RLS, constraints, indexes, updated-at trigger, comments, and no reviewer write policy.
+- Added `nutritionSafetyReviewTypes` and `nutritionSafetyReviewRepository` with Zod validation, idempotent upsert, active/history listing, acknowledgement, event append, and non-hard-stop supersession.
+- Updated `requestNutritionSafetyReview` to persist review row, review event, and `NutritionSafetyReviewRequested` journey event; acknowledgement appends an event but cannot clear a review.
+- Updated `resolveAndPersistPerformanceState` to persist required review states and return ready state with a persistence warning if review persistence fails after engine resolution.
+- Loaded active reviews through `loadAthleteJourney`; Fuel command logic keeps active hard stops alive and shows active persisted review status.
+- Added Fuel UI request/acknowledge actions, review history/status copy, hard-stop-remains copy, and no-clear copy.
+- Added `fuelHistoryViewModel` and `bodyMassTrajectoryViewModel` plus Fuel cards.
+- Extended live smoke with manual food history, body-mass trajectory, benign persisted review request, review event, journey event, acknowledgement, unsafe-term scan, and cleanup.
+
+Command results:
+- Baseline `git status --short`: clean before implementation; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Baseline `git log --oneline --decorate -8`: latest commit `ad3357b (HEAD -> main, origin/main) Update CornerIQ agent guidance and workflow rules`.
+- Direct `npm run typecheck`: blocked by PowerShell `npm.ps1` execution policy; `cmd /c npm run typecheck` passed.
+- Baseline `cmd /c npm test`: sandboxed Vitest failed with config access denied; outside sandbox passed with `27` files passed, `1` skipped, `280` tests passed, `1` skipped.
+- Baseline `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; outside sandbox passed.
+- Baseline `cmd /c npm run lint`: passed.
+- Supabase CLI version: `2.100.1`.
+- Baseline migration list/dry-run: `001` through `007` aligned and remote DB up to date.
+- `cmd /c npm exec supabase -- db push --dry-run`: after adding 008, passed and reported 008 would be pushed.
+- `cmd /c npm exec supabase -- db push`: applied `008_nutrition_safety_reviews.sql`.
+- `cmd /c npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts`: completed; generated file was normalized back to UTF-8.
+- Targeted review/repository/persistence/view-model tests: `70` tests passed across `5` files.
+- Targeted `src/tests/app/appShell.test.ts`: `57` tests passed.
+- Targeted smoke/repository gating tests: `35` tests passed and live smoke skipped without env.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm test`: passed with `29` files passed and `1` skipped; `304` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with `304` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final migration list: local/remote `001` through `008` aligned.
+- Final dry run: `Remote database is up to date.`
+- Final live smoke with ignored `.env` and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12366ms`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only after trimming the generated types EOF.
+- `git rev-parse HEAD`: `ad3357bc67e28c2a043800aac8be52213834ad57`.
+- No commit was created in this pass.
+
+Known gaps:
+- No permissioned reviewer UI, reviewer assignment flow, clinician/dietitian messaging, or exposed reviewer-clear workflow yet.
+- Hard stops remain active after request and acknowledgement.
+- Food history remains manual/basic; no barcode scanner, full meal planning, or detailed food database.
+- Nutrition command snapshots still persist through `nutrition_targets.target_payload`; no dedicated command snapshot table exists.
+- Coach UI, production coach audit policy, team memberships, background roll-forward, numeric load progression, and routed drill-downs remain deferred.
+
+Next recommendation:
+- Build the future permissioned reviewer workflow only after coach/clinician relationship policy is safe, or deepen manual food history while keeping barcode scanning and meal planning deferred.
+
 ## 2026-05-20 11:08 America/Vancouver
 
 Goal summary:

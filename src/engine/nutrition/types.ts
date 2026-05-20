@@ -1,6 +1,7 @@
 import type { Confidence, ConfidenceLevel, ISODateString } from "../core/sharedTypes";
 import type { AcuteProtocolEligibility, AcuteProtocolStatus } from "../fight/types";
 import type { RiskFlag } from "../safety/types";
+import type { FuelHistoryViewModel } from "../presentation/fuelHistoryViewModel";
 import type {
   FightWeekFuelPlan,
   FuelCommandCenterState,
@@ -11,6 +12,7 @@ import type {
   WeightClassStatus
 } from "./fuelCommandTypes";
 import type { FoodLogActualSummary } from "./foodLogSummary";
+import type { PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 
 export interface FoodLog {
   date: ISODateString;
@@ -58,6 +60,8 @@ export interface NutritionState {
   fatGrams: number;
   fiberGrams: number;
   actualIntakeSummary: FoodLogActualSummary;
+  fuelHistory: FuelHistoryViewModel;
+  activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   waterLiters: number;
   sodiumGuidance: string;
   sessionFueling: readonly string[];

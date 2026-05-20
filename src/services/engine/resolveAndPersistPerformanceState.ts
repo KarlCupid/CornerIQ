@@ -1,8 +1,10 @@
 import { AthleteJourneySchema } from "../../engine/core/schemas";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
+import { buildFuelViewModel } from "../../engine/presentation/fuelViewModel";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import { buildProfileViewModel } from "../../engine/presentation/profileViewModel";
+import type { PersistedNutritionSafetyReview } from "../../engine/nutrition/nutritionSafetyReviewTypes";
 import {
   materializeNextWeekTrainingPlan as buildNextWeekTrainingPreview,
   type NextWeekTrainingMaterialization
@@ -23,6 +25,9 @@ import {
   mapRiskFlagToRow
 } from "../supabase/engineRunRepository";
 import { assertUserId, parseWithSchema } from "../supabase/repositoryTypes";
+import { buildNutritionSafetyReviewRequest } from "../nutrition/requestNutritionSafetyReview";
+
+const ACTIVE_NUTRITION_REVIEW_STATUSES = new Set(["requested", "acknowledged", "in_review", "blocked"]);
 
 export type ResolveAndPersistPerformanceStateResult =
   | {
@@ -156,6 +161,95 @@ function withTrainingPersistenceStatus(input: {
       profile: buildProfileViewModel(nextState)
     }
   };
+}
+
+function nutritionReviewSourcePayload(state: PerformanceState): Record<string, unknown> {
+  return {
+    source: "fuel_command_center",
+    asOfDate: state.asOfDate,
+    commandPhase: state.nutrition.commandCenter.phase,
+    primaryFuelAction: state.nutrition.commandCenter.primaryFuelAction,
+    safetyAction: state.nutrition.commandCenter.safetyAction,
+    weightClassStatus: state.nutrition.weightClassStatus.status,
+    fightWeekStatus: state.nutrition.fightWeekFuelPlan.status,
+    rehydrationStatus: state.nutrition.rehydrationChecklist.status,
+    tournamentStatus: state.nutrition.tournamentFuelPlan.status,
+    activeFightId: state.fightContext?.id ?? null,
+    activeTournamentStartDate: state.tournamentContext?.tournamentStartDate ?? null,
+    reviewRequired: state.nutrition.nutritionSafetyReview.required,
+    reasonCount: state.nutrition.nutritionSafetyReview.reasons.length,
+    blockingFlags: state.nutrition.nutritionSafetyReview.blockingFlags
+  };
+}
+
+function withPersistedNutritionSafetyReview(state: PerformanceState, review: PersistedNutritionSafetyReview): PerformanceState {
+  const activeNutritionSafetyReviews = [review, ...state.nutrition.activeNutritionSafetyReviews.filter((item) => item.id !== review.id)];
+  const nextState: PerformanceState = {
+    ...state,
+    nutrition: {
+      ...state.nutrition,
+      activeNutritionSafetyReviews,
+      nutritionSafetyReview: {
+        ...state.nutrition.nutritionSafetyReview,
+        activeReview: state.nutrition.nutritionSafetyReview.activeReview ?? review
+      }
+    }
+  };
+  return {
+    ...nextState,
+    viewModels: {
+      ...nextState.viewModels,
+      fuel: buildFuelViewModel(nextState)
+    }
+  };
+}
+
+async function persistNutritionSafetyReviewProjection(
+  userId: string,
+  inputHash: string,
+  state: PerformanceState,
+  repositories: AthleteJourneyRepositories
+): Promise<{ state: PerformanceState; persistenceWarning?: string | undefined }> {
+  if (!repositories.nutritionSafetyReview || !state.nutrition.nutritionSafetyReview.required) {
+    return { state };
+  }
+  const activeReview = state.nutrition.nutritionSafetyReview.activeReview;
+  if (activeReview && ACTIVE_NUTRITION_REVIEW_STATUSES.has(activeReview.status)) {
+    return { state };
+  }
+  try {
+    const request = buildNutritionSafetyReviewRequest({
+      userId,
+      asOfDate: state.asOfDate,
+      review: state.nutrition.nutritionSafetyReview,
+      engineVersion: state.engineVersion,
+      inputHash,
+      outputHash: state.outputHash,
+      sourcePayload: nutritionReviewSourcePayload(state)
+    });
+    const persisted = await repositories.nutritionSafetyReview.upsertNutritionSafetyReview(request);
+    if (persisted.lifecycle === "created") {
+      await repositories.nutritionSafetyReview.appendNutritionSafetyReviewEvent({
+        userId,
+        nutritionSafetyReviewId: persisted.review.id,
+        eventType: "requested",
+        actorType: "engine",
+        actorUserId: null,
+        eventPayload: {
+          asOfDate: state.asOfDate,
+          reviewType: persisted.review.reviewType,
+          hardStopRemains: persisted.review.hardStop,
+          source: "resolve_and_persist"
+        }
+      });
+    }
+    return { state: withPersistedNutritionSafetyReview(state, persisted.review) };
+  } catch (error) {
+    return {
+      state,
+      persistenceWarning: `Nutrition safety review persistence failed: ${errorMessage(error)}`
+    };
+  }
 }
 
 async function persistTrainingBlockProjection(
@@ -357,9 +451,10 @@ async function persistPerformanceState(
   await repositories.engineRun.upsertGeneratedSessions(
     state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash))
   );
+  const reviewPersistence = await persistNutritionSafetyReviewProjection(userId, inputHash, state, repositories);
   const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories);
   const persistedState = withTrainingPersistenceStatus({
-    state,
+    state: reviewPersistence.state,
     trainingBlockId: blockPersistence.trainingBlockId,
     currentWeekSummary: blockPersistence.currentWeekSummary,
     latestProgressionDecision: blockPersistence.latestProgressionDecision,
@@ -369,7 +464,7 @@ async function persistPerformanceState(
   });
   return {
     state: persistedState,
-    persistenceWarning: blockPersistence.previewPersistenceWarning
+    persistenceWarning: [reviewPersistence.persistenceWarning, blockPersistence.previewPersistenceWarning].filter((warning) => Boolean(warning)).join(" ") || undefined
   };
 }
 

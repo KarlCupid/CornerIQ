@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PersistedTrainingPlanAdjustment } from "../training/types";
+import { PersistedNutritionSafetyReviewSchema } from "../nutrition/nutritionSafetyReviewTypes";
 import { TrainingBlockTimelineEventSchema, TrainingProgressionDecisionSchema, TrainingWeekSummarySchema } from "../training/trainingBlockHistoryTypes";
 
 const ISODateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -483,6 +484,7 @@ export const AthleteJourneySchema = z.object({
   trainingBlockTimelineEvents: z.array(TrainingBlockTimelineEventSchema),
   bodyMassHistory: z.array(BodyMassLogSchema),
   nutritionHistory: z.array(FoodLogSchema),
+  nutritionSafetyReviews: z.array(PersistedNutritionSafetyReviewSchema),
   hydrationHistory: z.array(WaterLogSchema),
   electrolyteHistory: z.array(ElectrolyteLogSchema),
   cycleHistory: z.array(CycleLogSchema),

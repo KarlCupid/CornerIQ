@@ -1,4 +1,5 @@
 import type { Confidence, ConfidenceLevel } from "../core/sharedTypes";
+import type { PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 
 export type FuelCommandPhase = "build" | "camp" | "fight_week" | "tournament" | "weigh_in_day" | "post_weigh_in" | "bout_day" | "recovery";
 
@@ -86,6 +87,7 @@ export interface NutritionSafetyReview {
   blockingFlags: readonly string[];
   suggestedNextSteps: readonly string[];
   professionalReviewCopy: string;
+  activeReview?: PersistedNutritionSafetyReview | null | undefined;
 }
 
 export interface FuelCommandCenterResolution {

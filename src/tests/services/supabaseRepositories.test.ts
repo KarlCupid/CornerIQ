@@ -15,11 +15,13 @@ import { createTrainingRepository, mapCompletedTrainingSessionRow } from "../../
 import { createTrainingBlockRepository } from "../../services/supabase/trainingBlockRepository";
 import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
 import { mapJourneyEventRow } from "../../services/supabase/journeyRepository";
+import { createNutritionSafetyReviewRepository, mapNutritionSafetyReviewEventRow, mapNutritionSafetyReviewRow } from "../../services/supabase/nutritionSafetyReviewRepository";
 import { createTournamentRepository } from "../../services/supabase/tournamentRepository";
 import { mapWearableSignalRow } from "../../services/supabase/wearableRepository";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
+import type { PersistedNutritionSafetyReview } from "../../engine/core/types";
 
 function createInsertClient() {
   const inserted: { table: string; record: unknown }[] = [];
@@ -42,6 +44,76 @@ function createInsertClient() {
   return { client: client as unknown as CornerSupabaseClient, inserted };
 }
 
+function persistedNutritionSafetyReview(overrides: Partial<PersistedNutritionSafetyReview> = {}): PersistedNutritionSafetyReview {
+  return {
+    id: "review_1",
+    userId: "user_1",
+    asOfDate: fixtureAsOfDate,
+    reviewType: "weight_class",
+    status: "requested",
+    severity: "critical",
+    hardStop: true,
+    blockingFlags: ["acute_protocol_blocked"],
+    reasons: ["Same-day acute loss is blocked."],
+    suggestedNextSteps: ["Pause weight-class pressure."],
+    sourcePayload: { source: "fuel_command_center" },
+    reviewerUserId: null,
+    reviewerRole: null,
+    reviewedAt: null,
+    engineVersion: "0.2.0",
+    inputHash: "input_hash",
+    outputHash: "output_hash",
+    createdAt: "2026-05-19T00:00:00.000Z",
+    updatedAt: "2026-05-19T00:00:00.000Z",
+    ...overrides
+  };
+}
+
+function createNutritionReviewInsertClient() {
+  const inserted: { table: string; record: unknown }[] = [];
+  const existingQuery = {
+    eq() {
+      return existingQuery;
+    },
+    limit() {
+      return existingQuery;
+    },
+    maybeSingle: async () => ({ data: null, error: null })
+  };
+  const client = {
+    from(table: string) {
+      return {
+        select() {
+          return existingQuery;
+        },
+        insert(record: unknown) {
+          inserted.push({ table, record });
+          const row = record as Record<string, unknown>;
+          return {
+            select() {
+              return {
+                single: async () => ({
+                  data: {
+                    ...row,
+                    id: "review_1",
+                    created_at: "2026-05-19T00:00:00.000Z",
+                    updated_at: "2026-05-19T00:00:00.000Z",
+                    reviewer_user_id: null,
+                    reviewer_role: null,
+                    reviewed_at: null
+                  },
+                  error: null
+                })
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, inserted };
+}
+
 function createJourneyRepositories(): AthleteJourneyRepositories {
   const journey = no_wearable_manual_only;
   return {
@@ -51,6 +123,7 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
     protectedWorkout: { listProtectedWorkouts: vi.fn(async () => journey.protectedWorkouts), insertProtectedWorkout: vi.fn() },
     bodyMass: { listLogs: vi.fn(async () => journey.bodyMassHistory), insertManualLog: vi.fn() },
     nutrition: { listFoodLogs: vi.fn(async () => journey.nutritionHistory) },
+    nutritionSafetyReview: { listActiveNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews) },
     hydration: { listWaterLogs: vi.fn(async () => journey.hydrationHistory), listElectrolyteLogs: vi.fn(async () => journey.electrolyteHistory), insertWaterLog: vi.fn() },
     cycle: { listCycleLogs: vi.fn(async () => journey.cycleHistory), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
@@ -374,6 +447,26 @@ describe("Supabase repositories", () => {
     expect(source).toContain("not medical or coaching directives");
   });
 
+  it("008 migration creates nutrition safety review lifecycle tables with owner RLS, indexes, and no self-clear comments", () => {
+    const source = readFileSync("supabase/migrations/008_nutrition_safety_reviews.sql", "utf8");
+
+    expect(source).toContain("create table if not exists public.nutrition_safety_reviews");
+    expect(source).toContain("create table if not exists public.nutrition_safety_review_events");
+    expect(source).toContain("review_type in");
+    expect(source).toContain("status in");
+    expect(source).toContain("'cleared_by_reviewer'");
+    expect(source).toContain("alter table public.nutrition_safety_reviews enable row level security");
+    expect(source).toContain("alter table public.nutrition_safety_review_events enable row level security");
+    expect(source).toContain("auth.uid() = user_id");
+    expect(source).toContain("nutrition_safety_reviews_user_date_status_idx");
+    expect(source).toContain("nutrition_safety_reviews_user_type_status_idx");
+    expect(source).toContain("nutrition_safety_reviews_user_hash_idx");
+    expect(source).toContain("nutrition_safety_review_events_user_review_created_idx");
+    expect(source).toContain("cannot self-clear hard");
+    expect(source).toContain("future permissioned reviewer workflow");
+    expect(source).not.toContain("coach_user_id");
+  });
+
   it("database types include coach relationship table", () => {
     const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
 
@@ -389,6 +482,86 @@ describe("Supabase repositories", () => {
     expect(source).toContain("preview_payload: Json");
     expect(source).toContain("materialized_decision: string");
     expect(source).toContain("volume_strategy: string");
+  });
+
+  it("database types include nutrition safety review tables", () => {
+    const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
+
+    expect(source).toContain("nutrition_safety_reviews");
+    expect(source).toContain("nutrition_safety_review_events");
+    expect(source).toContain("review_type: string");
+    expect(source).toContain("hard_stop: boolean");
+    expect(source).toContain("nutrition_safety_review_id: string");
+  });
+
+  it("nutritionSafetyReviewRepository maps rows, inserts request payloads, scopes active reads, and has no clear method", async () => {
+    const mapped = mapNutritionSafetyReviewRow({
+      id: "review_1",
+      user_id: "user_1",
+      as_of_date: fixtureAsOfDate,
+      review_type: "weight_class",
+      status: "requested",
+      severity: "critical",
+      hard_stop: true,
+      blocking_flags: ["acute_protocol_blocked"],
+      reasons: ["Same-day acute loss is blocked."],
+      suggested_next_steps: ["Pause weight-class pressure."],
+      source_payload: { source: "fuel_command_center" },
+      reviewer_user_id: null,
+      reviewer_role: null,
+      reviewed_at: null,
+      engine_version: "0.2.0",
+      input_hash: "input_hash",
+      output_hash: "output_hash",
+      created_at: "2026-05-19T00:00:00.000Z",
+      updated_at: "2026-05-19T00:00:00.000Z"
+    });
+    expect(mapped.hardStop).toBe(true);
+    expect(mapped.blockingFlags).toEqual(["acute_protocol_blocked"]);
+    expect(
+      mapNutritionSafetyReviewEventRow({
+        id: "event_1",
+        user_id: "user_1",
+        nutrition_safety_review_id: "review_1",
+        event_type: "requested",
+        actor_type: "athlete",
+        actor_user_id: "user_1",
+        event_payload: { source: "test" },
+        created_at: "2026-05-19T00:00:00.000Z"
+      }).eventType
+    ).toBe("requested");
+
+    const { client, inserted } = createNutritionReviewInsertClient();
+    const repository = createNutritionSafetyReviewRepository(client);
+    const result = await repository.upsertNutritionSafetyReview({
+      userId: "user_1",
+      asOfDate: fixtureAsOfDate,
+      reviewType: "weight_class",
+      severity: "critical",
+      hardStop: true,
+      blockingFlags: ["acute_protocol_blocked"],
+      reasons: ["Same-day acute loss is blocked."],
+      suggestedNextSteps: ["Pause weight-class pressure."],
+      sourcePayload: { source: "fuel_command_center" },
+      engineVersion: "0.2.0",
+      inputHash: "input_hash",
+      outputHash: "output_hash"
+    });
+
+    expect(result.lifecycle).toBe("created");
+    expect(inserted[0]?.table).toBe("nutrition_safety_reviews");
+    expect(inserted[0]?.record).toMatchObject({
+      user_id: "user_1",
+      as_of_date: fixtureAsOfDate,
+      review_type: "weight_class",
+      hard_stop: true
+    });
+    const source = readFileSync("src/services/supabase/nutritionSafetyReviewRepository.ts", "utf8");
+    expect(source).toContain("listActiveNutritionSafetyReviews");
+    expect(source).toContain('.eq("user_id", safeUserId)');
+    expect(source).toContain("acknowledgeNutritionSafetyReview");
+    expect(source).toContain("supersedeNutritionSafetyReviews");
+    expect(source).not.toContain("clearNutritionSafetyReview");
   });
 
   it("trainingBlockRepository persists typed block, microcycle, day plan, and adjustment payloads", () => {
@@ -492,6 +665,28 @@ describe("Supabase repositories", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
+  it("nutritionSafetyReviewRepository blocks missing userId before Supabase writes", async () => {
+    const client = { from: vi.fn() } as unknown as CornerSupabaseClient;
+
+    await expect(
+      createNutritionSafetyReviewRepository(client).upsertNutritionSafetyReview({
+        userId: "",
+        asOfDate: fixtureAsOfDate,
+        reviewType: "weight_class",
+        severity: "critical",
+        hardStop: true,
+        blockingFlags: ["acute_protocol_blocked"],
+        reasons: ["Same-day acute loss is blocked."],
+        suggestedNextSteps: ["Pause weight-class pressure."],
+        sourcePayload: { source: "test" },
+        engineVersion: "0.2.0",
+        inputHash: "input_hash",
+        outputHash: "output_hash"
+      })
+    ).rejects.toBeInstanceOf(RepositoryError);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
   it("trainingBlockRepository active queries and supersede operations are scoped by user_id", () => {
     const source = readFileSync("src/services/supabase/trainingBlockRepository.ts", "utf8");
 
@@ -522,6 +717,9 @@ describe("Supabase repositories", () => {
     expect(source).toContain("completeWorkoutService");
     expect(source).toContain('filter("target_payload->>smokeRunId"');
     expect(source).toContain('filter("flag_payload->>smokeRunId"');
+    expect(source).toContain("nutrition_safety_reviews");
+    expect(source).toContain("nutrition_safety_review_events");
+    expect(source).toContain('filter("source_payload->>smokeRunId"');
     expect(source).toContain("existingProfile");
   });
 
@@ -536,6 +734,22 @@ describe("Supabase repositories", () => {
       expect(result.journey.protectedWorkouts).toHaveLength(no_wearable_manual_only.protectedWorkouts.length);
       expect(result.journey.activeObjective).toBe("build");
       expect(result.journey.trainingPlanAdjustments).toEqual([]);
+    }
+  });
+
+  it("loadAthleteJourney includes active persisted nutrition safety reviews when available", async () => {
+    const repositories = createJourneyRepositories();
+    const activeReview = persistedNutritionSafetyReview();
+    repositories.nutritionSafetyReview = {
+      ...repositories.nutritionSafetyReview,
+      listActiveNutritionSafetyReviews: vi.fn(async () => [activeReview])
+    } as NonNullable<AthleteJourneyRepositories["nutritionSafetyReview"]>;
+
+    const result = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.journey.nutritionSafetyReviews).toEqual([activeReview]);
     }
   });
 
@@ -560,9 +774,11 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("training_progression_decisions");
     expect(USER_OWNED_TABLES).toContain("training_block_timeline_events");
     expect(USER_OWNED_TABLES).toContain("training_next_week_previews");
+    expect(USER_OWNED_TABLES).toContain("nutrition_safety_reviews");
+    expect(USER_OWNED_TABLES).toContain("nutrition_safety_review_events");
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
-    expect(USER_OWNED_TABLES).toHaveLength(35);
+    expect(USER_OWNED_TABLES).toHaveLength(37);
   });
 
   it("Expo-side services do not reference service role keys", () => {
@@ -616,6 +832,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/protectedWorkoutRepository.ts",
       "src/services/supabase/readinessRepository.ts",
       "src/services/supabase/nutritionRepository.ts",
+      "src/services/supabase/nutritionSafetyReviewRepository.ts",
       "src/services/supabase/hydrationRepository.ts",
       "src/services/supabase/trainingRepository.ts",
       "src/services/supabase/trainingBlockRepository.ts",

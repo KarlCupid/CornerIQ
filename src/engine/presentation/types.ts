@@ -8,6 +8,12 @@ import type {
   TournamentFuelPlan,
   WeightClassStatus
 } from "../nutrition/fuelCommandTypes";
+import type { PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
+import type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
+import type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
+
+export type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
+export type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
 import type {
   DetailedTrainingSession,
   GeneratedSessionIntensity,
@@ -71,6 +77,7 @@ export interface FuelViewModel {
   rehydrationChecklist: RehydrationChecklist;
   tournamentFuelPlan: TournamentFuelPlan;
   nutritionSafetyReview: NutritionSafetyReview;
+  activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   decisionStack: readonly FuelCommandDecisionItem[];
   hitTheseFirst: readonly string[];
   calorieSummary: string;
@@ -82,6 +89,8 @@ export interface FuelViewModel {
     confidence: ConfidenceLevel;
     rows: readonly string[];
   };
+  fuelHistory: FuelHistoryViewModel;
+  bodyMassTrajectory: BodyMassTrajectoryViewModel;
   bodyMassSummary: string;
   cycleNote: string | null;
   fightOrTournamentNote: string | null;

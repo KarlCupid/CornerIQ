@@ -18,6 +18,7 @@ import type {
   WaterLog,
   WeighInContext
 } from "../core/types";
+import type { PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 import type {
   FightWeekFuelPlan,
   FuelCommandCenterResolution,
@@ -48,6 +49,7 @@ export interface ResolveFuelCommandCenterInput {
   foodLogs: readonly FoodLog[];
   waterLogs: readonly WaterLog[];
   electrolyteLogs: readonly ElectrolyteLog[];
+  activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   asOfDate: string;
   nutritionTargets: {
     dailyCaloriesTarget: number;
@@ -121,6 +123,7 @@ function safetyMessages(flags: readonly RiskFlag[]): readonly string[] {
 }
 
 function resolveNutritionSafetyReview(input: ResolveFuelCommandCenterInput): NutritionSafetyReview {
+  const activeReview = input.activeNutritionSafetyReviews.find((review) => review.hardStop) ?? input.activeNutritionSafetyReviews[0] ?? null;
   const reviewFlags = input.safetyFlags.filter(
     (flag) => FUEL_REVIEW_DOMAINS.has(flag.domain) && (flag.hardStop || flag.requiresProfessionalReview || flag.severity === "critical")
   );
@@ -139,22 +142,24 @@ function resolveNutritionSafetyReview(input: ResolveFuelCommandCenterInput): Nut
   const required =
     blockingFlags.length > 0 ||
     reviewReasons.length > 0 ||
+    Boolean(activeReview?.hardStop) ||
     input.acuteProtocolEligibility.status === "review_required" ||
     input.bodyMass.feasibility.status === "needs_review";
 
   return {
     required,
-    reasons: required ? reviewReasons : [],
-    blockingFlags,
+    reasons: required ? unique([...reviewReasons, ...(activeReview?.hardStop ? activeReview.reasons : [])]) : [],
+    blockingFlags: unique([...blockingFlags, ...(activeReview?.hardStop ? activeReview.blockingFlags : [])]),
     suggestedNextSteps:
-      blockingFlags.length > 0
+      blockingFlags.length > 0 || activeReview?.hardStop
         ? ["Pause weight-class pressure.", "Keep regular meals and fluids steady.", "Use qualified review before this plan continues."]
         : required
           ? ["Keep fueling training.", "Collect missing logs if safe.", "Ask a qualified support person to review the plan."]
           : ["No safety review is required for the current fuel command."],
     professionalReviewCopy: required
       ? "Review required before this plan can continue. The app will not let an athlete self-clear a hard stop."
-      : "No professional review gate is active for today."
+      : "No professional review gate is active for today.",
+    activeReview
   };
 }
 

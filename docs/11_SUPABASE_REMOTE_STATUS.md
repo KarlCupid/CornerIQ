@@ -1,12 +1,12 @@
 # Supabase Remote Status
 
-Date: 2026-05-20 11:08 America/Vancouver
+Date: 2026-05-20 11:51 America/Vancouver
 
-Latest known commit from prompt: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a` (`Refine boxing safety rules and engine-first guidance`).
+Latest known commit from prompt: `ad3357bc67e28c2a043800aac8be52213834ad57` (`Update CornerIQ agent guidance and workflow rules`).
 
-Latest commit before this pass from `git log`: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a` (`Refine boxing safety rules and engine-first guidance`).
+Latest commit before this pass from `git log`: `ad3357bc67e28c2a043800aac8be52213834ad57` (`Update CornerIQ agent guidance and workflow rules`).
 
-Current `git rev-parse HEAD`: `8aed0880cf14cdd9ea279ce35d68c194f4c9a36a`
+Current `git rev-parse HEAD`: `ad3357bc67e28c2a043800aac8be52213834ad57`
 
 Commit created in this run: none.
 
@@ -35,8 +35,9 @@ Latest `cmd /c npm exec supabase -- migration list` result after this pass:
 | `005` | `005` | applied remotely |
 | `006` | `006` | applied remotely |
 | `007` | `007` | applied remotely |
+| `008` | `008` | applied remotely |
 
-`007_training_next_week_previews.sql` remains the latest applied migration.
+`008_nutrition_safety_reviews.sql` is the latest applied migration.
 
 Latest `cmd /c npm exec supabase -- db push --dry-run` result:
 
@@ -44,14 +45,13 @@ Latest `cmd /c npm exec supabase -- db push --dry-run` result:
 - Reported: `Remote database is up to date.`
 - No migration was pending during the final dry run.
 
-No `008` migration was added in this pass. Fuel command snapshots are persisted through existing `nutrition_targets.target_payload`, which is already owner-RLS protected and idempotently upserted by `user_id,target_date,engine_version`.
-
 Note: Supabase CLI commands were run outside the workspace sandbox because the CLI writes telemetry metadata under the user profile and uses linked-project network access.
 
 ## Generated Types
 
-- `src/services/supabase/database.types.ts` was not regenerated in this pass because no migration/schema change was made.
-- The existing generated types still cover `nutrition_targets`, `engine_runs`, `decision_traces`, `risk_flags`, training persistence tables, and athlete-coach relationships.
+- `cmd /c npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts`: completed after applying 008.
+- The generated file was normalized back to UTF-8 after Windows redirection initially wrote it in UTF-16.
+- `src/services/supabase/database.types.ts` now includes `nutrition_safety_reviews` and `nutrition_safety_review_events`.
 
 ## Live Smoke Status
 
@@ -59,8 +59,8 @@ Latest authenticated smoke result:
 
 - Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`.
 - Runtime used public Supabase URL and anon key only.
-- Result: passed, `1` test passed; test body `11139ms`.
-- Verified sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, `nutrition_targets` fuel command snapshot with command center and weight-class status, no tested unsafe terms in the persisted fuel payload, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
+- Result: passed, `1` test passed; test body `12366ms`, run duration `13.89s`.
+- Verified sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, `nutrition_targets` fuel command snapshot with command center and weight-class status, no tested unsafe terms in the persisted fuel payload, manual fuel history/body-mass trajectory resolution, persisted nutrition safety review row, persisted nutrition safety review event, `NutritionSafetyReviewRequested` journey event, athlete acknowledgement to `acknowledged`, no athlete self-clear, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
 
@@ -69,10 +69,11 @@ The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips 
 Implementation and final handoff checks completed:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `280` tests and `1` live smoke test skipped.
-- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `280` tests and `1` live smoke test skipped.
+- `cmd /c npm test`: passed with `304` tests and `1` live smoke test skipped.
+- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `304` tests and `1` live smoke test skipped.
 - `cmd /c npm run lint`: passed.
 - `CORNERIQ_LIVE_DB_SMOKE=1` with ignored `.env` loaded, then `cmd /c npm run smoke:live-db`: passed with `1` test.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
 
 Vitest and Supabase CLI required approved escalation in this Codex environment for local filesystem/network reasons. That did not require service role keys.
 

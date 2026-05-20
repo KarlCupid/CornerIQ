@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -579,6 +579,113 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nutrition_safety_review_events: {
+        Row: {
+          actor_type: string
+          actor_user_id: string | null
+          created_at: string
+          event_payload: Json
+          event_type: string
+          id: string
+          nutrition_safety_review_id: string
+          user_id: string
+        }
+        Insert: {
+          actor_type?: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_payload?: Json
+          event_type: string
+          id?: string
+          nutrition_safety_review_id: string
+          user_id: string
+        }
+        Update: {
+          actor_type?: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_payload?: Json
+          event_type?: string
+          id?: string
+          nutrition_safety_review_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_safety_review_events_nutrition_safety_review_id_fkey"
+            columns: ["nutrition_safety_review_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_safety_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_safety_reviews: {
+        Row: {
+          as_of_date: string
+          blocking_flags: Json
+          created_at: string
+          engine_version: string
+          hard_stop: boolean
+          id: string
+          input_hash: string
+          output_hash: string
+          reasons: Json
+          review_type: string
+          reviewed_at: string | null
+          reviewer_role: string | null
+          reviewer_user_id: string | null
+          severity: string
+          source_payload: Json
+          status: string
+          suggested_next_steps: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          as_of_date: string
+          blocking_flags?: Json
+          created_at?: string
+          engine_version: string
+          hard_stop?: boolean
+          id?: string
+          input_hash: string
+          output_hash: string
+          reasons?: Json
+          review_type: string
+          reviewed_at?: string | null
+          reviewer_role?: string | null
+          reviewer_user_id?: string | null
+          severity?: string
+          source_payload?: Json
+          status?: string
+          suggested_next_steps?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          as_of_date?: string
+          blocking_flags?: Json
+          created_at?: string
+          engine_version?: string
+          hard_stop?: boolean
+          id?: string
+          input_hash?: string
+          output_hash?: string
+          reasons?: Json
+          review_type?: string
+          reviewed_at?: string | null
+          reviewer_role?: string | null
+          reviewer_user_id?: string | null
+          severity?: string
+          source_payload?: Json
+          status?: string
+          suggested_next_steps?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       nutrition_targets: {
         Row: {

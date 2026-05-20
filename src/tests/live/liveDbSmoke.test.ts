@@ -11,6 +11,7 @@ import { completeWorkoutService, completedSessionTypeForFamily } from "../../ser
 import { applyTrainingPlanAdjustmentService } from "../../services/training/applyTrainingPlanAdjustment";
 import { autoRollForwardTrainingPlan } from "../../services/training/autoRollForwardTrainingPlan";
 import { materializeNextWeekTrainingPlan } from "../../services/training/materializeNextWeekTrainingPlan";
+import { acknowledgeNutritionSafetyReview, requestNutritionSafetyReview } from "../../services/nutrition/requestNutritionSafetyReview";
 
 const runLiveSmoke = process.env.CORNERIQ_LIVE_DB_SMOKE === "1";
 const describeLive = runLiveSmoke ? describe : describe.skip;
@@ -67,7 +68,7 @@ describeLive("live Supabase CRUD smoke", () => {
     const password = requiredEnv("CORNERIQ_SMOKE_PASSWORD");
     const asOfDate = todayLocalISODate();
     const smokeRunId = `corneriq_live_smoke_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const insertedIds: { bodyMass?: string; electrolyte?: string; protectedWorkout?: string; readiness?: string; water?: string } = {};
+    const insertedIds: { bodyMass?: string; electrolyte?: string; food?: string; protectedWorkout?: string; readiness?: string; water?: string } = {};
     let existingProfile: Pick<TableRow<"athlete_profiles">, "id" | "profile" | "sensitive_medical" | "sensitive_cycle"> | null = null;
     let existingGeneratedSessions: Pick<TableRow<"generated_training_sessions">, "id" | "session_payload">[] = [];
     let existingNutritionTargets: Pick<TableRow<"nutrition_targets">, "id" | "target_payload">[] = [];
@@ -82,8 +83,10 @@ describeLive("live Supabase CRUD smoke", () => {
     let inputHash: string | null = null;
     let engineRunIds: string[] = [];
     let completedTrainingSessionId: string | null = null;
+    let nutritionSafetyReviewId: string | null = null;
     let trainingAdjustmentId: string | null = null;
     let trainingBlockId: string | null = null;
+    const nutritionSafetyReviewEventIds: string[] = [];
     const smokeTrainingWeekSummaryIds: string[] = [];
     const smokeTrainingProgressionDecisionIds: string[] = [];
     const smokeTrainingBlockTimelineEventIds: string[] = [];
@@ -139,6 +142,7 @@ describeLive("live Supabase CRUD smoke", () => {
       await client.from("athlete_profiles").update({ sensitive_medical: { smokeRunId } }).eq("user_id", userId);
       insertedIds.bodyMass = (await repositories.bodyMass.insertManualLog({ userId, date: asOfDate, bodyMassKg: 68 })).id;
       insertedIds.readiness = (await repositories.readiness.insertCheckIn({ userId, date: asOfDate, energy1To5: 3, painNotes: [], illnessSymptoms: [], metadata: { smokeRunId } })).id;
+      insertedIds.food = (await repositories.nutrition.insertFoodLog({ userId, date: asOfDate, calories: 2100, proteinGrams: 125, carbohydrateGrams: 260, fatGrams: 62, fiberGrams: 24, sodiumMg: 1800, confidence: "medium" })).id;
       insertedIds.water = (await repositories.hydration.insertWaterLog({ userId, date: asOfDate, liters: 2 })).id;
       insertedIds.electrolyte = (await repositories.hydration.insertElectrolyteLog({ userId, date: asOfDate, sodiumMg: 500, metadata: { smokeRunId } })).id;
       const protectedWorkout: ProtectedWorkout = {
@@ -166,6 +170,9 @@ describeLive("live Supabase CRUD smoke", () => {
       expect(resolved.status).toBe("ready");
       expect(resolved.persistenceWarning).toBeUndefined();
       inputHash = resolved.inputHash;
+      expect(resolved.state.viewModels.fuel.fuelHistory.todaySummary).toContain("2100 kcal logged today");
+      expect(resolved.state.viewModels.fuel.fuelHistory.hydrationTrend7Day[0]).toContain("2.0L logged");
+      expect(resolved.state.viewModels.fuel.bodyMassTrajectory.latestWeight).toContain("68.0 kg");
       trainingBlockId = resolved.state.training.blockPersistenceStatus?.trainingBlockId ?? null;
       expect(trainingBlockId).toBeTruthy();
       const blockResponse = await client.from("training_blocks").select("id, block_payload").eq("user_id", userId).eq("id", trainingBlockId!).maybeSingle();
@@ -564,7 +571,77 @@ describeLive("live Supabase CRUD smoke", () => {
           await client.from("risk_flags").update({ flag_payload: smokePayload(row.flag_payload, smokeRunId) }).eq("id", row.id).eq("user_id", userId);
         }
       }
+      if (!repositories.nutritionSafetyReview) {
+        throw new Error("Live smoke repositories did not include nutritionSafetyReview.");
+      }
+      const reviewResult = await requestNutritionSafetyReview({
+        userId,
+        asOfDate,
+        review: {
+          required: true,
+          reasons: ["Manual nutrition history audit requested during live smoke."],
+          blockingFlags: [],
+          suggestedNextSteps: ["Keep using manual food, water, and electrolyte logs for reviewer context."],
+          professionalReviewCopy: "A future permissioned reviewer workflow can inspect this request; the athlete cannot self-clear hard stops."
+        },
+        engineVersion: resolved.state.engineVersion,
+        inputHash: `${resolved.inputHash}:${smokeRunId}`,
+        outputHash: `${resolved.state.outputHash}:${smokeRunId}`,
+        sourcePayload: {
+          smokeRunId,
+          source: "live_smoke",
+          fuelHistorySummary: resolved.state.viewModels.fuel.fuelHistory.todaySummary
+        },
+        repositories: {
+          journey: repositories.journey,
+          nutritionSafetyReview: repositories.nutritionSafetyReview
+        }
+      });
+      expect(reviewResult.status).toBe("requested");
+      if (reviewResult.status !== "requested") {
+        throw new Error(`Live smoke nutrition safety review request failed: ${reviewResult.message}`);
+      }
+      nutritionSafetyReviewId = reviewResult.reviewId;
+      nutritionSafetyReviewEventIds.push(reviewResult.eventId);
+      const reviewRows = await client.from("nutrition_safety_reviews").select("id, status, hard_stop, source_payload").eq("user_id", userId).eq("id", reviewResult.reviewId);
+      expect(reviewRows.error).toBeNull();
+      expect(reviewRows.data?.[0]?.status).toBe("requested");
+      expect(reviewRows.data?.[0]?.hard_stop).toBe(false);
+      expect(JSON.stringify(reviewRows.data?.[0]?.source_payload ?? {}).toLowerCase()).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration|make weight at all costs/);
+      const reviewEventRows = await client.from("nutrition_safety_review_events").select("id, event_type").eq("user_id", userId).eq("nutrition_safety_review_id", reviewResult.reviewId);
+      expect(reviewEventRows.error).toBeNull();
+      expect(reviewEventRows.data?.some((row) => row.event_type === "requested")).toBe(true);
+      const journeyReviewEvent = await client
+        .from("athlete_journey_events")
+        .select("id, event_type, event_payload")
+        .eq("user_id", userId)
+        .eq("id", reviewResult.journeyEventId)
+        .maybeSingle();
+      expect(journeyReviewEvent.error).toBeNull();
+      expect(journeyReviewEvent.data?.event_type).toBe("NutritionSafetyReviewRequested");
+      await client.from("athlete_journey_events").update({ event_payload: smokePayload(journeyReviewEvent.data?.event_payload ?? {}, smokeRunId) }).eq("id", reviewResult.journeyEventId).eq("user_id", userId);
+      const acknowledgeResult = await acknowledgeNutritionSafetyReview({
+        userId,
+        reviewId: reviewResult.reviewId,
+        repositories: { nutritionSafetyReview: repositories.nutritionSafetyReview }
+      });
+      expect(acknowledgeResult.status).toBe("acknowledged");
+      if (acknowledgeResult.status !== "acknowledged") {
+        throw new Error(`Live smoke nutrition safety review acknowledgement failed: ${acknowledgeResult.message}`);
+      }
+      nutritionSafetyReviewEventIds.push(acknowledgeResult.eventId);
+      const acknowledgedReview = await repositories.nutritionSafetyReview.getNutritionSafetyReviewById(userId, reviewResult.reviewId);
+      expect(acknowledgedReview?.status).toBe("acknowledged");
+      expect(acknowledgedReview?.hardStop).toBe(false);
+      const activeReviews = await repositories.nutritionSafetyReview.listActiveNutritionSafetyReviews(userId);
+      expect(activeReviews.some((review) => review.id === reviewResult.reviewId && review.status === "acknowledged")).toBe(true);
     } finally {
+      for (const id of nutritionSafetyReviewEventIds) {
+        await client.from("nutrition_safety_review_events").delete().eq("user_id", userId).eq("id", id);
+      }
+      if (nutritionSafetyReviewId) {
+        await client.from("nutrition_safety_reviews").delete().eq("user_id", userId).eq("id", nutritionSafetyReviewId).filter("source_payload->>smokeRunId", "eq", smokeRunId);
+      }
       for (const id of smokeTrainingBlockTimelineEventIds) {
         await client.from("training_block_timeline_events").delete().eq("user_id", userId).eq("id", id).filter("event_payload->>smokeRunId", "eq", smokeRunId);
       }
@@ -645,6 +722,9 @@ describeLive("live Supabase CRUD smoke", () => {
       }
       if (insertedIds.readiness) {
         await client.from("readiness_checkins").delete().eq("user_id", userId).eq("id", insertedIds.readiness).filter("checkin_payload->metadata->>smokeRunId", "eq", smokeRunId);
+      }
+      if (insertedIds.food) {
+        await client.from("food_logs").delete().eq("user_id", userId).eq("id", insertedIds.food);
       }
       if (insertedIds.water) {
         await client.from("water_logs").delete().eq("user_id", userId).eq("id", insertedIds.water);
