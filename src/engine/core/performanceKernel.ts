@@ -56,15 +56,20 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   const todayCheckIn = journey.readinessHistory.find((checkIn) => checkIn.date === input.asOfDate);
   const trend = resolveBodyMassTrend(journey.bodyMassHistory, input.asOfDate);
   const anchors = [...journey.athlete.protectedBoxingSchedule, ...journey.protectedWorkouts];
-  const training = resolveWeeklyTrainingPlan({
+  const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,
     anchors,
     asOfDate: input.asOfDate,
     phase,
     readiness,
+    cycle,
+    fight: journey.activeFightOpportunity,
+    tournament: journey.activeTournament,
     completedSessions: journey.completedTrainingSessions,
     recentExerciseResults: journey.exerciseResults,
-    highCycleSymptoms: cycle.symptomBurden === "high"
+    highCycleSymptoms: cycle.symptomBurden === "high",
+    safetyFlags: journey.safetyFlags,
+    engineVersion: ENGINE_VERSION
   });
   const earlySafetyFlags = [
     ...journey.safetyFlags,
@@ -74,7 +79,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     ...assessInjuryRisk(todayCheckIn),
     ...assessMedicalReview(journey.athlete),
     ...assessDehydrationRisk(journey.hydrationHistory, journey.electrolyteHistory, input.asOfDate),
-    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, cycle, training)
+    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, cycle, initialTraining)
   ];
   const feasibility = resolveWeightClassFeasibility({
     athlete: journey.athlete,
@@ -92,6 +97,22 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   });
   const safetyFlags = [...earlySafetyFlags, ...feasibility.riskFlags];
   const safety = resolveSafety(safetyFlags);
+  const training = resolveWeeklyTrainingPlan({
+    athlete: journey.athlete,
+    anchors,
+    asOfDate: input.asOfDate,
+    phase,
+    readiness,
+    cycle,
+    fight: journey.activeFightOpportunity,
+    tournament: journey.activeTournament,
+    completedSessions: journey.completedTrainingSessions,
+    recentExerciseResults: journey.exerciseResults,
+    highCycleSymptoms: cycle.symptomBurden === "high",
+    safetyFlags: safety.riskFlags,
+    safetyBlocks: safety.blocksPlan,
+    engineVersion: ENGINE_VERSION
+  });
   const weighInContext = resolveWeighInContext(journey.activeFightOpportunity, input.asOfDate);
   const tournamentStrategy = resolveTournamentStrategy(journey.activeTournament ?? journey.activeFightOpportunity?.tournamentDetails ?? null, trend);
   const acuteProtocolEligibility = resolveAcuteProtocolEligibility({

@@ -306,6 +306,7 @@ describe("progression and train view model", () => {
       section: "Trunk",
       prescribed: {},
       resultStatus: "partial",
+      rpe: 8,
       painFlag: true,
       source: "test",
       engineVersion: "test",
@@ -314,13 +315,33 @@ describe("progression and train view model", () => {
       recordedAt: "2026-05-19T12:00:00.000Z",
       completedAt: "2026-05-19T12:00:00.000Z"
     };
+    const prescribedOnly: ExerciseResultRecord = {
+      ...exerciseResult,
+      id: "exercise_result_prescribed",
+      exerciseId: "band_row",
+      exerciseName: "Band row",
+      resultStatus: "prescribed_only",
+      painFlag: false,
+      rpe: undefined
+    };
+    const completedStrength: ExerciseResultRecord = {
+      ...exerciseResult,
+      id: "exercise_result_strength",
+      exerciseId: "hip_hinge_rdl",
+      exerciseName: "Dumbbell Romanian deadlift",
+      prescribed: { category: "main_strength" },
+      resultStatus: "completed",
+      painFlag: false,
+      loadText: "heavy today",
+      rpe: 7
+    };
     const analytics = buildTrainingAnalytics({
       asOfDate: fixtureAsOfDate,
       completedTrainingSessions: [
         { ...completedSession, sessionRpe: 7, painNotes: [] },
         { ...completedSession, id: "skipped_1", completionStatus: "skipped", sessionRpe: undefined, painNotes: ["sharp shoulder pain"] }
       ],
-      exerciseResults: [exerciseResult],
+      exerciseResults: [exerciseResult, prescribedOnly, completedStrength],
       readiness: greenReadiness,
       safetyFlags: []
     });
@@ -329,10 +350,63 @@ describe("progression and train view model", () => {
     expect(analytics.generatedSessionsCompleted).toBe(1);
     expect(analytics.generatedSessionsSkipped).toBe(1);
     expect(analytics.painFlagCount).toBe(2);
+    expect(analytics.exerciseResultCountLast7Days).toBe(3);
+    expect(analytics.completedResultCount).toBe(1);
+    expect(analytics.partialResultCount).toBe(1);
+    expect(analytics.prescribedOnlyCount).toBe(1);
+    expect(analytics.averageExerciseRpe).toBe(7.5);
+    expect(analytics.painFlagExercises).toContain("Pallof press");
+    expect(analytics.latestStrengthExerciseSummary).toContain("no numeric load progression inferred");
+    expect(analytics.consistencySummary).toContain("exercise actuals");
     expect(analytics.averageSessionRpe).toBe(7);
-    expect(analytics.mostRecentExerciseResultSummary).toContain("Pallof press");
+    expect(analytics.mostRecentExerciseResultSummary).toContain("Dumbbell Romanian deadlift");
     expect(analytics.progressionRecommendation.status).toBe("coach_review");
     expect(analytics.nextBestTrainingAction).toContain("coach");
+  });
+
+  it("training analytics changes next action for repeat, deload, and unknown states", () => {
+    const skippedExercise: ExerciseResultRecord = {
+      id: "exercise_result_skipped",
+      exerciseId: "pallof_press",
+      exerciseName: "Pallof press",
+      section: "Trunk",
+      prescribed: {},
+      resultStatus: "skipped",
+      source: "test",
+      engineVersion: "test",
+      completedTrainingSessionId: "completed_1",
+      generatedTrainingSessionDbId: null,
+      recordedAt: "2026-05-19T12:00:00.000Z",
+      completedAt: "2026-05-19T12:00:00.000Z"
+    };
+    const repeat = buildTrainingAnalytics({
+      asOfDate: fixtureAsOfDate,
+      completedTrainingSessions: [completedSession],
+      exerciseResults: [skippedExercise],
+      readiness: greenReadiness,
+      safetyFlags: []
+    });
+    const deload = buildTrainingAnalytics({
+      asOfDate: fixtureAsOfDate,
+      completedTrainingSessions: [completedSession],
+      exerciseResults: [],
+      readiness: { ...greenReadiness, color: "red" },
+      safetyFlags: []
+    });
+    const unknown = buildTrainingAnalytics({
+      asOfDate: fixtureAsOfDate,
+      completedTrainingSessions: [],
+      exerciseResults: [],
+      readiness: greenReadiness,
+      safetyFlags: []
+    });
+
+    expect(repeat.progressionRecommendation.status).toBe("repeat");
+    expect(repeat.nextBestTrainingAction).toContain("Repeat");
+    expect(deload.progressionRecommendation.status).toBe("deload");
+    expect(deload.nextBestTrainingAction).toContain("recovery");
+    expect(unknown.progressionRecommendation.status).toBe("unknown");
+    expect(unknown.nextBestTrainingAction).toContain("Complete or skip");
   });
 });
 

@@ -1,4 +1,19 @@
 import type { Confidence, ISODateString } from "../core/sharedTypes";
+import type { TrainingBlock, TrainingBlockRecommendation, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
+
+export type {
+  BlockProgressionState,
+  BlockProgressionStatus,
+  RecoveryPriority,
+  TrainingBlock,
+  TrainingBlockGoal,
+  TrainingBlockPhase,
+  TrainingBlockRecommendation,
+  TrainingDayPlan,
+  TrainingDayRole,
+  TrainingMicrocycle,
+  WeeklyTrainingStructure
+} from "./trainingBlockTypes";
 
 export type ProtectedWorkoutType =
   | "boxing_class"
@@ -236,6 +251,10 @@ export interface TrainingState {
   recentExerciseResults: readonly ExerciseResultRecord[];
   generatedSessions: readonly GeneratedTrainingSession[];
   todaySessions: readonly GeneratedTrainingSession[];
+  activeBlock: TrainingBlock;
+  currentMicrocycle: TrainingMicrocycle;
+  dayPlans: readonly TrainingDayPlan[];
+  blockRecommendation: TrainingBlockRecommendation;
   loadLedger: TrainingLoadLedger;
   explanation: string;
   confidence: Confidence;

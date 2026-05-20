@@ -5,9 +5,11 @@ import {
   CycleLogSchema,
   FightOpportunitySchema,
   ReadinessCheckInSchema,
+  TrainingBlockSchema,
   WearableSignalSchema
 } from "../../engine/core/schemas";
 import { amateur_novice_build, amateur_elite_camp_same_day_weigh_in } from "../fixtures/engineFixtures";
+import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 
 describe("engine boundary schemas", () => {
   it("rejects invalid athlete age and body mass", () => {
@@ -43,5 +45,11 @@ describe("engine boundary schemas", () => {
         fainting: false
       }).success
     ).toBe(true);
+  });
+
+  it("accepts resolved training block shape", () => {
+    const state = resolvePerformanceState({ journey: amateur_novice_build, asOfDate: "2026-05-19" });
+
+    expect(TrainingBlockSchema.safeParse(state.training.activeBlock).success).toBe(true);
   });
 });

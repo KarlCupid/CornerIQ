@@ -15,7 +15,7 @@ import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useU
 import { usePerformanceState } from "../../hooks/usePerformanceState";
 import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
-import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
+import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { createDefaultOnboardingDraft } from "../../services/supabase/onboardingService";
 import { validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
@@ -107,6 +107,27 @@ const fuelViewModel: FuelViewModel = {
 const trainViewModel: TrainViewModel = {
   title: "Train",
   todaySummary: "One support session.",
+  blockPhase: "build_strength",
+  blockGoal: "strength base",
+  blockExplanation: "Build phase uses boxing level and completion history.",
+  todayRole: {
+    status: "support_day",
+    summary: "Support day around protected boxing.",
+    explanation: "Generated support fills a boxing-specific gap."
+  },
+  blockProgression: {
+    status: "unknown",
+    summary: "Progression is unknown until completion history exists.",
+    why: "Missing history is unknown, not a reason to progress automatically."
+  },
+  preSessionFuelHint: "Use carbs around boxing and generated support as needed.",
+  postSessionFuelHint: "Protein after training supports repair.",
+  hydrationHint: "Manual hydration signals are enough.",
+  cycleTrainingDecision: {
+    status: "none",
+    summary: "No cycle assumptions are applied.",
+    action: "Use readiness and manual symptoms if logged."
+  },
   protectedAnchorSummary: "Technical boxing is protected.",
   sessionCards: [
     {
@@ -131,9 +152,18 @@ const trainViewModel: TrainViewModel = {
     completionCountLast7Days: 0,
     generatedSessionsCompleted: 0,
     generatedSessionsSkipped: 0,
+    exerciseResultCountLast7Days: 0,
+    partialResultCount: 0,
+    prescribedOnlyCount: 0,
+    completedResultCount: 0,
     painFlagCount: 0,
+    painFlagExercises: [],
+    averageExerciseRpe: null,
     averageSessionRpe: null,
     mostRecentExerciseResultSummary: null,
+    mostRepeatedExercise: null,
+    latestStrengthExerciseSummary: null,
+    consistencySummary: "No completed exercise actuals in the last 7 days; missing history stays unknown.",
     progressionRecommendation: {
       status: "unknown",
       summary: "Progression is unknown until completion history exists.",
@@ -147,6 +177,24 @@ const trainViewModel: TrainViewModel = {
 const planViewModel: PlanViewModel = {
   title: "Plan",
   weeklySummary: "Three support days.",
+  weeklyTrainingStructure: "Three support days.",
+  blockPhase: "build_strength",
+  blockGoal: "strength base",
+  hardDayCap: 3,
+  plannedHardDays: 2,
+  recoveryDays: ["2026-05-21"],
+  dayPlans: [
+    {
+      date: "2026-05-19",
+      label: "Tue, May 19",
+      protectedAnchors: "sparring (hard)",
+      generatedSupport: "Sparring support microdose (easy)",
+      marker: "Hard day",
+      fuelDemand: "high",
+      warningSummary: null,
+      explanation: "Protected boxing owns the day."
+    }
+  ],
   hardDaySummary: "Two hard days max.",
   recoveryDaySummary: "One recovery day.",
   protectedAnchorSummary: "Coach work stays first.",
@@ -398,6 +446,29 @@ describe("minimal app screens", () => {
     expect(output).toContain("Progression");
   });
 
+  it("TrainScreen shows active block context and special day roles", async () => {
+    const { TrainScreen } = await import("../../app/screens/TrainScreen");
+    const taper = resolvePerformanceState({ journey: pro_12_round_taper, asOfDate: fixtureAsOfDate });
+    const tournament = resolvePerformanceState({ journey: amateur_open_tournament, asOfDate: fixtureAsOfDate });
+    const red = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        readinessHistory: [{ ...no_wearable_manual_only.readinessHistory[0]!, energy1To5: 1, fainting: true }]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    const taperOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: taper.viewModels.train })).toJSON());
+    const tournamentOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: tournament.viewModels.train })).toJSON());
+    const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
+
+    expect(taperOutput).toContain("fight week taper");
+    expect(taperOutput).toContain("Taper day");
+    expect(tournamentOutput).toContain("tournament week");
+    expect(tournamentOutput).toContain("Tournament conservation");
+    expect(redOutput).toContain("Safety overrides");
+  });
+
   it("TrainScreen puts primary detail before history and opens completion controls", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
@@ -412,6 +483,40 @@ describe("minimal app screens", () => {
     const openOutput = JSON.stringify(renderer.toJSON());
     expect(openOutput).toContain("Mark completed");
     expect(openOutput).toContain("Skip session");
+    expect(openOutput).toContain("Blank exercise rows are saved as prescribed_only");
+    expect(openOutput).toContain("Result statuses");
+  });
+
+  it("WorkoutDetailPanel saves blank rows as prescribed_only and omits exercise results when skipped", async () => {
+    const { WorkoutDetailPanel } = await import("../../app/screens/train/WorkoutDetailPanel");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const session = state.viewModels.train.detailedTodaySessions[0]?.detail;
+    if (!session) {
+      throw new Error("missing detailed session");
+    }
+    const complete = vi.fn();
+    const skip = vi.fn();
+    const renderer = render(React.createElement(WorkoutDetailPanel, { busy: false, completionActions: { complete, skip }, session }));
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Open workout detail"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Mark completed"));
+    });
+    expect(complete).toHaveBeenCalledWith(session, expect.objectContaining({ exerciseResults: expect.any(Array) }));
+    expect(complete.mock.calls[0]?.[1].exerciseResults.every((result: { resultStatus: string }) => result.resultStatus === "prescribed_only")).toBe(true);
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Open workout detail"));
+    });
+    act(() => {
+      changeInput(renderer, "Session notes / skip reason optional", "Travel day");
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Skip session"));
+    });
+    expect(skip).toHaveBeenCalledWith(session, "Travel day");
   });
 
   it("ExercisePrescriptionCard shows transfer, substitutions, and stop conditions", async () => {
@@ -461,6 +566,71 @@ describe("minimal app screens", () => {
         ).toJSON()
       )
     ).toContain("Add fight or tournament");
+  });
+
+  it("PlanScreen renders weekly block structure and seven day plans", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const output = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: state.viewModels.plan
+        })
+      ).toJSON()
+    );
+
+    expect(state.viewModels.plan.dayPlans).toHaveLength(7);
+    expect(output).toContain("build strength");
+    expect(output).toContain("sparring (hard)");
+    expect(output).toContain("Hard day");
+  });
+
+  it("PlanScreen renders recovery and tournament warning markers", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const red = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        readinessHistory: [{ ...no_wearable_manual_only.readinessHistory[0]!, energy1To5: 1, fainting: true }]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const tournament = resolvePerformanceState({ journey: amateur_open_tournament, asOfDate: fixtureAsOfDate });
+    const redOutput = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: red.viewModels.plan
+        })
+      ).toJSON()
+    );
+    const tournamentOutput = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: true,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: tournament.viewModels.plan
+        })
+      ).toJSON()
+    );
+
+    expect(redOutput).toContain("Recovery");
+    expect(tournamentOutput).toContain("Tournament conservation");
+    expect(tournamentOutput).toContain("Tournament week conserves");
   });
 
   it("FightSetupScreen rejects invalid fight and tournament setup before saving", async () => {

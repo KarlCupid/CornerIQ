@@ -1,7 +1,8 @@
-import type { CompletedTrainingSession, JourneyEvent, ProgressionRecommendation, ReadinessState, RiskFlag } from "../core/types";
+import type { CompletedTrainingSession, ExerciseResultRecord, JourneyEvent, ProgressionRecommendation, ReadinessState, RiskFlag } from "../core/types";
 
 export interface ProgressionEngineInput {
   completedTrainingSessions: readonly CompletedTrainingSession[];
+  exerciseResults?: readonly ExerciseResultRecord[] | undefined;
   readiness: ReadinessState;
   painNotes?: readonly string[] | undefined;
   journeyEvents?: readonly JourneyEvent[] | undefined;
@@ -41,13 +42,18 @@ export function recommendTrainingProgression(input: ProgressionEngineInput): Pro
     ...(input.painNotes ?? []),
     ...input.completedTrainingSessions.flatMap((session) => session.painNotes),
     ...input.completedTrainingSessions.flatMap((session) => (session.athleteNotes ? [session.athleteNotes] : [])),
-    ...input.completedTrainingSessions.flatMap((session) => (session.note ? [session.note] : []))
+    ...input.completedTrainingSessions.flatMap((session) => (session.note ? [session.note] : [])),
+    ...(input.exerciseResults ?? []).flatMap((result) => (result.notes ? [result.notes] : []))
   ];
-  if (notes.some(textIncludesConcern) || input.completedTrainingSessions.some((session) => (sessionRpe(session) ?? 0) >= 9)) {
+  if (
+    notes.some(textIncludesConcern) ||
+    input.completedTrainingSessions.some((session) => (sessionRpe(session) ?? 0) >= 9) ||
+    (input.exerciseResults ?? []).some((result) => result.painFlag)
+  ) {
     return {
       status: "coach_review",
       summary: "Hold progression for coach review.",
-      why: "Pain notes, concerning symptoms, or very high session RPE were found in recent history."
+      why: "Pain notes, exercise pain flags, concerning symptoms, or very high session RPE were found in recent history."
     };
   }
 
@@ -59,11 +65,15 @@ export function recommendTrainingProgression(input: ProgressionEngineInput): Pro
     };
   }
 
-  if (input.completedTrainingSessions.some((session) => session.completionStatus === "skipped") || skippedRecently(input.journeyEvents)) {
+  if (
+    input.completedTrainingSessions.some((session) => session.completionStatus === "skipped") ||
+    (input.exerciseResults ?? []).some((result) => result.resultStatus === "skipped") ||
+    skippedRecently(input.journeyEvents)
+  ) {
     return {
       status: "repeat",
       summary: "Repeat the last safe prescription.",
-      why: "A recent generated support session was skipped, so the engine should not fake progress."
+      why: "A recent generated support session or exercise was skipped, so the engine should not fake progress."
     };
   }
 

@@ -371,6 +371,98 @@ export const ExerciseResultRecordSchema = z.object({
   completedAt: ISODateTimeSchema.nullable()
 });
 
+export const TrainingBlockPhaseSchema = z.enum([
+  "build_strength",
+  "build_power",
+  "aerobic_base",
+  "camp_support",
+  "fight_week_taper",
+  "tournament_week",
+  "recovery_deload",
+  "maintenance"
+]);
+
+export const TrainingBlockGoalSchema = z.enum([
+  "strength_base",
+  "power_quality",
+  "aerobic_capacity",
+  "boxing_camp_support",
+  "speed_preservation",
+  "tournament_conservation",
+  "recovery",
+  "maintenance"
+]);
+
+export const TrainingDayPlanSchema = z.object({
+  date: ISODateSchema,
+  protectedAnchors: z.array(ProtectedWorkoutSchema),
+  generatedSessions: z.array(GeneratedTrainingSessionSchema),
+  completedSessions: z.array(CompletedTrainingSessionSchema),
+  hardDay: z.boolean(),
+  role: z.enum(["hard_day", "recovery_day", "support_day", "taper_day", "tournament_conservation_day"]),
+  recoveryPriority: z.enum(["low", "moderate", "high", "hard_stop"]),
+  fuelDemand: z.enum(["low", "moderate", "high"]),
+  cycleAdjustment: z.string().nullable(),
+  safetyFlags: z.array(z.string()),
+  explanation: z.string()
+});
+
+export const WeeklyTrainingStructureSchema = z.object({
+  weekStartDate: ISODateSchema,
+  weekEndDate: ISODateSchema,
+  hardDayCap: z.number().int().positive(),
+  plannedHardDays: z.number().int().nonnegative(),
+  protectedAnchorCount: z.number().int().nonnegative(),
+  generatedSupportCount: z.number().int().nonnegative(),
+  recoveryDays: z.array(ISODateSchema),
+  dayPlans: z.array(TrainingDayPlanSchema),
+  summary: z.string()
+});
+
+export const TrainingMicrocycleSchema = z.object({
+  weekStartDate: ISODateSchema,
+  weekEndDate: ISODateSchema,
+  hardDayCap: z.number().int().positive(),
+  plannedHardDays: z.number().int().nonnegative(),
+  protectedAnchorCount: z.number().int().nonnegative(),
+  generatedSupportCount: z.number().int().nonnegative(),
+  recoveryDays: z.array(ISODateSchema),
+  notes: z.array(z.string())
+});
+
+export const BlockProgressionStateSchema = z.object({
+  weekIndex: z.number().int().positive(),
+  status: z.enum(["build", "hold", "deload", "taper", "recovery", "coach_review"]),
+  progressionRecommendation: z.enum(["progress", "repeat", "regress", "deload", "coach_review", "unknown"]),
+  reason: z.string()
+});
+
+export const TrainingBlockRecommendationSchema = z.object({
+  phase: TrainingBlockPhaseSchema,
+  primaryGoal: TrainingBlockGoalSchema,
+  secondaryGoals: z.array(TrainingBlockGoalSchema),
+  summary: z.string(),
+  reason: z.string(),
+  progressionState: BlockProgressionStateSchema,
+  warnings: z.array(z.string())
+});
+
+export const TrainingBlockSchema = z.object({
+  id: z.string().min(1),
+  athleteId: z.string().min(1),
+  startDate: ISODateSchema,
+  endDate: ISODateSchema,
+  phase: TrainingBlockPhaseSchema,
+  primaryGoal: TrainingBlockGoalSchema,
+  secondaryGoals: z.array(TrainingBlockGoalSchema),
+  linkedFightId: z.string().min(1).optional(),
+  linkedTournamentId: z.string().min(1).optional(),
+  weeklyStructure: WeeklyTrainingStructureSchema,
+  progressionState: BlockProgressionStateSchema,
+  createdBy: z.enum(["engine", "user"]),
+  engineVersion: z.string().min(1)
+});
+
 export const AthleteJourneySchema = z.object({
   athlete: AthleteProfileSchema,
   activePhase: z.enum(["onboarding", "build", "camp", "short_notice_camp", "fight_week", "tournament", "weigh_in_day", "post_weigh_in", "bout_day", "recovery", "deload", "maintenance"]).nullable(),

@@ -1,0 +1,229 @@
+import { addDays, daysBetween } from "../core/dates";
+import type {
+  AthleteProfile,
+  CompletedTrainingSession,
+  CycleState,
+  ExerciseResultRecord,
+  FightOpportunity,
+  GeneratedTrainingSession,
+  PhaseState,
+  ProtectedWorkout,
+  ReadinessState,
+  RiskFlag,
+  TournamentDetails,
+  TrainingBlock,
+  TrainingBlockGoal,
+  TrainingBlockPhase,
+  TrainingBlockRecommendation,
+  TrainingDayPlan,
+  TrainingMicrocycle
+} from "../core/types";
+import { recommendTrainingProgression } from "./progressionEngine";
+import { buildWeeklyMicrocycle } from "./microcycleEngine";
+
+export interface TrainingBlockEngineInput {
+  athlete: AthleteProfile;
+  currentPhase: PhaseState;
+  fight: FightOpportunity | null;
+  tournament: TournamentDetails | null;
+  protectedWorkouts: readonly ProtectedWorkout[];
+  completedSessions: readonly CompletedTrainingSession[];
+  exerciseResults: readonly ExerciseResultRecord[];
+  generatedSessions: readonly GeneratedTrainingSession[];
+  readiness: ReadinessState;
+  cycle: CycleState;
+  safetyFlags: readonly RiskFlag[];
+  asOfDate: string;
+  engineVersion: string;
+}
+
+function isUnderFuelingRisk(flags: readonly RiskFlag[]): boolean {
+  return flags.some((flag) => flag.code === "rapid_weight_loss" || flag.code === "repeated_low_intake" || flag.code === "missed_period_underfueling_risk" || flag.code === "high_underfueling_blocks_deficit");
+}
+
+function hasRepeatedPain(input: Pick<TrainingBlockEngineInput, "completedSessions" | "exerciseResults" | "safetyFlags">): boolean {
+  const sessionPainCount = input.completedSessions.reduce((count, session) => count + session.painNotes.length, 0);
+  const exercisePainCount = input.exerciseResults.filter((result) => result.painFlag).length;
+  const safetyPain = input.safetyFlags.some((flag) => flag.code === "pain_logged");
+  return safetyPain || sessionPainCount + exercisePainCount >= 2;
+}
+
+function tournamentIsActiveOrSoon(tournament: TournamentDetails | null, asOfDate: string): boolean {
+  if (!tournament) {
+    return false;
+  }
+  return daysBetween(asOfDate, tournament.tournamentEndDate) >= 0 && daysBetween(asOfDate, tournament.tournamentStartDate) <= 7;
+}
+
+function fightIsInFightWeek(fight: FightOpportunity | null, currentPhase: PhaseState, asOfDate: string): boolean {
+  if (currentPhase.phase === "fight_week" || currentPhase.phase === "weigh_in_day" || currentPhase.phase === "post_weigh_in" || currentPhase.phase === "bout_day") {
+    return true;
+  }
+  return Boolean(fight && fight.status !== "canceled" && daysBetween(asOfDate, fight.boutDate) >= 0 && daysBetween(asOfDate, fight.boutDate) <= 7);
+}
+
+function fightIsCamp(fight: FightOpportunity | null, currentPhase: PhaseState, asOfDate: string): boolean {
+  if (currentPhase.phase === "camp" || currentPhase.phase === "short_notice_camp") {
+    return true;
+  }
+  return Boolean(fight && (fight.status === "confirmed" || fight.status === "short_notice") && daysBetween(asOfDate, fight.boutDate) > 7 && daysBetween(asOfDate, fight.boutDate) <= 56);
+}
+
+function buildPhaseForHistory(input: TrainingBlockEngineInput): TrainingBlockPhase {
+  const novice = input.athlete.boxingLevel === "aspiring_boxer" || input.athlete.boxingLevel === "amateur_novice";
+  const advanced =
+    input.athlete.boxingLevel === "amateur_elite" ||
+    input.athlete.boxingLevel === "pro_development" ||
+    input.athlete.boxingLevel === "pro_4_6_round" ||
+    input.athlete.boxingLevel === "pro_8_10_round" ||
+    input.athlete.boxingLevel === "pro_12_round";
+  const goodCompletions = input.completedSessions.filter((session) => session.completionStatus === "completed" && (session.sessionRpe ?? 7) <= 7 && session.painNotes.length === 0).length;
+  if (novice) {
+    return "aerobic_base";
+  }
+  if (advanced && goodCompletions >= 2 && input.readiness.color === "green") {
+    return "build_power";
+  }
+  return "build_strength";
+}
+
+function goalsForPhase(phase: TrainingBlockPhase): { primaryGoal: TrainingBlockGoal; secondaryGoals: readonly TrainingBlockGoal[] } {
+  switch (phase) {
+    case "build_power":
+      return { primaryGoal: "power_quality", secondaryGoals: ["strength_base", "aerobic_capacity"] };
+    case "aerobic_base":
+      return { primaryGoal: "aerobic_capacity", secondaryGoals: ["strength_base", "maintenance"] };
+    case "camp_support":
+      return { primaryGoal: "boxing_camp_support", secondaryGoals: ["speed_preservation", "maintenance"] };
+    case "fight_week_taper":
+      return { primaryGoal: "speed_preservation", secondaryGoals: ["recovery", "boxing_camp_support"] };
+    case "tournament_week":
+      return { primaryGoal: "tournament_conservation", secondaryGoals: ["recovery", "speed_preservation"] };
+    case "recovery_deload":
+      return { primaryGoal: "recovery", secondaryGoals: ["maintenance"] };
+    case "maintenance":
+      return { primaryGoal: "maintenance", secondaryGoals: ["aerobic_capacity"] };
+    case "build_strength":
+      return { primaryGoal: "strength_base", secondaryGoals: ["aerobic_capacity", "power_quality"] };
+  }
+}
+
+export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): TrainingBlockRecommendation {
+  const underFueling = isUnderFuelingRisk(input.safetyFlags);
+  const repeatedPain = hasRepeatedPain(input);
+  const trainingHardStop =
+    input.readiness.color === "red" ||
+    input.safetyFlags.some((flag) => flag.hardStop && (flag.domain === "training" || flag.domain === "readiness" || flag.domain === "cycle" || flag.domain === "medical"));
+  const phase: TrainingBlockPhase = trainingHardStop || repeatedPain
+    ? "recovery_deload"
+    : tournamentIsActiveOrSoon(input.tournament, input.asOfDate)
+      ? "tournament_week"
+      : fightIsInFightWeek(input.fight, input.currentPhase, input.asOfDate)
+        ? "fight_week_taper"
+        : fightIsCamp(input.fight, input.currentPhase, input.asOfDate)
+          ? "camp_support"
+          : input.currentPhase.phase === "maintenance" || input.currentPhase.phase === "recovery"
+            ? "maintenance"
+            : buildPhaseForHistory(input);
+  const goals = goalsForPhase(phase);
+  const progression = recommendTrainingProgression({
+    completedTrainingSessions: input.completedSessions,
+    exerciseResults: input.exerciseResults,
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags
+  });
+  const progressionStatus =
+    repeatedPain || progression.status === "coach_review"
+      ? "coach_review"
+      : phase === "fight_week_taper"
+        ? "taper"
+        : phase === "recovery_deload"
+          ? trainingHardStop
+            ? "recovery"
+            : "deload"
+          : underFueling
+            ? "hold"
+            : progression.status === "can_progress"
+              ? "build"
+              : "hold";
+  const progressionRecommendation =
+    repeatedPain || progression.status === "coach_review"
+      ? "coach_review"
+      : underFueling || progression.status === "deload"
+        ? "deload"
+        : progression.status === "can_progress"
+          ? "progress"
+          : progression.status === "repeat" || progression.status === "regress"
+            ? progression.status
+            : "unknown";
+  const warnings = [
+    ...(underFueling ? ["Under-fueling risk blocks aggressive progression."] : []),
+    ...(input.cycle.symptomBurden === "high" ? ["High cycle symptoms trim optional volume."] : []),
+    ...(input.safetyFlags.some((flag) => flag.code === "heavy_bleeding_with_dizziness") ? ["Heavy bleeding with dizziness needs safety review before hard work."] : []),
+    ...(phase === "tournament_week" ? ["Tournament week avoids extra hard conditioning and weight pressure."] : [])
+  ];
+  return {
+    phase,
+    ...goals,
+    summary: `${phase.replaceAll("_", " ")} block`,
+    reason:
+      phase === "recovery_deload"
+        ? repeatedPain
+          ? "Pain history or professional-review flags require coach review before progression."
+          : "Readiness or training safety flags override the training block."
+        : phase === "tournament_week"
+          ? "Tournament context keeps generated work conservative and secondary."
+          : phase === "fight_week_taper"
+            ? "Fight week drops volume while preserving speed."
+            : phase === "camp_support"
+              ? "Confirmed fight context makes boxing protection and specificity the priority."
+              : "Build phase uses boxing level and completion history to choose the first block.",
+    progressionState: {
+      weekIndex: 1,
+      status: progressionStatus,
+      progressionRecommendation,
+      reason: underFueling ? "Under-fueling risk is active, so progression is held." : progression.why
+    },
+    warnings
+  };
+}
+
+export function resolveTrainingBlock(input: TrainingBlockEngineInput): {
+  activeBlock: TrainingBlock;
+  currentMicrocycle: TrainingMicrocycle;
+  dayPlans: readonly TrainingDayPlan[];
+  blockRecommendation: TrainingBlockRecommendation;
+} {
+  const recommendation = recommendTrainingBlockPhase(input);
+  const microcycle = buildWeeklyMicrocycle({
+    asOfDate: input.asOfDate,
+    blockPhase: recommendation.phase,
+    protectedWorkouts: input.protectedWorkouts,
+    generatedSessions: input.generatedSessions,
+    completedSessions: input.completedSessions,
+    readiness: input.readiness,
+    cycle: input.cycle,
+    safetyFlags: input.safetyFlags,
+    underFuelingRisk: isUnderFuelingRisk(input.safetyFlags)
+  });
+  return {
+    activeBlock: {
+      id: `block:${input.athlete.athleteId}:${input.asOfDate}:${recommendation.phase}`,
+      athleteId: input.athlete.athleteId,
+      startDate: input.asOfDate,
+      endDate: addDays(input.asOfDate, 27),
+      phase: recommendation.phase,
+      primaryGoal: recommendation.primaryGoal,
+      secondaryGoals: recommendation.secondaryGoals,
+      ...(input.fight?.id ? { linkedFightId: input.fight.id } : {}),
+      ...(input.tournament?.id ? { linkedTournamentId: input.tournament.id } : {}),
+      weeklyStructure: microcycle.weeklyStructure,
+      progressionState: recommendation.progressionState,
+      createdBy: "engine",
+      engineVersion: input.engineVersion
+    },
+    currentMicrocycle: microcycle.microcycle,
+    dayPlans: microcycle.dayPlans,
+    blockRecommendation: recommendation
+  };
+}

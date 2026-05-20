@@ -1,10 +1,109 @@
-import type { PerformanceState, TrainViewModel } from "../core/types";
+import type { CycleTrainingDecisionViewModel, PerformanceState, TrainViewModel, TrainingDayPlan } from "../core/types";
 import { buildDetailedTrainingSession } from "../training/detailedSessionEngine";
 import { buildTrainingAnalytics } from "../training/trainingAnalytics";
 import { riskSummary } from "./explanationCopy";
 
+function todayPlan(state: PerformanceState): TrainingDayPlan | null {
+  return state.training.dayPlans.find((plan) => plan.date === state.asOfDate) ?? null;
+}
+
+function roleSummary(plan: TrainingDayPlan | null): string {
+  if (!plan) {
+    return "Today is unknown until the weekly plan resolves.";
+  }
+  switch (plan.role) {
+    case "hard_day":
+      return "Hard day inside the weekly cap.";
+    case "recovery_day":
+      return "Recovery day; block goals are secondary.";
+    case "support_day":
+      return "Support day around protected boxing.";
+    case "taper_day":
+      return "Taper day: touch speed, drop volume.";
+    case "tournament_conservation_day":
+      return "Tournament conservation day: no extra hard conditioning.";
+  }
+}
+
+function cycleTrainingDecision(state: PerformanceState): CycleTrainingDecisionViewModel {
+  if (!state.cycle.trackingEnabled) {
+    return {
+      status: "none",
+      summary: "No cycle assumptions are applied.",
+      action: "Use readiness and manual symptoms if they are logged."
+    };
+  }
+  if (state.cycle.safetyFlags.some((flag) => flag.code === "heavy_bleeding_with_dizziness")) {
+    return {
+      status: "safety_review",
+      summary: "Heavy bleeding with dizziness hard-stops optional training.",
+      action: "Choose recovery only and seek qualified help if symptoms persist or worsen."
+    };
+  }
+  if (state.cycle.symptomBurden === "high") {
+    return {
+      status: "symptom_trim",
+      summary: "High cycle symptoms trim optional training volume.",
+      action: "Keep protected boxing only if safe; remove extra hard generated work."
+    };
+  }
+  if (state.cycle.cycleRelatedWeightNoiseRisk === "high" || state.cycle.cycleRelatedWeightNoiseRisk === "moderate") {
+    return {
+      status: "scale_noise",
+      summary: "Cycle context may add body-mass noise.",
+      action: "Do not chase scale movement with extra conditioning or food restriction."
+    };
+  }
+  return {
+    status: "none",
+    summary: "Cycle context is symptom-based today.",
+    action:
+      state.cycle.hormonalContraception !== "none" && state.cycle.hormonalContraception !== "unknown"
+        ? "Hormonal contraception means symptoms guide training, not natural-cycle phase certainty."
+        : "Plan can stay as written unless symptoms change."
+  };
+}
+
+function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<TrainViewModel, "preSessionFuelHint" | "postSessionFuelHint" | "hydrationHint"> {
+  const underFueling = Boolean(state.nutrition.underFuelingRiskNote);
+  if (underFueling) {
+    return {
+      preSessionFuelHint: "Under-fueling risk is active: progression is blocked until fuel and recovery are steady.",
+      postSessionFuelHint: "Prioritize protein plus carbs after training; do not use missed fuel to justify extra work.",
+      hydrationHint: "Keep fluids and electrolytes consistent; avoid weight-pressure tactics."
+    };
+  }
+  if (state.training.activeBlock.phase === "tournament_week") {
+    return {
+      preSessionFuelHint: "Tournament week: keep predictable carbs and fluids; no hard conditioning to chase weight.",
+      postSessionFuelHint: "Refuel gently and keep protein steady between bouts or weigh-ins.",
+      hydrationHint: "Use consistent fluids and sodium; avoid dehydration pressure."
+    };
+  }
+  if (plan?.fuelDemand === "high") {
+    return {
+      preSessionFuelHint: "High fuel demand: include carbs and fluids before the session.",
+      postSessionFuelHint: "Recover with protein plus carbs so next boxing quality is protected.",
+      hydrationHint: "Bring fluids and electrolytes, especially around hard or longer work."
+    };
+  }
+  if (plan?.role === "recovery_day") {
+    return {
+      preSessionFuelHint: "Recovery day: eat normally and keep protein steady.",
+      postSessionFuelHint: "Use the easy day to restore, not to compensate.",
+      hydrationHint: "Keep fluids consistent and do not force extra water."
+    };
+  }
+  return {
+    preSessionFuelHint: "Use carbs around boxing and generated support as needed.",
+    postSessionFuelHint: "Protein after training supports repair without changing the safety rules.",
+    hydrationHint: "Manual thirst, urine color, and planned heat matter; no wearable is required."
+  };
+}
+
 export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const todayAnchors = state.training.protectedAnchors.filter((anchor) => anchor.date === state.asOfDate);
+  const plan = todayPlan(state);
   const detailedTodaySessions = state.training.todaySessions.map((session) => {
     try {
       const detail = buildDetailedTrainingSession({
@@ -52,9 +151,21 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     readiness: state.readiness,
     safetyFlags: state.safety.riskFlags
   });
+  const hints = fuelHints(state, plan);
   return {
     title: "Train for boxing",
     todaySummary: state.training.todaySessions.length > 0 ? state.training.todaySessions.map((session) => session.title).join(", ") : "No generated support today.",
+    blockPhase: state.training.activeBlock.phase,
+    blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),
+    blockExplanation: state.training.blockRecommendation.reason,
+    todayRole: {
+      status: plan?.role ?? "support_day",
+      summary: roleSummary(plan),
+      explanation: plan?.explanation ?? state.training.explanation
+    },
+    blockProgression: analytics.progressionRecommendation,
+    ...hints,
+    cycleTrainingDecision: cycleTrainingDecision(state),
     sessionCards: state.training.todaySessions.map((session) => ({
       title: session.title,
       intensity: session.intensity,

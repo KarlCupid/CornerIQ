@@ -141,6 +141,11 @@ export function WorkoutDetailPanel({
       </View>
       {open ? (
         <View style={{ gap: spacing.md }}>
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.body}>You can complete this without logging every exercise.</Text>
+            <Text style={screenStyles.subtle}>Blank exercise rows are saved as prescribed_only.</Text>
+            <Text style={screenStyles.subtle}>Result statuses: completed means all sets were done, partial means some work or a pain flag was logged, prescribed_only means no actual was entered, skipped means zero sets.</Text>
+          </View>
           {session.sections.map((section) => (
             <View key={section.name} style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>{section.name}</Text>
@@ -164,7 +169,7 @@ export function WorkoutDetailPanel({
           ))}
           <TextInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
           <TextInput onChangeText={setPainNotes} placeholder="Pain note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
-          <TextInput onChangeText={setNotes} placeholder="Session notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={notes} />
+          <TextInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={notes} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             <Pressable accessibilityRole="button" disabled={busy} onPress={() => void complete()} style={screenStyles.button}>
               <Text style={screenStyles.buttonText}>Mark completed</Text>

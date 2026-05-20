@@ -23,6 +23,13 @@ export function PlanScreen({ asOfDate, busy, hasActiveFightOrTournament, isMinor
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Active block</Text>
+          <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} - {viewModel.blockGoal}</Text>
+          <Text style={screenStyles.subtle}>Hard days: {viewModel.plannedHardDays}/{viewModel.hardDayCap}</Text>
+        </View>
+      </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Week</Text>
           <Text style={screenStyles.body}>{viewModel.weeklySummary}</Text>
           <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
@@ -31,6 +38,18 @@ export function PlanScreen({ asOfDate, busy, hasActiveFightOrTournament, isMinor
           {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
         </View>
       </EngineCard>
+      {viewModel.dayPlans.map((day) => (
+        <EngineCard key={day.date}>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={screenStyles.sectionTitle}>{day.label}</Text>
+            <Text style={screenStyles.callout}>{day.marker} - fuel demand {day.fuelDemand}</Text>
+            <Text style={screenStyles.body}>Protected: {day.protectedAnchors}</Text>
+            <Text style={screenStyles.body}>Generated: {day.generatedSupport}</Text>
+            <Text style={screenStyles.subtle}>{day.explanation}</Text>
+            {day.warningSummary ? <Text style={screenStyles.subtle}>Warning: {day.warningSummary}</Text> : null}
+          </View>
+        </EngineCard>
+      ))}
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Warnings</Text>

@@ -1,9 +1,34 @@
 import { makeConfidence } from "../core/confidence";
 import { addDays } from "../core/dates";
-import type { AthleteProfile, CompletedTrainingSession, ExerciseResultRecord, PhaseState, ProtectedWorkout, ReadinessState, TrainingState } from "../core/types";
+import type {
+  AthleteProfile,
+  CompletedTrainingSession,
+  CycleState,
+  ExerciseResultRecord,
+  FightOpportunity,
+  PhaseState,
+  ProtectedWorkout,
+  ReadinessState,
+  RiskFlag,
+  TournamentDetails,
+  TrainingState
+} from "../core/types";
 import { buildLoadLedger } from "./loadLedger";
 import { generateSupportSession } from "./sessionGenerator";
 import { anchorsForDate, hasProtectedCompetition, hasProtectedSparring } from "./protectedAnchors";
+import { resolveTrainingBlock } from "./trainingBlockEngine";
+
+function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean {
+  return Boolean(
+    flags?.some(
+      (flag) =>
+        flag.code === "rapid_weight_loss" ||
+        flag.code === "repeated_low_intake" ||
+        flag.code === "missed_period_underfueling_risk" ||
+        flag.code === "high_underfueling_blocks_deficit"
+    )
+  );
+}
 
 export function resolveWeeklyTrainingPlan(input: {
   athlete: AthleteProfile;
@@ -11,14 +36,22 @@ export function resolveWeeklyTrainingPlan(input: {
   asOfDate: string;
   phase: PhaseState;
   readiness: ReadinessState;
+  cycle: CycleState;
+  fight?: FightOpportunity | null | undefined;
+  tournament?: TournamentDetails | null | undefined;
   completedSessions?: readonly CompletedTrainingSession[];
   recentExerciseResults?: readonly ExerciseResultRecord[];
   highCycleSymptoms: boolean;
+  safetyFlags?: readonly RiskFlag[] | undefined;
   safetyBlocks?: boolean;
+  engineVersion?: string | undefined;
 }): TrainingState {
+  const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
   const targetSessions =
-    input.readiness.color === "red"
+    input.safetyBlocks || input.readiness.color === "red"
       ? 1
+      : underFuelingRisk
+        ? 2
       : input.phase.phase === "tournament"
         ? 2
         : input.phase.phase === "fight_week"
@@ -65,14 +98,30 @@ export function resolveWeeklyTrainingPlan(input: {
       boxingLevel: input.athlete.boxingLevel,
       equipmentAccess: input.athlete.equipmentAccess
     });
-  })
+    })
     .filter((session) => session !== null)
     .filter((session) => input.phase.phase === "tournament" || session.intensity !== "hard" || !input.highCycleSymptoms)
+    .filter((session) => !underFuelingRisk || session.intensity !== "hard")
     .slice(0, targetSessions);
 
   const todaySessions = generated.filter((session) => session.date === input.asOfDate);
   const ledger = buildLoadLedger(input.anchors, generated);
   const todayAnchors = anchorsForDate(input.anchors, input.asOfDate);
+  const block = resolveTrainingBlock({
+    athlete: input.athlete,
+    currentPhase: input.phase,
+    fight: input.fight ?? null,
+    tournament: input.tournament ?? null,
+    protectedWorkouts: input.anchors,
+    completedSessions: input.completedSessions ?? [],
+    exerciseResults: input.recentExerciseResults ?? [],
+    generatedSessions: generated,
+    readiness: input.readiness,
+    cycle: input.cycle,
+    safetyFlags: input.safetyFlags ?? [],
+    asOfDate: input.asOfDate,
+    engineVersion: input.engineVersion ?? "unversioned"
+  });
 
   return {
     protectedAnchors: input.anchors,
@@ -80,9 +129,15 @@ export function resolveWeeklyTrainingPlan(input: {
     recentExerciseResults: input.recentExerciseResults ?? [],
     generatedSessions: generated,
     todaySessions,
+    activeBlock: block.activeBlock,
+    currentMicrocycle: block.currentMicrocycle,
+    dayPlans: block.dayPlans,
+    blockRecommendation: block.blockRecommendation,
     loadLedger: ledger,
     explanation:
-      todayAnchors.some((anchor) => anchor.type === "sparring")
+      underFuelingRisk
+        ? "Under-fueling risk is active, so generated load is reduced and progression is held."
+        : todayAnchors.some((anchor) => anchor.type === "sparring")
         ? "Protected sparring owns today's hard stress. Generated support stays easy."
         : input.readiness.color === "red"
           ? "Readiness is red, so hard generated work is blocked."

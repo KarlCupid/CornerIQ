@@ -1,5 +1,5 @@
 import type { ConfidenceLevel } from "../core/sharedTypes";
-import type { DetailedTrainingSession, GeneratedSessionIntensity, ProgressionRecommendation } from "../training/types";
+import type { DetailedTrainingSession, GeneratedSessionIntensity, ProgressionRecommendation, TrainingBlockPhase, TrainingDayRole } from "../training/types";
 
 export interface DecisionStackItem {
   label: string;
@@ -74,16 +74,44 @@ export interface TrainingAnalyticsViewModel {
   completionCountLast7Days: number;
   generatedSessionsCompleted: number;
   generatedSessionsSkipped: number;
+  exerciseResultCountLast7Days: number;
+  partialResultCount: number;
+  prescribedOnlyCount: number;
+  completedResultCount: number;
   painFlagCount: number;
+  painFlagExercises: readonly string[];
+  averageExerciseRpe: number | null;
   averageSessionRpe: number | null;
   mostRecentExerciseResultSummary: string | null;
+  mostRepeatedExercise: string | null;
+  latestStrengthExerciseSummary: string | null;
+  consistencySummary: string;
   progressionRecommendation: ProgressionRecommendation;
   nextBestTrainingAction: string;
+}
+
+export interface CycleTrainingDecisionViewModel {
+  status: "none" | "symptom_trim" | "scale_noise" | "safety_review";
+  summary: string;
+  action: string;
 }
 
 export interface TrainViewModel {
   title: string;
   todaySummary: string;
+  blockPhase: TrainingBlockPhase;
+  blockGoal: string;
+  blockExplanation: string;
+  todayRole: {
+    status: TrainingDayRole;
+    summary: string;
+    explanation: string;
+  };
+  blockProgression: ProgressionRecommendation;
+  preSessionFuelHint: string;
+  postSessionFuelHint: string;
+  hydrationHint: string;
+  cycleTrainingDecision: CycleTrainingDecisionViewModel;
   sessionCards: readonly {
     title: string;
     intensity: GeneratedSessionIntensity;
@@ -115,6 +143,22 @@ export interface TrainViewModel {
 export interface PlanViewModel {
   title: string;
   weeklySummary: string;
+  weeklyTrainingStructure: string;
+  blockPhase: TrainingBlockPhase;
+  blockGoal: string;
+  hardDayCap: number;
+  plannedHardDays: number;
+  recoveryDays: readonly string[];
+  dayPlans: readonly {
+    date: string;
+    label: string;
+    protectedAnchors: string;
+    generatedSupport: string;
+    marker: string;
+    fuelDemand: "low" | "moderate" | "high";
+    warningSummary: string | null;
+    explanation: string;
+  }[];
   hardDaySummary: string;
   recoveryDaySummary: string;
   protectedAnchorSummary: string;
