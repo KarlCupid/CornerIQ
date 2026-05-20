@@ -6,6 +6,7 @@ import type {
   CycleState,
   FightOpportunity,
   NutritionState,
+  FoodLog,
   PhaseState,
   ReadinessState,
   RiskFlag,
@@ -15,6 +16,7 @@ import type {
 } from "../core/types";
 import { toKg } from "../core/units";
 import { calculateMacroTargets } from "./macroTargets";
+import { summarizeFoodLogs } from "./foodLogSummary";
 import { resolveRehydrationPlan } from "./rehydrationEngine";
 import { sessionFuelingGuidance } from "./sessionFueling";
 import { sodiumFiberStrategy } from "./sodiumFiberStrategy";
@@ -31,7 +33,9 @@ export function resolveNutrition(input: {
   training: TrainingState;
   safetyFlags: readonly RiskFlag[];
   acuteProtocolEligibility: AcuteProtocolEligibility;
+  foodLogs: readonly FoodLog[];
   foodLogCount: number;
+  asOfDate: string;
 }): NutritionState {
   const kg = toKg(input.athlete.currentBodyMass) ?? input.bodyMass.trend.latestKg ?? input.athlete.typicalWalkAroundWeightKg ?? 75;
   const blocked = input.safetyFlags.some((flag) => flag.hardStop);
@@ -66,6 +70,12 @@ export function resolveNutrition(input: {
       : null;
   const tournamentFuelingGuidance =
     input.tournamentStrategy.status === "active" || input.tournamentStrategy.status === "unsafe" ? input.tournamentStrategy.athleteFacingSummary : null;
+  const actualIntakeSummary = summarizeFoodLogs(input.foodLogs, input.asOfDate, {
+    calories: macros.calories,
+    proteinGrams: macros.proteinGrams,
+    carbohydrateGrams: macros.carbohydrateGrams,
+    fatGrams: macros.fatGrams
+  });
 
   return {
     dailyCaloriesTarget: macros.calories,
@@ -77,6 +87,7 @@ export function resolveNutrition(input: {
     carbohydrateGrams: macros.carbohydrateGrams,
     fatGrams: macros.fatGrams,
     fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
+    actualIntakeSummary,
     waterLiters: Number(Math.max(2.2, kg * 0.035).toFixed(1)),
     sodiumGuidance: riskFlags.some((flag) => flag.code === "excess_plain_water_low_sodium")
       ? "Do not keep adding plain water without sodium. Hydration needs electrolytes."

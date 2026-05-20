@@ -132,6 +132,16 @@ export function validateOnboardingStep(draft: OnboardingDraft, stepIndex: number
   return null;
 }
 
+export function validateOnboardingDraftForFinish(draft: OnboardingDraft): string | null {
+  for (let index = 0; index < ONBOARDING_STEPS.length; index += 1) {
+    const stepError = validateOnboardingStep(draft, index);
+    if (stepError) {
+      return stepError;
+    }
+  }
+  return OnboardingDraftSchema.safeParse(draft).success ? null : "Setup has invalid draft values. Review the highlighted step before finishing.";
+}
+
 function storageKey(asOfDate: ISODateString): string {
   return `corneriq:onboarding:${asOfDate}`;
 }
@@ -195,6 +205,9 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
   );
 
   const next = useCallback(() => {
+    if (stepError) {
+      return;
+    }
     const error = validateOnboardingStep(draft, stepIndex);
     if (error) {
       setStepError(error);
@@ -202,7 +215,7 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
     }
     setStepError(null);
     setStepIndex((current) => Math.min(lastStepIndex, current + 1));
-  }, [draft, lastStepIndex, stepIndex]);
+  }, [draft, lastStepIndex, stepError, stepIndex]);
 
   const back = useCallback(() => {
     setStepError(null);
@@ -210,10 +223,10 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
   }, []);
 
   const validateCurrentStep = useCallback(() => {
-    const error = validateOnboardingStep(draft, stepIndex);
+    const error = stepError ?? (stepIndex === lastStepIndex ? validateOnboardingDraftForFinish(draft) : validateOnboardingStep(draft, stepIndex));
     setStepError(error);
     return error;
-  }, [draft, stepIndex]);
+  }, [draft, lastStepIndex, stepError, stepIndex]);
 
   const clearDraft = useCallback(async () => {
     const resolved = await resolveDraftStorage();
@@ -232,6 +245,7 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
     stepLabel: ONBOARDING_STEPS[stepIndex],
     stepTotal: ONBOARDING_STEPS.length,
     storageStatus,
+    setStepError,
     updateDraft,
     validateCurrentStep
   };

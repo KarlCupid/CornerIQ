@@ -1,6 +1,7 @@
 import type { Confidence, ConfidenceLevel, ISODateString } from "../core/sharedTypes";
 import type { AcuteProtocolEligibility, AcuteProtocolStatus } from "../fight/types";
 import type { RiskFlag } from "../safety/types";
+import type { FoodLogActualSummary } from "./foodLogSummary";
 
 export interface FoodLog {
   date: ISODateString;
@@ -47,6 +48,7 @@ export interface NutritionState {
   carbohydrateGrams: number;
   fatGrams: number;
   fiberGrams: number;
+  actualIntakeSummary: FoodLogActualSummary;
   waterLiters: number;
   sodiumGuidance: string;
   sessionFueling: readonly string[];

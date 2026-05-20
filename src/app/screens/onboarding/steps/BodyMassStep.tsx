@@ -4,15 +4,37 @@ import { colors, spacing } from "../../../../design/theme";
 import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 
-function positiveOrInvalid(value: string): number {
+type BodyMassField = "currentBodyMassKg" | "typicalWalkAroundWeightKg" | "heightCm";
+
+function positiveNumber(value: string): number | null {
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-export function BodyMassStep({ draft, updateDraft }: OnboardingStepProps) {
+function bodyMassTextError(input: { currentMassText: string; heightText: string; walkAroundText: string }): string | null {
+  if (positiveNumber(input.heightText) === null) {
+    return "Height is required.";
+  }
+  if (positiveNumber(input.currentMassText) === null) {
+    return "Current body mass is required.";
+  }
+  if (positiveNumber(input.walkAroundText) === null) {
+    return "Walk-around body mass is required.";
+  }
+  return null;
+}
+
+export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingStepProps) {
   const [currentMassText, setCurrentMassText] = useState(`${draft.bodyMass.currentBodyMassKg}`);
   const [walkAroundText, setWalkAroundText] = useState(`${draft.bodyMass.typicalWalkAroundWeightKg}`);
   const [heightText, setHeightText] = useState(`${draft.bodyMass.heightCm}`);
+  const applyBodyMassUpdate = (field: BodyMassField, value: string, nextTexts: { currentMassText: string; heightText: string; walkAroundText: string }) => {
+    const parsed = positiveNumber(value);
+    if (parsed !== null) {
+      updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, [field]: parsed } }));
+    }
+    setStepError(bodyMassTextError(nextTexts));
+  };
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -22,7 +44,7 @@ export function BodyMassStep({ draft, updateDraft }: OnboardingStepProps) {
         keyboardType="decimal-pad"
         onChangeText={(value) => {
           setCurrentMassText(value);
-          updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, currentBodyMassKg: positiveOrInvalid(value) } }));
+          applyBodyMassUpdate("currentBodyMassKg", value, { currentMassText: value, heightText, walkAroundText });
         }}
         placeholder="Current body mass kg"
         placeholderTextColor={colors.wrap}
@@ -33,7 +55,7 @@ export function BodyMassStep({ draft, updateDraft }: OnboardingStepProps) {
         keyboardType="decimal-pad"
         onChangeText={(value) => {
           setWalkAroundText(value);
-          updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, typicalWalkAroundWeightKg: positiveOrInvalid(value) } }));
+          applyBodyMassUpdate("typicalWalkAroundWeightKg", value, { currentMassText, heightText, walkAroundText: value });
         }}
         placeholder="Typical walk-around kg"
         placeholderTextColor={colors.wrap}
@@ -44,7 +66,7 @@ export function BodyMassStep({ draft, updateDraft }: OnboardingStepProps) {
         keyboardType="decimal-pad"
         onChangeText={(value) => {
           setHeightText(value);
-          updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, heightCm: positiveOrInvalid(value) } }));
+          applyBodyMassUpdate("heightCm", value, { currentMassText, heightText: value, walkAroundText });
         }}
         placeholder="Height cm"
         placeholderTextColor={colors.wrap}
@@ -56,7 +78,10 @@ export function BodyMassStep({ draft, updateDraft }: OnboardingStepProps) {
           <Pressable
             accessibilityRole="button"
             key={option}
-            onPress={() => updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, preferredUnits: option } }))}
+            onPress={() => {
+              updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, preferredUnits: option } }));
+              setStepError(bodyMassTextError({ currentMassText, heightText, walkAroundText }));
+            }}
             style={[screenStyles.quietButton, draft.bodyMass.preferredUnits === option ? { borderColor: colors.blueIQ } : null]}
           >
             <Text style={screenStyles.quietButtonText}>{option}</Text>

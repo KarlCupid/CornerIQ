@@ -280,6 +280,19 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toHaveLength(27);
   });
 
+  it("Expo-side services do not reference service role keys", () => {
+    const files = [
+      "src/services/supabase/client.ts",
+      "src/services/supabase/userDataService.ts",
+      "src/hooks/useUserDataControls.ts",
+      "src/app/screens/ProfileScreen.tsx"
+    ];
+
+    for (const file of files) {
+      expect(readFileSync(file, "utf8").toLowerCase()).not.toContain("service_role");
+    }
+  });
+
   it("export and delete scope every table by user_id", async () => {
     const { client, deleted, selected } = createUserDataClient();
 
@@ -317,6 +330,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/nutritionRepository.ts",
       "src/services/supabase/hydrationRepository.ts",
       "src/services/supabase/trainingRepository.ts",
+      "src/services/supabase/exerciseResultRepository.ts",
       "src/services/supabase/engineRunRepository.ts",
       "src/services/supabase/userDataService.ts"
     ];

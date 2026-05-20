@@ -4,7 +4,9 @@ import type { CycleViewModel, ProfileViewModel, RecentLogsViewModel } from "../.
 import type { ISODateString } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
+import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
+import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
 
@@ -18,6 +20,7 @@ export interface ProfileScreenProps {
   onUpdateSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   preferredUnits: "metric" | "imperial";
   recentLogs: RecentLogsViewModel;
+  userDataControls?: UserDataControlsHook | undefined;
   viewModel: ProfileViewModel;
   wearablePreference: "manual_only" | "wearable_connected" | "undecided";
   wearableStatus: string;
@@ -33,11 +36,14 @@ export function ProfileScreen({
   onUpdateSettings,
   preferredUnits,
   recentLogs,
+  userDataControls,
   viewModel,
   wearablePreference,
   wearableStatus
 }: ProfileScreenProps) {
-  const [deleteConfirmation, setDeleteConfirmation] = React.useState("");
+  const [fallbackDeleteConfirmation, setFallbackDeleteConfirmation] = React.useState("");
+  const deleteConfirmation = userDataControls?.deleteConfirmation ?? fallbackDeleteConfirmation;
+  const setDeleteConfirmation = userDataControls?.setDeleteConfirmation ?? setFallbackDeleteConfirmation;
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -55,16 +61,7 @@ export function ProfileScreen({
           {viewModel.privacyNotes.map((note) => <Text key={note} style={screenStyles.body}>{note}</Text>)}
         </View>
       </EngineCard>
-      {cycleContext ? (
-        <EngineCard>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.sectionTitle}>Cycle support</Text>
-            <Text style={screenStyles.body}>{cycleContext.context}</Text>
-            <Text style={screenStyles.body}>Symptoms: {cycleContext.symptomBurden}</Text>
-            <Text style={screenStyles.subtle}>{cycleContext.privacyReminder}</Text>
-          </View>
-        </EngineCard>
-      ) : null}
+      <CycleContextCard cycleContext={cycleContext} minimal />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Journey history</Text>
@@ -84,13 +81,16 @@ export function ProfileScreen({
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Data controls</Text>
           <Text style={screenStyles.body}>Export preview counts user-owned tables. Delete requires the exact word DELETE and never deletes auth.users from the Expo app.</Text>
-          <Pressable accessibilityRole="button" style={screenStyles.quietButton}>
+          <Pressable accessibilityRole="button" disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
             <Text style={screenStyles.quietButtonText}>Preview export</Text>
           </Pressable>
+          {userDataControls?.previewRows.map((row) => <Text key={row} style={screenStyles.subtle}>{row}</Text>)}
+          {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
           <TextInput onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
-          <Pressable accessibilityRole="button" disabled={deleteConfirmation !== "DELETE"} style={screenStyles.quietButton}>
+          <Pressable accessibilityRole="button" disabled={deleteConfirmation !== "DELETE" || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
             <Text style={screenStyles.quietButtonText}>Delete data requires DELETE</Text>
           </Pressable>
+          <Text style={screenStyles.subtle}>Account deletion requires a server-side function later; this only removes user-owned app data.</Text>
         </View>
       </EngineCard>
       <Pressable accessibilityRole="button" onPress={onSignOut} style={screenStyles.quietButton}>

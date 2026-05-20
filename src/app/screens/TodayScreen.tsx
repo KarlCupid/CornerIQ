@@ -4,6 +4,7 @@ import type { CycleSymptom, CycleViewModel, RecentLogsViewModel, TodayViewModel 
 import { EngineCard } from "../../design/components/EngineCard";
 import { colors, spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, CycleLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
@@ -50,21 +51,7 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
           <Text style={screenStyles.body}>Readiness: {viewModel.readinessContext}</Text>
         </View>
       </EngineCard>
-      {cycleContext ? (
-        <EngineCard>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.sectionTitle}>Cycle context</Text>
-            <Text style={screenStyles.body}>Tracking: {cycleContext.trackingStatus}</Text>
-            <Text style={screenStyles.body}>Phase context: {cycleContext.estimatedPhase}</Text>
-            <Text style={screenStyles.body}>Symptoms: {cycleContext.symptomBurden}</Text>
-            <Text style={screenStyles.body}>{cycleContext.trainingAdjustment}</Text>
-            <Text style={screenStyles.body}>{cycleContext.nutritionAdjustment}</Text>
-            <Text style={screenStyles.subtle}>{cycleContext.scaleNoiseNote}</Text>
-            <Text style={screenStyles.subtle}>{cycleContext.historySummary}</Text>
-            <Text style={screenStyles.subtle}>{cycleContext.privacyReminder}</Text>
-          </View>
-        </EngineCard>
-      ) : null}
+      <CycleContextCard cycleContext={cycleContext} />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Recent logs</Text>

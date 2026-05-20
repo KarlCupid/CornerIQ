@@ -1,5 +1,5 @@
 import type { ConfidenceLevel } from "../core/sharedTypes";
-import type { GeneratedSessionIntensity } from "../training/types";
+import type { DetailedTrainingSession, GeneratedSessionIntensity, ProgressionRecommendation } from "../training/types";
 
 export interface DecisionStackItem {
   label: string;
@@ -51,6 +51,12 @@ export interface FuelViewModel {
   calorieSummary: string;
   macroSummary: string;
   hydrationSummary: string;
+  actualIntakeSummary: {
+    title: string;
+    summary: string;
+    confidence: ConfidenceLevel;
+    rows: readonly string[];
+  };
   bodyMassSummary: string;
   cycleNote: string | null;
   fightOrTournamentNote: string | null;
@@ -74,6 +80,20 @@ export interface TrainViewModel {
     protects: readonly string[];
     fuelDemand: "low" | "moderate" | "high";
   }[];
+  detailedTodaySessions: readonly {
+    generatedSessionId: string;
+    title: string;
+    duration: string;
+    intensity: GeneratedSessionIntensity;
+    sectionCount: number;
+    firstExercises: readonly string[];
+    whyThisMattersForBoxing: string;
+    stopConditions: readonly string[];
+    safetyNotes: readonly string[];
+    canOpenDetail: boolean;
+    detail: DetailedTrainingSession | null;
+  }[];
+  progressionSummary: ProgressionRecommendation;
   protectedAnchorSummary: string;
   riskSummary: readonly string[];
 }

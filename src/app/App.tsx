@@ -9,6 +9,8 @@ import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useQuickLogs } from "../hooks/useQuickLogs";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
+import { useUserDataControls } from "../hooks/useUserDataControls";
+import { useWorkoutCompletion } from "../hooks/useWorkoutCompletion";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 
 function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupabaseClient; onSignOut: () => Promise<void>; session: Session }) {
@@ -17,6 +19,17 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
     asOfDate: performance.asOfDate,
     onRefresh: performance.refresh,
     repositories: performance.repositories,
+    userId: session.user.id
+  });
+  const workoutCompletion = useWorkoutCompletion({
+    asOfDate: performance.asOfDate,
+    onRefresh: performance.refresh,
+    repositories: performance.repositories,
+    userId: session.user.id
+  });
+  const userDataControls = useUserDataControls({
+    client,
+    onAfterDelete: onSignOut,
     userId: session.user.id
   });
 
@@ -50,9 +63,9 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
 
   return (
     <AppTabs
-      busy={performance.loading || quickLogs.busy}
+      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
-      message={quickLogs.message ?? performance.message}
+      message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onSignOut={onSignOut}
       onSaveFightSetup={performance.saveFightSetup}
       onSaveTournamentSetup={performance.saveTournamentSetup}
@@ -60,6 +73,8 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       quickLogs={quickLogs.actions}
       asOfDate={performance.asOfDate}
       state={performance.result.state}
+      userDataControls={userDataControls}
+      workoutCompletion={workoutCompletion.actions}
     />
   );
 }

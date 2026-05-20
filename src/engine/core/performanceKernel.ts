@@ -62,6 +62,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     asOfDate: input.asOfDate,
     phase,
     readiness,
+    completedSessions: journey.completedTrainingSessions,
     highCycleSymptoms: cycle.symptomBurden === "high"
   });
   const earlySafetyFlags = [
@@ -113,6 +114,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     training,
     safetyFlags: safety.riskFlags,
     acuteProtocolEligibility,
+    foodLogs: journey.nutritionHistory,
+    asOfDate: input.asOfDate,
     foodLogCount: journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length
   });
   const confidence = combineConfidence(

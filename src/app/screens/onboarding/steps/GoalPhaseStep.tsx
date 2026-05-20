@@ -17,7 +17,16 @@ function phaseOf(draft: OnboardingDraft): OnboardingDraft["goal"]["phase"] {
   return draft.goal.phase;
 }
 
-export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
+function positiveNumber(value: string): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function contractedWeightError(value: string): string | null {
+  return positiveNumber(value) === null ? "Contracted weight is required." : null;
+}
+
+export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingStepProps) {
   const fallbackDate = draft.protectedSchedule[0]?.date ?? "2026-05-20";
   const defaultFight = draft.goal.phase === "fight_known" ? draft.goal.fight : createDefaultFightDraft(fallbackDate);
   const defaultTournament = draft.goal.phase === "tournament_known" ? draft.goal.tournament : createDefaultTournamentDraft(fallbackDate);
@@ -27,10 +36,20 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
   const [tournamentStartDate, setTournamentStartDate] = useState(defaultTournament.tournamentStartDate);
   const [tournamentEndDate, setTournamentEndDate] = useState(defaultTournament.tournamentEndDate);
 
-  const setBuild = () => updateDraft((current) => ({ ...current, goal: { phase: "build" } }));
-  const setRecovery = () => updateDraft((current) => ({ ...current, goal: { phase: "maintenance_recovery" } }));
+  const setBuild = () => {
+    updateDraft((current) => ({ ...current, goal: { phase: "build" } }));
+    setStepError(null);
+  };
+  const setRecovery = () => {
+    updateDraft((current) => ({ ...current, goal: { phase: "maintenance_recovery" } }));
+    setStepError(null);
+  };
   const setFight = () => {
-    const weight = Number(contractedWeightKg);
+    const weight = positiveNumber(contractedWeightKg);
+    if (weight === null) {
+      setStepError("Contracted weight is required.");
+      return;
+    }
     updateDraft((current) => ({
       ...current,
       goal: {
@@ -41,13 +60,14 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
           boutDate,
           weighInType,
           targetClassLabel: contractedWeightKg.trim() ? `${contractedWeightKg.trim()} kg` : "",
-          targetLimitKg: Number.isFinite(weight) && weight > 0 ? weight : Number.NaN,
-          contractedWeightKg: Number.isFinite(weight) && weight > 0 ? weight : Number.NaN
+          targetLimitKg: weight,
+          contractedWeightKg: weight
         }
       }
     }));
+    setStepError(null);
   };
-  const setTournament = () =>
+  const setTournament = () => {
     updateDraft((current) => ({
       ...current,
       goal: {
@@ -61,6 +81,8 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
         }
       }
     }));
+    setStepError(null);
+  };
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -77,6 +99,7 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
           setBoutDate(value);
           if (draft.goal.phase === "fight_known") {
             updateDraft((current) => (current.goal.phase === "fight_known" ? { ...current, goal: { phase: "fight_known", fight: { ...current.goal.fight, boutDate: value } } } : current));
+            setStepError(contractedWeightError(contractedWeightKg));
           }
         }}
         placeholder="Bout date YYYY-MM-DD"
@@ -94,6 +117,7 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
               setWeighInType(option);
               if (draft.goal.phase === "fight_known") {
                 updateDraft((current) => (current.goal.phase === "fight_known" ? { ...current, goal: { phase: "fight_known", fight: { ...current.goal.fight, weighInType: option } } } : current));
+                setStepError(contractedWeightError(contractedWeightKg));
               }
             }}
           />
@@ -103,7 +127,11 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
         keyboardType="decimal-pad"
         onChangeText={(value) => {
           setContractedWeightKg(value);
-          const parsed = Number(value);
+          const parsed = positiveNumber(value);
+          if (parsed === null) {
+            setStepError("Contracted weight is required.");
+            return;
+          }
           if (draft.goal.phase === "fight_known") {
             updateDraft((current) => ({
               ...current,
@@ -112,12 +140,13 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
                 fight: {
                   ...(current.goal.phase === "fight_known" ? current.goal.fight : createDefaultFightDraft(fallbackDate)),
                   targetClassLabel: value.trim() ? `${value.trim()} kg` : "",
-                  targetLimitKg: Number.isFinite(parsed) && parsed > 0 ? parsed : Number.NaN,
-                  contractedWeightKg: Number.isFinite(parsed) && parsed > 0 ? parsed : Number.NaN
+                  targetLimitKg: parsed,
+                  contractedWeightKg: parsed
                 }
               }
             }));
           }
+          setStepError(null);
         }}
         placeholder="Contracted weight kg"
         placeholderTextColor={colors.wrap}
@@ -131,6 +160,7 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
             updateDraft((current) =>
               current.goal.phase === "tournament_known" ? { ...current, goal: { phase: "tournament_known", tournament: { ...current.goal.tournament, tournamentStartDate: value, possibleBoutDates: [value] } } } : current
             );
+            setStepError(null);
           }
         }}
         placeholder="Tournament start YYYY-MM-DD"
@@ -143,6 +173,7 @@ export function GoalPhaseStep({ draft, updateDraft }: OnboardingStepProps) {
           setTournamentEndDate(value);
           if (draft.goal.phase === "tournament_known") {
             updateDraft((current) => (current.goal.phase === "tournament_known" ? { ...current, goal: { phase: "tournament_known", tournament: { ...current.goal.tournament, tournamentEndDate: value } } } : current));
+            setStepError(null);
           }
         }}
         placeholder="Tournament end YYYY-MM-DD"

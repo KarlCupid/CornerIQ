@@ -11,6 +11,8 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TrainScreen } from "../screens/TrainScreen";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
+import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import type { FightSetupDraft, ProfileSettingsDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -26,9 +28,11 @@ export interface AppTabsProps {
   onUpdateProfileSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   quickLogs: QuickLogActions;
   state: PerformanceState;
+  userDataControls?: UserDataControlsHook | undefined;
+  workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, userDataControls, workoutCompletion }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -58,7 +62,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFi
           )}
         </Tab.Screen>
         <Tab.Screen name="Fuel">{() => <FuelScreen busy={busy} message={message} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.fuel} />}</Tab.Screen>
-        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
+        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} completionActions={workoutCompletion} completionMessage={message} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
         <Tab.Screen name="Plan">
           {() => (
             <PlanScreen
@@ -84,6 +88,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, onSaveFi
               onUpdateSettings={onUpdateProfileSettings}
               preferredUnits={state.athlete.preferredUnits}
               recentLogs={state.viewModels.recentLogs}
+              userDataControls={userDataControls}
               viewModel={state.viewModels.profile}
               wearablePreference={state.athlete.wearablePreference}
               wearableStatus={state.wearable.hasWearable ? state.wearable.platforms.join(", ") : "manual only"}

@@ -4,17 +4,21 @@ import type { RecentLogsViewModel, TrainViewModel } from "../../engine/core/type
 import { EngineCard } from "../../design/components/EngineCard";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
+import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 
 export interface TrainScreenProps {
   busy: boolean;
+  completionActions?: WorkoutCompletionActions | undefined;
+  completionMessage?: string | null | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: TrainViewModel;
 }
 
-export function TrainScreen({ busy, quickLogs, recentLogs, viewModel }: TrainScreenProps) {
+export function TrainScreen({ busy, completionActions, completionMessage, quickLogs, recentLogs, viewModel }: TrainScreenProps) {
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
@@ -35,6 +39,26 @@ export function TrainScreen({ busy, quickLogs, recentLogs, viewModel }: TrainScr
             {session.modifications.map((item) => <Text key={item} style={screenStyles.subtle}>Modify: {item}</Text>)}
             {session.protects.map((item) => <Text key={item} style={screenStyles.subtle}>Protects: {item}</Text>)}
           </View>
+        </EngineCard>
+      ))}
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Progression</Text>
+          <Text style={screenStyles.body}>{viewModel.progressionSummary.summary}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.progressionSummary.status}: {viewModel.progressionSummary.why}</Text>
+        </View>
+      </EngineCard>
+      {viewModel.detailedTodaySessions.map((session) => (
+        <EngineCard key={session.generatedSessionId}>
+          {session.detail ? (
+            <WorkoutDetailPanel busy={busy} completionActions={completionActions} completionMessage={completionMessage} session={session.detail} />
+          ) : (
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.sectionTitle}>{session.title}</Text>
+              <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
+              {session.safetyNotes.map((note) => <Text key={note} style={screenStyles.subtle}>{note}</Text>)}
+            </View>
+          )}
         </EngineCard>
       ))}
       <EngineCard>

@@ -110,6 +110,8 @@ describeLive("live Supabase CRUD smoke", () => {
       expect(resolved.status).toBe("ready");
       expect(resolved.persistenceWarning).toBeUndefined();
       inputHash = resolved.inputHash;
+      // Gated TODO: extend this smoke to complete one generated support session, verify exercise_results,
+      // and clean those rows by smokeRunId once workout completion has been exercised against remote data.
 
       const runResponse = await client.from("engine_runs").select("id").eq("user_id", userId).eq("input_hash", inputHash);
       expect(runResponse.error).toBeNull();

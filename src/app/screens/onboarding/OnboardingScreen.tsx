@@ -59,7 +59,7 @@ function goalSummary(draft: OnboardingDraft): string {
 
 export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {
   const onboarding = useOnboardingDraft(asOfDate);
-  const stepProps = { draft: onboarding.draft, updateDraft: onboarding.updateDraft };
+  const stepProps = { draft: onboarding.draft, setStepError: onboarding.setStepError, updateDraft: onboarding.updateDraft };
   const step = (() => {
     switch (onboarding.stepIndex) {
       case 0:

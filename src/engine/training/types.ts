@@ -14,6 +14,16 @@ export type ProtectedWorkoutType =
   | "recovery_day";
 
 export type SessionIntensity = "easy" | "moderate" | "hard" | "max";
+export type ExerciseCategory =
+  | "warm_up"
+  | "main_strength"
+  | "secondary_strength"
+  | "power"
+  | "roadwork"
+  | "conditioning"
+  | "durability"
+  | "mobility"
+  | "recovery";
 
 export interface ProtectedWorkout {
   id: string;
@@ -76,6 +86,103 @@ export interface GeneratedTrainingSession {
   fuelDemand: "low" | "moderate" | "high";
 }
 
+export interface ExerciseSetPrescription {
+  setLabel: string;
+  repsText?: string | undefined;
+  durationText?: string | undefined;
+  loadGuidance: string;
+  rpeTarget?: number | undefined;
+  rirTarget?: number | undefined;
+  tempo?: string | undefined;
+  restText: string;
+}
+
+export interface ExerciseSubstitution {
+  exerciseId: string;
+  name: string;
+  reason: string;
+  equipmentNeeded: readonly string[];
+  loadGuidance: string;
+  coachingNotes: readonly string[];
+}
+
+export interface ExercisePrescription {
+  exerciseId: string;
+  name: string;
+  category: ExerciseCategory;
+  sets: readonly ExerciseSetPrescription[];
+  repsText?: string | undefined;
+  durationText?: string | undefined;
+  loadGuidance: string;
+  rpeTarget?: number | undefined;
+  rirTarget?: number | undefined;
+  tempo?: string | undefined;
+  restText: string;
+  coachingNotes: readonly string[];
+  boxingTransfer: string;
+  substitutions: readonly ExerciseSubstitution[];
+  safetyNotes: readonly string[];
+  stopConditions: readonly string[];
+}
+
+export interface WorkoutSection {
+  name: string;
+  intent: string;
+  exercises: readonly ExercisePrescription[];
+}
+
+export interface DetailedTrainingSession {
+  generatedSessionId: string;
+  date: ISODateString;
+  family: GeneratedSessionFamily;
+  title: string;
+  durationMinutes: number;
+  intensity: GeneratedSessionIntensity;
+  sections: readonly WorkoutSection[];
+  fuelDemand: "low" | "moderate" | "high";
+  readinessModifications: readonly string[];
+  cycleModifications: readonly string[];
+  whyThisMattersForBoxing: string;
+  stopConditions: readonly string[];
+  safetyNotes: readonly string[];
+  noGeneratedSparring: true;
+}
+
+export interface ExerciseResultDraft {
+  exerciseId: string;
+  exerciseName: string;
+  section: string;
+  prescribed: ExercisePrescription;
+  completedSets?: number | undefined;
+  loadText?: string | undefined;
+  rpe?: number | undefined;
+  notes?: string | undefined;
+  painFlag?: boolean | undefined;
+}
+
+export interface WorkoutCompletionDraft {
+  generatedSessionId?: string | undefined;
+  completedSessionType: ProtectedWorkoutType;
+  status: "completed" | "skipped";
+  sessionRpe?: number | undefined;
+  painNotes: readonly string[];
+  notes: string;
+  exerciseResults: readonly ExerciseResultDraft[];
+}
+
+export interface WorkoutCompletionResult {
+  status: "completed" | "skipped";
+  completedTrainingSessionId?: string | undefined;
+  exerciseResultIds: readonly string[];
+  eventId: string;
+}
+
+export interface ProgressionRecommendation {
+  status: "can_progress" | "repeat" | "regress" | "deload" | "coach_review" | "unknown";
+  summary: string;
+  why: string;
+}
+
 export interface TrainingLoadLedger {
   protectedBoxingMinutes: number;
   protectedBoxingRounds: number;
@@ -90,6 +197,7 @@ export interface TrainingLoadLedger {
 
 export interface TrainingState {
   protectedAnchors: readonly ProtectedWorkout[];
+  completedSessions: readonly CompletedTrainingSession[];
   generatedSessions: readonly GeneratedTrainingSession[];
   todaySessions: readonly GeneratedTrainingSession[];
   loadLedger: TrainingLoadLedger;

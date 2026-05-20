@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-Latest commit before this pass: `9a9a26b3567b8103c452cbee8584bb53c52dc8b2` (`Refine CornerIQ engine and UI data flow`).
+Latest commit before this pass: `c1bc58b2a27ae6231c3168b60de297ba0be886e9` (`Fix Supabase smoke auth and timestamp mapping`).
 
 ## Project Link
 
@@ -25,6 +25,8 @@ Latest `npm exec supabase -- migration list` result:
 | `003` | `003` | applied remotely |
 
 `003_projection_and_exercise_result_hardening.sql` is applied remotely. There is no pending local migration.
+
+Current pass note: remote Supabase commands were not rerun in this Codex process because no Supabase or smoke environment variables were exposed. The prior verified remote status above remains the latest remote check available in this document.
 
 Latest `npm exec supabase -- db push --dry-run` result:
 
@@ -62,8 +64,8 @@ The regular test suite still includes `src/tests/live/liveDbSmoke.test.ts`; it s
 Latest local checks:
 
 - `npm run typecheck`: passed.
-- `npm test`: passed with `108` tests passing and `1` live smoke test skipped.
-- `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db`: passed with `1` live smoke test passing.
+- `npm test`: passed with `133` tests passing and `1` live smoke test skipped.
+- `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db`: not run in the current pass because the required Supabase/smoke environment variables were not exposed to this process. The latest authenticated live smoke attempt above remains the prior passing smoke.
 - `npm run quality`: passed.
 - `npm run lint`: passed.
 

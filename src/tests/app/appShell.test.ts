@@ -11,10 +11,14 @@ import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
 import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
 import { useSupabaseSession } from "../../hooks/useSupabaseSession";
 import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
+import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { usePerformanceState } from "../../hooks/usePerformanceState";
 import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
+import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { createDefaultOnboardingDraft } from "../../services/supabase/onboardingService";
+import { validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 
 vi.mock("expo-status-bar", () => ({
   StatusBar: () => React.createElement("StatusBar")
@@ -83,6 +87,12 @@ const fuelViewModel: FuelViewModel = {
   calorieSummary: "2200 kcal target",
   macroSummary: "130g protein",
   hydrationSummary: "2.5L water",
+  actualIntakeSummary: {
+    title: "Actual intake today",
+    summary: "1 food log recorded today.",
+    confidence: "low",
+    rows: ["1200 kcal logged"]
+  },
   bodyMassSummary: "Trend unknown",
   cycleNote: null,
   fightOrTournamentNote: null,
@@ -109,6 +119,12 @@ const trainViewModel: TrainViewModel = {
       fuelDemand: "moderate"
     }
   ],
+  detailedTodaySessions: [],
+  progressionSummary: {
+    status: "unknown",
+    summary: "Progression is unknown until completion history exists.",
+    why: "Missing history is unknown, not a reason to progress automatically."
+  },
   riskSummary: []
 };
 
@@ -221,6 +237,34 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
   } as unknown as AthleteJourneyRepositories;
 }
 
+function createUserDataClient() {
+  const deleted: string[] = [];
+  const selected: string[] = [];
+  const client = {
+    from(table: string) {
+      return {
+        select() {
+          return {
+            eq() {
+              selected.push(table);
+              return Promise.resolve({ data: [{ id: `${table}_1` }], error: null });
+            }
+          };
+        },
+        delete() {
+          return {
+            eq() {
+              deleted.push(table);
+              return Promise.resolve({ data: [], error: null, count: 1 });
+            }
+          };
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, deleted, selected };
+}
+
 describe("minimal app screens", () => {
   it("AuthScreen renders", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
@@ -303,6 +347,29 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel })).toJSON());
     expect(output).toContain("Protects the boxing anchor.");
     expect(output).toContain("Training log");
+  });
+
+  it("TrainScreen renders detailed session panel", async () => {
+    const { TrainScreen } = await import("../../app/screens/TrainScreen");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train })).toJSON());
+    expect(output).toContain("Open workout detail");
+    expect(output).toContain("Progression");
+  });
+
+  it("ExercisePrescriptionCard shows transfer, substitutions, and stop conditions", async () => {
+    const { ExercisePrescriptionCard } = await import("../../app/screens/train/ExercisePrescriptionCard");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const detail = state.viewModels.train.detailedTodaySessions[0]?.detail;
+    const section = detail?.sections[0];
+    const exercise = section?.exercises[0];
+    if (!detail || !section || !exercise) {
+      throw new Error("missing detailed exercise");
+    }
+    const output = JSON.stringify(render(React.createElement(ExercisePrescriptionCard, { exercise, sectionName: section.name })).toJSON());
+    expect(output).toContain("Boxing transfer");
+    expect(output).toContain("Substitutions");
+    expect(output).toContain("Stop:");
   });
 
   it("PlanScreen renders warnings", async () => {
@@ -410,6 +477,77 @@ describe("minimal app screens", () => {
     ).toContain("Cycle tracking is optional and private.");
   });
 
+  it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {
+    const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
+    const previewExport = vi.fn(async () => undefined);
+    const deleteData = vi.fn(async () => undefined);
+    const renderer = render(
+      React.createElement(ProfileScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        cycleTrackingStatus: "undecided",
+        cycleContext: null,
+        equipmentAccess: ["jump_rope"],
+        onSignOut: vi.fn(),
+        onUpdateSettings: vi.fn(),
+        preferredUnits: "metric",
+        recentLogs: recentLogsViewModel,
+        userDataControls: {
+          busy: false,
+          deleteConfirmation: "",
+          deleteData,
+          message: "Export preview loaded.",
+          preview: null,
+          previewExport,
+          previewRows: ["exercise_results: 1"],
+          setDeleteConfirmation: vi.fn()
+        },
+        viewModel: profileViewModel,
+        wearablePreference: "manual_only",
+        wearableStatus: "manual only"
+      })
+    );
+    await act(async () => {
+      await press(pressableWithText(renderer, "Preview export"));
+    });
+    expect(previewExport).toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("exercise_results: 1");
+    const deleteButton = pressableWithText(renderer, "Delete data requires DELETE");
+    expect(deleteButton?.props.disabled).toBe(true);
+  });
+
+  it("useUserDataControls previews counts, blocks delete without DELETE, and signs out after delete", async () => {
+    const { client, deleted, selected } = createUserDataClient();
+    const onAfterDelete = vi.fn();
+    const snapshot: { current: UserDataControlsHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = useUserDataControls({ client, onAfterDelete, userId: "user_1" });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.previewExport();
+    });
+    expect(selected.length).toBeGreaterThan(0);
+    expect(snapshot.current?.previewRows.join(" ")).toContain("exercise_results");
+
+    await act(async () => {
+      await snapshot.current?.deleteData();
+    });
+    expect(deleted).toHaveLength(0);
+    expect(onAfterDelete).not.toHaveBeenCalled();
+
+    await act(async () => {
+      snapshot.current?.setDeleteConfirmation("DELETE");
+    });
+    await act(async () => {
+      await snapshot.current?.deleteData();
+    });
+    expect(deleted.length).toBeGreaterThan(0);
+    expect(onAfterDelete).toHaveBeenCalled();
+  });
+
   it("OnboardingScreen renders the first setup step with demo as secondary action", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const output = JSON.stringify(
@@ -506,6 +644,62 @@ describe("minimal app screens", () => {
 
     expect(onComplete).not.toHaveBeenCalled();
     expect(JSON.stringify(renderer.toJSON())).toContain("Current body mass is required.");
+  });
+
+  it("onboarding numeric steps do not write NaN into draft state", async () => {
+    const { BodyMassStep } = await import("../../app/screens/onboarding/steps/BodyMassStep");
+    let draft = createDefaultOnboardingDraft(fixtureAsOfDate);
+    const updateDraft = vi.fn((updater: (current: typeof draft) => typeof draft) => {
+      draft = updater(draft);
+    });
+    const setStepError = vi.fn();
+    const renderer = render(React.createElement(BodyMassStep, { draft, setStepError, updateDraft }));
+
+    act(() => {
+      changeInput(renderer, "Current body mass kg", "abc");
+      changeInput(renderer, "Height cm", "abc");
+      changeInput(renderer, "Typical walk-around kg", "abc");
+    });
+
+    expect(Number.isNaN(draft.bodyMass.currentBodyMassKg)).toBe(false);
+    expect(Number.isNaN(draft.bodyMass.heightCm)).toBe(false);
+    expect(Number.isNaN(draft.bodyMass.typicalWalkAroundWeightKg)).toBe(false);
+    expect(setStepError).toHaveBeenCalledWith(expect.stringContaining("required"));
+  });
+
+  it("invalid onboarding draft cannot finish", () => {
+    const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
+    draft.bodyMass.currentBodyMassKg = Number.NaN;
+
+    expect(validateOnboardingDraftForFinish(draft)).toContain("Current body mass");
+  });
+
+  it("cycle context card handles enabled, disabled, contraception, high symptoms, and scale notes", async () => {
+    const { CycleContextCard } = await import("../../app/screens/cycle/CycleContextCard");
+    const enabled = {
+      title: "Cycle context",
+      context: "Symptom-aware context.",
+      confidence: "medium" as const,
+      actions: [],
+      trackingStatus: "enabled",
+      estimatedPhase: "hormonal contraception suppressed",
+      symptomBurden: "high",
+      scaleNoiseNote: "Scale noise likely today.",
+      trainingAdjustment: "Trim optional volume.",
+      nutritionAdjustment: "Keep carbs steady.",
+      safetyFlags: [],
+      privacyReminder: "Cycle support is optional, private, symptom-aware, and not fertility tracking.",
+      historySummary: "Recent cycle history."
+    };
+
+    const enabledOutput = JSON.stringify(render(React.createElement(CycleContextCard, { cycleContext: enabled })).toJSON());
+    expect(enabledOutput).toContain("Trim optional volume.");
+    expect(enabledOutput).toContain("Keep carbs steady.");
+    expect(enabledOutput).toContain("Scale noise");
+    expect(enabledOutput).toContain("symptom-based");
+
+    const disabledOutput = JSON.stringify(render(React.createElement(CycleContextCard, { cycleContext: null, minimal: true })).toJSON());
+    expect(disabledOutput).toContain("No cycle assumptions");
   });
 
   it("quick training logs separate completed sessions from planned anchors", async () => {

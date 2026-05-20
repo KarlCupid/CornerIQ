@@ -43,6 +43,14 @@ export function FuelScreen({ busy, message, quickLogs, recentLogs, viewModel }: 
       {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>{viewModel.actualIntakeSummary.title}</Text>
+          <Text style={screenStyles.body}>{viewModel.actualIntakeSummary.summary}</Text>
+          <Text style={screenStyles.subtle}>Confidence: {viewModel.actualIntakeSummary.confidence}</Text>
+          {viewModel.actualIntakeSummary.rows.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+        </View>
+      </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Recent fuel logs</Text>
           <Text style={screenStyles.body}>{recentLogs.foodLogCountToday}</Text>
           {recentLogs.fuel.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}

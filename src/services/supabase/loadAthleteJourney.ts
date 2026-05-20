@@ -5,6 +5,7 @@ import { createAthleteRepository } from "./athleteRepository";
 import { createBodyMassRepository } from "./bodyMassRepository";
 import { createCycleRepository } from "./cycleRepository";
 import { createEngineRunRepository } from "./engineRunRepository";
+import { createExerciseResultRepository } from "./exerciseResultRepository";
 import { createFightRepository } from "./fightRepository";
 import { createHydrationRepository } from "./hydrationRepository";
 import { createJourneyRepository } from "./journeyRepository";
@@ -34,6 +35,7 @@ export interface AthleteJourneyRepositories {
   wearable: ReturnType<typeof createWearableRepository>;
   training: ReturnType<typeof createTrainingRepository>;
   engineRun: ReturnType<typeof createEngineRunRepository>;
+  exerciseResult: ReturnType<typeof createExerciseResultRepository>;
   journey: ReturnType<typeof createJourneyRepository>;
 }
 
@@ -51,6 +53,7 @@ export function createAthleteJourneyRepositories(client: CornerSupabaseClient): 
     wearable: createWearableRepository(client),
     training: createTrainingRepository(client),
     engineRun: createEngineRunRepository(client),
+    exerciseResult: createExerciseResultRepository(client),
     journey: createJourneyRepository(client)
   };
 }

@@ -26,6 +26,12 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     calorieSummary: `${state.nutrition.dailyCaloriesTarget} kcal target (${state.nutrition.calorieRange.min}-${state.nutrition.calorieRange.max})`,
     macroSummary: `${state.nutrition.proteinGrams}g protein, ${state.nutrition.carbohydrateGrams}g carbs, ${state.nutrition.fatGrams}g fat`,
     hydrationSummary: `${state.nutrition.waterLiters}L fluids. ${state.nutrition.sodiumGuidance}`,
+    actualIntakeSummary: {
+      title: "Actual intake today",
+      summary: state.nutrition.actualIntakeSummary.summaryCopy,
+      confidence: state.nutrition.actualIntakeSummary.confidence.level,
+      rows: state.nutrition.actualIntakeSummary.rows
+    },
     bodyMassSummary: state.nutrition.bodyMassNote,
     cycleNote: state.nutrition.cycleNote,
     fightOrTournamentNote: state.nutrition.tournamentFuelingGuidance ?? state.nutrition.lowResidueGuidance,
