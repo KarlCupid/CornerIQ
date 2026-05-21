@@ -546,6 +546,12 @@ function pressableWithText(renderer: ReactTestRenderer, text: string): TestInsta
   return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)).includes(text));
 }
 
+async function switchSection(renderer: ReactTestRenderer, label: string): Promise<void> {
+  await act(async () => {
+    await press(pressableWithText(renderer, label));
+  });
+}
+
 function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"): AthleteJourneyRepositories {
   const journey = no_wearable_manual_only;
   return {
@@ -768,6 +774,65 @@ describe("minimal app screens", () => {
     expect(errorOutput).not.toContain("Check your email.");
   });
 
+  it("reusable UI primitives render copy and handle local interactions", async () => {
+    const { ActionCard } = await import("../../design/components/ActionCard");
+    const { DisclosureCard } = await import("../../design/components/DisclosureCard");
+    const { EmptyState } = await import("../../design/components/EmptyState");
+    const { MetricRow } = await import("../../design/components/MetricRow");
+    const { RiskBanner } = await import("../../design/components/RiskBanner");
+    const { SectionTabs } = await import("../../design/components/SectionTabs");
+    const { StatusBadge } = await import("../../design/components/StatusBadge");
+    const { TimelineList } = await import("../../design/components/TimelineList");
+    const onAction = vi.fn();
+    const onChange = vi.fn();
+    function Probe() {
+      const [section, setSection] = React.useState<"one" | "two">("one");
+      return React.createElement(
+        "View",
+        null,
+        React.createElement(SectionTabs, {
+          items: [
+            { key: "one", label: "One" },
+            { key: "two", label: "Two" }
+          ],
+          value: section,
+          onChange: (value: string) => {
+            const next = value as "one" | "two";
+            setSection(next);
+            onChange(next);
+          }
+        }),
+        React.createElement(ActionCard, { title: "Action title", subtitle: "Action subtitle", actionLabel: "Run action", onAction }, React.createElement("Text", null, "Action child")),
+        React.createElement(EmptyState, { title: "Empty title", message: "Empty message", actionLabel: "Empty action", onAction }),
+        React.createElement(RiskBanner, { title: "Caution banner", message: "Caution copy", tone: "caution" }),
+        React.createElement(RiskBanner, { title: "Critical banner", message: "Critical copy", tone: "critical" }),
+        React.createElement(DisclosureCard, { title: "details", summary: "Closed summary" }, React.createElement("Text", null, "Expanded child")),
+        React.createElement(MetricRow, { label: "Metric", value: "42" }),
+        React.createElement(StatusBadge, { label: "Ready", tone: "success" }),
+        React.createElement(TimelineList, { emptyCopy: "No events", items: [{ id: "1", title: "Timeline item", body: "Timeline body" }] })
+      );
+    }
+    const renderer = render(React.createElement(Probe));
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Action child");
+    expect(output).toContain("Empty message");
+    expect(output).toContain("Caution copy");
+    expect(output).toContain("Critical copy");
+    expect(output).toContain("Metric");
+    expect(output).toContain("Timeline item");
+    expect(output).not.toContain("Expanded child");
+
+    await switchSection(renderer, "Two");
+    expect(onChange).toHaveBeenCalledWith("two");
+    await switchSection(renderer, "Show details");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Expanded child");
+    await switchSection(renderer, "Hide details");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Expanded child");
+    await switchSection(renderer, "Empty action");
+    expect(onAction).toHaveBeenCalled();
+  });
+
   it("TodayScreen renders view model fields", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const tree = render(
@@ -783,7 +848,40 @@ describe("minimal app screens", () => {
         message: null
       })
     ).toJSON();
-    expect(JSON.stringify(tree)).toContain("Log readiness");
+    const output = JSON.stringify(tree);
+    expect(output).toContain("Primary action");
+    expect(output).toContain("Log readiness");
+    expect(output.indexOf("Log readiness")).toBeLessThan(output.indexOf("Last body mass"));
+  });
+
+  it("TodayScreen keeps risk, why, and no-shame missing-log copy visible", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: {
+          ...todayViewModel,
+          riskSummary: ["Hard stop: fainting requires no training today."]
+        },
+        recentLogs: { ...recentLogsViewModel, today: [] },
+        cycleContext: null,
+        quickLogs: quickLogActions,
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: "Engine state resolved, but persistence failed"
+      })
+    );
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Safety check");
+    expect(output).toContain("Hard stop");
+    expect(output).toContain("No-shame logging");
+    expect(output).toContain("No logs yet today");
+    expect(output).toContain("Existing engine state stays visible");
+
+    await switchSection(renderer, "Show why this decision");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("The engine is waiting for fresh manual inputs.");
   });
 
   it("TodayScreen hides cycle quick log when cycle tracking is disabled", async () => {
@@ -808,12 +906,21 @@ describe("minimal app screens", () => {
 
   it("FuelScreen renders hitTheseFirst before raw details", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
-    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel })).toJSON());
-    expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("2200 kcal target"));
-    expect(output.indexOf("Carbs")).toBeLessThan(output.indexOf("2200 kcal target"));
-    expect(output).toContain("Body-mass trajectory");
-    expect(output).toContain("Recent fuel history");
+    const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Command");
+    expect(output).toContain("Fuel command");
+    expect(output).toContain("Carbs");
+    expect(output).not.toContain("2200 kcal target");
     expect(output).toContain("Food quick log");
+    await switchSection(renderer, "Body Mass");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Body-mass trajectory");
+    expect(output).toContain("2200 kcal target");
+    await switchSection(renderer, "History");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Recent fuel history");
+    expect(output).toContain("Actual intake today");
   });
 
   it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
@@ -843,13 +950,17 @@ describe("minimal app screens", () => {
       fightWeekFuel: { title: "Fight-week fuel", status: "info", summary: "Keep fuel steady.", actions: ["Lower fiber does not mean lower calories."] },
       tournamentFuel: { title: "Tournament fuel", status: "info", summary: "Stay near weight.", actions: ["Predictable carbs."] }
     };
-    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel })).toJSON());
+    const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel }));
+    await switchSection(renderer, "History");
+    const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Actual vs target today");
     expect(output).toContain("not a judgment");
     expect(output).toContain("8g fiber");
     expect(output).toContain("700mg sodium");
-    expect(output).toContain("Fight-week fuel");
-    expect(output).toContain("Tournament fuel");
+    await switchSection(renderer, "Command");
+    const commandOutput = JSON.stringify(renderer.toJSON());
+    expect(commandOutput).toContain("Fight-week fuel");
+    expect(commandOutput).toContain("Tournament fuel");
   });
 
   it("FuelScreen renders safety review up front without dangerous instructions", async () => {
@@ -868,16 +979,13 @@ describe("minimal app screens", () => {
     );
     const output = JSON.stringify(renderer.toJSON());
 
-    expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("Actual vs target today"));
+    expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("Safety review"));
     expect(output).toContain("Safety review");
     expect(output).toContain("Review required before this plan can continue");
     expect(output).toContain("Request safety review");
     expect(output).toContain("This does not clear the plan");
-    const requestPress = renderer.root.findAllByType("Pressable")[0]?.props.onPress;
     await act(async () => {
-      if (typeof requestPress === "function") {
-        requestPress();
-      }
+      await press(pressableWithText(renderer, "Request safety review"));
     });
     expect(onRequestNutritionSafetyReview).toHaveBeenCalledTimes(1);
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
@@ -955,14 +1063,17 @@ describe("minimal app screens", () => {
     expect(output).toContain("review_1");
     expect(output).toContain("Acknowledge review status");
     expect(output).toContain("Hard stop remains active");
-    const acknowledgePress = renderer.root.findAllByType("Pressable")[0]?.props.onPress;
     await act(async () => {
-      if (typeof acknowledgePress === "function") {
-        acknowledgePress();
-      }
+      await press(pressableWithText(renderer, "Acknowledge review status"));
     });
     expect(onAcknowledgeNutritionSafetyReview).toHaveBeenCalledWith("review_1");
     expect(output).not.toMatch(/clear review|clear hard stop|cleared/i);
+
+    await switchSection(renderer, "History");
+    const historyOutput = JSON.stringify(renderer.toJSON());
+    expect(historyOutput).toContain("Safety review remains active");
+    expect(historyOutput).toContain("cannot be self-cleared");
+    expect(historyOutput).not.toContain("Acknowledge review status");
   });
 
   it("Fuel screens do not import nutrition safety review repositories directly", () => {
@@ -1096,9 +1207,15 @@ describe("minimal app screens", () => {
 
   it("TrainScreen renders session rationale", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
-    const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel })).toJSON());
+    const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
+    let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Protects the boxing anchor.");
+    expect(output).toContain("Today's training decision");
+    await switchSection(renderer, "Workout");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Training log");
+    await switchSection(renderer, "Exercise History");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Exercise history");
     expect(output).toContain("Free-text load");
   });
@@ -1106,7 +1223,9 @@ describe("minimal app screens", () => {
   it("TrainScreen renders detailed session panel", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
-    const output = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train })).toJSON());
+    const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
+    await switchSection(renderer, "Workout");
+    const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Open workout detail");
     expect(output).toContain("Progression");
   });
@@ -1143,19 +1262,18 @@ describe("minimal app screens", () => {
     expect(onDateOutput).toContain("Materialized future support");
     expect(onDate.viewModels.train.detailedTodaySessions[0]?.canOpenDetail).toBe(true);
     expect(onDate.viewModels.train.detailedTodaySessions[0]?.detail?.noGeneratedSparring).toBe(true);
-    const planOutput = JSON.stringify(
-      render(
-        React.createElement(PlanScreen, {
-          asOfDate: "2026-05-26",
-          busy: false,
-          hasActiveFightOrTournament: false,
-          isMinor: false,
-          onSaveFightSetup: vi.fn(),
-          onSaveTournamentSetup: vi.fn(),
-          viewModel: onDate.viewModels.plan
-        })
-      ).toJSON()
+    const planRenderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: "2026-05-26",
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: onDate.viewModels.plan
+      })
     );
+    const planOutput = JSON.stringify(planRenderer.toJSON());
     expect(planOutput).toContain("Materialized future support");
   });
 
@@ -1201,10 +1319,11 @@ describe("minimal app screens", () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
+    await switchSection(renderer, "Workout");
     const closedOutput = JSON.stringify(renderer.toJSON());
-    expect(closedOutput.indexOf("Open workout detail")).toBeLessThan(closedOutput.indexOf("Recent training"));
+    expect(closedOutput).toContain("Open workout detail");
+    expect(closedOutput).not.toContain("Recent training");
     expect(closedOutput).toContain("Stop:");
-    expect(closedOutput).toContain("Progression / next best action");
     await act(async () => {
       await press(pressableWithText(renderer, "Open workout detail"));
     });
@@ -1213,6 +1332,8 @@ describe("minimal app screens", () => {
     expect(openOutput).toContain("Skip session");
     expect(openOutput).toContain("Blank exercise rows are saved as prescribed_only");
     expect(openOutput).toContain("Result statuses");
+    await switchSection(renderer, "Progression");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Progression / next best action");
   });
 
   it("WorkoutDetailPanel saves blank rows as prescribed_only and omits exercise results when skipped", async () => {
@@ -1317,35 +1438,35 @@ describe("minimal app screens", () => {
     expect(output).toContain("build strength");
     expect(output).toContain("sparring (hard)");
     expect(output).toContain("Hard day");
-    expect(output).toContain("Next week preview");
-    expect(output).toContain("Engine preview, not a user-edited plan.");
+    expect(output).toContain("Next Week");
+    expect(output).not.toContain("Engine preview, not a user-edited plan.");
   });
 
   it("Plan next-week preview uses progression context without mutating current week", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const currentWeekDates = state.viewModels.plan.dayPlans.map((day) => day.date);
-    const output = JSON.stringify(
-      render(
-        React.createElement(PlanScreen, {
-          asOfDate: fixtureAsOfDate,
-          busy: false,
-          hasActiveFightOrTournament: false,
-          isMinor: false,
-          onSaveFightSetup: vi.fn(),
-          onSaveTournamentSetup: vi.fn(),
-          viewModel: {
-            ...state.viewModels.plan,
-            nextWeekPreview: {
-              ...state.viewModels.plan.nextWeekPreview,
-              decision: "progress",
-              volumeStrategy: "progress_small",
-              explanation: "Persisted progression decision shaped this preview."
-            }
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: {
+          ...state.viewModels.plan,
+          nextWeekPreview: {
+            ...state.viewModels.plan.nextWeekPreview,
+            decision: "progress",
+            volumeStrategy: "progress_small",
+            explanation: "Persisted progression decision shaped this preview."
           }
-        })
-      ).toJSON()
+        }
+      })
     );
+    await switchSection(renderer, "Next Week");
+    const output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("progress small");
     expect(output).toContain("Persisted progression decision shaped this preview.");
@@ -1369,6 +1490,7 @@ describe("minimal app screens", () => {
       })
     );
 
+    await switchSection(renderer, "Next Week");
     expect(JSON.stringify(renderer.toJSON())).toContain("Accepting stores this preview as the plan direction");
     await act(async () => {
       await press(pressableWithText(renderer, "Accept preview"));
@@ -1380,29 +1502,29 @@ describe("minimal app screens", () => {
 
   it("Plan roll-forward status renders accepted waiting and blocked copy", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
-    const acceptedWaiting = JSON.stringify(
-      render(
-        React.createElement(PlanScreen, {
-          asOfDate: fixtureAsOfDate,
-          busy: false,
-          hasActiveFightOrTournament: false,
-          isMinor: false,
-          onSaveFightSetup: vi.fn(),
-          onSaveTournamentSetup: vi.fn(),
-          viewModel: {
-            ...planViewModel,
-            acceptedPreviewStatus: "accepted",
-            rollForwardStatus: "accepted_waiting",
-            rollForwardMessage: "Accepted preview will become active on 2026-05-26 if safety still allows.",
-            nextWeekPreview: {
-              ...planViewModel.nextWeekPreview,
-              persistedStatus: "accepted",
-              canAccept: false
-            }
+    const acceptedRenderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: {
+          ...planViewModel,
+          acceptedPreviewStatus: "accepted",
+          rollForwardStatus: "accepted_waiting",
+          rollForwardMessage: "Accepted preview will become active on 2026-05-26 if safety still allows.",
+          nextWeekPreview: {
+            ...planViewModel.nextWeekPreview,
+            persistedStatus: "accepted",
+            canAccept: false
           }
-        })
-      ).toJSON()
+        }
+      })
     );
+    await switchSection(acceptedRenderer, "Next Week");
+    const acceptedWaiting = JSON.stringify(acceptedRenderer.toJSON());
     expect(acceptedWaiting).toContain("Accepted preview will become active on 2026-05-26 if safety still allows.");
 
     const blocked = JSON.stringify(
@@ -1471,6 +1593,7 @@ describe("minimal app screens", () => {
         }
       })
     );
+    await switchSection(renderer, "Next Week");
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Review required before materializing.");
     expect(pressableWithText(renderer, "Materialize next week")?.props.disabled).toBe(true);
@@ -1540,6 +1663,7 @@ describe("minimal app screens", () => {
       })
     );
 
+    await switchSection(renderer, "Adjustments");
     expect(JSON.stringify(renderer.toJSON())).toContain("Engine-owned adjustment");
     await act(async () => {
       await press(pressableWithText(renderer, "Protect day"));
@@ -1555,29 +1679,31 @@ describe("minimal app screens", () => {
 
   it("PlanScreen renders adjustment summary, rejection notes, and persisted block id", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
-    const output = JSON.stringify(
-      render(
-        React.createElement(PlanScreen, {
-          asOfDate: fixtureAsOfDate,
-          busy: false,
-          hasActiveFightOrTournament: false,
-          isMinor: false,
-          onSaveFightSetup: vi.fn(),
-          onSaveTournamentSetup: vi.fn(),
-          viewModel: {
-            ...planViewModel,
-            adjustmentSummary: "1 active engine-owned adjustment(s), 1 rejected adjustment(s) retained for audit.",
-            activeAdjustments: ["protect day: Protect day applied."],
-            dayPlans: [{ ...planViewModel.dayPlans[0]!, adjustmentNotes: ["move generated session rejected: Move rejected."] }]
-          }
-        })
-      ).toJSON()
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: {
+          ...planViewModel,
+          adjustmentSummary: "1 active engine-owned adjustment(s), 1 rejected adjustment(s) retained for audit.",
+          activeAdjustments: ["protect day: Protect day applied."],
+          dayPlans: [{ ...planViewModel.dayPlans[0]!, adjustmentNotes: ["move generated session rejected: Move rejected."] }]
+        }
+      })
     );
 
-    expect(output).toContain("1 active engine-owned adjustment");
-    expect(output).toContain("protect day");
-    expect(output).toContain("Move rejected.");
-    expect(output).toContain("training_block_1");
+    expect(JSON.stringify(renderer.toJSON())).toContain("training_block_1");
+    await switchSection(renderer, "Adjustments");
+    const adjustmentOutput = JSON.stringify(renderer.toJSON());
+    expect(adjustmentOutput).toContain("1 active engine-owned adjustment");
+    expect(adjustmentOutput).toContain("protect day");
+    expect(adjustmentOutput).toContain("Move rejected.");
+    await switchSection(renderer, "Block History");
+    const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Week 2");
     expect(output).toContain("progress: The week has structured completions.");
     expect(output).toContain("Week 1 summarized");
@@ -1594,55 +1720,56 @@ describe("minimal app screens", () => {
 
   it("PlanScreen shows materialized generated session count and summaries", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
-    const output = JSON.stringify(
-      render(
-        React.createElement(PlanScreen, {
-          asOfDate: "2026-05-26",
-          busy: false,
-          hasActiveFightOrTournament: false,
-          isMinor: false,
-          onSaveFightSetup: vi.fn(),
-          onSaveTournamentSetup: vi.fn(),
-          viewModel: {
-            ...planViewModel,
-            acceptedPreviewStatus: "materialized",
-            rollForwardStatus: "materialized",
-            rollForwardMessage: "Next week materialized.",
-            lastAutoRollForwardMessage: "Next week materialized: Accepted preview was materialized. Generated sessions: 1.",
-            nextWeekPreview: {
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: "2026-05-26",
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: {
+          ...planViewModel,
+          acceptedPreviewStatus: "materialized",
+          rollForwardStatus: "materialized",
+          rollForwardMessage: "Next week materialized.",
+          lastAutoRollForwardMessage: "Next week materialized: Accepted preview was materialized. Generated sessions: 1.",
+          nextWeekPreview: {
+            ...planViewModel.nextWeekPreview,
+            persistedStatus: "materialized",
+            persistedStatusLabel: "Persisted preview preview_1 (materialized). Generated sessions: 1.",
+            generatedSessionCount: 1,
+            generatedSessionPersistence: "persisted",
+            materializedGeneratedSessions: [
+              {
+                id: "next-week:abc",
+                title: "Trunk durability",
+                date: "2026-05-26",
+                intensity: "easy",
+                durationMinutes: 22,
+                fuelDemand: "low"
+              }
+            ]
+          },
+          blockHistoryDetail: {
+            ...planViewModel.blockHistoryDetail,
+            latestNextWeekPreview: {
               ...planViewModel.nextWeekPreview,
               persistedStatus: "materialized",
               persistedStatusLabel: "Persisted preview preview_1 (materialized). Generated sessions: 1.",
               generatedSessionCount: 1,
               generatedSessionPersistence: "persisted",
-              materializedGeneratedSessions: [
-                {
-                  id: "next-week:abc",
-                  title: "Trunk durability",
-                  date: "2026-05-26",
-                  intensity: "easy",
-                  durationMinutes: 22,
-                  fuelDemand: "low"
-                }
-              ]
-            },
-            blockHistoryDetail: {
-              ...planViewModel.blockHistoryDetail,
-              latestNextWeekPreview: {
-                ...planViewModel.nextWeekPreview,
-                persistedStatus: "materialized",
-                persistedStatusLabel: "Persisted preview preview_1 (materialized). Generated sessions: 1.",
-                generatedSessionCount: 1,
-                generatedSessionPersistence: "persisted",
-                materializedGeneratedSessions: []
-              }
+              materializedGeneratedSessions: []
             }
           }
-        })
-      ).toJSON()
+        }
+      })
     );
+    let output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Generated sessions: 1");
+    await switchSection(renderer, "Next Week");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Materialized");
     expect(output).toContain("Trunk durability");
     expect(output).toContain("persisted");
@@ -1851,9 +1978,8 @@ describe("minimal app screens", () => {
 
   it("ProfileScreen renders privacy notes", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
-    const output = JSON.stringify(
-      render(
-        React.createElement(ProfileScreen, {
+    const renderer = render(
+      React.createElement(ProfileScreen, {
             asOfDate: fixtureAsOfDate,
             busy: false,
             cycleTrackingStatus: "undecided",
@@ -1867,11 +1993,16 @@ describe("minimal app screens", () => {
             wearablePreference: "manual_only",
             wearableStatus: "manual only"
         })
-      ).toJSON()
     );
+    let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Cycle tracking is optional and private.");
+    expect(output).toContain("Cycle data is optional");
+    await switchSection(renderer, "Audit");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Training audit");
     expect(output).toContain("Current block week");
+    expect(output).toContain("Fuel review audit");
+    expect(output).toContain("cannot self-clear");
   });
 
   it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {
@@ -1904,6 +2035,7 @@ describe("minimal app screens", () => {
         wearableStatus: "manual only"
       })
     );
+    await switchSection(renderer, "Data");
     await act(async () => {
       await press(pressableWithText(renderer, "Preview export"));
     });
@@ -2204,18 +2336,48 @@ describe("minimal app screens", () => {
     }
   });
 
+  it("UI copy keeps unsafe weight-cut, self-clear, coach-control, and service-role surfaces out of Expo screens", () => {
+    const files = [
+      ...readdirSync("src/app/screens").flatMap((entry) => {
+        const path = `src/app/screens/${entry}`;
+        if (statSync(path).isDirectory()) {
+          return readdirSync(path).map((child) => `${path}/${child}`).filter((childPath) => childPath.endsWith(".tsx"));
+        }
+        return path.endsWith(".tsx") ? [path] : [];
+      }),
+      "src/app/App.tsx",
+      "src/app/navigation/AppTabs.tsx"
+    ];
+    for (const file of files) {
+      const source = readFileSync(file, "utf8").toLowerCase();
+      expect(source).not.toMatch(/sauna|sweat suit|sweatsuit|laxative|diuretic|extreme dehydration|make weight at all costs/);
+      expect(source).not.toContain("service_role");
+      expect(source).not.toContain("supabase_service_role");
+      expect(source).not.toContain("approve-coach-relationship");
+      expect(source).not.toContain("coach_note");
+      expect(source).not.toContain("clearnutrition");
+    }
+  });
+
   it("App renders startup state without Supabase env in test mode", async () => {
     const { default: App } = await import("../../app/App");
     const renderer = render(React.createElement(App));
     await act(async () => undefined);
-    expect(JSON.stringify(renderer.toJSON())).toContain("Supabase not configured");
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Supabase not configured");
+    expect(output).toContain("EXPO_PUBLIC_SUPABASE_URL");
+    expect(output).toContain("anon key only");
   });
 
   it("AppErrorState renders a retryable error", async () => {
     const { AppErrorState } = await import("../../app/components/AppErrorState");
     const output = JSON.stringify(render(React.createElement(AppErrorState, { message: "Unable to load athlete journey.", cause: "read failed", onRetry: vi.fn() })).toJSON());
     expect(output).toContain("Unable to load athlete journey.");
+    expect(output).toContain("Detail: read failed");
     expect(output).toContain("Retry");
+    const stackOutput = JSON.stringify(render(React.createElement(AppErrorState, { message: "Unable to load athlete journey.", cause: "Error: nope\n at stack", onRetry: vi.fn() })).toJSON());
+    expect(stackOutput).toContain("Details are available in the development logs.");
+    expect(stackOutput).not.toContain(" at stack");
   });
 
   it("useSupabaseSession handles no session and keeps signup success out of authError", async () => {

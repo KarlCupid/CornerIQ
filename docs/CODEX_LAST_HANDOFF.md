@@ -1,14 +1,14 @@
 # Codex Last Handoff
 
-Date/time: 2026-05-20 12:36 America/Vancouver
+Date/time: 2026-05-20 23:11 America/Vancouver
 
 Branch: `main`
 
-Latest known commit from prompt: `ad3357bc67e28c2a043800aac8be52213834ad57` (`Update CornerIQ agent guidance and workflow rules`)
+Latest known commit from prompt: `a71a07cbc516e3474d853130696c7a007fb03de8` (`Add history panels for Fuel, reviews, body mass, and training`)
 
-Latest commit before pass from `git log`: `70eaf5ad4e27521be5bdb44ff24dd643ccd13542` (`Add nutrition safety review lifecycle and fuel history`)
+Latest commit before pass from `git log`: `a71a07cbc516e3474d853130696c7a007fb03de8` (`Add history panels for Fuel, reviews, body mass, and training`)
 
-Current `git rev-parse HEAD` at handoff time: `70eaf5ad4e27521be5bdb44ff24dd643ccd13542`
+Current `git rev-parse HEAD` at handoff time: `a71a07cbc516e3474d853130696c7a007fb03de8`
 
 Commit created in this run: none. This pass leaves working-tree changes for the user/auditor to commit.
 
@@ -18,52 +18,36 @@ Post-commit hash should be checked by auditor: yes.
 
 ## Summary
 
-This nineteenth implementation pass adds dedicated view-model-driven history/detail surfaces for nutrition safety reviews, manual Fuel history, body-mass trajectory, exercise history, and training block history. It also loads bounded nutrition safety review events into AthleteJourney/Fuel view models and adds a lightweight review-history service.
+This twentieth implementation pass hardens beta UX and information architecture across Today, Fuel, Train, Plan, and Profile. It adds reusable React Native UI primitives, local screen sections, clearer risk/empty/loading/error states, and beta-readiness documentation without adding new domain complexity.
 
-No migration was added. No barcode scanning, full meal planning, detailed food database, coach UI, clinician UI, reviewer-clear UI, unsafe review clearing, generic diet defaults, generated contact work, or service-role client code was added.
+No migration was added. No barcode scanning, full meal planning, detailed food database, coach UI, clinician/reviewer-clear UI, numeric load progression, drag/drop calendar, unsafe weight-cut instructions, generated sparring/contact prescriptions, or service-role client code was added.
 
 ## Files Changed By Domain
 
-Nutrition review history and loading:
-- `src/services/supabase/nutritionSafetyReviewRepository.ts`
-- `src/services/supabase/loadAthleteJourney.ts`
-- `src/services/nutrition/loadNutritionSafetyReviewHistory.ts`
-- `src/engine/presentation/nutritionReviewHistoryViewModel.ts`
-- `src/engine/athlete/types.ts`
-- `src/engine/core/schemas.ts`
-- `src/engine/core/performanceKernel.ts`
-- `src/engine/nutrition/types.ts`
-- `src/engine/nutrition/nutritionEngine.ts`
-- `src/engine/presentation/fuelViewModel.ts`
-- `src/engine/presentation/types.ts`
+Reusable UI primitives:
+- `src/design/components/SectionTabs.tsx`
+- `src/design/components/StatusBadge.tsx`
+- `src/design/components/ActionCard.tsx`
+- `src/design/components/EmptyState.tsx`
+- `src/design/components/RiskBanner.tsx`
+- `src/design/components/TimelineList.tsx`
+- `src/design/components/MetricRow.tsx`
+- `src/design/components/DisclosureCard.tsx`
 
-Fuel and body-mass history surfaces:
-- `src/engine/presentation/fuelHistoryViewModel.ts`
-- `src/engine/presentation/bodyMassTrajectoryViewModel.ts`
-- `src/engine/bodyMass/bodyMassTrend.ts`
-- `src/engine/bodyMass/types.ts`
+App-level states and copy:
+- `src/app/App.tsx`
+- `src/app/components/AppErrorState.tsx`
+- `src/app/components/NeedsProfileState.tsx`
+
+Screen IA hardening:
+- `src/app/screens/TodayScreen.tsx`
 - `src/app/screens/FuelScreen.tsx`
-- `src/app/screens/fuel/NutritionReviewHistoryPanel.tsx`
-- `src/app/screens/fuel/FuelHistoryPanel.tsx`
-- `src/app/screens/fuel/BodyMassTrajectoryPanel.tsx`
-
-Training and exercise history surfaces:
-- `src/engine/presentation/exerciseHistoryViewModel.ts`
-- `src/app/screens/train/ExerciseHistoryPanel.tsx`
-- `src/engine/presentation/planViewModel.ts`
-- `src/app/screens/plan/TrainingBlockHistoryPanel.tsx`
+- `src/app/screens/TrainScreen.tsx`
+- `src/app/screens/PlanScreen.tsx`
+- `src/app/screens/ProfileScreen.tsx`
 
 Tests:
-- `src/tests/engine/nutritionReviewHistoryViewModel.test.ts`
-- `src/tests/services/nutritionSafetyReviewHistoryService.test.ts`
-- `src/tests/services/supabaseRepositories.test.ts`
-- `src/tests/services/nutritionSafetyReviewService.test.ts`
-- `src/tests/services/engineResolvePersistence.test.ts`
-- `src/tests/engine/fuelHistoryViewModel.test.ts`
-- `src/tests/engine/bodyMassTrajectoryViewModel.test.ts`
-- `src/tests/engine/exerciseHistoryViewModel.test.ts`
 - `src/tests/app/appShell.test.ts`
-- `src/tests/fixtures/engineFixtures.ts`
 
 Audit/status docs:
 - `docs/CODEX_LAST_HANDOFF.md`
@@ -73,50 +57,52 @@ Audit/status docs:
 - `docs/11_SUPABASE_REMOTE_STATUS.md`
 - `docs/16_TRAINING_BLOCK_LIFECYCLE.md`
 - `docs/18_NUTRITION_WEIGHT_CLASS_LIFECYCLE.md`
+- `docs/19_BETA_READINESS_AND_INFORMATION_ARCHITECTURE.md`
 
 ## Commands And Results
 
 Baseline:
 - `git status`: clean working tree before implementation; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
-- `git log --oneline --decorate -8`: latest commit was `70eaf5a (HEAD -> main, origin/main) Add nutrition safety review lifecycle and fuel history`; prompt latest known commit was `ad3357b`.
-- Direct `npm run typecheck`: blocked by PowerShell `npm.ps1` execution policy.
+- `git log --oneline --decorate -8`: latest commit was `a71a07c (HEAD -> main, origin/main) Add history panels for Fuel, reviews, body mass, and training`.
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: sandboxed Vitest failed with config access denied; rerun outside sandbox passed with `29` files passed, `1` skipped, `304` tests passed, `1` skipped.
-- `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; rerun outside sandbox passed with `304` tests passed, `1` skipped.
+- `cmd /c npm test`: sandboxed Vitest failed with config access denied; rerun outside sandbox passed with `31` files passed, `1` skipped, `315` tests passed, `1` skipped.
+- `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; rerun outside sandbox passed with `315` tests passed, `1` skipped.
 - `cmd /c npm run lint`: passed.
 - `cmd /c npm exec supabase -- --version`: sandboxed CLI failed writing `C:\Users\karll\.supabase\telemetry.json`; rerun outside sandbox returned `2.100.1`.
-- `cmd /c npm exec supabase -- migration list`: local/remote `001` through `008` aligned.
-- `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
-- `cmd /c "set CORNERIQ_LIVE_DB_SMOKE=1&& npm run smoke:live-db"` without loading `.env`: failed before live assertions with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-- Ignored `.env` existence check found `.env` and `.env.example`; required smoke variable names were present when checked by name only, without printing values.
-- Ignored `.env` loaded into the process with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: baseline smoke passed with `1` test; test body `12314ms`, duration `13.83s`.
+- `cmd /c npm exec supabase -- migration list`: sandboxed CLI failed for the same telemetry write; rerun outside sandbox showed local/remote `001` through `008` aligned.
+- `cmd /c npm exec supabase -- db push --dry-run`: sandboxed CLI failed for the same telemetry write; rerun outside sandbox reported `Remote database is up to date.`
+- `cmd /c "set CORNERIQ_LIVE_DB_SMOKE=1&& npm run smoke:live-db"`: sandboxed Vitest failed with config access denied.
+- Same smoke command outside sandbox without loading `.env`: failed before live assertions with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` variable-name check found `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `CORNERIQ_LIVE_DB_SMOKE`, `CORNERIQ_SMOKE_EMAIL`, and `CORNERIQ_SMOKE_PASSWORD`; values were not printed.
+- Ignored `.env` loaded into the process with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: baseline smoke passed with `1` test; test body `13807ms`, duration `15.34s`.
 
 Implementation and targeted verification:
-- `cmd /c npm run typecheck`: passed after implementation edits.
-- `cmd /c npm test`: first full run found test assertion issues only; after fixes, passed with `31` files passed, `1` skipped, `315` tests passed, `1` skipped.
-- Targeted `cmd /c npx vitest run src/tests/app/appShell.test.ts`: after assertion fixes, passed with `61` tests.
+- `cmd /c npm run typecheck`: first post-edit run failed with `src/app/screens/ProfileScreen.tsx(135,93): error TS1382` because JSX text contained a raw `>`; fixed by escaping it.
+- `cmd /c npm run typecheck`: passed after the JSX fix.
+- `cmd /c npm test`: first post-IA full run failed two app-shell assertions after Plan content moved behind sections; fixed the assertions to exercise the new section tabs.
+- `cmd /c npm test`: passed with `31` files passed, `1` skipped, `318` tests passed, `1` skipped.
 
 Final verification:
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `31` files passed, `1` skipped; `315` tests passed, `1` skipped.
-- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `315` tests passed, `1` skipped.
+- `cmd /c npm test`: passed with `31` files passed, `1` skipped; `318` tests passed, `1` skipped; duration `6.37s`.
+- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `31` files passed, `1` skipped; `318` tests passed, `1` skipped; duration `6.16s`.
 - `cmd /c npm run lint`: passed.
 - `cmd /c npm exec supabase -- --version`: passed with `2.100.1`.
 - `cmd /c npm exec supabase -- migration list`: passed; local/remote `001` through `008` aligned.
 - `cmd /c npm exec supabase -- db push --dry-run`: passed and reported `Remote database is up to date.`
-- Ignored `.env` loaded into the process with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: passed with `1` test; test body `12772ms`, duration `15.10s`.
+- Ignored `.env` loaded into the process with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: passed with `1` test; test body `13208ms`, duration `15.15s`.
 - `git diff --check`: passed with Windows LF-to-CRLF warnings only.
-- `git status --short`: working tree contains the modified and untracked files listed in `Files Changed By Domain`; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
-- `Get-Date -Format 'yyyy-MM-dd HH:mm zzz'`: `2026-05-20 12:36 -07:00`.
-- `git rev-parse HEAD`: `70eaf5ad4e27521be5bdb44ff24dd643ccd13542`.
+- `git status --short`: listed the modified and untracked files in this handoff; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- `Get-Date -Format 'yyyy-MM-dd HH:mm zzz'`: `2026-05-20 23:11 -07:00`.
+- `git rev-parse HEAD`: `a71a07cbc516e3474d853130696c7a007fb03de8`.
 
 ## Live Smoke Result
 
 Passed with ignored `.env` loaded into the process and `CORNERIQ_LIVE_DB_SMOKE=1`.
 
-The live smoke verifies auth, manual food/water/electrolyte/readiness/body-mass/protected-workout writes, safe coach relationship RLS read, `AthleteJourney` load, `PerformanceState` resolution, training blocks, microcycles, day plans, persisted next-week previews, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future generated sessions, materialized preview status, no duplicate materialization on a second auto call, generated workout completion, engine persistence, nutrition target command-center payload, manual fuel history resolution, body-mass trajectory resolution, persisted nutrition safety review row, persisted nutrition safety review event, `NutritionSafetyReviewRequested` journey event, athlete acknowledgement to `acknowledged`, no tested unsafe terms in persisted review payload, cleanup/restoration of smoke-created or smoke-touched rows, and prior profile restore.
+The live smoke verifies auth, manual food/water/electrolyte/readiness/body-mass/protected-workout writes, safe coach relationship RLS read, `AthleteJourney` load, `PerformanceState` resolution, training block/microcycle/day-plan persistence, persisted next-week previews, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future generated sessions, materialized preview status, duplicate-materialization guard, generated workout completion, engine persistence, nutrition target command-center payload, manual fuel history resolution, body-mass trajectory resolution, persisted nutrition safety review row/event, `NutritionSafetyReviewRequested` journey event, athlete acknowledgement to `acknowledged`, no tested unsafe terms in persisted review payload, cleanup/restoration of smoke-created or smoke-touched rows, and prior profile restore.
 
-Smoke was not extended in this pass beyond the existing live path; local repository/service tests cover the new recent review-event history methods and view model.
+Smoke coverage was not expanded because this pass changes UI/IA and tests, not data writes.
 
 ## Migration Status
 
@@ -128,48 +114,51 @@ Ignored local `.env` values were loaded only into command processes for live smo
 
 ## What Tests Prove
 
-- `nutritionReviewHistoryViewModel.test.ts` proves active hard-stop reviews render, acknowledged reviews still cannot self-clear, no-history copy renders, reviewer-clear copy stays future-only, and no clear action exists.
-- `nutritionSafetyReviewHistoryService.test.ts` proves active reviews plus recent review events load through a dedicated service, missing user id is blocked before repository calls, and output is view-model-ready.
-- `supabaseRepositories.test.ts` proves review event list methods are user scoped, review-id scoped, bounded by limit, block missing user/review ids, and the repository still has no self-clear method.
-- `fuelHistoryViewModel.test.ts` proves grouped 7-day food/hydration history, high fuel-demand day copy, non-shaming no-log copy, safe fiber/sodium context, hydration consistency, and no tested unsafe terms.
-- `bodyMassTrajectoryViewModel.test.ts` proves 14-day body-mass history, safe target-gap copy, cycle scale-noise copy, blocked review action visibility, and no tested unsafe terms.
-- `appShell.test.ts` proves the new Nutrition Review History, Fuel History, Body Mass Trajectory, Exercise History, and Training Block History panels render from view models, do not import repositories, show no clear controls, and expose grouped history/audit copy.
-- Existing engine/service tests still prove persisted reviews, hard stops, training block lifecycle, generated-session materialization, exercise results, and Fuel command snapshots.
+- Reusable primitives render content, switch `SectionTabs`, show caution/critical `RiskBanner` copy, render `EmptyState` actions, and expand/collapse `DisclosureCard`.
+- Today renders primary action before logs, shows hard-stop risk banners, shows no-shame missing-log copy, keeps persistence warnings non-fatal, and opens why disclosure copy.
+- Fuel defaults to Command, switches to History/Body Mass, keeps active safety review visibility outside Reviews, exposes no review self-clear, and keeps unsafe Fuel terms out of tested output.
+- Train defaults to Today, switches to Workout/Exercise History/Progression, keeps workout detail expandable, does not show future materialized sessions early, and keeps no numeric load progression copy.
+- Plan defaults to Week, switches to Next Week/Block History/Adjustments, keeps preview accept/materialize actions service-owned, shows review-gated materialization, surfaces auto-roll-forward messages, and keeps coach controls hidden.
+- Profile defaults to Athlete, switches to Settings/Data/Audit, keeps DELETE-gated data controls, shows cycle privacy copy, and renders training/Fuel review audit summaries.
+- App startup/error tests prove missing env copy is clear, retry exists, and technical stack traces are not shown in UI.
+- Static UI tests prove screens avoid low-level engine calculation imports, unsafe weight-cut phrases, service-role references, coach approval controls, and nutrition clear methods.
+- Existing engine/service tests still prove training moat, Fuel safety, persisted reviews, hard stops, no generated sparring/contact, and Supabase repository boundaries.
 
 ## Known Gaps
 
+- Real boxer beta user testing is still needed for the new information architecture.
+- Mobile UX polish remains needed for quick logs, workout completion, and adjustment controls.
+- No routed drilldown screens yet for Fuel history, nutrition review history, body-mass history, exercise history, block history, or Profile audit.
 - No permissioned clinician, dietitian, admin, or coach reviewer UI yet.
 - No reviewer assignment, reviewer-note, clinician/coach messaging, or exposed reviewer-clear workflow yet.
-- History/detail surfaces are panels inside Fuel/Train/Plan, not routed screens.
-- Manual food logging is more explainable but still basic.
 - No barcode scanning.
 - No full meal-planning system.
 - No detailed food database.
-- Nutrition command snapshots still persist through `nutrition_targets.target_payload`; no dedicated command snapshot table exists.
-- Numeric load progression, coach UI, production coach audit policy, team memberships, scheduled/background roll-forward, and calendar drag/drop remain deferred.
+- No numeric load progression from free-text loads.
+- No drag/drop calendar.
+- No production coach UI.
+- Scheduled/background roll-forward remains deferred; app-refresh roll-forward exists.
 
 ## Recommended Next Prompt Direction
 
-Add routed history drill-down screens only if navigation/IA is ready, or begin the permissioned reviewer workflow after coach/clinician relationship policy is safe. Keep barcode scanning, full meal planning, detailed food database, and reviewer-clear UI deferred until those boundaries are explicit.
+Run a boxer beta usability pass against Today, Fuel Command/History/Reviews/Body Mass, Train Workout/Progression, Plan Week/Next Week, and Profile Data/Audit. After that, add routed drilldowns only where user testing shows the sections are too dense. Keep barcode scanning, full meal planning, detailed food database, coach UI, clinician/reviewer-clear UI, numeric load progression, and drag/drop calendar deferred.
 
 ## Inspect First
 
-1. `src/engine/presentation/nutritionReviewHistoryViewModel.ts`
-2. `src/app/screens/fuel/NutritionReviewHistoryPanel.tsx`
-3. `src/services/nutrition/loadNutritionSafetyReviewHistory.ts`
-4. `src/services/supabase/nutritionSafetyReviewRepository.ts`
-5. `src/services/supabase/loadAthleteJourney.ts`
-6. `src/engine/presentation/fuelHistoryViewModel.ts`
-7. `src/app/screens/fuel/FuelHistoryPanel.tsx`
-8. `src/engine/presentation/bodyMassTrajectoryViewModel.ts`
-9. `src/app/screens/fuel/BodyMassTrajectoryPanel.tsx`
-10. `src/engine/presentation/exerciseHistoryViewModel.ts`
-11. `src/app/screens/train/ExerciseHistoryPanel.tsx`
-12. `src/engine/presentation/planViewModel.ts`
-13. `src/app/screens/plan/TrainingBlockHistoryPanel.tsx`
-14. `src/tests/app/appShell.test.ts`
-15. `src/tests/services/supabaseRepositories.test.ts`
-16. `src/tests/engine/nutritionReviewHistoryViewModel.test.ts`
-17. `src/tests/services/nutritionSafetyReviewHistoryService.test.ts`
-18. `docs/18_NUTRITION_WEIGHT_CLASS_LIFECYCLE.md`
-19. `docs/16_TRAINING_BLOCK_LIFECYCLE.md`
+1. `src/design/components/SectionTabs.tsx`
+2. `src/design/components/RiskBanner.tsx`
+3. `src/design/components/EmptyState.tsx`
+4. `src/design/components/DisclosureCard.tsx`
+5. `src/app/screens/TodayScreen.tsx`
+6. `src/app/screens/FuelScreen.tsx`
+7. `src/app/screens/TrainScreen.tsx`
+8. `src/app/screens/PlanScreen.tsx`
+9. `src/app/screens/ProfileScreen.tsx`
+10. `src/app/App.tsx`
+11. `src/app/components/AppErrorState.tsx`
+12. `src/tests/app/appShell.test.ts`
+13. `docs/19_BETA_READINESS_AND_INFORMATION_ARCHITECTURE.md`
+14. `docs/FEATURE_STATUS.md`
+15. `docs/KNOWN_GAPS.md`
+16. `docs/16_TRAINING_BLOCK_LIFECYCLE.md`
+17. `docs/18_NUTRITION_WEIGHT_CLASS_LIFECYCLE.md`

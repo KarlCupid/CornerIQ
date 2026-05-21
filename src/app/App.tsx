@@ -53,7 +53,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   }, [performance.refresh]);
 
   if (performance.loading && performance.result === null) {
-    return <StartupState title="CornerIQ" message="Loading today's engine state..." />;
+    return <StartupState title="CornerIQ" message="Loading today's boxer decision, training context, and fuel safety state." />;
   }
 
   if (performance.result?.status === "needs_profile") {
@@ -106,11 +106,11 @@ function CornerIQApp() {
   }
 
   if (supabaseSession.status === "missing_config") {
-    return <StartupState title="Supabase not configured" message="Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to use the app shell." />;
+    return <StartupState title="Supabase not configured" message="Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to use the app shell with the public anon key only. In test mode this state is expected and no secret key is needed." />;
   }
 
   if (supabaseSession.status === "starting" || !supabaseSession.client) {
-    return <StartupState title="CornerIQ" message="Starting Supabase client..." />;
+    return <StartupState title="CornerIQ" message="Starting the public Supabase client with the anon key only." />;
   }
 
   if (!supabaseSession.session) {

@@ -1,5 +1,58 @@
 # Codex Audit Log
 
+## 2026-05-20 23:11 America/Vancouver
+
+Goal summary:
+- Harden beta UX / information architecture across Today, Fuel, Train, Plan, and Profile for real boxer beta users.
+- Add reusable React Native UI primitives and local screen sections without adding routed drilldowns or domain complexity.
+- Improve risk, empty, loading, error, persistence-warning, auto-roll-forward, and review-required copy.
+- Keep barcode scanning, full meal planning, detailed food database, coach UI, clinician/reviewer-clear UI, numeric load progression, drag/drop calendar, unsafe weight-cut instructions, and generated sparring/contact prescriptions deferred.
+
+Key changes:
+- Added `SectionTabs`, `StatusBadge`, `ActionCard`, `EmptyState`, `RiskBanner`, `TimelineList`, `MetricRow`, and `DisclosureCard` under `src/design/components`.
+- Reworked `TodayScreen` so primary action comes first, risk appears before logs, no-shame missing-log copy is visible, persistence warnings are non-fatal, and why copy is behind `DisclosureCard`.
+- Reworked `FuelScreen` into Command / History / Reviews / Body Mass sections. Active nutrition reviews remain visible through a top RiskBanner when the athlete leaves Command/Reviews.
+- Reworked `TrainScreen` into Today / Workout / Exercise History / Progression sections. Workout detail remains expandable, future generated sessions remain date-scoped, and protected workout logging stays manual.
+- Reworked `PlanScreen` into Week / Next Week / Block History / Adjustments sections. Next-week preview actions remain service-owned, blocked/review-required states stay visible, and adjustment controls moved out of the week cards.
+- Reworked `ProfileScreen` into Athlete / Settings / Data / Audit sections. DELETE-gated data controls remain hard to trigger; cycle privacy and Fuel review audit copy are visible.
+- Improved startup/error copy in `App.tsx`, `AppErrorState`, and `NeedsProfileState`, including missing-env and stack-sanitized retry copy.
+- Added `docs/19_BETA_READINESS_AND_INFORMATION_ARCHITECTURE.md`.
+
+Command results:
+- Baseline `git status`: clean working tree; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Baseline `git log --oneline --decorate -8`: latest commit was `a71a07c (HEAD -> main, origin/main) Add history panels for Fuel, reviews, body mass, and training`.
+- Baseline `cmd /c npm run typecheck`: passed.
+- Baseline `cmd /c npm test`: sandboxed Vitest failed with config access denied; outside sandbox passed with `31` files passed, `1` skipped, `315` tests passed, `1` skipped.
+- Baseline `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; outside sandbox passed with `315` tests passed, `1` skipped.
+- Baseline `cmd /c npm run lint`: passed.
+- Supabase CLI version: sandboxed run failed writing telemetry under `C:\Users\karll\.supabase`; outside sandbox returned `2.100.1`.
+- Migration list: local/remote `001` through `008` aligned.
+- Dry run: `Remote database is up to date.`
+- Initial smoke without loaded `.env`: failed with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` variable-name check found all required smoke variable names without printing values.
+- Baseline live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `13807ms`, duration `15.34s`.
+- Post-edit typecheck first failed with JSX `>` escaping issue in `ProfileScreen`; fixed and reran successfully.
+- Post-edit tests first failed two section-related assertions in `appShell.test.ts`; fixed assertions to press section tabs.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm test`: passed with `31` files passed and `1` skipped; `318` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with typecheck plus tests; `318` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final migration list: local/remote `001` through `008` aligned.
+- Final dry run: `Remote database is up to date.`
+- Final live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `13208ms`, duration `15.15s`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `git rev-parse HEAD`: `a71a07cbc516e3474d853130696c7a007fb03de8`.
+- No commit was created in this pass.
+
+Known gaps:
+- Real boxer beta user testing is still needed for Today/Fuel/Train/Plan/Profile IA.
+- Mobile UX polish remains needed for quick logs, workout completion, and plan adjustments.
+- Routed drilldowns are still deferred for histories/audits.
+- Barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and clinician/reviewer workflows remain deferred.
+
+Next recommendation:
+- Run guided boxer beta tests against the sectioned flows before adding routed drilldowns. Keep the deferred product complexity out until the beta IA proves what needs more space.
+
 ## 2026-05-20 12:36 America/Vancouver
 
 Goal summary:

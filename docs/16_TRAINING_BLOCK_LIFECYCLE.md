@@ -174,6 +174,7 @@ Coach UI remains hidden. `PlanAdjustmentControls` exposes only athlete-safe acti
 ## UI Surfaces
 
 Plan:
+- uses local Week / Next Week / Block History / Adjustments sections;
 - active block summary;
 - persisted preview status;
 - roll-forward status and athlete-facing copy;
@@ -187,6 +188,7 @@ Plan:
 - explicit audit copy: "Engine-owned history" and "Screens do not mutate programming decisions."
 
 Train:
+- uses local Today / Workout / Exercise History / Progression sections;
 - detailed generated sessions;
 - persisted next-week sessions appear through normal training state only on their planned date;
 - progression/analytics;
@@ -194,12 +196,20 @@ Train:
 - per-exercise grouped counts for completed, partial, prescribed-only, pain flags, recent RPE, and latest load notes;
 - top pain-flagged and repeated exercise summaries without inferring numeric progression.
 
+Twentieth-pass IA hardening:
+- `SectionTabs` keeps dense surfaces local without adding routed navigation yet.
+- `RiskBanner` keeps hard-stop/training-warning states visible above section content.
+- Workout detail remains expandable/collapsible inside the Workout section.
+- Protected workout logging remains manual and athlete-facing; coach UI remains hidden.
+- Plan adjustment controls moved into the Adjustments section and remain service-owned.
+- Future generated support sessions still do not appear as today's work before their planned date.
+
 ## Current Verification
 
 Local:
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed, `315` tests passed and `1` skipped.
-- `cmd /c npm run quality`: passed, including typecheck plus tests with `315` tests passed and `1` skipped.
+- `cmd /c npm test`: passed, `318` tests passed and `1` skipped.
+- `cmd /c npm run quality`: passed, including typecheck plus tests with `318` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
 - Extended live smoke: passed, `1` test passed, test body `12772ms`, duration `15.10s`.
 

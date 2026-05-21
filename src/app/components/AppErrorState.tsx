@@ -7,6 +7,17 @@ export interface AppErrorStateProps {
   onRetry: () => void;
 }
 
+function safeCause(cause: string | undefined): string | null {
+  if (!cause) {
+    return null;
+  }
+  if (cause.includes("\n") || cause.includes(" at ") || cause.includes("Stack")) {
+    return "Details are available in the development logs.";
+  }
+  return `Detail: ${cause}`;
+}
+
 export function AppErrorState({ cause, message, onRetry }: AppErrorStateProps) {
-  return <StartupState title="CornerIQ needs a retry" message={cause ? `${message} ${cause}` : message} actionLabel="Retry" onAction={onRetry} />;
+  const detail = safeCause(cause);
+  return <StartupState title="CornerIQ needs a retry" message={detail ? `${message} ${detail}` : message} actionLabel="Retry" onAction={onRetry} />;
 }

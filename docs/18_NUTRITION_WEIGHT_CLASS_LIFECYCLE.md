@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document describes the Fuel / Weight-Class Command Center after the eighteenth and nineteenth implementation passes. The eighteenth pass turned nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle. The nineteenth pass adds view-model-driven review history, manual Fuel history, and body-mass trajectory detail panels without adding barcode scanning, full meal planning, a detailed food database, reviewer-clear UI, or unsafe weight-cut instructions.
+This document describes the Fuel / Weight-Class Command Center after the eighteenth, nineteenth, and twentieth implementation passes. The eighteenth pass turned nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle. The nineteenth pass added view-model-driven review history, manual Fuel history, and body-mass trajectory detail panels. The twentieth pass made those surfaces easier to test by splitting Fuel into Command / History / Reviews / Body Mass sections without adding barcode scanning, full meal planning, a detailed food database, reviewer-clear UI, or unsafe weight-cut instructions.
 
 ## Engine Shape
 
@@ -95,6 +95,15 @@ Active reviews are loaded through `loadAthleteJourney`, flow into the nutrition 
 Recent review events are loaded through `loadAthleteJourney` with a bounded repository query. `loadNutritionSafetyReviewHistory` provides a lightweight service for active reviews plus recent review events without requiring a large performance state payload.
 
 ## Review UI And History
+
+Fuel now uses local sections:
+
+- Command: Fuel Command Card, active Nutrition Safety Review Card, Weight-Class Status Card, Session Fueling Card, active fight-week/rehydration/tournament context when applicable, and fuel quick logs.
+- History: actual-vs-target, recent manual fuel logs, `FuelHistoryCard`, and `FuelHistoryPanel`.
+- Reviews: active review status plus `NutritionReviewHistoryPanel`.
+- Body Mass: `BodyMassTrajectoryCard`, `BodyMassTrajectoryPanel`, and target/cycle context.
+
+If an active nutrition review exists and the athlete switches away from Command or Reviews, `FuelScreen` renders a RiskBanner at the top. Safety review visibility is therefore not hidden by section state.
 
 `NutritionSafetyReviewCard` now shows:
 
@@ -223,13 +232,13 @@ The smoke verifies:
 - No hard stop is cleared by request or acknowledgement.
 - Smoke-created review/event rows are cleaned up.
 
-Final nineteenth-pass local verification:
+Twentieth-pass local verification:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `315` tests and `1` skipped.
-- `cmd /c npm run quality`: passed with typecheck plus tests; `315` tests and `1` skipped.
+- `cmd /c npm test`: passed with `318` tests and `1` skipped.
+- `cmd /c npm run quality`: passed with typecheck plus tests; `318` tests and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- Ignored `.env` loaded with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: passed with `1` test, test body `12772ms`, duration `15.10s`.
+- Ignored `.env` loaded with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: passed with `1` test, test body `13208ms`, duration `15.15s`.
 
 ## Known Gaps
 
@@ -242,3 +251,4 @@ Final nineteenth-pass local verification:
 - No detailed food database.
 - Manual food history is more explainable but still basic.
 - Nutrition command snapshots still use `nutrition_targets.target_payload`; no dedicated nutrition command snapshot table exists.
+- Real boxer beta user testing is still needed for Fuel Command, Reviews, Body Mass, and History comprehension.
