@@ -18,6 +18,7 @@ export function RiskBanner({
   const borderColor = tone === "critical" ? colors.redCorner : tone === "info" ? colors.blueIQ : colors.amberCaution;
   return (
     <View
+      accessibilityLabel={`${title}. ${message}`}
       accessibilityRole="alert"
       style={{
         backgroundColor: colors.panelRaised,

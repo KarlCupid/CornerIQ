@@ -121,12 +121,12 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
             <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.actionCopy}</Text>
             {viewModel.nextWeekPreview.requiresReview ? <Text style={screenStyles.subtle}>Review required before materializing.</Text> : null}
             {viewModel.nextWeekPreview.canAccept ? (
-              <Pressable disabled={busy || !nextWeekPreviewActions} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined)}>
+              <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined)}>
                 <Text style={screenStyles.quietButtonText}>Accept preview</Text>
               </Pressable>
             ) : null}
             {viewModel.nextWeekPreview.showMaterializeAction ? (
-              <Pressable disabled={busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined)}>
+              <Pressable accessibilityLabel="Materialize next week" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview }} disabled={busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined)}>
                 <Text style={screenStyles.quietButtonText}>Materialize next week</Text>
               </Pressable>
             ) : null}

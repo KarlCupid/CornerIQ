@@ -22,6 +22,7 @@ export function EmptyState({
         <Text style={{ ...typography.body, color: colors.wrap }}>{message}</Text>
         {actionLabel && onAction ? (
           <Pressable
+            accessibilityLabel={actionLabel}
             accessibilityRole="button"
             onPress={onAction}
             style={{

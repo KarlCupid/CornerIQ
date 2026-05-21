@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
+import { createBetaFeedbackRepository, mapBetaFeedbackReportRow } from "../../services/supabase/betaFeedbackRepository";
 import { createBodyMassRepository, mapBodyMassLogRow } from "../../services/supabase/bodyMassRepository";
 import { createCoachRelationshipRepository } from "../../services/supabase/coachRelationshipRepository";
 import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/supabase/cycleRepository";
@@ -153,6 +154,83 @@ function createNutritionReviewEventListClient() {
       onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
     ) {
       return Promise.resolve(response).then(onfulfilled, onrejected);
+    }
+  };
+  const query = {
+    select() {
+      calls.push({ method: "select" });
+      return query;
+    },
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return query;
+    },
+    order(column: string) {
+      calls.push({ method: "order", column });
+      return orderResult;
+    }
+  };
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", value: table });
+      return query;
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient };
+}
+
+function createBetaFeedbackInsertClient() {
+  const inserted: { table: string; record: unknown }[] = [];
+  const client = {
+    from(table: string) {
+      return {
+        insert(record: unknown) {
+          inserted.push({ table, record });
+          const row = record as Record<string, unknown>;
+          return {
+            select() {
+              return {
+                single: async () => ({
+                  data: {
+                    ...row,
+                    id: "feedback_1",
+                    created_at: "2026-05-20T00:00:00.000Z",
+                    updated_at: "2026-05-20T00:00:00.000Z",
+                    status: row.status ?? "received"
+                  },
+                  error: null
+                })
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, inserted };
+}
+
+function createBetaFeedbackListClient() {
+  const calls: { method: string; column?: string; value?: unknown }[] = [];
+  const rows = [
+    {
+      id: "feedback_1",
+      user_id: "user_1",
+      screen: "profile",
+      category: "confusing",
+      severity: "medium",
+      message: "Audit tab was dense.",
+      status: "received",
+      feedback_payload: { source: "test" },
+      created_at: "2026-05-20T00:00:00.000Z",
+      updated_at: "2026-05-20T00:00:00.000Z"
+    }
+  ];
+  const response = { data: rows, error: null };
+  const orderResult = {
+    limit(value: number) {
+      calls.push({ method: "limit", value });
+      return Promise.resolve(response);
     }
   };
   const query = {
@@ -534,6 +612,26 @@ describe("Supabase repositories", () => {
     expect(source).not.toContain("coach_user_id");
   });
 
+  it("009 migration creates privacy-safe beta feedback reports with owner RLS, indexes, and comments", () => {
+    const source = readFileSync("supabase/migrations/009_beta_feedback_reports.sql", "utf8");
+
+    expect(source).toContain("create table if not exists public.beta_feedback_reports");
+    expect(source).toContain("screen in");
+    expect(source).toContain("'today'");
+    expect(source).toContain("'cycle_feedback'");
+    expect(source).toContain("severity in ('low', 'medium', 'high', 'critical')");
+    expect(source).toContain("status in ('received', 'reviewed', 'resolved', 'dismissed')");
+    expect(source).toContain("alter table public.beta_feedback_reports enable row level security");
+    expect(source).toContain("auth.uid() = user_id");
+    expect(source).toContain("beta_feedback_reports_user_created_idx");
+    expect(source).toContain("beta_feedback_reports_user_screen_category_idx");
+    expect(source).toContain("beta_feedback_reports_user_status_idx");
+    expect(source).toContain("avoid collecting health details by default");
+    expect(source).toContain("not medical review");
+    expect(source).toContain("not coaching review");
+    expect(source).not.toContain("service_role");
+  });
+
   it("database types include coach relationship table", () => {
     const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
 
@@ -559,6 +657,64 @@ describe("Supabase repositories", () => {
     expect(source).toContain("review_type: string");
     expect(source).toContain("hard_stop: boolean");
     expect(source).toContain("nutrition_safety_review_id: string");
+  });
+
+  it("database types include beta feedback report table", () => {
+    const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
+
+    expect(source).toContain("beta_feedback_reports");
+    expect(source).toContain("feedback_payload: Json");
+    expect(source).toContain("screen: string");
+    expect(source).toContain("category: string");
+    expect(source).toContain("severity: string");
+  });
+
+  it("betaFeedbackRepository maps rows, inserts payloads, and lists reports scoped by user", async () => {
+    const mapped = mapBetaFeedbackReportRow({
+      id: "feedback_1",
+      user_id: "user_1",
+      screen: "profile",
+      category: "confusing",
+      severity: "medium",
+      message: "Audit tab was dense.",
+      status: "received",
+      feedback_payload: { source: "test" },
+      created_at: "2026-05-20T00:00:00.000Z",
+      updated_at: "2026-05-20T00:00:00.000Z"
+    });
+    expect(mapped.screen).toBe("profile");
+    expect(mapped.feedbackPayload.source).toBe("test");
+
+    const insertClient = createBetaFeedbackInsertClient();
+    const repository = createBetaFeedbackRepository(insertClient.client);
+    const inserted = await repository.insertBetaFeedbackReport({
+      userId: "user_1",
+      screen: "fuel",
+      category: "fuel_feedback",
+      severity: "low",
+      message: "Fuel felt useful.",
+      feedbackPayload: { source: "test" }
+    });
+    expect(inserted.id).toBe("feedback_1");
+    expect(insertClient.inserted[0]?.table).toBe("beta_feedback_reports");
+    expect(insertClient.inserted[0]?.record).toMatchObject({
+      user_id: "user_1",
+      screen: "fuel",
+      category: "fuel_feedback",
+      severity: "low",
+      message: "Fuel felt useful."
+    });
+
+    const listClient = createBetaFeedbackListClient();
+    const listed = await createBetaFeedbackRepository(listClient.client).listBetaFeedbackReportsForUser("user_1", 5);
+    expect(listed[0]?.id).toBe("feedback_1");
+    expect(listClient.calls).toEqual(
+      expect.arrayContaining([
+        { method: "from", value: "beta_feedback_reports" },
+        { method: "eq", column: "user_id", value: "user_1" },
+        { method: "limit", value: 5 }
+      ])
+    );
   });
 
   it("nutritionSafetyReviewRepository maps rows, inserts request payloads, scopes active reads, and has no clear method", async () => {
@@ -822,7 +978,11 @@ describe("Supabase repositories", () => {
     expect(source).toContain('filter("flag_payload->>smokeRunId"');
     expect(source).toContain("nutrition_safety_reviews");
     expect(source).toContain("nutrition_safety_review_events");
+    expect(source).toContain("beta_feedback_reports");
+    expect(source).toContain("submitBetaFeedback");
+    expect(source).toContain("createBetaFeedbackRepository");
     expect(source).toContain('filter("source_payload->>smokeRunId"');
+    expect(source).toContain('filter("feedback_payload->>smokeRunId"');
     expect(source).toContain("existingProfile");
   });
 
@@ -883,16 +1043,21 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("training_next_week_previews");
     expect(USER_OWNED_TABLES).toContain("nutrition_safety_reviews");
     expect(USER_OWNED_TABLES).toContain("nutrition_safety_review_events");
+    expect(USER_OWNED_TABLES).toContain("beta_feedback_reports");
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
-    expect(USER_OWNED_TABLES).toHaveLength(37);
+    expect(USER_OWNED_TABLES).toHaveLength(38);
   });
 
   it("Expo-side services do not reference service role keys", () => {
     const files = [
       "src/services/supabase/client.ts",
+      "src/services/supabase/betaFeedbackRepository.ts",
       "src/services/supabase/coachRelationshipRepository.ts",
       "src/services/supabase/userDataService.ts",
+      "src/services/feedback/submitBetaFeedback.ts",
+      "src/hooks/useBetaFeedback.ts",
+      "src/app/components/BetaFeedbackPanel.tsx",
       "src/hooks/useUserDataControls.ts",
       "src/app/screens/ProfileScreen.tsx",
       "src/app/screens/plan/PlanAdjustmentControls.tsx"
@@ -948,6 +1113,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/coachRelationshipRepository.ts",
       "src/services/supabase/exerciseResultRepository.ts",
       "src/services/supabase/engineRunRepository.ts",
+      "src/services/supabase/betaFeedbackRepository.ts",
       "src/services/supabase/userDataService.ts"
     ];
 

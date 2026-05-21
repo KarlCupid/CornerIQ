@@ -11,6 +11,7 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TrainScreen } from "../screens/TrainScreen";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import type { BetaFeedbackHook } from "../../hooks/useBetaFeedback";
 import type { NextWeekPreviewActionsHook } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
@@ -22,6 +23,7 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 export interface AppTabsProps {
   asOfDate: ISODateString;
   busy: boolean;
+  betaFeedback?: BetaFeedbackHook | undefined;
   cycleSymptomOptions: readonly CycleSymptom[];
   message: string | null;
   nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
@@ -38,7 +40,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, betaFeedback, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -110,6 +112,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, message, nextWeek
               onUpdateSettings={onUpdateProfileSettings}
               preferredUnits={state.athlete.preferredUnits}
               recentLogs={state.viewModels.recentLogs}
+              betaFeedback={betaFeedback}
               userDataControls={userDataControls}
               viewModel={state.viewModels.profile}
               wearablePreference={state.athlete.wearablePreference}

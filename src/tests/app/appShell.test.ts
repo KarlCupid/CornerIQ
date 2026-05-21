@@ -8,6 +8,7 @@ import type { AthleteJourneyRepositories } from "../../services/supabase/loadAth
 import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
+import { useBetaFeedback, type BetaFeedbackHook } from "../../hooks/useBetaFeedback";
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
 import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
 import { useSupabaseSession } from "../../hooks/useSupabaseSession";
@@ -740,6 +741,64 @@ function createUserDataClient() {
   return { client: client as unknown as CornerSupabaseClient, deleted, selected };
 }
 
+function createBetaFeedbackHookClient() {
+  const inserted: unknown[] = [];
+  const row = {
+    id: "feedback_1",
+    user_id: "user_1",
+    screen: "profile",
+    category: "confusing",
+    severity: "medium",
+    message: "Audit section was dense.",
+    status: "received",
+    feedback_payload: { source: "test" },
+    created_at: "2026-05-20T00:00:00.000Z",
+    updated_at: "2026-05-20T00:00:00.000Z"
+  };
+  const query = {
+    eq() {
+      return query;
+    },
+    order() {
+      return query;
+    },
+    limit() {
+      return Promise.resolve({ data: [row], error: null });
+    }
+  };
+  const client = {
+    from(table: string) {
+      return {
+        insert(record: unknown) {
+          inserted.push({ table, record });
+          const saved = record as Record<string, unknown>;
+          return {
+            select() {
+              return {
+                single: async () => ({
+                  data: {
+                    ...row,
+                    ...saved,
+                    id: "feedback_1",
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    status: saved.status ?? "received"
+                  },
+                  error: null
+                })
+              };
+            }
+          };
+        },
+        select() {
+          return query;
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, inserted };
+}
+
 describe("minimal app screens", () => {
   it("AuthScreen renders", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
@@ -821,6 +880,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Metric");
     expect(output).toContain("Timeline item");
     expect(output).not.toContain("Expanded child");
+    expect((renderer.root.findAllByType("Pressable") as TestInstance[]).every((item) => item.findAllByType("Text").length > 0)).toBe(true);
 
     await switchSection(renderer, "Two");
     expect(onChange).toHaveBeenCalledWith("two");
@@ -831,6 +891,51 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).not.toContain("Expanded child");
     await switchSection(renderer, "Empty action");
     expect(onAction).toHaveBeenCalled();
+  });
+
+  it("BetaFeedbackPanel validates notes, submits through the hook boundary, and shows safety copy", async () => {
+    const { BetaFeedbackPanel } = await import("../../app/components/BetaFeedbackPanel");
+    const onSubmit = vi.fn(async () => ({
+      status: "submitted" as const,
+      report: {
+        id: "feedback_1",
+        userId: "user_1",
+        screen: "profile" as const,
+        category: "safety_concern" as const,
+        severity: "high" as const,
+        message: "Safety copy felt unclear.",
+        status: "received" as const,
+        feedbackPayload: {},
+        createdAt: "2026-05-20T00:00:00.000Z",
+        updatedAt: "2026-05-20T00:00:00.000Z"
+      },
+      message: "Feedback received. It is saved to your account for beta review."
+    }));
+    const renderer = render(React.createElement(BetaFeedbackPanel, { defaultScreen: "profile", onSubmit }));
+
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Do not include emergency details or secrets.");
+    expect(output).toContain("This feedback is not medical or coaching review.");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Send feedback"));
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("Add a short note");
+
+    await switchSection(renderer, "Safety concern");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("If this is urgent, stop and seek qualified support.");
+
+    act(() => {
+      changeInput(renderer, "What should we know?", "Safety copy felt unclear.");
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Send feedback"));
+    });
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ category: "safety_concern", message: "Safety copy felt unclear." }));
+    expect(JSON.stringify(renderer.toJSON())).toContain("Feedback received");
   });
 
   it("TodayScreen renders view model fields", async () => {
@@ -1999,6 +2104,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Cycle data is optional");
     await switchSection(renderer, "Audit");
     output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Beta feedback");
+    expect(output).toContain("Do not include emergency details or secrets.");
     expect(output).toContain("Training audit");
     expect(output).toContain("Current block week");
     expect(output).toContain("Fuel review audit");
@@ -2043,6 +2150,59 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("training: 1");
     const deleteButton = pressableWithText(renderer, "Delete app data");
     expect(deleteButton?.props.disabled).toBe(true);
+  });
+
+  it("ProfileScreen Audit section submits beta feedback through the provided hook", async () => {
+    const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
+    const submitFeedback = vi.fn(async () => ({
+      status: "submitted" as const,
+      report: {
+        id: "feedback_1",
+        userId: "user_1",
+        screen: "profile" as const,
+        category: "confusing" as const,
+        severity: "medium" as const,
+        message: "Audit tab was dense.",
+        status: "received" as const,
+        feedbackPayload: {},
+        createdAt: "2026-05-20T00:00:00.000Z",
+        updatedAt: "2026-05-20T00:00:00.000Z"
+      },
+      message: "Feedback received. It is saved to your account for beta review."
+    }));
+    const renderer = render(
+      React.createElement(ProfileScreen, {
+        asOfDate: fixtureAsOfDate,
+        betaFeedback: {
+          busy: false,
+          message: null,
+          recentReports: [],
+          refreshReports: vi.fn(),
+          submitFeedback
+        },
+        busy: false,
+        cycleTrackingStatus: "undecided",
+        cycleContext: null,
+        equipmentAccess: ["jump_rope"],
+        onSignOut: vi.fn(),
+        onUpdateSettings: vi.fn(),
+        preferredUnits: "metric",
+        recentLogs: recentLogsViewModel,
+        viewModel: profileViewModel,
+        wearablePreference: "manual_only",
+        wearableStatus: "manual only"
+      })
+    );
+
+    await switchSection(renderer, "Audit");
+    act(() => {
+      changeInput(renderer, "What should we know?", "Audit tab was dense.");
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Send feedback"));
+    });
+
+    expect(submitFeedback).toHaveBeenCalledWith(expect.objectContaining({ screen: "profile", message: "Audit tab was dense." }));
   });
 
   it("useUserDataControls previews counts, blocks delete without DELETE, and signs out after delete", async () => {
@@ -2096,6 +2256,31 @@ describe("minimal app screens", () => {
     expect(deleted).toHaveLength(0);
     expect(onAfterDelete).not.toHaveBeenCalled();
     expect(snapshot.current?.message).toContain("Preview export");
+  });
+
+  it("useBetaFeedback submits sanitized feedback and tracks recent reports", async () => {
+    const { client, inserted } = createBetaFeedbackHookClient();
+    const snapshot: { current: BetaFeedbackHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = useBetaFeedback({ client, engineVersion: "0.2.0", userId: "user_1" });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.submitFeedback({
+        screen: "profile",
+        category: "confusing",
+        severity: "medium",
+        message: "Audit section was dense.",
+        feedbackPayload: { accessToken: "secret-token" }
+      });
+    });
+
+    expect(inserted).toHaveLength(1);
+    expect(JSON.stringify(inserted)).not.toContain("secret-token");
+    expect(snapshot.current?.message).toContain("Feedback received");
+    expect(snapshot.current?.recentReports[0]?.id).toBe("feedback_1");
   });
 
   it("OnboardingScreen renders the first setup step with demo as secondary action", async () => {
@@ -2345,12 +2530,15 @@ describe("minimal app screens", () => {
         }
         return path.endsWith(".tsx") ? [path] : [];
       }),
+      ...readdirSync("src/app/components").map((entry) => `src/app/components/${entry}`).filter((path) => path.endsWith(".tsx")),
       "src/app/App.tsx",
       "src/app/navigation/AppTabs.tsx"
     ];
     for (const file of files) {
       const source = readFileSync(file, "utf8").toLowerCase();
       expect(source).not.toMatch(/sauna|sweat suit|sweatsuit|laxative|diuretic|extreme dehydration|make weight at all costs/);
+      expect(source).not.toContain("crush it");
+      expect(source).not.toMatch(/generated\s+(sparring|contact)/);
       expect(source).not.toContain("service_role");
       expect(source).not.toContain("supabase_service_role");
       expect(source).not.toContain("approve-coach-relationship");

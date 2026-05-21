@@ -1,5 +1,60 @@
 # Codex Audit Log
 
+## 2026-05-20 23:50 America/Vancouver
+
+Goal summary:
+- Prepare CornerIQ for real boxer beta testing without deep new product features.
+- Add privacy-safe beta feedback persistence, repository/service/hook/UI, live-smoke coverage, and structured beta QA/user-testing documentation.
+- Lightly harden accessibility labels and copy around reusable controls while keeping business logic out of screens.
+- Keep barcode scanning, full meal planning, detailed food database, coach UI, clinician/reviewer-clear UI, numeric load progression, drag/drop calendar, unsafe weight-cut instructions, generated sparring/contact prescriptions, service-role client code, and hard-stop self-clear deferred.
+
+Key changes:
+- Added additive migration `009_beta_feedback_reports.sql` with owner RLS, constraints, comments, indexes, updated-at trigger, and privacy/safety semantics for beta feedback.
+- Regenerated `src/services/supabase/database.types.ts` from linked remote types after applying 009.
+- Added `betaFeedbackRepository`, `submitBetaFeedback`, `useBetaFeedback`, and `BetaFeedbackPanel`.
+- Wired Profile > Audit to the feedback panel through `App.tsx` and `AppTabs`.
+- Added validation for user ID, screen/category/severity, empty and overlong messages, and obvious password/token redaction before persistence.
+- Added feedback reports to user-owned export/delete scope.
+- Extended live smoke to submit, verify, and clean a beta feedback report by `smokeRunId`.
+- Added `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md` with personas, scripts, safety checks, prompts, privacy rules, exit criteria, and inspect-first guidance.
+- Updated `docs/19_BETA_READINESS_AND_INFORMATION_ARCHITECTURE.md`, `FEATURE_STATUS.md`, `KNOWN_GAPS.md`, `11_SUPABASE_REMOTE_STATUS.md`, and this handoff/audit log.
+
+Command results:
+- Baseline `git status`: clean working tree; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Baseline `git log --oneline --decorate -8`: latest commit was `39e5b19 (HEAD -> main, origin/main) Update agent rules for CornerIQ`.
+- Direct `npm run typecheck` and `npm test`: blocked by PowerShell `npm.ps1` execution policy; `cmd /c npm run typecheck` passed.
+- Sandboxed `cmd /c npm test` and `cmd /c npm run quality`: failed because Vitest/esbuild could not read `../..` while loading config; escalated reruns passed before edits.
+- `cmd /c npm run lint`: passed.
+- Sandboxed Supabase CLI failed writing telemetry under `C:\Users\karll\.supabase`; escalated CLI version returned `2.100.1`.
+- Baseline migration list: local/remote `001` through `008` aligned.
+- Baseline dry run: `Remote database is up to date.`
+- Initial live smoke without ignored `.env` loaded failed with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` key-name check found all required smoke keys without printing values.
+- Baseline live smoke with ignored `.env` loaded: passed with `1` test, test body `12294ms`, duration `14.05s`.
+- Pre-push dry run after adding 009: succeeded and reported `009_beta_feedback_reports.sql` would be pushed.
+- `cmd /c npm exec supabase -- db push`: applied `009_beta_feedback_reports.sql`.
+- Final migration list: local/remote `001` through `009` aligned.
+- Final dry run: `Remote database is up to date.`
+- Linked type generation command completed and `database.types.ts` includes `beta_feedback_reports`.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm test`: passed with `33` files passed, `1` skipped; `329` tests passed, `1` skipped.
+- Final `cmd /c npm run quality`: passed with typecheck plus tests; `329` tests passed, `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12320ms`, duration `14.15s`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `git rev-parse HEAD`: `39e5b1960ac743d40ea4b4e0cff45496ea158380`.
+- No commit was created in this pass.
+
+Known gaps:
+- No production issue triage dashboard yet.
+- Feedback reports are user-owned and not admin-reviewed in app.
+- No external analytics yet.
+- Real boxer beta findings have not been captured yet.
+- Routed drilldowns, barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.
+
+Next recommendation:
+- Run guided boxer beta sessions using `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`, then make a focused polish pass on the highest-friction flows before adding routed drilldowns or heavier features.
+
 ## 2026-05-20 23:11 America/Vancouver
 
 Goal summary:

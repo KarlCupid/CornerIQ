@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -124,6 +124,45 @@ export type Database = {
           profile?: Json
           sensitive_cycle?: Json
           sensitive_medical?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      beta_feedback_reports: {
+        Row: {
+          category: string
+          created_at: string
+          feedback_payload: Json
+          id: string
+          message: string
+          screen: string
+          severity: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          feedback_payload?: Json
+          id?: string
+          message: string
+          screen: string
+          severity?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          feedback_payload?: Json
+          id?: string
+          message?: string
+          screen?: string
+          severity?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }

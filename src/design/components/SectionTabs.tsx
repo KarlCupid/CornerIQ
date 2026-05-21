@@ -19,6 +19,7 @@ export function SectionTabs<T extends string>({
   return (
     <View
       accessibilityLabel="Screen sections"
+      accessibilityHint="Choose which section of this screen is visible."
       style={{
         flexDirection: "row",
         flexWrap: "wrap",
@@ -30,6 +31,7 @@ export function SectionTabs<T extends string>({
         return (
           <Pressable
             accessibilityLabel={`Show ${item.label} section`}
+            accessibilityHint={selected ? `${item.label} section is visible.` : `Switch to the ${item.label} section.`}
             accessibilityRole="button"
             accessibilityState={{ selected }}
             key={item.key}

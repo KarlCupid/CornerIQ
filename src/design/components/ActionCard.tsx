@@ -27,7 +27,9 @@ export function ActionCard({
         {children}
         {actionLabel && onAction ? (
           <Pressable
+            accessibilityLabel={actionLabel}
             accessibilityRole="button"
+            accessibilityState={{ disabled }}
             disabled={disabled}
             onPress={onAction}
             style={{

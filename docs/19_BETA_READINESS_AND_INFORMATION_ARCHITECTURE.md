@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document describes the twentieth implementation pass: a beta UX / information architecture hardening pass across Today, Fuel, Train, Plan, and Profile. The pass added reusable UI primitives and local screen sections without adding new domain complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, or drag/drop calendar behavior.
+This document describes the twentieth and twenty-first implementation passes: beta UX / information architecture hardening across Today, Fuel, Train, Plan, and Profile, followed by a privacy-safe beta feedback/testing workflow. These passes added reusable UI primitives, local screen sections, Profile Audit feedback, and structured beta testing documentation without adding deep new product complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, or drag/drop calendar behavior.
 
 ## Main App Sections
 
@@ -44,7 +44,34 @@ Profile owns athlete summary, settings, data controls, and audit copy. It now ha
 - Athlete: profile summary, wearable status, cycle tracking status, privacy copy, and cycle context.
 - Settings: profile settings and sign out.
 - Data: export preview, DELETE-gated app-data deletion, and account-deletion limitation copy.
-- Audit: compact training audit, Fuel review audit summary, journey history, and privacy/safety copy.
+- Audit: beta feedback panel, compact training audit, Fuel review audit summary, journey history, and privacy/safety copy.
+
+## Beta Feedback Workflow
+
+Profile > Audit now exposes a compact Beta feedback panel. It lets authenticated beta users choose:
+
+- App section: Today, Fuel, Train, Plan, Profile, Onboarding, Auth, or Unknown.
+- Category: confusing, bug, safety concern, copy issue, missing feature, workout feedback, fuel feedback, weight-class feedback, cycle feedback, or other.
+- Severity: low, medium, high, or critical.
+- Short message.
+
+Feedback persists to `beta_feedback_reports` through `src/services/supabase/betaFeedbackRepository.ts` and `src/services/feedback/submitBetaFeedback.ts`. The service validates user ID, section, category, severity, and message length; rejects empty messages; and sanitizes obvious password/token fields before saving. The hook `src/hooks/useBetaFeedback.ts` keeps the UI thin.
+
+Privacy reminders are visible in the panel:
+
+- Do not include emergency details or secrets.
+- This feedback is not medical or coaching review.
+- If safety concern is selected: If this is urgent, stop and seek qualified support.
+
+Feedback does not do these things:
+
+- It is not medical review.
+- It is not coach review.
+- It is not emergency support.
+- It does not clear hard stops.
+- It does not expose coach, clinician, reviewer, or admin UI.
+
+Beta testing scripts and prompts live in `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`.
 
 ## First Things Athletes See
 
@@ -122,6 +149,7 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 | Train | Beta testable | Today/Workout/Exercise History/Progression sections; completion flow still dense but functional. |
 | Plan | Beta testable | Week/Next Week/Block History/Adjustments sections; no drag/drop; controls remain service-owned. |
 | Profile | Beta testable | Athlete/Settings/Data/Audit sections; DELETE gate remains hard to trigger. |
+| Feedback | Beta testable | Profile > Audit saves privacy-safe user-owned beta feedback reports with visible privacy/safety reminders. |
 | Smoke | Passing | Live smoke passes with ignored `.env` values, public Supabase URL, and anon key only. |
 | Data deletion | MVP | App data deletion is DELETE-gated; Supabase auth account deletion remains server-side future work. |
 | Privacy | Beta testable | Cycle privacy copy visible; no service role in client. |
@@ -139,6 +167,15 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 - Does Plan's Week / Next Week split make future support sessions understandable?
 - Are adjustment controls understandable as requests to the engine rather than manual programming edits?
 - Does Profile make cycle privacy and data deletion boundaries clear enough for beta trust?
+- Does the feedback panel feel easy to use without inviting emergency details or private health histories?
+
+## Beta Tester Onboarding Guidance
+
+- Tell testers this is a structured beta, not public release.
+- Ask testers not to paste secrets, emergency details, medical records, or full health histories into feedback.
+- Use test accounts whenever export/delete or smoke cleanup is being exercised.
+- Ask testers to narrate the first action they think CornerIQ is asking for on Today, Fuel, Train, and Plan.
+- Capture confusion through Profile > Audit feedback, then compare it with facilitator notes from `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`.
 
 ## Auditor Inspect First
 
@@ -146,11 +183,14 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 2. `src/design/components/RiskBanner.tsx`
 3. `src/design/components/EmptyState.tsx`
 4. `src/design/components/DisclosureCard.tsx`
-5. `src/app/screens/TodayScreen.tsx`
-6. `src/app/screens/FuelScreen.tsx`
-7. `src/app/screens/TrainScreen.tsx`
-8. `src/app/screens/PlanScreen.tsx`
-9. `src/app/screens/ProfileScreen.tsx`
-10. `src/app/components/AppErrorState.tsx`
-11. `src/app/App.tsx`
-12. `src/tests/app/appShell.test.ts`
+5. `src/app/components/BetaFeedbackPanel.tsx`
+6. `src/services/feedback/submitBetaFeedback.ts`
+7. `src/services/supabase/betaFeedbackRepository.ts`
+8. `src/app/screens/TodayScreen.tsx`
+9. `src/app/screens/FuelScreen.tsx`
+10. `src/app/screens/TrainScreen.tsx`
+11. `src/app/screens/PlanScreen.tsx`
+12. `src/app/screens/ProfileScreen.tsx`
+13. `src/app/App.tsx`
+14. `src/tests/app/appShell.test.ts`
+15. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`

@@ -1,12 +1,12 @@
 # Supabase Remote Status
 
-Date: 2026-05-20 23:05 America/Vancouver
+Date: 2026-05-20 23:50 America/Vancouver
 
-Latest known commit from prompt: `a71a07cbc516e3474d853130696c7a007fb03de8` (`Add history panels for Fuel, reviews, body mass, and training`).
+Latest known commit from prompt: `39e5b1960ac743d40ea4b4e0cff45496ea158380` (`Update agent rules for CornerIQ`).
 
-Latest commit before this pass from `git log`: `a71a07cbc516e3474d853130696c7a007fb03de8` (`Add history panels for Fuel, reviews, body mass, and training`).
+Latest commit before this pass from `git log`: `39e5b1960ac743d40ea4b4e0cff45496ea158380` (`Update agent rules for CornerIQ`).
 
-Current `git rev-parse HEAD`: `a71a07cbc516e3474d853130696c7a007fb03de8`
+Current `git rev-parse HEAD`: `39e5b1960ac743d40ea4b4e0cff45496ea158380`
 
 Commit created in this run: none.
 
@@ -36,8 +36,9 @@ Latest `cmd /c npm exec supabase -- migration list` result after this pass:
 | `006` | `006` | applied remotely |
 | `007` | `007` | applied remotely |
 | `008` | `008` | applied remotely |
+| `009` | `009` | applied remotely |
 
-`008_nutrition_safety_reviews.sql` is the latest applied migration.
+`009_beta_feedback_reports.sql` is the latest applied migration.
 
 Latest `cmd /c npm exec supabase -- db push --dry-run` result:
 
@@ -47,11 +48,21 @@ Latest `cmd /c npm exec supabase -- db push --dry-run` result:
 
 Note: Supabase CLI commands were run outside the workspace sandbox because the CLI writes telemetry metadata under the user profile and uses linked-project network access.
 
+## Migration 009
+
+`supabase/migrations/009_beta_feedback_reports.sql` adds `beta_feedback_reports` with:
+
+- `screen`, `category`, `severity`, and `status` constraints.
+- Non-empty message and 2000-character maximum constraints.
+- `feedback_payload` JSONB for sanitized app context.
+- Owner RLS through `auth.uid() = user_id`.
+- Indexes on `(user_id, created_at)`, `(user_id, screen, category)`, and `(user_id, status)`.
+- Comments that feedback may contain sensitive text, should not collect health details by default, and is not medical review, coaching review, emergency support, or hard-stop clearing.
+
 ## Generated Types
 
-- `cmd /c npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts`: completed after applying 008.
-- The generated file was normalized back to UTF-8 after Windows redirection initially wrote it in UTF-16.
-- `src/services/supabase/database.types.ts` now includes `nutrition_safety_reviews` and `nutrition_safety_review_events`.
+- `cmd /c "npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts"` completed after applying 009.
+- `src/services/supabase/database.types.ts` includes `beta_feedback_reports`.
 
 ## Live Smoke Status
 
@@ -59,9 +70,9 @@ Latest authenticated smoke result:
 
 - Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`.
 - Runtime used public Supabase URL and anon key only.
-- Baseline twentieth-pass result: passed, `1` test passed; test body `13807ms`, run duration `15.34s`.
-- Final twentieth-pass result: passed, `1` test passed; test body `13208ms`, run duration `15.15s`.
-- Verified sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, `nutrition_targets` fuel command snapshot with command center and weight-class status, no tested unsafe terms in the persisted fuel payload, manual fuel history/body-mass trajectory resolution, persisted nutrition safety review row, persisted nutrition safety review event, `NutritionSafetyReviewRequested` journey event, athlete acknowledgement to `acknowledged`, no athlete self-clear, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
+- Final twenty-first-pass result: passed, `1` test passed; test body `12320ms`, run duration `14.15s`.
+- The smoke submitted one beta feedback report with `smokeRunId`, verified the `beta_feedback_reports` row existed for the signed-in user, verified obvious token/password/service-role terms were absent from the feedback payload, and cleaned up the smoke feedback row.
+- Existing smoke coverage still verifies sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, no duplicate materialization on a second auto call, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, `nutrition_targets` fuel command snapshot, manual fuel history/body-mass trajectory resolution, persisted nutrition safety review row/event, `NutritionSafetyReviewRequested`, athlete acknowledgement to `acknowledged`, no athlete self-clear, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
 
@@ -70,10 +81,10 @@ The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips 
 Implementation and final handoff checks completed:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `318` tests and `1` live smoke test skipped after the IA changes.
-- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `318` tests and `1` live smoke test skipped.
+- `cmd /c npm test`: passed with `33` test files passed and `1` skipped; `329` tests passed and `1` skipped.
+- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `329` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- `CORNERIQ_LIVE_DB_SMOKE=1` with ignored `.env` loaded, then `cmd /c npm run smoke:live-db`: final twentieth-pass smoke passed with `1` test.
+- `CORNERIQ_LIVE_DB_SMOKE=1` with ignored `.env` loaded, then `cmd /c npm run smoke:live-db`: passed with `1` test.
 - `git diff --check`: passed with Windows LF-to-CRLF warnings only.
 
 Vitest and Supabase CLI required approved escalation in this Codex environment for local filesystem/network reasons. That did not require service role keys.

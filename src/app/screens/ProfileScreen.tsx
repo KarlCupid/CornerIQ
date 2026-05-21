@@ -6,8 +6,10 @@ import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { spacing } from "../../design/theme";
+import type { BetaFeedbackHook } from "../../hooks/useBetaFeedback";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
+import { BetaFeedbackPanel } from "../components/BetaFeedbackPanel";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
@@ -23,6 +25,7 @@ const profileSections: readonly SectionTabItem<ProfileSection>[] = [
 
 export interface ProfileScreenProps {
   asOfDate: ISODateString;
+  betaFeedback?: BetaFeedbackHook | undefined;
   busy: boolean;
   cycleTrackingStatus: string;
   equipmentAccess: readonly string[];
@@ -39,6 +42,7 @@ export interface ProfileScreenProps {
 
 export function ProfileScreen({
   asOfDate,
+  betaFeedback,
   busy,
   cycleTrackingStatus,
   equipmentAccess,
@@ -91,7 +95,7 @@ export function ProfileScreen({
             preferredUnits={preferredUnits}
             wearablePreference={wearablePreference}
           />
-          <Pressable accessibilityRole="button" onPress={onSignOut} style={screenStyles.quietButton}>
+          <Pressable accessibilityLabel="Sign out" accessibilityRole="button" onPress={onSignOut} style={screenStyles.quietButton}>
             <Text style={screenStyles.quietButtonText}>Sign out</Text>
           </Pressable>
         </>
@@ -102,13 +106,13 @@ export function ProfileScreen({
             <Text style={screenStyles.sectionTitle}>Data controls</Text>
             <Text style={screenStyles.body}>Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.</Text>
             <Text style={screenStyles.subtle}>This does not delete your Supabase auth account.</Text>
-            <Pressable accessibilityRole="button" disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
+            <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
               <Text style={screenStyles.quietButtonText}>Preview export</Text>
             </Pressable>
             {userDataControls?.previewRows.map((row) => <Text key={row} style={screenStyles.subtle}>{row}</Text>)}
             {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
-            <TextInput onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
-            <Pressable accessibilityRole="button" disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
+            <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
+            <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
               <Text style={screenStyles.quietButtonText}>Delete app data</Text>
             </Pressable>
             <Text style={screenStyles.subtle}>Account deletion requires a server-side function later; this only removes user-owned app data.</Text>
@@ -117,6 +121,12 @@ export function ProfileScreen({
       ) : null}
       {section === "audit" ? (
         <>
+          <BetaFeedbackPanel
+            busy={busy || betaFeedback?.busy}
+            defaultScreen="profile"
+            onSubmit={betaFeedback?.submitFeedback}
+            statusMessage={betaFeedback?.message}
+          />
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Training audit</Text>

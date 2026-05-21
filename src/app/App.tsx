@@ -9,6 +9,7 @@ import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions } from "../hooks/useNextWeekPreviewActions";
 import { useQuickLogs } from "../hooks/useQuickLogs";
+import { useBetaFeedback } from "../hooks/useBetaFeedback";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls } from "../hooks/useUserDataControls";
@@ -35,6 +36,11 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
     userId: session.user.id
   });
   const readyState = performance.result?.status === "ready" ? performance.result.state : null;
+  const betaFeedback = useBetaFeedback({
+    client,
+    engineVersion: readyState?.engineVersion,
+    userId: session.user.id
+  });
   const trainingPlanAdjustments = useTrainingPlanAdjustments({
     onRefresh: performance.refresh,
     repositories: performance.repositories,
@@ -78,7 +84,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
 
   return (
     <AppTabs
-      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy}
+      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy || betaFeedback.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onAcknowledgeNutritionSafetyReview={performance.acknowledgeNutritionSafetyReview}
@@ -92,6 +98,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       state={performance.result.state}
       nextWeekPreviewActions={nextWeekPreviewActions}
       trainingPlanAdjustments={trainingPlanAdjustments}
+      betaFeedback={betaFeedback}
       userDataControls={userDataControls}
       workoutCompletion={workoutCompletion.actions}
     />
