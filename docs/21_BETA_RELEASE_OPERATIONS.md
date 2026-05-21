@@ -6,7 +6,7 @@ This document is the operational checklist for structured CornerIQ beta releases
 
 ## Beta Readiness Status
 
-CornerIQ is beta-ready for structured boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a GitHub Actions quality workflow, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
+CornerIQ is beta-ready for structured boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a beta tester notice, runtime public-env validation, EAS build profiles, a beta preflight script, a GitHub Actions quality workflow, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
 
 No new migration was added in this pass. Remote migrations `001` through `009` remain applied and dry run reports the database is up to date.
 
@@ -19,9 +19,36 @@ npm run typecheck
 npm test
 npm run quality
 npm run lint
+npm run preflight:beta
 ```
 
 On this Windows host, PowerShell blocks `npm.ps1`; use `cmd /c` for the same scripts when needed.
+
+## Beta Preflight
+
+Run:
+
+```bash
+npm run preflight:beta
+```
+
+The script checks package scripts, `app.json`, `eas.json`, `development`/`preview`/`production` EAS profiles, public Supabase env declarations, config markers that should not contain smoke credentials or server-only role keys, and docs `20`, `21`, `23`, and `24`.
+
+It does not print env values, does not require smoke credentials, does not run Supabase CLI, does not run live smoke, and does not mutate files.
+
+## Expo / EAS Distribution
+
+`eas.json` now exists with:
+
+- `development`: internal distribution, Android APK, iOS simulator.
+- `preview`: internal distribution, Android APK.
+- `production`: store-oriented profile with local app version source.
+
+Distribution runbook: `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`.
+
+Release-candidate checklist: `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`.
+
+No actual EAS preview or production build was run in this pass. App icon/splash polish and store metadata remain manual release-owner tasks before broader distribution.
 
 ## Live Smoke
 
@@ -139,6 +166,7 @@ The results and human testing adjustments are documented in `docs/22_BETA_SCENAR
 - Wearables are optional; manual input is first-class.
 - Client and smoke use public Supabase URL plus anon key only.
 - No service role key belongs in Expo/client code.
+- Runtime beta health and startup copy show missing public env variable names only, never values.
 
 ## CI Quality Workflow
 
@@ -166,6 +194,8 @@ Still deferred:
 - Drag/drop calendar.
 - External analytics.
 - Production issue triage dashboard.
+- Actual EAS preview build execution.
+- App store metadata, icon, and splash polish.
 
 ## Beta Release Checklist
 
@@ -173,6 +203,7 @@ Still deferred:
 - Tests passed.
 - Quality passed.
 - Lint passed.
+- Beta preflight passed.
 - Live smoke passed with ignored local env loaded, or exact missing variable names were documented.
 - Supabase migration list aligned.
 - Supabase dry run up to date.
@@ -182,6 +213,8 @@ Still deferred:
 - No contact-work generation.
 - No self-clear path.
 - Feedback submit and history visible.
+- Beta tester notice visible.
+- Expo/EAS preview profile exists or setup deferral is documented.
 - Scenario QA and static safety scans pass.
 - Data deletion checked.
 - Cycle privacy visible.
@@ -194,16 +227,25 @@ Inspect first:
 1. `src/app/components/AppErrorBoundary.tsx`
 2. `src/app/components/BetaFeedbackPanel.tsx`
 3. `src/app/components/BetaHealthPanel.tsx`
-4. `src/engine/presentation/betaHealthViewModel.ts`
-5. `src/hooks/useBetaFeedback.ts`
-6. `src/app/screens/ProfileScreen.tsx`
-7. `.github/workflows/quality.yml`
-8. `src/tests/app/appShell.test.ts`
-9. `src/tests/engine/betaHealthViewModel.test.ts`
-10. `src/tests/beta/betaScenarioFlows.test.ts`
-11. `src/tests/static/betaSafetyStatic.test.ts`
-12. `src/tests/docs/betaReleaseOperations.test.ts`
-13. `src/tests/docs/betaScenarioQaResults.test.ts`
-14. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
-15. `docs/21_BETA_RELEASE_OPERATIONS.md`
-16. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
+4. `src/app/components/BetaTesterNoticePanel.tsx`
+5. `src/services/config/betaRuntimeConfig.ts`
+6. `src/engine/presentation/betaHealthViewModel.ts`
+7. `eas.json`
+8. `scripts/beta-preflight.mjs`
+9. `src/hooks/useBetaFeedback.ts`
+10. `src/app/screens/ProfileScreen.tsx`
+11. `.github/workflows/quality.yml`
+12. `src/tests/app/appShell.test.ts`
+13. `src/tests/engine/betaHealthViewModel.test.ts`
+14. `src/tests/services/betaRuntimeConfig.test.ts`
+15. `src/tests/beta/betaScenarioFlows.test.ts`
+16. `src/tests/static/betaSafetyStatic.test.ts`
+17. `src/tests/static/betaReleaseConfigStatic.test.ts`
+18. `src/tests/docs/betaReleaseOperations.test.ts`
+19. `src/tests/docs/betaScenarioQaResults.test.ts`
+20. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
+21. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+22. `docs/21_BETA_RELEASE_OPERATIONS.md`
+23. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
+24. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
+25. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`

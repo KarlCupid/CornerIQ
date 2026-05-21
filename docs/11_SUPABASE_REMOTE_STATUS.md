@@ -1,16 +1,16 @@
 # Supabase Remote Status
 
-Date: 2026-05-21 00:20 America/Vancouver
+Date: 2026-05-21 01:40 America/Vancouver
 
-Latest known commit from prompt: `433daaf2930d44f2a01cf5a64f6a840fff05f957` (`Update agent instructions for CornerIQ`).
+Latest known commit from prompt: `222ffa4a90e98c594c166ed770508f1e01061e66` (`Update CornerIQ agent instructions`).
 
-Latest commit before this pass from `git log`: `433daaf2930d44f2a01cf5a64f6a840fff05f957` (`Update agent instructions for CornerIQ`).
+Latest commit before this pass from `git log`: `222ffa4a90e98c594c166ed770508f1e01061e66` (`Update CornerIQ agent instructions`).
 
-Current `git rev-parse HEAD`: `433daaf2930d44f2a01cf5a64f6a840fff05f957`
+Current `git rev-parse HEAD`: `222ffa4a90e98c594c166ed770508f1e01061e66`.
 
 Commit created in this run: none.
 
-Post-commit hash should be checked by auditor: yes.
+Post-commit hash should be checked by auditor: yes. No commit was created; HEAD remained at the latest known commit.
 
 ## Project Link
 
@@ -24,7 +24,7 @@ Post-commit hash should be checked by auditor: yes.
 
 ## Remote Migration Status
 
-Latest `cmd /c npm exec supabase -- migration list` result after this pass:
+Latest `cmd /c npm exec supabase -- migration list` result:
 
 | Local | Remote | Status |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ Latest `cmd /c npm exec supabase -- migration list` result after this pass:
 | `008` | `008` | applied remotely |
 | `009` | `009` | applied remotely |
 
-`009_beta_feedback_reports.sql` remains the latest applied migration. No new migration was added in the twenty-second pass.
+`009_beta_feedback_reports.sql` remains the latest applied migration. No new migration was added in the twenty-fourth pass.
 
 Latest `cmd /c npm exec supabase -- db push --dry-run` result:
 
@@ -61,8 +61,8 @@ Note: Supabase CLI commands were run outside the workspace sandbox because the C
 
 ## Generated Types
 
-- `cmd /c "npm exec supabase -- gen types typescript --linked > src\services\supabase\database.types.ts"` completed after applying 009.
-- `src/services/supabase/database.types.ts` includes `beta_feedback_reports`.
+- `src/services/supabase/database.types.ts` already includes `beta_feedback_reports`.
+- No linked type regeneration was needed in this pass because no migration was added.
 
 ## Live Smoke Status
 
@@ -70,20 +70,20 @@ Latest authenticated smoke result:
 
 - Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`.
 - Runtime used public Supabase URL and anon key only.
-- Final twenty-second-pass result: passed, `1` test passed; test body `12545ms`, run duration `14.60s`, after ignored `.env` values were loaded into the process without printing values.
-- The smoke submitted one beta feedback report with `smokeRunId`, verified the `beta_feedback_reports` row existed for the signed-in user, verified obvious token/password/service-role terms were absent from the feedback payload, and cleaned up the smoke feedback row.
-- Existing smoke coverage still verifies sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, no duplicate materialization on a second auto call, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, `nutrition_targets` fuel command snapshot, manual fuel history/body-mass trajectory resolution, persisted nutrition safety review row/event, `NutritionSafetyReviewRequested`, athlete acknowledgement to `acknowledged`, no athlete self-clear, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
+- Final twenty-fourth-pass result: passed, `1` test passed; test body `12895ms`, run duration `14.85s`, after ignored `.env` values were loaded into the process without printing values.
+- The smoke signs in, writes manual logs, resolves projections, submits and cleans beta feedback, persists training block/progression/preview/materialization records, completes a generated support workout, requests and acknowledges a nutrition safety review, verifies no unsafe terms in key persisted payloads, and cleans up smoke-created or smoke-touched rows.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
 
 ## Local Verification
 
-Implementation and final handoff checks completed:
+Final handoff checks completed:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `35` test files passed and `1` skipped; `337` tests passed and `1` skipped.
-- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `337` tests passed and `1` skipped.
+- `cmd /c npm test`: passed with `41` test files passed and `1` skipped; `366` tests passed and `1` skipped.
+- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `366` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
+- `cmd /c npm run preflight:beta`: passed.
 - `CORNERIQ_LIVE_DB_SMOKE=1` with ignored `.env` loaded, then `cmd /c npm run smoke:live-db`: passed with `1` test.
 - `git diff --check`: passed with Windows LF-to-CRLF warnings only.
 

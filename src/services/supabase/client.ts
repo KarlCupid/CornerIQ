@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getBetaRuntimeConfig, PUBLIC_SUPABASE_ANON_KEY_ENV, PUBLIC_SUPABASE_URL_ENV } from "../config/betaRuntimeConfig";
 import type { Database } from "./database.types";
 
 export type CornerSupabaseClient = SupabaseClient<Database>;
@@ -31,12 +32,10 @@ function isValidHttpUrl(value: string): boolean {
 }
 
 export function getSupabaseConfigFromEnv(env: RuntimeEnv = readRuntimeEnv()): CornerSupabaseConfig | null {
-  const url = env.EXPO_PUBLIC_SUPABASE_URL;
-  const anonKey = env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  const missing = [
-    url ? null : "EXPO_PUBLIC_SUPABASE_URL",
-    anonKey ? null : "EXPO_PUBLIC_SUPABASE_ANON_KEY"
-  ].filter((name): name is string => name !== null);
+  const url = env[PUBLIC_SUPABASE_URL_ENV];
+  const anonKey = env[PUBLIC_SUPABASE_ANON_KEY_ENV];
+  const runtimeConfig = getBetaRuntimeConfig(env);
+  const missing = runtimeConfig.missingVariableNames;
 
   if (missing.length > 0) {
     if (isTestRuntime(env)) {
@@ -53,7 +52,11 @@ export function getSupabaseConfigFromEnv(env: RuntimeEnv = readRuntimeEnv()): Co
   }
 
   if (!isValidHttpUrl(safeUrl)) {
-    throw new Error("CornerIQ Supabase startup error: EXPO_PUBLIC_SUPABASE_URL must be a valid HTTP(S) URL.");
+    throw new Error(`CornerIQ Supabase startup error: ${PUBLIC_SUPABASE_URL_ENV} must be a valid HTTP(S) URL.`);
+  }
+
+  if (!runtimeConfig.isPublicAnonKeyOnly) {
+    throw new Error(runtimeConfig.noServiceRoleInClientWarning ?? "CornerIQ Supabase startup error: public anon key is unavailable.");
   }
 
   return { url: safeUrl, anonKey: safeAnonKey };

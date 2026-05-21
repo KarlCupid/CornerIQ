@@ -16,6 +16,7 @@ import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments"
 import { useUserDataControls } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion } from "../hooks/useWorkoutCompletion";
 import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
+import { getBetaRuntimeConfig } from "../services/config/betaRuntimeConfig";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 
 function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupabaseClient; onSignOut: () => Promise<void>; session: Session }) {
@@ -49,7 +50,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
     isSignedIn: true,
     performanceState: readyState,
     profileComplete: Boolean(readyState),
-    supabaseConfigured: true
+    runtimeConfig: getBetaRuntimeConfig()
   });
   const reportAppIssue = useCallback(
     async (report: AppErrorReportInput) =>
@@ -136,13 +137,15 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
 
 function CornerIQApp() {
   const supabaseSession = useSupabaseSession();
+  const runtimeConfig = getBetaRuntimeConfig();
 
   if (supabaseSession.status === "error") {
     return <StartupState title="Supabase startup failed" message={supabaseSession.startupError ?? "Supabase startup failed."} />;
   }
 
   if (supabaseSession.status === "missing_config") {
-    return <StartupState title="Supabase not configured" message="Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to use the app shell with the public anon key only. In test mode this state is expected and no secret key is needed." />;
+    const missing = runtimeConfig.missingVariableNames.join(", ") || "EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY";
+    return <StartupState title="Supabase not configured" message={`Set ${missing} to use the app shell with the public anon key only. Runtime values are never displayed. In test mode this state is expected and no secret key is needed.`} />;
   }
 
   if (supabaseSession.status === "starting" || !supabaseSession.client) {

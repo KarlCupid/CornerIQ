@@ -1,8 +1,8 @@
 # Beta Readiness And Information Architecture
 
-Date: 2026-05-20
+Date: 2026-05-21
 
-This document describes the twentieth through twenty-third implementation passes: beta UX / information architecture hardening across Today, Fuel, Train, Plan, and Profile; privacy-safe beta feedback/testing; structured beta release operations; automated beta scenario QA; and a focused friction-polish pass. These passes added reusable UI primitives, local screen sections, Profile Audit feedback/history, app-level recovery, a beta health preflight panel, CI quality checks, scenario QA coverage, and structured beta testing/release documentation without adding deep new product complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, or drag/drop calendar behavior.
+This document describes the twentieth through twenty-fourth implementation passes: beta UX / information architecture hardening across Today, Fuel, Train, Plan, and Profile; privacy-safe beta feedback/testing; structured beta release operations; automated beta scenario QA; focused friction polish; and release-candidate distribution readiness. These passes added reusable UI primitives, local screen sections, Profile Audit feedback/history, app-level recovery, a beta health preflight panel, beta tester notice, EAS preview profiles, runtime public-env validation, CI quality checks, scenario QA coverage, and structured beta testing/release documentation without adding deep new product complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, external analytics, admin triage, or drag/drop calendar behavior.
 
 ## Main App Sections
 
@@ -46,7 +46,7 @@ Profile owns athlete summary, settings, data controls, and audit copy. It now ha
 - Athlete: profile summary, wearable status, cycle tracking status, privacy copy, and cycle context.
 - Settings: profile settings and sign out.
 - Data: export preview, DELETE-gated app-data deletion, and account-deletion limitation copy.
-- Audit: beta health preflight, beta feedback panel with recent report history/status, compact training audit, Fuel review audit summary, journey history, and privacy/safety copy.
+- Audit: beta tester notice, beta health preflight, beta feedback panel with recent report history/status, compact training audit, Fuel review audit summary, journey history, and privacy/safety copy.
 
 ## Beta Feedback Workflow
 
@@ -83,11 +83,44 @@ Beta testing scripts and prompts live in `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN
 
 ## Beta Health Preflight
 
-Profile > Audit includes `BetaHealthPanel`, driven by `src/engine/presentation/betaHealthViewModel.ts`. The view model checks auth session, profile completion, engine readiness, safety review visibility, feedback availability, export/delete availability, cycle privacy visibility, and manual/no-wearable readiness.
+Profile > Audit includes `BetaHealthPanel`, driven by `src/engine/presentation/betaHealthViewModel.ts`. The view model checks public Supabase runtime configuration, auth session, profile completion, engine readiness, safety review visibility, feedback availability, export/delete availability, cycle privacy visibility, and manual/no-wearable readiness.
+
+Runtime env validation lives in `src/services/config/betaRuntimeConfig.ts`. It reads only `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`, returns missing variable names without values, and warns if the public anon-key slot appears to contain a server-only role key. It does not read smoke credentials or server-only Supabase env values.
 
 The runtime panel does not claim live smoke status. Smoke remains a docs/operations verification, not a runtime assertion.
 
 Warning and blocked preflight states now show a visible next safe action in the panel.
+
+## Beta Tester Notice
+
+Profile > Audit now includes `BetaTesterNoticePanel`.
+
+It tells testers:
+
+- This is a beta.
+- It is not medical advice.
+- It is not a coach replacement.
+- There is no emergency support.
+- Urgent symptoms and urgent weight-class or health concerns need qualified support outside the app.
+- The app cannot be used to self-clear hard stops.
+- Wearables are optional.
+- Manual logs are enough.
+- Feedback is product feedback and may be reviewed manually.
+- Feedback should not contain secrets or emergency details.
+
+Acknowledgement is local UI state only. It does not block app use and is not persisted yet.
+
+## Release Candidate And Distribution Readiness
+
+The twenty-fourth pass added:
+
+- `eas.json` with `development`, `preview`, and `production` build profiles.
+- `scripts/beta-preflight.mjs`, exposed as `npm run preflight:beta`.
+- `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`.
+- `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`.
+- Static tests for EAS config, package scripts, public env docs, CI secret boundaries, and beta preflight output redaction.
+
+No EAS build was run in this pass. App icon/splash polish and store metadata remain manual release-owner tasks before broader distribution.
 
 ## First Things Athletes See
 
@@ -153,6 +186,7 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 - Clinician/dietitian/reviewer workflow.
 - Reviewer-clear UI.
 - Coach/team production activation UX.
+- Actual EAS preview build execution and app store metadata.
 
 ## Beta Readiness Checklist
 
@@ -168,6 +202,8 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 | Feedback | Beta testable | Profile > Audit saves privacy-safe user-owned beta feedback reports with visible privacy/safety reminders and read-only recent status history. |
 | Error recovery | Beta testable | App-level boundary catches React tree errors, retries, and reports sanitized bug feedback for signed-in users. |
 | Beta health | Beta testable | Profile > Audit shows preflight checks without exposing env values or claiming smoke status. |
+| Beta tester notice | Beta testable | Profile > Audit shows beta, not-medical-advice, not-coach-replacement, no-emergency-support, wearable-optional, manual-logs-enough, feedback privacy, and no-self-clear copy. |
+| Expo/EAS readiness | RC documented | `eas.json`, `npm run preflight:beta`, release-candidate checklist, and EAS distribution runbook exist. No actual EAS build has been run yet. |
 | CI | Beta testable | GitHub Actions runs typecheck, lint, and tests on push/PR; live smoke remains manual/gated. |
 | Smoke | Passing | Live smoke passes with ignored `.env` values, public Supabase URL, and anon key only. |
 | Data deletion | MVP | App data deletion is DELETE-gated; Supabase auth account deletion remains server-side future work. |
@@ -194,6 +230,7 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 ## Beta Tester Onboarding Guidance
 
 - Tell testers this is a structured beta, not public release.
+- Review the Profile > Audit beta tester notice before guided testing.
 - Ask testers not to paste secrets, emergency details, medical records, or full health histories into feedback.
 - Use test accounts whenever export/delete or smoke cleanup is being exercised.
 - Ask testers to narrate the first action they think CornerIQ is asking for on Today, Fuel, Train, and Plan.
@@ -208,20 +245,28 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 5. `src/app/components/BetaFeedbackPanel.tsx`
 6. `src/app/components/AppErrorBoundary.tsx`
 7. `src/app/components/BetaHealthPanel.tsx`
-8. `src/engine/presentation/betaHealthViewModel.ts`
-9. `src/services/feedback/submitBetaFeedback.ts`
-10. `src/services/supabase/betaFeedbackRepository.ts`
-11. `src/app/screens/TodayScreen.tsx`
-12. `src/app/screens/FuelScreen.tsx`
-13. `src/app/screens/TrainScreen.tsx`
-14. `src/app/screens/PlanScreen.tsx`
-15. `src/app/screens/ProfileScreen.tsx`
-16. `src/app/App.tsx`
-17. `.github/workflows/quality.yml`
-18. `src/tests/app/appShell.test.ts`
-19. `src/tests/engine/betaHealthViewModel.test.ts`
-20. `src/tests/beta/betaScenarioFlows.test.ts`
-21. `src/tests/static/betaSafetyStatic.test.ts`
-22. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
-23. `docs/21_BETA_RELEASE_OPERATIONS.md`
-24. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
+8. `src/app/components/BetaTesterNoticePanel.tsx`
+9. `src/services/config/betaRuntimeConfig.ts`
+10. `src/engine/presentation/betaHealthViewModel.ts`
+11. `eas.json`
+12. `scripts/beta-preflight.mjs`
+13. `src/services/feedback/submitBetaFeedback.ts`
+14. `src/services/supabase/betaFeedbackRepository.ts`
+15. `src/app/screens/TodayScreen.tsx`
+16. `src/app/screens/FuelScreen.tsx`
+17. `src/app/screens/TrainScreen.tsx`
+18. `src/app/screens/PlanScreen.tsx`
+19. `src/app/screens/ProfileScreen.tsx`
+20. `src/app/App.tsx`
+21. `.github/workflows/quality.yml`
+22. `src/tests/app/appShell.test.ts`
+23. `src/tests/engine/betaHealthViewModel.test.ts`
+24. `src/tests/beta/betaScenarioFlows.test.ts`
+25. `src/tests/static/betaSafetyStatic.test.ts`
+26. `src/tests/static/betaReleaseConfigStatic.test.ts`
+27. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
+28. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+29. `docs/21_BETA_RELEASE_OPERATIONS.md`
+30. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
+31. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
+32. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`

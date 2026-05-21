@@ -2200,6 +2200,13 @@ describe("minimal app screens", () => {
     expect(output).toContain("Cycle data is optional");
     await switchSection(renderer, "Audit");
     output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Beta tester notice");
+    expect(output).toContain("This is a beta.");
+    expect(output).toContain("Not medical advice.");
+    expect(output).toContain("Not a coach replacement.");
+    expect(output).toContain("No emergency support.");
+    expect(output).toContain("Do not use to self-clear hard stops.");
+    expect(output).toContain("Manual logs are enough.");
     expect(output).toContain("Beta health preflight");
     expect(output).toContain("Beta feedback");
     expect(output).toContain("Do not include emergency details or secrets.");
@@ -2207,6 +2214,29 @@ describe("minimal app screens", () => {
     expect(output).toContain("Current block week");
     expect(output).toContain("Fuel review audit");
     expect(output).toContain("cannot self-clear");
+  });
+
+  it("BetaTesterNoticePanel renders beta consent copy and local acknowledgement", async () => {
+    const { BetaTesterNoticePanel } = await import("../../app/components/BetaTesterNoticePanel");
+    const renderer = render(React.createElement(BetaTesterNoticePanel));
+    let output = JSON.stringify(renderer.toJSON());
+
+    expect(output).toContain("This is a beta.");
+    expect(output).toContain("Not medical advice.");
+    expect(output).toContain("No emergency support.");
+    expect(output).toContain("Do not use for urgent symptoms.");
+    expect(output).toContain("Do not use to self-clear hard stops.");
+    expect(output).toContain("Wearables are optional.");
+    expect(output).toContain("Manual logs are enough.");
+    expect(output).toContain("Avoid entering secrets or emergency details in feedback.");
+    expect(output).toContain("I understand this beta notice");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "I understand this beta notice"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Beta notice acknowledged");
+    expect(output).toContain("local to this screen");
   });
 
   it("BetaHealthPanel renders warning next action", async () => {

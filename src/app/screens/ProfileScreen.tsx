@@ -12,6 +12,7 @@ import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
 import { BetaFeedbackPanel } from "../components/BetaFeedbackPanel";
 import { BetaHealthPanel } from "../components/BetaHealthPanel";
+import { BetaTesterNoticePanel } from "../components/BetaTesterNoticePanel";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
@@ -125,6 +126,7 @@ export function ProfileScreen({
       ) : null}
       {section === "audit" ? (
         <>
+          <BetaTesterNoticePanel />
           <BetaHealthPanel viewModel={betaHealth} />
           <BetaFeedbackPanel
             busy={busy || betaFeedback?.busy}

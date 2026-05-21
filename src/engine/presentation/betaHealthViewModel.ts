@@ -1,9 +1,19 @@
 import type { PerformanceState } from "../core/types";
+import type { BetaRuntimeConfig } from "../../services/config/betaRuntimeConfig";
 
 export type BetaHealthStatus = "ready" | "warning" | "blocked";
 
 export interface BetaHealthCheck {
-  key: "auth_session" | "profile_complete" | "engine_state" | "safety_review_visibility" | "feedback_available" | "export_delete_available" | "cycle_privacy_visible" | "no_wearable_required";
+  key:
+    | "public_supabase_config"
+    | "auth_session"
+    | "profile_complete"
+    | "engine_state"
+    | "safety_review_visibility"
+    | "feedback_available"
+    | "export_delete_available"
+    | "cycle_privacy_visible"
+    | "no_wearable_required";
   label: string;
   nextAction: string | null;
   status: BetaHealthStatus;
@@ -26,7 +36,7 @@ export interface BuildBetaHealthViewModelInput {
   isSignedIn: boolean;
   performanceState: PerformanceState | null;
   profileComplete: boolean;
-  supabaseConfigured: boolean;
+  runtimeConfig: BetaRuntimeConfig;
 }
 
 function check(input: BetaHealthCheck): BetaHealthCheck {
@@ -66,17 +76,49 @@ function noWearableRequiredSummary(state: PerformanceState | null): string {
   return "Manual-only mode is supported; no wearable is required.";
 }
 
+function runtimeConfigReady(config: BetaRuntimeConfig): boolean {
+  return config.hasSupabaseUrl && config.hasAnonKey && config.isPublicAnonKeyOnly;
+}
+
+function runtimeConfigSummary(config: BetaRuntimeConfig): string {
+  if (config.missingVariableNames.length > 0) {
+    return `Missing ${config.missingVariableNames.join(", ")}. Runtime values are hidden.`;
+  }
+  if (!config.isPublicAnonKeyOnly) {
+    return config.noServiceRoleInClientWarning ?? "Public Supabase runtime config is not beta-ready.";
+  }
+  return "Public Supabase URL and anon key names are present; values are hidden.";
+}
+
+function runtimeConfigNextAction(config: BetaRuntimeConfig): string | null {
+  if (config.missingVariableNames.length > 0) {
+    return `Set ${config.missingVariableNames.join(", ")} before beta release-candidate testing.`;
+  }
+  if (!config.isPublicAnonKeyOnly) {
+    return "Replace runtime config with the public Supabase anon key only before beta testing.";
+  }
+  return null;
+}
+
 export function buildBetaHealthViewModel(input: BuildBetaHealthViewModelInput): BetaHealthViewModel {
   const engineReady = input.performanceState !== null;
   const safetyReviewVisible = engineReady;
   const cyclePrivacy = cyclePrivacyVisible(input.performanceState);
+  const publicRuntimeReady = runtimeConfigReady(input.runtimeConfig);
   const checks: readonly BetaHealthCheck[] = [
+    check({
+      key: "public_supabase_config",
+      label: "Public Supabase config",
+      nextAction: runtimeConfigNextAction(input.runtimeConfig),
+      status: publicRuntimeReady ? "ready" : "blocked",
+      summary: runtimeConfigSummary(input.runtimeConfig)
+    }),
     check({
       key: "auth_session",
       label: "Auth session",
-      nextAction: input.isSignedIn && input.supabaseConfigured ? null : "Sign in with the public Supabase client before beta testing.",
-      status: input.isSignedIn && input.supabaseConfigured ? "ready" : "blocked",
-      summary: input.isSignedIn && input.supabaseConfigured ? "Signed in with public client configuration." : "A signed-in beta session is required."
+      nextAction: input.isSignedIn && publicRuntimeReady ? null : "Sign in with the public Supabase client before beta testing.",
+      status: input.isSignedIn && publicRuntimeReady ? "ready" : "blocked",
+      summary: input.isSignedIn && publicRuntimeReady ? "Signed in with public client configuration." : "A signed-in beta session is required."
     }),
     check({
       key: "profile_complete",

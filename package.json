@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "quality": "npm run typecheck && npm run test",
+    "preflight:beta": "node scripts/beta-preflight.mjs",
     "smoke:live-db": "vitest run src/tests/live/liveDbSmoke.test.ts"
   },
   "dependencies": {

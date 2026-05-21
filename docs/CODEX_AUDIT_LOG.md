@@ -1,5 +1,61 @@
 # Codex Audit Log
 
+## 2026-05-21 01:40 America/Vancouver
+
+Goal summary:
+- Prepare CornerIQ for a structured beta release candidate without adding new product/engine features.
+- Add Expo/EAS build readiness, runtime public env validation, beta tester onboarding/notice copy, beta release-candidate checklist, EAS distribution documentation, and a non-mutating beta preflight script.
+- Keep barcode scanning, full meal planning, detailed food database, coach UI, reviewer-clear UI, numeric load progression, drag/drop calendar, external analytics, admin triage dashboard, unsafe weight-cut copy, generated contact work, service-role client code, and hard-stop self-clear deferred.
+
+Key changes:
+- Added `eas.json` with `development`, `preview`, and `production` build profiles and no secrets.
+- Added `scripts/beta-preflight.mjs` and `npm run preflight:beta` to check package scripts, app/EAS config, public env declarations, client config markers, and beta docs without printing env values or mutating files.
+- Added `src/services/config/betaRuntimeConfig.ts` and wired it into Supabase config and `betaHealthViewModel`.
+- Added `src/app/components/BetaTesterNoticePanel.tsx` and rendered it in Profile > Audit with local-only acknowledgement.
+- Added tests for runtime config, beta notice rendering/acknowledgement, release config static checks, package scripts, preflight output redaction, and docs `23`/`24`.
+- Added `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md` and `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`.
+- Updated beta readiness, testing plan, release operations, feature status, known gaps, Supabase status, and handoff docs.
+
+Command results:
+- Baseline `git status`: clean on `main`, up to date with `origin/main`; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Baseline `git log --oneline --decorate -8`: latest commit `222ffa4 (HEAD -> main, origin/main) Update CornerIQ agent instructions`.
+- Direct `npm run typecheck`: blocked by PowerShell `npm.ps1`; `cmd /c npm run typecheck` passed.
+- Sandboxed `cmd /c npm test`: failed from Vitest/esbuild config access denied; escalated rerun passed before edits with `355` tests passed and `1` skipped.
+- Sandboxed `cmd /c npm run quality`: failed from the same Vitest config access issue; escalated rerun passed before edits with `355` tests passed and `1` skipped.
+- `cmd /c npm run lint`: passed before edits.
+- Supabase CLI sandboxed version failed writing telemetry under `C:\Users\karll\.supabase`; escalated version returned `2.100.1`.
+- Migration list: local/remote `001` through `009` aligned.
+- Dry run: `Remote database is up to date.`
+- Initial live smoke without ignored `.env` loaded failed with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` key-name check found required smoke keys without printing values.
+- Baseline live smoke with ignored `.env` loaded: passed with `1` test, test body `12179ms`, duration `13.96s`.
+- During implementation, `cmd /c npm run typecheck` passed.
+- During implementation, `cmd /c npm run preflight:beta` passed and printed only public env variable names.
+- During implementation, tests first failed two release-doc string assertions, then one lowercase `barcode` doc assertion; docs were fixed.
+- Final `cmd /c npm run typecheck`: passed.
+- Final escalated `cmd /c npm test`: passed with `41` files passed and `1` skipped; `366` tests passed and `1` skipped.
+- Final escalated `cmd /c npm run quality`: passed with typecheck plus tests; `366` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final `cmd /c npm run preflight:beta`: passed.
+- Final Supabase version/list/dry-run: CLI `2.100.1`; migrations `001` through `009` aligned; remote DB up to date.
+- Final live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12895ms`, duration `14.85s`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `git rev-parse HEAD`: `222ffa4a90e98c594c166ed770508f1e01061e66`.
+- No commit was created in this pass.
+
+Known gaps:
+- Real boxer beta findings have not been captured yet.
+- No actual EAS preview build has been run.
+- Expo project ownership, app icon/splash polish, and app store metadata remain incomplete.
+- No admin triage dashboard or admin-reviewed in-app feedback queue.
+- No external analytics.
+- Routed drilldowns remain deferred.
+- Barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.
+- Coach/team remains scaffolded and hidden.
+
+Next recommendation:
+- Run an actual EAS preview build with the release owner, then invite a small set of real boxer beta testers and capture findings before adding production triage, analytics, routed drilldowns, or deferred product complexity.
+
 ## 2026-05-21 01:08 America/Vancouver
 
 Goal summary:

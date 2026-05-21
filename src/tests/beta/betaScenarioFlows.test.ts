@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AthleteJourney, PerformanceState } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { buildBetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
+import { getBetaRuntimeConfig } from "../../services/config/betaRuntimeConfig";
 import {
   amateur_elite_camp_same_day_weigh_in,
   amateur_novice_build,
@@ -90,7 +91,10 @@ function assertSharedBetaStructure(state: PerformanceState) {
     isSignedIn: true,
     performanceState: state,
     profileComplete: true,
-    supabaseConfigured: true
+    runtimeConfig: getBetaRuntimeConfig({
+      EXPO_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: "public-anon-test-key"
+    })
   });
   expect(betaHealth.checks.find((item) => item.key === "engine_state")?.status).toBe("ready");
   expect(JSON.stringify(betaHealth)).toContain("Manual");

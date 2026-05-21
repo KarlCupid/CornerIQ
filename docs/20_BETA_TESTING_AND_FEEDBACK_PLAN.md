@@ -1,6 +1,6 @@
 # Beta Testing And Feedback Plan
 
-Date: 2026-05-20
+Date: 2026-05-21
 
 This document prepares CornerIQ for structured real-boxer beta testing. The goal is to test the current app with boxers, capture privacy-safe feedback, and preserve an audit trail without adding risky product complexity.
 
@@ -52,6 +52,7 @@ Run each script as observation, not coaching advice. Ask the tester to narrate w
 15. Reopen Profile > Audit and confirm the recent feedback list shows the submitted report as received.
 16. Review the Beta health preflight and explain any warning in the tester's own words.
 17. In Plan > Adjustments, ask what each engine-request button means before pressing it: Protect this day, Mark unavailable, Request deload, and Restore engine plan.
+18. Review the Profile > Audit beta tester notice and ask the tester to summarize the beta boundaries.
 
 ## Safety Checks
 
@@ -66,6 +67,8 @@ Before and during each beta session, confirm:
 - Manual input works without a wearable.
 - Safety beats performance and weight-class pressure.
 - Cycle support stays optional, private, and symptom-aware.
+- Beta tester notice is visible before guided feedback.
+- Runtime public env readiness shows missing variable names only and never values.
 
 ## Feedback Prompts
 
@@ -83,6 +86,8 @@ Ask these after each flow:
 ## In-App Feedback Workflow
 
 Feedback is available in Profile > Audit through the Beta feedback panel.
+
+Profile > Audit also includes a beta tester notice. It states this is a beta, not medical advice, not a coach replacement, not emergency support, not for urgent symptoms, not for self-clearing hard stops, and that manual logs are enough while wearables are optional. Its acknowledgement is local-only and does not block app use.
 
 The panel collects:
 
@@ -115,6 +120,18 @@ The twenty-third implementation pass added `src/tests/beta/betaScenarioFlows.tes
 The automated harness covers all listed beta personas and asserts that Today/Fuel/Train/Plan/Profile/Beta Health view models resolve, unsafe Fuel copy is absent, generated support does not prescribe sparring or contact, nutrition review cannot be self-cleared, missing data is not treated as safe, and manual-only athletes remain valid without a wearable.
 
 Use the results doc as the pre-session checklist for facilitators. It also records friction notes found before human beta: quick logs needed clearer "log enough for today" copy, workout completion needed a faster path, Plan adjustments needed clearer engine-request framing, and feedback/error reporting needed stronger not-emergency/support boundaries.
+
+## Release-Candidate Preflight
+
+Before real boxer sessions, run:
+
+```bash
+npm run preflight:beta
+```
+
+This checks package scripts, EAS build profile presence, app config presence, required public env names in the process or `.env.example`, client config markers, and beta docs. It does not run live smoke, does not print env values, does not require smoke credentials, and does not mutate files.
+
+Use `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md` and `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md` when distributing a preview build. No actual EAS build has been run yet in this repository pass.
 
 ## Manual Feedback Triage
 
@@ -155,6 +172,8 @@ Beta can move from structured test to broader pilot only when:
 - Feedback reports are user-owned and not admin-reviewed in app.
 - No external analytics yet.
 - No beta health drilldown beyond Profile > Audit preflight yet.
+- No actual EAS preview build has been run yet.
+- App store metadata, icon, and splash polish are not prepared yet.
 - Automated scenario QA exists, but real boxer findings are still not captured.
 - Routed drilldowns remain deferred.
 - Barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.
