@@ -1,73 +1,106 @@
 # Codex Last Handoff
 
-Date: 2026-05-21 02:11 America/Vancouver
+Date: 2026-05-21 15:49 America/Vancouver
 
-Pass: release-candidate verification and EAS preview build attempt.
+Pass: Expo Go compatibility audit for Windows laptop + physical iPhone testing.
 
-Latest known commit from prompt: `235b3f8508c1194d3a6f17354d6a26b2618524de` (`Prepare beta release candidate readiness`)
-
-Current `git rev-parse HEAD` during this pass: `235b3f8508c1194d3a6f17354d6a26b2618524de`
+Current branch during this pass: `main`
 
 Commit created in this run: none.
 
 ## Summary
 
-This was a verification pass, not a feature pass. No product feature, engine feature, migration, analytics surface, coach UI, reviewer-clear UI, barcode scanning, meal planning, numeric load progression, drag/drop calendar, or admin dashboard was added.
+This was an Expo setup and verification pass only. No product features were added, no Supabase runtime logic was changed, no secret values were committed, and no EAS build was created.
 
-CornerIQ remains release-candidate prepared for controlled structured boxer testing, but it is not distributed through EAS yet. Android EAS preview build was attempted. The first attempt failed because the pre-existing dirty `app.json` contained an invalid EAS project UUID. I removed that invalid `extra.eas.projectId` and added preflight validation for any future project id. The retry failed with the real remaining blocker: EAS project is not configured, and non-interactive build requires `eas init`.
+CornerIQ was already on Expo SDK 55, which is the current physical iOS Expo Go target recommended by Expo during the SDK 56 transition. I did not downgrade to SDK 54 and did not upgrade to SDK 56. Instead, I aligned the SDK 55 package patch version, removed an SDK 55-invalid app config field, added Windows/iPhone testing docs, and verified the app on web plus the required quality gates.
 
-Decision: Hold for distributed beta build. Ready for controlled local/structured beta verification; build pending until the release owner configures the EAS project and reruns Android preview.
+## SDK Decision
 
-## Inspect First
+- SDK version before: Expo SDK 55 (`expo` declared as `^55.0.25`, lockfile resolved `55.0.25`).
+- SDK version after: Expo SDK 55 (`expo` declared as `~55.0.26`, lockfile resolved `55.0.26`).
+- Latest physical iOS Expo Go target found: SDK 55 for App Store Expo Go during the SDK 56 transition.
+- Expo Go should now work: yes, if the iPhone has an Expo Go build that supports SDK 55.
+- Remaining blocker: if the user's App Store still only provides an Expo Go build that supports SDK 54, the blocker is Expo Go availability on that device/App Store account, not CornerIQ package alignment. Reinstall Expo Go, retry `npx expo start --tunnel --clear`, and if the device still cannot get SDK 55 Expo Go, use a compatible Expo Go beta/`eas go` or an EAS development build path.
 
-1. `app.json`
-2. `scripts/beta-preflight.mjs`
-3. `eas.json`
-4. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
-5. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`
-6. `.github/workflows/quality.yml`
-7. `docs/KNOWN_GAPS.md`
+References checked:
+
+- https://docs.expo.dev/get-started/create-a-project/
+- https://expo.dev/sdk
+- https://expo.dev/changelog/expo-go-and-app-store-may-2026
+- https://expo.dev/changelog/sdk-55
+
+## Changes Made
+
+- Updated `expo` from `^55.0.25` to `~55.0.26` using Expo CLI.
+- Updated `package-lock.json` from the Expo-managed install.
+- Removed `expo.newArchEnabled` from `app.json`; Expo Doctor rejected it as an additional property under SDK 55.
+- Added `docs/WINDOWS_IPHONE_TESTING.md` with beginner-friendly Windows web and iPhone Expo Go instructions, including tunnel mode and the "newer version of Expo Go required" explanation.
+- Rewrote this handoff with before/after SDK state, commands, verification, and remaining blocker.
 
 ## Verification Results
 
-- `git status --short`: initially showed a dirty `app.json` before this pass; that dirty EAS project id was invalid and is now removed.
-- `git log --oneline --decorate -8`: latest commit was `235b3f8 (HEAD -> main, origin/main) Prepare beta release candidate readiness`.
+- `cmd /c npm install`: passed.
+- `cmd /c npm run web`: passed; Expo started Metro and served web at `http://localhost:8081`.
+- `Invoke-WebRequest -UseBasicParsing http://localhost:8081 | Select-Object -ExpandProperty StatusCode`: returned `200`; server was then stopped with `Ctrl+C`.
 - `cmd /c npm run typecheck`: passed.
-- Sandboxed `cmd /c npm test`: failed from Vitest/esbuild access denied while loading config; approved unsandboxed rerun passed with `366` tests passed and `1` skipped.
-- Sandboxed `cmd /c npm run quality`: failed for the same Vitest config access issue; approved unsandboxed rerun passed.
+- `cmd /c npm test`: sandboxed run failed before loading Vitest config due Windows/esbuild access denied; approved rerun outside the sandbox passed with `366` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- `cmd /c npm run preflight:beta`: passed before and after the EAS project id validation fix.
-- Supabase CLI: `2.100.1`.
-- Supabase migrations: local/remote `001` through `009` aligned.
-- Supabase dry run: `Remote database is up to date.`
-- Live smoke: initial process env was missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`; ignored `.env` contained the required key names and was loaded without printing values; final live smoke passed with `1` test in `13.73s`.
-- GitHub Actions config: verified `push` and `pull_request` triggers, `npm ci`, typecheck, lint, and tests; no live smoke, smoke secrets, or service role references.
-- GitHub Actions latest run: public Actions API showed latest `Quality` run `26215681543` on commit `235b3f8508c1194d3a6f17354d6a26b2618524de`, event `push`, completed with `success`.
+- `cmd /c npm run quality`: approved run outside the sandbox passed; it ran typecheck and tests with `366` tests passed and `1` skipped.
+- `cmd /c npm run preflight:beta`: passed.
+- `cmd /c npx expo install --check`: initially found `expo@55.0.25` should be `~55.0.26`; after `--fix`, passed.
+- `cmd /c npx expo-doctor`: initially failed on `app.json` schema because of `newArchEnabled`; after removing it, passed `19/19` checks.
+- `cmd /c npx expo config --type public`: resolved `sdkVersion: '55.0.0'` and platforms `ios`, `android`, `web`.
 
-## EAS Result
+## Exact Commands Run
 
-- EAS CLI available through `npx eas-cli`: `eas-cli/19.0.5`.
-- EAS auth present: `whoami` returned the release owner account.
-- Build command attempted: `npx eas-cli build --profile preview --platform android --non-interactive`.
-- First result: failed with `Invalid UUID appId` because `app.json` had an invalid dirty `extra.eas.projectId`.
-- Config fix: removed the invalid project id; added beta preflight validation for malformed project ids.
-- Retry result: failed with `EAS project not configured. Must configure EAS project by running 'eas init' before this command can be run in non-interactive mode.`
-- Build URL/artifact: none produced.
+```powershell
+pwd
+rg --files -g package.json -g package-lock.json -g app.json -g app.config.* -g babel.config.* -g metro.config.* -g eas.json -g docs/WINDOWS_IPHONE_TESTING.md -g docs/CODEX_LAST_HANDOFF.md
+git status --short
+Get-Content -Raw package.json
+Get-Content -Raw app.json
+Get-Content -Raw babel.config.js
+Get-Content -Raw eas.json
+rg -n '"(expo|react-native|react|@expo|expo-|metro|babel-preset-expo|react-native-web|@react-native|jest-expo)"|expo' package-lock.json
+rg --files -g '*.ts' -g '*.tsx' -g '*.js' -g '*.jsx' -g '!node_modules'
+Get-Content -Raw docs\CODEX_LAST_HANDOFF.md
+Test-Path docs\WINDOWS_IPHONE_TESTING.md
+cmd /c npx expo install --check
+cmd /c npx expo install --fix
+cmd /c npx expo install --check
+cmd /c npx expo config --type public
+cmd /c npx expo-doctor
+Get-Content -Raw src\tests\docs\betaReleaseOperations.test.ts
+Get-Content -Raw src\tests\docs\betaReleaseCandidateChecklist.test.ts
+Get-Content -Raw src\tests\static\betaReleaseConfigStatic.test.ts
+Get-Content -Raw scripts\beta-preflight.mjs
+Get-ChildItem docs | Select-Object -ExpandProperty Name
+cmd /c npm install
+cmd /c npm run web
+Invoke-WebRequest -UseBasicParsing http://localhost:8081 | Select-Object -ExpandProperty StatusCode
+cmd /c npm run typecheck
+cmd /c npm test
+cmd /c npm run lint
+cmd /c npm run preflight:beta
+cmd /c npm run quality
+git diff -- package.json app.json docs\WINDOWS_IPHONE_TESTING.md docs\CODEX_LAST_HANDOFF.md
+git diff --stat
+cmd /c npx expo config --type public
+```
 
-## Remaining Manual Tasks
+Notes:
 
-- Run `npx eas-cli project:init` or `eas init` as the release owner to link/create the EAS project.
-- Rerun `npx eas-cli build --profile preview --platform android --non-interactive`.
-- Complete or explicitly accept beta limitations for app icon, splash, and store metadata.
-- Prepare private tester list and distribution channel.
-- Schedule human beta sessions and capture real boxer findings.
-- Keep smoke credentials, EAS tokens, Supabase tokens, and service-role keys out of docs, source, tests, logs, and git history.
+- The first sandboxed `cmd /c npx expo install --check` failed with a network/access aggregate error and was rerun with approval.
+- The first `cmd /c npx expo-doctor` failed as expected before the `app.json` fix, then passed after the fix.
+- The sandboxed `cmd /c npm test` failed with the known Windows/esbuild access denied issue, then passed outside the sandbox.
 
-## Secrets Confirmation
+## Next iPhone Steps
 
-- No smoke email or password value was printed in docs.
-- No smoke password value was printed in the handoff.
-- No service role key was used in Expo/client code.
-- Client/smoke uses public Supabase URL plus anon key only.
-- No secret values were committed or written into tracked files.
-- `.env` remained ignored and was only loaded into the smoke process without printing values.
+From Windows:
+
+```powershell
+cd C:\Users\karll\Documents\CornerIQ
+cmd /c npx expo start --tunnel --clear
+```
+
+Then scan the QR code with the iPhone Camera app or Expo Go. If the same "newer version of Expo Go required" message appears after reinstalling Expo Go, the iPhone does not currently have SDK 55-capable Expo Go available; use the alternatives documented in `docs/WINDOWS_IPHONE_TESTING.md`.
