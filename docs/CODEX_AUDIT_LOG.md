@@ -1,5 +1,58 @@
 # Codex Audit Log
 
+## 2026-05-20 12:36 America/Vancouver
+
+Goal summary:
+- Create dedicated view-model-driven history/detail surfaces for nutrition safety reviews, manual Fuel history, body-mass trajectory, exercise history, and training block history.
+- Load bounded nutrition safety review event history without adding reviewer-clear behavior.
+- Improve Fuel, body-mass, exercise, and block explainability while keeping business logic in engine/view-model modules.
+- Keep barcode scanning, full meal planning, detailed food database, coach UI, clinician UI, unsafe review clearing, and new migrations deferred.
+
+Key changes:
+- Added `nutritionReviewHistoryViewModel` and `NutritionReviewHistoryPanel` with active review cards, hard-stop counts, review event timeline, future-only reviewer-clear copy, and `canSelfClear: false`.
+- Added `listNutritionSafetyReviewEvents` and `listRecentNutritionSafetyReviewEvents` to the Supabase repository, plus `loadNutritionSafetyReviewHistory` as a lightweight service.
+- Loaded recent review events through `loadAthleteJourney` and carried them through `NutritionState`, `AthleteJourney`, schemas, and `FuelViewModel`.
+- Enhanced `fuelHistoryViewModel` with last-7-day grouped manual food/hydration history, high fuel-demand session links, fight-week markers, hydration consistency, and non-shaming missing-data copy.
+- Added `FuelHistoryPanel` and `BodyMassTrajectoryPanel` to Fuel, plus deeper `bodyMassTrajectoryViewModel` fields for 14-day history, trend confidence, weigh-in countdown, target gap, cycle scale-noise window, risk explanation, next safe actions, and review action visibility.
+- Enhanced `exerciseHistoryViewModel` and `ExerciseHistoryPanel` with grouped exercise names, completed/partial/prescribed-only counts, pain flags, recent RPE, top pain-flagged/repeated exercises, and no numeric progression inference from free-text load notes.
+- Enhanced `TrainingBlockHistoryPanel` through `planViewModel` grouped weeks, preview/materialization status, materialized generated-session counts, adjustments, timeline event groups, and engine-owned/screen-nonmutation copy.
+
+Command results:
+- Baseline `git status`: clean working tree before implementation; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Baseline `git log --oneline --decorate -8`: latest commit was `70eaf5a (HEAD -> main, origin/main) Add nutrition safety review lifecycle and fuel history`; prompt latest known commit was `ad3357b`.
+- Direct `npm run typecheck`: blocked by PowerShell `npm.ps1` execution policy; `cmd /c npm run typecheck` passed.
+- Baseline `cmd /c npm test`: sandboxed Vitest failed with config access denied; outside sandbox passed with `29` files passed, `1` skipped, `304` tests passed, `1` skipped.
+- Baseline `cmd /c npm run quality`: sandboxed quality failed for the same Vitest access issue; outside sandbox passed with `304` tests passed, `1` skipped.
+- Baseline `cmd /c npm run lint`: passed.
+- Supabase CLI version: `2.100.1`.
+- Migration list: local/remote `001` through `008` aligned.
+- Dry run: `Remote database is up to date.`
+- Initial live smoke without loading `.env`: failed before live assertions with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` contained required smoke variable names when checked by name only, without printing values.
+- Baseline live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12314ms`, duration `13.83s`.
+- Targeted `src/tests/app/appShell.test.ts`: passed with `61` tests after assertion fixes.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm test`: passed with `31` files passed and `1` skipped; `315` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with typecheck plus tests; `315` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final migration list: local/remote `001` through `008` aligned.
+- Final dry run: `Remote database is up to date.`
+- Final live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12772ms`, duration `15.10s`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `git rev-parse HEAD`: `70eaf5ad4e27521be5bdb44ff24dd643ccd13542`.
+- No commit was created in this pass.
+
+Known gaps:
+- No permissioned clinician, dietitian, admin, or coach reviewer UI yet.
+- No reviewer assignment, reviewer-note, clinician/coach messaging, or exposed reviewer-clear workflow yet.
+- History/detail surfaces are panels inside Fuel/Train/Plan, not routed screens.
+- Manual food logging is more explainable but still basic; no barcode scanner, full meal-planning system, or detailed food database.
+- Nutrition command snapshots still persist through `nutrition_targets.target_payload`; no dedicated command snapshot table exists.
+- Numeric load progression, coach UI, production coach audit policy, team memberships, scheduled/background roll-forward, and calendar drag/drop remain deferred.
+
+Next recommendation:
+- Add routed history drill-downs only if navigation/IA is ready, or start the permissioned reviewer workflow after coach/clinician relationship policy is safe. Keep barcode scanning, full meal planning, detailed food database, and reviewer-clear UI deferred until those boundaries are explicit.
+
 ## 2026-05-20 11:51 America/Vancouver
 
 Goal summary:

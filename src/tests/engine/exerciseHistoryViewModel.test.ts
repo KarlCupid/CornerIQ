@@ -41,5 +41,16 @@ describe("exercise history view model", () => {
     expect(viewModel.latestStrengthExerciseSummary).toContain("no numeric load progression inferred");
     expect(viewModel.loadProgressionNote).toContain("Free-text load");
     expect(viewModel.mostRepeatedExercise).toBe("Split squat (2 completed or partial result row(s))");
+    expect(viewModel.groupedExercises[0]).toMatchObject({
+      exerciseName: "Split squat",
+      completedCount: 1,
+      partialCount: 1,
+      prescribedOnlyCount: 1,
+      painFlagCount: 1
+    });
+    expect(viewModel.groupedExercises[0]?.latestLoadTextNote).toContain("notes only");
+    expect(viewModel.groupedExercises[0]?.noNumericProgressionCopy).toContain("No numeric progression inferred");
+    expect(viewModel.topPainFlaggedExercises).toEqual(["Split squat: 1 pain flag(s)"]);
+    expect(viewModel.topRepeatedExercises[0]).toContain("Split squat");
   });
 });

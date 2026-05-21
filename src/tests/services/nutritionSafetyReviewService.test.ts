@@ -46,6 +46,8 @@ function repositories(overrides: Partial<NutritionSafetyReviewRepositories["nutr
       upsertNutritionSafetyReview: vi.fn(async () => ({ lifecycle: "created" as const, review: persistedReview() })),
       listActiveNutritionSafetyReviews: vi.fn(),
       listNutritionSafetyReviews: vi.fn(),
+      listNutritionSafetyReviewEvents: vi.fn(),
+      listRecentNutritionSafetyReviewEvents: vi.fn(),
       getNutritionSafetyReviewById: vi.fn(),
       appendNutritionSafetyReviewEvent: vi.fn(async () => ({
         id: "review_event_1",

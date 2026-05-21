@@ -38,6 +38,7 @@ export interface WeightClassFeasibility {
 
 export interface BodyMassState {
   trend: BodyMassTrend;
+  recentLogs: readonly BodyMassLog[];
   scaleNoise: {
     risk: "low" | "moderate" | "high" | "unknown";
     explanation: string;

@@ -10,7 +10,13 @@ export interface ExerciseHistoryPanelProps {
 
 export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
   const counts = `Completed/partial/prescribed-only/skipped: ${history.statusCounts.completed}/${history.statusCounts.partial}/${history.statusCounts.prescribedOnly}/${history.statusCounts.skipped}`;
-  const hasNoHistory = history.recentExerciseResults.length === 0 && history.painFlagsByExercise.length === 0 && history.recentRpeValues.length === 0 && !history.latestStrengthExerciseSummary && !history.mostRepeatedExercise;
+  const hasNoHistory =
+    history.recentExerciseResults.length === 0 &&
+    history.painFlagsByExercise.length === 0 &&
+    history.recentRpeValues.length === 0 &&
+    history.groupedExercises.length === 0 &&
+    !history.latestStrengthExerciseSummary &&
+    !history.mostRepeatedExercise;
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={screenStyles.sectionTitle}>{history.title}</Text>
@@ -23,6 +29,26 @@ export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
       <Text style={screenStyles.callout}>Strength notes</Text>
       {history.latestStrengthExerciseSummary ? <Text style={screenStyles.subtle}>Latest strength: {history.latestStrengthExerciseSummary}</Text> : null}
       {history.mostRepeatedExercise ? <Text style={screenStyles.subtle}>Most repeated: {history.mostRepeatedExercise}</Text> : null}
+      <Text style={screenStyles.callout}>Grouped exercises</Text>
+      {history.groupedExercises.length > 0 ? (
+        history.groupedExercises.map((exercise) => (
+          <View key={exercise.exerciseName} style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.body}>{exercise.exerciseName}</Text>
+            <Text style={screenStyles.subtle}>
+              Completed/partial/prescribed-only/pain flags: {exercise.completedCount}/{exercise.partialCount}/{exercise.prescribedOnlyCount}/{exercise.painFlagCount}
+            </Text>
+            {exercise.recentRpe ? <Text style={screenStyles.subtle}>Recent {exercise.recentRpe}</Text> : null}
+            <Text style={screenStyles.subtle}>Load note: {exercise.latestLoadTextNote}</Text>
+            <Text style={screenStyles.subtle}>{exercise.noNumericProgressionCopy}</Text>
+          </View>
+        ))
+      ) : (
+        <Text style={screenStyles.subtle}>No grouped exercise rows yet.</Text>
+      )}
+      <Text style={screenStyles.callout}>Top repeated</Text>
+      {history.topRepeatedExercises.length > 0 ? history.topRepeatedExercises.map((exercise) => <Text key={exercise} style={screenStyles.subtle}>{exercise}</Text>) : <Text style={screenStyles.subtle}>No repeated exercise rows yet.</Text>}
+      <Text style={screenStyles.callout}>Top pain-flagged</Text>
+      {history.topPainFlaggedExercises.length > 0 ? history.topPainFlaggedExercises.map((exercise) => <Text key={exercise} style={screenStyles.subtle}>{exercise}</Text>) : <Text style={screenStyles.subtle}>No pain-flagged exercise list yet.</Text>}
       <Text style={screenStyles.callout}>RPE</Text>
       {history.recentRpeValues.length > 0 ? history.recentRpeValues.map((rpe) => <Text key={rpe} style={screenStyles.subtle}>{rpe}</Text>) : <Text style={screenStyles.subtle}>No recent exercise RPE values.</Text>}
       <Text style={screenStyles.callout}>Pain flags</Text>

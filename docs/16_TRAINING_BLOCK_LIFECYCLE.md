@@ -181,25 +181,30 @@ Plan:
 - accept-preview action;
 - materialize action only when the view model says the boundary is reached;
 - hold-for-review copy;
-- block history detail grouped into current block, current week, next-week preview, materialization status, decisions, adjustments, safety events, and timeline.
+- block history detail grouped into current block, current week, next-week preview, materialization status, decisions, adjustments, safety events, and timeline;
+- grouped week rows with summary, decision, next-week preview status, materialized generated-session count, and adjustments;
+- timeline event groups for training, adjustment, materialization, and safety/review events;
+- explicit audit copy: "Engine-owned history" and "Screens do not mutate programming decisions."
 
 Train:
 - detailed generated sessions;
 - persisted next-week sessions appear through normal training state only on their planned date;
 - progression/analytics;
-- exercise history grouped into recent actuals, pain flags, prescribed-only rows, RPE, strength notes, and explicit free-text-load/pain-flag safety copy.
+- exercise history grouped into recent actuals, pain flags, prescribed-only rows, RPE, strength notes, and explicit free-text-load/pain-flag safety copy;
+- per-exercise grouped counts for completed, partial, prescribed-only, pain flags, recent RPE, and latest load notes;
+- top pain-flagged and repeated exercise summaries without inferring numeric progression.
 
 ## Current Verification
 
 Local:
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed, `258` tests passed and `1` skipped.
-- `cmd /c npm run quality`: passed, including typecheck plus tests with `258` tests passed and `1` skipped.
+- `cmd /c npm test`: passed, `315` tests passed and `1` skipped.
+- `cmd /c npm run quality`: passed, including typecheck plus tests with `315` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- Extended live smoke: passed, `1` test passed, test body `12284ms`.
+- Extended live smoke: passed, `1` test passed, test body `12772ms`, duration `15.10s`.
 
 Remote:
-- Supabase migration list shows `001` through `007` applied.
+- Supabase migration list shows `001` through `008` applied.
 - Supabase dry run reports `Remote database is up to date.`
 - Live smoke passes with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`.
 
@@ -226,8 +231,12 @@ Smoke coverage includes weekly summaries, progression decisions, timeline events
 7. `src/services/training/materializeNextWeekTrainingPlan.ts`
 8. `src/engine/training/nextWeekGeneratedSessionEngine.ts`
 9. `src/engine/training/nextWeekPreviewToMicrocycle.ts`
-10. `src/app/screens/PlanScreen.tsx`
-11. `supabase/functions/approve-coach-relationship/policy.ts`
-12. `supabase/functions/approve-coach-relationship/index.ts`
-13. `docs/17_COACH_TEAM_PERMISSIONS.md`
-14. `src/tests/live/liveDbSmoke.test.ts`
+10. `src/engine/presentation/planViewModel.ts`
+11. `src/app/screens/plan/TrainingBlockHistoryPanel.tsx`
+12. `src/engine/presentation/exerciseHistoryViewModel.ts`
+13. `src/app/screens/train/ExerciseHistoryPanel.tsx`
+14. `src/app/screens/PlanScreen.tsx`
+15. `supabase/functions/approve-coach-relationship/policy.ts`
+16. `supabase/functions/approve-coach-relationship/index.ts`
+17. `docs/17_COACH_TEAM_PERMISSIONS.md`
+18. `src/tests/live/liveDbSmoke.test.ts`

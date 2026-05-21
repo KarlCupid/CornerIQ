@@ -3,7 +3,7 @@ import type { BodyMassLog } from "../bodyMass/types";
 import type { CycleLog, CycleTrackingPreference } from "../cycle/types";
 import type { FightOpportunity, TournamentDetails } from "../fight/types";
 import type { FoodLog, ElectrolyteLog, WaterLog } from "../nutrition/types";
-import type { PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
+import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
 import type { ReadinessCheckIn } from "../readiness/types";
 import type { RiskFlag } from "../safety/types";
 import type {
@@ -133,6 +133,7 @@ export interface AthleteJourney {
   bodyMassHistory: readonly BodyMassLog[];
   nutritionHistory: readonly FoodLog[];
   nutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
+  nutritionSafetyReviewEvents: readonly NutritionSafetyReviewEvent[];
   hydrationHistory: readonly WaterLog[];
   electrolyteHistory: readonly ElectrolyteLog[];
   cycleHistory: readonly CycleLog[];

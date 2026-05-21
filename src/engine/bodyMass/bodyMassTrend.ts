@@ -42,6 +42,9 @@ export function resolveBodyMassState(input: {
   feasibility: WeightClassFeasibility;
 }): BodyMassState {
   const trend = resolveBodyMassTrend(input.logs, input.asOfDate);
+  const recentLogs = input.logs
+    .filter((log) => log.date <= input.asOfDate && daysBetween(log.date, input.asOfDate) <= 13)
+    .sort((left, right) => right.date.localeCompare(left.date));
   const scaleNoiseRisk = input.cycle.cycleRelatedWeightNoiseRisk;
   const confidence = makeConfidence(
     trend.logCount7Day >= 4 ? 0.78 : trend.logCount7Day > 0 ? 0.44 : 0.22,
@@ -51,6 +54,7 @@ export function resolveBodyMassState(input: {
 
   return {
     trend,
+    recentLogs,
     scaleNoise: {
       risk: scaleNoiseRisk === "unknown" ? "unknown" : scaleNoiseRisk,
       explanation: input.cycle.bodyMassInterpretation

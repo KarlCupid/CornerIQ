@@ -1,6 +1,7 @@
 import type { FuelViewModel, PerformanceState } from "../core/types";
 import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import { riskSummary } from "./explanationCopy";
+import { buildNutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
 
 export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
   const blockedAcuteProtocol =
@@ -47,6 +48,12 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
       cycle: state.cycle,
       weighInContext: state.weighInContext,
       weightClassStatus: state.nutrition.weightClassStatus
+    }),
+    nutritionReviewHistory: buildNutritionReviewHistoryViewModel({
+      activeReviews: state.nutrition.activeNutritionSafetyReviews,
+      reviewEvents: state.nutrition.nutritionSafetyReviewEvents,
+      currentSafetyReview: state.nutrition.nutritionSafetyReview,
+      asOfDate: state.asOfDate
     }),
     bodyMassSummary: state.nutrition.bodyMassNote,
     cycleNote: state.nutrition.cycleNote,

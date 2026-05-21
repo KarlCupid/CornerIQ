@@ -15,6 +15,9 @@ import {
   TournamentFuelCard,
   WeightClassStatusCard
 } from "./fuel/FuelCommandCards";
+import { BodyMassTrajectoryPanel } from "./fuel/BodyMassTrajectoryPanel";
+import { FuelHistoryPanel } from "./fuel/FuelHistoryPanel";
+import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
@@ -51,8 +54,10 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         onRequestReview={onRequestNutritionSafetyReview}
         review={viewModel.nutritionSafetyReview}
       />
+      <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
       <WeightClassStatusCard status={viewModel.weightClassStatus} />
       <BodyMassTrajectoryCard trajectory={viewModel.bodyMassTrajectory} />
+      <BodyMassTrajectoryPanel trajectory={viewModel.bodyMassTrajectory} />
       <SessionFuelingCard command={viewModel.commandCenter} hitTheseFirst={viewModel.hitTheseFirst} />
       {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
       <EngineCard>
@@ -64,6 +69,7 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         </View>
       </EngineCard>
       <FuelHistoryCard history={viewModel.fuelHistory} />
+      <FuelHistoryPanel history={viewModel.fuelHistory} />
       <EngineCard>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Hydration and electrolytes</Text>

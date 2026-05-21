@@ -226,6 +226,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
     nutrition: { listFoodLogs: vi.fn(async () => journey.nutritionHistory) },
     nutritionSafetyReview: {
       listActiveNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
+      listRecentNutritionSafetyReviewEvents: vi.fn(async () => []),
       listNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
       getNutritionSafetyReviewById: vi.fn(async () => null),
       upsertNutritionSafetyReview,

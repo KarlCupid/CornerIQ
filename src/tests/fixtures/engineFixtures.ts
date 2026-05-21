@@ -116,6 +116,7 @@ function journey(overrides: Partial<AthleteJourney> = {}): AthleteJourney {
     bodyMassHistory: bodyMassLogs([66.8, 66.7, 66.6, 66.7, 66.6, 66.5, 66.6]),
     nutritionHistory: [],
     nutritionSafetyReviews: [],
+    nutritionSafetyReviewEvents: [],
     hydrationHistory: [],
     electrolyteHistory: [],
     cycleHistory: [],

@@ -22,6 +22,32 @@ interface ElectrolyteLogLike {
   sodiumMg: number;
 }
 
+export interface FuelHistoryGroupedDay {
+  date: ISODateString;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number | null;
+  sodium: number | null;
+  waterLiters: number;
+  electrolyteSummary: string;
+  confidence: ConfidenceLevel;
+  notes: readonly string[];
+}
+
+export interface FuelHistorySessionFuelLink {
+  date: ISODateString;
+  fuelDemand: "high";
+  foodLogConfidence: ConfidenceLevel;
+  summary: string;
+}
+
+export interface FuelHistoryFightWeekMarker {
+  date: ISODateString;
+  summary: string;
+}
+
 export interface FuelHistoryViewModel {
   todaySummary: string;
   recentMeals: readonly string[];
@@ -31,6 +57,11 @@ export interface FuelHistoryViewModel {
   fiberSodiumSummary: string;
   loggingConfidence: ConfidenceLevel;
   missingDataCopy: string;
+  groupedDays: readonly FuelHistoryGroupedDay[];
+  sessionFuelLink: readonly FuelHistorySessionFuelLink[];
+  fightWeekMarkers: readonly FuelHistoryFightWeekMarker[];
+  hydrationConsistency: string;
+  missingDataNarrative: string;
   warnings: readonly string[];
 }
 
@@ -48,6 +79,7 @@ export interface BuildFuelHistoryViewModelInput {
     waterLiters: number;
   };
   fightWeekActive: boolean;
+  highFuelDemandDates?: readonly ISODateString[] | undefined;
 }
 
 function inLast7Days(date: ISODateString, asOfDate: ISODateString): boolean {
@@ -60,6 +92,10 @@ function sum(values: readonly number[]): number {
 
 function average(values: readonly number[]): number | null {
   return values.length === 0 ? null : sum(values) / values.length;
+}
+
+function last7Dates(asOfDate: ISODateString): readonly ISODateString[] {
+  return Array.from({ length: 7 }, (_, index) => addDays(asOfDate, -index));
 }
 
 function confidenceFrom(foodCountToday: number, foodCount7Day: number, waterCount7Day: number): ConfidenceLevel {
@@ -75,6 +111,57 @@ function confidenceFrom(foodCountToday: number, foodCount7Day: number, waterCoun
   return "unknown";
 }
 
+function confidenceForDay(foodLogs: readonly FoodLogLike[], waterLogs: readonly WaterLogLike[]): ConfidenceLevel {
+  if (foodLogs.length === 0 && waterLogs.length === 0) {
+    return "unknown";
+  }
+  if (foodLogs.length === 0) {
+    return "low";
+  }
+  if (waterLogs.length > 0 && foodLogs.every((log) => log.confidence === "high")) {
+    return "high";
+  }
+  if (foodLogs.some((log) => log.confidence === "medium" || log.confidence === "high")) {
+    return "medium";
+  }
+  return "low";
+}
+
+function groupedDay(input: BuildFuelHistoryViewModelInput, date: ISODateString): FuelHistoryGroupedDay {
+  const food = input.foodLogs.filter((log) => log.date === date);
+  const water = input.waterLogs.filter((log) => log.date === date);
+  const electrolytes = input.electrolyteLogs.filter((log) => log.date === date);
+  const electrolyteSodium = sum(electrolytes.map((log) => log.sodiumMg));
+  const fiberValues = food.map((log) => log.fiberGrams ?? 0);
+  const foodSodiumValues = food.map((log) => log.sodiumMg ?? 0);
+  const notes: string[] = [];
+  if (food.length === 0) {
+    notes.push("No food log; target context does not change.");
+  }
+  if (water.length === 0) {
+    notes.push("No water log; hydration confidence is lower.");
+  }
+  if (input.highFuelDemandDates?.includes(date)) {
+    notes.push("High fuel-demand session day; low food-log confidence should be reviewed before interpreting intake.");
+  }
+  if (input.fightWeekActive && (fiberValues.length > 0 || foodSodiumValues.length > 0 || electrolytes.length > 0)) {
+    notes.push("Fight-week fiber and sodium context is for consistency, not acute manipulation.");
+  }
+  return {
+    date,
+    calories: sum(food.map((log) => log.calories)),
+    protein: sum(food.map((log) => log.proteinGrams)),
+    carbs: sum(food.map((log) => log.carbohydrateGrams)),
+    fat: sum(food.map((log) => log.fatGrams)),
+    fiber: food.length > 0 ? sum(fiberValues) : null,
+    sodium: food.length > 0 || electrolytes.length > 0 ? sum(foodSodiumValues) + electrolyteSodium : null,
+    waterLiters: sum(water.map((log) => log.liters)),
+    electrolyteSummary: electrolytes.length > 0 ? `${electrolytes.length} electrolyte log(s), ${electrolyteSodium}mg sodium.` : "No electrolyte log.",
+    confidence: confidenceForDay(food, water),
+    notes
+  };
+}
+
 export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput): FuelHistoryViewModel {
   const foodToday = input.foodLogs.filter((log) => log.date === input.asOfDate);
   const waterToday = input.waterLogs.filter((log) => log.date === input.asOfDate);
@@ -82,6 +169,7 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
   const food7Day = input.foodLogs.filter((log) => inLast7Days(log.date, input.asOfDate));
   const water7Day = input.waterLogs.filter((log) => inLast7Days(log.date, input.asOfDate));
   const electrolytes7Day = input.electrolyteLogs.filter((log) => inLast7Days(log.date, input.asOfDate));
+  const groupedDays = last7Dates(input.asOfDate).map((date) => groupedDay(input, date));
 
   const todayCalories = sum(foodToday.map((log) => log.calories));
   const todayProtein = sum(foodToday.map((log) => log.proteinGrams));
@@ -98,6 +186,44 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
   const avgSodium = average([...food7Day.map((log) => log.sodiumMg ?? 0), ...electrolytes7Day.map((log) => log.sodiumMg)]);
   const avgFiber = average(food7Day.map((log) => log.fiberGrams ?? 0));
   const loggingConfidence = confidenceFrom(foodToday.length, food7Day.length, water7Day.length);
+  const highFuelDemandDates = [...new Set((input.highFuelDemandDates ?? []).filter((date) => inLast7Days(date, input.asOfDate)))];
+  const sessionFuelLink = highFuelDemandDates.map((date) => {
+    const day = groupedDays.find((item) => item.date === date);
+    const foodConfidence = day?.confidence ?? "unknown";
+    return {
+      date,
+      fuelDemand: "high" as const,
+      foodLogConfidence: foodConfidence,
+      summary:
+        foodConfidence === "unknown" || foodConfidence === "low"
+          ? `${date}: high fuel-demand training with ${foodConfidence} food-log confidence. Interpret fuel history cautiously.`
+          : `${date}: high fuel-demand training has ${foodConfidence} manual fuel context.`
+    };
+  });
+  const fightWeekMarkers = input.fightWeekActive
+    ? groupedDays
+        .filter((day) => day.fiber !== null || day.sodium !== null)
+        .map((day) => ({
+          date: day.date,
+          summary: `${day.date}: fiber ${day.fiber?.toFixed(0) ?? "unknown"}g, sodium ${day.sodium?.toFixed(0) ?? "unknown"}mg for consistency context only.`
+        }))
+    : [];
+  const waterDays = new Set(water7Day.map((log) => log.date)).size;
+  const electrolyteDays = new Set(electrolytes7Day.map((log) => log.date)).size;
+  const hydrationConsistency =
+    waterDays >= 5
+      ? electrolyteDays > 0
+        ? `Water logged on ${waterDays}/7 days and electrolytes on ${electrolyteDays}/7 days; hydration context is reasonably consistent.`
+        : `Water logged on ${waterDays}/7 days, but electrolyte context is missing.`
+      : waterDays > 0
+        ? `Water logged on ${waterDays}/7 days; hydration trend is partial, not a failure.`
+        : "Hydration consistency unknown until manual water logs exist.";
+  const missingDataNarrative =
+    loggingConfidence === "unknown"
+      ? "No manual fuel history is not treated as noncompliance. It simply keeps fuel confidence unknown."
+      : groupedDays.some((day) => day.confidence === "unknown")
+        ? "Some days are missing logs. The engine reads that as lower confidence, not as failure or permission to change targets."
+        : "Manual history is present for this window. It explains context only and does not change targets by itself.";
 
   return {
     todaySummary:
@@ -136,6 +262,11 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
       loggingConfidence === "unknown"
         ? "Manual history has low coverage. The engine keeps targets separate from missing logs."
         : "Manual history improves context only; targets remain engine-led.",
+    groupedDays,
+    sessionFuelLink,
+    fightWeekMarkers,
+    hydrationConsistency,
+    missingDataNarrative,
     warnings: input.fightWeekActive ? ["Fight-week fiber and sodium context is for consistency and gut comfort; it is not an acute protocol."] : []
   };
 }

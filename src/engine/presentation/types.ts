@@ -11,9 +11,11 @@ import type {
 import type { PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
 import type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
+import type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
 
 export type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 export type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
+export type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
 import type {
   DetailedTrainingSession,
   GeneratedSessionIntensity,
@@ -91,6 +93,7 @@ export interface FuelViewModel {
   };
   fuelHistory: FuelHistoryViewModel;
   bodyMassTrajectory: BodyMassTrajectoryViewModel;
+  nutritionReviewHistory: NutritionReviewHistoryViewModel;
   bodyMassSummary: string;
   cycleNote: string | null;
   fightOrTournamentNote: string | null;
@@ -138,6 +141,18 @@ export interface ExerciseHistoryViewModel {
   latestStrengthExerciseSummary: string | null;
   loadProgressionNote: string;
   mostRepeatedExercise: string | null;
+  groupedExercises: readonly {
+    exerciseName: string;
+    completedCount: number;
+    partialCount: number;
+    prescribedOnlyCount: number;
+    painFlagCount: number;
+    recentRpe: string | null;
+    latestLoadTextNote: string;
+    noNumericProgressionCopy: string;
+  }[];
+  topPainFlaggedExercises: readonly string[];
+  topRepeatedExercises: readonly string[];
 }
 
 export interface CycleTrainingDecisionViewModel {
@@ -258,6 +273,22 @@ export interface TrainingBlockHistoryDetailViewModel {
   latestNextWeekPreview: NextWeekPreviewViewModel | null;
   safetyFlags: readonly string[];
   whatChangedAndWhy: readonly string[];
+  groupedWeeks: readonly {
+    weekIndex: number;
+    summary: string;
+    decision: string;
+    nextWeekPreviewStatus: string;
+    materializedGeneratedSessionCount: number;
+    adjustments: readonly string[];
+  }[];
+  timelineEventGroups: {
+    trainingEvents: readonly TrainingProgressionTimelineViewModel[];
+    adjustmentEvents: readonly TrainingProgressionTimelineViewModel[];
+    materializationEvents: readonly TrainingProgressionTimelineViewModel[];
+    safetyReviewEvents: readonly TrainingProgressionTimelineViewModel[];
+  };
+  engineOwnedCopy: string;
+  screenMutationCopy: string;
 }
 
 export interface PlanViewModel {

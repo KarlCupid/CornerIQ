@@ -12,7 +12,7 @@ import type {
   WeightClassStatus
 } from "./fuelCommandTypes";
 import type { FoodLogActualSummary } from "./foodLogSummary";
-import type { PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
+import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 
 export interface FoodLog {
   date: ISODateString;
@@ -62,6 +62,7 @@ export interface NutritionState {
   actualIntakeSummary: FoodLogActualSummary;
   fuelHistory: FuelHistoryViewModel;
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
+  nutritionSafetyReviewEvents: readonly NutritionSafetyReviewEvent[];
   waterLiters: number;
   sodiumGuidance: string;
   sessionFueling: readonly string[];

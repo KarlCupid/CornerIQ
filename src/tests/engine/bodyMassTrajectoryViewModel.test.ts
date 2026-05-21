@@ -7,6 +7,8 @@ describe("bodyMassTrajectoryViewModel", () => {
     const state = resolvePerformanceState({ journey: menstruating_athlete_build_phase_scale_noise, asOfDate: fixtureAsOfDate });
 
     expect(state.viewModels.fuel.bodyMassTrajectory.cycleNoiseNote.toLowerCase()).toContain("cycle");
+    expect(state.viewModels.fuel.bodyMassTrajectory.last14Days.length).toBeGreaterThan(0);
+    expect(state.viewModels.fuel.bodyMassTrajectory.cycleNoiseWindow).toContain("Cycle noise window");
     expect(JSON.stringify(state.viewModels.fuel.bodyMassTrajectory)).not.toMatch(/calorie cut|water cut|sauna|sweat suit|laxative|diuretic/i);
   });
 
@@ -15,6 +17,8 @@ describe("bodyMassTrajectoryViewModel", () => {
 
     expect(state.viewModels.fuel.bodyMassTrajectory.latestWeight).toContain("unknown");
     expect(state.viewModels.fuel.bodyMassTrajectory.missingDataCopy).toContain("Unknown data stays unknown");
+    expect(state.viewModels.fuel.bodyMassTrajectory.last14Days).toHaveLength(0);
+    expect(state.viewModels.fuel.bodyMassTrajectory.targetGapKg).toContain("unknown");
   });
 
   it("shows review action for blocked weight-class trajectory", () => {
@@ -22,6 +26,8 @@ describe("bodyMassTrajectoryViewModel", () => {
 
     expect(state.viewModels.fuel.bodyMassTrajectory.reviewActionVisible).toBe(true);
     expect(state.viewModels.fuel.bodyMassTrajectory.nextSafeAction).toContain("safety review");
+    expect(state.viewModels.fuel.bodyMassTrajectory.nextSafeActions.join(" ")).toContain("safety review");
+    expect(state.viewModels.fuel.bodyMassTrajectory.weighInCountdown).toContain("day(s) until weigh-in");
   });
 
   it("keeps Fuel trajectory and review payloads free of unsafe weight-cut terms", () => {

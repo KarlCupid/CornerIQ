@@ -140,6 +140,15 @@ function timelineSummary(event: TrainingBlockTimelineEvent): string {
   return typeof generatedSessionCount === "number" ? `${event.summary} Generated sessions: ${generatedSessionCount}.` : event.summary;
 }
 
+function timelineEventView(event: TrainingBlockTimelineEvent) {
+  return {
+    eventType: event.eventType,
+    eventDate: event.eventDate,
+    title: event.title,
+    summary: timelineSummary(event)
+  };
+}
+
 function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextWeekPreviewViewModel): TrainingBlockHistoryDetailViewModel {
   const history = state.training.blockHistory;
   const adjustmentEvents = state.training.adjustmentHistory.map(
@@ -147,16 +156,47 @@ function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextW
   );
   const progressionDecisions = history.decisions.map((decision) => `Week ${decision.weekIndex}: ${decision.decision.replaceAll("_", " ")} - ${decision.reason}`);
   const weekSummaries = history.summaries.map((summary) => `Week ${summary.weekIndex}: ${summary.summary}`);
+  const timelineEvents = state.training.timelineEvents.map(timelineEventView);
+  const materializationEvents = timelineEvents.filter((event) => event.eventType === "next_week_materialized" || event.eventType === "next_week_preview_accepted");
+  const adjustmentTimelineEvents = timelineEvents.filter((event) => event.eventType === "adjustment_applied" || event.eventType === "deload_requested");
+  const safetyReviewEvents = timelineEvents.filter((event) => event.eventType === "coach_review_flagged" || event.title.toLowerCase().includes("review") || event.summary.toLowerCase().includes("safety"));
+  const trainingEvents = timelineEvents.filter((event) => !materializationEvents.includes(event) && !adjustmentTimelineEvents.includes(event) && !safetyReviewEvents.includes(event));
+  const weekIndexes = [
+    ...new Set([
+      ...history.summaries.map((summary) => summary.weekIndex),
+      ...history.decisions.map((decision) => decision.weekIndex),
+      state.training.activeBlock.progressionState.weekIndex,
+      nextWeekPreview.weekIndex
+    ])
+  ].sort((left, right) => right - left);
+  const groupedWeeks = weekIndexes.map((weekIndex) => {
+    const summary = history.summaries.find((item) => item.weekIndex === weekIndex);
+    const decision = history.decisions.find((item) => item.weekIndex === weekIndex);
+    const adjustments = state.training.adjustmentHistory
+      .filter((adjustment) => {
+        if (!summary || !adjustment.planDate) {
+          return false;
+        }
+        return adjustment.planDate >= summary.weekStartDate && adjustment.planDate <= summary.weekEndDate;
+      })
+      .map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`);
+    return {
+      weekIndex,
+      summary: summary ? summary.summary : "No persisted week summary for this week.",
+      decision: decision ? `${decision.decision.replaceAll("_", " ")} - ${decision.reason}` : "No persisted progression decision for this week.",
+      nextWeekPreviewStatus:
+        nextWeekPreview.weekIndex === weekIndex
+          ? `${nextWeekPreview.persistedStatusLabel} ${nextWeekPreview.actionCopy}`
+          : "No next-week preview linked to this week in the current panel.",
+      materializedGeneratedSessionCount: nextWeekPreview.weekIndex === weekIndex && nextWeekPreview.persistedStatus === "materialized" ? nextWeekPreview.generatedSessionCount : 0,
+      adjustments
+    };
+  });
   return {
     activeBlockSummary: `${state.training.activeBlock.phase.replaceAll("_", " ")} block, week ${state.training.activeBlock.progressionState.weekIndex}, ${state.training.activeBlock.primaryGoal.replaceAll("_", " ")} focus.`,
     weekSummaries,
     progressionDecisions,
-    timelineEvents: state.training.timelineEvents.map((event) => ({
-      eventType: event.eventType,
-      eventDate: event.eventDate,
-      title: event.title,
-      summary: timelineSummary(event)
-    })),
+    timelineEvents,
     adjustmentEvents,
     latestNextWeekPreview: nextWeekPreview,
     safetyFlags: state.safety.riskFlags.filter((flag) => flag.status === "active").map((flag) => flag.message),
@@ -165,7 +205,16 @@ function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextW
         ? `Latest decision: ${state.training.latestProgressionDecision.decision.replaceAll("_", " ")} because ${state.training.latestProgressionDecision.reason}`
         : "No persisted progression decision yet; next week stays conservative.",
       nextWeekPreview.explanation
-    ]
+    ],
+    groupedWeeks,
+    timelineEventGroups: {
+      trainingEvents,
+      adjustmentEvents: adjustmentTimelineEvents,
+      materializationEvents,
+      safetyReviewEvents
+    },
+    engineOwnedCopy: "Engine-owned history.",
+    screenMutationCopy: "Screens do not mutate programming decisions."
   };
 }
 

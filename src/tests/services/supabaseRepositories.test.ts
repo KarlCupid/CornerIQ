@@ -21,7 +21,7 @@ import { mapWearableSignalRow } from "../../services/supabase/wearableRepository
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
-import type { PersistedNutritionSafetyReview } from "../../engine/core/types";
+import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
 
 function createInsertClient() {
   const inserted: { table: string; record: unknown }[] = [];
@@ -65,6 +65,20 @@ function persistedNutritionSafetyReview(overrides: Partial<PersistedNutritionSaf
     outputHash: "output_hash",
     createdAt: "2026-05-19T00:00:00.000Z",
     updatedAt: "2026-05-19T00:00:00.000Z",
+    ...overrides
+  };
+}
+
+function nutritionSafetyReviewEvent(overrides: Partial<NutritionSafetyReviewEvent> = {}): NutritionSafetyReviewEvent {
+  return {
+    id: "event_1",
+    userId: "user_1",
+    nutritionSafetyReviewId: "review_1",
+    eventType: "requested",
+    actorType: "engine",
+    actorUserId: "user_1",
+    eventPayload: { reason: "Review history loaded." },
+    createdAt: "2026-05-19T00:00:00.000Z",
     ...overrides
   };
 }
@@ -114,6 +128,56 @@ function createNutritionReviewInsertClient() {
   return { client: client as unknown as CornerSupabaseClient, inserted };
 }
 
+function createNutritionReviewEventListClient() {
+  const calls: { method: string; column?: string; value?: unknown }[] = [];
+  const rows = [
+    {
+      id: "event_1",
+      user_id: "user_1",
+      nutrition_safety_review_id: "review_1",
+      event_type: "requested",
+      actor_type: "engine",
+      actor_user_id: "user_1",
+      event_payload: { reason: "Scoped event" },
+      created_at: "2026-05-19T00:00:00.000Z"
+    }
+  ];
+  const response = { data: rows, error: null };
+  const orderResult = {
+    limit(value: number) {
+      calls.push({ method: "limit", value });
+      return Promise.resolve(response);
+    },
+    then<TResult1 = typeof response, TResult2 = never>(
+      onfulfilled?: ((value: typeof response) => TResult1 | PromiseLike<TResult1>) | null,
+      onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+    ) {
+      return Promise.resolve(response).then(onfulfilled, onrejected);
+    }
+  };
+  const query = {
+    select() {
+      calls.push({ method: "select" });
+      return query;
+    },
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return query;
+    },
+    order(column: string) {
+      calls.push({ method: "order", column });
+      return orderResult;
+    }
+  };
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", value: table });
+      return query;
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient };
+}
+
 function createJourneyRepositories(): AthleteJourneyRepositories {
   const journey = no_wearable_manual_only;
   return {
@@ -123,7 +187,10 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
     protectedWorkout: { listProtectedWorkouts: vi.fn(async () => journey.protectedWorkouts), insertProtectedWorkout: vi.fn() },
     bodyMass: { listLogs: vi.fn(async () => journey.bodyMassHistory), insertManualLog: vi.fn() },
     nutrition: { listFoodLogs: vi.fn(async () => journey.nutritionHistory) },
-    nutritionSafetyReview: { listActiveNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews) },
+    nutritionSafetyReview: {
+      listActiveNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
+      listRecentNutritionSafetyReviewEvents: vi.fn(async () => journey.nutritionSafetyReviewEvents)
+    },
     hydration: { listWaterLogs: vi.fn(async () => journey.hydrationHistory), listElectrolyteLogs: vi.fn(async () => journey.electrolyteHistory), insertWaterLog: vi.fn() },
     cycle: { listCycleLogs: vi.fn(async () => journey.cycleHistory), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
@@ -558,10 +625,43 @@ describe("Supabase repositories", () => {
     });
     const source = readFileSync("src/services/supabase/nutritionSafetyReviewRepository.ts", "utf8");
     expect(source).toContain("listActiveNutritionSafetyReviews");
+    expect(source).toContain("listNutritionSafetyReviewEvents");
+    expect(source).toContain("listRecentNutritionSafetyReviewEvents");
     expect(source).toContain('.eq("user_id", safeUserId)');
     expect(source).toContain("acknowledgeNutritionSafetyReview");
     expect(source).toContain("supersedeNutritionSafetyReviews");
     expect(source).not.toContain("clearNutritionSafetyReview");
+  });
+
+  it("nutritionSafetyReviewRepository lists review events scoped by user and review id", async () => {
+    const { calls, client } = createNutritionReviewEventListClient();
+    const repository = createNutritionSafetyReviewRepository(client);
+
+    const events = await repository.listNutritionSafetyReviewEvents("user_1", "review_1");
+
+    expect(events[0]?.eventType).toBe("requested");
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "from", value: "nutrition_safety_review_events" },
+        { method: "eq", column: "user_id", value: "user_1" },
+        { method: "eq", column: "nutrition_safety_review_id", value: "review_1" }
+      ])
+    );
+  });
+
+  it("nutritionSafetyReviewRepository lists recent review events with a bounded limit", async () => {
+    const { calls, client } = createNutritionReviewEventListClient();
+    const repository = createNutritionSafetyReviewRepository(client);
+
+    await repository.listRecentNutritionSafetyReviewEvents("user_1", 5);
+
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "from", value: "nutrition_safety_review_events" },
+        { method: "eq", column: "user_id", value: "user_1" },
+        { method: "limit", value: 5 }
+      ])
+    );
   });
 
   it("trainingBlockRepository persists typed block, microcycle, day plan, and adjustment payloads", () => {
@@ -684,6 +784,9 @@ describe("Supabase repositories", () => {
         outputHash: "output_hash"
       })
     ).rejects.toBeInstanceOf(RepositoryError);
+    await expect(createNutritionSafetyReviewRepository(client).listNutritionSafetyReviewEvents("", "review_1")).rejects.toBeInstanceOf(RepositoryError);
+    await expect(createNutritionSafetyReviewRepository(client).listNutritionSafetyReviewEvents("user_1", "")).rejects.toBeInstanceOf(RepositoryError);
+    await expect(createNutritionSafetyReviewRepository(client).listRecentNutritionSafetyReviewEvents("")).rejects.toBeInstanceOf(RepositoryError);
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -734,15 +837,18 @@ describe("Supabase repositories", () => {
       expect(result.journey.protectedWorkouts).toHaveLength(no_wearable_manual_only.protectedWorkouts.length);
       expect(result.journey.activeObjective).toBe("build");
       expect(result.journey.trainingPlanAdjustments).toEqual([]);
+      expect(result.journey.nutritionSafetyReviewEvents).toEqual([]);
     }
   });
 
-  it("loadAthleteJourney includes active persisted nutrition safety reviews when available", async () => {
+  it("loadAthleteJourney includes active persisted nutrition safety reviews and recent events when available", async () => {
     const repositories = createJourneyRepositories();
     const activeReview = persistedNutritionSafetyReview();
+    const reviewEvent = nutritionSafetyReviewEvent();
     repositories.nutritionSafetyReview = {
       ...repositories.nutritionSafetyReview,
-      listActiveNutritionSafetyReviews: vi.fn(async () => [activeReview])
+      listActiveNutritionSafetyReviews: vi.fn(async () => [activeReview]),
+      listRecentNutritionSafetyReviewEvents: vi.fn(async () => [reviewEvent])
     } as NonNullable<AthleteJourneyRepositories["nutritionSafetyReview"]>;
 
     const result = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
@@ -750,6 +856,7 @@ describe("Supabase repositories", () => {
     expect(result.status).toBe("ready");
     if (result.status === "ready") {
       expect(result.journey.nutritionSafetyReviews).toEqual([activeReview]);
+      expect(result.journey.nutritionSafetyReviewEvents).toEqual([reviewEvent]);
     }
   });
 

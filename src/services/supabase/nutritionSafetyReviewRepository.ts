@@ -20,7 +20,7 @@ import {
 import type { CornerSupabaseClient } from "./client";
 import type { Json } from "./database.types";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
-import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
+import { RepositoryError, assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
 const ACTIVE_REVIEW_STATUSES: readonly NutritionSafetyReviewStatus[] = ["requested", "acknowledged", "in_review", "blocked"];
 
@@ -69,6 +69,13 @@ export interface AppendNutritionSafetyReviewEventInput {
   actorType?: NutritionSafetyReviewActorType | undefined;
   actorUserId?: string | null | undefined;
   eventPayload?: Record<string, unknown> | undefined;
+}
+
+function assertReviewId(reviewId: string | undefined, context: string): string {
+  if (!reviewId) {
+    throw new RepositoryError("missing_required_data", context, "reviewId is required before a Supabase call");
+  }
+  return reviewId;
 }
 
 function stringArrayPayload(value: Json, context: string): readonly string[] {
@@ -257,6 +264,30 @@ export function createNutritionSafetyReviewRepository(client: CornerSupabaseClie
       const record = eventInsert(input);
       const response = await client.from("nutrition_safety_review_events").insert(record).select(eventSelect).single();
       return mapNutritionSafetyReviewEventRow(readDataOrThrow(response, "nutrition_safety_review_events.appendNutritionSafetyReviewEvent"));
+    },
+
+    async listNutritionSafetyReviewEvents(userId: string, reviewId: string): Promise<NutritionSafetyReviewEvent[]> {
+      const safeUserId = assertUserId(userId, "nutrition_safety_review_events.listNutritionSafetyReviewEvents");
+      const safeReviewId = assertReviewId(reviewId, "nutrition_safety_review_events.listNutritionSafetyReviewEvents");
+      const response = await client
+        .from("nutrition_safety_review_events")
+        .select(eventSelect)
+        .eq("user_id", safeUserId)
+        .eq("nutrition_safety_review_id", safeReviewId)
+        .order("created_at", { ascending: false });
+      return readDataOrThrow(response, "nutrition_safety_review_events.listNutritionSafetyReviewEvents").map(mapNutritionSafetyReviewEventRow);
+    },
+
+    async listRecentNutritionSafetyReviewEvents(userId: string, limit = 25): Promise<NutritionSafetyReviewEvent[]> {
+      const safeUserId = assertUserId(userId, "nutrition_safety_review_events.listRecentNutritionSafetyReviewEvents");
+      const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+      const response = await client
+        .from("nutrition_safety_review_events")
+        .select(eventSelect)
+        .eq("user_id", safeUserId)
+        .order("created_at", { ascending: false })
+        .limit(safeLimit);
+      return readDataOrThrow(response, "nutrition_safety_review_events.listRecentNutritionSafetyReviewEvents").map(mapNutritionSafetyReviewEventRow);
     },
 
     async acknowledgeNutritionSafetyReview(userId: string, reviewId: string): Promise<PersistedNutritionSafetyReview> {

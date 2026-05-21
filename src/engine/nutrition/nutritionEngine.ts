@@ -18,7 +18,7 @@ import type {
 } from "../core/types";
 import { toKg } from "../core/units";
 import { buildFuelHistoryViewModel } from "../presentation/fuelHistoryViewModel";
-import type { PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
+import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 import { calculateMacroTargets } from "./macroTargets";
 import { resolveFuelCommandCenter } from "./fuelCommandEngine";
 import { summarizeFoodLogs } from "./foodLogSummary";
@@ -42,6 +42,7 @@ export function resolveNutrition(input: {
   waterLogs: readonly WaterLog[];
   electrolyteLogs: readonly ElectrolyteLog[];
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
+  nutritionSafetyReviewEvents: readonly NutritionSafetyReviewEvent[];
   foodLogCount: number;
   asOfDate: string;
 }): NutritionState {
@@ -108,7 +109,8 @@ export function resolveNutrition(input: {
       fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
       waterLiters
     },
-    fightWeekActive: input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day"
+    fightWeekActive: input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day",
+    highFuelDemandDates: input.training.dayPlans.filter((day) => day.fuelDemand === "high").map((day) => day.date)
   });
   const command = resolveFuelCommandCenter({
     athlete: input.athlete,
@@ -160,6 +162,7 @@ export function resolveNutrition(input: {
     actualIntakeSummary,
     fuelHistory,
     activeNutritionSafetyReviews: input.activeNutritionSafetyReviews,
+    nutritionSafetyReviewEvents: input.nutritionSafetyReviewEvents,
     waterLiters,
     sodiumGuidance,
     sessionFueling,

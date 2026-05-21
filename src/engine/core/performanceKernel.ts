@@ -162,6 +162,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     waterLogs: journey.hydrationHistory,
     electrolyteLogs: journey.electrolyteHistory,
     activeNutritionSafetyReviews: journey.nutritionSafetyReviews,
+    nutritionSafetyReviewEvents: journey.nutritionSafetyReviewEvents,
     asOfDate: input.asOfDate,
     foodLogCount: journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length
   });

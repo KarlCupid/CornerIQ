@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document describes the eighteenth implementation pass for the Fuel / Weight-Class Command Center. The pass turns nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle and makes manual fuel history more useful without adding barcode scanning, full meal planning, a detailed food database, or unsafe weight-cut instructions.
+This document describes the Fuel / Weight-Class Command Center after the eighteenth and nineteenth implementation passes. The eighteenth pass turned nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle. The nineteenth pass adds view-model-driven review history, manual Fuel history, and body-mass trajectory detail panels without adding barcode scanning, full meal planning, a detailed food database, reviewer-clear UI, or unsafe weight-cut instructions.
 
 ## Engine Shape
 
@@ -15,12 +15,17 @@ Primary files:
 - `src/engine/nutrition/nutritionSafetyReviewTypes.ts`
 - `src/engine/nutrition/nutritionEngine.ts`
 - `src/engine/presentation/fuelViewModel.ts`
+- `src/engine/presentation/nutritionReviewHistoryViewModel.ts`
 - `src/engine/presentation/fuelHistoryViewModel.ts`
 - `src/engine/presentation/bodyMassTrajectoryViewModel.ts`
 - `src/services/nutrition/requestNutritionSafetyReview.ts`
+- `src/services/nutrition/loadNutritionSafetyReviewHistory.ts`
 - `src/services/supabase/nutritionSafetyReviewRepository.ts`
 - `src/app/screens/FuelScreen.tsx`
 - `src/app/screens/fuel/FuelCommandCards.tsx`
+- `src/app/screens/fuel/NutritionReviewHistoryPanel.tsx`
+- `src/app/screens/fuel/FuelHistoryPanel.tsx`
+- `src/app/screens/fuel/BodyMassTrajectoryPanel.tsx`
 
 ## Persisted Review Lifecycle
 
@@ -87,7 +92,9 @@ Hard stops remain active after request and acknowledgement. They can only be lif
 
 Active reviews are loaded through `loadAthleteJourney`, flow into the nutrition engine, and appear in the Fuel view model.
 
-## Review UI
+Recent review events are loaded through `loadAthleteJourney` with a bounded repository query. `loadNutritionSafetyReviewHistory` provides a lightweight service for active reviews plus recent review events without requiring a large performance state payload.
+
+## Review UI And History
 
 `NutritionSafetyReviewCard` now shows:
 
@@ -103,6 +110,18 @@ Active reviews are loaded through `loadAthleteJourney`, flow into the nutrition 
 
 There is no clear button in the client.
 
+`NutritionReviewHistoryPanel` now shows:
+
+- Active review count.
+- Hard-stop review count.
+- Active review cards with status, type, severity, reasons, blocking flags, suggested next steps, request time, acknowledgement state, and `canSelfClear: false`.
+- Review event timeline with date, event type, actor type, and summary.
+- No-history copy.
+- Safety copy stating that acknowledgement or history visibility does not clear the plan.
+- Future-only copy that reviewer-clear workflow is not exposed in the app yet.
+
+The panel reads `NutritionReviewHistoryViewModel`; it does not import repositories or expose coach/clinician write actions.
+
 ## Manual Fuel History
 
 `fuelHistoryViewModel` summarizes manual inputs without turning CornerIQ into a generic diet app:
@@ -111,10 +130,14 @@ There is no clear button in the client.
 - Recent manual meals.
 - 7-day macro trend.
 - 7-day hydration trend.
+- Grouped last-7-day food and hydration records with calories, protein, carbs, fat, fiber, sodium, water liters, electrolyte summary, confidence, and notes.
+- High fuel-demand session links that highlight low food-log confidence without changing targets.
 - Electrolyte summary.
 - Fiber/sodium summary.
+- Fight-week markers for fiber/sodium context without acute manipulation guidance.
+- Hydration consistency copy from water/electrolyte logs.
 - Logging confidence.
-- Missing-data copy.
+- Missing-data narrative.
 - Fight-week warnings when relevant.
 
 Rules:
@@ -125,18 +148,24 @@ Rules:
 - Barcode scanning is not required or implemented.
 - Full meal planning is not implemented.
 
+`FuelHistoryPanel` renders the history view model in Fuel after the quick/recent logging cards. It includes the explicit copy: "This does not change targets by itself."
+
 ## Body-Mass Trajectory
 
 `bodyMassTrajectoryViewModel` adds a non-chart trajectory panel:
 
 - Latest weight.
+- Last-14-day body-mass rows with date, kg, source, and note.
 - 7-day log count.
 - Trend.
+- Trend confidence.
 - Target.
 - Days to weigh-in.
+- Target gap when fight setup is active.
 - Status.
-- Cycle-noise note.
-- Next safe action.
+- Cycle-noise window note.
+- Risk explanation.
+- Next safe actions.
 - Missing-data copy.
 - Review-action visibility for blocked/unsafe states.
 
@@ -146,6 +175,8 @@ Rules:
 - No acute protocol details.
 - Unknown data stays unknown.
 - Blocked/unsafe state points back to review action.
+
+`BodyMassTrajectoryPanel` renders this as a simple list and status panel. It intentionally uses no chart package in this pass.
 
 ## Persistence Tables
 
@@ -176,7 +207,7 @@ The Fuel system does not show or prescribe:
 
 ## Smoke Status
 
-Latest live smoke passed after migration 008 was applied remotely.
+Latest live smoke passed after migration 008 remained applied remotely and no new migration was added.
 
 The smoke verifies:
 
@@ -192,13 +223,22 @@ The smoke verifies:
 - No hard stop is cleared by request or acknowledgement.
 - Smoke-created review/event rows are cleaned up.
 
+Final nineteenth-pass local verification:
+
+- `cmd /c npm run typecheck`: passed.
+- `cmd /c npm test`: passed with `315` tests and `1` skipped.
+- `cmd /c npm run quality`: passed with typecheck plus tests; `315` tests and `1` skipped.
+- `cmd /c npm run lint`: passed.
+- Ignored `.env` loaded with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: passed with `1` test, test body `12772ms`, duration `15.10s`.
+
 ## Known Gaps
 
 - No permissioned clinician, dietitian, admin, or coach reviewer workflow yet.
 - No reviewer-cleared workflow is exposed to the app.
 - No coach/clinician messaging.
+- History surfaces are panels, not routed detail screens.
 - No full meal-planning system.
 - No barcode scanning.
 - No detailed food database.
-- Manual food history is useful but still basic.
+- Manual food history is more explainable but still basic.
 - Nutrition command snapshots still use `nutrition_targets.target_payload`; no dedicated nutrition command snapshot table exists.

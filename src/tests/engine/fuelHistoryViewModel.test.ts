@@ -27,6 +27,9 @@ describe("fuelHistoryViewModel", () => {
     expect(viewModel.todaySummary).toContain("2200 kcal");
     expect(viewModel.macroTrend7Day[0]).toContain("2200 kcal target context");
     expect(viewModel.recentMeals[0]).toContain("2026-05-19");
+    expect(viewModel.groupedDays).toHaveLength(7);
+    expect(viewModel.groupedDays[0]).toMatchObject({ date: "2026-05-19", calories: 2200, protein: 132, carbs: 260, fat: 70 });
+    expect(viewModel.missingDataNarrative).toContain("lower confidence");
   });
 
   it("summarizes hydration and electrolyte logs", () => {
@@ -47,6 +50,7 @@ describe("fuelHistoryViewModel", () => {
 
     expect(viewModel.hydrationTrend7Day[0]).toContain("2.6L");
     expect(viewModel.electrolyteSummary).toContain("2 of the last 7 days");
+    expect(viewModel.hydrationConsistency).toContain("Water logged on 2/7 days");
   });
 
   it("uses non-shaming missing-data copy when logs are absent", () => {
@@ -62,6 +66,8 @@ describe("fuelHistoryViewModel", () => {
     expect(viewModel.todaySummary).toContain("not a failure");
     expect(viewModel.loggingConfidence).toBe("unknown");
     expect(viewModel.missingDataCopy).toContain("keeps targets separate");
+    expect(viewModel.groupedDays[0]?.notes).toContain("No food log; target context does not change.");
+    expect(viewModel.missingDataNarrative).toContain("not treated as noncompliance");
   });
 
   it("shows fiber/sodium context without fight-week unsafe instructions", () => {
@@ -71,11 +77,14 @@ describe("fuelHistoryViewModel", () => {
       waterLogs: [{ date: "2026-05-19", liters: 2.4 }],
       electrolyteLogs: [{ date: "2026-05-19", sodiumMg: 500 }],
       nutritionTargets: targets,
-      fightWeekActive: true
+      fightWeekActive: true,
+      highFuelDemandDates: ["2026-05-19"]
     });
 
     expect(viewModel.fiberSodiumSummary).toContain("fiber");
     expect(viewModel.warnings[0]).toContain("not an acute protocol");
+    expect(viewModel.fightWeekMarkers[0]?.summary).toContain("consistency context only");
+    expect(viewModel.sessionFuelLink[0]?.summary).toContain("high fuel-demand training");
     expect(JSON.stringify(viewModel)).not.toMatch(/sauna|sweat suit|laxative|diuretic|water cut|make weight at all costs/i);
   });
 });

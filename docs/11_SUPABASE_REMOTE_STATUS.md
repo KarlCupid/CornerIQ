@@ -1,12 +1,12 @@
 # Supabase Remote Status
 
-Date: 2026-05-20 11:51 America/Vancouver
+Date: 2026-05-20 12:36 America/Vancouver
 
 Latest known commit from prompt: `ad3357bc67e28c2a043800aac8be52213834ad57` (`Update CornerIQ agent guidance and workflow rules`).
 
-Latest commit before this pass from `git log`: `ad3357bc67e28c2a043800aac8be52213834ad57` (`Update CornerIQ agent guidance and workflow rules`).
+Latest commit before this pass from `git log`: `70eaf5ad4e27521be5bdb44ff24dd643ccd13542` (`Add nutrition safety review lifecycle and fuel history`).
 
-Current `git rev-parse HEAD`: `ad3357bc67e28c2a043800aac8be52213834ad57`
+Current `git rev-parse HEAD`: `70eaf5ad4e27521be5bdb44ff24dd643ccd13542`
 
 Commit created in this run: none.
 
@@ -59,7 +59,7 @@ Latest authenticated smoke result:
 
 - Command: ignored `.env` loaded into the process, `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`.
 - Runtime used public Supabase URL and anon key only.
-- Result: passed, `1` test passed; test body `12366ms`, run duration `13.89s`.
+- Result: passed, `1` test passed; test body `12772ms`, run duration `15.10s`.
 - Verified sign-in, scoped manual writes, safe RLS read of `athlete_coach_relationships`, `AthleteJourney` load, `PerformanceState` resolution, `training_blocks`, `training_microcycles`, `training_day_plans`, persisted `training_next_week_previews`, accept-preview service action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future `generated_training_sessions`, materialized preview status, `autoRollForward` and `generatedSessionCount` in the `next_week_materialized` timeline event, no duplicate materialization on a second auto call, persisted `training_plan_adjustments`, generated support workout completion, `completed_training_sessions`, `exercise_results`, `TrainingSessionCompleted`, `TrainingPlanAdjusted`, engine run/projection persistence, `training_week_summaries`, `training_progression_decisions`, `training_block_timeline_events`, actor-scoped adjustment payloads, `nutrition_targets` fuel command snapshot with command center and weight-class status, no tested unsafe terms in the persisted fuel payload, manual fuel history/body-mass trajectory resolution, persisted nutrition safety review row, persisted nutrition safety review event, `NutritionSafetyReviewRequested` journey event, athlete acknowledgement to `acknowledged`, no athlete self-clear, cleanup scoped to smoke-created or smoke-touched rows, and prior profile restore.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
@@ -69,8 +69,8 @@ The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips 
 Implementation and final handoff checks completed:
 
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `304` tests and `1` live smoke test skipped.
-- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `304` tests and `1` live smoke test skipped.
+- `cmd /c npm test`: passed with `315` tests and `1` live smoke test skipped.
+- `cmd /c npm run quality`: passed; quality reran typecheck and tests with `315` tests and `1` live smoke test skipped.
 - `cmd /c npm run lint`: passed.
 - `CORNERIQ_LIVE_DB_SMOKE=1` with ignored `.env` loaded, then `cmd /c npm run smoke:live-db`: passed with `1` test.
 - `git diff --check`: passed with Windows LF-to-CRLF warnings only.

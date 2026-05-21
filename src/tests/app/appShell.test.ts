@@ -185,6 +185,32 @@ const fuelViewModel: FuelViewModel = {
     fiberSodiumSummary: "Today fiber/sodium: 18g fiber, 1800mg sodium. 7-day context: 18g fiber, 1800mg sodium.",
     loggingConfidence: "low",
     missingDataCopy: "Manual history improves context only; targets remain engine-led.",
+    groupedDays: [
+      {
+        date: fixtureAsOfDate,
+        calories: 1200,
+        protein: 80,
+        carbs: 140,
+        fat: 35,
+        fiber: 18,
+        sodium: 1800,
+        waterLiters: 2.5,
+        electrolyteSummary: "No electrolyte log.",
+        confidence: "low",
+        notes: ["High fuel-demand session day; low food-log confidence should be reviewed before interpreting intake."]
+      }
+    ],
+    sessionFuelLink: [
+      {
+        date: fixtureAsOfDate,
+        fuelDemand: "high",
+        foodLogConfidence: "low",
+        summary: "2026-05-19: high fuel-demand training with low food-log confidence. Interpret fuel history cautiously."
+      }
+    ],
+    fightWeekMarkers: [],
+    hydrationConsistency: "Water logged on 1/7 days; hydration trend is partial, not a failure.",
+    missingDataNarrative: "Some days are missing logs. The engine reads that as lower confidence, not as failure or permission to change targets.",
     warnings: []
   },
   bodyMassTrajectory: {
@@ -197,7 +223,25 @@ const fuelViewModel: FuelViewModel = {
     cycleNoiseNote: "Scale-noise risk unknown.",
     nextSafeAction: "Log body mass manually if it feels safe and useful.",
     missingDataCopy: "Unknown data stays unknown. The engine does not assume missing scale data is safe.",
+    last14Days: [],
+    trendConfidence: "Trend confidence: unknown. Missing four recent body-mass logs.",
+    weighInCountdown: "No weigh-in countdown is active.",
+    targetGapKg: "Target gap unknown until current body mass and fight target are both known.",
+    cycleNoiseWindow: "Cycle scale-noise window is not elevated today.",
+    riskExplanation: "No active weight-class target today.",
+    nextSafeActions: ["Add a manual body-mass log if it feels safe and useful.", "Keep missing scale data marked unknown."],
     reviewActionVisible: false
+  },
+  nutritionReviewHistory: {
+    title: "Nutrition review history",
+    activeReviewCount: 0,
+    hardStopReviewCount: 0,
+    latestReviewSummary: "No active nutrition safety review is loaded.",
+    activeReviews: [],
+    historyEvents: [],
+    noHistoryCopy: "No review events are loaded yet. Active hard stops still remain active.",
+    safetyCopy: "This does not clear the plan. Athletes cannot self-clear nutrition hard stops.",
+    reviewerFutureCopy: "Reviewer-clear workflow is not exposed in the app yet."
   },
   bodyMassSummary: "Trend unknown",
   cycleNote: null,
@@ -290,7 +334,10 @@ const trainViewModel: TrainViewModel = {
     recentRpeValues: [],
     latestStrengthExerciseSummary: null,
     loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
-    mostRepeatedExercise: null
+    mostRepeatedExercise: null,
+    groupedExercises: [],
+    topPainFlaggedExercises: [],
+    topRepeatedExercises: []
   },
   riskSummary: []
 };
@@ -364,7 +411,32 @@ const planViewModel: PlanViewModel = {
     adjustmentEvents: ["protect day applied: Protect day applied."],
     latestNextWeekPreview: null,
     safetyFlags: [],
-    whatChangedAndWhy: ["Latest decision: progress because The week has structured completions."]
+    whatChangedAndWhy: ["Latest decision: progress because The week has structured completions."],
+    groupedWeeks: [
+      {
+        weekIndex: 2,
+        summary: "Week summary persisted.",
+        decision: "progress - The week has structured completions.",
+        nextWeekPreviewStatus: "No next-week preview linked to this week in the current panel.",
+        materializedGeneratedSessionCount: 0,
+        adjustments: ["protect day applied: Protect day applied."]
+      }
+    ],
+    timelineEventGroups: {
+      trainingEvents: [
+        {
+          eventType: "week_completed",
+          eventDate: "2026-05-19",
+          title: "Week 1 summarized",
+          summary: "Week summary persisted."
+        }
+      ],
+      adjustmentEvents: [],
+      materializationEvents: [],
+      safetyReviewEvents: []
+    },
+    engineOwnedCopy: "Engine-owned history.",
+    screenMutationCopy: "Screens do not mutate programming decisions."
   },
   timelineEvents: [
     {
@@ -493,6 +565,7 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
     nutrition: { listFoodLogs: vi.fn(async () => journey.nutritionHistory) },
     nutritionSafetyReview: {
       listActiveNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
+      listRecentNutritionSafetyReviewEvents: vi.fn(async () => journey.nutritionSafetyReviewEvents),
       listNutritionSafetyReviews: vi.fn(async () => journey.nutritionSafetyReviews),
       getNutritionSafetyReviewById: vi.fn(async () => null),
       upsertNutritionSafetyReview: vi.fn(async () => ({
@@ -893,11 +966,98 @@ describe("minimal app screens", () => {
   });
 
   it("Fuel screens do not import nutrition safety review repositories directly", () => {
-    for (const file of ["src/app/screens/FuelScreen.tsx", "src/app/screens/fuel/FuelCommandCards.tsx"]) {
+    for (const file of [
+      "src/app/screens/FuelScreen.tsx",
+      "src/app/screens/fuel/FuelCommandCards.tsx",
+      "src/app/screens/fuel/NutritionReviewHistoryPanel.tsx",
+      "src/app/screens/fuel/FuelHistoryPanel.tsx",
+      "src/app/screens/fuel/BodyMassTrajectoryPanel.tsx"
+    ]) {
       const source = readFileSync(file, "utf8");
       expect(source).not.toContain("nutritionSafetyReviewRepository");
       expect(source).not.toContain("createNutritionSafetyReviewRepository");
     }
+  });
+
+  it("NutritionReviewHistoryPanel renders active review timeline without clear controls", async () => {
+    const { NutritionReviewHistoryPanel } = await import("../../app/screens/fuel/NutritionReviewHistoryPanel");
+    const renderer = render(
+      React.createElement(NutritionReviewHistoryPanel, {
+        history: {
+          title: "Nutrition review history",
+          activeReviewCount: 1,
+          hardStopReviewCount: 1,
+          latestReviewSummary: "weight class review is requested as of 2026-05-19.",
+          activeReviews: [
+            {
+              reviewId: "review_1",
+              status: "acknowledged",
+              reviewType: "weight_class",
+              severity: "critical",
+              hardStop: true,
+              reasons: ["Qualified review is required."],
+              blockingFlags: ["acute_protocol_blocked"],
+              suggestedNextSteps: ["Keep regular meals and fluids steady."],
+              requestedAt: "2026-05-19T00:00:00.000Z",
+              canAcknowledge: false,
+              canSelfClear: false
+            }
+          ],
+          historyEvents: [
+            {
+              date: "2026-05-19",
+              eventType: "acknowledged",
+              actorType: "athlete",
+              summary: "Acknowledged by athlete. This does not clear the plan."
+            }
+          ],
+          noHistoryCopy: "No review events are loaded yet.",
+          safetyCopy: "This does not clear the plan. Athletes cannot self-clear nutrition hard stops.",
+          reviewerFutureCopy: "Reviewer-clear workflow is not exposed in the app yet."
+        }
+      })
+    );
+    const output = JSON.stringify(renderer.toJSON());
+
+    expect(output).toContain("review_1");
+    expect(output).toContain("hard stop remains active");
+    expect(output).toContain("This does not clear the plan");
+    expect(output).toContain("Reviewer-clear workflow is not exposed");
+    expect(renderer.root.findAllByType("Pressable")).toHaveLength(0);
+    expect(output).not.toMatch(/clear button|self-clear: yes/i);
+  });
+
+  it("FuelHistoryPanel renders grouped manual history with safe fiber and sodium context", async () => {
+    const { FuelHistoryPanel } = await import("../../app/screens/fuel/FuelHistoryPanel");
+    const output = JSON.stringify(render(React.createElement(FuelHistoryPanel, { history: fuelViewModel.fuelHistory })).toJSON());
+
+    expect(output).toContain("Fuel history detail");
+    expect(output).toContain("Last 7 days");
+    expect(output).toContain("2026-05-19: 1200 kcal");
+    expect(output).toContain("not as failure");
+    expect(output).toContain("Fiber and sodium context");
+    expect(output).toContain("This does not change targets by itself");
+    expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|make weight at all costs/i);
+  });
+
+  it("BodyMassTrajectoryPanel renders missing data, target gap, and review action safely", async () => {
+    const { BodyMassTrajectoryPanel } = await import("../../app/screens/fuel/BodyMassTrajectoryPanel");
+    const trajectory = {
+      ...fuelViewModel.bodyMassTrajectory,
+      status: "blocked",
+      latestWeight: "Latest: 74.0 kg",
+      targetGapKg: "7.0 kg from target context. This is not a short-term weight instruction.",
+      reviewActionVisible: true,
+      last14Days: [{ date: "2026-05-19", kg: 74, source: "manual", note: "Manual entry" }]
+    };
+    const output = JSON.stringify(render(React.createElement(BodyMassTrajectoryPanel, { trajectory })).toJSON());
+
+    expect(output).toContain("Body-mass trajectory detail");
+    expect(output).toContain("7.0 kg from target context");
+    expect(output).toContain("Review action is visible");
+    expect(output).toContain("2026-05-19");
+    expect(output).toContain("74.0");
+    expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|water cut|make weight at all costs/i);
   });
 
   it("FuelScreen renders staged rehydration checklist with warning symptoms", async () => {
@@ -1506,7 +1666,21 @@ describe("minimal app screens", () => {
             recentRpeValues: ["Split squat: RPE 7"],
             latestStrengthExerciseSummary: "Split squat: completed, bodyweight plus band; notes only, no numeric load progression inferred",
             loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
-            mostRepeatedExercise: "Split squat (2 completed or partial result row(s))"
+            mostRepeatedExercise: "Split squat (2 completed or partial result row(s))",
+            groupedExercises: [
+              {
+                exerciseName: "Split squat",
+                completedCount: 1,
+                partialCount: 1,
+                prescribedOnlyCount: 1,
+                painFlagCount: 1,
+                recentRpe: "RPE 7",
+                latestLoadTextNote: "bodyweight plus band (notes only)",
+                noNumericProgressionCopy: "No numeric progression inferred."
+              }
+            ],
+            topPainFlaggedExercises: ["Split squat: 1 pain flag(s)"],
+            topRepeatedExercises: ["Split squat: 2 completed/partial/skipped row(s)"]
           }
         })
       ).toJSON()
@@ -1516,10 +1690,64 @@ describe("minimal app screens", () => {
     expect(output).toContain("Prescribed-only rows");
     expect(output).toContain("RPE");
     expect(output).toContain("Strength notes");
+    expect(output).toContain("Grouped exercises");
+    expect(output).toContain("Completed/partial/prescribed-only/pain flags");
+    expect(output).toContain("\"1\",\"/\",\"1\",\"/\",\"1\",\"/\",\"1\"");
+    expect(output).toContain("No numeric progression inferred");
     expect(output).toContain("Pain flag: Split squat");
     expect(output).toContain("Free-text load is not used for numeric progression yet.");
     expect(output).toContain("Pain flags stop automatic progression.");
     expect(output).toContain("no numeric load progression inferred");
+  });
+
+  it("TrainingBlockHistoryPanel renders grouped weeks, materialization count, and engine-owned copy", async () => {
+    const { TrainingBlockHistoryPanel } = await import("../../app/screens/plan/TrainingBlockHistoryPanel");
+    const output = JSON.stringify(
+      render(
+        React.createElement(TrainingBlockHistoryPanel, {
+          history: {
+            ...planViewModel.blockHistoryDetail,
+            groupedWeeks: [
+              {
+                weekIndex: 3,
+                summary: "Week summary persisted.",
+                decision: "progress - The week has structured completions.",
+                nextWeekPreviewStatus: "Persisted preview preview_1 (materialized).",
+                materializedGeneratedSessionCount: 2,
+                adjustments: ["coach note applied: Keep jab shoulder volume low."]
+              }
+            ],
+            timelineEventGroups: {
+              trainingEvents: [],
+              adjustmentEvents: [
+                {
+                  eventType: "adjustment_applied",
+                  eventDate: "2026-05-19",
+                  title: "Adjustment applied",
+                  summary: "Coach note retained."
+                }
+              ],
+              materializationEvents: [
+                {
+                  eventType: "next_week_materialized",
+                  eventDate: "2026-05-26",
+                  title: "Next week materialized",
+                  summary: "Generated sessions: 2."
+                }
+              ],
+              safetyReviewEvents: []
+            }
+          }
+        })
+      ).toJSON()
+    );
+
+    expect(output).toContain("Grouped weeks");
+    expect(output).toContain("Materialized generated sessions");
+    expect(output).toContain("\"2\"");
+    expect(output).toContain("coach note applied");
+    expect(output).toContain("Engine-owned history");
+    expect(output).toContain("Screens do not mutate programming decisions");
   });
 
   it("history panels render no-history empty copy", async () => {
@@ -1536,7 +1764,16 @@ describe("minimal app screens", () => {
             adjustmentEvents: [],
             latestNextWeekPreview: null,
             safetyFlags: [],
-            whatChangedAndWhy: ["No changes yet."]
+            whatChangedAndWhy: ["No changes yet."],
+            groupedWeeks: [],
+            timelineEventGroups: {
+              trainingEvents: [],
+              adjustmentEvents: [],
+              materializationEvents: [],
+              safetyReviewEvents: []
+            },
+            engineOwnedCopy: "Engine-owned history.",
+            screenMutationCopy: "Screens do not mutate programming decisions."
           }
         })
       ).toJSON()
@@ -1552,7 +1789,10 @@ describe("minimal app screens", () => {
             recentRpeValues: [],
             latestStrengthExerciseSummary: null,
             loadProgressionNote: "Free-text load is notes only.",
-            mostRepeatedExercise: null
+            mostRepeatedExercise: null,
+            groupedExercises: [],
+            topPainFlaggedExercises: [],
+            topRepeatedExercises: []
           }
         })
       ).toJSON()
