@@ -10,6 +10,8 @@ CornerIQ is beta-ready for structured boxer testing of Today, Fuel, Train, Plan,
 
 No new migration was added in this pass. Remote migrations `001` through `009` remain applied and dry run reports the database is up to date.
 
+2026-05-21 release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and latest public GitHub Actions `Quality` run passed. EAS Android preview build was attempted but did not produce an artifact because the EAS project is not configured. Current release wording is release-candidate prepared, build pending.
+
 ## Local Checks
 
 Run these before handoff:
@@ -48,7 +50,17 @@ Distribution runbook: `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`.
 
 Release-candidate checklist: `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`.
 
-No actual EAS preview or production build was run in this pass. App icon/splash polish and store metadata remain manual release-owner tasks before broader distribution.
+No successful EAS preview or production build exists yet. App icon/splash polish and store metadata remain manual release-owner tasks before broader distribution.
+
+2026-05-21 update:
+
+- `npx eas-cli --version` returned `eas-cli/19.0.5`.
+- EAS auth was available for the release owner account.
+- Android `preview` build was attempted with `npx eas-cli build --profile preview --platform android --non-interactive`.
+- First attempt failed with `Invalid UUID appId` from a pre-existing dirty `app.json` EAS project id.
+- The invalid project id was removed, and `npm run preflight:beta` now rejects malformed future EAS project ids.
+- Retry failed with `EAS project not configured`; run `npx eas-cli project:init` or `eas init` before the next non-interactive preview build.
+- No EAS build URL or artifact exists yet.
 
 ## Live Smoke
 
@@ -181,6 +193,15 @@ The results and human testing adjustments are documented in `docs/22_BETA_SCENAR
 
 CI does not run live smoke and does not require Supabase smoke credentials.
 
+Latest status check from the public GitHub Actions API:
+
+- Workflow: `Quality`.
+- Run: `26215681543`.
+- Commit: `235b3f8508c1194d3a6f17354d6a26b2618524de`.
+- Event: `push`.
+- Status: completed.
+- Conclusion: success.
+
 ## Deferred Features
 
 Still deferred:
@@ -194,7 +215,7 @@ Still deferred:
 - Drag/drop calendar.
 - External analytics.
 - Production issue triage dashboard.
-- Actual EAS preview build execution.
+- Successful EAS preview build execution; the latest attempt failed because EAS project setup is pending.
 - App store metadata, icon, and splash polish.
 
 ## Beta Release Checklist
@@ -215,6 +236,7 @@ Still deferred:
 - Feedback submit and history visible.
 - Beta tester notice visible.
 - Expo/EAS preview profile exists or setup deferral is documented.
+- EAS preview build attempted and result documented.
 - Scenario QA and static safety scans pass.
 - Data deletion checked.
 - Cycle privacy visible.

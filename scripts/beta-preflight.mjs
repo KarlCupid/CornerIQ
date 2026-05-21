@@ -52,6 +52,14 @@ function checkEasProfiles() {
   }
 }
 
+function checkAppConfig() {
+  const app = readJson("app.json");
+  const projectId = app.expo?.extra?.eas?.projectId;
+  if (projectId !== undefined && (typeof projectId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId))) {
+    failures.push("Invalid EAS projectId in app.json; expected UUID.");
+  }
+}
+
 function checkPublicEnvDeclarations() {
   const envExampleNames = parseEnvExampleNames();
   for (const name of ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY"]) {
@@ -87,6 +95,7 @@ for (const file of ["app.json", "eas.json", "docs/20_BETA_TESTING_AND_FEEDBACK_P
 
 checkPackageScripts();
 checkEasProfiles();
+checkAppConfig();
 checkPublicEnvDeclarations();
 checkSensitiveConfigMarkers();
 

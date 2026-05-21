@@ -67,12 +67,24 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Hold: non-blocking gaps remain, but tester safety and data/privacy gates pass.
 - Blocker: any safety gate, env gate, migration mismatch, live smoke failure with available env, or credential exposure is unresolved.
 
-Record the decision:
+## Release-Candidate Decision - 2026-05-21
 
-- Decision: Ready / Hold / Blocker
-- Date:
-- Reviewer:
-- Notes:
+- Decision: Hold.
+- Reason: Code gates, Supabase migration checks, GitHub Actions, preflight, and live smoke passed, but no EAS preview build artifact exists yet. Android EAS preview was attempted and is held on EAS project setup.
+- Checks completed: `npm run typecheck`, `npm test`, `npm run quality`, `npm run lint`, `npm run preflight:beta`, Supabase CLI version, migration list, dry run, live smoke, CI workflow inspection, latest GitHub Actions run check, EAS CLI/auth check, and Android preview build attempt.
+- Live smoke: passed after ignored local `.env` values were loaded into the process without printing values; the first bare shell attempt documented missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Preflight: passed after adding validation for malformed EAS project ids.
+- GitHub Actions status checked: yes. Latest public `Quality` run `26215681543` for commit `235b3f8508c1194d3a6f17354d6a26b2618524de` completed with `success`.
+- EAS build attempted: yes.
+- EAS build profile: `preview`.
+- EAS platform: Android.
+- EAS result: failed.
+- EAS build URL/artifact: none produced.
+- EAS failure reason: first attempt failed with `Invalid UUID appId` from a pre-existing dirty `app.json` project id; that invalid id was removed. Retry failed with `EAS project not configured`; non-interactive build requires `eas init`.
+- If not attempted: not applicable.
+- Release wording: release-candidate prepared, build pending. Do not call this distributed until an EAS preview build succeeds and a private tester distribution path is confirmed.
+- Remaining manual tasks: app icon/splash, store metadata, tester list, EAS account/project setup, internal build distribution, and human beta scheduling.
+- Secrets: no smoke credentials, EAS tokens, Supabase tokens, or service-role keys were committed or documented as values.
 
 ## Known Deferred Features
 

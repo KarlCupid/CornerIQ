@@ -70,16 +70,17 @@ Preview build command:
 
 ```bash
 eas build --profile preview
+npx eas-cli build --profile preview --platform android --non-interactive
 ```
 
 If EAS is not configured for the project owner yet:
 
 1. Sign in with the release owner account.
-2. Run `npx eas-cli build:configure`.
+2. Run `npx eas-cli project:init` or `eas init` to link or create the EAS project.
 3. Confirm the existing app name, slug, version, bundle identifiers, and Android package in `app.json`.
 4. Do not add secret values to `app.json` or `eas.json`.
 5. Re-run `npm run preflight:beta`.
-6. Run `eas build --profile preview`.
+6. Run `npx eas-cli build --profile preview --platform android --non-interactive`.
 
 Current app config:
 
@@ -91,6 +92,29 @@ Current app config:
 - iOS bundle identifier: `com.corneriq.app`.
 - Android package: `com.corneriq.app`.
 - Icon and splash assets are not production-polished yet; accept this as a beta limitation or add assets before broader distribution.
+
+## Current EAS Build Status
+
+2026-05-21 verification:
+
+- EAS CLI was available through `npx eas-cli`.
+- EAS CLI version: `eas-cli/19.0.5`.
+- EAS auth was available for the release owner account.
+- Android preview build was attempted with `npx eas-cli build --profile preview --platform android --non-interactive`.
+- First attempt failed with `Invalid UUID appId` because `app.json` had a pre-existing dirty invalid `extra.eas.projectId`.
+- The invalid project id was removed, and beta preflight now validates any future EAS project id as a UUID.
+- Retry failed with `EAS project not configured`; non-interactive build requires `eas init`.
+- EAS result: failed.
+- Build URL/artifact: none produced.
+- Current status: release-candidate prepared, build pending. Do not call the app distributed until EAS project setup is complete and a preview build succeeds.
+
+Manual release-owner tasks:
+
+- Run `npx eas-cli project:init` or `eas init`.
+- Rerun Android preview build.
+- Confirm build credentials.
+- Decide whether current icon/splash/store metadata gaps are acceptable for the private beta or add assets first.
+- Share any produced build link only through a private tester channel.
 
 ## Tester Distribution
 

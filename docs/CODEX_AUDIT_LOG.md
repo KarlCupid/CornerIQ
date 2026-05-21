@@ -1,5 +1,51 @@
 # Codex Audit Log
 
+## 2026-05-21 02:11 America/Vancouver
+
+Goal summary:
+- Perform a release-candidate verification pass without adding product features.
+- Verify local quality gates, Supabase remote state, live smoke, GitHub Actions config/status, and Expo/EAS preview build readiness.
+- Attempt Android EAS preview build if tooling/auth allowed.
+- Fix only release/build/config blockers discovered during verification.
+
+Key changes:
+- Removed an invalid pre-existing dirty `extra.eas.projectId` from `app.json` after EAS rejected it as `Invalid UUID appId`.
+- Added `scripts/beta-preflight.mjs` validation so any future `app.json` EAS project id must be a UUID.
+- Updated release, EAS, handoff, audit, feature-status, known-gaps, operations, and Supabase status docs with actual verification results.
+- No product feature, migration, external analytics, coach UI, reviewer-clear UI, admin dashboard, barcode scanning, meal planning, numeric load progression, or drag/drop calendar was added.
+
+Command results:
+- `git status --short`: initially showed dirty `app.json` before this pass.
+- `git log --oneline --decorate -8`: latest commit `235b3f8 (HEAD -> main, origin/main) Prepare beta release candidate readiness`.
+- `cmd /c npm run typecheck`: passed.
+- Sandboxed `cmd /c npm test`: failed from Vitest/esbuild config access denied; approved unsandboxed rerun passed with `366` tests passed and `1` skipped.
+- Sandboxed `cmd /c npm run quality`: failed for the same access issue; approved unsandboxed rerun passed.
+- `cmd /c npm run lint`: passed.
+- `cmd /c npm run preflight:beta`: passed before and after the EAS project id validation fix.
+- Supabase CLI sandboxed version failed writing telemetry under the user profile; approved unsandboxed version returned `2.100.1`.
+- Supabase migration list: local/remote `001` through `009` aligned.
+- Supabase dry run: `Remote database is up to date.`
+- Live smoke with only `CORNERIQ_LIVE_DB_SMOKE=1`: failed before DB work because `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` were missing from the shell process.
+- Ignored `.env` key-name check found the required public and smoke key names without printing values.
+- Live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12065ms`, duration `13.73s`.
+- GitHub Actions workflow config was verified: `push` and `pull_request`, `npm ci`, typecheck, lint, tests; no live smoke or smoke/service-role secret references.
+- GitHub Actions latest public run check: `Quality` run `26215681543` for commit `235b3f8508c1194d3a6f17354d6a26b2618524de`, event `push`, completed with `success`.
+- EAS CLI via `npx eas-cli --version`: `eas-cli/19.0.5`.
+- EAS auth via `npx eas-cli whoami`: release owner account available.
+- First Android preview build attempt: failed with `Invalid UUID appId`.
+- Second Android preview build attempt after removing the invalid id: failed with `EAS project not configured`; non-interactive build requires `eas init`.
+
+Decision:
+- Hold for distributed beta build.
+- Release-candidate prepared, build pending.
+- Ready for controlled local/structured boxer beta verification, but not yet distributed through EAS.
+
+Known gaps:
+- EAS project is not configured; run `eas init`/`npx eas-cli project:init` as release owner, then rerun Android preview.
+- No EAS build URL or artifact exists yet.
+- App icon, splash, store metadata, tester list, internal distribution channel, and human beta scheduling remain manual.
+- Real boxer beta findings have not been captured yet.
+
 ## 2026-05-21 01:40 America/Vancouver
 
 Goal summary:
