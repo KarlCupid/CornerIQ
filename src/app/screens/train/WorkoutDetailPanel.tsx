@@ -135,15 +135,18 @@ export function WorkoutDetailPanel({
         {session.safetyNotes.slice(0, 3).map((item) => <Text key={item} style={screenStyles.subtle}>Safety: {item}</Text>)}
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
+        <Pressable accessibilityLabel={open ? "Hide workout detail" : "Open workout detail"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
           <Text style={screenStyles.quietButtonText}>{open ? "Hide workout detail" : "Open workout detail"}</Text>
         </Pressable>
       </View>
       {open ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.body}>You can complete this without logging every exercise.</Text>
-            <Text style={screenStyles.subtle}>Blank exercise rows are saved as prescribed_only.</Text>
+            <Text style={screenStyles.body}>Complete without exercise details when time is tight.</Text>
+            <Text style={screenStyles.subtle}>Session RPE is enough if you are short on time.</Text>
+            <Text style={screenStyles.subtle}>Blank exercise rows are saved as prescribed_only. Skipped sessions do not save exercise rows.</Text>
+            <Text style={screenStyles.subtle}>Pain notes help the engine avoid automatic progression.</Text>
+            <Text style={screenStyles.subtle}>Skip reason is optional but visible here if context matters.</Text>
             <Text style={screenStyles.subtle}>Result statuses: completed means all sets were done, partial means some work or a pain flag was logged, prescribed_only means no actual was entered, skipped means zero sets.</Text>
           </View>
           {session.sections.map((section) => (
@@ -159,7 +162,7 @@ export function WorkoutDetailPanel({
                     <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadText} />
                     <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, rpe: value }))} placeholder="Exercise RPE optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.rpe} />
                     <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, notes: value }))} placeholder="Exercise notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.notes} />
-                    <Pressable accessibilityRole="button" disabled={busy} onPress={() => updateExercise(exercise.exerciseId, (current) => ({ ...current, painFlag: !current.painFlag }))} style={[screenStyles.quietButton, input.painFlag ? { borderColor: colors.amberCaution } : null]}>
+                    <Pressable accessibilityLabel={`${input.painFlag ? "Remove" : "Add"} pain flag for ${exercise.name}`} accessibilityRole="button" accessibilityState={{ disabled: busy, selected: input.painFlag }} disabled={busy} onPress={() => updateExercise(exercise.exerciseId, (current) => ({ ...current, painFlag: !current.painFlag }))} style={[screenStyles.quietButton, input.painFlag ? { borderColor: colors.amberCaution } : null]}>
                       <Text style={screenStyles.quietButtonText}>{input.painFlag ? "Pain flag on" : "Pain flag optional"}</Text>
                     </Pressable>
                   </View>
@@ -171,11 +174,11 @@ export function WorkoutDetailPanel({
           <TextInput onChangeText={setPainNotes} placeholder="Pain note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
           <TextInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={notes} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityRole="button" disabled={busy} onPress={() => void complete()} style={screenStyles.button}>
-              <Text style={screenStyles.buttonText}>Mark completed</Text>
+            <Pressable accessibilityLabel="Complete without exercise details" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void complete()} style={screenStyles.button}>
+              <Text style={screenStyles.buttonText}>{busy ? "Saving completion..." : "Complete without exercise details"}</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" disabled={busy} onPress={() => void skip()} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>Skip session</Text>
+            <Pressable accessibilityLabel="Skip session with optional reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={screenStyles.quietButton}>
+              <Text style={screenStyles.quietButtonText}>{busy ? "Saving skip..." : "Skip session"}</Text>
             </Pressable>
           </View>
         </View>

@@ -140,7 +140,7 @@ export function buildBetaHealthViewModel(input: BuildBetaHealthViewModelInput): 
     checks,
     nextSafeAction,
     overallStatus: status,
-    supportCopy: "Use Profile Audit feedback for bugs or confusing moments. Urgent safety concerns need qualified support outside the app.",
+    supportCopy: "Use Profile Audit feedback for bugs or confusing moments. This is not emergency support; urgent safety concerns need qualified help outside the app.",
     title: "Beta health preflight",
     warnings
   };

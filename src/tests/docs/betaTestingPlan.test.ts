@@ -9,12 +9,14 @@ describe("beta testing documentation", () => {
     expect(source).toContain("Test Personas");
     expect(source).toContain("Test Scripts");
     expect(source).toContain("Safety Checks");
+    expect(source).toContain("Automated Scenario QA");
     expect(source).toContain("Feedback Prompts");
     expect(source).toContain("Beta Exit Criteria");
     expect(source).toContain("Submit beta feedback");
     expect(source).toContain("manual-only no wearable athlete");
     expect(source).toContain("no unsafe weight-cut instructions");
     expect(source).toContain("missing data = unknown");
+    expect(source).toContain("docs/22_BETA_SCENARIO_QA_RESULTS.md");
     expect(source).toContain("Did Fuel feel useful without barcode scanning?");
   });
 });

@@ -462,8 +462,8 @@ const planViewModel: PlanViewModel = {
       date: "2026-05-19",
       label: "Tue, May 19",
       protectedAnchors: "sparring (hard)",
-      generatedSupport: "Sparring support microdose (easy)",
-      generatedSessions: [{ id: "generated_1", title: "Sparring support microdose", date: "2026-05-19" }],
+      generatedSupport: "Protected boxing support microdose (easy)",
+      generatedSessions: [{ id: "generated_1", title: "Protected boxing support microdose", date: "2026-05-19" }],
       marker: "Hard day",
       fuelDemand: "high",
       warningSummary: null,
@@ -944,7 +944,8 @@ describe("minimal app screens", () => {
 
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Do not include emergency details or secrets.");
-    expect(output).toContain("This feedback is not medical or coaching review.");
+    expect(output).toContain("This is not emergency support");
+    expect(output).toContain("not medical or coaching review");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Send feedback"));
@@ -1003,6 +1004,19 @@ describe("minimal app screens", () => {
     expect(output).toContain("2026-05-20");
     expect(output).toContain("Profile Audit crashed");
     expect(output).not.toMatch(/mark reviewed|mark resolved|dismiss report|edit status/i);
+  });
+
+  it("BetaFeedbackPanel renders recent feedback empty and signed-out states clearly", async () => {
+    const { BetaFeedbackPanel } = await import("../../app/components/BetaFeedbackPanel");
+    const signedOut = render(React.createElement(BetaFeedbackPanel, { defaultScreen: "profile", recentReports: [] }));
+
+    let output = JSON.stringify(signedOut.toJSON());
+    expect(output).toContain("No feedback reports yet. Send a note after a confusing beta moment");
+    await act(async () => {
+      await press(pressableWithText(signedOut, "Send feedback"));
+    });
+    output = JSON.stringify(signedOut.toJSON());
+    expect(output).toContain("Sign in is required before sending beta feedback.");
   });
 
   it("TodayScreen renders view model fields", async () => {
@@ -1500,7 +1514,9 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Open workout detail"));
     });
     const openOutput = JSON.stringify(renderer.toJSON());
-    expect(openOutput).toContain("Mark completed");
+    expect(openOutput).toContain("Complete without exercise details");
+    expect(openOutput).toContain("Session RPE is enough if you are short on time.");
+    expect(openOutput).toContain("Pain notes help the engine avoid automatic progression.");
     expect(openOutput).toContain("Skip session");
     expect(openOutput).toContain("Blank exercise rows are saved as prescribed_only");
     expect(openOutput).toContain("Result statuses");
@@ -1522,8 +1538,9 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithText(renderer, "Open workout detail"));
     });
+    expect(JSON.stringify(renderer.toJSON()).toLowerCase()).not.toMatch(/\b(contact|sparring)\b/);
     await act(async () => {
-      await press(pressableWithText(renderer, "Mark completed"));
+      await press(pressableWithText(renderer, "Complete without exercise details"));
     });
     expect(complete).toHaveBeenCalledWith(session, expect.objectContaining({ exerciseResults: expect.any(Array) }));
     expect(complete.mock.calls[0]?.[1].exerciseResults.every((result: { resultStatus: string }) => result.resultStatus === "prescribed_only")).toBe(true);
@@ -1817,7 +1834,7 @@ describe("minimal app screens", () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const adjustmentActions = {
       protectDay: vi.fn(async () => ({ status: "applied" as const, explanation: "Protect day applied.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
-      markUnavailable: vi.fn(async () => ({ status: "applied" as const, explanation: "Unavailable day applied.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
+      markUnavailable: vi.fn(async () => ({ status: "rejected" as const, explanation: "Unavailable rejected: safety review owns this day.", modifiedDayPlans: [], safetyFlags: ["training_adjustment_rejected"], persistedAdjustmentPayload: {} })),
       requestDeload: vi.fn(async () => ({ status: "applied" as const, explanation: "Deload requested.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
       restoreEnginePlan: vi.fn(async () => ({ status: "applied" as const, explanation: "Engine plan restored.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
       moveGeneratedSession: vi.fn(async () => ({ status: "rejected" as const, explanation: "Move rejected: generated work cannot be moved onto protected sparring day.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} }))
@@ -1837,11 +1854,22 @@ describe("minimal app screens", () => {
 
     await switchSection(renderer, "Adjustments");
     expect(JSON.stringify(renderer.toJSON())).toContain("Engine-owned adjustment");
+    expect(JSON.stringify(renderer.toJSON())).toContain("These buttons request a change from the engine");
     await act(async () => {
-      await press(pressableWithText(renderer, "Protect day"));
+      await press(pressableWithText(renderer, "Protect this day"));
     });
     expect(adjustmentActions.protectDay).toHaveBeenCalledWith("2026-05-19");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Engine response:");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Protect day applied.");
     expect(JSON.stringify(renderer.toJSON())).not.toContain("Apply move");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Mark unavailable"));
+    });
+    const rejectedOutput = JSON.stringify(renderer.toJSON());
+    expect(adjustmentActions.markUnavailable).toHaveBeenCalledWith("2026-05-19");
+    expect(rejectedOutput).toContain("Adjustment not applied");
+    expect(rejectedOutput).toContain("Unavailable rejected: safety review owns this day.");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Request deload"));
@@ -2181,6 +2209,37 @@ describe("minimal app screens", () => {
     expect(output).toContain("cannot self-clear");
   });
 
+  it("BetaHealthPanel renders warning next action", async () => {
+    const { BetaHealthPanel } = await import("../../app/components/BetaHealthPanel");
+    const output = JSON.stringify(
+      render(
+        React.createElement(BetaHealthPanel, {
+          viewModel: {
+            ...betaHealthViewModel,
+            betaTesterCopy: "This beta session needs attention before it should be treated as ready.",
+            checks: [
+              ...betaHealthViewModel.checks,
+              {
+                key: "profile_complete",
+                label: "Profile complete",
+                nextAction: "Finish boxer setup before using beta training or fuel decisions.",
+                status: "warning",
+                summary: "Boxer setup is incomplete."
+              }
+            ],
+            nextSafeAction: "Finish boxer setup before using beta training or fuel decisions.",
+            overallStatus: "warning",
+            warnings: ["Profile complete: Boxer setup is incomplete."]
+          }
+        })
+      ).toJSON()
+    );
+
+    expect(output).toContain("Beta preflight needs attention");
+    expect(output).toContain("Next safe action:");
+    expect(output).toContain("Finish boxer setup before using beta training or fuel decisions.");
+  });
+
   it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     const previewExport = vi.fn(async () => undefined);
@@ -2436,6 +2495,64 @@ describe("minimal app screens", () => {
     });
     expect(actions.logProtectedWorkout).not.toHaveBeenCalled();
     expect(JSON.stringify(training.toJSON())).toContain("Duration");
+  });
+
+  it("quick log cards clarify enough-for-today copy, disabled state, and optional fields", async () => {
+    const { BodyMassLogCard, FoodQuickLogCard, HydrationLogCard, ProtectedWorkoutLogCard } = await import("../../app/screens/logging/LogCards");
+    const actions: QuickLogActions = {
+      logBodyMass: vi.fn(),
+      logCycle: vi.fn(),
+      logFood: vi.fn(),
+      logHydration: vi.fn(),
+      logProtectedWorkout: vi.fn(),
+      logReadiness: vi.fn()
+    };
+
+    const busyBodyMass = render(React.createElement(BodyMassLogCard, { actions, busy: true }));
+    const busyButton = pressableWithText(busyBodyMass, "Saving body mass...");
+    expect(busyButton?.props.disabled).toBe(true);
+    const output = JSON.stringify(busyBodyMass.toJSON()).toLowerCase();
+    expect(output).toContain("log enough for today");
+    expect(output).toContain("missed logs stay unknown");
+    expect(output).not.toMatch(/cheat|bad|failed athlete|noncompliant/);
+
+    const food = render(React.createElement(FoodQuickLogCard, { actions, busy: false }));
+    act(() => {
+      changeInput(food, "Calories", "2200");
+      changeInput(food, "Protein g", "130");
+      changeInput(food, "Carbs g", "260");
+      changeInput(food, "Fat g", "70");
+    });
+    await act(async () => {
+      await press(pressableWithText(food, "Save food"));
+    });
+    expect(actions.logFood).toHaveBeenCalledWith(expect.objectContaining({ calories: 2200, proteinGrams: 130, carbohydrateGrams: 260, fatGrams: 70 }));
+    const foodPayload = (actions.logFood as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];
+    expect(foodPayload).not.toHaveProperty("fiberGrams");
+    expect(foodPayload).not.toHaveProperty("sodiumMg");
+
+    const hydration = render(React.createElement(HydrationLogCard, { actions, busy: false }));
+    act(() => {
+      changeInput(hydration, "Water liters", "2.5");
+    });
+    await act(async () => {
+      await press(pressableWithText(hydration, "Log hydration"));
+    });
+    expect(actions.logHydration).toHaveBeenCalledWith(expect.objectContaining({ liters: 2.5 }));
+    const hydrationPayload = (actions.logHydration as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];
+    expect(hydrationPayload).not.toHaveProperty("sodiumMg");
+
+    const training = render(React.createElement(ProtectedWorkoutLogCard, { actions, busy: false }));
+    act(() => {
+      changeInput(training, "Duration minutes", "45");
+    });
+    await act(async () => {
+      await press(pressableWithText(training, "Log completed session"));
+    });
+    expect(actions.logProtectedWorkout).toHaveBeenCalledWith(expect.objectContaining({ durationMinutes: 45 }));
+    const trainingPayload = (actions.logProtectedWorkout as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];
+    expect(trainingPayload).not.toHaveProperty("note");
+    expect(trainingPayload).not.toHaveProperty("rounds");
   });
 
   it("onboarding blocks invalid body mass before Next", async () => {
@@ -2711,10 +2828,11 @@ describe("minimal app screens", () => {
       const renderer = render(React.createElement(AppErrorBoundary, { onReportIssue, signedIn: false }, React.createElement(BrokenSignedOutTree)));
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Report this issue"));
+        await press(pressableWithText(renderer, "Sign in to report issue"));
       });
 
       expect(onReportIssue).not.toHaveBeenCalled();
+      expect(JSON.stringify(renderer.toJSON())).toContain("Sign in is required to report this issue.");
       expect(JSON.stringify(renderer.toJSON())).toContain("No report was submitted");
     } finally {
       consoleError.mockRestore();

@@ -31,6 +31,10 @@ function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy:
   );
 }
 
+function QuickLogHelp() {
+  return <Text style={screenStyles.subtle}>Log enough for today. Optional fields can stay blank; missed logs stay unknown.</Text>;
+}
+
 export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
   const [bodyMassKg, setBodyMassKg] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body mass log failed.");
@@ -38,10 +42,13 @@ export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Body mass</Text>
+        <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         <TextInput keyboardType="decimal-pad" onChangeText={setBodyMassKg} placeholder="kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={bodyMassKg} />
         <Pressable
+          accessibilityLabel={busy ? "Saving body mass log" : "Log body mass"}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
@@ -51,7 +58,7 @@ export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>Log body mass</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving body mass..." : "Log body mass"}</Text>
         </Pressable>
       </View>
     </EngineCard>
@@ -88,6 +95,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Readiness</Text>
+        <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         <TextInput keyboardType="decimal-pad" onChangeText={setSleepHours} placeholder="Sleep hours" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sleepHours} />
         <TextInput keyboardType="number-pad" onChangeText={setSleepQuality} placeholder="Sleep quality 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sleepQuality} />
@@ -102,7 +110,9 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
           <ToggleButton active={fainting} busy={busy} label="Fainting" onPress={() => setFainting((value) => !value)} />
         </View>
         <Pressable
+          accessibilityLabel={busy ? "Saving readiness log" : "Log readiness"}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
@@ -123,7 +133,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>Log readiness</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : "Log readiness"}</Text>
         </Pressable>
       </View>
     </EngineCard>
@@ -138,11 +148,14 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Hydration</Text>
+        <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         <TextInput keyboardType="decimal-pad" onChangeText={setLiters} placeholder="Water liters" placeholderTextColor={colors.wrap} style={screenStyles.input} value={liters} />
         <TextInput keyboardType="number-pad" onChangeText={setSodiumMg} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodiumMg} />
         <Pressable
+          accessibilityLabel={busy ? "Saving hydration log" : "Log hydration"}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
@@ -155,7 +168,7 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>Log hydration</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving hydration..." : "Log hydration"}</Text>
         </Pressable>
       </View>
     </EngineCard>
@@ -178,7 +191,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Cycle</Text>
-        <Text style={screenStyles.subtle}>Optional and private. This is for symptoms and training context, not fertility tracking.</Text>
+        <Text style={screenStyles.subtle}>Optional and private. Log enough for today; this is for symptoms and training context, not fertility tracking.</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["unknown", "none", "light", "moderate", "heavy", "very_heavy"] as const).map((level) => (
@@ -196,7 +209,9 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
           <ToggleButton active={hormonalContraception !== "unknown"} busy={busy} label="Hormonal contraception" onPress={() => setHormonalContraception((value) => (value === "unknown" ? "combined_pill" : "unknown"))} />
         </View>
         <Pressable
+          accessibilityLabel={busy ? "Saving cycle log" : "Log cycle"}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
@@ -214,7 +229,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>Log cycle</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving cycle..." : "Log cycle"}</Text>
         </Pressable>
       </View>
     </EngineCard>
@@ -233,6 +248,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Food quick log</Text>
+        <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         <TextInput keyboardType="number-pad" onChangeText={setCalories} placeholder="Calories" placeholderTextColor={colors.wrap} style={screenStyles.input} value={calories} />
         <TextInput keyboardType="decimal-pad" onChangeText={setProtein} placeholder="Protein g" placeholderTextColor={colors.wrap} style={screenStyles.input} value={protein} />
@@ -241,7 +257,9 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
         <TextInput keyboardType="decimal-pad" onChangeText={setFiber} placeholder="Fiber g optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={fiber} />
         <TextInput keyboardType="number-pad" onChangeText={setSodium} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodium} />
         <Pressable
+          accessibilityLabel={busy ? "Saving food log" : "Save food quick log"}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
@@ -268,7 +286,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>Save food</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : "Save food"}</Text>
         </Pressable>
       </View>
     </EngineCard>
@@ -287,7 +305,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Training log</Text>
-        <Text style={screenStyles.subtle}>Completed sessions are history. Planned anchors are protected boxing commitments.</Text>
+        <Text style={screenStyles.subtle}>Log enough for today. Completed sessions are history; planned anchors are protected boxing commitments.</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ToggleButton active={logKind === "completed"} busy={busy} label="Completed session" onPress={() => setLogKind("completed")} />
@@ -307,7 +325,9 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
         <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rounds} />
         <TextInput onChangeText={setNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={note} />
         <Pressable
+          accessibilityLabel={busy ? "Saving training log" : logKind === "completed" ? "Log completed session" : "Save planned anchor"}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
@@ -327,7 +347,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{logKind === "completed" ? "Log completed session" : "Save planned anchor"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving training..." : logKind === "completed" ? "Log completed session" : "Save planned anchor"}</Text>
         </Pressable>
       </View>
     </EngineCard>

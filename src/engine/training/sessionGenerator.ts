@@ -33,12 +33,12 @@ export function generateSupportSession(input: {
       id: `generated:${input.date}:sparring-support`,
       date: input.date,
       family: "shoulder_scap_durability",
-      title: "Sparring support microdose",
+      title: "Protected boxing support microdose",
       durationMinutes: input.highCycleSymptoms ? 15 : 25,
       intensity: "easy",
       prescription: ["Scap push-up 2 x 8", "Band external rotation 2 x 12", "Dead bug 2 x 6/side", "Easy mobility"],
-      rationale: "Sparring owns today's hard stress, so support work stays short.",
-      protects: ["sparring quality", "shoulders", "trunk stiffness"],
+      rationale: "Protected boxing owns today's hard stress, so generated support stays short.",
+      protects: ["boxing quality", "shoulders", "trunk stiffness"],
       modifications: input.highCycleSymptoms ? ["Trimmed for high cycle symptoms"] : [],
       fuelDemand: "high"
     };

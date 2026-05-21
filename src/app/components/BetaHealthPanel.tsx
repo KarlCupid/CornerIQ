@@ -50,6 +50,7 @@ export function BetaHealthPanel({ viewModel }: { viewModel: BetaHealthViewModel 
       </EngineCard>
       {viewModel.warnings.length > 0 && viewModel.nextSafeAction ? (
         <RiskBanner title="Beta preflight needs attention" message={viewModel.nextSafeAction} tone={warningTone}>
+          <Text style={screenStyles.body}>Next safe action: {viewModel.nextSafeAction}</Text>
           {viewModel.warnings.map((warning) => <Text key={warning} style={screenStyles.subtle}>{warning}</Text>)}
         </RiskBanner>
       ) : null}

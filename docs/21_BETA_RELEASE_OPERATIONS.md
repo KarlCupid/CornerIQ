@@ -6,7 +6,7 @@ This document is the operational checklist for structured CornerIQ beta releases
 
 ## Beta Readiness Status
 
-CornerIQ is beta-ready for structured boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, and issue reporting. This pass added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, and a GitHub Actions quality workflow.
+CornerIQ is beta-ready for structured boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a GitHub Actions quality workflow, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
 
 No new migration was added in this pass. Remote migrations `001` through `009` remain applied and dry run reports the database is up to date.
 
@@ -75,7 +75,7 @@ The panel supports:
 
 Reports are user-owned rows in `beta_feedback_reports` under RLS. Client code can submit and list the signed-in user's own reports; it cannot mark reports reviewed, resolved, or dismissed.
 
-Testers should not include secrets, emergency details, medical records, full health histories, or screenshots with private content.
+Testers should not include secrets, emergency details, medical records, full health histories, or screenshots with private content. In-app copy now states that feedback is not emergency support and is not medical or coaching review.
 
 ## Feedback Triage
 
@@ -107,6 +107,29 @@ Future options:
 Issue reports reuse beta feedback with category `bug`. The payload includes a sanitized error summary and bounded component-stack summary. The UI does not show raw stack traces, and there is no automatic third-party reporting.
 
 Signed-out users see recovery copy, but no issue report is submitted.
+
+## Scenario QA
+
+Before human beta sessions, run and inspect:
+
+```bash
+npm test
+```
+
+The scenario-specific coverage lives in `src/tests/beta/betaScenarioFlows.test.ts`. It exercises:
+
+- Amateur novice build phase.
+- Amateur open with sparring anchors.
+- Amateur tournament daily weigh-ins.
+- Pro camp day-before weigh-in.
+- Same-day weigh-in amateur.
+- Cycle-enabled athlete with high symptoms.
+- Manual-only no wearable athlete.
+- Under-fueling risk case.
+- Red readiness case.
+- No-equipment boxer.
+
+The results and human testing adjustments are documented in `docs/22_BETA_SCENARIO_QA_RESULTS.md`.
 
 ## Data And Privacy
 
@@ -159,6 +182,7 @@ Still deferred:
 - No contact-work generation.
 - No self-clear path.
 - Feedback submit and history visible.
+- Scenario QA and static safety scans pass.
 - Data deletion checked.
 - Cycle privacy visible.
 - No service role in client.
@@ -176,6 +200,10 @@ Inspect first:
 7. `.github/workflows/quality.yml`
 8. `src/tests/app/appShell.test.ts`
 9. `src/tests/engine/betaHealthViewModel.test.ts`
-10. `src/tests/docs/betaReleaseOperations.test.ts`
-11. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
-12. `docs/21_BETA_RELEASE_OPERATIONS.md`
+10. `src/tests/beta/betaScenarioFlows.test.ts`
+11. `src/tests/static/betaSafetyStatic.test.ts`
+12. `src/tests/docs/betaReleaseOperations.test.ts`
+13. `src/tests/docs/betaScenarioQaResults.test.ts`
+14. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+15. `docs/21_BETA_RELEASE_OPERATIONS.md`
+16. `docs/22_BETA_SCENARIO_QA_RESULTS.md`

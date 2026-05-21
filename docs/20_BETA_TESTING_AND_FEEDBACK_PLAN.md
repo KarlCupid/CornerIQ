@@ -42,7 +42,7 @@ Run each script as observation, not coaching advice. Ask the tester to narrate w
 5. Log food and water manually.
 6. Use Fuel Command and describe the first safe action.
 7. Request or acknowledge nutrition safety review when the UI exposes it.
-8. Complete a generated workout or skip it with a brief reason.
+8. Complete a generated workout using only session RPE when time is tight, then repeat with one exercise row if the tester has energy.
 9. Inspect Exercise History after completion.
 10. Inspect Plan Week and Next Week.
 11. Accept a next-week preview when available.
@@ -51,6 +51,7 @@ Run each script as observation, not coaching advice. Ask the tester to narrate w
 14. Submit beta feedback from Profile > Audit.
 15. Reopen Profile > Audit and confirm the recent feedback list shows the submitted report as received.
 16. Review the Beta health preflight and explain any warning in the tester's own words.
+17. In Plan > Adjustments, ask what each engine-request button means before pressing it: Protect this day, Mark unavailable, Request deload, and Restore engine plan.
 
 ## Safety Checks
 
@@ -94,7 +95,7 @@ The panel collects:
 The panel reminds testers:
 
 - Do not include emergency details or secrets.
-- This feedback is not medical or coaching review.
+- This is not emergency support and is not medical or coaching review.
 - For urgent safety concerns, stop and seek qualified support.
 
 Feedback is saved to `beta_feedback_reports` as user-owned data under RLS. Feedback reports are included in app data export/delete scope. There is no admin triage dashboard in the app yet, and reports are not sent to third-party analytics.
@@ -106,6 +107,14 @@ Recent reports are visible to the signed-in user in Profile > Audit. Status chip
 If the React tree hits an app-level error, CornerIQ shows recovery copy instead of a raw stack trace. Signed-in users can choose Report this issue, which submits sanitized bug feedback through the same beta feedback service. Signed-out users can retry, but no issue report is submitted.
 
 This flow is product issue reporting only. It is not emergency support, medical review, coach review, or hard-stop clearance.
+
+## Automated Scenario QA
+
+The twenty-third implementation pass added `src/tests/beta/betaScenarioFlows.test.ts` and `docs/22_BETA_SCENARIO_QA_RESULTS.md`.
+
+The automated harness covers all listed beta personas and asserts that Today/Fuel/Train/Plan/Profile/Beta Health view models resolve, unsafe Fuel copy is absent, generated support does not prescribe sparring or contact, nutrition review cannot be self-cleared, missing data is not treated as safe, and manual-only athletes remain valid without a wearable.
+
+Use the results doc as the pre-session checklist for facilitators. It also records friction notes found before human beta: quick logs needed clearer "log enough for today" copy, workout completion needed a faster path, Plan adjustments needed clearer engine-request framing, and feedback/error reporting needed stronger not-emergency/support boundaries.
 
 ## Manual Feedback Triage
 
@@ -146,6 +155,7 @@ Beta can move from structured test to broader pilot only when:
 - Feedback reports are user-owned and not admin-reviewed in app.
 - No external analytics yet.
 - No beta health drilldown beyond Profile > Audit preflight yet.
+- Automated scenario QA exists, but real boxer findings are still not captured.
 - Routed drilldowns remain deferred.
 - Barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.
 

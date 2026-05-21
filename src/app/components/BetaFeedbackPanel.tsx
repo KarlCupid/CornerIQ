@@ -171,7 +171,7 @@ export function BetaFeedbackPanel({
   async function handleSubmit() {
     const trimmed = message.trim();
     if (!onSubmit) {
-      setLocalStatus("Feedback is available after sign-in.");
+      setLocalStatus("Sign in is required before sending beta feedback.");
       return;
     }
     if (trimmed.length === 0) {
@@ -199,7 +199,7 @@ export function BetaFeedbackPanel({
           <Text style={{ ...typography.cardTitle, color: colors.canvas }}>Beta feedback</Text>
           <Text style={{ ...typography.body, color: colors.wrap }}>Tell us what was confusing, useful, too dense, or broken during boxer beta testing.</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>Do not include emergency details or secrets.</Text>
-          <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>This feedback is not medical or coaching review.</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>This is not emergency support and is not medical or coaching review.</Text>
         </View>
         <SelectorRow labels={SCREEN_LABELS} onChange={setScreen} title="Screen" value={screen} values={BETA_FEEDBACK_SCREENS} />
         <SelectorRow labels={CATEGORY_LABELS} onChange={setCategory} title="Category" value={category} values={BETA_FEEDBACK_CATEGORIES} />
@@ -276,7 +276,7 @@ export function BetaFeedbackPanel({
               </Pressable>
             ) : null}
             {reports.length > 0 ? reports.map((report) => <FeedbackReportRow key={report.id} report={report} />) : (
-              <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>No feedback reports yet.</Text>
+              <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>No feedback reports yet. Send a note after a confusing beta moment; status will appear here.</Text>
             )}
           </View>
         ) : null}

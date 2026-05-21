@@ -1,5 +1,62 @@
 # Codex Audit Log
 
+## 2026-05-21 01:08 America/Vancouver
+
+Goal summary:
+- Run automated beta scenario QA across the existing beta personas.
+- Create a clear scenario QA results document for ChatGPT auditors and human beta facilitators.
+- Make small, safe friction-polish improvements to quick logs, workout completion, Plan adjustments, feedback/error reporting, beta health warnings, and generated support copy.
+- Keep barcode scanning, full meal planning, detailed food database, coach UI, reviewer-clear UI, numeric load progression, drag/drop calendar, admin triage dashboard, external analytics, unsafe weight-cut copy, generated contact work, service-role client code, and hard-stop self-clear deferred.
+
+Key changes:
+- Added `src/tests/beta/betaScenarioFlows.test.ts` covering ten beta personas through `resolvePerformanceState`, Today/Fuel/Train/Plan/Profile/Beta Health view models, safety copy constraints, manual-only validity, red-readiness behavior, under-fueling, cycle symptoms, and no-equipment substitution.
+- Added `src/tests/static/betaSafetyStatic.test.ts` for unsafe Fuel terms, generated contact-work phrasing, self-clear surfaces, coach controls, external analytics packages, service-role client surfaces, and feedback boundary copy.
+- Added `docs/22_BETA_SCENARIO_QA_RESULTS.md` with scenarios, automated assertions, persona pass status, friction notes, human beta risks, intentionally untested features, and script adjustments.
+- Improved quick log cards with "log enough for today" copy, optional-field framing, unknown missing-data copy, accessible main action labels, and busy/disabled button text.
+- Improved `WorkoutDetailPanel` with "Complete without exercise details," session-RPE helper copy, pain-note progression caution, skip-reason copy, busy labels, and clearer `prescribed_only`/skipped behavior.
+- Updated generated support copy around protected sparring anchors to "Protected boxing support microdose" so generated support does not read as generated sparring.
+- Improved Plan adjustment controls with engine-request framing, renamed action copy, applied result explanation, and rejected/review-needed RiskBanner output.
+- Improved feedback/error/beta-health copy for not-emergency support, signed-out report requirements, recent feedback empty state, and visible beta health next safe action.
+- Updated beta testing, IA, release operations, feature status, known gaps, and handoff docs.
+
+Command results:
+- Baseline `git status`: clean on `main`, up to date with `origin/main`; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Baseline `git log --oneline --decorate -8`: latest commit `13bcbb4 (HEAD -> main, origin/main) Harden beta release operations and issue reporting`.
+- Direct `npm run typecheck`: blocked by PowerShell `npm.ps1`; `cmd /c npm run typecheck` passed.
+- Sandboxed `cmd /c npm test`: failed from Vitest/esbuild config access denied; escalated rerun passed before edits with `337` tests passed and `1` skipped.
+- Escalated `cmd /c npm run quality`: passed before edits with `337` tests passed and `1` skipped.
+- `cmd /c npm run lint`: passed before edits.
+- Supabase CLI sandboxed version failed writing telemetry under `C:\Users\karll\.supabase`; escalated version returned `2.100.1`.
+- Migration list: local/remote `001` through `009` aligned.
+- Dry run: `Remote database is up to date.`
+- Initial live smoke without ignored `.env` loaded failed with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` key-name check found required smoke keys without printing values.
+- Baseline live smoke with ignored `.env` loaded: passed with `1` test, test body `13091ms`, duration `15.07s`.
+- During implementation, typecheck first failed on an impossible generated-session intensity comparison; fixed.
+- During implementation, tests first failed three copy/doc assertions; fixed.
+- During implementation, lint first failed `prefer-const` in `appShell.test.ts`; fixed.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm test`: passed with `38` files passed and `1` skipped; `355` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with typecheck plus tests; `355` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final Supabase version/list/dry-run: CLI `2.100.1`; migrations `001` through `009` aligned; remote DB up to date.
+- Final live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12509ms`, duration `14.51s`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `git rev-parse HEAD`: `13bcbb4e1bd408f5102b7a4d6d154c704b419af5`.
+- No commit was created in this pass.
+
+Known gaps:
+- Real boxer beta findings have not been captured yet.
+- No admin triage dashboard or admin-reviewed in-app feedback queue.
+- No external analytics.
+- No production app distribution checklist beyond release operations docs.
+- Routed drilldowns remain deferred.
+- Barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.
+- Coach/team remains scaffolded and hidden.
+
+Next recommendation:
+- Run guided boxer beta sessions with the ten-persona scenario QA results doc open, capture real friction through observation and Profile > Audit feedback, then make one narrow polish pass from actual findings before adding heavier product surfaces.
+
 ## 2026-05-21 00:25 America/Vancouver
 
 Goal summary:

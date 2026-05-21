@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document describes the twentieth through twenty-second implementation passes: beta UX / information architecture hardening across Today, Fuel, Train, Plan, and Profile; privacy-safe beta feedback/testing; and structured beta release operations. These passes added reusable UI primitives, local screen sections, Profile Audit feedback/history, app-level recovery, a beta health preflight panel, CI quality checks, and structured beta testing/release documentation without adding deep new product complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, or drag/drop calendar behavior.
+This document describes the twentieth through twenty-third implementation passes: beta UX / information architecture hardening across Today, Fuel, Train, Plan, and Profile; privacy-safe beta feedback/testing; structured beta release operations; automated beta scenario QA; and a focused friction-polish pass. These passes added reusable UI primitives, local screen sections, Profile Audit feedback/history, app-level recovery, a beta health preflight panel, CI quality checks, scenario QA coverage, and structured beta testing/release documentation without adding deep new product complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, or drag/drop calendar behavior.
 
 ## Main App Sections
 
@@ -17,6 +17,8 @@ Today owns the first daily decision. It remains a single page, but the order is 
 7. Quick logs.
 8. Why disclosure.
 9. Recent summary or no-log empty state.
+
+Quick-log cards now reinforce "log enough for today," optional fields, unknown missing data, accessible main actions, and saving/disabled states.
 
 Fuel owns nutrition, weight-class context, manual fuel history, nutrition review history, and body-mass trajectory. It now has local sections:
 
@@ -37,7 +39,7 @@ Plan owns the current week, next-week preview lifecycle, block history, and serv
 - Week: active block, hard-day cap, seven day plans, warnings, and fight/tournament setup.
 - Next Week: persisted preview status, accept/materialize actions, review-required copy, materialized generated-session count, and day-plan preview.
 - Block History: compact timeline, week summary, latest progression decision, and Training Block History Panel.
-- Adjustments: active/rejected adjustment summary and Plan Adjustment Controls. Screens request changes; services and engines decide what applies.
+- Adjustments: active/rejected adjustment summary and Plan Adjustment Controls. Screens request changes; services and engines decide what applies. Controls now use "Protect this day," "Mark unavailable," "Request deload," and "Restore engine plan" copy, and rejected/review-needed responses render as risk explanations.
 
 Profile owns athlete summary, settings, data controls, and audit copy. It now has local sections:
 
@@ -60,7 +62,7 @@ Feedback persists to `beta_feedback_reports` through `src/services/supabase/beta
 Privacy reminders are visible in the panel:
 
 - Do not include emergency details or secrets.
-- This feedback is not medical or coaching review.
+- This is not emergency support and is not medical or coaching review.
 - If safety concern is selected: If this is urgent, stop and seek qualified support.
 
 Feedback does not do these things:
@@ -75,6 +77,8 @@ Recent feedback now appears below the form with created date, screen, category, 
 
 App-level error reporting reuses the same feedback service for signed-in users. `AppErrorBoundary` catches React tree errors, hides raw stack traces, shows "Something went wrong." and "Your data is still protected.", and can submit a sanitized bug report when a signed-in user chooses Report this issue. There is no automatic third-party reporting.
 
+Signed-out issue reporting now says sign-in is required. Recent feedback has a clearer empty state so testers understand where submitted report status will appear.
+
 Beta testing scripts and prompts live in `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`. Release operations live in `docs/21_BETA_RELEASE_OPERATIONS.md`.
 
 ## Beta Health Preflight
@@ -82,6 +86,8 @@ Beta testing scripts and prompts live in `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN
 Profile > Audit includes `BetaHealthPanel`, driven by `src/engine/presentation/betaHealthViewModel.ts`. The view model checks auth session, profile completion, engine readiness, safety review visibility, feedback availability, export/delete availability, cycle privacy visibility, and manual/no-wearable readiness.
 
 The runtime panel does not claim live smoke status. Smoke remains a docs/operations verification, not a runtime assertion.
+
+Warning and blocked preflight states now show a visible next safe action in the panel.
 
 ## First Things Athletes See
 
@@ -157,7 +163,7 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 | Today | Beta testable | Primary action first, risk banner, no-shame missing-log copy, why disclosure, quick logs. |
 | Fuel | Beta testable | Command/History/Reviews/Body Mass sections; active reviews stay visible; no unsafe cut instructions. |
 | Train | Beta testable | Today/Workout/Exercise History/Progression sections; completion flow still dense but functional. |
-| Plan | Beta testable | Week/Next Week/Block History/Adjustments sections; no drag/drop; controls remain service-owned. |
+| Plan | Beta testable | Week/Next Week/Block History/Adjustments sections; no drag/drop; controls remain service-owned and explain engine-request results. |
 | Profile | Beta testable | Athlete/Settings/Data/Audit sections; DELETE gate remains hard to trigger. |
 | Feedback | Beta testable | Profile > Audit saves privacy-safe user-owned beta feedback reports with visible privacy/safety reminders and read-only recent status history. |
 | Error recovery | Beta testable | App-level boundary catches React tree errors, retries, and reports sanitized bug feedback for signed-in users. |
@@ -167,6 +173,7 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 | Data deletion | MVP | App data deletion is DELETE-gated; Supabase auth account deletion remains server-side future work. |
 | Privacy | Beta testable | Cycle privacy copy visible; no service role in client. |
 | Safety copy | Beta testable | Risk banners, hard-stop copy, no self-clear copy, no unsafe Fuel terms in tested output. |
+| Scenario QA | Beta testable | Ten beta personas now run through automated engine/view-model assertions plus static safety scans. |
 
 ## Known User-Testing Questions For Boxers
 
@@ -181,6 +188,8 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 - Are adjustment controls understandable as requests to the engine rather than manual programming edits?
 - Does Profile make cycle privacy and data deletion boundaries clear enough for beta trust?
 - Does the feedback panel feel easy to use without inviting emergency details or private health histories?
+- Does "log enough for today" make quick logs feel acceptable when optional fields are blank?
+- Does "Complete without exercise details" reduce post-training friction without hiding `prescribed_only` behavior?
 
 ## Beta Tester Onboarding Guidance
 
@@ -211,5 +220,8 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 17. `.github/workflows/quality.yml`
 18. `src/tests/app/appShell.test.ts`
 19. `src/tests/engine/betaHealthViewModel.test.ts`
-20. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
-21. `docs/21_BETA_RELEASE_OPERATIONS.md`
+20. `src/tests/beta/betaScenarioFlows.test.ts`
+21. `src/tests/static/betaSafetyStatic.test.ts`
+22. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+23. `docs/21_BETA_RELEASE_OPERATIONS.md`
+24. `docs/22_BETA_SCENARIO_QA_RESULTS.md`

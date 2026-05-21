@@ -89,7 +89,7 @@ export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, App
       return;
     }
     if (!this.props.signedIn || !this.props.onReportIssue) {
-      this.setState({ reportMessage: "Sign in before sending an issue report." });
+      this.setState({ reportMessage: "Sign in is required before sending an issue report." });
       return;
     }
     this.setState({ reporting: true, reportMessage: null });
@@ -132,10 +132,10 @@ export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, App
           style={[screenStyles.quietButton, !canReport || this.state.reporting ? { borderColor: colors.panelRaised } : null]}
         >
           <Text style={[screenStyles.quietButtonText, !canReport || this.state.reporting ? { color: colors.wrap } : null]}>
-            {this.state.reporting ? "Sending issue report" : "Report this issue"}
+            {this.state.reporting ? "Sending issue report" : canReport ? "Report this issue" : "Sign in to report issue"}
           </Text>
         </Pressable>
-        {!canReport ? <Text style={screenStyles.subtle}>Issue reports can be sent after sign-in. No report was submitted.</Text> : null}
+        {!canReport ? <Text style={screenStyles.subtle}>Sign in is required to report this issue. No report was submitted.</Text> : null}
         {this.state.reportMessage ? <Text accessibilityRole="alert" style={screenStyles.subtle}>{this.state.reportMessage}</Text> : null}
       </View>
     );

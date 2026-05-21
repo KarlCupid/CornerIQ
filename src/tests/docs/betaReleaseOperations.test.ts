@@ -24,6 +24,7 @@ describe("beta release operations", () => {
       "Supabase Verification",
       "Feedback Workflow",
       "Error Reporting",
+      "Scenario QA",
       "Data And Privacy",
       "Deferred Features",
       "Beta Release Checklist",
