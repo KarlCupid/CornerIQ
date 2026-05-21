@@ -1,5 +1,52 @@
 # Codex Audit Log
 
+## 2026-05-21 00:25 America/Vancouver
+
+Goal summary:
+- Harden CornerIQ for structured beta release operations without adding new domain features.
+- Add app-level error recovery, privacy-safe report-this-issue flow through beta feedback, visible feedback history/status, beta health preflight, CI quality workflow, and release operations docs.
+- Keep barcode scanning, full meal planning, detailed food database, coach UI, reviewer-clear UI, numeric load progression, drag/drop calendar, unsafe weight-cut copy, self-clear behavior, external analytics, and service-role client code deferred.
+
+Key changes:
+- Added `AppErrorBoundary` and wrapped the app shell, with signed-in bug reporting through `useBetaFeedback`.
+- Extended `useBetaFeedback` to load recent reports and refresh after submit.
+- Extended `BetaFeedbackPanel` with read-only recent feedback history and status chips.
+- Added `betaHealthViewModel` and `BetaHealthPanel`, then wired Profile > Audit through `AppTabs`.
+- Added `.github/workflows/quality.yml` for push/PR `npm ci`, typecheck, lint, and tests; CI does not run live smoke.
+- Added `docs/21_BETA_RELEASE_OPERATIONS.md` and updated beta readiness, feedback plan, feature status, known gaps, Supabase status, and this handoff/audit log.
+
+Command results:
+- Baseline `git status`: clean on `main`, up to date with `origin/main`; Git warned it could not read `C:\Users\karll/.config/git/ignore`.
+- Baseline `git log --oneline --decorate -8`: latest commit `433daaf (HEAD -> main, origin/main) Update agent instructions for CornerIQ`.
+- Direct `npm run typecheck`: blocked by PowerShell `npm.ps1`; `cmd /c npm run typecheck` passed.
+- Sandboxed `cmd /c npm test` and `cmd /c npm run quality`: failed from Vitest/esbuild config access denied; escalated reruns passed before edits with `329` tests passed and `1` skipped.
+- `cmd /c npm run lint`: passed before edits.
+- Supabase CLI sandboxed commands failed writing telemetry under `C:\Users\karll\.supabase`; escalated version returned `2.100.1`.
+- Migration list: local/remote `001` through `009` aligned.
+- Dry run: `Remote database is up to date.`
+- Initial live smoke without ignored `.env` loaded failed with missing non-secret variable names `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Ignored `.env` key-name check found required smoke keys without printing values.
+- Baseline live smoke with ignored `.env` loaded: passed with `1` test, test body `12605ms`, duration `14.53s`.
+- Final `cmd /c npm run typecheck`: passed.
+- Final `cmd /c npm test`: passed with `35` files passed and `1` skipped; `337` tests passed and `1` skipped.
+- Final `cmd /c npm run quality`: passed with typecheck plus tests; `337` tests passed and `1` skipped.
+- Final `cmd /c npm run lint`: passed.
+- Final Supabase version/list/dry-run: CLI `2.100.1`; migrations `001` through `009` aligned; remote DB up to date.
+- Final live smoke with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`: passed with `1` test, test body `12545ms`, duration `14.60s`.
+- `git diff --check`: passed with Windows LF-to-CRLF warnings only.
+- `git rev-parse HEAD`: `433daaf2930d44f2a01cf5a64f6a840fff05f957`.
+- No commit was created in this pass.
+
+Known gaps:
+- No production issue triage dashboard or admin-reviewed in-app queue.
+- No external analytics.
+- No production app distribution checklist beyond release operations docs.
+- Real boxer beta findings have not been captured yet.
+- Routed drilldowns, barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.
+
+Next recommendation:
+- Run structured boxer beta sessions, manually triage feedback in Supabase with privacy care, then make a focused polish pass on the highest-friction findings before adding production triage, analytics, distribution, or deferred product complexity.
+
 ## 2026-05-20 23:50 America/Vancouver
 
 Goal summary:

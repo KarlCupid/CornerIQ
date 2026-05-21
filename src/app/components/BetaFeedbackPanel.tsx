@@ -5,12 +5,15 @@ import {
   BETA_FEEDBACK_SCREENS,
   BETA_FEEDBACK_SEVERITIES,
   type BetaFeedbackCategory,
+  type BetaFeedbackReport,
   type BetaFeedbackScreen,
-  type BetaFeedbackSeverity
+  type BetaFeedbackSeverity,
+  type BetaFeedbackStatus
 } from "../../services/supabase/betaFeedbackRepository";
 import type { BetaFeedbackFormInput } from "../../hooks/useBetaFeedback";
 import type { SubmitBetaFeedbackResult } from "../../services/feedback/submitBetaFeedback";
 import { EngineCard } from "../../design/components/EngineCard";
+import { StatusBadge, type StatusBadgeTone } from "../../design/components/StatusBadge";
 import { colors, radii, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 
@@ -44,6 +47,33 @@ const SEVERITY_LABELS: Record<BetaFeedbackSeverity, string> = {
   low: "Low",
   medium: "Medium"
 };
+
+const STATUS_LABELS: Record<BetaFeedbackStatus, string> = {
+  dismissed: "Dismissed",
+  received: "Received",
+  resolved: "Resolved",
+  reviewed: "Reviewed"
+};
+
+const STATUS_TONES: Record<BetaFeedbackStatus, StatusBadgeTone> = {
+  dismissed: "neutral",
+  received: "info",
+  resolved: "success",
+  reviewed: "caution"
+};
+
+function formatReportDate(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value.slice(0, 10);
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function truncateReportMessage(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.length > 96 ? `${trimmed.slice(0, 93)}...` : trimmed;
+}
 
 function SelectorButton({
   label,
@@ -101,15 +131,31 @@ function SelectorRow<TValue extends string>({
   );
 }
 
+function FeedbackReportRow({ report }: { report: BetaFeedbackReport }) {
+  return (
+    <View style={{ borderColor: colors.line, borderRadius: radii.card, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
+      <StatusBadge label={STATUS_LABELS[report.status]} tone={STATUS_TONES[report.status]} />
+      <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>
+        {formatReportDate(report.createdAt)} - {SCREEN_LABELS[report.screen]} - {CATEGORY_LABELS[report.category]} - {SEVERITY_LABELS[report.severity]}
+      </Text>
+      <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>{truncateReportMessage(report.message)}</Text>
+    </View>
+  );
+}
+
 export function BetaFeedbackPanel({
   busy = false,
   defaultScreen = "profile",
+  onRefreshReports,
   onSubmit,
+  recentReports,
   statusMessage
 }: {
   busy?: boolean | undefined;
   defaultScreen?: BetaFeedbackScreen | undefined;
+  onRefreshReports?: (() => Promise<void>) | undefined;
   onSubmit?: ((input: BetaFeedbackFormInput) => Promise<SubmitBetaFeedbackResult>) | undefined;
+  recentReports?: readonly BetaFeedbackReport[] | undefined;
   statusMessage?: string | null | undefined;
 }) {
   const [screen, setScreen] = React.useState<BetaFeedbackScreen>(defaultScreen);
@@ -119,6 +165,8 @@ export function BetaFeedbackPanel({
   const [localStatus, setLocalStatus] = React.useState<string | null>(null);
   const disabled = busy || !onSubmit;
   const visibleStatus = localStatus ?? statusMessage ?? null;
+  const reports = recentReports ?? [];
+  const shouldShowRecentReports = recentReports !== undefined;
 
   async function handleSubmit() {
     const trimmed = message.trim();
@@ -163,6 +211,8 @@ export function BetaFeedbackPanel({
         ) : null}
         <TextInput
           accessibilityLabel="Beta feedback message"
+          accessibilityHint="Describe a bug, confusing moment, or beta testing note without secrets or emergency details."
+          editable={!disabled}
           multiline
           onChangeText={setMessage}
           placeholder="What should we know?"
@@ -198,6 +248,38 @@ export function BetaFeedbackPanel({
           <Text style={{ color: disabled ? colors.wrap : colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>Send feedback</Text>
         </Pressable>
         {visibleStatus ? <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>{visibleStatus}</Text> : null}
+        {shouldShowRecentReports ? (
+          <View style={{ gap: spacing.sm }}>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={{ ...typography.cardTitle, color: colors.canvas }}>Recent feedback</Text>
+              <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>Reports are saved to your account. Status is read-only in the app.</Text>
+            </View>
+            {onRefreshReports ? (
+              <Pressable
+                accessibilityLabel="Refresh feedback history"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy }}
+                disabled={busy}
+                onPress={() => void onRefreshReports()}
+                style={{
+                  alignItems: "center",
+                  borderColor: colors.line,
+                  borderRadius: radii.control,
+                  borderWidth: 1,
+                  justifyContent: "center",
+                  minHeight: 44,
+                  paddingHorizontal: spacing.lg,
+                  paddingVertical: spacing.sm
+                }}
+              >
+                <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "700" }}>Refresh history</Text>
+              </Pressable>
+            ) : null}
+            {reports.length > 0 ? reports.map((report) => <FeedbackReportRow key={report.id} report={report} />) : (
+              <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>No feedback reports yet.</Text>
+            )}
+          </View>
+        ) : null}
       </View>
     </EngineCard>
   );

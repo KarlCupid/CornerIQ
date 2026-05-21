@@ -49,6 +49,8 @@ Run each script as observation, not coaching advice. Ask the tester to narrate w
 12. Check the auto-roll-forward explanation after a week boundary scenario.
 13. Preview export and review DELETE-gated data deletion copy without deleting unless this is a dedicated test account.
 14. Submit beta feedback from Profile > Audit.
+15. Reopen Profile > Audit and confirm the recent feedback list shows the submitted report as received.
+16. Review the Beta health preflight and explain any warning in the tester's own words.
 
 ## Safety Checks
 
@@ -97,6 +99,25 @@ The panel reminds testers:
 
 Feedback is saved to `beta_feedback_reports` as user-owned data under RLS. Feedback reports are included in app data export/delete scope. There is no admin triage dashboard in the app yet, and reports are not sent to third-party analytics.
 
+Recent reports are visible to the signed-in user in Profile > Audit. Status chips are read-only in the client: received, reviewed, resolved, or dismissed. The client cannot mark a report reviewed, resolved, or dismissed.
+
+## Error Report Flow
+
+If the React tree hits an app-level error, CornerIQ shows recovery copy instead of a raw stack trace. Signed-in users can choose Report this issue, which submits sanitized bug feedback through the same beta feedback service. Signed-out users can retry, but no issue report is submitted.
+
+This flow is product issue reporting only. It is not emergency support, medical review, coach review, or hard-stop clearance.
+
+## Manual Feedback Triage
+
+Until a private admin triage dashboard exists, inspect feedback manually in the Supabase dashboard:
+
+1. Open `beta_feedback_reports`.
+2. Filter by `user_id`, `created_at`, `screen`, `category`, `severity`, or `status`.
+3. Treat message text as sensitive.
+4. Do not copy medical details or private tester text into public issues.
+
+Future options include an admin Edge Function, a private dashboard, or private exports for beta synthesis.
+
 ## Privacy Rules
 
 - Do not ask testers to paste medical records, full health histories, passwords, tokens, or screenshots with secrets.
@@ -124,6 +145,7 @@ Beta can move from structured test to broader pilot only when:
 - No production issue triage dashboard yet.
 - Feedback reports are user-owned and not admin-reviewed in app.
 - No external analytics yet.
+- No beta health drilldown beyond Profile > Audit preflight yet.
 - Routed drilldowns remain deferred.
 - Barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.
 
@@ -134,8 +156,13 @@ Beta can move from structured test to broader pilot only when:
 3. `src/services/feedback/submitBetaFeedback.ts`
 4. `src/hooks/useBetaFeedback.ts`
 5. `src/app/components/BetaFeedbackPanel.tsx`
-6. `src/app/screens/ProfileScreen.tsx`
-7. `src/tests/services/betaFeedbackService.test.ts`
-8. `src/tests/services/supabaseRepositories.test.ts`
-9. `src/tests/app/appShell.test.ts`
-10. `src/tests/live/liveDbSmoke.test.ts`
+6. `src/app/components/AppErrorBoundary.tsx`
+7. `src/app/components/BetaHealthPanel.tsx`
+8. `src/engine/presentation/betaHealthViewModel.ts`
+9. `src/app/screens/ProfileScreen.tsx`
+10. `src/tests/services/betaFeedbackService.test.ts`
+11. `src/tests/services/supabaseRepositories.test.ts`
+12. `src/tests/app/appShell.test.ts`
+13. `src/tests/engine/betaHealthViewModel.test.ts`
+14. `src/tests/live/liveDbSmoke.test.ts`
+15. `docs/21_BETA_RELEASE_OPERATIONS.md`

@@ -4,6 +4,7 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 import type { CycleSymptom, FuelViewModel, GeneratedTrainingSession, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
+import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
@@ -488,6 +489,31 @@ const profileViewModel: ProfileViewModel = {
   privacyNotes: ["Cycle tracking is optional and private."]
 };
 
+const betaHealthViewModel: BetaHealthViewModel = {
+  betaTesterCopy: "This beta session is ready for structured boxer testing.",
+  checks: [
+    {
+      key: "auth_session",
+      label: "Auth session",
+      nextAction: null,
+      status: "ready",
+      summary: "Signed in with public client configuration."
+    },
+    {
+      key: "feedback_available",
+      label: "Feedback available",
+      nextAction: null,
+      status: "ready",
+      summary: "Profile Audit can submit and show user-owned beta feedback."
+    }
+  ],
+  nextSafeAction: null,
+  overallStatus: "ready",
+  supportCopy: "Use Profile Audit feedback for bugs or confusing moments. Urgent safety concerns need qualified support outside the app.",
+  title: "Beta health preflight",
+  warnings: []
+};
+
 const recentLogsViewModel: RecentLogsViewModel = {
   today: ["Last body mass: 66.4 kg on 2026-05-19."],
   fuel: ["2026-05-19: 2200 kcal, 130g protein, 260g carbs."],
@@ -743,6 +769,7 @@ function createUserDataClient() {
 
 function createBetaFeedbackHookClient() {
   const inserted: unknown[] = [];
+  const listed: unknown[] = [];
   const row = {
     id: "feedback_1",
     user_id: "user_1",
@@ -756,13 +783,15 @@ function createBetaFeedbackHookClient() {
     updated_at: "2026-05-20T00:00:00.000Z"
   };
   const query = {
-    eq() {
+    eq(column: string, value: string) {
+      listed.push({ method: "eq", column, value });
       return query;
     },
     order() {
       return query;
     },
-    limit() {
+    limit(value: number) {
+      listed.push({ method: "limit", value });
       return Promise.resolve({ data: [row], error: null });
     }
   };
@@ -796,7 +825,7 @@ function createBetaFeedbackHookClient() {
       };
     }
   };
-  return { client: client as unknown as CornerSupabaseClient, inserted };
+  return { client: client as unknown as CornerSupabaseClient, inserted, listed };
 }
 
 describe("minimal app screens", () => {
@@ -936,6 +965,44 @@ describe("minimal app screens", () => {
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ category: "safety_concern", message: "Safety copy felt unclear." }));
     expect(JSON.stringify(renderer.toJSON())).toContain("Feedback received");
+  });
+
+  it("BetaFeedbackPanel renders recent feedback status history without client status editing", async () => {
+    const { BetaFeedbackPanel } = await import("../../app/components/BetaFeedbackPanel");
+    const reports = [
+      {
+        id: "feedback_received",
+        userId: "user_1",
+        screen: "profile" as const,
+        category: "bug" as const,
+        severity: "high" as const,
+        message: "Profile Audit crashed after opening.",
+        status: "received" as const,
+        feedbackPayload: {},
+        createdAt: "2026-05-20T00:00:00.000Z",
+        updatedAt: "2026-05-20T00:00:00.000Z"
+      },
+      {
+        id: "feedback_resolved",
+        userId: "user_1",
+        screen: "fuel" as const,
+        category: "fuel_feedback" as const,
+        severity: "medium" as const,
+        message: "Fuel copy was clearer after review.",
+        status: "resolved" as const,
+        feedbackPayload: {},
+        createdAt: "2026-05-21T00:00:00.000Z",
+        updatedAt: "2026-05-21T00:00:00.000Z"
+      }
+    ];
+    const output = JSON.stringify(render(React.createElement(BetaFeedbackPanel, { defaultScreen: "profile", onSubmit: vi.fn(), recentReports: reports })).toJSON());
+
+    expect(output).toContain("Recent feedback");
+    expect(output).toContain("Received");
+    expect(output).toContain("Resolved");
+    expect(output).toContain("2026-05-20");
+    expect(output).toContain("Profile Audit crashed");
+    expect(output).not.toMatch(/mark reviewed|mark resolved|dismiss report|edit status/i);
   });
 
   it("TodayScreen renders view model fields", async () => {
@@ -2086,6 +2153,7 @@ describe("minimal app screens", () => {
     const renderer = render(
       React.createElement(ProfileScreen, {
             asOfDate: fixtureAsOfDate,
+            betaHealth: betaHealthViewModel,
             busy: false,
             cycleTrackingStatus: "undecided",
             cycleContext: null,
@@ -2104,6 +2172,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Cycle data is optional");
     await switchSection(renderer, "Audit");
     output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Beta health preflight");
     expect(output).toContain("Beta feedback");
     expect(output).toContain("Do not include emergency details or secrets.");
     expect(output).toContain("Training audit");
@@ -2119,6 +2188,7 @@ describe("minimal app screens", () => {
     const renderer = render(
       React.createElement(ProfileScreen, {
         asOfDate: fixtureAsOfDate,
+        betaHealth: betaHealthViewModel,
         busy: false,
         cycleTrackingStatus: "undecided",
         cycleContext: null,
@@ -2175,11 +2245,13 @@ describe("minimal app screens", () => {
         asOfDate: fixtureAsOfDate,
         betaFeedback: {
           busy: false,
+          loadRecentFeedbackReports: vi.fn(),
           message: null,
           recentReports: [],
           refreshReports: vi.fn(),
           submitFeedback
         },
+        betaHealth: betaHealthViewModel,
         busy: false,
         cycleTrackingStatus: "undecided",
         cycleContext: null,
@@ -2259,7 +2331,7 @@ describe("minimal app screens", () => {
   });
 
   it("useBetaFeedback submits sanitized feedback and tracks recent reports", async () => {
-    const { client, inserted } = createBetaFeedbackHookClient();
+    const { client, inserted, listed } = createBetaFeedbackHookClient();
     const snapshot: { current: BetaFeedbackHook | null } = { current: null };
     function Probe() {
       snapshot.current = useBetaFeedback({ client, engineVersion: "0.2.0", userId: "user_1" });
@@ -2267,6 +2339,8 @@ describe("minimal app screens", () => {
     }
 
     render(React.createElement(Probe));
+    await act(async () => undefined);
+    const listCallsBeforeSubmit = listed.length;
     await act(async () => {
       await snapshot.current?.submitFeedback({
         screen: "profile",
@@ -2278,6 +2352,8 @@ describe("minimal app screens", () => {
     });
 
     expect(inserted).toHaveLength(1);
+    expect(listed.length).toBeGreaterThan(listCallsBeforeSubmit);
+    expect(listed).toEqual(expect.arrayContaining([{ method: "eq", column: "user_id", value: "user_1" }]));
     expect(JSON.stringify(inserted)).not.toContain("secret-token");
     expect(snapshot.current?.message).toContain("Feedback received");
     expect(snapshot.current?.recentReports[0]?.id).toBe("feedback_1");
@@ -2566,6 +2642,83 @@ describe("minimal app screens", () => {
     const stackOutput = JSON.stringify(render(React.createElement(AppErrorState, { message: "Unable to load athlete journey.", cause: "Error: nope\n at stack", onRetry: vi.fn() })).toJSON());
     expect(stackOutput).toContain("Details are available in the development logs.");
     expect(stackOutput).not.toContain(" at stack");
+  });
+
+  it("AppErrorBoundary catches render errors, retries, and reports sanitized bug feedback for signed-in users", async () => {
+    const { AppErrorBoundary, buildAppErrorSummary } = await import("../../app/components/AppErrorBoundary");
+    expect(buildAppErrorSummary(new Error("service_role password leaked"))).toContain("[redacted]");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let shouldThrow = true;
+    try {
+      function MaybeBroken() {
+        if (shouldThrow) {
+          throw new Error("render failed\n at RawStack");
+        }
+        return React.createElement("Text", null, "Recovered child");
+      }
+      const onReportIssue = vi.fn(async () => ({
+        status: "submitted" as const,
+        report: {
+          id: "feedback_1",
+          userId: "user_1",
+          screen: "unknown" as const,
+          category: "bug" as const,
+          severity: "high" as const,
+          message: "App error: Something went wrong.",
+          status: "received" as const,
+          feedbackPayload: {},
+          createdAt: "2026-05-20T00:00:00.000Z",
+          updatedAt: "2026-05-20T00:00:00.000Z"
+        },
+        message: "Feedback received. It is saved to your account for beta review."
+      }));
+      const renderer = render(React.createElement(AppErrorBoundary, { onReportIssue, signedIn: true }, React.createElement(MaybeBroken)));
+
+      let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Something went wrong.");
+      expect(output).toContain("Your data is still protected.");
+      expect(output).not.toContain("RawStack");
+      expect(output.toLowerCase()).not.toContain("render failed");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Report this issue"));
+      });
+      expect(onReportIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          errorSummary: expect.stringContaining("render failed")
+        })
+      );
+
+      shouldThrow = false;
+      await act(async () => {
+        await press(pressableWithText(renderer, "Retry"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Recovered child");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("AppErrorBoundary does not submit issue reports without a signed-in user", async () => {
+    const { AppErrorBoundary } = await import("../../app/components/AppErrorBoundary");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      function BrokenSignedOutTree(): React.ReactElement {
+        throw new Error("render failed");
+      }
+      const onReportIssue = vi.fn();
+      const renderer = render(React.createElement(AppErrorBoundary, { onReportIssue, signedIn: false }, React.createElement(BrokenSignedOutTree)));
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Report this issue"));
+      });
+
+      expect(onReportIssue).not.toHaveBeenCalled();
+      expect(JSON.stringify(renderer.toJSON())).toContain("No report was submitted");
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("useSupabaseSession handles no session and keeps signup success out of authError", async () => {

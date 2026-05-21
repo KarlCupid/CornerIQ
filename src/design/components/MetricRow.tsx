@@ -5,6 +5,7 @@ import { colors, spacing } from "../theme";
 export function MetricRow({ label, value }: { label: string; value: string }) {
   return (
     <View
+      accessibilityLabel={`${label}: ${value}`}
       style={{
         alignItems: "flex-start",
         borderBottomColor: colors.line,

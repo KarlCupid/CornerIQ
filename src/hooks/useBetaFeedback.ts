@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type BetaFeedbackCategory,
   type BetaFeedbackReport,
@@ -20,6 +20,7 @@ export interface BetaFeedbackFormInput {
 
 export interface BetaFeedbackHook {
   busy: boolean;
+  loadRecentFeedbackReports: () => Promise<void>;
   message: string | null;
   recentReports: readonly BetaFeedbackReport[];
   refreshReports: () => Promise<void>;
@@ -36,7 +37,7 @@ export function useBetaFeedback(input: {
   const [message, setMessage] = useState<string | null>(null);
   const [recentReports, setRecentReports] = useState<readonly BetaFeedbackReport[]>([]);
 
-  const refreshReports = useCallback(async () => {
+  const loadRecentFeedbackReports = useCallback(async () => {
     setBusy(true);
     setMessage(null);
     try {
@@ -47,6 +48,10 @@ export function useBetaFeedback(input: {
       setBusy(false);
     }
   }, [input.userId, repository]);
+
+  useEffect(() => {
+    void loadRecentFeedbackReports();
+  }, [loadRecentFeedbackReports]);
 
   const submitFeedback = useCallback(
     async (form: BetaFeedbackFormInput) => {
@@ -69,7 +74,7 @@ export function useBetaFeedback(input: {
         });
         setMessage(result.message);
         if (result.status === "submitted") {
-          setRecentReports((current) => [result.report, ...current].slice(0, 10));
+          setRecentReports(await repository.listBetaFeedbackReportsForUser(input.userId, 10));
         }
         return result;
       } catch (error) {
@@ -85,9 +90,10 @@ export function useBetaFeedback(input: {
 
   return {
     busy,
+    loadRecentFeedbackReports,
     message,
     recentReports,
-    refreshReports,
+    refreshReports: loadRecentFeedbackReports,
     submitFeedback
   };
 }

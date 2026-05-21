@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AppProviders } from "./providers/AppProviders";
+import { AppErrorBoundary, type AppErrorReportInput } from "./components/AppErrorBoundary";
 import { AppErrorState } from "./components/AppErrorState";
 import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
@@ -14,6 +15,7 @@ import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion } from "../hooks/useWorkoutCompletion";
+import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 
 function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupabaseClient; onSignOut: () => Promise<void>; session: Session }) {
@@ -41,6 +43,30 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
     engineVersion: readyState?.engineVersion,
     userId: session.user.id
   });
+  const betaHealth = buildBetaHealthViewModel({
+    exportDeleteAvailable: Boolean(userDataControls),
+    feedbackAvailable: Boolean(betaFeedback.submitFeedback),
+    isSignedIn: true,
+    performanceState: readyState,
+    profileComplete: Boolean(readyState),
+    supabaseConfigured: true
+  });
+  const reportAppIssue = useCallback(
+    async (report: AppErrorReportInput) =>
+      betaFeedback.submitFeedback({
+        screen: "unknown",
+        category: "bug",
+        severity: "high",
+        message: "App error: Something went wrong.",
+        feedbackPayload: {
+          componentStack: report.componentStack,
+          errorSummary: report.errorSummary,
+          source: "app_error_boundary"
+        },
+        viewModelStatusLabels: ["app_error_boundary", betaHealth.overallStatus]
+      }),
+    [betaFeedback, betaHealth.overallStatus]
+  );
   const trainingPlanAdjustments = useTrainingPlanAdjustments({
     onRefresh: performance.refresh,
     repositories: performance.repositories,
@@ -83,7 +109,8 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   }
 
   return (
-    <AppTabs
+    <AppErrorBoundary onReportIssue={reportAppIssue} signedIn>
+      <AppTabs
       busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy || betaFeedback.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
@@ -99,9 +126,11 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       nextWeekPreviewActions={nextWeekPreviewActions}
       trainingPlanAdjustments={trainingPlanAdjustments}
       betaFeedback={betaFeedback}
+      betaHealth={betaHealth}
       userDataControls={userDataControls}
       workoutCompletion={workoutCompletion.actions}
-    />
+      />
+    </AppErrorBoundary>
   );
 }
 
@@ -138,7 +167,9 @@ function CornerIQApp() {
 export default function App() {
   return (
     <AppProviders>
-      <CornerIQApp />
+      <AppErrorBoundary signedIn={false}>
+        <CornerIQApp />
+      </AppErrorBoundary>
     </AppProviders>
   );
 }

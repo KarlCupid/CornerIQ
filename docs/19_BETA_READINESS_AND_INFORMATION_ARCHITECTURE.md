@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document describes the twentieth and twenty-first implementation passes: beta UX / information architecture hardening across Today, Fuel, Train, Plan, and Profile, followed by a privacy-safe beta feedback/testing workflow. These passes added reusable UI primitives, local screen sections, Profile Audit feedback, and structured beta testing documentation without adding deep new product complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, or drag/drop calendar behavior.
+This document describes the twentieth through twenty-second implementation passes: beta UX / information architecture hardening across Today, Fuel, Train, Plan, and Profile; privacy-safe beta feedback/testing; and structured beta release operations. These passes added reusable UI primitives, local screen sections, Profile Audit feedback/history, app-level recovery, a beta health preflight panel, CI quality checks, and structured beta testing/release documentation without adding deep new product complexity, routed drilldowns, coach UI, reviewer-clear UI, barcode scanning, full meal planning, a detailed food database, numeric load progression, or drag/drop calendar behavior.
 
 ## Main App Sections
 
@@ -44,7 +44,7 @@ Profile owns athlete summary, settings, data controls, and audit copy. It now ha
 - Athlete: profile summary, wearable status, cycle tracking status, privacy copy, and cycle context.
 - Settings: profile settings and sign out.
 - Data: export preview, DELETE-gated app-data deletion, and account-deletion limitation copy.
-- Audit: beta feedback panel, compact training audit, Fuel review audit summary, journey history, and privacy/safety copy.
+- Audit: beta health preflight, beta feedback panel with recent report history/status, compact training audit, Fuel review audit summary, journey history, and privacy/safety copy.
 
 ## Beta Feedback Workflow
 
@@ -71,7 +71,17 @@ Feedback does not do these things:
 - It does not clear hard stops.
 - It does not expose coach, clinician, reviewer, or admin UI.
 
-Beta testing scripts and prompts live in `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`.
+Recent feedback now appears below the form with created date, screen, category, severity, and read-only status chips. Athletes can see that a report was received, reviewed, resolved, or dismissed, but the client does not expose status editing.
+
+App-level error reporting reuses the same feedback service for signed-in users. `AppErrorBoundary` catches React tree errors, hides raw stack traces, shows "Something went wrong." and "Your data is still protected.", and can submit a sanitized bug report when a signed-in user chooses Report this issue. There is no automatic third-party reporting.
+
+Beta testing scripts and prompts live in `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`. Release operations live in `docs/21_BETA_RELEASE_OPERATIONS.md`.
+
+## Beta Health Preflight
+
+Profile > Audit includes `BetaHealthPanel`, driven by `src/engine/presentation/betaHealthViewModel.ts`. The view model checks auth session, profile completion, engine readiness, safety review visibility, feedback availability, export/delete availability, cycle privacy visibility, and manual/no-wearable readiness.
+
+The runtime panel does not claim live smoke status. Smoke remains a docs/operations verification, not a runtime assertion.
 
 ## First Things Athletes See
 
@@ -149,7 +159,10 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 | Train | Beta testable | Today/Workout/Exercise History/Progression sections; completion flow still dense but functional. |
 | Plan | Beta testable | Week/Next Week/Block History/Adjustments sections; no drag/drop; controls remain service-owned. |
 | Profile | Beta testable | Athlete/Settings/Data/Audit sections; DELETE gate remains hard to trigger. |
-| Feedback | Beta testable | Profile > Audit saves privacy-safe user-owned beta feedback reports with visible privacy/safety reminders. |
+| Feedback | Beta testable | Profile > Audit saves privacy-safe user-owned beta feedback reports with visible privacy/safety reminders and read-only recent status history. |
+| Error recovery | Beta testable | App-level boundary catches React tree errors, retries, and reports sanitized bug feedback for signed-in users. |
+| Beta health | Beta testable | Profile > Audit shows preflight checks without exposing env values or claiming smoke status. |
+| CI | Beta testable | GitHub Actions runs typecheck, lint, and tests on push/PR; live smoke remains manual/gated. |
 | Smoke | Passing | Live smoke passes with ignored `.env` values, public Supabase URL, and anon key only. |
 | Data deletion | MVP | App data deletion is DELETE-gated; Supabase auth account deletion remains server-side future work. |
 | Privacy | Beta testable | Cycle privacy copy visible; no service role in client. |
@@ -184,13 +197,19 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 3. `src/design/components/EmptyState.tsx`
 4. `src/design/components/DisclosureCard.tsx`
 5. `src/app/components/BetaFeedbackPanel.tsx`
-6. `src/services/feedback/submitBetaFeedback.ts`
-7. `src/services/supabase/betaFeedbackRepository.ts`
-8. `src/app/screens/TodayScreen.tsx`
-9. `src/app/screens/FuelScreen.tsx`
-10. `src/app/screens/TrainScreen.tsx`
-11. `src/app/screens/PlanScreen.tsx`
-12. `src/app/screens/ProfileScreen.tsx`
-13. `src/app/App.tsx`
-14. `src/tests/app/appShell.test.ts`
-15. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+6. `src/app/components/AppErrorBoundary.tsx`
+7. `src/app/components/BetaHealthPanel.tsx`
+8. `src/engine/presentation/betaHealthViewModel.ts`
+9. `src/services/feedback/submitBetaFeedback.ts`
+10. `src/services/supabase/betaFeedbackRepository.ts`
+11. `src/app/screens/TodayScreen.tsx`
+12. `src/app/screens/FuelScreen.tsx`
+13. `src/app/screens/TrainScreen.tsx`
+14. `src/app/screens/PlanScreen.tsx`
+15. `src/app/screens/ProfileScreen.tsx`
+16. `src/app/App.tsx`
+17. `.github/workflows/quality.yml`
+18. `src/tests/app/appShell.test.ts`
+19. `src/tests/engine/betaHealthViewModel.test.ts`
+20. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+21. `docs/21_BETA_RELEASE_OPERATIONS.md`

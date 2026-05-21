@@ -6,10 +6,12 @@ import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { spacing } from "../../design/theme";
+import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
 import type { BetaFeedbackHook } from "../../hooks/useBetaFeedback";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
 import { BetaFeedbackPanel } from "../components/BetaFeedbackPanel";
+import { BetaHealthPanel } from "../components/BetaHealthPanel";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
@@ -26,6 +28,7 @@ const profileSections: readonly SectionTabItem<ProfileSection>[] = [
 export interface ProfileScreenProps {
   asOfDate: ISODateString;
   betaFeedback?: BetaFeedbackHook | undefined;
+  betaHealth: BetaHealthViewModel;
   busy: boolean;
   cycleTrackingStatus: string;
   equipmentAccess: readonly string[];
@@ -43,6 +46,7 @@ export interface ProfileScreenProps {
 export function ProfileScreen({
   asOfDate,
   betaFeedback,
+  betaHealth,
   busy,
   cycleTrackingStatus,
   equipmentAccess,
@@ -121,10 +125,13 @@ export function ProfileScreen({
       ) : null}
       {section === "audit" ? (
         <>
+          <BetaHealthPanel viewModel={betaHealth} />
           <BetaFeedbackPanel
             busy={busy || betaFeedback?.busy}
             defaultScreen="profile"
+            onRefreshReports={betaFeedback?.loadRecentFeedbackReports}
             onSubmit={betaFeedback?.submitFeedback}
+            recentReports={betaFeedback?.recentReports}
             statusMessage={betaFeedback?.message}
           />
           <EngineCard>

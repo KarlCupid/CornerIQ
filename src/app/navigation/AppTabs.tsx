@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
 import type { CycleSymptom, ISODateString, PerformanceState } from "../../engine/core/types";
+import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
 import { colors } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen } from "../screens/FuelScreen";
@@ -24,6 +25,7 @@ export interface AppTabsProps {
   asOfDate: ISODateString;
   busy: boolean;
   betaFeedback?: BetaFeedbackHook | undefined;
+  betaHealth: BetaHealthViewModel;
   cycleSymptomOptions: readonly CycleSymptom[];
   message: string | null;
   nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
@@ -40,7 +42,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, betaFeedback, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
@@ -105,6 +107,7 @@ export function AppTabs({ asOfDate, busy, betaFeedback, cycleSymptomOptions, mes
             <ProfileScreen
               asOfDate={asOfDate}
               busy={busy}
+              betaHealth={betaHealth}
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
               cycleContext={state.viewModels.cycle}
               equipmentAccess={state.athlete.equipmentAccess}

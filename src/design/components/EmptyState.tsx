@@ -23,6 +23,7 @@ export function EmptyState({
         {actionLabel && onAction ? (
           <Pressable
             accessibilityLabel={actionLabel}
+            accessibilityHint="Runs the empty-state action for this section."
             accessibilityRole="button"
             onPress={onAction}
             style={{
