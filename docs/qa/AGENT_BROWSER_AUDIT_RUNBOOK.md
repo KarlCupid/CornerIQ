@@ -31,16 +31,48 @@ cmd /c npm run qa:agent:report
 
 ## Covered Flows
 
-The first scenario covers:
+The full onboarding audit covers the real first-time path before any shortcut:
+
+- Auth screen visible in local E2E mode.
+- Local E2E sign-in with non-secret fake credentials.
+- Boxer basics with boxing status, level, training age, and stance.
+- Body mass with kg/cm labels, examples, and missing-data safety copy.
+- Training access with preset chips plus optional notes.
+- Protected weekly anchors for recurring Tuesday pads and Thursday coach-led sparring.
+- Cycle support disabled while confirming optional/private/non-fertility copy.
+- Manual-only wearable preference.
+- Safety screening with male sex-at-birth selection hiding pregnancy-specific choices.
+- Build phase goal selection with plain-English explanations.
+- Finish setup reaches Today.
+- Mobile-width Today after the real onboarding path.
+
+The smoke audit covers the shortcut path:
 
 - First launch in local E2E mode.
 - Auth screen visible.
 - Local E2E sign-in with non-secret fake credentials.
 - Local demo onboarding visible.
+- `Create safe demo boxer` shortcut.
 - Today screen visible.
 - Today first-action content visible.
 - Quick logs visible.
 - Mobile-size browser layout smoke.
+
+Use the full onboarding audit when checking whether first-run labels, helper text, and field affordances still work. Use the smoke shortcut audit as a fast guard that local auth, the demo shortcut, Today, quick logs, and mobile rendering still boot.
+
+The full onboarding audit writes these screenshots under `qa-artifacts/browser-audit/current/screenshots/`:
+
+- `01-auth-screen.png`
+- `02-onboarding-boxing-basics.png`
+- `03-onboarding-body-mass.png`
+- `04-onboarding-training-access.png`
+- `05-onboarding-protected-anchors.png`
+- `06-onboarding-cycle.png`
+- `07-onboarding-wearable.png`
+- `08-onboarding-safety.png`
+- `09-onboarding-goal.png`
+- `10-today-after-real-onboarding.png`
+- `11-mobile-today-after-real-onboarding.png`
 
 ## Severity Rules
 
