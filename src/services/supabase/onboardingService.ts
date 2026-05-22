@@ -121,7 +121,7 @@ export type OnboardingDraft = z.infer<typeof OnboardingDraftSchema>;
 export type ProfileSettingsDraft = z.infer<typeof ProfileSettingsDraftSchema>;
 
 export const DEFAULT_BOXING_EQUIPMENT = ["jump_rope", "gloves", "hand_wraps"] as const;
-export const DEFAULT_BOXING_AVAILABILITY = ["mon_pm", "wed_pm", "sat_am"] as const;
+export const DEFAULT_BOXING_AVAILABILITY = ["monday", "wednesday", "saturday"] as const;
 
 function workoutFromDraft(draft: ProtectedWorkoutDraft, index: number): ProtectedWorkout {
   return parseWithSchema(

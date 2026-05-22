@@ -49,4 +49,16 @@ describe("agent browser QA static checks", () => {
     expect(combined).not.toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY=");
     expect(readSource(".gitignore")).toContain("qa-artifacts/");
   });
+
+  it("covers the refined onboarding decision inputs in the agent audit", () => {
+    const scenario = readSource("qa/e2e/agent-browser-audit.spec.ts");
+
+    expect(scenario).toContain("Training for boxing, not competing yet.");
+    expect(scenario).toContain("Monday");
+    expect(scenario).toContain("Wednesday");
+    expect(scenario).toContain("Friday");
+    expect(scenario).toContain("RPE = how hard this session usually feels");
+    expect(scenario).toContain("Medical safety restrictions");
+    expect(scenario).toContain("medications");
+  });
 });

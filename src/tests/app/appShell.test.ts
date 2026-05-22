@@ -2462,11 +2462,14 @@ describe("minimal app screens", () => {
     expect(output).toContain("Boxer setup");
     expect(output).toContain("Boxing identity");
     expect(output).toContain("Training age");
+    expect(output).toContain("Training for boxing, not competing yet.");
+    expect(output).toContain("Early amateur; limited sanctioned bouts.");
     expect(output).toContain("Years of boxing training");
     expect(output).toContain("Development shortcut: create safe demo boxer");
   });
 
   it("onboarding setup steps show visible labels, examples, chips, and recurring anchor copy", async () => {
+    const { BoxerBasicsStep } = await import("../../app/screens/onboarding/steps/BoxerBasicsStep");
     const { BodyMassStep } = await import("../../app/screens/onboarding/steps/BodyMassStep");
     const { TrainingAccessStep } = await import("../../app/screens/onboarding/steps/TrainingAccessStep");
     const { ProtectedScheduleStep } = await import("../../app/screens/onboarding/steps/ProtectedScheduleStep");
@@ -2477,6 +2480,12 @@ describe("minimal app screens", () => {
       updateDraft: vi.fn()
     };
 
+    const boxerOutput = JSON.stringify(render(React.createElement(BoxerBasicsStep, stepProps)).toJSON());
+    expect(boxerOutput).toContain("Training for boxing, not competing yet.");
+    expect(boxerOutput).toContain("Active amateur with multiple bouts.");
+    expect(boxerOutput).toContain("Currently fighting longer pro bouts.");
+    expect(boxerOutput).toContain("Championship-distance pro context.");
+
     const bodyMassOutput = JSON.stringify(render(React.createElement(BodyMassStep, stepProps)).toJSON());
     expect(bodyMassOutput).toContain("Current body mass (kg)");
     expect(bodyMassOutput).toContain("Typical walk-around body mass (kg)");
@@ -2486,7 +2495,12 @@ describe("minimal app screens", () => {
     const accessOutput = JSON.stringify(render(React.createElement(TrainingAccessStep, stepProps)).toJSON());
     expect(accessOutput).toContain("Equipment access");
     expect(accessOutput).toContain("Bodyweight only");
-    expect(accessOutput).toContain("Weekday evenings");
+    expect(accessOutput).toContain("Pick the days you can usually train. This helps CornerIQ place support work around boxing.");
+    for (const weekday of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]) {
+      expect(accessOutput).toContain(weekday);
+    }
+    expect(accessOutput).not.toContain("Weekday evenings");
+    expect(accessOutput).not.toContain("3 days/week");
     expect(accessOutput).toContain("Optional availability notes");
 
     const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
@@ -2495,6 +2509,10 @@ describe("minimal app screens", () => {
     expect(protectedOutput).toContain("Time of day");
     expect(protectedOutput).toContain("Duration (minutes)");
     expect(protectedOutput).toContain("Coach-led sparring");
+    expect(protectedOutput).toContain("RPE = how hard this session usually feels. 1 = very easy, 10 = all-out.");
+    for (const rpe of ["1", "5", "10"]) {
+      expect(protectedOutput).toContain(rpe);
+    }
   });
 
   it("male safety selection hides pregnancy choices with plain explanation", async () => {
@@ -2509,6 +2527,10 @@ describe("minimal app screens", () => {
     }
     const renderer = render(React.createElement(Probe));
     expect(JSON.stringify(renderer.toJSON())).toContain("Pregnancy safety context");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Only add safety restrictions that should make the engine more conservative.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Clinician told me to avoid dehydration or weight cuts");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Recent concussion or head injury concern");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Medications");
 
     await act(async () => {
       await press(pressableWithExactText(renderer, "male"));
@@ -2518,6 +2540,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Pregnancy-specific choices are hidden");
     expect(output).not.toContain("confirmed");
     expect(output).not.toContain("possible");
+    expect(output).not.toContain("Medications");
   });
 
   it("log cards validate required fields before calling insert actions", async () => {

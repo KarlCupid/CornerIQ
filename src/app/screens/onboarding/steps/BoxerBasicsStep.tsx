@@ -11,15 +11,15 @@ export interface OnboardingStepProps {
   updateDraft: (updater: (current: OnboardingDraft) => OnboardingDraft) => void;
 }
 
-const boxingLevels: Array<{ label: string; value: OnboardingDraft["boxing"]["boxingLevel"] }> = [
-  { label: "Aspiring boxer", value: "aspiring_boxer" },
-  { label: "Novice amateur", value: "amateur_novice" },
-  { label: "Open amateur", value: "amateur_open" },
-  { label: "Elite amateur", value: "amateur_elite" },
-  { label: "Developing pro", value: "pro_development" },
-  { label: "Pro, 4-6 rounds", value: "pro_4_6_round" },
-  { label: "Pro, 8-10 rounds", value: "pro_8_10_round" },
-  { label: "Pro, 12 rounds", value: "pro_12_round" }
+const boxingLevels: Array<{ description: string; label: string; value: OnboardingDraft["boxing"]["boxingLevel"] }> = [
+  { label: "Aspiring boxer", value: "aspiring_boxer", description: "Training for boxing, not competing yet." },
+  { label: "Novice amateur", value: "amateur_novice", description: "Early amateur; limited sanctioned bouts." },
+  { label: "Open amateur", value: "amateur_open", description: "Active amateur with multiple bouts." },
+  { label: "Elite amateur", value: "amateur_elite", description: "High-level amateur or regional/national level." },
+  { label: "Developing pro", value: "pro_development", description: "Preparing for or early in pro boxing." },
+  { label: "Pro, 4-6 rounds", value: "pro_4_6_round", description: "Currently fighting short pro bouts." },
+  { label: "Pro, 8-10 rounds", value: "pro_8_10_round", description: "Currently fighting longer pro bouts." },
+  { label: "Pro, 12 rounds", value: "pro_12_round", description: "Championship-distance pro context." }
 ];
 
 const trainingAgeOptions = [
@@ -59,7 +59,13 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
       <FieldGroup helper="Pick the closest current level. This helps the engine avoid generic fitness defaults." label="Current boxing level">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {boxingLevels.map((option) => (
-            <ChipButton active={draft.boxing.boxingLevel === option.value} key={option.value} label={option.label} onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, boxingLevel: option.value } }))} />
+            <ChipButton
+              active={draft.boxing.boxingLevel === option.value}
+              description={option.description}
+              key={option.value}
+              label={option.label}
+              onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, boxingLevel: option.value } }))}
+            />
           ))}
         </View>
       </FieldGroup>

@@ -19,6 +19,8 @@ const weekdays = [
 ] as const;
 
 const timeOfDayOptions = ["No set time", "Morning", "Afternoon", "Evening"] as const;
+const rpeOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+type RpeOption = (typeof rpeOptions)[number];
 
 const anchorTypes: Array<{ label: string; value: ProtectedWorkoutDraft["type"] }> = [
   { label: "Technical session", value: "technical_session" },
@@ -57,12 +59,42 @@ function humanType(type: ProtectedWorkoutDraft["type"]): string {
   return anchorTypes.find((option) => option.value === type)?.label ?? type.replace(/_/g, " ");
 }
 
+function intensityForRpe(rpe: RpeOption): ProtectedWorkoutDraft["intensity"] {
+  if (rpe <= 3) {
+    return "easy";
+  }
+  if (rpe <= 6) {
+    return "moderate";
+  }
+  if (rpe <= 8) {
+    return "hard";
+  }
+  return "max";
+}
+
+function rpeSummary(workout: ProtectedWorkoutDraft): string {
+  const noteRpe = workout.note?.match(/\bRPE\s+(10|[1-9])\b/i)?.[1];
+  if (noteRpe) {
+    return `RPE ${noteRpe}`;
+  }
+  switch (workout.intensity) {
+    case "easy":
+      return "RPE 1-3";
+    case "moderate":
+      return "RPE 4-6";
+    case "hard":
+      return "RPE 7-8";
+    case "max":
+      return "RPE 9-10";
+  }
+}
+
 export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProps) {
   const [type, setType] = useState<ProtectedWorkoutDraft["type"]>("technical_session");
   const [weekday, setWeekday] = useState((draft.protectedSchedule[0]?.date ? new Date(`${draft.protectedSchedule[0].date}T00:00:00.000Z`).getUTCDay() : 2) as (typeof weekdays)[number]["value"]);
   const [timeOfDay, setTimeOfDay] = useState<(typeof timeOfDayOptions)[number]>("Evening");
   const [durationMinutes, setDurationMinutes] = useState("45");
-  const [intensity, setIntensity] = useState<ProtectedWorkoutDraft["intensity"]>("moderate");
+  const [rpe, setRpe] = useState<RpeOption>(6);
   const { message: error, runWithMessage } = useFormMessage("Anchor could not be added.");
 
   const addAnchor = () => {
@@ -79,8 +111,8 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
             type,
             date: mappedDate,
             durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Anchor duration"),
-            intensity,
-            note: `Recurring weekly ${dayLabel} ${timeNote} anchor mapped to ${mappedDate}`
+            intensity: intensityForRpe(rpe),
+            note: `RPE ${rpe}; recurring weekly ${dayLabel} ${timeNote} anchor mapped to ${mappedDate}`
           }
         ]
       }));
@@ -93,13 +125,13 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
       <Text style={screenStyles.subtle}>
         Add recurring weekly commitments the engine should protect: boxing sessions, coach-led sparring you already have, travel, or recovery days. CornerIQ does not generate sparring or contact.
       </Text>
-      <Text style={screenStyles.exampleText}>Example: Tuesday evening pads, 60 min, moderate.</Text>
-      <Text style={screenStyles.exampleText}>Example: Thursday coach-led sparring, 90 min, hard.</Text>
-      <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, easy.</Text>
+      <Text style={screenStyles.exampleText}>Example: Tuesday evening pads, 60 min, RPE 6.</Text>
+      <Text style={screenStyles.exampleText}>Example: Thursday coach-led sparring, 90 min, RPE 8.</Text>
+      <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, RPE 2.</Text>
       {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
       {draft.protectedSchedule.map((workout) => (
         <Text key={`${workout.type}_${workout.date}_${workout.durationMinutes}`} style={screenStyles.body}>
-          Weekly {weekdayLabel(workout.date)} - {humanType(workout.type)} - {workout.durationMinutes} min - mapped to {workout.date}
+          Weekly {weekdayLabel(workout.date)} - {humanType(workout.type)} - {workout.durationMinutes} min - {rpeSummary(workout)}
         </Text>
       ))}
       <FieldGroup helper="Choose the day this usually repeats each week." label="Day of week">
@@ -132,9 +164,11 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
         placeholder="Duration minutes"
         value={durationMinutes}
       />
-      <FieldGroup helper="How hard this commitment usually is." label="Intensity">
+      <FieldGroup helper="RPE = how hard this session usually feels. 1 = very easy, 10 = all-out." label="RPE">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {(["easy", "moderate", "hard", "max"] as const).map((option) => <ChipButton active={intensity === option} key={option} label={option} onPress={() => setIntensity(option)} />)}
+          {rpeOptions.map((option) => (
+            <ChipButton active={rpe === option} key={option} label={`${option}`} onPress={() => setRpe(option)} />
+          ))}
         </View>
       </FieldGroup>
       <Pressable accessibilityRole="button" onPress={addAnchor} style={screenStyles.button}>

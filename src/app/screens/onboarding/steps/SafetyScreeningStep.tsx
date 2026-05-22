@@ -6,6 +6,15 @@ import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
 
+const safetyRestrictionOptions = [
+  { label: "Clinician told me to avoid dehydration or weight cuts", value: "clinician_avoid_dehydration_or_weight_cuts" },
+  { label: "Recent concussion or head injury concern", value: "recent_concussion_or_head_injury_concern" },
+  { label: "Heart/breathing condition relevant to hard training", value: "heart_breathing_condition_hard_training" },
+  { label: "Other clinician safety restriction", value: "other_clinician_safety_restriction" }
+] as const;
+
+const safetyRestrictionValues = new Set<string>(safetyRestrictionOptions.map((option) => option.value));
+
 function splitList(value: string): string[] {
   return value.split(",").map((item) => item.trim()).filter(Boolean);
 }
@@ -21,9 +30,8 @@ function parseAge(value: string): number | null {
 
 export function SafetyScreeningStep({ draft, setStepError, updateDraft }: OnboardingStepProps) {
   const [ageText, setAgeText] = useState(`${draft.safety.ageYears}`);
-  const [medicalFlags, setMedicalFlags] = useState(draft.safety.medicalFlags.join(", "));
-  const [medications, setMedications] = useState(draft.safety.medications.join(", "));
   const [adverseEvents, setAdverseEvents] = useState(draft.safety.priorWeightCutAdverseEvents.join(", "));
+  const selectedSafetyRestrictions = draft.safety.medicalFlags.filter((flag) => safetyRestrictionValues.has(flag));
 
   const updateAge = (value: string) => {
     setAgeText(value);
@@ -32,12 +40,19 @@ export function SafetyScreeningStep({ draft, setStepError, updateDraft }: Onboar
       setStepError("Age is required for safety screening.");
       return;
     }
-    updateDraft((current) => ({ ...current, safety: { ...current.safety, ageYears: parsed } }));
+    updateDraft((current) => ({ ...current, safety: { ...current.safety, ageYears: parsed, medications: [] } }));
     setStepError(null);
   };
   const updateSafety = (updater: (current: OnboardingDraft) => OnboardingDraft) => {
-    updateDraft(updater);
+    updateDraft((current) => {
+      const next = updater(current);
+      return { ...next, safety: { ...next.safety, medications: [] } };
+    });
     setStepError(parseAge(ageText) === null ? "Age is required for safety screening." : null);
+  };
+  const toggleSafetyRestriction = (value: string) => {
+    const nextFlags = selectedSafetyRestrictions.includes(value) ? selectedSafetyRestrictions.filter((item) => item !== value) : [...selectedSafetyRestrictions, value];
+    updateSafety((current) => ({ ...current, safety: { ...current.safety, medicalFlags: nextFlags } }));
   };
   const selectSexAtBirth = (sexAtBirth: NonNullable<OnboardingDraft["safety"]["sexAtBirth"]>) => {
     updateSafety((current) => ({
@@ -71,26 +86,13 @@ export function SafetyScreeningStep({ draft, setStepError, updateDraft }: Onboar
           ))}
         </View>
       </FieldGroup>
-      <LabeledTextInput
-        helper="Optional notes such as asthma, concussion history, anemia, or anything a clinician told you to respect."
-        label="Medical flags (optional notes)"
-        onChangeText={(value) => {
-          setMedicalFlags(value);
-          updateSafety((current) => ({ ...current, safety: { ...current.safety, medicalFlags: splitList(value) } }));
-        }}
-        placeholder="Medical flags, comma-separated"
-        value={medicalFlags}
-      />
-      <LabeledTextInput
-        helper="Optional. Add medication names or leave blank."
-        label="Medications (optional notes)"
-        onChangeText={(value) => {
-          setMedications(value);
-          updateSafety((current) => ({ ...current, safety: { ...current.safety, medications: splitList(value) } }));
-        }}
-        placeholder="Medications optional, comma-separated"
-        value={medications}
-      />
+      <FieldGroup helper="Only add safety restrictions that should make the engine more conservative." label="Medical safety restrictions">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {safetyRestrictionOptions.map((option) => (
+            <ChipButton active={selectedSafetyRestrictions.includes(option.value)} key={option.value} label={option.label} onPress={() => toggleSafetyRestriction(option.value)} />
+          ))}
+        </View>
+      </FieldGroup>
       {showPregnancyChoices ? (
         <FieldGroup helper="Optional. Choose unknown if it does not apply or you do not want to answer." label="Pregnancy safety context">
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>

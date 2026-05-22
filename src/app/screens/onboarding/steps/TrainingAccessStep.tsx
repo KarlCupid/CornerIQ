@@ -17,12 +17,13 @@ const equipmentOptions = [
 ] as const;
 
 const availabilityOptions = [
-  { label: "Weekday mornings", value: "weekday_mornings" },
-  { label: "Weekday evenings", value: "weekday_evenings" },
-  { label: "Weekends", value: "weekends" },
-  { label: "2 days/week", value: "2_days_per_week" },
-  { label: "3 days/week", value: "3_days_per_week" },
-  { label: "4+ days/week", value: "4_plus_days_per_week" }
+  { label: "Monday", value: "monday" },
+  { label: "Tuesday", value: "tuesday" },
+  { label: "Wednesday", value: "wednesday" },
+  { label: "Thursday", value: "thursday" },
+  { label: "Friday", value: "friday" },
+  { label: "Saturday", value: "saturday" },
+  { label: "Sunday", value: "sunday" }
 ] as const;
 
 const equipmentValues = new Set<string>(equipmentOptions.map((option) => option.value));
@@ -86,7 +87,7 @@ export function TrainingAccessStep({ draft, updateDraft }: OnboardingStepProps) 
         placeholder="Equipment notes optional"
         value={customEquipment}
       />
-      <FieldGroup helper="Choose the windows and weekly frequency that usually fit your life." label="Training availability">
+      <FieldGroup helper="Pick the days you can usually train. This helps CornerIQ place support work around boxing." label="Training availability">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {availabilityOptions.map((option) => (
             <ChipButton

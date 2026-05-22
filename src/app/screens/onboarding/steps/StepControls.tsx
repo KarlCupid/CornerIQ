@@ -5,11 +5,13 @@ import { screenStyles } from "../../screenStyles";
 
 export function ChipButton({
   active,
+  description,
   disabled = false,
   label,
   onPress
 }: {
   active: boolean;
+  description?: string;
   disabled?: boolean;
   label: string;
   onPress: () => void;
@@ -22,11 +24,14 @@ export function ChipButton({
       onPress={onPress}
       style={[
         screenStyles.quietButton,
+        { maxWidth: 280 },
         active ? { borderColor: colors.blueIQ, backgroundColor: colors.panelRaised } : null,
-        disabled ? { opacity: 0.55 } : null
+        disabled ? { opacity: 0.55 } : null,
+        description ? { alignItems: "flex-start" } : null
       ]}
     >
       <Text style={screenStyles.quietButtonText}>{label}</Text>
+      {description ? <Text style={[screenStyles.subtle, { marginTop: spacing.xs }]}>{description}</Text> : null}
     </Pressable>
   );
 }

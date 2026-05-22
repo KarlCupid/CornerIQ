@@ -35,13 +35,13 @@ The full onboarding audit covers the real first-time path before any shortcut:
 
 - Auth screen visible in local E2E mode.
 - Local E2E sign-in with non-secret fake credentials.
-- Boxer basics with boxing status, level, training age, and stance.
+- Boxer basics with boxing status, visible level definitions, training age, and stance.
 - Body mass with kg/cm labels, examples, and missing-data safety copy.
-- Training access with preset chips plus optional notes.
-- Protected weekly anchors for recurring Tuesday pads and Thursday coach-led sparring.
+- Training access with Monday-Sunday availability chips plus optional equipment and availability notes.
+- Protected weekly anchors for recurring Tuesday pads and Thursday coach-led sparring using RPE selection.
 - Cycle support disabled while confirming optional/private/non-fertility copy.
 - Manual-only wearable preference.
-- Safety screening with male sex-at-birth selection hiding pregnancy-specific choices.
+- Safety screening with male sex-at-birth selection hiding pregnancy-specific choices, no medication collection, and constrained engine-relevant safety restrictions.
 - Build phase goal selection with plain-English explanations.
 - Finish setup reaches Today.
 - Mobile-width Today after the real onboarding path.
@@ -58,7 +58,7 @@ The smoke audit covers the shortcut path:
 - Quick logs visible.
 - Mobile-size browser layout smoke.
 
-Use the full onboarding audit when checking whether first-run labels, helper text, and field affordances still work. Use the smoke shortcut audit as a fast guard that local auth, the demo shortcut, Today, quick logs, and mobile rendering still boot.
+Use the full onboarding audit when checking whether first-run labels, helper text, and field affordances still work. Current onboarding checks include boxer level definitions, day-of-week availability, protected-anchor RPE, and the simplified safety screen. Use the smoke shortcut audit as a fast guard that local auth, the demo shortcut, Today, quick logs, and mobile rendering still boot.
 
 The full onboarding audit writes these screenshots under `qa-artifacts/browser-audit/current/screenshots/`:
 
