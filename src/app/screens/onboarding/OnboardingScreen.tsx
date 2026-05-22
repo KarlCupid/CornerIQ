@@ -46,15 +46,15 @@ function stepWhy(stepIndex: number): string {
 
 function goalSummary(draft: OnboardingDraft): string {
   if (draft.goal.phase === "fight_known") {
-    return `Summary: fight setup for ${draft.goal.fight.boutDate}, ${draft.goal.fight.contractedWeightKg} kg, weigh-in ${draft.goal.fight.weighInType.replace(/_/g, " ")}.`;
+    return `Finishing setup will save a tentative fight context for ${draft.goal.fight.boutDate} at ${draft.goal.fight.contractedWeightKg} kg. Weigh-in timing: ${draft.goal.fight.weighInType.replace(/_/g, " ")}.`;
   }
   if (draft.goal.phase === "tournament_known") {
-    return `Summary: tournament from ${draft.goal.tournament.tournamentStartDate} to ${draft.goal.tournament.tournamentEndDate}; strategy stays near weight.`;
+    return `Finishing setup will save tournament context from ${draft.goal.tournament.tournamentStartDate} to ${draft.goal.tournament.tournamentEndDate}. The strategy stays conservative until real details are known.`;
   }
   if (draft.goal.phase === "maintenance_recovery") {
-    return "Summary: recovery/maintenance phase. Safety and consistency stay ahead of pressure.";
+    return "Finishing setup will start a maintenance/recovery phase. Safety and consistency stay ahead of performance or weight-class pressure.";
   }
-  return "Summary: build phase. The engine will protect boxing anchors and fill support work around them.";
+  return "Finishing setup will start a build phase. The engine will protect boxing anchors and place support work around them.";
 }
 
 export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {

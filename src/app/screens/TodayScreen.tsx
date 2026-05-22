@@ -31,11 +31,13 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <EngineCard>
-        <View style={screenStyles.row}>
-          <Text style={screenStyles.sectionTitle}>Primary action</Text>
-          <Text style={screenStyles.callout}>{viewModel.primaryAction}</Text>
-          <Text style={screenStyles.body}>{viewModel.whatChanged}</Text>
-          <Text style={screenStyles.subtle}>Confidence: {viewModel.confidenceLabel}</Text>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Start here</Text>
+          <Text style={screenStyles.callout}>1. Log readiness</Text>
+          <Text style={screenStyles.callout}>2. Log body mass</Text>
+          <Text style={screenStyles.callout}>3. Check today's training and fuel priority</Text>
+          <Text style={screenStyles.subtle}>Start with the first true manual log you have. Missing data lowers confidence; it is not treated as safe or as a reason to push harder.</Text>
+          <Text style={screenStyles.exampleText}>Primary prompt: use Quick logs below, then re-check Today's priority.</Text>
         </View>
       </EngineCard>
       {hasRisk ? (
@@ -46,40 +48,13 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         </RiskBanner>
       ) : null}
       <EngineCard>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Today's decision</Text>
-          {viewModel.decisionStack.map((item) => (
-            <View key={item.label} style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.callout}>{item.label}: {item.summary}</Text>
-              <Text style={screenStyles.subtle}>Why: {item.why} Confidence: {item.confidence}</Text>
-            </View>
-          ))}
+        <View style={screenStyles.row}>
+          <Text style={screenStyles.sectionTitle}>Today's priority</Text>
+          <Text style={screenStyles.callout}>Do first: {viewModel.primaryAction}</Text>
+          <Text style={screenStyles.body}>Why: {viewModel.whatChanged}</Text>
+          <Text style={screenStyles.subtle}>Confidence: {viewModel.confidenceLabel}. Optional logs add context; missing data remains unknown.</Text>
         </View>
       </EngineCard>
-      <EngineCard>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Training</Text>
-          <Text style={screenStyles.body}>{viewModel.trainingPriority}</Text>
-          <Text style={screenStyles.subtle}>{recentLogs.trainingRecentSummary}</Text>
-        </View>
-      </EngineCard>
-      <EngineCard>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Fuel</Text>
-          <Text style={screenStyles.body}>{viewModel.fuelPriority}</Text>
-          <Text style={screenStyles.subtle}>{recentLogs.foodLogCountToday}</Text>
-        </View>
-      </EngineCard>
-      <EngineCard>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Weight / safety</Text>
-          <MetricRow label="Body mass" value={viewModel.bodyMassStatus} />
-          <MetricRow label="Readiness" value={viewModel.readinessContext} />
-          {viewModel.cycleContext ? <MetricRow label="Cycle" value={viewModel.cycleContext} /> : null}
-          <Text style={screenStyles.subtle}>No-shame logging: missing entries lower confidence; they are never treated as failure or permission to push harder.</Text>
-        </View>
-      </EngineCard>
-      <CycleContextCard cycleContext={cycleContext} trackingStatus={cycleTrackingStatus} />
       <EngineCard>
         <View style={{ gap: spacing.md }}>
           <Text style={screenStyles.sectionTitle}>Quick logs</Text>
@@ -92,6 +67,38 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
       <ReadinessCheckInCard actions={quickLogs} busy={busy} />
       <HydrationLogCard actions={quickLogs} busy={busy} />
       {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} /> : null}
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Today snapshot</Text>
+          <Text style={screenStyles.fieldLabel}>Training</Text>
+          <Text style={screenStyles.body}>{viewModel.trainingPriority}</Text>
+          <Text style={screenStyles.subtle}>{recentLogs.trainingRecentSummary}</Text>
+          <Text style={screenStyles.fieldLabel}>Fuel</Text>
+          <Text style={screenStyles.body}>{viewModel.fuelPriority}</Text>
+          <Text style={screenStyles.subtle}>{recentLogs.foodLogCountToday}</Text>
+        </View>
+      </EngineCard>
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Missing and optional context</Text>
+          <MetricRow label="Body mass" value={viewModel.bodyMassStatus} />
+          <MetricRow label="Readiness" value={viewModel.readinessContext} />
+          {viewModel.cycleContext ? <MetricRow label="Cycle" value={viewModel.cycleContext} /> : null}
+          <Text style={screenStyles.subtle}>No-shame logging: missing entries lower confidence; they are never treated as failure or permission to push harder.</Text>
+        </View>
+      </EngineCard>
+      <CycleContextCard cycleContext={cycleContext} trackingStatus={cycleTrackingStatus} />
+      <EngineCard>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Engine detail</Text>
+          {viewModel.decisionStack.map((item) => (
+            <View key={item.label} style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.callout}>{item.label}: {item.summary}</Text>
+              <Text style={screenStyles.subtle}>Why: {item.why} Confidence: {item.confidence}</Text>
+            </View>
+          ))}
+        </View>
+      </EngineCard>
       <DisclosureCard title="why this decision" summary="Open this when you want the engine rationale without crowding the first action.">
         <Text style={screenStyles.body}>{viewModel.why}</Text>
       </DisclosureCard>

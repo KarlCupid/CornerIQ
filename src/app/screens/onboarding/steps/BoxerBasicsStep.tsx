@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
-import { colors, spacing } from "../../../../design/theme";
+import React from "react";
+import { Text, View } from "react-native";
+import { spacing } from "../../../../design/theme";
 import type { OnboardingDraft } from "../../../../services/supabase/onboardingService";
 import { screenStyles } from "../../screenStyles";
+import { ChipButton, FieldGroup } from "./StepControls";
 
 export interface OnboardingStepProps {
   draft: OnboardingDraft;
@@ -10,34 +11,38 @@ export interface OnboardingStepProps {
   updateDraft: (updater: (current: OnboardingDraft) => OnboardingDraft) => void;
 }
 
-function OptionButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={[screenStyles.quietButton, active ? { borderColor: colors.blueIQ } : null]}>
-      <Text style={screenStyles.quietButtonText}>{label}</Text>
-    </Pressable>
-  );
-}
+const boxingLevels: Array<{ label: string; value: OnboardingDraft["boxing"]["boxingLevel"] }> = [
+  { label: "Aspiring boxer", value: "aspiring_boxer" },
+  { label: "Novice amateur", value: "amateur_novice" },
+  { label: "Open amateur", value: "amateur_open" },
+  { label: "Elite amateur", value: "amateur_elite" },
+  { label: "Developing pro", value: "pro_development" },
+  { label: "Pro, 4-6 rounds", value: "pro_4_6_round" },
+  { label: "Pro, 8-10 rounds", value: "pro_8_10_round" },
+  { label: "Pro, 12 rounds", value: "pro_12_round" }
+];
 
-function parseTrainingAge(value: string): number | null {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+const trainingAgeOptions = [
+  { label: "0", value: 0 },
+  { label: "1", value: 1 },
+  { label: "2", value: 2 },
+  { label: "3-5", value: 4 },
+  { label: "6+", value: 6 }
+] as const;
+
+function trainingAgeActive(current: number, option: (typeof trainingAgeOptions)[number]): boolean {
+  if (option.label === "3-5") {
+    return current >= 3 && current <= 5;
+  }
+  if (option.label === "6+") {
+    return current >= 6;
+  }
+  return current === option.value;
 }
 
 export function BoxerBasicsStep({ draft, setStepError, updateDraft }: OnboardingStepProps) {
-  const [trainingAgeText, setTrainingAgeText] = useState(`${draft.boxing.trainingAgeYears}`);
-  const trainingAgeError = (value: string) => (parseTrainingAge(value) === null ? "Training age is required." : null);
   const updateBoxing = (updater: (current: OnboardingDraft) => OnboardingDraft) => {
     updateDraft(updater);
-    setStepError(trainingAgeError(trainingAgeText));
-  };
-  const updateTrainingAge = (value: string) => {
-    setTrainingAgeText(value);
-    const parsed = parseTrainingAge(value);
-    if (parsed === null) {
-      setStepError("Training age is required.");
-      return;
-    }
-    updateDraft((current) => ({ ...current, boxing: { ...current.boxing, trainingAgeYears: parsed } }));
     setStepError(null);
   };
 
@@ -45,22 +50,38 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Boxing identity</Text>
       <Text style={screenStyles.subtle}>Required. This keeps CornerIQ boxer-first across amateur and pro contexts.</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {(["amateur", "pro"] as const).map((option) => (
-          <OptionButton active={draft.boxing.amateurOrPro === option} key={option} label={option} onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: option } }))} />
-        ))}
-      </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"] as const).map((option) => (
-          <OptionButton active={draft.boxing.boxingLevel === option} key={option} label={option.replace(/_/g, " ")} onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, boxingLevel: option } }))} />
-        ))}
-      </View>
-      <TextInput keyboardType="decimal-pad" onChangeText={updateTrainingAge} placeholder="Training age years" placeholderTextColor={colors.wrap} style={screenStyles.input} value={trainingAgeText} />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {(["orthodox", "southpaw", "switch", "unknown"] as const).map((option) => (
-          <OptionButton active={draft.boxing.stance === option} key={option} label={option} onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, stance: option } }))} />
-        ))}
-      </View>
+      <FieldGroup helper="Choose the boxing lane that fits how you currently compete or plan to compete." label="Boxing status">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <ChipButton active={draft.boxing.amateurOrPro === "amateur"} label="Amateur boxer" onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: "amateur" } }))} />
+          <ChipButton active={draft.boxing.amateurOrPro === "pro"} label="Professional boxer" onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: "pro" } }))} />
+        </View>
+      </FieldGroup>
+      <FieldGroup helper="Pick the closest current level. This helps the engine avoid generic fitness defaults." label="Current boxing level">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {boxingLevels.map((option) => (
+            <ChipButton active={draft.boxing.boxingLevel === option.value} key={option.value} label={option.label} onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, boxingLevel: option.value } }))} />
+          ))}
+        </View>
+      </FieldGroup>
+      <FieldGroup example="Use 0 if brand new." helper="Years of boxing training. Choose the closest option; this affects support-work conservatism." label="Training age">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {trainingAgeOptions.map((option) => (
+            <ChipButton
+              active={trainingAgeActive(draft.boxing.trainingAgeYears, option)}
+              key={option.label}
+              label={option.label}
+              onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, trainingAgeYears: option.value } }))}
+            />
+          ))}
+        </View>
+      </FieldGroup>
+      <FieldGroup helper="Optional. Unknown is fine if stance is not settled yet." label="Stance">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {(["orthodox", "southpaw", "switch", "unknown"] as const).map((option) => (
+            <ChipButton active={draft.boxing.stance === option} key={option} label={option === "unknown" ? "Not sure yet" : option} onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, stance: option } }))} />
+          ))}
+        </View>
+      </FieldGroup>
     </View>
   );
 }

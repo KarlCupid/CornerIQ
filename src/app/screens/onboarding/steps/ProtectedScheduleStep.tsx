@@ -1,39 +1,86 @@
 import React, { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useFormMessage } from "../../../forms/useFormMessage";
-import { parseRequiredDateYYYYMMDD, parseRequiredPositiveInteger } from "../../../forms/validation";
+import { parseRequiredPositiveInteger } from "../../../forms/validation";
 import { colors, spacing } from "../../../../design/theme";
 import type { ProtectedWorkoutDraft } from "../../../../services/supabase/onboardingService";
 import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
+import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
 
-function OptionButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={[screenStyles.quietButton, active ? { borderColor: colors.blueIQ } : null]}>
-      <Text style={screenStyles.quietButtonText}>{label}</Text>
-    </Pressable>
-  );
+const weekdays = [
+  { label: "Monday", value: 1 },
+  { label: "Tuesday", value: 2 },
+  { label: "Wednesday", value: 3 },
+  { label: "Thursday", value: 4 },
+  { label: "Friday", value: 5 },
+  { label: "Saturday", value: 6 },
+  { label: "Sunday", value: 0 }
+] as const;
+
+const timeOfDayOptions = ["No set time", "Morning", "Afternoon", "Evening"] as const;
+
+const anchorTypes: Array<{ label: string; value: ProtectedWorkoutDraft["type"] }> = [
+  { label: "Technical session", value: "technical_session" },
+  { label: "Pads or mitts", value: "pads_mitts" },
+  { label: "Bag work", value: "bag_work" },
+  { label: "Coach-led sparring", value: "sparring" },
+  { label: "Roadwork", value: "roadwork" },
+  { label: "Coach-assigned strength", value: "coach_assigned_strength" },
+  { label: "Travel", value: "travel" },
+  { label: "Recovery day", value: "recovery_day" }
+];
+
+function isoDateForWeekday(referenceDate: string, weekday: number): string {
+  const reference = new Date(`${referenceDate}T00:00:00.000Z`);
+  if (Number.isNaN(reference.getTime())) {
+    return referenceDate;
+  }
+  const mondayOffset = (reference.getUTCDay() + 6) % 7;
+  const start = new Date(reference);
+  start.setUTCDate(reference.getUTCDate() - mondayOffset);
+  const target = new Date(start);
+  const targetOffset = weekday === 0 ? 6 : weekday - 1;
+  target.setUTCDate(start.getUTCDate() + targetOffset);
+  return target.toISOString().slice(0, 10);
+}
+
+function weekdayLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Weekly";
+  }
+  return weekdays.find((day) => day.value === parsed.getUTCDay())?.label ?? "Weekly";
+}
+
+function humanType(type: ProtectedWorkoutDraft["type"]): string {
+  return anchorTypes.find((option) => option.value === type)?.label ?? type.replace(/_/g, " ");
 }
 
 export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProps) {
   const [type, setType] = useState<ProtectedWorkoutDraft["type"]>("technical_session");
-  const [date, setDate] = useState(draft.protectedSchedule[0]?.date ?? "");
+  const [weekday, setWeekday] = useState((draft.protectedSchedule[0]?.date ? new Date(`${draft.protectedSchedule[0].date}T00:00:00.000Z`).getUTCDay() : 2) as (typeof weekdays)[number]["value"]);
+  const [timeOfDay, setTimeOfDay] = useState<(typeof timeOfDayOptions)[number]>("Evening");
   const [durationMinutes, setDurationMinutes] = useState("45");
   const [intensity, setIntensity] = useState<ProtectedWorkoutDraft["intensity"]>("moderate");
   const { message: error, runWithMessage } = useFormMessage("Anchor could not be added.");
 
   const addAnchor = () => {
     void runWithMessage(async () => {
+      const referenceDate = draft.protectedSchedule[0]?.date ?? new Date().toISOString().slice(0, 10);
+      const mappedDate = isoDateForWeekday(referenceDate, weekday);
+      const dayLabel = weekdays.find((day) => day.value === weekday)?.label ?? "weekly";
+      const timeNote = timeOfDay === "No set time" ? "no set time" : timeOfDay.toLowerCase();
       updateDraft((current) => ({
         ...current,
         protectedSchedule: [
           ...current.protectedSchedule,
           {
             type,
-            date: parseRequiredDateYYYYMMDD(date, "Anchor date"),
+            date: mappedDate,
             durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Anchor duration"),
             intensity,
-            note: "Protected boxing anchor"
+            note: `Recurring weekly ${dayLabel} ${timeNote} anchor mapped to ${mappedDate}`
           }
         ]
       }));
@@ -43,23 +90,53 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Protected boxing anchors</Text>
-      <Text style={screenStyles.subtle}>These are coach or life anchors the engine should protect. Sparring is treated as a protected commitment, not generated by CornerIQ.</Text>
+      <Text style={screenStyles.subtle}>
+        Add recurring weekly commitments the engine should protect: boxing sessions, coach-led sparring you already have, travel, or recovery days. CornerIQ does not generate sparring or contact.
+      </Text>
+      <Text style={screenStyles.exampleText}>Example: Tuesday evening pads, 60 min, moderate.</Text>
+      <Text style={screenStyles.exampleText}>Example: Thursday coach-led sparring, 90 min, hard.</Text>
+      <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, easy.</Text>
       {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
       {draft.protectedSchedule.map((workout) => (
         <Text key={`${workout.type}_${workout.date}_${workout.durationMinutes}`} style={screenStyles.body}>
-          {workout.type.replace(/_/g, " ")} - {workout.date} - {workout.durationMinutes} min
+          Weekly {weekdayLabel(workout.date)} - {humanType(workout.type)} - {workout.durationMinutes} min - mapped to {workout.date}
         </Text>
       ))}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {(["technical_session", "pads_mitts", "bag_work", "sparring", "roadwork", "coach_assigned_strength", "travel", "recovery_day"] as const).map((option) => (
-          <OptionButton active={type === option} key={option} label={option.replace(/_/g, " ")} onPress={() => setType(option)} />
-        ))}
-      </View>
-      <TextInput onChangeText={setDate} placeholder="Date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={date} />
-      <TextInput keyboardType="number-pad" onChangeText={setDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={durationMinutes} />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {(["easy", "moderate", "hard", "max"] as const).map((option) => <OptionButton active={intensity === option} key={option} label={option} onPress={() => setIntensity(option)} />)}
-      </View>
+      <FieldGroup helper="Choose the day this usually repeats each week." label="Day of week">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {weekdays.map((option) => (
+            <ChipButton active={weekday === option.value} key={option.label} label={option.label} onPress={() => setWeekday(option.value)} />
+          ))}
+        </View>
+      </FieldGroup>
+      <FieldGroup helper="Optional. Use a broad time of day if exact clock time is not helpful." label="Time of day">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {timeOfDayOptions.map((option) => (
+            <ChipButton active={timeOfDay === option} key={option} label={option} onPress={() => setTimeOfDay(option)} />
+          ))}
+        </View>
+      </FieldGroup>
+      <FieldGroup helper="What kind of commitment is already on your calendar?" label="Anchor type">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {anchorTypes.map((option) => (
+            <ChipButton active={type === option.value} key={option.value} label={option.label} onPress={() => setType(option.value)} />
+          ))}
+        </View>
+      </FieldGroup>
+      <LabeledTextInput
+        example="60"
+        helper="Minutes the engine should protect before adding support work around it."
+        keyboardType="number-pad"
+        label="Duration (minutes)"
+        onChangeText={setDurationMinutes}
+        placeholder="Duration minutes"
+        value={durationMinutes}
+      />
+      <FieldGroup helper="How hard this commitment usually is." label="Intensity">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {(["easy", "moderate", "hard", "max"] as const).map((option) => <ChipButton active={intensity === option} key={option} label={option} onPress={() => setIntensity(option)} />)}
+        </View>
+      </FieldGroup>
       <Pressable accessibilityRole="button" onPress={addAnchor} style={screenStyles.button}>
         <Text style={screenStyles.buttonText}>Add anchor</Text>
       </Pressable>

@@ -35,15 +35,31 @@ function QuickLogHelp() {
   return <Text style={screenStyles.subtle}>Log enough for today. Optional fields can stay blank; missed logs stay unknown.</Text>;
 }
 
+function InputLabel({ children }: { children: React.ReactNode }) {
+  return <Text style={screenStyles.fieldLabel}>{children}</Text>;
+}
+
+function ReadinessScaleHelp() {
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <Text style={screenStyles.subtle}>Use a 1-5 scale: 1 = low/poor, 5 = high/great.</Text>
+      <Text style={screenStyles.subtle}>For soreness/stress: 1 = none/easy, 5 = very high.</Text>
+    </View>
+  );
+}
+
 export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
   const [bodyMassKg, setBodyMassKg] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body mass log failed.");
+  const [success, setSuccess] = useState<string | null>(null);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Body mass</Text>
         <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
+        <InputLabel>Body mass (kg)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setBodyMassKg} placeholder="kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={bodyMassKg} />
         <Pressable
           accessibilityLabel={busy ? "Saving body mass log" : "Log body mass"}
@@ -52,8 +68,10 @@ export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
+              setSuccess(null);
               await actions.logBodyMass({ bodyMassKg: parseRequiredPositiveNumber(bodyMassKg, "Body mass", { example: "66.4" }) });
               setBodyMassKg("");
+              setSuccess("Body mass saved. Today will use the latest engine refresh when it completes.");
             })
           }
           style={screenStyles.button}
@@ -77,6 +95,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
   const [dizziness, setDizziness] = useState(false);
   const [fainting, setFainting] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Readiness log failed.");
+  const [success, setSuccess] = useState<string | null>(null);
 
   const clear = () => {
     setSleepHours("");
@@ -96,13 +115,22 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Readiness</Text>
         <QuickLogHelp />
+        <ReadinessScaleHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
+        <InputLabel>Sleep hours</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setSleepHours} placeholder="Sleep hours" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sleepHours} />
+        <InputLabel>Sleep quality (1-5)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSleepQuality} placeholder="Sleep quality 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sleepQuality} />
+        <InputLabel>Energy (1-5)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setEnergy} placeholder="Energy 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={energy} />
+        <InputLabel>Soreness (1-5)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSoreness} placeholder="Soreness 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={soreness} />
+        <InputLabel>Stress (1-5)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setStress} placeholder="Stress 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={stress} />
+        <InputLabel>Mood (1-5)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setMood} placeholder="Mood 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={mood} />
+        <InputLabel>Pain notes (optional)</InputLabel>
         <TextInput onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ToggleButton active={illness} busy={busy} label="Illness" onPress={() => setIllness((value) => !value)} />
@@ -116,6 +144,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
+              setSuccess(null);
               await actions.logReadiness({
                 sleepHours: parseRequiredNonNegativeNumber(sleepHours, "Sleep hours", { example: "7.5" }),
                 sleepQuality1To5: validateOneToFive(sleepQuality, "Sleep quality"),
@@ -129,6 +158,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
                 fainting
               });
               clear();
+              setSuccess("Readiness saved. Today will update after the engine refresh completes.");
             })
           }
           style={screenStyles.button}
@@ -144,13 +174,17 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Hydration log failed.");
+  const [success, setSuccess] = useState<string | null>(null);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Hydration</Text>
         <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
+        <InputLabel>Water (liters)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setLiters} placeholder="Water liters" placeholderTextColor={colors.wrap} style={screenStyles.input} value={liters} />
+        <InputLabel>Sodium (mg, optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSodiumMg} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodiumMg} />
         <Pressable
           accessibilityLabel={busy ? "Saving hydration log" : "Log hydration"}
@@ -159,11 +193,13 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
+              setSuccess(null);
               const sodium = parseOptionalNonNegativeNumber(sodiumMg, "Sodium");
               const payload = { liters: parseRequiredNonNegativeNumber(liters, "Water liters", { example: "2.5" }) };
               await actions.logHydration(sodium === undefined ? payload : { ...payload, sodiumMg: sodium });
               setLiters("");
               setSodiumMg("");
+              setSuccess("Hydration saved. Today will update after the engine refresh completes.");
             })
           }
           style={screenStyles.button}
@@ -182,6 +218,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
   const [bleedEnd, setBleedEnd] = useState(false);
   const [hormonalContraception, setHormonalContraception] = useState<"none" | "combined_pill" | "progestin_only_pill" | "hormonal_iud" | "copper_iud" | "implant" | "injection" | "patch" | "ring" | "unknown">("unknown");
   const { message: error, runWithMessage } = useFormMessage("Cycle log failed.");
+  const [success, setSuccess] = useState<string | null>(null);
 
   const toggleSymptom = (symptom: CycleSymptom) => {
     setSymptoms((current) => (current.includes(symptom) ? current.filter((item) => item !== symptom) : [...current, symptom]));
@@ -193,16 +230,20 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
         <Text style={screenStyles.sectionTitle}>Cycle</Text>
         <Text style={screenStyles.subtle}>Optional and private. Log enough for today; this is for symptoms and training context, not fertility tracking.</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
+        <InputLabel>Flow level</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["unknown", "none", "light", "moderate", "heavy", "very_heavy"] as const).map((level) => (
             <ToggleButton active={flowLevel === level} busy={busy} key={level} label={level.replace(/_/g, " ")} onPress={() => setFlowLevel(level)} />
           ))}
         </View>
+        <InputLabel>Symptoms</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {cycleSymptomOptions.slice(0, 8).map((symptom) => (
             <ToggleButton active={symptoms.includes(symptom)} busy={busy} key={symptom} label={symptom.replace(/_/g, " ")} onPress={() => toggleSymptom(symptom)} />
           ))}
         </View>
+        <InputLabel>Cycle notes for today</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ToggleButton active={bleedStart} busy={busy} label="Bleed start" onPress={() => setBleedStart((value) => !value)} />
           <ToggleButton active={bleedEnd} busy={busy} label="Bleed end" onPress={() => setBleedEnd((value) => !value)} />
@@ -215,6 +256,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
+              setSuccess(null);
               await actions.logCycle({
                 flowLevel,
                 symptoms,
@@ -225,6 +267,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
               setSymptoms([]);
               setBleedStart(false);
               setBleedEnd(false);
+              setSuccess("Cycle log saved. Today will update after the engine refresh completes.");
             })
           }
           style={screenStyles.button}
@@ -244,17 +287,25 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
   const [fiber, setFiber] = useState("");
   const [sodium, setSodium] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Food log failed.");
+  const [success, setSuccess] = useState<string | null>(null);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Food quick log</Text>
         <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
+        <InputLabel>Calories</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setCalories} placeholder="Calories" placeholderTextColor={colors.wrap} style={screenStyles.input} value={calories} />
+        <InputLabel>Protein (g)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setProtein} placeholder="Protein g" placeholderTextColor={colors.wrap} style={screenStyles.input} value={protein} />
+        <InputLabel>Carbs (g)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setCarbs} placeholder="Carbs g" placeholderTextColor={colors.wrap} style={screenStyles.input} value={carbs} />
+        <InputLabel>Fat (g)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setFat} placeholder="Fat g" placeholderTextColor={colors.wrap} style={screenStyles.input} value={fat} />
+        <InputLabel>Fiber (g, optional)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setFiber} placeholder="Fiber g optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={fiber} />
+        <InputLabel>Sodium (mg, optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSodium} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodium} />
         <Pressable
           accessibilityLabel={busy ? "Saving food log" : "Save food quick log"}
@@ -263,6 +314,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
+              setSuccess(null);
               const payload = {
                 calories: parseRequiredNonNegativeNumber(calories, "Calories"),
                 proteinGrams: parseRequiredNonNegativeNumber(protein, "Protein"),
@@ -282,6 +334,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
               setFat("");
               setFiber("");
               setSodium("");
+              setSuccess("Food log saved. Today will update after the engine refresh completes.");
             })
           }
           style={screenStyles.button}
@@ -301,28 +354,36 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
   const [rounds, setRounds] = useState("");
   const [note, setNote] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Training log failed.");
+  const [success, setSuccess] = useState<string | null>(null);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Training log</Text>
         <Text style={screenStyles.subtle}>Log enough for today. Completed sessions are history; planned anchors are protected boxing commitments.</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
+        {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
+        <InputLabel>Log type</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ToggleButton active={logKind === "completed"} busy={busy} label="Completed session" onPress={() => setLogKind("completed")} />
           <ToggleButton active={logKind === "planned"} busy={busy} label="Planned anchor" onPress={() => setLogKind("planned")} />
         </View>
+        <InputLabel>Session type</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["technical_session", "pads_mitts", "bag_work", "sparring", "roadwork", "coach_assigned_strength", "recovery_day"] as const).map((option) => (
             <ToggleButton active={type === option} busy={busy} key={option} label={option.replace(/_/g, " ")} onPress={() => setType(option)} />
           ))}
         </View>
+        <InputLabel>Duration (minutes)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={durationMinutes} />
+        <InputLabel>Intensity</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["easy", "moderate", "hard", "max"] as const).map((option) => (
             <ToggleButton active={intensity === option} busy={busy} key={option} label={option} onPress={() => setIntensity(option)} />
           ))}
         </View>
+        <InputLabel>Rounds (optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rounds} />
+        <InputLabel>Note (optional)</InputLabel>
         <TextInput onChangeText={setNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={note} />
         <Pressable
           accessibilityLabel={busy ? "Saving training log" : logKind === "completed" ? "Log completed session" : "Save planned anchor"}
@@ -331,6 +392,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
+              setSuccess(null);
               const parsedRounds = parseOptionalPositiveInteger(rounds, "Rounds");
               await actions.logProtectedWorkout({
                 logKind,
@@ -343,6 +405,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
               setDurationMinutes("");
               setRounds("");
               setNote("");
+              setSuccess(logKind === "completed" ? "Training log saved. Today will update after the engine refresh completes." : "Planned anchor saved. Today will protect it after the engine refresh completes.");
             })
           }
           style={screenStyles.button}

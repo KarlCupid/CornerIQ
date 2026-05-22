@@ -1,106 +1,68 @@
 # Codex Last Handoff
 
-Date: 2026-05-21 15:49 America/Vancouver
+Date: 2026-05-21 16:54 America/Vancouver
 
-Pass: Expo Go compatibility audit for Windows laptop + physical iPhone testing.
+Pass: First browser-test clarity pass for onboarding, auth, Today, and quick logs.
 
 Current branch during this pass: `main`
 
-Commit created in this run: none.
+Commit created in this run: `Improve onboarding and Today first-run clarity`.
 
-## Summary
+## Tester Findings Summary
 
-This was an Expo setup and verification pass only. No product features were added, no Supabase runtime logic was changed, no secret values were committed, and no EAS build was created.
+The first rough Windows/Chrome browser test reached Today and stopped because the first-time user experience was too unclear. Auth and onboarding were functional enough to proceed, but the tester did not understand several onboarding fields and had no clear first action on Today.
 
-CornerIQ was already on Expo SDK 55, which is the current physical iOS Expo Go target recommended by Expo during the SDK 56 transition. I did not downgrade to SDK 54 and did not upgrade to SDK 56. Instead, I aligned the SDK 55 package patch version, removed an SDK 55-invalid app config field, added Windows/iPhone testing docs, and verified the app on web plus the required quality gates.
+Main findings addressed:
 
-## SDK Decision
-
-- SDK version before: Expo SDK 55 (`expo` declared as `^55.0.25`, lockfile resolved `55.0.25`).
-- SDK version after: Expo SDK 55 (`expo` declared as `~55.0.26`, lockfile resolved `55.0.26`).
-- Latest physical iOS Expo Go target found: SDK 55 for App Store Expo Go during the SDK 56 transition.
-- Expo Go should now work: yes, if the iPhone has an Expo Go build that supports SDK 55.
-- Remaining blocker: if the user's App Store still only provides an Expo Go build that supports SDK 54, the blocker is Expo Go availability on that device/App Store account, not CornerIQ package alignment. Reinstall Expo Go, retry `npx expo start --tunnel --clear`, and if the device still cannot get SDK 55 Expo Go, use a compatible Expo Go beta/`eas go` or an EAS development build path.
-
-References checked:
-
-- https://docs.expo.dev/get-started/create-a-project/
-- https://expo.dev/sdk
-- https://expo.dev/changelog/expo-go-and-app-store-may-2026
-- https://expo.dev/changelog/sdk-55
+- Boxing identity had an unlabeled training-age field.
+- Body mass did not explain units, examples, or why each value mattered.
+- Training access used ambiguous free-text fields.
+- Protected anchors felt like dated one-off workouts instead of weekly commitments.
+- Cycle and safety fields needed optional/private framing, and pregnancy choices were confusing after male selection.
+- Goal phase did not explain each goal or fight/tournament extra fields.
+- Sign-up copy was unclear.
+- Today did not answer what to do first.
+- Quick logs use 1-5, so the UI needed to explain that scale.
 
 ## Changes Made
 
-- Updated `expo` from `^55.0.25` to `~55.0.26` using Expo CLI.
-- Updated `package-lock.json` from the Expo-managed install.
-- Removed `expo.newArchEnabled` from `app.json`; Expo Doctor rejected it as an additional property under SDK 55.
-- Added `docs/WINDOWS_IPHONE_TESTING.md` with beginner-friendly Windows web and iPhone Expo Go instructions, including tunnel mode and the "newer version of Expo Go required" explanation.
-- Rewrote this handoff with before/after SDK state, commands, verification, and remaining blocker.
+- Added visible labels, helper text, and examples across onboarding fields.
+- Replaced training-age text input with chips: `0`, `1`, `2`, `3-5`, and `6+`.
+- Added human-readable boxing status, level, stance, cycle, wearable, and goal labels.
+- Kept body-mass entry in kg/cm for this beta and made display-unit preference explicit.
+- Replaced training-access comma-only inputs with equipment and availability preset chips plus optional custom notes.
+- Reframed protected anchors as recurring weekly commitments with day, optional time of day, type, duration, and intensity. The UI maps them to current-week dates for the existing draft shape.
+- Added plain safety copy, optional medical/medication/adverse-event labels, and hid pregnancy-specific choices when male sex-at-birth is selected.
+- Made goal-phase choices self-explanatory and only shows fight/tournament fields when those modes are selected.
+- Improved auth copy with sign-in/sign-up mode language and email-confirmation explanation.
+- Added a Today `Start here` card, made Today's priority plain-English, moved detailed engine rationale lower, and kept `why this decision` collapsible.
+- Added quick-log scale copy for 1-5 readiness values and success messages after saved logs.
+- Added component/app-shell assertions for onboarding labels, Today Start here, quick-log 1-5 copy, recurring weekly anchors, and male safety pregnancy behavior.
+- Added `docs/FIRST_BROWSER_TEST_FINDINGS.md`.
+- Updated `docs/KNOWN_GAPS.md` with the first browser-test findings and remaining validation gap.
 
 ## Verification Results
 
 - `cmd /c npm install`: passed.
-- `cmd /c npm run web`: passed; Expo started Metro and served web at `http://localhost:8081`.
-- `Invoke-WebRequest -UseBasicParsing http://localhost:8081 | Select-Object -ExpandProperty StatusCode`: returned `200`; server was then stopped with `Ctrl+C`.
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: sandboxed run failed before loading Vitest config due Windows/esbuild access denied; approved rerun outside the sandbox passed with `366` tests passed and `1` skipped.
+- `cmd /c npm test`: sandboxed run failed before loading Vitest config due the known Windows/esbuild access-denied issue; approved rerun outside the sandbox passed with `368` tests passed and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- `cmd /c npm run quality`: approved run outside the sandbox passed; it ran typecheck and tests with `366` tests passed and `1` skipped.
+- `cmd /c npm run quality`: sandboxed run failed when the nested Vitest command hit the same Windows/esbuild access-denied issue; approved rerun outside the sandbox passed with `368` tests passed and `1` skipped.
 - `cmd /c npm run preflight:beta`: passed.
-- `cmd /c npx expo install --check`: initially found `expo@55.0.25` should be `~55.0.26`; after `--fix`, passed.
-- `cmd /c npx expo-doctor`: initially failed on `app.json` schema because of `newArchEnabled`; after removing it, passed `19/19` checks.
-- `cmd /c npx expo config --type public`: resolved `sdkVersion: '55.0.0'` and platforms `ios`, `android`, `web`.
-
-## Exact Commands Run
-
-```powershell
-pwd
-rg --files -g package.json -g package-lock.json -g app.json -g app.config.* -g babel.config.* -g metro.config.* -g eas.json -g docs/WINDOWS_IPHONE_TESTING.md -g docs/CODEX_LAST_HANDOFF.md
-git status --short
-Get-Content -Raw package.json
-Get-Content -Raw app.json
-Get-Content -Raw babel.config.js
-Get-Content -Raw eas.json
-rg -n '"(expo|react-native|react|@expo|expo-|metro|babel-preset-expo|react-native-web|@react-native|jest-expo)"|expo' package-lock.json
-rg --files -g '*.ts' -g '*.tsx' -g '*.js' -g '*.jsx' -g '!node_modules'
-Get-Content -Raw docs\CODEX_LAST_HANDOFF.md
-Test-Path docs\WINDOWS_IPHONE_TESTING.md
-cmd /c npx expo install --check
-cmd /c npx expo install --fix
-cmd /c npx expo install --check
-cmd /c npx expo config --type public
-cmd /c npx expo-doctor
-Get-Content -Raw src\tests\docs\betaReleaseOperations.test.ts
-Get-Content -Raw src\tests\docs\betaReleaseCandidateChecklist.test.ts
-Get-Content -Raw src\tests\static\betaReleaseConfigStatic.test.ts
-Get-Content -Raw scripts\beta-preflight.mjs
-Get-ChildItem docs | Select-Object -ExpandProperty Name
-cmd /c npm install
-cmd /c npm run web
-Invoke-WebRequest -UseBasicParsing http://localhost:8081 | Select-Object -ExpandProperty StatusCode
-cmd /c npm run typecheck
-cmd /c npm test
-cmd /c npm run lint
-cmd /c npm run preflight:beta
-cmd /c npm run quality
-git diff -- package.json app.json docs\WINDOWS_IPHONE_TESTING.md docs\CODEX_LAST_HANDOFF.md
-git diff --stat
-cmd /c npx expo config --type public
-```
+- `cmd /c npm run web`: passed; Expo served web at `http://localhost:8081`.
+- `Invoke-WebRequest -UseBasicParsing http://localhost:8081 | Select-Object -ExpandProperty StatusCode`: returned `200`.
+- Headless Chrome screenshot smoke: passed with temporary profile and screenshot at `C:\tmp\corneriq-web-smoke-wait.png`, showing the rendered auth screen with the new sign-in copy and field labels.
+- `cmd /c npm test -- src/tests/app/appShell.test.ts`: sandboxed run failed with the known Windows/esbuild config access error; approved rerun outside the sandbox passed with `76` tests passed.
 
 Notes:
 
-- The first sandboxed `cmd /c npx expo install --check` failed with a network/access aggregate error and was rerun with approval.
-- The first `cmd /c npx expo-doctor` failed as expected before the `app.json` fix, then passed after the fix.
-- The sandboxed `cmd /c npm test` failed with the known Windows/esbuild access denied issue, then passed outside the sandbox.
+- Expo logged a non-blocking React Native DevTools fallback warning from dotslash while starting web. Metro still bundled successfully and the app served.
+- Browser plugin skills are listed, but no callable Browser navigation/screenshot tools were exposed through tool search in this session. I used HTTP plus headless Chrome instead of adding Playwright.
+- The full test suite still emits existing `react-test-renderer` deprecation output and an existing act warning in the onboarding render test.
 
-## Next iPhone Steps
+## Remaining Known Gaps
 
-From Windows:
-
-```powershell
-cd C:\Users\karll\Documents\CornerIQ
-cmd /c npx expo start --tunnel --clear
-```
-
-Then scan the QR code with the iPhone Camera app or Expo Go. If the same "newer version of Expo Go required" message appears after reinstalling Expo Go, the iPhone does not currently have SDK 55-capable Expo Go available; use the alternatives documented in `docs/WINDOWS_IPHONE_TESTING.md`.
+- Rerun the first-time browser test from sign-up through Today after this pass lands.
+- Validate the same onboarding and Today flow on a phone-sized viewport and physical device.
+- Body-mass setup still asks for kg/cm in this beta even when the saved display preference is imperial.
+- Protected weekly anchors are mapped to current-week dated records because the existing onboarding draft and Supabase persistence use dates.

@@ -24,6 +24,11 @@ export const screenStyles = {
     fontSize: 17,
     fontWeight: "700"
   } satisfies TextStyle,
+  fieldLabel: {
+    color: colors.canvas,
+    fontSize: 14,
+    fontWeight: "800"
+  } satisfies TextStyle,
   body: {
     color: colors.wrap,
     fontSize: 15,
@@ -38,6 +43,18 @@ export const screenStyles = {
     color: colors.blueIQ,
     fontSize: 15,
     lineHeight: 21,
+    fontWeight: "700"
+  } satisfies TextStyle,
+  exampleText: {
+    color: colors.blueIQ,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700"
+  } satisfies TextStyle,
+  successText: {
+    color: colors.readyGreen,
+    fontSize: 13,
+    lineHeight: 19,
     fontWeight: "700"
   } satisfies TextStyle,
   input: {

@@ -573,6 +573,10 @@ function pressableWithText(renderer: ReactTestRenderer, text: string): TestInsta
   return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)).includes(text));
 }
 
+function pressableWithExactText(renderer: ReactTestRenderer, text: string): TestInstance | undefined {
+  return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => item.findAllByType("Text").some((label) => label.props.children === text));
+}
+
 async function switchSection(renderer: ReactTestRenderer, label: string): Promise<void> {
   await act(async () => {
     await press(pressableWithText(renderer, label));
@@ -1035,6 +1039,7 @@ describe("minimal app screens", () => {
       })
     ).toJSON();
     const output = JSON.stringify(tree);
+    expect(output).toContain("Start here");
     expect(output).toContain("Primary action");
     expect(output).toContain("Log readiness");
     expect(output.indexOf("Log readiness")).toBeLessThan(output.indexOf("Last body mass"));
@@ -2456,7 +2461,63 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("Boxer setup");
     expect(output).toContain("Boxing identity");
+    expect(output).toContain("Training age");
+    expect(output).toContain("Years of boxing training");
     expect(output).toContain("Development shortcut: create safe demo boxer");
+  });
+
+  it("onboarding setup steps show visible labels, examples, chips, and recurring anchor copy", async () => {
+    const { BodyMassStep } = await import("../../app/screens/onboarding/steps/BodyMassStep");
+    const { TrainingAccessStep } = await import("../../app/screens/onboarding/steps/TrainingAccessStep");
+    const { ProtectedScheduleStep } = await import("../../app/screens/onboarding/steps/ProtectedScheduleStep");
+    const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
+    const stepProps = {
+      draft,
+      setStepError: vi.fn(),
+      updateDraft: vi.fn()
+    };
+
+    const bodyMassOutput = JSON.stringify(render(React.createElement(BodyMassStep, stepProps)).toJSON());
+    expect(bodyMassOutput).toContain("Current body mass (kg)");
+    expect(bodyMassOutput).toContain("Typical walk-around body mass (kg)");
+    expect(bodyMassOutput).toContain("Example: 82");
+    expect(bodyMassOutput).toContain("Setup entry stays kg/cm");
+
+    const accessOutput = JSON.stringify(render(React.createElement(TrainingAccessStep, stepProps)).toJSON());
+    expect(accessOutput).toContain("Equipment access");
+    expect(accessOutput).toContain("Bodyweight only");
+    expect(accessOutput).toContain("Weekday evenings");
+    expect(accessOutput).toContain("Optional availability notes");
+
+    const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
+    expect(protectedOutput).toContain("recurring weekly commitments");
+    expect(protectedOutput).toContain("Day of week");
+    expect(protectedOutput).toContain("Time of day");
+    expect(protectedOutput).toContain("Duration (minutes)");
+    expect(protectedOutput).toContain("Coach-led sparring");
+  });
+
+  it("male safety selection hides pregnancy choices with plain explanation", async () => {
+    const { SafetyScreeningStep } = await import("../../app/screens/onboarding/steps/SafetyScreeningStep");
+    function Probe() {
+      const [draft, setDraft] = React.useState(createDefaultOnboardingDraft(fixtureAsOfDate));
+      return React.createElement(SafetyScreeningStep, {
+        draft,
+        setStepError: vi.fn(),
+        updateDraft: (updater: (current: typeof draft) => typeof draft) => setDraft((current) => updater(current))
+      });
+    }
+    const renderer = render(React.createElement(Probe));
+    expect(JSON.stringify(renderer.toJSON())).toContain("Pregnancy safety context");
+
+    await act(async () => {
+      await press(pressableWithExactText(renderer, "male"));
+    });
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Pregnancy-specific choices are hidden");
+    expect(output).not.toContain("confirmed");
+    expect(output).not.toContain("possible");
   });
 
   it("log cards validate required fields before calling insert actions", async () => {
@@ -2527,8 +2588,8 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(training.toJSON())).toContain("Duration");
   });
 
-  it("quick log cards clarify enough-for-today copy, disabled state, and optional fields", async () => {
-    const { BodyMassLogCard, FoodQuickLogCard, HydrationLogCard, ProtectedWorkoutLogCard } = await import("../../app/screens/logging/LogCards");
+  it("quick log cards clarify enough-for-today copy, 1-5 scale, disabled state, and optional fields", async () => {
+    const { BodyMassLogCard, FoodQuickLogCard, HydrationLogCard, ProtectedWorkoutLogCard, ReadinessCheckInCard } = await import("../../app/screens/logging/LogCards");
     const actions: QuickLogActions = {
       logBodyMass: vi.fn(),
       logCycle: vi.fn(),
@@ -2545,6 +2606,10 @@ describe("minimal app screens", () => {
     expect(output).toContain("log enough for today");
     expect(output).toContain("missed logs stay unknown");
     expect(output).not.toMatch(/cheat|bad|failed athlete|noncompliant/);
+
+    const readinessOutput = JSON.stringify(render(React.createElement(ReadinessCheckInCard, { actions, busy: false })).toJSON());
+    expect(readinessOutput).toContain("Use a 1-5 scale");
+    expect(readinessOutput).toContain("For soreness/stress: 1 = none/easy, 5 = very high.");
 
     const food = render(React.createElement(FoodQuickLogCard, { actions, busy: false }));
     act(() => {
