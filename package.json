@@ -13,6 +13,10 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "quality": "npm run typecheck && npm run test",
+    "qa:web": "node scripts/start-agent-web.mjs",
+    "qa:web:update": "node scripts/run-agent-browser-audit.mjs --update-snapshots",
+    "qa:agent:audit": "node scripts/run-agent-browser-audit.mjs",
+    "qa:agent:report": "node scripts/create-agent-qa-report.mjs",
     "preflight:beta": "node scripts/beta-preflight.mjs",
     "smoke:live-db": "vitest run src/tests/live/liveDbSmoke.test.ts"
   },
@@ -34,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.60.0",
     "@testing-library/react-native": "13.2.0",
     "@types/react": "~19.2.0",
     "eslint": "^9.39.0",

@@ -2,6 +2,9 @@ node_modules/
 .expo/
 dist/
 coverage/
+playwright-report/
+qa-artifacts/
+test-results/
 *.log
 .DS_Store
 android/

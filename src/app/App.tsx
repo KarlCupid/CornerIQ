@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { Text, View } from "react-native";
 import { AppProviders } from "./providers/AppProviders";
 import { AppErrorBoundary, type AppErrorReportInput } from "./components/AppErrorBoundary";
 import { AppErrorState } from "./components/AppErrorState";
@@ -7,17 +8,22 @@ import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
+import { TodayScreen } from "./screens/TodayScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions } from "../hooks/useNextWeekPreviewActions";
-import { useQuickLogs } from "../hooks/useQuickLogs";
+import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
 import { useBetaFeedback } from "../hooks/useBetaFeedback";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion } from "../hooks/useWorkoutCompletion";
 import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
+import type { CycleSymptom, PerformanceState } from "../engine/core/types";
 import { getBetaRuntimeConfig } from "../services/config/betaRuntimeConfig";
+import { isLocalE2EMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
+import { buildLocalE2EPerformanceState, LOCAL_E2E_AS_OF_DATE } from "../services/e2e/localE2EState";
 import type { CornerSupabaseClient } from "../services/supabase/client";
+import { colors, spacing } from "../design/theme";
 
 function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupabaseClient; onSignOut: () => Promise<void>; session: Session }) {
   const performance = usePerformanceState({ client, session });
@@ -135,7 +141,114 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   );
 }
 
+function LocalE2EFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={{ flex: 1 }} testID="local-e2e-app">
+      <View
+        accessibilityLabel="Local E2E mode banner"
+        style={{
+          backgroundColor: colors.amberCaution,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm
+        }}
+        testID="local-e2e-banner"
+      >
+        <Text style={{ color: colors.canvas, fontWeight: "700" }}>
+          Local E2E mode: no Supabase connection, demo data only. Disable {LOCAL_E2E_MODE_ENV} for normal beta testing.
+        </Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function useLocalE2EQuickLogs(setMessage: (message: string) => void): QuickLogActions {
+  return useMemo(() => {
+    const save = async (label: string) => {
+      setMessage(`${label} captured in local E2E mode only. No data was sent or saved remotely.`);
+    };
+
+    return {
+      logBodyMass: async () => save("Body mass log"),
+      logReadiness: async () => save("Readiness log"),
+      logHydration: async () => save("Hydration log"),
+      logCycle: async () => save("Cycle log"),
+      logFood: async () => save("Food quick log"),
+      logProtectedWorkout: async () => save("Training log")
+    };
+  }, [setMessage]);
+}
+
+function LocalE2EApp() {
+  const [signedIn, setSignedIn] = useState(false);
+  const [todayState, setTodayState] = useState<PerformanceState | null>(null);
+  const [message, setMessage] = useState<string | null>("Local agent QA mode is active. Supabase is not contacted.");
+  const quickLogs = useLocalE2EQuickLogs(setMessage);
+  const cycleSymptomOptions = useMemo<readonly CycleSymptom[]>(() => ["cramps", "low_energy", "poor_sleep"], []);
+
+  const loadToday = useCallback(async () => {
+    setTodayState(buildLocalE2EPerformanceState());
+    setMessage("Local E2E demo profile loaded. No Supabase writes occurred.");
+  }, []);
+
+  if (!signedIn) {
+    return (
+      <LocalE2EFrame>
+        <AuthScreen
+          error={null}
+          loading={false}
+          message="Local E2E sign-in accepts any non-empty email and password."
+          onSignIn={async () => {
+            setSignedIn(true);
+            setMessage("Local E2E sign-in complete. Continue through demo onboarding.");
+          }}
+          onSignUp={async () => {
+            setSignedIn(true);
+            setMessage("Local E2E sign-up complete. Continue through demo onboarding.");
+          }}
+        />
+      </LocalE2EFrame>
+    );
+  }
+
+  if (!todayState) {
+    return (
+      <LocalE2EFrame>
+        <OnboardingScreen
+          asOfDate={LOCAL_E2E_AS_OF_DATE}
+          busy={false}
+          message={message}
+          onComplete={async () => loadToday()}
+          onCreateDemoProfile={() => {
+            void loadToday();
+          }}
+        />
+      </LocalE2EFrame>
+    );
+  }
+
+  return (
+    <LocalE2EFrame>
+      <TodayScreen
+        busy={false}
+        cycleContext={todayState.viewModels.cycle}
+        cycleQuickLogEnabled={todayState.cycle.trackingEnabled}
+        cycleSymptomOptions={cycleSymptomOptions}
+        cycleTrackingStatus={todayState.cycle.trackingEnabled ? "enabled" : todayState.athlete.cycleTrackingPreference}
+        message={message}
+        quickLogs={quickLogs}
+        recentLogs={todayState.viewModels.recentLogs}
+        viewModel={todayState.viewModels.today}
+      />
+    </LocalE2EFrame>
+  );
+}
+
 function CornerIQApp() {
+  if (isLocalE2EMode()) {
+    return <LocalE2EApp />;
+  }
+
   const supabaseSession = useSupabaseSession();
   const runtimeConfig = getBetaRuntimeConfig();
 

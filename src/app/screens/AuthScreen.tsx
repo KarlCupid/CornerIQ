@@ -33,7 +33,12 @@ export function AuthScreen({ loading, error, message, onSignIn, onSignUp }: Auth
   const signingUp = mode === "sign_up";
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[screenStyles.screen, { justifyContent: "center", padding: spacing.lg }]}>
+    <KeyboardAvoidingView
+      accessibilityLabel="Authentication screen"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={[screenStyles.screen, { justifyContent: "center", padding: spacing.lg }]}
+      testID="auth-screen"
+    >
       <StatusBar style="light" />
       <View style={{ gap: spacing.lg }}>
         <View style={{ gap: spacing.sm }}>

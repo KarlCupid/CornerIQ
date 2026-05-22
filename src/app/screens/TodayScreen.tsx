@@ -28,16 +28,18 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
   const hasRisk = viewModel.riskSummary.length > 0;
   const hasRecentLogs = recentLogs.today.length > 0;
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
+    <ScrollView accessibilityLabel="Today screen" style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="today-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <EngineCard>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Start here</Text>
-          <Text style={screenStyles.callout}>1. Log readiness</Text>
-          <Text style={screenStyles.callout}>2. Log body mass</Text>
-          <Text style={screenStyles.callout}>3. Check today's training and fuel priority</Text>
-          <Text style={screenStyles.subtle}>Start with the first true manual log you have. Missing data lowers confidence; it is not treated as safe or as a reason to push harder.</Text>
-          <Text style={screenStyles.exampleText}>Primary prompt: use Quick logs below, then re-check Today's priority.</Text>
+        <View testID="today-start-here">
+          <View style={{ gap: spacing.sm }}>
+            <Text style={screenStyles.sectionTitle}>Start here</Text>
+            <Text style={screenStyles.callout}>1. Log readiness</Text>
+            <Text style={screenStyles.callout}>2. Log body mass</Text>
+            <Text style={screenStyles.callout}>3. Check today's training and fuel priority</Text>
+            <Text style={screenStyles.subtle}>Start with the first true manual log you have. Missing data lowers confidence; it is not treated as safe or as a reason to push harder.</Text>
+            <Text style={screenStyles.exampleText}>Primary prompt: use Quick logs below, then re-check Today's priority.</Text>
+          </View>
         </View>
       </EngineCard>
       {hasRisk ? (
@@ -56,7 +58,7 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         </View>
       </EngineCard>
       <EngineCard>
-        <View style={{ gap: spacing.md }}>
+        <View style={{ gap: spacing.md }} testID="today-quick-logs">
           <Text style={screenStyles.sectionTitle}>Quick logs</Text>
           <Text style={screenStyles.subtle}>Manual input is first-class. Wearables only increase confidence when fresh and consistent.</Text>
           {viewModel.quickLogs.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}

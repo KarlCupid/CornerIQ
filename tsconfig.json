@@ -12,6 +12,6 @@
     },
     "types": ["vitest/globals"]
   },
-  "include": ["src", "App.tsx", "index.js"],
+  "include": ["src", "App.tsx", "index.js", "playwright.config.ts", "qa"],
   "exclude": ["node_modules"]
 }

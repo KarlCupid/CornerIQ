@@ -82,7 +82,7 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
   })();
 
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
+    <ScrollView accessibilityLabel="Boxer setup screen" style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="onboarding-screen">
       <Text style={screenStyles.title}>Boxer setup</Text>
       <EngineCard>
         <View style={{ gap: spacing.md }}>
@@ -97,13 +97,14 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
           {onboarding.isLastStep ? <Text style={screenStyles.callout}>{goalSummary(onboarding.draft)}</Text> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             {!onboarding.isFirstStep ? (
-              <Pressable accessibilityRole="button" disabled={busy} onPress={onboarding.back} style={screenStyles.quietButton}>
+              <Pressable accessibilityLabel="Back to previous setup step" accessibilityRole="button" disabled={busy} onPress={onboarding.back} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Back</Text>
               </Pressable>
             ) : null}
             {onboarding.isLastStep ? (
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Finish boxer setup"
                 disabled={busy}
                 onPress={() => {
                   if (!onboarding.validateCurrentStep()) {
@@ -115,12 +116,12 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
                 <Text style={screenStyles.buttonText}>{busy ? "Saving..." : "Finish setup"}</Text>
               </Pressable>
             ) : (
-              <Pressable accessibilityRole="button" disabled={busy} onPress={onboarding.next} style={screenStyles.button}>
+              <Pressable accessibilityLabel="Next setup step" accessibilityRole="button" disabled={busy} onPress={onboarding.next} style={screenStyles.button}>
                 <Text style={screenStyles.buttonText}>Next</Text>
               </Pressable>
             )}
           </View>
-          <Pressable accessibilityRole="button" disabled={busy} onPress={onCreateDemoProfile} style={screenStyles.quietButton}>
+          <Pressable accessibilityLabel="Create safe demo boxer" accessibilityRole="button" disabled={busy} onPress={onCreateDemoProfile} style={screenStyles.quietButton}>
             <Text style={screenStyles.quietButtonText}>Development shortcut: create safe demo boxer</Text>
           </Pressable>
         </View>
