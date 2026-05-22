@@ -8,14 +8,13 @@ import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
-import { TodayScreen } from "./screens/TodayScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions } from "../hooks/useNextWeekPreviewActions";
 import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
-import { useBetaFeedback } from "../hooks/useBetaFeedback";
+import { useBetaFeedback, type BetaFeedbackHook } from "../hooks/useBetaFeedback";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments";
-import { useUserDataControls } from "../hooks/useUserDataControls";
+import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion } from "../hooks/useWorkoutCompletion";
 import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
 import type { CycleSymptom, PerformanceState } from "../engine/core/types";
@@ -183,8 +182,60 @@ function LocalE2EApp() {
   const [signedIn, setSignedIn] = useState(false);
   const [todayState, setTodayState] = useState<PerformanceState | null>(null);
   const [message, setMessage] = useState<string | null>("Local agent QA mode is active. Supabase is not contacted.");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const quickLogs = useLocalE2EQuickLogs(setMessage);
   const cycleSymptomOptions = useMemo<readonly CycleSymptom[]>(() => ["cramps", "low_energy", "poor_sleep"], []);
+  const betaFeedback = useMemo<BetaFeedbackHook>(
+    () => ({
+      busy: false,
+      loadRecentFeedbackReports: async () => {
+        setMessage("Local E2E feedback history refresh stayed local. No Supabase call was made.");
+      },
+      message: null,
+      recentReports: [],
+      refreshReports: async () => {
+        setMessage("Local E2E feedback history refresh stayed local. No Supabase call was made.");
+      },
+      submitFeedback: async () => {
+        const timestamp = new Date().toISOString();
+        setMessage("Local E2E beta feedback was captured locally only. No Supabase call was made.");
+        return {
+          status: "submitted",
+          report: {
+            id: "local_e2e_feedback",
+            userId: "local-e2e-athlete",
+            screen: "profile",
+            category: "confusing",
+            severity: "medium",
+            message: "Local E2E beta feedback captured locally only.",
+            status: "received",
+            feedbackPayload: { source: "local_e2e" },
+            createdAt: timestamp,
+            updatedAt: timestamp
+          },
+          message: "Local E2E beta feedback captured locally only. No Supabase call was made."
+        };
+      }
+    }),
+    [setMessage]
+  );
+  const userDataControls = useMemo<UserDataControlsHook>(
+    () => ({
+      busy: false,
+      deleteConfirmation,
+      deleteData: async () => {
+        setMessage("Local E2E data deletion is disabled. No Supabase call was made.");
+      },
+      message: null,
+      preview: null,
+      previewExport: async () => {
+        setMessage("Local E2E export preview stayed local. No Supabase call was made.");
+      },
+      previewRows: [],
+      setDeleteConfirmation
+    }),
+    [deleteConfirmation, setMessage]
+  );
 
   const loadToday = useCallback(async () => {
     setTodayState(buildLocalE2EPerformanceState());
@@ -229,16 +280,46 @@ function LocalE2EApp() {
 
   return (
     <LocalE2EFrame>
-      <TodayScreen
+      <AppTabs
+        asOfDate={LOCAL_E2E_AS_OF_DATE}
+        betaFeedback={betaFeedback}
+        betaHealth={buildBetaHealthViewModel({
+          exportDeleteAvailable: true,
+          feedbackAvailable: true,
+          isSignedIn: true,
+          performanceState: todayState,
+          profileComplete: true,
+          runtimeConfig: getBetaRuntimeConfig({
+            EXPO_PUBLIC_SUPABASE_ANON_KEY: "",
+            EXPO_PUBLIC_SUPABASE_URL: ""
+          })
+        })}
         busy={false}
-        cycleContext={todayState.viewModels.cycle}
-        cycleQuickLogEnabled={todayState.cycle.trackingEnabled}
         cycleSymptomOptions={cycleSymptomOptions}
-        cycleTrackingStatus={todayState.cycle.trackingEnabled ? "enabled" : todayState.athlete.cycleTrackingPreference}
         message={message}
+        onAcknowledgeNutritionSafetyReview={async () => {
+          setMessage("Local E2E nutrition review acknowledgement stayed local. No Supabase call was made.");
+        }}
+        onRequestNutritionSafetyReview={async () => {
+          setMessage("Local E2E nutrition review request stayed local. No Supabase call was made.");
+        }}
+        onSaveFightSetup={async () => {
+          setMessage("Local E2E fight setup save stayed local. No Supabase call was made.");
+        }}
+        onSaveTournamentSetup={async () => {
+          setMessage("Local E2E tournament setup save stayed local. No Supabase call was made.");
+        }}
+        onSignOut={async () => {
+          setTodayState(null);
+          setSignedIn(false);
+          setMessage("Local E2E sign-out complete.");
+        }}
+        onUpdateProfileSettings={async () => {
+          setMessage("Local E2E profile settings save stayed local. No Supabase call was made.");
+        }}
         quickLogs={quickLogs}
-        recentLogs={todayState.viewModels.recentLogs}
-        viewModel={todayState.viewModels.today}
+        state={todayState}
+        userDataControls={userDataControls}
       />
     </LocalE2EFrame>
   );

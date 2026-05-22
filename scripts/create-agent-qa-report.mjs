@@ -30,10 +30,30 @@ const status = explicitStatus ?? summary?.status ?? (args.has("--status") ? "unk
 const screenshots = summary?.screenshots ?? [];
 const tests = summary?.tests ?? [];
 const passedCount = tests.filter((item) => item.status === "passed").length;
+const screenshotsByScenario = screenshots.reduce((groups, item) => {
+  const scenario = item.scenario ?? "Unassigned screenshots";
+  const current = groups.get(scenario) ?? [];
+  current.push(item);
+  groups.set(scenario, current);
+  return groups;
+}, new Map());
 const scenarioList =
   tests.length > 0
     ? tests.map((item) => `- ${item.title}: ${item.status}`).join("\n")
     : "- No completed scenario names were captured. Check startup output for early failure.";
+const scenarioDetails =
+  tests.length > 0
+    ? tests
+        .map((item) => {
+          const scenarioScreenshots = screenshotsByScenario.get(item.title) ?? [];
+          const screenshotRows =
+            scenarioScreenshots.length > 0
+              ? scenarioScreenshots.map((screenshot) => `  - ${screenshot.label}: ${screenshot.path}`).join("\n")
+              : "  - No screenshots captured for this scenario.";
+          return `### ${item.title}\n\n- Status: ${item.status}\n- Screenshots:\n${screenshotRows}`;
+        })
+        .join("\n\n")
+    : "No scenario details were captured. Check startup output for early failure.";
 const failures = tests.filter((item) => item.status !== "passed");
 const failedAssertions =
   failures.length > 0
@@ -50,7 +70,7 @@ const screenshotList =
     : "- No screenshots were captured. Check the Playwright output for early startup failure.";
 const nextFixArea =
   status === "passed"
-    ? "No automated product failure. Next manual review should focus on first-time onboarding clarity, Today direction, and physical mobile behavior before starting any fix pass."
+    ? "No automated product failure. Next manual review should focus on Fuel safety/copy nuance, Profile Audit feedback/preflight clarity, and physical mobile behavior before starting any fix pass."
     : "Start with the first failing audit step in the Playwright output, then decide whether the next pass is harness repair or product UX work.";
 
 mkdirSync(reportDir, { recursive: true });
@@ -68,6 +88,10 @@ const body = `# Agent Browser Audit Report
 ## Scenario Names
 
 ${scenarioList}
+
+## Scenario Details
+
+${scenarioDetails}
 
 ## Failed Assertions
 

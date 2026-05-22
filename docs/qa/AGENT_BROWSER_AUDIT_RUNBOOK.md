@@ -58,7 +58,26 @@ The smoke audit covers the shortcut path:
 - Quick logs visible.
 - Mobile-size browser layout smoke.
 
-Use the full onboarding audit when checking whether first-run labels, helper text, and field affordances still work. Current onboarding checks include boxer level definitions, day-of-week availability, protected-anchor RPE, and the simplified safety screen. Use the smoke shortcut audit as a fast guard that local auth, the demo shortcut, Today, quick logs, and mobile rendering still boot.
+The Fuel audit covers the local E2E path after onboarding:
+
+- Fuel tab visible from the local tab shell.
+- Fuel command, session fueling, hydration, confidence, and manual food quick-log path visible.
+- Missing food logs are framed as unknown/lower-confidence context, not safe.
+- Reviews section shows nutrition review history, reviewer-clear future copy, and athlete cannot-self-clear hard-stop copy.
+- Body Mass section keeps unknown context visible.
+- Visible Fuel text is scanned for unsafe weight-cut instruction phrases such as dehydration, diuretics, laxatives, sauna, starvation, sweat-suit, or water-loading instructions.
+
+The Profile Audit audit covers the local E2E path after onboarding:
+
+- Profile tab visible from the local tab shell.
+- Audit section visible.
+- Beta tester notice says beta, not medical advice, not a coach replacement, and no emergency support.
+- Beta feedback panel is visible with app section/screen, category, severity, and message inputs or equivalents.
+- Feedback warning says not to include secrets or emergency details and clarifies it is not emergency, medical, or coaching support.
+- Beta health preflight panel is visible.
+- Visible Profile Audit text is scanned for secret-value patterns, Supabase service-role assignments, JWTs, bearer tokens, database URLs, and concrete Supabase project URLs.
+
+Use the full onboarding audit when checking whether first-run labels, helper text, and field affordances still work. Current onboarding checks include boxer level definitions, day-of-week availability, protected-anchor RPE, and the simplified safety screen. Use the Fuel and Profile Audit scenarios as focused beta-safety guards after onboarding. Use the smoke shortcut audit as a fast guard that local auth, the demo shortcut, Today, quick logs, and mobile rendering still boot.
 
 The full onboarding audit writes these screenshots under `qa-artifacts/browser-audit/current/screenshots/`:
 
@@ -73,6 +92,12 @@ The full onboarding audit writes these screenshots under `qa-artifacts/browser-a
 - `09-onboarding-goal.png`
 - `10-today-after-real-onboarding.png`
 - `11-mobile-today-after-real-onboarding.png`
+- `12-fuel-screen.png`
+- `13-profile-audit-screen.png`
+- `14-beta-feedback-panel.png`
+- `15-beta-health-panel.png`
+
+The generated markdown report groups screenshots by scenario so Fuel and Profile Audit results are separated from onboarding and smoke coverage.
 
 ## Severity Rules
 

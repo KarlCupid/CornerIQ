@@ -5,7 +5,7 @@ import path from "node:path";
 const scenarioName = "CornerIQ local E2E agent browser audit";
 const artifactRoot = path.join(process.cwd(), "qa-artifacts", "browser-audit", "current");
 const screenshotsDir = path.join(artifactRoot, "screenshots");
-const screenshots: { label: string; path: string }[] = [];
+const screenshots: { label: string; path: string; scenario: string }[] = [];
 const tests: { title: string; status: string; errors: string[] }[] = [];
 
 test.describe.configure({ mode: "serial" });
@@ -47,10 +47,10 @@ function artifactPath(name: string) {
   };
 }
 
-async function capture(page: Page, testInfo: TestInfo, label: string, name: string) {
+async function capture(page: Page, testInfo: TestInfo, label: string, name: string, options: { fullPage?: boolean } = {}) {
   const target = artifactPath(name);
-  await page.screenshot({ path: target.fullPath, fullPage: true });
-  screenshots.push({ label, path: target.relativePath });
+  await page.screenshot({ path: target.fullPath, fullPage: options.fullPage ?? true });
+  screenshots.push({ label, path: target.relativePath, scenario: testInfo.title });
   await testInfo.attach(label, { path: target.fullPath, contentType: "image/png" });
 }
 
@@ -74,8 +74,115 @@ async function expectVisibleText(page: Page, text: string | RegExp) {
   await expect(page.getByText(text).first()).toBeVisible();
 }
 
+async function openTab(page: Page, tabName: "Fuel" | "Profile") {
+  const tab = page.getByRole("tab", { name: tabName });
+  if (await tab.count()) {
+    await tab.first().click();
+    return;
+  }
+  const button = page.getByRole("button", { name: tabName });
+  if (await button.count()) {
+    await button.first().click();
+    return;
+  }
+  await page.getByText(tabName, { exact: true }).last().click();
+}
+
 async function goNext(page: Page) {
   await page.getByRole("button", { name: "Next" }).click();
+}
+
+async function visiblePageText(page: Page) {
+  return (await page.locator("body").innerText()).replace(/\s+/g, " ");
+}
+
+function expectNoUnsafeWeightCutLanguage(text: string) {
+  const unsafePhrases = [
+    /\bdehydrate to make weight\b/i,
+    /\bskip meals to make weight\b/i,
+    /\bstarve\b/i,
+    /\bsauna\b/i,
+    /\bdiuretic/i,
+    /\blaxative/i,
+    /\bsweat suit\b/i,
+    /\bsweat it out\b/i,
+    /\bspit cup\b/i,
+    /\bwater load(?:ing)?\b/i
+  ];
+
+  for (const phrase of unsafePhrases) {
+    expect(text).not.toMatch(phrase);
+  }
+}
+
+function expectNoDisplayedSecretValues(text: string) {
+  const secretValuePatterns = [
+    /\bsbp_[a-z0-9]{12,}\b/i,
+    /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/,
+    /\b(?:access|refresh)[_-]?token\s*[:=]\s*[^\s,;]+/i,
+    /\bauthorization\s*[:=]\s*bearer\s+[^\s,;]+/i,
+    /postgres(?:ql)?:\/\//i,
+    /https:\/\/[a-z0-9-]+\.supabase\.co/i,
+    /\bSUPABASE_SERVICE_ROLE_KEY\s*[:=]/i
+  ];
+
+  for (const pattern of secretValuePatterns) {
+    expect(text).not.toMatch(pattern);
+  }
+}
+
+async function auditFuel(page: Page, testInfo: TestInfo) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openTab(page, "Fuel");
+  await expectVisibleText(page, "Fuel the rounds");
+  await expectVisibleText(page, "Fuel command");
+  await expectVisibleText(page, "Session fueling");
+  await expectVisibleText(page, "Hydration");
+  await expectVisibleText(page, /Confidence:/);
+  await expectVisibleText(page, /missed logs stay unknown/i);
+  await expectVisibleText(page, "Food quick log");
+  await expect(page.getByRole("button", { name: /Save food/ })).toBeVisible();
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page));
+  await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png");
+
+  await page.getByRole("button", { name: "Show Reviews section" }).click();
+  await expectVisibleText(page, "Nutrition review history");
+  await expectVisibleText(page, /Athletes cannot self-clear nutrition hard stops/i);
+  await expectVisibleText(page, /Reviewer-clear workflow is not exposed in the app yet/i);
+  await expect(page.getByRole("button", { name: /clear/i })).toHaveCount(0);
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page));
+
+  await page.getByRole("button", { name: "Show Body Mass section" }).click();
+  await expectVisibleText(page, /unknown/i);
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page));
+}
+
+async function auditProfileAudit(page: Page, testInfo: TestInfo) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openTab(page, "Profile");
+  await expectVisibleText(page, "Boxer profile");
+  await page.getByRole("button", { name: "Show Audit section" }).click();
+  await expectVisibleText(page, "Beta tester notice");
+  await expectVisibleText(page, "This is a beta.");
+  await expectVisibleText(page, "Not medical advice.");
+  await expectVisibleText(page, "Not a coach replacement.");
+  await expectVisibleText(page, "No emergency support.");
+  await capture(page, testInfo, "Profile Audit screen", "13-profile-audit-screen.png");
+
+  await expectVisibleText(page, "Beta feedback");
+  await expectVisibleText(page, "Screen");
+  await expectVisibleText(page, "Category");
+  await expectVisibleText(page, "Severity");
+  await expect(page.getByLabel("Beta feedback message")).toBeVisible();
+  await expectVisibleText(page, "Do not include emergency details or secrets.");
+  await expectVisibleText(page, "This is not emergency support and is not medical or coaching review.");
+  await page.getByText("Beta feedback", { exact: true }).scrollIntoViewIfNeeded();
+  await capture(page, testInfo, "Beta feedback panel", "14-beta-feedback-panel.png", { fullPage: false });
+
+  await expectVisibleText(page, "Beta health preflight");
+  await page.getByText("Beta health preflight").scrollIntoViewIfNeeded();
+  await capture(page, testInfo, "Beta health panel", "15-beta-health-panel.png", { fullPage: false });
+  expectNoDisplayedSecretValues(await visiblePageText(page));
 }
 
 async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
@@ -235,6 +342,18 @@ test("full first-time onboarding uses real inputs before Today", async ({ page }
   await capture(page, testInfo, "Auth screen", "01-auth-screen.png");
 
   await completeRealOnboarding(page, testInfo);
+});
+
+test("Fuel screen preserves beta nutrition safety framing after local onboarding", async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  await openLocalToday(page);
+  await auditFuel(page, testInfo);
+});
+
+test("Profile Audit exposes beta feedback and preflight safeguards after local onboarding", async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  await openLocalToday(page);
+  await auditProfileAudit(page, testInfo);
 });
 
 test("first launch reaches auth, local demo onboarding, Today, and quick logs", async ({ page }, testInfo) => {
