@@ -48,7 +48,9 @@ const scenarioDetails =
           const scenarioScreenshots = screenshotsByScenario.get(item.title) ?? [];
           const screenshotRows =
             scenarioScreenshots.length > 0
-              ? scenarioScreenshots.map((screenshot) => `  - ${screenshot.label}: ${screenshot.path}`).join("\n")
+              ? scenarioScreenshots
+                  .map((screenshot) => `  - ${screenshot.label}: ${screenshot.path}${screenshot.pageTextPath ? ` (text: ${screenshot.pageTextPath})` : ""}`)
+                  .join("\n")
               : "  - No screenshots captured for this scenario.";
           return `### ${item.title}\n\n- Status: ${item.status}\n- Screenshots:\n${screenshotRows}`;
         })
@@ -66,7 +68,7 @@ const failedAssertions =
     : "- No failed assertions captured by this run.";
 const screenshotList =
   screenshots.length > 0
-    ? screenshots.map((item) => `- ${item.label}: ${item.path}`).join("\n")
+    ? screenshots.map((item) => `- ${item.label}: ${item.path}${item.pageTextPath ? ` (text: ${item.pageTextPath})` : ""}`).join("\n")
     : "- No screenshots were captured. Check the Playwright output for early startup failure.";
 const nextFixArea =
   status === "passed"

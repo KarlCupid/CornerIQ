@@ -1,0 +1,40 @@
+name: Agent QA Loop
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  agent-qa-loop:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run agent QA loop
+        run: npm run qa:agent:ci
+
+      - name: Upload agent QA bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corneriq-agent-qa-bundle
+          path: qa-artifacts/corneriq-agent-qa-bundle.zip
+          if-no-files-found: warn
+

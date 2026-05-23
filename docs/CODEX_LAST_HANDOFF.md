@@ -1,67 +1,83 @@
 # Codex Last Handoff
 
-Date: 2026-05-22 01:16 America/Vancouver
+Date: 2026-05-23 America/Vancouver
 
-Pass: Agent QA expansion for Fuel and Profile Audit.
+Pass: Beta-readiness agent QA loop.
 
 Current branch during this pass: `main`
 
-Commit target for this run: `Expand agent QA to cover Fuel and Profile Audit`.
+Commit target for this run: `Add beta-readiness agent QA loop`.
 
 ## What Changed
 
-- Local E2E mode now renders the real tab shell after onboarding with local-only stubs for feedback, data controls, setup saves, nutrition review actions, and sign-out. The stubs do not contact Supabase and keep routine agent QA free of real credentials.
-- Added a Fuel agent audit scenario after local onboarding. It verifies Fuel visibility, safe nutrition/performance framing, manual food quick-log visibility, missing-log unknown framing, nutrition review history/self-clear copy, and absence of unsafe weight-cut instruction phrases.
-- Added a Profile Audit agent audit scenario after local onboarding. It verifies Profile and Audit visibility, beta tester notice copy, beta feedback controls, feedback warnings, beta health preflight visibility, and absence of displayed secret-value patterns.
-- Added screenshot capture and summary metadata for:
-  - `qa-artifacts/browser-audit/current/screenshots/12-fuel-screen.png`
-  - `qa-artifacts/browser-audit/current/screenshots/13-profile-audit-screen.png`
-  - `qa-artifacts/browser-audit/current/screenshots/14-beta-feedback-panel.png`
-  - `qa-artifacts/browser-audit/current/screenshots/15-beta-health-panel.png`
-- Updated the generated agent QA markdown report to group screenshots by scenario so Fuel and Profile Audit are separated from onboarding and smoke coverage.
-- Updated `docs/qa/AGENT_BROWSER_AUDIT_RUNBOOK.md` with the new Fuel/Profile coverage and screenshot list.
+- Added the persistent QA loop docs, rubric, surface matrix, state ledger, and Codex runbook under `docs/qa/`.
+- Added the full evidence toolchain:
+  - `scripts/run-agent-qa-ci.mjs`
+  - `scripts/analyze-agent-qa-evidence.mjs`
+  - `scripts/create-agent-qa-bundle.mjs`
+  - `scripts/create-agent-qa-contact-sheet.mjs`
+  - `scripts/create-engine-output-review.mjs`
+  - `scripts/print-qa-loop-state.mjs`
+- Added npm scripts for analysis, contact sheet, bundle, engine review, full QA CI, and state printing.
+- Added `.github/workflows/agent-qa-loop.yml`, which runs the local-only agent loop and uploads `corneriq-agent-qa-bundle`.
+- Expanded Playwright agent QA with matching page-text snapshots, screenshot manifest, Train, Plan, Profile Data controls, Profile Settings sign-out, and error/recovery static checks.
+- Added local E2E-only stubs for workout completion, plan adjustments, next-week preview actions, and data preview rows. These do not contact Supabase.
+- Added static tests to guard QA loop docs, scripts, workflow, artifact naming, ignored artifacts, page-text docs, AI review brief docs, expanded coverage, and no service-role/live Supabase secret requirements.
+- Updated AGENTS, QA docs, known gaps, and the beta checklist to reference the full QA loop and its human-only boundaries.
 
-## Audit Result
+## QA Loop Result
 
-The expanded agent browser audit passed in the final required run.
+Latest local `qa:agent:ci`: passed.
 
-Latest generated report: `qa-artifacts/reports/agent-browser-audit-latest.md`
+- Playwright scenarios: 9/9 passed.
+- Deterministic analysis: pass.
+- Blockers: 0.
+- High: 0.
+- Required Medium before beta from automation: 0.
+- Human/AI limitation count in analysis: 3.
+- Safety scan: pass.
+- Secret scan: pass.
+- Comprehension scan: required evidence present, still `needs_ai_review`.
 
-Final Playwright summary:
+Generated but ignored artifacts:
 
-- `full first-time onboarding uses real inputs before Today`: passed
-- `Fuel screen preserves beta nutrition safety framing after local onboarding`: passed
-- `Profile Audit exposes beta feedback and preflight safeguards after local onboarding`: passed
-- `first launch reaches auth, local demo onboarding, Today, and quick logs`: passed
-- `mobile-size browser layout smoke reaches Today`: passed
+- `qa-artifacts/corneriq-agent-qa-bundle.zip`
+- `qa-artifacts/reports/agent-ai-review-brief.md`
+- `qa-artifacts/reports/agent-qa-analysis.md`
+- `qa-artifacts/reports/engine-output-review.md`
+- `qa-artifacts/browser-audit/current/screenshot-manifest.json`
+- `qa-artifacts/browser-audit/current/page-text/`
 
-`docs/KNOWN_GAPS.md` was not updated because this pass did not discover a new unresolved limitation.
+`qa-artifacts/` remains ignored and was not committed.
 
 ## Commands Run
 
-- `cmd /c npm run typecheck`: passed during implementation check.
-- `cmd /c npm run qa:agent:audit`: failed during implementation check because the Profile Audit harness used a broad `Beta feedback` text locator that matched both the beta health summary and panel title.
-- `cmd /c npm run qa:agent:audit`: passed after tightening the locator, with `5` Playwright scenarios passed.
+- `cmd /c npm run qa:engine:review`: passed after tightening prohibited-phrase scan context.
+- `cmd /c npm run qa:agent:ci`: failed during development because the Plan assertion expected one next-week phrase while local state showed review-required copy.
+- `cmd /c npm run qa:agent:ci`: failed during development because the AI brief template had unescaped backticks, then because a static recovery assertion was too broad, then because the deterministic generated-contact scan matched a report heading. Each was fixed.
+- `cmd /c npm run qa:agent:ci`: final required run passed with 9 Playwright scenarios and created the bundle.
 - `cmd /c npm install`: passed.
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: sandboxed run failed with the known Windows/esbuild config access issue.
-- Approved `cmd /c npm test`: passed with `372` tests passed and `1` skipped live DB smoke.
-- `cmd /c npm run lint`: passed.
-- `cmd /c npm run quality`: sandboxed run failed when the nested Vitest step hit the same Windows/esbuild config access issue.
-- Approved `cmd /c npm run quality`: passed with `372` tests passed and `1` skipped live DB smoke.
+- `cmd /c npm run lint`: initially failed on unused imports and `Buffer` globals in scripts; passed after fixes.
 - `cmd /c npm run preflight:beta`: passed.
-- `cmd /c npm run qa:agent:audit`: final required run passed with `5` Playwright scenarios.
+- `cmd /c npm test`: sandboxed run failed with the known Windows/esbuild access-denied config issue.
+- Approved `cmd /c npm test`: passed with 375 tests passed and 1 live DB smoke skipped.
+- `cmd /c npm run quality`: sandboxed run failed at the nested Vitest/esbuild step with the same access-denied issue.
+- Approved `cmd /c npm run quality`: passed with 375 tests passed and 1 live DB smoke skipped.
+- `cmd /c npm run qa:agent:bundle`: passed after final state updates so the bundle includes current state.
 
 Notes:
 
-- The local QA web startup still logs the existing non-blocking React Native DevTools dotslash fallback error; Metro continues and Playwright passes.
+- Expo still logs the existing non-blocking React Native DevTools dotslash fallback error; Metro continues and Playwright passes.
 - Vitest still emits existing `react-test-renderer` deprecation output and one existing onboarding `act(...)` warning.
-- Generated `qa-artifacts/` reports, screenshots, traces, videos, and JSON were not committed.
 
-## Human Testing Still Required
+## Current QA State
 
-- Human review of Fuel safety and weight-class copy nuance, especially under real beta user context.
-- Human review of Profile Audit beta notice, feedback fields, and preflight clarity on a phone-sized screen.
-- Real Supabase auth, email confirmation, account/session edge cases, and real beta data.
-- Physical iPhone/Android keyboard, safe-area, touch, scrolling, and device performance.
-- Release owner checks for EAS/TestFlight/store distribution remain separate and were not touched.
+`docs/qa/QA_LOOP_STATE.md` is updated to `needs_ai_review`, not beta-ready. Automatable local gates passed, but the next action is AI qualitative review followed by physical iPhone and live Supabase/release-owner checks.
+
+Human/release-owner gates still required:
+
+- Real Supabase auth, email confirmation, session persistence, RLS, feedback persistence/cleanup, export/delete scope, and live smoke.
+- Physical iPhone touch, keyboard, scrolling, safe area, density, and Expo/EAS behavior.
+- Human boxer comprehension, trust, weight-class pressure interpretation, and usefulness.
+- Distribution/EAS setup and preview build artifact. Distributed beta remains blocked until an artifact exists.

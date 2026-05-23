@@ -11,7 +11,10 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - `npm run quality` passes.
 - `npm run lint` passes.
 - `npm run preflight:beta` passes.
+- `npm run qa:agent:ci` passes and writes `qa-artifacts/corneriq-agent-qa-bundle.zip`.
+- `docs/qa/QA_LOOP_STATE.md` is updated with the current beta-readiness decision.
 - `.github/workflows/quality.yml` runs typecheck, lint, and tests on push or pull request.
+- `.github/workflows/agent-qa-loop.yml` can upload the `corneriq-agent-qa-bundle` artifact without Supabase secrets.
 - CI does not run live smoke and does not reference smoke credentials.
 
 ## Supabase Gates
@@ -45,6 +48,8 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Train: Today, Workout, Exercise History, and Progression sections render.
 - Plan: Week, Next Week, Block History, and Adjustments sections render without screen-owned programming logic.
 - Profile: Athlete, Settings, Data, and Audit sections render.
+- Agent QA output includes screenshots and page-text snapshots for onboarding, Today, Fuel, Train, Plan, Profile Audit, and Profile Data.
+- Engine-output review exists at `qa-artifacts/reports/engine-output-review.md`.
 - Feedback: Profile > Audit can submit user-owned beta feedback and show recent read-only status.
 - Error boundary: signed-in issue reporting is sanitized; signed-out users cannot submit reports.
 - Data export/delete: preview works and deletion remains DELETE-gated.
@@ -66,6 +71,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Ready: all code, Supabase, safety, app, tester, docs, preflight, and smoke gates pass.
 - Hold: non-blocking gaps remain, but tester safety and data/privacy gates pass.
 - Blocker: any safety gate, env gate, migration mismatch, live smoke failure with available env, or credential exposure is unresolved.
+- Do not claim physical iPhone, live Supabase/email confirmation, distribution, or human boxer comprehension complete from local E2E automation alone.
 
 ## Release-Candidate Decision - 2026-05-21
 

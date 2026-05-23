@@ -9,13 +9,13 @@ import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
-import { useNextWeekPreviewActions } from "../hooks/useNextWeekPreviewActions";
+import { useNextWeekPreviewActions, type NextWeekPreviewActionsHook } from "../hooks/useNextWeekPreviewActions";
 import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
 import { useBetaFeedback, type BetaFeedbackHook } from "../hooks/useBetaFeedback";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
-import { useTrainingPlanAdjustments } from "../hooks/useTrainingPlanAdjustments";
+import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
-import { useWorkoutCompletion } from "../hooks/useWorkoutCompletion";
+import { useWorkoutCompletion, type WorkoutCompletionActions } from "../hooks/useWorkoutCompletion";
 import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
 import type { CycleSymptom, PerformanceState } from "../engine/core/types";
 import { getBetaRuntimeConfig } from "../services/config/betaRuntimeConfig";
@@ -182,6 +182,8 @@ function LocalE2EApp() {
   const [signedIn, setSignedIn] = useState(false);
   const [todayState, setTodayState] = useState<PerformanceState | null>(null);
   const [message, setMessage] = useState<string | null>("Local agent QA mode is active. Supabase is not contacted.");
+  const [dataMessage, setDataMessage] = useState<string | null>(null);
+  const [dataPreviewLoaded, setDataPreviewLoaded] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const quickLogs = useLocalE2EQuickLogs(setMessage);
   const cycleSymptomOptions = useMemo<readonly CycleSymptom[]>(() => ["cramps", "low_energy", "poor_sleep"], []);
@@ -224,17 +226,115 @@ function LocalE2EApp() {
       busy: false,
       deleteConfirmation,
       deleteData: async () => {
-        setMessage("Local E2E data deletion is disabled. No Supabase call was made.");
+        setDataMessage("Local E2E data deletion is disabled. No Supabase call was made.");
       },
-      message: null,
-      preview: null,
+      message: dataMessage,
+      preview: dataPreviewLoaded ? ({} as NonNullable<UserDataControlsHook["preview"]>) : null,
       previewExport: async () => {
-        setMessage("Local E2E export preview stayed local. No Supabase call was made.");
+        setDataPreviewLoaded(true);
+        setDataMessage("Local E2E export preview loaded. No Supabase call was made.");
       },
-      previewRows: [],
+      previewRows: dataPreviewLoaded ? ["profile: 2", "logs: 3", "training: 4", "nutrition: 1", "cycle/wearable: 0", "projections/traces: 2"] : [],
       setDeleteConfirmation
     }),
-    [deleteConfirmation, setMessage]
+    [dataMessage, dataPreviewLoaded, deleteConfirmation]
+  );
+  const workoutCompletion = useMemo<WorkoutCompletionActions>(
+    () => ({
+      complete: async () => {
+        setMessage("Local E2E workout completion captured locally only. No Supabase call was made.");
+      },
+      skip: async () => {
+        setMessage("Local E2E workout skip captured locally only. No Supabase call was made.");
+      }
+    }),
+    []
+  );
+  const trainingPlanAdjustments = useMemo<TrainingPlanAdjustmentsHook>(
+    () => ({
+      busy: false,
+      message: null,
+      actions: {
+        protectDay: async (date) => {
+          setMessage("Local E2E protect-day request stayed local. The engine-owned request framing was exercised.");
+          return {
+            status: "applied",
+            explanation: `Local E2E engine request accepted for ${date}. No remote plan was changed.`,
+            modifiedDayPlans: [],
+            safetyFlags: [],
+            persistedAdjustmentPayload: { command: { type: "protect_day", date } }
+          };
+        },
+        markUnavailable: async (date) => {
+          setMessage("Local E2E unavailable request stayed local. The engine-owned request framing was exercised.");
+          return {
+            status: "applied",
+            explanation: `Local E2E engine request accepted for ${date}. No remote plan was changed.`,
+            modifiedDayPlans: [],
+            safetyFlags: [],
+            persistedAdjustmentPayload: { command: { type: "mark_unavailable", date } }
+          };
+        },
+        requestDeload: async (startDate, endDate) => {
+          setMessage("Local E2E deload request stayed local. The engine-owned request framing was exercised.");
+          return {
+            status: "needs_review",
+            explanation: `Local E2E deload request for ${startDate} to ${endDate} needs review. No remote plan was changed.`,
+            modifiedDayPlans: [],
+            safetyFlags: ["Local E2E mode keeps adjustment side effects disabled."],
+            persistedAdjustmentPayload: { command: { type: "request_deload", startDate, endDate } }
+          };
+        },
+        restoreEnginePlan: async (date) => {
+          setMessage("Local E2E restore request stayed local. The engine-owned request framing was exercised.");
+          return {
+            status: "applied",
+            explanation: `Local E2E restore request accepted for ${date}. No remote plan was changed.`,
+            modifiedDayPlans: [],
+            safetyFlags: [],
+            persistedAdjustmentPayload: { command: { type: "restore_engine_plan", date } }
+          };
+        },
+        moveGeneratedSession: async (sessionId, fromDate, toDate) => {
+          setMessage("Local E2E move request stayed local. Drag/drop is not exposed in the app.");
+          return {
+            status: "rejected",
+            explanation: `Local E2E move request for ${sessionId} from ${fromDate} to ${toDate} was not applied.`,
+            modifiedDayPlans: [],
+            safetyFlags: ["Move-session UI is intentionally not exposed during beta QA."],
+            persistedAdjustmentPayload: { command: { type: "move_generated_session", sessionId, fromDate, toDate } }
+          };
+        }
+      }
+    }),
+    []
+  );
+  const nextWeekPreviewActions = useMemo<NextWeekPreviewActionsHook>(
+    () => ({
+      busy: false,
+      message: null,
+      actions: {
+        acceptPreview: async (previewId) => {
+          setMessage("Local E2E next-week preview acceptance stayed local. No Supabase call was made.");
+          return {
+            status: "accepted",
+            explanation: "Local E2E preview acceptance was captured locally only.",
+            ...(previewId ? { previewId } : {}),
+            warnings: []
+          };
+        },
+        materializeNextWeek: async (previewId) => {
+          setMessage("Local E2E next-week materialization stayed local. No Supabase call was made.");
+          return {
+            status: "materialized",
+            explanation: "Local E2E next-week materialization was captured locally only.",
+            ...(previewId ? { previewId } : {}),
+            warnings: []
+          };
+        }
+      }
+    }),
+    []
   );
 
   const loadToday = useCallback(async () => {
@@ -319,7 +419,10 @@ function LocalE2EApp() {
         }}
         quickLogs={quickLogs}
         state={todayState}
+        nextWeekPreviewActions={nextWeekPreviewActions}
+        trainingPlanAdjustments={trainingPlanAdjustments}
         userDataControls={userDataControls}
+        workoutCompletion={workoutCompletion}
       />
     </LocalE2EFrame>
   );

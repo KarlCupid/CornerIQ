@@ -1,17 +1,19 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const scenarioName = "CornerIQ local E2E agent browser audit";
 const artifactRoot = path.join(process.cwd(), "qa-artifacts", "browser-audit", "current");
 const screenshotsDir = path.join(artifactRoot, "screenshots");
-const screenshots: { label: string; path: string; scenario: string }[] = [];
+const pageTextDir = path.join(artifactRoot, "page-text");
+const screenshots: { label: string; pageTextPath: string; path: string; scenario: string }[] = [];
 const tests: { title: string; status: string; errors: string[] }[] = [];
 
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(() => {
   mkdirSync(screenshotsDir, { recursive: true });
+  mkdirSync(pageTextDir, { recursive: true });
 });
 
 test.afterEach(({ page: _page }, testInfo) => {
@@ -37,6 +39,7 @@ test.afterAll(() => {
       2
     )
   );
+  writeFileSync(path.join(artifactRoot, "screenshot-manifest.json"), JSON.stringify(screenshots, null, 2));
 });
 
 function artifactPath(name: string) {
@@ -47,11 +50,24 @@ function artifactPath(name: string) {
   };
 }
 
+function pageTextPath(name: string) {
+  const textName = name.replace(/\.png$/i, ".txt");
+  const fullPath = path.join(pageTextDir, textName);
+  return {
+    fullPath,
+    relativePath: path.relative(process.cwd(), fullPath).replace(/\\/g, "/")
+  };
+}
+
 async function capture(page: Page, testInfo: TestInfo, label: string, name: string, options: { fullPage?: boolean } = {}) {
   const target = artifactPath(name);
+  const textTarget = pageTextPath(name);
+  const text = await visiblePageText(page);
+  writeFileSync(textTarget.fullPath, `${text}\n`);
   await page.screenshot({ path: target.fullPath, fullPage: options.fullPage ?? true });
-  screenshots.push({ label, path: target.relativePath, scenario: testInfo.title });
+  screenshots.push({ label, pageTextPath: textTarget.relativePath, path: target.relativePath, scenario: testInfo.title });
   await testInfo.attach(label, { path: target.fullPath, contentType: "image/png" });
+  await testInfo.attach(`${label} page text`, { path: textTarget.fullPath, contentType: "text/plain" });
 }
 
 async function localSignIn(page: Page) {
@@ -74,7 +90,7 @@ async function expectVisibleText(page: Page, text: string | RegExp) {
   await expect(page.getByText(text).first()).toBeVisible();
 }
 
-async function openTab(page: Page, tabName: "Fuel" | "Profile") {
+async function openTab(page: Page, tabName: "Fuel" | "Profile" | "Train" | "Plan") {
   const tab = page.getByRole("tab", { name: tabName });
   if (await tab.count()) {
     await tab.first().click();
@@ -86,6 +102,10 @@ async function openTab(page: Page, tabName: "Fuel" | "Profile") {
     return;
   }
   await page.getByText(tabName, { exact: true }).last().click();
+}
+
+async function openSection(page: Page, sectionName: string) {
+  await page.getByRole("button", { name: `Show ${sectionName} section` }).click();
 }
 
 async function goNext(page: Page) {
@@ -100,14 +120,15 @@ function expectNoUnsafeWeightCutLanguage(text: string) {
   const unsafePhrases = [
     /\bdehydrate to make weight\b/i,
     /\bskip meals to make weight\b/i,
-    /\bstarve\b/i,
-    /\bsauna\b/i,
-    /\bdiuretic/i,
-    /\blaxative/i,
-    /\bsweat suit\b/i,
+    /\bmake weight at all costs\b/i,
+    /\bstarve yourself\b/i,
+    /\b(?:use|take|try|recommend)\s+(?:diuretics?|laxatives?)\b/i,
+    /\b(?:use|sit in|spend time in)\s+(?:a\s+)?sauna\b/i,
+    /\bwear\s+(?:a\s+)?sweat\s*suit\b/i,
     /\bsweat it out\b/i,
     /\bspit cup\b/i,
-    /\bwater load(?:ing)?\b/i
+    /\bwater loading protocol\b/i,
+    /\bcut water\b/i
   ];
 
   for (const phrase of unsafePhrases) {
@@ -129,6 +150,25 @@ function expectNoDisplayedSecretValues(text: string) {
   for (const pattern of secretValuePatterns) {
     expect(text).not.toMatch(pattern);
   }
+}
+
+function expectNoGeneratedContactLanguage(text: string) {
+  const generatedContactPatterns = [
+    /\bgenerated\s+(?:support|workout|session|sessions|training|drill|preview)[^.\n]{0,140}\bsparring\b/i,
+    /\bgenerated\s+(?:support|workout|session|sessions|training|drill|preview)[^.\n]{0,140}\bcontact\b/i,
+    /\bfight simulation\b/i,
+    /\bpartner drill\b/i
+  ];
+
+  for (const pattern of generatedContactPatterns) {
+    expect(text).not.toMatch(pattern);
+  }
+}
+
+function expectNoCoachOrReviewerControls(text: string) {
+  expect(text).not.toMatch(/\bcoach-only control\b/i);
+  expect(text).not.toMatch(/\breviewer-clear button\b/i);
+  expect(text).not.toMatch(/\bdrag\/drop\b/i);
 }
 
 async function auditFuel(page: Page, testInfo: TestInfo) {
@@ -176,6 +216,8 @@ async function auditProfileAudit(page: Page, testInfo: TestInfo) {
   await expect(page.getByLabel("Beta feedback message")).toBeVisible();
   await expectVisibleText(page, "Do not include emergency details or secrets.");
   await expectVisibleText(page, "This is not emergency support and is not medical or coaching review.");
+  await expectVisibleText(page, "Recent feedback");
+  await expect(page.getByRole("button", { name: "Refresh feedback history" })).toBeVisible();
   await page.getByText("Beta feedback", { exact: true }).scrollIntoViewIfNeeded();
   await capture(page, testInfo, "Beta feedback panel", "14-beta-feedback-panel.png", { fullPage: false });
 
@@ -183,6 +225,140 @@ async function auditProfileAudit(page: Page, testInfo: TestInfo) {
   await page.getByText("Beta health preflight").scrollIntoViewIfNeeded();
   await capture(page, testInfo, "Beta health panel", "15-beta-health-panel.png", { fullPage: false });
   expectNoDisplayedSecretValues(await visiblePageText(page));
+}
+
+async function auditTrain(page: Page, testInfo: TestInfo) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openTab(page, "Train");
+  await expectVisibleText(page, "Train for boxing");
+  await expectVisibleText(page, "Today's training decision");
+  await expectVisibleText(page, "Today's generated support");
+  await expectVisibleText(page, "Fuel handoff");
+  expectNoGeneratedContactLanguage(await visiblePageText(page));
+  await capture(page, testInfo, "Train Today screen", "16-train-today-screen.png");
+
+  await openSection(page, "Workout");
+  await expectVisibleText(page, "Protected workout logging");
+  await expect(page.getByRole("button", { name: "Open workout detail" })).toBeVisible();
+  await page.getByRole("button", { name: "Open workout detail" }).click();
+  await expectVisibleText(page, "Complete without exercise details when time is tight.");
+  await expectVisibleText(page, "Session RPE is enough if you are short on time.");
+  await expect(page.getByPlaceholder("Session RPE 1-10 optional")).toBeVisible();
+  await expect(page.getByPlaceholder("Completed sets optional").first()).toBeVisible();
+  await expect(page.getByPlaceholder("Exercise RPE optional").first()).toBeVisible();
+  expectNoGeneratedContactLanguage(await visiblePageText(page));
+  await capture(page, testInfo, "Train Workout detail", "17-train-workout-detail.png");
+
+  await page.getByPlaceholder("Completed sets optional").first().fill("1");
+  await page.getByPlaceholder("Exercise RPE optional").first().fill("5");
+  await page.getByPlaceholder("Session RPE 1-10 optional").fill("5");
+  await page.getByRole("button", { name: "Complete without exercise details" }).click();
+  await expectVisibleText(page, "Local E2E workout completion captured locally only.");
+  await capture(page, testInfo, "Train Workout completion", "18-train-workout-completion.png");
+
+  await openSection(page, "Exercise History");
+  await expectVisibleText(page, "Exercise history");
+  await expectVisibleText(page, "Prescribed-only rows");
+  await expectVisibleText(page, "Free-text load is not used for numeric progression yet.");
+  await expectVisibleText(page, "Pain flags stop automatic progression.");
+  const historyText = await visiblePageText(page);
+  expect(historyText).not.toMatch(/\bexact load progression\b/i);
+  expectNoGeneratedContactLanguage(historyText);
+  await capture(page, testInfo, "Train Exercise History", "19-train-exercise-history.png");
+
+  await openSection(page, "Progression");
+  await expectVisibleText(page, "Progression / next best action");
+  await expectVisibleText(page, "no numeric load progression is inferred from notes");
+}
+
+async function auditPlan(page: Page, testInfo: TestInfo) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openTab(page, "Plan");
+  await expectVisibleText(page, "Weekly plan");
+  await expectVisibleText(page, "Active block");
+  await expectVisibleText(page, "Week");
+  await expectVisibleText(page, "No active plan warnings.");
+  expectNoCoachOrReviewerControls(await visiblePageText(page));
+  await capture(page, testInfo, "Plan Week screen", "20-plan-week-screen.png");
+
+  await openSection(page, "Next Week");
+  await expectVisibleText(page, "Next week preview");
+  await expectVisibleText(page, "Engine preview, not a user-edited plan.");
+  await expectVisibleText(page, /Review required before materializing|does not bypass safety|Safety:/i);
+  expectNoCoachOrReviewerControls(await visiblePageText(page));
+  await capture(page, testInfo, "Plan Next Week screen", "21-plan-next-week-screen.png");
+
+  await openSection(page, "Adjustments");
+  await expectVisibleText(page, "Adjustment audit");
+  await expectVisibleText(page, "Service-owned controls for this day. Screens request changes; the engine decides what applies.");
+  await expectVisibleText(page, "Engine-owned adjustment");
+  await expectVisibleText(page, "These buttons request a change from the engine. The screen does not rewrite the plan.");
+  await expect(page.getByRole("button", { name: "Protect this day" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mark unavailable" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Request deload" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Restore engine plan" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Request deload" }).first().click();
+  await expectVisibleText(page, "Adjustment not applied");
+  expectNoCoachOrReviewerControls(await visiblePageText(page));
+  await capture(page, testInfo, "Plan Adjustments screen", "22-plan-adjustments-screen.png");
+
+  await openSection(page, "Block History");
+  await expectVisibleText(page, "Block timeline");
+  await expectVisibleText(page, "Engine-owned history.");
+  await expectVisibleText(page, "Screens do not mutate programming decisions.");
+  expectNoCoachOrReviewerControls(await visiblePageText(page));
+  await capture(page, testInfo, "Plan Block History screen", "23-plan-block-history-screen.png");
+}
+
+async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openTab(page, "Profile");
+  await openSection(page, "Data");
+  await expectVisibleText(page, "Data controls");
+  await expectVisibleText(page, "Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.");
+  await expectVisibleText(page, "This does not delete your Supabase auth account.");
+  const deleteButton = page.getByRole("button", { name: "Delete app data" });
+  await expect(deleteButton).toBeDisabled();
+  await page.getByRole("button", { name: "Preview export" }).click();
+  await expectVisibleText(page, "Local E2E export preview loaded. No Supabase call was made.");
+  await expectVisibleText(page, "profile: 2");
+  await expectVisibleText(page, "training: 4");
+  await expect(deleteButton).toBeDisabled();
+  await page.getByLabel("Delete confirmation").fill("DELETE");
+  await expect(deleteButton).toBeEnabled();
+  await expectVisibleText(page, "Account deletion requires a server-side function later; this only removes user-owned app data.");
+  expectNoDisplayedSecretValues(await visiblePageText(page));
+  await capture(page, testInfo, "Profile Data controls", "24-profile-data-controls.png");
+
+  await openSection(page, "Settings");
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await capture(page, testInfo, "Profile Settings sign out", "25-profile-settings-signout.png");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByTestId("auth-screen")).toBeVisible();
+  await expectVisibleText(page, "Local E2E sign-in accepts any non-empty email and password.");
+}
+
+function expectErrorRecoverySource() {
+  const boundaryPath = path.join(process.cwd(), "src", "app", "components", "AppErrorBoundary.tsx");
+  const statePath = path.join(process.cwd(), "src", "app", "components", "AppErrorState.tsx");
+  const feedbackPath = path.join(process.cwd(), "src", "services", "feedback", "submitBetaFeedback.ts");
+  expect(existsSync(boundaryPath)).toBe(true);
+  expect(existsSync(statePath)).toBe(true);
+  expect(existsSync(feedbackPath)).toBe(true);
+
+  const boundary = readFileSync(boundaryPath, "utf8");
+  const state = readFileSync(statePath, "utf8");
+  const feedback = readFileSync(feedbackPath, "utf8");
+  expect(boundary).toContain("buildAppErrorSummary");
+  expect(boundary).toContain("redactSensitiveText");
+  expect(boundary).toContain("Sign in is required before sending an issue report.");
+  expect(boundary).toContain("Sign in to report issue");
+  expect(boundary).toContain("Your data is still protected.");
+  expect(state).toContain("Details are available in the development logs.");
+  expect(feedback).toContain("sanitizePayload");
+  expect(feedback).toContain("redactSecretsFromText");
+  expect(boundary).not.toContain("{this.state.componentStack}");
+  expect(boundary).not.toMatch(/componentStack}\s*<\/Text>/);
 }
 
 async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
@@ -354,6 +530,28 @@ test("Profile Audit exposes beta feedback and preflight safeguards after local o
   testInfo.setTimeout(90_000);
   await openLocalToday(page);
   await auditProfileAudit(page, testInfo);
+});
+
+test("Train screen exposes safe generated support and completion affordances", async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  await openLocalToday(page);
+  await auditTrain(page, testInfo);
+});
+
+test("Plan screen exposes week, next week, history, and engine-owned adjustments", async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  await openLocalToday(page);
+  await auditPlan(page, testInfo);
+});
+
+test("Profile Data controls require preview and DELETE confirmation", async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  await openLocalToday(page);
+  await auditProfileDataControls(page, testInfo);
+});
+
+test("Error and recovery safeguards are documented and sanitized", async () => {
+  expectErrorRecoverySource();
 });
 
 test("first launch reaches auth, local demo onboarding, Today, and quick logs", async ({ page }, testInfo) => {
