@@ -40,12 +40,14 @@ export interface PlanScreenProps {
 export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, busy, hasActiveFightOrTournament, isMinor, nextWeekPreviewActions, onSaveFightSetup, onSaveTournamentSetup, viewModel }: PlanScreenProps) {
   const [section, setSection] = React.useState<PlanSection>("week");
   const hasPlanRisk = viewModel.warnings.length > 0 || viewModel.rollForwardStatus === "blocked";
+  const planRiskTone = viewModel.rollForwardStatus === "blocked" ? viewModel.rollForwardRiskTone : "caution";
+  const planRiskLabel = viewModel.rollForwardStatus === "blocked" ? viewModel.rollForwardRiskLabel : "Caution";
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="plan-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <SectionTabs items={planSections} value={section} onChange={setSection} />
       {hasPlanRisk ? (
-        <RiskBanner title="Plan safety check" message={viewModel.rollForwardStatus === "blocked" ? viewModel.rollForwardMessage : "Warnings are active for this plan. The engine keeps safety ahead of performance pressure."} tone={viewModel.rollForwardStatus === "blocked" ? "critical" : "caution"}>
+        <RiskBanner title="Plan safety check" message={viewModel.rollForwardStatus === "blocked" ? viewModel.rollForwardMessage : "Warnings are active for this plan. The engine keeps safety ahead of performance pressure."} statusLabel={planRiskLabel} tone={planRiskTone}>
           <View style={{ gap: spacing.xs }}>
             {viewModel.warnings.map((warning) => <Text key={warning} style={screenStyles.body}>{warning}</Text>)}
           </View>

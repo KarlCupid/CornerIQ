@@ -64,6 +64,8 @@ const todayViewModel: TodayViewModel = {
   title: "Today",
   whatChanged: "Low confidence because several inputs are missing.",
   primaryAction: "Log readiness",
+  firstAppAction: "Log readiness or body mass if you have it.",
+  firstTrainingAction: "Complete the planned support session.",
   decisionStack: [
     {
       label: "Primary action",
@@ -96,7 +98,7 @@ const fuelDecisionStack = [
 
 const fuelCommandCenter = {
   phase: "build" as const,
-  primaryFuelAction: "Fuel today's boxing work before changing body composition pressure.",
+  primaryFuelAction: "Fuel the boxing work first. Do not chase weight changes before training quality and safety are covered.",
   bodyMassAction: "Fuel training quality; no weight-class action is active.",
   sessionFuelAction: "Use familiar carbs around boxing practice.",
   hydrationAction: "2.5L target context. Keep sodium consistent.",
@@ -397,6 +399,8 @@ const planViewModel: PlanViewModel = {
   },
   rollForwardStatus: "not_available",
   rollForwardMessage: "No accepted preview is ready for automatic materialization.",
+  rollForwardRiskLabel: "Notice",
+  rollForwardRiskTone: "info",
   lastAutoRollForwardMessage: null,
   blockHistoryDetail: {
     activeBlockSummary: "build strength block, week 2, strength base focus.",
@@ -1040,9 +1044,12 @@ describe("minimal app screens", () => {
     ).toJSON();
     const output = JSON.stringify(tree);
     expect(output).toContain("Start here");
-    expect(output).toContain("Primary action");
-    expect(output).toContain("Log readiness");
-    expect(output.indexOf("Log readiness")).toBeLessThan(output.indexOf("Last body mass"));
+    expect(output).toContain("First app action");
+    expect(output).toContain("First training action");
+    expect(output).toContain("Log readiness or body mass if you have it");
+    expect(output).toContain("Complete the planned support session");
+    expect(output.indexOf("First app action")).toBeLessThan(output.indexOf("First training action"));
+    expect(output.indexOf("First app action")).toBeLessThan(output.indexOf("Last body mass"));
   });
 
   it("TodayScreen keeps risk, why, and no-shame missing-log copy visible", async () => {
@@ -1734,6 +1741,8 @@ describe("minimal app screens", () => {
             ...planViewModel,
             rollForwardStatus: "blocked",
             rollForwardMessage: "Safety is blocking automatic materialization today.",
+            rollForwardRiskLabel: "Hard stop",
+            rollForwardRiskTone: "critical",
             nextWeekPreview: {
               ...planViewModel.nextWeekPreview,
               persistedStatus: "accepted",
@@ -1777,6 +1786,8 @@ describe("minimal app screens", () => {
           ...planViewModel,
           rollForwardStatus: "blocked",
           rollForwardMessage: "Review required before materialization.",
+          rollForwardRiskLabel: "Review required",
+          rollForwardRiskTone: "caution",
           nextWeekPreview: {
             ...planViewModel.nextWeekPreview,
             volumeStrategy: "hold_for_review",
@@ -1790,6 +1801,8 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Next Week");
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Review required before materializing.");
+    expect(output).toContain("Review required");
+    expect(output).not.toContain("Hard stop");
     expect(pressableWithText(renderer, "Materialize next week")?.props.disabled).toBe(true);
   });
 
@@ -2605,10 +2618,11 @@ describe("minimal app screens", () => {
     const training = render(React.createElement(ProtectedWorkoutLogCard, { actions, busy: false }));
     await act(async () => {
       changeInput(training, "Duration minutes", "0");
+      changeInput(training, "Session RPE 1-10", "11");
       await press(training.root.findAllByType("Pressable").at(-1));
     });
     expect(actions.logProtectedWorkout).not.toHaveBeenCalled();
-    expect(JSON.stringify(training.toJSON())).toContain("Duration");
+    expect(JSON.stringify(training.toJSON())).toMatch(/Duration|Session RPE/);
   });
 
   it("quick log cards clarify enough-for-today copy, 1-5 scale, disabled state, and optional fields", async () => {
@@ -2633,6 +2647,10 @@ describe("minimal app screens", () => {
     const readinessOutput = JSON.stringify(render(React.createElement(ReadinessCheckInCard, { actions, busy: false })).toJSON());
     expect(readinessOutput).toContain("Use a 1-5 scale");
     expect(readinessOutput).toContain("For soreness/stress: 1 = none/easy, 5 = very high.");
+
+    const trainingCopy = JSON.stringify(render(React.createElement(ProtectedWorkoutLogCard, { actions, busy: false })).toJSON());
+    expect(trainingCopy).toContain("Session RPE (1-10)");
+    expect(trainingCopy).toContain("1-3 easy, 4-6 moderate, 7-8 hard, 9-10 max.");
 
     const food = render(React.createElement(FoodQuickLogCard, { actions, busy: false }));
     act(() => {
@@ -2663,11 +2681,12 @@ describe("minimal app screens", () => {
     const training = render(React.createElement(ProtectedWorkoutLogCard, { actions, busy: false }));
     act(() => {
       changeInput(training, "Duration minutes", "45");
+      changeInput(training, "Session RPE 1-10", "8");
     });
     await act(async () => {
       await press(pressableWithText(training, "Log completed session"));
     });
-    expect(actions.logProtectedWorkout).toHaveBeenCalledWith(expect.objectContaining({ durationMinutes: 45 }));
+    expect(actions.logProtectedWorkout).toHaveBeenCalledWith(expect.objectContaining({ durationMinutes: 45, intensity: "hard", sessionRpe: 8 }));
     const trainingPayload = (actions.logProtectedWorkout as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];
     expect(trainingPayload).not.toHaveProperty("note");
     expect(trainingPayload).not.toHaveProperty("rounds");
@@ -2778,16 +2797,18 @@ describe("minimal app screens", () => {
 
     render(React.createElement(Probe));
     await act(async () => {
-      await quickLogs?.actions.logProtectedWorkout({ type: "technical_session", durationMinutes: 45, intensity: "moderate" });
+      await quickLogs?.actions.logProtectedWorkout({ type: "technical_session", durationMinutes: 45, intensity: "moderate", sessionRpe: 6 });
     });
     expect(insertCompletedTrainingSession).toHaveBeenCalled();
+    expect(insertCompletedTrainingSession).toHaveBeenCalledWith("user_1", expect.objectContaining({ sessionRpe: 6, intensity: "moderate" }));
     expect(insertProtectedWorkout).not.toHaveBeenCalled();
     expect(appendEvent).toHaveBeenCalledWith("user_1", "TrainingSessionCompleted", expect.objectContaining({ source: "completed_training_session" }));
 
     await act(async () => {
-      await quickLogs?.actions.logProtectedWorkout({ logKind: "planned", type: "technical_session", durationMinutes: 45, intensity: "moderate" });
+      await quickLogs?.actions.logProtectedWorkout({ logKind: "planned", type: "technical_session", durationMinutes: 45, intensity: "hard", sessionRpe: 8 });
     });
     expect(insertProtectedWorkout).toHaveBeenCalled();
+    expect(insertProtectedWorkout).toHaveBeenCalledWith("user_1", expect.objectContaining({ intensity: "hard", note: "Session RPE: 8" }));
     expect(appendEvent).toHaveBeenCalledWith("user_1", "ProtectedWorkoutPlanned", expect.objectContaining({ source: "planned_anchor_created" }));
   });
 

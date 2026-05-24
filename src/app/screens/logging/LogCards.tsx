@@ -5,6 +5,7 @@ import {
   parseOptionalNonNegativeNumber,
   parseOptionalPositiveInteger,
   parseRequiredNonNegativeNumber,
+  parseRequiredInteger,
   parseRequiredPositiveInteger,
   parseRequiredPositiveNumber,
   validateOneToFive
@@ -12,7 +13,7 @@ import {
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import type { QuickLogActions } from "../../../hooks/useQuickLogs";
-import type { CycleSymptom } from "../../../engine/core/types";
+import type { CycleSymptom, SessionIntensity } from "../../../engine/core/types";
 import { screenStyles } from "../screenStyles";
 
 interface LogCardProps {
@@ -46,6 +47,27 @@ function ReadinessScaleHelp() {
       <Text style={screenStyles.subtle}>For soreness/stress: 1 = none/easy, 5 = very high.</Text>
     </View>
   );
+}
+
+function parseRequiredSessionRpe(value: string): number {
+  const parsed = parseRequiredInteger(value, "Session RPE", { example: "6" });
+  if (parsed < 1 || parsed > 10) {
+    throw new Error("Session RPE is required: choose a whole number from 1 to 10. Example: 6.");
+  }
+  return parsed;
+}
+
+function intensityFromSessionRpe(rpe: number): SessionIntensity {
+  if (rpe <= 3) {
+    return "easy";
+  }
+  if (rpe <= 6) {
+    return "moderate";
+  }
+  if (rpe <= 8) {
+    return "hard";
+  }
+  return "max";
 }
 
 export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
@@ -350,7 +372,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
   const [logKind, setLogKind] = useState<"completed" | "planned">("completed");
   const [type, setType] = useState<"technical_session" | "pads_mitts" | "bag_work" | "sparring" | "roadwork" | "coach_assigned_strength" | "recovery_day">("technical_session");
   const [durationMinutes, setDurationMinutes] = useState("");
-  const [intensity, setIntensity] = useState<"easy" | "moderate" | "hard" | "max">("moderate");
+  const [sessionRpe, setSessionRpe] = useState("");
   const [rounds, setRounds] = useState("");
   const [note, setNote] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Training log failed.");
@@ -375,11 +397,10 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
         </View>
         <InputLabel>Duration (minutes)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={durationMinutes} />
-        <InputLabel>Intensity</InputLabel>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {(["easy", "moderate", "hard", "max"] as const).map((option) => (
-            <ToggleButton active={intensity === option} busy={busy} key={option} label={option} onPress={() => setIntensity(option)} />
-          ))}
+        <InputLabel>Session RPE (1-10)</InputLabel>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.subtle}>Use RPE instead of easy/moderate/hard labels: 1-3 easy, 4-6 moderate, 7-8 hard, 9-10 max.</Text>
+          <TextInput keyboardType="number-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
         </View>
         <InputLabel>Rounds (optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rounds} />
@@ -394,15 +415,18 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
             runWithMessage(async () => {
               setSuccess(null);
               const parsedRounds = parseOptionalPositiveInteger(rounds, "Rounds");
+              const parsedSessionRpe = parseRequiredSessionRpe(sessionRpe);
               await actions.logProtectedWorkout({
                 logKind,
                 type,
                 durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Duration"),
-                intensity,
+                intensity: intensityFromSessionRpe(parsedSessionRpe),
+                sessionRpe: parsedSessionRpe,
                 ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
                 ...(note.trim() ? { note: note.trim() } : {})
               });
               setDurationMinutes("");
+              setSessionRpe("");
               setRounds("");
               setNote("");
               setSuccess(logKind === "completed" ? "Training log saved. Today will update after the engine refresh completes." : "Planned anchor saved. Today will protect it after the engine refresh completes.");

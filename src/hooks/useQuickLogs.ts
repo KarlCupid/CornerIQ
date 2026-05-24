@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { CompletedTrainingSession, CycleLog, CycleSymptom, ISODateString, ProtectedWorkout } from "../engine/core/types";
+import type { CompletedTrainingSession, CycleLog, CycleSymptom, ISODateString, ProtectedWorkout, SessionIntensity } from "../engine/core/types";
 import type { ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 
@@ -74,6 +74,7 @@ export interface FoodQuickLogInput {
 export type ProtectedWorkoutQuickLogInput = Omit<ProtectedWorkout, "id" | "date" | "protected"> & {
   date?: ISODateString;
   logKind?: "completed" | "planned";
+  sessionRpe?: number | undefined;
 };
 
 export interface QuickLogActions {
@@ -88,6 +89,27 @@ export interface QuickLogActions {
 export function normalizeCycleSymptom(raw: string): CycleSymptom | null {
   const normalized = raw.trim().toLowerCase().replace(/\s+/g, "_");
   return CYCLE_SYMPTOMS.find((symptom) => symptom === normalized) ?? null;
+}
+
+function noteWithSessionRpe(note: string | undefined, sessionRpe: number | undefined): string | undefined {
+  const trimmed = note?.trim();
+  if (sessionRpe === undefined) {
+    return trimmed || undefined;
+  }
+  return trimmed ? `Session RPE: ${sessionRpe} | ${trimmed}` : `Session RPE: ${sessionRpe}`;
+}
+
+function ensureIntensity(value: SessionIntensity): SessionIntensity {
+  return value;
+}
+
+function assertSessionRpe(value: number | undefined): void {
+  if (value === undefined) {
+    return;
+  }
+  if (!Number.isInteger(value) || value < 1 || value > 10) {
+    throw new Error("Session RPE must be a whole number from 1 to 10.");
+  }
 }
 
 export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
@@ -167,6 +189,7 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
         }, "Food quick log saved."),
       logProtectedWorkout: (workoutInput) =>
         runQuickLog(async () => {
+          assertSessionRpe(workoutInput.sessionRpe);
           const date = workoutInput.date ?? input.asOfDate;
           const logKind = workoutInput.logKind ?? "completed";
           const id = `manual_${workoutInput.type}_${date}_${Date.now()}`;
@@ -175,14 +198,15 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
             type: workoutInput.type,
             date,
             durationMinutes: workoutInput.durationMinutes,
-            intensity: workoutInput.intensity,
+            intensity: ensureIntensity(workoutInput.intensity),
             protected: true
           };
           if (workoutInput.rounds !== undefined) {
             workout.rounds = workoutInput.rounds;
           }
-          if (workoutInput.note) {
-            workout.note = workoutInput.note;
+          const workoutNote = noteWithSessionRpe(workoutInput.note, workoutInput.sessionRpe);
+          if (workoutNote) {
+            workout.note = workoutNote;
           }
           if (logKind === "planned") {
             await input.repositories.protectedWorkout.insertProtectedWorkout(input.userId, workout);
@@ -199,8 +223,9 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
             date,
             type: workoutInput.type,
             durationMinutes: workoutInput.durationMinutes,
-            intensity: workoutInput.intensity,
+            intensity: ensureIntensity(workoutInput.intensity),
             completionStatus: "completed",
+            ...(workoutInput.sessionRpe === undefined ? {} : { sessionRpe: workoutInput.sessionRpe }),
             painNotes: [],
             completionSource: "manual",
             source: "manual"
@@ -208,8 +233,9 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
           if (workoutInput.rounds !== undefined) {
             completed.rounds = workoutInput.rounds;
           }
-          if (workoutInput.note) {
-            completed.note = workoutInput.note;
+          const completedNote = noteWithSessionRpe(workoutInput.note, workoutInput.sessionRpe);
+          if (completedNote) {
+            completed.note = completedNote;
           }
           await input.repositories.training.insertCompletedTrainingSession(input.userId, completed);
           await input.repositories.journey.appendEvent(input.userId, "TrainingSessionCompleted", {

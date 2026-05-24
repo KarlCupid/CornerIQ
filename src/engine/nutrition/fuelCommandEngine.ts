@@ -362,6 +362,7 @@ function tournamentPlanFrom(input: ResolveFuelCommandCenterInput, review: Nutrit
 
 function primaryFuelAction(input: ResolveFuelCommandCenterInput, review: NutritionSafetyReview, rehydration: RehydrationChecklist, tournament: TournamentFuelPlan): string {
   const phase = phaseForCommand(input.phase.phase);
+  const trainingFirstCopy = "Fuel the boxing work first. Do not chase weight changes before training quality and safety are covered.";
   if (input.nutritionTargets.underFuelingRiskNote) {
     return "Protect recovery fuel; deficit pressure is blocked today.";
   }
@@ -381,9 +382,9 @@ function primaryFuelAction(input: ResolveFuelCommandCenterInput, review: Nutriti
     return "Protect calories and fluids while readiness recovers.";
   }
   if (phase === "camp") {
-    return "Fuel boxing sessions first while keeping the weight-class trajectory conservative.";
+    return trainingFirstCopy;
   }
-  return "Fuel today's boxing work before changing body composition pressure.";
+  return trainingFirstCopy;
 }
 
 function commandDecisionStack(input: ResolveFuelCommandCenterInput, review: NutritionSafetyReview, weight: WeightClassStatus): readonly FuelCommandDecisionItem[] {

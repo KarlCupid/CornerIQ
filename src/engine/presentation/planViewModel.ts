@@ -73,52 +73,71 @@ function activeHardStop(state: PerformanceState): boolean {
   return state.readiness.color === "red" || state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop);
 }
 
-function rollForwardStatus(state: PerformanceState, preview: NextWeekPreviewViewModel): Pick<PlanViewModel, "rollForwardStatus" | "rollForwardMessage"> {
+function rollForwardStatus(
+  state: PerformanceState,
+  preview: NextWeekPreviewViewModel
+): Pick<PlanViewModel, "rollForwardStatus" | "rollForwardMessage" | "rollForwardRiskLabel" | "rollForwardRiskTone"> {
   if (preview.persistedStatus === "materialized") {
     return {
       rollForwardStatus: "materialized",
-      rollForwardMessage: "Next week materialized."
+      rollForwardMessage: "Next week materialized.",
+      rollForwardRiskLabel: "Notice",
+      rollForwardRiskTone: "info"
     };
   }
   if (preview.persistedStatus === "accepted") {
     if (state.asOfDate < preview.weekStartDate) {
       return {
         rollForwardStatus: "accepted_waiting",
-        rollForwardMessage: `Accepted preview will become active on ${preview.weekStartDate} if safety still allows.`
+        rollForwardMessage: `Accepted preview will become active on ${preview.weekStartDate} if safety still allows.`,
+        rollForwardRiskLabel: "Notice",
+        rollForwardRiskTone: "info"
       };
     }
     if (preview.requiresReview) {
       return {
         rollForwardStatus: "blocked",
-        rollForwardMessage: "Review required before materialization."
+        rollForwardMessage: "Review required before materialization.",
+        rollForwardRiskLabel: "Review required",
+        rollForwardRiskTone: "caution"
       };
     }
     if (activeHardStop(state)) {
       return {
         rollForwardStatus: "blocked",
-        rollForwardMessage: "Safety is blocking automatic materialization today."
+        rollForwardMessage: "Safety is blocking automatic materialization today.",
+        rollForwardRiskLabel: "Hard stop",
+        rollForwardRiskTone: "critical"
       };
     }
     return {
       rollForwardStatus: "eligible",
-      rollForwardMessage: "Accepted preview is eligible to materialize now."
+      rollForwardMessage: "Accepted preview is eligible to materialize now.",
+      rollForwardRiskLabel: "Notice",
+      rollForwardRiskTone: "info"
     };
   }
   if (preview.persistedStatus === "preview" && state.asOfDate >= preview.weekStartDate) {
     return {
       rollForwardStatus: "not_available",
-      rollForwardMessage: "Preview is available but not accepted. Review before materializing."
+      rollForwardMessage: "Preview is available but not accepted. Review before materializing.",
+      rollForwardRiskLabel: "Caution",
+      rollForwardRiskTone: "caution"
     };
   }
   if (preview.requiresReview) {
     return {
       rollForwardStatus: "blocked",
-      rollForwardMessage: "Review required before materialization."
+      rollForwardMessage: "Review required before materialization.",
+      rollForwardRiskLabel: "Review required",
+      rollForwardRiskTone: "caution"
     };
   }
   return {
     rollForwardStatus: "not_available",
-    rollForwardMessage: "No accepted preview is ready for automatic materialization."
+    rollForwardMessage: "No accepted preview is ready for automatic materialization.",
+    rollForwardRiskLabel: "Notice",
+    rollForwardRiskTone: "info"
   };
 }
 
@@ -262,6 +281,8 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     nextWeekPreview,
     rollForwardStatus: rollForward.rollForwardStatus,
     rollForwardMessage: rollForward.rollForwardMessage,
+    rollForwardRiskLabel: rollForward.rollForwardRiskLabel,
+    rollForwardRiskTone: rollForward.rollForwardRiskTone,
     lastAutoRollForwardMessage: lastAutoRollForwardMessage(state),
     blockHistoryDetail,
     timelineEvents: state.training.timelineEvents.map((event) => ({

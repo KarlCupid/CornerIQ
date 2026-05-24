@@ -136,6 +136,8 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(eligible.rollForwardStatus).toBe("eligible");
     expect(holdForReview.rollForwardStatus).toBe("blocked");
     expect(holdForReview.rollForwardMessage).toContain("Review required");
+    expect(holdForReview.rollForwardRiskLabel).toBe("Review required");
+    expect(holdForReview.rollForwardRiskTone).toBe("caution");
     expect(unaccepted.rollForwardMessage).toContain("not accepted");
     expect(materialized.rollForwardStatus).toBe("materialized");
     expect(materialized.lastAutoRollForwardMessage).toContain("Generated sessions: 2");

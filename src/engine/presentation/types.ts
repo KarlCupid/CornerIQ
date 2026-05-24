@@ -59,6 +59,8 @@ export interface TodayViewModel {
   title: string;
   whatChanged: string;
   primaryAction: string;
+  firstAppAction: string;
+  firstTrainingAction: string;
   decisionStack: readonly DecisionStackItem[];
   trainingPriority: string;
   fuelPriority: string;
@@ -304,6 +306,8 @@ export interface PlanViewModel {
   nextWeekPreview: NextWeekPreviewViewModel;
   rollForwardStatus: "eligible" | "accepted_waiting" | "materialized" | "blocked" | "not_available";
   rollForwardMessage: string;
+  rollForwardRiskLabel: "Notice" | "Caution" | "Review required" | "Hard stop";
+  rollForwardRiskTone: "info" | "caution" | "critical";
   lastAutoRollForwardMessage: string | null;
   blockHistoryDetail: TrainingBlockHistoryDetailViewModel;
   timelineEvents: readonly TrainingProgressionTimelineViewModel[];

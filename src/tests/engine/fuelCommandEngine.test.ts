@@ -40,7 +40,7 @@ describe("Fuel Command Center engine", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
 
     expect(state.nutrition.commandCenter.phase).toBe("build");
-    expect(state.nutrition.commandCenter.primaryFuelAction).toContain("Fuel today's boxing work");
+    expect(state.nutrition.commandCenter.primaryFuelAction).toBe("Fuel the boxing work first. Do not chase weight changes before training quality and safety are covered.");
     expect(state.nutrition.weightClassStatus.status).toBe("no_active_weight_target");
     expect(state.nutrition.commandCenter.primaryFuelAction.toLowerCase()).not.toContain("cut");
   });

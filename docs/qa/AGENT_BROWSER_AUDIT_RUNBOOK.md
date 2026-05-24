@@ -91,6 +91,7 @@ The Train audit covers the local E2E path after onboarding:
 - Today and Workout sections visible.
 - Today's generated support visible and scanned so generated support does not include sparring, contact, partner drills, or fight simulation.
 - Workout detail opens.
+- Protected workout logging uses Session RPE 1-10 and maps internally to existing intensity buckets.
 - Fast completion path, session RPE, and one exercise row are visible.
 - Local E2E workout completion path returns local-only feedback.
 - Exercise History is visible.

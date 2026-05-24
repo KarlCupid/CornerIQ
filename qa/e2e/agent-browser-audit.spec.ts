@@ -406,6 +406,9 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
 
   await openSection(page, "Workout");
   await expectVisibleText(page, "Protected workout logging");
+  await expectVisibleText(page, "Session RPE (1-10)");
+  await expectVisibleText(page, /1-3 easy, 4-6 moderate, 7-8 hard, 9-10 max/i);
+  await expect(page.getByPlaceholder("Session RPE 1-10", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open workout detail" })).toBeVisible();
   await page.getByRole("button", { name: "Open workout detail" }).click();
   await expectVisibleText(page, "Complete without exercise details when time is tight.");
@@ -461,7 +464,9 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
     await materializeButton.click();
     await expectVisibleText(page, "Local E2E next-week materialization stayed local.");
   }
-  expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-next-week-section"));
+  const nextWeekText = await visiblePageText(page, "plan-next-week-section");
+  expect(nextWeekText).not.toMatch(/\bHard stop\b/);
+  expectNoCoachOrReviewerControls(nextWeekText);
   await capture(page, testInfo, "Plan Next Week screen", "21-plan-next-week-screen.png", { scopeTestId: "plan-next-week-section" });
 
   await openSection(page, "Adjustments");
@@ -677,7 +682,9 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
 
   await page.getByRole("button", { name: "Finish boxer setup" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expect(page.getByTestId("today-start-here")).toContainText("Log readiness");
+  await expect(page.getByTestId("today-start-here")).toContainText("First app action");
+  await expect(page.getByTestId("today-start-here")).toContainText("First training action");
+  await expect(page.getByTestId("today-start-here")).toContainText("Log readiness or body mass");
   await expect(page.getByTestId("today-start-here")).toContainText("Missing data lowers confidence");
   await capture(page, testInfo, "Today after real onboarding", "10-today-after-real-onboarding.png", { scopeTestId: "today-screen" });
 
@@ -748,7 +755,9 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
 
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expect(page.getByTestId("today-start-here")).toContainText("Log readiness");
+  await expect(page.getByTestId("today-start-here")).toContainText("First app action");
+  await expect(page.getByTestId("today-start-here")).toContainText("First training action");
+  await expect(page.getByTestId("today-start-here")).toContainText("Log readiness or body mass");
   await expect(page.getByTestId("today-start-here")).toContainText("Missing data lowers confidence");
   await expect(page.getByTestId("today-quick-logs")).toContainText("Manual input is first-class");
   await expect(page.getByRole("button", { name: "Log body mass" })).toBeVisible();

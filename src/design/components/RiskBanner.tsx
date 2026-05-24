@@ -8,14 +8,17 @@ import { StatusBadge, type StatusBadgeTone } from "./StatusBadge";
 export function RiskBanner({
   children,
   message,
+  statusLabel,
   title,
   tone = "caution"
 }: PropsWithChildren<{
   message: string;
+  statusLabel?: string | undefined;
   title: string;
   tone?: Extract<StatusBadgeTone, "info" | "caution" | "critical"> | undefined;
 }>) {
   const borderColor = tone === "critical" ? colors.redCorner : tone === "info" ? colors.blueIQ : colors.amberCaution;
+  const resolvedStatusLabel = statusLabel ?? (tone === "critical" ? "Hard stop" : tone === "info" ? "Notice" : "Caution");
   return (
     <View
       accessibilityLabel={`${title}. ${message}`}
@@ -29,7 +32,7 @@ export function RiskBanner({
         padding: spacing.lg
       }}
     >
-      <StatusBadge label={tone === "critical" ? "Hard stop" : tone === "info" ? "Notice" : "Caution"} tone={tone} />
+      <StatusBadge label={resolvedStatusLabel} tone={tone} />
       <Text style={{ ...typography.cardTitle, color: borderColor }}>{title}</Text>
       <Text style={{ ...typography.body, color: colors.wrap }}>{message}</Text>
       {children}

@@ -34,11 +34,10 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         <View testID="today-start-here">
           <View style={{ gap: spacing.sm }}>
             <Text style={screenStyles.sectionTitle}>Start here</Text>
-            <Text style={screenStyles.callout}>1. Log readiness</Text>
-            <Text style={screenStyles.callout}>2. Log body mass</Text>
-            <Text style={screenStyles.callout}>3. Check today's training and fuel priority</Text>
+            <Text style={screenStyles.callout}>First app action: {viewModel.firstAppAction}</Text>
+            <Text style={screenStyles.callout}>First training action: {viewModel.firstTrainingAction}</Text>
             <Text style={screenStyles.subtle}>Start with the first true manual log you have. Missing data lowers confidence; it is not treated as safe or as a reason to push harder.</Text>
-            <Text style={screenStyles.exampleText}>Primary prompt: use Quick logs below, then re-check Today's priority.</Text>
+            <Text style={screenStyles.exampleText}>Quick logs update confidence; training priority stays engine-owned.</Text>
           </View>
         </View>
       </EngineCard>
@@ -51,8 +50,8 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
       ) : null}
       <EngineCard>
         <View style={screenStyles.row}>
-          <Text style={screenStyles.sectionTitle}>Today's priority</Text>
-          <Text style={screenStyles.callout}>Do first: {viewModel.primaryAction}</Text>
+          <Text style={screenStyles.sectionTitle}>Training priority</Text>
+          <Text style={screenStyles.callout}>First training action: {viewModel.primaryAction}</Text>
           <Text style={screenStyles.body}>Why: {viewModel.whatChanged}</Text>
           <Text style={screenStyles.subtle}>Confidence: {viewModel.confidenceLabel}. Optional logs add context; missing data remains unknown.</Text>
         </View>

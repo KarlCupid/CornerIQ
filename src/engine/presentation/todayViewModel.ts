@@ -6,15 +6,20 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   const title = state.safety.hardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: protect sparring" : "Today: build the boxer";
   const safetySeverity = state.safety.hardStops[0]?.severity ?? (state.safety.riskFlags.length > 0 ? "caution" : "info");
   const cycleRelevant = state.cycle.trackingEnabled || state.athlete.cycleTrackingPreference === "undecided";
+  const firstAppAction =
+    state.safety.hardStops.length > 0
+      ? "Review the safety note, then log readiness or body mass if you have it."
+      : "Log readiness or body mass if you have it.";
+  const firstTrainingAction =
+    state.safety.hardStops.length > 0
+      ? "Pause hard training and resolve safety first."
+      : hasSparring
+        ? "Keep support work short around protected boxing."
+        : "Complete the planned support session.";
   const decisionStack = [
     {
       label: "Primary action",
-      summary:
-        state.safety.hardStops.length > 0
-          ? "Pause hard training and resolve safety first."
-          : hasSparring
-            ? "Training support stays short around protected boxing."
-            : "Complete the planned support session.",
+      summary: firstTrainingAction,
       why: state.safety.hardStops[0]?.explanation ?? state.training.explanation,
       severity: state.safety.hardStops.length > 0 ? safetySeverity : "info",
       confidence: state.confidence.level
@@ -70,11 +75,9 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
             ? "Protected sparring moved support work down."
             : "Corner Engine resolved today's support from current logs.",
     primaryAction:
-      state.safety.hardStops.length > 0
-        ? "Pause hard training and weight-cut guidance."
-        : hasSparring
-          ? "Keep support work short and fuel the rounds."
-        : "Complete the planned support session.",
+      state.safety.hardStops.length > 0 ? "Pause hard training and weight-cut guidance." : firstTrainingAction,
+    firstAppAction,
+    firstTrainingAction,
     decisionStack,
     trainingPriority: state.training.explanation,
     fuelPriority: state.nutrition.sessionFueling[0] ?? "Fuel boxing practice.",
