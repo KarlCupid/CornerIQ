@@ -4,9 +4,9 @@ This guide is for running CornerIQ from a Windows laptop on web and on a physica
 
 ## Current Expo Go Target
 
-As of May 21, 2026, Expo SDK 56 exists, but Expo's current physical-device guidance says to use SDK 55 for App Store Expo Go during the SDK 56 transition period.
+As of May 24, 2026, CornerIQ is temporarily pinned to Expo SDK 54 for physical iPhone testing with the App Store version of Expo Go.
 
-CornerIQ is intentionally kept on Expo SDK 55 for the simplest Windows + iPhone Expo Go workflow. Do not upgrade to SDK 56 just to follow the newest SDK unless you are also ready to use a compatible Expo Go beta, `eas go`, or a development build.
+Expo SDK 55 and SDK 56 may require a newer Expo Go build than some iPhones can install from the App Store. Do not upgrade CornerIQ back to SDK 55 or SDK 56 just to follow the newest SDK unless you are also ready to use a compatible Expo Go beta, `eas go`, or a development build.
 
 References:
 
@@ -65,7 +65,7 @@ Expo Go includes a native runtime for specific Expo SDK versions. If the project
 
 That message does not mean CornerIQ's JavaScript is broken. It means the installed Expo Go native shell does not match the project's SDK.
 
-For CornerIQ, the expected Expo SDK is SDK 55. If Expo Go still asks for a newer version:
+For CornerIQ, the expected Expo SDK is SDK 54. If Expo Go still asks for a newer version:
 
 1. Delete Expo Go from the iPhone and reinstall it from the App Store.
 2. Restart Expo with a clean tunnel:
@@ -75,7 +75,7 @@ cmd /c npx expo start --tunnel --clear
 ```
 
 3. Scan the new QR code.
-4. Confirm the terminal shows SDK 55 for CornerIQ.
+4. Confirm the terminal shows SDK 54 for CornerIQ.
 
 ## If Expo Go Cannot Support The Current SDK
 
