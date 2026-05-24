@@ -7,7 +7,7 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 3e822cf1cb1507aefecc2fcca5cadf7cfe960b63 (short 3e822cf) |
+| Last commit tested | 5549aaf57107e423f2a48508da1589ac80278ec3 (short 5549aaf) |
 | Last QA run result | all normal gates passed; `qa:agent:ci` passed with install/typecheck/tests/lint/quality/preflight, 9/9 Playwright scenarios, scoped page text, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
@@ -71,8 +71,8 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| first action obvious within 5 seconds | human_review_required | Automation checks Start here; real boxer comprehension remains human-only. |
-| primary action clarity | human_review_required | Automation checks visible primary action; real boxer comprehension remains human-only. |
+| first action obvious within 5 seconds | human_review_required | Automation checks Start here hierarchy for first app action vs first training action; real boxer comprehension remains human-only. |
+| primary action clarity | human_review_required | Automation checks visible first training action; real boxer comprehension remains human-only. |
 | why disclosure | automated_pass | Browser audit requires Today evidence. |
 | quick logs visible | automated_pass | Browser audit requires Today evidence. |
 | quick logs use 1-5 explanations where relevant | human_review_required | Text evidence is present; real boxer interpretation remains human-only. |
@@ -86,7 +86,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | command visible | automated_pass | Fuel audit. |
-| first safe action clear | human_review_required | Automation checks text; real boxer comprehension remains human-only. |
+| first safe action clear | human_review_required | Automation checks simplified Fuel first action; real boxer comprehension remains human-only. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit. |
@@ -105,7 +105,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
 | no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
 | fast workout completion path | automated_pass | New Train audit. |
-| session RPE flow | automated_pass | New Train audit. |
+| session RPE flow | automated_pass | Train audit checks protected logging RPE mapping plus generated workout completion RPE. |
 | one exercise row completion | automated_pass | New Train audit checks row inputs. |
 | Exercise History visible | automated_pass | New Train audit. |
 | progression copy not overconfident | human_review_required | Automation checks no exact load inference; real boxer interpretation remains human-only. |
@@ -126,7 +126,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no coach-only controls exposed | automated_pass | Plan audit and scan. |
 | no drag/drop expectation | accepted_beta_limitation | Drag/drop calendar is deferred. |
 | adjustment result/rejection copy understandable | human_review_required | Plan audit exercises controls; real boxer interpretation remains human-only. |
-| roll-forward/next-week materialization explanation | human_review_required | Next Week audit exercises controls where available; real boxer interpretation remains human-only. |
+| roll-forward/next-week materialization explanation | human_review_required | Next Week audit exercises controls where available; review-required copy avoids hard-stop labeling unless safety is actually blocking. |
 
 ### H. Profile
 
