@@ -195,4 +195,99 @@ describe("agent browser QA static checks", () => {
     expect(readSource(".gitignore")).toContain("qa-artifacts/");
     expect(readSource("docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md")).toContain("qa-artifacts/corneriq-agent-qa-bundle.zip");
   });
+
+  it("records an exact commit shape in QA state and rejects ambiguous working-tree wording", () => {
+    const state = readSource("docs/qa/QA_LOOP_STATE.md");
+    const lastCommitMatch = state.match(/\| Last commit tested \| ([0-9a-f]{40}) \(short ([0-9a-f]{7,12})\) \|/i);
+
+    expect(lastCommitMatch).toBeTruthy();
+    if (!lastCommitMatch) {
+      throw new Error("Last commit tested row must include full and short SHA.");
+    }
+    const [, fullSha, shortSha] = lastCommitMatch as RegExpMatchArray & [string, string, string];
+    expect(fullSha.startsWith(shortSha)).toBe(true);
+    expect(state).not.toMatch(/plus working tree changes from this pass|plus working tree changes|latest HEAD/i);
+
+    const loopStateScript = readSource("scripts/print-qa-loop-state.mjs");
+    expect(loopStateScript).toContain("ambiguousLastCommitPattern");
+    expect(loopStateScript).toContain("exact HEAD full SHA and short SHA");
+  });
+
+  it("documents and writes structured gate result artifacts from qa:agent:ci", () => {
+    const docs = [
+      readSource("docs/qa/README.md"),
+      readSource("docs/qa/QA_LOOP.md"),
+      readSource("docs/qa/CODEX_QA_LOOP_RUNBOOK.md")
+    ].join("\n");
+    const runner = readSource("scripts/run-agent-qa-ci.mjs");
+
+    expect(docs).toContain("agent-gate-results.md");
+    expect(docs).toContain("agent-gate-results.json");
+    expect(runner).toContain("agent-gate-results.md");
+    expect(runner).toContain("agent-gate-results.json");
+    for (const gate of [
+      "npm install / npm ci context",
+      "typecheck",
+      "tests",
+      "lint",
+      "quality",
+      "preflight",
+      "agent browser audit",
+      "engine output review",
+      "deterministic analysis",
+      "contact sheet",
+      "bundle creation"
+    ]) {
+      expect(runner).toContain(gate);
+    }
+  });
+
+  it("guards generated QA evidence against object-object serialization leaks", () => {
+    const engineReview = readSource("scripts/create-engine-output-review.mjs");
+    const analysis = readSource("scripts/analyze-agent-qa-evidence.mjs");
+
+    expect(engineReview).toContain("serializeRiskFlagOrHardStop");
+    expect(engineReview).toContain("requiresProfessionalReview");
+    expect(engineReview).toContain("blocksPlan");
+    expect(engineReview).toContain("[object Object]");
+    expect(analysis).toContain("object_object_serialization");
+    expect(analysis).toContain("object Object");
+  });
+
+  it("captures scoped page-text snapshots and labels document-body fallback", () => {
+    const scenario = readSource("qa/e2e/agent-browser-audit.spec.ts");
+    const docs = [
+      readSource("docs/qa/README.md"),
+      readSource("docs/qa/CODEX_QA_LOOP_RUNBOOK.md"),
+      readSource("docs/qa/QA_LOOP.md")
+    ].join("\n");
+
+    expect(scenario).toContain("activeSurfaceTestIds");
+    expect(scenario).toContain("visibleSurfaceText");
+    expect(scenario).toContain("pageTextScope");
+    expect(scenario).toContain("Fallback:");
+    expect(scenario).toContain("document.body");
+    for (const scope of [
+      "today-screen",
+      "fuel-command-section",
+      "train-today-section",
+      "plan-week-section",
+      "profile-audit-section",
+      "profile-data-section"
+    ]) {
+      expect(scenario).toContain(scope);
+    }
+    expect(docs).toContain("active surface");
+    expect(docs).toContain("document.body fallback");
+  });
+
+  it("keeps the default QA bundle canonical and excludes stale timestamped reports", () => {
+    const bundle = readSource("scripts/create-agent-qa-bundle.mjs");
+
+    expect(bundle).toContain("canonicalReportFiles");
+    expect(bundle).toContain("agent-browser-audit-latest.md");
+    expect(bundle).toContain("agent-qa-bundle-manifest.json");
+    expect(bundle).toContain("agent-browser-audit-*.md");
+    expect(bundle).not.toContain('"qa-artifacts/reports",');
+  });
 });

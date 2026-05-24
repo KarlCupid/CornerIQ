@@ -66,11 +66,11 @@ export function ProfileScreen({
   const setDeleteConfirmation = userDataControls?.setDeleteConfirmation ?? setFallbackDeleteConfirmation;
   const [section, setSection] = React.useState<ProfileSection>("athlete");
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
+    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="profile-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <SectionTabs items={profileSections} value={section} onChange={setSection} />
       {section === "athlete" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="profile-athlete-section">
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Athlete</Text>
@@ -87,10 +87,10 @@ export function ProfileScreen({
             </View>
           </EngineCard>
           <CycleContextCard cycleContext={cycleContext} minimal trackingStatus={cycleTrackingStatus} />
-        </>
+        </View>
       ) : null}
       {section === "settings" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="profile-settings-section">
           <ProfileSettingsScreen
             asOfDate={asOfDate}
             busy={busy}
@@ -103,29 +103,31 @@ export function ProfileScreen({
           <Pressable accessibilityLabel="Sign out" accessibilityRole="button" onPress={onSignOut} style={screenStyles.quietButton}>
             <Text style={screenStyles.quietButtonText}>Sign out</Text>
           </Pressable>
-        </>
+        </View>
       ) : null}
       {section === "data" ? (
-        <EngineCard>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.sectionTitle}>Data controls</Text>
-            <Text style={screenStyles.body}>Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.</Text>
-            <Text style={screenStyles.subtle}>This does not delete your Supabase auth account.</Text>
-            <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>Preview export</Text>
-            </Pressable>
-            {userDataControls?.previewRows.map((row) => <Text key={row} style={screenStyles.subtle}>{row}</Text>)}
-            {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
-            <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
-            <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>Delete app data</Text>
-            </Pressable>
-            <Text style={screenStyles.subtle}>Account deletion requires a server-side function later; this only removes user-owned app data.</Text>
-          </View>
-        </EngineCard>
+        <View style={{ gap: spacing.lg }} testID="profile-data-section">
+          <EngineCard>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.sectionTitle}>Data controls</Text>
+              <Text style={screenStyles.body}>Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.</Text>
+              <Text style={screenStyles.subtle}>This does not delete your Supabase auth account.</Text>
+              <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>Preview export</Text>
+              </Pressable>
+              {userDataControls?.previewRows.map((row) => <Text key={row} style={screenStyles.subtle}>{row}</Text>)}
+              {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
+              <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
+              <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>Delete app data</Text>
+              </Pressable>
+              <Text style={screenStyles.subtle}>Account deletion requires a server-side function later; this only removes user-owned app data.</Text>
+            </View>
+          </EngineCard>
+        </View>
       ) : null}
       {section === "audit" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="profile-audit-section">
           <BetaTesterNoticePanel />
           <BetaHealthPanel viewModel={betaHealth} />
           <BetaFeedbackPanel
@@ -165,7 +167,7 @@ export function ProfileScreen({
           ) : (
             <EmptyState title="No audit events yet" message="Journey events appear after onboarding, logs, or engine-owned persistence events." />
           )}
-        </>
+        </View>
       ) : null}
     </ScrollView>
   );

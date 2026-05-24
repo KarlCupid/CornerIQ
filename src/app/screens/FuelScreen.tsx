@@ -128,7 +128,7 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
   const [section, setSection] = React.useState<FuelSection>("command");
   const activeReview = viewModel.activeNutritionSafetyReviews[0] ?? viewModel.nutritionSafetyReview.activeReview ?? null;
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
+    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="fuel-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <SectionTabs items={fuelSections} value={section} onChange={setSection} />
       {activeReview && section !== "command" && section !== "reviews" ? (
@@ -139,7 +139,7 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         />
       ) : null}
       {section === "command" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="fuel-command-section">
           <FuelCommandCard command={viewModel.commandCenter} />
           <NutritionSafetyReviewCard
             activeReviews={viewModel.activeNutritionSafetyReviews}
@@ -155,19 +155,19 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
           <TournamentFuelCard plan={viewModel.tournamentFuelPlan} />
           <FoodQuickLogCard actions={quickLogs} busy={busy} />
           <HydrationLogCard actions={quickLogs} busy={busy} />
-        </>
+        </View>
       ) : null}
       {section === "history" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="fuel-history-section">
           <ActualIntakeCard viewModel={viewModel} />
           <FuelHistoryCard history={viewModel.fuelHistory} />
           <FuelHistoryPanel history={viewModel.fuelHistory} />
           <HydrationContextCard viewModel={viewModel} />
           <RecentFuelLogsCard recentLogs={recentLogs} />
-        </>
+        </View>
       ) : null}
       {section === "reviews" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="fuel-reviews-section">
           <NutritionSafetyReviewCard
             activeReviews={viewModel.activeNutritionSafetyReviews}
             onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
@@ -176,14 +176,14 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
           />
           <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
           <FuelRiskCard message={message} viewModel={viewModel} />
-        </>
+        </View>
       ) : null}
       {section === "bodyMass" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="fuel-body-mass-section">
           <BodyMassTrajectoryCard trajectory={viewModel.bodyMassTrajectory} />
           <BodyMassTrajectoryPanel trajectory={viewModel.bodyMassTrajectory} />
           <TargetsCard viewModel={viewModel} />
-        </>
+        </View>
       ) : null}
     </ScrollView>
   );

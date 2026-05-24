@@ -41,7 +41,7 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
   const [section, setSection] = React.useState<PlanSection>("week");
   const hasPlanRisk = viewModel.warnings.length > 0 || viewModel.rollForwardStatus === "blocked";
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
+    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="plan-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <SectionTabs items={planSections} value={section} onChange={setSection} />
       {hasPlanRisk ? (
@@ -55,7 +55,7 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
         <RiskBanner title="Week boundary update" message={viewModel.lastAutoRollForwardMessage} tone="info" />
       ) : null}
       {section === "week" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="plan-week-section">
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Active block</Text>
@@ -102,54 +102,56 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
             onSaveFight={onSaveFightSetup}
             onSaveTournament={onSaveTournamentSetup}
           />
-        </>
+        </View>
       ) : null}
       {section === "nextWeek" ? (
-        <EngineCard>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.sectionTitle}>Next week preview</Text>
-            <Text style={screenStyles.body}>Engine preview, not a user-edited plan.</Text>
-            <Text style={screenStyles.callout}>{viewModel.rollForwardMessage}</Text>
-            <Text style={screenStyles.body}>{viewModel.nextWeekPreview.persistedStatusLabel}</Text>
-            <Text style={screenStyles.body}>
-              Generated sessions: {viewModel.nextWeekPreview.generatedSessionCount} ({viewModel.nextWeekPreview.generatedSessionPersistence.replaceAll("_", " ")})
-            </Text>
-            <Text style={screenStyles.body}>Week {viewModel.nextWeekPreview.weekIndex}: {viewModel.nextWeekPreview.phase.replaceAll("_", " ")} - {viewModel.nextWeekPreview.decision}</Text>
-            <Text style={screenStyles.body}>{viewModel.nextWeekPreview.weekStartDate} to {viewModel.nextWeekPreview.weekEndDate}</Text>
-            <Text style={screenStyles.callout}>{viewModel.nextWeekPreview.volumeStrategy.replaceAll("_", " ")} - hard day cap {viewModel.nextWeekPreview.hardDayCap}</Text>
-            <Text style={screenStyles.body}>Support bias: {viewModel.nextWeekPreview.supportBias.replaceAll("_", " ")}</Text>
-            <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.actionCopy}</Text>
-            {viewModel.nextWeekPreview.requiresReview ? <Text style={screenStyles.subtle}>Review required before materializing.</Text> : null}
-            {viewModel.nextWeekPreview.canAccept ? (
-              <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined)}>
-                <Text style={screenStyles.quietButtonText}>Accept preview</Text>
-              </Pressable>
-            ) : null}
-            {viewModel.nextWeekPreview.showMaterializeAction ? (
-              <Pressable accessibilityLabel="Materialize next week" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview }} disabled={busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined)}>
-                <Text style={screenStyles.quietButtonText}>Materialize next week</Text>
-              </Pressable>
-            ) : null}
-            <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.explanation}</Text>
-            {viewModel.nextWeekPreview.materializedGeneratedSessions.map((session) => (
-              <Text key={session.id} style={screenStyles.subtle}>
-                Materialized: {session.date} - {session.title} ({session.intensity}, {session.durationMinutes} min, fuel {session.fuelDemand})
+        <View style={{ gap: spacing.lg }} testID="plan-next-week-section">
+          <EngineCard>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.sectionTitle}>Next week preview</Text>
+              <Text style={screenStyles.body}>Engine preview, not a user-edited plan.</Text>
+              <Text style={screenStyles.callout}>{viewModel.rollForwardMessage}</Text>
+              <Text style={screenStyles.body}>{viewModel.nextWeekPreview.persistedStatusLabel}</Text>
+              <Text style={screenStyles.body}>
+                Generated sessions: {viewModel.nextWeekPreview.generatedSessionCount} ({viewModel.nextWeekPreview.generatedSessionPersistence.replaceAll("_", " ")})
               </Text>
-            ))}
-            {viewModel.nextWeekPreview.safetyNotes.map((note) => <Text key={note} style={screenStyles.subtle}>Safety: {note}</Text>)}
-            {viewModel.nextWeekPreview.dayPlanPreview.map((day) => (
-              <View key={day.date} style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.callout}>{day.date} - {day.marker} - fuel demand {day.fuelDemand}</Text>
-                <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
-                <Text style={screenStyles.subtle}>Generated preview: {day.generatedSupport}</Text>
-                <Text style={screenStyles.subtle}>{day.explanation}</Text>
-              </View>
-            ))}
-          </View>
-        </EngineCard>
+              <Text style={screenStyles.body}>Week {viewModel.nextWeekPreview.weekIndex}: {viewModel.nextWeekPreview.phase.replaceAll("_", " ")} - {viewModel.nextWeekPreview.decision}</Text>
+              <Text style={screenStyles.body}>{viewModel.nextWeekPreview.weekStartDate} to {viewModel.nextWeekPreview.weekEndDate}</Text>
+              <Text style={screenStyles.callout}>{viewModel.nextWeekPreview.volumeStrategy.replaceAll("_", " ")} - hard day cap {viewModel.nextWeekPreview.hardDayCap}</Text>
+              <Text style={screenStyles.body}>Support bias: {viewModel.nextWeekPreview.supportBias.replaceAll("_", " ")}</Text>
+              <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.actionCopy}</Text>
+              {viewModel.nextWeekPreview.requiresReview ? <Text style={screenStyles.subtle}>Review required before materializing.</Text> : null}
+              {viewModel.nextWeekPreview.canAccept ? (
+                <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined)}>
+                  <Text style={screenStyles.quietButtonText}>Accept preview</Text>
+                </Pressable>
+              ) : null}
+              {viewModel.nextWeekPreview.showMaterializeAction ? (
+                <Pressable accessibilityLabel="Materialize next week" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview }} disabled={busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined)}>
+                  <Text style={screenStyles.quietButtonText}>Materialize next week</Text>
+                </Pressable>
+              ) : null}
+              <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.explanation}</Text>
+              {viewModel.nextWeekPreview.materializedGeneratedSessions.map((session) => (
+                <Text key={session.id} style={screenStyles.subtle}>
+                  Materialized: {session.date} - {session.title} ({session.intensity}, {session.durationMinutes} min, fuel {session.fuelDemand})
+                </Text>
+              ))}
+              {viewModel.nextWeekPreview.safetyNotes.map((note) => <Text key={note} style={screenStyles.subtle}>Safety: {note}</Text>)}
+              {viewModel.nextWeekPreview.dayPlanPreview.map((day) => (
+                <View key={day.date} style={{ gap: spacing.sm }}>
+                  <Text style={screenStyles.callout}>{day.date} - {day.marker} - fuel demand {day.fuelDemand}</Text>
+                  <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
+                  <Text style={screenStyles.subtle}>Generated preview: {day.generatedSupport}</Text>
+                  <Text style={screenStyles.subtle}>{day.explanation}</Text>
+                </View>
+              ))}
+            </View>
+          </EngineCard>
+        </View>
       ) : null}
       {section === "history" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="plan-history-section">
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Block timeline</Text>
@@ -178,10 +180,10 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
           <EngineCard>
             <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
           </EngineCard>
-        </>
+        </View>
       ) : null}
       {section === "adjustments" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="plan-adjustments-section">
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Adjustment audit</Text>
@@ -202,7 +204,7 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
           )) : (
             <EmptyState title="No day plans loaded" message="Adjustment controls appear after the engine has a week projection." />
           )}
-        </>
+        </View>
       ) : null}
     </ScrollView>
   );

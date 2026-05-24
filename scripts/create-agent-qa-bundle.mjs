@@ -1,9 +1,11 @@
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { Buffer } from "node:buffer";
+import { spawnSync } from "node:child_process";
 
 const repoRoot = process.cwd();
 const outputPath = join(repoRoot, "qa-artifacts", "corneriq-agent-qa-bundle.zip");
+const manifestPath = join(repoRoot, "qa-artifacts", "reports", "agent-qa-bundle-manifest.json");
 
 const explicitFiles = [
   "docs/qa/QA_LOOP.md",
@@ -14,14 +16,46 @@ const explicitFiles = [
   "docs/qa/AGENT_BROWSER_AUDIT_RUNBOOK.md",
   "docs/qa/README.md",
   "package.json",
+  "scripts/run-agent-qa-ci.mjs",
+  "scripts/run-agent-browser-audit.mjs",
+  "scripts/create-agent-qa-report.mjs",
+  "scripts/analyze-agent-qa-evidence.mjs",
+  "scripts/create-agent-qa-bundle.mjs",
+  "scripts/create-agent-qa-contact-sheet.mjs",
+  "scripts/create-engine-output-review.mjs",
+  "scripts/print-qa-loop-state.mjs",
   ".github/workflows/agent-qa-loop.yml"
 ];
 
+const canonicalReportFiles = [
+  "qa-artifacts/reports/agent-browser-audit-latest.md",
+  "qa-artifacts/reports/agent-ai-review-brief.md",
+  "qa-artifacts/reports/agent-qa-analysis.md",
+  "qa-artifacts/reports/agent-qa-analysis.json",
+  "qa-artifacts/reports/agent-gate-results.md",
+  "qa-artifacts/reports/agent-gate-results.json",
+  "qa-artifacts/reports/engine-output-review.md",
+  "qa-artifacts/reports/engine-output-review.json",
+  "qa-artifacts/reports/agent-browser-audit-contact-sheet.md",
+  "qa-artifacts/reports/agent-browser-audit-contact-sheet.html",
+  "qa-artifacts/reports/agent-qa-bundle-manifest.json"
+];
+
+const canonicalArtifactFiles = [
+  "qa-artifacts/browser-audit/current/summary.json",
+  "qa-artifacts/browser-audit/current/screenshot-manifest.json"
+];
+
 const artifactDirs = [
-  "qa-artifacts/reports",
-  "qa-artifacts/browser-audit/current",
+  "qa-artifacts/browser-audit/current/screenshots",
+  "qa-artifacts/browser-audit/current/page-text",
   "qa-artifacts/playwright"
 ];
+
+function git(args) {
+  const result = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : "unknown";
+}
 
 function normalizePath(path) {
   return relative(repoRoot, path).replace(/\\/g, "/");
@@ -127,12 +161,35 @@ function endOfCentralDirectory(entryCount, centralSize, centralOffset) {
 }
 
 const crcTable = makeCrcTable();
-const files = [
+const filesBeforeManifest = [
   ...explicitFiles.map((item) => join(repoRoot, item)),
+  ...canonicalReportFiles.filter((item) => item !== "qa-artifacts/reports/agent-qa-bundle-manifest.json").map((item) => join(repoRoot, item)),
+  ...canonicalArtifactFiles.map((item) => join(repoRoot, item)),
   ...artifactDirs.flatMap(listFiles)
 ]
   .filter((path, index, all) => statSync(path, { throwIfNoEntry: false })?.isFile() && all.indexOf(path) === index)
   .sort((a, b) => normalizePath(a).localeCompare(normalizePath(b)));
+
+const manifestFiles = [...filesBeforeManifest.map(normalizePath), normalizePath(manifestPath)].sort((a, b) => a.localeCompare(b));
+mkdirSync(dirname(manifestPath), { recursive: true });
+writeFileSync(
+  manifestPath,
+  JSON.stringify(
+    {
+      generated_at: new Date().toISOString(),
+      commit_tested: git(["rev-parse", "--short", "HEAD"]),
+      commit_tested_full: git(["rev-parse", "HEAD"]),
+      branch: git(["branch", "--show-current"]),
+      bundle: normalizePath(outputPath),
+      canonical_files: manifestFiles,
+      excluded_by_default: ["qa-artifacts/reports/agent-browser-audit-*.md"]
+    },
+    null,
+    2
+  )
+);
+
+const files = [...filesBeforeManifest, manifestPath].sort((a, b) => normalizePath(a).localeCompare(normalizePath(b)));
 
 let offset = 0;
 const localParts = [];

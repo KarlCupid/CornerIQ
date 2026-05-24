@@ -4,7 +4,9 @@ import http from "node:http";
 import { join } from "node:path";
 
 const artifactRoot = join(process.cwd(), "qa-artifacts", "browser-audit", "current");
+const playwrightArtifactRoot = join(process.cwd(), "qa-artifacts", "playwright");
 rmSync(artifactRoot, { recursive: true, force: true });
+rmSync(playwrightArtifactRoot, { recursive: true, force: true });
 mkdirSync(artifactRoot, { recursive: true });
 
 const port = process.env.CORNERIQ_AGENT_QA_PORT ?? "8099";

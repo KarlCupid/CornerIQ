@@ -34,7 +34,7 @@ export interface TrainScreenProps {
 export function TrainScreen({ busy, completionActions, completionMessage, quickLogs, recentLogs, viewModel }: TrainScreenProps) {
   const [section, setSection] = React.useState<TrainSection>("today");
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content}>
+    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="train-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <SectionTabs items={trainSections} value={section} onChange={setSection} />
       {viewModel.riskSummary.length > 0 ? (
@@ -45,7 +45,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
         </RiskBanner>
       ) : null}
       {section === "today" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="train-today-section">
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Today's training decision</Text>
@@ -97,10 +97,10 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
               <Text style={screenStyles.subtle}>{viewModel.cycleTrainingDecision.action}</Text>
             </View>
           </EngineCard>
-        </>
+        </View>
       ) : null}
       {section === "workout" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="train-workout-section">
           {viewModel.detailedTodaySessions.length > 0 ? viewModel.detailedTodaySessions.map((session) => (
             <EngineCard key={session.generatedSessionId}>
               {session.detail ? (
@@ -121,10 +121,10 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
             </View>
           </EngineCard>
           <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} />
-        </>
+        </View>
       ) : null}
       {section === "history" ? (
-        <>
+        <View style={{ gap: spacing.lg }} testID="train-history-section">
           <EngineCard>
             <ExerciseHistoryPanel history={viewModel.exerciseHistory} />
           </EngineCard>
@@ -139,27 +139,29 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
               <Text style={screenStyles.subtle}>{viewModel.analytics.consistencySummary}</Text>
             </View>
           </EngineCard>
-        </>
+        </View>
       ) : null}
       {section === "progression" ? (
-        <EngineCard>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.sectionTitle}>Progression / next best action</Text>
-            <Text style={screenStyles.body}>{viewModel.progressionSummary.summary}</Text>
-            <Text style={screenStyles.subtle}>{viewModel.progressionSummary.status}: {viewModel.progressionSummary.why}</Text>
-            <Text style={screenStyles.callout}>{viewModel.analytics.nextBestTrainingAction}</Text>
-            <Text style={screenStyles.subtle}>Generated completed/skipped: {viewModel.analytics.generatedSessionsCompleted}/{viewModel.analytics.generatedSessionsSkipped}</Text>
-            <Text style={screenStyles.subtle}>Pain flags: {viewModel.analytics.painFlagCount}</Text>
-            <Text style={screenStyles.subtle}>Exercise status completed/partial/prescribed only: {viewModel.analytics.completedResultCount}/{viewModel.analytics.partialResultCount}/{viewModel.analytics.prescribedOnlyCount}</Text>
-            {viewModel.analytics.averageSessionRpe === null ? null : <Text style={screenStyles.subtle}>Average session RPE: {viewModel.analytics.averageSessionRpe}</Text>}
-            {viewModel.analytics.averageExerciseRpe === null ? null : <Text style={screenStyles.subtle}>Average exercise RPE: {viewModel.analytics.averageExerciseRpe}</Text>}
-            {viewModel.analytics.mostRecentExerciseResultSummary ? <Text style={screenStyles.subtle}>Recent exercise: {viewModel.analytics.mostRecentExerciseResultSummary}</Text> : null}
-            {viewModel.analytics.mostRepeatedExercise ? <Text style={screenStyles.subtle}>Repeated exercise: {viewModel.analytics.mostRepeatedExercise}</Text> : null}
-            {viewModel.analytics.latestStrengthExerciseSummary ? <Text style={screenStyles.subtle}>Strength actual: {viewModel.analytics.latestStrengthExerciseSummary}</Text> : null}
-            {viewModel.analytics.painFlagExercises.map((exercise) => <Text key={exercise} style={screenStyles.subtle}>Pain flag exercise: {exercise}</Text>)}
-            <Text style={screenStyles.subtle}>Today's completion will influence next week's dose, but no numeric load progression is inferred from notes.</Text>
-          </View>
-        </EngineCard>
+        <View style={{ gap: spacing.lg }} testID="train-progression-section">
+          <EngineCard>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.sectionTitle}>Progression / next best action</Text>
+              <Text style={screenStyles.body}>{viewModel.progressionSummary.summary}</Text>
+              <Text style={screenStyles.subtle}>{viewModel.progressionSummary.status}: {viewModel.progressionSummary.why}</Text>
+              <Text style={screenStyles.callout}>{viewModel.analytics.nextBestTrainingAction}</Text>
+              <Text style={screenStyles.subtle}>Generated completed/skipped: {viewModel.analytics.generatedSessionsCompleted}/{viewModel.analytics.generatedSessionsSkipped}</Text>
+              <Text style={screenStyles.subtle}>Pain flags: {viewModel.analytics.painFlagCount}</Text>
+              <Text style={screenStyles.subtle}>Exercise status completed/partial/prescribed only: {viewModel.analytics.completedResultCount}/{viewModel.analytics.partialResultCount}/{viewModel.analytics.prescribedOnlyCount}</Text>
+              {viewModel.analytics.averageSessionRpe === null ? null : <Text style={screenStyles.subtle}>Average session RPE: {viewModel.analytics.averageSessionRpe}</Text>}
+              {viewModel.analytics.averageExerciseRpe === null ? null : <Text style={screenStyles.subtle}>Average exercise RPE: {viewModel.analytics.averageExerciseRpe}</Text>}
+              {viewModel.analytics.mostRecentExerciseResultSummary ? <Text style={screenStyles.subtle}>Recent exercise: {viewModel.analytics.mostRecentExerciseResultSummary}</Text> : null}
+              {viewModel.analytics.mostRepeatedExercise ? <Text style={screenStyles.subtle}>Repeated exercise: {viewModel.analytics.mostRepeatedExercise}</Text> : null}
+              {viewModel.analytics.latestStrengthExerciseSummary ? <Text style={screenStyles.subtle}>Strength actual: {viewModel.analytics.latestStrengthExerciseSummary}</Text> : null}
+              {viewModel.analytics.painFlagExercises.map((exercise) => <Text key={exercise} style={screenStyles.subtle}>Pain flag exercise: {exercise}</Text>)}
+              <Text style={screenStyles.subtle}>Today's completion will influence next week's dose, but no numeric load progression is inferred from notes.</Text>
+            </View>
+          </EngineCard>
+        </View>
       ) : null}
     </ScrollView>
   );

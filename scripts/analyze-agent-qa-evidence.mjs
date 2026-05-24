@@ -12,6 +12,7 @@ const analysisJsonPath = join(reportsDir, "agent-qa-analysis.json");
 const analysisMdPath = join(reportsDir, "agent-qa-analysis.md");
 const aiBriefPath = join(reportsDir, "agent-ai-review-brief.md");
 const engineReviewPath = join(reportsDir, "engine-output-review.md");
+const gateResultsJsonPath = join(reportsDir, "agent-gate-results.json");
 
 const expectedScreenshots = [
   "01-auth-screen.png",
@@ -94,6 +95,13 @@ function git(args) {
   return result.status === 0 ? result.stdout.trim() : "unknown";
 }
 
+function commitInfo() {
+  return {
+    full: git(["rev-parse", "HEAD"]),
+    short: git(["rev-parse", "--short", "HEAD"])
+  };
+}
+
 function normalizePath(path) {
   return relative(repoRoot, path).replace(/\\/g, "/");
 }
@@ -121,6 +129,16 @@ function readTextFiles(dir) {
     });
 }
 
+function readExistingTextFiles(paths) {
+  return paths
+    .filter((path) => existsSync(path))
+    .map((path) => ({
+      name: basename(path),
+      path: normalizePath(path),
+      text: readFileSync(path, "utf8")
+    }));
+}
+
 function scan(files, patterns) {
   const findings = [];
   for (const file of files) {
@@ -131,6 +149,17 @@ function scan(files, patterns) {
     }
   }
   return findings;
+}
+
+function formatGateResults(gateResults) {
+  if (!gateResults?.gates?.length) {
+    return "- Gate results are not available yet. `qa:agent:ci` writes `qa-artifacts/reports/agent-gate-results.md` and `.json`.";
+  }
+  return [
+    `- Status: ${gateResults.status}`,
+    `- Report: qa-artifacts/reports/agent-gate-results.md`,
+    ...gateResults.gates.map((gate) => `- ${gate.label}: ${gate.status} (exit ${gate.exitCode ?? "unknown"})`)
+  ].join("\n");
 }
 
 function listFilesRecursive(dir) {
@@ -154,16 +183,22 @@ mkdirSync(reportsDir, { recursive: true });
 
 const summary = readJson(summaryPath, null);
 const manifest = readJson(manifestPath, []);
+const commit = commitInfo();
+const gateResults = readJson(gateResultsJsonPath, null);
 const pageTexts = readTextFiles(pageTextDir);
 const allPageText = pageTexts.map((item) => item.text).join("\n\n");
-const generatedReportFiles = [
-  existsSync(join(reportsDir, "agent-browser-audit-latest.md"))
-    ? { path: normalizePath(join(reportsDir, "agent-browser-audit-latest.md")), text: readFileSync(join(reportsDir, "agent-browser-audit-latest.md"), "utf8") }
-    : null,
-  existsSync(engineReviewPath)
-    ? { path: normalizePath(engineReviewPath), text: readFileSync(engineReviewPath, "utf8") }
-    : null
-].filter(Boolean);
+const generatedReportFiles = readExistingTextFiles([
+  join(reportsDir, "agent-browser-audit-latest.md"),
+  join(reportsDir, "agent-ai-review-brief.md"),
+  join(reportsDir, "agent-qa-analysis.md"),
+  join(reportsDir, "agent-qa-analysis.json"),
+  join(reportsDir, "agent-gate-results.md"),
+  join(reportsDir, "agent-gate-results.json"),
+  join(reportsDir, "engine-output-review.md"),
+  join(reportsDir, "engine-output-review.json"),
+  join(reportsDir, "agent-browser-audit-contact-sheet.md"),
+  join(reportsDir, "agent-browser-audit-contact-sheet.html")
+]);
 const scanFiles = [...pageTexts, ...generatedReportFiles];
 
 const screenshotNames = new Set(manifest.map((item) => basename(item.path ?? item.screenshotPath ?? "")));
@@ -179,6 +214,7 @@ const failedScenarios = tests.filter((item) => item.status !== "passed").map((it
 const missingComprehension = comprehensionNeedles.filter((item) => !item.pattern.test(allPageText)).map((item) => item.key);
 const safetyFindings = scan(scanFiles, safetyPatterns);
 const secretFindings = scan(scanFiles, secretPatterns);
+const objectObjectFindings = scan(scanFiles, [{ key: "object_object_serialization", pattern: /\[object Object\]/ }]);
 const engineReviewMissing = !existsSync(engineReviewPath);
 
 const missingCoverage = [
@@ -192,7 +228,8 @@ const missingCoverage = [
 const blockers = [
   ...missingCoverage,
   ...safetyFindings.map((item) => `safety blocker ${item.key} in ${item.path}`),
-  ...secretFindings.map((item) => `secret blocker ${item.key} in ${item.path}`)
+  ...secretFindings.map((item) => `secret blocker ${item.key} in ${item.path}`),
+  ...objectObjectFindings.map((item) => `serialization blocker ${item.key} in ${item.path}`)
 ];
 const highs = missingComprehension.map((item) => `comprehension evidence missing: ${item}`);
 const mediums = [
@@ -204,7 +241,8 @@ const lows = [];
 
 const analysis = {
   generated_at: new Date().toISOString(),
-  commit_tested: git(["rev-parse", "--short", "HEAD"]),
+  commit_tested: commit.short,
+  commit_tested_full: commit.full,
   branch: git(["branch", "--show-current"]),
   automated_status: blockers.length === 0 && highs.length === 0 ? "pass" : "fail",
   blocker_count: blockers.length,
@@ -220,13 +258,23 @@ const analysis = {
     status: secretFindings.length === 0 ? "pass" : "fail",
     findings: secretFindings
   },
+  object_object_scan: {
+    status: objectObjectFindings.length === 0 ? "pass" : "fail",
+    findings: objectObjectFindings
+  },
   comprehension_scan: {
     status: missingComprehension.length === 0 ? "needs_ai_review" : "fail",
     missing: missingComprehension
   },
   scenarios: tests.map((item) => ({ title: item.title, status: item.status })),
   screenshots: manifest.map((item) => item.path ?? item.screenshotPath),
+  page_text_scopes: manifest.map((item) => ({
+    fallback: Boolean(item.pageTextFallback),
+    path: item.pageTextPath,
+    scope: item.pageTextScope ?? "unknown"
+  })),
   page_text_snapshots: pageTexts.map((item) => item.path),
+  gate_results: existsSync(gateResultsJsonPath) ? normalizePath(gateResultsJsonPath) : null,
   playwright_json: existsSync(join(repoRoot, "qa-artifacts", "playwright", "results.json"))
     ? normalizePath(join(repoRoot, "qa-artifacts", "playwright", "results.json"))
     : null,
@@ -247,6 +295,7 @@ writeFileSync(analysisJsonPath, JSON.stringify(analysis, null, 2));
 const md = `# Agent QA Analysis
 
 - Commit tested: ${analysis.commit_tested}
+- Commit tested full SHA: ${analysis.commit_tested_full}
 - Branch: ${analysis.branch}
 - Date: ${analysis.generated_at}
 - Automated status: ${analysis.automated_status}
@@ -268,6 +317,11 @@ ${safetyFindings.length ? safetyFindings.map((item) => `- ${item.key}: ${item.pa
 
 - Status: ${analysis.secret_scan.status}
 ${secretFindings.length ? secretFindings.map((item) => `- ${item.key}: ${item.path}`).join("\n") : "- No secret blockers found by deterministic scan."}
+
+## Serialization Scan
+
+- Status: ${analysis.object_object_scan.status}
+${objectObjectFindings.length ? objectObjectFindings.map((item) => `- ${item.key}: ${item.path}`).join("\n") : "- No object-string serialization leaks found in current reports or page-text snapshots."}
 
 ## Comprehension Evidence
 
@@ -295,6 +349,7 @@ const traceFiles = listFilesRecursive(join(repoRoot, "qa-artifacts", "playwright
 const aiBrief = `# Agent AI Review Brief
 
 - Commit tested: ${analysis.commit_tested}
+- Commit tested full SHA: ${analysis.commit_tested_full}
 - Branch: ${analysis.branch}
 - Date: ${analysis.generated_at}
 - QA loop state: ${analysis.automated_status}; blockers ${analysis.blocker_count}, high ${analysis.high_count}, medium ${analysis.medium_count}
@@ -306,6 +361,10 @@ const aiBrief = `# Agent AI Review Brief
 - Needs AI review rows in persistent state: ${needsAiReview}
 - Human review required rows in persistent state: ${humanReview}
 - Next recommended action: ${analysis.next_recommended_action}
+
+## Gate Results
+
+${formatGateResults(gateResults)}
 
 ## Surfaces Verified By Automation
 
@@ -349,7 +408,7 @@ ${screenshots.length ? screenshots.map((item) => `- ${item}`).join("\n") : "- No
 
 ## Page-Text Snapshot List
 
-${pageTextSnapshots.length ? pageTextSnapshots.map((item) => `- ${item}`).join("\n") : "- No page-text snapshots captured."}
+${pageTextSnapshots.length ? manifest.map((item) => `- ${item.pageTextPath ?? "missing"}: ${item.pageTextScope ?? "unknown"}${item.pageTextFallback ? " (document.body fallback)" : ""}`).join("\n") : "- No page-text snapshots captured."}
 
 ## Playwright Artifacts
 
@@ -364,6 +423,11 @@ ${safetyFindings.length ? safetyFindings.map((item) => `- ${item.key}: ${item.pa
 
 - Status: ${analysis.secret_scan.status}
 ${secretFindings.length ? secretFindings.map((item) => `- ${item.key}: ${item.path}`).join("\n") : "- No deterministic secret blockers found."}
+
+## Serialization Scan Result
+
+- Status: ${analysis.object_object_scan.status}
+${objectObjectFindings.length ? objectObjectFindings.map((item) => `- ${item.key}: ${item.path}`).join("\n") : "- No object-string serialization leaks found."}
 
 ## Engine-Output Review Targets
 
@@ -408,3 +472,6 @@ ${analysis.automated_status === "pass" ? "- No deterministic fix pass before AI 
 writeFileSync(aiBriefPath, aiBrief);
 console.log(`Agent QA analysis written: ${normalizePath(analysisMdPath)}`);
 console.log(`AI review brief written: ${normalizePath(aiBriefPath)}`);
+if (objectObjectFindings.length > 0) {
+  process.exitCode = 1;
+}

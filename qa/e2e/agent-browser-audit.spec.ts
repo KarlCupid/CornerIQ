@@ -1,14 +1,47 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const scenarioName = "CornerIQ local E2E agent browser audit";
 const artifactRoot = path.join(process.cwd(), "qa-artifacts", "browser-audit", "current");
 const screenshotsDir = path.join(artifactRoot, "screenshots");
 const pageTextDir = path.join(artifactRoot, "page-text");
-const screenshots: { label: string; pageTextPath: string; path: string; scenario: string }[] = [];
+const screenshots: {
+  label: string;
+  pageTextFallback: boolean;
+  pageTextPath: string;
+  pageTextScope: string;
+  path: string;
+  scenario: string;
+}[] = [];
 const tests: { title: string; status: string; errors: string[] }[] = [];
 const runtimeGuardFindings: { message: string; testTitle: string; type: string }[] = [];
+const activeSurfaceTestIds = [
+  "auth-screen",
+  "onboarding-screen",
+  "today-screen",
+  "fuel-command-section",
+  "fuel-history-section",
+  "fuel-reviews-section",
+  "fuel-body-mass-section",
+  "fuel-screen",
+  "train-today-section",
+  "train-workout-section",
+  "train-history-section",
+  "train-progression-section",
+  "train-screen",
+  "plan-week-section",
+  "plan-next-week-section",
+  "plan-history-section",
+  "plan-adjustments-section",
+  "plan-screen",
+  "profile-athlete-section",
+  "profile-settings-section",
+  "profile-data-section",
+  "profile-audit-section",
+  "profile-screen"
+] as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -39,12 +72,15 @@ test.afterEach(async ({ page: _page }, testInfo) => {
 
 test.afterAll(() => {
   const status = tests.every((item) => item.status === "passed") ? "passed" : "failed";
+  const commit = commitInfo();
   writeFileSync(
     path.join(artifactRoot, "summary.json"),
     JSON.stringify(
       {
         scenarioName,
         status,
+        commitTested: commit.short,
+        commitTestedFull: commit.full,
         tests,
         screenshots
       },
@@ -69,6 +105,18 @@ function pageTextPath(name: string) {
   return {
     fullPath,
     relativePath: path.relative(process.cwd(), fullPath).replace(/\\/g, "/")
+  };
+}
+
+function git(args: string[]) {
+  const result = spawnSync("git", args, { cwd: process.cwd(), encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : "unknown";
+}
+
+function commitInfo() {
+  return {
+    full: git(["rev-parse", "HEAD"]),
+    short: git(["rev-parse", "--short", "HEAD"])
   };
 }
 
@@ -109,13 +157,20 @@ function installRuntimeGuards(page: Page, testTitle: string) {
   });
 }
 
-async function capture(page: Page, testInfo: TestInfo, label: string, name: string, options: { fullPage?: boolean } = {}) {
+async function capture(page: Page, testInfo: TestInfo, label: string, name: string, options: { fullPage?: boolean; scopeTestId?: string } = {}) {
   const target = artifactPath(name);
   const textTarget = pageTextPath(name);
-  const text = await visiblePageText(page);
-  writeFileSync(textTarget.fullPath, `${text}\n`);
+  const pageText = await visibleSurfaceText(page, options.scopeTestId);
+  writeFileSync(textTarget.fullPath, `Scope: ${pageText.scope}\nFallback: ${pageText.fallback ? "document.body" : "active surface"}\n\n${pageText.text}\n`);
   await page.screenshot({ path: target.fullPath, fullPage: options.fullPage ?? true });
-  screenshots.push({ label, pageTextPath: textTarget.relativePath, path: target.relativePath, scenario: testInfo.title });
+  screenshots.push({
+    label,
+    pageTextFallback: pageText.fallback,
+    pageTextPath: textTarget.relativePath,
+    pageTextScope: pageText.scope,
+    path: target.relativePath,
+    scenario: testInfo.title
+  });
   await testInfo.attach(label, { path: target.fullPath, contentType: "image/png" });
   await testInfo.attach(`${label} page text`, { path: textTarget.fullPath, contentType: "text/plain" });
 }
@@ -185,8 +240,33 @@ async function goNext(page: Page) {
   await page.getByRole("button", { name: "Next" }).click();
 }
 
-async function visiblePageText(page: Page) {
-  return (await page.locator("body").innerText()).replace(/\s+/g, " ");
+async function visibleSurfaceText(page: Page, preferredTestId?: string) {
+  const ids = preferredTestId
+    ? [preferredTestId, ...activeSurfaceTestIds.filter((item) => item !== preferredTestId)]
+    : activeSurfaceTestIds;
+  for (const testId of ids) {
+    const locator = page.getByTestId(testId).first();
+    if ((await locator.count()) === 0) {
+      continue;
+    }
+    if (!(await locator.isVisible().catch(() => false))) {
+      continue;
+    }
+    return {
+      fallback: false,
+      scope: `data-testid=${testId}`,
+      text: (await locator.innerText()).replace(/\s+/g, " ").trim()
+    };
+  }
+  return {
+    fallback: true,
+    scope: "document.body",
+    text: (await page.locator("body").innerText()).replace(/\s+/g, " ").trim()
+  };
+}
+
+async function visiblePageText(page: Page, preferredTestId?: string) {
+  return (await visibleSurfaceText(page, preferredTestId)).text;
 }
 
 function expectNoUnsafeWeightCutLanguage(text: string) {
@@ -264,20 +344,20 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Save food quick log" }).click();
   await expectVisibleText(page, "Food log saved. Today will update after the engine refresh completes.");
   await expectVisibleText(page, "Food quick log captured in local E2E mode only.");
-  expectNoUnsafeWeightCutLanguage(await visiblePageText(page));
-  await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png");
-  await capture(page, testInfo, "Fuel food quick log submit", "12-fuel-food-quick-log-submit.png", { fullPage: false });
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-command-section"));
+  await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-command-section" });
+  await capture(page, testInfo, "Fuel food quick log submit", "12-fuel-food-quick-log-submit.png", { fullPage: false, scopeTestId: "fuel-command-section" });
 
   await page.getByRole("button", { name: "Show Reviews section" }).click();
   await expectVisibleText(page, "Nutrition review history");
   await expectVisibleText(page, /Athletes cannot self-clear nutrition hard stops/i);
   await expectVisibleText(page, /Reviewer-clear workflow is not exposed in the app yet/i);
   await expect(page.getByRole("button", { name: /clear/i })).toHaveCount(0);
-  expectNoUnsafeWeightCutLanguage(await visiblePageText(page));
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-reviews-section"));
 
   await page.getByRole("button", { name: "Show Body Mass section" }).click();
   await expectVisibleText(page, /unknown/i);
-  expectNoUnsafeWeightCutLanguage(await visiblePageText(page));
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-body-mass-section"));
 }
 
 async function auditProfileAudit(page: Page, testInfo: TestInfo) {
@@ -290,7 +370,7 @@ async function auditProfileAudit(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Not medical advice.");
   await expectVisibleText(page, "Not a coach replacement.");
   await expectVisibleText(page, "No emergency support.");
-  await capture(page, testInfo, "Profile Audit screen", "13-profile-audit-screen.png");
+  await capture(page, testInfo, "Profile Audit screen", "13-profile-audit-screen.png", { scopeTestId: "profile-audit-section" });
 
   await expectVisibleText(page, "Beta feedback");
   await expectVisibleText(page, "Screen");
@@ -305,13 +385,13 @@ async function auditProfileAudit(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Recent feedback");
   await expect(page.getByRole("button", { name: "Refresh feedback history" })).toBeVisible();
   await page.getByText("Beta feedback", { exact: true }).scrollIntoViewIfNeeded();
-  await capture(page, testInfo, "Beta feedback panel", "14-beta-feedback-panel.png", { fullPage: false });
-  await capture(page, testInfo, "Beta feedback submit", "14-beta-feedback-submit.png", { fullPage: false });
+  await capture(page, testInfo, "Beta feedback panel", "14-beta-feedback-panel.png", { fullPage: false, scopeTestId: "profile-audit-section" });
+  await capture(page, testInfo, "Beta feedback submit", "14-beta-feedback-submit.png", { fullPage: false, scopeTestId: "profile-audit-section" });
 
   await expectVisibleText(page, "Beta health preflight");
   await page.getByText("Beta health preflight").scrollIntoViewIfNeeded();
-  await capture(page, testInfo, "Beta health panel", "15-beta-health-panel.png", { fullPage: false });
-  expectNoDisplayedSecretValues(await visiblePageText(page));
+  await capture(page, testInfo, "Beta health panel", "15-beta-health-panel.png", { fullPage: false, scopeTestId: "profile-audit-section" });
+  expectNoDisplayedSecretValues(await visiblePageText(page, "profile-audit-section"));
 }
 
 async function auditTrain(page: Page, testInfo: TestInfo) {
@@ -321,8 +401,8 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Today's training decision");
   await expectVisibleText(page, "Today's generated support");
   await expectVisibleText(page, "Fuel handoff");
-  expectNoGeneratedContactLanguage(await visiblePageText(page));
-  await capture(page, testInfo, "Train Today screen", "16-train-today-screen.png");
+  expectNoGeneratedContactLanguage(await visiblePageText(page, "train-today-section"));
+  await capture(page, testInfo, "Train Today screen", "16-train-today-screen.png", { scopeTestId: "train-today-section" });
 
   await openSection(page, "Workout");
   await expectVisibleText(page, "Protected workout logging");
@@ -333,25 +413,25 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await expect(page.getByPlaceholder("Session RPE 1-10 optional")).toBeVisible();
   await expect(page.getByPlaceholder("Completed sets optional").first()).toBeVisible();
   await expect(page.getByPlaceholder("Exercise RPE optional").first()).toBeVisible();
-  expectNoGeneratedContactLanguage(await visiblePageText(page));
-  await capture(page, testInfo, "Train Workout detail", "17-train-workout-detail.png");
+  expectNoGeneratedContactLanguage(await visiblePageText(page, "train-workout-section"));
+  await capture(page, testInfo, "Train Workout detail", "17-train-workout-detail.png", { scopeTestId: "train-workout-section" });
 
   await page.getByPlaceholder("Completed sets optional").first().fill("1");
   await page.getByPlaceholder("Exercise RPE optional").first().fill("5");
   await page.getByPlaceholder("Session RPE 1-10 optional").fill("5");
   await page.getByRole("button", { name: "Complete without exercise details" }).click();
   await expectVisibleText(page, "Local E2E workout completion captured locally only.");
-  await capture(page, testInfo, "Train Workout completion", "18-train-workout-completion.png");
+  await capture(page, testInfo, "Train Workout completion", "18-train-workout-completion.png", { scopeTestId: "train-workout-section" });
 
   await openSection(page, "Exercise History");
   await expectVisibleText(page, "Exercise history");
   await expectVisibleText(page, "Prescribed-only rows");
   await expectVisibleText(page, "Free-text load is not used for numeric progression yet.");
   await expectVisibleText(page, "Pain flags stop automatic progression.");
-  const historyText = await visiblePageText(page);
+  const historyText = await visiblePageText(page, "train-history-section");
   expect(historyText).not.toMatch(/\bexact load progression\b/i);
   expectNoGeneratedContactLanguage(historyText);
-  await capture(page, testInfo, "Train Exercise History", "19-train-exercise-history.png");
+  await capture(page, testInfo, "Train Exercise History", "19-train-exercise-history.png", { scopeTestId: "train-history-section" });
 
   await openSection(page, "Progression");
   await expectVisibleText(page, "Progression / next best action");
@@ -365,8 +445,8 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Active block");
   await expectVisibleText(page, "Week");
   await expectVisibleText(page, "No active plan warnings.");
-  expectNoCoachOrReviewerControls(await visiblePageText(page));
-  await capture(page, testInfo, "Plan Week screen", "20-plan-week-screen.png");
+  expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-week-section"));
+  await capture(page, testInfo, "Plan Week screen", "20-plan-week-screen.png", { scopeTestId: "plan-week-section" });
 
   await openSection(page, "Next Week");
   await expectVisibleText(page, "Next week preview");
@@ -381,8 +461,8 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
     await materializeButton.click();
     await expectVisibleText(page, "Local E2E next-week materialization stayed local.");
   }
-  expectNoCoachOrReviewerControls(await visiblePageText(page));
-  await capture(page, testInfo, "Plan Next Week screen", "21-plan-next-week-screen.png");
+  expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-next-week-section"));
+  await capture(page, testInfo, "Plan Next Week screen", "21-plan-next-week-screen.png", { scopeTestId: "plan-next-week-section" });
 
   await openSection(page, "Adjustments");
   await expectVisibleText(page, "Adjustment audit");
@@ -395,15 +475,15 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByRole("button", { name: "Restore engine plan" }).first()).toBeVisible();
   await page.getByRole("button", { name: "Request deload" }).first().click();
   await expectVisibleText(page, "Adjustment not applied");
-  expectNoCoachOrReviewerControls(await visiblePageText(page));
-  await capture(page, testInfo, "Plan Adjustments screen", "22-plan-adjustments-screen.png");
+  expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-adjustments-section"));
+  await capture(page, testInfo, "Plan Adjustments screen", "22-plan-adjustments-screen.png", { scopeTestId: "plan-adjustments-section" });
 
   await openSection(page, "Block History");
   await expectVisibleText(page, "Block timeline");
   await expectVisibleText(page, "Engine-owned history.");
   await expectVisibleText(page, "Screens do not mutate programming decisions.");
-  expectNoCoachOrReviewerControls(await visiblePageText(page));
-  await capture(page, testInfo, "Plan Block History screen", "23-plan-block-history-screen.png");
+  expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-history-section"));
+  await capture(page, testInfo, "Plan Block History screen", "23-plan-block-history-screen.png", { scopeTestId: "plan-history-section" });
 }
 
 async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
@@ -425,13 +505,13 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Account deletion requires a server-side function later; this only removes user-owned app data.");
   await deleteButton.click();
   await expectVisibleText(page, "Local E2E data deletion is disabled. No Supabase call was made.");
-  expectNoDisplayedSecretValues(await visiblePageText(page));
-  await capture(page, testInfo, "Profile Data controls", "24-profile-data-controls.png");
-  await capture(page, testInfo, "Profile Data delete submit", "24-profile-data-delete-submit.png", { fullPage: false });
+  expectNoDisplayedSecretValues(await visiblePageText(page, "profile-data-section"));
+  await capture(page, testInfo, "Profile Data controls", "24-profile-data-controls.png", { scopeTestId: "profile-data-section" });
+  await capture(page, testInfo, "Profile Data delete submit", "24-profile-data-delete-submit.png", { fullPage: false, scopeTestId: "profile-data-section" });
 
   await openSection(page, "Settings");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await capture(page, testInfo, "Profile Settings sign out", "25-profile-settings-signout.png");
+  await capture(page, testInfo, "Profile Settings sign out", "25-profile-settings-signout.png", { scopeTestId: "profile-settings-section" });
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByTestId("auth-screen")).toBeVisible();
   await expectVisibleText(page, "Local E2E sign-in accepts any non-empty email and password.");
@@ -599,12 +679,12 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("today-screen")).toBeVisible();
   await expect(page.getByTestId("today-start-here")).toContainText("Log readiness");
   await expect(page.getByTestId("today-start-here")).toContainText("Missing data lowers confidence");
-  await capture(page, testInfo, "Today after real onboarding", "10-today-after-real-onboarding.png");
+  await capture(page, testInfo, "Today after real onboarding", "10-today-after-real-onboarding.png", { scopeTestId: "today-screen" });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("today-screen")).toBeVisible();
   await expect(page.getByRole("button", { name: "Log hydration" })).toBeVisible();
-  await capture(page, testInfo, "Mobile Today after real onboarding", "11-mobile-today-after-real-onboarding.png");
+  await capture(page, testInfo, "Mobile Today after real onboarding", "11-mobile-today-after-real-onboarding.png", { scopeTestId: "today-screen" });
 }
 
 test("full first-time onboarding uses real inputs before Today", async ({ page }, testInfo) => {
@@ -673,9 +753,9 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
   await expect(page.getByTestId("today-quick-logs")).toContainText("Manual input is first-class");
   await expect(page.getByRole("button", { name: "Log body mass" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Log readiness" })).toBeVisible();
-  await capture(page, testInfo, "Smoke Today screen", "smoke-03-today-screen.png");
+  await capture(page, testInfo, "Smoke Today screen", "smoke-03-today-screen.png", { scopeTestId: "today-screen" });
   await exerciseTodayQuickLogSaves(page);
-  await capture(page, testInfo, "Smoke Today quick log saves", "smoke-05-today-quick-log-saves.png");
+  await capture(page, testInfo, "Smoke Today quick log saves", "smoke-05-today-quick-log-saves.png", { scopeTestId: "today-screen" });
 });
 
 test("mobile-size browser layout smoke reaches Today", async ({ browser }, testInfo) => {
@@ -690,7 +770,7 @@ test("mobile-size browser layout smoke reaches Today", async ({ browser }, testI
     await expect(page.getByTestId("local-e2e-banner")).toBeVisible();
     await expect(page.getByTestId("today-start-here")).toBeVisible();
     await expect(page.getByRole("button", { name: "Log hydration" })).toBeVisible();
-    await capture(page, testInfo, "Mobile Today smoke", "smoke-04-mobile-today-screen.png");
+    await capture(page, testInfo, "Mobile Today smoke", "smoke-04-mobile-today-screen.png", { scopeTestId: "today-screen" });
   } finally {
     await context.close();
   }

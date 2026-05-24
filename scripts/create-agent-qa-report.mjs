@@ -14,6 +14,13 @@ function git(args) {
   return result.status === 0 ? result.stdout.trim() : "unknown";
 }
 
+function commitInfo() {
+  return {
+    full: git(["rev-parse", "HEAD"]),
+    short: git(["rev-parse", "--short", "HEAD"])
+  };
+}
+
 function normalizePath(path) {
   return relative(process.cwd(), path).replace(/\\/g, "/");
 }
@@ -26,6 +33,7 @@ function readSummary() {
 }
 
 const summary = readSummary();
+const commit = commitInfo();
 const status = explicitStatus ?? summary?.status ?? (args.has("--status") ? "unknown" : "not_run");
 const screenshots = summary?.screenshots ?? [];
 const tests = summary?.tests ?? [];
@@ -49,7 +57,11 @@ const scenarioDetails =
           const screenshotRows =
             scenarioScreenshots.length > 0
               ? scenarioScreenshots
-                  .map((screenshot) => `  - ${screenshot.label}: ${screenshot.path}${screenshot.pageTextPath ? ` (text: ${screenshot.pageTextPath})` : ""}`)
+                  .map((screenshot) => {
+                    const scope = screenshot.pageTextScope ? `, scope: ${screenshot.pageTextScope}` : "";
+                    const fallback = screenshot.pageTextFallback ? ", fallback: document.body" : "";
+                    return `  - ${screenshot.label}: ${screenshot.path}${screenshot.pageTextPath ? ` (text: ${screenshot.pageTextPath}${scope}${fallback})` : ""}`;
+                  })
                   .join("\n")
               : "  - No screenshots captured for this scenario.";
           return `### ${item.title}\n\n- Status: ${item.status}\n- Screenshots:\n${screenshotRows}`;
@@ -68,7 +80,13 @@ const failedAssertions =
     : "- No failed assertions captured by this run.";
 const screenshotList =
   screenshots.length > 0
-    ? screenshots.map((item) => `- ${item.label}: ${item.path}${item.pageTextPath ? ` (text: ${item.pageTextPath})` : ""}`).join("\n")
+    ? screenshots
+        .map((item) => {
+          const scope = item.pageTextScope ? `, scope: ${item.pageTextScope}` : "";
+          const fallback = item.pageTextFallback ? ", fallback: document.body" : "";
+          return `- ${item.label}: ${item.path}${item.pageTextPath ? ` (text: ${item.pageTextPath}${scope}${fallback})` : ""}`;
+        })
+        .join("\n")
     : "- No screenshots were captured. Check the Playwright output for early startup failure.";
 const nextFixArea =
   status === "passed"
@@ -81,7 +99,8 @@ const latestPath = join(reportDir, "agent-browser-audit-latest.md");
 const timestampedPath = join(reportDir, `agent-browser-audit-${timestamp}.md`);
 const body = `# Agent Browser Audit Report
 
-- Commit tested: ${git(["rev-parse", "--short", "HEAD"])}
+- Commit tested: ${commit.short}
+- Commit tested full SHA: ${commit.full}
 - Branch: ${git(["branch", "--show-current"])}
 - Date: ${now.toISOString()}
 - Suite: ${summary?.scenarioName ?? "CornerIQ local E2E agent browser audit"}

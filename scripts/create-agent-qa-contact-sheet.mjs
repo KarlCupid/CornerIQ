@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const repoRoot = process.cwd();
 const artifactRoot = join(repoRoot, "qa-artifacts", "browser-audit", "current");
@@ -10,6 +11,11 @@ const mdPath = join(reportsDir, "agent-browser-audit-contact-sheet.md");
 
 function normalizePath(path) {
   return relative(repoRoot, path).replace(/\\/g, "/");
+}
+
+function git(args) {
+  const result = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : "unknown";
 }
 
 function escapeHtml(value) {
@@ -41,16 +47,22 @@ function pageTextSnippet(path) {
 mkdirSync(dirname(htmlPath), { recursive: true });
 
 const items = readManifest();
+const commit = {
+  full: git(["rev-parse", "HEAD"]),
+  short: git(["rev-parse", "--short", "HEAD"])
+};
 const cards = items
   .map((item) => {
     const screenshotPath = item.path ?? item.screenshotPath;
     const pageTextPath = item.pageTextPath;
     const snippet = pageTextSnippet(pageTextPath);
+    const scope = item.pageTextScope ?? "unknown";
+    const fallback = item.pageTextFallback ? "document.body fallback" : "active surface";
     return `<article class="card">
   <h2>${escapeHtml(item.label ?? basename(screenshotPath ?? ""))}</h2>
   <p><strong>Scenario:</strong> ${escapeHtml(item.scenario ?? "Unknown")}</p>
   <p><strong>Screenshot:</strong> ${escapeHtml(screenshotPath ?? "missing")}</p>
-  ${pageTextPath ? `<p><strong>Page text:</strong> ${escapeHtml(pageTextPath)}</p>` : ""}
+  ${pageTextPath ? `<p><strong>Page text:</strong> ${escapeHtml(pageTextPath)} (${escapeHtml(scope)}, ${escapeHtml(fallback)})</p>` : ""}
   ${screenshotPath ? `<img src="../../${escapeHtml(screenshotPath)}" alt="${escapeHtml(item.label ?? screenshotPath)}">` : ""}
   ${snippet ? `<pre>${escapeHtml(snippet)}</pre>` : ""}
 </article>`;
@@ -73,7 +85,7 @@ const html = `<!doctype html>
 </head>
 <body>
   <h1>CornerIQ Agent Browser Audit Contact Sheet</h1>
-  <p>Generated from ${escapeHtml(normalizePath(manifestPath))}. Screenshots and page-text snapshots are local QA artifacts and should not be committed.</p>
+  <p>Commit tested: ${escapeHtml(commit.short)} (${escapeHtml(commit.full)}). Generated from ${escapeHtml(normalizePath(manifestPath))}. Screenshots and page-text snapshots are local QA artifacts and should not be committed.</p>
   <div class="grid">
 ${cards || "<p>No screenshots found.</p>"}
   </div>
@@ -84,6 +96,9 @@ ${cards || "<p>No screenshots found.</p>"}
 writeFileSync(htmlPath, html);
 
 const md = `# Agent Browser Audit Contact Sheet
+
+- Commit tested: ${commit.short}
+- Commit tested full SHA: ${commit.full}
 
 Generated from \`${normalizePath(manifestPath)}\`.
 
@@ -96,6 +111,7 @@ ${items
 - Scenario: ${item.scenario ?? "Unknown"}
 - Screenshot: ${screenshotPath ?? "missing"}
 - Page text: ${pageTextPath ?? "missing"}
+- Page text scope: ${item.pageTextScope ?? "unknown"}${item.pageTextFallback ? " (document.body fallback)" : ""}
 `;
   })
   .join("\n")}
@@ -104,4 +120,3 @@ ${items
 writeFileSync(mdPath, md);
 console.log(`Contact sheet written: ${normalizePath(htmlPath)}`);
 console.log(`Contact sheet markdown written: ${normalizePath(mdPath)}`);
-

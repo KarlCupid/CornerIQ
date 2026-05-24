@@ -7,8 +7,8 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 4f7769a plus working tree changes from this pass |
-| Last QA run result | all normal gates passed; `qa:agent:ci` passed after embedding install/typecheck/tests/lint/quality/preflight plus 9/9 Playwright scenarios, deterministic safety/secret scans, engine-output review, contact sheet, and bundle |
+| Last commit tested | 3e822cf1cb1507aefecc2fcca5cadf7cfe960b63 (short 3e822cf) |
+| Last QA run result | all normal gates passed; `qa:agent:ci` passed with install/typecheck/tests/lint/quality/preflight, 9/9 Playwright scenarios, scoped page text, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
@@ -35,7 +35,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | beta preflight | automated_pass | Required before handoff. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | Covered by `qa:agent:ci`. |
+| agent QA CI | automated_pass | Covered by `qa:agent:ci`; writes structured gate results and canonical bundle manifest. |
 
 ### B. Auth and account
 
@@ -164,7 +164,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Fuel command output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
 | Train workout output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer usefulness remains human-only. |
 | Plan recommendation output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
-| beta persona coverage | automated_pass | Engine-output report required. |
+| beta persona coverage | automated_pass | Engine-output report required; object serialization leaks fail deterministic analysis. |
 | under-fueling risk case | automated_pass | Engine-output report required. |
 | red readiness case | automated_pass | Engine-output report required. |
 | same-day weigh-in case | automated_pass | Engine-output report required. |

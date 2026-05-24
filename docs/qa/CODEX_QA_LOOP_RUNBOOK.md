@@ -19,6 +19,13 @@ cmd /c npm run qa:loop:state
 
 `qa:agent:ci` writes the current evidence bundle under `qa-artifacts/` and must stay local-only. It sets no live Supabase credentials and does not need real beta accounts.
 
+The command records structured gate results at:
+
+- `qa-artifacts/reports/agent-gate-results.md`
+- `qa-artifacts/reports/agent-gate-results.json`
+
+Those gate results cover install context, typecheck, tests, lint, quality, beta preflight, agent browser audit, engine-output review, deterministic analysis, contact sheet generation, and bundle creation. Live Supabase smoke stays separate and opt-in.
+
 ## GitHub Actions
 
 Run the `Agent QA Loop` workflow with `workflow_dispatch` when a remote evidence bundle is useful. It uses Node 22, `npm ci`, Playwright Chromium, and `npm run qa:agent:ci`. It uploads `corneriq-agent-qa-bundle` even if the audit fails.
@@ -37,6 +44,7 @@ Then share `qa-artifacts/corneriq-agent-qa-bundle.zip`. The bundle includes:
 
 - `qa-artifacts/reports/agent-ai-review-brief.md`
 - `qa-artifacts/reports/agent-qa-analysis.md`
+- `qa-artifacts/reports/agent-gate-results.md`
 - `qa-artifacts/reports/engine-output-review.md`
 - contact sheet HTML and markdown
 - latest browser audit report
@@ -45,6 +53,10 @@ Then share `qa-artifacts/corneriq-agent-qa-bundle.zip`. The bundle includes:
 - Playwright JSON and traces/videos/screenshots when present
 - `docs/qa/QA_LOOP_STATE.md`, `QA_RUBRIC.md`, and `QA_SURFACE_MATRIX.md`
 
+The bundle is canonical by default: it includes the latest report filenames, current `browser-audit/current` evidence, current Playwright artifacts when present, QA docs/state/rubric/surface matrix, package scripts, workflow, and `qa-artifacts/reports/agent-qa-bundle-manifest.json`. Older timestamped `agent-browser-audit-*.md` reports are intentionally excluded.
+
+Page-text snapshots should be scoped to the active surface rather than the whole document body when a screen or section `testID` is available. If a full-body fallback is used, the screenshot manifest must label it as `document.body fallback`.
+
 Ask the reviewer to use `QA_RUBRIC.md` and to keep human-only gates human-only.
 
 ## State Updates
@@ -52,7 +64,7 @@ Ask the reviewer to use `QA_RUBRIC.md` and to keep human-only gates human-only.
 After every pass, update `docs/qa/QA_LOOP_STATE.md` with:
 
 - Current QA phase.
-- Last commit tested.
+- Last commit tested as the exact full SHA plus matching short SHA. Do not use ambiguous wording like "plus working tree changes from this pass."
 - Last QA run result.
 - Last QA bundle path.
 - Last AI review brief path.
@@ -84,4 +96,3 @@ Stop the loop when all automatable gates pass and the next action is one of:
 - `ready for controlled beta with documented limitations`
 
 Never mark physical iPhone, live Supabase, email confirmation, distribution, or human comprehension complete from local E2E automation alone.
-

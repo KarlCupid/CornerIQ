@@ -78,6 +78,62 @@ function compact(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function compactSafetyValue(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return compact(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(compactSafetyValue).filter(Boolean).join(", ");
+  }
+  return compact(JSON.stringify(value));
+}
+
+function serializeRiskFlagOrHardStop(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== "object") {
+    return compact(value);
+  }
+
+  const fields = [
+    "domain",
+    "code",
+    "severity",
+    "message",
+    "hardStop",
+    "requiresProfessionalReview",
+    "blocksPlan"
+  ];
+  const entries = fields
+    .filter((field) => Object.prototype.hasOwnProperty.call(value, field))
+    .map((field) => [field, compactSafetyValue(value[field])])
+    .filter(([, fieldValue]) => fieldValue !== null && fieldValue !== "");
+
+  if (!Object.prototype.hasOwnProperty.call(value, "message")) {
+    for (const fallbackField of ["summary", "title", "reason", "why"]) {
+      const fallbackValue = compactSafetyValue(value[fallbackField]);
+      if (fallbackValue) {
+        entries.push(["message", fallbackValue]);
+        break;
+      }
+    }
+  }
+
+  if (entries.length === 0) {
+    return compact(JSON.stringify(value));
+  }
+
+  return entries.map(([field, fieldValue]) => `${field}: ${fieldValue}`).join("; ");
+}
+
+function compactEvidenceValue(value) {
+  return compactSafetyValue(value) ?? "";
+}
+
 function lines(items) {
   return items.length ? items.map((item) => `- ${item}`).join("\n") : "- None.";
 }
@@ -134,18 +190,18 @@ function summarizeScenario(state, name) {
       ...(state.safety?.riskSummary ?? []),
       ...(today.riskSummary ?? []),
       ...(fuel.commandCenter?.safetyAction ? [fuel.commandCenter.safetyAction] : [])
-    ].map(compact).filter(Boolean),
+    ].map(serializeRiskFlagOrHardStop).filter(Boolean),
     missingDataHandling: [
-      compact(state.readiness?.explanation),
-      compact(state.wearable?.explanation),
-      compact(fuel.commandCenter?.confidenceLabel ?? fuel.commandCenter?.confidence),
-      compact(today.confidenceLabel ?? today.confidence)
+      compactEvidenceValue(state.readiness?.explanation),
+      compactEvidenceValue(state.wearable?.explanation),
+      compactEvidenceValue(fuel.commandCenter?.confidenceLabel ?? fuel.commandCenter?.confidence),
+      compactEvidenceValue(today.confidenceLabel ?? today.confidence)
     ].filter(Boolean),
     whyAndConfidenceLabels: [
-      compact(today.why ?? today.explanation),
-      compact(fuel.commandCenter?.why),
-      compact(train.todayRole?.explanation),
-      compact(plan.nextWeekPreview?.explanation)
+      compactEvidenceValue(today.why ?? today.explanation),
+      compactEvidenceValue(fuel.commandCenter?.why),
+      compactEvidenceValue(train.todayRole?.explanation),
+      compactEvidenceValue(plan.nextWeekPreview?.explanation)
     ].filter(Boolean),
     prohibitedPhraseScan: scanFindings.includes("prohibitedPhrases") ? "fail" : "pass",
     generatedSparringContactScan: generatedContactFail ? "fail" : "pass",
@@ -181,12 +237,19 @@ const results = scenarios.map(([name, journey]) => {
   return summarizeScenario(state, name);
 });
 
+const commit = {
+  full: git(["rev-parse", "HEAD"]),
+  short: git(["rev-parse", "--short", "HEAD"])
+};
+
 mkdirSync(dirname(mdPath), { recursive: true });
-writeFileSync(jsonPath, JSON.stringify({ generatedAt: new Date().toISOString(), scenarios: results }, null, 2));
+const jsonBody = JSON.stringify({ generatedAt: new Date().toISOString(), commit, scenarios: results }, null, 2);
+writeFileSync(jsonPath, jsonBody);
 
 const body = `# Engine Output Review
 
-- Commit tested: ${git(["rev-parse", "--short", "HEAD"])}
+- Commit tested: ${commit.short}
+- Commit tested full SHA: ${commit.full}
 - Branch: ${git(["branch", "--show-current"])}
 - Date: ${new Date().toISOString()}
 - Source: deterministic beta personas resolved through the engine and presentation view models.
@@ -225,6 +288,10 @@ AI review questions:
   )
   .join("\n")}
 `;
+
+if (body.includes("[object Object]") || jsonBody.includes("[object Object]")) {
+  throw new Error("Engine output review serialization produced [object Object].");
+}
 
 writeFileSync(mdPath, body);
 console.log(`Engine output review written: ${mdPath}`);

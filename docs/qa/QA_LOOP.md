@@ -5,7 +5,7 @@ CornerIQ beta readiness is a loop, not a screenshot bundle. The goal is to keep 
 ## Loop Shape
 
 1. Retrieve: read `docs/qa/QA_LOOP_STATE.md`, the latest audit report, latest analysis, known gaps, beta checklist, and current git state.
-2. Audit/Evidence: run local-only automated checks, capture screenshots, page text, Playwright output, engine-output reports, and deterministic scans.
+2. Audit/Evidence: run local-only automated checks, capture screenshots, scoped page-text snapshots, Playwright output, engine-output reports, gate-result artifacts, and deterministic scans. Reports must include the exact HEAD full SHA and short SHA.
 3. AI Review: package the evidence for a separate qualitative reviewer. Automation can flag missing coverage, but it cannot fully judge boxer comprehension, trust, or nuanced safety language.
 4. Fix: make targeted fixes only for reviewed beta blockers or harness blockers. Do not add broad product features during a QA pass.
 5. Verify: rerun the same failing check plus the normal gates listed in `AGENTS.md`.
@@ -26,7 +26,18 @@ Then run the requested loop depth. The normal local loop is:
 cmd /c npm run qa:agent:ci
 ```
 
-That command runs the browser audit, report generation, deterministic analysis, contact sheet generation, engine-output review, and evidence bundle creation. It must stay local E2E only and must not require real Supabase credentials.
+That command runs `npm install`, typecheck, tests, lint, quality, beta preflight, the browser audit, report generation, engine-output review, deterministic analysis, contact sheet generation, gate-result generation, and evidence bundle creation. It must stay local E2E only and must not require real Supabase credentials.
+
+`qa:agent:ci` writes:
+
+- `qa-artifacts/reports/agent-gate-results.md`
+- `qa-artifacts/reports/agent-gate-results.json`
+- `qa-artifacts/reports/agent-ai-review-brief.md` with gate results included
+- `qa-artifacts/corneriq-agent-qa-bundle.zip`
+
+The default bundle includes canonical latest evidence only. Older timestamped browser audit reports are excluded by default and the bundle manifest is written to `qa-artifacts/reports/agent-qa-bundle-manifest.json`.
+
+Page-text snapshots should use the active surface scope when a `testID` exists. Today snapshots use the Today surface, Fuel uses the active Fuel section, Train uses the active Train section, Plan uses the active Plan section, and Profile Audit/Data use their active Profile sections. If the harness falls back to full `document.body`, the snapshot manifest must label that as a `document.body fallback`.
 
 ## Max Iterations
 
@@ -73,4 +84,3 @@ These areas must remain `human_review_required` until real evidence is attached.
 ## Human Review Fit
 
 Human review is a first-class output of the loop. When automation reaches its boundary, the next action should name the exact human session needed, such as `physical iPhone review`, `live Supabase/release-owner check`, `AI qualitative review`, or `human beta session`.
-
