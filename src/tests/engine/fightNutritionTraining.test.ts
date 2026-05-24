@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { resolveRehydrationPlan } from "../../engine/nutrition/rehydrationEngine";
-import type { AthleteJourney, FightOpportunity } from "../../engine/core/types";
+import type { AthleteJourney, FightOpportunity, GeneratedTrainingSession, ProtectedWorkout } from "../../engine/core/types";
 import {
   amateur_open_tournament,
   fixtureAsOfDate,
   menstruating_athlete_build_phase_scale_noise,
   no_wearable_manual_only,
   pro_12_round_taper,
+  pro_4_round_build_strength,
   pro_8_round_camp_day_before_weigh_in,
   short_notice_unsafe_cut,
   underfueling_risk_camp
@@ -22,6 +23,35 @@ function withFight(base: AthleteJourney, fight: Partial<FightOpportunity>, athle
     ...base,
     athlete: { ...base.athlete, ...athleteOverrides },
     activeFightOpportunity: { ...activeFightOpportunity, ...fight }
+  };
+}
+
+function hardGeneratedSession(overrides: Partial<GeneratedTrainingSession> = {}): GeneratedTrainingSession {
+  return {
+    id: "persisted_stale_hard",
+    date: fixtureAsOfDate,
+    family: "strength_full_body",
+    title: "Persisted hard support",
+    durationMinutes: 45,
+    intensity: "hard",
+    prescription: ["test"],
+    rationale: "previously persisted generated support",
+    protects: ["boxing quality"],
+    modifications: [],
+    fuelDemand: "high",
+    ...overrides
+  };
+}
+
+function hardSparringAnchor(id: string, date: string): ProtectedWorkout {
+  return {
+    id,
+    date,
+    durationMinutes: 75,
+    intensity: "hard",
+    protected: true,
+    rounds: 6,
+    type: "sparring"
   };
 }
 
@@ -112,6 +142,37 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.nutrition.explanation).toContain("safety");
   });
 
+  it("current safety filters stale persisted hard generated sessions", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        readinessHistory: [{ ...pro_4_round_build_strength.readinessHistory[0]!, energy1To5: 1, sleepQuality1To5: 1, fainting: true }],
+        trainingHistory: [hardGeneratedSession()]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.readiness.color).toBe("red");
+    expect(state.training.generatedSessions.map((session) => session.id)).not.toContain("persisted_stale_hard");
+    expect(state.training.todaySessions[0]?.family).toBe("recovery_reset");
+    expect(state.training.todaySessions.every((session) => session.intensity === "recovery")).toBe(true);
+  });
+
+  it("tournament mode does not force-green red readiness", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...amateur_open_tournament,
+        readinessHistory: [{ ...amateur_open_tournament.readinessHistory[0]!, energy1To5: 1, sleepQuality1To5: 1, fainting: true }]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.phase.phase).toBe("tournament");
+    expect(state.readiness.color).toBe("red");
+    expect(state.training.todaySessions[0]?.family).toBe("recovery_reset");
+    expect(state.training.todaySessions.every((session) => session.intensity === "recovery")).toBe(true);
+  });
+
   it("cycle scale noise prevents calorie cut", () => {
     const state = resolvePerformanceState({ journey: menstruating_athlete_build_phase_scale_noise, asOfDate: fixtureAsOfDate });
 
@@ -152,6 +213,40 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("rapid_weight_loss");
+  });
+
+  it("recent repeated low intake raises under-fueling risk even with older normal logs", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        nutritionHistory: [
+          { date: "2026-05-10", calories: 2600, proteinGrams: 130, carbohydrateGrams: 300, fatGrams: 70, confidence: "medium" },
+          { date: "2026-05-17", calories: 1500, proteinGrams: 110, carbohydrateGrams: 130, fatGrams: 40, confidence: "medium" },
+          { date: "2026-05-18", calories: 1600, proteinGrams: 112, carbohydrateGrams: 140, fatGrams: 42, confidence: "medium" },
+          { date: "2026-05-19", calories: 1550, proteinGrams: 115, carbohydrateGrams: 135, fatGrams: 41, confidence: "medium" }
+        ]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
+    expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
+  });
+
+  it("protected hard boxing anchors count toward missed-period under-fueling risk", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        athlete: { ...no_wearable_manual_only.athlete, cycleTrackingPreference: "enabled" },
+        protectedWorkouts: [hardSparringAnchor("sparring_1", "2026-05-15"), hardSparringAnchor("sparring_2", "2026-05-17"), hardSparringAnchor("sparring_3", fixtureAsOfDate)],
+        cycleHistory: [{ date: "2026-03-20", bleedStart: true, flowLevel: "moderate", symptoms: [], hormonalContraception: "none" }],
+        nutritionHistory: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.loadLedger.hardDayCount).toBeGreaterThanOrEqual(3);
+    expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("missed_period_underfueling_risk");
   });
 
   it("no food logs lower confidence without shame copy", () => {

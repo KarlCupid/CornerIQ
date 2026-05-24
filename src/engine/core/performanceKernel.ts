@@ -97,7 +97,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     ...assessInjuryRisk(todayCheckIn),
     ...assessMedicalReview(journey.athlete),
     ...assessDehydrationRisk(journey.hydrationHistory, journey.electrolyteHistory, input.asOfDate),
-    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, cycle, initialTraining)
+    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, input.asOfDate, cycle, initialTraining)
   ];
   const feasibility = resolveWeightClassFeasibility({
     athlete: journey.athlete,

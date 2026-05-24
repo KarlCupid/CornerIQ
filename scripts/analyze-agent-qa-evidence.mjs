@@ -26,8 +26,10 @@ const expectedScreenshots = [
   "10-today-after-real-onboarding.png",
   "11-mobile-today-after-real-onboarding.png",
   "12-fuel-screen.png",
+  "12-fuel-food-quick-log-submit.png",
   "13-profile-audit-screen.png",
   "14-beta-feedback-panel.png",
+  "14-beta-feedback-submit.png",
   "15-beta-health-panel.png",
   "16-train-today-screen.png",
   "17-train-workout-detail.png",
@@ -38,7 +40,13 @@ const expectedScreenshots = [
   "22-plan-adjustments-screen.png",
   "23-plan-block-history-screen.png",
   "24-profile-data-controls.png",
-  "25-profile-settings-signout.png"
+  "24-profile-data-delete-submit.png",
+  "25-profile-settings-signout.png",
+  "smoke-01-auth-screen.png",
+  "smoke-02-onboarding-shortcut-screen.png",
+  "smoke-03-today-screen.png",
+  "smoke-04-mobile-today-screen.png",
+  "smoke-05-today-quick-log-saves.png"
 ];
 
 const expectedScenarios = [

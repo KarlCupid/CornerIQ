@@ -54,6 +54,30 @@ function intervalVariance(values: readonly number[]): number | null {
   return values.reduce((max, value) => Math.max(max, Math.abs(value - avg)), 0);
 }
 
+function cycleContextUnavailable(explanation: string): CycleState {
+  return {
+    trackingEnabled: false,
+    userConsentVersion: null,
+    lastBleedStartDate: null,
+    lastBleedEndDate: null,
+    estimatedCycleDay: null,
+    estimatedPhase: "unknown",
+    confidence: resolveCycleConfidence([], false),
+    cycleLengthEstimate: null,
+    cycleRegularity: "unknown",
+    hormonalContraception: "unknown",
+    symptoms: [],
+    flowLevel: "unknown",
+    symptomBurden: "none",
+    cycleRelatedWeightNoiseRisk: "unknown",
+    trainingAdjustment: "No cycle adjustment applied.",
+    nutritionAdjustment: "No cycle nutrition adjustment applied.",
+    bodyMassInterpretation: "Cycle tracking is off, so body-mass interpretation uses trend and logs only.",
+    safetyFlags: [],
+    explanation
+  };
+}
+
 export function resolveCycleState(input: {
   trackingEnabled: boolean;
   consentVersion: string | null;
@@ -61,27 +85,11 @@ export function resolveCycleState(input: {
   asOfDate: string;
 }): CycleState {
   if (!input.trackingEnabled) {
-    return {
-      trackingEnabled: false,
-      userConsentVersion: null,
-      lastBleedStartDate: null,
-      lastBleedEndDate: null,
-      estimatedCycleDay: null,
-      estimatedPhase: "unknown",
-      confidence: resolveCycleConfidence([], false),
-      cycleLengthEstimate: null,
-      cycleRegularity: "unknown",
-      hormonalContraception: "unknown",
-      symptoms: [],
-      flowLevel: "unknown",
-      symptomBurden: "none",
-      cycleRelatedWeightNoiseRisk: "unknown",
-      trainingAdjustment: "No cycle adjustment applied.",
-      nutritionAdjustment: "No cycle nutrition adjustment applied.",
-      bodyMassInterpretation: "Cycle tracking is off, so body-mass interpretation uses trend and logs only.",
-      safetyFlags: [],
-      explanation: "Cycle support is off and private by default."
-    };
+    return cycleContextUnavailable("Cycle support is off and private by default.");
+  }
+
+  if (input.consentVersion === null) {
+    return cycleContextUnavailable("Cycle support needs explicit consent before cycle logs are used.");
   }
 
   const logs = [...input.cycleLogs].filter((log) => log.date <= input.asOfDate).sort((a, b) => a.date.localeCompare(b.date));

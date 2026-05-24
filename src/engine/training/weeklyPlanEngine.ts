@@ -53,6 +53,39 @@ function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSessio
   return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
+function generatedSessionAllowedByCurrentSafety(input: {
+  anchors: readonly ProtectedWorkout[];
+  asOfDate: ISODateString;
+  highCycleSymptoms: boolean;
+  readiness: ReadinessState;
+  safetyBlocks?: boolean | undefined;
+  session: GeneratedTrainingSession;
+  underFuelingRisk: boolean;
+}): boolean {
+  if (input.session.date < input.asOfDate) {
+    return false;
+  }
+  if (hasProtectedCompetition(input.anchors, input.session.date)) {
+    return false;
+  }
+  if (input.readiness.color === "red") {
+    return input.session.intensity === "recovery";
+  }
+  if (input.safetyBlocks && input.session.intensity === "hard") {
+    return false;
+  }
+  if (input.underFuelingRisk && input.session.intensity === "hard") {
+    return false;
+  }
+  if (input.highCycleSymptoms && input.session.intensity === "hard") {
+    return false;
+  }
+  if (hasProtectedSparring(input.anchors, input.session.date) && input.session.intensity === "hard") {
+    return false;
+  }
+  return true;
+}
+
 export function resolveWeeklyTrainingPlan(input: {
   athlete: AthleteProfile;
   anchors: readonly ProtectedWorkout[];
@@ -106,7 +139,7 @@ export function resolveWeeklyTrainingPlan(input: {
         ? generateSupportSession({
             date,
             phase: input.phase,
-            readiness: { ...input.readiness, color: "green" },
+            readiness: input.readiness,
             hasSparring: false,
             highCycleSymptoms: input.highCycleSymptoms,
             index: 1,
@@ -155,10 +188,22 @@ export function resolveWeeklyTrainingPlan(input: {
     adjustments: input.trainingPlanAdjustments ?? []
   });
   const adjustedGeneratedSessions = adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions);
-  const mergedGeneratedSessions = mergeGeneratedSessions(adjustedGeneratedSessions, input.persistedGeneratedSessions ?? [], input.asOfDate);
+  const mergedGeneratedSessions = mergeGeneratedSessions(adjustedGeneratedSessions, input.persistedGeneratedSessions ?? [], input.asOfDate)
+    .filter((session) =>
+      generatedSessionAllowedByCurrentSafety({
+        anchors: input.anchors,
+        asOfDate: input.asOfDate,
+        highCycleSymptoms: input.highCycleSymptoms,
+        readiness: input.readiness,
+        safetyBlocks: input.safetyBlocks,
+        session,
+        underFuelingRisk
+      })
+    )
+    .slice(0, targetSessions);
   const adjustedDayPlans = adjustmentApplication.dayPlans.map((dayPlan) => {
     const generatedSessions = mergedGeneratedSessions.filter((session) => session.date === dayPlan.date);
-    return generatedSessions.length > 0 ? { ...dayPlan, generatedSessions } : dayPlan;
+    return { ...dayPlan, generatedSessions };
   });
   const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
   const ledger = buildLoadLedger(input.anchors, mergedGeneratedSessions);

@@ -4,6 +4,10 @@ export function buildLoadLedger(anchors: readonly ProtectedWorkout[], generated:
   const protectedBoxing = anchors.filter((anchor) =>
     ["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "competition"].includes(anchor.type)
   );
+  const hardDayDates = new Set([
+    ...generated.filter((session) => session.intensity === "hard").map((session) => session.date),
+    ...protectedBoxing.filter((anchor) => anchor.intensity === "hard" || anchor.intensity === "max" || anchor.type === "sparring" || anchor.type === "competition").map((anchor) => anchor.date)
+  ]);
   return {
     protectedBoxingMinutes: protectedBoxing.reduce((sum, anchor) => sum + anchor.durationMinutes, 0),
     protectedBoxingRounds: protectedBoxing.reduce((sum, anchor) => sum + (anchor.rounds ?? 0), 0),
@@ -11,7 +15,7 @@ export function buildLoadLedger(anchors: readonly ProtectedWorkout[], generated:
     generatedStrengthSets: generated.filter((session) => session.family.startsWith("strength")).length * 8,
     roadworkMinutes: generated.filter((session) => session.family.startsWith("roadwork")).reduce((sum, session) => sum + session.durationMinutes, 0),
     intervalCount: generated.filter((session) => session.family.includes("interval") || session.family === "alactic_sprints").length * 6,
-    hardDayCount: new Set(generated.filter((session) => session.intensity === "hard").map((session) => session.date)).size,
+    hardDayCount: hardDayDates.size,
     hardDayCap: 3,
     recoverySessions: generated.filter((session) => session.family === "recovery_reset").length
   };

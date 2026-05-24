@@ -50,6 +50,22 @@ describe("cycle, wearable, and safety hardening", () => {
     expect(cycle.explanation).toContain("symptoms and patterns");
   });
 
+  it("cycle logs are ignored when tracking lacks explicit consent", () => {
+    const cycle = resolveCycleState({
+      trackingEnabled: true,
+      consentVersion: null,
+      asOfDate: "2026-05-19",
+      cycleLogs: [{ date: "2026-05-19", flowLevel: "very_heavy", symptoms: ["heavy_bleeding", "dizziness"], hormonalContraception: "none" }]
+    });
+
+    expect(cycle.trackingEnabled).toBe(false);
+    expect(cycle.userConsentVersion).toBeNull();
+    expect(cycle.symptoms).toEqual([]);
+    expect(cycle.safetyFlags).toEqual([]);
+    expect(cycle.explanation).toContain("explicit consent");
+  });
+
+
   it("irregular intervals return irregular_or_uncertain", () => {
     const cycle = resolveCycleState({
       trackingEnabled: true,
@@ -106,6 +122,39 @@ describe("cycle, wearable, and safety hardening", () => {
 
     expect(stale.staleSignals).toContain("sleep_duration");
     expect(fresh.signalConfidence.score).toBeGreaterThan(stale.signalConfidence.score);
+  });
+
+  it("a single fresh wearable signal stays limited until another fresh signal confirms consistency", () => {
+    const singleFresh = resolveWearableState({
+      asOfDate: "2026-05-19",
+      signals: [{ type: "sleep_duration", value: 8, unit: "h", source: "apple_health", recordedAt: "2026-05-19T07:00:00.000Z" }]
+    });
+    const consistentFresh = resolveWearableState({
+      asOfDate: "2026-05-19",
+      signals: [
+        { type: "sleep_duration", value: 8, unit: "h", source: "apple_health", recordedAt: "2026-05-19T07:00:00.000Z" },
+        { type: "resting_heart_rate", value: 54, unit: "bpm", source: "apple_health", recordedAt: "2026-05-19T07:00:00.000Z" }
+      ]
+    });
+
+    expect(singleFresh.signalConfidence.level).toBe("medium");
+    expect(singleFresh.signalConfidence.missingInputs).toContain("consistent second wearable signal");
+    expect(consistentFresh.signalConfidence.score).toBeGreaterThan(singleFresh.signalConfidence.score);
+    expect(consistentFresh.signalConfidence.level).toBe("high");
+  });
+
+  it("a fresh latest signal is not marked stale because older signals of the same type exist", () => {
+    const state = resolveWearableState({
+      asOfDate: "2026-05-19",
+      signals: [
+        { type: "sleep_duration", value: 6, unit: "h", source: "apple_health", recordedAt: "2026-05-10T07:00:00.000Z" },
+        { type: "sleep_duration", value: 8, unit: "h", source: "apple_health", recordedAt: "2026-05-19T07:00:00.000Z" },
+        { type: "resting_heart_rate", value: 54, unit: "bpm", source: "apple_health", recordedAt: "2026-05-19T07:00:00.000Z" }
+      ]
+    });
+
+    expect(state.staleSignals).not.toContain("sleep_duration");
+    expect(state.signalConfidence.level).toBe("high");
   });
 
   it("wearable conflicts surface but do not override manual hard stops", () => {

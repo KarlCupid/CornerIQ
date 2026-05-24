@@ -6,15 +6,15 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 
 | Field | Value |
 | --- | --- |
-| Current QA phase | needs_ai_review |
-| Last commit tested | 25540a6 plus working tree changes from this pass |
-| Last QA run result | automated_status pass; 9/9 Playwright scenarios passed; deterministic safety and secret scans passed |
+| Current QA phase | needs_human_review |
+| Last commit tested | 4f7769a plus working tree changes from this pass |
+| Last QA run result | all normal gates passed; `qa:agent:ci` passed after embedding install/typecheck/tests/lint/quality/preflight plus 9/9 Playwright scenarios, deterministic safety/secret scans, engine-output review, contact sheet, and bundle |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
-| Current required-medium count | 0 automatable; analysis still records 3 human/AI review limitations |
-| Next recommended action | Send the bundle for AI qualitative review, then schedule physical iPhone and live Supabase/release-owner checks |
+| Current required-medium count | 0 automatable; 3 human-only limitations remain explicitly tracked |
+| Next recommended action | Run physical iPhone, live Supabase/RLS/auth/data, and release-owner distribution checks before declaring beta ready |
 | Beta readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.
@@ -65,20 +65,20 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no medication collection | automated_pass | Playwright first-time onboarding. |
 | goal phase clarity | automated_pass | Playwright first-time onboarding. |
 | finish setup | automated_pass | Playwright first-time onboarding. |
-| no user guessing about internal engine terms | needs_ai_review | Local text checks help; human/AI comprehension review still needed. |
+| no user guessing about internal engine terms | human_review_required | Local text checks pass; real boxer comprehension remains human-only. |
 
 ### D. Today
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| first action obvious within 5 seconds | needs_ai_review | Automation checks Start here; qualitative review still needed. |
-| primary action clarity | needs_ai_review | Automation checks visible primary action. |
+| first action obvious within 5 seconds | human_review_required | Automation checks Start here; real boxer comprehension remains human-only. |
+| primary action clarity | human_review_required | Automation checks visible primary action; real boxer comprehension remains human-only. |
 | why disclosure | automated_pass | Browser audit requires Today evidence. |
 | quick logs visible | automated_pass | Browser audit requires Today evidence. |
-| quick logs use 1-5 explanations where relevant | needs_ai_review | Text evidence required; nuance review pending. |
+| quick logs use 1-5 explanations where relevant | human_review_required | Text evidence is present; real boxer interpretation remains human-only. |
 | save success/feedback | automated_pass | Quick-log feedback smoke required. |
 | missing data unknown/not safe | automated_pass | Deterministic scan required. |
-| not too dense for first-run user | needs_ai_review | Requires qualitative review. |
+| not too dense for first-run user | human_review_required | Requires real boxer/phone review. |
 | mobile viewport readability | human_review_required | Mobile viewport is automated; physical phone remains required. |
 
 ### E. Fuel
@@ -86,9 +86,9 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | command visible | automated_pass | Fuel audit. |
-| first safe action clear | needs_ai_review | Automation checks text; qualitative review pending. |
+| first safe action clear | human_review_required | Automation checks text; real boxer comprehension remains human-only. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
-| no pressure to make weight | needs_ai_review | Requires AI/human safety copy review. |
+| no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit. |
 | hydration copy safe | automated_pass | Fuel audit and scan. |
 | missing food logs unknown/lower confidence | automated_pass | Fuel audit. |
@@ -101,14 +101,14 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | Today/Workout screen visible | automated_pass | New Train audit. |
-| generated workout feels boxing-supportive, not generic | needs_ai_review | Engine report and screenshots need qualitative review. |
+| generated workout feels boxing-supportive, not generic | human_review_required | Engine report and screenshots pass deterministic scans; real boxer usefulness remains human-only. |
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
-| no unsafe intensity escalation | needs_ai_review | Engine report and beta persona review. |
+| no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
 | fast workout completion path | automated_pass | New Train audit. |
 | session RPE flow | automated_pass | New Train audit. |
 | one exercise row completion | automated_pass | New Train audit checks row inputs. |
 | Exercise History visible | automated_pass | New Train audit. |
-| progression copy not overconfident | needs_ai_review | Automation checks no exact load inference; nuance pending. |
+| progression copy not overconfident | human_review_required | Automation checks no exact load inference; real boxer interpretation remains human-only. |
 | no fake numeric load inference | automated_pass | Train progression audit. |
 
 ### G. Plan
@@ -119,14 +119,14 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Next Week visible | automated_pass | New Plan audit. |
 | Block History visible | automated_pass | New Plan audit. |
 | Adjustments visible | automated_pass | New Plan audit. |
-| Protect this day understandable | needs_ai_review | Automation checks request framing; nuance pending. |
-| Mark unavailable understandable | needs_ai_review | Automation checks request framing; nuance pending. |
-| Request deload understandable | needs_ai_review | Automation checks request framing; nuance pending. |
-| Restore engine plan understandable | needs_ai_review | Automation checks request framing; nuance pending. |
+| Protect this day understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
+| Mark unavailable understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
+| Request deload understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
+| Restore engine plan understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
 | no coach-only controls exposed | automated_pass | Plan audit and scan. |
 | no drag/drop expectation | accepted_beta_limitation | Drag/drop calendar is deferred. |
-| adjustment result/rejection copy understandable | needs_ai_review | Plan audit opens controls; rejected/applied nuance pending. |
-| roll-forward/next-week materialization explanation | needs_ai_review | Next Week audit plus AI review. |
+| adjustment result/rejection copy understandable | human_review_required | Plan audit exercises controls; real boxer interpretation remains human-only. |
+| roll-forward/next-week materialization explanation | human_review_required | Next Week audit exercises controls where available; real boxer interpretation remains human-only. |
 
 ### H. Profile
 
@@ -160,10 +160,10 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Today view model output quality | needs_ai_review | Engine-output report required. |
-| Fuel command output quality | needs_ai_review | Engine-output report required. |
-| Train workout output quality | needs_ai_review | Engine-output report required. |
-| Plan recommendation output quality | needs_ai_review | Engine-output report required. |
+| Today view model output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
+| Fuel command output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
+| Train workout output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer usefulness remains human-only. |
+| Plan recommendation output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
 | beta persona coverage | automated_pass | Engine-output report required. |
 | under-fueling risk case | automated_pass | Engine-output report required. |
 | red readiness case | automated_pass | Engine-output report required. |
@@ -188,7 +188,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no medical history request beyond engine-relevant restrictions | automated_pass | Onboarding audit. |
 | no secrets in feedback | automated_pass | Profile Audit audit. |
 | no emergency details requested | automated_pass | Profile Audit audit. |
-| cycle privacy respected | needs_ai_review | Automation checks copy; human trust review pending. |
+| cycle privacy respected | human_review_required | Automation checks copy and engine consent boundary; real user trust review remains human-only. |
 | wearable optional | automated_pass | Onboarding/Profile checks. |
 | feedback user-owned | human_review_required | Live data ownership requires Supabase/RLS check. |
 

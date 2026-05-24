@@ -8,6 +8,7 @@ const screenshotsDir = path.join(artifactRoot, "screenshots");
 const pageTextDir = path.join(artifactRoot, "page-text");
 const screenshots: { label: string; pageTextPath: string; path: string; scenario: string }[] = [];
 const tests: { title: string; status: string; errors: string[] }[] = [];
+const runtimeGuardFindings: { message: string; testTitle: string; type: string }[] = [];
 
 test.describe.configure({ mode: "serial" });
 
@@ -16,12 +17,24 @@ test.beforeAll(() => {
   mkdirSync(pageTextDir, { recursive: true });
 });
 
-test.afterEach(({ page: _page }, testInfo) => {
+test.beforeEach(({ page }, testInfo) => {
+  installRuntimeGuards(page, testInfo.title);
+});
+
+test.afterEach(async ({ page: _page }, testInfo) => {
+  const runtimeErrors = runtimeGuardFindings.filter((finding) => finding.testTitle === testInfo.title);
+  if (runtimeErrors.length > 0) {
+    await testInfo.attach("runtime guard findings", {
+      body: runtimeErrors.map((finding) => `${finding.type}: ${finding.message}`).join("\n"),
+      contentType: "text/plain"
+    });
+  }
   tests.push({
     title: testInfo.title,
     status: testInfo.status ?? "unknown",
-    errors: testInfo.errors.map((error) => error.message ?? String(error))
+    errors: [...testInfo.errors.map((error) => error.message ?? String(error)), ...runtimeErrors.map((finding) => `${finding.type}: ${finding.message}`)]
   });
+  expect(runtimeErrors, runtimeErrors.map((finding) => `${finding.type}: ${finding.message}`).join("\n")).toEqual([]);
 });
 
 test.afterAll(() => {
@@ -59,6 +72,43 @@ function pageTextPath(name: string) {
   };
 }
 
+function installRuntimeGuards(page: Page, testTitle: string) {
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      runtimeGuardFindings.push({ testTitle, type: "console.error", message: message.text() });
+    }
+  });
+  page.on("pageerror", (error) => {
+    runtimeGuardFindings.push({ testTitle, type: "pageerror", message: error.message });
+  });
+  page.on("requestfailed", (request) => {
+    runtimeGuardFindings.push({
+      testTitle,
+      type: "requestfailed",
+      message: `${request.method()} ${request.url()} ${request.failure()?.errorText ?? "failed"}`
+    });
+  });
+  page.on("request", (request) => {
+    const url = request.url();
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return;
+    }
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return;
+    }
+    const localHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+    if (!localHosts.has(parsed.hostname)) {
+      runtimeGuardFindings.push({ testTitle, type: "external-request", message: `${request.method()} ${url}` });
+    }
+    if (/supabase\.co/i.test(url)) {
+      runtimeGuardFindings.push({ testTitle, type: "supabase-request", message: `${request.method()} ${url}` });
+    }
+  });
+}
+
 async function capture(page: Page, testInfo: TestInfo, label: string, name: string, options: { fullPage?: boolean } = {}) {
   const target = artifactPath(name);
   const textTarget = pageTextPath(name);
@@ -84,6 +134,29 @@ async function openLocalToday(page: Page) {
   await expect(page.getByTestId("onboarding-screen")).toBeVisible();
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
+}
+
+async function exerciseTodayQuickLogSaves(page: Page) {
+  await page.getByPlaceholder("kg").fill("82.1");
+  await page.getByRole("button", { name: "Log body mass" }).click();
+  await expectVisibleText(page, "Body mass saved. Today will use the latest engine refresh when it completes.");
+  await expectVisibleText(page, "Body mass log captured in local E2E mode only.");
+
+  await page.getByPlaceholder("Sleep hours").fill("7.5");
+  await page.getByPlaceholder("Sleep quality 1-5").fill("4");
+  await page.getByPlaceholder("Energy 1-5").fill("4");
+  await page.getByPlaceholder("Soreness 1-5").fill("2");
+  await page.getByPlaceholder("Stress 1-5").fill("2");
+  await page.getByPlaceholder("Mood 1-5").fill("4");
+  await page.getByRole("button", { name: "Log readiness" }).click();
+  await expectVisibleText(page, "Readiness saved. Today will update after the engine refresh completes.");
+  await expectVisibleText(page, "Readiness log captured in local E2E mode only.");
+
+  await page.getByPlaceholder("Water liters").fill("2.4");
+  await page.getByPlaceholder("Sodium mg optional").first().fill("500");
+  await page.getByRole("button", { name: "Log hydration" }).click();
+  await expectVisibleText(page, "Hydration saved. Today will update after the engine refresh completes.");
+  await expectVisibleText(page, "Hydration log captured in local E2E mode only.");
 }
 
 async function expectVisibleText(page: Page, text: string | RegExp) {
@@ -182,8 +255,18 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, /missed logs stay unknown/i);
   await expectVisibleText(page, "Food quick log");
   await expect(page.getByRole("button", { name: /Save food/ })).toBeVisible();
+  await page.getByPlaceholder("Calories").fill("650");
+  await page.getByPlaceholder("Protein g").fill("40");
+  await page.getByPlaceholder("Carbs g").fill("80");
+  await page.getByPlaceholder("Fat g").fill("18");
+  await page.getByPlaceholder("Fiber g optional").fill("7");
+  await page.getByPlaceholder("Sodium mg optional").last().fill("600");
+  await page.getByRole("button", { name: "Save food quick log" }).click();
+  await expectVisibleText(page, "Food log saved. Today will update after the engine refresh completes.");
+  await expectVisibleText(page, "Food quick log captured in local E2E mode only.");
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page));
   await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png");
+  await capture(page, testInfo, "Fuel food quick log submit", "12-fuel-food-quick-log-submit.png", { fullPage: false });
 
   await page.getByRole("button", { name: "Show Reviews section" }).click();
   await expectVisibleText(page, "Nutrition review history");
@@ -216,10 +299,14 @@ async function auditProfileAudit(page: Page, testInfo: TestInfo) {
   await expect(page.getByLabel("Beta feedback message")).toBeVisible();
   await expectVisibleText(page, "Do not include emergency details or secrets.");
   await expectVisibleText(page, "This is not emergency support and is not medical or coaching review.");
+  await page.getByLabel("Beta feedback message").fill("The local beta audit confirms this feedback form submits without remote data.");
+  await page.getByRole("button", { name: "Send beta feedback" }).click();
+  await expectVisibleText(page, "Local E2E beta feedback captured locally only. No Supabase call was made.");
   await expectVisibleText(page, "Recent feedback");
   await expect(page.getByRole("button", { name: "Refresh feedback history" })).toBeVisible();
   await page.getByText("Beta feedback", { exact: true }).scrollIntoViewIfNeeded();
   await capture(page, testInfo, "Beta feedback panel", "14-beta-feedback-panel.png", { fullPage: false });
+  await capture(page, testInfo, "Beta feedback submit", "14-beta-feedback-submit.png", { fullPage: false });
 
   await expectVisibleText(page, "Beta health preflight");
   await page.getByText("Beta health preflight").scrollIntoViewIfNeeded();
@@ -285,6 +372,15 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Next week preview");
   await expectVisibleText(page, "Engine preview, not a user-edited plan.");
   await expectVisibleText(page, /Review required before materializing|does not bypass safety|Safety:/i);
+  if (await page.getByRole("button", { name: "Accept next week preview" }).count()) {
+    await page.getByRole("button", { name: "Accept next week preview" }).click();
+    await expectVisibleText(page, "Local E2E next-week preview acceptance stayed local.");
+  }
+  const materializeButton = page.getByRole("button", { name: "Materialize next week" });
+  if ((await materializeButton.count()) && (await materializeButton.isEnabled())) {
+    await materializeButton.click();
+    await expectVisibleText(page, "Local E2E next-week materialization stayed local.");
+  }
   expectNoCoachOrReviewerControls(await visiblePageText(page));
   await capture(page, testInfo, "Plan Next Week screen", "21-plan-next-week-screen.png");
 
@@ -327,8 +423,11 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await page.getByLabel("Delete confirmation").fill("DELETE");
   await expect(deleteButton).toBeEnabled();
   await expectVisibleText(page, "Account deletion requires a server-side function later; this only removes user-owned app data.");
+  await deleteButton.click();
+  await expectVisibleText(page, "Local E2E data deletion is disabled. No Supabase call was made.");
   expectNoDisplayedSecretValues(await visiblePageText(page));
   await capture(page, testInfo, "Profile Data controls", "24-profile-data-controls.png");
+  await capture(page, testInfo, "Profile Data delete submit", "24-profile-data-delete-submit.png", { fullPage: false });
 
   await openSection(page, "Settings");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
@@ -575,6 +674,8 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
   await expect(page.getByRole("button", { name: "Log body mass" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Log readiness" })).toBeVisible();
   await capture(page, testInfo, "Smoke Today screen", "smoke-03-today-screen.png");
+  await exerciseTodayQuickLogSaves(page);
+  await capture(page, testInfo, "Smoke Today quick log saves", "smoke-05-today-quick-log-saves.png");
 });
 
 test("mobile-size browser layout smoke reaches Today", async ({ browser }, testInfo) => {

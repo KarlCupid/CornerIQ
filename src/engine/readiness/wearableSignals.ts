@@ -27,14 +27,16 @@ export function resolveWearableState(input: {
     };
   }
 
-  const staleSignals = Array.from(
-    new Set(
-      signalsOnOrBefore
-        .filter((signal) => daysBetween(signal.recordedAt, input.asOfDate) > 2)
-        .map((signal) => signal.type)
-    )
-  );
-  const freshSignals = signalsOnOrBefore.filter((signal) => !staleSignals.includes(signal.type));
+  const latestByType = new Map<WearableSignalType, WearableSignal>();
+  for (const signal of signalsOnOrBefore) {
+    const current = latestByType.get(signal.type);
+    if (!current || signal.recordedAt.localeCompare(current.recordedAt) > 0) {
+      latestByType.set(signal.type, signal);
+    }
+  }
+  const latestSignalsByType = [...latestByType.values()];
+  const staleSignals = latestSignalsByType.filter((signal) => daysBetween(signal.recordedAt, input.asOfDate) > 2).map((signal) => signal.type);
+  const freshSignals = latestSignalsByType.filter((signal) => daysBetween(signal.recordedAt, input.asOfDate) <= 2);
   const conflicts: string[] = [];
   const latestManualMass = [...(input.bodyMassLogs ?? [])].filter((log) => log.date <= input.asOfDate && log.source === "manual").at(-1);
   const latestWearableMass = [...signalsOnOrBefore].reverse().find((signal) => signal.type === "body_mass");
@@ -50,8 +52,9 @@ export function resolveWearableState(input: {
   if (wearableWorkoutToday && todayCheckIn?.painNotes.length === 0) {
     // Informational only: workout detection is useful, but it cannot clear symptoms or completion logs.
   }
-  const confidenceScore = freshSignals.length > 0 ? (conflicts.length > 0 ? 0.66 : 0.84) : 0.38;
-  const missingInputs: WearableSignalType[] = staleSignals;
+  const hasConsistentFreshSignals = freshSignals.length >= 2;
+  const confidenceScore = freshSignals.length > 0 ? (conflicts.length > 0 ? 0.62 : hasConsistentFreshSignals ? 0.84 : 0.68) : 0.38;
+  const missingInputs = [...staleSignals.map((signal) => `fresh ${signal}`), ...(freshSignals.length > 0 && !hasConsistentFreshSignals ? ["consistent second wearable signal"] : [])];
 
   return {
     hasWearable: true,
@@ -61,8 +64,8 @@ export function resolveWearableState(input: {
     latestSignals: signalsOnOrBefore,
     signalConfidence: makeConfidence(
       confidenceScore,
-      freshSignals.length > 0 ? ["fresh wearable signals can raise confidence"] : ["wearable signals are stale"],
-      missingInputs.length > 0 ? missingInputs.map((signal) => `fresh ${signal}`) : []
+      hasConsistentFreshSignals ? ["fresh consistent wearable signals can raise confidence"] : freshSignals.length > 0 ? ["fresh wearable signal available, consistency still limited"] : ["wearable signals are stale"],
+      missingInputs
     ),
     staleSignals,
     conflictsWithManualLogs: conflicts,
