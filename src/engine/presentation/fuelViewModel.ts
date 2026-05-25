@@ -3,6 +3,13 @@ import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel"
 import { riskSummary } from "./explanationCopy";
 import { buildNutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
 
+function macroProgress(logged: number, target: number, unit: string): { logged: string; target: string } {
+  return {
+    logged: `${logged}${unit}`,
+    target: `${target}${unit}`
+  };
+}
+
 export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
   const blockedAcuteProtocol =
     state.nutrition.acuteProtocolStatus === "blocked"
@@ -47,6 +54,28 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     activeNutritionSafetyReviews: state.nutrition.activeNutritionSafetyReviews,
     decisionStack: state.nutrition.decisionStack,
     hitTheseFirst: state.nutrition.hitTheseFirst,
+    macroTargets: {
+      why: "Based on body mass, training demand, readiness, phase, and safety status.",
+      confidence: state.nutrition.confidence.level,
+      logStatus:
+        state.nutrition.actualIntakeSummary.logCount > 0
+          ? `${state.nutrition.actualIntakeSummary.logCount} food log${state.nutrition.actualIntakeSummary.logCount === 1 ? "" : "s"} counted today.`
+          : "No food logged yet today; progress is lower-confidence and unknown until you add a log.",
+      targets: [
+        { label: "Calories", value: `${state.nutrition.dailyCaloriesTarget} kcal` },
+        { label: "Protein", value: `${state.nutrition.proteinGrams}g` },
+        { label: "Carbs", value: `${state.nutrition.carbohydrateGrams}g` },
+        { label: "Fat", value: `${state.nutrition.fatGrams}g` },
+        { label: "Fiber", value: `${state.nutrition.fiberGrams}g` },
+        { label: "Water", value: `${state.nutrition.waterLiters}L` }
+      ],
+      progress: [
+        { label: "Calories", ...macroProgress(state.nutrition.actualIntakeSummary.caloriesLogged, state.nutrition.dailyCaloriesTarget, " kcal") },
+        { label: "Protein", ...macroProgress(state.nutrition.actualIntakeSummary.proteinLoggedGrams, state.nutrition.proteinGrams, "g") },
+        { label: "Carbs", ...macroProgress(state.nutrition.actualIntakeSummary.carbohydrateLoggedGrams, state.nutrition.carbohydrateGrams, "g") },
+        { label: "Fat", ...macroProgress(state.nutrition.actualIntakeSummary.fatLoggedGrams, state.nutrition.fatGrams, "g") }
+      ]
+    },
     calorieSummary: `${state.nutrition.dailyCaloriesTarget} kcal target (${state.nutrition.calorieRange.min}-${state.nutrition.calorieRange.max})`,
     macroSummary: `${state.nutrition.proteinGrams}g protein, ${state.nutrition.carbohydrateGrams}g carbs, ${state.nutrition.fatGrams}g fat`,
     hydrationSummary: `${state.nutrition.waterLiters}L fluids. ${state.nutrition.sodiumGuidance}`,

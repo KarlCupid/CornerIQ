@@ -8,6 +8,10 @@ export interface TrainingBlockHistoryPanelProps {
   history: TrainingBlockHistoryDetailViewModel;
 }
 
+function textKey(prefix: string, index: number): string {
+  return `${prefix}:${index}`;
+}
+
 export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanelProps) {
   const hasNoHistory =
     history.weekSummaries.length === 0 &&
@@ -26,26 +30,26 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
       <Text style={screenStyles.subtle}>{history.engineOwnedCopy}</Text>
       <Text style={screenStyles.subtle}>{history.screenMutationCopy}</Text>
       <Text style={screenStyles.callout}>What changed and why</Text>
-      {history.whatChangedAndWhy.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+      {history.whatChangedAndWhy.map((item, index) => <Text key={textKey("what-changed", index)} style={screenStyles.subtle}>{item}</Text>)}
       <Text style={screenStyles.callout}>Grouped weeks</Text>
       {history.groupedWeeks.length > 0 ? (
-        history.groupedWeeks.map((week) => (
-          <View key={week.weekIndex} style={{ gap: spacing.xs }}>
+        history.groupedWeeks.map((week, index) => (
+          <View key={`grouped-week:${week.weekIndex}:${index}`} style={{ gap: spacing.xs }}>
             <Text style={screenStyles.body}>Week {week.weekIndex}</Text>
             <Text style={screenStyles.subtle}>{week.summary}</Text>
             <Text style={screenStyles.subtle}>{week.decision}</Text>
             <Text style={screenStyles.subtle}>{week.nextWeekPreviewStatus}</Text>
             <Text style={screenStyles.subtle}>Materialized generated sessions: {week.materializedGeneratedSessionCount}</Text>
-            {week.adjustments.length > 0 ? week.adjustments.map((adjustment) => <Text key={`${week.weekIndex}:${adjustment}`} style={screenStyles.subtle}>Adjustment: {adjustment}</Text>) : <Text style={screenStyles.subtle}>No adjustments linked to this week.</Text>}
+            {week.adjustments.length > 0 ? week.adjustments.map((adjustment, adjustmentIndex) => <Text key={`week-adjustment:${week.weekIndex}:${index}:${adjustmentIndex}`} style={screenStyles.subtle}>Adjustment: {adjustment}</Text>) : <Text style={screenStyles.subtle}>No adjustments linked to this week.</Text>}
           </View>
         ))
       ) : (
         <Text style={screenStyles.subtle}>No grouped week history yet.</Text>
       )}
       <Text style={screenStyles.callout}>Current week</Text>
-      {history.weekSummaries.length > 0 ? history.weekSummaries.map((summary) => <Text key={summary} style={screenStyles.subtle}>{summary}</Text>) : <Text style={screenStyles.subtle}>No persisted week summaries yet.</Text>}
+      {history.weekSummaries.length > 0 ? history.weekSummaries.map((summary, index) => <Text key={textKey("week-summary", index)} style={screenStyles.subtle}>{summary}</Text>) : <Text style={screenStyles.subtle}>No persisted week summaries yet.</Text>}
       <Text style={screenStyles.callout}>Decisions</Text>
-      {history.progressionDecisions.length > 0 ? history.progressionDecisions.map((decision) => <Text key={decision} style={screenStyles.subtle}>{decision}</Text>) : <Text style={screenStyles.subtle}>No persisted progression decisions yet.</Text>}
+      {history.progressionDecisions.length > 0 ? history.progressionDecisions.map((decision, index) => <Text key={textKey("progression-decision", index)} style={screenStyles.subtle}>{decision}</Text>) : <Text style={screenStyles.subtle}>No persisted progression decisions yet.</Text>}
       <Text style={screenStyles.callout}>Next-week preview</Text>
       {history.latestNextWeekPreview ? (
         <>
@@ -60,11 +64,11 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
         </Text>
       ) : <Text style={screenStyles.subtle}>No materialized preview yet.</Text>}
       <Text style={screenStyles.callout}>Adjustments</Text>
-      {history.adjustmentEvents.length > 0 ? history.adjustmentEvents.map((event) => <Text key={event} style={screenStyles.subtle}>{event}</Text>) : <Text style={screenStyles.subtle}>No adjustment events yet.</Text>}
+      {history.adjustmentEvents.length > 0 ? history.adjustmentEvents.map((event, index) => <Text key={textKey("adjustment-event", index)} style={screenStyles.subtle}>{event}</Text>) : <Text style={screenStyles.subtle}>No adjustment events yet.</Text>}
       <Text style={screenStyles.callout}>Safety events</Text>
-      {history.safetyFlags.length > 0 ? history.safetyFlags.map((flag) => <Text key={flag} style={screenStyles.subtle}>Safety: {flag}</Text>) : <Text style={screenStyles.subtle}>No active safety events in this block history.</Text>}
+      {history.safetyFlags.length > 0 ? history.safetyFlags.map((flag, index) => <Text key={textKey("safety-flag", index)} style={screenStyles.subtle}>Safety: {flag}</Text>) : <Text style={screenStyles.subtle}>No active safety events in this block history.</Text>}
       <Text style={screenStyles.callout}>Timeline</Text>
-      {history.timelineEvents.length > 0 ? history.timelineEvents.map((event) => <Text key={`${event.eventType}:${event.eventDate}:${event.title}`} style={screenStyles.subtle}>{event.eventDate} - {event.title}: {event.summary}</Text>) : <Text style={screenStyles.subtle}>No timeline events yet.</Text>}
+      {history.timelineEvents.length > 0 ? history.timelineEvents.map((event, index) => <Text key={`${event.eventType}:${event.eventDate}:${event.title}:${index}`} style={screenStyles.subtle}>{event.eventDate} - {event.title}: {event.summary}</Text>) : <Text style={screenStyles.subtle}>No timeline events yet.</Text>}
       <Text style={screenStyles.callout}>Timeline groups</Text>
       <Text style={screenStyles.subtle}>Training events: {history.timelineEventGroups.trainingEvents.length}</Text>
       <Text style={screenStyles.subtle}>Adjustment events: {history.timelineEventGroups.adjustmentEvents.length}</Text>

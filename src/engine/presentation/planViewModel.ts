@@ -9,6 +9,8 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
   const persisted = state.training.nextWeekPreviewPersistenceStatus;
   const persistedStatus = persisted?.status ?? "not_persisted";
   const requiresReview = preview.materializedVolumeStrategy === "hold_for_review";
+  const plannedSupportCount = preview.nextWeekDayPlanPreview.filter((day) => day.generatedSupport !== "No generated support.").length;
+  const protectedAnchorCount = preview.nextWeekDayPlanPreview.reduce((count, day) => count + day.protectedAnchors.length, 0);
   const materializedGeneratedSessions =
     persistedStatus === "materialized"
       ? state.training.generatedSessions
@@ -27,6 +29,12 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
     weekIndex: preview.nextWeekIndex,
     weekStartDate: preview.nextWeekStartDate,
     weekEndDate: preview.nextWeekEndDate,
+    goal: `${preview.materializedPhase.replaceAll("_", " ")} - ${preview.materializedDecision.replaceAll("_", " ")}`,
+    plannedSupportCount,
+    protectedAnchorSummary:
+      protectedAnchorCount > 0
+        ? `${protectedAnchorCount} protected boxing anchor${protectedAnchorCount === 1 ? "" : "s"} considered.`
+        : "No protected boxing anchors are scheduled in the preview.",
     phase: preview.materializedPhase,
     decision: preview.materializedDecision.replaceAll("_", " "),
     volumeStrategy: preview.materializedVolumeStrategy,
@@ -247,6 +255,10 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const rollForward = rollForwardStatus(state, nextWeekPreview);
   const blockHistoryDetail = buildBlockHistoryDetail(state, nextWeekPreview);
   const currentWeekGeneratedSupportCount = state.training.dayPlans.reduce((count, day) => count + day.generatedSessions.length, 0);
+  const generatedSupportDayCount = state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).length;
+  const recoveryDayCount = state.training.dayPlans.filter(
+    (day) => day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day"
+  ).length;
   const protectedHardAnchorCount = state.training.protectedAnchors.filter(
     (anchor) => anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max"
   ).length;
@@ -310,6 +322,8 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),
     hardDayCap: state.training.activeBlock.weeklyStructure.hardDayCap,
     plannedHardDays: state.training.activeBlock.weeklyStructure.plannedHardDays,
+    generatedSupportDayCount,
+    recoveryDayCount,
     recoveryDays: state.training.activeBlock.weeklyStructure.recoveryDays,
     adjustmentSummary:
       adjustmentHistory.length > 0
@@ -353,11 +367,13 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     })),
     hardDaySummary: `${state.training.activeBlock.weeklyStructure.plannedHardDays}/${state.training.activeBlock.weeklyStructure.hardDayCap} planned hard days used.`,
     recoveryDaySummary: `${state.training.activeBlock.weeklyStructure.recoveryDays.length} recovery/reset days planned.`,
-    protectedAnchorSummary: `${state.training.protectedAnchors.length} protected boxing anchors remain fixed.`,
+    protectedAnchorSummary: `${state.training.protectedAnchors.length} protected boxing anchor${state.training.protectedAnchors.length === 1 ? "" : "s"} respected and fixed.`,
     supportWorkReason:
       protectedHardAnchorCount > 0 && currentWeekGeneratedSupportCount <= 3
         ? "Support work is low because protected boxing already creates hard days."
-        : null,
+        : currentWeekGeneratedSupportCount === 0
+          ? "Generated support is intentionally low because recovery and protected work own the week."
+          : `Generated support is ${currentWeekGeneratedSupportCount} session${currentWeekGeneratedSupportCount === 1 ? "" : "s"} because the block dose is balanced against protected boxing, readiness, and safety.`,
     fightOrTournamentNote:
       state.tournamentStrategy.status === "active" || state.tournamentStrategy.status === "unsafe"
         ? state.tournamentStrategy.athleteFacingSummary

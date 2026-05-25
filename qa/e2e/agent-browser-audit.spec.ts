@@ -127,8 +127,13 @@ function commitInfo() {
 
 function installRuntimeGuards(page: Page, testTitle: string) {
   page.on("console", (message) => {
+    const text = message.text();
+    if (/Encountered two children with the same key/i.test(text)) {
+      runtimeGuardFindings.push({ testTitle, type: `console.${message.type()}`, message: text });
+      return;
+    }
     if (message.type() === "error") {
-      runtimeGuardFindings.push({ testTitle, type: "console.error", message: message.text() });
+      runtimeGuardFindings.push({ testTitle, type: "console.error", message: text });
     }
   });
   page.on("pageerror", (error) => {
@@ -345,6 +350,13 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("Use Fuel to cover today's boxing work");
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("Log food or water if you have it");
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("can wait unless a safety note is active");
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Today's fuel targets");
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Based on body mass, training demand, readiness, phase, and safety status.");
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Calories:\s+\d+\s+kcal/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Protein:\s+\d+g/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Carbs:\s+\d+g/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Fat:\s+\d+g/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Water:\s+\d+(\.\d+)?L/i);
   await expectVisibleText(page, "What to do now");
   await expectVisibleText(page, "Fuel the boxing work first");
   await expectVisibleText(page, "Add meal/snack");
@@ -436,10 +448,15 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("train-top-action-card")).toContainText("Use Train for today's boxing-support work");
   await expect(page.getByTestId("train-top-action-card")).toContainText(/Exercise history and progression can wait/i);
   await expectVisibleText(page, "What to do");
-  await expectVisibleText(page, "Today's training decision");
+  await expect(page.getByTestId("train-main-workout-command")).toHaveCount(1);
+  await expect(page.getByTestId("train-main-workout-command")).toContainText("Open workout, then log result.");
+  await expect(page.getByTestId("train-main-workout-command")).toContainText("Purpose:");
+  await expect(page.getByTestId("train-main-workout-command")).toContainText(/Fuel: (Fuel this session with carbs and fluids before training|Normal meals are enough; keep fluids consistent)/i);
   await expect(page.getByTestId("train-today-section")).toContainText(/Movement prep|Band external rotation|RPE 3-4|Dynamic warm-up|Easy breathing/i);
   await expect(page.getByRole("button", { name: "Open workout" }).first()).toBeVisible();
-  await expectVisibleText(page, "Fuel handoff");
+  await expect(page.getByTestId("train-today-section")).not.toContainText("Today's training decision");
+  await expect(page.getByTestId("train-today-section")).not.toContainText("Fuel handoff");
+  await expect(page.getByRole("button", { name: "Show Plan context" })).toBeVisible();
   expectNoGeneratedContactLanguage(await visiblePageText(page, "train-today-section"));
   await capture(page, testInfo, "Train Today screen", "16-train-today-screen.png", { scopeTestId: "train-screen" });
 
@@ -469,12 +486,17 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
 
   await openSection(page, "Exercise History");
   await expectVisibleText(page, "Exercise history");
-  await expectVisibleText(page, "Prescribed-only rows");
-  await expectVisibleText(page, "Free-text load is not used for numeric progression yet.");
-  await expectVisibleText(page, "Pain flags stop automatic progression.");
+  await expectVisibleText(page, "Latest workout");
+  await expectVisibleText(page, "Key change");
+  await expect(page.getByRole("button", { name: "Show details" })).toBeVisible();
   const historyText = await visiblePageText(page, "train-history-section");
+  expect(historyText).not.toContain("Grouped exercises");
+  expect(historyText).not.toContain("Prescribed-only rows");
   expect(historyText).not.toMatch(/\bexact load progression\b/i);
   expectNoGeneratedContactLanguage(historyText);
+  await page.getByRole("button", { name: "Show details" }).click();
+  await expectVisibleText(page, "Prescribed-only rows");
+  await expectVisibleText(page, "Pain flags stop automatic progression.");
   await capture(page, testInfo, "Train Exercise History", "19-train-exercise-history.png", { scopeTestId: "train-history-section" });
 
   await openSection(page, "Progression");
@@ -489,24 +511,28 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-top-action-card")).toContainText("Plan action");
   await expect(page.getByTestId("plan-top-action-card")).toContainText("Use Plan to understand the week");
   await expect(page.getByTestId("plan-top-action-card")).toContainText("History and adjustments can wait");
-  await expectVisibleText(page, "Active block");
-  await expectVisibleText(page, "Week");
+  await expectVisibleText(page, "This week");
+  await expectVisibleText(page, "Protected anchors are respected first.");
   await expectVisibleText(page, "Protected boxing work");
   await expectVisibleText(page, "Generated support");
+  await expectVisibleText(page, /Generated support: \d+ day/i);
+  await expectVisibleText(page, /Rest\/recovery: \d+ day/i);
   await expectVisibleText(page, "sparring (hard)");
   await expectVisibleText(page, "Support work is low because protected boxing already creates hard days.");
   await expectVisibleText(page, "Add this only if you have a real fight date or tournament window.");
   await expect(page.getByRole("button", { name: "Add fight" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add tournament" })).toBeVisible();
   await expect(page.getByPlaceholder("Contracted weight kg")).toHaveCount(0);
-  await expectVisibleText(page, "No active plan warnings.");
+  await expectVisibleText(page, "Plan review notes");
   expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-week-section"));
   await capture(page, testInfo, "Plan Week screen", "20-plan-week-screen.png", { scopeTestId: "plan-screen" });
 
   await openSection(page, "Next Week");
   await expectVisibleText(page, "Next week preview");
-  await expectVisibleText(page, "Engine preview, not a user-edited plan.");
-  await expectVisibleText(page, /Review required before materializing|does not bypass safety|Safety:/i);
+  await expectVisibleText(page, "Planned support");
+  await expectVisibleText(page, /protected boxing anchor|No protected boxing anchors/i);
+  await expectVisibleText(page, "Preview status");
+  await expectVisibleText(page, /Preview status|Review required before materializing/i);
   if (await page.getByRole("button", { name: "Accept next week preview" }).count()) {
     await page.getByRole("button", { name: "Accept next week preview" }).click();
     await expectVisibleText(page, "Local E2E next-week preview acceptance stayed local.");
@@ -517,8 +543,11 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
     await expectVisibleText(page, "Local E2E next-week materialization stayed local.");
   }
   const nextWeekText = await visiblePageText(page, "plan-next-week-section");
+  expect(nextWeekText).not.toContain("Generated support preview");
   expect(nextWeekText).not.toMatch(/\bHard stop\b/);
   expectNoCoachOrReviewerControls(nextWeekText);
+  await page.getByRole("button", { name: "Show Next week detail" }).click();
+  await expectVisibleText(page, "Generated support preview");
   await capture(page, testInfo, "Plan Next Week screen", "21-plan-next-week-screen.png", { scopeTestId: "plan-next-week-section" });
 
   await openSection(page, "Adjustments");

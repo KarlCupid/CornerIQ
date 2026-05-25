@@ -22,8 +22,8 @@ function statusLabel(status: string): string {
 function Lines({ items, tone = "subtle" }: { items: readonly string[]; tone?: "body" | "subtle" | "callout" }) {
   return (
     <>
-      {items.map((item) => (
-        <Text key={item} style={screenStyles[tone]}>
+      {items.map((item, index) => (
+        <Text key={`line:${index}`} style={screenStyles[tone]}>
           {item}
         </Text>
       ))}
@@ -39,8 +39,8 @@ export function FuelCommandCard({ command }: { command: FuelCommandCenterState }
         <Text style={screenStyles.callout}>{command.primaryFuelAction}</Text>
         <Text style={screenStyles.body}>{command.bodyMassAction}</Text>
         <Text style={screenStyles.subtle}>Confidence: {command.confidence.level}</Text>
-        {command.decisionStack.slice(0, 4).map((item) => (
-          <View key={item.label} style={{ gap: spacing.xs }}>
+        {command.decisionStack.slice(0, 4).map((item, index) => (
+          <View key={`fuel-decision:${item.label}:${index}`} style={{ gap: spacing.xs }}>
             <Text style={screenStyles.body}>{item.label}: {item.summary}</Text>
             <Text style={screenStyles.subtle}>{item.why}</Text>
           </View>

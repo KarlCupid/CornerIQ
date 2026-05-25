@@ -281,6 +281,17 @@ describe("agent browser QA static checks", () => {
     expect(docs).toContain("document.body fallback");
   });
 
+  it("guards Plan block history against duplicate-prone React keys", () => {
+    const panel = readSource("src/app/screens/plan/TrainingBlockHistoryPanel.tsx");
+    const plan = readSource("src/app/screens/PlanScreen.tsx");
+    const scenario = readSource("qa/e2e/agent-browser-audit.spec.ts");
+
+    expect(panel).not.toMatch(/key=\{(?:summary|decision|event|flag|item)\}/);
+    expect(panel).toContain("progression-decision");
+    expect(plan).toContain("current-week-row");
+    expect(scenario).toContain("Encountered two children with the same key");
+  });
+
   it("keeps the default QA bundle canonical and excludes stale timestamped reports", () => {
     const bundle = readSource("scripts/create-agent-qa-bundle.mjs");
 

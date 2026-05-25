@@ -69,34 +69,34 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
   const underFueling = Boolean(state.nutrition.underFuelingRiskNote);
   if (underFueling) {
     return {
-      preSessionFuelHint: "Under-fueling risk is active: progression is blocked until fuel and recovery are steady.",
-      postSessionFuelHint: "Prioritize protein plus carbs after training; do not use missed fuel to justify extra work.",
+      preSessionFuelHint: "Fuel and recovery come first today; do not add extra work while under-fueling risk is active.",
+      postSessionFuelHint: "Use protein plus carbs after training, then log the result honestly.",
       hydrationHint: "Keep fluids and electrolytes consistent; avoid weight-pressure tactics."
     };
   }
   if (state.training.activeBlock.phase === "tournament_week") {
     return {
-      preSessionFuelHint: "Tournament week: keep predictable carbs and fluids; no hard conditioning to chase weight.",
+      preSessionFuelHint: "Fuel this session with familiar carbs and fluids before training.",
       postSessionFuelHint: "Refuel gently and keep protein steady between bouts or weigh-ins.",
       hydrationHint: "Use consistent fluids and sodium; avoid dehydration pressure."
     };
   }
   if (plan?.fuelDemand === "high") {
     return {
-      preSessionFuelHint: "High fuel demand: include carbs and fluids before the session.",
+      preSessionFuelHint: "Fuel this session with carbs and fluids before training.",
       postSessionFuelHint: "Recover with protein plus carbs so next boxing quality is protected.",
       hydrationHint: "Bring fluids and electrolytes, especially around hard or longer work."
     };
   }
-  if (plan?.role === "recovery_day") {
+  if (plan?.role === "recovery_day" || plan?.fuelDemand === "low") {
     return {
-      preSessionFuelHint: "Recovery day: eat normally and keep protein steady.",
+      preSessionFuelHint: "Normal meals are enough; keep fluids consistent.",
       postSessionFuelHint: "Use the easy day to restore, not to compensate.",
       hydrationHint: "Keep fluids consistent and do not force extra water."
     };
   }
   return {
-    preSessionFuelHint: "Use carbs around boxing and generated support as needed.",
+    preSessionFuelHint: "Fuel this session with carbs and fluids before training.",
     postSessionFuelHint: "Protein after training supports repair without changing the safety rules.",
     hydrationHint: "Manual thirst, urine color, and planned heat matter; no wearable is required."
   };

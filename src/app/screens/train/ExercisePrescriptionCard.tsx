@@ -17,7 +17,7 @@ export function ExercisePrescriptionCard({ exercise, sectionName }: { exercise: 
       {exercise.rirTarget ? <Text style={screenStyles.subtle}>RIR target: {exercise.rirTarget}</Text> : null}
       {exercise.tempo ? <Text style={screenStyles.subtle}>Tempo: {exercise.tempo}</Text> : null}
       <Text style={screenStyles.body}>Boxing transfer: {exercise.boxingTransfer}</Text>
-      {exercise.coachingNotes.map((note) => <Text key={note} style={screenStyles.subtle}>Coach: {note}</Text>)}
+      {exercise.coachingNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Coach: {note}</Text>)}
       {exercise.substitutions.length > 0 ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.subtle}>Substitutions</Text>
@@ -26,8 +26,8 @@ export function ExercisePrescriptionCard({ exercise, sectionName }: { exercise: 
           ))}
         </View>
       ) : null}
-      {exercise.stopConditions.map((condition) => <Text key={condition} style={screenStyles.subtle}>Stop: {condition}</Text>)}
-      {exercise.safetyNotes.map((note) => <Text key={note} style={screenStyles.subtle}>Safety: {note}</Text>)}
+      {exercise.stopConditions.map((condition, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {condition}</Text>)}
+      {exercise.safetyNotes.map((note, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Safety: {note}</Text>)}
     </View>
   );
 }

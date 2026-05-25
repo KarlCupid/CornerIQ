@@ -95,7 +95,33 @@ function FuelContextCardView({ card }: { card: FuelContextCard }) {
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>{card.title}</Text>
         <Text style={screenStyles.body}>{card.summary}</Text>
-        {card.actions.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+        {card.actions.map((item, index) => <Text key={`${card.title}:action:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+      </View>
+    </EngineCard>
+  );
+}
+
+function FuelMacroTargetsCard({ viewModel }: { viewModel: FuelViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-macro-target-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>Today's fuel targets</Text>
+          <Text style={screenStyles.body}>{viewModel.macroTargets.why}</Text>
+          <Text style={screenStyles.subtle}>Confidence: {viewModel.macroTargets.confidence}. {viewModel.macroTargets.logStatus}</Text>
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Targets</Text>
+          {viewModel.macroTargets.targets.map((item, index) => (
+            <Text key={`fuel-target:${item.label}:${index}`} style={screenStyles.body}>{item.label}: {item.value}</Text>
+          ))}
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Logged today</Text>
+          {viewModel.macroTargets.progress.map((item, index) => (
+            <Text key={`fuel-progress:${item.label}:${index}`} style={screenStyles.subtle}>{item.label}: {item.logged} / {item.target}</Text>
+          ))}
+        </View>
       </View>
     </EngineCard>
   );
@@ -108,7 +134,7 @@ function ActualIntakeCard({ viewModel }: { viewModel: FuelViewModel }) {
         <Text style={screenStyles.sectionTitle}>{viewModel.actualIntakeSummary.title}</Text>
         <Text style={screenStyles.body}>{viewModel.actualIntakeSummary.summary}</Text>
         <Text style={screenStyles.subtle}>Confidence: {viewModel.actualIntakeSummary.confidence}. One day of food logging informs context only; targets stay engine-led.</Text>
-        {viewModel.actualIntakeSummary.rows.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+        {viewModel.actualIntakeSummary.rows.map((item, index) => <Text key={`actual-intake:${index}`} style={screenStyles.subtle}>{item}</Text>)}
       </View>
     </EngineCard>
   );
@@ -126,22 +152,6 @@ function HydrationContextCard({ viewModel }: { viewModel: FuelViewModel }) {
   );
 }
 
-function TargetsCard({ viewModel }: { viewModel: FuelViewModel }) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Targets</Text>
-        <Text style={screenStyles.body}>{viewModel.calorieSummary}</Text>
-        <Text style={screenStyles.body}>{viewModel.macroSummary}</Text>
-        <Text style={screenStyles.body}>{viewModel.hydrationSummary}</Text>
-        <Text style={screenStyles.body}>{viewModel.bodyMassSummary}</Text>
-        {viewModel.cycleNote ? <Text style={screenStyles.body}>{viewModel.cycleNote}</Text> : null}
-        {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
-      </View>
-    </EngineCard>
-  );
-}
-
 function RecentFuelLogsCard({ recentLogs }: { recentLogs: RecentLogsViewModel }) {
   if (recentLogs.fuel.length === 0) {
     return <EmptyState title="No recent fuel logs" message="Food or hydration history is missing. It matters because Fuel confidence is lower without real intake context. Log food or water when you have it; targets stay engine-led." />;
@@ -151,7 +161,7 @@ function RecentFuelLogsCard({ recentLogs }: { recentLogs: RecentLogsViewModel })
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Recent fuel logs</Text>
         <Text style={screenStyles.body}>{recentLogs.foodLogCountToday}</Text>
-        {recentLogs.fuel.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+        {recentLogs.fuel.map((item, index) => <Text key={`recent-fuel:${index}`} style={screenStyles.subtle}>{item}</Text>)}
       </View>
     </EngineCard>
   );
@@ -162,7 +172,7 @@ function FuelRiskCard({ message, viewModel }: { message: string | null; viewMode
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Risks and why</Text>
-        {viewModel.riskSummary.length > 0 ? viewModel.riskSummary.map((risk) => <Text key={risk} style={screenStyles.body}>{risk}</Text>) : <Text style={screenStyles.body}>No active fuel risk.</Text>}
+        {viewModel.riskSummary.length > 0 ? viewModel.riskSummary.map((risk, index) => <Text key={`fuel-risk:${index}`} style={screenStyles.body}>{risk}</Text>) : <Text style={screenStyles.body}>No active fuel risk.</Text>}
         <Text style={screenStyles.subtle}>{viewModel.why}</Text>
         {message ? <Text style={screenStyles.subtle}>{message}</Text> : null}
       </View>
@@ -176,6 +186,7 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <View style={{ gap: spacing.lg }} testID="fuel-command-section">
         <FuelStartHereCard viewModel={viewModel} />
+        <FuelMacroTargetsCard viewModel={viewModel} />
         <TodayFuelPriorityCard viewModel={viewModel} />
         <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
         <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
@@ -225,7 +236,6 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         <BodyMassTrajectoryCard trajectory={viewModel.bodyMassTrajectory} />
         <BodyMassTrajectoryPanel trajectory={viewModel.bodyMassTrajectory} />
         <WeightClassStatusCard status={viewModel.weightClassStatus} />
-        <TargetsCard viewModel={viewModel} />
       </CollapsibleFuelSection>
     </ScrollView>
   );

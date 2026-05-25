@@ -7,8 +7,8 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 5bd9ddfc0cf37d47c36177e6c2e74c393725f80e (short 5bd9ddf) |
-| Last QA run result | all normal gates passed; action-first mobile UX pass added daily readiness/body-mass due-or-summary cards, clearer hydration/food add-to-today copy, value-first Train prescriptions with collapsed manual logging/details, protected-vs-generated Plan work separation with a visible sparring anchor, collapsed fight/tournament setup, QA artifact lint ignores, install/typecheck/tests/lint/quality/preflight, 9/9 Playwright scenarios, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
+| Last commit tested | 7701745e4349acd9b73e4ecbf2a40077ae30761c (short 7701745) |
+| Last QA run result | all normal gates passed after approved Windows/esbuild sandbox reruns where needed; focused engine-value/density pass added Fuel macro targets from nutrition engine output, simplified Train Today to one main workout command, made workout detail copy more practical, collapsed Exercise History density by default, clarified Plan Week/Next Week with concise top cards and protected-vs-generated separation, fixed duplicate-prone React keys, added a duplicate-key runtime guard, passed 9/9 Playwright scenarios, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
@@ -35,7 +35,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | beta preflight | automated_pass | Required before handoff. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | Covered by `qa:agent:ci`; writes structured gate results and canonical bundle manifest. |
+| agent QA CI | automated_pass | Covered by `qa:agent:ci`; writes structured gate results and canonical bundle manifest, and now fails on duplicate React key warnings. |
 
 ### B. Auth and account
 
@@ -86,6 +86,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | command visible | automated_pass | Fuel audit. |
+| daily macro targets visible | automated_pass | Fuel audit checks the top-level "Today's fuel targets" card with calories, protein, carbs, fat, fiber, water, and logged/target progress where available. |
 | first safe action clear | automated_pass | Fuel food logging now says "Add meal/snack" and explains one meal/snack or day total entries add up in today's context; real boxer comprehension remains human_review_required. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
@@ -100,14 +101,14 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Today/Workout screen visible | automated_pass | Train audit checks value-first generated support cards, Workout detail, completion affordances, and collapsed secondary manual logging. |
-| generated workout feels boxing-supportive, not generic | human_review_required | Engine report and screenshots pass deterministic scans, and cards show concrete prescription lines; real boxer usefulness remains human-only. |
+| Today/Workout screen visible | automated_pass | Train audit checks one main workout command card, practical Workout detail, completion affordances, and collapsed secondary manual logging/detail. |
+| generated workout feels boxing-supportive, not generic | human_review_required | Engine report and screenshots pass deterministic scans, cards show concrete prescription lines, and robotic engine copy is collapsed; real boxer usefulness remains human-only. |
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
 | no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
 | fast workout completion path | automated_pass | Train audit checks "Open workout" and "Log result" before optional exercise details. |
 | session RPE flow | automated_pass | Train audit checks protected logging RPE mapping plus generated workout completion RPE 1-10. |
 | one exercise row completion | automated_pass | Train audit checks optional row inputs stay behind the secondary exercise-details disclosure. |
-| Exercise History visible | automated_pass | New Train audit. |
+| Exercise History visible | automated_pass | Train audit checks the default is compact with latest workout/key change only, and dense rows stay behind "Show details". |
 | progression copy not overconfident | human_review_required | Automation checks no exact load inference; real boxer interpretation remains human-only. |
 | no fake numeric load inference | automated_pass | Train progression audit. |
 
@@ -115,9 +116,9 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Week visible | automated_pass | Plan audit checks Week plus protected boxing work separated from generated support. |
-| Next Week visible | automated_pass | New Plan audit. |
-| Block History visible | automated_pass | New Plan audit. |
+| Week visible | automated_pass | Plan audit checks the Week top card plus protected boxing work, generated support, and rest/recovery separated clearly. |
+| Next Week visible | automated_pass | Plan audit checks a concise top card with goal, planned support count, protected anchors considered, and status; dense detail is collapsed. |
+| Block History visible | automated_pass | Plan audit and static checks cover Block History while avoiding duplicate-prone user-facing string keys. |
 | Adjustments visible | automated_pass | New Plan audit. |
 | Protect this day understandable | human_review_required | Automation checks protected work labels and visible preset sparring anchor; real boxer interpretation remains human-only. |
 | Mark unavailable understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |

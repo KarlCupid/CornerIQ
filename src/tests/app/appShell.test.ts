@@ -185,6 +185,25 @@ const fuelViewModel: FuelViewModel = {
   activeNutritionSafetyReviews: [],
   decisionStack: fuelDecisionStack,
   hitTheseFirst: ["Water", "Carbs"],
+  macroTargets: {
+    why: "Based on body mass, training demand, readiness, phase, and safety status.",
+    confidence: "medium",
+    logStatus: "1 food log counted today.",
+    targets: [
+      { label: "Calories", value: "2200 kcal" },
+      { label: "Protein", value: "130g" },
+      { label: "Carbs", value: "260g" },
+      { label: "Fat", value: "70g" },
+      { label: "Fiber", value: "28g" },
+      { label: "Water", value: "2.5L" }
+    ],
+    progress: [
+      { label: "Calories", logged: "1200 kcal", target: "2200 kcal" },
+      { label: "Protein", logged: "80g", target: "130g" },
+      { label: "Carbs", logged: "140g", target: "260g" },
+      { label: "Fat", logged: "35g", target: "70g" }
+    ]
+  },
   calorieSummary: "2200 kcal target",
   macroSummary: "130g protein",
   hydrationSummary: "2.5L water",
@@ -399,6 +418,9 @@ const planViewModel: PlanViewModel = {
     weekIndex: 3,
     weekStartDate: "2026-05-26",
     weekEndDate: "2026-06-01",
+    goal: "build strength - progress",
+    plannedSupportCount: 1,
+    protectedAnchorSummary: "1 protected boxing anchor considered.",
     phase: "build_strength",
     decision: "progress",
     volumeStrategy: "progress_small",
@@ -486,6 +508,8 @@ const planViewModel: PlanViewModel = {
   blockGoal: "strength base",
   hardDayCap: 3,
   plannedHardDays: 2,
+  generatedSupportDayCount: 1,
+  recoveryDayCount: 0,
   recoveryDays: ["2026-05-21"],
   adjustmentSummary: "No engine-owned plan adjustments yet.",
   activeAdjustments: [],
@@ -1189,11 +1213,14 @@ describe("minimal app screens", () => {
     expect(output).toContain("Use Fuel to cover today's boxing work");
     expect(output).toContain("Log food or water if you have it");
     expect(output).toContain("Targets, body mass, and review history can wait");
+    expect(output).toContain("Today's fuel targets");
+    expect(output).toContain("Based on body mass, training demand, readiness, phase, and safety status.");
+    expect(output).toContain("Calories");
+    expect(output).toContain("2200 kcal");
     expect(output).toContain("What to do now");
     expect(output).toContain("Add meal/snack");
     expect(output).toContain("Add hydration");
     expect(output).toContain("Show Details / why");
-    expect(output).not.toContain("2200 kcal target");
     expect(output).not.toContain("Body-mass trajectory");
     await switchSection(renderer, "Show Details / why");
     output = JSON.stringify(renderer.toJSON());
@@ -1202,7 +1229,7 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Show Body Mass");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Body-mass trajectory");
-    expect(output).toContain("2200 kcal target");
+    expect(output).not.toContain("2200 kcal target");
     await switchSection(renderer, "Show History");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Recent fuel history");
@@ -1514,8 +1541,15 @@ describe("minimal app screens", () => {
     expect(output).toContain("Training action");
     expect(output).toContain("Use Train for today's boxing-support work");
     expect(output).toContain("Open Workout when you are ready");
+    expect(output).toContain("Open workout, then log result.");
+    expect(output).toContain("Purpose:");
+    expect(output).not.toContain("Fuel handoff");
+    expect(output).not.toContain("Today's training decision");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Show why / safety"));
+    });
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Protects the boxing anchor.");
-    expect(output).toContain("Today's training decision");
     await switchSection(renderer, "Workout");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Log your own training");
@@ -1613,9 +1647,8 @@ describe("minimal app screens", () => {
     const tournamentOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: tournament.viewModels.train })).toJSON());
     const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
 
-    expect(taperOutput).toContain("fight week taper");
+    expect(taperOutput).toContain("Speed maintenance taper");
     expect(taperOutput).toContain("Taper day");
-    expect(tournamentOutput).toContain("tournament week");
     expect(tournamentOutput).toContain("Tournament conservation");
     expect(redOutput).toContain("Safety overrides");
   });
@@ -1697,21 +1730,23 @@ describe("minimal app screens", () => {
 
   it("PlanScreen renders warnings", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
-    expect(
-      JSON.stringify(
-        render(
-          React.createElement(PlanScreen, {
-            asOfDate: fixtureAsOfDate,
-            busy: false,
-            hasActiveFightOrTournament: false,
-            isMinor: false,
-            onSaveFightSetup: vi.fn(),
-            onSaveTournamentSetup: vi.fn(),
-            viewModel: planViewModel
-          })
-        ).toJSON()
-      )
-    ).toContain("Missing readiness lowers confidence.");
+    const warningRenderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+    let warningOutput = JSON.stringify(warningRenderer.toJSON());
+    expect(warningOutput).toContain("Plan review notes");
+    expect(warningOutput).not.toContain("Missing readiness lowers confidence.");
+    await switchSection(warningRenderer, "Plan review notes");
+    warningOutput = JSON.stringify(warningRenderer.toJSON());
+    expect(warningOutput).toContain("Missing readiness lowers confidence.");
     expect(
       JSON.stringify(
         render(
@@ -1773,6 +1808,7 @@ describe("minimal app screens", () => {
           ...state.viewModels.plan,
           nextWeekPreview: {
             ...state.viewModels.plan.nextWeekPreview,
+            goal: "build strength - progress",
             decision: "progress",
             volumeStrategy: "progress_small",
             explanation: "Persisted progression decision shaped this preview."
@@ -1781,8 +1817,13 @@ describe("minimal app screens", () => {
       })
     );
     await switchSection(renderer, "Next Week");
-    const output = JSON.stringify(renderer.toJSON());
+    let output = JSON.stringify(renderer.toJSON());
 
+    expect(output).toContain("build strength - progress");
+    expect(output).toContain("Planned support");
+    expect(output).not.toContain("Persisted progression decision shaped this preview.");
+    await switchSection(renderer, "Next week detail");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("progress small");
     expect(output).toContain("Persisted progression decision shaped this preview.");
     expect(state.viewModels.plan.dayPlans.map((day) => day.date)).toEqual(currentWeekDates);
@@ -1806,6 +1847,8 @@ describe("minimal app screens", () => {
     );
 
     await switchSection(renderer, "Next Week");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Accept preview");
+    await switchSection(renderer, "Next week detail");
     expect(JSON.stringify(renderer.toJSON())).toContain("Accepting stores this preview as the plan direction");
     await act(async () => {
       await press(pressableWithText(renderer, "Accept preview"));
@@ -2102,49 +2145,56 @@ describe("minimal app screens", () => {
     expect(output).toContain("Generated sessions: 1");
     await switchSection(renderer, "Next Week");
     output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Persisted");
+    await switchSection(renderer, "Next week detail");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Materialized");
     expect(output).toContain("Trunk durability");
-    expect(output).toContain("persisted");
   });
 
   it("ExerciseHistoryPanel renders counts, pain flags, and load-text caution", async () => {
     const { ExerciseHistoryPanel } = await import("../../app/screens/train/ExerciseHistoryPanel");
-    const output = JSON.stringify(
-      render(
-        React.createElement(ExerciseHistoryPanel, {
-          history: {
-            title: "Exercise history",
-            recentExerciseResults: ["2026-05-19: Split squat completed, RPE 7, load note: bodyweight plus band, pain flagged"],
-            statusCounts: {
-              completed: 1,
-              partial: 1,
-              prescribedOnly: 1,
-              skipped: 0
-            },
-            painFlagsByExercise: ["Split squat"],
-            recentRpeValues: ["Split squat: RPE 7"],
-            latestStrengthExerciseSummary: "Split squat: completed, bodyweight plus band; notes only, no numeric load progression inferred",
-            loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
-            mostRepeatedExercise: "Split squat (2 completed or partial result row(s))",
-            groupedExercises: [
-              {
-                exerciseName: "Split squat",
-                completedCount: 1,
-                partialCount: 1,
-                prescribedOnlyCount: 1,
-                painFlagCount: 1,
-                recentRpe: "RPE 7",
-                latestLoadTextNote: "bodyweight plus band (notes only)",
-                noNumericProgressionCopy: "No numeric progression inferred."
-              }
-            ],
-            topPainFlaggedExercises: ["Split squat: 1 pain flag(s)"],
-            topRepeatedExercises: ["Split squat: 2 completed/partial/skipped row(s)"]
-          }
-        })
-      ).toJSON()
+    const renderer = render(
+      React.createElement(ExerciseHistoryPanel, {
+        history: {
+          title: "Exercise history",
+          recentExerciseResults: ["2026-05-19: Split squat completed, RPE 7, load note: bodyweight plus band, pain flagged"],
+          statusCounts: {
+            completed: 1,
+            partial: 1,
+            prescribedOnly: 1,
+            skipped: 0
+          },
+          painFlagsByExercise: ["Split squat"],
+          recentRpeValues: ["Split squat: RPE 7"],
+          latestStrengthExerciseSummary: "Split squat: completed, bodyweight plus band; notes only, no numeric load progression inferred",
+          loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
+          mostRepeatedExercise: "Split squat (2 completed or partial result row(s))",
+          groupedExercises: [
+            {
+              exerciseName: "Split squat",
+              completedCount: 1,
+              partialCount: 1,
+              prescribedOnlyCount: 1,
+              painFlagCount: 1,
+              recentRpe: "RPE 7",
+              latestLoadTextNote: "bodyweight plus band (notes only)",
+              noNumericProgressionCopy: "No numeric progression inferred."
+            }
+          ],
+          topPainFlaggedExercises: ["Split squat: 1 pain flag(s)"],
+          topRepeatedExercises: ["Split squat: 2 completed/partial/skipped row(s)"]
+        }
+      })
     );
+    let output = JSON.stringify(renderer.toJSON());
 
+    expect(output).toContain("Latest workout");
+    expect(output).toContain("Key change");
+    expect(output).toContain("Show details");
+    expect(output).not.toContain("Grouped exercises");
+    await switchSection(renderer, "Show details");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Completed/partial/prescribed-only/skipped: 1/1/1/0");
     expect(output).toContain("Prescribed-only rows");
     expect(output).toContain("RPE");
@@ -2154,7 +2204,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("\"1\",\"/\",\"1\",\"/\",\"1\",\"/\",\"1\"");
     expect(output).toContain("No numeric progression inferred");
     expect(output).toContain("Pain flag: Split squat");
-    expect(output).toContain("Free-text load is not used for numeric progression yet.");
+    expect(output).toContain("Free-text load is shown as notes only.");
     expect(output).toContain("Pain flags stop automatic progression.");
     expect(output).toContain("no numeric load progression inferred");
   });

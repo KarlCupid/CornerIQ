@@ -68,9 +68,24 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
   );
 }
 
-function prescriptionLine(sectionName: string, exerciseName: string, repsText: string | undefined, durationText: string | undefined): string {
-  const dose = repsText ?? durationText;
-  return dose ? `${sectionName}: ${exerciseName} - ${dose}` : `${sectionName}: ${exerciseName}`;
+function prescriptionLine(sectionName: string, exercise: DetailedTrainingSession["sections"][number]["exercises"][number]): string {
+  const firstSet = exercise.sets[0];
+  const setCount = exercise.sets.length > 1 ? `${exercise.sets.length} sets` : firstSet?.setLabel;
+  const dose = exercise.repsText ?? exercise.durationText ?? firstSet?.repsText ?? firstSet?.durationText;
+  const rpe = exercise.rpeTarget ?? firstSet?.rpeTarget;
+  const parts = [setCount, dose, rpe ? `RPE ${rpe}` : null, `rest ${exercise.restText}`].filter(Boolean);
+  return parts.length > 0 ? `${sectionName}: ${exercise.name} - ${parts.join(", ")}` : `${sectionName}: ${exercise.name}`;
+}
+
+function visiblePrescriptionLines(session: DetailedTrainingSession): readonly string[] {
+  const exerciseLines = session.sections.flatMap((section) => section.exercises.map((exercise) => prescriptionLine(section.name, exercise)));
+  if (exerciseLines.length >= 3) {
+    return exerciseLines.slice(0, 6);
+  }
+  return [
+    ...exerciseLines,
+    ...session.sections.map((section) => `${section.name}: ${section.intent}`)
+  ].slice(0, 6);
 }
 
 export function WorkoutDetailPanel({
@@ -130,13 +145,7 @@ export function WorkoutDetailPanel({
     setResultOpen(false);
   };
 
-  const visiblePrescription = session.sections
-    .flatMap((section) =>
-      section.exercises.map((exercise) =>
-        prescriptionLine(section.name, exercise.name, exercise.sets[0]?.repsText ?? exercise.repsText, exercise.sets[0]?.durationText ?? exercise.durationText)
-      )
-    )
-    .slice(0, 5);
+  const visiblePrescription = visiblePrescriptionLines(session);
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -144,7 +153,7 @@ export function WorkoutDetailPanel({
         <Text style={screenStyles.sectionTitle}>{session.title}</Text>
         <Text style={screenStyles.body}>{session.intensity} - {session.durationMinutes} min - {session.sections.length} sections</Text>
         <Text style={screenStyles.fieldLabel}>What to do</Text>
-        {visiblePrescription.map((item) => <Text key={item} style={screenStyles.body}>{item}</Text>)}
+        {visiblePrescription.map((item, index) => <Text key={`visible-prescription:${index}`} style={screenStyles.body}>{item}</Text>)}
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
         <Pressable accessibilityLabel={resultOpen ? "Hide workout result logger" : "Log result"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.button}>
@@ -174,8 +183,8 @@ export function WorkoutDetailPanel({
               <Text style={screenStyles.quietButtonText}>{exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"}</Text>
             </Pressable>
             <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows save as prescribed_only; skipped sessions do not save exercise rows.</Text>
-            {exerciseDetailsOpen ? session.sections.map((section) => (
-              <View key={section.name} style={{ gap: spacing.sm }}>
+            {exerciseDetailsOpen ? session.sections.map((section, sectionIndex) => (
+              <View key={`detail-section:${section.name}:${sectionIndex}`} style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.sectionTitle}>{section.name}</Text>
                 <Text style={screenStyles.subtle}>{section.intent}</Text>
                 {section.exercises.map((exercise) => {
@@ -205,10 +214,10 @@ export function WorkoutDetailPanel({
         {whyOpen ? (
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
-            {session.readinessModifications.map((item) => <Text key={item} style={screenStyles.subtle}>Readiness: {item}</Text>)}
-            {session.cycleModifications.map((item) => <Text key={item} style={screenStyles.subtle}>Cycle: {item}</Text>)}
-            {session.stopConditions.slice(0, 3).map((item) => <Text key={item} style={screenStyles.subtle}>Stop: {item}</Text>)}
-            {session.safetyNotes.slice(0, 3).map((item) => <Text key={item} style={screenStyles.subtle}>Safety: {item}</Text>)}
+            {session.readinessModifications.map((item, index) => <Text key={`readiness-mod:${index}`} style={screenStyles.subtle}>Readiness: {item}</Text>)}
+            {session.cycleModifications.map((item, index) => <Text key={`cycle-mod:${index}`} style={screenStyles.subtle}>Cycle: {item}</Text>)}
+            {session.stopConditions.slice(0, 3).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {item}</Text>)}
+            {session.safetyNotes.slice(0, 3).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Safety: {item}</Text>)}
             <Text style={screenStyles.subtle}>Pain notes help the engine avoid automatic progression. Result statuses: completed, partial, prescribed_only, or skipped.</Text>
           </View>
         ) : null}

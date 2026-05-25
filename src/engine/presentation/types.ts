@@ -50,6 +50,21 @@ export interface FuelContextCard {
   actions: readonly string[];
 }
 
+export interface FuelMacroTargetsViewModel {
+  why: string;
+  confidence: ConfidenceLevel;
+  logStatus: string;
+  targets: readonly {
+    label: string;
+    value: string;
+  }[];
+  progress: readonly {
+    label: string;
+    logged: string;
+    target: string;
+  }[];
+}
+
 export interface RecentLogsViewModel {
   today: readonly string[];
   fuel: readonly string[];
@@ -123,6 +138,7 @@ export interface FuelViewModel {
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   decisionStack: readonly FuelCommandDecisionItem[];
   hitTheseFirst: readonly string[];
+  macroTargets: FuelMacroTargetsViewModel;
   calorieSummary: string;
   macroSummary: string;
   hydrationSummary: string;
@@ -273,6 +289,9 @@ export interface NextWeekPreviewViewModel {
   weekIndex: number;
   weekStartDate: string;
   weekEndDate: string;
+  goal: string;
+  plannedSupportCount: number;
+  protectedAnchorSummary: string;
   phase: TrainingBlockPhase;
   decision: string;
   volumeStrategy: NextWeekTrainingVolumeStrategy;
@@ -357,6 +376,8 @@ export interface PlanViewModel {
   blockGoal: string;
   hardDayCap: number;
   plannedHardDays: number;
+  generatedSupportDayCount: number;
+  recoveryDayCount: number;
   recoveryDays: readonly string[];
   adjustmentSummary: string;
   activeAdjustments: readonly string[];

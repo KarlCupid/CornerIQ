@@ -25,24 +25,24 @@ export function FuelHistoryPanel({ history }: { history: FuelHistoryViewModel })
               Fiber {day.fiber === null ? "unknown" : `${day.fiber}g`}; sodium {day.sodium === null ? "unknown" : `${day.sodium}mg`}; water {day.waterLiters.toFixed(1)}L; confidence {day.confidence}.
             </Text>
             <Text style={screenStyles.subtle}>{day.electrolyteSummary}</Text>
-            {day.notes.map((note) => <Text key={`${day.date}:${note}`} style={screenStyles.subtle}>{note}</Text>)}
+            {day.notes.map((note, index) => <Text key={`${day.date}:note:${index}`} style={screenStyles.subtle}>{note}</Text>)}
           </View>
         ))}
         <Text style={screenStyles.callout}>Session fuel link</Text>
         {history.sessionFuelLink.length > 0 ? (
-          history.sessionFuelLink.map((item) => <Text key={item.date} style={screenStyles.subtle}>{item.summary}</Text>)
+          history.sessionFuelLink.map((item, index) => <Text key={`${item.date}:session-fuel:${index}`} style={screenStyles.subtle}>{item.summary}</Text>)
         ) : (
           <Text style={screenStyles.subtle}>No high fuel-demand generated session days in this 7-day fuel history.</Text>
         )}
         <Text style={screenStyles.callout}>Recent meals</Text>
-        {history.recentMeals.map((meal) => <Text key={meal} style={screenStyles.subtle}>{meal}</Text>)}
+        {history.recentMeals.map((meal, index) => <Text key={`recent-meal:${index}`} style={screenStyles.subtle}>{meal}</Text>)}
         <Text style={screenStyles.callout}>Hydration and electrolytes</Text>
-        {history.hydrationTrend7Day.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
+        {history.hydrationTrend7Day.map((item, index) => <Text key={`hydration-trend:${index}`} style={screenStyles.subtle}>{item}</Text>)}
         <Text style={screenStyles.subtle}>{history.electrolyteSummary}</Text>
         <Text style={screenStyles.callout}>Fiber and sodium context</Text>
         <Text style={screenStyles.subtle}>{history.fiberSodiumSummary}</Text>
-        {history.fightWeekMarkers.map((marker) => <Text key={marker.date} style={screenStyles.subtle}>{marker.summary}</Text>)}
-        {history.warnings.map((warning) => <Text key={warning} style={screenStyles.subtle}>{warning}</Text>)}
+        {history.fightWeekMarkers.map((marker, index) => <Text key={`${marker.date}:fight-week:${index}`} style={screenStyles.subtle}>{marker.summary}</Text>)}
+        {history.warnings.map((warning, index) => <Text key={`fuel-history-warning:${index}`} style={screenStyles.subtle}>{warning}</Text>)}
       </View>
     </EngineCard>
   );
