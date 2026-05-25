@@ -66,6 +66,18 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   ] as const;
   return {
     title,
+    mission: {
+      title: "Today's mission",
+      purpose: "Use Today as the command center for the next useful step.",
+      primaryAction:
+        state.safety.hardStops.length > 0
+          ? "Read the safety note first. Log only what is true today."
+          : `${firstAppAction} Then follow the training call.`,
+      why:
+        state.safety.hardStops[0]?.explanation ??
+        (hasSparring ? "Protected boxing owns the day, so generated support stays secondary." : state.training.explanation),
+      optional: "Food, water, pain, and cycle notes add context. Missing data stays unknown."
+    },
     whatChanged:
       state.safety.hardStops.length > 0
         ? "Safety flags changed the plan."

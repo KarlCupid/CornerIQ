@@ -4,6 +4,13 @@ export function buildProfileViewModel(state: PerformanceState): ProfileViewModel
   const latestTimelineEvent = state.training.timelineEvents.at(-1) ?? state.training.blockHistory.timelineEvents.at(-1) ?? null;
   return {
     title: "Boxer profile",
+    topAction: {
+      title: "Profile action",
+      purpose: "Use Profile for boxer settings, privacy, data controls, and beta feedback.",
+      primaryAction: "Keep athlete basics and preferences current when they change.",
+      why: "Settings shape engine confidence; manual input remains enough without a wearable.",
+      optional: "Audit, export/delete, and feedback can wait until you need them."
+    },
     summary: `${state.athlete.boxingLevel.replaceAll("_", " ")} - ${state.athlete.amateurOrPro}`,
     trainingAuditSummary: {
       activeBlockHistoryCount: state.training.blockHistory.summaries.length,

@@ -63,7 +63,11 @@ const expectedScenarios = [
 ];
 
 const comprehensionNeedles = [
-  { key: "Start here", pattern: /start here/i },
+  { key: "Today's mission", pattern: /today(?:'|’)?s mission/i },
+  { key: "Fuel action", pattern: /fuel action/i },
+  { key: "Training action", pattern: /training action/i },
+  { key: "Plan action", pattern: /plan action/i },
+  { key: "Profile action", pattern: /profile action/i },
   { key: "not medical advice", pattern: /not medical advice/i },
   { key: "not emergency support", pattern: /no emergency support|not emergency support/i },
   { key: "beta notice", pattern: /this is a beta|beta tester notice/i },

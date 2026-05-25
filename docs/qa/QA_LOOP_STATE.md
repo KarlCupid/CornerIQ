@@ -7,14 +7,14 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 5b88eac607a03a16f755e8e54a7cf817724e9206 (short 5b88eac) |
-| Last QA run result | all normal gates passed; Fuel simplification audit passed with `fuel-start-here`, focused default Fuel screenshot, collapsed detail sections, manual food quick log, unsafe weight-cut scan, install/typecheck/tests/lint/quality/preflight, 9/9 Playwright scenarios, scoped page text, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
+| Last commit tested | 5bd9ddfc0cf37d47c36177e6c2e74c393725f80e (short 5bd9ddf) |
+| Last QA run result | all normal gates passed; beta product-feel pass added `today-mission-card` plus Fuel/Train/Plan/Profile top action cards, improved quick-log confidence feedback, strengthened empty states, collapsed Today engine detail, install/typecheck/tests/lint/quality/preflight, 9/9 Playwright scenarios, scoped page text, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 0 automatable; 3 human-only limitations remain explicitly tracked |
-| Next recommended action | Verify the simplified Fuel action path with a human boxer in Expo Go, then run physical iPhone, live Supabase/RLS/auth/data, and release-owner distribution checks before declaring beta ready |
+| Next recommended action | Verify the Today mission and tab-level action cards with a human boxer in Expo Go, then run physical iPhone, live Supabase/RLS/auth/data, and release-owner distribution checks before declaring beta ready |
 | Beta readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.
@@ -71,14 +71,14 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| first action obvious within 5 seconds | human_review_required | Automation checks Start here hierarchy for first app action vs first training action; real boxer comprehension remains human-only. |
-| primary action clarity | human_review_required | Automation checks visible first training action; real boxer comprehension remains human-only. |
+| first action obvious within 5 seconds | human_review_required | Automation checks `today-mission-card` for command-center purpose, first useful log/action, why, and optional context; real boxer comprehension remains human-only. |
+| primary action clarity | human_review_required | Automation checks the Today mission and training call are visible before history/detail; real boxer comprehension remains human-only. |
 | why disclosure | automated_pass | Browser audit requires Today evidence. |
 | quick logs visible | automated_pass | Browser audit requires Today evidence. |
 | quick logs use 1-5 explanations where relevant | human_review_required | Text evidence is present; real boxer interpretation remains human-only. |
-| save success/feedback | automated_pass | Quick-log feedback smoke required. |
+| save success/feedback | automated_pass | Quick-log feedback smoke requires confidence/context messages for body mass, readiness, hydration, food, and training paths. |
 | missing data unknown/not safe | automated_pass | Deterministic scan required. |
-| not too dense for first-run user | human_review_required | Requires real boxer/phone review. |
+| not too dense for first-run user | human_review_required | Today now uses a mission card and collapses engine detail, but real boxer/phone review is still required. |
 | mobile viewport readability | human_review_required | Mobile viewport is automated; physical phone remains required. |
 
 ### E. Fuel
@@ -86,7 +86,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | command visible | automated_pass | Fuel audit. |
-| first safe action clear | automated_pass | Fuel now opens with `fuel-start-here`, first action copy, what-to-log/what-to-ignore guidance, and collapsed secondary detail. Agent audit passed; real boxer comprehension remains human_review_required. |
+| first safe action clear | automated_pass | Fuel now opens with `fuel-top-action-card`, food/water logging, what can wait, and collapsed secondary detail. Agent audit passed; real boxer comprehension remains human_review_required. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit. |
@@ -100,7 +100,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Today/Workout screen visible | automated_pass | New Train audit. |
+| Today/Workout screen visible | automated_pass | Train audit checks `train-top-action-card`, Today, Workout, and completion affordances. |
 | generated workout feels boxing-supportive, not generic | human_review_required | Engine report and screenshots pass deterministic scans; real boxer usefulness remains human-only. |
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
 | no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
@@ -115,7 +115,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Week visible | automated_pass | New Plan audit. |
+| Week visible | automated_pass | Plan audit checks `plan-top-action-card` plus Week. |
 | Next Week visible | automated_pass | New Plan audit. |
 | Block History visible | automated_pass | New Plan audit. |
 | Adjustments visible | automated_pass | New Plan audit. |
@@ -132,7 +132,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| athlete section | automated_pass | Profile tab audit required. |
+| athlete section | automated_pass | Profile tab audit checks `profile-top-action-card` plus athlete/privacy context. |
 | settings section | automated_pass | Profile tab/sign-out audit required. |
 | data section | automated_pass | New data controls audit. |
 | audit section | automated_pass | Profile Audit audit. |

@@ -35,6 +35,14 @@ export interface DecisionStackItem {
   confidence: ConfidenceLevel;
 }
 
+export interface TopActionViewModel {
+  title: string;
+  purpose: string;
+  primaryAction: string;
+  why: string;
+  optional: string;
+}
+
 export interface FuelContextCard {
   title: string;
   status: "info" | "caution" | "blocked" | "active";
@@ -57,6 +65,7 @@ export interface RecentLogsViewModel {
 
 export interface TodayViewModel {
   title: string;
+  mission: TopActionViewModel;
   whatChanged: string;
   primaryAction: string;
   firstAppAction: string;
@@ -75,6 +84,7 @@ export interface TodayViewModel {
 
 export interface FuelViewModel {
   title: string;
+  topAction: TopActionViewModel;
   commandCenter: FuelCommandCenterState;
   weightClassStatus: WeightClassStatus;
   fightWeekFuelPlan: FightWeekFuelPlan;
@@ -165,6 +175,7 @@ export interface CycleTrainingDecisionViewModel {
 
 export interface TrainViewModel {
   title: string;
+  topAction: TopActionViewModel;
   todaySummary: string;
   blockPhase: TrainingBlockPhase;
   blockGoal: string;
@@ -295,6 +306,7 @@ export interface TrainingBlockHistoryDetailViewModel {
 
 export interface PlanViewModel {
   title: string;
+  topAction: TopActionViewModel;
   acceptedPreviewStatus: NextWeekPreviewViewModel["persistedStatus"];
   boundaryDate: string;
   weeklySummary: string;
@@ -361,6 +373,7 @@ export interface CycleViewModel {
 
 export interface ProfileViewModel {
   title: string;
+  topAction: TopActionViewModel;
   summary: string;
   trainingAuditSummary: TrainingBlockHistoryViewModel;
   privacyNotes: readonly string[];

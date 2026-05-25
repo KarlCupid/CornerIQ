@@ -93,7 +93,7 @@ export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
               setSuccess(null);
               await actions.logBodyMass({ bodyMassKg: parseRequiredPositiveNumber(bodyMassKg, "Body mass", { example: "66.4" }) });
               setBodyMassKg("");
-              setSuccess("Body mass saved. Today will use the latest engine refresh when it completes.");
+              setSuccess("Body mass saved. Trend confidence has fresher scale context; readiness can still be unknown.");
             })
           }
           style={screenStyles.button}
@@ -180,7 +180,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
                 fainting
               });
               clear();
-              setSuccess("Readiness saved. Today will update after the engine refresh completes.");
+              setSuccess("Readiness logged. CornerIQ has more confidence for today's training call.");
             })
           }
           style={screenStyles.button}
@@ -221,7 +221,7 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
               await actions.logHydration(sodium === undefined ? payload : { ...payload, sodiumMg: sodium });
               setLiters("");
               setSodiumMg("");
-              setSuccess("Hydration saved. Today will update after the engine refresh completes.");
+              setSuccess("Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown.");
             })
           }
           style={screenStyles.button}
@@ -289,7 +289,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
               setSymptoms([]);
               setBleedStart(false);
               setBleedEnd(false);
-              setSuccess("Cycle log saved. Today will update after the engine refresh completes.");
+              setSuccess("Cycle log saved. Symptom context stays private and can improve today's confidence when relevant.");
             })
           }
           style={screenStyles.button}
@@ -356,7 +356,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
               setFat("");
               setFiber("");
               setSodium("");
-              setSuccess("Food log saved. Today will update after the engine refresh completes.");
+              setSuccess("Food logged. Fuel confidence has more intake context; missing hydration still lowers confidence when absent.");
             })
           }
           style={screenStyles.button}
@@ -429,7 +429,11 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
               setSessionRpe("");
               setRounds("");
               setNote("");
-              setSuccess(logKind === "completed" ? "Training log saved. Today will update after the engine refresh completes." : "Planned anchor saved. Today will protect it after the engine refresh completes.");
+              setSuccess(
+                logKind === "completed"
+                  ? "Training logged. Plan confidence has more real completion and RPE context."
+                  : "Planned anchor saved. CornerIQ has a boxing commitment to protect when the plan refreshes."
+              );
             })
           }
           style={screenStyles.button}

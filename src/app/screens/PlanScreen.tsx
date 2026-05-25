@@ -6,6 +6,7 @@ import { EmptyState } from "../../design/components/EmptyState";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TimelineList } from "../../design/components/TimelineList";
+import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
@@ -45,6 +46,14 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="plan-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
+      <TopActionCard
+        optional={viewModel.topAction.optional}
+        primaryAction={viewModel.topAction.primaryAction}
+        purpose={viewModel.topAction.purpose}
+        testID="plan-top-action-card"
+        title={viewModel.topAction.title}
+        why={viewModel.topAction.why}
+      />
       <SectionTabs items={planSections} value={section} onChange={setSection} />
       {hasPlanRisk ? (
         <RiskBanner title="Plan safety check" message={viewModel.rollForwardStatus === "blocked" ? viewModel.rollForwardMessage : "Warnings are active for this plan. The engine keeps safety ahead of performance pressure."} statusLabel={planRiskLabel} tone={planRiskTone}>
@@ -204,7 +213,7 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
               </View>
             </EngineCard>
           )) : (
-            <EmptyState title="No day plans loaded" message="Adjustment controls appear after the engine has a week projection." />
+            <EmptyState title="No day plans loaded" message="The week projection is missing, so adjustment controls cannot target real days yet. Refresh engine state or complete setup; missing plan data stays unknown." />
           )}
         </View>
       ) : null}

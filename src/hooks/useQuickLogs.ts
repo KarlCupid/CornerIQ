@@ -139,12 +139,12 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
         runQuickLog(async () => {
           await input.repositories.bodyMass.insertManualLog({ userId: input.userId, date: input.asOfDate, bodyMassKg });
           await input.repositories.journey.appendEvent(input.userId, "BodyMassLogged", { date: input.asOfDate, bodyMassKg, source: "manual" });
-        }, "Body mass logged."),
+        }, "Body mass logged. Trend confidence has fresher scale context; missing readiness still lowers confidence."),
       logReadiness: (checkIn) =>
         runQuickLog(async () => {
           await input.repositories.readiness.insertCheckIn({ userId: input.userId, date: input.asOfDate, ...checkIn });
           await input.repositories.journey.appendEvent(input.userId, "ReadinessLogged", { date: input.asOfDate });
-        }, "Readiness logged."),
+        }, "Readiness logged. CornerIQ has more confidence for today's training call."),
       logHydration: ({ liters, sodiumMg }) =>
         runQuickLog(async () => {
           await input.repositories.hydration.insertWaterLog({ userId: input.userId, date: input.asOfDate, liters });
@@ -153,7 +153,7 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
             await input.repositories.hydration.insertElectrolyteLog({ userId: input.userId, date: input.asOfDate, sodiumMg });
             await input.repositories.journey.appendEvent(input.userId, "ElectrolyteLogged", { date: input.asOfDate, sodiumMg });
           }
-        }, "Hydration logged."),
+        }, "Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown."),
       logCycle: (cycleLog) =>
         runQuickLog(async () => {
           const symptoms = cycleLog.symptoms.map((item) => {
@@ -181,12 +181,12 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
               hormonalContraception: cycleLog.hormonalContraception
             });
           }
-        }, "Cycle log saved."),
+        }, "Cycle log saved. Symptom context stays private and can improve today's confidence when relevant."),
       logFood: (food) =>
         runQuickLog(async () => {
           await input.repositories.nutrition.insertFoodLog({ userId: input.userId, date: input.asOfDate, confidence: "low", ...food });
           await input.repositories.journey.appendEvent(input.userId, "FoodLogged", { date: input.asOfDate, confidence: "low" });
-        }, "Food quick log saved."),
+        }, "Food logged. Fuel confidence has more intake context; missing hydration still lowers confidence when absent."),
       logProtectedWorkout: (workoutInput) =>
         runQuickLog(async () => {
           assertSessionRpe(workoutInput.sessionRpe);
@@ -244,7 +244,11 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
             durationMinutes: completed.durationMinutes,
             source: "completed_training_session"
           });
-        }, "Training log saved.")
+        },
+        workoutInput.logKind === "planned"
+          ? "Planned anchor saved. CornerIQ has a boxing commitment to protect when the plan refreshes."
+          : "Training logged. Plan confidence has more real completion and RPE context."
+        )
     }),
     [input, runQuickLog]
   );

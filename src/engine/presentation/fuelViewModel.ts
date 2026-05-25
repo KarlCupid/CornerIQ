@@ -22,8 +22,22 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
       }
     : null;
   const rehydration = state.nutrition.rehydrationPlan.status === "not_applicable" ? null : state.nutrition.rehydrationPlan;
+  const safetyReviewFirst = state.nutrition.nutritionSafetyReview.required;
   return {
     title: "Fuel the rounds",
+    topAction: {
+      title: "Fuel action",
+      purpose: "Use Fuel to cover today's boxing work without weight-class pressure.",
+      primaryAction: safetyReviewFirst
+        ? state.nutrition.nutritionSafetyReview.professionalReviewCopy
+        : "Log food or water if you have it. Fuel the boxing work first.",
+      why: safetyReviewFirst
+        ? state.nutrition.commandCenter.safetyAction
+        : state.nutrition.commandCenter.sessionFuelAction,
+      optional: safetyReviewFirst
+        ? "Food and target details can wait. Missing data stays unknown while the safety note is active."
+        : "Targets, body mass, and review history can wait unless a safety note is active."
+    },
     commandCenter: state.nutrition.commandCenter,
     weightClassStatus: state.nutrition.weightClassStatus,
     fightWeekFuelPlan: state.nutrition.fightWeekFuelPlan,

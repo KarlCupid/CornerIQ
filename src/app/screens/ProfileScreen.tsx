@@ -5,6 +5,7 @@ import type { ISODateString } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
+import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
 import type { BetaFeedbackHook } from "../../hooks/useBetaFeedback";
@@ -68,6 +69,14 @@ export function ProfileScreen({
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="profile-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
+      <TopActionCard
+        optional={viewModel.topAction.optional}
+        primaryAction={viewModel.topAction.primaryAction}
+        purpose={viewModel.topAction.purpose}
+        testID="profile-top-action-card"
+        title={viewModel.topAction.title}
+        why={viewModel.topAction.why}
+      />
       <SectionTabs items={profileSections} value={section} onChange={setSection} />
       {section === "athlete" ? (
         <View style={{ gap: spacing.lg }} testID="profile-athlete-section">
@@ -165,7 +174,7 @@ export function ProfileScreen({
               </View>
             </EngineCard>
           ) : (
-            <EmptyState title="No audit events yet" message="Journey events appear after onboarding, logs, or engine-owned persistence events." />
+            <EmptyState title="No audit events yet" message="Onboarding, logs, or engine-owned persistence events are missing from the journey history. This matters for traceability, not safety clearance. Keep using manual logs; events appear after real saves." />
           )}
         </View>
       ) : null}

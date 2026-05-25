@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import type { FuelContextCard, FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
+import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import {
@@ -62,23 +63,16 @@ function CollapsibleFuelSection({
   );
 }
 
-function FuelStartHereCard() {
+function FuelStartHereCard({ viewModel }: { viewModel: FuelViewModel }) {
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="fuel-start-here">
-        <Text style={screenStyles.sectionTitle}>Fuel start here</Text>
-        <Text style={screenStyles.fieldLabel}>First action</Text>
-        <Text style={screenStyles.callout}>Fuel the boxing work first.</Text>
-        <Text style={screenStyles.fieldLabel}>Why it matters</Text>
-        <Text style={screenStyles.body}>Training quality and safety come before weight changes.</Text>
-        <Text style={screenStyles.fieldLabel}>Log now</Text>
-        <Text style={screenStyles.body}>Add today's food/water if you have it.</Text>
-        <Text style={screenStyles.fieldLabel}>Ignore for now</Text>
-        <Text style={screenStyles.body}>Do not chase weight changes before training quality and safety are covered.</Text>
-        <Text style={screenStyles.fieldLabel}>Optional</Text>
-        <Text style={screenStyles.subtle}>Missing logs lower confidence and stay unknown. They are not treated as safe or as failure.</Text>
-      </View>
-    </EngineCard>
+    <TopActionCard
+      optional={viewModel.topAction.optional}
+      primaryAction={viewModel.topAction.primaryAction}
+      purpose={viewModel.topAction.purpose}
+      testID="fuel-top-action-card"
+      title={viewModel.topAction.title}
+      why={viewModel.topAction.why}
+    />
   );
 }
 
@@ -150,7 +144,7 @@ function TargetsCard({ viewModel }: { viewModel: FuelViewModel }) {
 
 function RecentFuelLogsCard({ recentLogs }: { recentLogs: RecentLogsViewModel }) {
   if (recentLogs.fuel.length === 0) {
-    return <EmptyState title="No recent fuel logs" message="Fuel history is optional context. Missing food logs lower confidence; they do not judge the boxer or change targets by themselves." />;
+    return <EmptyState title="No recent fuel logs" message="Food or hydration history is missing. It matters because Fuel confidence is lower without real intake context. Log food or water when you have it; targets stay engine-led." />;
   }
   return (
     <EngineCard>
@@ -181,7 +175,7 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="fuel-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
       <View style={{ gap: spacing.lg }} testID="fuel-command-section">
-        <FuelStartHereCard />
+        <FuelStartHereCard viewModel={viewModel} />
         <TodayFuelPriorityCard viewModel={viewModel} />
         <FoodQuickLogCard actions={quickLogs} busy={busy} />
         <HydrationLogCard actions={quickLogs} busy={busy} />

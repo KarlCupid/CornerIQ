@@ -2,48 +2,39 @@
 
 Date: 2026-05-25 America/Vancouver
 
-Pass: Simplify Fuel action path.
+Pass: Beta product feel and mobile clarity.
 
 Current branch during this pass: `main`
 
-Commit tested for evidence: `5b88eac607a03a16f755e8e54a7cf817724e9206` (short `5b88eac`)
+Evidence metadata: `qa:agent:ci` reports pre-commit HEAD `5bd9ddfc0cf37d47c36177e6c2e74c393725f80e` (short `5bd9ddf`) because verification ran before committing. The verified working tree contains this product-feel pass.
 
-## Human QA Finding
+## Scope
 
-Human QA reported that Fuel was still too cluttered, had no clear action path, and felt like a data dashboard instead of a simple command page.
+This pass focused on making the existing app feel clearer, more useful, and more alive without adding major new product surfaces.
 
-This pass stayed focused on Fuel UX/comprehension. No Supabase schema, migrations, EAS/iPhone distribution, Train, Plan, barcode scanning, meal planning, food database, reviewer-clear UI, or core nutrition safety-rule changes were added.
+No barcode scanning, meal planning, food database, coach UI, reviewer-clear UI, external analytics, drag/drop calendar, admin dashboard, Supabase schema changes, migrations, EAS/TestFlight work, generated contact drills, unsafe weight-cut copy, service-role keys, or secret display were added.
 
 ## What Changed
 
-- Added the first visible `fuel-start-here` card on Fuel with:
-  - First action: "Fuel the boxing work first."
-  - Why it matters: training quality and safety before weight changes.
-  - Log now: today's food/water if available.
-  - Ignore for now: do not chase weight changes before training quality and safety are covered.
-  - Missing logs lower confidence and stay unknown; they are not treated as safe or as failure.
-- Reduced default Fuel clutter to the start card, today's fuel priority, manual food log, and hydration.
-- Moved secondary detail behind collapsed sections:
-  - Safety review
-  - Details / why
-  - History
-  - Body Mass
-- Renamed visible Fuel sections toward plain-language labels: "What to do now", "Log food", "Hydration", "Safety review", and "Details / why".
-- Shortened missing-food copy to: "No food log yet today. That lowers confidence; it is not treated as safe."
-- Shortened safety review copy to say the user cannot self-clear nutrition hard stops, reviewer-clear workflow is not in the app yet, and urgent symptoms or unsafe weight concerns should stop and seek qualified support.
-- Updated Fuel app tests, nutrition review/fuel history view-model tests, and the Playwright agent audit to assert the new Fuel start card, collapsed details, unsafe-copy scan, and manual food quick-log path.
-- Updated `docs/qa/QA_LOOP_STATE.md` and `docs/qa/AGENT_BROWSER_AUDIT_RUNBOOK.md` for the new Fuel coverage.
+- Added a shared `TopActionCard` and engine-owned `TopActionViewModel` outputs so screens keep business copy in presentation view models instead of local UI logic.
+- Made Today open with `today-mission-card`, answering what to do first, the training call, why CornerIQ made it, and what can wait.
+- Added top action cards for Fuel, Train, Plan, and Profile so each tab quickly says what the screen is for, what to do now, and what is optional.
+- Improved quick-log success feedback for readiness, body mass, hydration, food, cycle, and training logs so users hear what confidence/context improved without overpromising recalculation.
+- Tightened mobile order and density: Today now leads with mission/training call/logging, engine detail is collapsed, and empty states explain missing data as unknown rather than safe or failure.
+- Updated Fuel/Train/Plan/Profile empty and helper copy while preserving boxing-only, manual-input-first, safety-first framing.
+- Updated app tests, Playwright agent audit assertions, deterministic QA analysis, and page-text snapshot scopes for the new mission/top-action cards.
+- Updated `docs/qa/QA_LOOP_STATE.md`; human comprehension, physical iPhone behavior, live Supabase/RLS/auth/data, and distribution remain `human_review_required`.
 
 ## QA Loop Result
 
-Latest approved local `qa:agent:ci`: passed.
+Latest approved clean `qa:agent:ci`: passed.
 
 - Normal gates in `qa:agent:ci`: install context, typecheck, tests, lint, quality, and beta preflight all passed.
-- Playwright scenarios: 9/9 passed.
-- Fuel audit now checks `fuel-start-here`, First action, "Fuel the boxing work first", missing-log unknown/lower-confidence copy, collapsed detailed sections, unsafe weight-cut scan, and the manual food quick-log path.
-- Deterministic analysis: pass.
-- Engine-output review: pass.
-- Gate results, contact sheet, AI review brief, deterministic analysis, and bundle were generated.
+- Tests: 42 files passed, 1 live DB smoke file skipped; 387 tests passed and 1 skipped.
+- Playwright agent audit: 9/9 scenarios passed.
+- Deterministic analysis: pass, with required mission/top-action text evidence present; nuanced comprehension still needs AI/human review.
+- Safety, secret, and object-serialization scans: pass.
+- Engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle were generated.
 - Bundle path: `qa-artifacts/corneriq-agent-qa-bundle.zip`.
 
 Generated but ignored artifacts:
@@ -62,23 +53,13 @@ Generated but ignored artifacts:
 
 ## Commands Run
 
-- `cmd /c npm install`: passed.
-- `cmd /c npm run typecheck`: passed.
-- `cmd /c npx vitest run src/tests/app/appShell.test.ts src/tests/engine/fuelHistoryViewModel.test.ts src/tests/engine/nutritionReviewHistoryViewModel.test.ts`: sandboxed run failed with the known Windows/esbuild access-denied config issue.
-- Approved focused Vitest rerun: passed with 83 tests.
-- `cmd /c npm test`: sandboxed run failed with the known Windows/esbuild access-denied config issue.
-- Approved `cmd /c npm test`: passed with 387 tests passed and 1 live DB smoke skipped.
-- `cmd /c npm run lint`: passed.
-- `cmd /c npm run quality`: sandboxed run failed at nested Vitest with the same Windows/esbuild access-denied issue.
-- Approved `cmd /c npm run quality`: passed with 387 tests passed and 1 live DB smoke skipped.
-- `cmd /c npm run preflight:beta`: passed.
-- `cmd /c npm run qa:agent:ci`: sandboxed run failed at nested Vitest/quality with the Windows/esbuild access-denied issue and then Expo localhost startup after sandbox network restrictions.
-- Approved `cmd /c npm run qa:agent:ci`: first approved rerun passed browser audit but failed the earlier lint gate because stale generated `qa-artifacts/playwright/html` files from the failed run were present before lint.
-- Removed generated `qa-artifacts/` after verifying the resolved path was inside the workspace.
-- Approved clean `cmd /c npm run qa:agent:ci`: passed all gates and regenerated the final bundle.
-- Post-doc `cmd /c npm run typecheck`: passed.
-- `cmd /c npm run qa:loop:state`: passed and printed the updated Fuel simplification QA state.
-- Approved post-doc `cmd /c npx vitest run src/tests/static/agentQaStatic.test.ts src/tests/docs/betaReleaseCandidateChecklist.test.ts`: passed with 14 tests.
+- `cmd /c npm install`: passed in the sandbox and in final `qa:agent:ci`.
+- `cmd /c npm run typecheck`: passed in the sandbox and in final `qa:agent:ci`.
+- `cmd /c npm test`: sandboxed run failed with the known Windows/esbuild access-denied config issue; approved reruns passed after product-feel test assertions were fixed.
+- `cmd /c npm run lint`: passed after the QA analysis/page-text updates and passed in final `qa:agent:ci`.
+- `cmd /c npm run quality`: sandboxed run failed at nested Vitest with the same Windows/esbuild access-denied issue; approved rerun passed, and final `qa:agent:ci` quality passed.
+- `cmd /c npm run preflight:beta`: passed in the sandbox and in final `qa:agent:ci`.
+- `cmd /c npm run qa:agent:ci`: sandboxed run failed at nested Vitest/quality with the Windows/esbuild access-denied issue and then Expo localhost startup restrictions; approved clean rerun passed after clearing generated artifacts, aligning deterministic comprehension evidence with `today-mission-card`/top-action cards, and widening main screen page-text scopes.
 
 Notes:
 
@@ -86,14 +67,14 @@ Notes:
 - No service-role keys or production data were used.
 - No Supabase schema or migrations were changed.
 - Existing `react-test-renderer` deprecation output and the existing onboarding `act(...)` warning still appear during Vitest.
-- Approved `qa:agent:ci` reported existing `npm audit` advisory counts during install context; dependency remediation was not part of this Fuel UX pass.
+- Approved `qa:agent:ci` reported existing `npm audit` output: 11 moderate severity advisories. Dependency remediation was not part of this product-feel pass.
 
 ## Current QA State
 
-`docs/qa/QA_LOOP_STATE.md` remains `needs_human_review`, not beta-ready. Fuel's automated first-action evidence is now passing, but these gates still require real evidence:
+`docs/qa/QA_LOOP_STATE.md` remains `needs_human_review`, not beta-ready. Automated evidence for the product-feel pass is passing, but these gates still require real evidence:
 
-- Real boxer comprehension of the simplified Fuel action path in Expo Go.
-- Real Supabase auth, email confirmation, session persistence, RLS, feedback persistence/cleanup, export/delete scope, and live smoke.
+- Real boxer comprehension of Today mission and tab-level action cards in Expo Go.
 - Physical iPhone touch, keyboard, scrolling, safe area, density, and Expo Go behavior.
+- Real Supabase auth, email confirmation, session persistence, RLS, feedback persistence/cleanup, export/delete scope, and live smoke.
 - Human safety interpretation for weight-class pressure language.
 - Distribution/EAS setup and preview build artifact.

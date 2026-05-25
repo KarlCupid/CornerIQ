@@ -154,8 +154,21 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   });
   const exerciseHistory = buildExerciseHistoryViewModel(state.training.recentExerciseResults);
   const hints = fuelHints(state, plan);
+  const primaryTrainingAction =
+    state.safety.hardStops.length > 0
+      ? "Follow the safety stop. Do not add generated support today."
+      : state.training.todaySessions.length > 0
+        ? "Open Workout when you are ready, then log completed or skipped."
+        : "No generated support is due. Log coach-led boxing if it happens.";
   return {
     title: "Train for boxing",
+    topAction: {
+      title: "Training action",
+      purpose: "Use Train for today's boxing-support work and what to log after.",
+      primaryAction: primaryTrainingAction,
+      why: plan?.explanation ?? state.training.explanation,
+      optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
+    },
     todaySummary: state.training.todaySessions.length > 0 ? state.training.todaySessions.map((session) => session.title).join(", ") : "No generated support today.",
     blockPhase: state.training.activeBlock.phase,
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),

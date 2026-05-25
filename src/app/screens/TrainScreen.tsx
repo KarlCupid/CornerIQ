@@ -5,6 +5,7 @@ import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
+import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
@@ -36,6 +37,14 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="train-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
+      <TopActionCard
+        optional={viewModel.topAction.optional}
+        primaryAction={viewModel.topAction.primaryAction}
+        purpose={viewModel.topAction.purpose}
+        testID="train-top-action-card"
+        title={viewModel.topAction.title}
+        why={viewModel.topAction.why}
+      />
       <SectionTabs items={trainSections} value={section} onChange={setSection} />
       {viewModel.riskSummary.length > 0 ? (
         <RiskBanner title="Training safety check" message="Training changes stay blocked or reduced while these safety notes are active." tone="critical">
@@ -113,7 +122,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
                 </View>
               )}
             </EngineCard>
-          )) : <EmptyState title="No workout detail today" message="Generated support only appears here on its due date. Future sessions stay in Plan until their date arrives." />}
+          )) : <EmptyState title="No workout detail today" message="No generated support detail is due today. That matters because future work should not be pulled forward from Plan. Log coach-led boxing if it happens; otherwise this section can wait." />}
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Protected workout logging</Text>

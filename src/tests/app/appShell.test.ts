@@ -62,8 +62,15 @@ vi.mock("react-native", () => {
 
 const todayViewModel: TodayViewModel = {
   title: "Today",
+  mission: {
+    title: "Today's mission",
+    purpose: "Use Today as the command center for the next useful step.",
+    primaryAction: "Log readiness or body mass if you have it. Then follow the training call.",
+    why: "The engine is waiting for fresh manual inputs.",
+    optional: "Food, water, pain, and cycle notes add context. Missing data stays unknown."
+  },
   whatChanged: "Low confidence because several inputs are missing.",
-  primaryAction: "Log readiness",
+  primaryAction: "Complete the planned support session.",
   firstAppAction: "Log readiness or body mass if you have it.",
   firstTrainingAction: "Complete the planned support session.",
   decisionStack: [
@@ -115,6 +122,13 @@ const fuelCommandCenter = {
 
 const fuelViewModel: FuelViewModel = {
   title: "Fuel",
+  topAction: {
+    title: "Fuel action",
+    purpose: "Use Fuel to cover today's boxing work without weight-class pressure.",
+    primaryAction: "Log food or water if you have it. Fuel the boxing work first.",
+    why: "Use familiar carbs around boxing practice.",
+    optional: "Targets, body mass, and review history can wait unless a safety note is active."
+  },
   commandCenter: fuelCommandCenter,
   weightClassStatus: {
     status: "no_active_weight_target",
@@ -261,6 +275,13 @@ const fuelViewModel: FuelViewModel = {
 
 const trainViewModel: TrainViewModel = {
   title: "Train",
+  topAction: {
+    title: "Training action",
+    purpose: "Use Train for today's boxing-support work and what to log after.",
+    primaryAction: "Open Workout when you are ready, then log completed or skipped.",
+    why: "Generated support fills a boxing-specific gap.",
+    optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
+  },
   todaySummary: "One support session.",
   blockPhase: "build_strength",
   blockGoal: "strength base",
@@ -349,6 +370,13 @@ const trainViewModel: TrainViewModel = {
 
 const planViewModel: PlanViewModel = {
   title: "Plan",
+  topAction: {
+    title: "Plan action",
+    purpose: "Use Plan to understand the week; screens request changes, the engine decides.",
+    primaryAction: "Review the week, then check Next Week preview when ready.",
+    why: "Week summary: 1 completed session(s), 0 skipped session(s), 1 completed exercise result(s), 0 partial exercise result(s).",
+    optional: "History and adjustments can wait unless your schedule changed."
+  },
   acceptedPreviewStatus: "preview",
   boundaryDate: "2026-05-26",
   weeklySummary: "Three support days.",
@@ -485,6 +513,13 @@ const planViewModel: PlanViewModel = {
 
 const profileViewModel: ProfileViewModel = {
   title: "Profile",
+  topAction: {
+    title: "Profile action",
+    purpose: "Use Profile for boxer settings, privacy, data controls, and beta feedback.",
+    primaryAction: "Keep athlete basics and preferences current when they change.",
+    why: "Settings shape engine confidence; manual input remains enough without a wearable.",
+    optional: "Audit, export/delete, and feedback can wait until you need them."
+  },
   summary: "Amateur novice boxer.",
   trainingAuditSummary: {
     activeBlockHistoryCount: 1,
@@ -880,6 +915,7 @@ describe("minimal app screens", () => {
     const { SectionTabs } = await import("../../design/components/SectionTabs");
     const { StatusBadge } = await import("../../design/components/StatusBadge");
     const { TimelineList } = await import("../../design/components/TimelineList");
+    const { TopActionCard } = await import("../../design/components/TopActionCard");
     const onAction = vi.fn();
     const onChange = vi.fn();
     function Probe() {
@@ -900,6 +936,13 @@ describe("minimal app screens", () => {
           }
         }),
         React.createElement(ActionCard, { title: "Action title", subtitle: "Action subtitle", actionLabel: "Run action", onAction }, React.createElement("Text", null, "Action child")),
+        React.createElement(TopActionCard, {
+          optional: "Optional top action copy",
+          primaryAction: "Do the top action",
+          purpose: "Top action purpose",
+          title: "Top action title",
+          why: "Top action why"
+        }),
         React.createElement(EmptyState, { title: "Empty title", message: "Empty message", actionLabel: "Empty action", onAction }),
         React.createElement(RiskBanner, { title: "Caution banner", message: "Caution copy", tone: "caution" }),
         React.createElement(RiskBanner, { title: "Critical banner", message: "Critical copy", tone: "critical" }),
@@ -912,6 +955,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(Probe));
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Action child");
+    expect(output).toContain("Do the top action");
     expect(output).toContain("Empty message");
     expect(output).toContain("Caution copy");
     expect(output).toContain("Critical copy");
@@ -1044,13 +1088,15 @@ describe("minimal app screens", () => {
       })
     ).toJSON();
     const output = JSON.stringify(tree);
-    expect(output).toContain("Start here");
-    expect(output).toContain("First app action");
-    expect(output).toContain("First training action");
+    expect(output).toContain("Today's mission");
+    expect(output).toContain("Use Today as the command center");
+    expect(output).toContain("Do now");
+    expect(output).toContain("Why");
+    expect(output).toContain("Optional");
     expect(output).toContain("Log readiness or body mass if you have it");
     expect(output).toContain("Complete the planned support session");
-    expect(output.indexOf("First app action")).toBeLessThan(output.indexOf("First training action"));
-    expect(output.indexOf("First app action")).toBeLessThan(output.indexOf("Last body mass"));
+    expect(output.indexOf("Today's mission")).toBeLessThan(output.indexOf("Training call"));
+    expect(output.indexOf("Today's mission")).toBeLessThan(output.indexOf("Last body mass"));
   });
 
   it("TodayScreen keeps risk, why, and no-shame missing-log copy visible", async () => {
@@ -1076,6 +1122,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Hard stop");
     expect(output).toContain("No-shame logging");
     expect(output).toContain("No logs yet today");
+    expect(output).toContain("That lowers confidence because the engine has less context");
     expect(output).toContain("Existing engine state stays visible");
 
     await switchSection(renderer, "Show why this decision");
@@ -1107,9 +1154,10 @@ describe("minimal app screens", () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Fuel start here");
-    expect(output).toContain("First action");
-    expect(output).toContain("Fuel the boxing work first.");
+    expect(output).toContain("Fuel action");
+    expect(output).toContain("Use Fuel to cover today's boxing work");
+    expect(output).toContain("Log food or water if you have it");
+    expect(output).toContain("Targets, body mass, and review history can wait");
     expect(output).toContain("What to do now");
     expect(output).toContain("Log food");
     expect(output).toContain("Hydration");
@@ -1432,6 +1480,9 @@ describe("minimal app screens", () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
     let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Training action");
+    expect(output).toContain("Use Train for today's boxing-support work");
+    expect(output).toContain("Open Workout when you are ready");
     expect(output).toContain("Protects the boxing anchor.");
     expect(output).toContain("Today's training decision");
     await switchSection(renderer, "Workout");
@@ -1661,6 +1712,9 @@ describe("minimal app screens", () => {
     );
 
     expect(state.viewModels.plan.dayPlans).toHaveLength(7);
+    expect(output).toContain("Plan action");
+    expect(output).toContain("Use Plan to understand the week");
+    expect(output).toContain("screens request changes, the engine decides");
     expect(output).toContain("build strength");
     expect(output).toContain("sparring (hard)");
     expect(output).toContain("Hard day");
@@ -2239,6 +2293,9 @@ describe("minimal app screens", () => {
         })
     );
     let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Profile action");
+    expect(output).toContain("Use Profile for boxer settings");
+    expect(output).toContain("manual input remains enough");
     expect(output).toContain("Cycle tracking is optional and private.");
     expect(output).toContain("Cycle data is optional");
     await switchSection(renderer, "Audit");

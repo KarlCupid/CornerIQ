@@ -250,8 +250,19 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     adjustmentHistory
       .filter((adjustment) => adjustment.planDate === date)
       .map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`);
+  const topActionPrimary =
+    nextWeekPreview.canAccept
+      ? "Review the week, then check Next Week preview when ready."
+      : "Check this week's protected boxing and generated support order.";
   return {
     title: "Weekly plan",
+    topAction: {
+      title: "Plan action",
+      purpose: "Use Plan to understand the week; screens request changes, the engine decides.",
+      primaryAction: topActionPrimary,
+      why: currentWeekSummary?.summary ?? state.training.activeBlock.weeklyStructure.summary,
+      optional: "History and adjustments can wait unless your schedule changed."
+    },
     acceptedPreviewStatus: nextWeekPreview.persistedStatus,
     boundaryDate: nextWeekPreview.weekStartDate,
     weeklySummary: state.training.activeBlock.weeklyStructure.summary,
