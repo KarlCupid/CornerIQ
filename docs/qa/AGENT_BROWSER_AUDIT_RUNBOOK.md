@@ -69,9 +69,11 @@ The smoke audit covers the shortcut path:
 The Fuel audit covers the local E2E path after onboarding:
 
 - Fuel tab visible from the local tab shell.
-- Fuel command, session fueling, hydration, confidence, and manual food quick-log path visible.
+- Fuel start-here card is visible first with First action copy, "Fuel the boxing work first", and missing-logs-lower-confidence/unknown framing.
+- Default Fuel view is focused on the start-here card, today's fuel priority, manual food logging, and hydration.
+- Details / why, History, Safety review, and Body Mass sections remain available behind collapsed controls.
 - Missing food logs are framed as unknown/lower-confidence context, not safe.
-- Reviews section shows nutrition review history, reviewer-clear future copy, and athlete cannot-self-clear hard-stop copy.
+- Safety review section shows nutrition review history, "You cannot self-clear nutrition hard stops", reviewer-clear-not-in-app copy, and urgent-support copy.
 - Body Mass section keeps unknown context visible.
 - Visible Fuel text is scanned for unsafe weight-cut instruction phrases such as dehydration, diuretics, laxatives, sauna, starvation, sweat-suit, or water-loading instructions.
 

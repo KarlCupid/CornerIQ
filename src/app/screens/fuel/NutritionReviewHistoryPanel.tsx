@@ -20,6 +20,7 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
         </Text>
         <Text style={screenStyles.subtle}>{history.safetyCopy}</Text>
         <Text style={screenStyles.subtle}>{history.reviewerFutureCopy}</Text>
+        <Text style={screenStyles.subtle}>{history.urgentSupportCopy}</Text>
         {history.activeReviews.length > 0 ? (
           history.activeReviews.map((review) => (
             <View key={review.reviewId} style={{ gap: spacing.xs }}>

@@ -313,7 +313,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Food quick log</Text>
+        <Text style={screenStyles.sectionTitle}>Log food</Text>
         <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}

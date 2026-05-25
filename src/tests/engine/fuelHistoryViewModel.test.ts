@@ -63,7 +63,7 @@ describe("fuelHistoryViewModel", () => {
       fightWeekActive: false
     });
 
-    expect(viewModel.todaySummary).toContain("not a failure");
+    expect(viewModel.todaySummary).toBe("No food log yet today. That lowers confidence; it is not treated as safe.");
     expect(viewModel.loggingConfidence).toBe("unknown");
     expect(viewModel.missingDataCopy).toContain("keeps targets separate");
     expect(viewModel.groupedDays[0]?.notes).toContain("No food log; target context does not change.");

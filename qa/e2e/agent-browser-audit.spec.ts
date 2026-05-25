@@ -328,13 +328,28 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel the rounds");
-  await expectVisibleText(page, "Fuel command");
-  await expectVisibleText(page, "Session fueling");
+  await expect(page.getByTestId("fuel-start-here")).toContainText("First action");
+  await expect(page.getByTestId("fuel-start-here")).toContainText("Fuel the boxing work first");
+  await expect(page.getByTestId("fuel-start-here")).toContainText(/Missing logs lower confidence.*unknown/i);
+  await expectVisibleText(page, "What to do now");
+  await expectVisibleText(page, "Fuel the boxing work first");
+  await expectVisibleText(page, "Log food");
   await expectVisibleText(page, "Hydration");
-  await expectVisibleText(page, /Confidence:/);
-  await expectVisibleText(page, /missed logs stay unknown/i);
-  await expectVisibleText(page, "Food quick log");
+  await expectVisibleText(page, "No food log yet today. That lowers confidence; it is not treated as safe.");
   await expect(page.getByRole("button", { name: /Save food/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show Details / why" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show History" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show Safety review" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show Body Mass" })).toBeVisible();
+  await expect(page.getByTestId("fuel-command-section")).not.toContainText("Body-mass trajectory");
+  await expect(page.getByTestId("fuel-command-section")).not.toContainText("Nutrition review history");
+  await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-command-section" });
+
+  await page.getByRole("button", { name: "Show Details / why" }).click();
+  await expect(page.getByTestId("fuel-command-detail-section")).toContainText("Details / why");
+  await expect(page.getByTestId("fuel-command-detail-section")).toContainText("Session fueling");
+  await page.getByRole("button", { name: "Hide Details / why" }).click();
+
   await page.getByPlaceholder("Calories").fill("650");
   await page.getByPlaceholder("Protein g").fill("40");
   await page.getByPlaceholder("Carbs g").fill("80");
@@ -345,17 +360,17 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Food log saved. Today will update after the engine refresh completes.");
   await expectVisibleText(page, "Food quick log captured in local E2E mode only.");
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-command-section"));
-  await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-command-section" });
   await capture(page, testInfo, "Fuel food quick log submit", "12-fuel-food-quick-log-submit.png", { fullPage: false, scopeTestId: "fuel-command-section" });
 
-  await page.getByRole("button", { name: "Show Reviews section" }).click();
+  await page.getByRole("button", { name: "Show Safety review" }).click();
   await expectVisibleText(page, "Nutrition review history");
-  await expectVisibleText(page, /Athletes cannot self-clear nutrition hard stops/i);
-  await expectVisibleText(page, /Reviewer-clear workflow is not exposed in the app yet/i);
+  await expectVisibleText(page, /You cannot self-clear nutrition hard stops/i);
+  await expectVisibleText(page, /Reviewer-clear workflow is not in the app yet/i);
+  await expectVisibleText(page, /For urgent symptoms or unsafe weight concerns, stop and seek qualified support/i);
   await expect(page.getByRole("button", { name: /clear/i })).toHaveCount(0);
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-reviews-section"));
 
-  await page.getByRole("button", { name: "Show Body Mass section" }).click();
+  await page.getByRole("button", { name: "Show Body Mass" }).click();
   await expectVisibleText(page, /unknown/i);
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-body-mass-section"));
 }

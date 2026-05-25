@@ -35,7 +35,7 @@ export function FuelCommandCard({ command }: { command: FuelCommandCenterState }
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Fuel command</Text>
+        <Text style={screenStyles.sectionTitle}>Details / why</Text>
         <Text style={screenStyles.callout}>{command.primaryFuelAction}</Text>
         <Text style={screenStyles.body}>{command.bodyMassAction}</Text>
         <Text style={screenStyles.subtle}>Confidence: {command.confidence.level}</Text>
@@ -76,7 +76,9 @@ export function NutritionSafetyReviewCard({
         <Text style={screenStyles.callout}>{review.professionalReviewCopy}</Text>
         {activeReview ? <Text style={screenStyles.body}>Review {activeReview.id}: {statusLabel(activeReview.status)}.</Text> : null}
         {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Hard stop remains active.</Text> : null}
-        <Text style={screenStyles.subtle}>This does not clear the plan. Athletes cannot self-clear nutrition hard stops.</Text>
+        <Text style={screenStyles.subtle}>You cannot self-clear nutrition hard stops.</Text>
+        <Text style={screenStyles.subtle}>Reviewer-clear workflow is not in the app yet.</Text>
+        <Text style={screenStyles.subtle}>For urgent symptoms or unsafe weight concerns, stop and seek qualified support.</Text>
         <Lines items={reasons.length > 0 ? reasons : ["Safety review is active."]} />
         {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Blocking flags</Text> : null}
         <Lines items={blockingFlags} />

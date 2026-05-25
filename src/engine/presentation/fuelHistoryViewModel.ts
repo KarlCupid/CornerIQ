@@ -229,7 +229,7 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
     todaySummary:
       foodToday.length > 0
         ? `${todayCalories} kcal logged today: ${todayProtein}g protein, ${todayCarbs}g carbs, ${todayFat}g fat.`
-        : "No manual food log today. Missing food data stays unknown, not a failure.",
+        : "No food log yet today. That lowers confidence; it is not treated as safe.",
     recentMeals:
       food7Day.length > 0
         ? food7Day

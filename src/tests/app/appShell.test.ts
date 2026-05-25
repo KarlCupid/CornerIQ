@@ -244,8 +244,9 @@ const fuelViewModel: FuelViewModel = {
     activeReviews: [],
     historyEvents: [],
     noHistoryCopy: "No review events are loaded yet. Active hard stops still remain active.",
-    safetyCopy: "This does not clear the plan. Athletes cannot self-clear nutrition hard stops.",
-    reviewerFutureCopy: "Reviewer-clear workflow is not exposed in the app yet."
+    safetyCopy: "You cannot self-clear nutrition hard stops.",
+    reviewerFutureCopy: "Reviewer-clear workflow is not in the app yet.",
+    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support."
   },
   bodyMassSummary: "Trend unknown",
   cycleNote: null,
@@ -1102,20 +1103,28 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Log cycle symptom");
   });
 
-  it("FuelScreen renders hitTheseFirst before raw details", async () => {
+  it("FuelScreen renders the start-here action path before raw details", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Command");
-    expect(output).toContain("Fuel command");
-    expect(output).toContain("Carbs");
+    expect(output).toContain("Fuel start here");
+    expect(output).toContain("First action");
+    expect(output).toContain("Fuel the boxing work first.");
+    expect(output).toContain("What to do now");
+    expect(output).toContain("Log food");
+    expect(output).toContain("Hydration");
+    expect(output).toContain("Show Details / why");
     expect(output).not.toContain("2200 kcal target");
-    expect(output).toContain("Food quick log");
-    await switchSection(renderer, "Body Mass");
+    expect(output).not.toContain("Body-mass trajectory");
+    await switchSection(renderer, "Show Details / why");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Details / why");
+    expect(output).toContain("Carbs");
+    await switchSection(renderer, "Show Body Mass");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Body-mass trajectory");
     expect(output).toContain("2200 kcal target");
-    await switchSection(renderer, "History");
+    await switchSection(renderer, "Show History");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Recent fuel history");
     expect(output).toContain("Actual intake today");
@@ -1149,13 +1158,13 @@ describe("minimal app screens", () => {
       tournamentFuel: { title: "Tournament fuel", status: "info", summary: "Stay near weight.", actions: ["Predictable carbs."] }
     };
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel }));
-    await switchSection(renderer, "History");
+    await switchSection(renderer, "Show History");
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Actual vs target today");
     expect(output).toContain("not a judgment");
     expect(output).toContain("8g fiber");
     expect(output).toContain("700mg sodium");
-    await switchSection(renderer, "Command");
+    await switchSection(renderer, "Show Details / why");
     const commandOutput = JSON.stringify(renderer.toJSON());
     expect(commandOutput).toContain("Fight-week fuel");
     expect(commandOutput).toContain("Tournament fuel");
@@ -1175,13 +1184,18 @@ describe("minimal app screens", () => {
         viewModel: state.viewModels.fuel
       })
     );
-    const output = JSON.stringify(renderer.toJSON());
+    let output = JSON.stringify(renderer.toJSON());
 
-    expect(output.indexOf("Fuel command")).toBeLessThan(output.indexOf("Safety review"));
-    expect(output).toContain("Safety review");
+    expect(output.indexOf("Review required before weight-class pressure continues")).toBeLessThan(output.indexOf("Log food"));
+    expect(output).toContain("Show Safety review");
+    expect(output).not.toContain("Request safety review");
+    await switchSection(renderer, "Show Safety review");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Review required before this plan can continue");
     expect(output).toContain("Request safety review");
-    expect(output).toContain("This does not clear the plan");
+    expect(output).toContain("You cannot self-clear nutrition hard stops.");
+    expect(output).toContain("Reviewer-clear workflow is not in the app yet.");
+    expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and seek qualified support.");
     await act(async () => {
       await press(pressableWithText(renderer, "Request safety review"));
     });
@@ -1256,8 +1270,12 @@ describe("minimal app screens", () => {
         viewModel
       })
     );
-    const output = JSON.stringify(renderer.toJSON());
+    let output = JSON.stringify(renderer.toJSON());
 
+    expect(output).toContain("Show Safety review");
+    expect(output).not.toContain("Acknowledge review status");
+    await switchSection(renderer, "Show Safety review");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("review_1");
     expect(output).toContain("Acknowledge review status");
     expect(output).toContain("Hard stop remains active");
@@ -1267,10 +1285,11 @@ describe("minimal app screens", () => {
     expect(onAcknowledgeNutritionSafetyReview).toHaveBeenCalledWith("review_1");
     expect(output).not.toMatch(/clear review|clear hard stop|cleared/i);
 
-    await switchSection(renderer, "History");
+    await switchSection(renderer, "Hide Safety review");
+    await switchSection(renderer, "Show History");
     const historyOutput = JSON.stringify(renderer.toJSON());
-    expect(historyOutput).toContain("Safety review remains active");
-    expect(historyOutput).toContain("cannot be self-cleared");
+    expect(historyOutput).toContain("History");
+    expect(historyOutput).toContain("Manual history");
     expect(historyOutput).not.toContain("Acknowledge review status");
   });
 
@@ -1321,8 +1340,9 @@ describe("minimal app screens", () => {
             }
           ],
           noHistoryCopy: "No review events are loaded yet.",
-          safetyCopy: "This does not clear the plan. Athletes cannot self-clear nutrition hard stops.",
-          reviewerFutureCopy: "Reviewer-clear workflow is not exposed in the app yet."
+          safetyCopy: "You cannot self-clear nutrition hard stops.",
+          reviewerFutureCopy: "Reviewer-clear workflow is not in the app yet.",
+          urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support."
         }
       })
     );
@@ -1330,8 +1350,9 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("review_1");
     expect(output).toContain("hard stop remains active");
-    expect(output).toContain("This does not clear the plan");
-    expect(output).toContain("Reviewer-clear workflow is not exposed");
+    expect(output).toContain("You cannot self-clear nutrition hard stops.");
+    expect(output).toContain("Reviewer-clear workflow is not in the app yet.");
+    expect(output).toContain("For urgent symptoms or unsafe weight concerns");
     expect(renderer.root.findAllByType("Pressable")).toHaveLength(0);
     expect(output).not.toMatch(/clear button|self-clear: yes/i);
   });
@@ -1383,7 +1404,9 @@ describe("minimal app screens", () => {
       },
       asOfDate: fixtureAsOfDate
     });
-    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel })).toJSON());
+    const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
+    await switchSection(renderer, "Show Details / why");
+    const output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Rehydration checklist");
     expect(output).toContain("First meal");
@@ -1395,7 +1418,9 @@ describe("minimal app screens", () => {
   it("FuelScreen renders tournament stay-near-weight priorities", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const state = resolvePerformanceState({ journey: amateur_open_tournament, asOfDate: fixtureAsOfDate });
-    const output = JSON.stringify(render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel })).toJSON());
+    const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
+    await switchSection(renderer, "Show Details / why");
+    const output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Tournament fuel");
     expect(output).toContain("Stay close enough");

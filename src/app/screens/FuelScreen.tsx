@@ -1,10 +1,8 @@
-import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import React, { type PropsWithChildren } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import type { FuelContextCard, FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
-import { RiskBanner } from "../../design/components/RiskBanner";
-import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import {
@@ -24,15 +22,6 @@ import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel"
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
-type FuelSection = "command" | "history" | "reviews" | "bodyMass";
-
-const fuelSections: readonly SectionTabItem<FuelSection>[] = [
-  { key: "command", label: "Command" },
-  { key: "history", label: "History" },
-  { key: "reviews", label: "Reviews" },
-  { key: "bodyMass", label: "Body Mass" }
-];
-
 export interface FuelScreenProps {
   busy: boolean;
   message: string | null;
@@ -41,6 +30,69 @@ export interface FuelScreenProps {
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: FuelViewModel;
+}
+
+function CollapsibleFuelSection({
+  children,
+  defaultOpen = false,
+  summary,
+  testID,
+  title
+}: PropsWithChildren<{
+  defaultOpen?: boolean | undefined;
+  summary: string;
+  testID: string;
+  title: string;
+}>) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Pressable
+        accessibilityHint={open ? `${title} is visible.` : `Open ${title}.`}
+        accessibilityRole="button"
+        accessibilityState={{ selected: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={screenStyles.quietButton}
+      >
+        <Text style={screenStyles.quietButtonText}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
+      </Pressable>
+      <Text style={screenStyles.subtle}>{summary}</Text>
+      {open ? <View style={{ gap: spacing.lg }} testID={testID}>{children}</View> : null}
+    </View>
+  );
+}
+
+function FuelStartHereCard() {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="fuel-start-here">
+        <Text style={screenStyles.sectionTitle}>Fuel start here</Text>
+        <Text style={screenStyles.fieldLabel}>First action</Text>
+        <Text style={screenStyles.callout}>Fuel the boxing work first.</Text>
+        <Text style={screenStyles.fieldLabel}>Why it matters</Text>
+        <Text style={screenStyles.body}>Training quality and safety come before weight changes.</Text>
+        <Text style={screenStyles.fieldLabel}>Log now</Text>
+        <Text style={screenStyles.body}>Add today's food/water if you have it.</Text>
+        <Text style={screenStyles.fieldLabel}>Ignore for now</Text>
+        <Text style={screenStyles.body}>Do not chase weight changes before training quality and safety are covered.</Text>
+        <Text style={screenStyles.fieldLabel}>Optional</Text>
+        <Text style={screenStyles.subtle}>Missing logs lower confidence and stay unknown. They are not treated as safe or as failure.</Text>
+      </View>
+    </EngineCard>
+  );
+}
+
+function TodayFuelPriorityCard({ viewModel }: { viewModel: FuelViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="fuel-today-priority">
+        <Text style={screenStyles.sectionTitle}>What to do now</Text>
+        <Text style={screenStyles.callout}>{viewModel.commandCenter.primaryFuelAction}</Text>
+        <Text style={screenStyles.body}>{viewModel.commandCenter.sessionFuelAction}</Text>
+        <Text style={screenStyles.subtle}>{viewModel.fuelHistory.todaySummary}</Text>
+      </View>
+    </EngineCard>
+  );
 }
 
 function FuelContextCardView({ card }: { card: FuelContextCard }) {
@@ -125,66 +177,62 @@ function FuelRiskCard({ message, viewModel }: { message: string | null; viewMode
 }
 
 export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
-  const [section, setSection] = React.useState<FuelSection>("command");
-  const activeReview = viewModel.activeNutritionSafetyReviews[0] ?? viewModel.nutritionSafetyReview.activeReview ?? null;
   return (
     <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="fuel-screen">
       <Text style={screenStyles.title}>{viewModel.title}</Text>
-      <SectionTabs items={fuelSections} value={section} onChange={setSection} />
-      {activeReview && section !== "command" && section !== "reviews" ? (
-        <RiskBanner
-          title="Safety review remains active"
-          message="This section is available for context, but nutrition hard stops stay visible and cannot be self-cleared."
-          tone={activeReview.hardStop ? "critical" : "caution"}
+      <View style={{ gap: spacing.lg }} testID="fuel-command-section">
+        <FuelStartHereCard />
+        <TodayFuelPriorityCard viewModel={viewModel} />
+        <FoodQuickLogCard actions={quickLogs} busy={busy} />
+        <HydrationLogCard actions={quickLogs} busy={busy} />
+      </View>
+      <CollapsibleFuelSection
+        summary="Open only when a hard stop, review request, or reviewer context matters."
+        testID="fuel-reviews-section"
+        title="Safety review"
+      >
+        <NutritionSafetyReviewCard
+          activeReviews={viewModel.activeNutritionSafetyReviews}
+          onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
+          onRequestReview={onRequestNutritionSafetyReview}
+          review={viewModel.nutritionSafetyReview}
         />
-      ) : null}
-      {section === "command" ? (
-        <View style={{ gap: spacing.lg }} testID="fuel-command-section">
-          <FuelCommandCard command={viewModel.commandCenter} />
-          <NutritionSafetyReviewCard
-            activeReviews={viewModel.activeNutritionSafetyReviews}
-            onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
-            onRequestReview={onRequestNutritionSafetyReview}
-            review={viewModel.nutritionSafetyReview}
-          />
-          <WeightClassStatusCard status={viewModel.weightClassStatus} />
-          <SessionFuelingCard command={viewModel.commandCenter} hitTheseFirst={viewModel.hitTheseFirst} />
-          {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
-          <FightWeekFuelCard plan={viewModel.fightWeekFuelPlan} />
-          <RehydrationChecklistCard checklist={viewModel.rehydrationChecklist} />
-          <TournamentFuelCard plan={viewModel.tournamentFuelPlan} />
-          <FoodQuickLogCard actions={quickLogs} busy={busy} />
-          <HydrationLogCard actions={quickLogs} busy={busy} />
-        </View>
-      ) : null}
-      {section === "history" ? (
-        <View style={{ gap: spacing.lg }} testID="fuel-history-section">
-          <ActualIntakeCard viewModel={viewModel} />
-          <FuelHistoryCard history={viewModel.fuelHistory} />
-          <FuelHistoryPanel history={viewModel.fuelHistory} />
-          <HydrationContextCard viewModel={viewModel} />
-          <RecentFuelLogsCard recentLogs={recentLogs} />
-        </View>
-      ) : null}
-      {section === "reviews" ? (
-        <View style={{ gap: spacing.lg }} testID="fuel-reviews-section">
-          <NutritionSafetyReviewCard
-            activeReviews={viewModel.activeNutritionSafetyReviews}
-            onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
-            onRequestReview={onRequestNutritionSafetyReview}
-            review={viewModel.nutritionSafetyReview}
-          />
-          <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
-          <FuelRiskCard message={message} viewModel={viewModel} />
-        </View>
-      ) : null}
-      {section === "bodyMass" ? (
-        <View style={{ gap: spacing.lg }} testID="fuel-body-mass-section">
-          <BodyMassTrajectoryCard trajectory={viewModel.bodyMassTrajectory} />
-          <BodyMassTrajectoryPanel trajectory={viewModel.bodyMassTrajectory} />
-          <TargetsCard viewModel={viewModel} />
-        </View>
-      ) : null}
+        <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
+        <FuelRiskCard message={message} viewModel={viewModel} />
+      </CollapsibleFuelSection>
+      <CollapsibleFuelSection
+        summary="Engine rationale, confidence, and fight-week or tournament detail live here."
+        testID="fuel-command-detail-section"
+        title="Details / why"
+      >
+        <FuelCommandCard command={viewModel.commandCenter} />
+        <SessionFuelingCard command={viewModel.commandCenter} hitTheseFirst={viewModel.hitTheseFirst} />
+        {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
+        <FightWeekFuelCard plan={viewModel.fightWeekFuelPlan} />
+        <RehydrationChecklistCard checklist={viewModel.rehydrationChecklist} />
+        <TournamentFuelCard plan={viewModel.tournamentFuelPlan} />
+      </CollapsibleFuelSection>
+      <CollapsibleFuelSection
+        summary="Manual fuel history is context only. Missing logs lower confidence; they do not judge the boxer."
+        testID="fuel-history-section"
+        title="History"
+      >
+        <ActualIntakeCard viewModel={viewModel} />
+        <FuelHistoryCard history={viewModel.fuelHistory} />
+        <FuelHistoryPanel history={viewModel.fuelHistory} />
+        <HydrationContextCard viewModel={viewModel} />
+        <RecentFuelLogsCard recentLogs={recentLogs} />
+      </CollapsibleFuelSection>
+      <CollapsibleFuelSection
+        summary="Body-mass context is secondary unless the engine or a qualified reviewer flags a safety concern."
+        testID="fuel-body-mass-section"
+        title="Body Mass"
+      >
+        <BodyMassTrajectoryCard trajectory={viewModel.bodyMassTrajectory} />
+        <BodyMassTrajectoryPanel trajectory={viewModel.bodyMassTrajectory} />
+        <WeightClassStatusCard status={viewModel.weightClassStatus} />
+        <TargetsCard viewModel={viewModel} />
+      </CollapsibleFuelSection>
     </ScrollView>
   );
 }

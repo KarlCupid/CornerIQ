@@ -100,7 +100,8 @@ describe("nutritionReviewHistoryViewModel", () => {
     });
 
     expect(viewModel.noHistoryCopy).toContain("No review events");
-    expect(viewModel.reviewerFutureCopy).toContain("not exposed");
+    expect(viewModel.reviewerFutureCopy).toContain("not in the app yet");
+    expect(viewModel.urgentSupportCopy).toContain("urgent symptoms");
     expect(JSON.stringify(viewModel)).not.toContain("doctor approved");
   });
 });

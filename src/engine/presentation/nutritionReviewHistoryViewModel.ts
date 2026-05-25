@@ -31,6 +31,7 @@ export interface NutritionReviewHistoryViewModel {
   noHistoryCopy: string;
   safetyCopy: string;
   reviewerFutureCopy: string;
+  urgentSupportCopy: string;
 }
 
 function uniqueActiveReviews(
@@ -101,7 +102,8 @@ export function buildNutritionReviewHistoryViewModel(input: {
         summary: eventSummary(event)
       })),
     noHistoryCopy: "No review events are loaded yet. Active hard stops still remain active.",
-    safetyCopy: "This does not clear the plan. Athletes cannot self-clear nutrition hard stops.",
-    reviewerFutureCopy: "Reviewer-clear workflow is not exposed in the app yet. A future permissioned reviewer event must be persisted before any clear state is shown."
+    safetyCopy: "You cannot self-clear nutrition hard stops.",
+    reviewerFutureCopy: "Reviewer-clear workflow is not in the app yet.",
+    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support."
   };
 }

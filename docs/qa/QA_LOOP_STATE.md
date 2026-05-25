@@ -7,14 +7,14 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 5549aaf57107e423f2a48508da1589ac80278ec3 (short 5549aaf) |
-| Last QA run result | all normal gates passed; `qa:agent:ci` passed with install/typecheck/tests/lint/quality/preflight, 9/9 Playwright scenarios, scoped page text, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
+| Last commit tested | 5b88eac607a03a16f755e8e54a7cf817724e9206 (short 5b88eac) |
+| Last QA run result | all normal gates passed; Fuel simplification audit passed with `fuel-start-here`, focused default Fuel screenshot, collapsed detail sections, manual food quick log, unsafe weight-cut scan, install/typecheck/tests/lint/quality/preflight, 9/9 Playwright scenarios, scoped page text, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 0 automatable; 3 human-only limitations remain explicitly tracked |
-| Next recommended action | Run physical iPhone, live Supabase/RLS/auth/data, and release-owner distribution checks before declaring beta ready |
+| Next recommended action | Verify the simplified Fuel action path with a human boxer in Expo Go, then run physical iPhone, live Supabase/RLS/auth/data, and release-owner distribution checks before declaring beta ready |
 | Beta readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.
@@ -86,13 +86,13 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | command visible | automated_pass | Fuel audit. |
-| first safe action clear | human_review_required | Automation checks simplified Fuel first action; real boxer comprehension remains human-only. |
+| first safe action clear | automated_pass | Fuel now opens with `fuel-start-here`, first action copy, what-to-log/what-to-ignore guidance, and collapsed secondary detail. Agent audit passed; real boxer comprehension remains human_review_required. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit. |
 | hydration copy safe | automated_pass | Fuel audit and scan. |
-| missing food logs unknown/lower confidence | automated_pass | Fuel audit. |
-| nutrition review/hard-stop/self-clear copy safe | automated_pass | Fuel audit. |
+| missing food logs unknown/lower confidence | automated_pass | Missing-food copy is shortened to "No food log yet today. That lowers confidence; it is not treated as safe." Agent audit passed. |
+| nutrition review/hard-stop/self-clear copy safe | automated_pass | Safety review copy says users cannot self-clear hard stops, reviewer-clear workflow is not in the app yet, and urgent symptoms/unsafe weight concerns should stop and seek qualified support. Agent audit passed. |
 | body mass copy safe | automated_pass | Fuel audit. |
 | no barcode/meal-planning expectation | accepted_beta_limitation | Barcode and meal planning are deferred. |
 
