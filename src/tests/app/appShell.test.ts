@@ -310,6 +310,7 @@ const trainViewModel: TrainViewModel = {
       title: "Strength support",
       intensity: "moderate",
       durationMinutes: 35,
+      prescription: ["Movement prep", "Goblet squat RPE 6", "Split squat", "Row variation"],
       why: "Protects the boxing anchor.",
       modifications: ["Keep it smooth"],
       protects: ["Technical session"],
@@ -507,6 +508,7 @@ const planViewModel: PlanViewModel = {
   hardDaySummary: "Two hard days max.",
   recoveryDaySummary: "One recovery day.",
   protectedAnchorSummary: "Coach work stays first.",
+  supportWorkReason: "Support work is low because protected boxing already creates hard days.",
   fightOrTournamentNote: null,
   warnings: ["Missing readiness lowers confidence."]
 };
@@ -560,6 +562,35 @@ const recentLogsViewModel: RecentLogsViewModel = {
   training: ["2026-05-19: technical session for 45 min."],
   cycle: ["No cycle log yet.", "Cycle support is not fertility tracking."],
   profile: ["Last journey event: OnboardingCompleted on 2026-05-19."],
+  readinessToday: {
+    loggedToday: true,
+    actionLabel: "Update readiness",
+    statusLabel: "Logged today",
+    summary: "Today's readiness logged: sleep 7.5h, energy 4/5, soreness 2/5.",
+    why: "Readiness can change during the day. Update it only when the original check no longer feels true."
+  },
+  bodyMassToday: {
+    loggedToday: true,
+    actionLabel: "Update body mass",
+    statusLabel: "Logged today",
+    summary: "Today's body mass logged: 66.4 kg.",
+    why: "Daily scale context improves trend confidence, but one value never becomes pressure to chase weight."
+  },
+  hydrationToday: {
+    loggedToday: true,
+    actionLabel: "Add hydration",
+    statusLabel: "Entries add up",
+    totalLabel: "Today's hydration total: 2.5 L from 1 entry.",
+    summary: "Hydration entries are summed for today's context.",
+    addToTodayCopy: "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."
+  },
+  foodToday: {
+    entryCount: 1,
+    actionLabel: "Add food entry",
+    statusLabel: "Entries add up",
+    summary: "1 food log today. 2200 kcal logged in today's context.",
+    addEntryCopy: "Use this for one meal/snack or a day total. Multiple entries add up in today's context."
+  },
   bodyMassTrendSummary: "Body mass trend unknown until 4 logs.",
   readinessLastCheckSummary: "Last readiness 2026-05-19: energy 4/5.",
   foodLogCountToday: "1 food log today.",
@@ -1159,8 +1190,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Log food or water if you have it");
     expect(output).toContain("Targets, body mass, and review history can wait");
     expect(output).toContain("What to do now");
-    expect(output).toContain("Log food");
-    expect(output).toContain("Hydration");
+    expect(output).toContain("Add meal/snack");
+    expect(output).toContain("Add hydration");
     expect(output).toContain("Show Details / why");
     expect(output).not.toContain("2200 kcal target");
     expect(output).not.toContain("Body-mass trajectory");
@@ -1234,7 +1265,7 @@ describe("minimal app screens", () => {
     );
     let output = JSON.stringify(renderer.toJSON());
 
-    expect(output.indexOf("Review required before weight-class pressure continues")).toBeLessThan(output.indexOf("Log food"));
+    expect(output.indexOf("Review required before weight-class pressure continues")).toBeLessThan(output.indexOf("Add meal/snack"));
     expect(output).toContain("Show Safety review");
     expect(output).not.toContain("Request safety review");
     await switchSection(renderer, "Show Safety review");
@@ -1487,7 +1518,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Today's training decision");
     await switchSection(renderer, "Workout");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Training log");
+    expect(output).toContain("Log your own training");
     await switchSection(renderer, "Exercise History");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Exercise history");
@@ -1500,7 +1531,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
     await switchSection(renderer, "Workout");
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Open workout detail");
+    expect(output).toContain("Log result");
     expect(output).toContain("Progression");
   });
 
@@ -1595,19 +1626,23 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
     await switchSection(renderer, "Workout");
     const closedOutput = JSON.stringify(renderer.toJSON());
-    expect(closedOutput).toContain("Open workout detail");
+    expect(closedOutput).toContain("Log result");
     expect(closedOutput).not.toContain("Recent training");
-    expect(closedOutput).toContain("Stop:");
+    expect(closedOutput).toContain("Show why / safety");
     await act(async () => {
-      await press(pressableWithText(renderer, "Open workout detail"));
+      await press(pressableWithText(renderer, "Log result"));
     });
     const openOutput = JSON.stringify(renderer.toJSON());
     expect(openOutput).toContain("Complete without exercise details");
     expect(openOutput).toContain("Session RPE is enough if you are short on time.");
-    expect(openOutput).toContain("Pain notes help the engine avoid automatic progression.");
     expect(openOutput).toContain("Skip session");
-    expect(openOutput).toContain("Blank exercise rows are saved as prescribed_only");
-    expect(openOutput).toContain("Result statuses");
+    expect(openOutput).toContain("Blank rows save as prescribed_only");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Show why / safety"));
+    });
+    const safetyOutput = JSON.stringify(renderer.toJSON());
+    expect(safetyOutput).toContain("Pain notes help the engine avoid automatic progression.");
+    expect(safetyOutput).toContain("Result statuses");
     await switchSection(renderer, "Progression");
     expect(JSON.stringify(renderer.toJSON())).toContain("Progression / next best action");
   });
@@ -1624,7 +1659,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(WorkoutDetailPanel, { busy: false, completionActions: { complete, skip }, session }));
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Open workout detail"));
+      await press(pressableWithText(renderer, "Log result"));
     });
     expect(JSON.stringify(renderer.toJSON()).toLowerCase()).not.toMatch(/\b(contact|sparring)\b/);
     await act(async () => {
@@ -1634,7 +1669,7 @@ describe("minimal app screens", () => {
     expect(complete.mock.calls[0]?.[1].exerciseResults.every((result: { resultStatus: string }) => result.resultStatus === "prescribed_only")).toBe(true);
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Open workout detail"));
+      await press(pressableWithText(renderer, "Log result"));
     });
     act(() => {
       changeInput(renderer, "Session notes / skip reason optional", "Travel day");
@@ -2241,6 +2276,10 @@ describe("minimal app screens", () => {
       })
     );
 
+    await act(async () => {
+      await press(pressableWithText(renderer, "Add fight"));
+    });
+    expect(JSON.stringify(renderer.toJSON())).toContain("Add this only if you have a real fight date or tournament window.");
     act(() => {
       changeInput(renderer, "Contracted weight kg", "abc");
     });
@@ -2261,7 +2300,7 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("Bout date");
 
     await act(async () => {
-      press(renderer.root.findAllByType("Pressable")[1]);
+      await press(pressableWithText(renderer, "Add tournament"));
     });
     act(() => {
       changeInput(renderer, "Possible bout dates, comma-separated", "2026-02-30");
@@ -2649,8 +2688,12 @@ describe("minimal app screens", () => {
       logReadiness: vi.fn()
     };
 
-    for (const Card of [BodyMassLogCard, FoodQuickLogCard, ProtectedWorkoutLogCard]) {
-      const renderer = render(React.createElement(Card, { actions, busy: false }));
+    for (const element of [
+      React.createElement(BodyMassLogCard, { actions, busy: false }),
+      React.createElement(FoodQuickLogCard, { actions, busy: false }),
+      React.createElement(ProtectedWorkoutLogCard, { actions, busy: false })
+    ]) {
+      const renderer = render(element);
       const buttons = renderer.root.findAllByType("Pressable");
       await act(async () => {
         await press(buttons[buttons.length - 1]);
@@ -2742,7 +2785,7 @@ describe("minimal app screens", () => {
       changeInput(food, "Fat g", "70");
     });
     await act(async () => {
-      await press(pressableWithText(food, "Save food"));
+      await press(pressableWithText(food, "Add food entry"));
     });
     expect(actions.logFood).toHaveBeenCalledWith(expect.objectContaining({ calories: 2200, proteinGrams: 130, carbohydrateGrams: 260, fatGrams: 70 }));
     const foodPayload = (actions.logFood as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];
@@ -2754,7 +2797,7 @@ describe("minimal app screens", () => {
       changeInput(hydration, "Water liters", "2.5");
     });
     await act(async () => {
-      await press(pressableWithText(hydration, "Log hydration"));
+      await press(pressableWithText(hydration, "Add hydration"));
     });
     expect(actions.logHydration).toHaveBeenCalledWith(expect.objectContaining({ liters: 2.5 }));
     const hydrationPayload = (actions.logHydration as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];

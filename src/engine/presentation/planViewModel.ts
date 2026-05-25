@@ -246,6 +246,10 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const nextWeekPreview = buildNextWeekPreview(state);
   const rollForward = rollForwardStatus(state, nextWeekPreview);
   const blockHistoryDetail = buildBlockHistoryDetail(state, nextWeekPreview);
+  const currentWeekGeneratedSupportCount = state.training.dayPlans.reduce((count, day) => count + day.generatedSessions.length, 0);
+  const protectedHardAnchorCount = state.training.protectedAnchors.filter(
+    (anchor) => anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max"
+  ).length;
   const notesForDate = (date: string): readonly string[] =>
     adjustmentHistory
       .filter((adjustment) => adjustment.planDate === date)
@@ -350,6 +354,10 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     hardDaySummary: `${state.training.activeBlock.weeklyStructure.plannedHardDays}/${state.training.activeBlock.weeklyStructure.hardDayCap} planned hard days used.`,
     recoveryDaySummary: `${state.training.activeBlock.weeklyStructure.recoveryDays.length} recovery/reset days planned.`,
     protectedAnchorSummary: `${state.training.protectedAnchors.length} protected boxing anchors remain fixed.`,
+    supportWorkReason:
+      protectedHardAnchorCount > 0 && currentWeekGeneratedSupportCount <= 3
+        ? "Support work is low because protected boxing already creates hard days."
+        : null,
     fightOrTournamentNote:
       state.tournamentStrategy.status === "active" || state.tournamentStrategy.status === "unsafe"
         ? state.tournamentStrategy.athleteFacingSummary

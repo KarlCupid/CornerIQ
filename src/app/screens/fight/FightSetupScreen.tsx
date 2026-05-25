@@ -43,6 +43,7 @@ function OptionButton({ active, busy, label, onPress }: { active: boolean; busy:
 export function FightSetupScreen({ asOfDate, busy, hasActiveFightOrTournament, isMinor, onSaveFight, onSaveTournament }: FightSetupScreenProps) {
   const defaultFight = createDefaultFightDraft(asOfDate);
   const defaultTournament = createDefaultTournamentDraft(asOfDate);
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"fight" | "tournament">("fight");
   const [status, setStatus] = useState<FightSetupDraft["status"]>(defaultFight.status);
   const [amateurOrPro, setAmateurOrPro] = useState<FightSetupDraft["amateurOrPro"]>(defaultFight.amateurOrPro);
@@ -126,15 +127,21 @@ export function FightSetupScreen({ asOfDate, busy, hasActiveFightOrTournament, i
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>{hasActiveFightOrTournament ? "Fight or tournament setup" : "Add fight or tournament"}</Text>
+        <Text style={screenStyles.body}>Add this only if you have a real fight date or tournament window.</Text>
         {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
-        {weighInType === "unknown" && mode === "fight" ? <Text style={screenStyles.callout}>This cut is blocked until weigh-in timing is confirmed.</Text> : null}
+        {open && weighInType === "unknown" && mode === "fight" ? <Text style={screenStyles.callout}>This cut is blocked until weigh-in timing is confirmed.</Text> : null}
         {isMinor ? <Text style={screenStyles.subtle}>Minor athletes stay safety-first; CornerIQ will not offer acute cut protocol wording.</Text> : null}
-        {hydrationTestingRequired && mode === "fight" ? <Text style={screenStyles.subtle}>Hydration testing will appear as a review caution in the engine.</Text> : null}
+        {open && hydrationTestingRequired && mode === "fight" ? <Text style={screenStyles.subtle}>Hydration testing will appear as a review caution in the engine.</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <OptionButton active={mode === "fight"} busy={busy} label="Fight" onPress={() => setMode("fight")} />
-          <OptionButton active={mode === "tournament"} busy={busy} label="Tournament" onPress={() => setMode("tournament")} />
+          <OptionButton active={open && mode === "fight"} busy={busy} label="Add fight" onPress={() => { setMode("fight"); setOpen(true); }} />
+          <OptionButton active={open && mode === "tournament"} busy={busy} label="Add tournament" onPress={() => { setMode("tournament"); setOpen(true); }} />
         </View>
-        {mode === "fight" ? (
+        {open ? (
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => setOpen(false)} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>Hide setup</Text>
+          </Pressable>
+        ) : null}
+        {open && mode === "fight" ? (
           <View style={{ gap: spacing.sm }}>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {(["tentative", "confirmed", "short_notice"] as const).map((option) => <OptionButton active={status === option} busy={busy} key={option} label={option.replace(/_/g, " ")} onPress={() => setStatus(option)} />)}
@@ -159,7 +166,7 @@ export function FightSetupScreen({ asOfDate, busy, hasActiveFightOrTournament, i
               <Text style={screenStyles.buttonText}>Save fight</Text>
             </Pressable>
           </View>
-        ) : (
+        ) : open ? (
           <View style={{ gap: spacing.sm }}>
             <TextInput onChangeText={setTournamentStartDate} placeholder="Start date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={tournamentStartDate} />
             <TextInput onChangeText={setTournamentEndDate} placeholder="End date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={tournamentEndDate} />
@@ -176,7 +183,7 @@ export function FightSetupScreen({ asOfDate, busy, hasActiveFightOrTournament, i
               <Text style={screenStyles.buttonText}>Save tournament</Text>
             </Pressable>
           </View>
-        )}
+        ) : null}
       </View>
     </EngineCard>
   );

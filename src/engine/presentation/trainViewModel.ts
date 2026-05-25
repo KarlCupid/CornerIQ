@@ -185,6 +185,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       title: session.title,
       intensity: session.intensity,
       durationMinutes: session.durationMinutes,
+      prescription: session.prescription,
       why: session.rationale,
       modifications: session.modifications,
       protects: session.protects,

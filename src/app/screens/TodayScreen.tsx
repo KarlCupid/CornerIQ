@@ -1,6 +1,7 @@
 import React from "react";
 import { ScrollView, Text, View } from "react-native";
 import type { CycleSymptom, CycleViewModel, RecentLogsViewModel, TodayViewModel } from "../../engine/core/types";
+import { ActionCard } from "../../design/components/ActionCard";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
@@ -46,29 +47,24 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
           </View>
         </RiskBanner>
       ) : null}
-      <EngineCard>
-        <View style={screenStyles.row}>
-          <Text style={screenStyles.sectionTitle}>Training call</Text>
-          <Text style={screenStyles.callout}>{viewModel.primaryAction}</Text>
-          <Text style={screenStyles.body}>Why: {viewModel.whatChanged}</Text>
-          <Text style={screenStyles.subtle}>Confidence: {viewModel.confidenceLabel}. Optional logs add context; missing data remains unknown.</Text>
-        </View>
-      </EngineCard>
-      <EngineCard>
-        <View style={{ gap: spacing.md }} testID="today-quick-logs">
-          <Text style={screenStyles.sectionTitle}>Quick logs</Text>
-          <Text style={screenStyles.subtle}>Manual input is first-class. Wearables only increase confidence when fresh and consistent.</Text>
-          {viewModel.quickLogs.map((item) => <Text key={item} style={screenStyles.subtle}>{item}</Text>)}
-          {message ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing engine state stays visible unless a hard stop says otherwise.</Text> : null}
-        </View>
-      </EngineCard>
-      <ReadinessCheckInCard actions={quickLogs} busy={busy} />
-      <BodyMassLogCard actions={quickLogs} busy={busy} />
-      <HydrationLogCard actions={quickLogs} busy={busy} />
+      <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
+      <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
+      <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
       {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} /> : null}
-      <EngineCard>
+      {message ? (
+        <EngineCard>
+          <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing engine state stays visible unless a hard stop says otherwise.</Text>
+        </EngineCard>
+      ) : null}
+      <ActionCard
+        action={viewModel.primaryAction}
+        detailLabel="today snapshot"
+        detailSummary="Open for the training/fuel snapshot after the daily logs."
+        status={`Confidence: ${viewModel.confidenceLabel}. Missing data remains unknown.`}
+        title="Training call"
+        why={viewModel.whatChanged}
+      >
         <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Today snapshot</Text>
           <Text style={screenStyles.fieldLabel}>Training</Text>
           <Text style={screenStyles.body}>{viewModel.trainingPriority}</Text>
           <Text style={screenStyles.subtle}>{recentLogs.trainingRecentSummary}</Text>
@@ -76,16 +72,22 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
           <Text style={screenStyles.body}>{viewModel.fuelPriority}</Text>
           <Text style={screenStyles.subtle}>{recentLogs.foodLogCountToday}</Text>
         </View>
-      </EngineCard>
-      <EngineCard>
+      </ActionCard>
+      <ActionCard
+        action="Add only the true manual logs you have."
+        detailLabel="optional context"
+        detailSummary="Manual input is first-class. Wearables only increase confidence when fresh and consistent."
+        status={`${recentLogs.bodyMassToday.statusLabel}; ${recentLogs.readinessToday.statusLabel}; ${recentLogs.hydrationToday.statusLabel}.`}
+        title="Missing and optional context"
+        why="No-shame logging: missing entries lower confidence; they are never treated as failure or permission to push harder."
+      >
         <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Missing and optional context</Text>
           <MetricRow label="Body mass" value={viewModel.bodyMassStatus} />
           <MetricRow label="Readiness" value={viewModel.readinessContext} />
           {viewModel.cycleContext ? <MetricRow label="Cycle" value={viewModel.cycleContext} /> : null}
-          <Text style={screenStyles.subtle}>No-shame logging: missing entries lower confidence; they are never treated as failure or permission to push harder.</Text>
+          {viewModel.quickLogs.map((item) => <Text key={item} style={screenStyles.subtle}>Optional log: {item}</Text>)}
         </View>
-      </EngineCard>
+      </ActionCard>
       <CycleContextCard cycleContext={cycleContext} trackingStatus={cycleTrackingStatus} />
       <DisclosureCard title="engine detail" summary="Optional rationale, confidence, and safety context.">
         <View style={{ gap: spacing.sm }}>

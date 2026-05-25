@@ -68,6 +68,11 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
   );
 }
 
+function prescriptionLine(sectionName: string, exerciseName: string, repsText: string | undefined, durationText: string | undefined): string {
+  const dose = repsText ?? durationText;
+  return dose ? `${sectionName}: ${exerciseName} - ${dose}` : `${sectionName}: ${exerciseName}`;
+}
+
 export function WorkoutDetailPanel({
   busy,
   completionActions,
@@ -79,7 +84,9 @@ export function WorkoutDetailPanel({
   completionMessage?: string | null | undefined;
   session: DetailedTrainingSession;
 }) {
-  const [open, setOpen] = useState(false);
+  const [resultOpen, setResultOpen] = useState(false);
+  const [exerciseDetailsOpen, setExerciseDetailsOpen] = useState(false);
+  const [whyOpen, setWhyOpen] = useState(false);
   const [sessionRpe, setSessionRpe] = useState("");
   const [painNotes, setPainNotes] = useState("");
   const [notes, setNotes] = useState("");
@@ -107,7 +114,7 @@ export function WorkoutDetailPanel({
         notes: notes.trim(),
         exerciseResults: parseExerciseResult(session, exerciseInputs)
       });
-      setOpen(false);
+      setResultOpen(false);
     } catch (error) {
       setLocalError(validationError(error, "Workout completion failed."));
     }
@@ -120,56 +127,37 @@ export function WorkoutDetailPanel({
     }
     setLocalError(null);
     await completionActions.skip(session, notes.trim());
-    setOpen(false);
+    setResultOpen(false);
   };
+
+  const visiblePrescription = session.sections
+    .flatMap((section) =>
+      section.exercises.map((exercise) =>
+        prescriptionLine(section.name, exercise.name, exercise.sets[0]?.repsText ?? exercise.repsText, exercise.sets[0]?.durationText ?? exercise.durationText)
+      )
+    )
+    .slice(0, 5);
 
   return (
     <View style={{ gap: spacing.md }}>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>{session.title}</Text>
         <Text style={screenStyles.body}>{session.intensity} - {session.durationMinutes} min - {session.sections.length} sections</Text>
-        <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
-        {session.readinessModifications.map((item) => <Text key={item} style={screenStyles.subtle}>Readiness: {item}</Text>)}
-        {session.cycleModifications.map((item) => <Text key={item} style={screenStyles.subtle}>Cycle: {item}</Text>)}
-        {session.stopConditions.slice(0, 3).map((item) => <Text key={item} style={screenStyles.subtle}>Stop: {item}</Text>)}
-        {session.safetyNotes.slice(0, 3).map((item) => <Text key={item} style={screenStyles.subtle}>Safety: {item}</Text>)}
+        <Text style={screenStyles.fieldLabel}>What to do</Text>
+        {visiblePrescription.map((item) => <Text key={item} style={screenStyles.body}>{item}</Text>)}
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
-        <Pressable accessibilityLabel={open ? "Hide workout detail" : "Open workout detail"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
-          <Text style={screenStyles.quietButtonText}>{open ? "Hide workout detail" : "Open workout detail"}</Text>
+        <Pressable accessibilityLabel={resultOpen ? "Hide workout result logger" : "Log result"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.button}>
+          <Text style={screenStyles.buttonText}>{resultOpen ? "Hide result logger" : "Log result"}</Text>
         </Pressable>
       </View>
-      {open ? (
+      {resultOpen ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.sectionTitle}>Log result</Text>
             <Text style={screenStyles.body}>Complete without exercise details when time is tight.</Text>
             <Text style={screenStyles.subtle}>Session RPE is enough if you are short on time.</Text>
-            <Text style={screenStyles.subtle}>Blank exercise rows are saved as prescribed_only. Skipped sessions do not save exercise rows.</Text>
-            <Text style={screenStyles.subtle}>Pain notes help the engine avoid automatic progression.</Text>
-            <Text style={screenStyles.subtle}>Skip reason is optional but visible here if context matters.</Text>
-            <Text style={screenStyles.subtle}>Result statuses: completed means all sets were done, partial means some work or a pain flag was logged, prescribed_only means no actual was entered, skipped means zero sets.</Text>
           </View>
-          {session.sections.map((section) => (
-            <View key={section.name} style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>{section.name}</Text>
-              <Text style={screenStyles.subtle}>{section.intent}</Text>
-              {section.exercises.map((exercise) => {
-                const input = exerciseInputs[exercise.exerciseId] ?? emptyExerciseResultInputs();
-                return (
-                  <View key={exercise.exerciseId} style={{ gap: spacing.sm }}>
-                    <ExercisePrescriptionCard exercise={exercise} sectionName={section.name} />
-                    <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, completedSets: value }))} placeholder="Completed sets optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.completedSets} />
-                    <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadText} />
-                    <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, rpe: value }))} placeholder="Exercise RPE optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.rpe} />
-                    <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, notes: value }))} placeholder="Exercise notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.notes} />
-                    <Pressable accessibilityLabel={`${input.painFlag ? "Remove" : "Add"} pain flag for ${exercise.name}`} accessibilityRole="button" accessibilityState={{ disabled: busy, selected: input.painFlag }} disabled={busy} onPress={() => updateExercise(exercise.exerciseId, (current) => ({ ...current, painFlag: !current.painFlag }))} style={[screenStyles.quietButton, input.painFlag ? { borderColor: colors.amberCaution } : null]}>
-                      <Text style={screenStyles.quietButtonText}>{input.painFlag ? "Pain flag on" : "Pain flag optional"}</Text>
-                    </Pressable>
-                  </View>
-                );
-              })}
-            </View>
-          ))}
           <TextInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
           <TextInput onChangeText={setPainNotes} placeholder="Pain note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
           <TextInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={notes} />
@@ -181,8 +169,50 @@ export function WorkoutDetailPanel({
               <Text style={screenStyles.quietButtonText}>{busy ? "Saving skip..." : "Skip session"}</Text>
             </Pressable>
           </View>
+          <View style={{ gap: spacing.sm }}>
+            <Pressable accessibilityLabel={exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"} accessibilityRole="button" accessibilityState={{ selected: exerciseDetailsOpen }} onPress={() => setExerciseDetailsOpen((value) => !value)} style={screenStyles.quietButton}>
+              <Text style={screenStyles.quietButtonText}>{exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"}</Text>
+            </Pressable>
+            <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows save as prescribed_only; skipped sessions do not save exercise rows.</Text>
+            {exerciseDetailsOpen ? session.sections.map((section) => (
+              <View key={section.name} style={{ gap: spacing.sm }}>
+                <Text style={screenStyles.sectionTitle}>{section.name}</Text>
+                <Text style={screenStyles.subtle}>{section.intent}</Text>
+                {section.exercises.map((exercise) => {
+                  const input = exerciseInputs[exercise.exerciseId] ?? emptyExerciseResultInputs();
+                  return (
+                    <View key={exercise.exerciseId} style={{ gap: spacing.sm }}>
+                      <ExercisePrescriptionCard exercise={exercise} sectionName={section.name} />
+                      <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, completedSets: value }))} placeholder="Completed sets optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.completedSets} />
+                      <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadText} />
+                      <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, rpe: value }))} placeholder="Exercise RPE optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.rpe} />
+                      <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, notes: value }))} placeholder="Exercise notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.notes} />
+                      <Pressable accessibilityLabel={`${input.painFlag ? "Remove" : "Add"} pain flag for ${exercise.name}`} accessibilityRole="button" accessibilityState={{ disabled: busy, selected: input.painFlag }} disabled={busy} onPress={() => updateExercise(exercise.exerciseId, (current) => ({ ...current, painFlag: !current.painFlag }))} style={[screenStyles.quietButton, input.painFlag ? { borderColor: colors.amberCaution } : null]}>
+                        <Text style={screenStyles.quietButtonText}>{input.painFlag ? "Pain flag on" : "Pain flag optional"}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            )) : null}
+          </View>
         </View>
       ) : null}
+      <View style={{ gap: spacing.sm }}>
+        <Pressable accessibilityLabel={whyOpen ? "Hide why and safety" : "Show why and safety"} accessibilityRole="button" accessibilityState={{ selected: whyOpen }} onPress={() => setWhyOpen((value) => !value)} style={screenStyles.quietButton}>
+          <Text style={screenStyles.quietButtonText}>{whyOpen ? "Hide why / safety" : "Show why / safety"}</Text>
+        </Pressable>
+        {whyOpen ? (
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
+            {session.readinessModifications.map((item) => <Text key={item} style={screenStyles.subtle}>Readiness: {item}</Text>)}
+            {session.cycleModifications.map((item) => <Text key={item} style={screenStyles.subtle}>Cycle: {item}</Text>)}
+            {session.stopConditions.slice(0, 3).map((item) => <Text key={item} style={screenStyles.subtle}>Stop: {item}</Text>)}
+            {session.safetyNotes.slice(0, 3).map((item) => <Text key={item} style={screenStyles.subtle}>Safety: {item}</Text>)}
+            <Text style={screenStyles.subtle}>Pain notes help the engine avoid automatic progression. Result statuses: completed, partial, prescribed_only, or skipped.</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }

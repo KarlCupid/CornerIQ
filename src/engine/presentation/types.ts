@@ -56,6 +56,35 @@ export interface RecentLogsViewModel {
   training: readonly string[];
   cycle: readonly string[];
   profile: readonly string[];
+  readinessToday: {
+    loggedToday: boolean;
+    actionLabel: string;
+    statusLabel: string;
+    summary: string;
+    why: string;
+  };
+  bodyMassToday: {
+    loggedToday: boolean;
+    actionLabel: string;
+    statusLabel: string;
+    summary: string;
+    why: string;
+  };
+  hydrationToday: {
+    loggedToday: boolean;
+    actionLabel: string;
+    statusLabel: string;
+    totalLabel: string;
+    summary: string;
+    addToTodayCopy: string;
+  };
+  foodToday: {
+    entryCount: number;
+    actionLabel: string;
+    statusLabel: string;
+    summary: string;
+    addEntryCopy: string;
+  };
   bodyMassTrendSummary: string;
   readinessLastCheckSummary: string;
   foodLogCountToday: string;
@@ -194,6 +223,7 @@ export interface TrainViewModel {
     title: string;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
+    prescription: readonly string[];
     why: string;
     modifications: readonly string[];
     protects: readonly string[];
@@ -351,6 +381,7 @@ export interface PlanViewModel {
   hardDaySummary: string;
   recoveryDaySummary: string;
   protectedAnchorSummary: string;
+  supportWorkReason: string | null;
   fightOrTournamentNote: string | null;
   warnings: readonly string[];
 }

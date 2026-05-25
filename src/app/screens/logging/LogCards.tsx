@@ -13,7 +13,7 @@ import {
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import type { QuickLogActions } from "../../../hooks/useQuickLogs";
-import type { CycleSymptom, SessionIntensity } from "../../../engine/core/types";
+import type { CycleSymptom, RecentLogsViewModel, SessionIntensity } from "../../../engine/core/types";
 import { screenStyles } from "../screenStyles";
 
 interface LogCardProps {
@@ -23,6 +23,10 @@ interface LogCardProps {
 interface QuickLogCardProps extends LogCardProps {
   actions: QuickLogActions;
 }
+
+type DailyLogStatus = RecentLogsViewModel["readinessToday"];
+type HydrationTodayStatus = RecentLogsViewModel["hydrationToday"];
+type FoodTodayStatus = RecentLogsViewModel["foodToday"];
 
 function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
@@ -34,6 +38,48 @@ function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy:
 
 function QuickLogHelp() {
   return <Text style={screenStyles.subtle}>Log enough for today. Optional fields can stay blank; missed logs stay unknown.</Text>;
+}
+
+function DailyLogFrame({
+  busy,
+  children,
+  status,
+  title
+}: React.PropsWithChildren<{
+  busy: boolean;
+  status?: DailyLogStatus | undefined;
+  title: string;
+}>) {
+  const [open, setOpen] = useState(() => !(status?.loggedToday ?? false));
+
+  React.useEffect(() => {
+    if (status?.loggedToday) {
+      setOpen(false);
+    }
+  }, [status?.loggedToday, status?.summary]);
+
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }}>
+        <Text style={screenStyles.sectionTitle}>{title}</Text>
+        {status ? (
+          <View style={{ gap: spacing.xs }}>
+            <Text style={status.loggedToday ? screenStyles.successText : screenStyles.callout}>{status.statusLabel}</Text>
+            <Text style={screenStyles.body}>{status.summary}</Text>
+            <Text style={screenStyles.subtle}>Why: {status.why}</Text>
+          </View>
+        ) : (
+          <QuickLogHelp />
+        )}
+        {status?.loggedToday && !open ? (
+          <Pressable accessibilityLabel={status.actionLabel} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setOpen(true)} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>{status.actionLabel}</Text>
+          </Pressable>
+        ) : null}
+        {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
+      </View>
+    </EngineCard>
+  );
 }
 
 function InputLabel({ children }: { children: React.ReactNode }) {
@@ -70,21 +116,19 @@ function intensityFromSessionRpe(rpe: number): SessionIntensity {
   return "max";
 }
 
-export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
+export function BodyMassLogCard({ actions, busy, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
   const [bodyMassKg, setBodyMassKg] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body mass log failed.");
   const [success, setSuccess] = useState<string | null>(null);
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Body mass</Text>
+    <DailyLogFrame busy={busy} status={status} title="Body mass">
         <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <InputLabel>Body mass (kg)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setBodyMassKg} placeholder="kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={bodyMassKg} />
         <Pressable
-          accessibilityLabel={busy ? "Saving body mass log" : "Log body mass"}
+          accessibilityLabel={busy ? "Saving body mass log" : status?.loggedToday ? "Update body mass" : "Log body mass"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -98,14 +142,13 @@ export function BodyMassLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving body mass..." : "Log body mass"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving body mass..." : status?.loggedToday ? "Update body mass" : "Log body mass"}</Text>
         </Pressable>
-      </View>
-    </EngineCard>
+    </DailyLogFrame>
   );
 }
 
-export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
+export function ReadinessCheckInCard({ actions, busy, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
   const [sleepHours, setSleepHours] = useState("");
   const [sleepQuality, setSleepQuality] = useState("");
   const [energy, setEnergy] = useState("");
@@ -133,9 +176,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
   };
 
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Readiness</Text>
+    <DailyLogFrame busy={busy} status={status} title={status?.loggedToday ? "Readiness summary" : "Readiness check due"}>
         <QuickLogHelp />
         <ReadinessScaleHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
@@ -160,7 +201,7 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
           <ToggleButton active={fainting} busy={busy} label="Fainting" onPress={() => setFainting((value) => !value)} />
         </View>
         <Pressable
-          accessibilityLabel={busy ? "Saving readiness log" : "Log readiness"}
+          accessibilityLabel={busy ? "Saving readiness log" : status?.loggedToday ? "Update readiness" : "Log readiness"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -185,14 +226,13 @@ export function ReadinessCheckInCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : "Log readiness"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : status?.loggedToday ? "Update readiness" : "Log readiness"}</Text>
         </Pressable>
-      </View>
-    </EngineCard>
+    </DailyLogFrame>
   );
 }
 
-export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
+export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Hydration log failed.");
@@ -200,8 +240,10 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Hydration</Text>
-        <QuickLogHelp />
+        <Text style={screenStyles.sectionTitle}>Add hydration</Text>
+        <Text style={screenStyles.callout}>{status?.totalLabel ?? "Today's hydration total: add water when you have a true amount."}</Text>
+        <Text style={screenStyles.subtle}>{status?.addToTodayCopy ?? "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."}</Text>
+        {status ? <Text style={screenStyles.subtle}>Status: {status.statusLabel}. {status.summary}</Text> : <QuickLogHelp />}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <InputLabel>Water (liters)</InputLabel>
@@ -209,7 +251,7 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
         <InputLabel>Sodium (mg, optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSodiumMg} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodiumMg} />
         <Pressable
-          accessibilityLabel={busy ? "Saving hydration log" : "Log hydration"}
+          accessibilityLabel={busy ? "Saving hydration log" : "Add hydration"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -226,7 +268,7 @@ export function HydrationLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving hydration..." : "Log hydration"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving hydration..." : "Add hydration"}</Text>
         </Pressable>
       </View>
     </EngineCard>
@@ -301,7 +343,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
   );
 }
 
-export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
+export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & { status?: FoodTodayStatus | undefined }) {
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
@@ -313,8 +355,9 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Log food</Text>
-        <QuickLogHelp />
+        <Text style={screenStyles.sectionTitle}>Add meal/snack</Text>
+        <Text style={screenStyles.body}>{status?.addEntryCopy ?? "Use this for one meal/snack or a day total. Multiple entries add up in today's context."}</Text>
+        <Text style={screenStyles.subtle}>Status: {status?.statusLabel ?? "Entries add up"}. {status?.summary ?? "Add to today; this does not replace existing food entries."}</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <InputLabel>Calories</InputLabel>
@@ -330,7 +373,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
         <InputLabel>Sodium (mg, optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSodium} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodium} />
         <Pressable
-          accessibilityLabel={busy ? "Saving food log" : "Save food quick log"}
+          accessibilityLabel={busy ? "Saving food log" : "Add food entry"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -361,7 +404,7 @@ export function FoodQuickLogCard({ actions, busy }: QuickLogCardProps) {
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : "Save food"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : status?.actionLabel ?? "Add food entry"}</Text>
         </Pressable>
       </View>
     </EngineCard>

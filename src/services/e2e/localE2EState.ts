@@ -35,6 +35,16 @@ export function buildLocalE2EPerformanceState(input: {
     protected: true,
     note: "Local E2E coach-led technical work"
   };
+  const protectedSparringWork: ProtectedWorkout = {
+    id: "local_e2e_sparring_2026-05-21",
+    type: "sparring",
+    date: "2026-05-21",
+    durationMinutes: 75,
+    intensity: "hard",
+    protected: true,
+    rounds: 6,
+    note: "Local E2E preset coach-led sparring"
+  };
   const journey: AthleteJourney = {
     athlete,
     activePhase: null,
@@ -59,7 +69,7 @@ export function buildLocalE2EPerformanceState(input: {
     exerciseResults: [],
     trainingHistory: [],
     trainingPlanAdjustments: [],
-    protectedWorkouts: [protectedTechnicalWork],
+    protectedWorkouts: [protectedTechnicalWork, protectedSparringWork],
     safetyFlags: [],
     journeyEvents: [
       {

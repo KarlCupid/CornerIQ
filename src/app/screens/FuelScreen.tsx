@@ -118,7 +118,7 @@ function HydrationContextCard({ viewModel }: { viewModel: FuelViewModel }) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Hydration and electrolytes</Text>
+        <Text style={screenStyles.sectionTitle}>Hydration target context</Text>
         <Text style={screenStyles.body}>{viewModel.commandCenter.hydrationAction}</Text>
         <Text style={screenStyles.subtle}>{viewModel.hydrationSummary}</Text>
       </View>
@@ -177,8 +177,8 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
       <View style={{ gap: spacing.lg }} testID="fuel-command-section">
         <FuelStartHereCard viewModel={viewModel} />
         <TodayFuelPriorityCard viewModel={viewModel} />
-        <FoodQuickLogCard actions={quickLogs} busy={busy} />
-        <HydrationLogCard actions={quickLogs} busy={busy} />
+        <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
+        <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
       </View>
       <CollapsibleFuelSection
         summary="Open only when a hard stop, review request, or reviewer context matters."

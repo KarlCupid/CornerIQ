@@ -79,10 +79,12 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Week</Text>
+              <Text style={screenStyles.callout}>Action: protect boxing anchors first; use generated support around them.</Text>
               <Text style={screenStyles.body}>{viewModel.weeklySummary}</Text>
               <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
               <Text style={screenStyles.body}>{viewModel.recoveryDaySummary}</Text>
               <Text style={screenStyles.body}>{viewModel.protectedAnchorSummary}</Text>
+              {viewModel.supportWorkReason ? <Text style={screenStyles.subtle}>{viewModel.supportWorkReason}</Text> : null}
               {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
             </View>
           </EngineCard>
@@ -91,8 +93,10 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
               <View style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.sectionTitle}>{day.label}</Text>
                 <Text style={screenStyles.callout}>{day.marker} - fuel demand {day.fuelDemand}</Text>
-                <Text style={screenStyles.body}>Protected: {day.protectedAnchors}</Text>
-                <Text style={screenStyles.body}>Generated: {day.generatedSupport}</Text>
+                <Text style={screenStyles.fieldLabel}>Protected boxing work</Text>
+                <Text style={screenStyles.body}>{day.protectedAnchors}</Text>
+                <Text style={screenStyles.fieldLabel}>Generated support</Text>
+                <Text style={screenStyles.body}>{day.generatedSupport}</Text>
                 <Text style={screenStyles.subtle}>{day.explanation}</Text>
                 {day.adjustmentNotes.map((note) => <Text key={note} style={screenStyles.subtle}>{note}</Text>)}
                 {day.warningSummary ? <Text style={screenStyles.subtle}>Warning: {day.warningSummary}</Text> : null}
@@ -152,8 +156,10 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
               {viewModel.nextWeekPreview.dayPlanPreview.map((day) => (
                 <View key={day.date} style={{ gap: spacing.sm }}>
                   <Text style={screenStyles.callout}>{day.date} - {day.marker} - fuel demand {day.fuelDemand}</Text>
-                  <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
-                  <Text style={screenStyles.subtle}>Generated preview: {day.generatedSupport}</Text>
+                  <Text style={screenStyles.fieldLabel}>Protected boxing work</Text>
+                  <Text style={screenStyles.subtle}>{day.protectedAnchors}</Text>
+                  <Text style={screenStyles.fieldLabel}>Generated support preview</Text>
+                  <Text style={screenStyles.subtle}>{day.generatedSupport}</Text>
                   <Text style={screenStyles.subtle}>{day.explanation}</Text>
                 </View>
               ))}
