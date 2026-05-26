@@ -1,8 +1,8 @@
 export const typography = {
   screenTitle: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: "800" as const,
-    lineHeight: 38
+    lineHeight: 40
   },
   heroTitle: {
     fontSize: 28,
@@ -40,8 +40,8 @@ export const typography = {
     lineHeight: 16
   },
   tileValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800" as const,
-    lineHeight: 25
+    lineHeight: 27
   }
 } as const;

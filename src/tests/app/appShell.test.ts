@@ -678,6 +678,10 @@ function pressableWithExactText(renderer: ReactTestRenderer, text: string): Test
   return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => item.findAllByType("Text").some((label) => label.props.children === text));
 }
 
+function pressableWithAccessibilityLabel(renderer: ReactTestRenderer, label: string): TestInstance | undefined {
+  return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => (item.props as { accessibilityLabel?: string }).accessibilityLabel === label);
+}
+
 async function switchSection(renderer: ReactTestRenderer, label: string): Promise<void> {
   await act(async () => {
     await press(pressableWithText(renderer, label));
@@ -2809,15 +2813,12 @@ describe("minimal app screens", () => {
     const readiness = render(React.createElement(ReadinessCheckInCard, { actions, busy: false }));
     await act(async () => {
       changeInput(readiness, "Sleep hours", "7");
-      changeInput(readiness, "Sleep quality 1-5", "6");
-      changeInput(readiness, "Energy 1-5", "4");
-      changeInput(readiness, "Soreness 1-5", "2");
-      changeInput(readiness, "Stress 1-5", "2");
-      changeInput(readiness, "Mood 1-5", "4");
-      await press(readiness.root.findAllByType("Pressable").at(-1));
+      await press(pressableWithAccessibilityLabel(readiness, "Energy (1-5) 4"));
+      await press(pressableWithAccessibilityLabel(readiness, "Soreness (1-5) 2"));
+      await press(pressableWithText(readiness, "Log readiness"));
     });
     expect(actions.logReadiness).not.toHaveBeenCalled();
-    expect(JSON.stringify(readiness.toJSON())).toContain("Sleep quality");
+    expect(JSON.stringify(readiness.toJSON())).toContain("Open More signals");
 
     const food = render(React.createElement(FoodQuickLogCard, { actions, busy: false }));
     await act(async () => {
@@ -2859,9 +2860,17 @@ describe("minimal app screens", () => {
     expect(output).toContain("missed logs stay unknown");
     expect(output).not.toMatch(/cheat|bad|failed athlete|noncompliant/);
 
-    const readinessOutput = JSON.stringify(render(React.createElement(ReadinessCheckInCard, { actions, busy: false })).toJSON());
+    const readiness = render(React.createElement(ReadinessCheckInCard, { actions, busy: false }));
+    let readinessOutput = JSON.stringify(readiness.toJSON());
+    expect(readinessOutput).toContain("More signals");
+    expect(readinessOutput).not.toContain("Pain notes optional");
+    await act(async () => {
+      await press(pressableWithText(readiness, "More signals"));
+    });
+    readinessOutput = JSON.stringify(readiness.toJSON());
     expect(readinessOutput).toContain("Use a 1-5 scale");
     expect(readinessOutput).toContain("For soreness/stress: 1 = none/easy, 5 = very high.");
+    expect(readinessOutput).toContain("Pain notes optional");
 
     const trainingCopy = JSON.stringify(render(React.createElement(ProtectedWorkoutLogCard, { actions, busy: false })).toJSON());
     expect(trainingCopy).toContain("Session RPE (1-10)");

@@ -12,21 +12,9 @@ export function EngineCard({ children }: PropsWithChildren) {
         borderRadius: radii.card,
         borderWidth: 1,
         gap: spacing.md,
-        overflow: "hidden",
         padding: spacing.lg
       }}
     >
-      <View
-        pointerEvents="none"
-        style={{
-          backgroundColor: colors.glassRail,
-          height: 1,
-          left: 0,
-          position: "absolute",
-          right: 0,
-          top: 0
-        }}
-      />
       {children}
     </View>
   );

@@ -27,11 +27,14 @@ interface QuickLogCardProps extends LogCardProps {
 type DailyLogStatus = RecentLogsViewModel["readinessToday"];
 type HydrationTodayStatus = RecentLogsViewModel["hydrationToday"];
 type FoodTodayStatus = RecentLogsViewModel["foodToday"];
+type ScaleValue = "1" | "2" | "3" | "4" | "5";
+
+const scaleValues: readonly ScaleValue[] = ["1", "2", "3", "4", "5"];
 
 function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" disabled={busy} onPress={onPress} style={[screenStyles.quietButton, active ? { borderColor: colors.blueIQ } : null]}>
-      <Text style={screenStyles.quietButtonText}>{label}</Text>
+    <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy, selected: active }} disabled={busy} onPress={onPress} style={[screenStyles.chip, active ? screenStyles.chipSelected : null]}>
+      <Text style={[screenStyles.chipText, active ? screenStyles.chipTextSelected : null]}>{label}</Text>
     </Pressable>
   );
 }
@@ -91,6 +94,42 @@ function ReadinessScaleHelp() {
     <View style={{ gap: spacing.xs }}>
       <Text style={screenStyles.subtle}>Use a 1-5 scale: 1 = low/poor, 5 = high/great.</Text>
       <Text style={screenStyles.subtle}>For soreness/stress: 1 = none/easy, 5 = very high.</Text>
+    </View>
+  );
+}
+
+function ScaleSegmentedControl({
+  busy,
+  label,
+  onChange,
+  value
+}: {
+  busy: boolean;
+  label: string;
+  onChange: (value: ScaleValue) => void;
+  value: string;
+}) {
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <InputLabel>{label}</InputLabel>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+        {scaleValues.map((option) => {
+          const selected = value === option;
+          return (
+            <Pressable
+              accessibilityLabel={`${label} ${option}`}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy, selected }}
+              disabled={busy}
+              key={`${label}:${option}`}
+              onPress={() => onChange(option)}
+              style={[screenStyles.chip, { borderRadius: 16, minHeight: 36, minWidth: 42, paddingHorizontal: spacing.sm }, selected ? screenStyles.chipSelected : null]}
+            >
+              <Text style={[screenStyles.chipText, selected ? screenStyles.chipTextSelected : null]}>{option}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -159,6 +198,7 @@ export function ReadinessCheckInCard({ actions, busy, status }: QuickLogCardProp
   const [illness, setIllness] = useState(false);
   const [dizziness, setDizziness] = useState(false);
   const [fainting, setFainting] = useState(false);
+  const [moreSignalsOpen, setMoreSignalsOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Readiness log failed.");
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -173,61 +213,77 @@ export function ReadinessCheckInCard({ actions, busy, status }: QuickLogCardProp
     setIllness(false);
     setDizziness(false);
     setFainting(false);
+    setMoreSignalsOpen(false);
   };
 
   return (
     <DailyLogFrame busy={busy} status={status} title={status?.loggedToday ? "Readiness summary" : "Readiness check due"}>
-        <QuickLogHelp />
-        <ReadinessScaleHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <InputLabel>Sleep hours</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setSleepHours} placeholder="Sleep hours" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sleepHours} />
-        <InputLabel>Sleep quality (1-5)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setSleepQuality} placeholder="Sleep quality 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sleepQuality} />
-        <InputLabel>Energy (1-5)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setEnergy} placeholder="Energy 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={energy} />
-        <InputLabel>Soreness (1-5)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setSoreness} placeholder="Soreness 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={soreness} />
-        <InputLabel>Stress (1-5)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setStress} placeholder="Stress 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={stress} />
-        <InputLabel>Mood (1-5)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setMood} placeholder="Mood 1-5" placeholderTextColor={colors.wrap} style={screenStyles.input} value={mood} />
-        <InputLabel>Pain notes (optional)</InputLabel>
-        <TextInput onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
+        <ScaleSegmentedControl busy={busy} label="Energy (1-5)" onChange={setEnergy} value={energy} />
+        <ScaleSegmentedControl busy={busy} label="Soreness (1-5)" onChange={setSoreness} value={soreness} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <ToggleButton active={illness} busy={busy} label="Illness" onPress={() => setIllness((value) => !value)} />
-          <ToggleButton active={dizziness} busy={busy} label="Dizziness" onPress={() => setDizziness((value) => !value)} />
-          <ToggleButton active={fainting} busy={busy} label="Fainting" onPress={() => setFainting((value) => !value)} />
+          <Pressable
+            accessibilityLabel={busy ? "Saving readiness log" : status?.loggedToday ? "Update readiness" : "Log readiness"}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() =>
+              runWithMessage(async () => {
+                setSuccess(null);
+                if (!sleepQuality.trim() || !stress.trim() || !mood.trim()) {
+                  setMoreSignalsOpen(true);
+                  throw new Error("Open More signals and choose sleep quality, stress, and mood before logging readiness.");
+                }
+                await actions.logReadiness({
+                  sleepHours: parseRequiredNonNegativeNumber(sleepHours, "Sleep hours", { example: "7.5" }),
+                  sleepQuality1To5: validateOneToFive(sleepQuality, "Sleep quality"),
+                  energy1To5: validateOneToFive(energy, "Energy"),
+                  soreness1To5: validateOneToFive(soreness, "Soreness"),
+                  stress1To5: validateOneToFive(stress, "Stress"),
+                  mood1To5: validateOneToFive(mood, "Mood"),
+                  painNotes: painNotes.trim() ? [painNotes.trim()] : [],
+                  illnessSymptoms: illness ? ["illness"] : [],
+                  dizziness,
+                  fainting
+                });
+                clear();
+                setSuccess("Readiness logged. CornerIQ has more confidence for today's training call.");
+              })
+            }
+            style={[screenStyles.button, { flexBasis: 220, flexGrow: 1 }]}
+          >
+            <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : status?.loggedToday ? "Update readiness" : "Log readiness"}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={moreSignalsOpen ? "Hide More signals" : "Show More signals"}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: moreSignalsOpen }}
+            disabled={busy}
+            onPress={() => setMoreSignalsOpen((value) => !value)}
+            style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}
+          >
+            <Text style={screenStyles.quietButtonText}>{moreSignalsOpen ? "Hide More signals" : "More signals"}</Text>
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityLabel={busy ? "Saving readiness log" : status?.loggedToday ? "Update readiness" : "Log readiness"}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy }}
-          disabled={busy}
-          onPress={() =>
-            runWithMessage(async () => {
-              setSuccess(null);
-              await actions.logReadiness({
-                sleepHours: parseRequiredNonNegativeNumber(sleepHours, "Sleep hours", { example: "7.5" }),
-                sleepQuality1To5: validateOneToFive(sleepQuality, "Sleep quality"),
-                energy1To5: validateOneToFive(energy, "Energy"),
-                soreness1To5: validateOneToFive(soreness, "Soreness"),
-                stress1To5: validateOneToFive(stress, "Stress"),
-                mood1To5: validateOneToFive(mood, "Mood"),
-                painNotes: painNotes.trim() ? [painNotes.trim()] : [],
-                illnessSymptoms: illness ? ["illness"] : [],
-                dizziness,
-                fainting
-              });
-              clear();
-              setSuccess("Readiness logged. CornerIQ has more confidence for today's training call.");
-            })
-          }
-          style={screenStyles.button}
-        >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : status?.loggedToday ? "Update readiness" : "Log readiness"}</Text>
-        </Pressable>
+        {moreSignalsOpen ? (
+          <View style={{ gap: spacing.sm }}>
+            <QuickLogHelp />
+            <ReadinessScaleHelp />
+            <ScaleSegmentedControl busy={busy} label="Sleep quality (1-5)" onChange={setSleepQuality} value={sleepQuality} />
+            <ScaleSegmentedControl busy={busy} label="Stress (1-5)" onChange={setStress} value={stress} />
+            <ScaleSegmentedControl busy={busy} label="Mood (1-5)" onChange={setMood} value={mood} />
+            <InputLabel>Pain notes (optional)</InputLabel>
+            <TextInput onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <ToggleButton active={illness} busy={busy} label="Illness" onPress={() => setIllness((value) => !value)} />
+              <ToggleButton active={dizziness} busy={busy} label="Dizziness" onPress={() => setDizziness((value) => !value)} />
+              <ToggleButton active={fainting} busy={busy} label="Fainting" onPress={() => setFainting((value) => !value)} />
+            </View>
+          </View>
+        ) : null}
     </DailyLogFrame>
   );
 }
@@ -237,6 +293,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
   const [sodiumMg, setSodiumMg] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Hydration log failed.");
   const [success, setSuccess] = useState<string | null>(null);
+  const actionLabel = status?.actionLabel ?? "Log water";
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -251,7 +308,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
         <InputLabel>Sodium (mg, optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSodiumMg} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodiumMg} />
         <Pressable
-          accessibilityLabel={busy ? "Saving hydration log" : "Log water"}
+          accessibilityLabel={busy ? "Saving hydration log" : actionLabel}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -268,7 +325,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving water..." : "Log water"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving water..." : actionLabel}</Text>
         </Pressable>
       </View>
     </EngineCard>

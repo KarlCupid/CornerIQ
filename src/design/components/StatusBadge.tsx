@@ -19,15 +19,15 @@ export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?:
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignSelf: "flex-start",
-        backgroundColor: color,
-        borderColor: color,
+        backgroundColor: `${color}24`,
+        borderColor: `${color}66`,
         borderRadius: radii.control,
         borderWidth: 1,
         paddingHorizontal: spacing.sm,
         paddingVertical: spacing.xs
       }}
     >
-      <Text style={{ color: tone === "caution" ? colors.cornerBlack : colors.canvas, fontSize: 12, fontWeight: "900" }}>{label}</Text>
+      <Text style={{ color, fontSize: 12, fontWeight: "800" }}>{label}</Text>
     </View>
   );
 }

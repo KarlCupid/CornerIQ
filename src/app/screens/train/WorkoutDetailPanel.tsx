@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { DetailedTrainingSession, ExerciseResultDraft } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
+import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
@@ -68,24 +69,106 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
   );
 }
 
-function prescriptionLine(sectionName: string, exercise: DetailedTrainingSession["sections"][number]["exercises"][number]): string {
+function exercisePrescriptionParts(exercise: DetailedTrainingSession["sections"][number]["exercises"][number]): readonly string[] {
   const firstSet = exercise.sets[0];
-  const setCount = exercise.sets.length > 1 ? `${exercise.sets.length} sets` : firstSet?.setLabel;
+  const setCount = exercise.sets.length > 1 ? `${exercise.sets.length} sets` : undefined;
   const dose = exercise.repsText ?? exercise.durationText ?? firstSet?.repsText ?? firstSet?.durationText;
   const rpe = exercise.rpeTarget ?? firstSet?.rpeTarget;
-  const parts = [setCount, dose, rpe ? `RPE ${rpe}` : null, `rest ${exercise.restText}`].filter(Boolean);
-  return parts.length > 0 ? `${sectionName}: ${exercise.name} - ${parts.join(", ")}` : `${sectionName}: ${exercise.name}`;
+  return [setCount, dose, rpe ? `RPE ${rpe}` : null, `rest ${exercise.restText}`].filter(Boolean) as string[];
 }
 
-function visiblePrescriptionLines(session: DetailedTrainingSession): readonly string[] {
-  const exerciseLines = session.sections.flatMap((section) => section.exercises.map((exercise) => prescriptionLine(section.name, exercise)));
-  if (exerciseLines.length >= 3) {
-    return exerciseLines.slice(0, 6);
-  }
-  return [
-    ...exerciseLines,
-    ...session.sections.map((section) => `${section.name}: ${section.intent}`)
-  ].slice(0, 6);
+function SessionMeta({ label }: { label: string }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "rgba(255, 255, 255, 0.06)",
+        borderColor: colors.line,
+        borderRadius: 16,
+        borderWidth: 1,
+        minHeight: 34,
+        justifyContent: "center",
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs
+      }}
+    >
+      <Text style={screenStyles.chipText}>{label}</Text>
+    </View>
+  );
+}
+
+function WorkoutSectionCard({
+  index,
+  section
+}: {
+  index: number;
+  section: DetailedTrainingSession["sections"][number];
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: "rgba(255, 255, 255, 0.055)",
+        borderColor: colors.line,
+        borderRadius: 20,
+        borderWidth: 1,
+        gap: spacing.md,
+        padding: spacing.md
+      }}
+    >
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: "rgba(39, 206, 241, 0.12)",
+            borderColor: "rgba(39, 206, 241, 0.36)",
+            borderRadius: 14,
+            borderWidth: 1,
+            height: 40,
+            justifyContent: "center",
+            width: 40
+          }}
+        >
+          <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
+        </View>
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>{section.name}</Text>
+          <Text style={screenStyles.subtle}>{section.intent}</Text>
+        </View>
+      </View>
+      <View style={{ gap: spacing.sm }}>
+        {section.exercises.map((exercise) => {
+          const parts = exercisePrescriptionParts(exercise);
+          return (
+            <View
+              key={exercise.exerciseId}
+              style={{
+                borderTopColor: colors.line,
+                borderTopWidth: 1,
+                gap: spacing.xs,
+                paddingTop: spacing.sm
+              }}
+            >
+              <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "700", lineHeight: 22 }}>{exercise.name}</Text>
+                  <Text style={screenStyles.subtle}>{exercise.category.replace(/_/g, " ")}</Text>
+                </View>
+              </View>
+              {parts.length > 0 ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+                  {parts.map((part, partIndex) => (
+                    <View key={`${exercise.exerciseId}:${partIndex}:${part}`} style={[screenStyles.chip, { minHeight: 32, paddingHorizontal: spacing.sm, paddingVertical: 4 }]}>
+                      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{part}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              <Text style={screenStyles.subtle}>Load: {exercise.loadGuidance}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
 }
 
 export function WorkoutDetailPanel({
@@ -145,20 +228,29 @@ export function WorkoutDetailPanel({
     setResultOpen(false);
   };
 
-  const visiblePrescription = visiblePrescriptionLines(session);
-
   return (
-    <View style={{ gap: spacing.md }}>
+    <EngineCard>
+    <View style={{ gap: spacing.lg }}>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>{session.title}</Text>
-        <Text style={screenStyles.body}>{session.intensity} - {session.durationMinutes} min - {session.sections.length} sections</Text>
-        <Text style={screenStyles.fieldLabel}>What to do</Text>
-        {visiblePrescription.map((item, index) => <Text key={`visible-prescription:${index}`} style={screenStyles.body}>{item}</Text>)}
+        <Text style={screenStyles.fieldLabel}>Generated workout</Text>
+        <Text style={screenStyles.heroTitle}>{session.title}</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+          <SessionMeta label={`${session.durationMinutes} min`} />
+          <SessionMeta label={session.intensity.replace(/_/g, " ")} />
+          <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
+        </View>
+        <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
         <Pressable accessibilityLabel={resultOpen ? "Hide workout result logger" : "Log result"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.button}>
           <Text style={screenStyles.buttonText}>{resultOpen ? "Hide result logger" : "Log result"}</Text>
         </Pressable>
+      </View>
+      <View style={{ gap: spacing.md }}>
+        <Text style={screenStyles.sectionTitle}>Session plan</Text>
+        {session.sections.map((section, index) => (
+          <WorkoutSectionCard index={index} key={`workout-section:${section.name}:${index}`} section={section} />
+        ))}
       </View>
       {resultOpen ? (
         <View style={{ gap: spacing.md }}>
@@ -223,5 +315,6 @@ export function WorkoutDetailPanel({
         ) : null}
       </View>
     </View>
+    </EngineCard>
   );
 }

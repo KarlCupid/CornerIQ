@@ -84,39 +84,39 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               <View
                 style={{
                   alignItems: "center",
-                  backgroundColor: focused ? tabAccentWashes[route.name] : "transparent",
+                  backgroundColor: focused ? tabAccentWashes[route.name].replace("0.16", "0.10").replace("0.15", "0.10").replace("0.12", "0.08") : "transparent",
                   borderRadius: radii.pill,
-                  height: 34,
+                  height: 32,
                   justifyContent: "center",
-                  minWidth: 44,
-                  paddingHorizontal: 10
+                  minWidth: 42,
+                  paddingHorizontal: 8
                 }}
               >
-                <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={focused ? 21 : 20} />
+                <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={20} />
               </View>
             ),
             tabBarItemStyle: {
-              borderRadius: 24,
-              paddingVertical: 4
+              borderRadius: 22,
+              paddingVertical: 2
             },
             tabBarLabelStyle: {
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: "700",
-              lineHeight: 16,
-              marginTop: 2
+              lineHeight: 14,
+              marginTop: 1
             },
             tabBarStyle: {
               backgroundColor: colors.panelDeep,
-              borderColor: colors.lineStrong,
-              borderRadius: 32,
+              borderColor: colors.line,
+              borderRadius: 30,
               borderTopColor: colors.line,
               borderWidth: 1,
-              bottom: Math.max(10, insets.bottom),
-              height: 80,
+              bottom: Math.max(insets.bottom, 8),
+              height: 76,
               left: 16,
               overflow: "hidden",
-              paddingBottom: 8,
-              paddingTop: 8,
+              paddingBottom: 7,
+              paddingTop: 7,
               position: "absolute",
               right: 16
             }

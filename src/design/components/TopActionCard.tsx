@@ -2,7 +2,7 @@ import React from "react";
 import { Text, View } from "react-native";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
-import { AccentPill, accentColor, type LuminousAccent } from "./LuminousScreen";
+import { accentColor, accentWash, type LuminousAccent } from "./LuminousScreen";
 
 export function TopActionCard({
   accent = "blue",
@@ -25,7 +25,7 @@ export function TopActionCard({
     <View
       style={{
         backgroundColor: colors.panel,
-        borderColor: colors.lineStrong,
+        borderColor: colors.line,
         borderRadius: radii.card,
         borderWidth: 1,
         gap: spacing.md,
@@ -35,46 +35,33 @@ export function TopActionCard({
       testID={testID}
     >
       <View
-        pointerEvents="none"
         style={{
-          backgroundColor: colors.glassRail,
-          height: 1,
-          left: 0,
+          backgroundColor: accentWash[accent],
+          height: 2,
+          left: spacing.lg,
+          opacity: 0.7,
+          pointerEvents: "none",
           position: "absolute",
-          right: 0,
+          right: spacing.lg,
           top: 0
         }}
       />
-      <View
-        pointerEvents="none"
-        style={{
-          backgroundColor: accentColor[accent],
-          height: 3,
-          left: 0,
-          opacity: 0.72,
-          position: "absolute",
-          right: 0,
-          top: 0
-        }}
-      />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        <AccentPill accent={accent} label={title} />
-        <AccentPill accent="blue" label="CornerIQ" />
-      </View>
-      <View style={{ flexDirection: "row", gap: spacing.md }}>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
         <View
           style={{
             backgroundColor: accentColor[accent],
-            borderRadius: radii.pill,
-            height: 10,
-            opacity: 0.72,
-            marginTop: 7,
-            width: 10
+            borderRadius: 4,
+            height: 8,
+            opacity: 0.9,
+            width: 8
           }}
         />
+        <Text style={{ color: accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{title}</Text>
+      </View>
+      <View style={{ flexDirection: "row", gap: spacing.md }}>
         <View style={{ flex: 1, gap: spacing.sm, minWidth: 0 }}>
           <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Do now</Text>
-          <Text style={{ ...typography.cardTitle, color: colors.canvas, flexShrink: 1 }}>{primaryAction}</Text>
+          <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 18, fontWeight: "700", lineHeight: 24 }}>{primaryAction}</Text>
           <Text style={{ ...typography.body, color: colors.wrap }}>{purpose}</Text>
         </View>
       </View>

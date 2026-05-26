@@ -1,53 +1,36 @@
 import React from "react";
 import type { PropsWithChildren } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
 
+const FLOATING_TAB_BAR_HEIGHT = 76;
+
 const luminousStyles = {
   backgroundTopWash: {
-    backgroundColor: "rgba(39, 206, 241, 0.026)",
-    height: 240,
+    backgroundColor: "rgba(39, 206, 241, 0.055)",
+    height: 180,
     left: 0,
+    pointerEvents: "none" as const,
     position: "absolute" as const,
     right: 0,
     top: 0
   },
-  backgroundMiddleWash: {
-    backgroundColor: "rgba(150, 87, 245, 0.014)",
-    bottom: 148,
-    height: 260,
-    left: 0,
-    position: "absolute" as const,
-    right: 0
-  },
-  backgroundBottomWash: {
-    backgroundColor: "rgba(255, 255, 255, 0.012)",
-    bottom: 0,
-    height: 180,
-    left: 0,
-    position: "absolute" as const,
-    right: 0
-  },
   content: {
     gap: spacing.xl,
     flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl
-  },
-  contentWithoutTabs: {
-    paddingBottom: spacing.xxl
-  },
-  contentWithTabs: {
-    paddingBottom: 132
+    paddingHorizontal: spacing.lg
   },
   headerPill: {
     alignSelf: "flex-start" as const,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    borderColor: colors.line,
+    borderWidth: 1,
     borderRadius: radii.pill,
     justifyContent: "center" as const,
-    minHeight: 30,
-    paddingHorizontal: spacing.lg,
+    minHeight: 28,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs
   },
   headerPillText: {
@@ -98,17 +81,18 @@ export function LuminousScreen({
   bottomInset?: "none" | "tabs" | undefined;
   testID: string;
 }>) {
+  const insets = useSafeAreaInsets();
+  const bottomPadding =
+    bottomInset === "tabs"
+      ? Math.max(insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + spacing.xl
+      : Math.max(insets.bottom, spacing.lg) + spacing.lg;
+
   return (
     <View style={luminousStyles.screen}>
-      <View pointerEvents="none" style={luminousStyles.backgroundTopWash} />
-      <View pointerEvents="none" style={luminousStyles.backgroundMiddleWash} />
-      <View pointerEvents="none" style={luminousStyles.backgroundBottomWash} />
+      <View style={luminousStyles.backgroundTopWash} />
       <ScrollView
         accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
-        contentContainerStyle={[
-          luminousStyles.content,
-          bottomInset === "tabs" ? luminousStyles.contentWithTabs : luminousStyles.contentWithoutTabs
-        ]}
+        contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.lg, spacing.xl) }]}
         style={luminousStyles.scrollFill}
         testID={testID}
       >
@@ -219,12 +203,12 @@ export function MetricTile({
       }}
     >
       <View
-        pointerEvents="none"
         style={{
           backgroundColor: accentColor[accent],
           height: 2,
           left: spacing.md,
           opacity: 0.78,
+          pointerEvents: "none",
           position: "absolute",
           right: spacing.md,
           top: 0

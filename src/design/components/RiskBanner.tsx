@@ -29,21 +29,9 @@ export function RiskBanner({
         borderRadius: radii.card,
         borderWidth: 1,
         gap: spacing.sm,
-        overflow: "hidden",
         padding: spacing.lg
       }}
     >
-      <View
-        pointerEvents="none"
-        style={{
-          backgroundColor: colors.glassRail,
-          height: 1,
-          left: 0,
-          position: "absolute",
-          right: 0,
-          top: 0
-        }}
-      />
       <StatusBadge label={resolvedStatusLabel} tone={tone} />
       <Text style={{ ...typography.cardTitle, color: borderColor }}>{title}</Text>
       <Text style={{ ...typography.body, color: colors.wrap }}>{message}</Text>

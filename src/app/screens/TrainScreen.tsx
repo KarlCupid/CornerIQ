@@ -9,7 +9,7 @@ import { LuminousScreen, MetricTile, ScreenHeader, type LuminousAccent } from ".
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
-import { spacing } from "../../design/theme";
+import { colors, spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
@@ -91,14 +91,23 @@ function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards
             <View
               style={{
                 alignItems: "center",
-                backgroundColor: flowAccent(index) === "blue" ? "#27CEF1" : flowAccent(index) === "purple" ? "#9657F5" : flowAccent(index) === "orange" ? "#FF9448" : "#38E28A",
+                backgroundColor: "rgba(255, 255, 255, 0.06)",
+                borderColor:
+                  flowAccent(index) === "blue"
+                    ? "rgba(39, 206, 241, 0.36)"
+                    : flowAccent(index) === "purple"
+                      ? "rgba(150, 87, 245, 0.34)"
+                      : flowAccent(index) === "orange"
+                        ? "rgba(255, 148, 72, 0.34)"
+                        : "rgba(56, 226, 138, 0.34)",
                 borderRadius: 16,
-                height: 56,
+                borderWidth: 1,
+                height: 48,
                 justifyContent: "center",
-                width: 56
+                width: 48
               }}
             >
-              <Text style={{ color: "#F7FBFF", fontSize: 18, fontWeight: "900" }}>{String(index + 1).padStart(2, "0")}</Text>
+              <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "800" }}>{String(index + 1).padStart(2, "0")}</Text>
             </View>
             <View style={{ flex: 1, gap: spacing.xs }}>
               <Text style={screenStyles.body}>{item}</Text>
@@ -187,18 +196,18 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
       {section === "workout" ? (
         <View style={{ gap: spacing.lg }} testID="train-workout-section">
           {viewModel.detailedTodaySessions.length > 0 ? viewModel.detailedTodaySessions.map((session) => (
-            <EngineCard key={session.generatedSessionId}>
-              {session.detail ? (
-                <WorkoutDetailPanel busy={busy} completionActions={completionActions} completionMessage={completionMessage} session={session.detail} />
-              ) : (
+            session.detail ? (
+              <WorkoutDetailPanel busy={busy} completionActions={completionActions} completionMessage={completionMessage} key={session.generatedSessionId} session={session.detail} />
+            ) : (
+              <EngineCard key={session.generatedSessionId}>
                 <View style={{ gap: spacing.sm }}>
                   <Text style={screenStyles.sectionTitle}>{session.title}</Text>
                   {session.firstExercises.map((item, index) => <Text key={`first-exercise:${session.generatedSessionId}:${index}`} style={screenStyles.body}>{item}</Text>)}
                   <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
                   {session.safetyNotes.map((note, index) => <Text key={`fallback-safety:${session.generatedSessionId}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
                 </View>
-              )}
-            </EngineCard>
+              </EngineCard>
+            )
           )) : <EmptyState title="No workout detail today" message="No generated support detail is due today. That matters because future work should not be pulled forward from Plan. Log coach-led boxing if it happens; otherwise this section can wait." />}
           <ManualTrainingLoggerSection busy={busy} quickLogs={quickLogs} />
         </View>

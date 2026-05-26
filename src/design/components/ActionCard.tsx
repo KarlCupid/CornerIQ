@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import type { PropsWithChildren } from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "./EngineCard";
-import { colors, radii, spacing } from "../theme";
+import { colors, spacing } from "../theme";
 import { typography } from "../typography";
 
 export function ActionCard({
@@ -72,17 +72,17 @@ export function ActionCard({
             onPress={() => setDetailsOpen((value) => !value)}
             style={{
               alignItems: "center",
-              backgroundColor: "rgba(255, 255, 255, 0.92)",
-              borderColor: "rgba(255, 255, 255, 0.92)",
-              borderRadius: radii.control,
+              backgroundColor: "rgba(255, 255, 255, 0.07)",
+              borderColor: colors.line,
+              borderRadius: 20,
               borderWidth: 1,
               justifyContent: "center",
-              minHeight: 48,
-              paddingHorizontal: spacing.lg,
+              minHeight: 44,
+              paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm
             }}
           >
-            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>{detailsOpen ? `Hide ${detailLabel}` : `Show ${detailLabel}`}</Text>
+            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700" }}>{detailsOpen ? `Hide ${detailLabel}` : `Show ${detailLabel}`}</Text>
           </Pressable>
         ) : null}
         {hasCollapsibleDetails ? (detailsOpen ? <View style={{ gap: spacing.sm }}>{children}</View> : null) : children}
@@ -96,7 +96,7 @@ export function ActionCard({
             style={{
               alignItems: "center",
               backgroundColor: colors.blueIQ,
-              borderRadius: radii.control,
+              borderRadius: 20,
               justifyContent: "center",
               minHeight: 48,
               paddingHorizontal: spacing.lg,

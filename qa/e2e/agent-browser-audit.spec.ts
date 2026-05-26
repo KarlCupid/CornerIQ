@@ -216,11 +216,12 @@ async function exerciseTodayQuickLogSaves(page: Page) {
     await updateReadiness.first().click();
   }
   await page.getByPlaceholder("Sleep hours").fill("7.5");
-  await page.getByPlaceholder("Sleep quality 1-5").fill("4");
-  await page.getByPlaceholder("Energy 1-5").fill("4");
-  await page.getByPlaceholder("Soreness 1-5").fill("2");
-  await page.getByPlaceholder("Stress 1-5").fill("2");
-  await page.getByPlaceholder("Mood 1-5").fill("4");
+  await page.getByRole("button", { name: "Energy (1-5) 4" }).click();
+  await page.getByRole("button", { name: "Soreness (1-5) 2" }).click();
+  await page.getByRole("button", { name: "Show More signals" }).click();
+  await page.getByRole("button", { name: "Sleep quality (1-5) 4" }).click();
+  await page.getByRole("button", { name: "Stress (1-5) 2" }).click();
+  await page.getByRole("button", { name: "Mood (1-5) 4" }).click();
   await page.getByRole("button", { name: /Log readiness|Update readiness/ }).last().click();
   await expectVisibleText(page, "Readiness logged. CornerIQ has more confidence for today's training call.");
   await expectVisibleText(page, "Readiness log captured in local E2E mode only.");
@@ -352,19 +353,16 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("can wait unless a safety note is active");
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Today's fuel targets");
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Based on body mass, training demand, readiness, phase, and safety status.");
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Calories:\s+\d+\s+kcal/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Protein:\s+\d+g/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Carbs:\s+\d+g/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Fat:\s+\d+g/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Water:\s+\d+(\.\d+)?L/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Calories\s*\d+\s*kcal\s*\/\s*\d+\s*kcal/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Protein\s*\d+g\s*\/\s*\d+g/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Carbs\s*\d+g\s*\/\s*\d+g/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Fat\s*\d+g\s*\/\s*\d+g/i);
   await expectVisibleText(page, "What to do now");
   await expectVisibleText(page, "Fuel the boxing work first");
-  await expectVisibleText(page, "Add meal/snack");
+  await expectVisibleText(page, "Log food");
   await expectVisibleText(page, "Use this for one meal/snack or a day total. Multiple entries add up in today's context.");
-  await expectVisibleText(page, "Add hydration");
-  await expectVisibleText(page, "Add hydration to today. Each save adds another water/sodium entry");
   await expectVisibleText(page, "No food log yet today. That lowers confidence; it is not treated as safe.");
-  await expect(page.getByRole("button", { name: "Add food entry" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Log food" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Show Details / why" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Show History" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Show Safety review" })).toBeVisible();
@@ -384,7 +382,7 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.getByPlaceholder("Fat g").fill("18");
   await page.getByPlaceholder("Fiber g optional").fill("7");
   await page.getByPlaceholder("Sodium mg optional").last().fill("600");
-  await page.getByRole("button", { name: "Add food entry" }).click();
+  await page.getByRole("button", { name: "Log food" }).click();
   await expectVisibleText(page, "Food logged. Fuel confidence has more intake context; missing hydration still lowers confidence when absent.");
   await expectVisibleText(page, "Food quick log captured in local E2E mode only.");
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-command-section"));
@@ -564,7 +562,7 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-adjustments-section"));
   await capture(page, testInfo, "Plan Adjustments screen", "22-plan-adjustments-screen.png", { scopeTestId: "plan-adjustments-section" });
 
-  await openSection(page, "Block History");
+  await openSection(page, "History");
   await expectVisibleText(page, "Block timeline");
   await expectVisibleText(page, "Engine-owned history.");
   await expectVisibleText(page, "Screens do not mutate programming decisions.");

@@ -11,15 +11,15 @@ export const screenStyles = {
     flex: 1
   } satisfies ViewStyle,
   ambientTop: {
-    backgroundColor: "rgba(39, 206, 241, 0.026)",
-    height: 240,
+    backgroundColor: "rgba(39, 206, 241, 0.055)",
+    height: 180,
     left: 0,
     position: "absolute",
     right: 0,
     top: 0
   } satisfies ViewStyle,
   ambientLeft: {
-    backgroundColor: "rgba(150, 87, 245, 0.014)",
+    backgroundColor: "transparent",
     bottom: 148,
     height: 260,
     left: 0,
@@ -27,7 +27,7 @@ export const screenStyles = {
     right: 0
   } satisfies ViewStyle,
   ambientRight: {
-    backgroundColor: "rgba(255, 255, 255, 0.012)",
+    backgroundColor: "transparent",
     bottom: 0,
     height: 180,
     left: 0,
@@ -54,11 +54,13 @@ export const screenStyles = {
   } satisfies TextStyle,
   headerPill: {
     alignSelf: "flex-start",
-    backgroundColor: colors.canvas,
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    borderColor: colors.line,
+    borderWidth: 1,
     borderRadius: radii.pill,
-    minHeight: 30,
+    minHeight: 28,
     justifyContent: "center",
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs
   } satisfies ViewStyle,
   headerPillText: {
@@ -68,7 +70,7 @@ export const screenStyles = {
     lineHeight: 16
   } satisfies TextStyle,
   cardShine: {
-    backgroundColor: colors.glassRail,
+    backgroundColor: "transparent",
     height: 1,
     left: 0,
     position: "absolute",
@@ -113,9 +115,9 @@ export const screenStyles = {
   } satisfies TextStyle,
   input: {
     minHeight: 48,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderColor: colors.lineStrong,
-    borderRadius: radii.control,
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    borderColor: colors.line,
+    borderRadius: 18,
     borderWidth: 1,
     color: colors.canvas,
     fontSize: 16,
@@ -127,7 +129,7 @@ export const screenStyles = {
   button: {
     alignItems: "center",
     backgroundColor: colors.blueIQ,
-    borderRadius: radii.control,
+    borderRadius: 20,
     justifyContent: "center",
     minHeight: 48,
     paddingHorizontal: spacing.lg,
@@ -135,13 +137,13 @@ export const screenStyles = {
   } satisfies ViewStyle,
   quietButton: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-    borderColor: "rgba(255, 255, 255, 0.92)",
-    borderRadius: radii.control,
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    borderColor: colors.line,
+    borderRadius: 20,
     borderWidth: 1,
     justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: spacing.lg,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm
   } satisfies ViewStyle,
   buttonText: {
@@ -150,9 +152,33 @@ export const screenStyles = {
     fontWeight: "800"
   } satisfies TextStyle,
   quietButtonText: {
-    color: colors.cornerBlack,
+    color: colors.canvas,
     fontSize: 15,
-    fontWeight: "800"
+    fontWeight: "700"
+  } satisfies TextStyle,
+  chip: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.055)",
+    borderColor: colors.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm
+  } satisfies ViewStyle,
+  chipSelected: {
+    backgroundColor: "rgba(39, 206, 241, 0.13)",
+    borderColor: "rgba(39, 206, 241, 0.46)"
+  } satisfies ViewStyle,
+  chipText: {
+    color: colors.mutedText,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18
+  } satisfies TextStyle,
+  chipTextSelected: {
+    color: colors.canvas
   } satisfies TextStyle,
   tileLabel: {
     ...typography.tileLabel,

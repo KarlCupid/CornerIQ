@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import type { PropsWithChildren } from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "./EngineCard";
-import { colors, radii, spacing } from "../theme";
+import { colors, spacing } from "../theme";
 
 export function DisclosureCard({
   children,
@@ -23,17 +23,17 @@ export function DisclosureCard({
           onPress={() => setOpen((value) => !value)}
             style={{
               alignItems: "center",
-              backgroundColor: "rgba(255, 255, 255, 0.92)",
-              borderColor: "rgba(255, 255, 255, 0.92)",
-              borderRadius: radii.control,
+              backgroundColor: "rgba(255, 255, 255, 0.07)",
+              borderColor: colors.line,
+              borderRadius: 20,
               borderWidth: 1,
               justifyContent: "center",
-              minHeight: 48,
-            paddingHorizontal: spacing.lg,
+              minHeight: 44,
+            paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm
           }}
           >
-            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
+            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
           </Pressable>
         {summary ? <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>{summary}</Text> : null}
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
