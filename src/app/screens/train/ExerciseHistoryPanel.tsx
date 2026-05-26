@@ -42,7 +42,7 @@ export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
           <Text style={screenStyles.callout}>Grouped exercises</Text>
           {history.groupedExercises.length > 0 ? (
             history.groupedExercises.map((exercise, index) => (
-              <View key={`grouped-exercise:${exercise.exerciseName}:${index}`} style={{ gap: spacing.xs }}>
+              <View key={`grouped-exercise:${index}`} style={{ gap: spacing.xs }}>
                 <Text style={screenStyles.body}>{exercise.exerciseName}</Text>
                 <Text style={screenStyles.subtle}>
                   Completed/partial/prescribed-only/pain flags: {exercise.completedCount}/{exercise.partialCount}/{exercise.prescribedOnlyCount}/{exercise.painFlagCount}

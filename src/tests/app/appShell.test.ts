@@ -60,6 +60,7 @@ vi.mock("react-native", () => {
     ScrollView: component("ScrollView"),
     Text: component("Text"),
     TextInput: component("TextInput"),
+    useWindowDimensions: () => ({ fontScale: 1, height: 844, scale: 1, width: 390 }),
     View: component("View")
   };
 });
@@ -1866,7 +1867,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("build strength - progress");
     expect(output).toContain("Planned support");
     expect(output).not.toContain("Persisted progression decision shaped this preview.");
-    await switchSection(renderer, "Next week detail");
+    await switchSection(renderer, "Show day details");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("progress small");
     expect(output).toContain("Persisted progression decision shaped this preview.");
@@ -1892,7 +1893,7 @@ describe("minimal app screens", () => {
 
     await switchSection(renderer, "Next Week");
     expect(JSON.stringify(renderer.toJSON())).toContain("Accept preview");
-    await switchSection(renderer, "Next week detail");
+    await switchSection(renderer, "Show day details");
     expect(JSON.stringify(renderer.toJSON())).toContain("Accepting stores this preview as the plan direction");
     await act(async () => {
       await press(pressableWithText(renderer, "Accept preview"));
@@ -2046,7 +2047,7 @@ describe("minimal app screens", () => {
 
     expect(redOutput).toContain("Recovery");
     expect(tournamentOutput).toContain("Tournament conservation");
-    expect(tournamentOutput).toContain("Tournament week conserves");
+    expect(tournamentOutput).toContain("Tournament mode keeps you near weight");
   });
 
   it("PlanAdjustmentControls render and call engine-owned adjustment actions", async () => {
@@ -2115,6 +2116,7 @@ describe("minimal app screens", () => {
       })
     );
 
+    await switchSection(renderer, "Show day details");
     expect(JSON.stringify(renderer.toJSON())).toContain("training_block_1");
     await switchSection(renderer, "Adjustments");
     const adjustmentOutput = JSON.stringify(renderer.toJSON());
@@ -2190,7 +2192,7 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Next Week");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Persisted");
-    await switchSection(renderer, "Next week detail");
+    await switchSection(renderer, "Show day details");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Materialized");
     expect(output).toContain("Trunk durability");

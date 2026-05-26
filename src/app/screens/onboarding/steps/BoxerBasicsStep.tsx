@@ -74,7 +74,7 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
           {trainingAgeOptions.map((option) => (
             <ChipButton
               active={trainingAgeActive(draft.boxing.trainingAgeYears, option)}
-              key={option.label}
+              key={`training-age:${option.value}`}
               label={option.label}
               onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, trainingAgeYears: option.value } }))}
             />

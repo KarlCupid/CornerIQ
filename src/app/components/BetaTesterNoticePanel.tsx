@@ -31,8 +31,8 @@ export function BetaTesterNoticePanel() {
           <StatusBadge label={acknowledged ? "Acknowledged" : "Review"} tone={acknowledged ? "success" : "caution"} />
         </View>
         <View style={{ gap: spacing.xs }}>
-          {betaNoticeItems.map((item) => (
-            <Text key={item} style={screenStyles.body}>
+          {betaNoticeItems.map((item, index) => (
+            <Text key={`beta-notice:${index}`} style={screenStyles.body}>
               {item}
             </Text>
           ))}

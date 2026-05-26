@@ -129,15 +129,15 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
       <Text style={screenStyles.exampleText}>Example: Thursday coach-led sparring, 90 min, RPE 8.</Text>
       <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, RPE 2.</Text>
       {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
-      {draft.protectedSchedule.map((workout) => (
-        <Text key={`${workout.type}_${workout.date}_${workout.durationMinutes}`} style={screenStyles.body}>
+      {draft.protectedSchedule.map((workout, index) => (
+        <Text key={`protected-anchor:${index}`} style={screenStyles.body}>
           Weekly {weekdayLabel(workout.date)} - {humanType(workout.type)} - {workout.durationMinutes} min - {rpeSummary(workout)}
         </Text>
       ))}
       <FieldGroup helper="Choose the day this usually repeats each week." label="Day of week">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {weekdays.map((option) => (
-            <ChipButton active={weekday === option.value} key={option.label} label={option.label} onPress={() => setWeekday(option.value)} />
+            <ChipButton active={weekday === option.value} key={`weekday:${option.value}`} label={option.label} onPress={() => setWeekday(option.value)} />
           ))}
         </View>
       </FieldGroup>

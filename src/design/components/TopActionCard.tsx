@@ -2,10 +2,9 @@ import React from "react";
 import { Text, View } from "react-native";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
-import { accentColor, accentWash, type LuminousAccent } from "./LuminousScreen";
+import type { LuminousAccent } from "./LuminousScreen";
 
 export function TopActionCard({
-  accent = "blue",
   optional,
   primaryAction,
   purpose,
@@ -24,53 +23,29 @@ export function TopActionCard({
   return (
     <View
       style={{
-        backgroundColor: colors.panel,
-        borderColor: colors.line,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.12)",
         borderRadius: radii.card,
         borderWidth: 1,
         gap: spacing.md,
-        overflow: "hidden",
-        padding: spacing.lg
+        padding: 18
       }}
       testID={testID}
     >
-      <View
-        style={{
-          backgroundColor: accentWash[accent],
-          height: 2,
-          left: spacing.lg,
-          opacity: 0.7,
-          pointerEvents: "none",
-          position: "absolute",
-          right: spacing.lg,
-          top: 0
-        }}
-      />
-      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
-        <View
-          style={{
-            backgroundColor: accentColor[accent],
-            borderRadius: 4,
-            height: 8,
-            opacity: 0.9,
-            width: 8
-          }}
-        />
-        <Text style={{ color: accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{title}</Text>
-      </View>
+      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{title}</Text>
       <View style={{ flexDirection: "row", gap: spacing.md }}>
         <View style={{ flex: 1, gap: spacing.sm, minWidth: 0 }}>
-          <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Do now</Text>
-          <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 18, fontWeight: "700", lineHeight: 24 }}>{primaryAction}</Text>
+          <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>Do now</Text>
+          <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 18, fontWeight: "600", lineHeight: 24 }}>{primaryAction}</Text>
           <Text style={{ ...typography.body, color: colors.wrap }}>{purpose}</Text>
         </View>
       </View>
       <Text style={{ ...typography.subtle, color: colors.wrap }}>
-        <Text style={{ color: colors.canvas, fontWeight: "800" }}>Why: </Text>
+        <Text style={{ color: colors.canvas, fontWeight: "700" }}>Why: </Text>
         {why}
       </Text>
       <Text style={{ ...typography.subtle, color: colors.wrap }}>
-        <Text style={{ color: colors.canvas, fontWeight: "800" }}>Optional: </Text>
+        <Text style={{ color: colors.canvas, fontWeight: "700" }}>Optional: </Text>
         {optional}
       </Text>
     </View>

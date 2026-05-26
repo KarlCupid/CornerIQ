@@ -5,18 +5,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
 
-const FLOATING_TAB_BAR_HEIGHT = 76;
+const DOCKED_TAB_BAR_HEIGHT = 64;
 
 const luminousStyles = {
-  backgroundTopWash: {
-    backgroundColor: "rgba(39, 206, 241, 0.055)",
-    height: 180,
-    left: 0,
-    pointerEvents: "none" as const,
-    position: "absolute" as const,
-    right: 0,
-    top: 0
-  },
   content: {
     gap: spacing.xl,
     flexGrow: 1,
@@ -34,9 +25,9 @@ const luminousStyles = {
     paddingVertical: spacing.xs
   },
   headerPillText: {
-    color: colors.blueIQ,
+    color: colors.wrap,
     fontSize: 12,
-    fontWeight: "800" as const,
+    fontWeight: "700" as const,
     lineHeight: 16
   },
   screen: {
@@ -84,12 +75,11 @@ export function LuminousScreen({
   const insets = useSafeAreaInsets();
   const bottomPadding =
     bottomInset === "tabs"
-      ? Math.max(insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + spacing.xl
+      ? DOCKED_TAB_BAR_HEIGHT + insets.bottom + spacing.xl
       : Math.max(insets.bottom, spacing.lg) + spacing.lg;
 
   return (
     <View style={luminousStyles.screen}>
-      <View style={luminousStyles.backgroundTopWash} />
       <ScrollView
         accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
         contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.lg, spacing.xl) }]}
@@ -174,7 +164,7 @@ export function LuminousProgressBar({
 }
 
 export function MetricTile({
-  accent = "blue",
+  accent,
   label,
   meta,
   value
@@ -184,13 +174,14 @@ export function MetricTile({
   meta?: string | undefined;
   value: string;
 }) {
+  const valueColor = accent ? accentColor[accent] : colors.canvas;
   return (
     <View
       accessibilityLabel={`${label}: ${value}${meta ? `. ${meta}` : ""}`}
       style={{
-        backgroundColor: colors.panelRaised,
-        borderColor: colors.line,
-        borderRadius: radii.tile,
+        backgroundColor: "rgba(255, 255, 255, 0.07)",
+        borderColor: "rgba(255, 255, 255, 0.11)",
+        borderRadius: 20,
         borderWidth: 1,
         flexBasis: "47%",
         flexGrow: 1,
@@ -198,36 +189,13 @@ export function MetricTile({
         gap: spacing.xs,
         minHeight: 124,
         minWidth: 136,
-        overflow: "hidden",
         padding: spacing.md
       }}
     >
-      <View
-        style={{
-          backgroundColor: accentColor[accent],
-          height: 2,
-          left: spacing.md,
-          opacity: 0.78,
-          pointerEvents: "none",
-          position: "absolute",
-          right: spacing.md,
-          top: 0
-        }}
-      />
-      <View
-        style={{
-          alignSelf: "flex-start",
-          backgroundColor: accentColor[accent],
-          borderRadius: 4,
-          height: 8,
-          opacity: 0.92,
-          width: 8
-        }}
-      />
-      <Text numberOfLines={1} style={{ ...typography.tileLabel, color: colors.wrap, flexShrink: 1, minWidth: 0 }}>
+      <Text numberOfLines={1} style={{ ...typography.tileLabel, color: accent ? valueColor : colors.wrap, flexShrink: 1, minWidth: 0 }}>
         {label}
       </Text>
-      <Text numberOfLines={2} style={{ ...typography.tileValue, color: colors.canvas, flexShrink: 1, minWidth: 0 }}>
+      <Text numberOfLines={2} style={{ ...typography.tileValue, color: valueColor, flexShrink: 1, minWidth: 0 }}>
         {value}
       </Text>
       {meta ? (

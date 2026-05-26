@@ -134,8 +134,8 @@ export function ProfileSettingsScreen({
       </SettingsGroup>
       <SettingsGroup title="Equipment" subtitle="Shown as friendly access chips; editing stays compact.">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {equipmentItems.length > 0 ? equipmentItems.map((item) => (
-            <View key={`equipment:${item}`} style={screenStyles.chip}>
+          {equipmentItems.length > 0 ? equipmentItems.map((item, index) => (
+            <View key={`equipment:${index}`} style={screenStyles.chip}>
               <Text style={screenStyles.chipText}>{equipmentLabel(item)}</Text>
             </View>
           )) : (

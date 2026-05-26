@@ -4,7 +4,7 @@ import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
-import { LuminousScreen, MetricTile, ScreenHeader } from "../../design/components/LuminousScreen";
+import { accentColor, accentWash, LuminousScreen, MetricTile, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TimelineList } from "../../design/components/TimelineList";
@@ -48,6 +48,259 @@ function compactCount(count: number, singular: string, plural = `${singular}s`):
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function formatDateLabel(date: string): string {
+  return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function splitDayLabel(label: string): { date: string; weekday: string } {
+  const [weekday, date] = label.split(", ");
+  return { date: date ?? label, weekday: weekday ?? label };
+}
+
+function toneForMarker(marker: string): LuminousAccent {
+  const normalized = marker.toLowerCase();
+  if (normalized.includes("hard") || normalized.includes("sparring")) {
+    return "orange";
+  }
+  if (normalized.includes("recovery") || normalized.includes("taper")) {
+    return "green";
+  }
+  if (normalized.includes("tournament")) {
+    return "gold";
+  }
+  return "blue";
+}
+
+function toneForFuelDemand(fuelDemand: string): LuminousAccent {
+  const normalized = fuelDemand.toLowerCase();
+  if (normalized.includes("high")) {
+    return "orange";
+  }
+  if (normalized.includes("moderate")) {
+    return "blue";
+  }
+  return "green";
+}
+
+function WeekStat({ label, tone, value }: { label: string; tone: LuminousAccent; value: string }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "rgba(255, 255, 255, 0.055)",
+        borderColor: "rgba(255, 255, 255, 0.10)",
+        borderRadius: 16,
+        borderWidth: 1,
+        flexBasis: 132,
+        flexGrow: 1,
+        gap: spacing.xs,
+        minHeight: 54,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      }}
+    >
+      <Text numberOfLines={1} style={[screenStyles.fieldLabel, { color: accentColor[tone] }]}>{label}</Text>
+      <Text numberOfLines={2} style={screenStyles.subtle}>{value}</Text>
+    </View>
+  );
+}
+
+function SmallTag({ label, tone = "blue" }: { label: string; tone?: LuminousAccent | undefined }) {
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        alignSelf: "flex-start",
+        backgroundColor: accentWash[tone],
+        borderColor: `${accentColor[tone]}55`,
+        borderRadius: 999,
+        borderWidth: 1,
+        justifyContent: "center",
+        minHeight: 26,
+        paddingHorizontal: spacing.sm
+      }}
+    >
+      <Text numberOfLines={1} style={{ color: accentColor[tone], fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{label}</Text>
+    </View>
+  );
+}
+
+function WeekRow({
+  dateLabel,
+  fuelDemand,
+  marker,
+  summary
+}: {
+  dateLabel: string;
+  fuelDemand: string;
+  marker: string;
+  summary: string;
+}) {
+  const { date, weekday } = splitDayLabel(dateLabel);
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        borderTopColor: "rgba(255, 255, 255, 0.08)",
+        borderTopWidth: 1,
+        flexDirection: "row",
+        gap: spacing.sm,
+        minHeight: 52,
+        paddingVertical: spacing.sm
+      }}
+    >
+      <View style={{ width: 54 }}>
+        <Text numberOfLines={1} style={screenStyles.fieldLabel}>{weekday}</Text>
+        <Text numberOfLines={1} style={screenStyles.subtle}>{date}</Text>
+      </View>
+      <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+        <SmallTag label={marker} tone={toneForMarker(marker)} />
+        <Text numberOfLines={1} style={screenStyles.subtle}>{summary}</Text>
+      </View>
+      <SmallTag label={fuelDemand} tone={toneForFuelDemand(fuelDemand)} />
+    </View>
+  );
+}
+
+function DetailsToggle({
+  children,
+  summary
+}: React.PropsWithChildren<{
+  summary: string;
+}>) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Pressable
+        accessibilityLabel={open ? "Hide day details" : "Show day details"}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={screenStyles.quietButton}
+      >
+        <Text style={screenStyles.quietButtonText}>{open ? "Hide day details" : "Show day details"}</Text>
+      </Pressable>
+      <Text style={screenStyles.subtle}>{summary}</Text>
+      {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
+    </View>
+  );
+}
+
+function dayRowSummary(day: PlanViewModel["dayPlans"][number] | PlanViewModel["nextWeekPreview"]["dayPlanPreview"][number]): string {
+  return hasProtectedAnchors(day.protectedAnchors) ? day.protectedAnchors : day.generatedSupport;
+}
+
+function ThisWeekCard({ protectedAnchorCount, viewModel }: { protectedAnchorCount: number; viewModel: PlanViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="plan-this-week-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>This week</Text>
+          <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} / week {viewModel.weekIndex}</Text>
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <WeekStat label="Anchors" tone="green" value={viewModel.protectedAnchorSummary} />
+          <WeekStat label="Support" tone="blue" value={compactCount(viewModel.generatedSupportDayCount, "day")} />
+          <WeekStat label="Recovery" tone="gold" value={compactCount(viewModel.recoveryDayCount, "day")} />
+        </View>
+        {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
+        <View>
+          {viewModel.dayPlans.map((day, index) => (
+            <WeekRow key={`week-row:${index}`} dateLabel={day.label} fuelDemand={day.fuelDemand} marker={day.marker} summary={dayRowSummary(day)} />
+          ))}
+        </View>
+        <DetailsToggle summary={`${protectedAnchorCount} protected day${protectedAnchorCount === 1 ? "" : "s"}; details stay collapsed until needed.`}>
+          <Text style={screenStyles.body}>{viewModel.blockGoal}</Text>
+          <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
+          {viewModel.supportWorkReason ? <Text style={screenStyles.subtle}>{viewModel.supportWorkReason}</Text> : null}
+          <Text style={screenStyles.subtle}>{viewModel.blockPersistenceStatus}</Text>
+          {viewModel.dayPlans.map((day, index) => (
+            <View key={`week-detail:${index}`} style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>{day.label}</Text>
+              <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
+              <Text style={screenStyles.subtle}>Support: {day.generatedSupport}</Text>
+              <Text style={screenStyles.subtle}>{day.explanation}</Text>
+              {day.adjustmentNotes.map((note, noteIndex) => <Text key={`day-adjustment:${index}:${noteIndex}`} style={screenStyles.subtle}>{note}</Text>)}
+              {day.warningSummary ? <Text style={screenStyles.subtle}>Warning: {day.warningSummary}</Text> : null}
+            </View>
+          ))}
+        </DetailsToggle>
+      </View>
+    </EngineCard>
+  );
+}
+
+function recoveryPreviewCount(viewModel: PlanViewModel): number {
+  return viewModel.nextWeekPreview.dayPlanPreview.filter((day) => day.marker === "Recovery" || day.marker === "Taper" || day.marker === "Tournament conservation").length;
+}
+
+function NextWeekPreviewCard({
+  busy,
+  nextWeekPreviewActions,
+  viewModel
+}: {
+  busy: boolean;
+  nextWeekPreviewActions?: NextWeekPreviewActions | undefined;
+  viewModel: PlanViewModel;
+}) {
+  const preview = viewModel.nextWeekPreview;
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="plan-next-week-summary-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>Next week preview</Text>
+          <Text style={screenStyles.body}>{preview.goal}</Text>
+          <Text style={screenStyles.subtle}>{preview.persistedStatusLabel}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.rollForwardMessage}</Text>
+          {preview.requiresReview ? <Text style={screenStyles.subtle}>Review required before materializing.</Text> : null}
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <WeekStat label="Planned support" tone="blue" value={compactCount(preview.plannedSupportCount, "day")} />
+          <WeekStat label="Anchors" tone="green" value={preview.protectedAnchorSummary} />
+          <WeekStat label="Recovery" tone="gold" value={compactCount(recoveryPreviewCount(viewModel), "day")} />
+        </View>
+        <View>
+          {preview.dayPlanPreview.map((day, index) => (
+            <WeekRow key={`next-week-row:${index}`} dateLabel={formatDateLabel(day.date)} fuelDemand={day.fuelDemand} marker={day.marker} summary={dayRowSummary(day)} />
+          ))}
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {preview.canAccept ? (
+            <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]} onPress={() => void nextWeekPreviewActions?.acceptPreview(preview.previewId ?? undefined)}>
+              <Text style={screenStyles.quietButtonText}>Accept preview</Text>
+            </Pressable>
+          ) : null}
+          {preview.showMaterializeAction ? (
+            <Pressable accessibilityLabel="Materialize next week" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || preview.requiresReview }} disabled={busy || !nextWeekPreviewActions || preview.requiresReview} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(preview.previewId ?? undefined)}>
+              <Text style={screenStyles.quietButtonText}>Materialize next week</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <DetailsToggle summary="Daily notes, safety notes, and materialized rows are collapsed until needed.">
+          <Text style={screenStyles.body}>{preview.weekStartDate} to {preview.weekEndDate}</Text>
+          <Text style={screenStyles.body}>{preview.volumeStrategy.replaceAll("_", " ")} / hard day cap {preview.hardDayCap}</Text>
+          <Text style={screenStyles.subtle}>Support bias: {preview.supportBias.replaceAll("_", " ")}</Text>
+          <Text style={screenStyles.subtle}>{preview.actionCopy}</Text>
+          <Text style={screenStyles.subtle}>{preview.explanation}</Text>
+          {preview.materializedGeneratedSessions.map((session, index) => (
+            <Text key={`materialized-session:${index}`} style={screenStyles.subtle}>
+              Materialized: {session.date} - {session.title} ({session.intensity}, {session.durationMinutes} min, fuel {session.fuelDemand})
+            </Text>
+          ))}
+          {preview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={screenStyles.subtle}>Safety: {note}</Text>)}
+          {preview.dayPlanPreview.map((day, index) => (
+            <View key={`next-week-detail:${index}`} style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>{formatDateLabel(day.date)}</Text>
+              <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
+              <Text style={screenStyles.subtle}>Support: {day.generatedSupport}</Text>
+              <Text style={screenStyles.subtle}>{day.explanation}</Text>
+            </View>
+          ))}
+        </DetailsToggle>
+      </View>
+    </EngineCard>
+  );
+}
+
 function PlanReviewNotes({ viewModel }: { viewModel: PlanViewModel }) {
   return (
     <DisclosureCard title="Plan review notes" summary={viewModel.warnings.length > 0 ? `${viewModel.warnings.length} review note${viewModel.warnings.length === 1 ? "" : "s"} hidden until needed.` : "No active plan review notes."}>
@@ -66,20 +319,6 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
   return (
     <LuminousScreen testID="plan-screen">
       <ScreenHeader eyebrow={`Week ${viewModel.weekIndex}`} title={viewModel.title} />
-      <TopActionCard
-        accent="green"
-        optional={viewModel.topAction.optional}
-        primaryAction={viewModel.topAction.primaryAction}
-        purpose={viewModel.topAction.purpose}
-        testID="plan-top-action-card"
-        title={viewModel.topAction.title}
-        why={viewModel.topAction.why}
-      />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <MetricTile accent="green" label="Boxing anchors" meta="Protected first" value={compactCount(protectedAnchorCount, "anchor")} />
-        <MetricTile accent="blue" label="Support days" meta="Generated work" value={compactCount(viewModel.generatedSupportDayCount, "support day", "support days")} />
-        <MetricTile accent="gold" label="Recovery" meta="Rest/easy" value={compactCount(viewModel.recoveryDayCount, "recovery", "recovery")} />
-      </View>
       <SectionTabs items={planSections} value={section} onChange={setSection} />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={viewModel.rollForwardMessage} statusLabel={viewModel.rollForwardRiskLabel} tone={viewModel.rollForwardRiskTone}>
@@ -93,37 +332,21 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
       ) : null}
       {section === "week" ? (
         <View style={{ gap: spacing.lg }} testID="plan-week-section">
-          <EngineCard>
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>This week</Text>
-              <Text style={screenStyles.callout}>Protected anchors are respected first.</Text>
-              <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} - {viewModel.blockGoal}, week {viewModel.weekIndex}</Text>
-              <Text style={screenStyles.body}>{viewModel.protectedAnchorSummary}</Text>
-              <Text style={screenStyles.body}>Generated support: {viewModel.generatedSupportDayCount} day{viewModel.generatedSupportDayCount === 1 ? "" : "s"}.</Text>
-              <Text style={screenStyles.body}>Rest/recovery: {viewModel.recoveryDayCount} day{viewModel.recoveryDayCount === 1 ? "" : "s"}.</Text>
-              <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.supportWorkReason}</Text>
-              {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
-              <Text style={screenStyles.subtle}>{viewModel.blockPersistenceStatus}</Text>
-            </View>
-          </EngineCard>
-          {viewModel.dayPlans.map((day) => (
-            <EngineCard key={day.date}>
-              <View style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.sectionTitle}>{day.label}</Text>
-                <Text style={screenStyles.callout}>{day.marker} - fuel demand {day.fuelDemand}</Text>
-                <Text style={screenStyles.fieldLabel}>Protected boxing work</Text>
-                <Text style={screenStyles.body}>{day.protectedAnchors}</Text>
-                <Text style={screenStyles.fieldLabel}>Generated support</Text>
-                <Text style={screenStyles.body}>{day.generatedSupport}</Text>
-                {hasProtectedAnchors(day.protectedAnchors) ? <Text style={screenStyles.subtle}>Protected anchor respected on this day.</Text> : null}
-                {day.marker === "Recovery" || day.marker === "Taper" || day.marker === "Tournament conservation" ? <Text style={screenStyles.subtle}>Rest/recovery day: generated work stays low.</Text> : null}
-                <Text style={screenStyles.subtle}>{day.explanation}</Text>
-                {day.adjustmentNotes.map((note, index) => <Text key={`day-adjustment:${day.date}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
-                {day.warningSummary ? <Text style={screenStyles.subtle}>Warning: {day.warningSummary}</Text> : null}
-              </View>
-            </EngineCard>
-          ))}
+          <TopActionCard
+            accent="green"
+            optional={viewModel.topAction.optional}
+            primaryAction={viewModel.topAction.primaryAction}
+            purpose={viewModel.topAction.purpose}
+            testID="plan-top-action-card"
+            title={viewModel.topAction.title}
+            why={viewModel.topAction.why}
+          />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+            <MetricTile accent="green" label="Boxing anchors" meta="Protected first" value={compactCount(protectedAnchorCount, "anchor")} />
+            <MetricTile accent="blue" label="Support days" meta="Generated work" value={compactCount(viewModel.generatedSupportDayCount, "support day", "support days")} />
+            <MetricTile accent="gold" label="Recovery" meta="Rest/easy" value={compactCount(viewModel.recoveryDayCount, "recovery", "recovery")} />
+          </View>
+          <ThisWeekCard protectedAnchorCount={protectedAnchorCount} viewModel={viewModel} />
           <PlanReviewNotes viewModel={viewModel} />
           <FightSetupScreen
             asOfDate={asOfDate}
@@ -137,53 +360,7 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
       ) : null}
       {section === "nextWeek" ? (
         <View style={{ gap: spacing.lg }} testID="plan-next-week-section">
-          <EngineCard>
-            <View style={{ gap: spacing.sm }} testID="plan-next-week-summary-card">
-              <Text style={screenStyles.sectionTitle}>Next week preview</Text>
-              <Text style={screenStyles.callout}>{viewModel.nextWeekPreview.goal}</Text>
-              <Text style={screenStyles.body}>Planned support: {viewModel.nextWeekPreview.plannedSupportCount} day{viewModel.nextWeekPreview.plannedSupportCount === 1 ? "" : "s"}.</Text>
-              <Text style={screenStyles.body}>{viewModel.nextWeekPreview.protectedAnchorSummary}</Text>
-              <Text style={screenStyles.body}>{viewModel.nextWeekPreview.persistedStatusLabel}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.rollForwardMessage}</Text>
-              {viewModel.nextWeekPreview.requiresReview ? <Text style={screenStyles.subtle}>Review required before materializing.</Text> : null}
-              <Text style={screenStyles.subtle}>Preview status: {viewModel.nextWeekPreview.persistedStatus.replaceAll("_", " ")}.</Text>
-              {viewModel.nextWeekPreview.canAccept ? (
-                <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined)}>
-                  <Text style={screenStyles.quietButtonText}>Accept preview</Text>
-                </Pressable>
-              ) : null}
-              {viewModel.nextWeekPreview.showMaterializeAction ? (
-                <Pressable accessibilityLabel="Materialize next week" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview }} disabled={busy || !nextWeekPreviewActions || viewModel.nextWeekPreview.requiresReview} style={screenStyles.quietButton} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined)}>
-                  <Text style={screenStyles.quietButtonText}>Materialize next week</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </EngineCard>
-          <DisclosureCard title="Next week detail" summary="Daily preview, safety notes, and materialized session rows are collapsed until you need them.">
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.body}>{viewModel.nextWeekPreview.weekStartDate} to {viewModel.nextWeekPreview.weekEndDate}</Text>
-              <Text style={screenStyles.callout}>{viewModel.nextWeekPreview.volumeStrategy.replaceAll("_", " ")} - hard day cap {viewModel.nextWeekPreview.hardDayCap}</Text>
-              <Text style={screenStyles.body}>Support bias: {viewModel.nextWeekPreview.supportBias.replaceAll("_", " ")}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.actionCopy}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.nextWeekPreview.explanation}</Text>
-              {viewModel.nextWeekPreview.materializedGeneratedSessions.map((session) => (
-                <Text key={session.id} style={screenStyles.subtle}>
-                  Materialized: {session.date} - {session.title} ({session.intensity}, {session.durationMinutes} min, fuel {session.fuelDemand})
-                </Text>
-              ))}
-              {viewModel.nextWeekPreview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={screenStyles.subtle}>Safety: {note}</Text>)}
-              {viewModel.nextWeekPreview.dayPlanPreview.map((day, index) => (
-                <View key={`next-week-day:${day.date}:${index}`} style={{ gap: spacing.sm }}>
-                  <Text style={screenStyles.callout}>{day.date} - {day.marker} - fuel demand {day.fuelDemand}</Text>
-                  <Text style={screenStyles.fieldLabel}>Protected boxing work</Text>
-                  <Text style={screenStyles.subtle}>{day.protectedAnchors}</Text>
-                  <Text style={screenStyles.fieldLabel}>Generated support preview</Text>
-                  <Text style={screenStyles.subtle}>{day.generatedSupport}</Text>
-                  <Text style={screenStyles.subtle}>{day.explanation}</Text>
-                </View>
-              ))}
-            </View>
-          </DisclosureCard>
+          <NextWeekPreviewCard busy={busy} nextWeekPreviewActions={nextWeekPreviewActions} viewModel={viewModel} />
         </View>
       ) : null}
       {section === "history" ? (
@@ -233,7 +410,7 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
               <View style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.sectionTitle}>{day.label}</Text>
                 <Text style={screenStyles.body}>Service-owned controls for this day. Screens request changes; the engine decides what applies.</Text>
-                {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-day-note:${day.date}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
+                {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-day-note:${index}`} style={screenStyles.subtle}>{note}</Text>)}
                 <PlanAdjustmentControls actions={adjustmentActions} busy={busy} date={day.date as ISODateString} generatedSessions={day.generatedSessions} />
               </View>
             </EngineCard>

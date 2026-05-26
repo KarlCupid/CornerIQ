@@ -23,8 +23,8 @@ export function BodyMassTrajectoryPanel({ trajectory }: { trajectory: BodyMassTr
         {trajectory.reviewActionVisible ? <Text style={screenStyles.body}>Review action is visible because safety blocks weight-class pressure.</Text> : null}
         <Text style={screenStyles.callout}>Last 14 days</Text>
         {trajectory.last14Days.length > 0 ? (
-          trajectory.last14Days.map((log) => (
-            <Text key={`${log.date}:${log.kg}:${log.source}`} style={screenStyles.subtle}>
+          trajectory.last14Days.map((log, index) => (
+            <Text key={`body-mass-log:${index}`} style={screenStyles.subtle}>
               {log.date}: {log.kg.toFixed(1)} kg ({log.source}){log.note ? ` - ${log.note}` : ""}
             </Text>
           ))

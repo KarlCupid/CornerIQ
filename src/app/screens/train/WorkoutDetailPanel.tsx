@@ -156,7 +156,7 @@ function WorkoutSectionCard({
               {parts.length > 0 ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
                   {parts.map((part, partIndex) => (
-                    <View key={`${exercise.exerciseId}:${partIndex}:${part}`} style={[screenStyles.chip, { minHeight: 32, paddingHorizontal: spacing.sm, paddingVertical: 4 }]}>
+                    <View key={`exercise-part:${partIndex}`} style={[screenStyles.chip, { minHeight: 32, paddingHorizontal: spacing.sm, paddingVertical: 4 }]}>
                       <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{part}</Text>
                     </View>
                   ))}
@@ -249,7 +249,7 @@ export function WorkoutDetailPanel({
       <View style={{ gap: spacing.md }}>
         <Text style={screenStyles.sectionTitle}>Session plan</Text>
         {session.sections.map((section, index) => (
-          <WorkoutSectionCard index={index} key={`workout-section:${section.name}:${index}`} section={section} />
+          <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
         ))}
       </View>
       {resultOpen ? (
@@ -276,7 +276,7 @@ export function WorkoutDetailPanel({
             </Pressable>
             <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows save as prescribed_only; skipped sessions do not save exercise rows.</Text>
             {exerciseDetailsOpen ? session.sections.map((section, sectionIndex) => (
-              <View key={`detail-section:${section.name}:${sectionIndex}`} style={{ gap: spacing.sm }}>
+              <View key={`detail-section:${sectionIndex}`} style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.sectionTitle}>{section.name}</Text>
                 <Text style={screenStyles.subtle}>{section.intent}</Text>
                 {section.exercises.map((exercise) => {

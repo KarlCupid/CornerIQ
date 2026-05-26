@@ -87,7 +87,7 @@ function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards
       <View style={{ gap: spacing.lg }}>
         <Text style={screenStyles.sectionTitle}>Flow</Text>
         {session.prescription.slice(0, 4).map((item, index) => (
-          <View key={`flow:${session.title}:${index}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
+          <View key={`flow:${index}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
             <View
               style={{
                 alignItems: "center",
@@ -150,7 +150,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
         <View style={{ gap: spacing.lg }} testID="train-today-section">
           {viewModel.sessionCards[0] ? <WorkoutFlowPreview session={viewModel.sessionCards[0]} /> : null}
           {viewModel.sessionCards.length > 0 ? viewModel.sessionCards.map((session, index) => (
-            <View key={`today-session:${session.title}:${index}`} testID={index === 0 ? "train-main-workout-command" : undefined}>
+            <View key={`today-session:${index}`} testID={index === 0 ? "train-main-workout-command" : undefined}>
               <ActionCard
                 action="Open workout, then log result."
                 actionLabel="Open workout"

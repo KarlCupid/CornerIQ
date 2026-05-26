@@ -123,8 +123,8 @@ function SelectorRow<TValue extends string>({
     <View accessibilityLabel={title} style={{ gap: spacing.xs }}>
       <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "700" }}>{title}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-        {values.map((item) => (
-          <SelectorButton key={item} label={labels[item]} selected={item === value} onPress={() => onChange(item)} />
+        {values.map((item, index) => (
+          <SelectorButton key={`selector:${index}`} label={labels[item]} selected={item === value} onPress={() => onChange(item)} />
         ))}
       </View>
     </View>

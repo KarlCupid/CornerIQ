@@ -89,6 +89,27 @@ function InputLabel({ children }: { children: React.ReactNode }) {
   return <Text style={screenStyles.fieldLabel}>{children}</Text>;
 }
 
+function CompactField({
+  keyboardType,
+  label,
+  onChangeText,
+  placeholder,
+  value
+}: {
+  keyboardType: "decimal-pad" | "number-pad";
+  label: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <View style={{ flexBasis: 148, flexGrow: 1, gap: spacing.xs, minWidth: 132 }}>
+      <InputLabel>{label}</InputLabel>
+      <TextInput keyboardType={keyboardType} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.wrap} style={screenStyles.input} value={value} />
+    </View>
+  );
+}
+
 function ReadinessScaleHelp() {
   return (
     <View style={{ gap: spacing.xs }}>
@@ -121,7 +142,7 @@ function ScaleSegmentedControl({
               accessibilityRole="button"
               accessibilityState={{ disabled: busy, selected }}
               disabled={busy}
-              key={`${label}:${option}`}
+              key={`scale-option:${option}`}
               onPress={() => onChange(option)}
               style={[screenStyles.chip, { borderRadius: 16, minHeight: 36, minWidth: 42, paddingHorizontal: spacing.sm }, selected ? screenStyles.chipSelected : null]}
             >
@@ -291,6 +312,7 @@ export function ReadinessCheckInCard({ actions, busy, status }: QuickLogCardProp
 export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
+  const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Hydration log failed.");
   const [success, setSuccess] = useState<string | null>(null);
   const actionLabel = status?.actionLabel ?? "Log water";
@@ -303,30 +325,43 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
         {status ? <Text style={screenStyles.subtle}>Status: {status.statusLabel}. {status.summary}</Text> : <QuickLogHelp />}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
-        <InputLabel>Water (liters)</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setLiters} placeholder="Water liters" placeholderTextColor={colors.wrap} style={screenStyles.input} value={liters} />
-        <InputLabel>Sodium (mg, optional)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setSodiumMg} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodiumMg} />
-        <Pressable
-          accessibilityLabel={busy ? "Saving hydration log" : actionLabel}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy }}
-          disabled={busy}
-          onPress={() =>
-            runWithMessage(async () => {
-              setSuccess(null);
-              const sodium = parseOptionalNonNegativeNumber(sodiumMg, "Sodium");
-              const payload = { liters: parseRequiredNonNegativeNumber(liters, "Water liters", { example: "2.5" }) };
-              await actions.logHydration(sodium === undefined ? payload : { ...payload, sodiumMg: sodium });
-              setLiters("");
-              setSodiumMg("");
-              setSuccess("Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown.");
-            })
-          }
-          style={screenStyles.button}
-        >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving water..." : actionLabel}</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <CompactField keyboardType="decimal-pad" label="Water (liters)" onChangeText={setLiters} placeholder="Water liters" value={liters} />
+          {moreFieldsOpen ? <CompactField keyboardType="number-pad" label="Sodium (mg, optional)" onChangeText={setSodiumMg} placeholder="Sodium mg optional" value={sodiumMg} /> : null}
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <Pressable
+            accessibilityLabel={busy ? "Saving hydration log" : actionLabel}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() =>
+              runWithMessage(async () => {
+                setSuccess(null);
+                const sodium = parseOptionalNonNegativeNumber(sodiumMg, "Sodium");
+                const payload = { liters: parseRequiredNonNegativeNumber(liters, "Water liters", { example: "2.5" }) };
+                await actions.logHydration(sodium === undefined ? payload : { ...payload, sodiumMg: sodium });
+                setLiters("");
+                setSodiumMg("");
+                setMoreFieldsOpen(false);
+                setSuccess("Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown.");
+              })
+            }
+            style={[screenStyles.button, { flexBasis: 180, flexGrow: 1 }]}
+          >
+            <Text style={screenStyles.buttonText}>{busy ? "Saving water..." : actionLabel}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={moreFieldsOpen ? "Hide more hydration fields" : "Show more hydration fields"}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy, expanded: moreFieldsOpen }}
+            disabled={busy}
+            onPress={() => setMoreFieldsOpen((value) => !value)}
+            style={[screenStyles.quietButton, { flexBasis: 132, flexGrow: 1 }]}
+          >
+            <Text style={screenStyles.quietButtonText}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
+          </Pressable>
+        </View>
       </View>
     </EngineCard>
   );
@@ -360,8 +395,8 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
         </View>
         <InputLabel>Symptoms</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {cycleSymptomOptions.slice(0, 8).map((symptom) => (
-            <ToggleButton active={symptoms.includes(symptom)} busy={busy} key={symptom} label={symptom.replace(/_/g, " ")} onPress={() => toggleSymptom(symptom)} />
+          {cycleSymptomOptions.slice(0, 8).map((symptom, index) => (
+            <ToggleButton active={symptoms.includes(symptom)} busy={busy} key={`cycle-symptom:${index}`} label={symptom.replace(/_/g, " ")} onPress={() => toggleSymptom(symptom)} />
           ))}
         </View>
         <InputLabel>Cycle notes for today</InputLabel>
@@ -407,62 +442,76 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
   const [fat, setFat] = useState("");
   const [fiber, setFiber] = useState("");
   const [sodium, setSodium] = useState("");
+  const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Food log failed.");
   const [success, setSuccess] = useState<string | null>(null);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Log food</Text>
-        <Text style={screenStyles.body}>{status?.addEntryCopy ?? "Use this for one meal/snack or a day total. Multiple entries add up in today's context."}</Text>
-        <Text style={screenStyles.subtle}>Status: {status?.statusLabel ?? "Entries add up"}. {status?.summary ?? "Add to today; this does not replace existing food entries."}</Text>
+        <Text style={screenStyles.body}>Add a meal, snack, or day total.</Text>
+        <Text style={screenStyles.subtle}>Status: {status?.statusLabel ?? "Entries add up"}. {status?.summary ?? status?.addEntryCopy ?? "Add to today; this does not replace existing food entries."}</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
-        <InputLabel>Calories</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setCalories} placeholder="Calories" placeholderTextColor={colors.wrap} style={screenStyles.input} value={calories} />
-        <InputLabel>Protein (g)</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setProtein} placeholder="Protein g" placeholderTextColor={colors.wrap} style={screenStyles.input} value={protein} />
-        <InputLabel>Carbs (g)</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setCarbs} placeholder="Carbs g" placeholderTextColor={colors.wrap} style={screenStyles.input} value={carbs} />
-        <InputLabel>Fat (g)</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setFat} placeholder="Fat g" placeholderTextColor={colors.wrap} style={screenStyles.input} value={fat} />
-        <InputLabel>Fiber (g, optional)</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setFiber} placeholder="Fiber g optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={fiber} />
-        <InputLabel>Sodium (mg, optional)</InputLabel>
-        <TextInput keyboardType="number-pad" onChangeText={setSodium} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodium} />
-        <Pressable
-          accessibilityLabel={busy ? "Saving food log" : "Log food"}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy }}
-          disabled={busy}
-          onPress={() =>
-            runWithMessage(async () => {
-              setSuccess(null);
-              const payload = {
-                calories: parseRequiredNonNegativeNumber(calories, "Calories"),
-                proteinGrams: parseRequiredNonNegativeNumber(protein, "Protein"),
-                carbohydrateGrams: parseRequiredNonNegativeNumber(carbs, "Carbs"),
-                fatGrams: parseRequiredNonNegativeNumber(fat, "Fat")
-              };
-              const fiberGrams = parseOptionalNonNegativeNumber(fiber, "Fiber");
-              const sodiumMg = parseOptionalNonNegativeNumber(sodium, "Sodium");
-              await actions.logFood({
-                ...payload,
-                ...(fiberGrams === undefined ? {} : { fiberGrams }),
-                ...(sodiumMg === undefined ? {} : { sodiumMg })
-              });
-              setCalories("");
-              setProtein("");
-              setCarbs("");
-              setFat("");
-              setFiber("");
-              setSodium("");
-              setSuccess("Food logged. Fuel confidence has more intake context; missing hydration still lowers confidence when absent.");
-            })
-          }
-          style={screenStyles.button}
-        >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : "Log food"}</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <CompactField keyboardType="number-pad" label="Calories" onChangeText={setCalories} placeholder="Calories" value={calories} />
+          <CompactField keyboardType="decimal-pad" label="Protein (g)" onChangeText={setProtein} placeholder="Protein g" value={protein} />
+          <CompactField keyboardType="decimal-pad" label="Carbs (g)" onChangeText={setCarbs} placeholder="Carbs g" value={carbs} />
+          <CompactField keyboardType="decimal-pad" label="Fat (g)" onChangeText={setFat} placeholder="Fat g" value={fat} />
+          {moreFieldsOpen ? (
+            <>
+              <CompactField keyboardType="decimal-pad" label="Fiber (g, optional)" onChangeText={setFiber} placeholder="Fiber g optional" value={fiber} />
+              <CompactField keyboardType="number-pad" label="Sodium (mg, optional)" onChangeText={setSodium} placeholder="Sodium mg optional" value={sodium} />
+            </>
+          ) : null}
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <Pressable
+            accessibilityLabel={busy ? "Saving food log" : "Log food"}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() =>
+              runWithMessage(async () => {
+                setSuccess(null);
+                const payload = {
+                  calories: parseRequiredNonNegativeNumber(calories, "Calories"),
+                  proteinGrams: parseRequiredNonNegativeNumber(protein, "Protein"),
+                  carbohydrateGrams: parseRequiredNonNegativeNumber(carbs, "Carbs"),
+                  fatGrams: parseRequiredNonNegativeNumber(fat, "Fat")
+                };
+                const fiberGrams = parseOptionalNonNegativeNumber(fiber, "Fiber");
+                const sodiumMg = parseOptionalNonNegativeNumber(sodium, "Sodium");
+                await actions.logFood({
+                  ...payload,
+                  ...(fiberGrams === undefined ? {} : { fiberGrams }),
+                  ...(sodiumMg === undefined ? {} : { sodiumMg })
+                });
+                setCalories("");
+                setProtein("");
+                setCarbs("");
+                setFat("");
+                setFiber("");
+                setSodium("");
+                setMoreFieldsOpen(false);
+                setSuccess("Food logged. Fuel confidence has more intake context; missing hydration still lowers confidence when absent.");
+              })
+            }
+            style={[screenStyles.button, { flexBasis: 180, flexGrow: 1 }]}
+          >
+            <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : "Log food"}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={moreFieldsOpen ? "Hide more food fields" : "Show more food fields"}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy, expanded: moreFieldsOpen }}
+            disabled={busy}
+            onPress={() => setMoreFieldsOpen((value) => !value)}
+            style={[screenStyles.quietButton, { flexBasis: 132, flexGrow: 1 }]}
+          >
+            <Text style={screenStyles.quietButtonText}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
+          </Pressable>
+        </View>
       </View>
     </EngineCard>
   );

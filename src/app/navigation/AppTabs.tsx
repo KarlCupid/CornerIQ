@@ -7,7 +7,7 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, ISODateString, PerformanceState } from "../../engine/core/types";
 import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
-import { colors, radii } from "../../design/theme";
+import { colors } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen } from "../screens/FuelScreen";
 import { PlanScreen } from "../screens/PlanScreen";
@@ -30,14 +30,6 @@ const tabAccents: Record<keyof RootTabParamList, string> = {
   Profile: colors.wrap,
   Today: colors.blueIQ,
   Train: colors.powerPurple
-};
-
-const tabAccentWashes: Record<keyof RootTabParamList, string> = {
-  Fuel: "rgba(255, 148, 72, 0.16)",
-  Plan: "rgba(56, 226, 138, 0.15)",
-  Profile: "rgba(217, 228, 244, 0.12)",
-  Today: "rgba(39, 206, 241, 0.16)",
-  Train: "rgba(150, 87, 245, 0.16)"
 };
 
 const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
@@ -84,41 +76,53 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               <View
                 style={{
                   alignItems: "center",
-                  backgroundColor: focused ? tabAccentWashes[route.name].replace("0.16", "0.10").replace("0.15", "0.10").replace("0.12", "0.08") : "transparent",
-                  borderRadius: radii.pill,
-                  height: 32,
+                  backgroundColor: focused ? "rgba(255, 255, 255, 0.055)" : "transparent",
+                  borderRadius: 18,
+                  height: 36,
                   justifyContent: "center",
-                  minWidth: 42,
-                  paddingHorizontal: 8
+                  transform: [{ translateY: 2 }],
+                  width: 36
                 }}
               >
                 <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={20} />
               </View>
             ),
+            tabBarIconStyle: {
+              marginBottom: -2,
+              marginTop: 4
+            },
             tabBarItemStyle: {
-              borderRadius: 22,
-              paddingVertical: 2
+              height: 56,
+              justifyContent: "center",
+              paddingBottom: 0,
+              paddingTop: 4
             },
             tabBarLabelStyle: {
               fontSize: 11,
-              fontWeight: "700",
+              fontWeight: "600",
               lineHeight: 14,
-              marginTop: 1
+              marginBottom: 2,
+              marginTop: 0
             },
             tabBarStyle: {
-              backgroundColor: colors.panelDeep,
-              borderColor: colors.line,
-              borderRadius: 30,
-              borderTopColor: colors.line,
-              borderWidth: 1,
-              bottom: Math.max(insets.bottom, 8),
-              height: 76,
-              left: 16,
+              backgroundColor: "rgba(8, 13, 24, 0.94)",
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
+              borderBottomWidth: 0,
+              borderLeftWidth: 0,
+              borderRightWidth: 0,
+              borderTopColor: "rgba(255, 255, 255, 0.12)",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              borderTopWidth: 1,
+              bottom: 0,
+              height: 64 + insets.bottom,
+              left: 0,
               overflow: "hidden",
-              paddingBottom: 7,
-              paddingTop: 7,
+              paddingBottom: Math.max(insets.bottom, 4),
+              paddingTop: 8,
               position: "absolute",
-              right: 16
+              right: 0
             }
           })}
       >

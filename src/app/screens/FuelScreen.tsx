@@ -124,7 +124,7 @@ function FuelContextCardView({ card }: { card: FuelContextCard }) {
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>{card.title}</Text>
         <Text style={screenStyles.body}>{card.summary}</Text>
-        {card.actions.map((item, index) => <Text key={`${card.title}:action:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+        {card.actions.map((item, index) => <Text key={`fuel-context-action:${index}`} style={screenStyles.subtle}>{item}</Text>)}
       </View>
     </EngineCard>
   );
@@ -143,7 +143,7 @@ function FuelMacroTargetsCard({ recentLogs, viewModel }: { recentLogs: RecentLog
         </View>
         <View style={{ gap: spacing.md }}>
           {viewModel.macroTargets.progress.map((item, index) => (
-            <View key={`fuel-progress:${item.label}:${index}`} style={{ gap: spacing.xs }}>
+            <View key={`fuel-progress:${index}`} style={{ gap: spacing.xs }}>
               <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
                 <Text style={[screenStyles.fieldLabel, { flexShrink: 1, minWidth: 0 }]}>{item.label}</Text>
                 <Text style={[screenStyles.subtle, { color: colors.canvas, flexShrink: 1, minWidth: 0, textAlign: "right" }]}>{item.logged} / {item.target}</Text>

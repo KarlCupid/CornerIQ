@@ -34,13 +34,13 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
       <Text style={screenStyles.callout}>Grouped weeks</Text>
       {history.groupedWeeks.length > 0 ? (
         history.groupedWeeks.map((week, index) => (
-          <View key={`grouped-week:${week.weekIndex}:${index}`} style={{ gap: spacing.xs }}>
+          <View key={`grouped-week:${index}`} style={{ gap: spacing.xs }}>
             <Text style={screenStyles.body}>Week {week.weekIndex}</Text>
             <Text style={screenStyles.subtle}>{week.summary}</Text>
             <Text style={screenStyles.subtle}>{week.decision}</Text>
             <Text style={screenStyles.subtle}>{week.nextWeekPreviewStatus}</Text>
             <Text style={screenStyles.subtle}>Materialized generated sessions: {week.materializedGeneratedSessionCount}</Text>
-            {week.adjustments.length > 0 ? week.adjustments.map((adjustment, adjustmentIndex) => <Text key={`week-adjustment:${week.weekIndex}:${index}:${adjustmentIndex}`} style={screenStyles.subtle}>Adjustment: {adjustment}</Text>) : <Text style={screenStyles.subtle}>No adjustments linked to this week.</Text>}
+            {week.adjustments.length > 0 ? week.adjustments.map((adjustment, adjustmentIndex) => <Text key={`week-adjustment:${index}:${adjustmentIndex}`} style={screenStyles.subtle}>Adjustment: {adjustment}</Text>) : <Text style={screenStyles.subtle}>No adjustments linked to this week.</Text>}
           </View>
         ))
       ) : (
@@ -68,7 +68,7 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
       <Text style={screenStyles.callout}>Safety events</Text>
       {history.safetyFlags.length > 0 ? history.safetyFlags.map((flag, index) => <Text key={textKey("safety-flag", index)} style={screenStyles.subtle}>Safety: {flag}</Text>) : <Text style={screenStyles.subtle}>No active safety events in this block history.</Text>}
       <Text style={screenStyles.callout}>Timeline</Text>
-      {history.timelineEvents.length > 0 ? history.timelineEvents.map((event, index) => <Text key={`${event.eventType}:${event.eventDate}:${event.title}:${index}`} style={screenStyles.subtle}>{event.eventDate} - {event.title}: {event.summary}</Text>) : <Text style={screenStyles.subtle}>No timeline events yet.</Text>}
+      {history.timelineEvents.length > 0 ? history.timelineEvents.map((event, index) => <Text key={`timeline-event:${index}`} style={screenStyles.subtle}>{event.eventDate} - {event.title}: {event.summary}</Text>) : <Text style={screenStyles.subtle}>No timeline events yet.</Text>}
       <Text style={screenStyles.callout}>Timeline groups</Text>
       <Text style={screenStyles.subtle}>Training events: {history.timelineEventGroups.trainingEvents.length}</Text>
       <Text style={screenStyles.subtle}>Adjustment events: {history.timelineEventGroups.adjustmentEvents.length}</Text>

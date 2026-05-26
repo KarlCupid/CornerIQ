@@ -40,7 +40,7 @@ export function FuelCommandCard({ command }: { command: FuelCommandCenterState }
         <Text style={screenStyles.body}>{command.bodyMassAction}</Text>
         <Text style={screenStyles.subtle}>Confidence: {command.confidence.level}</Text>
         {command.decisionStack.slice(0, 4).map((item, index) => (
-          <View key={`fuel-decision:${item.label}:${index}`} style={{ gap: spacing.xs }}>
+          <View key={`fuel-decision:${index}`} style={{ gap: spacing.xs }}>
             <Text style={screenStyles.body}>{item.label}: {item.summary}</Text>
             <Text style={screenStyles.subtle}>{item.why}</Text>
           </View>

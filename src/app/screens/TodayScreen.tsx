@@ -152,8 +152,8 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
       <CycleContextCard cycleContext={cycleContext} trackingStatus={cycleTrackingStatus} />
       <DisclosureCard title="engine detail" summary="Optional rationale, confidence, and safety context.">
         <View style={{ gap: spacing.sm }}>
-          {viewModel.decisionStack.map((item) => (
-            <View key={item.label} style={{ gap: spacing.xs }}>
+          {viewModel.decisionStack.map((item, index) => (
+            <View key={`decision-stack:${index}`} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.callout}>{item.label}: {item.summary}</Text>
               <Text style={screenStyles.subtle}>Why: {item.why} Confidence: {item.confidence}</Text>
             </View>

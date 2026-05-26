@@ -10,14 +10,14 @@ export const typography = {
     lineHeight: 34
   },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: "800" as const,
-    lineHeight: 26
+    fontSize: 18,
+    fontWeight: "700" as const,
+    lineHeight: 24
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "800" as const,
-    lineHeight: 26
+    fontSize: 18,
+    fontWeight: "700" as const,
+    lineHeight: 24
   },
   body: {
     fontSize: 16,
@@ -36,12 +36,12 @@ export const typography = {
   },
   tileLabel: {
     fontSize: 12,
-    fontWeight: "700" as const,
+    fontWeight: "600" as const,
     lineHeight: 16
   },
   tileValue: {
-    fontSize: 22,
-    fontWeight: "800" as const,
+    fontSize: 21,
+    fontWeight: "700" as const,
     lineHeight: 27
   }
 } as const;

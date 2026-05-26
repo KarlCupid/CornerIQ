@@ -227,6 +227,7 @@ async function exerciseTodayQuickLogSaves(page: Page) {
   await expectVisibleText(page, "Readiness log captured in local E2E mode only.");
 
   await page.getByPlaceholder("Water liters").fill("2.4");
+  await page.getByRole("button", { name: "Show more hydration fields" }).click();
   await page.getByPlaceholder("Sodium mg optional").first().fill("500");
   await page.getByRole("button", { name: "Add hydration" }).click();
   await expectVisibleText(page, "Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown.");
@@ -360,9 +361,11 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "What to do now");
   await expectVisibleText(page, "Fuel the boxing work first");
   await expectVisibleText(page, "Log food");
-  await expectVisibleText(page, "Use this for one meal/snack or a day total. Multiple entries add up in today's context.");
+  await expectVisibleText(page, "Add a meal, snack, or day total.");
   await expectVisibleText(page, "No food log yet today. That lowers confidence; it is not treated as safe.");
   await expect(page.getByRole("button", { name: "Log food" })).toBeVisible();
+  await expect(page.getByPlaceholder("Fiber g optional")).toHaveCount(0);
+  await expect(page.getByPlaceholder("Sodium mg optional")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Show Details / why" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Show History" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Show Safety review" })).toBeVisible();
@@ -380,6 +383,7 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.getByPlaceholder("Protein g").fill("40");
   await page.getByPlaceholder("Carbs g").fill("80");
   await page.getByPlaceholder("Fat g").fill("18");
+  await page.getByRole("button", { name: "Show more food fields" }).click();
   await page.getByPlaceholder("Fiber g optional").fill("7");
   await page.getByPlaceholder("Sodium mg optional").last().fill("600");
   await page.getByRole("button", { name: "Log food" }).click();
@@ -510,13 +514,13 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-top-action-card")).toContainText("Use Plan to understand the week");
   await expect(page.getByTestId("plan-top-action-card")).toContainText("History and adjustments can wait");
   await expectVisibleText(page, "This week");
-  await expectVisibleText(page, "Protected anchors are respected first.");
-  await expectVisibleText(page, "Protected boxing work");
-  await expectVisibleText(page, "Generated support");
-  await expectVisibleText(page, /Generated support: \d+ day/i);
-  await expectVisibleText(page, /Rest\/recovery: \d+ day/i);
+  await expectVisibleText(page, "Anchors");
+  await expectVisibleText(page, "Support");
+  await expectVisibleText(page, "Recovery");
+  await expectVisibleText(page, /protected boxing anchors respected and fixed/i);
   await expectVisibleText(page, "sparring (hard)");
-  await expectVisibleText(page, "Support work is low because protected boxing already creates hard days.");
+  await expect(page.getByRole("button", { name: "Show day details" })).toBeVisible();
+  await expect(page.getByTestId("plan-week-section")).not.toContainText("Support work is low because protected boxing already creates hard days.");
   await expectVisibleText(page, "Add this only if you have a real fight date or tournament window.");
   await expect(page.getByRole("button", { name: "Add fight" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add tournament" })).toBeVisible();
@@ -524,13 +528,15 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Plan review notes");
   expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-week-section"));
   await capture(page, testInfo, "Plan Week screen", "20-plan-week-screen.png", { scopeTestId: "plan-screen" });
+  await page.getByRole("button", { name: "Show day details" }).click();
+  await expectVisibleText(page, "Support work is low because protected boxing already creates hard days.");
+  await page.getByRole("button", { name: "Hide day details" }).click();
 
   await openSection(page, "Next Week");
   await expectVisibleText(page, "Next week preview");
   await expectVisibleText(page, "Planned support");
   await expectVisibleText(page, /protected boxing anchor|No protected boxing anchors/i);
-  await expectVisibleText(page, "Preview status");
-  await expectVisibleText(page, /Preview status|Review required before materializing/i);
+  await expectVisibleText(page, /Preview persistence pending|Review required before materializing/i);
   if (await page.getByRole("button", { name: "Accept next week preview" }).count()) {
     await page.getByRole("button", { name: "Accept next week preview" }).click();
     await expectVisibleText(page, "Local E2E next-week preview acceptance stayed local.");
@@ -541,11 +547,11 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
     await expectVisibleText(page, "Local E2E next-week materialization stayed local.");
   }
   const nextWeekText = await visiblePageText(page, "plan-next-week-section");
-  expect(nextWeekText).not.toContain("Generated support preview");
+  expect(nextWeekText).not.toContain("Support bias:");
   expect(nextWeekText).not.toMatch(/\bHard stop\b/);
   expectNoCoachOrReviewerControls(nextWeekText);
-  await page.getByRole("button", { name: "Show Next week detail" }).click();
-  await expectVisibleText(page, "Generated support preview");
+  await page.getByRole("button", { name: "Show day details" }).click();
+  await expectVisibleText(page, "Support bias:");
   await capture(page, testInfo, "Plan Next Week screen", "21-plan-next-week-screen.png", { scopeTestId: "plan-next-week-section" });
 
   await openSection(page, "Adjustments");

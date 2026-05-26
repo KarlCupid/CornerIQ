@@ -64,9 +64,9 @@ export const screenStyles = {
     paddingVertical: spacing.xs
   } satisfies ViewStyle,
   headerPillText: {
-    color: colors.blueIQ,
+    color: colors.wrap,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
     lineHeight: 16
   } satisfies TextStyle,
   cardShine: {
@@ -84,7 +84,7 @@ export const screenStyles = {
   fieldLabel: {
     color: colors.canvas,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
     lineHeight: 16
   } satisfies TextStyle,
   body: {
@@ -96,16 +96,16 @@ export const screenStyles = {
     color: colors.mutedText,
   } satisfies TextStyle,
   callout: {
-    color: colors.blueIQ,
+    color: colors.canvas,
     fontSize: 16,
     lineHeight: 23,
-    fontWeight: "700"
+    fontWeight: "600"
   } satisfies TextStyle,
   exampleText: {
-    color: colors.blueIQ,
+    color: colors.wrap,
     fontSize: 13,
     lineHeight: 19,
-    fontWeight: "700"
+    fontWeight: "600"
   } satisfies TextStyle,
   successText: {
     color: colors.readyGreen,
@@ -149,12 +149,12 @@ export const screenStyles = {
   buttonText: {
     color: colors.cornerBlack,
     fontSize: 15,
-    fontWeight: "800"
+    fontWeight: "700"
   } satisfies TextStyle,
   quietButtonText: {
     color: colors.canvas,
     fontSize: 15,
-    fontWeight: "700"
+    fontWeight: "600"
   } satisfies TextStyle,
   chip: {
     alignItems: "center",
@@ -174,7 +174,7 @@ export const screenStyles = {
   chipText: {
     color: colors.mutedText,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     lineHeight: 18
   } satisfies TextStyle,
   chipTextSelected: {
