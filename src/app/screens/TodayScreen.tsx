@@ -1,10 +1,11 @@
 import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import type { CycleSymptom, CycleViewModel, RecentLogsViewModel, TodayViewModel } from "../../engine/core/types";
 import { ActionCard } from "../../design/components/ActionCard";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
+import { LuminousScreen, MetricTile, ScreenHeader } from "../../design/components/LuminousScreen";
 import { MetricRow } from "../../design/components/MetricRow";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { TopActionCard } from "../../design/components/TopActionCard";
@@ -30,9 +31,10 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
   const hasRisk = viewModel.riskSummary.length > 0;
   const hasRecentLogs = recentLogs.today.length > 0;
   return (
-    <ScrollView accessibilityLabel="Today screen" style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="today-screen">
-      <Text style={screenStyles.title}>{viewModel.title}</Text>
+    <LuminousScreen testID="today-screen">
+      <ScreenHeader eyebrow="CornerIQ" title={viewModel.title} />
       <TopActionCard
+        accent="blue"
         optional={viewModel.mission.optional}
         primaryAction={viewModel.mission.primaryAction}
         purpose={viewModel.mission.purpose}
@@ -40,6 +42,11 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         title={viewModel.mission.title}
         why={viewModel.mission.why}
       />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <MetricTile accent={recentLogs.readinessToday.loggedToday ? "green" : "blue"} label="Readiness" meta={recentLogs.readinessToday.statusLabel} value={viewModel.readinessContext} />
+        <MetricTile accent="orange" label="Fuel" meta={recentLogs.foodLogCountToday} value={viewModel.fuelPriority} />
+        <MetricTile accent="blue" label="Weight" meta="trend" value={viewModel.bodyMassStatus} />
+      </View>
       {hasRisk ? (
         <RiskBanner title="Safety check" message="The engine is surfacing this before logs because missing or risky data is unknown, not safe." tone="critical">
           <View style={{ gap: spacing.xs }}>
@@ -112,6 +119,6 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
       ) : (
         <EmptyState title="No logs yet today" message="Readiness, body mass, food, water, or training history is missing. That lowers confidence because the engine has less context. Start with the smallest true manual log; missing data stays unknown, not safe." />
       )}
-    </ScrollView>
+    </LuminousScreen>
   );
 }

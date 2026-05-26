@@ -19,6 +19,7 @@ export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?:
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignSelf: "flex-start",
+        backgroundColor: color,
         borderColor: color,
         borderRadius: radii.control,
         borderWidth: 1,
@@ -26,7 +27,7 @@ export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?:
         paddingVertical: spacing.xs
       }}
     >
-      <Text style={{ color, fontSize: 12, fontWeight: "800" }}>{label}</Text>
+      <Text style={{ color: tone === "caution" ? colors.cornerBlack : colors.canvas, fontSize: 12, fontWeight: "900" }}>{label}</Text>
     </View>
   );
 }

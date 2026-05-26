@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "./EngineCard";
-import { colors, spacing } from "../theme";
+import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
 
 export function EmptyState({
@@ -28,8 +28,9 @@ export function EmptyState({
             onPress={onAction}
             style={{
               alignItems: "center",
-              borderColor: colors.line,
-              borderRadius: 8,
+              backgroundColor: "rgba(255, 255, 255, 0.92)",
+              borderColor: "rgba(255, 255, 255, 0.92)",
+              borderRadius: radii.control,
               borderWidth: 1,
               justifyContent: "center",
               minHeight: 48,
@@ -37,7 +38,7 @@ export function EmptyState({
               paddingVertical: spacing.sm
             }}
           >
-            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700" }}>{actionLabel}</Text>
+            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "900" }}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>

@@ -1,6 +1,7 @@
 import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "../../../design/components/EngineCard";
+import { LuminousProgressBar, LuminousScreen, ScreenHeader } from "../../../design/components/LuminousScreen";
 import { colors, spacing } from "../../../design/theme";
 import type { ISODateString } from "../../../engine/core/types";
 import { useOnboardingDraft } from "../../../hooks/useOnboardingDraft";
@@ -82,8 +83,18 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
   })();
 
   return (
-    <ScrollView accessibilityLabel="Boxer setup screen" style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="onboarding-screen">
-      <Text style={screenStyles.title}>Boxer setup</Text>
+    <LuminousScreen bottomInset="none" testID="onboarding-screen">
+      <ScreenHeader title="Boxer setup" />
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
+          <View style={screenStyles.headerPill}>
+            <Text style={screenStyles.headerPillText}>STEP {onboarding.stepIndex + 1} OF {onboarding.stepTotal}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <LuminousProgressBar progress={(onboarding.stepIndex + 1) / onboarding.stepTotal} />
+          </View>
+        </View>
+      </View>
       <EngineCard>
         <View style={{ gap: spacing.md }}>
           <Text style={screenStyles.callout}>
@@ -126,6 +137,6 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
           </Pressable>
         </View>
       </EngineCard>
-    </ScrollView>
+    </LuminousScreen>
   );
 }

@@ -1,10 +1,11 @@
 import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
 import { ActionCard } from "../../design/components/ActionCard";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
+import { LuminousScreen, MetricTile, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
@@ -60,12 +61,47 @@ function sessionPurpose(session: TrainViewModel["sessionCards"][number]): string
   return protectedWork ? `Purpose: support ${protectedWork.toLowerCase()} while keeping boxing quality first.` : "Purpose: build support capacity around protected boxing.";
 }
 
+function flowAccent(index: number): LuminousAccent {
+  return (["blue", "purple", "orange", "green"] as const)[index % 4] ?? "blue";
+}
+
+function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards"][number] }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.lg }}>
+        <Text style={screenStyles.sectionTitle}>Flow</Text>
+        {session.prescription.slice(0, 4).map((item, index) => (
+          <View key={`flow:${session.title}:${index}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: flowAccent(index) === "blue" ? "#27CEF1" : flowAccent(index) === "purple" ? "#9657F5" : flowAccent(index) === "orange" ? "#FF9448" : "#38E28A",
+                borderRadius: 16,
+                height: 56,
+                justifyContent: "center",
+                width: 56
+              }}
+            >
+              <Text style={{ color: "#F7FBFF", fontSize: 18, fontWeight: "900" }}>{String(index + 1).padStart(2, "0")}</Text>
+            </View>
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text style={screenStyles.body}>{item}</Text>
+              <Text style={screenStyles.subtle}>boxing support work</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </EngineCard>
+  );
+}
+
 export function TrainScreen({ busy, completionActions, completionMessage, quickLogs, recentLogs, viewModel }: TrainScreenProps) {
   const [section, setSection] = React.useState<TrainSection>("today");
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="train-screen">
-      <Text style={screenStyles.title}>{viewModel.title}</Text>
+    <LuminousScreen testID="train-screen">
+      <ScreenHeader eyebrow="Workout" title={viewModel.title} />
       <TopActionCard
+        accent="purple"
         optional={viewModel.topAction.optional}
         primaryAction={viewModel.topAction.primaryAction}
         purpose={viewModel.topAction.purpose}
@@ -73,6 +109,10 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
         title={viewModel.topAction.title}
         why={viewModel.topAction.why}
       />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <MetricTile accent="purple" label="Session" meta={viewModel.todayRole.summary} value={viewModel.todaySummary} />
+        <MetricTile accent="orange" label="Fuel" meta={viewModel.hydrationHint} value={viewModel.preSessionFuelHint} />
+      </View>
       <SectionTabs items={trainSections} value={section} onChange={setSection} />
       {viewModel.riskSummary.length > 0 ? (
         <RiskBanner title="Training safety check" message="Training changes stay blocked or reduced while these safety notes are active." tone="critical">
@@ -83,6 +123,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
       ) : null}
       {section === "today" ? (
         <View style={{ gap: spacing.lg }} testID="train-today-section">
+          {viewModel.sessionCards[0] ? <WorkoutFlowPreview session={viewModel.sessionCards[0]} /> : null}
           {viewModel.sessionCards.length > 0 ? viewModel.sessionCards.map((session, index) => (
             <View key={`today-session:${session.title}:${index}`} testID={index === 0 ? "train-main-workout-command" : undefined}>
               <ActionCard
@@ -186,6 +227,6 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
           </EngineCard>
         </View>
       ) : null}
-    </ScrollView>
+    </LuminousScreen>
   );
 }

@@ -6,23 +6,86 @@ export const screenStyles = {
     flex: 1,
     backgroundColor: colors.cornerBlack
   } satisfies ViewStyle,
+  scrollFill: {
+    flex: 1
+  } satisfies ViewStyle,
+  ambientTop: {
+    backgroundColor: "rgba(115, 77, 160, 0.42)",
+    borderRadius: 190,
+    height: 380,
+    position: "absolute",
+    right: -142,
+    top: -96,
+    width: 380
+  } satisfies ViewStyle,
+  ambientLeft: {
+    backgroundColor: "rgba(39, 206, 241, 0.22)",
+    borderRadius: 180,
+    height: 360,
+    left: -154,
+    position: "absolute",
+    top: 92,
+    width: 360
+  } satisfies ViewStyle,
+  ambientRight: {
+    backgroundColor: "rgba(56, 226, 138, 0.12)",
+    borderRadius: 170,
+    bottom: 120,
+    height: 340,
+    position: "absolute",
+    right: -188,
+    width: 340
+  } satisfies ViewStyle,
   content: {
-    gap: spacing.lg,
+    gap: spacing.xl,
     padding: spacing.lg,
-    paddingBottom: spacing.xxl
+    paddingBottom: 128,
+    paddingTop: spacing.xxl
   } satisfies ViewStyle,
   row: {
     gap: spacing.sm
   } satisfies ViewStyle,
   title: {
     color: colors.canvas,
-    fontSize: 28,
-    fontWeight: "800"
+    fontSize: 44,
+    fontWeight: "900",
+    lineHeight: 52
   } satisfies TextStyle,
+  heroTitle: {
+    color: colors.canvas,
+    fontSize: 34,
+    fontWeight: "900",
+    lineHeight: 40
+  } satisfies TextStyle,
+  headerPill: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.canvas,
+    borderRadius: radii.pill,
+    minHeight: 30,
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs
+  } satisfies ViewStyle,
+  headerPillText: {
+    color: colors.blueIQ,
+    fontSize: 12,
+    fontWeight: "900"
+  } satisfies TextStyle,
+  cardShine: {
+    backgroundColor: colors.glassRail,
+    borderRadius: radii.pill,
+    height: 42,
+    left: 0,
+    opacity: 0.62,
+    position: "absolute",
+    right: 0,
+    top: 0
+  } satisfies ViewStyle,
   sectionTitle: {
     color: colors.canvas,
-    fontSize: 17,
-    fontWeight: "700"
+    fontSize: 24,
+    fontWeight: "900",
+    lineHeight: 30
   } satisfies TextStyle,
   fieldLabel: {
     color: colors.canvas,
@@ -31,19 +94,19 @@ export const screenStyles = {
   } satisfies TextStyle,
   body: {
     color: colors.wrap,
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 17,
+    lineHeight: 25
   } satisfies TextStyle,
   subtle: {
-    color: colors.wrap,
-    fontSize: 13,
-    lineHeight: 19
+    color: colors.mutedText,
+    fontSize: 14,
+    lineHeight: 20
   } satisfies TextStyle,
   callout: {
     color: colors.blueIQ,
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: "700"
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: "900"
   } satisfies TextStyle,
   exampleText: {
     color: colors.blueIQ,
@@ -59,10 +122,13 @@ export const screenStyles = {
   } satisfies TextStyle,
   input: {
     minHeight: 48,
-    borderColor: colors.line,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: colors.lineStrong,
     borderRadius: radii.control,
     borderWidth: 1,
     color: colors.canvas,
+    fontSize: 18,
+    fontWeight: "800",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm
   } satisfies TextStyle,
@@ -77,7 +143,8 @@ export const screenStyles = {
   } satisfies ViewStyle,
   quietButton: {
     alignItems: "center",
-    borderColor: colors.line,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    borderColor: "rgba(255, 255, 255, 0.92)",
     borderRadius: radii.control,
     borderWidth: 1,
     justifyContent: "center",
@@ -91,8 +158,20 @@ export const screenStyles = {
     fontWeight: "800"
   } satisfies TextStyle,
   quietButtonText: {
-    color: colors.canvas,
+    color: colors.cornerBlack,
     fontSize: 15,
-    fontWeight: "700"
+    fontWeight: "900"
+  } satisfies TextStyle,
+  tileLabel: {
+    color: colors.wrap,
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 18
+  } satisfies TextStyle,
+  tileValue: {
+    color: colors.canvas,
+    fontSize: 26,
+    fontWeight: "900",
+    lineHeight: 32
   } satisfies TextStyle
 } as const;

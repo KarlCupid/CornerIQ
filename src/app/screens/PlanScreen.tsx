@@ -1,9 +1,10 @@
 import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
+import { LuminousScreen, MetricTile, ScreenHeader } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TimelineList } from "../../design/components/TimelineList";
@@ -58,9 +59,10 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
   const [section, setSection] = React.useState<PlanSection>("week");
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="plan-screen">
-      <Text style={screenStyles.title}>{viewModel.title}</Text>
+    <LuminousScreen testID="plan-screen">
+      <ScreenHeader eyebrow={`Week ${viewModel.weekIndex}`} title={viewModel.title} />
       <TopActionCard
+        accent="green"
         optional={viewModel.topAction.optional}
         primaryAction={viewModel.topAction.primaryAction}
         purpose={viewModel.topAction.purpose}
@@ -68,6 +70,11 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
         title={viewModel.topAction.title}
         why={viewModel.topAction.why}
       />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <MetricTile accent="green" label="Boxing anchors" meta="protected first" value={viewModel.protectedAnchorSummary} />
+        <MetricTile accent="blue" label="Support days" meta={viewModel.hardDaySummary} value={`${viewModel.generatedSupportDayCount}`} />
+        <MetricTile accent="gold" label="Recovery" meta="rest and easy days" value={`${viewModel.recoveryDayCount}`} />
+      </View>
       <SectionTabs items={planSections} value={section} onChange={setSection} />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={viewModel.rollForwardMessage} statusLabel={viewModel.rollForwardRiskLabel} tone={viewModel.rollForwardRiskTone}>
@@ -230,6 +237,6 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
           )}
         </View>
       ) : null}
-    </ScrollView>
+    </LuminousScreen>
   );
 }

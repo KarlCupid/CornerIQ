@@ -38,7 +38,7 @@ export function SectionTabs<T extends string>({
             onPress={() => onChange(item.key)}
             style={{
               backgroundColor: selected ? colors.blueIQ : colors.panelRaised,
-              borderColor: selected ? colors.blueIQ : colors.line,
+              borderColor: selected ? colors.blueIQ : colors.lineStrong,
               borderRadius: radii.control,
               borderWidth: 1,
               minHeight: 44,

@@ -1,9 +1,10 @@
 import React from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import type { CycleViewModel, ProfileViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import type { ISODateString } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
+import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
@@ -67,9 +68,10 @@ export function ProfileScreen({
   const setDeleteConfirmation = userDataControls?.setDeleteConfirmation ?? setFallbackDeleteConfirmation;
   const [section, setSection] = React.useState<ProfileSection>("athlete");
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="profile-screen">
-      <Text style={screenStyles.title}>{viewModel.title}</Text>
+    <LuminousScreen testID="profile-screen">
+      <ScreenHeader eyebrow="Private" title={viewModel.title} />
       <TopActionCard
+        accent="blue"
         optional={viewModel.topAction.optional}
         primaryAction={viewModel.topAction.primaryAction}
         purpose={viewModel.topAction.purpose}
@@ -178,6 +180,6 @@ export function ProfileScreen({
           )}
         </View>
       ) : null}
-    </ScrollView>
+    </LuminousScreen>
   );
 }

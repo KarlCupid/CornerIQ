@@ -1,8 +1,9 @@
 import React, { type PropsWithChildren } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { FuelContextCard, FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
+import { LuminousProgressBar, LuminousScreen, MetricTile, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -63,9 +64,32 @@ function CollapsibleFuelSection({
   );
 }
 
+function progressRatio(logged: string, target: string): number {
+  const loggedNumber = Number.parseFloat(logged.replace(/,/g, ""));
+  const targetNumber = Number.parseFloat(target.replace(/,/g, ""));
+  if (!Number.isFinite(loggedNumber) || !Number.isFinite(targetNumber) || targetNumber <= 0) {
+    return 0.42;
+  }
+  return loggedNumber / targetNumber;
+}
+
+function macroAccent(label: string): LuminousAccent {
+  if (/protein/i.test(label)) {
+    return "green";
+  }
+  if (/carb|water/i.test(label)) {
+    return "blue";
+  }
+  if (/fat|fiber/i.test(label)) {
+    return "gold";
+  }
+  return "orange";
+}
+
 function FuelStartHereCard({ viewModel }: { viewModel: FuelViewModel }) {
   return (
     <TopActionCard
+      accent="orange"
       optional={viewModel.topAction.optional}
       primaryAction={viewModel.topAction.primaryAction}
       purpose={viewModel.topAction.purpose}
@@ -116,10 +140,15 @@ function FuelMacroTargetsCard({ viewModel }: { viewModel: FuelViewModel }) {
             <Text key={`fuel-target:${item.label}:${index}`} style={screenStyles.body}>{item.label}: {item.value}</Text>
           ))}
         </View>
-        <View style={{ gap: spacing.xs }}>
+        <View style={{ gap: spacing.md }}>
           <Text style={screenStyles.fieldLabel}>Logged today</Text>
           {viewModel.macroTargets.progress.map((item, index) => (
-            <Text key={`fuel-progress:${item.label}:${index}`} style={screenStyles.subtle}>{item.label}: {item.logged} / {item.target}</Text>
+            <View key={`fuel-progress:${item.label}:${index}`} style={{ gap: spacing.xs }}>
+              <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
+                <Text style={screenStyles.body}>{item.label}: {item.logged} / {item.target}</Text>
+              </View>
+              <LuminousProgressBar accent={macroAccent(item.label)} progress={progressRatio(item.logged, item.target)} />
+            </View>
           ))}
         </View>
       </View>
@@ -181,11 +210,17 @@ function FuelRiskCard({ message, viewModel }: { message: string | null; viewMode
 }
 
 export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
+  const calorieTarget = viewModel.macroTargets.targets.find((item) => /calories/i.test(item.label))?.value ?? viewModel.calorieSummary;
+  const hydrationTarget = viewModel.macroTargets.targets.find((item) => /water/i.test(item.label))?.value ?? viewModel.hydrationSummary;
   return (
-    <ScrollView style={screenStyles.screen} contentContainerStyle={screenStyles.content} testID="fuel-screen">
-      <Text style={screenStyles.title}>{viewModel.title}</Text>
+    <LuminousScreen testID="fuel-screen">
+      <ScreenHeader eyebrow="Today" title={viewModel.title} />
       <View style={{ gap: spacing.lg }} testID="fuel-command-section">
         <FuelStartHereCard viewModel={viewModel} />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+          <MetricTile accent="orange" label="Calories" meta={viewModel.fuelHistory.todaySummary} value={calorieTarget} />
+          <MetricTile accent="blue" label="Hydration" meta="target" value={hydrationTarget} />
+        </View>
         <FuelMacroTargetsCard viewModel={viewModel} />
         <TodayFuelPriorityCard viewModel={viewModel} />
         <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
@@ -237,6 +272,6 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         <BodyMassTrajectoryPanel trajectory={viewModel.bodyMassTrajectory} />
         <WeightClassStatusCard status={viewModel.weightClassStatus} />
       </CollapsibleFuelSection>
-    </ScrollView>
+    </LuminousScreen>
   );
 }
