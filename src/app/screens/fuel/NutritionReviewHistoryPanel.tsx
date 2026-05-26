@@ -30,9 +30,9 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
               <Text style={screenStyles.subtle}>
                 Type: {statusLabel(review.reviewType)}. Severity: {review.severity}. Acknowledge available: {review.canAcknowledge ? "yes" : "no"}. Self-clear: no.
               </Text>
-              {review.reasons.map((reason) => <Text key={`${review.reviewId}:reason:${reason}`} style={screenStyles.subtle}>Reason: {reason}</Text>)}
-              {review.blockingFlags.map((flag) => <Text key={`${review.reviewId}:flag:${flag}`} style={screenStyles.subtle}>Blocking flag: {flag}</Text>)}
-              {review.suggestedNextSteps.map((step) => <Text key={`${review.reviewId}:step:${step}`} style={screenStyles.subtle}>Next: {step}</Text>)}
+              {review.reasons.map((reason, reasonIndex) => <Text key={`${review.reviewId}:reason:${reasonIndex}`} style={screenStyles.subtle}>Reason: {reason}</Text>)}
+              {review.blockingFlags.map((flag, flagIndex) => <Text key={`${review.reviewId}:flag:${flagIndex}`} style={screenStyles.subtle}>Blocking flag: {flag}</Text>)}
+              {review.suggestedNextSteps.map((step, stepIndex) => <Text key={`${review.reviewId}:step:${stepIndex}`} style={screenStyles.subtle}>Next: {step}</Text>)}
               <Text style={screenStyles.subtle}>This does not clear the plan.</Text>
             </View>
           ))
@@ -41,8 +41,8 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
         )}
         <Text style={screenStyles.callout}>Review event timeline</Text>
         {history.historyEvents.length > 0 ? (
-          history.historyEvents.map((event) => (
-            <Text key={`${event.date}:${event.eventType}:${event.summary}`} style={screenStyles.subtle}>
+          history.historyEvents.map((event, index) => (
+            <Text key={`${event.date}:${event.eventType}:${index}`} style={screenStyles.subtle}>
               {event.date} - {statusLabel(event.eventType)} by {event.actorType}: {event.summary}
             </Text>
           ))

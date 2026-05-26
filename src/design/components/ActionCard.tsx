@@ -62,7 +62,7 @@ export function ActionCard({
         {highlights && highlights.length > 0 ? (
           <View style={{ gap: spacing.xs }}>
             <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800" }}>What to do</Text>
-            {highlights.map((item) => <Text key={item} style={{ color: colors.wrap, fontSize: 14, lineHeight: 20 }}>{item}</Text>)}
+            {highlights.map((item, index) => <Text key={`action-highlight:${index}`} style={{ color: colors.wrap, fontSize: 14, lineHeight: 20 }}>{item}</Text>)}
           </View>
         ) : null}
         {detailSummary ? <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>{detailSummary}</Text> : null}
@@ -82,7 +82,7 @@ export function ActionCard({
               paddingVertical: spacing.sm
             }}
           >
-            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "900" }}>{detailsOpen ? `Hide ${detailLabel}` : `Show ${detailLabel}`}</Text>
+            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>{detailsOpen ? `Hide ${detailLabel}` : `Show ${detailLabel}`}</Text>
           </Pressable>
         ) : null}
         {hasCollapsibleDetails ? (detailsOpen ? <View style={{ gap: spacing.sm }}>{children}</View> : null) : children}

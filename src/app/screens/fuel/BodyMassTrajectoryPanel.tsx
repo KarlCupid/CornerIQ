@@ -19,7 +19,7 @@ export function BodyMassTrajectoryPanel({ trajectory }: { trajectory: BodyMassTr
         <Text style={screenStyles.subtle}>{trajectory.cycleNoiseWindow}</Text>
         <Text style={screenStyles.subtle}>{trajectory.riskExplanation}</Text>
         <Text style={screenStyles.callout}>Next safe actions</Text>
-        {trajectory.nextSafeActions.map((action) => <Text key={action} style={screenStyles.subtle}>{action}</Text>)}
+        {trajectory.nextSafeActions.map((action, index) => <Text key={`body-mass-next-action:${index}`} style={screenStyles.subtle}>{action}</Text>)}
         {trajectory.reviewActionVisible ? <Text style={screenStyles.body}>Review action is visible because safety blocks weight-class pressure.</Text> : null}
         <Text style={screenStyles.callout}>Last 14 days</Text>
         {trajectory.last14Days.length > 0 ? (

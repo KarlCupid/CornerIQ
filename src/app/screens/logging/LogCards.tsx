@@ -240,7 +240,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Add hydration</Text>
+        <Text style={screenStyles.sectionTitle}>Log water</Text>
         <Text style={screenStyles.callout}>{status?.totalLabel ?? "Today's hydration total: add water when you have a true amount."}</Text>
         <Text style={screenStyles.subtle}>{status?.addToTodayCopy ?? "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."}</Text>
         {status ? <Text style={screenStyles.subtle}>Status: {status.statusLabel}. {status.summary}</Text> : <QuickLogHelp />}
@@ -251,7 +251,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
         <InputLabel>Sodium (mg, optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSodiumMg} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodiumMg} />
         <Pressable
-          accessibilityLabel={busy ? "Saving hydration log" : "Add hydration"}
+          accessibilityLabel={busy ? "Saving hydration log" : "Log water"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -268,7 +268,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving hydration..." : "Add hydration"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving water..." : "Log water"}</Text>
         </Pressable>
       </View>
     </EngineCard>
@@ -355,7 +355,7 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Add meal/snack</Text>
+        <Text style={screenStyles.sectionTitle}>Log food</Text>
         <Text style={screenStyles.body}>{status?.addEntryCopy ?? "Use this for one meal/snack or a day total. Multiple entries add up in today's context."}</Text>
         <Text style={screenStyles.subtle}>Status: {status?.statusLabel ?? "Entries add up"}. {status?.summary ?? "Add to today; this does not replace existing food entries."}</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
@@ -373,7 +373,7 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
         <InputLabel>Sodium (mg, optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setSodium} placeholder="Sodium mg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sodium} />
         <Pressable
-          accessibilityLabel={busy ? "Saving food log" : "Add food entry"}
+          accessibilityLabel={busy ? "Saving food log" : "Log food"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -404,7 +404,7 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : status?.actionLabel ?? "Add food entry"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : "Log food"}</Text>
         </Pressable>
       </View>
     </EngineCard>

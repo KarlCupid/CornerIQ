@@ -27,9 +27,62 @@ export interface TodayScreenProps {
   message: string | null;
 }
 
+function readinessMetric(recentLogs: RecentLogsViewModel) {
+  return {
+    accent: recentLogs.readinessToday.loggedToday ? "green" : "blue",
+    meta: recentLogs.readinessToday.loggedToday ? "Fresh today" : "Safer defaults",
+    value: recentLogs.readinessToday.loggedToday ? "Logged" : "Check in"
+  } as const;
+}
+
+function fuelMetric(viewModel: TodayViewModel, recentLogs: RecentLogsViewModel) {
+  if (recentLogs.foodToday.entryCount === 0) {
+    return { meta: "Food unknown", value: "Log meal" } as const;
+  }
+  if (/carb/i.test(viewModel.fuelPriority)) {
+    return { meta: recentLogs.foodToday.statusLabel, value: "Carbs needed" } as const;
+  }
+  return { meta: recentLogs.foodToday.statusLabel, value: "On track" } as const;
+}
+
+function bodyMassMetric(recentLogs: RecentLogsViewModel) {
+  return {
+    meta: recentLogs.bodyMassToday.loggedToday ? "Today" : "Trend unknown",
+    value: recentLogs.bodyMassToday.loggedToday ? "Logged" : "No log"
+  } as const;
+}
+
+function TodayContextCard({ recentLogs, viewModel }: { recentLogs: RecentLogsViewModel; viewModel: TodayViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }}>
+        <Text style={screenStyles.sectionTitle}>Today's context</Text>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Readiness</Text>
+          <Text style={screenStyles.body}>{viewModel.readinessContext}</Text>
+          <Text style={screenStyles.subtle}>{recentLogs.readinessToday.summary}</Text>
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Fuel</Text>
+          <Text style={screenStyles.body}>{viewModel.fuelPriority}</Text>
+          <Text style={screenStyles.subtle}>{recentLogs.foodToday.summary}</Text>
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Body mass</Text>
+          <Text style={screenStyles.body}>{viewModel.bodyMassStatus}</Text>
+          <Text style={screenStyles.subtle}>{recentLogs.bodyMassToday.summary}</Text>
+        </View>
+      </View>
+    </EngineCard>
+  );
+}
+
 export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cycleQuickLogEnabled, cycleTrackingStatus, cycleSymptomOptions, busy, message }: TodayScreenProps) {
   const hasRisk = viewModel.riskSummary.length > 0;
   const hasRecentLogs = recentLogs.today.length > 0;
+  const readiness = readinessMetric(recentLogs);
+  const fuel = fuelMetric(viewModel, recentLogs);
+  const bodyMass = bodyMassMetric(recentLogs);
   return (
     <LuminousScreen testID="today-screen">
       <ScreenHeader eyebrow="CornerIQ" title={viewModel.title} />
@@ -43,14 +96,15 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         why={viewModel.mission.why}
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <MetricTile accent={recentLogs.readinessToday.loggedToday ? "green" : "blue"} label="Readiness" meta={recentLogs.readinessToday.statusLabel} value={viewModel.readinessContext} />
-        <MetricTile accent="orange" label="Fuel" meta={recentLogs.foodLogCountToday} value={viewModel.fuelPriority} />
-        <MetricTile accent="blue" label="Weight" meta="trend" value={viewModel.bodyMassStatus} />
+        <MetricTile accent={readiness.accent} label="Readiness" meta={readiness.meta} value={readiness.value} />
+        <MetricTile accent="orange" label="Fuel" meta={fuel.meta} value={fuel.value} />
+        <MetricTile accent="blue" label="Weight" meta={bodyMass.meta} value={bodyMass.value} />
       </View>
+      <TodayContextCard recentLogs={recentLogs} viewModel={viewModel} />
       {hasRisk ? (
         <RiskBanner title="Safety check" message="The engine is surfacing this before logs because missing or risky data is unknown, not safe." tone="critical">
           <View style={{ gap: spacing.xs }}>
-            {viewModel.riskSummary.map((risk) => <Text key={risk} style={screenStyles.body}>{risk}</Text>)}
+            {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{risk}</Text>)}
           </View>
         </RiskBanner>
       ) : null}
@@ -92,7 +146,7 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
           <MetricRow label="Body mass" value={viewModel.bodyMassStatus} />
           <MetricRow label="Readiness" value={viewModel.readinessContext} />
           {viewModel.cycleContext ? <MetricRow label="Cycle" value={viewModel.cycleContext} /> : null}
-          {viewModel.quickLogs.map((item) => <Text key={item} style={screenStyles.subtle}>Optional log: {item}</Text>)}
+          {viewModel.quickLogs.map((item, index) => <Text key={`today-quick-log:${index}`} style={screenStyles.subtle}>Optional log: {item}</Text>)}
         </View>
       </ActionCard>
       <CycleContextCard cycleContext={cycleContext} trackingStatus={cycleTrackingStatus} />
@@ -113,7 +167,7 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         <EngineCard>
           <View style={{ gap: spacing.sm }}>
             <Text style={screenStyles.sectionTitle}>Recent summary</Text>
-            {recentLogs.today.map((item) => <Text key={item} style={screenStyles.body}>{item}</Text>)}
+            {recentLogs.today.map((item, index) => <Text key={`today-recent-log:${index}`} style={screenStyles.body}>{item}</Text>)}
           </View>
         </EngineCard>
       ) : (

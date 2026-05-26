@@ -8,12 +8,12 @@ export const colors = {
   readyGreen: "#38E28A",
   powerPurple: "#9657F5",
   gold: "#FFD861",
-  panel: "rgba(43, 55, 82, 0.78)",
-  panelRaised: "rgba(79, 88, 124, 0.68)",
-  panelDeep: "rgba(17, 24, 43, 0.82)",
-  glassRail: "rgba(20, 25, 43, 0.38)",
-  line: "rgba(255, 255, 255, 0.18)",
-  lineStrong: "rgba(255, 255, 255, 0.32)",
+  panel: "rgba(255, 255, 255, 0.09)",
+  panelRaised: "rgba(255, 255, 255, 0.11)",
+  panelDeep: "rgba(12, 18, 35, 0.92)",
+  glassRail: "rgba(255, 255, 255, 0.07)",
+  line: "rgba(255, 255, 255, 0.16)",
+  lineStrong: "rgba(255, 255, 255, 0.22)",
   mutedText: "#B7C4D9"
 } as const;
 

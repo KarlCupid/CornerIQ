@@ -33,7 +33,7 @@ export function DisclosureCard({
             paddingVertical: spacing.sm
           }}
           >
-            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "900" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
+            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
           </Pressable>
         {summary ? <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>{summary}</Text> : null}
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}

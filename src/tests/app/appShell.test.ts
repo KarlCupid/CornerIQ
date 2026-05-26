@@ -27,6 +27,11 @@ vi.mock("expo-status-bar", () => ({
   StatusBar: () => React.createElement("StatusBar")
 }));
 
+vi.mock("@expo/vector-icons/Ionicons", () => ({
+  default: ({ color, name, size }: { color?: string; name?: string; size?: number }) =>
+    React.createElement("Ionicons", { color, name, size })
+}));
+
 vi.mock("@react-navigation/native", () => ({
   NavigationContainer: ({ children }: { children?: React.ReactNode }) => React.createElement("NavigationContainer", null, children)
 }));
@@ -39,7 +44,8 @@ vi.mock("@react-navigation/bottom-tabs", () => ({
 }));
 
 vi.mock("react-native-safe-area-context", () => ({
-  SafeAreaProvider: ({ children }: { children?: React.ReactNode }) => React.createElement("SafeAreaProvider", null, children)
+  SafeAreaProvider: ({ children }: { children?: React.ReactNode }) => React.createElement("SafeAreaProvider", null, children),
+  useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 })
 }));
 
 vi.mock("react-native", () => {
@@ -1185,6 +1191,39 @@ describe("minimal app screens", () => {
     expect(output).toContain("The engine is waiting for fresh manual inputs.");
   });
 
+  it("TodayScreen renders repeated safety copy without duplicate React keys", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const repeatedRisk = "Rapid body-mass loss raises under-fueling risk.";
+    let duplicateKeyWarning = false;
+    try {
+      render(
+        React.createElement(TodayScreen, {
+          viewModel: {
+            ...todayViewModel,
+            riskSummary: [repeatedRisk, repeatedRisk]
+          },
+          recentLogs: {
+            ...recentLogsViewModel,
+            today: [repeatedRisk, repeatedRisk]
+          },
+          cycleContext: null,
+          quickLogs: quickLogActions,
+          cycleQuickLogEnabled: false,
+          cycleTrackingStatus: "disabled",
+          cycleSymptomOptions: ["cramps"],
+          busy: false,
+          message: null
+        })
+      );
+      duplicateKeyWarning = consoleError.mock.calls.some((call) => call.map((item) => String(item)).join(" ").includes("Encountered two children with the same key"));
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    expect(duplicateKeyWarning).toBe(false);
+  });
+
   it("TodayScreen hides cycle quick log when cycle tracking is disabled", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const output = JSON.stringify(
@@ -1218,8 +1257,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Calories");
     expect(output).toContain("2200 kcal");
     expect(output).toContain("What to do now");
-    expect(output).toContain("Add meal/snack");
-    expect(output).toContain("Add hydration");
+    expect(output).toContain("Log food");
+    expect(output).not.toContain("Log water");
     expect(output).toContain("Show Details / why");
     expect(output).not.toContain("Body-mass trajectory");
     await switchSection(renderer, "Show Details / why");
@@ -1234,6 +1273,7 @@ describe("minimal app screens", () => {
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Recent fuel history");
     expect(output).toContain("Actual intake today");
+    expect(output).toContain("Log water");
   });
 
   it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
@@ -1292,7 +1332,7 @@ describe("minimal app screens", () => {
     );
     let output = JSON.stringify(renderer.toJSON());
 
-    expect(output.indexOf("Review required before weight-class pressure continues")).toBeLessThan(output.indexOf("Add meal/snack"));
+    expect(output.indexOf("Review required before weight-class pressure continues")).toBeLessThan(output.indexOf("Log food"));
     expect(output).toContain("Show Safety review");
     expect(output).not.toContain("Request safety review");
     await switchSection(renderer, "Show Safety review");
@@ -2077,7 +2117,7 @@ describe("minimal app screens", () => {
     expect(adjustmentOutput).toContain("1 active engine-owned adjustment");
     expect(adjustmentOutput).toContain("protect day");
     expect(adjustmentOutput).toContain("Move rejected.");
-    await switchSection(renderer, "Block History");
+    await switchSection(renderer, "History");
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Week 2");
     expect(output).toContain("progress: The week has structured completions.");
@@ -2835,7 +2875,7 @@ describe("minimal app screens", () => {
       changeInput(food, "Fat g", "70");
     });
     await act(async () => {
-      await press(pressableWithText(food, "Add food entry"));
+      await press(pressableWithText(food, "Log food"));
     });
     expect(actions.logFood).toHaveBeenCalledWith(expect.objectContaining({ calories: 2200, proteinGrams: 130, carbohydrateGrams: 260, fatGrams: 70 }));
     const foodPayload = (actions.logFood as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];
@@ -2847,7 +2887,7 @@ describe("minimal app screens", () => {
       changeInput(hydration, "Water liters", "2.5");
     });
     await act(async () => {
-      await press(pressableWithText(hydration, "Add hydration"));
+      await press(pressableWithText(hydration, "Log water"));
     });
     expect(actions.logHydration).toHaveBeenCalledWith(expect.objectContaining({ liters: 2.5 }));
     const hydrationPayload = (actions.logHydration as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls.at(-1)?.[0];

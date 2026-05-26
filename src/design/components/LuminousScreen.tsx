@@ -2,54 +2,48 @@ import React from "react";
 import type { PropsWithChildren } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { colors, radii, spacing } from "../theme";
+import { typography } from "../typography";
 
 const luminousStyles = {
-  ambientLeft: {
-    backgroundColor: "rgba(39, 206, 241, 0.22)",
-    borderRadius: 180,
-    height: 360,
-    left: -154,
-    position: "absolute" as const,
-    top: 92,
-    width: 360
-  },
-  ambientRight: {
-    backgroundColor: "rgba(56, 226, 138, 0.12)",
-    borderRadius: 170,
-    bottom: 120,
-    height: 340,
-    position: "absolute" as const,
-    right: -188,
-    width: 340
-  },
-  ambientTop: {
-    backgroundColor: "rgba(115, 77, 160, 0.42)",
-    borderRadius: 190,
-    height: 380,
-    position: "absolute" as const,
-    right: -142,
-    top: -96,
-    width: 380
-  },
-  cardShine: {
-    backgroundColor: colors.glassRail,
-    borderRadius: radii.pill,
-    height: 42,
+  backgroundTopWash: {
+    backgroundColor: "rgba(39, 206, 241, 0.026)",
+    height: 240,
     left: 0,
-    opacity: 0.62,
     position: "absolute" as const,
     right: 0,
     top: 0
   },
+  backgroundMiddleWash: {
+    backgroundColor: "rgba(150, 87, 245, 0.014)",
+    bottom: 148,
+    height: 260,
+    left: 0,
+    position: "absolute" as const,
+    right: 0
+  },
+  backgroundBottomWash: {
+    backgroundColor: "rgba(255, 255, 255, 0.012)",
+    bottom: 0,
+    height: 180,
+    left: 0,
+    position: "absolute" as const,
+    right: 0
+  },
   content: {
     gap: spacing.xl,
-    padding: spacing.lg,
-    paddingBottom: 128,
-    paddingTop: spacing.xxl
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl
+  },
+  contentWithoutTabs: {
+    paddingBottom: spacing.xxl
+  },
+  contentWithTabs: {
+    paddingBottom: 132
   },
   headerPill: {
     alignSelf: "flex-start" as const,
-    backgroundColor: colors.canvas,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
     borderRadius: radii.pill,
     justifyContent: "center" as const,
     minHeight: 30,
@@ -59,7 +53,8 @@ const luminousStyles = {
   headerPillText: {
     color: colors.blueIQ,
     fontSize: 12,
-    fontWeight: "900" as const
+    fontWeight: "800" as const,
+    lineHeight: 16
   },
   screen: {
     backgroundColor: colors.cornerBlack,
@@ -69,10 +64,9 @@ const luminousStyles = {
     flex: 1
   },
   title: {
+    ...typography.screenTitle,
     color: colors.canvas,
-    fontSize: 44,
-    fontWeight: "900" as const,
-    lineHeight: 52
+    maxWidth: 680
   }
 };
 
@@ -87,6 +81,15 @@ export const accentColor: Record<LuminousAccent, string> = {
   red: colors.redCorner
 };
 
+export const accentWash: Record<LuminousAccent, string> = {
+  blue: "rgba(39, 206, 241, 0.16)",
+  gold: "rgba(255, 216, 97, 0.16)",
+  green: "rgba(56, 226, 138, 0.15)",
+  orange: "rgba(255, 148, 72, 0.16)",
+  purple: "rgba(150, 87, 245, 0.16)",
+  red: "rgba(255, 82, 101, 0.16)"
+};
+
 export function LuminousScreen({
   bottomInset = "tabs",
   children,
@@ -96,13 +99,16 @@ export function LuminousScreen({
   testID: string;
 }>) {
   return (
-    <View style={[luminousStyles.screen, bottomInset === "tabs" ? { paddingBottom: 104 } : null]}>
-      <View pointerEvents="none" style={luminousStyles.ambientTop} />
-      <View pointerEvents="none" style={luminousStyles.ambientLeft} />
-      <View pointerEvents="none" style={luminousStyles.ambientRight} />
+    <View style={luminousStyles.screen}>
+      <View pointerEvents="none" style={luminousStyles.backgroundTopWash} />
+      <View pointerEvents="none" style={luminousStyles.backgroundMiddleWash} />
+      <View pointerEvents="none" style={luminousStyles.backgroundBottomWash} />
       <ScrollView
         accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
-        contentContainerStyle={luminousStyles.content}
+        contentContainerStyle={[
+          luminousStyles.content,
+          bottomInset === "tabs" ? luminousStyles.contentWithTabs : luminousStyles.contentWithoutTabs
+        ]}
         style={luminousStyles.scrollFill}
         testID={testID}
       >
@@ -125,42 +131,6 @@ export function ScreenHeader({ eyebrow, title }: { eyebrow?: string | undefined;
   );
 }
 
-export function LuminousOrb({
-  accent = "blue",
-  size = 132
-}: {
-  accent?: LuminousAccent | undefined;
-  size?: number | undefined;
-}) {
-  const color = accentColor[accent];
-  return (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      pointerEvents="none"
-      style={{
-        alignItems: "center",
-        backgroundColor: color,
-        borderRadius: size / 2,
-        height: size,
-        justifyContent: "center",
-        opacity: 0.94,
-        width: size
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: accent === "orange" ? colors.redCorner : accent === "purple" ? colors.blueIQ : colors.powerPurple,
-          borderRadius: size / 4,
-          height: size * 0.48,
-          opacity: 0.26,
-          width: size * 0.48
-        }}
-      />
-    </View>
-  );
-}
-
 export function AccentPill({
   accent = "blue",
   label
@@ -172,7 +142,9 @@ export function AccentPill({
     <View
       style={{
         alignSelf: "flex-start",
-        backgroundColor: accentColor[accent],
+        backgroundColor: accentWash[accent],
+        borderColor: `${accentColor[accent]}55`,
+        borderWidth: 1,
         borderRadius: radii.pill,
         minHeight: 30,
         justifyContent: "center",
@@ -180,7 +152,7 @@ export function AccentPill({
         paddingVertical: spacing.xs
       }}
     >
-      <Text style={{ color: accent === "gold" ? colors.cornerBlack : colors.canvas, fontSize: 12, fontWeight: "900" }}>
+      <Text style={{ color: accent === "gold" ? colors.gold : accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>
@@ -199,9 +171,9 @@ export function LuminousProgressBar({
     <View
       accessibilityLabel={`${Math.round(clamped * 100)} percent`}
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.92)",
+        backgroundColor: "rgba(255, 255, 255, 0.14)",
         borderRadius: radii.pill,
-        height: 12,
+        height: 10,
         overflow: "hidden"
       }}
     >
@@ -236,27 +208,49 @@ export function MetricTile({
         borderColor: colors.line,
         borderRadius: radii.tile,
         borderWidth: 1,
-        flex: 1,
+        flexBasis: "47%",
+        flexGrow: 1,
+        flexShrink: 1,
         gap: spacing.xs,
-        minWidth: 144,
+        minHeight: 124,
+        minWidth: 136,
         overflow: "hidden",
         padding: spacing.md
       }}
     >
-      <View pointerEvents="none" style={luminousStyles.cardShine} />
       <View
+        pointerEvents="none"
         style={{
-          alignSelf: "flex-end",
           backgroundColor: accentColor[accent],
-          borderRadius: 14,
-          height: 28,
-          marginBottom: -spacing.md,
-          width: 28
+          height: 2,
+          left: spacing.md,
+          opacity: 0.78,
+          position: "absolute",
+          right: spacing.md,
+          top: 0
         }}
       />
-      <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>{label}</Text>
-      <Text style={{ color: colors.canvas, fontSize: 26, fontWeight: "900", lineHeight: 32 }}>{value}</Text>
-      {meta ? <Text style={{ color: colors.mutedText, fontSize: 14, lineHeight: 20 }}>{meta}</Text> : null}
+      <View
+        style={{
+          alignSelf: "flex-start",
+          backgroundColor: accentColor[accent],
+          borderRadius: 4,
+          height: 8,
+          opacity: 0.92,
+          width: 8
+        }}
+      />
+      <Text numberOfLines={1} style={{ ...typography.tileLabel, color: colors.wrap, flexShrink: 1, minWidth: 0 }}>
+        {label}
+      </Text>
+      <Text numberOfLines={2} style={{ ...typography.tileValue, color: colors.canvas, flexShrink: 1, minWidth: 0 }}>
+        {value}
+      </Text>
+      {meta ? (
+        <Text numberOfLines={2} style={{ ...typography.subtle, color: colors.mutedText, flexShrink: 1, minWidth: 0 }}>
+          {meta}
+        </Text>
+      ) : null}
     </View>
   );
 }

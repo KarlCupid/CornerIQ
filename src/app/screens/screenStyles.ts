@@ -1,5 +1,6 @@
 import type { TextStyle, ViewStyle } from "react-native";
 import { colors, radii, spacing } from "../../design/theme";
+import { typography } from "../../design/typography";
 
 export const screenStyles = {
   screen: {
@@ -10,52 +11,46 @@ export const screenStyles = {
     flex: 1
   } satisfies ViewStyle,
   ambientTop: {
-    backgroundColor: "rgba(115, 77, 160, 0.42)",
-    borderRadius: 190,
-    height: 380,
+    backgroundColor: "rgba(39, 206, 241, 0.026)",
+    height: 240,
+    left: 0,
     position: "absolute",
-    right: -142,
-    top: -96,
-    width: 380
+    right: 0,
+    top: 0
   } satisfies ViewStyle,
   ambientLeft: {
-    backgroundColor: "rgba(39, 206, 241, 0.22)",
-    borderRadius: 180,
-    height: 360,
-    left: -154,
+    backgroundColor: "rgba(150, 87, 245, 0.014)",
+    bottom: 148,
+    height: 260,
+    left: 0,
     position: "absolute",
-    top: 92,
-    width: 360
+    right: 0
   } satisfies ViewStyle,
   ambientRight: {
-    backgroundColor: "rgba(56, 226, 138, 0.12)",
-    borderRadius: 170,
-    bottom: 120,
-    height: 340,
+    backgroundColor: "rgba(255, 255, 255, 0.012)",
+    bottom: 0,
+    height: 180,
+    left: 0,
     position: "absolute",
-    right: -188,
-    width: 340
+    right: 0
   } satisfies ViewStyle,
   content: {
     gap: spacing.xl,
-    padding: spacing.lg,
-    paddingBottom: 128,
-    paddingTop: spacing.xxl
+    flexGrow: 1,
+    paddingBottom: 132,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl
   } satisfies ViewStyle,
   row: {
     gap: spacing.sm
   } satisfies ViewStyle,
   title: {
+    ...typography.screenTitle,
     color: colors.canvas,
-    fontSize: 44,
-    fontWeight: "900",
-    lineHeight: 52
   } satisfies TextStyle,
   heroTitle: {
+    ...typography.heroTitle,
     color: colors.canvas,
-    fontSize: 34,
-    fontWeight: "900",
-    lineHeight: 40
   } satisfies TextStyle,
   headerPill: {
     alignSelf: "flex-start",
@@ -69,44 +64,40 @@ export const screenStyles = {
   headerPillText: {
     color: colors.blueIQ,
     fontSize: 12,
-    fontWeight: "900"
+    fontWeight: "800",
+    lineHeight: 16
   } satisfies TextStyle,
   cardShine: {
     backgroundColor: colors.glassRail,
-    borderRadius: radii.pill,
-    height: 42,
+    height: 1,
     left: 0,
-    opacity: 0.62,
     position: "absolute",
     right: 0,
     top: 0
   } satisfies ViewStyle,
   sectionTitle: {
+    ...typography.sectionTitle,
     color: colors.canvas,
-    fontSize: 24,
-    fontWeight: "900",
-    lineHeight: 30
   } satisfies TextStyle,
   fieldLabel: {
     color: colors.canvas,
-    fontSize: 14,
-    fontWeight: "800"
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16
   } satisfies TextStyle,
   body: {
+    ...typography.body,
     color: colors.wrap,
-    fontSize: 17,
-    lineHeight: 25
   } satisfies TextStyle,
   subtle: {
+    ...typography.subtle,
     color: colors.mutedText,
-    fontSize: 14,
-    lineHeight: 20
   } satisfies TextStyle,
   callout: {
     color: colors.blueIQ,
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: "900"
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: "700"
   } satisfies TextStyle,
   exampleText: {
     color: colors.blueIQ,
@@ -127,8 +118,9 @@ export const screenStyles = {
     borderRadius: radii.control,
     borderWidth: 1,
     color: colors.canvas,
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "500",
+    lineHeight: 23,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm
   } satisfies TextStyle,
@@ -160,18 +152,14 @@ export const screenStyles = {
   quietButtonText: {
     color: colors.cornerBlack,
     fontSize: 15,
-    fontWeight: "900"
+    fontWeight: "800"
   } satisfies TextStyle,
   tileLabel: {
+    ...typography.tileLabel,
     color: colors.wrap,
-    fontSize: 13,
-    fontWeight: "900",
-    lineHeight: 18
   } satisfies TextStyle,
   tileValue: {
+    ...typography.tileValue,
     color: colors.canvas,
-    fontSize: 26,
-    fontWeight: "900",
-    lineHeight: 32
   } satisfies TextStyle
 } as const;

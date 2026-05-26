@@ -20,10 +20,8 @@ export function EngineCard({ children }: PropsWithChildren) {
         pointerEvents="none"
         style={{
           backgroundColor: colors.glassRail,
-          borderRadius: radii.pill,
-          height: 42,
+          height: 1,
           left: 0,
-          opacity: 0.7,
           position: "absolute",
           right: 0,
           top: 0

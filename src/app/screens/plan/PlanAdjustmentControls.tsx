@@ -58,7 +58,7 @@ export function PlanAdjustmentControls({ actions, busy, date }: PlanAdjustmentCo
       </View>
       {result && rejected ? (
         <RiskBanner title="Adjustment not applied" message={result.explanation} tone={result.status === "rejected" ? "critical" : "caution"}>
-          {result.safetyFlags.map((flag) => <Text key={flag} style={screenStyles.subtle}>{flag}</Text>)}
+          {result.safetyFlags.map((flag, index) => <Text key={`plan-adjustment-safety:${index}`} style={screenStyles.subtle}>{flag}</Text>)}
         </RiskBanner>
       ) : null}
       {result && !rejected ? <Text style={screenStyles.subtle}>Engine response: {result.explanation}</Text> : null}

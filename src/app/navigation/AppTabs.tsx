@@ -1,8 +1,10 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, ISODateString, PerformanceState } from "../../engine/core/types";
 import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
 import { colors, radii } from "../../design/theme";
@@ -30,6 +32,22 @@ const tabAccents: Record<keyof RootTabParamList, string> = {
   Train: colors.powerPurple
 };
 
+const tabAccentWashes: Record<keyof RootTabParamList, string> = {
+  Fuel: "rgba(255, 148, 72, 0.16)",
+  Plan: "rgba(56, 226, 138, 0.15)",
+  Profile: "rgba(217, 228, 244, 0.12)",
+  Today: "rgba(39, 206, 241, 0.16)",
+  Train: "rgba(150, 87, 245, 0.16)"
+};
+
+const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
+  Fuel: "restaurant-outline",
+  Plan: "calendar-outline",
+  Profile: "person-circle-outline",
+  Today: "today-outline",
+  Train: "barbell-outline"
+};
+
 export interface AppTabsProps {
   asOfDate: ISODateString;
   busy: boolean;
@@ -52,6 +70,7 @@ export interface AppTabsProps {
 }
 
 export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
       <NavigationContainer>
@@ -60,38 +79,46 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarActiveTintColor: tabAccents[route.name],
-            tabBarInactiveTintColor: colors.wrap,
-            tabBarIcon: ({ focused }) => (
+            tabBarInactiveTintColor: colors.mutedText,
+            tabBarIcon: ({ color, focused }) => (
               <View
                 style={{
-                  backgroundColor: focused ? tabAccents[route.name] : colors.wrap,
+                  alignItems: "center",
+                  backgroundColor: focused ? tabAccentWashes[route.name] : "transparent",
                   borderRadius: radii.pill,
-                  height: focused ? 34 : 12,
-                  opacity: focused ? 1 : 0.95,
-                  width: focused ? 78 : 12
+                  height: 34,
+                  justifyContent: "center",
+                  minWidth: 44,
+                  paddingHorizontal: 10
                 }}
-              />
+              >
+                <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={focused ? 21 : 20} />
+              </View>
             ),
             tabBarItemStyle: {
-              paddingVertical: 8
+              borderRadius: 24,
+              paddingVertical: 4
             },
             tabBarLabelStyle: {
               fontSize: 12,
-              fontWeight: "900",
-              marginTop: 4
+              fontWeight: "700",
+              lineHeight: 16,
+              marginTop: 2
             },
             tabBarStyle: {
               backgroundColor: colors.panelDeep,
               borderColor: colors.lineStrong,
               borderRadius: 32,
-              borderTopColor: colors.lineStrong,
+              borderTopColor: colors.line,
               borderWidth: 1,
-              height: 86,
-              marginBottom: 12,
-              marginHorizontal: 16,
+              bottom: Math.max(10, insets.bottom),
+              height: 80,
+              left: 16,
               overflow: "hidden",
               paddingBottom: 8,
-              paddingTop: 8
+              paddingTop: 8,
+              position: "absolute",
+              right: 16
             }
           })}
       >

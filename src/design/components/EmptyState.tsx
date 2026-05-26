@@ -38,7 +38,7 @@ export function EmptyState({
               paddingVertical: spacing.sm
             }}
           >
-            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "900" }}>{actionLabel}</Text>
+            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>

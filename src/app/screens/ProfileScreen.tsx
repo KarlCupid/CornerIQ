@@ -93,7 +93,7 @@ export function ProfileScreen({
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Privacy</Text>
-              {viewModel.privacyNotes.map((note) => <Text key={note} style={screenStyles.body}>{note}</Text>)}
+              {viewModel.privacyNotes.map((note, index) => <Text key={`profile-privacy:${index}`} style={screenStyles.body}>{note}</Text>)}
               <Text style={screenStyles.subtle}>Cycle data is optional, private, and used only to adjust confidence and symptom-aware context.</Text>
             </View>
           </EngineCard>
@@ -126,7 +126,7 @@ export function ProfileScreen({
               <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Preview export</Text>
               </Pressable>
-              {userDataControls?.previewRows.map((row) => <Text key={row} style={screenStyles.subtle}>{row}</Text>)}
+              {userDataControls?.previewRows.map((row, index) => <Text key={`profile-preview-row:${index}`} style={screenStyles.subtle}>{row}</Text>)}
               {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
               <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
               <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
@@ -172,7 +172,7 @@ export function ProfileScreen({
             <EngineCard>
               <View style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.sectionTitle}>Journey history</Text>
-                {recentLogs.profile.map((item) => <Text key={item} style={screenStyles.body}>{item}</Text>)}
+                {recentLogs.profile.map((item, index) => <Text key={`profile-recent-log:${index}`} style={screenStyles.body}>{item}</Text>)}
               </View>
             </EngineCard>
           ) : (

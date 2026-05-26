@@ -21,9 +21,14 @@ export function SectionTabs<T extends string>({
       accessibilityLabel="Screen sections"
       accessibilityHint="Choose which section of this screen is visible."
       style={{
+        backgroundColor: colors.panelDeep,
+        borderColor: colors.line,
+        borderRadius: radii.control,
+        borderWidth: 1,
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: spacing.sm
+        gap: spacing.xs,
+        padding: spacing.xs
       }}
     >
       {items.map((item) => {
@@ -37,17 +42,29 @@ export function SectionTabs<T extends string>({
             key={item.key}
             onPress={() => onChange(item.key)}
             style={{
-              backgroundColor: selected ? colors.blueIQ : colors.panelRaised,
-              borderColor: selected ? colors.blueIQ : colors.lineStrong,
-              borderRadius: radii.control,
+              alignItems: "center",
+              backgroundColor: selected ? "rgba(39, 206, 241, 0.18)" : "transparent",
+              borderColor: selected ? "rgba(39, 206, 241, 0.48)" : "transparent",
+              borderRadius: 20,
               borderWidth: 1,
-              minHeight: 44,
+              flexGrow: 1,
               justifyContent: "center",
-              paddingHorizontal: spacing.md,
+              minHeight: 40,
+              minWidth: 96,
+              paddingHorizontal: spacing.sm,
               paddingVertical: spacing.sm
             }}
           >
-            <Text style={{ color: selected ? colors.cornerBlack : colors.canvas, fontSize: 14, fontWeight: "800" }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                color: selected ? colors.canvas : colors.mutedText,
+                fontSize: 13,
+                fontWeight: "800",
+                lineHeight: 18,
+                textAlign: "center"
+              }}
+            >
               {item.label}
             </Text>
           </Pressable>

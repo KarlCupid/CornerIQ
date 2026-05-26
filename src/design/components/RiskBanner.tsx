@@ -37,10 +37,8 @@ export function RiskBanner({
         pointerEvents="none"
         style={{
           backgroundColor: colors.glassRail,
-          borderRadius: radii.pill,
-          height: 42,
+          height: 1,
           left: 0,
-          opacity: 0.62,
           position: "absolute",
           right: 0,
           top: 0

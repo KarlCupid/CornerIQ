@@ -65,6 +65,22 @@ function flowAccent(index: number): LuminousAccent {
   return (["blue", "purple", "orange", "green"] as const)[index % 4] ?? "blue";
 }
 
+function sessionMetricValue(viewModel: TrainViewModel): string {
+  const count = viewModel.sessionCards.length;
+  if (count === 0) {
+    return "No session";
+  }
+  return `${count} session${count === 1 ? "" : "s"}`;
+}
+
+function fuelMetricValue(viewModel: TrainViewModel): string {
+  const demand = viewModel.sessionCards[0]?.fuelDemand;
+  if (!demand) {
+    return "Fuel check";
+  }
+  return `${demand.charAt(0).toUpperCase()}${demand.slice(1)} fuel`;
+}
+
 function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards"][number] }) {
   return (
     <EngineCard>
@@ -110,8 +126,8 @@ export function TrainScreen({ busy, completionActions, completionMessage, quickL
         why={viewModel.topAction.why}
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <MetricTile accent="purple" label="Session" meta={viewModel.todayRole.summary} value={viewModel.todaySummary} />
-        <MetricTile accent="orange" label="Fuel" meta={viewModel.hydrationHint} value={viewModel.preSessionFuelHint} />
+        <MetricTile accent="purple" label="Session" meta={viewModel.todayRole.status.replace(/_/g, " ")} value={sessionMetricValue(viewModel)} />
+        <MetricTile accent="orange" label="Fuel" meta="Carbs + water" value={fuelMetricValue(viewModel)} />
       </View>
       <SectionTabs items={trainSections} value={section} onChange={setSection} />
       {viewModel.riskSummary.length > 0 ? (

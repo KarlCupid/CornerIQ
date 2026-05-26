@@ -23,7 +23,7 @@ type PlanSection = "week" | "nextWeek" | "history" | "adjustments";
 const planSections: readonly SectionTabItem<PlanSection>[] = [
   { key: "week", label: "Week" },
   { key: "nextWeek", label: "Next Week" },
-  { key: "history", label: "Block History" },
+  { key: "history", label: "History" },
   { key: "adjustments", label: "Adjustments" }
 ];
 
@@ -44,6 +44,10 @@ function hasProtectedAnchors(value: string): boolean {
   return value !== "No protected anchors.";
 }
 
+function compactCount(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function PlanReviewNotes({ viewModel }: { viewModel: PlanViewModel }) {
   return (
     <DisclosureCard title="Plan review notes" summary={viewModel.warnings.length > 0 ? `${viewModel.warnings.length} review note${viewModel.warnings.length === 1 ? "" : "s"} hidden until needed.` : "No active plan review notes."}>
@@ -58,6 +62,7 @@ function PlanReviewNotes({ viewModel }: { viewModel: PlanViewModel }) {
 export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, busy, hasActiveFightOrTournament, isMinor, nextWeekPreviewActions, onSaveFightSetup, onSaveTournamentSetup, viewModel }: PlanScreenProps) {
   const [section, setSection] = React.useState<PlanSection>("week");
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
+  const protectedAnchorCount = viewModel.dayPlans.filter((day) => hasProtectedAnchors(day.protectedAnchors)).length;
   return (
     <LuminousScreen testID="plan-screen">
       <ScreenHeader eyebrow={`Week ${viewModel.weekIndex}`} title={viewModel.title} />
@@ -71,9 +76,9 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
         why={viewModel.topAction.why}
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <MetricTile accent="green" label="Boxing anchors" meta="protected first" value={viewModel.protectedAnchorSummary} />
-        <MetricTile accent="blue" label="Support days" meta={viewModel.hardDaySummary} value={`${viewModel.generatedSupportDayCount}`} />
-        <MetricTile accent="gold" label="Recovery" meta="rest and easy days" value={`${viewModel.recoveryDayCount}`} />
+        <MetricTile accent="green" label="Boxing anchors" meta="Protected first" value={compactCount(protectedAnchorCount, "anchor")} />
+        <MetricTile accent="blue" label="Support days" meta="Generated work" value={compactCount(viewModel.generatedSupportDayCount, "support day", "support days")} />
+        <MetricTile accent="gold" label="Recovery" meta="Rest/easy" value={compactCount(viewModel.recoveryDayCount, "recovery", "recovery")} />
       </View>
       <SectionTabs items={planSections} value={section} onChange={setSection} />
       {showCriticalPlanRisk ? (

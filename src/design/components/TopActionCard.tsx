@@ -2,7 +2,7 @@ import React from "react";
 import { Text, View } from "react-native";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
-import { AccentPill, LuminousOrb, type LuminousAccent } from "./LuminousScreen";
+import { AccentPill, accentColor, type LuminousAccent } from "./LuminousScreen";
 
 export function TopActionCard({
   accent = "blue",
@@ -28,9 +28,9 @@ export function TopActionCard({
         borderColor: colors.lineStrong,
         borderRadius: radii.card,
         borderWidth: 1,
-        gap: spacing.lg,
+        gap: spacing.md,
         overflow: "hidden",
-        padding: spacing.xl
+        padding: spacing.lg
       }}
       testID={testID}
     >
@@ -38,10 +38,20 @@ export function TopActionCard({
         pointerEvents="none"
         style={{
           backgroundColor: colors.glassRail,
-          borderRadius: radii.pill,
-          height: 52,
+          height: 1,
           left: 0,
-          opacity: 0.66,
+          position: "absolute",
+          right: 0,
+          top: 0
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          backgroundColor: accentColor[accent],
+          height: 3,
+          left: 0,
+          opacity: 0.72,
           position: "absolute",
           right: 0,
           top: 0
@@ -51,24 +61,31 @@ export function TopActionCard({
         <AccentPill accent={accent} label={title} />
         <AccentPill accent="blue" label="CornerIQ" />
       </View>
-      <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.lg }}>
-        <View style={{ flex: 1, gap: spacing.sm, minWidth: 220 }}>
-          <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800" }}>Do now</Text>
-          <Text style={{ color: colors.canvas, fontSize: 36, fontWeight: "900", lineHeight: 42 }}>{primaryAction}</Text>
+      <View style={{ flexDirection: "row", gap: spacing.md }}>
+        <View
+          style={{
+            backgroundColor: accentColor[accent],
+            borderRadius: radii.pill,
+            height: 10,
+            opacity: 0.72,
+            marginTop: 7,
+            width: 10
+          }}
+        />
+        <View style={{ flex: 1, gap: spacing.sm, minWidth: 0 }}>
+          <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Do now</Text>
+          <Text style={{ ...typography.cardTitle, color: colors.canvas, flexShrink: 1 }}>{primaryAction}</Text>
           <Text style={{ ...typography.body, color: colors.wrap }}>{purpose}</Text>
         </View>
-        <View style={{ alignItems: "center", flexGrow: 1 }}>
-          <LuminousOrb accent={accent} size={128} />
-        </View>
       </View>
-      <View style={{ gap: spacing.xs }}>
-        <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800" }}>Why</Text>
-        <Text style={{ color: colors.wrap, fontSize: 14, lineHeight: 20 }}>{why}</Text>
-      </View>
-      <View style={{ gap: spacing.xs }}>
-        <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800" }}>Optional</Text>
-        <Text style={{ color: colors.wrap, fontSize: 14, lineHeight: 20 }}>{optional}</Text>
-      </View>
+      <Text style={{ ...typography.subtle, color: colors.wrap }}>
+        <Text style={{ color: colors.canvas, fontWeight: "800" }}>Why: </Text>
+        {why}
+      </Text>
+      <Text style={{ ...typography.subtle, color: colors.wrap }}>
+        <Text style={{ color: colors.canvas, fontWeight: "800" }}>Optional: </Text>
+        {optional}
+      </Text>
     </View>
   );
 }
