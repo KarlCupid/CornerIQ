@@ -71,6 +71,8 @@ export interface ProtectedWorkout {
   id: string;
   type: ProtectedWorkoutType;
   date: ISODateString;
+  startTime?: string | undefined;
+  localStartTime?: string | undefined;
   durationMinutes: number;
   intensity: SessionIntensity;
   protected: true;

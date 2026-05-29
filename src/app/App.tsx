@@ -17,10 +17,11 @@ import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "..
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion, type WorkoutCompletionActions } from "../hooks/useWorkoutCompletion";
 import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
-import type { CycleSymptom, PerformanceState } from "../engine/core/types";
+import type { CycleSymptom, PerformanceState, ProtectedWorkout } from "../engine/core/types";
 import { getBetaRuntimeConfig } from "../services/config/betaRuntimeConfig";
 import { isLocalE2EMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
 import { buildLocalE2EPerformanceState, LOCAL_E2E_AS_OF_DATE } from "../services/e2e/localE2EState";
+import { workoutFromDraft } from "../services/supabase/onboardingService";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 import { colors, spacing } from "../design/theme";
 
@@ -121,9 +122,13 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onAcknowledgeNutritionSafetyReview={performance.acknowledgeNutritionSafetyReview}
+      onDeleteProtectedSession={performance.deleteProtectedSession}
       onRequestNutritionSafetyReview={performance.requestNutritionSafetyReview}
+      onSaveBuildGoal={performance.saveBuildGoal}
       onSignOut={onSignOut}
       onSaveFightSetup={performance.saveFightSetup}
+      onSaveProtectedSession={performance.saveProtectedSession}
+      onSaveRecoveryGoal={performance.saveRecoveryGoal}
       onSaveTournamentSetup={performance.saveTournamentSetup}
       onUpdateProfileSettings={performance.updateProfileSettings}
       quickLogs={quickLogs.actions}
@@ -181,6 +186,7 @@ function useLocalE2EQuickLogs(setMessage: (message: string) => void): QuickLogAc
 function LocalE2EApp() {
   const [signedIn, setSignedIn] = useState(false);
   const [todayState, setTodayState] = useState<PerformanceState | null>(null);
+  const [localProtectedWorkouts, setLocalProtectedWorkouts] = useState<ProtectedWorkout[]>([]);
   const [message, setMessage] = useState<string | null>("Local agent QA mode is active. Supabase is not contacted.");
   const [dataMessage, setDataMessage] = useState<string | null>(null);
   const [dataPreviewLoaded, setDataPreviewLoaded] = useState(false);
@@ -337,8 +343,15 @@ function LocalE2EApp() {
     []
   );
 
+  const refreshLocalPlan = useCallback((protectedWorkouts: readonly ProtectedWorkout[]) => {
+    setLocalProtectedWorkouts([...protectedWorkouts]);
+    setTodayState(buildLocalE2EPerformanceState({ protectedWorkouts }));
+  }, []);
+
   const loadToday = useCallback(async () => {
-    setTodayState(buildLocalE2EPerformanceState());
+    const state = buildLocalE2EPerformanceState();
+    setTodayState(state);
+    setLocalProtectedWorkouts([...state.training.protectedAnchors]);
     setMessage("Local E2E demo profile loaded. No Supabase writes occurred.");
   }, []);
 
@@ -400,11 +413,30 @@ function LocalE2EApp() {
         onAcknowledgeNutritionSafetyReview={async () => {
           setMessage("Local E2E nutrition review acknowledgement stayed local. No Supabase call was made.");
         }}
+        onDeleteProtectedSession={async (workoutId) => {
+          const next = localProtectedWorkouts.filter((workout) => workout.id !== workoutId);
+          refreshLocalPlan(next);
+          setMessage("Local E2E fixed boxing session removed locally. No Supabase call was made.");
+        }}
         onRequestNutritionSafetyReview={async () => {
           setMessage("Local E2E nutrition review request stayed local. No Supabase call was made.");
         }}
+        onSaveBuildGoal={async () => {
+          setMessage("Local E2E build goal save stayed local. No Supabase call was made.");
+        }}
         onSaveFightSetup={async () => {
           setMessage("Local E2E fight setup save stayed local. No Supabase call was made.");
+        }}
+        onSaveProtectedSession={async (workoutId, draft) => {
+          const nextId = workoutId ?? `local_fixed_${draft.type}_${draft.date}_${localProtectedWorkouts.length + 1}`;
+          const workout = workoutFromDraft({ ...draft, id: nextId }, localProtectedWorkouts.length);
+          const existing = workoutId ? localProtectedWorkouts.findIndex((item) => item.id === workoutId) : -1;
+          const next = existing >= 0 ? localProtectedWorkouts.map((item, index) => (index === existing ? workout : item)) : [...localProtectedWorkouts, workout];
+          refreshLocalPlan(next);
+          setMessage(workoutId ? "Local E2E fixed boxing session updated locally. No Supabase call was made." : "Local E2E fixed boxing session added locally. No Supabase call was made.");
+        }}
+        onSaveRecoveryGoal={async () => {
+          setMessage("Local E2E recovery goal save stayed local. No Supabase call was made.");
         }}
         onSaveTournamentSetup={async () => {
           setMessage("Local E2E tournament setup save stayed local. No Supabase call was made.");

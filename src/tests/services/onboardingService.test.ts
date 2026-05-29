@@ -7,7 +7,11 @@ import {
   createDefaultFightDraft,
   createDefaultOnboardingDraft,
   createDefaultTournamentDraft,
+  deleteProtectedSession,
+  saveBuildGoal,
   saveFightSetup,
+  saveProtectedSession,
+  saveRecoveryGoal,
   saveTournamentSetup,
   updateProfileSettings,
   type OnboardingDraft
@@ -69,12 +73,29 @@ function createOnboardingRepositories() {
     protectedWorkout: {
       listProtectedWorkouts: vi.fn(async () => store.protectedWorkouts),
       insertProtectedWorkout: vi.fn(async (_userId: string, workout: ProtectedWorkout) => {
-        store.protectedWorkouts.push(workout);
-        return { id: `protected_${store.protectedWorkouts.length}` };
+        const stored = { ...workout, id: `protected_${store.protectedWorkouts.length + 1}` };
+        store.protectedWorkouts.push(stored);
+        return { id: stored.id };
       }),
       insertProtectedWorkouts: vi.fn(async (_userId: string, workouts: readonly ProtectedWorkout[]) => {
-        store.protectedWorkouts.push(...workouts);
-        return { ids: workouts.map((_, index) => `protected_${index}`) };
+        const ids: string[] = [];
+        for (const workout of workouts) {
+          const stored = { ...workout, id: `protected_${store.protectedWorkouts.length + 1}` };
+          store.protectedWorkouts.push(stored);
+          ids.push(stored.id);
+        }
+        return { ids };
+      }),
+      updateProtectedWorkout: vi.fn(async (_userId: string, workoutId: string, workout: ProtectedWorkout) => {
+        const index = store.protectedWorkouts.findIndex((item) => item.id === workoutId);
+        if (index >= 0) {
+          store.protectedWorkouts[index] = { ...workout, id: workoutId };
+        }
+        return { id: workoutId };
+      }),
+      deleteProtectedWorkout: vi.fn(async (_userId: string, workoutId: string) => {
+        store.protectedWorkouts = store.protectedWorkouts.filter((workout) => workout.id !== workoutId);
+        return { id: workoutId };
       })
     },
     bodyMass: {
@@ -308,5 +329,74 @@ describe("onboardingService", () => {
     expect(store.profile?.equipmentAccess).toContain("bag");
     expect(store.protectedWorkouts.some((workout) => workout.type === "bag_work")).toBe(true);
     expect(store.events.map((event) => event.type)).toContain("CyclePatternUpdated");
+  });
+
+  it("plan protected session save, update, and delete keep profile and table schedules synced", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    if (!store.profile) {
+      throw new Error("profile missing");
+    }
+
+    const saved = await saveProtectedSession({
+      userId: "user_1",
+      currentProfile: store.profile,
+      workout: {
+        type: "pads_mitts",
+        date: "2026-05-21",
+        startTime: "18:30",
+        durationMinutes: 60,
+        intensity: "hard",
+        rounds: 8,
+        note: "Coach pads"
+      },
+      repositories
+    });
+
+    expect(store.profile.protectedBoxingSchedule.some((workout) => workout.id === saved.id && workout.startTime === "18:30")).toBe(true);
+    expect(store.protectedWorkouts.some((workout) => workout.id === saved.id && workout.type === "pads_mitts")).toBe(true);
+
+    await saveProtectedSession({
+      userId: "user_1",
+      currentProfile: store.profile,
+      workoutId: saved.id,
+      workout: {
+        type: "pads_mitts",
+        date: "2026-05-22",
+        startTime: "19:00",
+        durationMinutes: 75,
+        intensity: "moderate",
+        note: "Moved pads"
+      },
+      repositories
+    });
+
+    expect(store.profile.protectedBoxingSchedule.some((workout) => workout.id === saved.id && workout.date === "2026-05-22" && workout.durationMinutes === 75)).toBe(true);
+    expect(store.profile.protectedBoxingSchedule.some((workout) => workout.id === saved.id && workout.date === "2026-05-21")).toBe(false);
+    expect(store.protectedWorkouts.some((workout) => workout.id === saved.id && workout.date === "2026-05-22" && workout.durationMinutes === 75)).toBe(true);
+
+    await deleteProtectedSession({
+      userId: "user_1",
+      currentProfile: store.profile,
+      workoutId: saved.id,
+      repositories
+    });
+
+    expect(store.profile.protectedBoxingSchedule.some((workout) => workout.id === saved.id)).toBe(false);
+    expect(store.protectedWorkouts.some((workout) => workout.id === saved.id)).toBe(false);
+  });
+
+  it("plan build and recovery goal saves use existing journey event paths", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+
+    await saveBuildGoal({ userId: "user_1", draft: { primaryFocus: "power", supportDaysPerWeek: 2 }, repositories });
+    await saveRecoveryGoal({ userId: "user_1", draft: { durationDays: 5, focus: "sleep" }, repositories });
+
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ primaryFocus: "power", source: "plan" }) }),
+        expect.objectContaining({ type: "RecoveryStarted", payload: expect.objectContaining({ durationDays: 5, focus: "sleep", source: "plan" }) })
+      ])
+    );
   });
 });

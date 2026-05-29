@@ -3,29 +3,15 @@ import { Pressable, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
-import { EmptyState } from "../../design/components/EmptyState";
-import { accentColor, accentWash, LuminousScreen, MetricTile, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
+import { accentColor, accentWash, LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
-import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
-import { TimelineList } from "../../design/components/TimelineList";
-import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
-import type { FightSetupDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
-import { FightSetupScreen } from "./fight/FightSetupScreen";
-import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
-import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
+import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
+import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
+import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { screenStyles } from "./screenStyles";
-
-type PlanSection = "week" | "nextWeek" | "history" | "adjustments";
-
-const planSections: readonly SectionTabItem<PlanSection>[] = [
-  { key: "week", label: "Week" },
-  { key: "nextWeek", label: "Next Week" },
-  { key: "history", label: "History" },
-  { key: "adjustments", label: "Adjustments" }
-];
 
 export interface PlanScreenProps {
   adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
@@ -35,73 +21,35 @@ export interface PlanScreenProps {
   hasActiveFightOrTournament: boolean;
   isMinor: boolean;
   nextWeekPreviewActions?: NextWeekPreviewActions | undefined;
+  onDeleteProtectedSession?: ((workoutId: string) => Promise<void>) | undefined;
+  onSaveBuildGoal?: ((draft: BuildGoalDraft) => Promise<void>) | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
+  onSaveProtectedSession?: ((workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>) | undefined;
+  onSaveRecoveryGoal?: ((draft: RecoveryGoalDraft) => Promise<void>) | undefined;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   viewModel: PlanViewModel;
-}
-
-function hasProtectedAnchors(value: string): boolean {
-  return value !== "No protected anchors.";
 }
 
 function compactCount(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function formatDateLabel(date: string): string {
-  return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+function friendlyAnchorText(value: string): string {
+  return value === "No protected anchors." ? "None" : value;
 }
 
-function splitDayLabel(label: string): { date: string; weekday: string } {
-  const [weekday, date] = label.split(", ");
-  return { date: date ?? label, weekday: weekday ?? label };
+function friendlySupportText(value: string): string {
+  return value === "No generated support." ? "None" : value;
 }
 
-function toneForMarker(marker: string): LuminousAccent {
-  const normalized = marker.toLowerCase();
-  if (normalized.includes("hard") || normalized.includes("sparring")) {
-    return "orange";
-  }
-  if (normalized.includes("recovery") || normalized.includes("taper")) {
+function toneForTag(tag: "Protected" | "Support" | "Recovery"): LuminousAccent {
+  if (tag === "Protected") {
     return "green";
   }
-  if (normalized.includes("tournament")) {
+  if (tag === "Recovery") {
     return "gold";
   }
   return "blue";
-}
-
-function toneForFuelDemand(fuelDemand: string): LuminousAccent {
-  const normalized = fuelDemand.toLowerCase();
-  if (normalized.includes("high")) {
-    return "orange";
-  }
-  if (normalized.includes("moderate")) {
-    return "blue";
-  }
-  return "green";
-}
-
-function WeekStat({ label, tone, value }: { label: string; tone: LuminousAccent; value: string }) {
-  return (
-    <View
-      style={{
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(255, 255, 255, 0.10)",
-        borderRadius: 16,
-        borderWidth: 1,
-        flexBasis: 132,
-        flexGrow: 1,
-        gap: spacing.xs,
-        minHeight: 54,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm
-      }}
-    >
-      <Text numberOfLines={1} style={[screenStyles.fieldLabel, { color: accentColor[tone] }]}>{label}</Text>
-      <Text numberOfLines={2} style={screenStyles.subtle}>{value}</Text>
-    </View>
-  );
 }
 
 function SmallTag({ label, tone = "blue" }: { label: string; tone?: LuminousAccent | undefined }) {
@@ -124,18 +72,7 @@ function SmallTag({ label, tone = "blue" }: { label: string; tone?: LuminousAcce
   );
 }
 
-function WeekRow({
-  dateLabel,
-  fuelDemand,
-  marker,
-  summary
-}: {
-  dateLabel: string;
-  fuelDemand: string;
-  marker: string;
-  summary: string;
-}) {
-  const { date, weekday } = splitDayLabel(dateLabel);
+function WeekPreviewRow({ day }: { day: PlanViewModel["dayPlans"][number] }) {
   return (
     <View
       style={{
@@ -148,79 +85,99 @@ function WeekRow({
         paddingVertical: spacing.sm
       }}
     >
-      <View style={{ width: 54 }}>
-        <Text numberOfLines={1} style={screenStyles.fieldLabel}>{weekday}</Text>
-        <Text numberOfLines={1} style={screenStyles.subtle}>{date}</Text>
+      <View style={{ width: 74 }}>
+        <Text numberOfLines={1} style={screenStyles.fieldLabel}>{day.label.split(",")[0] ?? day.label}</Text>
+        <Text numberOfLines={1} style={screenStyles.subtle}>{day.label.split(", ")[1] ?? day.date}</Text>
       </View>
       <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-        <SmallTag label={marker} tone={toneForMarker(marker)} />
-        <Text numberOfLines={1} style={screenStyles.subtle}>{summary}</Text>
+        <Text numberOfLines={1} style={screenStyles.body}>{day.compactSummary}</Text>
+        <SmallTag label={day.compactTag} tone={toneForTag(day.compactTag)} />
       </View>
-      <SmallTag label={fuelDemand} tone={toneForFuelDemand(fuelDemand)} />
+      <Text numberOfLines={1} style={screenStyles.subtle}>{day.compactMetric}</Text>
     </View>
   );
 }
 
 function DetailsToggle({
   children,
-  summary
+  closedLabel = "Show details",
+  openLabel = "Hide details",
+  startOpen = false
 }: React.PropsWithChildren<{
-  summary: string;
+  closedLabel?: string | undefined;
+  openLabel?: string | undefined;
+  startOpen?: boolean | undefined;
 }>) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(startOpen);
+  React.useEffect(() => {
+    setOpen(startOpen);
+  }, [startOpen]);
   return (
     <View style={{ gap: spacing.sm }}>
-      <Pressable
-        accessibilityLabel={open ? "Hide day details" : "Show day details"}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((value) => !value)}
-        style={screenStyles.quietButton}
-      >
-        <Text style={screenStyles.quietButtonText}>{open ? "Hide day details" : "Show day details"}</Text>
+      <Pressable accessibilityLabel={open ? openLabel : closedLabel} accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
+        <Text style={screenStyles.quietButtonText}>{open ? openLabel : closedLabel}</Text>
       </Pressable>
-      <Text style={screenStyles.subtle}>{summary}</Text>
       {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
     </View>
   );
 }
 
-function dayRowSummary(day: PlanViewModel["dayPlans"][number] | PlanViewModel["nextWeekPreview"]["dayPlanPreview"][number]): string {
-  return hasProtectedAnchors(day.protectedAnchors) ? day.protectedAnchors : day.generatedSupport;
-}
-
-function ThisWeekCard({ protectedAnchorCount, viewModel }: { protectedAnchorCount: number; viewModel: PlanViewModel }) {
+function CurrentModeCard({
+  busy,
+  onChangeGoal,
+  onPreviewNextWeek,
+  viewModel
+}: {
+  busy: boolean;
+  onChangeGoal: () => void;
+  onPreviewNextWeek: () => void;
+  viewModel: PlanViewModel;
+}) {
+  const primaryLabel = viewModel.nextWeekPreview.canAccept ? "Change goal" : "Generate plan";
   return (
     <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-this-week-card">
+      <View style={{ gap: spacing.md }} testID="plan-current-mode-card">
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>This week</Text>
-          <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} / week {viewModel.weekIndex}</Text>
+          <Text style={screenStyles.sectionTitle}>Current mode</Text>
+          <Text style={screenStyles.callout}>{viewModel.modeLabel}</Text>
+          <Text style={screenStyles.body}>Week {viewModel.weekIndex}. {viewModel.goalSummary}</Text>
+          <Text style={screenStyles.subtle}>Your boxing comes first.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <WeekStat label="Anchors" tone="green" value={viewModel.protectedAnchorSummary} />
-          <WeekStat label="Support" tone="blue" value={compactCount(viewModel.generatedSupportDayCount, "day")} />
-          <WeekStat label="Recovery" tone="gold" value={compactCount(viewModel.recoveryDayCount, "day")} />
+          <Pressable accessibilityRole="button" disabled={busy} onPress={onChangeGoal} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
+            <Text style={screenStyles.buttonText}>{primaryLabel}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={onPreviewNextWeek} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>Preview next week</Text>
+          </Pressable>
         </View>
-        {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
+      </View>
+    </EngineCard>
+  );
+}
+
+function CompactWeekPreviewCard({ viewModel }: { viewModel: PlanViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="plan-compact-week-preview-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>This week</Text>
+          <Text style={screenStyles.body}>{viewModel.weeklySummary}</Text>
+        </View>
         <View>
-          {viewModel.dayPlans.map((day, index) => (
-            <WeekRow key={`week-row:${index}`} dateLabel={day.label} fuelDemand={day.fuelDemand} marker={day.marker} summary={dayRowSummary(day)} />
-          ))}
+          {viewModel.dayPlans.map((day) => <WeekPreviewRow day={day} key={`current-week-row:${day.date}`} />)}
         </View>
-        <DetailsToggle summary={`${protectedAnchorCount} protected day${protectedAnchorCount === 1 ? "" : "s"}; details stay collapsed until needed.`}>
-          <Text style={screenStyles.body}>{viewModel.blockGoal}</Text>
+        <DetailsToggle>
           <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
-          {viewModel.supportWorkReason ? <Text style={screenStyles.subtle}>{viewModel.supportWorkReason}</Text> : null}
-          <Text style={screenStyles.subtle}>{viewModel.blockPersistenceStatus}</Text>
-          {viewModel.dayPlans.map((day, index) => (
-            <View key={`week-detail:${index}`} style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.body}>{viewModel.recoveryDaySummary}</Text>
+          {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
+          {viewModel.dayPlans.map((day) => (
+            <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>{day.label}</Text>
-              <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
-              <Text style={screenStyles.subtle}>Support: {day.generatedSupport}</Text>
-              <Text style={screenStyles.subtle}>{day.explanation}</Text>
-              {day.adjustmentNotes.map((note, noteIndex) => <Text key={`day-adjustment:${index}:${noteIndex}`} style={screenStyles.subtle}>{note}</Text>)}
-              {day.warningSummary ? <Text style={screenStyles.subtle}>Warning: {day.warningSummary}</Text> : null}
+              <Text style={screenStyles.subtle}>Fixed boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
+              <Text style={screenStyles.subtle}>Support work: {friendlySupportText(day.generatedSupport)}</Text>
+              {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
+              {day.warningSummary ? <Text style={screenStyles.subtle}>Review: {day.warningSummary}</Text> : null}
             </View>
           ))}
         </DetailsToggle>
@@ -229,71 +186,59 @@ function ThisWeekCard({ protectedAnchorCount, viewModel }: { protectedAnchorCoun
   );
 }
 
-function recoveryPreviewCount(viewModel: PlanViewModel): number {
-  return viewModel.nextWeekPreview.dayPlanPreview.filter((day) => day.marker === "Recovery" || day.marker === "Taper" || day.marker === "Tournament conservation").length;
-}
-
-function NextWeekPreviewCard({
+function GeneratedSupportSummaryCard({
   busy,
   nextWeekPreviewActions,
+  onSecondaryAction,
+  previewDetailsOpen,
   viewModel
 }: {
   busy: boolean;
   nextWeekPreviewActions?: NextWeekPreviewActions | undefined;
+  onSecondaryAction: () => void;
+  previewDetailsOpen: boolean;
   viewModel: PlanViewModel;
 }) {
   const preview = viewModel.nextWeekPreview;
   return (
     <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-next-week-summary-card">
+      <View style={{ gap: spacing.md }} testID="plan-generated-support-summary-card">
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Next week preview</Text>
-          <Text style={screenStyles.body}>{preview.goal}</Text>
-          <Text style={screenStyles.subtle}>{preview.persistedStatusLabel}</Text>
-          <Text style={screenStyles.subtle}>{viewModel.rollForwardMessage}</Text>
-          {preview.requiresReview ? <Text style={screenStyles.subtle}>Review required before materializing.</Text> : null}
-        </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <WeekStat label="Planned support" tone="blue" value={compactCount(preview.plannedSupportCount, "day")} />
-          <WeekStat label="Anchors" tone="green" value={preview.protectedAnchorSummary} />
-          <WeekStat label="Recovery" tone="gold" value={compactCount(recoveryPreviewCount(viewModel), "day")} />
-        </View>
-        <View>
-          {preview.dayPlanPreview.map((day, index) => (
-            <WeekRow key={`next-week-row:${index}`} dateLabel={formatDateLabel(day.date)} fuelDemand={day.fuelDemand} marker={day.marker} summary={dayRowSummary(day)} />
-          ))}
+          <Text style={screenStyles.sectionTitle}>Generated support</Text>
+          <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support session")}</Text>
+          <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds support work around your fixed boxing sessions, readiness, and safety."}</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (
-            <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]} onPress={() => void nextWeekPreviewActions?.acceptPreview(preview.previewId ?? undefined)}>
-              <Text style={screenStyles.quietButtonText}>Accept preview</Text>
+            <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} onPress={() => void nextWeekPreviewActions?.acceptPreview(preview.previewId ?? undefined)} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
+              <Text style={screenStyles.buttonText}>Accept preview</Text>
             </Pressable>
           ) : null}
           {preview.showMaterializeAction ? (
-            <Pressable accessibilityLabel="Materialize next week" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || preview.requiresReview }} disabled={busy || !nextWeekPreviewActions || preview.requiresReview} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(preview.previewId ?? undefined)}>
-              <Text style={screenStyles.quietButtonText}>Materialize next week</Text>
+            <Pressable accessibilityLabel="Start next week plan" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || preview.requiresReview }} disabled={busy || !nextWeekPreviewActions || preview.requiresReview} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(preview.previewId ?? undefined)} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
+              <Text style={screenStyles.buttonText}>Start next week plan</Text>
             </Pressable>
           ) : null}
+          <Pressable accessibilityRole="button" disabled={busy} onPress={onSecondaryAction} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>{preview.canAccept ? "Keep current plan" : "Preview next week"}</Text>
+          </Pressable>
         </View>
-        <DetailsToggle summary="Daily notes, safety notes, and materialized rows are collapsed until needed.">
-          <Text style={screenStyles.body}>{preview.weekStartDate} to {preview.weekEndDate}</Text>
-          <Text style={screenStyles.body}>{preview.volumeStrategy.replaceAll("_", " ")} / hard day cap {preview.hardDayCap}</Text>
-          <Text style={screenStyles.subtle}>Support bias: {preview.supportBias.replaceAll("_", " ")}</Text>
-          <Text style={screenStyles.subtle}>{preview.actionCopy}</Text>
-          <Text style={screenStyles.subtle}>{preview.explanation}</Text>
-          {preview.materializedGeneratedSessions.map((session, index) => (
-            <Text key={`materialized-session:${index}`} style={screenStyles.subtle}>
-              Materialized: {session.date} - {session.title} ({session.intensity}, {session.durationMinutes} min, fuel {session.fuelDemand})
-            </Text>
-          ))}
-          {preview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={screenStyles.subtle}>Safety: {note}</Text>)}
-          {preview.dayPlanPreview.map((day, index) => (
-            <View key={`next-week-detail:${index}`} style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>{formatDateLabel(day.date)}</Text>
-              <Text style={screenStyles.subtle}>Protected: {day.protectedAnchors}</Text>
-              <Text style={screenStyles.subtle}>Support: {day.generatedSupport}</Text>
-              <Text style={screenStyles.subtle}>{day.explanation}</Text>
+        <DetailsToggle closedLabel="Preview next week" openLabel="Hide next week preview" startOpen={previewDetailsOpen}>
+          <Text style={screenStyles.body}>{preview.goal}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.rollForwardMessage}</Text>
+          {preview.requiresReview ? <Text style={screenStyles.subtle}>Review required before this plan can start.</Text> : null}
+          {preview.dayPlanPreview.map((day) => (
+            <View key={`next-preview:${day.date}`} style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>{day.date}</Text>
+              <Text style={screenStyles.body}>{day.compactSummary}</Text>
+              <Text style={screenStyles.subtle}>{day.compactTag} / {day.compactMetric}</Text>
             </View>
+          ))}
+          {preview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={screenStyles.subtle}>Review: {note}</Text>)}
+          {preview.materializedGeneratedSessions.map((session) => (
+            <Text key={session.id} style={screenStyles.subtle}>
+              Active next week: {session.date} - {session.title} ({session.durationMinutes} min)
+            </Text>
           ))}
         </DetailsToggle>
       </View>
@@ -312,14 +257,28 @@ function PlanReviewNotes({ viewModel }: { viewModel: PlanViewModel }) {
   );
 }
 
-export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, busy, hasActiveFightOrTournament, isMinor, nextWeekPreviewActions, onSaveFightSetup, onSaveTournamentSetup, viewModel }: PlanScreenProps) {
-  const [section, setSection] = React.useState<PlanSection>("week");
+export function PlanScreen({
+  adjustmentMessage,
+  asOfDate,
+  busy,
+  isMinor,
+  nextWeekPreviewActions,
+  onDeleteProtectedSession,
+  onSaveBuildGoal,
+  onSaveFightSetup,
+  onSaveProtectedSession,
+  onSaveRecoveryGoal,
+  onSaveTournamentSetup,
+  viewModel
+}: PlanScreenProps) {
+  const [goalFlowOpen, setGoalFlowOpen] = React.useState(false);
+  const [previewDetailsOpen, setPreviewDetailsOpen] = React.useState(false);
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
-  const protectedAnchorCount = viewModel.dayPlans.filter((day) => hasProtectedAnchors(day.protectedAnchors)).length;
+  const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession;
+  const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
   return (
     <LuminousScreen testID="plan-screen">
       <ScreenHeader eyebrow={`Week ${viewModel.weekIndex}`} title={viewModel.title} />
-      <SectionTabs items={planSections} value={section} onChange={setSection} />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={viewModel.rollForwardMessage} statusLabel={viewModel.rollForwardRiskLabel} tone={viewModel.rollForwardRiskTone}>
           <View style={{ gap: spacing.xs }}>
@@ -327,98 +286,42 @@ export function PlanScreen({ adjustmentActions, adjustmentMessage, asOfDate, bus
           </View>
         </RiskBanner>
       ) : null}
-      {viewModel.lastAutoRollForwardMessage ? (
-        <RiskBanner title="Week boundary update" message={viewModel.lastAutoRollForwardMessage} tone="info" />
+      {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={viewModel.lastAutoRollForwardMessage} tone="info" /> : null}
+      {adjustmentMessage ? <RiskBanner title="Plan update" message={adjustmentMessage} tone="info" /> : null}
+      <CurrentModeCard
+        busy={busy}
+        onChangeGoal={() => setGoalFlowOpen(true)}
+        onPreviewNextWeek={() => setPreviewDetailsOpen(true)}
+        viewModel={viewModel}
+      />
+      {goalFlowOpen ? (
+        <PlanGoalFlowCard
+          asOfDate={asOfDate}
+          busy={goalBusy}
+          isMinor={isMinor}
+          onCancel={() => setGoalFlowOpen(false)}
+          onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
+          onSaveFightSetup={onSaveFightSetup}
+          onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
+          onSaveTournamentSetup={onSaveTournamentSetup}
+        />
       ) : null}
-      {section === "week" ? (
-        <View style={{ gap: spacing.lg }} testID="plan-week-section">
-          <TopActionCard
-            accent="green"
-            optional={viewModel.topAction.optional}
-            primaryAction={viewModel.topAction.primaryAction}
-            purpose={viewModel.topAction.purpose}
-            testID="plan-top-action-card"
-            title={viewModel.topAction.title}
-            why={viewModel.topAction.why}
-          />
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-            <MetricTile accent="green" label="Boxing anchors" meta="Protected first" value={compactCount(protectedAnchorCount, "anchor")} />
-            <MetricTile accent="blue" label="Support days" meta="Generated work" value={compactCount(viewModel.generatedSupportDayCount, "support day", "support days")} />
-            <MetricTile accent="gold" label="Recovery" meta="Rest/easy" value={compactCount(viewModel.recoveryDayCount, "recovery", "recovery")} />
-          </View>
-          <ThisWeekCard protectedAnchorCount={protectedAnchorCount} viewModel={viewModel} />
-          <PlanReviewNotes viewModel={viewModel} />
-          <FightSetupScreen
-            asOfDate={asOfDate}
-            busy={busy}
-            hasActiveFightOrTournament={hasActiveFightOrTournament}
-            isMinor={isMinor}
-            onSaveFight={onSaveFightSetup}
-            onSaveTournament={onSaveTournamentSetup}
-          />
-        </View>
-      ) : null}
-      {section === "nextWeek" ? (
-        <View style={{ gap: spacing.lg }} testID="plan-next-week-section">
-          <NextWeekPreviewCard busy={busy} nextWeekPreviewActions={nextWeekPreviewActions} viewModel={viewModel} />
-        </View>
-      ) : null}
-      {section === "history" ? (
-        <View style={{ gap: spacing.lg }} testID="plan-history-section">
-          <EngineCard>
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Block timeline</Text>
-              <Text style={screenStyles.body}>History weeks: {viewModel.blockHistorySummary.activeBlockHistoryCount}</Text>
-              {viewModel.latestProgressionDecision ? <Text style={screenStyles.body}>{viewModel.latestProgressionDecision}</Text> : <Text style={screenStyles.body}>No persisted progression decision yet.</Text>}
-              {viewModel.currentWeekSummary ? (
-                <View style={{ gap: spacing.sm }}>
-                  <Text style={screenStyles.callout}>{viewModel.currentWeekSummary.title}</Text>
-                  <Text style={screenStyles.body}>{viewModel.currentWeekSummary.summary}</Text>
-                  {viewModel.currentWeekSummary.rows.map((row, index) => <Text key={`current-week-row:${index}`} style={screenStyles.subtle}>{row}</Text>)}
-                </View>
-              ) : (
-                <Text style={screenStyles.body}>Current week summary is pending persistence.</Text>
-              )}
-              <TimelineList
-                emptyCopy="No block timeline events yet."
-                items={viewModel.timelineEvents.map((event, index) => ({
-                  id: `${event.eventType}:${event.eventDate}:${event.title}:${index}`,
-                  title: `${event.eventDate} - ${event.title}`,
-                  body: event.summary,
-                  meta: event.eventType.replaceAll("_", " ")
-                }))}
-              />
-            </View>
-          </EngineCard>
-          <EngineCard>
-            <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
-          </EngineCard>
-        </View>
-      ) : null}
-      {section === "adjustments" ? (
-        <View style={{ gap: spacing.lg }} testID="plan-adjustments-section">
-          <EngineCard>
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Adjustment audit</Text>
-              <Text style={screenStyles.body}>{viewModel.adjustmentSummary}</Text>
-              {viewModel.activeAdjustments.length > 0 ? viewModel.activeAdjustments.map((adjustment, index) => <Text key={`active-adjustment:${index}`} style={screenStyles.subtle}>{adjustment}</Text>) : <Text style={screenStyles.subtle}>No active manual adjustment is changing this plan.</Text>}
-              {adjustmentMessage ? <Text style={screenStyles.subtle}>{adjustmentMessage}</Text> : null}
-            </View>
-          </EngineCard>
-          {viewModel.dayPlans.length > 0 ? viewModel.dayPlans.map((day) => (
-            <EngineCard key={day.date}>
-              <View style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.sectionTitle}>{day.label}</Text>
-                <Text style={screenStyles.body}>Service-owned controls for this day. Screens request changes; the engine decides what applies.</Text>
-                {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-day-note:${index}`} style={screenStyles.subtle}>{note}</Text>)}
-                <PlanAdjustmentControls actions={adjustmentActions} busy={busy} date={day.date as ISODateString} generatedSessions={day.generatedSessions} />
-              </View>
-            </EngineCard>
-          )) : (
-            <EmptyState title="No day plans loaded" message="The week projection is missing, so adjustment controls cannot target real days yet. Refresh engine state or complete setup; missing plan data stays unknown." />
-          )}
-        </View>
-      ) : null}
+      <CompactWeekPreviewCard viewModel={viewModel} />
+      <FixedBoxingScheduleCard
+        asOfDate={asOfDate}
+        busy={scheduleBusy}
+        onDelete={onDeleteProtectedSession ?? (async () => undefined)}
+        onSave={onSaveProtectedSession ?? (async () => undefined)}
+        sessions={viewModel.fixedSchedule}
+      />
+      <GeneratedSupportSummaryCard
+        busy={busy}
+        nextWeekPreviewActions={nextWeekPreviewActions}
+        onSecondaryAction={() => setPreviewDetailsOpen(viewModel.nextWeekPreview.canAccept ? false : true)}
+        previewDetailsOpen={previewDetailsOpen}
+        viewModel={viewModel}
+      />
+      <PlanReviewNotes viewModel={viewModel} />
     </LuminousScreen>
   );
 }

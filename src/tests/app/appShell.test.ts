@@ -404,6 +404,8 @@ const planViewModel: PlanViewModel = {
     why: "Week summary: 1 completed session(s), 0 skipped session(s), 1 completed exercise result(s), 0 partial exercise result(s).",
     optional: "History and adjustments can wait unless your schedule changed."
   },
+  modeLabel: "Build phase",
+  goalSummary: "strength base focus.",
   acceptedPreviewStatus: "preview",
   boundaryDate: "2026-05-26",
   weeklySummary: "Three support days.",
@@ -450,6 +452,9 @@ const planViewModel: PlanViewModel = {
         role: "support day",
         protectedAnchors: "No protected anchors.",
         generatedSupport: "Small strength support progression; no numeric load jump inferred.",
+        compactSummary: "Small strength support progression; no numeric load jump inferred.",
+        compactTag: "Support",
+        compactMetric: "moderate fuel",
         marker: "Support",
         fuelDemand: "moderate",
         explanation: "Progression stays small, boxing-specific, and conditional."
@@ -516,8 +521,24 @@ const planViewModel: PlanViewModel = {
   hardDayCap: 3,
   plannedHardDays: 2,
   generatedSupportDayCount: 1,
+  generatedSupportSessionCount: 1,
   recoveryDayCount: 0,
   recoveryDays: ["2026-05-21"],
+  fixedSchedule: [
+    {
+      id: "sparring_1",
+      date: "2026-05-19",
+      label: "Tue, May 19",
+      type: "sparring",
+      typeLabel: "Sparring",
+      startTime: null,
+      durationMinutes: 75,
+      intensity: "hard",
+      intensityLabel: "Hard",
+      rounds: 6,
+      note: null
+    }
+  ],
   adjustmentSummary: "No engine-owned plan adjustments yet.",
   activeAdjustments: [],
   trainingBlockId: "training_block_1",
@@ -528,6 +549,9 @@ const planViewModel: PlanViewModel = {
       label: "Tue, May 19",
       protectedAnchors: "sparring (hard)",
       generatedSupport: "Protected boxing support microdose (easy)",
+      compactSummary: "Sparring",
+      compactTag: "Protected",
+      compactMetric: "75 min",
       generatedSessions: [{ id: "generated_1", title: "Protected boxing support microdose", date: "2026-05-19" }],
       marker: "Hard day",
       fuelDemand: "high",
@@ -1658,7 +1682,7 @@ describe("minimal app screens", () => {
       })
     );
     const planOutput = JSON.stringify(planRenderer.toJSON());
-    expect(planOutput).toContain("Materialized future support");
+    expect(planOutput).toContain("Generated support");
   });
 
   it("generated session merging avoids duplicate persisted support", () => {
@@ -1806,7 +1830,7 @@ describe("minimal app screens", () => {
           })
         ).toJSON()
       )
-    ).toContain("Add fight or tournament");
+    ).toContain("Fixed boxing schedule");
   });
 
   it("PlanScreen renders weekly block structure and seven day plans", async () => {
@@ -1827,13 +1851,12 @@ describe("minimal app screens", () => {
     );
 
     expect(state.viewModels.plan.dayPlans).toHaveLength(7);
-    expect(output).toContain("Plan action");
-    expect(output).toContain("Use Plan to understand the week");
-    expect(output).toContain("screens request changes, the engine decides");
-    expect(output).toContain("build strength");
-    expect(output).toContain("sparring (hard)");
-    expect(output).toContain("Hard day");
-    expect(output).toContain("Next Week");
+    expect(output).toContain("Current mode");
+    expect(output).toContain("Your boxing comes first");
+    expect(output).toContain("Fixed boxing schedule");
+    expect(output).toContain("Generated support");
+    expect(output).toContain("Sparring");
+    expect(output).toContain("Preview next week");
     expect(output).not.toContain("Engine preview, not a user-edited plan.");
   });
 
@@ -1861,16 +1884,14 @@ describe("minimal app screens", () => {
         }
       })
     );
-    await switchSection(renderer, "Next Week");
+    await switchSection(renderer, "Preview next week");
     let output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("build strength - progress");
-    expect(output).toContain("Planned support");
     expect(output).not.toContain("Persisted progression decision shaped this preview.");
-    await switchSection(renderer, "Show day details");
+    await switchSection(renderer, "Show details");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("progress small");
-    expect(output).toContain("Persisted progression decision shaped this preview.");
+    expect(output).toContain("Fixed boxing:");
     expect(state.viewModels.plan.dayPlans.map((day) => day.date)).toEqual(currentWeekDates);
   });
 
@@ -1891,10 +1912,9 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Next Week");
     expect(JSON.stringify(renderer.toJSON())).toContain("Accept preview");
-    await switchSection(renderer, "Show day details");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Accepting stores this preview as the plan direction");
+    await switchSection(renderer, "Preview next week");
+    expect(JSON.stringify(renderer.toJSON())).toContain("build strength - progress");
     await act(async () => {
       await press(pressableWithText(renderer, "Accept preview"));
     });
@@ -1926,7 +1946,7 @@ describe("minimal app screens", () => {
         }
       })
     );
-    await switchSection(acceptedRenderer, "Next Week");
+    await switchSection(acceptedRenderer, "Preview next week");
     const acceptedWaiting = JSON.stringify(acceptedRenderer.toJSON());
     expect(acceptedWaiting).toContain("Accepted preview will become active on 2026-05-26 if safety still allows.");
 
@@ -1942,7 +1962,7 @@ describe("minimal app screens", () => {
           viewModel: {
             ...planViewModel,
             rollForwardStatus: "blocked",
-            rollForwardMessage: "Safety is blocking automatic materialization today.",
+          rollForwardMessage: "Safety is blocking the next-week plan today.",
             rollForwardRiskLabel: "Hard stop",
             rollForwardRiskTone: "critical",
             nextWeekPreview: {
@@ -1954,7 +1974,7 @@ describe("minimal app screens", () => {
         })
       ).toJSON()
     );
-    expect(blocked).toContain("Safety is blocking automatic materialization today.");
+    expect(blocked).toContain("Safety is blocking the next-week plan today.");
   });
 
   it("Plan materialize action is hidden before boundary and review-gated for hold_for_review", async () => {
@@ -1973,7 +1993,7 @@ describe("minimal app screens", () => {
         })
       ).toJSON()
     );
-    expect(beforeBoundary).not.toContain("Materialize next week");
+    expect(beforeBoundary).not.toContain("Start next week plan");
 
     const renderer = render(
       React.createElement(PlanScreen, {
@@ -1987,7 +2007,7 @@ describe("minimal app screens", () => {
         viewModel: {
           ...planViewModel,
           rollForwardStatus: "blocked",
-          rollForwardMessage: "Review required before materialization.",
+          rollForwardMessage: "Review required before next week can start.",
           rollForwardRiskLabel: "Review required",
           rollForwardRiskTone: "caution",
           nextWeekPreview: {
@@ -1995,17 +2015,17 @@ describe("minimal app screens", () => {
             volumeStrategy: "hold_for_review",
             showMaterializeAction: true,
             requiresReview: true,
-            actionCopy: "Review required before materializing."
+            actionCopy: "Review required before this plan can start."
           }
         }
       })
     );
-    await switchSection(renderer, "Next Week");
+    await switchSection(renderer, "Preview next week");
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Review required before materializing.");
+    expect(output).toContain("Review required before this plan can start.");
     expect(output).toContain("Review required");
     expect(output).not.toContain("Hard stop");
-    expect(pressableWithText(renderer, "Materialize next week")?.props.disabled).toBe(true);
+    expect(pressableWithText(renderer, "Start next week plan")?.props.disabled).toBe(true);
   });
 
   it("PlanScreen renders recovery and tournament warning markers", async () => {
@@ -2047,96 +2067,106 @@ describe("minimal app screens", () => {
 
     expect(redOutput).toContain("Recovery");
     expect(tournamentOutput).toContain("Tournament conservation");
-    expect(tournamentOutput).toContain("Tournament mode keeps you near weight");
+    expect(tournamentOutput).toContain("Tournament mode");
   });
 
-  it("PlanAdjustmentControls render and call engine-owned adjustment actions", async () => {
+  it("PlanScreen lets athletes add, edit, and remove fixed boxing sessions", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
-    const adjustmentActions = {
-      protectDay: vi.fn(async () => ({ status: "applied" as const, explanation: "Protect day applied.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
-      markUnavailable: vi.fn(async () => ({ status: "rejected" as const, explanation: "Unavailable rejected: safety review owns this day.", modifiedDayPlans: [], safetyFlags: ["training_adjustment_rejected"], persistedAdjustmentPayload: {} })),
-      requestDeload: vi.fn(async () => ({ status: "applied" as const, explanation: "Deload requested.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
-      restoreEnginePlan: vi.fn(async () => ({ status: "applied" as const, explanation: "Engine plan restored.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} })),
-      moveGeneratedSession: vi.fn(async () => ({ status: "rejected" as const, explanation: "Move rejected: generated work cannot be moved onto protected sparring day.", modifiedDayPlans: [], safetyFlags: [], persistedAdjustmentPayload: {} }))
-    };
+    const onSaveProtectedSession = vi.fn(async () => undefined);
+    const onDeleteProtectedSession = vi.fn(async () => undefined);
     const renderer = render(
       React.createElement(PlanScreen, {
-        adjustmentActions,
         asOfDate: fixtureAsOfDate,
         busy: false,
         hasActiveFightOrTournament: false,
         isMinor: false,
+        onDeleteProtectedSession,
         onSaveFightSetup: vi.fn(),
+        onSaveProtectedSession,
         onSaveTournamentSetup: vi.fn(),
         viewModel: planViewModel
       })
     );
 
-    await switchSection(renderer, "Adjustments");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Engine-owned adjustment");
-    expect(JSON.stringify(renderer.toJSON())).toContain("These buttons request a change from the engine");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Fixed boxing schedule");
     await act(async () => {
-      await press(pressableWithText(renderer, "Protect this day"));
+      await press(pressableWithText(renderer, "Add session"));
     });
-    expect(adjustmentActions.protectDay).toHaveBeenCalledWith("2026-05-19");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Engine response:");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Protect day applied.");
-    expect(JSON.stringify(renderer.toJSON())).not.toContain("Apply move");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Save session"));
+    });
+    expect(onSaveProtectedSession).toHaveBeenCalledWith(null, expect.objectContaining({ date: fixtureAsOfDate, durationMinutes: 60, intensity: "moderate", type: "technical_session" }));
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Mark unavailable"));
+      await press(pressableWithText(renderer, "Sparring"));
     });
-    const rejectedOutput = JSON.stringify(renderer.toJSON());
-    expect(adjustmentActions.markUnavailable).toHaveBeenCalledWith("2026-05-19");
-    expect(rejectedOutput).toContain("Adjustment not applied");
-    expect(rejectedOutput).toContain("Unavailable rejected: safety review owns this day.");
+    act(() => {
+      changeInput(renderer, "Duration minutes", "90");
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Save changes"));
+    });
+    expect(onSaveProtectedSession).toHaveBeenCalledWith("sparring_1", expect.objectContaining({ durationMinutes: 90, type: "sparring" }));
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Request deload"));
+      await press(pressableWithText(renderer, "Sparring"));
     });
-    expect(adjustmentActions.requestDeload).toHaveBeenCalledWith("2026-05-19", "2026-05-19");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Remove session"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Confirm remove"));
+    });
+    expect(onDeleteProtectedSession).toHaveBeenCalledWith("sparring_1");
   });
 
-  it("PlanScreen renders adjustment summary, rejection notes, and persisted block id", async () => {
+  it("PlanScreen opens the guided goal flow for build, fight camp, tournament, and recovery", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveBuildGoal = vi.fn(async () => undefined);
+    const onSaveFightSetup = vi.fn(async () => undefined);
+    const onSaveRecoveryGoal = vi.fn(async () => undefined);
+    const onSaveTournamentSetup = vi.fn(async () => undefined);
     const renderer = render(
       React.createElement(PlanScreen, {
         asOfDate: fixtureAsOfDate,
         busy: false,
         hasActiveFightOrTournament: false,
         isMinor: false,
-        onSaveFightSetup: vi.fn(),
-        onSaveTournamentSetup: vi.fn(),
-        viewModel: {
-          ...planViewModel,
-          adjustmentSummary: "1 active engine-owned adjustment(s), 1 rejected adjustment(s) retained for audit.",
-          activeAdjustments: ["protect day: Protect day applied."],
-          dayPlans: [{ ...planViewModel.dayPlans[0]!, adjustmentNotes: ["move generated session rejected: Move rejected."] }]
-        }
+        onSaveBuildGoal,
+        onSaveFightSetup,
+        onSaveRecoveryGoal,
+        onSaveTournamentSetup,
+        viewModel: planViewModel
       })
     );
 
-    await switchSection(renderer, "Show day details");
-    expect(JSON.stringify(renderer.toJSON())).toContain("training_block_1");
-    await switchSection(renderer, "Adjustments");
-    const adjustmentOutput = JSON.stringify(renderer.toJSON());
-    expect(adjustmentOutput).toContain("1 active engine-owned adjustment");
-    expect(adjustmentOutput).toContain("protect day");
-    expect(adjustmentOutput).toContain("Move rejected.");
-    await switchSection(renderer, "History");
-    const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Week 2");
-    expect(output).toContain("progress: The week has structured completions.");
-    expect(output).toContain("Week 1 summarized");
-    expect(output).toContain("Block history detail");
-    expect(output).toContain("Current block");
-    expect(output).toContain("Current week");
-    expect(output).toContain("Next-week preview");
-    expect(output).toContain("Materialization status");
-    expect(output).toContain("Adjustments");
-    expect(output).toContain("Timeline");
-    expect(output).toContain("Week 2: Week summary persisted.");
-    expect(output).toContain("protect day applied");
+    await switchSection(renderer, "Change goal");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Build general boxing fitness");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+    });
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ primaryFocus: "balanced", supportDaysPerWeek: 3 }));
+
+    await switchSection(renderer, "Change goal");
+    await switchSection(renderer, "Enter fight camp");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save fight camp goal"));
+    });
+    expect(onSaveFightSetup).toHaveBeenCalledWith(expect.objectContaining({ boutDate: fixtureAsOfDate }));
+
+    await switchSection(renderer, "Change goal");
+    await switchSection(renderer, "Enter tournament mode");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save tournament goal"));
+    });
+    expect(onSaveTournamentSetup).toHaveBeenCalledWith(expect.objectContaining({ tournamentStartDate: fixtureAsOfDate }));
+
+    await switchSection(renderer, "Change goal");
+    await switchSection(renderer, "Recovery / maintenance");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save recovery goal"));
+    });
+    expect(onSaveRecoveryGoal).toHaveBeenCalledWith(expect.objectContaining({ focus: "general" }));
   });
 
   it("PlanScreen shows materialized generated session count and summaries", async () => {
@@ -2153,8 +2183,8 @@ describe("minimal app screens", () => {
           ...planViewModel,
           acceptedPreviewStatus: "materialized",
           rollForwardStatus: "materialized",
-          rollForwardMessage: "Next week materialized.",
-          lastAutoRollForwardMessage: "Next week materialized: Accepted preview was materialized. Generated sessions: 1.",
+          rollForwardMessage: "Next week plan is active.",
+          lastAutoRollForwardMessage: "Next week plan is active. Generated sessions: 1.",
           nextWeekPreview: {
             ...planViewModel.nextWeekPreview,
             persistedStatus: "materialized",
@@ -2189,12 +2219,10 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Generated sessions: 1");
-    await switchSection(renderer, "Next Week");
+    await switchSection(renderer, "Preview next week");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Persisted");
-    await switchSection(renderer, "Show day details");
-    output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Materialized");
+    expect(output).toContain("Next week plan is active.");
+    expect(output).toContain("Active next week");
     expect(output).toContain("Trunk durability");
   });
 

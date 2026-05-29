@@ -19,8 +19,10 @@ const ISODateTimeSchema = z.string().datetime();
 export const BoxingLevelSchema = z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]);
 export const ProtectedWorkoutDraftSchema = z.object({
   id: z.string().min(1).optional(),
-  type: z.enum(["technical_session", "pads_mitts", "bag_work", "sparring", "roadwork", "coach_assigned_strength", "travel", "recovery_day"]),
+  type: z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "sparring", "roadwork", "coach_assigned_strength", "travel", "recovery_day"]),
   date: ISODateSchema,
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   durationMinutes: z.number().int().positive(),
   intensity: z.enum(["easy", "moderate", "hard", "max"]),
   rounds: z.number().int().nonnegative().optional(),
@@ -114,22 +116,36 @@ export const ProfileSettingsDraftSchema = z.object({
   protectedWorkout: ProtectedWorkoutDraftSchema.optional()
 });
 
+export const BuildGoalDraftSchema = z.object({
+  primaryFocus: z.enum(["balanced", "power", "conditioning", "strength", "mobility"]),
+  supportDaysPerWeek: z.number().int().min(0).max(6)
+});
+
+export const RecoveryGoalDraftSchema = z.object({
+  durationDays: z.number().int().positive().optional(),
+  focus: z.enum(["general", "soreness", "sleep", "travel", "post_bout"]).optional()
+});
+
 export type ProtectedWorkoutDraft = z.infer<typeof ProtectedWorkoutDraftSchema>;
 export type FightSetupDraft = z.infer<typeof FightSetupDraftSchema>;
 export type TournamentSetupDraft = z.infer<typeof TournamentSetupDraftSchema>;
 export type OnboardingDraft = z.infer<typeof OnboardingDraftSchema>;
 export type ProfileSettingsDraft = z.infer<typeof ProfileSettingsDraftSchema>;
+export type BuildGoalDraft = z.infer<typeof BuildGoalDraftSchema>;
+export type RecoveryGoalDraft = z.infer<typeof RecoveryGoalDraftSchema>;
 
 export const DEFAULT_BOXING_EQUIPMENT = ["jump_rope", "gloves", "hand_wraps"] as const;
 export const DEFAULT_BOXING_AVAILABILITY = ["monday", "wednesday", "saturday"] as const;
 
-function workoutFromDraft(draft: ProtectedWorkoutDraft, index: number): ProtectedWorkout {
+export function workoutFromDraft(draft: ProtectedWorkoutDraft, index: number): ProtectedWorkout {
   return parseWithSchema(
     ProtectedWorkoutSchema,
     {
       id: draft.id ?? `protected_${draft.type}_${draft.date}_${index}`,
       type: draft.type,
       date: draft.date,
+      ...(draft.startTime ? { startTime: draft.startTime } : {}),
+      ...(draft.localStartTime ? { localStartTime: draft.localStartTime } : {}),
       durationMinutes: draft.durationMinutes,
       intensity: draft.intensity,
       protected: true,
@@ -245,6 +261,64 @@ function isActiveFight(fight: FightOpportunity): boolean {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function optionalStringValue(value: string | undefined): string {
+  return value ?? "";
+}
+
+function sameProtectedSession(left: ProtectedWorkout, right: ProtectedWorkout): boolean {
+  return (
+    left.type === right.type &&
+    left.date === right.date &&
+    optionalStringValue(left.startTime) === optionalStringValue(right.startTime) &&
+    optionalStringValue(left.localStartTime) === optionalStringValue(right.localStartTime) &&
+    left.durationMinutes === right.durationMinutes &&
+    left.intensity === right.intensity &&
+    (left.rounds ?? null) === (right.rounds ?? null) &&
+    optionalStringValue(left.note) === optionalStringValue(right.note)
+  );
+}
+
+function sortProtectedSchedule(workouts: readonly ProtectedWorkout[]): ProtectedWorkout[] {
+  return [...workouts].sort((left, right) => {
+    const date = left.date.localeCompare(right.date);
+    if (date !== 0) {
+      return date;
+    }
+    return optionalStringValue(left.startTime ?? left.localStartTime).localeCompare(optionalStringValue(right.startTime ?? right.localStartTime));
+  });
+}
+
+function findMatchingProtectedSession(input: {
+  fallback: ProtectedWorkout | null;
+  workoutId: string | null;
+  workouts: readonly ProtectedWorkout[];
+}): ProtectedWorkout | null {
+  if (input.workoutId) {
+    const byId = input.workouts.find((workout) => workout.id === input.workoutId);
+    if (byId) {
+      return byId;
+    }
+  }
+  if (input.fallback) {
+    return input.workouts.find((workout) => sameProtectedSession(workout, input.fallback!)) ?? null;
+  }
+  return null;
+}
+
+function removeProtectedSessionMatches(input: {
+  fallback: ProtectedWorkout | null;
+  ids: readonly string[];
+  schedule: readonly ProtectedWorkout[];
+}): ProtectedWorkout[] {
+  const ids = new Set(input.ids.filter(Boolean));
+  return input.schedule.filter((workout) => {
+    if (ids.has(workout.id)) {
+      return false;
+    }
+    return input.fallback ? !sameProtectedSession(workout, input.fallback) : true;
+  });
 }
 
 async function supersedeOtherActiveFights(input: {
@@ -368,6 +442,114 @@ export async function saveTournamentSetup(input: {
   });
 }
 
+export async function saveBuildGoal(input: {
+  userId: string;
+  draft: BuildGoalDraft;
+  repositories: AthleteJourneyRepositories;
+  source?: "onboarding" | "settings" | "plan";
+}): Promise<void> {
+  const userId = assertUserId(input.userId, "planGoal.saveBuildGoal");
+  const draft = parseWithSchema(BuildGoalDraftSchema, input.draft, "planGoal.saveBuildGoal");
+  await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
+    primaryFocus: draft.primaryFocus,
+    supportDaysPerWeek: draft.supportDaysPerWeek,
+    source: input.source ?? "plan"
+  });
+}
+
+export async function saveRecoveryGoal(input: {
+  userId: string;
+  draft: RecoveryGoalDraft;
+  repositories: AthleteJourneyRepositories;
+  source?: "onboarding" | "settings" | "plan";
+}): Promise<void> {
+  const userId = assertUserId(input.userId, "planGoal.saveRecoveryGoal");
+  const draft = parseWithSchema(RecoveryGoalDraftSchema, input.draft, "planGoal.saveRecoveryGoal");
+  await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
+    durationDays: draft.durationDays,
+    focus: draft.focus ?? "general",
+    source: input.source ?? "plan"
+  });
+}
+
+export async function saveProtectedSession(input: {
+  userId: string;
+  currentProfile: AthleteProfile;
+  workoutId?: string | null | undefined;
+  workout: ProtectedWorkoutDraft;
+  repositories: AthleteJourneyRepositories;
+  source?: "onboarding" | "settings" | "plan";
+}): Promise<{ id: string }> {
+  const userId = assertUserId(input.userId, "protectedSession.saveProtectedSession");
+  const draft = parseWithSchema(ProtectedWorkoutDraftSchema, input.workout, "protectedSession.saveProtectedSession");
+  const existingProfileWorkout =
+    input.workoutId
+      ? input.currentProfile.protectedBoxingSchedule.find((workout) => workout.id === input.workoutId) ?? null
+      : null;
+  const tableWorkouts = await input.repositories.protectedWorkout.listProtectedWorkouts(userId);
+  const existingTableWorkout = findMatchingProtectedSession({
+    fallback: existingProfileWorkout,
+    workoutId: input.workoutId ?? draft.id ?? null,
+    workouts: tableWorkouts
+  });
+  const requestedId = existingTableWorkout?.id ?? input.workoutId ?? draft.id ?? `protected_${draft.type}_${draft.date}_${input.currentProfile.protectedBoxingSchedule.length}`;
+  const workout = workoutFromDraft({ ...draft, id: requestedId }, input.currentProfile.protectedBoxingSchedule.length);
+  const result =
+    input.workoutId && existingTableWorkout
+      ? await input.repositories.protectedWorkout.updateProtectedWorkout(userId, existingTableWorkout.id, { ...workout, id: existingTableWorkout.id }, { metadata: { source: input.source ?? "plan" } })
+      : await input.repositories.protectedWorkout.insertProtectedWorkout(userId, workout, { metadata: { source: input.source ?? "plan" } });
+  const canonicalWorkout = { ...workout, id: result.id };
+  const nextSchedule = sortProtectedSchedule([
+    ...removeProtectedSessionMatches({
+      fallback: existingProfileWorkout ?? existingTableWorkout,
+      ids: [input.workoutId ?? "", existingTableWorkout?.id ?? "", result.id],
+      schedule: input.currentProfile.protectedBoxingSchedule
+    }),
+    canonicalWorkout
+  ]);
+
+  await input.repositories.athlete.upsertProfile(userId, {
+    ...input.currentProfile,
+    protectedBoxingSchedule: nextSchedule
+  });
+  await input.repositories.journey.appendEvent(userId, "ProtectedWorkoutPlanned", {
+    action: input.workoutId ? "updated" : "created",
+    workoutId: result.id,
+    type: canonicalWorkout.type,
+    date: canonicalWorkout.date,
+    source: input.source ?? "plan"
+  });
+  return result;
+}
+
+export async function deleteProtectedSession(input: {
+  userId: string;
+  currentProfile: AthleteProfile;
+  workoutId: string;
+  repositories: AthleteJourneyRepositories;
+}): Promise<void> {
+  const userId = assertUserId(input.userId, "protectedSession.deleteProtectedSession");
+  const existingProfileWorkout = input.currentProfile.protectedBoxingSchedule.find((workout) => workout.id === input.workoutId) ?? null;
+  const tableWorkouts = await input.repositories.protectedWorkout.listProtectedWorkouts(userId);
+  const existingTableWorkout = findMatchingProtectedSession({
+    fallback: existingProfileWorkout,
+    workoutId: input.workoutId,
+    workouts: tableWorkouts
+  });
+  if (existingTableWorkout) {
+    await input.repositories.protectedWorkout.deleteProtectedWorkout(userId, existingTableWorkout.id);
+  }
+  const nextSchedule = removeProtectedSessionMatches({
+    fallback: existingProfileWorkout ?? existingTableWorkout,
+    ids: [input.workoutId, existingTableWorkout?.id ?? ""],
+    schedule: input.currentProfile.protectedBoxingSchedule
+  });
+  await input.repositories.athlete.upsertProfile(userId, {
+    ...input.currentProfile,
+    protectedBoxingSchedule: nextSchedule
+  });
+}
+
 export async function updateProfileSettings(input: {
   userId: string;
   currentProfile: AthleteProfile;
@@ -383,14 +565,22 @@ export async function updateProfileSettings(input: {
     equipmentAccess: draft.equipmentAccess ?? input.currentProfile.equipmentAccess,
     preferredUnits: draft.preferredUnits ?? input.currentProfile.preferredUnits
   };
+  let profileSaved = false;
 
   if (draft.protectedWorkout) {
-    const workout = workoutFromDraft(draft.protectedWorkout, input.currentProfile.protectedBoxingSchedule.length);
-    nextProfile.protectedBoxingSchedule = [...input.currentProfile.protectedBoxingSchedule, workout];
-    await input.repositories.protectedWorkout.insertProtectedWorkout(userId, workout);
+    await saveProtectedSession({
+      userId,
+      currentProfile: nextProfile,
+      workout: draft.protectedWorkout,
+      repositories: input.repositories,
+      source: "settings"
+    });
+    profileSaved = true;
   }
 
-  await input.repositories.athlete.upsertProfile(userId, nextProfile);
+  if (!profileSaved) {
+    await input.repositories.athlete.upsertProfile(userId, nextProfile);
+  }
 
   if (draft.cycleTrackingPreference && draft.cycleTrackingPreference !== input.currentProfile.cycleTrackingPreference) {
     await input.repositories.journey.appendEvent(userId, "CyclePatternUpdated", { cycleTrackingPreference: draft.cycleTrackingPreference });

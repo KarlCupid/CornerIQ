@@ -21,7 +21,9 @@ import type {
   GeneratedSessionIntensity,
   NextWeekGeneratedSupportBias,
   NextWeekTrainingVolumeStrategy,
+  ProtectedWorkoutType,
   ProgressionRecommendation,
+  SessionIntensity,
   TrainingBlockPhase,
   TrainingBlockTimelineEventType,
   TrainingDayRole
@@ -320,6 +322,9 @@ export interface NextWeekPreviewViewModel {
     role: string;
     protectedAnchors: string;
     generatedSupport: string;
+    compactSummary: string;
+    compactTag: "Protected" | "Support" | "Recovery";
+    compactMetric: string;
     marker: string;
     fuelDemand: "low" | "moderate" | "high";
     explanation: string;
@@ -356,6 +361,8 @@ export interface TrainingBlockHistoryDetailViewModel {
 export interface PlanViewModel {
   title: string;
   topAction: TopActionViewModel;
+  modeLabel: "Build phase" | "Fight camp" | "Tournament mode" | "Recovery";
+  goalSummary: string;
   acceptedPreviewStatus: NextWeekPreviewViewModel["persistedStatus"];
   boundaryDate: string;
   weeklySummary: string;
@@ -377,8 +384,22 @@ export interface PlanViewModel {
   hardDayCap: number;
   plannedHardDays: number;
   generatedSupportDayCount: number;
+  generatedSupportSessionCount: number;
   recoveryDayCount: number;
   recoveryDays: readonly string[];
+  fixedSchedule: readonly {
+    id: string;
+    date: string;
+    label: string;
+    type: ProtectedWorkoutType;
+    typeLabel: string;
+    startTime: string | null;
+    durationMinutes: number;
+    intensity: SessionIntensity;
+    intensityLabel: string;
+    rounds: number | null;
+    note: string | null;
+  }[];
   adjustmentSummary: string;
   activeAdjustments: readonly string[];
   trainingBlockId: string | null;
@@ -388,6 +409,9 @@ export interface PlanViewModel {
     label: string;
     protectedAnchors: string;
     generatedSupport: string;
+    compactSummary: string;
+    compactTag: "Protected" | "Support" | "Recovery";
+    compactMetric: string;
     generatedSessions: readonly {
       id: string;
       title: string;

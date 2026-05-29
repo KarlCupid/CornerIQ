@@ -1,7 +1,132 @@
-import type { NextWeekPreviewViewModel, PerformanceState, PlanViewModel, TrainingBlockHistoryDetailViewModel, TrainingBlockTimelineEvent } from "../core/types";
+import type { NextWeekPreviewViewModel, PerformanceState, PlanViewModel, ProtectedWorkout, ProtectedWorkoutType, SessionIntensity, TrainingBlockHistoryDetailViewModel, TrainingBlockTimelineEvent, TrainingDayPlan } from "../core/types";
 
 function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function protectedTypeLabel(type: ProtectedWorkoutType): string {
+  const labels: Record<ProtectedWorkoutType, string> = {
+    bag_work: "Bag work",
+    boxing_class: "Boxing class",
+    coach_assigned_strength: "Coach strength",
+    competition: "Competition",
+    footwork_session: "Footwork session",
+    pads_mitts: "Pads / mitts",
+    recovery_day: "Recovery day",
+    roadwork: "Roadwork",
+    sparring: "Sparring",
+    technical_session: "Technical session",
+    travel: "Travel"
+  };
+  return labels[type];
+}
+
+function intensityLabel(intensity: SessionIntensity): string {
+  const labels: Record<SessionIntensity, string> = {
+    easy: "Easy",
+    moderate: "Moderate",
+    hard: "Hard",
+    max: "Max"
+  };
+  return labels[intensity];
+}
+
+function modeLabel(state: PerformanceState): PlanViewModel["modeLabel"] {
+  if (state.tournamentContext || state.phase.phase === "tournament") {
+    return "Tournament mode";
+  }
+  if (state.phase.phase === "recovery" || state.phase.phase === "maintenance" || state.training.activeBlock.phase === "recovery_deload" || state.training.activeBlock.phase === "maintenance") {
+    return "Recovery";
+  }
+  if (state.fightContext || ["camp", "short_notice_camp", "fight_week", "weigh_in_day", "post_weigh_in", "bout_day"].includes(state.phase.phase)) {
+    return "Fight camp";
+  }
+  return "Build phase";
+}
+
+function compactTagForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): "Protected" | "Support" | "Recovery" {
+  if (day.protectedAnchors.length > 0) {
+    return "Protected";
+  }
+  if (day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day") {
+    return "Recovery";
+  }
+  return "Support";
+}
+
+function compactSummaryForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): string {
+  const firstAnchor = day.protectedAnchors[0];
+  if (firstAnchor) {
+    return protectedTypeLabel(firstAnchor.type);
+  }
+  const firstGenerated = day.generatedSessions[0];
+  if (firstGenerated) {
+    return firstGenerated.title;
+  }
+  if (day.role === "tournament_conservation_day") {
+    return "Tournament conservation";
+  }
+  if (day.role === "taper_day") {
+    return "Taper / freshness";
+  }
+  if (day.role === "recovery_day") {
+    return "Recovery";
+  }
+  return "No support work";
+}
+
+function compactMetricForDay(day: Pick<TrainingDayPlan, "fuelDemand" | "generatedSessions" | "protectedAnchors">): string {
+  const firstAnchor = day.protectedAnchors[0];
+  if (firstAnchor) {
+    return `${firstAnchor.durationMinutes} min`;
+  }
+  const firstGenerated = day.generatedSessions[0];
+  if (firstGenerated) {
+    return `${firstGenerated.durationMinutes} min`;
+  }
+  return `${day.fuelDemand} fuel`;
+}
+
+function protectedSessionKey(workout: ProtectedWorkout): string {
+  return [
+    workout.type,
+    workout.date,
+    workout.startTime ?? workout.localStartTime ?? "",
+    workout.durationMinutes,
+    workout.intensity,
+    workout.rounds ?? "",
+    workout.note ?? ""
+  ].join("|");
+}
+
+function upcomingFixedSchedule(state: PerformanceState): PlanViewModel["fixedSchedule"] {
+  const bySession = new Map<string, ProtectedWorkout>();
+  for (const workout of [...state.athlete.protectedBoxingSchedule, ...state.training.protectedAnchors]) {
+    if (workout.date >= state.asOfDate) {
+      bySession.set(protectedSessionKey(workout), workout);
+    }
+  }
+  return [...bySession.values()]
+    .sort((left, right) => {
+      const date = left.date.localeCompare(right.date);
+      if (date !== 0) {
+        return date;
+      }
+      return (left.startTime ?? left.localStartTime ?? "").localeCompare(right.startTime ?? right.localStartTime ?? "");
+    })
+    .map((workout) => ({
+      id: workout.id,
+      date: workout.date,
+      label: dayLabel(workout.date),
+      type: workout.type,
+      typeLabel: protectedTypeLabel(workout.type),
+      startTime: workout.startTime ?? workout.localStartTime ?? null,
+      durationMinutes: workout.durationMinutes,
+      intensity: workout.intensity,
+      intensityLabel: intensityLabel(workout.intensity),
+      rounds: workout.rounds ?? null,
+      note: workout.note ?? null
+    }));
 }
 
 function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel {
@@ -61,6 +186,19 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
       role: day.role.replaceAll("_", " "),
       protectedAnchors: day.protectedAnchors.length > 0 ? day.protectedAnchors.join(", ") : "No protected anchors.",
       generatedSupport: day.generatedSupport,
+      compactSummary:
+        day.protectedAnchors[0] ??
+        (day.generatedSupport === "No generated support."
+          ? day.role === "tournament_conservation_day"
+            ? "Tournament conservation"
+            : day.role === "taper_day"
+              ? "Taper / freshness"
+              : day.role === "recovery_day"
+                ? "Recovery"
+                : "No support work"
+          : day.generatedSupport),
+      compactTag: day.protectedAnchors.length > 0 ? "Protected" : day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day" ? "Recovery" : "Support",
+      compactMetric: `${day.fuelDemand} fuel`,
       marker:
         day.role === "tournament_conservation_day"
           ? "Tournament conservation"
@@ -88,7 +226,7 @@ function rollForwardStatus(
   if (preview.persistedStatus === "materialized") {
     return {
       rollForwardStatus: "materialized",
-      rollForwardMessage: "Next week materialized.",
+      rollForwardMessage: "Next week plan is active.",
       rollForwardRiskLabel: "Notice",
       rollForwardRiskTone: "info"
     };
@@ -105,7 +243,7 @@ function rollForwardStatus(
     if (preview.requiresReview) {
       return {
         rollForwardStatus: "blocked",
-        rollForwardMessage: "Review required before materialization.",
+        rollForwardMessage: "Review required before next week can start.",
         rollForwardRiskLabel: "Review required",
         rollForwardRiskTone: "caution"
       };
@@ -113,14 +251,14 @@ function rollForwardStatus(
     if (activeHardStop(state)) {
       return {
         rollForwardStatus: "blocked",
-        rollForwardMessage: "Safety is blocking automatic materialization today.",
+        rollForwardMessage: "Safety is blocking the next-week plan today.",
         rollForwardRiskLabel: "Hard stop",
         rollForwardRiskTone: "critical"
       };
     }
     return {
       rollForwardStatus: "eligible",
-      rollForwardMessage: "Accepted preview is eligible to materialize now.",
+      rollForwardMessage: "Accepted preview is ready to start.",
       rollForwardRiskLabel: "Notice",
       rollForwardRiskTone: "info"
     };
@@ -128,7 +266,7 @@ function rollForwardStatus(
   if (preview.persistedStatus === "preview" && state.asOfDate >= preview.weekStartDate) {
     return {
       rollForwardStatus: "not_available",
-      rollForwardMessage: "Preview is available but not accepted. Review before materializing.",
+      rollForwardMessage: "Preview is available but not accepted. Review before starting it.",
       rollForwardRiskLabel: "Caution",
       rollForwardRiskTone: "caution"
     };
@@ -136,7 +274,7 @@ function rollForwardStatus(
   if (preview.requiresReview) {
     return {
       rollForwardStatus: "blocked",
-      rollForwardMessage: "Review required before materialization.",
+      rollForwardMessage: "Review required before next week can start.",
       rollForwardRiskLabel: "Review required",
       rollForwardRiskTone: "caution"
     };
@@ -256,6 +394,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const blockHistoryDetail = buildBlockHistoryDetail(state, nextWeekPreview);
   const currentWeekGeneratedSupportCount = state.training.dayPlans.reduce((count, day) => count + day.generatedSessions.length, 0);
   const generatedSupportDayCount = state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).length;
+  const fixedSchedule = upcomingFixedSchedule(state);
   const recoveryDayCount = state.training.dayPlans.filter(
     (day) => day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day"
   ).length;
@@ -268,17 +407,23 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       .map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`);
   const topActionPrimary =
     nextWeekPreview.canAccept
-      ? "Review the week, then check Next Week preview when ready."
-      : "Check this week's protected boxing and generated support order.";
+      ? "Preview next week is ready when you want to review it."
+      : "Change goal or update fixed boxing sessions when your schedule changes.";
   return {
-    title: "Weekly plan",
+    title: "Plan",
     topAction: {
-      title: "Plan action",
-      purpose: "Use Plan to understand the week; screens request changes, the engine decides.",
+      title: "Your boxing comes first",
+      purpose: "CornerIQ adds support work around your fixed sessions.",
       primaryAction: topActionPrimary,
       why: currentWeekSummary?.summary ?? state.training.activeBlock.weeklyStructure.summary,
-      optional: "History and adjustments can wait unless your schedule changed."
+      optional: "Safety notes stay visible if review is needed."
     },
+    modeLabel: modeLabel(state),
+    goalSummary: state.fightContext
+      ? `${state.fightContext.status.replaceAll("_", " ")} bout on ${state.fightContext.boutDate}.`
+      : state.tournamentContext
+        ? `${state.tournamentContext.tournamentStartDate} to ${state.tournamentContext.tournamentEndDate}.`
+        : `${state.training.activeBlock.primaryGoal.replaceAll("_", " ")} focus.`,
     acceptedPreviewStatus: nextWeekPreview.persistedStatus,
     boundaryDate: nextWeekPreview.weekStartDate,
     weeklySummary: state.training.activeBlock.weeklyStructure.summary,
@@ -323,8 +468,10 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     hardDayCap: state.training.activeBlock.weeklyStructure.hardDayCap,
     plannedHardDays: state.training.activeBlock.weeklyStructure.plannedHardDays,
     generatedSupportDayCount,
+    generatedSupportSessionCount: currentWeekGeneratedSupportCount,
     recoveryDayCount,
     recoveryDays: state.training.activeBlock.weeklyStructure.recoveryDays,
+    fixedSchedule,
     adjustmentSummary:
       adjustmentHistory.length > 0
         ? `${activeAdjustments.length} active engine-owned adjustment(s), ${rejectedAdjustments.length} rejected adjustment(s) retained for audit.`
@@ -345,6 +492,9 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
         day.generatedSessions.length > 0
           ? day.generatedSessions.map((session) => `${session.title} (${session.intensity})`).join(", ")
           : "No generated support.",
+      compactSummary: compactSummaryForDay(day),
+      compactTag: compactTagForDay(day),
+      compactMetric: compactMetricForDay(day),
       generatedSessions: day.generatedSessions.map((session) => ({
         id: session.id,
         title: session.title,

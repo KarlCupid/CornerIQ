@@ -11,12 +11,19 @@ import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, type AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 import {
   completeOnboarding,
+  deleteProtectedSession as deleteProtectedSessionService,
+  saveBuildGoal,
   saveFightSetup,
+  saveProtectedSession as saveProtectedSessionService,
+  saveRecoveryGoal,
   saveTournamentSetup,
   updateProfileSettings,
+  type BuildGoalDraft,
   type FightSetupDraft,
   type OnboardingDraft,
   type ProfileSettingsDraft,
+  type ProtectedWorkoutDraft,
+  type RecoveryGoalDraft,
   type TournamentSetupDraft
 } from "../services/supabase/onboardingService";
 import type { CornerSupabaseClient } from "../services/supabase/client";
@@ -40,8 +47,12 @@ export interface PerformanceStateHook {
   repositories: AthleteJourneyRepositories;
   requestNutritionSafetyReview: () => Promise<void>;
   result: ResolveAndPersistPerformanceStateResult | null;
+  saveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   saveFightSetup: (draft: FightSetupDraft) => Promise<void>;
+  saveProtectedSession: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
+  saveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   saveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
+  deleteProtectedSession: (workoutId: string) => Promise<void>;
   updateProfileSettings: (draft: ProfileSettingsDraft) => Promise<void>;
 }
 
@@ -155,6 +166,38 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     [refresh, repositories, userId]
   );
 
+  const saveBuild = useCallback(
+    async (draft: BuildGoalDraft) => {
+      setLoading(true);
+      setMessage(null);
+      try {
+        await saveBuildGoal({ userId, draft, repositories });
+        await refresh();
+        setMessage("Build phase saved. Preview next week when you are ready.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Build goal failed.");
+        setLoading(false);
+      }
+    },
+    [refresh, repositories, userId]
+  );
+
+  const saveRecovery = useCallback(
+    async (draft: RecoveryGoalDraft) => {
+      setLoading(true);
+      setMessage(null);
+      try {
+        await saveRecoveryGoal({ userId, draft, repositories });
+        await refresh();
+        setMessage("Recovery goal saved. CornerIQ will keep support conservative.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Recovery goal failed.");
+        setLoading(false);
+      }
+    },
+    [refresh, repositories, userId]
+  );
+
   const saveTournament = useCallback(
     async (draft: TournamentSetupDraft) => {
       setLoading(true);
@@ -169,6 +212,58 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       }
     },
     [refresh, repositories, userId]
+  );
+
+  const saveProtectedSession = useCallback(
+    async (workoutId: string | null, draft: ProtectedWorkoutDraft) => {
+      if (result?.status !== "ready") {
+        setMessage("Fixed boxing schedule is available after engine state loads.");
+        return;
+      }
+      setLoading(true);
+      setMessage(null);
+      try {
+        await saveProtectedSessionService({
+          userId,
+          currentProfile: result.state.athlete,
+          workoutId,
+          workout: draft,
+          repositories,
+          source: "plan"
+        });
+        await refresh();
+        setMessage(workoutId ? "Fixed boxing session updated. Preview next week when you are ready." : "Fixed boxing session added. Preview next week when you are ready.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Fixed boxing schedule failed.");
+        setLoading(false);
+      }
+    },
+    [refresh, repositories, result, userId]
+  );
+
+  const deleteProtectedSession = useCallback(
+    async (workoutId: string) => {
+      if (result?.status !== "ready") {
+        setMessage("Fixed boxing schedule is available after engine state loads.");
+        return;
+      }
+      setLoading(true);
+      setMessage(null);
+      try {
+        await deleteProtectedSessionService({
+          userId,
+          currentProfile: result.state.athlete,
+          workoutId,
+          repositories
+        });
+        await refresh();
+        setMessage("Fixed boxing session removed. Preview next week when you are ready.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Fixed boxing session removal failed.");
+        setLoading(false);
+      }
+    },
+    [refresh, repositories, result, userId]
   );
 
   const saveProfileSettings = useCallback(
@@ -261,8 +356,12 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     repositories,
     requestNutritionSafetyReview,
     result,
+    saveBuildGoal: saveBuild,
     saveFightSetup: saveFight,
+    saveProtectedSession,
+    saveRecoveryGoal: saveRecovery,
     saveTournamentSetup: saveTournament,
+    deleteProtectedSession,
     updateProfileSettings: saveProfileSettings
   };
 }

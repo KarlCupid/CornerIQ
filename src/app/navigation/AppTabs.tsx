@@ -20,7 +20,7 @@ import type { NextWeekPreviewActionsHook } from "../../hooks/useNextWeekPreviewA
 import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
-import type { FightSetupDraft, ProfileSettingsDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
+import type { BuildGoalDraft, FightSetupDraft, ProfileSettingsDraft, ProtectedWorkoutDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
@@ -49,7 +49,11 @@ export interface AppTabsProps {
   message: string | null;
   nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => Promise<void>) | undefined;
+  onDeleteProtectedSession: (workoutId: string) => Promise<void>;
+  onSaveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
+  onSaveProtectedSession: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
+  onSaveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   onRequestNutritionSafetyReview?: (() => Promise<void>) | undefined;
   onSignOut: () => Promise<void>;
@@ -61,7 +65,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, onSaveFightSetup, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
@@ -165,14 +169,18 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               hasActiveFightOrTournament={Boolean(state.fightContext || state.tournamentContext)}
               isMinor={(state.athlete.ageYears ?? 99) < 18}
               nextWeekPreviewActions={nextWeekPreviewActions?.actions}
+              onDeleteProtectedSession={onDeleteProtectedSession}
+              onSaveBuildGoal={onSaveBuildGoal}
               onSaveFightSetup={onSaveFightSetup}
+              onSaveProtectedSession={onSaveProtectedSession}
+              onSaveRecoveryGoal={onSaveRecoveryGoal}
               onSaveTournamentSetup={onSaveTournamentSetup}
               viewModel={state.viewModels.plan}
             />
           )}
         </Tab.Screen>
         <Tab.Screen name="Profile">
-          {() => (
+          {({ navigation }) => (
             <ProfileScreen
               asOfDate={asOfDate}
               busy={busy}
@@ -180,6 +188,7 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
               cycleContext={state.viewModels.cycle}
               equipmentAccess={state.athlete.equipmentAccess}
+              onOpenPlan={() => navigation.navigate("Plan")}
               onSignOut={onSignOut}
               onUpdateSettings={onUpdateProfileSettings}
               preferredUnits={state.athlete.preferredUnits}

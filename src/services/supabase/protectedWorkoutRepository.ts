@@ -45,6 +45,8 @@ export function createProtectedWorkoutRepository(client: CornerSupabaseClient) {
         workout_type: validated.type,
         workout_date: validated.date,
         workout_payload: toJson({
+          startTime: validated.startTime,
+          localStartTime: validated.localStartTime,
           durationMinutes: validated.durationMinutes,
           intensity: validated.intensity,
           rounds: validated.rounds,
@@ -54,6 +56,43 @@ export function createProtectedWorkoutRepository(client: CornerSupabaseClient) {
       };
       const response = await client.from("protected_workouts").insert(insert).select("id").single();
       return readDataOrThrow(response, "protected_workouts.insertProtectedWorkout");
+    },
+
+    async updateProtectedWorkout(userId: string, workoutId: string, workout: ProtectedWorkout, options: InsertProtectedWorkoutOptions = {}): Promise<{ id: string }> {
+      const safeUserId = assertUserId(userId, "protected_workouts.updateProtectedWorkout");
+      const validated = parseWithSchema(ProtectedWorkoutSchema, workout, "protected_workouts.updateProtectedWorkout");
+      const response = await client
+        .from("protected_workouts")
+        .update({
+          workout_type: validated.type,
+          workout_date: validated.date,
+          workout_payload: toJson({
+            startTime: validated.startTime,
+            localStartTime: validated.localStartTime,
+            durationMinutes: validated.durationMinutes,
+            intensity: validated.intensity,
+            rounds: validated.rounds,
+            note: validated.note,
+            metadata: options.metadata
+          })
+        })
+        .eq("user_id", safeUserId)
+        .eq("id", workoutId)
+        .select("id")
+        .single();
+      return readDataOrThrow(response, "protected_workouts.updateProtectedWorkout");
+    },
+
+    async deleteProtectedWorkout(userId: string, workoutId: string): Promise<{ id: string }> {
+      const safeUserId = assertUserId(userId, "protected_workouts.deleteProtectedWorkout");
+      const response = await client
+        .from("protected_workouts")
+        .delete()
+        .eq("user_id", safeUserId)
+        .eq("id", workoutId)
+        .select("id")
+        .single();
+      return readDataOrThrow(response, "protected_workouts.deleteProtectedWorkout");
     },
 
     async insertProtectedWorkouts(userId: string, workouts: readonly ProtectedWorkout[], options: InsertProtectedWorkoutOptions = {}): Promise<{ ids: string[] }> {

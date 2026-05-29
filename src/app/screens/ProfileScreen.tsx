@@ -36,6 +36,7 @@ export interface ProfileScreenProps {
   cycleTrackingStatus: string;
   equipmentAccess: readonly string[];
   cycleContext: CycleViewModel | null;
+  onOpenPlan?: (() => void) | undefined;
   onSignOut: () => Promise<void>;
   onUpdateSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   preferredUnits: "metric" | "imperial";
@@ -47,13 +48,13 @@ export interface ProfileScreenProps {
 }
 
 export function ProfileScreen({
-  asOfDate,
   betaFeedback,
   betaHealth,
   busy,
   cycleTrackingStatus,
   equipmentAccess,
   cycleContext,
+  onOpenPlan,
   onSignOut,
   onUpdateSettings,
   preferredUnits,
@@ -103,10 +104,10 @@ export function ProfileScreen({
       {section === "settings" ? (
         <View style={{ gap: spacing.lg }} testID="profile-settings-section">
           <ProfileSettingsScreen
-            asOfDate={asOfDate}
             busy={busy}
             cycleTrackingPreference={cycleTrackingStatus === "enabled" || cycleTrackingStatus === "disabled" ? cycleTrackingStatus : "undecided"}
             equipmentAccess={equipmentAccess}
+            onOpenPlan={onOpenPlan}
             onUpdateSettings={onUpdateSettings}
             preferredUnits={preferredUnits}
             wearablePreference={wearablePreference}

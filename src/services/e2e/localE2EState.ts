@@ -7,6 +7,7 @@ export const LOCAL_E2E_USER_ID = "local-e2e-athlete";
 
 export function buildLocalE2EPerformanceState(input: {
   asOfDate?: ISODateString | undefined;
+  protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
   userId?: string | undefined;
 } = {}): PerformanceState {
   const asOfDate = input.asOfDate ?? LOCAL_E2E_AS_OF_DATE;
@@ -69,7 +70,7 @@ export function buildLocalE2EPerformanceState(input: {
     exerciseResults: [],
     trainingHistory: [],
     trainingPlanAdjustments: [],
-    protectedWorkouts: [protectedTechnicalWork, protectedSparringWork],
+    protectedWorkouts: input.protectedWorkouts ?? [protectedTechnicalWork, protectedSparringWork],
     safetyFlags: [],
     journeyEvents: [
       {

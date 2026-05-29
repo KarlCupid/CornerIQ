@@ -21,6 +21,8 @@ export const ProtectedWorkoutSchema = z.object({
   id: z.string().min(1),
   type: z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]),
   date: ISODateSchema,
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   durationMinutes: z.number().int().positive(),
   intensity: z.enum(["easy", "moderate", "hard", "max"]),
   protected: z.literal(true),

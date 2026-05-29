@@ -102,6 +102,17 @@ function objectiveFromContext(fight: FightOpportunity | null, tournament: Tourna
   return "build";
 }
 
+function activePhaseFromEvents(events: AthleteJourney["journeyEvents"]): AthleteJourney["activePhase"] {
+  const latestGoalEvent = [...events].reverse().find((event) => event.type === "RecoveryStarted" || event.type === "BuildPhaseStarted");
+  if (latestGoalEvent?.type === "RecoveryStarted") {
+    return "recovery";
+  }
+  if (latestGoalEvent?.type === "BuildPhaseStarted") {
+    return "build";
+  }
+  return null;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown repository error";
 }
@@ -178,6 +189,7 @@ export async function loadAthleteJourney(input: {
 
     const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
     const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
+    const activePhase = activeFightOpportunity || activeTournament ? null : activePhaseFromEvents(journeyEvents);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
     const [trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
@@ -189,7 +201,7 @@ export async function loadAthleteJourney(input: {
 
     const journey: AthleteJourney = {
       athlete,
-      activePhase: null,
+      activePhase,
       activeObjective: objectiveFromContext(activeFightOpportunity, activeTournament),
       activeFightOpportunity,
       activeTournament,

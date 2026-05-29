@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useFormMessage } from "../../forms/useFormMessage";
-import { parseRequiredDateYYYYMMDD, parseRequiredPositiveInteger } from "../../forms/validation";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import type { ISODateString } from "../../../engine/core/types";
@@ -9,10 +8,11 @@ import type { ProfileSettingsDraft } from "../../../services/supabase/onboarding
 import { screenStyles } from "../screenStyles";
 
 export interface ProfileSettingsScreenProps {
-  asOfDate: ISODateString;
+  asOfDate?: ISODateString | undefined;
   busy: boolean;
   cycleTrackingPreference: "enabled" | "disabled" | "undecided";
   equipmentAccess: readonly string[];
+  onOpenPlan?: (() => void) | undefined;
   onUpdateSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   preferredUnits: "metric" | "imperial";
   wearablePreference: "manual_only" | "wearable_connected" | "undecided";
@@ -25,18 +25,6 @@ function OptionButton({ active, busy, label, onPress }: { active: boolean; busy:
     </Pressable>
   );
 }
-
-type ProtectedType = "technical_session" | "pads_mitts" | "bag_work" | "sparring" | "roadwork" | "coach_assigned_strength" | "recovery_day";
-
-const protectedTypeOptions: readonly { label: string; value: ProtectedType }[] = [
-  { label: "Technical session", value: "technical_session" },
-  { label: "Pads or mitts", value: "pads_mitts" },
-  { label: "Bag work", value: "bag_work" },
-  { label: "Coach-led sparring", value: "sparring" },
-  { label: "Roadwork", value: "roadwork" },
-  { label: "Coach strength", value: "coach_assigned_strength" },
-  { label: "Recovery day", value: "recovery_day" }
-];
 
 function equipmentLabel(item: string): string {
   return item
@@ -58,10 +46,10 @@ function SettingsGroup({ children, subtitle, title }: React.PropsWithChildren<{ 
 }
 
 export function ProfileSettingsScreen({
-  asOfDate,
   busy,
   cycleTrackingPreference,
   equipmentAccess,
+  onOpenPlan,
   onUpdateSettings,
   preferredUnits,
   wearablePreference
@@ -71,9 +59,6 @@ export function ProfileSettingsScreen({
   const [units, setUnits] = useState(preferredUnits);
   const [equipment, setEquipment] = useState(equipmentAccess.join(", "));
   const [equipmentOpen, setEquipmentOpen] = useState(false);
-  const [protectedType, setProtectedType] = useState<ProtectedType>("technical_session");
-  const [protectedDate, setProtectedDate] = useState(asOfDate);
-  const [durationMinutes, setDurationMinutes] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Profile settings could not be saved.");
   const equipmentItems = equipment.split(",").map((item) => item.trim()).filter(Boolean);
 
@@ -83,24 +68,12 @@ export function ProfileSettingsScreen({
       if (equipmentAccessDraft.length === 0) {
         throw new Error("Equipment access is required. Enter none/bodyweight if that is the honest setup.");
       }
-      const protectedWorkout =
-        durationMinutes.trim().length > 0
-          ? {
-              type: protectedType,
-              date: parseRequiredDateYYYYMMDD(protectedDate, "Protected anchor date"),
-              durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Protected anchor duration"),
-              intensity: "moderate" as const,
-              note: "Profile schedule edit"
-            }
-          : undefined;
       await onUpdateSettings({
         cycleTrackingPreference: cyclePreference,
         wearablePreference: wearable,
         preferredUnits: units,
-        equipmentAccess: equipmentAccessDraft,
-        ...(protectedWorkout ? { protectedWorkout } : {})
+        equipmentAccess: equipmentAccessDraft
       });
-      setDurationMinutes("");
     });
   };
 
@@ -147,14 +120,11 @@ export function ProfileSettingsScreen({
         </Pressable>
         {equipmentOpen ? <TextInput onChangeText={setEquipment} placeholder="Equipment, comma-separated" placeholderTextColor={colors.wrap} style={screenStyles.input} value={equipment} /> : null}
       </SettingsGroup>
-      <SettingsGroup title="Protected boxing sessions" subtitle="Optional one-off anchor. Leave minutes blank if there is nothing to add.">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {protectedTypeOptions.map((option) => (
-            <OptionButton active={protectedType === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setProtectedType(option.value)} />
-          ))}
-        </View>
-        <TextInput onChangeText={setProtectedDate} placeholder="Protected anchor date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={protectedDate} />
-        <TextInput keyboardType="number-pad" onChangeText={setDurationMinutes} placeholder="Add protected session minutes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={durationMinutes} />
+      <SettingsGroup title="Planning" subtitle="Fixed boxing schedule now lives in Plan.">
+        <Text style={screenStyles.body}>Use Plan to add, edit, or remove boxing commitments.</Text>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={onOpenPlan ?? (() => undefined)} style={screenStyles.quietButton}>
+          <Text style={screenStyles.quietButtonText}>Open Plan</Text>
+        </Pressable>
       </SettingsGroup>
       <Pressable accessibilityRole="button" disabled={busy} onPress={save} style={screenStyles.button}>
         <Text style={screenStyles.buttonText}>Save settings</Text>
