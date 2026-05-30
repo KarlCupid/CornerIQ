@@ -101,6 +101,23 @@ describe("training block and microcycle engine", () => {
     expect(underFueling.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
   });
 
+  it("places generated support only on athlete schedule availability days", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["wednesday"]
+        }
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(state.training.generatedSessions.every((session) => new Date(`${session.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
+    expect(state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).every((day) => new Date(`${day.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
+  });
+
   it("high cycle symptoms trim optional work and completed good sessions allow progression", () => {
     const highSymptoms = resolvePerformanceState({ journey: menstruating_athlete_camp_heavy_symptoms, asOfDate: fixtureAsOfDate });
     const goodHistory = resolvePerformanceState({

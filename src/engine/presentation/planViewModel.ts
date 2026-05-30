@@ -1,4 +1,5 @@
 import type { NextWeekPreviewViewModel, PerformanceState, PlanViewModel, ProtectedWorkout, ProtectedWorkoutType, SessionIntensity, TrainingBlockHistoryDetailViewModel, TrainingBlockTimelineEvent, TrainingDayPlan } from "../core/types";
+import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
 
 function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
@@ -394,6 +395,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const blockHistoryDetail = buildBlockHistoryDetail(state, nextWeekPreview);
   const currentWeekGeneratedSupportCount = state.training.dayPlans.reduce((count, day) => count + day.generatedSessions.length, 0);
   const generatedSupportDayCount = state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).length;
+  const generatedSupportAvailableDays = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability);
   const fixedSchedule = upcomingFixedSchedule(state);
   const recoveryDayCount = state.training.dayPlans.filter(
     (day) => day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day"
@@ -469,6 +471,10 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     plannedHardDays: state.training.activeBlock.weeklyStructure.plannedHardDays,
     generatedSupportDayCount,
     generatedSupportSessionCount: currentWeekGeneratedSupportCount,
+    generatedSupportAvailability: {
+      selectedDays: generatedSupportAvailableDays,
+      summary: formatGeneratedSupportWeekdays(generatedSupportAvailableDays)
+    },
     recoveryDayCount,
     recoveryDays: state.training.activeBlock.weeklyStructure.recoveryDays,
     fixedSchedule,

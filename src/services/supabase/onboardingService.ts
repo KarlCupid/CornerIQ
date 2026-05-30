@@ -12,9 +12,11 @@ import type {
 } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "./loadAthleteJourney";
 import { assertUserId, parseWithSchema } from "./repositoryTypes";
+import { GENERATED_SUPPORT_WEEKDAYS, mergeScheduleAvailabilityWithGeneratedSupportDays } from "../../engine/training/supportAvailability";
 
 const ISODateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const ISODateTimeSchema = z.string().datetime();
+const GeneratedSupportAvailableDaysSchema = z.array(z.enum(GENERATED_SUPPORT_WEEKDAYS)).min(1);
 
 export const BoxingLevelSchema = z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]);
 export const ProtectedWorkoutDraftSchema = z.object({
@@ -46,7 +48,8 @@ export const FightSetupDraftSchema = z.object({
   allowanceKg: z.number().nonnegative(),
   hydrationTestingRequired: z.boolean(),
   postWeighInWeightCapKg: z.number().positive().optional(),
-  timezone: z.string().min(1)
+  timezone: z.string().min(1),
+  generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional()
 });
 
 export const TournamentSetupDraftSchema = z.object({
@@ -59,7 +62,8 @@ export const TournamentSetupDraftSchema = z.object({
   sameDayBoutLikely: z.boolean(),
   numberOfPotentialBouts: z.number().int().positive(),
   rehydrationWindowHoursByDay: z.array(z.number().nonnegative()).min(1),
-  strategyMode: z.enum(["stay_near_weight", "mild_daily_cut", "no_cut_recommended"])
+  strategyMode: z.enum(["stay_near_weight", "mild_daily_cut", "no_cut_recommended"]),
+  generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional()
 });
 
 export const OnboardingDraftSchema = z.object({
@@ -118,12 +122,14 @@ export const ProfileSettingsDraftSchema = z.object({
 
 export const BuildGoalDraftSchema = z.object({
   primaryFocus: z.enum(["balanced", "power", "conditioning", "strength", "mobility"]),
-  supportDaysPerWeek: z.number().int().min(0).max(6)
+  supportDaysPerWeek: z.number().int().min(0).max(6),
+  generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional()
 });
 
 export const RecoveryGoalDraftSchema = z.object({
   durationDays: z.number().int().positive().optional(),
-  focus: z.enum(["general", "soreness", "sleep", "travel", "post_bout"]).optional()
+  focus: z.enum(["general", "soreness", "sleep", "travel", "post_bout"]).optional(),
+  generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional()
 });
 
 export type ProtectedWorkoutDraft = z.infer<typeof ProtectedWorkoutDraftSchema>;
@@ -261,6 +267,28 @@ function isActiveFight(fight: FightOpportunity): boolean {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+async function saveGeneratedSupportAvailability(input: {
+  userId: string;
+  days: readonly (typeof GENERATED_SUPPORT_WEEKDAYS)[number][] | undefined;
+  repositories: AthleteJourneyRepositories;
+}): Promise<void> {
+  if (!input.days) {
+    return;
+  }
+  const profile = await input.repositories.athlete.getProfile(input.userId);
+  if (!profile) {
+    return;
+  }
+  const scheduleAvailability = mergeScheduleAvailabilityWithGeneratedSupportDays({
+    currentAvailability: profile.scheduleAvailability,
+    selectedDays: input.days
+  });
+  await input.repositories.athlete.upsertProfile(input.userId, {
+    ...profile,
+    scheduleAvailability
+  });
 }
 
 function optionalStringValue(value: string | undefined): string {
@@ -408,6 +436,7 @@ export async function saveFightSetup(input: {
 }): Promise<void> {
   const userId = assertUserId(input.userId, "fightSetup.saveFightSetup");
   const draft = parseWithSchema(FightSetupDraftSchema, input.draft, "fightSetup.saveFightSetup");
+  await saveGeneratedSupportAvailability({ userId, days: draft.generatedSupportAvailableDays, repositories: input.repositories });
   const fight = fightOpportunityFromDraft(draft);
   const existing = await input.repositories.fight.listFightOpportunities(userId);
   const existingDraftFight = draft.id ? existing.find((item) => item.id === draft.id) ?? null : null;
@@ -419,9 +448,10 @@ export async function saveFightSetup(input: {
     previousBoutDate: existingDraftFight?.boutDate,
     supersededFightCount: superseded.length,
     weighInType: fight.weighInType,
+    generatedSupportAvailableDays: draft.generatedSupportAvailableDays,
     source: input.source ?? "plan"
   });
-  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, source: input.source ?? "plan" });
+  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, generatedSupportAvailableDays: draft.generatedSupportAvailableDays, source: input.source ?? "plan" });
 }
 
 export async function saveTournamentSetup(input: {
@@ -432,12 +462,14 @@ export async function saveTournamentSetup(input: {
 }): Promise<void> {
   const userId = assertUserId(input.userId, "fightSetup.saveTournamentSetup");
   const draft = parseWithSchema(TournamentSetupDraftSchema, input.draft, "fightSetup.saveTournamentSetup");
+  await saveGeneratedSupportAvailability({ userId, days: draft.generatedSupportAvailableDays, repositories: input.repositories });
   const tournament = tournamentDetailsFromDraft(draft);
   const result = draft.id ? await input.repositories.tournament.updateTournamentPlan(userId, draft.id, tournament) : await input.repositories.tournament.insertTournamentPlan(userId, tournament, { supersedesExisting: true });
   const superseded = await supersedeOtherUpcomingTournaments({ userId, tournament, repositories: input.repositories, supersededBy: result.id });
   await input.repositories.journey.appendEvent(userId, "TournamentStarted", {
     tournamentStartDate: tournament.tournamentStartDate,
     supersededTournamentCount: superseded.length,
+    generatedSupportAvailableDays: draft.generatedSupportAvailableDays,
     source: input.source ?? "plan"
   });
 }
@@ -450,9 +482,11 @@ export async function saveBuildGoal(input: {
 }): Promise<void> {
   const userId = assertUserId(input.userId, "planGoal.saveBuildGoal");
   const draft = parseWithSchema(BuildGoalDraftSchema, input.draft, "planGoal.saveBuildGoal");
+  await saveGeneratedSupportAvailability({ userId, days: draft.generatedSupportAvailableDays, repositories: input.repositories });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
     supportDaysPerWeek: draft.supportDaysPerWeek,
+    generatedSupportAvailableDays: draft.generatedSupportAvailableDays,
     source: input.source ?? "plan"
   });
 }
@@ -465,9 +499,11 @@ export async function saveRecoveryGoal(input: {
 }): Promise<void> {
   const userId = assertUserId(input.userId, "planGoal.saveRecoveryGoal");
   const draft = parseWithSchema(RecoveryGoalDraftSchema, input.draft, "planGoal.saveRecoveryGoal");
+  await saveGeneratedSupportAvailability({ userId, days: draft.generatedSupportAvailableDays, repositories: input.repositories });
   await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
     durationDays: draft.durationDays,
     focus: draft.focus ?? "general",
+    generatedSupportAvailableDays: draft.generatedSupportAvailableDays,
     source: input.source ?? "plan"
   });
 }

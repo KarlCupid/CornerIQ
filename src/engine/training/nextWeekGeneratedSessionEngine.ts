@@ -12,6 +12,7 @@ import type {
 } from "../core/types";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
 import type { TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
+import { generatedSupportAllowedOnDate } from "./supportAvailability";
 
 export interface NextWeekGeneratedSessionMaterializationInput {
   materialization: NextWeekTrainingMaterialization;
@@ -166,6 +167,7 @@ function eligibleDays(input: NextWeekGeneratedSessionMaterializationInput): read
   const strategy = input.materialization.materializedVolumeStrategy;
   const days = input.dayPlans
     .filter((day) => day.date >= input.microcycle.weekStartDate && day.date <= input.microcycle.weekEndDate)
+    .filter((day) => generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, day.date))
     .filter((day) => !hasCompetitionAnchor(anchorsForDate([...input.protectedWorkouts, ...day.protectedAnchors], day.date)));
   const preferred = days.filter((day) => {
     if (strategy === "progress_small" || strategy === "repeat_same") {

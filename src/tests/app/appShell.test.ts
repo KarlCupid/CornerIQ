@@ -522,6 +522,10 @@ const planViewModel: PlanViewModel = {
   plannedHardDays: 2,
   generatedSupportDayCount: 1,
   generatedSupportSessionCount: 1,
+  generatedSupportAvailability: {
+    selectedDays: ["monday", "wednesday", "friday", "saturday"],
+    summary: "Mon, Wed, Fri, Sat"
+  },
   recoveryDayCount: 0,
   recoveryDays: ["2026-05-21"],
   fixedSchedule: [
@@ -2140,29 +2144,79 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Change goal");
+    await switchSection(renderer, "Generate plan");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Generate new plan");
     expect(JSON.stringify(renderer.toJSON())).toContain("Build general boxing fitness");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await switchSection(renderer, "Back");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Step 1: Goal type");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    for (const day of ["Mon", "Wed", "Fri", "Sat"]) {
+      await switchSection(renderer, day);
+    }
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    expect(JSON.stringify(renderer.toJSON())).toContain("Select at least one available day");
+    await switchSection(renderer, "Tue");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
-    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ primaryFocus: "balanced", supportDaysPerWeek: 3 }));
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ primaryFocus: "balanced", supportDaysPerWeek: 3, generatedSupportAvailableDays: ["tuesday"] }));
 
-    await switchSection(renderer, "Change goal");
+    await switchSection(renderer, "Generate plan");
     await switchSection(renderer, "Enter fight camp");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save fight camp goal"));
     });
     expect(onSaveFightSetup).toHaveBeenCalledWith(expect.objectContaining({ boutDate: fixtureAsOfDate }));
 
-    await switchSection(renderer, "Change goal");
+    await switchSection(renderer, "Generate plan");
     await switchSection(renderer, "Enter tournament mode");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save tournament goal"));
     });
     expect(onSaveTournamentSetup).toHaveBeenCalledWith(expect.objectContaining({ tournamentStartDate: fixtureAsOfDate }));
 
-    await switchSection(renderer, "Change goal");
+    await switchSection(renderer, "Generate plan");
     await switchSection(renderer, "Recovery / maintenance");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save recovery goal"));
     });

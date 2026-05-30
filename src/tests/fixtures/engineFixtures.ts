@@ -41,7 +41,7 @@ function profile(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
     dietitianInvolved: false,
     medicalProfessionalInvolved: false,
     equipmentAccess: ["dumbbells", "bands", "medicine_ball"],
-    scheduleAvailability: ["mon_pm", "wed_pm", "fri_pm", "sat_am"],
+    scheduleAvailability: ["mon_pm", "tue_pm", "wed_pm", "fri_pm", "sat_am"],
     protectedBoxingSchedule: [],
     cycleTrackingPreference: "enabled",
     wearablePreference: "manual_only",

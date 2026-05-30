@@ -28,6 +28,7 @@ import type {
   TrainingBlockTimelineEventType,
   TrainingDayRole
 } from "../training/types";
+import type { GeneratedSupportWeekday } from "../training/supportAvailability";
 
 export interface DecisionStackItem {
   label: string;
@@ -385,6 +386,10 @@ export interface PlanViewModel {
   plannedHardDays: number;
   generatedSupportDayCount: number;
   generatedSupportSessionCount: number;
+  generatedSupportAvailability: {
+    selectedDays: readonly GeneratedSupportWeekday[];
+    summary: string;
+  };
   recoveryDayCount: number;
   recoveryDays: readonly string[];
   fixedSchedule: readonly {

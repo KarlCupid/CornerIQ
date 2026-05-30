@@ -25,6 +25,7 @@ import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
 import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine";
 import type { TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
+import { generatedSupportAllowedOnDate } from "./supportAvailability";
 
 function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(
@@ -56,6 +57,7 @@ function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSessio
 function generatedSessionAllowedByCurrentSafety(input: {
   anchors: readonly ProtectedWorkout[];
   asOfDate: ISODateString;
+  athleteScheduleAvailability: readonly string[];
   highCycleSymptoms: boolean;
   readiness: ReadinessState;
   safetyBlocks?: boolean | undefined;
@@ -66,6 +68,9 @@ function generatedSessionAllowedByCurrentSafety(input: {
     return false;
   }
   if (hasProtectedCompetition(input.anchors, input.session.date)) {
+    return false;
+  }
+  if (!generatedSupportAllowedOnDate(input.athleteScheduleAvailability, input.session.date)) {
     return false;
   }
   if (input.readiness.color === "red") {
@@ -128,6 +133,9 @@ export function resolveWeeklyTrainingPlan(input: {
     const date = addDays(input.asOfDate, index);
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
+    if (!generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, date)) {
+      return null;
+    }
     if (hasCompetition) {
       return null;
     }
@@ -193,6 +201,7 @@ export function resolveWeeklyTrainingPlan(input: {
       generatedSessionAllowedByCurrentSafety({
         anchors: input.anchors,
         asOfDate: input.asOfDate,
+        athleteScheduleAvailability: input.athlete.scheduleAvailability,
         highCycleSymptoms: input.highCycleSymptoms,
         readiness: input.readiness,
         safetyBlocks: input.safetyBlocks,

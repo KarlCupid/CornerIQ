@@ -399,4 +399,26 @@ describe("onboardingService", () => {
       ])
     );
   });
+
+  it("plan goal saves can update generated support availability without changing callbacks", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "conditioning",
+        supportDaysPerWeek: 2,
+        generatedSupportAvailableDays: ["tuesday", "thursday"]
+      },
+      repositories
+    });
+
+    expect(store.profile?.scheduleAvailability).toEqual(["tuesday", "thursday"]);
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ generatedSupportAvailableDays: ["tuesday", "thursday"] }) })
+      ])
+    );
+  });
 });

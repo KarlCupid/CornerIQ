@@ -133,7 +133,6 @@ function CurrentModeCard({
   onPreviewNextWeek: () => void;
   viewModel: PlanViewModel;
 }) {
-  const primaryLabel = viewModel.nextWeekPreview.canAccept ? "Change goal" : "Generate plan";
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-current-mode-card">
@@ -141,11 +140,12 @@ function CurrentModeCard({
           <Text style={screenStyles.sectionTitle}>Current mode</Text>
           <Text style={screenStyles.callout}>{viewModel.modeLabel}</Text>
           <Text style={screenStyles.body}>Week {viewModel.weekIndex}. {viewModel.goalSummary}</Text>
+          <Text style={screenStyles.subtle}>Generated support availability: {viewModel.generatedSupportAvailability.summary}</Text>
           <Text style={screenStyles.subtle}>Your boxing comes first.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable accessibilityRole="button" disabled={busy} onPress={onChangeGoal} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.buttonText}>{primaryLabel}</Text>
+            <Text style={screenStyles.buttonText}>Generate plan</Text>
           </Pressable>
           <Pressable accessibilityRole="button" disabled={busy} onPress={onPreviewNextWeek} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
             <Text style={screenStyles.quietButtonText}>Preview next week</Text>
@@ -206,7 +206,11 @@ function GeneratedSupportSummaryCard({
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Generated support</Text>
           <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support session")}</Text>
+          <Text style={screenStyles.body}>Availability: {viewModel.generatedSupportAvailability.summary}</Text>
           <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds support work around your fixed boxing sessions, readiness, and safety."}</Text>
+          <Text style={screenStyles.subtle}>Generated support will only be placed on selected available days.</Text>
+          <Text style={screenStyles.subtle}>Fixed boxing sessions remain protected.</Text>
+          <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (
@@ -298,6 +302,7 @@ export function PlanScreen({
         <PlanGoalFlowCard
           asOfDate={asOfDate}
           busy={goalBusy}
+          initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
           isMinor={isMinor}
           onCancel={() => setGoalFlowOpen(false)}
           onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
