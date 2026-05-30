@@ -9,7 +9,6 @@ import {
   parseOptionalPositiveInteger,
   parseOptionalPositiveNumber,
   parseRequiredDateYYYYMMDD,
-  parseRequiredInteger,
   parseRequiredNonNegativeNumber,
   parseRequiredPositiveInteger,
   parseRequiredPositiveNumber,
@@ -76,14 +75,6 @@ function OptionButton({ active, busy, label, onPress }: { active: boolean; busy:
       <Text style={[screenStyles.chipText, active ? screenStyles.chipTextSelected : null]}>{label}</Text>
     </Pressable>
   );
-}
-
-function parseSupportDays(value: string): number {
-  const parsed = parseRequiredInteger(value, "Support days per week");
-  if (parsed < 0 || parsed > 6) {
-    throw new Error("Support days per week must be between 0 and 6.");
-  }
-  return parsed;
 }
 
 function parseHourList(value: string): number[] {
@@ -153,7 +144,6 @@ export function PlanGoalFlowCard({
   const [stepError, setStepError] = React.useState<string | null>(null);
   const [selectedAvailableDays, setSelectedAvailableDays] = React.useState<GeneratedSupportDay[]>(() => [...initialAvailableDays]);
   const [primaryFocus, setPrimaryFocus] = React.useState<BuildGoalDraft["primaryFocus"]>("balanced");
-  const [supportDaysPerWeek, setSupportDaysPerWeek] = React.useState("3");
 
   const [status, setStatus] = React.useState<FightSetupDraft["status"]>(defaultFight.status);
   const [amateurOrPro, setAmateurOrPro] = React.useState<FightSetupDraft["amateurOrPro"]>(defaultFight.amateurOrPro);
@@ -224,7 +214,6 @@ export function PlanGoalFlowCard({
     await runWithMessage(async () => {
       await onSaveBuildGoal({
         primaryFocus,
-        supportDaysPerWeek: parseSupportDays(supportDaysPerWeek),
         generatedSupportAvailableDays: selectedAvailableDays
       });
       onCancel();
@@ -333,8 +322,8 @@ export function PlanGoalFlowCard({
         `Focus: ${titleCase(recoveryFocus)}`
       ];
     }
-    return [`Primary focus: ${titleCase(primaryFocus)}`, `Support days per week: ${supportDaysPerWeek}`];
-  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, supportDaysPerWeek, tournamentEndDate, tournamentStartDate, weighInType]);
+    return [`Primary focus: ${titleCase(primaryFocus)}`, "Support volume: prescribed by the engine"];
+  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, tournamentEndDate, tournamentStartDate, weighInType]);
 
   return (
     <EngineCard>
@@ -405,7 +394,7 @@ export function PlanGoalFlowCard({
                     <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setPrimaryFocus(option)} />
                   ))}
                 </View>
-                <TextInput keyboardType="number-pad" onChangeText={setSupportDaysPerWeek} placeholder="Support days per week" placeholderTextColor={colors.wrap} style={screenStyles.input} value={supportDaysPerWeek} />
+                <Text style={screenStyles.subtle}>CornerIQ prescribes support volume from your phase, readiness, safety gates, and fixed boxing sessions.</Text>
               </View>
             ) : null}
 

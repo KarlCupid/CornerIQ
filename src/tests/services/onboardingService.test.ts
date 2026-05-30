@@ -389,12 +389,12 @@ describe("onboardingService", () => {
   it("plan build and recovery goal saves use existing journey event paths", async () => {
     const { repositories, store } = createOnboardingRepositories();
 
-    await saveBuildGoal({ userId: "user_1", draft: { primaryFocus: "power", supportDaysPerWeek: 2 }, repositories });
+    await saveBuildGoal({ userId: "user_1", draft: { primaryFocus: "power" }, repositories });
     await saveRecoveryGoal({ userId: "user_1", draft: { durationDays: 5, focus: "sleep" }, repositories });
 
     expect(store.events).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ primaryFocus: "power", source: "plan" }) }),
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ primaryFocus: "power", supportPrescription: "engine_owned", source: "plan" }) }),
         expect.objectContaining({ type: "RecoveryStarted", payload: expect.objectContaining({ durationDays: 5, focus: "sleep", source: "plan" }) })
       ])
     );
@@ -408,7 +408,6 @@ describe("onboardingService", () => {
       userId: "user_1",
       draft: {
         primaryFocus: "conditioning",
-        supportDaysPerWeek: 2,
         generatedSupportAvailableDays: ["tuesday", "thursday"]
       },
       repositories

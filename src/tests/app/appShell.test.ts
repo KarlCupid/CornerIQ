@@ -2172,7 +2172,8 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
-    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ primaryFocus: "balanced", supportDaysPerWeek: 3, generatedSupportAvailableDays: ["tuesday"] }));
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ primaryFocus: "balanced", generatedSupportAvailableDays: ["tuesday"] }));
+    expect(onSaveBuildGoal).not.toHaveBeenCalledWith(expect.objectContaining({ supportDaysPerWeek: expect.any(Number) }));
 
     await switchSection(renderer, "Generate plan");
     await switchSection(renderer, "Enter fight camp");

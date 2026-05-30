@@ -122,7 +122,6 @@ export const ProfileSettingsDraftSchema = z.object({
 
 export const BuildGoalDraftSchema = z.object({
   primaryFocus: z.enum(["balanced", "power", "conditioning", "strength", "mobility"]),
-  supportDaysPerWeek: z.number().int().min(0).max(6),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional()
 });
 
@@ -485,7 +484,7 @@ export async function saveBuildGoal(input: {
   await saveGeneratedSupportAvailability({ userId, days: draft.generatedSupportAvailableDays, repositories: input.repositories });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
-    supportDaysPerWeek: draft.supportDaysPerWeek,
+    supportPrescription: "engine_owned",
     generatedSupportAvailableDays: draft.generatedSupportAvailableDays,
     source: input.source ?? "plan"
   });
