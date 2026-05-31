@@ -356,7 +356,13 @@ export const GeneratedTrainingSessionSchema = z.object({
   rationale: z.string(),
   protects: z.array(z.string()),
   modifications: z.array(z.string()),
-  fuelDemand: z.enum(["low", "moderate", "high"])
+  fuelDemand: z.enum(["low", "moderate", "high"]),
+  planRevisionId: z.string().min(1).optional(),
+  trainingBlockId: z.string().min(1).optional(),
+  weekIndex: z.number().int().positive().optional(),
+  planStartDate: ISODateSchema.optional(),
+  source: z.enum(["active_plan_generation", "engine_projection", "next_week_preview_materialization"]).optional(),
+  templateId: z.string().min(1).optional()
 });
 
 export const CompletedTrainingSessionSchema = z.object({

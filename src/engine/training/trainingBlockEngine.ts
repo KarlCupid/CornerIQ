@@ -17,7 +17,8 @@ import type {
   TrainingBlockHistory,
   TrainingBlockRecommendation,
   TrainingDayPlan,
-  TrainingMicrocycle
+  TrainingMicrocycle,
+  PlanGenerationPrimaryFocus
 } from "../core/types";
 import { recommendTrainingProgression } from "./progressionEngine";
 import { buildWeeklyMicrocycle } from "./microcycleEngine";
@@ -38,6 +39,10 @@ export interface TrainingBlockEngineInput {
   engineVersion: string;
   activeTrainingBlock?: TrainingBlock | null | undefined;
   blockHistory?: TrainingBlockHistory | undefined;
+  planRevisionId?: string | undefined;
+  planStartDate?: string | undefined;
+  primaryFocus?: PlanGenerationPrimaryFocus | undefined;
+  weekStartDate?: string | undefined;
 }
 
 function isUnderFuelingRisk(flags: readonly RiskFlag[]): boolean {
@@ -90,6 +95,22 @@ function buildPhaseForHistory(input: TrainingBlockEngineInput): TrainingBlockPha
   return "build_strength";
 }
 
+function buildPhaseForFocus(input: TrainingBlockEngineInput): TrainingBlockPhase {
+  switch (input.primaryFocus) {
+    case "conditioning":
+      return "aerobic_base";
+    case "power":
+      return "build_power";
+    case "strength":
+      return "build_strength";
+    case "mobility":
+      return "aerobic_base";
+    case "balanced":
+    case undefined:
+      return buildPhaseForHistory(input);
+  }
+}
+
 function goalsForPhase(phase: TrainingBlockPhase): { primaryGoal: TrainingBlockGoal; secondaryGoals: readonly TrainingBlockGoal[] } {
   switch (phase) {
     case "build_power":
@@ -116,7 +137,7 @@ function blockStartDate(input: TrainingBlockEngineInput): string {
   if (existing && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
     return existing.startDate;
   }
-  return input.asOfDate;
+  return input.planStartDate ?? input.asOfDate;
 }
 
 function blockEndDate(input: TrainingBlockEngineInput): string {
@@ -155,7 +176,7 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
           ? "camp_support"
           : input.currentPhase.phase === "maintenance" || input.currentPhase.phase === "recovery"
             ? "maintenance"
-            : buildPhaseForHistory(input);
+            : buildPhaseForFocus(input);
   const goals = goalsForPhase(phase);
   const progression = recommendTrainingProgression({
     completedTrainingSessions: input.completedSessions,
@@ -208,7 +229,9 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
             ? "Fight week drops volume while preserving speed."
             : phase === "camp_support"
               ? "Confirmed fight context makes boxing protection and specificity the priority."
-              : "Build phase uses boxing level and completion history to choose the first block.",
+              : input.primaryFocus && input.primaryFocus !== "balanced"
+                ? `Build phase uses the ${input.primaryFocus} plan focus while safety and protected boxing stay primary.`
+                : "Build phase uses boxing level and completion history to choose the first block.",
     progressionState: {
       weekIndex: weekIndexFor(input),
       status: progressionStatus,
@@ -230,6 +253,7 @@ export function resolveTrainingBlock(input: TrainingBlockEngineInput): {
   const endDate = blockEndDate(input);
   const microcycle = buildWeeklyMicrocycle({
     asOfDate: input.asOfDate,
+    weekStartDate: input.weekStartDate ?? input.planStartDate ?? input.asOfDate,
     blockPhase: recommendation.phase,
     protectedWorkouts: input.protectedWorkouts,
     generatedSessions: input.generatedSessions,
@@ -241,7 +265,7 @@ export function resolveTrainingBlock(input: TrainingBlockEngineInput): {
   });
   return {
     activeBlock: {
-      id: input.activeTrainingBlock?.id ?? `block:${input.athlete.athleteId}:${startDate}:${recommendation.phase}`,
+      id: input.activeTrainingBlock?.id ?? `block:${input.athlete.athleteId}:${input.planRevisionId ?? startDate}:${recommendation.phase}`,
       athleteId: input.athlete.athleteId,
       startDate,
       endDate,

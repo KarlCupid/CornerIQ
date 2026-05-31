@@ -614,7 +614,7 @@ export type Database = {
             foreignKeyName: "generated_training_sessions_block_id_fkey"
             columns: ["block_id"]
             isOneToOne: false
-            referencedRelation: "generated_training_blocks"
+            referencedRelation: "training_blocks"
             referencedColumns: ["id"]
           },
         ]

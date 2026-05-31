@@ -122,6 +122,27 @@ function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards
   );
 }
 
+function WeeklyGeneratedWorkCard({ viewModel }: { viewModel: TrainViewModel }) {
+  if (viewModel.weeklyWorkoutCards.length === 0) {
+    return null;
+  }
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="train-weekly-generated-work">
+        <Text style={screenStyles.sectionTitle}>Generated week</Text>
+        <Text style={screenStyles.body}>{viewModel.todaySummary}</Text>
+        {viewModel.weeklyWorkoutCards.map((session) => (
+          <View key={session.id} style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.fieldLabel}>{session.label}</Text>
+            <Text style={screenStyles.body}>{session.title}</Text>
+            <Text style={screenStyles.subtle}>{session.summary}</Text>
+          </View>
+        ))}
+      </View>
+    </EngineCard>
+  );
+}
+
 export function TrainScreen({ busy, completionActions, completionMessage, generationStatus = "idle", quickLogs, recentLogs, viewModel }: TrainScreenProps) {
   const [section, setSection] = React.useState<TrainSection>("today");
   return (
@@ -175,8 +196,9 @@ export function TrainScreen({ busy, completionActions, completionMessage, genera
               </ActionCard>
             </View>
           )) : (
-            <EmptyState title="No generated support today" message="No generated support is due. That matters because future work should not be pulled forward from Plan. Log coach-led boxing if it happens." />
+            <EmptyState title="No generated support today" message={viewModel.todaySummary} />
           )}
+          <WeeklyGeneratedWorkCard viewModel={viewModel} />
           <DisclosureCard title="Plan context" summary={`${viewModel.todayRole.summary} ${viewModel.protectedAnchorSummary}`}>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} - {viewModel.blockGoal}</Text>

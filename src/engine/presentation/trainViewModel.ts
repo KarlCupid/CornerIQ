@@ -26,6 +26,31 @@ function roleSummary(plan: TrainingDayPlan | null): string {
   }
 }
 
+function dayLabel(date: string): string {
+  return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function compactSession(session: PerformanceState["training"]["generatedSessions"][number]) {
+  return {
+    id: session.id,
+    title: session.title,
+    date: session.date,
+    intensity: session.intensity,
+    durationMinutes: session.durationMinutes,
+    fuelDemand: session.fuelDemand
+  };
+}
+
+function upcomingSummary(sessions: readonly ReturnType<typeof compactSession>[]): string {
+  if (sessions.length === 0) {
+    return "No generated support today.";
+  }
+  return `No generated support today. Upcoming: ${sessions
+    .slice(0, 3)
+    .map((session) => `${dayLabel(session.date)} - ${session.title}`)
+    .join("; ")}.`;
+}
+
 function cycleTrainingDecision(state: PerformanceState): CycleTrainingDecisionViewModel {
   if (!state.cycle.trackingEnabled) {
     return {
@@ -112,6 +137,17 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
 export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const todayAnchors = state.training.protectedAnchors.filter((anchor) => anchor.date === state.asOfDate);
   const plan = todayPlan(state);
+  const currentWeekGeneratedSessions = state.training.generatedSessions
+    .filter((session) => session.date >= state.training.currentMicrocycle.weekStartDate && session.date <= state.training.currentMicrocycle.weekEndDate)
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .map(compactSession);
+  const upcomingGeneratedSessions = currentWeekGeneratedSessions.filter((session) => session.date > state.asOfDate);
+  const nextGeneratedSession = [...state.training.todaySessions.map(compactSession), ...upcomingGeneratedSessions][0] ?? null;
+  const weeklyWorkoutCards = currentWeekGeneratedSessions.map((session) => ({
+    ...session,
+    label: dayLabel(session.date),
+    summary: `${session.durationMinutes} min, ${session.intensity}. Fuel: ${session.fuelDemand}.`
+  }));
   const detailedTodaySessions = state.training.todaySessions.map((session) => {
     try {
       const detail = buildDetailedTrainingSession({
@@ -182,7 +218,11 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       why: generationExplanation,
       optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
     },
-    todaySummary: state.training.todaySessions.length > 0 ? state.training.todaySessions.map((session) => session.title).join(", ") : "No generated support today.",
+    todaySummary: state.training.todaySessions.length > 0 ? state.training.todaySessions.map((session) => session.title).join(", ") : upcomingSummary(upcomingGeneratedSessions),
+    upcomingGeneratedSessions,
+    currentWeekGeneratedSessions,
+    nextGeneratedSession,
+    weeklyWorkoutCards,
     blockPhase: state.training.activeBlock.phase,
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),
     blockExplanation: state.training.blockRecommendation.reason,

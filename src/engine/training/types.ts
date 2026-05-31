@@ -1,4 +1,5 @@
 import type { Confidence, ISODateString } from "../core/sharedTypes";
+import type { GeneratedSupportWeekday } from "./supportAvailability";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
@@ -140,6 +141,23 @@ export type GeneratedSessionFamily =
   | "taper_maintenance";
 
 export type GeneratedSessionIntensity = "recovery" | "easy" | "moderate" | "hard";
+export type PlanGenerationAction = "start_new_plan" | "amend_current_plan";
+export type PlanGenerationGoalMode = "build" | "fight" | "tournament" | "recovery";
+export type PlanGenerationPrimaryFocus = "balanced" | "power" | "conditioning" | "strength" | "mobility";
+
+export interface PlanGenerationIntent {
+  id: string;
+  userId: string;
+  action: PlanGenerationAction;
+  goalMode: PlanGenerationGoalMode;
+  primaryFocus?: PlanGenerationPrimaryFocus | undefined;
+  selectedSupportDays: readonly GeneratedSupportWeekday[];
+  planStartDate: ISODateString;
+  requestedAt: string;
+  seed: string;
+  source: "plan_wizard";
+  status: "active" | "superseded" | "completed";
+}
 
 export interface GeneratedTrainingSession {
   id: string;
@@ -153,6 +171,12 @@ export interface GeneratedTrainingSession {
   protects: readonly string[];
   modifications: readonly string[];
   fuelDemand: "low" | "moderate" | "high";
+  planRevisionId?: string | undefined;
+  trainingBlockId?: string | undefined;
+  weekIndex?: number | undefined;
+  planStartDate?: ISODateString | undefined;
+  source?: "active_plan_generation" | "engine_projection" | "next_week_preview_materialization" | undefined;
+  templateId?: string | undefined;
 }
 
 export interface ExerciseSetPrescription {
@@ -294,7 +318,20 @@ export interface TrainingLoadLedger {
 export type TrainingGenerationReductionSource = "nutrition" | "readiness" | "availability" | "anchors" | "safety" | "cycle" | "phase";
 
 export interface TrainingSupportGenerationAudit {
+  asOfDate: ISODateString;
+  planStartDate: ISODateString;
+  planRevisionId: string;
+  activeTrainingBlockId: string;
+  weekIndex: number;
+  selectedSupportDays: readonly GeneratedSupportWeekday[];
   targetGeneratedSupportCount: number;
+  actualGeneratedSupportCount: number;
+  todayGeneratedSupportCount: number;
+  generatedSessionDates: readonly ISODateString[];
+  generatedSessionFamilies: readonly GeneratedSessionFamily[];
+  candidateAllowedDays: number;
+  activeAdjustmentCount: number;
+  activeRiskFlagCodes: readonly string[];
   generatedSupportPlacementReasons: readonly string[];
   blockedGenerationReasons: readonly string[];
   reducedBy: readonly TrainingGenerationReductionSource[];
@@ -335,6 +372,7 @@ export interface TrainingState {
     status: "active" | "superseded" | "completed" | "canceled";
   } | undefined;
   loadLedger: TrainingLoadLedger;
+  planGenerationIntent?: PlanGenerationIntent | undefined;
   supportGenerationAudit: TrainingSupportGenerationAudit;
   explanation: string;
   confidence: Confidence;

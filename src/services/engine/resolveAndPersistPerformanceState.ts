@@ -142,6 +142,16 @@ function withTrainingPersistenceStatus(input: {
     ...input.state,
     training: {
       ...input.state.training,
+      activeBlock: {
+        ...input.state.training.activeBlock,
+        id: input.trainingBlockId
+      },
+      generatedSessions: input.state.training.generatedSessions.map((session) => ({ ...session, trainingBlockId: input.trainingBlockId })),
+      todaySessions: input.state.training.todaySessions.map((session) => ({ ...session, trainingBlockId: input.trainingBlockId })),
+      dayPlans: input.state.training.dayPlans.map((dayPlan) => ({
+        ...dayPlan,
+        generatedSessions: dayPlan.generatedSessions.map((session) => ({ ...session, trainingBlockId: input.trainingBlockId }))
+      })),
       blockHistory: {
         blockId: input.trainingBlockId,
         summaries,
@@ -157,6 +167,10 @@ function withTrainingPersistenceStatus(input: {
       blockPersistenceStatus: {
         trainingBlockId: input.trainingBlockId,
         status: "active"
+      },
+      supportGenerationAudit: {
+        ...input.state.training.supportGenerationAudit,
+        activeTrainingBlockId: input.trainingBlockId
       }
     }
   };

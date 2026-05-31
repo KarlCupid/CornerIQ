@@ -671,6 +671,14 @@ describe("Supabase repositories", () => {
     expect(source).toContain("training_block_timeline_events");
   });
 
+  it("010 migration scopes generated sessions to training blocks", () => {
+    const source = readFileSync("supabase/migrations/010_generated_sessions_training_block_scope.sql", "utf8");
+
+    expect(source).toContain("generated_training_sessions_block_id_fkey");
+    expect(source).toContain("references public.training_blocks");
+    expect(source).toContain("generated_training_sessions_user_block_date_idx");
+  });
+
   it("004 migration creates training block persistence tables, RLS, and indexes", () => {
     const source = readFileSync("supabase/migrations/004_training_block_persistence.sql", "utf8");
 

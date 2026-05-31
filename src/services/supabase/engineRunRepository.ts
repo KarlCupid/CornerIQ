@@ -148,6 +148,7 @@ export function mapGeneratedSessionToRow(
   metadata: Record<string, unknown> = {}
 ): TableInsert<"generated_training_sessions"> {
   const generatedSessionKey = generatedTrainingSessionKey(session);
+  const trainingBlockId = typeof metadata.trainingBlockId === "string" ? metadata.trainingBlockId : session.trainingBlockId;
   return {
     user_id: userId,
     planned_date: session.date,
@@ -158,10 +159,11 @@ export function mapGeneratedSessionToRow(
       inputHash,
       outputHash,
       projectionSource: "engine_projection",
+      ...(trainingBlockId ? { trainingBlockId } : {}),
       ...metadata
     }),
     engine_version: engineVersion,
-    block_id: null
+    block_id: trainingBlockId ?? null
   };
 }
 

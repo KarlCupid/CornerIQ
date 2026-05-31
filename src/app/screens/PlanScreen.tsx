@@ -219,6 +219,11 @@ function GeneratedSupportSummaryCard({
           <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
           <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>
           {generationReasons.map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
+          {viewModel.generationAudit ? (
+            <Text style={screenStyles.subtle}>
+              Audit: as-of {viewModel.generationAudit.asOfDate}, starts {viewModel.generationAudit.planStartDate}, revision {viewModel.generationAudit.planRevisionId}, generated {viewModel.generationAudit.actualGeneratedSupportCount}/{viewModel.generationAudit.targetGeneratedSupportCount}.
+            </Text>
+          ) : null}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (

@@ -310,6 +310,37 @@ const trainViewModel: TrainViewModel = {
     optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
   },
   todaySummary: "One support session.",
+  upcomingGeneratedSessions: [],
+  currentWeekGeneratedSessions: [
+    {
+      id: "generated_1",
+      title: "Strength support",
+      date: "2026-05-19",
+      intensity: "moderate",
+      durationMinutes: 35,
+      fuelDemand: "moderate"
+    }
+  ],
+  nextGeneratedSession: {
+    id: "generated_1",
+    title: "Strength support",
+    date: "2026-05-19",
+    intensity: "moderate",
+    durationMinutes: 35,
+    fuelDemand: "moderate"
+  },
+  weeklyWorkoutCards: [
+    {
+      id: "generated_1",
+      title: "Strength support",
+      date: "2026-05-19",
+      label: "Tue, May 19",
+      intensity: "moderate",
+      durationMinutes: 35,
+      summary: "35 min, moderate. Fuel: moderate.",
+      fuelDemand: "moderate"
+    }
+  ],
   blockPhase: "build_strength",
   blockGoal: "strength base",
   blockExplanation: "Build phase uses boxing level and completion history.",
@@ -1742,7 +1773,7 @@ describe("minimal app screens", () => {
     const tournamentOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: tournament.viewModels.train })).toJSON());
     const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
 
-    expect(taperOutput).toContain("Speed maintenance taper");
+    expect(taperOutput).toContain("Taper speed touch");
     expect(taperOutput).toContain("Taper day");
     expect(tournamentOutput).toContain("Tournament conservation");
     expect(redOutput).toContain("Safety overrides");
@@ -2475,7 +2506,22 @@ describe("minimal app screens", () => {
         viewModel: {
           ...planViewModel,
           generationAudit: {
+            asOfDate: fixtureAsOfDate,
+            planStartDate: fixtureAsOfDate,
+            planRevisionId: "plan:test",
+            activeTrainingBlockId: "training_block_1",
+            weekIndex: 1,
+            selectedSupportDays: ["tuesday"],
             targetGeneratedSupportCount: 1,
+            actualGeneratedSupportCount: 0,
+            todayGeneratedSupportCount: 0,
+            generatedSessionDates: [],
+            generatedSessionFamilies: [],
+            candidateAllowedDays: 1,
+            activeAdjustmentCount: 0,
+            activeRiskFlagCodes: ["rapid_weight_loss"],
+            inputHash: null,
+            outputHash: "output_hash",
             generatedSupportPlacementReasons: [],
             blockedGenerationReasons: ["True fueling safety risk capped generated support count."],
             fuelRiskClassification: "severe_fueling_risk",

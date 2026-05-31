@@ -15,6 +15,7 @@ import { anchorsForDate } from "./protectedAnchors";
 
 export interface WeeklyMicrocycleInput {
   asOfDate: string;
+  weekStartDate?: string | undefined;
   blockPhase: TrainingBlockPhase;
   protectedWorkouts: readonly ProtectedWorkout[];
   generatedSessions: readonly GeneratedTrainingSession[];
@@ -170,11 +171,11 @@ export function buildWeeklyMicrocycle(input: WeeklyMicrocycleInput): {
   microcycle: TrainingMicrocycle;
   dayPlans: readonly TrainingDayPlan[];
 } {
-  const weekStartDate = input.asOfDate;
-  const weekEndDate = addDays(input.asOfDate, 6);
+  const weekStartDate = input.weekStartDate ?? input.asOfDate;
+  const weekEndDate = addDays(weekStartDate, 6);
   const hardDayCap = hardDayCapForPhase(input.blockPhase);
   const dayPlans = Array.from({ length: 7 }, (_, index): TrainingDayPlan => {
-    const date = addDays(input.asOfDate, index);
+    const date = addDays(weekStartDate, index);
     const protectedAnchors = anchorsForDate(input.protectedWorkouts, date);
     const generated = input.generatedSessions.filter((session) => session.date === date);
     const completed = input.completedSessions.filter((session) => session.date === date);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CompletedTrainingSession, ExerciseResultRecord, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
+import type { CompletedTrainingSession, ExerciseResultRecord, JourneyEvent, PlanGenerationPrimaryFocus, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
@@ -46,6 +46,38 @@ const painExercise: ExerciseResultRecord = {
   recordedAt: "2026-05-18T12:00:00.000Z",
   completedAt: "2026-05-18T12:00:00.000Z"
 };
+
+function planWizardBuildEvent(input: {
+  focus: PlanGenerationPrimaryFocus;
+  id: string;
+  planStartDate?: string | undefined;
+  selectedSupportDays?: readonly string[] | undefined;
+}): JourneyEvent {
+  const selectedSupportDays = input.selectedSupportDays ?? ["tuesday", "thursday", "saturday"];
+  return {
+    id: `event_${input.id}`,
+    type: "BuildPhaseStarted",
+    occurredAt: "2026-05-19T09:00:00.000Z",
+    payload: {
+      primaryFocus: input.focus,
+      source: "plan_wizard_new_plan",
+      scheduleAvailability: selectedSupportDays,
+      planGenerationIntent: {
+        id: input.id,
+        userId: pro_4_round_build_strength.athlete.athleteId,
+        action: "start_new_plan",
+        goalMode: "build",
+        primaryFocus: input.focus,
+        selectedSupportDays,
+        planStartDate: input.planStartDate ?? fixtureAsOfDate,
+        requestedAt: "2026-05-19T09:00:00.000Z",
+        seed: input.id,
+        source: "plan_wizard",
+        status: "active"
+      }
+    }
+  };
+}
 
 describe("training block and microcycle engine", () => {
   it("materializes weekly recurring anchors into deterministic dated protected workouts", () => {
@@ -201,6 +233,95 @@ describe("training block and microcycle engine", () => {
 
     expect(state.training.generatedSessions.length).toBeGreaterThan(1);
     expect(state.training.generatedSessions.every((session) => selectedDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
+  });
+
+  it("plan generation intent creates a revision-scoped active week on selected support days", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "conditioning",
+            id: "plan_conditioning_week_1",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: selectedDays
+          })
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.planGenerationIntent?.id).toBe("plan_conditioning_week_1");
+    expect(state.training.supportGenerationAudit.planStartDate).toBe("2026-05-18");
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.generatedSessions.every((session) => session.id.startsWith("generated:plan_conditioning_week_1:"))).toBe(true);
+    expect(state.training.generatedSessions.every((session) => selectedDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
+    expect(state.training.generatedSessions.map((session) => session.family).join(" ")).toMatch(/roadwork|conditioning/);
+  });
+
+  it("different build focuses produce different generated session families", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const stateForFocus = (focus: PlanGenerationPrimaryFocus, id: string) =>
+      resolvePerformanceState({
+        journey: {
+          ...pro_4_round_build_strength,
+          athlete: {
+            ...pro_4_round_build_strength.athlete,
+            scheduleAvailability: selectedDays
+          },
+          journeyEvents: [planWizardBuildEvent({ focus, id, planStartDate: "2026-05-18", selectedSupportDays: selectedDays })],
+          trainingHistory: [],
+          trainingPlanAdjustments: [],
+          safetyFlags: []
+        },
+        asOfDate: fixtureAsOfDate
+      });
+    const strength = stateForFocus("strength", "plan_strength_week_1");
+    const power = stateForFocus("power", "plan_power_week_1");
+    const conditioning = stateForFocus("conditioning", "plan_conditioning_week_1");
+
+    expect(strength.training.generatedSessions.map((session) => session.family)).not.toEqual(conditioning.training.generatedSessions.map((session) => session.family));
+    expect(power.training.generatedSessions.map((session) => session.family)).not.toEqual(conditioning.training.generatedSessions.map((session) => session.family));
+    expect(strength.training.generatedSessions.some((session) => session.family.startsWith("strength"))).toBe(true);
+    expect(power.training.generatedSessions.some((session) => session.family.startsWith("power") || session.family === "reaction_rhythm")).toBe(true);
+    expect(conditioning.training.generatedSessions.some((session) => session.family.startsWith("roadwork") || session.family === "round_based_conditioning")).toBe(true);
+  });
+
+  it("Train view model shows future generated sessions when today has no support", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "thursday"]
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "conditioning",
+            id: "plan_future_week",
+            planStartDate: "2026-05-25",
+            selectedSupportDays: ["tuesday", "thursday"]
+          })
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.todaySessions).toEqual([]);
+    expect(state.viewModels.train.upcomingGeneratedSessions.map((session) => session.date)).toEqual(["2026-05-26", "2026-05-28"]);
+    expect(state.viewModels.train.todaySummary).toContain("Upcoming");
+    expect(state.viewModels.train.weeklyWorkoutCards).toHaveLength(2);
   });
 
   it("keeps generated support availability separate from weekly recurring anchors", () => {

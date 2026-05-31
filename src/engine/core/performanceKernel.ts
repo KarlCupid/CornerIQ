@@ -11,6 +11,7 @@ import { resolveAcuteProtocolEligibility, resolveWeighInContext, resolveWeightCl
 import { resolveTournamentStrategy } from "../fight/tournamentEngine";
 import { resolveWeeklyTrainingPlan } from "../training/weeklyPlanEngine";
 import { materializeProtectedWorkoutAnchors } from "../training/protectedAnchors";
+import { resolveActivePlanGenerationIntent } from "../training/planGenerationIntent";
 import { resolveNutrition } from "../nutrition/nutritionEngine";
 import { resolveHydration } from "../nutrition/hydrationEngine";
 import { assessDehydrationRisk } from "../safety/dehydrationRisk";
@@ -85,6 +86,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     endDate: addDays(input.asOfDate, 13)
   });
   const blockHistory = trainingBlockHistoryFor(journey);
+  const planGenerationIntent = resolveActivePlanGenerationIntent(journey, input.asOfDate);
   const persistedGeneratedSessions = !journey.activeTrainingBlock && latestPlanWizardSource(journey) === "plan_wizard_new_plan" ? [] : journey.trainingHistory;
   const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,
@@ -103,6 +105,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
     blockHistory,
+    ...(planGenerationIntent ? { planGenerationIntent } : {}),
     persistedGeneratedSessions
   });
   const earlySafetyFlags = [
@@ -149,6 +152,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
     blockHistory,
+    ...(planGenerationIntent ? { planGenerationIntent } : {}),
     persistedGeneratedSessions
   });
   const weighInContext = resolveWeighInContext(journey.activeFightOpportunity, input.asOfDate);
@@ -271,6 +275,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       athleteId: journey.athlete.athleteId,
       phase: phase.phase,
       weekIndex: training.activeBlock.progressionState.weekIndex,
+      planRevisionId: planGenerationIntent?.id ?? null,
+      planStartDate: planGenerationIntent?.planStartDate ?? training.activeBlock.startDate,
       risks: safety.riskFlags.map((flag) => flag.id),
       nutrition: nutrition.dailyCaloriesTarget,
       sessions: training.generatedSessions.map((session) => session.id),

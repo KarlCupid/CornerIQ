@@ -1,5 +1,5 @@
 import { makeConfidence } from "../core/confidence";
-import { addDays } from "../core/dates";
+import { addDays, daysBetween } from "../core/dates";
 import type {
   AthleteProfile,
   CompletedTrainingSession,
@@ -16,7 +16,9 @@ import type {
   TrainingBlockHistory,
   GeneratedTrainingSession,
   TrainingGenerationReductionSource,
-  TrainingState
+  TrainingState,
+  PlanGenerationIntent,
+  PlanGenerationPrimaryFocus
 } from "../core/types";
 import { buildLoadLedger } from "./loadLedger";
 import { generateSupportSession } from "./sessionGenerator";
@@ -26,7 +28,7 @@ import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
 import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine";
 import type { TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
-import { generatedSupportAllowedOnDate } from "./supportAvailability";
+import { generatedSupportAllowedOnDate, generatedSupportWeekdayForDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
 
 const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 const FUELING_COUNT_CAP_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
@@ -111,13 +113,52 @@ function latestByWeekIndex<T extends { weekIndex: number }>(items: readonly T[] 
   return items?.reduce<T | null>((latest, item) => (!latest || item.weekIndex > latest.weekIndex ? item : latest), null) ?? null;
 }
 
+function activeWeekStartDate(input: {
+  activeTrainingBlock?: TrainingBlock | null | undefined;
+  asOfDate: ISODateString;
+  planGenerationIntent?: PlanGenerationIntent | undefined;
+}): ISODateString {
+  if (input.planGenerationIntent?.action === "start_new_plan") {
+    return input.planGenerationIntent.planStartDate;
+  }
+  const existing = input.activeTrainingBlock;
+  if (existing && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
+    const elapsedDays = Math.max(0, daysBetween(existing.startDate, input.asOfDate));
+    return addDays(existing.startDate, Math.floor(elapsedDays / 7) * 7);
+  }
+  return input.planGenerationIntent?.planStartDate ?? input.asOfDate;
+}
+
+function planRevisionId(input: {
+  athlete: AthleteProfile;
+  asOfDate: ISODateString;
+  planGenerationIntent?: PlanGenerationIntent | undefined;
+  planStartDate: ISODateString;
+}): string {
+  return input.planGenerationIntent?.id ?? `projection:${input.athlete.athleteId}:${input.planStartDate}:${input.asOfDate}`;
+}
+
+function selectedSupportDays(input: {
+  athlete: AthleteProfile;
+  planGenerationIntent?: PlanGenerationIntent | undefined;
+}): readonly GeneratedSupportWeekday[] {
+  if (input.planGenerationIntent?.selectedSupportDays.length) {
+    return input.planGenerationIntent.selectedSupportDays;
+  }
+  return normalizeGeneratedSupportWeekdays(input.athlete.scheduleAvailability);
+}
+
+function supportAllowedOnDate(selectedDays: readonly GeneratedSupportWeekday[], athleteScheduleAvailability: readonly string[], date: ISODateString): boolean {
+  return selectedDays.length > 0 ? selectedDays.includes(generatedSupportWeekdayForDate(date)) : generatedSupportAllowedOnDate(athleteScheduleAvailability, date);
+}
+
 function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSession[], persistedSessions: readonly GeneratedTrainingSession[], asOfDate: ISODateString): readonly GeneratedTrainingSession[] {
   const merged = new Map<string, GeneratedTrainingSession>();
   for (const session of engineSessions) {
-    merged.set(`${session.date}:${session.family}:${session.title}`, session);
+    merged.set(session.id, session);
   }
   for (const session of persistedSessions.filter((item) => item.date >= asOfDate)) {
-    merged.set(`${session.date}:${session.family}:${session.title}`, session);
+    merged.set(session.id, session);
   }
   return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
@@ -126,6 +167,7 @@ function generatedSessionAllowedByCurrentSafety(input: {
   anchors: readonly ProtectedWorkout[];
   asOfDate: ISODateString;
   athleteScheduleAvailability: readonly string[];
+  selectedSupportDays: readonly GeneratedSupportWeekday[];
   highCycleSymptoms: boolean;
   readiness: ReadinessState;
   safetyBlocks?: boolean | undefined;
@@ -138,7 +180,7 @@ function generatedSessionAllowedByCurrentSafety(input: {
   if (hasProtectedCompetition(input.anchors, input.session.date)) {
     return false;
   }
-  if (!generatedSupportAllowedOnDate(input.athleteScheduleAvailability, input.session.date)) {
+  if (!supportAllowedOnDate(input.selectedSupportDays, input.athleteScheduleAvailability, input.session.date)) {
     return false;
   }
   if (input.readiness.color === "red") {
@@ -215,6 +257,7 @@ export function resolveWeeklyTrainingPlan(input: {
   trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
   activeTrainingBlock?: TrainingBlock | null | undefined;
   blockHistory?: TrainingBlockHistory | undefined;
+  planGenerationIntent?: PlanGenerationIntent | undefined;
   persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
 }): TrainingState {
   const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
@@ -224,24 +267,50 @@ export function resolveWeeklyTrainingPlan(input: {
   const hardStopFlags = activeHardStopFlags(input.safetyFlags);
   const baseTargetSessions = baseTargetSessionCount({ athlete: input.athlete, phase: input.phase });
   const targetSessions = hardStopOrRedReadiness || fuelCountCap ? 1 : baseTargetSessions;
-  const candidateDates = Array.from({ length: 7 }, (_, index) => addDays(input.asOfDate, index));
+  const planStartDate = activeWeekStartDate({
+    activeTrainingBlock: input.activeTrainingBlock,
+    asOfDate: input.asOfDate,
+    planGenerationIntent: input.planGenerationIntent
+  });
+  const planRevision = planRevisionId({
+    athlete: input.athlete,
+    asOfDate: input.asOfDate,
+    planGenerationIntent: input.planGenerationIntent,
+    planStartDate
+  });
+  const selectedDays = selectedSupportDays({
+    athlete: input.athlete,
+    planGenerationIntent: input.planGenerationIntent
+  });
+  const planWeekIndex =
+    input.activeTrainingBlock && input.activeTrainingBlock.startDate <= planStartDate
+      ? Math.max(1, Math.floor(daysBetween(input.activeTrainingBlock.startDate, planStartDate) / 7) + 1)
+      : 1;
+  const primaryFocus: PlanGenerationPrimaryFocus | undefined =
+    input.planGenerationIntent?.goalMode === "build" ? input.planGenerationIntent.primaryFocus ?? "balanced" : input.planGenerationIntent?.primaryFocus;
+  const candidateDates = Array.from({ length: 7 }, (_, index) => addDays(planStartDate, index));
   const blockedByAnchors = candidateDates.some((date, index) => {
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
-    return generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, date) && (hasCompetition || (index > 0 && hasSparring));
+    return supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) && (hasCompetition || (index > 0 && hasSparring));
   });
   const candidateAllowedDays = candidateDates.filter(
     (date, index) =>
-      generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, date) &&
+      supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) &&
       !hasProtectedCompetition(input.anchors, date) &&
       !(index > 0 && hasProtectedSparring(input.anchors, date))
   ).length;
+  const supportDateOrder = new Map(
+    candidateDates
+      .filter((date, index) => supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) && !hasProtectedCompetition(input.anchors, date) && !(index > 0 && hasProtectedSparring(input.anchors, date)))
+      .map((date, index) => [date, index] as const)
+  );
 
-  const generated = Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(input.asOfDate, index);
+  const recentFamilies = input.persistedGeneratedSessions?.map((session) => session.family) ?? [];
+  const generated = candidateDates.map((date, index) => {
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
-    if (!generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, date)) {
+    if (!supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date)) {
       return null;
     }
     if (hasCompetition) {
@@ -260,7 +329,14 @@ export function resolveWeeklyTrainingPlan(input: {
             highCycleSymptoms: input.highCycleSymptoms,
             index: 1,
             boxingLevel: input.athlete.boxingLevel,
-            equipmentAccess: input.athlete.equipmentAccess
+            equipmentAccess: input.athlete.equipmentAccess,
+            planRevisionId: planRevision,
+            planStartDate,
+            primaryFocus,
+            recentFamilies,
+            seed: input.planGenerationIntent?.seed ?? planRevision,
+            supportDayIndex: supportDateOrder.get(date) ?? index,
+            weekIndex: planWeekIndex
           })
         : null;
     }
@@ -272,7 +348,14 @@ export function resolveWeeklyTrainingPlan(input: {
       highCycleSymptoms: input.highCycleSymptoms,
       index,
       boxingLevel: input.athlete.boxingLevel,
-      equipmentAccess: input.athlete.equipmentAccess
+      equipmentAccess: input.athlete.equipmentAccess,
+      planRevisionId: planRevision,
+      planStartDate,
+      primaryFocus,
+      recentFamilies,
+      seed: input.planGenerationIntent?.seed ?? planRevision,
+      supportDayIndex: supportDateOrder.get(date) ?? index,
+      weekIndex: planWeekIndex
     });
   })
     .filter((session) => session !== null)
@@ -296,7 +379,11 @@ export function resolveWeeklyTrainingPlan(input: {
     asOfDate: input.asOfDate,
     engineVersion: input.engineVersion ?? "unversioned",
     activeTrainingBlock: input.activeTrainingBlock ?? null,
-    blockHistory: input.blockHistory
+    blockHistory: input.blockHistory,
+    planRevisionId: planRevision,
+    planStartDate,
+    primaryFocus,
+    weekStartDate: planStartDate
   });
   const adjustmentApplication = applyTrainingPlanAdjustments({
     activeBlock: block.activeBlock,
@@ -310,6 +397,7 @@ export function resolveWeeklyTrainingPlan(input: {
         anchors: input.anchors,
         asOfDate: input.asOfDate,
         athleteScheduleAvailability: input.athlete.scheduleAvailability,
+        selectedSupportDays: selectedDays,
         highCycleSymptoms: input.highCycleSymptoms,
         readiness: input.readiness,
         safetyBlocks: input.safetyBlocks,
@@ -328,7 +416,20 @@ export function resolveWeeklyTrainingPlan(input: {
     .filter((decision) => decision.status === "applied" && decision.modifiedDayPlans.some((day) => day.generatedSessions.length === 0))
     .map((decision) => decision.explanation);
   const supportGenerationAudit = {
+    asOfDate: input.asOfDate,
+    planStartDate,
+    planRevisionId: planRevision,
+    activeTrainingBlockId: adjustmentApplication.activeBlock.id,
+    weekIndex: adjustmentApplication.activeBlock.progressionState.weekIndex,
+    selectedSupportDays: selectedDays,
     targetGeneratedSupportCount: targetSessions,
+    actualGeneratedSupportCount: mergedGeneratedSessions.length,
+    todayGeneratedSupportCount: mergedGeneratedSessions.filter((session) => session.date === input.asOfDate).length,
+    generatedSessionDates: mergedGeneratedSessions.map((session) => session.date),
+    generatedSessionFamilies: mergedGeneratedSessions.map((session) => session.family),
+    candidateAllowedDays,
+    activeAdjustmentCount: adjustmentApplication.activeAdjustments.length,
+    activeRiskFlagCodes: (input.safetyFlags ?? []).filter((flag) => flag.status === "active").map((flag) => flag.code),
     generatedSupportPlacementReasons: mergedGeneratedSessions.map(
       (session) => `${session.date}: placed ${session.title} as ${session.intensity} ${session.family.replaceAll("_", " ")} support.`
     ),
@@ -384,7 +485,7 @@ export function resolveWeeklyTrainingPlan(input: {
   const nextWeekMaterialization = materializeNextWeekTrainingPlan({
     currentTrainingBlock: adjustmentApplication.activeBlock,
     currentMicrocycle: adjustedMicrocycle,
-    currentTrainingDayPlans: adjustmentApplication.dayPlans,
+    currentTrainingDayPlans: adjustedDayPlans,
     latestTrainingWeekSummary: latestWeekSummary,
     latestTrainingProgressionDecision: latestProgressionDecision,
     completedTrainingSessions: input.completedSessions ?? [],
@@ -418,6 +519,7 @@ export function resolveWeeklyTrainingPlan(input: {
     nextWeekMaterialization,
     timelineEvents: blockHistory.timelineEvents,
     loadLedger: ledger,
+    ...(input.planGenerationIntent ? { planGenerationIntent: input.planGenerationIntent } : {}),
     supportGenerationAudit,
     explanation:
       underFuelingRisk

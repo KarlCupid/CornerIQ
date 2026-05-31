@@ -1,6 +1,100 @@
-import type { BoxingLevel, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
+import type { BoxingLevel, GeneratedSessionFamily, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
+import type { PlanGenerationPrimaryFocus } from "./types";
+import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
 
-export function generateSupportSession(input: {
+const NOVICE_LEVELS = new Set<BoxingLevel>(["aspiring_boxer", "amateur_novice"]);
+const HIGH_DEMAND_FAMILIES = new Set<GeneratedSessionFamily>([
+  "strength_lower",
+  "strength_upper",
+  "strength_full_body",
+  "power_rotational",
+  "power_lower",
+  "power_upper",
+  "alactic_sprints",
+  "roadwork_tempo",
+  "roadwork_intervals",
+  "round_based_conditioning"
+]);
+const PROHIBITED_OUTPUT = /\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight|dehydrat(?:e|ion))\b/i;
+
+const FOCUS_FAMILY_SEQUENCE: Record<PlanGenerationPrimaryFocus, readonly GeneratedSessionFamily[]> = {
+  balanced: ["strength_full_body", "roadwork_zone2", "alactic_sprints", "trunk_durability", "shoulder_scap_durability"],
+  conditioning: ["roadwork_zone2", "roadwork_tempo", "round_based_conditioning", "roadwork_intervals", "trunk_durability"],
+  mobility: ["hip_ankle_mobility", "shoulder_scap_durability", "trunk_durability", "neck_trap_durability", "wrist_hand_durability", "recovery_reset"],
+  power: ["power_rotational", "reaction_rhythm", "power_lower", "power_upper", "alactic_sprints", "trunk_durability"],
+  strength: ["strength_lower", "strength_upper", "strength_full_body", "trunk_durability", "roadwork_zone2"]
+};
+
+function stableNumber(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function isNovice(boxingLevel: BoxingLevel): boolean {
+  return NOVICE_LEVELS.has(boxingLevel);
+}
+
+function noEquipmentAccess(equipmentAccess: readonly string[]): boolean {
+  const normalized = new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
+  return normalized.size === 0 || normalized.has("none") || normalized.has("bodyweight");
+}
+
+function phaseOverride(input: Pick<GenerateSupportSessionInput, "hasSparring" | "highCycleSymptoms" | "phase" | "readiness">, family: GeneratedSessionFamily): GeneratedSessionFamily {
+  if (input.readiness.color === "red") {
+    return "recovery_reset";
+  }
+  if (input.hasSparring) {
+    return "shoulder_scap_durability";
+  }
+  if (input.phase.phase === "fight_week") {
+    return family === "reaction_rhythm" || family === "taper_maintenance" ? family : "taper_maintenance";
+  }
+  if (input.phase.phase === "tournament") {
+    return family === "taper_maintenance" || family === "hip_ankle_mobility" || family === "recovery_reset" ? family : "recovery_reset";
+  }
+  if (input.phase.phase === "recovery" || input.phase.phase === "deload") {
+    return family === "hip_ankle_mobility" || family === "trunk_durability" || family === "shoulder_scap_durability" ? family : "recovery_reset";
+  }
+  if (input.highCycleSymptoms && HIGH_DEMAND_FAMILIES.has(family)) {
+    return "trunk_durability";
+  }
+  return family;
+}
+
+function chooseFamily(input: GenerateSupportSessionInput): GeneratedSessionFamily {
+  const focus = input.primaryFocus ?? "balanced";
+  const sequence = FOCUS_FAMILY_SEQUENCE[focus];
+  const seedOffset = input.primaryFocus ? stableNumber(`${input.seed ?? "default"}:${input.planRevisionId ?? ""}`) % Math.min(2, sequence.length) : 0;
+  const baseIndex = (input.supportDayIndex ?? input.index) + seedOffset;
+  const recent = new Set(input.recentFamilies ?? []);
+  for (let offset = 0; offset < sequence.length; offset += 1) {
+    const family = sequence[(baseIndex + offset) % sequence.length] ?? "trunk_durability";
+    if (!recent.has(family)) {
+      return phaseOverride(input, family);
+    }
+  }
+  return phaseOverride(input, sequence[baseIndex % sequence.length] ?? "trunk_durability");
+}
+
+function deterministicSessionId(input: GenerateSupportSessionInput, family: GeneratedSessionFamily): string {
+  const revision = input.planRevisionId ?? `projection:${input.planStartDate ?? input.date}`;
+  const week = input.weekIndex ?? 1;
+  return `generated:${revision}:${week}:${input.date}:${family}`;
+}
+
+function assertSafeOutput(session: GeneratedTrainingSession): GeneratedTrainingSession {
+  const output = [session.id, session.title, session.rationale, ...session.prescription, ...session.protects, ...session.modifications].join(" ");
+  if (PROHIBITED_OUTPUT.test(output)) {
+    throw new Error(`sessionGenerator produced prohibited generated-session copy for ${session.id}`);
+  }
+  return session;
+}
+
+export interface GenerateSupportSessionInput {
   date: string;
   phase: PhaseState;
   readiness: ReadinessState;
@@ -9,108 +103,58 @@ export function generateSupportSession(input: {
   index: number;
   boxingLevel: BoxingLevel;
   equipmentAccess: readonly string[];
-}): GeneratedTrainingSession {
-  const noEquipment = input.equipmentAccess.length === 0 || input.equipmentAccess.includes("none");
-  const novice = input.boxingLevel === "aspiring_boxer" || input.boxingLevel === "amateur_novice";
-  if (input.readiness.color === "red") {
-    return {
-      id: `generated:${input.date}:recovery`,
-      date: input.date,
-      family: "recovery_reset",
-      title: "Recovery reset",
-      durationMinutes: 20,
-      intensity: "recovery",
-      prescription: ["Easy breathing reset", "Hip and thoracic mobility", "Light walk if symptoms allow"],
-      rationale: "Red readiness blocks hard generated work.",
-      protects: ["health", "tomorrow's boxing"],
-      modifications: ["Hard work removed"],
-      fuelDemand: "low"
-    };
-  }
+  planRevisionId?: string | undefined;
+  planStartDate?: string | undefined;
+  primaryFocus?: PlanGenerationPrimaryFocus | undefined;
+  recentFamilies?: readonly GeneratedSessionFamily[] | undefined;
+  seed?: string | undefined;
+  supportDayIndex?: number | undefined;
+  weekIndex?: number | undefined;
+}
 
-  if (input.hasSparring) {
-    return {
-      id: `generated:${input.date}:protected-boxing-support`,
-      date: input.date,
-      family: "shoulder_scap_durability",
-      title: "Protected boxing support microdose",
-      durationMinutes: input.highCycleSymptoms ? 15 : 25,
-      intensity: "easy",
-      prescription: ["Scap push-up 2 x 8", "Band external rotation 2 x 12", "Dead bug 2 x 6/side", "Easy mobility"],
-      rationale: "Protected boxing owns today's hard stress, so generated support stays short.",
-      protects: ["boxing quality", "shoulders", "trunk stiffness"],
-      modifications: input.highCycleSymptoms ? ["Trimmed for high cycle symptoms"] : [],
-      fuelDemand: "high"
-    };
-  }
+export function generateSupportSession(input: GenerateSupportSessionInput): GeneratedTrainingSession {
+  const family = chooseFamily(input);
+  const novice = isNovice(input.boxingLevel);
+  const noEquipment = noEquipmentAccess(input.equipmentAccess);
+  const protectedHard = input.hasSparring;
+  const template = selectWorkoutTemplate({
+    family,
+    equipmentAccess: input.equipmentAccess,
+    novice,
+    readinessColor: input.readiness.color,
+    highCycleSymptoms: input.highCycleSymptoms,
+    protectedHard,
+    conservativeFueling: input.readiness.color === "red",
+    volumeStrategy: input.phase.phase === "fight_week" ? "taper" : input.phase.phase === "tournament" ? "tournament_conserve" : undefined
+  });
+  const shape = generatedSessionShapeFromTemplate(template);
+  const recoveryOnly = family === "recovery_reset" || input.readiness.color === "red";
+  const conservative = recoveryOnly || input.highCycleSymptoms || protectedHard || input.phase.phase === "fight_week" || input.phase.phase === "tournament";
 
-  if (input.phase.phase === "fight_week") {
-    return {
-      id: `generated:${input.date}:taper`,
-      date: input.date,
-      family: "taper_maintenance",
-      title: "Speed maintenance taper",
-      durationMinutes: 25,
-      intensity: "easy",
-      prescription: ["Dynamic warm-up", "Low-volume med ball throws", "Fast relaxed shadowboxing quality", "Mobility cooldown"],
-      rationale: "Fight week preserves speed and drops volume.",
-      protects: ["speed", "freshness"],
-      modifications: input.highCycleSymptoms ? ["Optional volume trimmed for symptoms"] : [],
-      fuelDemand: "moderate"
-    };
-  }
-
-  if (input.index % 3 === 0) {
-    return {
-      id: `generated:${input.date}:strength`,
-      date: input.date,
-      family: "strength_full_body",
-      title: "Boxing strength support",
-      durationMinutes: novice || input.highCycleSymptoms ? 30 : 45,
-      intensity: input.highCycleSymptoms ? "moderate" : novice ? "moderate" : "hard",
-      prescription: noEquipment
-        ? ["Movement prep", "Tempo split squat", "Push-up variation", "Band or towel row", "Dead bug", "Cooldown"]
-        : novice
-          ? ["Movement prep", "Goblet squat RPE 6", "Split squat", "Row variation", "Anti-rotation press", "Cooldown"]
-          : ["Movement prep", "Trap bar deadlift RPE 7", "Split squat", "Row variation", "Anti-rotation press", "Cooldown"],
-      rationale: novice ? "Builds simple boxing strength foundations without unnecessary complexity." : "Builds force and trunk control without replacing boxing practice.",
-      protects: ["punch transfer", "stance durability"],
-      modifications: [
-        ...(input.highCycleSymptoms ? ["Main lift kept, accessory volume trimmed"] : []),
-        ...(noEquipment ? ["No-equipment substitution used"] : []),
-        ...(novice ? ["Lower complexity for novice track"] : [])
-      ],
-      fuelDemand: "high"
-    };
-  }
-
-  if (input.index % 3 === 1) {
-    return {
-      id: `generated:${input.date}:roadwork`,
-      date: input.date,
-      family: "roadwork_zone2",
-      title: "Zone 2 roadwork",
-      durationMinutes: 35,
-      intensity: "easy",
-      prescription: ["RPE 3-4", "Talk-test pace", "Nasal breathing if comfortable", "Stop if pain changes gait"],
-      rationale: "Builds aerobic base and recovery capacity for boxing rounds.",
-      protects: ["recovery between rounds", "camp durability"],
-      modifications: [],
-      fuelDemand: "moderate"
-    };
-  }
-
-  return {
-    id: `generated:${input.date}:power`,
+  return assertSafeOutput({
+    id: deterministicSessionId(input, family),
     date: input.date,
-    family: "power_rotational",
-    title: "Rotational power",
-    durationMinutes: 30,
-    intensity: "moderate",
-    prescription: ["Dynamic warm-up", "Med ball rotational throw", "Low-volume jumps", "Full recovery between efforts", "Stop when speed drops"],
-    rationale: "Power work stays crisp and low-volume so boxing quality is protected.",
-    protects: ["punch transfer", "speed"],
-    modifications: [],
-    fuelDemand: "moderate"
-  };
+    family,
+    title: shape.title,
+    durationMinutes: Math.max(12, Math.min(shape.durationMinutes, recoveryOnly ? 18 : conservative ? 25 : shape.durationMinutes)),
+    intensity: recoveryOnly ? "recovery" : conservative && shape.intensity === "hard" ? "moderate" : shape.intensity,
+    prescription: shape.prescription,
+    rationale: shape.rationale,
+    protects: shape.protects,
+    modifications: [
+      ...shape.modifications,
+      ...(input.primaryFocus ? [`Plan focus: ${input.primaryFocus.replaceAll("_", " ")}.`] : []),
+      ...(input.readiness.color === "red" ? ["Readiness is red, so generated work is recovery only."] : []),
+      ...(input.highCycleSymptoms ? ["High cycle symptoms: optional volume trimmed."] : []),
+      ...(protectedHard ? ["Protected hard boxing owns the stress; generated work stays easy."] : []),
+      ...(noEquipment ? ["No-equipment substitution used"] : []),
+      ...(novice ? ["Lower complexity for novice track"] : [])
+    ],
+    fuelDemand: recoveryOnly ? "low" : protectedHard ? "high" : conservative && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand,
+    ...(input.planRevisionId ? { planRevisionId: input.planRevisionId } : {}),
+    ...(input.weekIndex ? { weekIndex: input.weekIndex } : {}),
+    ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
+    source: "active_plan_generation",
+    templateId: template.templateId
+  });
 }

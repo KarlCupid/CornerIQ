@@ -337,6 +337,7 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(calls.upsertGeneratedSessions).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
+          block_id: "training_block_1",
           session_payload: expect.objectContaining({
             trainingBlockId: "training_block_1",
             projectionSource: "engine_projection"

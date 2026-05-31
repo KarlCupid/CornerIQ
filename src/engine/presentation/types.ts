@@ -226,6 +226,40 @@ export interface TrainViewModel {
   title: string;
   topAction: TopActionViewModel;
   todaySummary: string;
+  upcomingGeneratedSessions: readonly {
+    id: string;
+    title: string;
+    date: string;
+    intensity: GeneratedSessionIntensity;
+    durationMinutes: number;
+    fuelDemand: "low" | "moderate" | "high";
+  }[];
+  currentWeekGeneratedSessions: readonly {
+    id: string;
+    title: string;
+    date: string;
+    intensity: GeneratedSessionIntensity;
+    durationMinutes: number;
+    fuelDemand: "low" | "moderate" | "high";
+  }[];
+  nextGeneratedSession: {
+    id: string;
+    title: string;
+    date: string;
+    intensity: GeneratedSessionIntensity;
+    durationMinutes: number;
+    fuelDemand: "low" | "moderate" | "high";
+  } | null;
+  weeklyWorkoutCards: readonly {
+    id: string;
+    title: string;
+    date: string;
+    label: string;
+    intensity: GeneratedSessionIntensity;
+    durationMinutes: number;
+    summary: string;
+    fuelDemand: "low" | "moderate" | "high";
+  }[];
   blockPhase: TrainingBlockPhase;
   blockGoal: string;
   blockExplanation: string;
@@ -450,7 +484,22 @@ export interface PlanViewModel {
     explanation: string;
   }[];
   generationAudit?: {
+    asOfDate: string;
+    planStartDate: string;
+    planRevisionId: string;
+    activeTrainingBlockId: string;
+    weekIndex: number;
+    selectedSupportDays: readonly GeneratedSupportWeekday[];
     targetGeneratedSupportCount: number;
+    actualGeneratedSupportCount: number;
+    todayGeneratedSupportCount: number;
+    generatedSessionDates: readonly string[];
+    generatedSessionFamilies: readonly string[];
+    candidateAllowedDays: number;
+    activeAdjustmentCount: number;
+    activeRiskFlagCodes: readonly string[];
+    inputHash: string | null;
+    outputHash: string;
     generatedSupportPlacementReasons: readonly string[];
     blockedGenerationReasons: readonly string[];
     fuelRiskClassification: FuelRiskClassification;

@@ -869,7 +869,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
   template({
     templateId: "recovery_reset_breathing_mobility",
     family: "recovery_reset",
-    title: "Breathing and mobility recovery",
+    title: "Recovery breathing and mobility",
     intent: "Downshift stress and restore range without hiding extra work inside recovery.",
     defaultDurationMinutes: 16,
     defaultIntensity: "recovery",

@@ -404,6 +404,7 @@ export function PlanGoalFlowCard({
         primaryFocus,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
+        planStartDate: asOfDate,
         planAction
       });
       onCancel();
@@ -437,6 +438,7 @@ export function PlanGoalFlowCard({
         timezone: "America/Vancouver",
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
+        planStartDate: asOfDate,
         planAction
       });
       onCancel();
@@ -461,6 +463,7 @@ export function PlanGoalFlowCard({
         strategyMode,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
+        planStartDate: asOfDate,
         planAction
       });
       onCancel();
@@ -479,6 +482,7 @@ export function PlanGoalFlowCard({
         focus: recoveryFocus,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
+        planStartDate: asOfDate,
         planAction
       });
       onCancel();

@@ -73,6 +73,7 @@ export const FightSetupDraftSchema = z.object({
   timezone: z.string().min(1),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional()
 });
 
@@ -89,6 +90,7 @@ export const TournamentSetupDraftSchema = z.object({
   strategyMode: z.enum(["stay_near_weight", "mild_daily_cut", "no_cut_recommended"]),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional()
 });
 
@@ -152,6 +154,7 @@ export const BuildGoalDraftSchema = z.object({
   supportDaysPerWeek: z.number().int().min(1).max(6).optional(),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional()
 });
 
@@ -160,6 +163,7 @@ export const RecoveryGoalDraftSchema = z.object({
   focus: z.enum(["general", "soreness", "sleep", "travel", "post_bout"]).optional(),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional()
 });
 
@@ -357,6 +361,51 @@ function planLifecycleSource(action: PlanLifecycleAction | undefined): "plan_wiz
     return "plan_wizard_amendment";
   }
   return "plan";
+}
+
+function stableHash(value: unknown): string {
+  const serialized = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function planGenerationPayload(input: {
+  action: PlanLifecycleAction | undefined;
+  goalMode: "build" | "fight" | "tournament" | "recovery";
+  planStartDate?: ISODateString | undefined;
+  primaryFocus?: BuildGoalDraft["primaryFocus"] | undefined;
+  scheduleAvailability?: readonly GeneratedSupportWeekday[] | undefined;
+  userId: string;
+}): Record<string, unknown> {
+  if (!input.action) {
+    return {};
+  }
+  const requestedAt = nowIso();
+  const selectedSupportDays = input.scheduleAvailability ? [...input.scheduleAvailability] : [];
+  const id = `plan:${input.userId}:${stableHash({ action: input.action, goalMode: input.goalMode, planStartDate: input.planStartDate, primaryFocus: input.primaryFocus, requestedAt, selectedSupportDays })}`;
+  const intent = {
+    id,
+    userId: input.userId,
+    action: input.action,
+    goalMode: input.goalMode,
+    ...(input.primaryFocus ? { primaryFocus: input.primaryFocus } : {}),
+    selectedSupportDays,
+    ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
+    requestedAt,
+    seed: id,
+    source: "plan_wizard",
+    status: "active"
+  };
+  return {
+    planGenerationIntent: intent,
+    planRevisionId: id,
+    selectedSupportDays,
+    ...(input.planStartDate ? { planStartDate: input.planStartDate } : {})
+  };
 }
 
 async function appendPlanLifecycleAudit(input: {
@@ -600,6 +649,7 @@ export async function saveFightSetup(input: {
   const userId = assertUserId(input.userId, "fightSetup.saveFightSetup");
   const draft = parseWithSchema(FightSetupDraftSchema, input.draft, "fightSetup.saveFightSetup");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "fight", planStartDate: draft.planStartDate, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "fight", scheduleAvailability });
   const fight = fightOpportunityFromDraft(draft);
@@ -615,9 +665,10 @@ export async function saveFightSetup(input: {
     weighInType: fight.weighInType,
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
+    ...planPayload,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
-  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, generatedSupportAvailableDays: scheduleAvailability, scheduleAvailability, source: input.source ?? planLifecycleSource(draft.planAction) });
+  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, generatedSupportAvailableDays: scheduleAvailability, scheduleAvailability, ...planPayload, source: input.source ?? planLifecycleSource(draft.planAction) });
 }
 
 export async function saveTournamentSetup(input: {
@@ -629,6 +680,7 @@ export async function saveTournamentSetup(input: {
   const userId = assertUserId(input.userId, "fightSetup.saveTournamentSetup");
   const draft = parseWithSchema(TournamentSetupDraftSchema, input.draft, "fightSetup.saveTournamentSetup");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "tournament", planStartDate: draft.planStartDate, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "tournament", scheduleAvailability });
   const tournament = tournamentDetailsFromDraft(draft);
@@ -639,6 +691,7 @@ export async function saveTournamentSetup(input: {
     supersededTournamentCount: superseded.length,
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
+    ...planPayload,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
 }
@@ -652,6 +705,7 @@ export async function saveBuildGoal(input: {
   const userId = assertUserId(input.userId, "planGoal.saveBuildGoal");
   const draft = parseWithSchema(BuildGoalDraftSchema, input.draft, "planGoal.saveBuildGoal");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "build", planStartDate: draft.planStartDate, primaryFocus: draft.primaryFocus, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
@@ -659,6 +713,7 @@ export async function saveBuildGoal(input: {
     supportPrescription: "engine_owned",
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
+    ...planPayload,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
 }
@@ -672,6 +727,7 @@ export async function saveRecoveryGoal(input: {
   const userId = assertUserId(input.userId, "planGoal.saveRecoveryGoal");
   const draft = parseWithSchema(RecoveryGoalDraftSchema, input.draft, "planGoal.saveRecoveryGoal");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "recovery", planStartDate: draft.planStartDate, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "recovery", scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
@@ -679,6 +735,7 @@ export async function saveRecoveryGoal(input: {
     focus: draft.focus ?? "general",
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
+    ...planPayload,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
 }
