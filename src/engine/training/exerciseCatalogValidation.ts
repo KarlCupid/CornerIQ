@@ -5,7 +5,7 @@ export interface ExerciseCatalogValidationResult {
   errors: readonly string[];
 }
 
-const prohibitedTerms = ["sparring", "contact", "neck bridge", "sweat suit", "sauna"];
+const prohibitedTerms = ["sparring", "contact", "neck bridge", "sweat suit", "sweatsuit", "sauna", "weight cut", "cut weight"];
 
 function exerciseText(exercise: CatalogExercise): string {
   return [
@@ -41,6 +41,9 @@ export function validateExerciseCatalog(catalog: readonly CatalogExercise[] = ex
     }
     if (exercise.stopConditions.length === 0 || exercise.stopConditions.some((condition) => !condition.trim())) {
       errors.push(`${exercise.exerciseId} is missing stopConditions.`);
+    }
+    if (exercise.safetyNotes.length === 0 || exercise.safetyNotes.some((note) => !note.trim())) {
+      errors.push(`${exercise.exerciseId} is missing safetyNotes.`);
     }
     if (exercise.requiredEquipment.length > 0 && !exercise.substitutions.some((substitution) => substitution.equipmentNeeded.length === 0)) {
       errors.push(`${exercise.exerciseId} is loaded but has no no-equipment substitution.`);

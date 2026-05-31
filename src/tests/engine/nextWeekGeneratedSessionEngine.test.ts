@@ -4,6 +4,7 @@ import type { CycleState, PerformanceState, ProtectedWorkout, RiskFlag } from ".
 import { materializeGeneratedSessionsFromPreview } from "../../engine/training/nextWeekGeneratedSessionEngine";
 import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationEngine";
 import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
+import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
 import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function stateFixture(): PerformanceState {
@@ -92,6 +93,20 @@ function lowConfidenceNutrition(state: PerformanceState): PerformanceState["nutr
   };
 }
 
+function healthyNutrition(state: PerformanceState): PerformanceState["nutrition"] {
+  return {
+    ...state.nutrition,
+    actualIntakeSummary: {
+      ...state.nutrition.actualIntakeSummary,
+      logCount: 1,
+      caloriesLogged: state.nutrition.dailyCaloriesTarget,
+      calorieTargetPercent: 100,
+      confidence: { level: "medium", score: 0.76, reasons: ["one healthy food log"], missingInputs: [] }
+    },
+    confidence: { level: "medium", score: 0.76, reasons: ["one healthy food log"], missingInputs: [] }
+  };
+}
+
 function severeFuelingFlag(): RiskFlag {
   return {
     ...underfuelingFlag(),
@@ -116,6 +131,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(first.length).toBeGreaterThan(0);
     expect(first.every((session) => session.intensity !== "hard")).toBe(true);
+    expect(first.every((session) => workoutTemplateCatalog.some((template) => template.family === session.family && template.title === session.title))).toBe(true);
     expect(first.map((session) => session.id)).toEqual(second.map((session) => session.id));
     expect(first[0]?.id).toContain("next-week:");
   });
@@ -250,6 +266,19 @@ describe("nextWeekGeneratedSessionEngine", () => {
     expect(sessions.length).toBeGreaterThan(1);
     expect(sessions.every((session) => session.fuelDemand === "low" || session.fuelDemand === "moderate")).toBe(true);
     expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fuel data is low-confidence")))).toBe(true);
+  });
+
+  it("one healthy fuel log does not cap support count", () => {
+    const state = stateFixture();
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
+        nutrition: healthyNutrition(state),
+        safetyFlags: []
+      })
+    );
+
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fuel data is low-confidence")))).toBe(false);
   });
 
   it("severe fueling risk still caps generated support volume", () => {
