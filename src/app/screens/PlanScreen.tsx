@@ -45,12 +45,15 @@ function friendlySupportText(value: string): string {
   return value === "No generated support." ? "None" : value;
 }
 
-function toneForTag(tag: "Protected" | "Support" | "Recovery"): LuminousAccent {
+function toneForTag(tag: "Protected" | "Support" | "Recovery" | "Open"): LuminousAccent {
   if (tag === "Protected") {
     return "green";
   }
   if (tag === "Recovery") {
     return "gold";
+  }
+  if (tag === "Open") {
+    return "purple";
   }
   return "blue";
 }

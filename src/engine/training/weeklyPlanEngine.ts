@@ -15,6 +15,7 @@ import type {
   TrainingBlock,
   TrainingBlockHistory,
   GeneratedTrainingSession,
+  TrainingGenerationReductionSource,
   TrainingState
 } from "../core/types";
 import { buildLoadLedger } from "./loadLedger";
@@ -62,6 +63,19 @@ function fuelingRiskCapsSupportCount(flags: readonly RiskFlag[] | undefined): bo
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(flags?.some((flag) => flag.status === "active" && flag.hardStop));
+}
+
+function baseTargetSessionCount(input: { athlete: AthleteProfile; phase: PhaseState }): number {
+  if (input.phase.phase === "tournament") {
+    return 2;
+  }
+  if (input.phase.phase === "fight_week") {
+    return input.athlete.boxingLevel === "pro_12_round" ? 2 : 3;
+  }
+  if (input.phase.phase === "camp" || input.phase.phase === "short_notice_camp") {
+    return 3;
+  }
+  return input.athlete.boxingLevel === "amateur_novice" || input.athlete.boxingLevel === "aspiring_boxer" ? 2 : 4;
 }
 
 function latestByWeekIndex<T extends { weekIndex: number }>(items: readonly T[] | undefined): T | null {
@@ -116,6 +130,44 @@ function generatedSessionAllowedByCurrentSafety(input: {
   return true;
 }
 
+function generationReductionSources(input: {
+  baseTargetSessions: number;
+  targetSessions: number;
+  hardStopOrRedReadiness: boolean;
+  fuelCountCap: boolean;
+  highCycleSymptoms: boolean;
+  underFuelingRisk: boolean;
+  readiness: ReadinessState;
+  generatedSessionCount: number;
+  candidateAllowedDays: number;
+  blockedByAnchors: boolean;
+  phase: PhaseState;
+}): readonly TrainingGenerationReductionSource[] {
+  const sources = new Set<TrainingGenerationReductionSource>();
+  if (input.fuelCountCap || input.underFuelingRisk) {
+    sources.add("nutrition");
+  }
+  if (input.targetSessions < input.baseTargetSessions && input.readiness.color === "red") {
+    sources.add("readiness");
+  }
+  if (input.hardStopOrRedReadiness) {
+    sources.add("safety");
+  }
+  if (input.highCycleSymptoms) {
+    sources.add("cycle");
+  }
+  if (input.candidateAllowedDays < input.targetSessions || input.generatedSessionCount < input.targetSessions) {
+    sources.add("availability");
+  }
+  if (input.blockedByAnchors) {
+    sources.add("anchors");
+  }
+  if (input.phase.phase === "tournament" || input.phase.phase === "fight_week") {
+    sources.add("phase");
+  }
+  return [...sources];
+}
+
 export function resolveWeeklyTrainingPlan(input: {
   athlete: AthleteProfile;
   anchors: readonly ProtectedWorkout[];
@@ -139,20 +191,20 @@ export function resolveWeeklyTrainingPlan(input: {
   const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
   const hardStopOrRedReadiness = input.readiness.color === "red" || hardStopSafetyActive(input.safetyFlags);
   const fuelCountCap = fuelingRiskCapsSupportCount(input.safetyFlags);
-  const targetSessions =
-    hardStopOrRedReadiness || fuelCountCap
-      ? 1
-      : input.phase.phase === "tournament"
-        ? 2
-        : input.phase.phase === "fight_week"
-          ? input.athlete.boxingLevel === "pro_12_round"
-            ? 2
-            : 3
-          : input.phase.phase === "camp" || input.phase.phase === "short_notice_camp"
-            ? 3
-            : input.athlete.boxingLevel === "amateur_novice" || input.athlete.boxingLevel === "aspiring_boxer"
-              ? 2
-              : 4;
+  const baseTargetSessions = baseTargetSessionCount({ athlete: input.athlete, phase: input.phase });
+  const targetSessions = hardStopOrRedReadiness || fuelCountCap ? 1 : baseTargetSessions;
+  const candidateDates = Array.from({ length: 7 }, (_, index) => addDays(input.asOfDate, index));
+  const blockedByAnchors = candidateDates.some((date, index) => {
+    const hasSparring = hasProtectedSparring(input.anchors, date);
+    const hasCompetition = hasProtectedCompetition(input.anchors, date);
+    return generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, date) && (hasCompetition || (index > 0 && hasSparring));
+  });
+  const candidateAllowedDays = candidateDates.filter(
+    (date, index) =>
+      generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, date) &&
+      !hasProtectedCompetition(input.anchors, date) &&
+      !(index > 0 && hasProtectedSparring(input.anchors, date))
+  ).length;
 
   const generated = Array.from({ length: 7 }, (_, index) => {
     const date = addDays(input.asOfDate, index);
@@ -241,6 +293,35 @@ export function resolveWeeklyTrainingPlan(input: {
   });
   const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
   const ledger = buildLoadLedger(input.anchors, mergedGeneratedSessions);
+  const supportGenerationAudit = {
+    targetGeneratedSupportCount: targetSessions,
+    generatedSupportPlacementReasons: mergedGeneratedSessions.map(
+      (session) => `${session.date}: placed ${session.title} as ${session.intensity} ${session.family.replaceAll("_", " ")} support.`
+    ),
+    blockedGenerationReasons: [
+      ...(candidateAllowedDays < targetSessions
+        ? [`Only ${candidateAllowedDays} selected available day${candidateAllowedDays === 1 ? "" : "s"} remained after protected-anchor placement.`]
+        : []),
+      ...(fuelCountCap ? ["True fueling safety risk capped generated support count."] : []),
+      ...(underFuelingRisk && !fuelCountCap ? ["Under-fueling evidence removed hard generated support without capping count to one."] : []),
+      ...(hardStopOrRedReadiness ? ["Readiness or hard-stop safety limited generated support."] : []),
+      ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated work."] : []),
+      ...(blockedByAnchors ? ["Protected boxing or competition anchors blocked one or more generated-support placements."] : [])
+    ],
+    reducedBy: generationReductionSources({
+      baseTargetSessions,
+      targetSessions,
+      hardStopOrRedReadiness,
+      fuelCountCap,
+      highCycleSymptoms: input.highCycleSymptoms,
+      underFuelingRisk,
+      readiness: input.readiness,
+      generatedSessionCount: mergedGeneratedSessions.length,
+      candidateAllowedDays,
+      blockedByAnchors,
+      phase: input.phase
+    })
+  };
   const adjustedMicrocycle = {
     ...block.currentMicrocycle,
     plannedHardDays: adjustedDayPlans.filter((day) => day.hardDay || day.generatedSessions.some((session) => session.intensity === "hard")).length,
@@ -298,6 +379,7 @@ export function resolveWeeklyTrainingPlan(input: {
     nextWeekMaterialization,
     timelineEvents: blockHistory.timelineEvents,
     loadLedger: ledger,
+    supportGenerationAudit,
     explanation:
       underFuelingRisk
         ? "Under-fueling risk is active, so generated load is reduced and progression is held."

@@ -2,6 +2,7 @@ import type {
   NextWeekPreviewViewModel,
   PerformanceState,
   PlanViewModel,
+  FuelRiskClassification,
   ProtectedWorkout,
   ProtectedWorkoutType,
   RecurringProtectedWorkoutAnchor,
@@ -12,6 +13,9 @@ import type {
   WeeklyProtectedAnchorWeekday
 } from "../core/types";
 import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
+
+const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+const SEVERE_FUELING_RISK_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 
 function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
@@ -75,14 +79,17 @@ function modeLabel(state: PerformanceState): PlanViewModel["modeLabel"] {
   return "Build phase";
 }
 
-function compactTagForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): "Protected" | "Support" | "Recovery" {
+function compactTagForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): "Protected" | "Support" | "Recovery" | "Open" {
   if (day.protectedAnchors.length > 0) {
     return "Protected";
+  }
+  if (day.generatedSessions.length > 0) {
+    return "Support";
   }
   if (day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day") {
     return "Recovery";
   }
-  return "Support";
+  return "Open";
 }
 
 function compactSummaryForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): string {
@@ -115,7 +122,7 @@ function fuelDemandLabel(demand: TrainingDayPlan["fuelDemand"]): string {
   return labels[demand];
 }
 
-function compactMetricForDay(day: Pick<TrainingDayPlan, "fuelDemand" | "generatedSessions" | "protectedAnchors">): string {
+function compactMetricForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): string {
   const firstAnchor = day.protectedAnchors[0];
   if (firstAnchor) {
     return `${firstAnchor.durationMinutes} min`;
@@ -124,7 +131,37 @@ function compactMetricForDay(day: Pick<TrainingDayPlan, "fuelDemand" | "generate
   if (firstGenerated) {
     return `${firstGenerated.durationMinutes} min`;
   }
-  return fuelDemandLabel(day.fuelDemand);
+  if (day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day") {
+    return "Rest";
+  }
+  return "No session";
+}
+
+function compactTagForPreviewDay(day: {
+  generatedSupport: string;
+  protectedAnchors: readonly string[];
+  role: TrainingDayPlan["role"];
+}): "Protected" | "Support" | "Recovery" | "Open" {
+  if (day.protectedAnchors.length > 0) {
+    return "Protected";
+  }
+  if (day.generatedSupport !== "No generated support.") {
+    return "Support";
+  }
+  if (day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day") {
+    return "Recovery";
+  }
+  return "Open";
+}
+
+function compactMetricForPreviewDay(day: Pick<TrainingDayPlan, "fuelDemand" | "role"> & { generatedSupport: string; protectedAnchors: readonly string[] }): string {
+  if (day.protectedAnchors.length > 0 || day.generatedSupport !== "No generated support.") {
+    return fuelDemandLabel(day.fuelDemand);
+  }
+  if (day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day") {
+    return "Rest";
+  }
+  return "No session";
 }
 
 function protectedSessionKey(workout: ProtectedWorkout): string {
@@ -294,8 +331,8 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
                 ? "Recovery"
                 : "No support work"
           : day.generatedSupport),
-      compactTag: day.protectedAnchors.length > 0 ? "Protected" : day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day" ? "Recovery" : "Support",
-      compactMetric: fuelDemandLabel(day.fuelDemand),
+      compactTag: compactTagForPreviewDay(day),
+      compactMetric: compactMetricForPreviewDay(day),
       marker:
         day.role === "tournament_conservation_day"
           ? "Tournament conservation"
@@ -314,6 +351,24 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
 
 function activeHardStop(state: PerformanceState): boolean {
   return state.readiness.color === "red" || state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop);
+}
+
+function fuelRiskClassification(state: PerformanceState): FuelRiskClassification {
+  const activeFuelFlags = state.safety.riskFlags.filter((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code));
+  const severeFuelingRisk = activeFuelFlags.some((flag) => flag.hardStop || flag.severity === "critical" || SEVERE_FUELING_RISK_CODES.has(flag.code));
+  if (severeFuelingRisk) {
+    return "severe_fueling_risk";
+  }
+  if (activeFuelFlags.length > 0) {
+    return "underfueling_evidence";
+  }
+  if (state.nutrition.actualIntakeSummary.logCount === 0) {
+    return "missing_data";
+  }
+  if ((state.nutrition.actualIntakeSummary.calorieTargetPercent ?? 0) >= 80) {
+    return "healthy_logged";
+  }
+  return "low_confidence";
 }
 
 function rollForwardStatus(
@@ -642,6 +697,13 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       adjustmentNotes: notesForDate(day.date),
       explanation: day.explanation
     })),
+    generationAudit: {
+      targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
+      generatedSupportPlacementReasons: state.training.supportGenerationAudit.generatedSupportPlacementReasons,
+      blockedGenerationReasons: state.training.supportGenerationAudit.blockedGenerationReasons,
+      fuelRiskClassification: fuelRiskClassification(state),
+      reducedBy: state.training.supportGenerationAudit.reducedBy
+    },
     hardDaySummary: `${state.training.activeBlock.weeklyStructure.plannedHardDays}/${state.training.activeBlock.weeklyStructure.hardDayCap} planned hard days used.`,
     recoveryDaySummary: `${state.training.activeBlock.weeklyStructure.recoveryDays.length} recovery/reset days planned.`,
     protectedAnchorSummary: `${state.training.protectedAnchors.length} protected boxing anchor${state.training.protectedAnchors.length === 1 ? "" : "s"} respected and fixed.`,

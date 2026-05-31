@@ -291,6 +291,15 @@ export interface TrainingLoadLedger {
   recoverySessions: number;
 }
 
+export type TrainingGenerationReductionSource = "nutrition" | "readiness" | "availability" | "anchors" | "safety" | "cycle" | "phase";
+
+export interface TrainingSupportGenerationAudit {
+  targetGeneratedSupportCount: number;
+  generatedSupportPlacementReasons: readonly string[];
+  blockedGenerationReasons: readonly string[];
+  reducedBy: readonly TrainingGenerationReductionSource[];
+}
+
 export type NextWeekPreviewLifecycleStatus = "preview" | "accepted" | "materialized" | "superseded" | "rejected";
 
 export interface NextWeekPreviewPersistenceStatus {
@@ -326,6 +335,7 @@ export interface TrainingState {
     status: "active" | "superseded" | "completed" | "canceled";
   } | undefined;
   loadLedger: TrainingLoadLedger;
+  supportGenerationAudit: TrainingSupportGenerationAudit;
   explanation: string;
   confidence: Confidence;
 }

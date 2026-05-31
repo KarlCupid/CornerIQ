@@ -126,6 +126,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.nutrition.hitTheseFirst).toContain("Carbs before sparring");
     expect(state.training.todaySessions[0]?.fuelDemand).toBe("high");
     expect(state.viewModels.train.sessionCards[0]?.fuelDemand).toBe("high");
+    expect(state.viewModels.plan.dayPlans[0]?.compactMetric).toBe("75 min");
   });
 
   it("red readiness protects calories and returns recovery", () => {
@@ -213,6 +214,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("rapid_weight_loss");
+    expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("severe_fueling_risk");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).toContain("nutrition");
   });
 
   it("recent repeated low intake raises under-fueling risk even with older normal logs", () => {
@@ -249,6 +252,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.safety.riskFlags.map((flag) => flag.code)).not.toContain("repeated_low_intake");
     expect(state.nutrition.underFuelingRiskNote).toBeNull();
     expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("low_confidence");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
     expect(state.training.generatedSessions.some((session) => session.intensity === "hard")).toBe(true);
   });
 
@@ -265,8 +270,23 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.safety.riskFlags.map((flag) => flag.code)).not.toContain("repeated_low_intake");
     expect(state.nutrition.underFuelingRiskNote).toBeNull();
     expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("healthy_logged");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
     expect(state.viewModels.plan.dayPlans.map((day) => day.compactMetric.toLowerCase())).not.toContain("low fuel");
     expect(state.viewModels.plan.nextWeekPreview.dayPlanPreview.map((day) => day.compactMetric).join(" ")).toContain("fuel demand");
+  });
+
+  it("no-workout plan rows do not render fuel demand or support tags", () => {
+    const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const emptyDays = state.viewModels.plan.dayPlans.filter((day) => day.generatedSessions.length === 0 && day.protectedAnchors === "No protected anchors.");
+    const generatedDay = state.viewModels.plan.dayPlans.find((day) => day.generatedSessions.length > 0 && day.protectedAnchors === "No protected anchors.");
+
+    expect(emptyDays.length).toBeGreaterThan(0);
+    expect(emptyDays.every((day) => day.compactSummary === "No support work")).toBe(true);
+    expect(emptyDays.every((day) => day.compactTag !== "Support")).toBe(true);
+    expect(emptyDays.every((day) => day.compactMetric === "No session" || day.compactMetric === "Rest")).toBe(true);
+    expect(emptyDays.map((day) => day.compactMetric.toLowerCase()).join(" ")).not.toContain("fuel");
+    expect(generatedDay?.compactMetric).toMatch(/^\d+ min$/);
   });
 
   it("protected hard boxing anchors count toward missed-period under-fueling risk", () => {
@@ -291,6 +311,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
     expect(state.nutrition.confidence.level === "medium" || state.nutrition.confidence.level === "low").toBe(true);
     expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("missing_data");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
     expect(nutritionSafetyFlags.some((flag) => flag.hardStop || flag.blocksPlan)).toBe(false);
     expect(state.viewModels.train.preSessionFuelHint).toContain("Fueling data is missing");
     expect(state.viewModels.fuel.why.toLowerCase()).not.toContain("shame");

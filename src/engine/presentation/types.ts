@@ -24,6 +24,7 @@ import type {
   ProtectedWorkoutType,
   ProgressionRecommendation,
   SessionIntensity,
+  TrainingGenerationReductionSource,
   TrainingBlockPhase,
   TrainingBlockTimelineEventType,
   TrainingDayRole
@@ -324,13 +325,15 @@ export interface NextWeekPreviewViewModel {
     protectedAnchors: string;
     generatedSupport: string;
     compactSummary: string;
-    compactTag: "Protected" | "Support" | "Recovery";
+    compactTag: "Protected" | "Support" | "Recovery" | "Open";
     compactMetric: string;
     marker: string;
     fuelDemand: "low" | "moderate" | "high";
     explanation: string;
   }[];
 }
+
+export type FuelRiskClassification = "missing_data" | "low_confidence" | "healthy_logged" | "underfueling_evidence" | "severe_fueling_risk";
 
 export interface TrainingBlockHistoryDetailViewModel {
   activeBlockSummary: string;
@@ -433,7 +436,7 @@ export interface PlanViewModel {
     protectedAnchors: string;
     generatedSupport: string;
     compactSummary: string;
-    compactTag: "Protected" | "Support" | "Recovery";
+    compactTag: "Protected" | "Support" | "Recovery" | "Open";
     compactMetric: string;
     generatedSessions: readonly {
       id: string;
@@ -446,6 +449,13 @@ export interface PlanViewModel {
     adjustmentNotes: readonly string[];
     explanation: string;
   }[];
+  generationAudit?: {
+    targetGeneratedSupportCount: number;
+    generatedSupportPlacementReasons: readonly string[];
+    blockedGenerationReasons: readonly string[];
+    fuelRiskClassification: FuelRiskClassification;
+    reducedBy: readonly TrainingGenerationReductionSource[];
+  };
   hardDaySummary: string;
   recoveryDaySummary: string;
   protectedAnchorSummary: string;
