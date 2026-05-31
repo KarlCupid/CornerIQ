@@ -35,6 +35,10 @@ function activeUnderFuelingFlags(flags: readonly RiskFlag[] | undefined): readon
   return flags?.filter((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code)) ?? [];
 }
 
+function activeHardStopFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
+  return flags?.filter((flag) => flag.status === "active" && flag.hardStop) ?? [];
+}
+
 function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean {
   return activeUnderFuelingFlags(flags).length > 0;
 }
@@ -61,8 +65,33 @@ function fuelingRiskCapsSupportCount(flags: readonly RiskFlag[] | undefined): bo
   return severeFuelingRisk(flags) || pairedFuelingSafetyRisk(flags);
 }
 
+function supportCountFuelCapFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
+  const activeFlags = flags?.filter((flag) => flag.status === "active") ?? [];
+  const underFuelingFlags = activeUnderFuelingFlags(flags);
+  const severeFuelingFlags = underFuelingFlags.filter((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
+  const pairedSafetyFlags = underFuelingFlags.length > 0
+    ? activeFlags.filter(
+        (flag) =>
+          !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
+          (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
+      )
+    : [];
+  const byId = new Map<string, RiskFlag>();
+  for (const flag of [...severeFuelingFlags, ...pairedSafetyFlags]) {
+    byId.set(flag.id, flag);
+  }
+  return [...byId.values()];
+}
+
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(flags?.some((flag) => flag.status === "active" && flag.hardStop));
+}
+
+function flagReasonSummary(flags: readonly RiskFlag[]): string {
+  if (flags.length === 0) {
+    return "";
+  }
+  return ` Active rule${flags.length === 1 ? "" : "s"}: ${flags.map((flag) => `${flag.code} - ${flag.message}`).join("; ")}.`;
 }
 
 function baseTargetSessionCount(input: { athlete: AthleteProfile; phase: PhaseState }): number {
@@ -191,6 +220,8 @@ export function resolveWeeklyTrainingPlan(input: {
   const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
   const hardStopOrRedReadiness = input.readiness.color === "red" || hardStopSafetyActive(input.safetyFlags);
   const fuelCountCap = fuelingRiskCapsSupportCount(input.safetyFlags);
+  const fuelCapFlags = supportCountFuelCapFlags(input.safetyFlags);
+  const hardStopFlags = activeHardStopFlags(input.safetyFlags);
   const baseTargetSessions = baseTargetSessionCount({ athlete: input.athlete, phase: input.phase });
   const targetSessions = hardStopOrRedReadiness || fuelCountCap ? 1 : baseTargetSessions;
   const candidateDates = Array.from({ length: 7 }, (_, index) => addDays(input.asOfDate, index));
@@ -305,9 +336,10 @@ export function resolveWeeklyTrainingPlan(input: {
       ...(candidateAllowedDays < targetSessions
         ? [`Only ${candidateAllowedDays} selected available day${candidateAllowedDays === 1 ? "" : "s"} remained after protected-anchor placement.`]
         : []),
-      ...(fuelCountCap ? ["True fueling safety risk capped generated support count."] : []),
+      ...(fuelCountCap ? [`True fueling safety risk capped generated support count.${flagReasonSummary(fuelCapFlags)}`] : []),
       ...(underFuelingRisk && !fuelCountCap ? ["Under-fueling evidence removed hard generated support without capping count to one."] : []),
-      ...(hardStopOrRedReadiness ? ["Readiness or hard-stop safety limited generated support."] : []),
+      ...(input.readiness.color === "red" ? ["Readiness is red, so generated support count is capped and hard work is blocked."] : []),
+      ...(hardStopFlags.length > 0 ? [`Hard-stop safety limited generated support.${flagReasonSummary(hardStopFlags)}`] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated work."] : []),
       ...(blockedByAnchors ? ["Protected boxing or competition anchors blocked one or more generated-support placements."] : []),
       ...adjustmentBlockedReasons,

@@ -395,6 +395,7 @@ async function appendPlanLifecycleAudit(input: {
   }
   if (input.action === "start_new_plan") {
     for (const block of activeBlocks) {
+      await input.repositories.trainingNextWeekPreview.supersedePreviewsForBlock(input.userId, block.id);
       await input.repositories.trainingBlock.supersedeActiveTrainingBlock(input.userId, block.id);
     }
   }

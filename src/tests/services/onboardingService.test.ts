@@ -127,6 +127,14 @@ function createOnboardingRepositories() {
       insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
       supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
     },
+    trainingNextWeekPreview: {
+      upsertTrainingNextWeekPreview: vi.fn(),
+      getLatestPreviewForBlock: vi.fn(async () => null),
+      listPreviewsForBlock: vi.fn(async () => []),
+      markPreviewAccepted: vi.fn(),
+      markPreviewMaterialized: vi.fn(),
+      supersedePreviewsForBlock: vi.fn(async () => ({ ids: [] }))
+    },
     trainingProgression: {
       listTrainingWeekSummaries: vi.fn(async () => []),
       listTrainingProgressionDecisions: vi.fn(async () => []),
@@ -539,6 +547,7 @@ describe("onboardingService", () => {
     });
 
     expect(repositories.trainingBlock.supersedeActiveTrainingBlock).toHaveBeenCalledWith("user_1", "training_block_old");
+    expect(repositories.trainingNextWeekPreview.supersedePreviewsForBlock).toHaveBeenCalledWith("user_1", "training_block_old");
     expect(repositories.trainingProgression.insertTrainingBlockTimelineEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         trainingBlockId: "training_block_old",
@@ -621,6 +630,7 @@ describe("onboardingService", () => {
     const result = await resolveFromStore(repositories);
 
     expect(repositories.trainingBlock.supersedeActiveTrainingBlock).toHaveBeenCalledWith("user_1", "training_block_old");
+    expect(repositories.trainingNextWeekPreview.supersedePreviewsForBlock).toHaveBeenCalledWith("user_1", "training_block_old");
     expect(store.profile?.scheduleAvailability).toEqual(["tuesday", "thursday", "saturday"]);
     expect(result.status).toBe("ready");
     if (result.status === "ready") {

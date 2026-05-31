@@ -459,13 +459,18 @@ async function persistPerformanceState(
 ): Promise<{ state: PerformanceState; persistenceWarning?: string | undefined }> {
   const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
   await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
-  await repositories.engineRun.upsertRiskFlags(state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash)));
+  await repositories.engineRun.upsertRiskFlags(state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash, state.asOfDate)));
   await repositories.engineRun.upsertNutritionTarget(mapNutritionTargetToRow(userId, state, inputHash));
-  await repositories.engineRun.upsertGeneratedSessions(
-    state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash))
-  );
   const reviewPersistence = await persistNutritionSafetyReviewProjection(userId, inputHash, state, repositories);
   const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories, lifecycleSource);
+  await repositories.engineRun.upsertGeneratedSessions(
+    state.training.generatedSessions.map((session) =>
+      mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash, {
+        trainingBlockId: blockPersistence.trainingBlockId,
+        weekIndex: state.training.activeBlock.progressionState.weekIndex
+      })
+    )
+  );
   const persistedState = withTrainingPersistenceStatus({
     state: reviewPersistence.state,
     trainingBlockId: blockPersistence.trainingBlockId,

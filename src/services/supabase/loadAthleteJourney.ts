@@ -159,7 +159,6 @@ export async function loadAthleteJourney(input: {
       wearableSignalHistory,
       completedTrainingSessions,
       exerciseResults,
-      trainingHistory,
       activeTrainingBlock,
       safetyFlags,
       journeyEvents
@@ -179,9 +178,8 @@ export async function loadAthleteJourney(input: {
       input.repositories.wearable.listSignals(userId),
       input.repositories.training.listCompletedTrainingSessions(userId),
       input.repositories.exerciseResult.listRecentExerciseResults(userId),
-      input.repositories.training.listGeneratedSessions(userId),
       input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate),
-      input.repositories.engineRun.listActiveRiskFlags(userId),
+      input.repositories.engineRun.listActiveRiskFlags(userId, { asOfDate: input.asOfDate }),
       input.repositories.journey.listEvents(userId)
     ]);
 
@@ -189,16 +187,15 @@ export async function loadAthleteJourney(input: {
     const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
     const activePhase = activeFightOpportunity || activeTournament ? null : activePhaseFromEvents(journeyEvents);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
-    const trainingPlanAdjustments = activeTrainingBlock
-      ? await input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id)
-      : [];
-    const [trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
+    const [trainingHistory, trainingPlanAdjustments, trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
+          input.repositories.training.listGeneratedSessions(userId, { asOfDate: input.asOfDate, trainingBlockId: activeTrainingBlock.id }),
+          input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id),
           input.repositories.trainingProgression.listTrainingWeekSummaries(userId, activeTrainingBlock.id),
           input.repositories.trainingProgression.listTrainingProgressionDecisions(userId, activeTrainingBlock.id),
           input.repositories.trainingProgression.listTrainingBlockTimelineEvents(userId, activeTrainingBlock.id)
         ])
-      : [[], [], []];
+      : [[], [], [], [], []];
 
     const journey: AthleteJourney = {
       athlete,

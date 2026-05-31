@@ -1,11 +1,16 @@
 import { CompletedTrainingSessionSchema, GeneratedTrainingSessionSchema } from "../../engine/core/schemas";
-import type { CompletedTrainingSession, GeneratedTrainingSession } from "../../engine/core/types";
+import type { CompletedTrainingSession, GeneratedTrainingSession, ISODateString } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type GeneratedTrainingSessionRow = Pick<TableRow<"generated_training_sessions">, "id" | "planned_date" | "session_payload">;
 export type CompletedTrainingSessionRow = Pick<TableRow<"completed_training_sessions">, "id" | "completed_date" | "session_payload">;
+
+export interface ListGeneratedSessionsOptions {
+  asOfDate?: ISODateString | undefined;
+  trainingBlockId?: string | null | undefined;
+}
 
 export function mapGeneratedTrainingSessionRow(row: GeneratedTrainingSessionRow): GeneratedTrainingSession {
   return parseWithSchema(
@@ -43,16 +48,27 @@ export function mapCompletedTrainingSessionRow(row: CompletedTrainingSessionRow)
   );
 }
 
+function rowMatchesGeneratedSessionScope(row: GeneratedTrainingSessionRow, options: ListGeneratedSessionsOptions): boolean {
+  if (options.trainingBlockId === undefined) {
+    return true;
+  }
+  const payload = payloadObject(row.session_payload, "generated_training_sessions.session_payload");
+  return typeof payload.trainingBlockId === "string" && payload.trainingBlockId === options.trainingBlockId;
+}
+
 export function createTrainingRepository(client: CornerSupabaseClient) {
   return {
-    async listGeneratedSessions(userId: string): Promise<GeneratedTrainingSession[]> {
+    async listGeneratedSessions(userId: string, options: ListGeneratedSessionsOptions = {}): Promise<GeneratedTrainingSession[]> {
       const safeUserId = assertUserId(userId, "generated_training_sessions.listGeneratedSessions");
-      const response = await client
+      const query = client
         .from("generated_training_sessions")
         .select("id, planned_date, session_payload")
-        .eq("user_id", safeUserId)
-        .order("planned_date", { ascending: true });
-      return readDataOrThrow(response, "generated_training_sessions.listGeneratedSessions").map(mapGeneratedTrainingSessionRow);
+        .eq("user_id", safeUserId);
+      const scopedQuery = options.asOfDate ? query.gte("planned_date", options.asOfDate) : query;
+      const response = await scopedQuery.order("planned_date", { ascending: true });
+      return readDataOrThrow(response, "generated_training_sessions.listGeneratedSessions")
+        .filter((row) => rowMatchesGeneratedSessionScope(row, options))
+        .map(mapGeneratedTrainingSessionRow);
     },
 
     async listCompletedTrainingSessions(userId: string): Promise<CompletedTrainingSession[]> {

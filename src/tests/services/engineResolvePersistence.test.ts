@@ -334,6 +334,16 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(calls.saveDecisionTracesForRun).toHaveBeenCalledTimes(1);
     expect(calls.upsertNutritionTarget).toHaveBeenCalledTimes(1);
     expect(calls.upsertGeneratedSessions).toHaveBeenCalledTimes(1);
+    expect(calls.upsertGeneratedSessions).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          session_payload: expect.objectContaining({
+            trainingBlockId: "training_block_1",
+            projectionSource: "engine_projection"
+          })
+        })
+      ])
+    );
     expect(calls.upsertActiveTrainingBlock).toHaveBeenCalledTimes(1);
     expect(calls.upsertTrainingMicrocycle).toHaveBeenCalledTimes(1);
     expect(calls.upsertTrainingDayPlans).toHaveBeenCalledTimes(1);

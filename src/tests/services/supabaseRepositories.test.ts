@@ -23,6 +23,8 @@ import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
+import { createEngineRunRepository } from "../../services/supabase/engineRunRepository";
+import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 
 function createInsertClient() {
   const inserted: { table: string; record: unknown }[] = [];
@@ -256,6 +258,97 @@ function createBetaFeedbackListClient() {
   return { calls, client: client as unknown as CornerSupabaseClient };
 }
 
+function generatedSessionRow(input: { id: string; date: string; title: string; trainingBlockId?: string | undefined }) {
+  return {
+    id: input.id,
+    planned_date: input.date,
+    session_payload: {
+      id: input.id,
+      date: input.date,
+      family: "strength_full_body",
+      title: input.title,
+      durationMinutes: 35,
+      intensity: "moderate",
+      prescription: ["Boxing support"],
+      rationale: "Test support session.",
+      protects: ["boxing quality"],
+      modifications: [],
+      fuelDemand: "moderate",
+      ...(input.trainingBlockId ? { trainingBlockId: input.trainingBlockId } : {})
+    }
+  };
+}
+
+function createGeneratedSessionListClient(rows: readonly ReturnType<typeof generatedSessionRow>[]) {
+  const calls: { method: string; column?: string; value?: unknown }[] = [];
+  const response = { data: rows, error: null };
+  const query = {
+    select() {
+      calls.push({ method: "select" });
+      return query;
+    },
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return query;
+    },
+    gte(column: string, value: unknown) {
+      calls.push({ method: "gte", column, value });
+      return query;
+    },
+    order(column: string) {
+      calls.push({ method: "order", column });
+      return Promise.resolve(response);
+    }
+  };
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", value: table });
+      return query;
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient };
+}
+
+function riskFlagRow(flag: ReturnType<typeof createRiskFlag>, payload: Record<string, unknown>) {
+  return {
+    id: flag.id,
+    domain: flag.domain,
+    code: flag.code,
+    severity: flag.severity,
+    status: flag.status,
+    flag_payload: {
+      ...flag,
+      ...payload
+    }
+  };
+}
+
+function createRiskFlagListClient(rows: readonly ReturnType<typeof riskFlagRow>[]) {
+  const calls: { method: string; column?: string; value?: unknown }[] = [];
+  const response = { data: rows, error: null };
+  const query = {
+    select() {
+      calls.push({ method: "select" });
+      return query;
+    },
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return query;
+    },
+    order(column: string) {
+      calls.push({ method: "order", column });
+      return Promise.resolve(response);
+    }
+  };
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", value: table });
+      return query;
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient };
+}
+
 function createJourneyRepositories(): AthleteJourneyRepositories {
   const journey = no_wearable_manual_only;
   return {
@@ -467,6 +560,51 @@ describe("Supabase repositories", () => {
     expect(mapped.completionStatus).toBe("completed");
     expect(mapped.completionSource).toBe("generated_session");
     expect(mapped.painNotes).toEqual([]);
+  });
+
+  it("generated training session reads are scoped to the active training block when requested", async () => {
+    const { calls, client } = createGeneratedSessionListClient([
+      generatedSessionRow({ id: "legacy_unscoped", date: fixtureAsOfDate, title: "Legacy unscoped support" }),
+      generatedSessionRow({ id: "current_scoped", date: fixtureAsOfDate, title: "Current scoped support", trainingBlockId: "training_block_current" }),
+      generatedSessionRow({ id: "old_scoped", date: fixtureAsOfDate, title: "Old scoped support", trainingBlockId: "training_block_old" })
+    ]);
+    const sessions = await createTrainingRepository(client).listGeneratedSessions("user_1", {
+      asOfDate: fixtureAsOfDate,
+      trainingBlockId: "training_block_current"
+    });
+
+    expect(sessions.map((session) => session.title)).toEqual(["Current scoped support"]);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "from", value: "generated_training_sessions" },
+        { method: "eq", column: "user_id", value: "user_1" },
+        { method: "gte", column: "planned_date", value: fixtureAsOfDate }
+      ])
+    );
+  });
+
+  it("active risk flag reads drop stale engine projections but keep current and external active rules", async () => {
+    const stale = createRiskFlag("readiness", "fainting", "critical", "Old fainting was logged.", { date: "2026-05-01" }, true);
+    const current = createRiskFlag("readiness", "severe_dizziness", "critical", "Current dizziness was logged.", { date: fixtureAsOfDate }, true);
+    const legacyNoDate = createRiskFlag("nutrition", "rapid_weight_loss", "high", "Legacy projection without a current date.", {}, true);
+    const external = createRiskFlag("plan_integrity", "external_safety_flag", "high", "Manually active external safety flag.", {}, true);
+    const { calls, client } = createRiskFlagListClient([
+      riskFlagRow(stale, { asOfDate: "2026-05-01", projectionSource: "engine_projection" }),
+      riskFlagRow(current, { asOfDate: fixtureAsOfDate, projectionSource: "engine_projection" }),
+      riskFlagRow(legacyNoDate, { projectionSource: "engine_projection" }),
+      riskFlagRow(external, { source: "manual_review" })
+    ]);
+
+    const flags = await createEngineRunRepository(client).listActiveRiskFlags("user_1", { asOfDate: fixtureAsOfDate });
+
+    expect(flags.map((flag) => flag.code)).toEqual(["severe_dizziness", "external_safety_flag"]);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "from", value: "risk_flags" },
+        { method: "eq", column: "user_id", value: "user_1" },
+        { method: "eq", column: "status", value: "active" }
+      ])
+    );
   });
 
   it("fight and tournament repositories insert validated setup rows", async () => {
