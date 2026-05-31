@@ -206,6 +206,7 @@ function GeneratedSupportSummaryCard({
   viewModel: PlanViewModel;
 }) {
   const preview = viewModel.nextWeekPreview;
+  const generationReasons = viewModel.generationAudit?.blockedGenerationReasons ?? [];
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-generated-support-summary-card">
@@ -217,6 +218,7 @@ function GeneratedSupportSummaryCard({
           <Text style={screenStyles.subtle}>Generated support will only be placed on selected available days.</Text>
           <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
           <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>
+          {generationReasons.map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (

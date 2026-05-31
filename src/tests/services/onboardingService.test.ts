@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AthleteProfile, FightOpportunity, ProtectedWorkout, TournamentDetails } from "../../engine/core/types";
+import type { AthleteProfile, FightOpportunity, GeneratedTrainingSession, ProtectedWorkout, TournamentDetails } from "../../engine/core/types";
+import type { PersistedTrainingPlanAdjustment } from "../../engine/training/planAdjustmentTypes";
+import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
 import { resolveAndPersistPerformanceState } from "../../services/engine/resolveAndPersistPerformanceState";
 import { loadAthleteJourney, type AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import {
@@ -552,5 +554,83 @@ describe("onboardingService", () => {
         expect.objectContaining({ type: "CampStarted", payload: expect.objectContaining({ source: "plan_wizard_new_plan", scheduleAvailability: ["monday", "friday"] }) })
       ])
     );
+  });
+
+  it("start_new_plan persists updated availability and does not apply stale superseded-block adjustments", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    const activeBlock = { id: "training_block_old", blockKey: "block:user_1:2026-05-19:build_strength" };
+    const staleAdjustment: PersistedTrainingPlanAdjustment = {
+      id: "adjustment_old_remove_thursday",
+      userId: "user_1",
+      trainingBlockId: "training_block_old",
+      planDate: "2026-05-21",
+      adjustmentType: "mark_unavailable",
+      command: {
+        type: "mark_unavailable",
+        date: "2026-05-21",
+        reason: "Old block travel day",
+        requestedBy: "user",
+        actor: { actorType: "athlete", actorId: "user_1" }
+      },
+      status: "applied",
+      engineResponse: {
+        status: "applied",
+        explanation: "Old block unavailable day removed support.",
+        modifiedDayPlans: [],
+        safetyFlags: [],
+        persistedAdjustmentPayload: {}
+      },
+      createdAt: "2026-05-18T00:00:00.000Z"
+    };
+    const staleGeneratedSession: GeneratedTrainingSession = {
+      id: "generated:old-block:only-support",
+      date: fixtureAsOfDate,
+      family: "recovery_reset",
+      title: "Old block only support",
+      durationMinutes: 20,
+      intensity: "recovery",
+      prescription: ["Old block recovery"],
+      rationale: "Old generated session from a superseded block.",
+      protects: ["audit history"],
+      modifications: [],
+      fuelDemand: "low"
+    };
+    vi.mocked(repositories.trainingBlock.listActiveTrainingBlocks).mockResolvedValue([activeBlock] as never);
+    vi.mocked(repositories.trainingBlock.listTrainingPlanAdjustments).mockResolvedValue([staleAdjustment] as never);
+    vi.mocked(repositories.training.listGeneratedSessions).mockResolvedValue([staleGeneratedSession] as never);
+    vi.mocked(repositories.journey.listEvents).mockImplementation(
+      async () =>
+        store.events.map((event, index) => ({
+          id: `event_${index + 1}`,
+          type: event.type,
+          occurredAt: `2026-05-19T00:00:${String(index).padStart(2, "0")}.000Z`,
+          payload: event.payload
+        })) as never
+    );
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "balanced",
+        planAction: "start_new_plan",
+        scheduleAvailability: ["tuesday", "thursday", "saturday"]
+      },
+      repositories
+    });
+    const result = await resolveFromStore(repositories);
+
+    expect(repositories.trainingBlock.supersedeActiveTrainingBlock).toHaveBeenCalledWith("user_1", "training_block_old");
+    expect(store.profile?.scheduleAvailability).toEqual(["tuesday", "thursday", "saturday"]);
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.state.training.generatedSessions.length).toBeGreaterThan(1);
+      expect(result.state.training.generatedSessions.map((session) => session.title)).not.toContain("Old block only support");
+      expect(result.state.training.generatedSessions.every((session) => store.profile?.scheduleAvailability.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
+      expect(result.state.training.adjustmentHistory).toEqual([]);
+      expect(result.state.viewModels.plan.planLifecycleLabel).toContain("Week 1");
+      expect(result.state.viewModels.plan.planLifecycleLabel).toContain("New plan");
+      expect(result.state.training.dayPlans.find((day) => day.date === "2026-05-21")?.generatedSessions.length).toBeGreaterThan(0);
+    }
   });
 });

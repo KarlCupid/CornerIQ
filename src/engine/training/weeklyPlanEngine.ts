@@ -293,6 +293,9 @@ export function resolveWeeklyTrainingPlan(input: {
   });
   const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
   const ledger = buildLoadLedger(input.anchors, mergedGeneratedSessions);
+  const adjustmentBlockedReasons = adjustmentApplication.decisions
+    .filter((decision) => decision.status === "applied" && decision.modifiedDayPlans.some((day) => day.generatedSessions.length === 0))
+    .map((decision) => decision.explanation);
   const supportGenerationAudit = {
     targetGeneratedSupportCount: targetSessions,
     generatedSupportPlacementReasons: mergedGeneratedSessions.map(
@@ -306,7 +309,11 @@ export function resolveWeeklyTrainingPlan(input: {
       ...(underFuelingRisk && !fuelCountCap ? ["Under-fueling evidence removed hard generated support without capping count to one."] : []),
       ...(hardStopOrRedReadiness ? ["Readiness or hard-stop safety limited generated support."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated work."] : []),
-      ...(blockedByAnchors ? ["Protected boxing or competition anchors blocked one or more generated-support placements."] : [])
+      ...(blockedByAnchors ? ["Protected boxing or competition anchors blocked one or more generated-support placements."] : []),
+      ...adjustmentBlockedReasons,
+      ...(mergedGeneratedSessions.length < targetSessions && candidateAllowedDays >= targetSessions
+        ? [`Generated support resolved to ${mergedGeneratedSessions.length}/${targetSessions} after active plan adjustments and current safety filters.`]
+        : [])
     ],
     reducedBy: generationReductionSources({
       baseTargetSessions,

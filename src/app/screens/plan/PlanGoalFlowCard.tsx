@@ -142,21 +142,8 @@ function goalLabel(mode: GoalMode): string {
   return goalOptions.find((option) => option.value === mode)?.label ?? "Build general boxing fitness";
 }
 
-function currentModeToGoalMode(modeLabel: PlanViewModel["modeLabel"]): GoalMode {
-  if (modeLabel === "Fight camp") {
-    return "fight";
-  }
-  if (modeLabel === "Tournament mode") {
-    return "tournament";
-  }
-  if (modeLabel === "Recovery") {
-    return "recovery";
-  }
-  return "build";
-}
-
-function defaultPlanAction(currentModeLabel: PlanViewModel["modeLabel"], nextMode: GoalMode): PlanLifecycleAction {
-  return currentModeToGoalMode(currentModeLabel) === nextMode ? "amend_current_plan" : "start_new_plan";
+function defaultPlanAction(_currentModeLabel: PlanViewModel["modeLabel"], _nextMode: GoalMode): PlanLifecycleAction {
+  return "start_new_plan";
 }
 
 function daySummary(days: readonly GeneratedSupportDay[]): string {

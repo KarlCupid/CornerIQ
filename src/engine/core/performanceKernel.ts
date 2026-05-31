@@ -51,6 +51,13 @@ function trainingBlockHistoryFor(journey: ResolvePerformanceStateInput["journey"
   };
 }
 
+function latestPlanWizardSource(journey: ResolvePerformanceStateInput["journey"]): "plan_wizard_new_plan" | "plan_wizard_amendment" | null {
+  const event = [...journey.journeyEvents]
+    .reverse()
+    .find((item) => item.payload.source === "plan_wizard_new_plan" || item.payload.source === "plan_wizard_amendment");
+  return event?.payload.source === "plan_wizard_new_plan" || event?.payload.source === "plan_wizard_amendment" ? event.payload.source : null;
+}
+
 export function resolvePerformanceState(input: ResolvePerformanceStateInput): PerformanceState {
   const generatedAt = input.generatedAt ?? `${input.asOfDate}T00:00:00.000Z`;
   const journey = input.journey;
@@ -78,6 +85,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     endDate: addDays(input.asOfDate, 13)
   });
   const blockHistory = trainingBlockHistoryFor(journey);
+  const persistedGeneratedSessions = !journey.activeTrainingBlock && latestPlanWizardSource(journey) === "plan_wizard_new_plan" ? [] : journey.trainingHistory;
   const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,
     anchors,
@@ -95,7 +103,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
     blockHistory,
-    persistedGeneratedSessions: journey.trainingHistory
+    persistedGeneratedSessions
   });
   const earlySafetyFlags = [
     ...journey.safetyFlags,
@@ -141,7 +149,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
     blockHistory,
-    persistedGeneratedSessions: journey.trainingHistory
+    persistedGeneratedSessions
   });
   const weighInContext = resolveWeighInContext(journey.activeFightOpportunity, input.asOfDate);
   const tournamentStrategy = resolveTournamentStrategy(journey.activeTournament ?? journey.activeFightOpportunity?.tournamentDetails ?? null, trend);

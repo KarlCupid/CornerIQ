@@ -2234,6 +2234,7 @@ describe("minimal app screens", () => {
     }
     expect(savedBuildDraft.scheduleAvailability).toEqual(["monday", "wednesday", "friday", "saturday"]);
     expect(savedBuildDraft.scheduleAvailability).not.toContain("tuesday");
+    expect(savedBuildDraft.planAction).toBe("start_new_plan");
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
     expect(anchorSaveOrder).toBeLessThan(buildSaveOrder);
   });
@@ -2286,6 +2287,47 @@ describe("minimal app screens", () => {
     expect(onSaveRecurringProtectedAnchor).not.toHaveBeenCalled();
   });
 
+  it("Plan generation wizard preserves an explicit amend action with multiple support days", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    await switchSection(renderer, "Generate plan");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await switchSection(renderer, "Tue");
+    await switchSection(renderer, "Thu");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await switchSection(renderer, "Amend current plan");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+    });
+
+    const savedBuildDraft = onSaveBuildGoal.mock.calls[0]?.[0];
+    expect(savedBuildDraft?.generatedSupportAvailableDays).toEqual(expect.arrayContaining(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]));
+    expect(savedBuildDraft?.scheduleAvailability).toEqual(expect.arrayContaining(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]));
+    expect(savedBuildDraft?.generatedSupportAvailableDays).toHaveLength(6);
+    expect(savedBuildDraft?.scheduleAvailability).toHaveLength(6);
+    expect(savedBuildDraft?.planAction).toBe("amend_current_plan");
+  });
+
   it("PlanScreen opens the guided goal flow for build, fight camp, tournament, and recovery", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
@@ -2335,7 +2377,7 @@ describe("minimal app screens", () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
     const savedBuildDraft = onSaveBuildGoal.mock.calls[0]?.[0];
-    expect(savedBuildDraft).toEqual(expect.objectContaining({ primaryFocus: "balanced", generatedSupportAvailableDays: ["tuesday"], scheduleAvailability: ["tuesday"] }));
+    expect(savedBuildDraft).toEqual(expect.objectContaining({ primaryFocus: "balanced", generatedSupportAvailableDays: ["tuesday"], scheduleAvailability: ["tuesday"], planAction: "start_new_plan" }));
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
 
     await switchSection(renderer, "Generate plan");
@@ -2418,6 +2460,32 @@ describe("minimal app screens", () => {
     expect(planOutput).toContain("Generating your plan");
     expect(trainOutput).toContain("workout-generation-pending");
     expect(trainOutput).toContain("Building a conservative session from today's context.");
+  });
+
+  it("PlanScreen surfaces support-generation audit reasons when support is capped", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: {
+          ...planViewModel,
+          generationAudit: {
+            targetGeneratedSupportCount: 1,
+            generatedSupportPlacementReasons: [],
+            blockedGenerationReasons: ["True fueling safety risk capped generated support count."],
+            fuelRiskClassification: "severe_fueling_risk",
+            reducedBy: ["nutrition"]
+          }
+        }
+      })
+    );
+
+    expect(JSON.stringify(renderer.toJSON())).toContain("True fueling safety risk capped generated support count.");
   });
 
   it("PlanScreen shows materialized generated session count and summaries", async () => {

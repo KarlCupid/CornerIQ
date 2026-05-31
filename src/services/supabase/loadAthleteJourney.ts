@@ -160,7 +160,6 @@ export async function loadAthleteJourney(input: {
       completedTrainingSessions,
       exerciseResults,
       trainingHistory,
-      trainingPlanAdjustments,
       activeTrainingBlock,
       safetyFlags,
       journeyEvents
@@ -181,7 +180,6 @@ export async function loadAthleteJourney(input: {
       input.repositories.training.listCompletedTrainingSessions(userId),
       input.repositories.exerciseResult.listRecentExerciseResults(userId),
       input.repositories.training.listGeneratedSessions(userId),
-      input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, null),
       input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate),
       input.repositories.engineRun.listActiveRiskFlags(userId),
       input.repositories.journey.listEvents(userId)
@@ -191,6 +189,9 @@ export async function loadAthleteJourney(input: {
     const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
     const activePhase = activeFightOpportunity || activeTournament ? null : activePhaseFromEvents(journeyEvents);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
+    const trainingPlanAdjustments = activeTrainingBlock
+      ? await input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id)
+      : [];
     const [trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
           input.repositories.trainingProgression.listTrainingWeekSummaries(userId, activeTrainingBlock.id),

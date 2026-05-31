@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CompletedTrainingSession, ExerciseResultRecord, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
+import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
 import {
   amateur_novice_build,
   amateur_open_tournament,
@@ -158,6 +159,7 @@ describe("training block and microcycle engine", () => {
     expect(sparring.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
     expect(underFueling.training.blockRecommendation.warnings.join(" ")).toContain("Under-fueling");
     expect(underFueling.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
+    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("fueling safety risk capped generated support count");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).not.toContain("rapid_weight_loss");
     expect(repeatedLowIntakeOnly.training.generatedSessions.length).toBeGreaterThan(1);
@@ -179,6 +181,26 @@ describe("training block and microcycle engine", () => {
     expect(state.training.generatedSessions.length).toBeGreaterThan(0);
     expect(state.training.generatedSessions.every((session) => new Date(`${session.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
     expect(state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).every((day) => new Date(`${day.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
+  });
+
+  it("build phase generates multiple support sessions across selected availability when safety allows", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        trainingPlanAdjustments: [],
+        trainingHistory: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.generatedSessions.every((session) => selectedDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
   });
 
   it("keeps generated support availability separate from weekly recurring anchors", () => {
