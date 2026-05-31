@@ -4,6 +4,7 @@ import type { TrainingPlanAdjustmentResult } from "../engine/training/planAdjust
 import { applyTrainingPlanAdjustmentService } from "../services/training/applyTrainingPlanAdjustment";
 import type { ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
+import type { EngineGenerationStatus } from "../app/components/EngineGeneratingCard";
 
 export interface TrainingPlanAdjustmentActions {
   protectDay: (date: ISODateString) => Promise<TrainingPlanAdjustmentResult>;
@@ -16,6 +17,7 @@ export interface TrainingPlanAdjustmentActions {
 export interface TrainingPlanAdjustmentsHook {
   actions: TrainingPlanAdjustmentActions;
   busy: boolean;
+  generationStatus: EngineGenerationStatus;
   message: string | null;
 }
 
@@ -26,11 +28,13 @@ export function useTrainingPlanAdjustments(input: {
   userId: string;
 }): TrainingPlanAdjustmentsHook {
   const [busy, setBusy] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<EngineGenerationStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
 
   const applyCommand = useCallback(
     async (command: Parameters<typeof applyTrainingPlanAdjustmentService>[0]["command"]): Promise<TrainingPlanAdjustmentResult> => {
       setBusy(true);
+      setGenerationStatus("amending_plan");
       setMessage(null);
       try {
         if (!input.state) {
@@ -61,6 +65,7 @@ export function useTrainingPlanAdjustments(input: {
         };
       } finally {
         setBusy(false);
+        setGenerationStatus("idle");
       }
     },
     [input]
@@ -68,6 +73,7 @@ export function useTrainingPlanAdjustments(input: {
 
   return {
     busy,
+    generationStatus,
     message,
     actions: {
       protectDay: (date) =>

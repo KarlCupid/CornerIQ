@@ -30,7 +30,7 @@ export function generateSupportSession(input: {
 
   if (input.hasSparring) {
     return {
-      id: `generated:${input.date}:sparring-support`,
+      id: `generated:${input.date}:protected-boxing-support`,
       date: input.date,
       family: "shoulder_scap_durability",
       title: "Protected boxing support microdose",

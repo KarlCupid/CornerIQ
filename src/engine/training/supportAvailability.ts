@@ -32,7 +32,10 @@ export function generatedSupportWeekdayFromToken(value: string): GeneratedSuppor
   return tokenPatterns.find(([, pattern]) => pattern.test(normalized))?.[0] ?? null;
 }
 
-export function normalizeGeneratedSupportWeekdays(values: readonly string[]): readonly GeneratedSupportWeekday[] {
+export function normalizeGeneratedSupportWeekdays(values: readonly string[] | null | undefined): readonly GeneratedSupportWeekday[] {
+  if (!values) {
+    return [];
+  }
   const selected = new Set<GeneratedSupportWeekday>();
   for (const value of values) {
     const day = generatedSupportWeekdayFromToken(value);
@@ -48,10 +51,10 @@ export function generatedSupportWeekdayForDate(date: ISODateString): GeneratedSu
   return GENERATED_SUPPORT_WEEKDAYS[(index + 6) % 7] ?? "monday";
 }
 
-export function generatedSupportAllowedOnDate(values: readonly string[], date: ISODateString): boolean {
+export function generatedSupportAllowedOnDate(values: readonly string[] | null | undefined, date: ISODateString): boolean {
   const selected = normalizeGeneratedSupportWeekdays(values);
   if (selected.length === 0) {
-    return false;
+    return true;
   }
   return selected.includes(generatedSupportWeekdayForDate(date));
 }
@@ -66,9 +69,9 @@ export function generatedSupportWeekdayLongLabel(day: GeneratedSupportWeekday): 
 
 export function formatGeneratedSupportWeekdays(days: readonly GeneratedSupportWeekday[]): string {
   if (days.length === 0) {
-    return "No generated-support days selected.";
+    return "No availability selected yet.";
   }
-  return days.map(generatedSupportWeekdayShortLabel).join(", ");
+  return days.map(generatedSupportWeekdayLongLabel).join(", ");
 }
 
 export function mergeScheduleAvailabilityWithGeneratedSupportDays(input: {

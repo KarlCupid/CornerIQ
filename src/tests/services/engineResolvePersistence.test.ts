@@ -247,6 +247,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
       listActiveTrainingBlocks: vi.fn(async () => []),
       getActiveTrainingBlockForDate: vi.fn(async () => null),
       supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
+      supersedeActiveTrainingBlock: vi.fn(async () => ({ ids: [] })),
       insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
       supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
     },

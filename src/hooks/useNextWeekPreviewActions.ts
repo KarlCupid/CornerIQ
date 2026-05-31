@@ -3,6 +3,7 @@ import type { PerformanceState } from "../engine/core/types";
 import { materializeNextWeekTrainingPlan, type MaterializeNextWeekTrainingPlanResult } from "../services/training/materializeNextWeekTrainingPlan";
 import type { ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
+import type { EngineGenerationStatus } from "../app/components/EngineGeneratingCard";
 
 export interface NextWeekPreviewActions {
   acceptPreview: (previewId?: string | undefined) => Promise<MaterializeNextWeekTrainingPlanResult>;
@@ -12,6 +13,7 @@ export interface NextWeekPreviewActions {
 export interface NextWeekPreviewActionsHook {
   actions: NextWeekPreviewActions;
   busy: boolean;
+  generationStatus: EngineGenerationStatus;
   message: string | null;
 }
 
@@ -22,11 +24,13 @@ export function useNextWeekPreviewActions(input: {
   userId: string;
 }): NextWeekPreviewActionsHook {
   const [busy, setBusy] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<EngineGenerationStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
 
   const runAction = useCallback(
     async (mode: "accept_preview" | "materialize_if_week_boundary", previewId?: string | undefined): Promise<MaterializeNextWeekTrainingPlanResult> => {
       setBusy(true);
+      setGenerationStatus(mode === "accept_preview" ? "previewing_next_week" : "materializing_next_week");
       setMessage(null);
       try {
         if (!input.state) {
@@ -53,6 +57,7 @@ export function useNextWeekPreviewActions(input: {
         };
       } finally {
         setBusy(false);
+        setGenerationStatus("idle");
       }
     },
     [input]
@@ -60,6 +65,7 @@ export function useNextWeekPreviewActions(input: {
 
   return {
     busy,
+    generationStatus,
     message,
     actions: {
       acceptPreview: (previewId) => runAction("accept_preview", previewId),

@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import type { ISODateString } from "../engine/core/types";
+import type { AthleteProfile, ISODateString } from "../engine/core/types";
 import { useAutoRollForward } from "./useAutoRollForward";
 import { resolveAndPersistPerformanceState, type ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import {
@@ -27,6 +27,7 @@ import {
   type TournamentSetupDraft
 } from "../services/supabase/onboardingService";
 import type { CornerSupabaseClient } from "../services/supabase/client";
+import type { EngineGenerationStatus } from "../app/components/EngineGeneratingCard";
 
 export interface UsePerformanceStateInput {
   asOfDate?: ISODateString;
@@ -42,8 +43,9 @@ export interface PerformanceStateHook {
   completeOnboarding: (draft: OnboardingDraft) => Promise<void>;
   createDemoProfile: () => Promise<void>;
   loading: boolean;
+  generationStatus: EngineGenerationStatus;
   message: string | null;
-  refresh: () => Promise<ResolveAndPersistPerformanceStateResult>;
+  refresh: (status?: EngineGenerationStatus) => Promise<ResolveAndPersistPerformanceStateResult>;
   repositories: AthleteJourneyRepositories;
   requestNutritionSafetyReview: () => Promise<void>;
   result: ResolveAndPersistPerformanceStateResult | null;
@@ -85,10 +87,13 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const { runAutoRollForward } = useAutoRollForward({ asOfDate, enabled: input.autoRollForwardEnabled ?? true, repositories, userId });
   const [result, setResult] = useState<ResolveAndPersistPerformanceStateResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generationStatus, setGenerationStatus] = useState<EngineGenerationStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const latestAthleteProfileRef = useRef<AthleteProfile | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (status: EngineGenerationStatus = "generating_workout") => {
     setLoading(true);
+    setGenerationStatus(status);
     setMessage(null);
     const next = await resolveAndPersistPerformanceState({
       userId,
@@ -115,9 +120,11 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         nextMessage = `Auto roll-forward could not run: ${auto.explanation}`;
       }
     }
+    latestAthleteProfileRef.current = final.status === "ready" ? final.state.athlete : null;
     setResult(final);
     setMessage(nextMessage);
     setLoading(false);
+    setGenerationStatus("idle");
     return final;
   }, [asOfDate, repositories, runAutoRollForward, userId]);
 
@@ -131,6 +138,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Demo profile creation failed.");
       setLoading(false);
+      setGenerationStatus("idle");
     }
   }, [asOfDate, refresh, repositories, userId]);
 
@@ -145,6 +153,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Onboarding failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [asOfDate, refresh, repositories, userId]
@@ -153,14 +162,16 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const saveFight = useCallback(
     async (draft: FightSetupDraft) => {
       setLoading(true);
+      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
       try {
         await saveFightSetup({ userId, draft, repositories });
-        await refresh();
+        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
         setMessage(draft.weighInType === "unknown" ? "Fight saved. Weigh-in timing still needs confirmation." : "Fight saved.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Fight setup failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [refresh, repositories, userId]
@@ -169,14 +180,16 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const saveBuild = useCallback(
     async (draft: BuildGoalDraft) => {
       setLoading(true);
+      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
       try {
         await saveBuildGoal({ userId, draft, repositories });
-        await refresh();
+        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
         setMessage("Build phase saved. Preview next week when you are ready.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Build goal failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [refresh, repositories, userId]
@@ -185,14 +198,16 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const saveRecovery = useCallback(
     async (draft: RecoveryGoalDraft) => {
       setLoading(true);
+      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
       try {
         await saveRecoveryGoal({ userId, draft, repositories });
-        await refresh();
+        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
         setMessage("Recovery goal saved. CornerIQ will keep support conservative.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Recovery goal failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [refresh, repositories, userId]
@@ -201,14 +216,16 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const saveTournament = useCallback(
     async (draft: TournamentSetupDraft) => {
       setLoading(true);
+      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
       try {
         await saveTournamentSetup({ userId, draft, repositories });
-        await refresh();
+        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
         setMessage("Tournament setup saved.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Tournament setup failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [refresh, repositories, userId]
@@ -220,22 +237,26 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         setMessage("Fixed boxing schedule is available after engine state loads.");
         return;
       }
+      const currentProfile = latestAthleteProfileRef.current ?? result.state.athlete;
       setLoading(true);
+      setGenerationStatus("saving_anchors");
       setMessage(null);
       try {
-        await saveProtectedSessionService({
+        const saved = await saveProtectedSessionService({
           userId,
-          currentProfile: result.state.athlete,
+          currentProfile,
           workoutId,
           workout: draft,
           repositories,
           source: "plan"
         });
-        await refresh();
+        latestAthleteProfileRef.current = saved.profile;
+        await refresh("amending_plan");
         setMessage(workoutId ? "Fixed boxing session updated. Preview next week when you are ready." : "Fixed boxing session added. Preview next week when you are ready.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Fixed boxing schedule failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [refresh, repositories, result, userId]
@@ -248,6 +269,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         return;
       }
       setLoading(true);
+      setGenerationStatus("amending_plan");
       setMessage(null);
       try {
         await deleteProtectedSessionService({
@@ -256,11 +278,12 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
           workoutId,
           repositories
         });
-        await refresh();
+        await refresh("amending_plan");
         setMessage("Fixed boxing session removed. Preview next week when you are ready.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Fixed boxing session removal failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [refresh, repositories, result, userId]
@@ -281,6 +304,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Profile settings failed.");
         setLoading(false);
+        setGenerationStatus("idle");
       }
     },
     [refresh, repositories, result, userId]
@@ -351,6 +375,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     completeOnboarding: finishOnboarding,
     createDemoProfile,
     loading,
+    generationStatus,
     message,
     refresh,
     repositories,

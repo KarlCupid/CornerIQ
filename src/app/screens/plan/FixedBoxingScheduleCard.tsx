@@ -11,12 +11,14 @@ import { screenStyles } from "../screenStyles";
 type FixedSession = PlanViewModel["fixedSchedule"][number];
 
 const typeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
-  { label: "Boxing class / Technical session", value: "technical_session" },
+  { label: "Boxing class", value: "boxing_class" },
+  { label: "Technical session", value: "technical_session" },
   { label: "Pads / mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
   { label: "Sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Coach strength", value: "coach_assigned_strength" },
+  { label: "Competition", value: "competition" },
   { label: "Travel", value: "travel" },
   { label: "Recovery day", value: "recovery_day" }
 ];

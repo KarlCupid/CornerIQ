@@ -251,8 +251,12 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
   it("no food logs lower confidence without shame copy", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const nutritionSafetyFlags = state.safety.riskFlags.filter((flag) => flag.domain === "nutrition");
 
     expect(state.nutrition.confidence.level === "medium" || state.nutrition.confidence.level === "low").toBe(true);
+    expect(state.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(nutritionSafetyFlags.some((flag) => flag.hardStop || flag.blocksPlan)).toBe(false);
+    expect(state.viewModels.train.preSessionFuelHint).toContain("Fueling data is missing");
     expect(state.viewModels.fuel.why.toLowerCase()).not.toContain("shame");
   });
 

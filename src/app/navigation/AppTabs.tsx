@@ -21,6 +21,7 @@ import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdj
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import type { BuildGoalDraft, FightSetupDraft, ProfileSettingsDraft, ProtectedWorkoutDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
+import type { EngineGenerationStatus } from "../components/EngineGeneratingCard";
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
@@ -46,6 +47,7 @@ export interface AppTabsProps {
   betaFeedback?: BetaFeedbackHook | undefined;
   betaHealth: BetaHealthViewModel;
   cycleSymptomOptions: readonly CycleSymptom[];
+  generationStatus?: EngineGenerationStatus | undefined;
   message: string | null;
   nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => Promise<void>) | undefined;
@@ -65,7 +67,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
@@ -158,7 +160,7 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} completionActions={workoutCompletion} completionMessage={message} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
+        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} completionActions={workoutCompletion} completionMessage={message} generationStatus={generationStatus} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
         <Tab.Screen name="Plan">
           {() => (
             <PlanScreen
@@ -166,6 +168,7 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               adjustmentActions={trainingPlanAdjustments?.actions}
               adjustmentMessage={trainingPlanAdjustments?.message ?? nextWeekPreviewActions?.message}
               busy={busy || Boolean(trainingPlanAdjustments?.busy) || Boolean(nextWeekPreviewActions?.busy)}
+              generationStatus={generationStatus}
               hasActiveFightOrTournament={Boolean(state.fightContext || state.tournamentContext)}
               isMinor={(state.athlete.ageYears ?? 99) < 18}
               nextWeekPreviewActions={nextWeekPreviewActions?.actions}

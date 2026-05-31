@@ -282,6 +282,7 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
       listActiveTrainingBlocks: vi.fn(),
       getActiveTrainingBlockForDate: vi.fn(),
       supersedeActiveTrainingBlocks: vi.fn(),
+      supersedeActiveTrainingBlock: vi.fn(),
       insertTrainingPlanAdjustment: vi.fn(),
       supersedeTrainingPlanAdjustments: vi.fn()
     },

@@ -27,6 +27,7 @@ function createOnboardingRepositories() {
     profile: null as AthleteProfile | null,
     protectedWorkouts: [] as ProtectedWorkout[],
     supersededTournamentIds: new Set<string>(),
+    timelineEvents: [] as unknown[],
     tournaments: [] as TournamentDetails[]
   };
   const repositories = {
@@ -119,8 +120,20 @@ function createOnboardingRepositories() {
       listActiveTrainingBlocks: vi.fn(async () => []),
       getActiveTrainingBlockForDate: vi.fn(async () => null),
       supersedeActiveTrainingBlocks: vi.fn(async () => ({ ids: [] })),
+      supersedeActiveTrainingBlock: vi.fn(async () => ({ ids: [] })),
       insertTrainingPlanAdjustment: vi.fn(async () => ({ id: "adjustment_1" })),
       supersedeTrainingPlanAdjustments: vi.fn(async () => ({ ids: [] }))
+    },
+    trainingProgression: {
+      listTrainingWeekSummaries: vi.fn(async () => []),
+      listTrainingProgressionDecisions: vi.fn(async () => []),
+      listTrainingBlockTimelineEvents: vi.fn(async () => []),
+      upsertTrainingWeekSummary: vi.fn(async () => ({ id: "week_summary_1" })),
+      insertTrainingProgressionDecision: vi.fn(async () => ({ id: "progression_decision_1" })),
+      insertTrainingBlockTimelineEvent: vi.fn(async (record: unknown) => {
+        store.timelineEvents.push(record);
+        return { id: `timeline_event_${store.timelineEvents.length}` };
+      })
     },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => []), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
     engineRun: {
@@ -417,6 +430,92 @@ describe("onboardingService", () => {
     expect(store.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ generatedSupportAvailableDays: ["tuesday", "thursday"] }) })
+      ])
+    );
+  });
+
+  it("plan goal saves normalize schedule availability and record amendment audit", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    const activeBlock = { id: "training_block_active", blockKey: "block:user_1:2026-05-19:build_strength" };
+    vi.mocked(repositories.trainingBlock.listActiveTrainingBlocks).mockResolvedValue([activeBlock] as never);
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "conditioning",
+        scheduleAvailability: ["tuesday", "tuesday", "thursday"] as never,
+        supportDaysPerWeek: 4,
+        planAction: "amend_current_plan"
+      },
+      repositories
+    });
+
+    expect(store.profile?.scheduleAvailability).toEqual(["tuesday", "thursday"]);
+    expect(repositories.trainingProgression.insertTrainingBlockTimelineEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trainingBlockId: "training_block_active",
+        event: expect.objectContaining({
+          eventType: "adjustment_applied",
+          payload: expect.objectContaining({
+            source: "plan_wizard_amendment",
+            goalMode: "build",
+            scheduleAvailability: ["tuesday", "thursday"]
+          })
+        })
+      })
+    );
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "TrainingPlanAdjusted", payload: expect.objectContaining({ source: "plan_wizard_amendment", scheduleAvailability: ["tuesday", "thursday"] }) }),
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ supportDaysPerWeek: 4, source: "plan_wizard_amendment" }) })
+      ])
+    );
+  });
+
+  it("plan goal saves reject an explicitly empty schedule availability", async () => {
+    const { repositories } = createOnboardingRepositories();
+
+    await expect(
+      saveBuildGoal({
+        userId: "user_1",
+        draft: { primaryFocus: "power", scheduleAvailability: [] as never },
+        repositories
+      })
+    ).rejects.toBeInstanceOf(RepositoryError);
+    expect(repositories.athlete.upsertProfile).not.toHaveBeenCalled();
+  });
+
+  it("starting a new plan supersedes the prior active block without deleting history", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    const activeBlock = { id: "training_block_old", blockKey: "block:user_1:2026-05-19:build_strength" };
+    vi.mocked(repositories.trainingBlock.listActiveTrainingBlocks).mockResolvedValue([activeBlock] as never);
+
+    await saveFightSetup({
+      userId: "user_1",
+      draft: {
+        ...createDefaultFightDraft(fixtureAsOfDate),
+        planAction: "start_new_plan",
+        scheduleAvailability: ["monday", "friday"]
+      },
+      repositories
+    });
+
+    expect(repositories.trainingBlock.supersedeActiveTrainingBlock).toHaveBeenCalledWith("user_1", "training_block_old");
+    expect(repositories.trainingProgression.insertTrainingBlockTimelineEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trainingBlockId: "training_block_old",
+        event: expect.objectContaining({
+          eventType: "block_superseded",
+          payload: expect.objectContaining({ source: "plan_wizard_new_plan", scheduleAvailability: ["monday", "friday"] })
+        })
+      })
+    );
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "TrainingBlockSuperseded", payload: expect.objectContaining({ source: "plan_wizard_new_plan" }) }),
+        expect.objectContaining({ type: "CampStarted", payload: expect.objectContaining({ source: "plan_wizard_new_plan", scheduleAvailability: ["monday", "friday"] }) })
       ])
     );
   });

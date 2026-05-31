@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CompletedTrainingSession, ExerciseResultRecord } from "../../engine/core/types";
+import type { CompletedTrainingSession, ExerciseResultRecord, ProtectedWorkout } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import {
   amateur_novice_build,
@@ -116,6 +116,116 @@ describe("training block and microcycle engine", () => {
     expect(state.training.generatedSessions.length).toBeGreaterThan(0);
     expect(state.training.generatedSessions.every((session) => new Date(`${session.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
     expect(state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).every((day) => new Date(`${day.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
+  });
+
+  it("empty or missing schedule availability preserves legacy generated placement", () => {
+    const athleteWithoutAvailability = { ...pro_4_round_build_strength.athlete };
+    delete (athleteWithoutAvailability as { scheduleAvailability?: readonly string[] }).scheduleAvailability;
+    const missing = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: athleteWithoutAvailability
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const empty = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: []
+        }
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(missing.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(empty.training.generatedSessions.map((session) => session.date)).toEqual(missing.training.generatedSessions.map((session) => session.date));
+  });
+
+  it("does not place generated support on competition anchors even when that weekday is available", () => {
+    const competition: ProtectedWorkout = {
+      id: "competition_wednesday",
+      type: "competition",
+      date: "2026-05-20",
+      durationMinutes: 120,
+      intensity: "max",
+      protected: true
+    };
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["wednesday"]
+        },
+        protectedWorkouts: [competition]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.generatedSessions.every((session) => session.date !== competition.date)).toBe(true);
+    expect(state.training.dayPlans.find((day) => day.date === competition.date)?.generatedSessions).toEqual([]);
+  });
+
+  it("labels plan wizard starts and amendments without ambiguous week copy", () => {
+    const newPlan = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        trainingBlockTimelineEvents: [
+          {
+            eventType: "block_started",
+            eventDate: fixtureAsOfDate,
+            title: "Block started",
+            summary: "Started from plan wizard.",
+            payload: { source: "plan_wizard_new_plan" }
+          }
+        ]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const amended = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        trainingWeekSummaries: [
+          {
+            blockId: "training_block_1",
+            weekIndex: 4,
+            weekStartDate: "2026-05-19",
+            weekEndDate: "2026-05-25",
+            completionCount: 0,
+            skippedCount: 0,
+            prescribedOnlyCount: 0,
+            partialResultCount: 0,
+            completedResultCount: 0,
+            painFlagCount: 0,
+            averageSessionRpe: null,
+            averageExerciseRpe: null,
+            hardDaysCompleted: 0,
+            protectedAnchorCount: 0,
+            generatedSupportCount: 0,
+            underfuelingFlag: false,
+            highCycleSymptomFlag: false,
+            safetyFlagCount: 0,
+            summary: "Current week retained.",
+            reasons: ["Availability amendment keeps current week index."]
+          }
+        ],
+        trainingBlockTimelineEvents: [
+          {
+            eventType: "adjustment_applied",
+            eventDate: fixtureAsOfDate,
+            title: "Current plan amended",
+            summary: "Availability changed from plan wizard.",
+            payload: { source: "plan_wizard_amendment" }
+          }
+        ]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(newPlan.viewModels.plan.planLifecycleLabel).toBe("Week 1 · New plan");
+    expect(amended.viewModels.plan.planLifecycleLabel).toBe("Week 4 · Amended");
   });
 
   it("high cycle symptoms trim optional work and completed good sessions allow progression", () => {

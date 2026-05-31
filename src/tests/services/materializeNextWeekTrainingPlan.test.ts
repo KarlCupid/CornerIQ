@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { PerformanceState } from "../../engine/core/types";
+import { createHardStopFlag } from "../../engine/safety/riskSafetyEngine";
 import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import { materializeNextWeekTrainingPlan } from "../../services/training/materializeNextWeekTrainingPlan";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
@@ -204,18 +205,26 @@ describe("materializeNextWeekTrainingPlan service", () => {
   });
 
   it("hard-stop safety rejects materialization", async () => {
+    const base = stateFixture();
+    const hardStop = createHardStopFlag("medical", "acute_illness", "Illness symptoms were logged.", { source: "test" });
     const state = stateFixture({
       readiness: {
-        ...stateFixture().readiness,
+        ...base.readiness,
         color: "red"
+      },
+      safety: {
+        ...base.safety,
+        riskFlags: [...base.safety.riskFlags, hardStop],
+        hardStops: [hardStop],
+        blocksPlan: true
       }
     });
-    const base = previewFixture(state);
+    const basePreview = previewFixture(state);
     const preview = previewFixture(state, {
       status: "accepted",
       volumeStrategy: "progress_small",
       preview: {
-        ...base.preview,
+        ...basePreview.preview,
         materializedVolumeStrategy: "progress_small"
       }
     });
@@ -233,6 +242,45 @@ describe("materializeNextWeekTrainingPlan service", () => {
     expect(result.explanation).toContain("Hard-stop safety");
     expect(repositories.trainingBlock.upsertTrainingMicrocycle).not.toHaveBeenCalled();
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
+  });
+
+  it("red readiness without a medical hard stop materializes recovery-only work", async () => {
+    const base = stateFixture();
+    const state = stateFixture({
+      readiness: {
+        ...base.readiness,
+        color: "red"
+      },
+      safety: {
+        ...base.safety,
+        hardStops: [],
+        riskFlags: base.safety.riskFlags.filter((flag) => !flag.hardStop),
+        blocksPlan: false
+      }
+    });
+    const basePreview = previewFixture(state);
+    const preview = previewFixture(state, {
+      status: "accepted",
+      volumeStrategy: "progress_small",
+      preview: {
+        ...basePreview.preview,
+        materializedVolumeStrategy: "progress_small"
+      }
+    });
+    const repositories = repositoriesFor(preview);
+
+    const result = await materializeNextWeekTrainingPlan({
+      userId: "user_1",
+      current: state,
+      repositories,
+      asOfDate: preview.weekStartDate,
+      mode: "materialize_if_week_boundary"
+    });
+
+    expect(result.status).toBe("materialized");
+    const generatedRows = (repositories.engineRun.upsertGeneratedSessions as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] ?? [];
+    expect(JSON.stringify(generatedRows)).toContain("recovery_reset");
+    expect(JSON.stringify(generatedRows)).not.toContain("strength_full_body");
   });
 
   it("rejects a preview that belongs to a different user", async () => {

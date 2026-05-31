@@ -46,7 +46,7 @@ export interface MaterializeNextWeekTrainingPlanResult {
 }
 
 function activeHardStop(state: PerformanceState): boolean {
-  return state.readiness.color === "red" || state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop);
+  return state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop);
 }
 
 function activeTrainingBlockId(state: PerformanceState): string | null {

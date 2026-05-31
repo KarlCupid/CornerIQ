@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
+import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { accentColor, accentWash, LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
@@ -21,6 +22,7 @@ export interface PlanScreenProps {
   hasActiveFightOrTournament: boolean;
   isMinor: boolean;
   nextWeekPreviewActions?: NextWeekPreviewActions | undefined;
+  generationStatus?: EngineGenerationStatus | undefined;
   onDeleteProtectedSession?: ((workoutId: string) => Promise<void>) | undefined;
   onSaveBuildGoal?: ((draft: BuildGoalDraft) => Promise<void>) | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
@@ -139,8 +141,8 @@ function CurrentModeCard({
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Current mode</Text>
           <Text style={screenStyles.callout}>{viewModel.modeLabel}</Text>
-          <Text style={screenStyles.body}>Week {viewModel.weekIndex}. {viewModel.goalSummary}</Text>
-          <Text style={screenStyles.subtle}>Generated support availability: {viewModel.generatedSupportAvailability.summary}</Text>
+          <Text style={screenStyles.body}>{viewModel.planLifecycleLabel}. {viewModel.goalSummary}</Text>
+          <Text style={screenStyles.subtle}>Generated support days: {viewModel.scheduleAvailabilitySummary}</Text>
           <Text style={screenStyles.subtle}>Your boxing comes first.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -206,7 +208,7 @@ function GeneratedSupportSummaryCard({
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Generated support</Text>
           <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support session")}</Text>
-          <Text style={screenStyles.body}>Availability: {viewModel.generatedSupportAvailability.summary}</Text>
+          <Text style={screenStyles.body}>Generated support days: {viewModel.scheduleAvailabilitySummary}</Text>
           <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds support work around your fixed boxing sessions, readiness, and safety."}</Text>
           <Text style={screenStyles.subtle}>Generated support will only be placed on selected available days.</Text>
           <Text style={screenStyles.subtle}>Fixed boxing sessions remain protected.</Text>
@@ -265,6 +267,7 @@ export function PlanScreen({
   adjustmentMessage,
   asOfDate,
   busy,
+  generationStatus = "idle",
   isMinor,
   nextWeekPreviewActions,
   onDeleteProtectedSession,
@@ -282,7 +285,8 @@ export function PlanScreen({
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
   return (
     <LuminousScreen testID="plan-screen">
-      <ScreenHeader eyebrow={`Week ${viewModel.weekIndex}`} title={viewModel.title} />
+      <ScreenHeader eyebrow={viewModel.planLifecycleLabel} title={viewModel.title} />
+      <EngineGeneratingCard status={generationStatus} />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={viewModel.rollForwardMessage} statusLabel={viewModel.rollForwardRiskLabel} tone={viewModel.rollForwardRiskTone}>
           <View style={{ gap: spacing.xs }}>
@@ -302,11 +306,14 @@ export function PlanScreen({
         <PlanGoalFlowCard
           asOfDate={asOfDate}
           busy={goalBusy}
+          currentModeLabel={viewModel.modeLabel}
+          existingFixedSchedule={viewModel.fixedSchedule}
           initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
           isMinor={isMinor}
           onCancel={() => setGoalFlowOpen(false)}
           onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
           onSaveFightSetup={onSaveFightSetup}
+          onSaveProtectedSession={onSaveProtectedSession}
           onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
           onSaveTournamentSetup={onSaveTournamentSetup}
         />

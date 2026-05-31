@@ -370,6 +370,7 @@ export interface PlanViewModel {
   weeklyTrainingStructure: string;
   blockHistorySummary: TrainingBlockHistoryViewModel;
   weekIndex: number;
+  planLifecycleLabel: string;
   currentWeekSummary: TrainingWeekSummaryViewModel | null;
   latestProgressionDecision: string | null;
   nextWeekPreview: NextWeekPreviewViewModel;
@@ -390,6 +391,8 @@ export interface PlanViewModel {
     selectedDays: readonly GeneratedSupportWeekday[];
     summary: string;
   };
+  scheduleAvailability: readonly GeneratedSupportWeekday[];
+  scheduleAvailabilitySummary: string;
   recoveryDayCount: number;
   recoveryDays: readonly string[];
   fixedSchedule: readonly {

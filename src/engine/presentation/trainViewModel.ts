@@ -74,6 +74,13 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
       hydrationHint: "Keep fluids and electrolytes consistent; avoid weight-pressure tactics."
     };
   }
+  if (state.nutrition.actualIntakeSummary.logCount === 0) {
+    return {
+      preSessionFuelHint: "Fueling data is missing, so CornerIQ keeps the session conservative. Use familiar carbs and fluids before boxing support.",
+      postSessionFuelHint: "Log food only if it helps; missing fuel data stays unknown, not unsafe.",
+      hydrationHint: "Use thirst, urine color, heat, and session length; no wearable or food log is required."
+    };
+  }
   if (state.training.activeBlock.phase === "tournament_week") {
     return {
       preSessionFuelHint: "Fuel this session with familiar carbs and fluids before training.",
@@ -154,6 +161,12 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   });
   const exerciseHistory = buildExerciseHistoryViewModel(state.training.recentExerciseResults);
   const hints = fuelHints(state, plan);
+  const generationExplanation =
+    state.safety.hardStops.length > 0
+      ? "Safety overrides are active; no generated workout today unless the engine limits the action to recovery only."
+      : state.readiness.color === "red"
+        ? "Readiness is red, so CornerIQ generated recovery-only work."
+        : plan?.explanation ?? state.training.explanation;
   const primaryTrainingAction =
     state.safety.hardStops.length > 0
       ? "Follow the safety stop. Do not add generated support today."
@@ -166,7 +179,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       title: "Training action",
       purpose: "Use Train for today's boxing-support work and what to log after.",
       primaryAction: primaryTrainingAction,
-      why: plan?.explanation ?? state.training.explanation,
+      why: generationExplanation,
       optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
     },
     todaySummary: state.training.todaySessions.length > 0 ? state.training.todaySessions.map((session) => session.title).join(", ") : "No generated support today.",
@@ -176,7 +189,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     todayRole: {
       status: plan?.role ?? "support_day",
       summary: roleSummary(plan),
-      explanation: plan?.explanation ?? state.training.explanation
+      explanation: generationExplanation
     },
     blockProgression: analytics.progressionRecommendation,
     ...hints,

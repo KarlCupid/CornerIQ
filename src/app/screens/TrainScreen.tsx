@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
+import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { ActionCard } from "../../design/components/ActionCard";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
@@ -30,6 +31,7 @@ export interface TrainScreenProps {
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
   completionMessage?: string | null | undefined;
+  generationStatus?: EngineGenerationStatus | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: TrainViewModel;
@@ -120,11 +122,12 @@ function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards
   );
 }
 
-export function TrainScreen({ busy, completionActions, completionMessage, quickLogs, recentLogs, viewModel }: TrainScreenProps) {
+export function TrainScreen({ busy, completionActions, completionMessage, generationStatus = "idle", quickLogs, recentLogs, viewModel }: TrainScreenProps) {
   const [section, setSection] = React.useState<TrainSection>("today");
   return (
     <LuminousScreen testID="train-screen">
       <ScreenHeader eyebrow="Workout" title={viewModel.title} />
+      <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <TopActionCard
         accent="purple"
         optional={viewModel.topAction.optional}

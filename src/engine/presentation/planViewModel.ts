@@ -315,6 +315,25 @@ function timelineEventView(event: TrainingBlockTimelineEvent) {
   };
 }
 
+function latestLifecycleSource(state: PerformanceState): string | null {
+  const event = [...state.training.timelineEvents, ...state.training.blockHistory.timelineEvents]
+    .reverse()
+    .find((item) => item.payload.source === "plan_wizard_new_plan" || item.payload.source === "plan_wizard_amendment");
+  return typeof event?.payload.source === "string" ? event.payload.source : null;
+}
+
+function planLifecycleLabel(state: PerformanceState): string {
+  const week = state.training.activeBlock.progressionState.weekIndex;
+  const source = latestLifecycleSource(state);
+  if (source === "plan_wizard_new_plan") {
+    return `Week ${week} · New plan`;
+  }
+  if (source === "plan_wizard_amendment") {
+    return `Week ${week} · Amended`;
+  }
+  return `Week ${week} · ${modeLabel(state).replace(" phase", "")}`;
+}
+
 function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextWeekPreviewViewModel): TrainingBlockHistoryDetailViewModel {
   const history = state.training.blockHistory;
   const adjustmentEvents = state.training.adjustmentHistory.map(
@@ -396,6 +415,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const currentWeekGeneratedSupportCount = state.training.dayPlans.reduce((count, day) => count + day.generatedSessions.length, 0);
   const generatedSupportDayCount = state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).length;
   const generatedSupportAvailableDays = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability);
+  const scheduleAvailabilitySummary = formatGeneratedSupportWeekdays(generatedSupportAvailableDays);
   const fixedSchedule = upcomingFixedSchedule(state);
   const recoveryDayCount = state.training.dayPlans.filter(
     (day) => day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day"
@@ -436,6 +456,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       currentWeekIndex: state.training.activeBlock.progressionState.weekIndex
     },
     weekIndex: state.training.activeBlock.progressionState.weekIndex,
+    planLifecycleLabel: planLifecycleLabel(state),
     currentWeekSummary: currentWeekSummary
       ? {
           title: `Week ${currentWeekSummary.weekIndex} summary`,
@@ -473,8 +494,10 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     generatedSupportSessionCount: currentWeekGeneratedSupportCount,
     generatedSupportAvailability: {
       selectedDays: generatedSupportAvailableDays,
-      summary: formatGeneratedSupportWeekdays(generatedSupportAvailableDays)
+      summary: scheduleAvailabilitySummary
     },
+    scheduleAvailability: generatedSupportAvailableDays,
+    scheduleAvailabilitySummary,
     recoveryDayCount,
     recoveryDays: state.training.activeBlock.weeklyStructure.recoveryDays,
     fixedSchedule,

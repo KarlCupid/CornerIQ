@@ -116,6 +116,13 @@ function hasDueAcceptedPreview(input: {
   return input.previews.some((preview) => preview.status === "accepted" && preview.weekStartDate <= input.asOfDate && input.asOfDate <= preview.weekEndDate);
 }
 
+function latestPlanWizardSource(journey: LoadAthleteJourneyResult & { status: "ready" }): "plan_wizard_new_plan" | "plan_wizard_amendment" | null {
+  const event = [...journey.journey.journeyEvents]
+    .reverse()
+    .find((item) => item.payload.source === "plan_wizard_new_plan" || item.payload.source === "plan_wizard_amendment");
+  return event?.payload.source === "plan_wizard_new_plan" || event?.payload.source === "plan_wizard_amendment" ? event.payload.source : null;
+}
+
 function withTrainingPersistenceStatus(input: {
   state: PerformanceState;
   trainingBlockId: string;
@@ -256,7 +263,8 @@ async function persistTrainingBlockProjection(
   userId: string,
   inputHash: string,
   state: PerformanceState,
-  repositories: AthleteJourneyRepositories
+  repositories: AthleteJourneyRepositories,
+  lifecycleSource?: "plan_wizard_new_plan" | "plan_wizard_amendment" | null
 ): Promise<{
   trainingBlockId: string;
   currentWeekSummary: TrainingWeekSummary;
@@ -336,10 +344,14 @@ async function persistTrainingBlockProjection(
             eventType: "block_started" as const,
             eventDate: state.training.activeBlock.startDate,
             title: "Block started",
-            summary: `${state.training.activeBlock.phase.replaceAll("_", " ")} block started.`,
+            summary:
+              lifecycleSource === "plan_wizard_new_plan"
+                ? `${state.training.activeBlock.phase.replaceAll("_", " ")} block started from the plan wizard.`
+                : `${state.training.activeBlock.phase.replaceAll("_", " ")} block started.`,
             payload: {
               blockId: block.id,
               blockKey: block.blockKey,
+              ...(lifecycleSource ? { source: lifecycleSource } : {}),
               inputHash,
               outputHash: state.outputHash
             }
@@ -374,7 +386,7 @@ async function persistTrainingBlockProjection(
       primaryGoal: state.training.activeBlock.primaryGoal,
       inputHash,
       outputHash: state.outputHash,
-      source: "engine_training_block_projection"
+      source: lifecycleSource ?? "engine_training_block_projection"
     });
   }
 
@@ -442,7 +454,8 @@ async function persistPerformanceState(
   userId: string,
   inputHash: string,
   state: PerformanceState,
-  repositories: AthleteJourneyRepositories
+  repositories: AthleteJourneyRepositories,
+  lifecycleSource?: "plan_wizard_new_plan" | "plan_wizard_amendment" | null
 ): Promise<{ state: PerformanceState; persistenceWarning?: string | undefined }> {
   const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
   await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
@@ -452,7 +465,7 @@ async function persistPerformanceState(
     state.training.generatedSessions.map((session) => mapGeneratedSessionToRow(userId, state.engineVersion, session, inputHash, state.outputHash))
   );
   const reviewPersistence = await persistNutritionSafetyReviewProjection(userId, inputHash, state, repositories);
-  const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories);
+  const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories, lifecycleSource);
   const persistedState = withTrainingPersistenceStatus({
     state: reviewPersistence.state,
     trainingBlockId: blockPersistence.trainingBlockId,
@@ -520,7 +533,8 @@ export async function resolveAndPersistPerformanceState(input: {
   }
 
   try {
-    const persisted = await persistPerformanceState(userId, inputHash, state, input.repositories);
+    const lifecycleSource = journeyResult.status === "ready" ? latestPlanWizardSource(journeyResult) : null;
+    const persisted = await persistPerformanceState(userId, inputHash, state, input.repositories, lifecycleSource);
     return {
       status: "ready",
       state: persisted.state,

@@ -6,6 +6,7 @@ import { colors, spacing } from "../../../design/theme";
 import { useFormMessage } from "../../forms/useFormMessage";
 import {
   parseOptionalISODateTime,
+  parseOptionalNonNegativeInteger,
   parseOptionalPositiveInteger,
   parseOptionalPositiveNumber,
   parseRequiredDateYYYYMMDD,
@@ -21,30 +22,36 @@ import {
   createDefaultTournamentDraft,
   type BuildGoalDraft,
   type FightSetupDraft,
+  type PlanLifecycleAction,
+  type ProtectedWorkoutDraft,
   type RecoveryGoalDraft,
   type TournamentSetupDraft
 } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
 
 type GoalMode = "build" | "fight" | "tournament" | "recovery";
-type WizardStep = "goal" | "availability" | "details" | "review";
+type WizardStep = "goal" | "schedule" | "details" | "review";
 type GeneratedSupportDay = PlanViewModel["generatedSupportAvailability"]["selectedDays"][number];
+type FixedSession = PlanViewModel["fixedSchedule"][number];
 
 export interface PlanGoalFlowCardProps {
   asOfDate: ISODateString;
   busy: boolean;
+  currentModeLabel: PlanViewModel["modeLabel"];
+  existingFixedSchedule: readonly FixedSession[];
   initialAvailableDays: readonly GeneratedSupportDay[];
   isMinor: boolean;
   onCancel: () => void;
   onSaveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
+  onSaveProtectedSession?: ((workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>) | undefined;
   onSaveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
 }
 
 const wizardSteps: readonly { key: WizardStep; label: string }[] = [
   { key: "goal", label: "Goal type" },
-  { key: "availability", label: "Available days" },
+  { key: "schedule", label: "Schedule" },
   { key: "details", label: "Details" },
   { key: "review", label: "Review" }
 ];
@@ -68,6 +75,25 @@ const availableDayOptions: readonly { label: string; value: GeneratedSupportDay 
 
 const buildFocusOptions: readonly BuildGoalDraft["primaryFocus"][] = ["balanced", "power", "conditioning", "strength", "mobility"];
 const recoveryFocusOptions: readonly NonNullable<RecoveryGoalDraft["focus"]>[] = ["general", "soreness", "sleep", "travel", "post_bout"];
+const supportDayOptions: readonly number[] = [1, 2, 3, 4, 5, 6];
+const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
+  { label: "Boxing class", value: "boxing_class" },
+  { label: "Technical session", value: "technical_session" },
+  { label: "Pads / mitts", value: "pads_mitts" },
+  { label: "Bag work", value: "bag_work" },
+  { label: "Sparring", value: "sparring" },
+  { label: "Roadwork", value: "roadwork" },
+  { label: "Coach strength", value: "coach_assigned_strength" },
+  { label: "Recovery day", value: "recovery_day" },
+  { label: "Travel", value: "travel" },
+  { label: "Competition", value: "competition" }
+];
+const anchorIntensityOptions: readonly { label: string; value: ProtectedWorkoutDraft["intensity"] }[] = [
+  { label: "Easy", value: "easy" },
+  { label: "Moderate", value: "moderate" },
+  { label: "Hard", value: "hard" },
+  { label: "Max", value: "max" }
+];
 
 function OptionButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
@@ -101,11 +127,36 @@ function goalLabel(mode: GoalMode): string {
   return goalOptions.find((option) => option.value === mode)?.label ?? "Build general boxing fitness";
 }
 
+function currentModeToGoalMode(modeLabel: PlanViewModel["modeLabel"]): GoalMode {
+  if (modeLabel === "Fight camp") {
+    return "fight";
+  }
+  if (modeLabel === "Tournament mode") {
+    return "tournament";
+  }
+  if (modeLabel === "Recovery") {
+    return "recovery";
+  }
+  return "build";
+}
+
+function defaultPlanAction(currentModeLabel: PlanViewModel["modeLabel"], nextMode: GoalMode): PlanLifecycleAction {
+  return currentModeToGoalMode(currentModeLabel) === nextMode ? "amend_current_plan" : "start_new_plan";
+}
+
 function daySummary(days: readonly GeneratedSupportDay[]): string {
   if (days.length === 0) {
     return "No available days selected";
   }
   return availableDayOptions.filter((option) => days.includes(option.value)).map((option) => option.label).join(", ");
+}
+
+function anchorTypeLabel(type: ProtectedWorkoutDraft["type"]): string {
+  return anchorTypeOptions.find((option) => option.value === type)?.label ?? titleCase(type);
+}
+
+function anchorSummary(anchor: ProtectedWorkoutDraft): string {
+  return `${anchor.date}: ${anchorTypeLabel(anchor.type)}${anchor.startTime ? ` at ${anchor.startTime}` : ""}, ${anchor.durationMinutes} min, ${titleCase(anchor.intensity)}${anchor.rounds ? `, ${anchor.rounds} rounds` : ""}`;
 }
 
 function stepIndex(step: WizardStep): number {
@@ -128,11 +179,14 @@ function finalAccessibilityLabel(mode: GoalMode): string {
 export function PlanGoalFlowCard({
   asOfDate,
   busy,
+  currentModeLabel,
+  existingFixedSchedule,
   initialAvailableDays,
   isMinor,
   onCancel,
   onSaveBuildGoal,
   onSaveFightSetup,
+  onSaveProtectedSession,
   onSaveRecoveryGoal,
   onSaveTournamentSetup
 }: PlanGoalFlowCardProps) {
@@ -140,10 +194,12 @@ export function PlanGoalFlowCard({
   const defaultTournament = createDefaultTournamentDraft(asOfDate);
   const [step, setStep] = React.useState<WizardStep>("goal");
   const [mode, setMode] = React.useState<GoalMode>("build");
+  const [planAction, setPlanAction] = React.useState<PlanLifecycleAction>(() => defaultPlanAction(currentModeLabel, "build"));
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [stepError, setStepError] = React.useState<string | null>(null);
   const [selectedAvailableDays, setSelectedAvailableDays] = React.useState<GeneratedSupportDay[]>(() => [...initialAvailableDays]);
   const [primaryFocus, setPrimaryFocus] = React.useState<BuildGoalDraft["primaryFocus"]>("balanced");
+  const [supportDaysPerWeek, setSupportDaysPerWeek] = React.useState(3);
 
   const [status, setStatus] = React.useState<FightSetupDraft["status"]>(defaultFight.status);
   const [amateurOrPro, setAmateurOrPro] = React.useState<FightSetupDraft["amateurOrPro"]>(defaultFight.amateurOrPro);
@@ -170,6 +226,15 @@ export function PlanGoalFlowCard({
 
   const [recoveryDurationDays, setRecoveryDurationDays] = React.useState("");
   const [recoveryFocus, setRecoveryFocus] = React.useState<NonNullable<RecoveryGoalDraft["focus"]>>("general");
+  const [anchorEditorOpen, setAnchorEditorOpen] = React.useState(false);
+  const [anchorType, setAnchorType] = React.useState<ProtectedWorkoutDraft["type"]>("technical_session");
+  const [anchorDate, setAnchorDate] = React.useState(asOfDate);
+  const [anchorStartTime, setAnchorStartTime] = React.useState("");
+  const [anchorDurationMinutes, setAnchorDurationMinutes] = React.useState("60");
+  const [anchorIntensity, setAnchorIntensity] = React.useState<ProtectedWorkoutDraft["intensity"]>("moderate");
+  const [anchorRounds, setAnchorRounds] = React.useState("");
+  const [anchorNote, setAnchorNote] = React.useState("");
+  const [pendingAnchors, setPendingAnchors] = React.useState<ProtectedWorkoutDraft[]>([]);
   const { message: formError, runWithMessage } = useFormMessage("Goal could not be saved.");
 
   const toggleAvailableDay = (day: GeneratedSupportDay) => {
@@ -179,6 +244,7 @@ export function PlanGoalFlowCard({
 
   const chooseMode = (nextMode: GoalMode) => {
     setMode(nextMode);
+    setPlanAction(defaultPlanAction(currentModeLabel, nextMode));
     setAdvancedOpen(false);
     setStepError(null);
   };
@@ -188,12 +254,12 @@ export function PlanGoalFlowCard({
       return true;
     }
     setStepError("Select at least one available day before saving a plan.");
-    setStep("availability");
+    setStep("schedule");
     return false;
   };
 
   const goNext = () => {
-    if (step === "availability" && !requireAvailability()) {
+    if (step === "schedule" && !requireAvailability()) {
       return;
     }
     const next = wizardSteps[Math.min(stepIndex(step) + 1, wizardSteps.length - 1)]?.key ?? "review";
@@ -207,14 +273,64 @@ export function PlanGoalFlowCard({
     setStep(previous);
   };
 
+  const resetAnchorEditor = () => {
+    setAnchorType("technical_session");
+    setAnchorDate(asOfDate);
+    setAnchorStartTime("");
+    setAnchorDurationMinutes("60");
+    setAnchorIntensity("moderate");
+    setAnchorRounds("");
+    setAnchorNote("");
+  };
+
+  const addPendingAnchor = () => {
+    try {
+      const parsedStart = anchorStartTime.trim() ? parseRequiredTimeHHMM(anchorStartTime, "Anchor start time") : undefined;
+      const parsedRounds = parseOptionalNonNegativeInteger(anchorRounds, "Anchor rounds");
+      const trimmedNote = anchorNote.trim();
+      const draft: ProtectedWorkoutDraft = {
+        type: anchorType,
+        date: parseRequiredDateYYYYMMDD(anchorDate, "Anchor date"),
+        ...(parsedStart ? { startTime: parsedStart, localStartTime: parsedStart } : {}),
+        durationMinutes: parseRequiredPositiveInteger(anchorDurationMinutes, "Anchor duration minutes"),
+        intensity: anchorIntensity,
+        ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
+        ...(trimmedNote ? { note: trimmedNote } : {})
+      };
+      setPendingAnchors((current) => [...current, draft]);
+      setStepError(null);
+      setAnchorEditorOpen(false);
+      resetAnchorEditor();
+    } catch (error) {
+      setStepError(error instanceof Error ? error.message : "Fixed anchor could not be added.");
+    }
+  };
+
+  const removePendingAnchor = (index: number) => {
+    setPendingAnchors((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const persistPendingAnchors = async () => {
+    if (!onSaveProtectedSession || pendingAnchors.length === 0) {
+      return;
+    }
+    for (const anchor of pendingAnchors) {
+      await onSaveProtectedSession(null, anchor);
+    }
+  };
+
   const saveBuild = async () => {
     if (!requireAvailability()) {
       return;
     }
     await runWithMessage(async () => {
+      await persistPendingAnchors();
       await onSaveBuildGoal({
         primaryFocus,
-        generatedSupportAvailableDays: selectedAvailableDays
+        supportDaysPerWeek,
+        generatedSupportAvailableDays: selectedAvailableDays,
+        scheduleAvailability: selectedAvailableDays,
+        planAction
       });
       onCancel();
     });
@@ -225,6 +341,7 @@ export function PlanGoalFlowCard({
       return;
     }
     await runWithMessage(async () => {
+      await persistPendingAnchors();
       const cap = parseOptionalPositiveNumber(postWeighInWeightCapKg, "Post-weigh-in cap");
       const contractedKg = parseRequiredPositiveNumber(contractedWeightKg, "Contracted weight", { example: "64" });
       const parsedWeighInDateTime = parseOptionalISODateTime(weighInDateTime, "Weigh-in datetime");
@@ -244,7 +361,9 @@ export function PlanGoalFlowCard({
         hydrationTestingRequired,
         ...(cap === undefined ? {} : { postWeighInWeightCapKg: cap }),
         timezone: "America/Vancouver",
-        generatedSupportAvailableDays: selectedAvailableDays
+        generatedSupportAvailableDays: selectedAvailableDays,
+        scheduleAvailability: selectedAvailableDays,
+        planAction
       });
       onCancel();
     });
@@ -255,6 +374,7 @@ export function PlanGoalFlowCard({
       return;
     }
     await runWithMessage(async () => {
+      await persistPendingAnchors();
       await onSaveTournamentSetup({
         tournamentStartDate: parseRequiredDateYYYYMMDD(tournamentStartDate, "Tournament start date"),
         tournamentEndDate: parseRequiredDateYYYYMMDD(tournamentEndDate, "Tournament end date"),
@@ -265,7 +385,9 @@ export function PlanGoalFlowCard({
         numberOfPotentialBouts: parseRequiredPositiveInteger(numberOfPotentialBouts, "Possible bouts"),
         rehydrationWindowHoursByDay: parseHourList(rehydrationWindowHoursByDay),
         strategyMode,
-        generatedSupportAvailableDays: selectedAvailableDays
+        generatedSupportAvailableDays: selectedAvailableDays,
+        scheduleAvailability: selectedAvailableDays,
+        planAction
       });
       onCancel();
     });
@@ -276,11 +398,14 @@ export function PlanGoalFlowCard({
       return;
     }
     await runWithMessage(async () => {
+      await persistPendingAnchors();
       const durationDays = parseOptionalPositiveInteger(recoveryDurationDays, "Recovery duration days");
       await onSaveRecoveryGoal({
         ...(durationDays === undefined ? {} : { durationDays }),
         focus: recoveryFocus,
-        generatedSupportAvailableDays: selectedAvailableDays
+        generatedSupportAvailableDays: selectedAvailableDays,
+        scheduleAvailability: selectedAvailableDays,
+        planAction
       });
       onCancel();
     });
@@ -322,12 +447,12 @@ export function PlanGoalFlowCard({
         `Focus: ${titleCase(recoveryFocus)}`
       ];
     }
-    return [`Primary focus: ${titleCase(primaryFocus)}`, "Support volume: prescribed by the engine"];
-  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, tournamentEndDate, tournamentStartDate, weighInType]);
+    return [`Primary focus: ${titleCase(primaryFocus)}`, `Support days per week: ${supportDaysPerWeek}`, "Support volume: prescribed by the engine"];
+  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, supportDaysPerWeek, tournamentEndDate, tournamentStartDate, weighInType]);
 
   return (
     <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-goal-flow-card">
+      <View accessibilityLabel="Plan generation wizard" style={{ gap: spacing.md }} testID="plan-generation-wizard">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Generate new plan</Text>
           <Text style={screenStyles.body}>A guided setup keeps the plan goal, availability, and details clear before saving.</Text>
@@ -359,7 +484,7 @@ export function PlanGoalFlowCard({
         {isMinor ? <Text style={screenStyles.subtle}>Minor athletes stay safety-first; acute weight-class shortcuts stay blocked.</Text> : null}
 
         {step === "goal" ? (
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: spacing.sm }} testID="plan-wizard-goal-step">
             <Text style={screenStyles.callout}>Step 1: Goal type</Text>
             <Text style={screenStyles.body}>Choose the boxing phase CornerIQ should plan around next.</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -368,22 +493,58 @@ export function PlanGoalFlowCard({
           </View>
         ) : null}
 
-        {step === "availability" ? (
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.callout}>Step 2: Available days</Text>
-            <Text style={screenStyles.body}>Generated support will only be placed on selected available days.</Text>
-            <Text style={screenStyles.subtle}>Fixed boxing sessions remain protected.</Text>
+        {step === "schedule" ? (
+          <View style={{ gap: spacing.md }} testID="plan-wizard-schedule-step">
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.callout}>Step 2: Schedule</Text>
+              <Text style={screenStyles.fieldLabel}>Generated support days</Text>
+              <Text style={screenStyles.body}>Generated support will only be placed on selected available days.</Text>
+              <Text style={screenStyles.subtle}>At least one generated-support day is required. Fixed anchors are separate and do not automatically make a day available.</Text>
+            </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {availableDayOptions.map((option) => (
                 <OptionButton active={selectedAvailableDays.includes(option.value)} busy={busy} key={option.value} label={option.label} onPress={() => toggleAvailableDay(option.value)} />
               ))}
             </View>
             <Text style={screenStyles.subtle}>Selected: {daySummary(selectedAvailableDays)}</Text>
+            <View style={{ gap: spacing.sm }} testID="plan-wizard-anchor-editor">
+              <Text style={screenStyles.fieldLabel}>Fixed anchors</Text>
+              <Text style={screenStyles.body}>Add fixed/protected sessions here before the plan is generated.</Text>
+              {pendingAnchors.length > 0 ? pendingAnchors.map((anchor, index) => (
+                <View key={`pending-anchor:${index}`} style={{ gap: spacing.xs }}>
+                  <Text style={screenStyles.body}>{anchorSummary(anchor)}</Text>
+                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => removePendingAnchor(index)} style={screenStyles.quietButton}>
+                    <Text style={screenStyles.quietButtonText}>Remove draft anchor</Text>
+                  </Pressable>
+                </View>
+              )) : <Text style={screenStyles.subtle}>No new fixed anchors added in this wizard yet.</Text>}
+              <Pressable accessibilityRole="button" accessibilityState={{ expanded: anchorEditorOpen }} disabled={busy} onPress={() => setAnchorEditorOpen((value) => !value)} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>{anchorEditorOpen ? "Hide anchor fields" : "Add fixed anchor"}</Text>
+              </Pressable>
+              {anchorEditorOpen ? (
+                <View style={{ gap: spacing.sm }}>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setAnchorType(option.value)} />)}
+                  </View>
+                  <TextInput onChangeText={setAnchorDate} placeholder="Date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDate} />
+                  <TextInput keyboardType="number-pad" onChangeText={setAnchorStartTime} placeholder="Time optional HH:MM" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorStartTime} />
+                  <TextInput keyboardType="number-pad" onChangeText={setAnchorDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDurationMinutes} />
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    {anchorIntensityOptions.map((option) => <OptionButton active={anchorIntensity === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setAnchorIntensity(option.value)} />)}
+                  </View>
+                  <TextInput keyboardType="number-pad" onChangeText={setAnchorRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorRounds} />
+                  <TextInput onChangeText={setAnchorNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorNote} />
+                  <Pressable accessibilityRole="button" disabled={busy} onPress={addPendingAnchor} style={screenStyles.button}>
+                    <Text style={screenStyles.buttonText}>Add anchor to review</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
           </View>
         ) : null}
 
         {step === "details" ? (
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: spacing.sm }} testID="plan-wizard-details-step">
             <Text style={screenStyles.callout}>Step 3: Goal-specific details</Text>
             <Text style={screenStyles.body}>{goalLabel(mode)}</Text>
             {mode === "build" ? (
@@ -392,6 +553,12 @@ export function PlanGoalFlowCard({
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {buildFocusOptions.map((option) => (
                     <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setPrimaryFocus(option)} />
+                  ))}
+                </View>
+                <Text style={screenStyles.fieldLabel}>Support days per week</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                  {supportDayOptions.map((option) => (
+                    <OptionButton active={supportDaysPerWeek === option} busy={busy} key={`support-days:${option}`} label={`${option}`} onPress={() => setSupportDaysPerWeek(option)} />
                   ))}
                 </View>
                 <Text style={screenStyles.subtle}>CornerIQ prescribes support volume from your phase, readiness, safety gates, and fixed boxing sessions.</Text>
@@ -474,9 +641,19 @@ export function PlanGoalFlowCard({
         ) : null}
 
         {step === "review" ? (
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: spacing.sm }} testID="plan-wizard-review-step">
             <Text style={screenStyles.callout}>Step 4: Review</Text>
             <Text style={screenStyles.body}>Readiness, safety, and phase rules still gate the final plan.</Text>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>Plan action</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                <OptionButton active={planAction === "start_new_plan"} busy={busy} label="Start new plan" onPress={() => setPlanAction("start_new_plan")} />
+                <OptionButton active={planAction === "amend_current_plan"} busy={busy} label="Amend current plan" onPress={() => setPlanAction("amend_current_plan")} />
+              </View>
+              <Text style={screenStyles.subtle}>
+                {planAction === "start_new_plan" ? "Starts week 1 and supersedes the prior active block without deleting history." : "Keeps the current week index and records the current plan as amended."}
+              </Text>
+            </View>
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Goal</Text>
               <Text style={screenStyles.body}>{goalLabel(mode)}</Text>
@@ -485,6 +662,17 @@ export function PlanGoalFlowCard({
               <Text style={screenStyles.fieldLabel}>Generated-support availability</Text>
               <Text style={screenStyles.body}>{daySummary(selectedAvailableDays)}</Text>
               <Text style={screenStyles.subtle}>Fixed boxing sessions remain protected.</Text>
+              <Text style={screenStyles.subtle}>Generated support uses only the selected availability above.</Text>
+            </View>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>New fixed anchors to save</Text>
+              {pendingAnchors.length > 0 ? pendingAnchors.map((anchor, index) => <Text key={`review-anchor:${index}`} style={screenStyles.body}>{anchorSummary(anchor)}</Text>) : <Text style={screenStyles.subtle}>No new fixed anchors in this wizard.</Text>}
+            </View>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>Existing fixed anchors</Text>
+              {existingFixedSchedule.length > 0 ? existingFixedSchedule.slice(0, 6).map((anchor) => (
+                <Text key={`existing-anchor:${anchor.id}`} style={screenStyles.body}>{anchor.date}: {anchor.typeLabel}{anchor.startTime ? ` at ${anchor.startTime}` : ""}, {anchor.durationMinutes} min</Text>
+              )) : <Text style={screenStyles.subtle}>No existing fixed anchors are already on the plan.</Text>}
             </View>
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Key details</Text>

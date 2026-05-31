@@ -86,6 +86,12 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
     state: readyState,
     userId: session.user.id
   });
+  const generationStatus =
+    performance.generationStatus !== "idle"
+      ? performance.generationStatus
+      : trainingPlanAdjustments.generationStatus !== "idle"
+        ? trainingPlanAdjustments.generationStatus
+        : nextWeekPreviewActions.generationStatus;
 
   useEffect(() => {
     void performance.refresh();
@@ -120,6 +126,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       <AppTabs
       busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy || betaFeedback.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
+      generationStatus={generationStatus}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onAcknowledgeNutritionSafetyReview={performance.acknowledgeNutritionSafetyReview}
       onDeleteProtectedSession={performance.deleteProtectedSession}
@@ -259,6 +266,7 @@ function LocalE2EApp() {
   const trainingPlanAdjustments = useMemo<TrainingPlanAdjustmentsHook>(
     () => ({
       busy: false,
+      generationStatus: "idle",
       message: null,
       actions: {
         protectDay: async (date) => {
@@ -318,6 +326,7 @@ function LocalE2EApp() {
   const nextWeekPreviewActions = useMemo<NextWeekPreviewActionsHook>(
     () => ({
       busy: false,
+      generationStatus: "idle",
       message: null,
       actions: {
         acceptPreview: async (previewId) => {
@@ -409,6 +418,7 @@ function LocalE2EApp() {
         })}
         busy={false}
         cycleSymptomOptions={cycleSymptomOptions}
+        generationStatus="idle"
         message={message}
         onAcknowledgeNutritionSafetyReview={async () => {
           setMessage("Local E2E nutrition review acknowledgement stayed local. No Supabase call was made.");

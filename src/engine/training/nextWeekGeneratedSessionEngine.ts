@@ -73,7 +73,11 @@ function activeUnderfueling(flags: readonly RiskFlag[]): boolean {
 }
 
 function activeHardStop(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness" | "safetyFlags">): boolean {
-  return input.readiness.color === "red" || input.safetyFlags.some((flag) => flag.status === "active" && flag.hardStop);
+  return input.safetyFlags.some((flag) => flag.status === "active" && flag.hardStop);
+}
+
+function redReadiness(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness">): boolean {
+  return input.readiness.color === "red";
 }
 
 function highCycleSymptoms(cycle: CycleState): boolean {
@@ -116,7 +120,7 @@ function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput)
   const hardStop = activeHardStop(input);
   const underfueling = activeUnderfueling(input.safetyFlags);
   const cycleTrim = highCycleSymptoms(input.cycle);
-  if (hardStop) {
+  if (hardStop || redReadiness(input)) {
     return 1;
   }
   const base =
@@ -136,7 +140,7 @@ function allowedFamilyForContext(input: NextWeekGeneratedSessionMaterializationI
   const hardStop = activeHardStop(input);
   const underfueling = activeUnderfueling(input.safetyFlags);
   const cycleTrim = highCycleSymptoms(input.cycle);
-  if (hardStop) {
+  if (hardStop || redReadiness(input)) {
     return "recovery_reset";
   }
   if (strategy === "tournament_conserve") {
@@ -309,6 +313,7 @@ function baseShape(family: GeneratedSessionFamily): SessionShape {
 function adjustedShape(input: NextWeekGeneratedSessionMaterializationInput, family: GeneratedSessionFamily, protectedHard: boolean): SessionShape {
   const shape = baseShape(family);
   const hardStop = activeHardStop(input);
+  const readinessRed = redReadiness(input);
   const underfueling = activeUnderfueling(input.safetyFlags);
   const cycleTrim = highCycleSymptoms(input.cycle);
   const conservativeStrategy =
@@ -318,16 +323,17 @@ function adjustedShape(input: NextWeekGeneratedSessionMaterializationInput, fami
     input.materialization.materializedVolumeStrategy === "hold_for_review";
   return {
     ...shape,
-    durationMinutes: Math.max(12, Math.min(shape.durationMinutes, hardStop ? 16 : cycleTrim || protectedHard || conservativeStrategy ? 22 : shape.durationMinutes)),
-    intensity: hardStop ? "recovery" : conservativeStrategy && shape.intensity === "moderate" ? "easy" : shape.intensity,
+    durationMinutes: Math.max(12, Math.min(shape.durationMinutes, hardStop || readinessRed ? 16 : cycleTrim || protectedHard || conservativeStrategy ? 22 : shape.durationMinutes)),
+    intensity: hardStop || readinessRed ? "recovery" : conservativeStrategy && shape.intensity === "moderate" ? "easy" : shape.intensity,
     modifications: [
       ...shape.modifications,
       ...(underfueling ? ["Under-fueling risk: progression and high fuel-demand work removed."] : []),
       ...(cycleTrim ? ["High cycle symptoms: optional volume trimmed."] : []),
-      ...(hardStop ? ["Red readiness or hard-stop flag: recovery only."] : []),
+      ...(hardStop ? ["Safety hard stop active: recovery only."] : []),
+      ...(readinessRed && !hardStop ? ["Readiness is red, so CornerIQ generated recovery-only work."] : []),
       ...(protectedHard ? ["Protected hard boxing anchor owns the stress; generated work stays easy."] : [])
     ],
-    fuelDemand: underfueling || conservativeStrategy || hardStop ? "low" : shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
+    fuelDemand: underfueling || conservativeStrategy || hardStop || readinessRed ? "low" : shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
   };
 }
 

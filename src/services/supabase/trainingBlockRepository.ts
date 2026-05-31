@@ -283,6 +283,19 @@ export function createTrainingBlockRepository(client: CornerSupabaseClient) {
       return { ids: rows.map((row) => row.id) };
     },
 
+    async supersedeActiveTrainingBlock(userId: string, trainingBlockId: string): Promise<{ ids: readonly string[] }> {
+      const safeUserId = assertUserId(userId, "training_blocks.supersedeActiveTrainingBlock");
+      const response = await client
+        .from("training_blocks")
+        .update({ status: "superseded", superseded_at: new Date().toISOString(), superseded_by: null })
+        .eq("user_id", safeUserId)
+        .eq("id", trainingBlockId)
+        .eq("status", "active")
+        .select("id");
+      const rows = readDataOrThrow(response, "training_blocks.supersedeActiveTrainingBlock");
+      return { ids: rows.map((row) => row.id) };
+    },
+
     async listTrainingPlanAdjustments(userId: string, trainingBlockId: string | null = null): Promise<PersistedTrainingPlanAdjustment[]> {
       const safeUserId = assertUserId(userId, "training_plan_adjustments.listTrainingPlanAdjustments");
       const query = client
