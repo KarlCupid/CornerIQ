@@ -111,7 +111,11 @@ export function validateOnboardingStep(draft: OnboardingDraft, stepIndex: number
   }
   if (stepIndex === 3) {
     const invalidAnchor = draft.protectedSchedule.find((anchor) => !validISODate(anchor.date) || !Number.isInteger(anchor.durationMinutes) || anchor.durationMinutes <= 0);
-    return invalidAnchor ? "Protected schedule anchors need a real date and positive duration." : null;
+    const invalidRecurringAnchor = (draft.recurringProtectedSchedule ?? []).find((anchor) => !Number.isInteger(anchor.durationMinutes) || anchor.durationMinutes <= 0);
+    if (invalidAnchor) {
+      return "One-off protected sessions need a real date and positive duration.";
+    }
+    return invalidRecurringAnchor ? "Weekly protected anchors need a weekday and positive duration." : null;
   }
   if (stepIndex === 6) {
     return Number.isInteger(draft.safety.ageYears) && draft.safety.ageYears >= 5 && draft.safety.ageYears <= 80 ? null : "Age is required for safety screening.";

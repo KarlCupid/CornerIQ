@@ -56,6 +56,7 @@ export type ProtectedWorkoutType =
   | "recovery_day";
 
 export type SessionIntensity = "easy" | "moderate" | "hard" | "max";
+export type WeeklyProtectedAnchorWeekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 export type ExerciseCategory =
   | "warm_up"
   | "main_strength"
@@ -78,6 +79,22 @@ export interface ProtectedWorkout {
   protected: true;
   rounds?: number | undefined;
   note?: string | undefined;
+  recurringAnchorId?: string | undefined;
+  recurringAnchorWeekday?: WeeklyProtectedAnchorWeekday | undefined;
+}
+
+export interface RecurringProtectedWorkoutAnchor {
+  id: string;
+  type: ProtectedWorkoutType;
+  weekday: WeeklyProtectedAnchorWeekday;
+  localStartTime?: string | undefined;
+  durationMinutes: number;
+  intensity: SessionIntensity;
+  protected: true;
+  rounds?: number | undefined;
+  note?: string | undefined;
+  activeFrom?: ISODateString | undefined;
+  activeUntil?: ISODateString | undefined;
 }
 
 export interface CompletedTrainingSession {

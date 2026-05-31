@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AthleteProfileSchema, FightOpportunitySchema, ProtectedWorkoutSchema, TournamentDetailsSchema } from "../../engine/core/schemas";
+import { AthleteProfileSchema, FightOpportunitySchema, ProtectedWorkoutSchema, RecurringProtectedWorkoutAnchorSchema, TournamentDetailsSchema } from "../../engine/core/schemas";
 import type {
   AthleteProfile,
   CycleTrackingPreference,
@@ -7,6 +7,7 @@ import type {
   ISODateString,
   JourneyEventType,
   ProtectedWorkout,
+  RecurringProtectedWorkoutAnchor,
   TournamentDetails,
   WearablePreference
 } from "../../engine/core/types";
@@ -23,16 +24,33 @@ const GeneratedSupportAvailableDaysSchema = z
 const PlanLifecycleActionSchema = z.enum(["start_new_plan", "amend_current_plan"]);
 
 export const BoxingLevelSchema = z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]);
+const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
+const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
+const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+
 export const ProtectedWorkoutDraftSchema = z.object({
   id: z.string().min(1).optional(),
-  type: z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]),
+  type: ProtectedWorkoutTypeSchema,
   date: ISODateSchema,
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   durationMinutes: z.number().int().positive(),
-  intensity: z.enum(["easy", "moderate", "hard", "max"]),
+  intensity: SessionIntensitySchema,
   rounds: z.number().int().nonnegative().optional(),
   note: z.string().optional()
+});
+
+export const RecurringProtectedWorkoutAnchorDraftSchema = z.object({
+  id: z.string().min(1).optional(),
+  type: ProtectedWorkoutTypeSchema,
+  weekday: WeeklyProtectedAnchorWeekdaySchema,
+  localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  durationMinutes: z.number().int().positive(),
+  intensity: SessionIntensitySchema,
+  rounds: z.number().int().nonnegative().optional(),
+  note: z.string().optional(),
+  activeFrom: ISODateSchema.optional(),
+  activeUntil: ISODateSchema.optional()
 });
 
 export const FightSetupDraftSchema = z.object({
@@ -92,6 +110,7 @@ export const OnboardingDraftSchema = z.object({
     scheduleAvailability: z.array(z.string().min(1)).min(1)
   }),
   protectedSchedule: z.array(ProtectedWorkoutDraftSchema),
+  recurringProtectedSchedule: z.array(RecurringProtectedWorkoutAnchorDraftSchema).optional(),
   cycleSupport: z.object({
     preference: z.enum(["enabled", "disabled", "undecided"])
   }),
@@ -145,6 +164,7 @@ export const RecoveryGoalDraftSchema = z.object({
 });
 
 export type ProtectedWorkoutDraft = z.infer<typeof ProtectedWorkoutDraftSchema>;
+export type RecurringProtectedWorkoutAnchorDraft = z.infer<typeof RecurringProtectedWorkoutAnchorDraftSchema>;
 export type FightSetupDraft = z.infer<typeof FightSetupDraftSchema>;
 export type TournamentSetupDraft = z.infer<typeof TournamentSetupDraftSchema>;
 export type OnboardingDraft = z.infer<typeof OnboardingDraftSchema>;
@@ -172,6 +192,26 @@ export function workoutFromDraft(draft: ProtectedWorkoutDraft, index: number): P
       note: draft.note
     },
     "onboarding.protectedWorkout"
+  );
+}
+
+export function recurringAnchorFromDraft(draft: RecurringProtectedWorkoutAnchorDraft, index: number): RecurringProtectedWorkoutAnchor {
+  return parseWithSchema(
+    RecurringProtectedWorkoutAnchorSchema,
+    {
+      id: draft.id ?? `recurring_${draft.type}_${draft.weekday}_${index}`,
+      type: draft.type,
+      weekday: draft.weekday,
+      ...(draft.localStartTime ? { localStartTime: draft.localStartTime } : {}),
+      durationMinutes: draft.durationMinutes,
+      intensity: draft.intensity,
+      protected: true,
+      rounds: draft.rounds,
+      note: draft.note,
+      ...(draft.activeFrom ? { activeFrom: draft.activeFrom } : {}),
+      ...(draft.activeUntil ? { activeUntil: draft.activeUntil } : {})
+    },
+    "onboarding.recurringProtectedWorkoutAnchor"
   );
 }
 
@@ -227,6 +267,7 @@ export function tournamentDetailsFromDraft(draft: TournamentSetupDraft): Tournam
 
 function athleteProfileFromDraft(userId: string, draft: OnboardingDraft): AthleteProfile {
   const protectedWorkouts = draft.protectedSchedule.map(workoutFromDraft);
+  const recurringProtectedAnchors = (draft.recurringProtectedSchedule ?? []).map(recurringAnchorFromDraft);
   const profile: AthleteProfile = {
     athleteId: userId,
     ageYears: draft.safety.ageYears,
@@ -253,6 +294,7 @@ function athleteProfileFromDraft(userId: string, draft: OnboardingDraft): Athlet
     equipmentAccess: draft.trainingAccess.equipmentAccess,
     scheduleAvailability: draft.trainingAccess.scheduleAvailability,
     protectedBoxingSchedule: protectedWorkouts,
+    recurringProtectedAnchors,
     cycleTrackingPreference: draft.cycleSupport.preference,
     wearablePreference: draft.wearablePreference.preference
   };
@@ -391,6 +433,52 @@ function sortProtectedSchedule(workouts: readonly ProtectedWorkout[]): Protected
   });
 }
 
+function sameRecurringAnchor(left: RecurringProtectedWorkoutAnchor, right: RecurringProtectedWorkoutAnchor): boolean {
+  return (
+    left.type === right.type &&
+    left.weekday === right.weekday &&
+    optionalStringValue(left.localStartTime) === optionalStringValue(right.localStartTime) &&
+    left.durationMinutes === right.durationMinutes &&
+    left.intensity === right.intensity &&
+    (left.rounds ?? null) === (right.rounds ?? null) &&
+    optionalStringValue(left.note) === optionalStringValue(right.note) &&
+    optionalStringValue(left.activeFrom) === optionalStringValue(right.activeFrom) &&
+    optionalStringValue(left.activeUntil) === optionalStringValue(right.activeUntil)
+  );
+}
+
+function sortRecurringAnchors(anchors: readonly RecurringProtectedWorkoutAnchor[]): RecurringProtectedWorkoutAnchor[] {
+  const order: Record<RecurringProtectedWorkoutAnchor["weekday"], number> = {
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+    sunday: 7
+  };
+  return [...anchors].sort((left, right) => {
+    const day = order[left.weekday] - order[right.weekday];
+    if (day !== 0) {
+      return day;
+    }
+    return optionalStringValue(left.localStartTime).localeCompare(optionalStringValue(right.localStartTime));
+  });
+}
+
+function removeRecurringAnchorMatches(input: {
+  fallback: RecurringProtectedWorkoutAnchor | null;
+  id: string | null;
+  anchors: readonly RecurringProtectedWorkoutAnchor[];
+}): RecurringProtectedWorkoutAnchor[] {
+  return input.anchors.filter((anchor) => {
+    if (input.id && anchor.id === input.id) {
+      return false;
+    }
+    return input.fallback ? !sameRecurringAnchor(anchor, input.fallback) : true;
+  });
+}
+
 function findMatchingProtectedSession(input: {
   fallback: ProtectedWorkout | null;
   workoutId: string | null;
@@ -496,6 +584,7 @@ export async function completeOnboarding(input: {
   await input.repositories.journey.appendEvent(userId, "OnboardingCompleted", {
     goalPhase: draft.goal.phase,
     protectedWorkoutCount: protectedWorkouts.length,
+    recurringProtectedAnchorCount: profile.recurringProtectedAnchors?.length ?? 0,
     wearablePreference: draft.wearablePreference.preference,
     cycleTrackingPreference: draft.cycleSupport.preference
   });
@@ -644,6 +733,63 @@ export async function saveProtectedSession(input: {
   return { id: result.id, profile: nextProfile };
 }
 
+export async function saveRecurringProtectedAnchor(input: {
+  userId: string;
+  currentProfile: AthleteProfile;
+  anchorId?: string | null | undefined;
+  anchor: RecurringProtectedWorkoutAnchorDraft;
+  repositories: AthleteJourneyRepositories;
+  source?: "onboarding" | "settings" | "plan";
+}): Promise<{ id: string; profile: AthleteProfile }> {
+  const userId = assertUserId(input.userId, "recurringProtectedAnchor.saveRecurringProtectedAnchor");
+  const draft = parseWithSchema(RecurringProtectedWorkoutAnchorDraftSchema, input.anchor, "recurringProtectedAnchor.saveRecurringProtectedAnchor");
+  const currentAnchors = input.currentProfile.recurringProtectedAnchors ?? [];
+  const existingAnchor =
+    input.anchorId
+      ? currentAnchors.find((anchor) => anchor.id === input.anchorId) ?? null
+      : draft.id
+        ? currentAnchors.find((anchor) => anchor.id === draft.id) ?? null
+        : null;
+  const requestedId = existingAnchor?.id ?? input.anchorId ?? draft.id ?? `recurring_${draft.type}_${draft.weekday}_${currentAnchors.length}`;
+  const anchor = recurringAnchorFromDraft({ ...draft, id: requestedId }, currentAnchors.length);
+  const nextAnchors = sortRecurringAnchors([
+    ...removeRecurringAnchorMatches({
+      fallback: existingAnchor,
+      id: input.anchorId ?? draft.id ?? anchor.id,
+      anchors: currentAnchors
+    }),
+    anchor
+  ]);
+  const nextProfile = {
+    ...input.currentProfile,
+    recurringProtectedAnchors: nextAnchors
+  };
+  await input.repositories.athlete.upsertProfile(userId, nextProfile);
+  await input.repositories.journey.appendEvent(userId, "ProtectedWorkoutPlanned", {
+    action: input.anchorId ? "updated" : "created",
+    recurring: true,
+    anchorId: anchor.id,
+    type: anchor.type,
+    weekday: anchor.weekday,
+    source: input.source ?? "plan"
+  });
+  return { id: anchor.id, profile: nextProfile };
+}
+
+export async function deleteRecurringProtectedAnchor(input: {
+  userId: string;
+  currentProfile: AthleteProfile;
+  anchorId: string;
+  repositories: AthleteJourneyRepositories;
+}): Promise<void> {
+  const userId = assertUserId(input.userId, "recurringProtectedAnchor.deleteRecurringProtectedAnchor");
+  const nextAnchors = (input.currentProfile.recurringProtectedAnchors ?? []).filter((anchor) => anchor.id !== input.anchorId);
+  await input.repositories.athlete.upsertProfile(userId, {
+    ...input.currentProfile,
+    recurringProtectedAnchors: nextAnchors
+  });
+}
+
 export async function deleteProtectedSession(input: {
   userId: string;
   currentProfile: AthleteProfile;
@@ -734,13 +880,15 @@ export function createDefaultOnboardingDraft(asOfDate: ISODateString): Onboardin
       equipmentAccess: [...DEFAULT_BOXING_EQUIPMENT],
       scheduleAvailability: [...DEFAULT_BOXING_AVAILABILITY]
     },
-    protectedSchedule: [
+    protectedSchedule: [],
+    recurringProtectedSchedule: [
       {
         type: "technical_session",
-        date: asOfDate,
+        weekday: "wednesday",
         durationMinutes: 45,
         intensity: "moderate",
-        note: "Coach-led technical work"
+        note: "Coach-led technical work",
+        activeFrom: asOfDate
       }
     ],
     cycleSupport: {

@@ -1,4 +1,5 @@
 import { combineConfidence } from "./confidence";
+import { addDays } from "./dates";
 import { traceDecision } from "./decisionTrace";
 import type { EngineViewModels, PerformanceState, ResolvePerformanceStateInput } from "./types";
 import { resolvePhase } from "../phase/phaseController";
@@ -9,6 +10,7 @@ import { resolveBodyMassState, resolveBodyMassTrend } from "../bodyMass/bodyMass
 import { resolveAcuteProtocolEligibility, resolveWeighInContext, resolveWeightClassFeasibility } from "../fight/weighInRules";
 import { resolveTournamentStrategy } from "../fight/tournamentEngine";
 import { resolveWeeklyTrainingPlan } from "../training/weeklyPlanEngine";
+import { materializeProtectedWorkoutAnchors } from "../training/protectedAnchors";
 import { resolveNutrition } from "../nutrition/nutritionEngine";
 import { resolveHydration } from "../nutrition/hydrationEngine";
 import { assessDehydrationRisk } from "../safety/dehydrationRisk";
@@ -68,7 +70,13 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   });
   const todayCheckIn = journey.readinessHistory.find((checkIn) => checkIn.date === input.asOfDate);
   const trend = resolveBodyMassTrend(journey.bodyMassHistory, input.asOfDate);
-  const anchors = [...journey.athlete.protectedBoxingSchedule, ...journey.protectedWorkouts];
+  const concreteAnchors = [...journey.athlete.protectedBoxingSchedule, ...journey.protectedWorkouts];
+  const anchors = materializeProtectedWorkoutAnchors({
+    concreteWorkouts: concreteAnchors,
+    recurringAnchors: journey.athlete.recurringProtectedAnchors ?? [],
+    startDate: input.asOfDate,
+    endDate: addDays(input.asOfDate, 13)
+  });
   const blockHistory = trainingBlockHistoryFor(journey);
   const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,

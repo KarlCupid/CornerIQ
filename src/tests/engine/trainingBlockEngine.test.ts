@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { CompletedTrainingSession, ExerciseResultRecord, ProtectedWorkout } from "../../engine/core/types";
+import type { CompletedTrainingSession, ExerciseResultRecord, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
 import {
   amateur_novice_build,
   amateur_open_tournament,
@@ -46,6 +47,44 @@ const painExercise: ExerciseResultRecord = {
 };
 
 describe("training block and microcycle engine", () => {
+  it("materializes weekly recurring anchors into deterministic dated protected workouts", () => {
+    const weekly: RecurringProtectedWorkoutAnchor = {
+      id: "weekly_boxing_monday",
+      type: "boxing_class",
+      weekday: "monday",
+      localStartTime: "18:00",
+      durationMinutes: 60,
+      intensity: "moderate",
+      protected: true
+    };
+    const existing: ProtectedWorkout = {
+      id: "existing_boxing_2026-05-25",
+      type: "boxing_class",
+      date: "2026-05-25",
+      startTime: "18:00",
+      localStartTime: "18:00",
+      durationMinutes: 60,
+      intensity: "moderate",
+      protected: true
+    };
+
+    const withoutDuplicate = materializeRecurringProtectedAnchors({
+      recurringAnchors: [weekly],
+      startDate: "2026-05-19",
+      endDate: "2026-06-01",
+      existingWorkouts: [existing]
+    });
+    const materialized = materializeRecurringProtectedAnchors({
+      recurringAnchors: [weekly],
+      startDate: "2026-05-19",
+      endDate: "2026-06-01"
+    });
+
+    expect(materialized.map((anchor) => anchor.date)).toEqual(["2026-05-25", "2026-06-01"]);
+    expect(materialized[0]).toEqual(expect.objectContaining({ id: "recurring_weekly_boxing_monday_2026-05-25", recurringAnchorId: "weekly_boxing_monday", startTime: "18:00" }));
+    expect(withoutDuplicate.map((anchor) => anchor.date)).toEqual(["2026-06-01"]);
+  });
+
   it("build phase creates aerobic base for novice and strength for established boxer", () => {
     const novice = resolvePerformanceState({ journey: amateur_novice_build, asOfDate: fixtureAsOfDate });
     const established = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
@@ -140,6 +179,35 @@ describe("training block and microcycle engine", () => {
     expect(state.training.generatedSessions.length).toBeGreaterThan(0);
     expect(state.training.generatedSessions.every((session) => new Date(`${session.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
     expect(state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).every((day) => new Date(`${day.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
+  });
+
+  it("keeps generated support availability separate from weekly recurring anchors", () => {
+    const recurringMonday: RecurringProtectedWorkoutAnchor = {
+      id: "weekly_sparring_monday",
+      type: "sparring",
+      weekday: "monday",
+      localStartTime: "18:00",
+      durationMinutes: 75,
+      intensity: "hard",
+      protected: true,
+      rounds: 6
+    };
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "thursday"],
+          recurringProtectedAnchors: [recurringMonday]
+        },
+        protectedWorkouts: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.dayPlans.find((day) => day.date === "2026-05-25")?.protectedAnchors[0]).toEqual(expect.objectContaining({ recurringAnchorId: "weekly_sparring_monday", type: "sparring" }));
+    expect(state.training.generatedSessions.every((session) => ["2026-05-19", "2026-05-21"].includes(session.date))).toBe(true);
+    expect(state.training.nextWeekMaterialization.nextWeekDayPlanPreview.find((day) => day.date === "2026-06-01")?.protectedAnchors.join(" ")).toContain("sparring");
   });
 
   it("empty or missing schedule availability preserves legacy generated placement", () => {

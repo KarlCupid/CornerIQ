@@ -33,6 +33,7 @@ export function buildDemoAthleteProfile(userId: string): AthleteProfile {
     equipmentAccess: ["jump_rope", "bands"],
     scheduleAvailability: ["mon_pm", "wed_pm", "sat_am"],
     protectedBoxingSchedule: [],
+    recurringProtectedAnchors: [],
     cycleTrackingPreference: "undecided",
     wearablePreference: "manual_only"
   };

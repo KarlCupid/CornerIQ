@@ -3,19 +3,19 @@ import { Pressable, Text, View } from "react-native";
 import { useFormMessage } from "../../../forms/useFormMessage";
 import { parseRequiredPositiveInteger } from "../../../forms/validation";
 import { colors, spacing } from "../../../../design/theme";
-import type { ProtectedWorkoutDraft } from "../../../../services/supabase/onboardingService";
+import type { ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft } from "../../../../services/supabase/onboardingService";
 import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
 
 const weekdays = [
-  { label: "Monday", value: 1 },
-  { label: "Tuesday", value: 2 },
-  { label: "Wednesday", value: 3 },
-  { label: "Thursday", value: 4 },
-  { label: "Friday", value: 5 },
-  { label: "Saturday", value: 6 },
-  { label: "Sunday", value: 0 }
+  { label: "Monday", value: "monday" },
+  { label: "Tuesday", value: "tuesday" },
+  { label: "Wednesday", value: "wednesday" },
+  { label: "Thursday", value: "thursday" },
+  { label: "Friday", value: "friday" },
+  { label: "Saturday", value: "saturday" },
+  { label: "Sunday", value: "sunday" }
 ] as const;
 
 const timeOfDayOptions = ["No set time", "Morning", "Afternoon", "Evening"] as const;
@@ -26,6 +26,7 @@ const anchorTypes: Array<{ label: string; value: ProtectedWorkoutDraft["type"] }
   { label: "Technical session", value: "technical_session" },
   { label: "Pads or mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
+  { label: "Footwork", value: "footwork_session" },
   { label: "Coach-led sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Coach-assigned strength", value: "coach_assigned_strength" },
@@ -33,26 +34,8 @@ const anchorTypes: Array<{ label: string; value: ProtectedWorkoutDraft["type"] }
   { label: "Recovery day", value: "recovery_day" }
 ];
 
-function isoDateForWeekday(referenceDate: string, weekday: number): string {
-  const reference = new Date(`${referenceDate}T00:00:00.000Z`);
-  if (Number.isNaN(reference.getTime())) {
-    return referenceDate;
-  }
-  const mondayOffset = (reference.getUTCDay() + 6) % 7;
-  const start = new Date(reference);
-  start.setUTCDate(reference.getUTCDate() - mondayOffset);
-  const target = new Date(start);
-  const targetOffset = weekday === 0 ? 6 : weekday - 1;
-  target.setUTCDate(start.getUTCDate() + targetOffset);
-  return target.toISOString().slice(0, 10);
-}
-
-function weekdayLabel(date: string): string {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Weekly";
-  }
-  return weekdays.find((day) => day.value === parsed.getUTCDay())?.label ?? "Weekly";
+function weekdayLabel(weekday: RecurringProtectedWorkoutAnchorDraft["weekday"]): string {
+  return weekdays.find((day) => day.value === weekday)?.label ?? "Weekly";
 }
 
 function humanType(type: ProtectedWorkoutDraft["type"]): string {
@@ -72,7 +55,7 @@ function intensityForRpe(rpe: RpeOption): ProtectedWorkoutDraft["intensity"] {
   return "max";
 }
 
-function rpeSummary(workout: ProtectedWorkoutDraft): string {
+function rpeSummary(workout: Pick<ProtectedWorkoutDraft, "intensity" | "note">): string {
   const noteRpe = workout.note?.match(/\bRPE\s+(10|[1-9])\b/i)?.[1];
   if (noteRpe) {
     return `RPE ${noteRpe}`;
@@ -91,7 +74,7 @@ function rpeSummary(workout: ProtectedWorkoutDraft): string {
 
 export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProps) {
   const [type, setType] = useState<ProtectedWorkoutDraft["type"]>("technical_session");
-  const [weekday, setWeekday] = useState((draft.protectedSchedule[0]?.date ? new Date(`${draft.protectedSchedule[0].date}T00:00:00.000Z`).getUTCDay() : 2) as (typeof weekdays)[number]["value"]);
+  const [weekday, setWeekday] = useState<RecurringProtectedWorkoutAnchorDraft["weekday"]>(draft.recurringProtectedSchedule?.[0]?.weekday ?? "wednesday");
   const [timeOfDay, setTimeOfDay] = useState<(typeof timeOfDayOptions)[number]>("Evening");
   const [durationMinutes, setDurationMinutes] = useState("45");
   const [rpe, setRpe] = useState<RpeOption>(6);
@@ -99,20 +82,18 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
 
   const addAnchor = () => {
     void runWithMessage(async () => {
-      const referenceDate = draft.protectedSchedule[0]?.date ?? new Date().toISOString().slice(0, 10);
-      const mappedDate = isoDateForWeekday(referenceDate, weekday);
       const dayLabel = weekdays.find((day) => day.value === weekday)?.label ?? "weekly";
       const timeNote = timeOfDay === "No set time" ? "no set time" : timeOfDay.toLowerCase();
       updateDraft((current) => ({
         ...current,
-        protectedSchedule: [
-          ...current.protectedSchedule,
+        recurringProtectedSchedule: [
+          ...(current.recurringProtectedSchedule ?? []),
           {
             type,
-            date: mappedDate,
+            weekday,
             durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Anchor duration"),
             intensity: intensityForRpe(rpe),
-            note: `RPE ${rpe}; recurring weekly ${dayLabel} ${timeNote} anchor mapped to ${mappedDate}`
+            note: `RPE ${rpe}; weekly ${dayLabel} ${timeNote} anchor`
           }
         ]
       }));
@@ -129,9 +110,9 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
       <Text style={screenStyles.exampleText}>Example: Thursday coach-led sparring, 90 min, RPE 8.</Text>
       <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, RPE 2.</Text>
       {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
-      {draft.protectedSchedule.map((workout, index) => (
+      {(draft.recurringProtectedSchedule ?? []).map((workout, index) => (
         <Text key={`protected-anchor:${index}`} style={screenStyles.body}>
-          Weekly {weekdayLabel(workout.date)} - {humanType(workout.type)} - {workout.durationMinutes} min - {rpeSummary(workout)}
+          Every {weekdayLabel(workout.weekday)} - {humanType(workout.type)} - {workout.durationMinutes} min - {rpeSummary(workout)}
         </Text>
       ))}
       <FieldGroup helper="Choose the day this usually repeats each week." label="Day of week">

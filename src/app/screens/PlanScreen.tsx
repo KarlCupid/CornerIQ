@@ -9,7 +9,7 @@ import { RiskBanner } from "../../design/components/RiskBanner";
 import { spacing } from "../../design/theme";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
-import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
+import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { screenStyles } from "./screenStyles";
@@ -27,6 +27,7 @@ export interface PlanScreenProps {
   onSaveBuildGoal?: ((draft: BuildGoalDraft) => Promise<void>) | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   onSaveProtectedSession?: ((workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>) | undefined;
+  onSaveRecurringProtectedAnchor?: ((anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>) | undefined;
   onSaveRecoveryGoal?: ((draft: RecoveryGoalDraft) => Promise<void>) | undefined;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   viewModel: PlanViewModel;
@@ -176,7 +177,7 @@ function CompactWeekPreviewCard({ viewModel }: { viewModel: PlanViewModel }) {
           {viewModel.dayPlans.map((day) => (
             <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>{day.label}</Text>
-              <Text style={screenStyles.subtle}>Fixed boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
+              <Text style={screenStyles.subtle}>Protected boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
               <Text style={screenStyles.subtle}>Support work: {friendlySupportText(day.generatedSupport)}</Text>
               {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
               {day.warningSummary ? <Text style={screenStyles.subtle}>Review: {day.warningSummary}</Text> : null}
@@ -209,9 +210,9 @@ function GeneratedSupportSummaryCard({
           <Text style={screenStyles.sectionTitle}>Generated support</Text>
           <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support session")}</Text>
           <Text style={screenStyles.body}>Generated support days: {viewModel.scheduleAvailabilitySummary}</Text>
-          <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds support work around your fixed boxing sessions, readiness, and safety."}</Text>
+          <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds support work around your protected boxing anchors, readiness, and safety."}</Text>
           <Text style={screenStyles.subtle}>Generated support will only be placed on selected available days.</Text>
-          <Text style={screenStyles.subtle}>Fixed boxing sessions remain protected.</Text>
+          <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
           <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -274,6 +275,7 @@ export function PlanScreen({
   onSaveBuildGoal,
   onSaveFightSetup,
   onSaveProtectedSession,
+  onSaveRecurringProtectedAnchor,
   onSaveRecoveryGoal,
   onSaveTournamentSetup,
   viewModel
@@ -308,12 +310,14 @@ export function PlanScreen({
           busy={goalBusy}
           currentModeLabel={viewModel.modeLabel}
           existingFixedSchedule={viewModel.fixedSchedule}
+          existingWeeklyAnchors={viewModel.weeklyAnchors}
           initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
           isMinor={isMinor}
           onCancel={() => setGoalFlowOpen(false)}
           onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
           onSaveFightSetup={onSaveFightSetup}
           onSaveProtectedSession={onSaveProtectedSession}
+          onSaveRecurringProtectedAnchor={onSaveRecurringProtectedAnchor}
           onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
           onSaveTournamentSetup={onSaveTournamentSetup}
         />
@@ -324,6 +328,7 @@ export function PlanScreen({
         busy={scheduleBusy}
         onDelete={onDeleteProtectedSession ?? (async () => undefined)}
         onSave={onSaveProtectedSession ?? (async () => undefined)}
+        weeklyAnchors={viewModel.weeklyAnchors}
         sessions={viewModel.fixedSchedule}
       />
       <GeneratedSupportSummaryCard

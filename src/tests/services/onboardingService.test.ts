@@ -8,6 +8,7 @@ import {
   createDefaultOnboardingDraft,
   createDefaultTournamentDraft,
   deleteProtectedSession,
+  saveRecurringProtectedAnchor,
   saveBuildGoal,
   saveFightSetup,
   saveProtectedSession,
@@ -163,7 +164,7 @@ async function resolveFromStore(repositories: AthleteJourneyRepositories) {
 }
 
 describe("onboardingService", () => {
-  it("valid build-phase onboarding writes profile, body mass, anchors, and events", async () => {
+  it("valid build-phase onboarding writes profile, body mass, weekly anchors, and events", async () => {
     const { repositories, store } = createOnboardingRepositories();
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
 
@@ -171,7 +172,8 @@ describe("onboardingService", () => {
 
     expect(store.profile?.athleteId).toBe("user_1");
     expect(store.bodyMass).toHaveLength(1);
-    expect(store.protectedWorkouts).toHaveLength(1);
+    expect(store.protectedWorkouts).toHaveLength(0);
+    expect(store.profile?.recurringProtectedAnchors?.[0]).toEqual(expect.objectContaining({ weekday: "wednesday", type: "technical_session" }));
     expect(store.events.map((event) => event.type)).toContain("OnboardingCompleted");
     expect(repositories.athlete.upsertProfile).toHaveBeenCalledWith("user_1", expect.objectContaining({ wearablePreference: "manual_only" }));
   });
@@ -397,6 +399,36 @@ describe("onboardingService", () => {
 
     expect(store.profile.protectedBoxingSchedule.some((workout) => workout.id === saved.id)).toBe(false);
     expect(store.protectedWorkouts.some((workout) => workout.id === saved.id)).toBe(false);
+  });
+
+  it("plan weekly anchor save stores a recurring template without creating a dated protected workout", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    if (!store.profile) {
+      throw new Error("profile missing");
+    }
+
+    const saved = await saveRecurringProtectedAnchor({
+      userId: "user_1",
+      currentProfile: store.profile,
+      anchor: {
+        type: "boxing_class",
+        weekday: "monday",
+        localStartTime: "18:00",
+        durationMinutes: 60,
+        intensity: "moderate",
+        note: "Class night"
+      },
+      repositories
+    });
+
+    expect(store.profile.recurringProtectedAnchors?.some((anchor) => anchor.id === saved.id && anchor.weekday === "monday" && anchor.localStartTime === "18:00")).toBe(true);
+    expect(store.protectedWorkouts).toHaveLength(0);
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "ProtectedWorkoutPlanned", payload: expect.objectContaining({ recurring: true, weekday: "monday" }) })
+      ])
+    );
   });
 
   it("plan build and recovery goal saves use existing journey event paths", async () => {

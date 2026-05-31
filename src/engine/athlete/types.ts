@@ -12,6 +12,7 @@ import type {
   GeneratedTrainingSession,
   PersistedTrainingPlanAdjustment,
   ProtectedWorkout,
+  RecurringProtectedWorkoutAnchor,
   TrainingBlock,
   TrainingBlockTimelineEvent,
   TrainingProgressionDecision,
@@ -71,6 +72,7 @@ export interface AthleteProfile {
   equipmentAccess: readonly string[];
   scheduleAvailability: readonly string[];
   protectedBoxingSchedule: readonly ProtectedWorkout[];
+  recurringProtectedAnchors?: readonly RecurringProtectedWorkoutAnchor[] | undefined;
   cycleTrackingPreference: CycleTrackingPreference;
   wearablePreference: WearablePreference;
 }

@@ -11,6 +11,7 @@ import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, type AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 import {
   completeOnboarding,
+  saveRecurringProtectedAnchor as saveRecurringProtectedAnchorService,
   deleteProtectedSession as deleteProtectedSessionService,
   saveBuildGoal,
   saveFightSetup,
@@ -23,6 +24,7 @@ import {
   type OnboardingDraft,
   type ProfileSettingsDraft,
   type ProtectedWorkoutDraft,
+  type RecurringProtectedWorkoutAnchorDraft,
   type RecoveryGoalDraft,
   type TournamentSetupDraft
 } from "../services/supabase/onboardingService";
@@ -52,6 +54,7 @@ export interface PerformanceStateHook {
   saveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   saveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   saveProtectedSession: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
+  saveRecurringProtectedAnchor: (anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>;
   saveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   saveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   deleteProtectedSession: (workoutId: string) => Promise<void>;
@@ -262,6 +265,37 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     [refresh, repositories, result, userId]
   );
 
+  const saveRecurringProtectedAnchor = useCallback(
+    async (anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => {
+      if (result?.status !== "ready") {
+        setMessage("Weekly anchors are available after engine state loads.");
+        return;
+      }
+      const currentProfile = latestAthleteProfileRef.current ?? result.state.athlete;
+      setLoading(true);
+      setGenerationStatus("saving_anchors");
+      setMessage(null);
+      try {
+        const saved = await saveRecurringProtectedAnchorService({
+          userId,
+          currentProfile,
+          anchorId,
+          anchor: draft,
+          repositories,
+          source: "plan"
+        });
+        latestAthleteProfileRef.current = saved.profile;
+        await refresh("amending_plan");
+        setMessage(anchorId ? "Weekly anchor updated. Preview next week when you are ready." : "Weekly anchor added. Preview next week when you are ready.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Weekly anchor save failed.");
+        setLoading(false);
+        setGenerationStatus("idle");
+      }
+    },
+    [refresh, repositories, result, userId]
+  );
+
   const deleteProtectedSession = useCallback(
     async (workoutId: string) => {
       if (result?.status !== "ready") {
@@ -384,6 +418,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     saveBuildGoal: saveBuild,
     saveFightSetup: saveFight,
     saveProtectedSession,
+    saveRecurringProtectedAnchor,
     saveRecoveryGoal: saveRecovery,
     saveTournamentSetup: saveTournament,
     deleteProtectedSession,

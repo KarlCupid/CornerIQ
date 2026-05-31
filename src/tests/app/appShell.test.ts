@@ -20,7 +20,7 @@ import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft } from "../../services/supabase/onboardingService";
+import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 
 vi.mock("expo-status-bar", () => ({
@@ -545,6 +545,23 @@ const planViewModel: PlanViewModel = {
       intensityLabel: "Hard",
       rounds: 6,
       note: null
+    }
+  ],
+  weeklyAnchors: [
+    {
+      id: "weekly_technical_monday",
+      label: "Every Monday · Technical session · 6:00 PM · 60 min",
+      weekday: "monday",
+      type: "technical_session",
+      typeLabel: "Technical session",
+      startTime: "18:00",
+      durationMinutes: 60,
+      intensity: "moderate",
+      intensityLabel: "Moderate",
+      rounds: null,
+      note: null,
+      activeFrom: null,
+      activeUntil: null
     }
   ],
   adjustmentSummary: "No engine-owned plan adjustments yet.",
@@ -1900,7 +1917,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Persisted progression decision shaped this preview.");
     await switchSection(renderer, "Show details");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Fixed boxing:");
+    expect(output).toContain("Protected boxing:");
     expect(state.viewModels.plan.dayPlans.map((day) => day.date)).toEqual(currentWeekDates);
   });
 
@@ -2099,7 +2116,7 @@ describe("minimal app screens", () => {
 
     expect(JSON.stringify(renderer.toJSON())).toContain("Fixed boxing schedule");
     await act(async () => {
-      await press(pressableWithText(renderer, "Add session"));
+      await press(pressableWithText(renderer, "Add one-off session"));
     });
     await act(async () => {
       await press(pressableWithText(renderer, "Save session"));
@@ -2133,6 +2150,7 @@ describe("minimal app screens", () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
     const onSaveProtectedSession = vi.fn<(workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>>(async () => undefined);
+    const onSaveRecurringProtectedAnchor = vi.fn<(anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>>(async () => undefined);
     const renderer = render(
       React.createElement(PlanScreen, {
         asOfDate: fixtureAsOfDate,
@@ -2142,6 +2160,7 @@ describe("minimal app screens", () => {
         onSaveBuildGoal,
         onSaveFightSetup: vi.fn(),
         onSaveProtectedSession,
+        onSaveRecurringProtectedAnchor,
         onSaveTournamentSetup: vi.fn(),
         viewModel: planViewModel
       })
@@ -2155,8 +2174,13 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-schedule-step");
     expect(output).toContain("plan-wizard-anchor-editor");
+    expect(output).toContain("Weekly protected activity");
 
-    await switchSection(renderer, "Add fixed anchor");
+    await switchSection(renderer, "Add weekly anchor");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Weekly recurring");
+    expect(output).toContain("Which day does this usually happen?");
+    expect(output).not.toContain("Date YYYY-MM-DD");
     act(() => {
       changeInput(renderer, "Time optional HH:MM", "18:00");
       changeInput(renderer, "Rounds optional", "6");
@@ -2164,7 +2188,8 @@ describe("minimal app screens", () => {
     });
     await switchSection(renderer, "Add anchor to review");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Technical session at 18:00");
+    expect(output).toContain("Every Monday");
+    expect(output).toContain("Technical session");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -2179,28 +2204,30 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-review-step");
-    expect(output).toContain("New fixed anchors to save");
-    expect(output).toContain("Existing fixed anchors");
+    expect(output).toContain("New weekly anchors to save");
+    expect(output).toContain("Existing weekly anchors");
+    expect(output).toContain("Upcoming dated sessions");
     expect(output).toContain("CornerIQ decides from availability");
     expect(output).not.toContain("Support days per week");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
-    expect(onSaveProtectedSession).toHaveBeenCalledWith(
+    expect(onSaveRecurringProtectedAnchor).toHaveBeenCalledWith(
       null,
       expect.objectContaining({
-        date: fixtureAsOfDate,
         durationMinutes: 60,
         intensity: "moderate",
+        localStartTime: "18:00",
         note: "Coach technical work",
         rounds: 6,
-        startTime: "18:00",
-        type: "technical_session"
+        type: "technical_session",
+        weekday: "monday"
       })
     );
+    expect(onSaveProtectedSession).not.toHaveBeenCalled();
     const savedBuildDraft = onSaveBuildGoal.mock.calls[0]?.[0];
-    const anchorSaveOrder = onSaveProtectedSession.mock.invocationCallOrder[0];
+    const anchorSaveOrder = onSaveRecurringProtectedAnchor.mock.invocationCallOrder[0];
     const buildSaveOrder = onSaveBuildGoal.mock.invocationCallOrder[0];
     if (!savedBuildDraft || anchorSaveOrder === undefined || buildSaveOrder === undefined) {
       throw new Error("Wizard did not save anchors before the build goal.");
@@ -2209,6 +2236,54 @@ describe("minimal app screens", () => {
     expect(savedBuildDraft.scheduleAvailability).not.toContain("tuesday");
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
     expect(anchorSaveOrder).toBeLessThan(buildSaveOrder);
+  });
+
+  it("Plan generation wizard keeps one-off dated anchors explicit", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
+    const onSaveProtectedSession = vi.fn<(workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>>(async () => undefined);
+    const onSaveRecurringProtectedAnchor = vi.fn<(anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>>(async () => undefined);
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal,
+        onSaveFightSetup: vi.fn(),
+        onSaveProtectedSession,
+        onSaveRecurringProtectedAnchor,
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    await switchSection(renderer, "Generate plan");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await switchSection(renderer, "Add weekly anchor");
+    await switchSection(renderer, "Competition");
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("One-off date");
+    expect(output).toContain("Date YYYY-MM-DD");
+    await switchSection(renderer, "Add anchor to review");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain(fixtureAsOfDate);
+    expect(output).toContain("Competition");
+
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+    });
+
+    expect(onSaveProtectedSession).toHaveBeenCalledWith(null, expect.objectContaining({ date: fixtureAsOfDate, type: "competition" }));
+    expect(onSaveRecurringProtectedAnchor).not.toHaveBeenCalled();
   });
 
   it("PlanScreen opens the guided goal flow for build, fight camp, tournament, and recovery", async () => {
@@ -2939,6 +3014,9 @@ describe("minimal app screens", () => {
 
     const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
     expect(protectedOutput).toContain("recurring weekly commitments");
+    expect(protectedOutput).toContain("Every ");
+    expect(protectedOutput).toContain("Wednesday");
+    expect(protectedOutput).not.toContain("mapped to");
     expect(protectedOutput).toContain("Day of week");
     expect(protectedOutput).toContain("Time of day");
     expect(protectedOutput).toContain("Duration (minutes)");

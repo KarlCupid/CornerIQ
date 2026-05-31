@@ -17,11 +17,11 @@ import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "..
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion, type WorkoutCompletionActions } from "../hooks/useWorkoutCompletion";
 import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
-import type { CycleSymptom, PerformanceState, ProtectedWorkout } from "../engine/core/types";
+import type { CycleSymptom, PerformanceState, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../engine/core/types";
 import { getBetaRuntimeConfig } from "../services/config/betaRuntimeConfig";
 import { isLocalE2EMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
 import { buildLocalE2EPerformanceState, LOCAL_E2E_AS_OF_DATE } from "../services/e2e/localE2EState";
-import { workoutFromDraft } from "../services/supabase/onboardingService";
+import { recurringAnchorFromDraft, workoutFromDraft } from "../services/supabase/onboardingService";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 import { colors, spacing } from "../design/theme";
 
@@ -135,6 +135,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       onSignOut={onSignOut}
       onSaveFightSetup={performance.saveFightSetup}
       onSaveProtectedSession={performance.saveProtectedSession}
+      onSaveRecurringProtectedAnchor={performance.saveRecurringProtectedAnchor}
       onSaveRecoveryGoal={performance.saveRecoveryGoal}
       onSaveTournamentSetup={performance.saveTournamentSetup}
       onUpdateProfileSettings={performance.updateProfileSettings}
@@ -194,6 +195,7 @@ function LocalE2EApp() {
   const [signedIn, setSignedIn] = useState(false);
   const [todayState, setTodayState] = useState<PerformanceState | null>(null);
   const [localProtectedWorkouts, setLocalProtectedWorkouts] = useState<ProtectedWorkout[]>([]);
+  const [localRecurringAnchors, setLocalRecurringAnchors] = useState<RecurringProtectedWorkoutAnchor[]>([]);
   const [message, setMessage] = useState<string | null>("Local agent QA mode is active. Supabase is not contacted.");
   const [dataMessage, setDataMessage] = useState<string | null>(null);
   const [dataPreviewLoaded, setDataPreviewLoaded] = useState(false);
@@ -352,15 +354,17 @@ function LocalE2EApp() {
     []
   );
 
-  const refreshLocalPlan = useCallback((protectedWorkouts: readonly ProtectedWorkout[]) => {
+  const refreshLocalPlan = useCallback((protectedWorkouts: readonly ProtectedWorkout[], recurringAnchors: readonly RecurringProtectedWorkoutAnchor[] = localRecurringAnchors) => {
     setLocalProtectedWorkouts([...protectedWorkouts]);
-    setTodayState(buildLocalE2EPerformanceState({ protectedWorkouts }));
-  }, []);
+    setLocalRecurringAnchors([...recurringAnchors]);
+    setTodayState(buildLocalE2EPerformanceState({ protectedWorkouts, recurringProtectedAnchors: recurringAnchors }));
+  }, [localRecurringAnchors]);
 
   const loadToday = useCallback(async () => {
     const state = buildLocalE2EPerformanceState();
     setTodayState(state);
-    setLocalProtectedWorkouts([...state.training.protectedAnchors]);
+    setLocalProtectedWorkouts([...state.training.protectedAnchors.filter((anchor) => !anchor.recurringAnchorId)]);
+    setLocalRecurringAnchors([...(state.athlete.recurringProtectedAnchors ?? [])]);
     setMessage("Local E2E demo profile loaded. No Supabase writes occurred.");
   }, []);
 
@@ -444,6 +448,14 @@ function LocalE2EApp() {
           const next = existing >= 0 ? localProtectedWorkouts.map((item, index) => (index === existing ? workout : item)) : [...localProtectedWorkouts, workout];
           refreshLocalPlan(next);
           setMessage(workoutId ? "Local E2E fixed boxing session updated locally. No Supabase call was made." : "Local E2E fixed boxing session added locally. No Supabase call was made.");
+        }}
+        onSaveRecurringProtectedAnchor={async (anchorId, draft) => {
+          const nextId = anchorId ?? `local_weekly_${draft.type}_${draft.weekday}_${localRecurringAnchors.length + 1}`;
+          const anchor = recurringAnchorFromDraft({ ...draft, id: nextId }, localRecurringAnchors.length);
+          const existing = anchorId ? localRecurringAnchors.findIndex((item) => item.id === anchorId) : -1;
+          const next = existing >= 0 ? localRecurringAnchors.map((item, index) => (index === existing ? anchor : item)) : [...localRecurringAnchors, anchor];
+          refreshLocalPlan(localProtectedWorkouts, next);
+          setMessage(anchorId ? "Local E2E weekly anchor updated locally. No Supabase call was made." : "Local E2E weekly anchor added locally. No Supabase call was made.");
         }}
         onSaveRecoveryGoal={async () => {
           setMessage("Local E2E recovery goal save stayed local. No Supabase call was made.");

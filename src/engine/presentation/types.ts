@@ -408,6 +408,21 @@ export interface PlanViewModel {
     rounds: number | null;
     note: string | null;
   }[];
+  weeklyAnchors: readonly {
+    id: string;
+    label: string;
+    weekday: GeneratedSupportWeekday;
+    type: ProtectedWorkoutType;
+    typeLabel: string;
+    startTime: string | null;
+    durationMinutes: number;
+    intensity: SessionIntensity;
+    intensityLabel: string;
+    rounds: number | null;
+    note: string | null;
+    activeFrom: string | null;
+    activeUntil: string | null;
+  }[];
   adjustmentSummary: string;
   activeAdjustments: readonly string[];
   trainingBlockId: string | null;

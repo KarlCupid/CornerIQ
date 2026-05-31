@@ -24,6 +24,7 @@ import {
   type FightSetupDraft,
   type PlanLifecycleAction,
   type ProtectedWorkoutDraft,
+  type RecurringProtectedWorkoutAnchorDraft,
   type RecoveryGoalDraft,
   type TournamentSetupDraft
 } from "../../../services/supabase/onboardingService";
@@ -31,20 +32,24 @@ import { screenStyles } from "../screenStyles";
 
 type GoalMode = "build" | "fight" | "tournament" | "recovery";
 type WizardStep = "goal" | "schedule" | "details" | "review";
+type AnchorMode = "weekly" | "one_off";
 type GeneratedSupportDay = PlanViewModel["generatedSupportAvailability"]["selectedDays"][number];
 type FixedSession = PlanViewModel["fixedSchedule"][number];
+type WeeklyAnchor = PlanViewModel["weeklyAnchors"][number];
 
 export interface PlanGoalFlowCardProps {
   asOfDate: ISODateString;
   busy: boolean;
   currentModeLabel: PlanViewModel["modeLabel"];
   existingFixedSchedule: readonly FixedSession[];
+  existingWeeklyAnchors: readonly WeeklyAnchor[];
   initialAvailableDays: readonly GeneratedSupportDay[];
   isMinor: boolean;
   onCancel: () => void;
   onSaveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   onSaveProtectedSession?: ((workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>) | undefined;
+  onSaveRecurringProtectedAnchor?: ((anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>) | undefined;
   onSaveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
 }
@@ -73,6 +78,16 @@ const availableDayOptions: readonly { label: string; value: GeneratedSupportDay 
   { label: "Sun", value: "sunday" }
 ];
 
+const weekdayOptions: readonly { label: string; value: RecurringProtectedWorkoutAnchorDraft["weekday"] }[] = [
+  { label: "Monday", value: "monday" },
+  { label: "Tuesday", value: "tuesday" },
+  { label: "Wednesday", value: "wednesday" },
+  { label: "Thursday", value: "thursday" },
+  { label: "Friday", value: "friday" },
+  { label: "Saturday", value: "saturday" },
+  { label: "Sunday", value: "sunday" }
+];
+
 const buildFocusOptions: readonly BuildGoalDraft["primaryFocus"][] = ["balanced", "power", "conditioning", "strength", "mobility"];
 const recoveryFocusOptions: readonly NonNullable<RecoveryGoalDraft["focus"]>[] = ["general", "soreness", "sleep", "travel", "post_bout"];
 const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
@@ -80,6 +95,7 @@ const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft[
   { label: "Technical session", value: "technical_session" },
   { label: "Pads / mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
+  { label: "Footwork", value: "footwork_session" },
   { label: "Sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Coach strength", value: "coach_assigned_strength" },
@@ -154,8 +170,40 @@ function anchorTypeLabel(type: ProtectedWorkoutDraft["type"]): string {
   return anchorTypeOptions.find((option) => option.value === type)?.label ?? titleCase(type);
 }
 
-function anchorSummary(anchor: ProtectedWorkoutDraft): string {
-  return `${anchor.date}: ${anchorTypeLabel(anchor.type)}${anchor.startTime ? ` at ${anchor.startTime}` : ""}, ${anchor.durationMinutes} min, ${titleCase(anchor.intensity)}${anchor.rounds ? `, ${anchor.rounds} rounds` : ""}`;
+function weekdayLabel(weekday: RecurringProtectedWorkoutAnchorDraft["weekday"]): string {
+  return weekdayOptions.find((option) => option.value === weekday)?.label ?? titleCase(weekday);
+}
+
+function timeLabel(time: string | undefined): string | null {
+  if (!time) {
+    return null;
+  }
+  const [hourText, minute = "00"] = time.split(":");
+  const hour = Number(hourText);
+  if (!Number.isFinite(hour)) {
+    return time;
+  }
+  const period = hour >= 12 ? "PM" : "AM";
+  return `${hour % 12 || 12}:${minute} ${period}`;
+}
+
+function weeklyAnchorSummary(anchor: RecurringProtectedWorkoutAnchorDraft): string {
+  return [
+    `Every ${weekdayLabel(anchor.weekday)}`,
+    anchorTypeLabel(anchor.type),
+    timeLabel(anchor.localStartTime),
+    `${anchor.durationMinutes} min`,
+    titleCase(anchor.intensity),
+    anchor.rounds ? `${anchor.rounds} rounds` : null
+  ].filter(Boolean).join(" · ");
+}
+
+function datedAnchorSummary(anchor: ProtectedWorkoutDraft): string {
+  return [anchor.date, anchorTypeLabel(anchor.type), timeLabel(anchor.startTime), `${anchor.durationMinutes} min`, titleCase(anchor.intensity), anchor.rounds ? `${anchor.rounds} rounds` : null].filter(Boolean).join(" · ");
+}
+
+function shouldDefaultOneOff(type: ProtectedWorkoutDraft["type"]): boolean {
+  return type === "competition" || type === "travel";
 }
 
 function stepIndex(step: WizardStep): number {
@@ -180,12 +228,14 @@ export function PlanGoalFlowCard({
   busy,
   currentModeLabel,
   existingFixedSchedule,
+  existingWeeklyAnchors,
   initialAvailableDays,
   isMinor,
   onCancel,
   onSaveBuildGoal,
   onSaveFightSetup,
   onSaveProtectedSession,
+  onSaveRecurringProtectedAnchor,
   onSaveRecoveryGoal,
   onSaveTournamentSetup
 }: PlanGoalFlowCardProps) {
@@ -225,14 +275,17 @@ export function PlanGoalFlowCard({
   const [recoveryDurationDays, setRecoveryDurationDays] = React.useState("");
   const [recoveryFocus, setRecoveryFocus] = React.useState<NonNullable<RecoveryGoalDraft["focus"]>>("general");
   const [anchorEditorOpen, setAnchorEditorOpen] = React.useState(false);
+  const [anchorMode, setAnchorMode] = React.useState<AnchorMode>("weekly");
   const [anchorType, setAnchorType] = React.useState<ProtectedWorkoutDraft["type"]>("technical_session");
+  const [anchorWeekday, setAnchorWeekday] = React.useState<RecurringProtectedWorkoutAnchorDraft["weekday"]>("monday");
   const [anchorDate, setAnchorDate] = React.useState(asOfDate);
   const [anchorStartTime, setAnchorStartTime] = React.useState("");
   const [anchorDurationMinutes, setAnchorDurationMinutes] = React.useState("60");
   const [anchorIntensity, setAnchorIntensity] = React.useState<ProtectedWorkoutDraft["intensity"]>("moderate");
   const [anchorRounds, setAnchorRounds] = React.useState("");
   const [anchorNote, setAnchorNote] = React.useState("");
-  const [pendingAnchors, setPendingAnchors] = React.useState<ProtectedWorkoutDraft[]>([]);
+  const [pendingWeeklyAnchors, setPendingWeeklyAnchors] = React.useState<RecurringProtectedWorkoutAnchorDraft[]>([]);
+  const [pendingDatedAnchors, setPendingDatedAnchors] = React.useState<ProtectedWorkoutDraft[]>([]);
   const { message: formError, runWithMessage } = useFormMessage("Goal could not be saved.");
 
   const toggleAvailableDay = (day: GeneratedSupportDay) => {
@@ -272,7 +325,9 @@ export function PlanGoalFlowCard({
   };
 
   const resetAnchorEditor = () => {
+    setAnchorMode("weekly");
     setAnchorType("technical_session");
+    setAnchorWeekday("monday");
     setAnchorDate(asOfDate);
     setAnchorStartTime("");
     setAnchorDurationMinutes("60");
@@ -281,21 +336,42 @@ export function PlanGoalFlowCard({
     setAnchorNote("");
   };
 
+  const selectAnchorType = (type: ProtectedWorkoutDraft["type"]) => {
+    setAnchorType(type);
+    if (shouldDefaultOneOff(type)) {
+      setAnchorMode("one_off");
+    }
+  };
+
   const addPendingAnchor = () => {
     try {
       const parsedStart = anchorStartTime.trim() ? parseRequiredTimeHHMM(anchorStartTime, "Anchor start time") : undefined;
       const parsedRounds = parseOptionalNonNegativeInteger(anchorRounds, "Anchor rounds");
       const trimmedNote = anchorNote.trim();
-      const draft: ProtectedWorkoutDraft = {
-        type: anchorType,
-        date: parseRequiredDateYYYYMMDD(anchorDate, "Anchor date"),
-        ...(parsedStart ? { startTime: parsedStart, localStartTime: parsedStart } : {}),
-        durationMinutes: parseRequiredPositiveInteger(anchorDurationMinutes, "Anchor duration minutes"),
-        intensity: anchorIntensity,
-        ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
-        ...(trimmedNote ? { note: trimmedNote } : {})
-      };
-      setPendingAnchors((current) => [...current, draft]);
+      if (anchorMode === "weekly") {
+        const draft: RecurringProtectedWorkoutAnchorDraft = {
+          type: anchorType,
+          weekday: anchorWeekday,
+          ...(parsedStart ? { localStartTime: parsedStart } : {}),
+          durationMinutes: parseRequiredPositiveInteger(anchorDurationMinutes, "Anchor duration minutes"),
+          intensity: anchorIntensity,
+          ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
+          ...(trimmedNote ? { note: trimmedNote } : {}),
+          activeFrom: asOfDate
+        };
+        setPendingWeeklyAnchors((current) => [...current, draft]);
+      } else {
+        const draft: ProtectedWorkoutDraft = {
+          type: anchorType,
+          date: parseRequiredDateYYYYMMDD(anchorDate, "Anchor date"),
+          ...(parsedStart ? { startTime: parsedStart, localStartTime: parsedStart } : {}),
+          durationMinutes: parseRequiredPositiveInteger(anchorDurationMinutes, "Anchor duration minutes"),
+          intensity: anchorIntensity,
+          ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
+          ...(trimmedNote ? { note: trimmedNote } : {})
+        };
+        setPendingDatedAnchors((current) => [...current, draft]);
+      }
       setStepError(null);
       setAnchorEditorOpen(false);
       resetAnchorEditor();
@@ -304,16 +380,30 @@ export function PlanGoalFlowCard({
     }
   };
 
-  const removePendingAnchor = (index: number) => {
-    setPendingAnchors((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  const removePendingWeeklyAnchor = (index: number) => {
+    setPendingWeeklyAnchors((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const removePendingDatedAnchor = (index: number) => {
+    setPendingDatedAnchors((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
   const persistPendingAnchors = async () => {
-    if (!onSaveProtectedSession || pendingAnchors.length === 0) {
-      return;
+    if (pendingWeeklyAnchors.length > 0) {
+      if (!onSaveRecurringProtectedAnchor) {
+        throw new Error("Weekly anchor save is unavailable.");
+      }
+      for (const anchor of pendingWeeklyAnchors) {
+        await onSaveRecurringProtectedAnchor(null, anchor);
+      }
     }
-    for (const anchor of pendingAnchors) {
-      await onSaveProtectedSession(null, anchor);
+    if (pendingDatedAnchors.length > 0) {
+      if (!onSaveProtectedSession) {
+        throw new Error("One-off protected session save is unavailable.");
+      }
+      for (const anchor of pendingDatedAnchors) {
+        await onSaveProtectedSession(null, anchor);
+      }
     }
   };
 
@@ -496,7 +586,7 @@ export function PlanGoalFlowCard({
               <Text style={screenStyles.callout}>Step 2: Schedule</Text>
               <Text style={screenStyles.fieldLabel}>Generated support days</Text>
               <Text style={screenStyles.body}>Generated support will only be placed on selected available days.</Text>
-              <Text style={screenStyles.subtle}>At least one generated-support day is required. Fixed anchors are separate and do not automatically make a day available.</Text>
+              <Text style={screenStyles.subtle}>At least one generated-support day is required. Weekly anchors are separate and do not automatically make a day available.</Text>
             </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {availableDayOptions.map((option) => (
@@ -505,25 +595,48 @@ export function PlanGoalFlowCard({
             </View>
             <Text style={screenStyles.subtle}>Selected: {daySummary(selectedAvailableDays)}</Text>
             <View style={{ gap: spacing.sm }} testID="plan-wizard-anchor-editor">
-              <Text style={screenStyles.fieldLabel}>Fixed anchors</Text>
-              <Text style={screenStyles.body}>Add fixed/protected sessions here before the plan is generated.</Text>
-              {pendingAnchors.length > 0 ? pendingAnchors.map((anchor, index) => (
-                <View key={`pending-anchor:${index}`} style={{ gap: spacing.xs }}>
-                  <Text style={screenStyles.body}>{anchorSummary(anchor)}</Text>
-                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => removePendingAnchor(index)} style={screenStyles.quietButton}>
-                    <Text style={screenStyles.quietButtonText}>Remove draft anchor</Text>
+              <Text style={screenStyles.fieldLabel}>Weekly protected activity</Text>
+              <Text style={screenStyles.body}>CornerIQ will plan around this every week.</Text>
+              {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => (
+                <View key={`pending-weekly-anchor:${index}`} style={{ gap: spacing.xs }}>
+                  <Text style={screenStyles.body}>{weeklyAnchorSummary(anchor)}</Text>
+                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => removePendingWeeklyAnchor(index)} style={screenStyles.quietButton}>
+                    <Text style={screenStyles.quietButtonText}>Remove draft weekly anchor</Text>
                   </Pressable>
                 </View>
-              )) : <Text style={screenStyles.subtle}>No new fixed anchors added in this wizard yet.</Text>}
+              )) : null}
+              {pendingDatedAnchors.length > 0 ? pendingDatedAnchors.map((anchor, index) => (
+                <View key={`pending-dated-anchor:${index}`} style={{ gap: spacing.xs }}>
+                  <Text style={screenStyles.body}>{datedAnchorSummary(anchor)}</Text>
+                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => removePendingDatedAnchor(index)} style={screenStyles.quietButton}>
+                    <Text style={screenStyles.quietButtonText}>Remove draft one-off anchor</Text>
+                  </Pressable>
+                </View>
+              )) : null}
+              {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={screenStyles.subtle}>No new weekly anchors added in this wizard yet.</Text> : null}
               <Pressable accessibilityRole="button" accessibilityState={{ expanded: anchorEditorOpen }} disabled={busy} onPress={() => setAnchorEditorOpen((value) => !value)} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>{anchorEditorOpen ? "Hide anchor fields" : "Add fixed anchor"}</Text>
+                <Text style={screenStyles.quietButtonText}>{anchorEditorOpen ? "Hide anchor fields" : "Add weekly anchor"}</Text>
               </Pressable>
               {anchorEditorOpen ? (
                 <View style={{ gap: spacing.sm }}>
+                  <Text style={screenStyles.fieldLabel}>Weekly recurring or one-off date?</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setAnchorType(option.value)} />)}
+                    <OptionButton active={anchorMode === "weekly"} busy={busy} label="Weekly recurring" onPress={() => setAnchorMode("weekly")} />
+                    <OptionButton active={anchorMode === "one_off"} busy={busy} label="One-off date" onPress={() => setAnchorMode("one_off")} />
                   </View>
-                  <TextInput onChangeText={setAnchorDate} placeholder="Date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDate} />
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={busy} key={option.value} label={option.label} onPress={() => selectAnchorType(option.value)} />)}
+                  </View>
+                  {anchorMode === "weekly" ? (
+                    <View style={{ gap: spacing.xs }}>
+                      <Text style={screenStyles.fieldLabel}>Which day does this usually happen?</Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                        {weekdayOptions.map((option) => <OptionButton active={anchorWeekday === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setAnchorWeekday(option.value)} />)}
+                      </View>
+                    </View>
+                  ) : (
+                    <TextInput onChangeText={setAnchorDate} placeholder="Date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDate} />
+                  )}
                   <TextInput keyboardType="number-pad" onChangeText={setAnchorStartTime} placeholder="Time optional HH:MM" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorStartTime} />
                   <TextInput keyboardType="number-pad" onChangeText={setAnchorDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDurationMinutes} />
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -552,7 +665,7 @@ export function PlanGoalFlowCard({
                     <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setPrimaryFocus(option)} />
                   ))}
                 </View>
-                <Text style={screenStyles.subtle}>CornerIQ decides support volume from selected availability, fixed anchors, readiness, safety gates, and phase.</Text>
+                <Text style={screenStyles.subtle}>CornerIQ decides support volume from selected availability, weekly anchors, readiness, safety gates, and phase.</Text>
               </View>
             ) : null}
 
@@ -652,18 +765,28 @@ export function PlanGoalFlowCard({
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Generated-support availability</Text>
               <Text style={screenStyles.body}>{daySummary(selectedAvailableDays)}</Text>
-              <Text style={screenStyles.subtle}>Fixed boxing sessions remain protected.</Text>
+              <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
               <Text style={screenStyles.subtle}>Generated support uses only the selected availability above.</Text>
             </View>
             <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>New fixed anchors to save</Text>
-              {pendingAnchors.length > 0 ? pendingAnchors.map((anchor, index) => <Text key={`review-anchor:${index}`} style={screenStyles.body}>{anchorSummary(anchor)}</Text>) : <Text style={screenStyles.subtle}>No new fixed anchors in this wizard.</Text>}
+              <Text style={screenStyles.fieldLabel}>New weekly anchors to save</Text>
+              {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => <Text key={`review-weekly-anchor:${index}`} style={screenStyles.body}>{weeklyAnchorSummary(anchor)}</Text>) : <Text style={screenStyles.subtle}>No new weekly anchors in this wizard.</Text>}
             </View>
             <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Existing fixed anchors</Text>
+              <Text style={screenStyles.fieldLabel}>New one-off sessions to save</Text>
+              {pendingDatedAnchors.length > 0 ? pendingDatedAnchors.map((anchor, index) => <Text key={`review-dated-anchor:${index}`} style={screenStyles.body}>{datedAnchorSummary(anchor)}</Text>) : <Text style={screenStyles.subtle}>No new one-off sessions in this wizard.</Text>}
+            </View>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>Existing weekly anchors</Text>
+              {existingWeeklyAnchors.length > 0 ? existingWeeklyAnchors.slice(0, 6).map((anchor) => (
+                <Text key={`existing-weekly-anchor:${anchor.id}`} style={screenStyles.body}>{anchor.label}</Text>
+              )) : <Text style={screenStyles.subtle}>No existing weekly anchors are already on the plan.</Text>}
+            </View>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>Upcoming dated sessions</Text>
               {existingFixedSchedule.length > 0 ? existingFixedSchedule.slice(0, 6).map((anchor) => (
-                <Text key={`existing-anchor:${anchor.id}`} style={screenStyles.body}>{anchor.date}: {anchor.typeLabel}{anchor.startTime ? ` at ${anchor.startTime}` : ""}, {anchor.durationMinutes} min</Text>
-              )) : <Text style={screenStyles.subtle}>No existing fixed anchors are already on the plan.</Text>}
+                <Text key={`existing-anchor:${anchor.id}`} style={screenStyles.body}>{datedAnchorSummary({ type: anchor.type, date: anchor.date, ...(anchor.startTime ? { startTime: anchor.startTime } : {}), durationMinutes: anchor.durationMinutes, intensity: anchor.intensity, ...(anchor.rounds === null ? {} : { rounds: anchor.rounds }), ...(anchor.note ? { note: anchor.note } : {}) })}</Text>
+              )) : <Text style={screenStyles.subtle}>No upcoming dated sessions are already on the plan.</Text>}
             </View>
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Key details</Text>

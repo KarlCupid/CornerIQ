@@ -1,8 +1,38 @@
-import type { NextWeekPreviewViewModel, PerformanceState, PlanViewModel, ProtectedWorkout, ProtectedWorkoutType, SessionIntensity, TrainingBlockHistoryDetailViewModel, TrainingBlockTimelineEvent, TrainingDayPlan } from "../core/types";
+import type {
+  NextWeekPreviewViewModel,
+  PerformanceState,
+  PlanViewModel,
+  ProtectedWorkout,
+  ProtectedWorkoutType,
+  RecurringProtectedWorkoutAnchor,
+  SessionIntensity,
+  TrainingBlockHistoryDetailViewModel,
+  TrainingBlockTimelineEvent,
+  TrainingDayPlan,
+  WeeklyProtectedAnchorWeekday
+} from "../core/types";
 import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
 
 function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function weekdayLabel(weekday: WeeklyProtectedAnchorWeekday): string {
+  return `${weekday[0]!.toUpperCase()}${weekday.slice(1)}`;
+}
+
+function timeLabel(time: string | null): string | null {
+  if (!time) {
+    return null;
+  }
+  const [hourText, minute = "00"] = time.split(":");
+  const hour = Number(hourText);
+  if (!Number.isFinite(hour)) {
+    return time;
+  }
+  const period = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minute} ${period}`;
 }
 
 function protectedTypeLabel(type: ProtectedWorkoutType): string {
@@ -103,7 +133,7 @@ function protectedSessionKey(workout: ProtectedWorkout): string {
 function upcomingFixedSchedule(state: PerformanceState): PlanViewModel["fixedSchedule"] {
   const bySession = new Map<string, ProtectedWorkout>();
   for (const workout of [...state.athlete.protectedBoxingSchedule, ...state.training.protectedAnchors]) {
-    if (workout.date >= state.asOfDate) {
+    if (!workout.recurringAnchorId && workout.date >= state.asOfDate) {
       bySession.set(protectedSessionKey(workout), workout);
     }
   }
@@ -128,6 +158,63 @@ function upcomingFixedSchedule(state: PerformanceState): PlanViewModel["fixedSch
       rounds: workout.rounds ?? null,
       note: workout.note ?? null
     }));
+}
+
+function recurringAnchorKey(anchor: RecurringProtectedWorkoutAnchor): string {
+  return [
+    anchor.id,
+    anchor.type,
+    anchor.weekday,
+    anchor.localStartTime ?? "",
+    anchor.durationMinutes,
+    anchor.intensity,
+    anchor.rounds ?? "",
+    anchor.note ?? "",
+    anchor.activeFrom ?? "",
+    anchor.activeUntil ?? ""
+  ].join("|");
+}
+
+function weeklyAnchorSchedule(state: PerformanceState): PlanViewModel["weeklyAnchors"] {
+  const byAnchor = new Map<string, RecurringProtectedWorkoutAnchor>();
+  for (const anchor of state.athlete.recurringProtectedAnchors ?? []) {
+    byAnchor.set(recurringAnchorKey(anchor), anchor);
+  }
+  const weekdayOrder: Record<WeeklyProtectedAnchorWeekday, number> = {
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+    sunday: 7
+  };
+  return [...byAnchor.values()]
+    .sort((left, right) => {
+      const day = weekdayOrder[left.weekday] - weekdayOrder[right.weekday];
+      if (day !== 0) {
+        return day;
+      }
+      return (left.localStartTime ?? "").localeCompare(right.localStartTime ?? "");
+    })
+    .map((anchor) => {
+      const labelParts = [`Every ${weekdayLabel(anchor.weekday)}`, protectedTypeLabel(anchor.type), timeLabel(anchor.localStartTime ?? null), `${anchor.durationMinutes} min`].filter(Boolean);
+      return {
+        id: anchor.id,
+        label: labelParts.join(" · "),
+        weekday: anchor.weekday,
+        type: anchor.type,
+        typeLabel: protectedTypeLabel(anchor.type),
+        startTime: anchor.localStartTime ?? null,
+        durationMinutes: anchor.durationMinutes,
+        intensity: anchor.intensity,
+        intensityLabel: intensityLabel(anchor.intensity),
+        rounds: anchor.rounds ?? null,
+        note: anchor.note ?? null,
+        activeFrom: anchor.activeFrom ?? null,
+        activeUntil: anchor.activeUntil ?? null
+      };
+    });
 }
 
 function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel {
@@ -417,6 +504,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const generatedSupportAvailableDays = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability);
   const scheduleAvailabilitySummary = formatGeneratedSupportWeekdays(generatedSupportAvailableDays);
   const fixedSchedule = upcomingFixedSchedule(state);
+  const weeklyAnchors = weeklyAnchorSchedule(state);
   const recoveryDayCount = state.training.dayPlans.filter(
     (day) => day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day"
   ).length;
@@ -430,12 +518,12 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const topActionPrimary =
     nextWeekPreview.canAccept
       ? "Preview next week is ready when you want to review it."
-      : "Change goal or update fixed boxing sessions when your schedule changes.";
+      : "Change goal or update protected boxing anchors when your schedule changes.";
   return {
     title: "Plan",
     topAction: {
       title: "Your boxing comes first",
-      purpose: "CornerIQ adds support work around your fixed sessions.",
+      purpose: "CornerIQ adds support work around your protected anchors.",
       primaryAction: topActionPrimary,
       why: currentWeekSummary?.summary ?? state.training.activeBlock.weeklyStructure.summary,
       optional: "Safety notes stay visible if review is needed."
@@ -501,6 +589,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     recoveryDayCount,
     recoveryDays: state.training.activeBlock.weeklyStructure.recoveryDays,
     fixedSchedule,
+    weeklyAnchors,
     adjustmentSummary:
       adjustmentHistory.length > 0
         ? `${activeAdjustments.length} active engine-owned adjustment(s), ${rejectedAdjustments.length} rejected adjustment(s) retained for audit.`

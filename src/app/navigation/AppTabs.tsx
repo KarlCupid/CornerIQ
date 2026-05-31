@@ -20,7 +20,7 @@ import type { NextWeekPreviewActionsHook } from "../../hooks/useNextWeekPreviewA
 import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
-import type { BuildGoalDraft, FightSetupDraft, ProfileSettingsDraft, ProtectedWorkoutDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
+import type { BuildGoalDraft, FightSetupDraft, ProfileSettingsDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import type { EngineGenerationStatus } from "../components/EngineGeneratingCard";
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -55,6 +55,7 @@ export interface AppTabsProps {
   onSaveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   onSaveProtectedSession: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
+  onSaveRecurringProtectedAnchor: (anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>;
   onSaveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   onRequestNutritionSafetyReview?: (() => Promise<void>) | undefined;
@@ -67,7 +68,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
@@ -176,6 +177,7 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               onSaveBuildGoal={onSaveBuildGoal}
               onSaveFightSetup={onSaveFightSetup}
               onSaveProtectedSession={onSaveProtectedSession}
+              onSaveRecurringProtectedAnchor={onSaveRecurringProtectedAnchor}
               onSaveRecoveryGoal={onSaveRecoveryGoal}
               onSaveTournamentSetup={onSaveTournamentSetup}
               viewModel={state.viewModels.plan}

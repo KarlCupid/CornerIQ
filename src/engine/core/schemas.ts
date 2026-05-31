@@ -6,6 +6,9 @@ import { TrainingBlockTimelineEventSchema, TrainingProgressionDecisionSchema, Tr
 const ISODateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const ISODateTimeSchema = z.string().datetime();
 const confidenceLevelSchema = z.enum(["high", "medium", "low", "unknown"]);
+const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
+const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
+const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 
 export const MassSchema = z.object({
   value: z.number().positive(),
@@ -19,15 +22,31 @@ export const HeightSchema = z.object({
 
 export const ProtectedWorkoutSchema = z.object({
   id: z.string().min(1),
-  type: z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]),
+  type: ProtectedWorkoutTypeSchema,
   date: ISODateSchema,
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   durationMinutes: z.number().int().positive(),
-  intensity: z.enum(["easy", "moderate", "hard", "max"]),
+  intensity: SessionIntensitySchema,
   protected: z.literal(true),
   rounds: z.number().int().nonnegative().optional(),
-  note: z.string().optional()
+  note: z.string().optional(),
+  recurringAnchorId: z.string().min(1).optional(),
+  recurringAnchorWeekday: WeeklyProtectedAnchorWeekdaySchema.optional()
+});
+
+export const RecurringProtectedWorkoutAnchorSchema = z.object({
+  id: z.string().min(1),
+  type: ProtectedWorkoutTypeSchema,
+  weekday: WeeklyProtectedAnchorWeekdaySchema,
+  localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  durationMinutes: z.number().int().positive(),
+  intensity: SessionIntensitySchema,
+  protected: z.literal(true),
+  rounds: z.number().int().nonnegative().optional(),
+  note: z.string().optional(),
+  activeFrom: ISODateSchema.optional(),
+  activeUntil: ISODateSchema.optional()
 });
 
 export const AthleteProfileSchema = z.object({
@@ -67,6 +86,7 @@ export const AthleteProfileSchema = z.object({
   equipmentAccess: z.array(z.string()),
   scheduleAvailability: z.array(z.string()),
   protectedBoxingSchedule: z.array(ProtectedWorkoutSchema),
+  recurringProtectedAnchors: z.array(RecurringProtectedWorkoutAnchorSchema).default([]),
   cycleTrackingPreference: z.enum(["enabled", "disabled", "undecided"]),
   wearablePreference: z.enum(["manual_only", "wearable_connected", "undecided"])
 });

@@ -17,6 +17,14 @@ describe("engine boundary schemas", () => {
     expect(BodyMassLogSchema.safeParse({ date: "2026-05-19", bodyMassKg: -64, source: "manual" }).success).toBe(false);
   });
 
+  it("parses legacy athlete profiles without recurring anchors", () => {
+    const legacyProfile = { ...amateur_novice_build.athlete } as Record<string, unknown>;
+    delete legacyProfile.recurringProtectedAnchors;
+    const parsed = AthleteProfileSchema.parse(legacyProfile);
+
+    expect(parsed.recurringProtectedAnchors).toEqual([]);
+  });
+
   it("rejects invalid fight date shape and missing required weight fields", () => {
     const fight = amateur_elite_camp_same_day_weigh_in.activeFightOpportunity;
     expect(fight).not.toBeNull();

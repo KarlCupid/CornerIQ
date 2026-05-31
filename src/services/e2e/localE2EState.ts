@@ -1,4 +1,4 @@
-import type { AthleteJourney, ISODateString, PerformanceState, ProtectedWorkout, ReadinessCheckIn } from "../../engine/core/types";
+import type { AthleteJourney, ISODateString, PerformanceState, ProtectedWorkout, ReadinessCheckIn, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { buildDemoAthleteProfile } from "../supabase/demoDataService";
 
@@ -8,11 +8,15 @@ export const LOCAL_E2E_USER_ID = "local-e2e-athlete";
 export function buildLocalE2EPerformanceState(input: {
   asOfDate?: ISODateString | undefined;
   protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
+  recurringProtectedAnchors?: readonly RecurringProtectedWorkoutAnchor[] | undefined;
   userId?: string | undefined;
 } = {}): PerformanceState {
   const asOfDate = input.asOfDate ?? LOCAL_E2E_AS_OF_DATE;
   const userId = input.userId ?? LOCAL_E2E_USER_ID;
-  const athlete = buildDemoAthleteProfile(userId);
+  const athlete = {
+    ...buildDemoAthleteProfile(userId),
+    recurringProtectedAnchors: input.recurringProtectedAnchors ?? []
+  };
   const readiness: ReadinessCheckIn = {
     date: asOfDate,
     sleepHours: 7,

@@ -20,7 +20,7 @@ function contractedWeightError(value: string): string | null {
 }
 
 export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingStepProps) {
-  const fallbackDate = draft.protectedSchedule[0]?.date ?? "2026-05-20";
+  const fallbackDate = draft.protectedSchedule[0]?.date ?? draft.recurringProtectedSchedule?.[0]?.activeFrom ?? "2026-05-20";
   const defaultFight = draft.goal.phase === "fight_known" ? draft.goal.fight : createDefaultFightDraft(fallbackDate);
   const defaultTournament = draft.goal.phase === "tournament_known" ? draft.goal.tournament : createDefaultTournamentDraft(fallbackDate);
   const [boutDate, setBoutDate] = useState(defaultFight.boutDate);

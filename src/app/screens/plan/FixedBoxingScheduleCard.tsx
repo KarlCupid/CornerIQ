@@ -9,12 +9,14 @@ import type { ProtectedWorkoutDraft } from "../../../services/supabase/onboardin
 import { screenStyles } from "../screenStyles";
 
 type FixedSession = PlanViewModel["fixedSchedule"][number];
+type WeeklyAnchor = PlanViewModel["weeklyAnchors"][number];
 
 const typeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
   { label: "Boxing class", value: "boxing_class" },
   { label: "Technical session", value: "technical_session" },
   { label: "Pads / mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
+  { label: "Footwork", value: "footwork_session" },
   { label: "Sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Coach strength", value: "coach_assigned_strength" },
@@ -36,6 +38,7 @@ export interface FixedBoxingScheduleCardProps {
   onDelete: (workoutId: string) => Promise<void>;
   onSave: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
   sessions: readonly FixedSession[];
+  weeklyAnchors: readonly WeeklyAnchor[];
 }
 
 function OptionButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
@@ -50,7 +53,7 @@ function parseOptionalTime(value: string): string | undefined {
   return value.trim() ? parseRequiredTimeHHMM(value, "Start time") : undefined;
 }
 
-export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sessions }: FixedBoxingScheduleCardProps) {
+export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sessions, weeklyAnchors }: FixedBoxingScheduleCardProps) {
   const [editing, setEditing] = React.useState<FixedSession | null>(null);
   const [mode, setMode] = React.useState<"idle" | "add" | "edit">("idle");
   const [type, setType] = React.useState<ProtectedWorkoutDraft["type"]>("technical_session");
@@ -132,44 +135,73 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sess
           <Text style={screenStyles.body}>CornerIQ builds support work around these first.</Text>
         </View>
         {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
-        {sessions.length > 0 ? (
-          <View style={{ gap: spacing.sm }}>
-            {sessions.map((session) => (
-              <Pressable
-                accessibilityLabel={`Edit ${session.typeLabel} on ${session.date}`}
-                accessibilityRole="button"
-                disabled={busy}
-                key={session.id}
-                onPress={() => editSession(session)}
-                style={{
-                  borderColor: "rgba(255, 255, 255, 0.10)",
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  gap: spacing.xs,
-                  minHeight: 58,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm
-                }}
-              >
-                <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
-                  <Text numberOfLines={1} style={screenStyles.fieldLabel}>{session.label}{session.startTime ? `, ${session.startTime}` : ""}</Text>
-                  <Text numberOfLines={1} style={screenStyles.subtle}>{session.durationMinutes} min</Text>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.fieldLabel}>Weekly anchors</Text>
+          {weeklyAnchors.length > 0 ? (
+            <View style={{ gap: spacing.sm }}>
+              {weeklyAnchors.map((anchor) => (
+                <View
+                  key={anchor.id}
+                  style={{
+                    borderColor: "rgba(255, 255, 255, 0.10)",
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    gap: spacing.xs,
+                    minHeight: 58,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm
+                  }}
+                >
+                  <Text numberOfLines={1} style={screenStyles.fieldLabel}>{anchor.label}</Text>
+                  <Text numberOfLines={1} style={screenStyles.subtle}>{anchor.intensityLabel}{anchor.rounds ? `, ${anchor.rounds} rounds` : ""}</Text>
                 </View>
-                <Text numberOfLines={1} style={screenStyles.body}>{session.typeLabel}</Text>
-                <Text numberOfLines={1} style={screenStyles.subtle}>{session.intensityLabel}{session.rounds ? `, ${session.rounds} rounds` : ""}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : (
-          <Text style={screenStyles.subtle}>No fixed boxing sessions are scheduled yet.</Text>
-        )}
+              ))}
+            </View>
+          ) : (
+            <Text style={screenStyles.subtle}>No weekly anchors are scheduled yet.</Text>
+          )}
+        </View>
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.fieldLabel}>Upcoming protected sessions</Text>
+          {sessions.length > 0 ? (
+            <View style={{ gap: spacing.sm }}>
+              {sessions.map((session) => (
+                <Pressable
+                  accessibilityLabel={`Edit ${session.typeLabel} on ${session.date}`}
+                  accessibilityRole="button"
+                  disabled={busy}
+                  key={session.id}
+                  onPress={() => editSession(session)}
+                  style={{
+                    borderColor: "rgba(255, 255, 255, 0.10)",
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    gap: spacing.xs,
+                    minHeight: 58,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm
+                  }}
+                >
+                  <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
+                    <Text numberOfLines={1} style={screenStyles.fieldLabel}>{session.label}{session.startTime ? `, ${session.startTime}` : ""}</Text>
+                    <Text numberOfLines={1} style={screenStyles.subtle}>{session.durationMinutes} min</Text>
+                  </View>
+                  <Text numberOfLines={1} style={screenStyles.body}>{session.typeLabel}</Text>
+                  <Text numberOfLines={1} style={screenStyles.subtle}>{session.intensityLabel}{session.rounds ? `, ${session.rounds} rounds` : ""}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Text style={screenStyles.subtle}>No upcoming dated sessions are scheduled yet.</Text>
+          )}
+        </View>
         {mode === "idle" ? (
           <Pressable accessibilityRole="button" disabled={busy} onPress={resetForAdd} style={screenStyles.button}>
-            <Text style={screenStyles.buttonText}>Add session</Text>
+            <Text style={screenStyles.buttonText}>Add one-off session</Text>
           </Pressable>
         ) : (
           <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.callout}>{mode === "edit" ? "Edit fixed session" : "Add fixed session"}</Text>
+            <Text style={screenStyles.callout}>{mode === "edit" ? "Edit fixed session" : "Add one-off session"}</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {typeOptions.map((option) => <OptionButton active={type === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setType(option.value)} />)}
             </View>
