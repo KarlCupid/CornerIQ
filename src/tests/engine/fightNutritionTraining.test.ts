@@ -233,6 +233,42 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
   });
 
+  it("partial low-confidence food logs lower confidence without creating repeated low-intake evidence", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        nutritionHistory: [
+          { date: "2026-05-17", calories: 500, proteinGrams: 25, carbohydrateGrams: 65, fatGrams: 12, confidence: "low" },
+          { date: "2026-05-18", calories: 600, proteinGrams: 30, carbohydrateGrams: 75, fatGrams: 16, confidence: "low" },
+          { date: "2026-05-19", calories: 700, proteinGrams: 35, carbohydrateGrams: 85, fatGrams: 18, confidence: "low" }
+        ]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.safety.riskFlags.map((flag) => flag.code)).not.toContain("repeated_low_intake");
+    expect(state.nutrition.underFuelingRiskNote).toBeNull();
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.generatedSessions.some((session) => session.intensity === "hard")).toBe(true);
+  });
+
+  it("one healthy food log improves fuel context without marking the week under-fueled", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        nutritionHistory: [{ date: fixtureAsOfDate, calories: 2400, proteinGrams: 130, carbohydrateGrams: 285, fatGrams: 70, confidence: "low" }]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.nutrition.actualIntakeSummary.logCount).toBe(1);
+    expect(state.safety.riskFlags.map((flag) => flag.code)).not.toContain("repeated_low_intake");
+    expect(state.nutrition.underFuelingRiskNote).toBeNull();
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.viewModels.plan.dayPlans.map((day) => day.compactMetric.toLowerCase())).not.toContain("low fuel");
+    expect(state.viewModels.plan.nextWeekPreview.dayPlanPreview.map((day) => day.compactMetric).join(" ")).toContain("fuel demand");
+  });
+
   it("protected hard boxing anchors count toward missed-period under-fueling risk", () => {
     const state = resolvePerformanceState({
       journey: {
@@ -254,7 +290,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     const nutritionSafetyFlags = state.safety.riskFlags.filter((flag) => flag.domain === "nutrition");
 
     expect(state.nutrition.confidence.level === "medium" || state.nutrition.confidence.level === "low").toBe(true);
-    expect(state.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
     expect(nutritionSafetyFlags.some((flag) => flag.hardStop || flag.blocksPlan)).toBe(false);
     expect(state.viewModels.train.preSessionFuelHint).toContain("Fueling data is missing");
     expect(state.viewModels.fuel.why.toLowerCase()).not.toContain("shame");

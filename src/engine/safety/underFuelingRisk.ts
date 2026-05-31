@@ -2,6 +2,21 @@ import type { BodyMassTrend, CycleState, FoodLog, RiskFlag, TrainingState } from
 import { daysBetween } from "../core/dates";
 import { createRiskFlag } from "./riskSafetyEngine";
 
+function recentLowIntakeDayCount(foodLogs: readonly FoodLog[], asOfDate: string): number {
+  const totalsByDate = new Map<string, { calories: number; hasReliableDayContext: boolean }>();
+  for (const log of foodLogs) {
+    if (log.date > asOfDate || daysBetween(log.date, asOfDate) > 6) {
+      continue;
+    }
+    const existing = totalsByDate.get(log.date) ?? { calories: 0, hasReliableDayContext: false };
+    totalsByDate.set(log.date, {
+      calories: existing.calories + log.calories,
+      hasReliableDayContext: existing.hasReliableDayContext || log.confidence === "medium" || log.confidence === "high"
+    });
+  }
+  return [...totalsByDate.values()].filter((day) => day.hasReliableDayContext && day.calories < 1800).length;
+}
+
 export function assessUnderFuelingRisk(
   trend: BodyMassTrend,
   foodLogs: readonly FoodLog[],
@@ -10,13 +25,12 @@ export function assessUnderFuelingRisk(
   training?: TrainingState
 ): readonly RiskFlag[] {
   const flags: RiskFlag[] = [];
-  const recentFoodLogs = foodLogs.filter((log) => log.date <= asOfDate && daysBetween(log.date, asOfDate) <= 6);
-  const recentLowIntakeDays = recentFoodLogs.filter((log) => log.calories < 1800);
+  const recentLowIntakeDays = recentLowIntakeDayCount(foodLogs, asOfDate);
   if (trend.trendKgPerWeek !== null && trend.trendKgPerWeek < -1.2) {
     flags.push(createRiskFlag("nutrition", "rapid_weight_loss", "high", "Rapid body-mass loss raises under-fueling risk.", { trendKgPerWeek: trend.trendKgPerWeek }, true));
   }
-  if (recentLowIntakeDays.length >= 3) {
-    flags.push(createRiskFlag("nutrition", "repeated_low_intake", "high", "Repeated low intake with boxing load needs review.", { days: recentLowIntakeDays.length }, true));
+  if (recentLowIntakeDays >= 3) {
+    flags.push(createRiskFlag("nutrition", "repeated_low_intake", "high", "Repeated low intake with boxing load needs review.", { days: recentLowIntakeDays }, true));
   }
   const missedPeriodRisk =
     cycle?.trackingEnabled === true &&
@@ -24,7 +38,7 @@ export function assessUnderFuelingRisk(
     cycle.estimatedCycleDay > 45 &&
     cycle.hormonalContraception === "none" &&
     ((trend.trendKgPerWeek !== null && trend.trendKgPerWeek < -0.7) ||
-      recentLowIntakeDays.length > 0 ||
+      recentLowIntakeDays > 0 ||
       (training?.loadLedger.hardDayCount ?? 0) >= 3);
   if (missedPeriodRisk) {
     flags.push(

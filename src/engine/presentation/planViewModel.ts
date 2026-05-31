@@ -106,6 +106,15 @@ function compactSummaryForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "
   return "No support work";
 }
 
+function fuelDemandLabel(demand: TrainingDayPlan["fuelDemand"]): string {
+  const labels: Record<TrainingDayPlan["fuelDemand"], string> = {
+    low: "Low fuel demand",
+    moderate: "Moderate fuel demand",
+    high: "High fuel demand"
+  };
+  return labels[demand];
+}
+
 function compactMetricForDay(day: Pick<TrainingDayPlan, "fuelDemand" | "generatedSessions" | "protectedAnchors">): string {
   const firstAnchor = day.protectedAnchors[0];
   if (firstAnchor) {
@@ -115,7 +124,7 @@ function compactMetricForDay(day: Pick<TrainingDayPlan, "fuelDemand" | "generate
   if (firstGenerated) {
     return `${firstGenerated.durationMinutes} min`;
   }
-  return `${day.fuelDemand} fuel`;
+  return fuelDemandLabel(day.fuelDemand);
 }
 
 function protectedSessionKey(workout: ProtectedWorkout): string {
@@ -286,7 +295,7 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
                 : "No support work"
           : day.generatedSupport),
       compactTag: day.protectedAnchors.length > 0 ? "Protected" : day.role === "recovery_day" || day.role === "taper_day" || day.role === "tournament_conservation_day" ? "Recovery" : "Support",
-      compactMetric: `${day.fuelDemand} fuel`,
+      compactMetric: fuelDemandLabel(day.fuelDemand),
       marker:
         day.role === "tournament_conservation_day"
           ? "Tournament conservation"

@@ -456,7 +456,7 @@ const planViewModel: PlanViewModel = {
         generatedSupport: "Small strength support progression; no numeric load jump inferred.",
         compactSummary: "Small strength support progression; no numeric load jump inferred.",
         compactTag: "Support",
-        compactMetric: "moderate fuel",
+        compactMetric: "Moderate fuel demand",
         marker: "Support",
         fuelDemand: "moderate",
         explanation: "Progression stays small, boxing-specific, and conditional."

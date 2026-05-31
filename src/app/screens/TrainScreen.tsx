@@ -80,7 +80,7 @@ function fuelMetricValue(viewModel: TrainViewModel): string {
   if (!demand) {
     return "Fuel check";
   }
-  return `${demand.charAt(0).toUpperCase()}${demand.slice(1)} fuel`;
+  return `${demand.charAt(0).toUpperCase()}${demand.slice(1)} fuel demand`;
 }
 
 function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards"][number] }) {
