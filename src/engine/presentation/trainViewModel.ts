@@ -35,6 +35,7 @@ function compactSession(session: PerformanceState["training"]["generatedSessions
     id: session.id,
     title: session.title,
     date: session.date,
+    family: session.family,
     intensity: session.intensity,
     durationMinutes: session.durationMinutes,
     fuelDemand: session.fuelDemand
@@ -45,7 +46,7 @@ function upcomingSummary(sessions: readonly ReturnType<typeof compactSession>[])
   if (sessions.length === 0) {
     return "No generated support today.";
   }
-  return `No generated support today. Upcoming: ${sessions
+  return `No generated support today. Upcoming this week: ${sessions
     .slice(0, 3)
     .map((session) => `${dayLabel(session.date)} - ${session.title}`)
     .join("; ")}.`;
@@ -134,60 +135,68 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
   };
 }
 
+function detailedSessionCard(state: PerformanceState, session: PerformanceState["training"]["generatedSessions"][number]) {
+  const protectedWorkouts = state.training.protectedAnchors.filter((anchor) => anchor.date === session.date);
+  try {
+    const detail = buildDetailedTrainingSession({
+      generatedSession: session,
+      athlete: state.athlete,
+      readiness: state.readiness,
+      cycle: state.cycle,
+      phase: state.phase,
+      protectedWorkouts,
+      equipmentAccess: state.athlete.equipmentAccess
+    });
+    return {
+      generatedSessionId: detail.generatedSessionId,
+      date: detail.date,
+      title: detail.title,
+      duration: `${detail.durationMinutes} min`,
+      intensity: detail.intensity,
+      sectionCount: detail.sections.length,
+      firstExercises: detail.sections.flatMap((section) => section.exercises.map((exercise) => exercise.name)).slice(0, 3),
+      whyThisMattersForBoxing: detail.whyThisMattersForBoxing,
+      stopConditions: detail.stopConditions,
+      safetyNotes: detail.safetyNotes,
+      canOpenDetail: true,
+      detail
+    };
+  } catch (error) {
+    return {
+      generatedSessionId: session.id,
+      date: session.date,
+      title: session.title,
+      duration: `${session.durationMinutes} min`,
+      intensity: session.intensity,
+      sectionCount: 0,
+      firstExercises: [],
+      whyThisMattersForBoxing: error instanceof Error ? `Detailed session unavailable: ${error.message}` : "Detailed session unavailable. Keep work easy and use coach guidance.",
+      stopConditions: ["Stop if pain, dizziness, or unusual symptoms appear."],
+      safetyNotes: ["Detailed prescription could not be built, so do not infer extra work."],
+      canOpenDetail: false,
+      detail: null
+    };
+  }
+}
+
 export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const todayAnchors = state.training.protectedAnchors.filter((anchor) => anchor.date === state.asOfDate);
   const plan = todayPlan(state);
-  const currentWeekGeneratedSessions = state.training.generatedSessions
+  const currentWeekGeneratedSessionsRaw = state.training.generatedSessions
     .filter((session) => session.date >= state.training.currentMicrocycle.weekStartDate && session.date <= state.training.currentMicrocycle.weekEndDate)
-    .sort((left, right) => left.date.localeCompare(right.date))
-    .map(compactSession);
+    .sort((left, right) => left.date.localeCompare(right.date));
+  const todayGeneratedSessionsRaw = currentWeekGeneratedSessionsRaw.filter((session) => session.date === state.asOfDate);
+  const currentWeekGeneratedSessions = currentWeekGeneratedSessionsRaw.map(compactSession);
+  const todayGeneratedSessions = todayGeneratedSessionsRaw.map(compactSession);
   const upcomingGeneratedSessions = currentWeekGeneratedSessions.filter((session) => session.date > state.asOfDate);
-  const nextGeneratedSession = [...state.training.todaySessions.map(compactSession), ...upcomingGeneratedSessions][0] ?? null;
+  const nextGeneratedSession = [...todayGeneratedSessions, ...upcomingGeneratedSessions][0] ?? null;
   const weeklyWorkoutCards = currentWeekGeneratedSessions.map((session) => ({
     ...session,
     label: dayLabel(session.date),
     summary: `${session.durationMinutes} min, ${session.intensity}. Fuel: ${session.fuelDemand}.`
   }));
-  const detailedTodaySessions = state.training.todaySessions.map((session) => {
-    try {
-      const detail = buildDetailedTrainingSession({
-        generatedSession: session,
-        athlete: state.athlete,
-        readiness: state.readiness,
-        cycle: state.cycle,
-        phase: state.phase,
-        protectedWorkouts: todayAnchors,
-        equipmentAccess: state.athlete.equipmentAccess
-      });
-      return {
-        generatedSessionId: detail.generatedSessionId,
-        title: detail.title,
-        duration: `${detail.durationMinutes} min`,
-        intensity: detail.intensity,
-        sectionCount: detail.sections.length,
-        firstExercises: detail.sections.flatMap((section) => section.exercises.map((exercise) => exercise.name)).slice(0, 3),
-        whyThisMattersForBoxing: detail.whyThisMattersForBoxing,
-        stopConditions: detail.stopConditions,
-        safetyNotes: detail.safetyNotes,
-        canOpenDetail: true,
-        detail
-      };
-    } catch (error) {
-      return {
-        generatedSessionId: session.id,
-        title: session.title,
-        duration: `${session.durationMinutes} min`,
-        intensity: session.intensity,
-        sectionCount: 0,
-        firstExercises: [],
-        whyThisMattersForBoxing: error instanceof Error ? `Detailed session unavailable: ${error.message}` : "Detailed session unavailable. Keep work easy and use coach guidance.",
-        stopConditions: ["Stop if pain, dizziness, or unusual symptoms appear."],
-        safetyNotes: ["Detailed prescription could not be built, so do not infer extra work."],
-        canOpenDetail: false,
-        detail: null
-      };
-    }
-  });
+  const detailedTodaySessions = todayGeneratedSessionsRaw.map((session) => detailedSessionCard(state, session));
+  const detailedWeeklySessions = currentWeekGeneratedSessionsRaw.map((session) => detailedSessionCard(state, session));
   const analytics = buildTrainingAnalytics({
     asOfDate: state.asOfDate,
     completedTrainingSessions: state.training.completedSessions,
@@ -206,9 +215,20 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const primaryTrainingAction =
     state.safety.hardStops.length > 0
       ? "Follow the safety stop. Do not add generated support today."
-      : state.training.todaySessions.length > 0
+      : todayGeneratedSessions.length > 0
         ? "Open Workout when you are ready, then log completed or skipped."
         : "No generated support is due. Log coach-led boxing if it happens.";
+  const supportGenerationSummary = {
+    targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
+    actualGeneratedSupportCount: state.training.supportGenerationAudit.actualGeneratedSupportCount,
+    todayGeneratedSupportCount: todayGeneratedSessions.length,
+    currentWeekGeneratedSessionDates: currentWeekGeneratedSessions.map((session) => session.date),
+    currentWeekGeneratedSessionTitles: currentWeekGeneratedSessions.map((session) => session.title),
+    currentWeekGeneratedSessionFamilies: currentWeekGeneratedSessions.map((session) => session.family),
+    selectedSupportDays: state.training.supportGenerationAudit.selectedSupportDays,
+    blockedGenerationReasons: state.training.supportGenerationAudit.blockedGenerationReasons,
+    reducedBy: state.training.supportGenerationAudit.reducedBy
+  };
   return {
     title: "Train for boxing",
     topAction: {
@@ -218,11 +238,13 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       why: generationExplanation,
       optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
     },
-    todaySummary: state.training.todaySessions.length > 0 ? state.training.todaySessions.map((session) => session.title).join(", ") : upcomingSummary(upcomingGeneratedSessions),
+    todaySummary: todayGeneratedSessions.length > 0 ? todayGeneratedSessions.map((session) => session.title).join(", ") : upcomingSummary(upcomingGeneratedSessions),
+    todayGeneratedSessions,
     upcomingGeneratedSessions,
     currentWeekGeneratedSessions,
     nextGeneratedSession,
     weeklyWorkoutCards,
+    supportGenerationSummary,
     blockPhase: state.training.activeBlock.phase,
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),
     blockExplanation: state.training.blockRecommendation.reason,
@@ -234,7 +256,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     blockProgression: analytics.progressionRecommendation,
     ...hints,
     cycleTrainingDecision: cycleTrainingDecision(state),
-    sessionCards: state.training.todaySessions.map((session) => ({
+    sessionCards: todayGeneratedSessionsRaw.map((session) => ({
       title: session.title,
       intensity: session.intensity,
       durationMinutes: session.durationMinutes,
@@ -245,6 +267,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       fuelDemand: session.fuelDemand
     })),
     detailedTodaySessions,
+    detailedWeeklySessions,
     progressionSummary: analytics.progressionRecommendation,
     analytics,
     exerciseHistory,

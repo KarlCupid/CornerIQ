@@ -52,13 +52,6 @@ function trainingBlockHistoryFor(journey: ResolvePerformanceStateInput["journey"
   };
 }
 
-function latestPlanWizardSource(journey: ResolvePerformanceStateInput["journey"]): "plan_wizard_new_plan" | "plan_wizard_amendment" | null {
-  const event = [...journey.journeyEvents]
-    .reverse()
-    .find((item) => item.payload.source === "plan_wizard_new_plan" || item.payload.source === "plan_wizard_amendment");
-  return event?.payload.source === "plan_wizard_new_plan" || event?.payload.source === "plan_wizard_amendment" ? event.payload.source : null;
-}
-
 export function resolvePerformanceState(input: ResolvePerformanceStateInput): PerformanceState {
   const generatedAt = input.generatedAt ?? `${input.asOfDate}T00:00:00.000Z`;
   const journey = input.journey;
@@ -87,7 +80,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   });
   const blockHistory = trainingBlockHistoryFor(journey);
   const planGenerationIntent = resolveActivePlanGenerationIntent(journey, input.asOfDate);
-  const persistedGeneratedSessions = !journey.activeTrainingBlock && latestPlanWizardSource(journey) === "plan_wizard_new_plan" ? [] : journey.trainingHistory;
+  const persistedGeneratedSessions = journey.trainingHistory;
   const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,
     anchors,
@@ -104,6 +97,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     engineVersion: ENGINE_VERSION,
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
+    activeTrainingBlockId: journey.currentTrainingBlock,
     blockHistory,
     ...(planGenerationIntent ? { planGenerationIntent } : {}),
     persistedGeneratedSessions
@@ -151,6 +145,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     engineVersion: ENGINE_VERSION,
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
+    activeTrainingBlockId: journey.currentTrainingBlock,
     blockHistory,
     ...(planGenerationIntent ? { planGenerationIntent } : {}),
     persistedGeneratedSessions

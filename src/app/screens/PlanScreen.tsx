@@ -215,6 +215,36 @@ function GeneratedSupportSummaryCard({
           <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support session")}</Text>
           <Text style={screenStyles.body}>Generated support days: {viewModel.scheduleAvailabilitySummary}</Text>
           <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds support work around your protected boxing anchors, readiness, and safety."}</Text>
+          {viewModel.generationAudit ? (
+            <>
+              <Text style={screenStyles.body}>
+                Current week: {viewModel.generationAudit.actualGeneratedSupportCount}/{viewModel.generationAudit.targetGeneratedSupportCount} generated support session{viewModel.generationAudit.actualGeneratedSupportCount === 1 ? "" : "s"}.
+              </Text>
+              <Text style={screenStyles.subtle}>
+                Dates: {viewModel.generationAudit.generatedSessionDates.length > 0 ? viewModel.generationAudit.generatedSessionDates.join(", ") : "None"}
+              </Text>
+              <Text style={screenStyles.subtle}>
+                Titles: {viewModel.generationAudit.generatedSessionTitles.length > 0 ? viewModel.generationAudit.generatedSessionTitles.join(", ") : "None"}
+              </Text>
+              <Text style={screenStyles.subtle}>
+                Families: {viewModel.generationAudit.generatedSessionFamilies.length > 0 ? viewModel.generationAudit.generatedSessionFamilies.join(", ") : "None"}
+              </Text>
+              <Text style={screenStyles.subtle}>
+                Plan: {viewModel.generationAudit.planRevisionId} / block {viewModel.generationAudit.activeTrainingBlockId}
+              </Text>
+              <Text style={screenStyles.subtle}>
+                Selected days: {viewModel.generationAudit.selectedSupportDays.length > 0 ? viewModel.generationAudit.selectedSupportDays.join(", ") : "None"}
+              </Text>
+              <Text style={screenStyles.subtle}>
+                Persisted considered: {viewModel.generationAudit.persistedGeneratedSessionsConsidered.length}; ignored: {viewModel.generationAudit.persistedGeneratedSessionsIgnored.length}
+              </Text>
+              {viewModel.generationAudit.persistedGeneratedSessionsIgnored.slice(0, 3).map((session) => (
+                <Text key={`ignored-generated-session:${session.id}`} style={screenStyles.subtle}>
+                  Ignored persisted: {session.title} - {session.reason}
+                </Text>
+              ))}
+            </>
+          ) : null}
           <Text style={screenStyles.subtle}>Generated support will only be placed on selected available days.</Text>
           <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
           <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>

@@ -72,7 +72,7 @@ type TemplateDraft = Omit<WorkoutTemplate, "contraindications" | "progressionNot
   Partial<Pick<WorkoutTemplate, "contraindications" | "progressionNotes" | "regressionNotes" | "safetyNotes" | "stopConditions">>;
 
 const EQUIPMENT_REQUIREMENT_TAGS = new Set(["bands", "bench", "bike", "dumbbells", "landmine", "medicine_ball", "rower", "trap_bar"]);
-const CONSERVATIVE_STRATEGIES = new Set<NextWeekTrainingVolumeStrategy>(["reduce_volume", "deload", "taper", "tournament_conserve", "hold_for_review"]);
+const CONSERVATIVE_STRATEGIES = new Set<NextWeekTrainingVolumeStrategy>(["conservative_start", "reduce_volume", "deload", "taper", "tournament_conserve", "hold_for_review"]);
 
 function section(sectionType: WorkoutTemplateSectionKind, name: string, intent: string, exerciseIds: readonly string[]): WorkoutTemplateSection {
   return { sectionType, name, intent, exerciseIds };

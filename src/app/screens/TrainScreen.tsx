@@ -123,21 +123,27 @@ function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards
 }
 
 function WeeklyGeneratedWorkCard({ viewModel }: { viewModel: TrainViewModel }) {
-  if (viewModel.weeklyWorkoutCards.length === 0) {
+  const generation = viewModel.supportGenerationSummary;
+  if (viewModel.weeklyWorkoutCards.length === 0 && generation.blockedGenerationReasons.length === 0) {
     return null;
   }
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="train-weekly-generated-work">
         <Text style={screenStyles.sectionTitle}>Generated week</Text>
+        <Text style={screenStyles.body}>
+          Current week: {generation.actualGeneratedSupportCount}/{generation.targetGeneratedSupportCount} generated support session{generation.actualGeneratedSupportCount === 1 ? "" : "s"}.
+        </Text>
+        <Text style={screenStyles.subtle}>Today: {generation.todayGeneratedSupportCount} generated support session{generation.todayGeneratedSupportCount === 1 ? "" : "s"}.</Text>
         <Text style={screenStyles.body}>{viewModel.todaySummary}</Text>
-        {viewModel.weeklyWorkoutCards.map((session) => (
+        {viewModel.weeklyWorkoutCards.length > 0 ? viewModel.weeklyWorkoutCards.map((session) => (
           <View key={session.id} style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>{session.label}</Text>
             <Text style={screenStyles.body}>{session.title}</Text>
             <Text style={screenStyles.subtle}>{session.summary}</Text>
           </View>
-        ))}
+        )) : <Text style={screenStyles.subtle}>No current-week generated support sessions are active.</Text>}
+        {generation.blockedGenerationReasons.map((reason, index) => <Text key={`train-generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
       </View>
     </EngineCard>
   );

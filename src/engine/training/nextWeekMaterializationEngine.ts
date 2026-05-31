@@ -7,6 +7,7 @@ import type { TrainingBlock, TrainingBlockPhase, TrainingDayPlan, TrainingMicroc
 import type { TrainingProgressionDecision, TrainingProgressionDecisionValue, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 
 export type NextWeekTrainingVolumeStrategy =
+  | "conservative_start"
   | "progress_small"
   | "repeat_same"
   | "reduce_volume"
@@ -20,6 +21,7 @@ export type NextWeekGeneratedSupportBias = "strength" | "power" | "aerobic_base"
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const NextWeekTrainingVolumeStrategySchema = z.enum([
+  "conservative_start",
   "progress_small",
   "repeat_same",
   "reduce_volume",
@@ -209,7 +211,7 @@ function materializedPhase(input: NextWeekMaterializationInput, nextWeekStartDat
 }
 
 function strategyFor(input: NextWeekMaterializationInput, nextWeekStartDate: ISODateString, nextWeekEndDate: ISODateString): NextWeekTrainingVolumeStrategy {
-  const decision = input.latestTrainingProgressionDecision?.decision ?? "hold";
+  const decision = input.latestTrainingProgressionDecision?.decision;
   const underfueling = activeUnderfueling(input.safetyFlags, input.latestTrainingWeekSummary);
   const hardStop = activeHardStop(input.safetyFlags, input.readiness);
   const pain = painOrReview(input);
@@ -230,6 +232,9 @@ function strategyFor(input: NextWeekMaterializationInput, nextWeekStartDate: ISO
   if (underfueling || decision === "regress" || (decision === "progress" && cycleTrim)) {
     return "reduce_volume";
   }
+  if (!decision) {
+    return cycleTrim ? "reduce_volume" : "conservative_start";
+  }
   if (decision === "progress" && input.readiness.color === "green") {
     return "progress_small";
   }
@@ -241,6 +246,8 @@ function strategyFor(input: NextWeekMaterializationInput, nextWeekStartDate: ISO
 
 function hardDayCap(currentCap: number, strategy: NextWeekTrainingVolumeStrategy): number {
   switch (strategy) {
+    case "conservative_start":
+      return Math.max(1, currentCap - 1);
     case "progress_small":
     case "repeat_same":
       return currentCap;
@@ -255,6 +262,9 @@ function hardDayCap(currentCap: number, strategy: NextWeekTrainingVolumeStrategy
 }
 
 function supportBias(phase: TrainingBlockPhase, strategy: NextWeekTrainingVolumeStrategy): NextWeekGeneratedSupportBias {
+  if (strategy === "conservative_start") {
+    return "durability";
+  }
   if (strategy === "deload" || strategy === "hold_for_review") {
     return "recovery";
   }
@@ -308,7 +318,7 @@ function familyBiases(bias: NextWeekGeneratedSupportBias): readonly GeneratedSes
 function blockedProgressionReasons(input: NextWeekMaterializationInput, strategy: NextWeekTrainingVolumeStrategy): readonly string[] {
   const reasons: string[] = [];
   if (!input.latestTrainingProgressionDecision) {
-    reasons.push("No persisted progression decision exists yet, so next week is held for review.");
+    reasons.push("No persisted progression decision exists yet, so next week starts conservative instead of being capped to one workout.");
   }
   if (activeUnderfueling(input.safetyFlags, input.latestTrainingWeekSummary)) {
     reasons.push("Under-fueling risk blocks progression.");
@@ -345,6 +355,8 @@ function protectedHard(anchors: readonly ProtectedWorkout[], date: ISODateString
 function generatedSupportCopy(strategy: NextWeekTrainingVolumeStrategy, bias: NextWeekGeneratedSupportBias, currentDay: TrainingDayPlan | undefined): string {
   const currentCount = currentDay?.generatedSessions.length ?? 0;
   switch (strategy) {
+    case "conservative_start":
+      return currentCount > 0 ? `Conservative ${bias.replaceAll("_", " ")} support starter; repeatable and low-risk.` : `Conservative ${bias.replaceAll("_", " ")} support starter.`;
     case "progress_small":
       return currentCount > 0 ? `Small ${bias.replaceAll("_", " ")} support progression; no numeric load jump inferred.` : `Small ${bias.replaceAll("_", " ")} support slot if recovery stays green.`;
     case "repeat_same":
@@ -389,6 +401,7 @@ function safetyNotes(input: NextWeekMaterializationInput, strategy: NextWeekTrai
     "Protected boxing anchors remain protected.",
     "Only non-partner support work is previewed.",
     "Free-text load logs are notes only; numeric load progression is not inferred.",
+    ...(strategy === "conservative_start" ? ["Missing progression history creates a conservative full-week support preview, not a one-workout cap."] : []),
     ...(activeUnderfueling(input.safetyFlags, input.latestTrainingWeekSummary) ? ["Under-fueling risk blocks progress until fuel and recovery are steadier."] : []),
     ...(highCycleSymptoms(input.cycle, input.latestTrainingWeekSummary) ? ["High cycle symptoms trim optional volume without forcing an automatic deload."] : []),
     ...(strategy === "tournament_conserve" ? ["Tournament week stays near weight without hard-conditioning pressure."] : []),
@@ -425,6 +438,8 @@ function dayPlanPreview(input: NextWeekMaterializationInput, output: Pick<NextWe
       explanation:
         output.materializedVolumeStrategy === "progress_small"
           ? "Progression stays small, boxing-specific, and conditional on no pain, no under-fueling, and green readiness."
+          : output.materializedVolumeStrategy === "conservative_start"
+            ? "Missing progression history starts a conservative full-week support shape without treating the athlete as blocked."
           : output.materializedVolumeStrategy === "repeat_same"
             ? "The safest next week is the same dose without novelty."
             : output.materializedVolumeStrategy === "reduce_volume"
@@ -486,6 +501,8 @@ export function materializeNextWeekTrainingPlan(input: NextWeekMaterializationIn
     explanation:
       strategy === "progress_small"
         ? "Persisted progression supports a small next-week increase only because safety, pain, fueling, and readiness checks allow it."
+        : strategy === "conservative_start"
+          ? "No persisted progression decision exists yet, so next week is previewed as conservative full-week support instead of being capped to one workout."
         : blocked.length > 0
           ? blocked.join(" ")
           : `Persisted ${decision.replaceAll("_", " ")} decision shapes next week without changing the current week.`,

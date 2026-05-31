@@ -9,6 +9,7 @@ import {
   materializeNextWeekTrainingPlan as buildNextWeekTrainingPreview,
   type NextWeekTrainingMaterialization
 } from "../../engine/training/nextWeekMaterializationEngine";
+import { latestPlanWizardIntentSource } from "../../engine/training/planGenerationIntent";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
 import type { NextWeekPreviewPersistenceStatus, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/training/types";
@@ -114,13 +115,6 @@ function hasDueAcceptedPreview(input: {
   asOfDate: ISODateString;
 }): boolean {
   return input.previews.some((preview) => preview.status === "accepted" && preview.weekStartDate <= input.asOfDate && input.asOfDate <= preview.weekEndDate);
-}
-
-function latestPlanWizardSource(journey: LoadAthleteJourneyResult & { status: "ready" }): "plan_wizard_new_plan" | "plan_wizard_amendment" | null {
-  const event = [...journey.journey.journeyEvents]
-    .reverse()
-    .find((item) => item.payload.source === "plan_wizard_new_plan" || item.payload.source === "plan_wizard_amendment");
-  return event?.payload.source === "plan_wizard_new_plan" || event?.payload.source === "plan_wizard_amendment" ? event.payload.source : null;
 }
 
 function withTrainingPersistenceStatus(input: {
@@ -400,6 +394,14 @@ async function persistTrainingBlockProjection(
       primaryGoal: state.training.activeBlock.primaryGoal,
       inputHash,
       outputHash: state.outputHash,
+      ...(state.training.planGenerationIntent
+        ? {
+            planGenerationIntent: state.training.planGenerationIntent,
+            planRevisionId: state.training.planGenerationIntent.id,
+            selectedSupportDays: state.training.planGenerationIntent.selectedSupportDays,
+            planStartDate: state.training.planGenerationIntent.planStartDate
+          }
+        : {}),
       source: lifecycleSource ?? "engine_training_block_projection"
     });
   }
@@ -552,7 +554,7 @@ export async function resolveAndPersistPerformanceState(input: {
   }
 
   try {
-    const lifecycleSource = journeyResult.status === "ready" ? latestPlanWizardSource(journeyResult) : null;
+    const lifecycleSource = journeyResult.status === "ready" ? latestPlanWizardIntentSource(journeyResult.journey) : null;
     const persisted = await persistPerformanceState(userId, inputHash, state, input.repositories, lifecycleSource);
     return {
       status: "ready",

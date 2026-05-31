@@ -138,6 +138,26 @@ describe("next week materialization engine", () => {
     expect(materialize(state, summary, decisionFor(state, summary, { decision: "coach_review" })).materializedVolumeStrategy).toBe("hold_for_review");
   });
 
+  it("missing progression history starts conservatively instead of forcing hold-for-review", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        trainingWeekSummaries: [],
+        trainingProgressionDecisions: [],
+        safetyFlags: [],
+        completedTrainingSessions: [],
+        exerciseResults: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const preview = materialize(state, null, null);
+
+    expect(preview.materializedVolumeStrategy).toBe("conservative_start");
+    expect(preview.blockedProgressionReasons.join(" ")).toContain("starts conservative");
+    expect(preview.blockedProgressionReasons.join(" ")).not.toContain("held for review");
+    expect(preview.nextWeekDayPlanPreview.filter((day) => day.generatedSupport.includes("Conservative")).length).toBeGreaterThan(1);
+  });
+
   it("blocks progress for under-fueling, fight week, and tournament context", () => {
     const underfueling = withRiskFlag(resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate }), repeatedLowIntakeFlag());
     const fightWeek = resolvePerformanceState({

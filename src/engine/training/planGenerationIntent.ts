@@ -5,6 +5,15 @@ import { normalizeGeneratedSupportWeekdays } from "./supportAvailability";
 
 const PLAN_WIZARD_SOURCES = new Set(["plan_wizard_new_plan", "plan_wizard_amendment"]);
 const PRIMARY_FOCUS_VALUES = new Set(["balanced", "power", "conditioning", "strength", "mobility"]);
+const USER_PLAN_EVENT_TYPES = new Set<JourneyEvent["type"]>([
+  "BuildPhaseStarted",
+  "CampStarted",
+  "FightOpportunityCreated",
+  "FightOpportunityConfirmed",
+  "FightOpportunityRescheduled",
+  "TournamentStarted",
+  "RecoveryStarted"
+]);
 
 function stableHash(value: unknown): string {
   const serialized = JSON.stringify(value);
@@ -89,17 +98,45 @@ function selectedSupportDaysFromPayload(
   return [];
 }
 
-function eventHasPlanSource(event: JourneyEvent): boolean {
+function sourceForAction(action: PlanGenerationAction): "plan_wizard_new_plan" | "plan_wizard_amendment" {
+  return action === "start_new_plan" ? "plan_wizard_new_plan" : "plan_wizard_amendment";
+}
+
+function eventHasCanonicalPlanIntent(event: JourneyEvent): boolean {
   const payload = event.payload;
-  if (objectValue(payload.planGenerationIntent)) {
-    return true;
+  return Boolean(objectValue(payload.planGenerationIntent));
+}
+
+function eventHasLegacyUserPlanSource(event: JourneyEvent): boolean {
+  if (!USER_PLAN_EVENT_TYPES.has(event.type)) {
+    return false;
   }
+  const payload = event.payload;
   const source = stringValue(payload.source);
   return Boolean(source && PLAN_WIZARD_SOURCES.has(source));
 }
 
+function eventHasResolvablePlanIntent(event: JourneyEvent): boolean {
+  return eventHasCanonicalPlanIntent(event) || eventHasLegacyUserPlanSource(event);
+}
+
+export function latestPlanWizardIntentSource(journey: AthleteJourney): "plan_wizard_new_plan" | "plan_wizard_amendment" | null {
+  const event = [...journey.journeyEvents].reverse().find(eventHasResolvablePlanIntent);
+  if (!event) {
+    return null;
+  }
+  const payload = event.payload;
+  const intentPayload = objectValue(payload.planGenerationIntent);
+  const action = actionFromPayload(payload, intentPayload);
+  if (action) {
+    return sourceForAction(action);
+  }
+  const source = stringValue(payload.source);
+  return source === "plan_wizard_new_plan" || source === "plan_wizard_amendment" ? source : null;
+}
+
 export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfDate: ISODateString): PlanGenerationIntent | null {
-  const event = [...journey.journeyEvents].reverse().find(eventHasPlanSource);
+  const event = [...journey.journeyEvents].reverse().find(eventHasResolvablePlanIntent);
   if (!event) {
     return null;
   }

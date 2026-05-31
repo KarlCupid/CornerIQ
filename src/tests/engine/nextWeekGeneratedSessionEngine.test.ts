@@ -148,6 +148,20 @@ describe("nextWeekGeneratedSessionEngine", () => {
     expect(new Set(sessions.map((session) => session.family))).toEqual(new Set(["roadwork_zone2"]));
   });
 
+  it("conservative_start creates a full conservative week when availability allows", () => {
+    const state = stateFixture();
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "conservative_start" }), {
+        safetyFlags: []
+      })
+    );
+
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.every((session) => session.intensity === "easy" || session.intensity === "recovery")).toBe(true);
+    expect(sessions.every((session) => session.fuelDemand === "low")).toBe(true);
+    expect(sessions.every((session) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"].includes(session.family))).toBe(true);
+  });
+
   it("reduce_volume trims volume below progress_small", () => {
     const state = stateFixture();
     const progress = materializeGeneratedSessionsFromPreview(inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" })));
@@ -187,7 +201,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
     const state = stateFixture();
     const sessions = materializeGeneratedSessionsFromPreview(inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "hold_for_review" })));
 
-    expect(sessions).toHaveLength(1);
+    expect(sessions.length).toBeGreaterThan(1);
     expect(sessions.every((session) => session.intensity !== "hard" && session.fuelDemand === "low")).toBe(true);
   });
 
@@ -348,6 +362,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
   it("does not emit prohibited generated-session terms", () => {
     const state = stateFixture();
     const strategies: NextWeekTrainingMaterialization["materializedVolumeStrategy"][] = [
+      "conservative_start",
       "progress_small",
       "repeat_same",
       "reduce_volume",

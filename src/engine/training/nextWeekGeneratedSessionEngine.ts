@@ -138,6 +138,8 @@ function hasProtectedHardAnchor(anchors: readonly ProtectedWorkout[]): boolean {
 function familyBiases(input: NextWeekGeneratedSessionMaterializationInput): readonly GeneratedSessionFamily[] {
   const biases: readonly GeneratedSessionFamily[] = input.materialization.sessionFamilyBiases.length > 0 ? input.materialization.sessionFamilyBiases : ["trunk_durability"];
   switch (input.materialization.materializedVolumeStrategy) {
+    case "conservative_start":
+      return ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"];
     case "progress_small":
       return Array.from(new Set<GeneratedSessionFamily>([...biases, "trunk_durability", "shoulder_scap_durability"]));
     case "repeat_same":
@@ -165,10 +167,14 @@ function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput)
   const base =
     input.materialization.materializedVolumeStrategy === "progress_small"
       ? 3
+      : input.materialization.materializedVolumeStrategy === "conservative_start"
+        ? isNovice(input.athlete)
+          ? 2
+          : 3
       : input.materialization.materializedVolumeStrategy === "repeat_same"
         ? 2
         : input.materialization.materializedVolumeStrategy === "hold_for_review"
-        ? 1
+        ? 2
         : 2;
   const trimmedForFuel = fuelCountCap ? Math.min(base, 1) : base;
   return Math.max(1, cycleTrim ? trimmedForFuel - 1 : trimmedForFuel);
@@ -213,7 +219,7 @@ function eligibleDays(input: NextWeekGeneratedSessionMaterializationInput): read
     .filter((day) => generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, day.date))
     .filter((day) => !hasCompetitionAnchor(anchorsForDate([...input.protectedWorkouts, ...day.protectedAnchors], day.date)));
   const preferred = days.filter((day) => {
-    if (strategy === "progress_small" || strategy === "repeat_same") {
+    if (strategy === "progress_small" || strategy === "repeat_same" || strategy === "conservative_start") {
       return !day.hardDay && (day.role === "support_day" || day.role === "recovery_day");
     }
     if (strategy === "deload" || strategy === "reduce_volume" || strategy === "hold_for_review") {
@@ -237,6 +243,7 @@ function adjustedShape(
   const cycleTrim = highCycleSymptoms(input.cycle);
   const conservativeStrategy =
     input.materialization.materializedVolumeStrategy === "deload" ||
+    input.materialization.materializedVolumeStrategy === "conservative_start" ||
     input.materialization.materializedVolumeStrategy === "taper" ||
     input.materialization.materializedVolumeStrategy === "tournament_conserve" ||
     input.materialization.materializedVolumeStrategy === "hold_for_review";

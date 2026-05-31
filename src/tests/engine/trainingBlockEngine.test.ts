@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { CompletedTrainingSession, ExerciseResultRecord, JourneyEvent, PlanGenerationPrimaryFocus, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
+import type {
+  CompletedTrainingSession,
+  ExerciseResultRecord,
+  GeneratedTrainingSession,
+  JourneyEvent,
+  PlanGenerationPrimaryFocus,
+  ProtectedWorkout,
+  RecurringProtectedWorkoutAnchor
+} from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
@@ -159,6 +167,8 @@ describe("training block and microcycle engine", () => {
 
     expect(red.training.activeBlock.phase).toBe("recovery_deload");
     expect(red.training.dayPlans[0]?.recoveryPriority).toBe("hard_stop");
+    expect(red.training.generatedSessions.length).toBeLessThanOrEqual(1);
+    expect(red.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("Readiness is red");
     expect(pain.training.activeBlock.progressionState.status).toBe("coach_review");
     expect(pain.training.blockRecommendation.reason).toContain("coach review");
   });
@@ -211,6 +221,9 @@ describe("training block and microcycle engine", () => {
     });
 
     expect(state.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(state.training.supportGenerationAudit.targetGeneratedSupportCount).toBeGreaterThan(1);
+    expect(state.training.supportGenerationAudit.actualGeneratedSupportCount).toBe(1);
+    expect(state.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("Only 1 selected available day");
     expect(state.training.generatedSessions.every((session) => new Date(`${session.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
     expect(state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).every((day) => new Date(`${day.date}T00:00:00.000Z`).getUTCDay() === 3)).toBe(true);
   });
@@ -231,6 +244,8 @@ describe("training block and microcycle engine", () => {
       asOfDate: fixtureAsOfDate
     });
 
+    expect(state.training.supportGenerationAudit.targetGeneratedSupportCount).toBeGreaterThan(1);
+    expect(state.training.supportGenerationAudit.actualGeneratedSupportCount).toBeGreaterThan(1);
     expect(state.training.generatedSessions.length).toBeGreaterThan(1);
     expect(state.training.generatedSessions.every((session) => selectedDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
   });
@@ -265,6 +280,113 @@ describe("training block and microcycle engine", () => {
     expect(state.training.generatedSessions.every((session) => session.id.startsWith("generated:plan_conditioning_week_1:"))).toBe(true);
     expect(state.training.generatedSessions.every((session) => selectedDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
     expect(state.training.generatedSessions.map((session) => session.family).join(" ")).toMatch(/roadwork|conditioning/);
+  });
+
+  it("keeps the canonical wizard intent when later lifecycle events carry wizard source", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["monday"]
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "strength",
+            id: "plan_strength_week_1",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: selectedDays
+          }),
+          {
+            id: "event_training_block_started_from_wizard",
+            type: "TrainingBlockStarted",
+            occurredAt: "2026-05-19T09:05:00.000Z",
+            payload: {
+              blockId: "training_block_new",
+              blockKey: "block:user_1:2026-05-18:2026-06-14",
+              phase: "build_strength",
+              primaryGoal: "strength_base",
+              source: "plan_wizard_new_plan"
+            }
+          }
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.planGenerationIntent).toEqual(
+      expect.objectContaining({
+        action: "start_new_plan",
+        goalMode: "build",
+        primaryFocus: "strength",
+        id: "plan_strength_week_1",
+        planStartDate: "2026-05-18",
+        seed: "plan_strength_week_1"
+      })
+    );
+    expect(state.training.planGenerationIntent?.selectedSupportDays).toEqual(selectedDays);
+    expect(state.training.supportGenerationAudit.planRevisionId).toBe("plan_strength_week_1");
+    expect(state.training.generatedSessions.every((session) => session.id.startsWith("generated:plan_strength_week_1:"))).toBe(true);
+    expect(state.training.generatedSessions.some((session) => session.family.startsWith("strength"))).toBe(true);
+  });
+
+  it("ignores stale persisted generated sessions from superseded plan revisions", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const staleRoadwork: GeneratedTrainingSession = {
+      id: "generated:old_plan:1:2026-05-19:roadwork_zone2",
+      date: fixtureAsOfDate,
+      family: "roadwork_zone2",
+      title: "Talk-test roadwork",
+      durationMinutes: 30,
+      intensity: "easy",
+      prescription: ["Keep this old support easy."],
+      rationale: "Old conditioning plan output.",
+      protects: ["aerobic base"],
+      modifications: [],
+      fuelDemand: "moderate",
+      planRevisionId: "old_plan",
+      trainingBlockId: "training_block_old",
+      weekIndex: 4,
+      planStartDate: "2026-04-27",
+      source: "active_plan_generation"
+    };
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "strength",
+            id: "plan_strength_week_1",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: selectedDays
+          })
+        ],
+        trainingHistory: [staleRoadwork],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.supportGenerationAudit.planRevisionId).toBe("plan_strength_week_1");
+    expect(state.training.generatedSessions.map((session) => session.title)).not.toContain("Talk-test roadwork");
+    expect(state.training.generatedSessions.every((session) => session.planRevisionId === "plan_strength_week_1")).toBe(true);
+    expect(state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: staleRoadwork.id,
+          reason: expect.stringContaining("plan revision")
+        })
+      ])
+    );
   });
 
   it("different build focuses produce different generated session families", () => {
@@ -319,8 +441,12 @@ describe("training block and microcycle engine", () => {
     });
 
     expect(state.training.todaySessions).toEqual([]);
+    expect(state.viewModels.train.todayGeneratedSessions).toEqual([]);
+    expect(state.viewModels.train.currentWeekGeneratedSessions.map((session) => session.date)).toEqual(["2026-05-26", "2026-05-28"]);
     expect(state.viewModels.train.upcomingGeneratedSessions.map((session) => session.date)).toEqual(["2026-05-26", "2026-05-28"]);
-    expect(state.viewModels.train.todaySummary).toContain("Upcoming");
+    expect(state.viewModels.train.supportGenerationSummary.actualGeneratedSupportCount).toBe(2);
+    expect(state.viewModels.train.supportGenerationSummary.currentWeekGeneratedSessionTitles).toEqual(state.viewModels.train.weeklyWorkoutCards.map((session) => session.title));
+    expect(state.viewModels.train.todaySummary).toContain("Upcoming this week");
     expect(state.viewModels.train.weeklyWorkoutCards).toHaveLength(2);
   });
 

@@ -23,6 +23,7 @@
     "qa:agent:bundle": "node scripts/create-agent-qa-bundle.mjs",
     "qa:agent:ci": "node scripts/run-agent-qa-ci.mjs",
     "qa:loop:state": "node scripts/print-qa-loop-state.mjs",
+    "dev:reset:supabase": "node scripts/dev-reset-supabase.mjs",
     "preflight:beta": "node scripts/beta-preflight.mjs",
     "smoke:live-db": "vitest run src/tests/live/liveDbSmoke.test.ts"
   },

@@ -18,7 +18,7 @@ import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useU
 import { usePerformanceState } from "../../hooks/usePerformanceState";
 import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
-import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
+import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
@@ -310,12 +310,24 @@ const trainViewModel: TrainViewModel = {
     optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
   },
   todaySummary: "One support session.",
+  todayGeneratedSessions: [
+    {
+      id: "generated_1",
+      title: "Strength support",
+      date: "2026-05-19",
+      family: "strength_full_body",
+      intensity: "moderate",
+      durationMinutes: 35,
+      fuelDemand: "moderate"
+    }
+  ],
   upcomingGeneratedSessions: [],
   currentWeekGeneratedSessions: [
     {
       id: "generated_1",
       title: "Strength support",
       date: "2026-05-19",
+      family: "strength_full_body",
       intensity: "moderate",
       durationMinutes: 35,
       fuelDemand: "moderate"
@@ -325,6 +337,7 @@ const trainViewModel: TrainViewModel = {
     id: "generated_1",
     title: "Strength support",
     date: "2026-05-19",
+    family: "strength_full_body",
     intensity: "moderate",
     durationMinutes: 35,
     fuelDemand: "moderate"
@@ -335,12 +348,24 @@ const trainViewModel: TrainViewModel = {
       title: "Strength support",
       date: "2026-05-19",
       label: "Tue, May 19",
+      family: "strength_full_body",
       intensity: "moderate",
       durationMinutes: 35,
       summary: "35 min, moderate. Fuel: moderate.",
       fuelDemand: "moderate"
     }
   ],
+  supportGenerationSummary: {
+    targetGeneratedSupportCount: 3,
+    actualGeneratedSupportCount: 1,
+    todayGeneratedSupportCount: 1,
+    currentWeekGeneratedSessionDates: ["2026-05-19"],
+    currentWeekGeneratedSessionTitles: ["Strength support"],
+    currentWeekGeneratedSessionFamilies: ["strength_full_body"],
+    selectedSupportDays: ["tuesday"],
+    blockedGenerationReasons: [],
+    reducedBy: []
+  },
   blockPhase: "build_strength",
   blockGoal: "strength base",
   blockExplanation: "Build phase uses boxing level and completion history.",
@@ -376,6 +401,7 @@ const trainViewModel: TrainViewModel = {
     }
   ],
   detailedTodaySessions: [],
+  detailedWeeklySessions: [],
   progressionSummary: {
     status: "unknown",
     summary: "Progression is unknown until completion history exists.",
@@ -1917,6 +1943,52 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Engine preview, not a user-edited plan.");
   });
 
+  it("Plan and Train agree on generated support count, dates, and titles", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const { TrainScreen } = await import("../../app/screens/TrainScreen");
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "thursday", "saturday"]
+        },
+        safetyFlags: [],
+        trainingHistory: [],
+        trainingPlanAdjustments: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const planOutput = JSON.stringify(
+      render(
+        React.createElement(PlanScreen, {
+          asOfDate: fixtureAsOfDate,
+          busy: false,
+          hasActiveFightOrTournament: false,
+          isMinor: false,
+          onSaveFightSetup: vi.fn(),
+          onSaveTournamentSetup: vi.fn(),
+          viewModel: state.viewModels.plan
+        })
+      ).toJSON()
+    );
+    const trainOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train })).toJSON());
+    const audit = state.viewModels.plan.generationAudit;
+
+    expect(audit).toBeDefined();
+    expect(audit?.actualGeneratedSupportCount).toBe(state.viewModels.train.supportGenerationSummary.actualGeneratedSupportCount);
+    expect(audit?.generatedSessionDates).toEqual(state.viewModels.train.supportGenerationSummary.currentWeekGeneratedSessionDates);
+    expect(audit?.generatedSessionTitles).toEqual(state.viewModels.train.supportGenerationSummary.currentWeekGeneratedSessionTitles);
+    expect(audit?.actualGeneratedSupportCount).toBeGreaterThan(1);
+    for (const session of state.viewModels.train.weeklyWorkoutCards) {
+      expect(planOutput).toContain(session.date);
+      expect(planOutput).toContain(session.title);
+      expect(trainOutput).toContain(session.title);
+    }
+    expect(trainOutput).toContain("Current week:");
+    expect(trainOutput).toContain(String(audit?.targetGeneratedSupportCount));
+  });
+
   it("Plan next-week preview uses progression context without mutating current week", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
@@ -2516,7 +2588,10 @@ describe("minimal app screens", () => {
             actualGeneratedSupportCount: 0,
             todayGeneratedSupportCount: 0,
             generatedSessionDates: [],
+            generatedSessionTitles: [],
             generatedSessionFamilies: [],
+            persistedGeneratedSessionsConsidered: [],
+            persistedGeneratedSessionsIgnored: [],
             candidateAllowedDays: 1,
             activeAdjustmentCount: 0,
             activeRiskFlagCodes: ["rapid_weight_loss"],

@@ -226,10 +226,20 @@ export interface TrainViewModel {
   title: string;
   topAction: TopActionViewModel;
   todaySummary: string;
+  todayGeneratedSessions: readonly {
+    id: string;
+    title: string;
+    date: string;
+    family: string;
+    intensity: GeneratedSessionIntensity;
+    durationMinutes: number;
+    fuelDemand: "low" | "moderate" | "high";
+  }[];
   upcomingGeneratedSessions: readonly {
     id: string;
     title: string;
     date: string;
+    family: string;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -238,6 +248,7 @@ export interface TrainViewModel {
     id: string;
     title: string;
     date: string;
+    family: string;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -246,6 +257,7 @@ export interface TrainViewModel {
     id: string;
     title: string;
     date: string;
+    family: string;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -255,11 +267,23 @@ export interface TrainViewModel {
     title: string;
     date: string;
     label: string;
+    family: string;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     summary: string;
     fuelDemand: "low" | "moderate" | "high";
   }[];
+  supportGenerationSummary: {
+    targetGeneratedSupportCount: number;
+    actualGeneratedSupportCount: number;
+    todayGeneratedSupportCount: number;
+    currentWeekGeneratedSessionDates: readonly string[];
+    currentWeekGeneratedSessionTitles: readonly string[];
+    currentWeekGeneratedSessionFamilies: readonly string[];
+    selectedSupportDays: readonly GeneratedSupportWeekday[];
+    blockedGenerationReasons: readonly string[];
+    reducedBy: readonly TrainingGenerationReductionSource[];
+  };
   blockPhase: TrainingBlockPhase;
   blockGoal: string;
   blockExplanation: string;
@@ -285,6 +309,20 @@ export interface TrainViewModel {
   }[];
   detailedTodaySessions: readonly {
     generatedSessionId: string;
+    title: string;
+    duration: string;
+    intensity: GeneratedSessionIntensity;
+    sectionCount: number;
+    firstExercises: readonly string[];
+    whyThisMattersForBoxing: string;
+    stopConditions: readonly string[];
+    safetyNotes: readonly string[];
+    canOpenDetail: boolean;
+    detail: DetailedTrainingSession | null;
+  }[];
+  detailedWeeklySessions: readonly {
+    generatedSessionId: string;
+    date: string;
     title: string;
     duration: string;
     intensity: GeneratedSessionIntensity;
@@ -494,7 +532,26 @@ export interface PlanViewModel {
     actualGeneratedSupportCount: number;
     todayGeneratedSupportCount: number;
     generatedSessionDates: readonly string[];
+    generatedSessionTitles: readonly string[];
     generatedSessionFamilies: readonly string[];
+    persistedGeneratedSessionsConsidered: readonly {
+      id: string;
+      date: string;
+      title: string;
+      family: string;
+      planRevisionId?: string | undefined;
+      trainingBlockId?: string | undefined;
+      reason: string;
+    }[];
+    persistedGeneratedSessionsIgnored: readonly {
+      id: string;
+      date: string;
+      title: string;
+      family: string;
+      planRevisionId?: string | undefined;
+      trainingBlockId?: string | undefined;
+      reason: string;
+    }[];
     candidateAllowedDays: number;
     activeAdjustmentCount: number;
     activeRiskFlagCodes: readonly string[];

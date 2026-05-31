@@ -42,6 +42,20 @@ Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TA
 
 Deletion requires the exact confirmation string `DELETE`. Production account deletion must later call a server-side Edge Function or other trusted backend path to delete `auth.users`; Expo/client code must not use a service role key.
 
+## Development/Test Full Reset
+
+For local or beta test projects that need a true fresh-account run, use the server-side reset script only from a trusted shell:
+
+```powershell
+$env:CONFIRM_CORNERIQ_RESET="DELETE_ALL_CORNERIQ_TEST_DATA"
+$env:SUPABASE_URL="https://your-test-project.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY="<server-side key from Supabase dashboard>"
+cmd /c npm run dev:reset:supabase -- --dry-run
+cmd /c npm run dev:reset:supabase -- --delete-auth-users
+```
+
+The script is `scripts/dev-reset-supabase.mjs`. It previews row counts first, deletes app-owned rows in dependency-safe order, and deletes Supabase Auth users only when `--delete-auth-users` or `DELETE_CORNERIQ_AUTH_USERS=1` is set. It refuses `NODE_ENV=production` unless the extra `CORNERIQ_PRODUCTION_RESET_OVERRIDE` value is set to the script's explicit production phrase. Never put the server-side key in Expo, React Native code, `.env` committed to git, QA artifacts, screenshots, or generated reports.
+
 ## Sensitive Data Notes
 
 - Cycle data is optional, private, and symptom-aware. Export/delete must include `cycle_logs`, `cycle_symptom_logs`, and `athlete_profiles.sensitive_cycle`.

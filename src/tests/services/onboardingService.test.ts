@@ -20,6 +20,7 @@ import {
   type OnboardingDraft
 } from "../../services/supabase/onboardingService";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
+import { materializeProtectedWorkoutAnchors } from "../../engine/training/protectedAnchors";
 import { fixtureAsOfDate } from "../fixtures/engineFixtures";
 
 function createOnboardingRepositories() {
@@ -437,6 +438,91 @@ describe("onboardingService", () => {
     expect(store.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "ProtectedWorkoutPlanned", payload: expect.objectContaining({ recurring: true, weekday: "monday" }) })
+      ])
+    );
+  });
+
+  it("wizard-style multiple weekly and dated anchors accumulate before saving a new plan", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    if (!store.profile) {
+      throw new Error("profile missing");
+    }
+
+    const firstWeekly = await saveRecurringProtectedAnchor({
+      userId: "user_1",
+      currentProfile: store.profile,
+      anchor: {
+        type: "boxing_class",
+        weekday: "monday",
+        localStartTime: "18:00",
+        durationMinutes: 60,
+        intensity: "moderate",
+        activeFrom: fixtureAsOfDate
+      },
+      repositories,
+      source: "plan"
+    });
+    const secondWeekly = await saveRecurringProtectedAnchor({
+      userId: "user_1",
+      currentProfile: firstWeekly.profile,
+      anchor: {
+        type: "pads_mitts",
+        weekday: "thursday",
+        localStartTime: "17:30",
+        durationMinutes: 50,
+        intensity: "hard",
+        rounds: 6,
+        activeFrom: fixtureAsOfDate
+      },
+      repositories,
+      source: "plan"
+    });
+    const dated = await saveProtectedSession({
+      userId: "user_1",
+      currentProfile: secondWeekly.profile,
+      workout: {
+        type: "technical_session",
+        date: "2026-05-23",
+        startTime: "10:00",
+        durationMinutes: 45,
+        intensity: "moderate",
+        note: "Coach technical tune-up"
+      },
+      repositories,
+      source: "plan"
+    });
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "strength",
+        planAction: "start_new_plan",
+        scheduleAvailability: ["tuesday", "saturday"],
+        planStartDate: fixtureAsOfDate
+      },
+      repositories
+    });
+
+    expect(store.profile?.recurringProtectedAnchors?.map((anchor) => anchor.weekday)).toEqual(["monday", "wednesday", "thursday"]);
+    expect(store.profile?.protectedBoxingSchedule.map((workout) => workout.id)).toContain(dated.id);
+    const materialized = materializeProtectedWorkoutAnchors({
+      concreteWorkouts: store.profile?.protectedBoxingSchedule ?? [],
+      recurringAnchors: store.profile?.recurringProtectedAnchors ?? [],
+      startDate: fixtureAsOfDate,
+      endDate: "2026-05-26"
+    });
+
+    expect(materialized).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ date: "2026-05-21", recurringAnchorId: secondWeekly.id, type: "pads_mitts" }),
+        expect.objectContaining({ date: "2026-05-23", id: dated.id, type: "technical_session" }),
+        expect.objectContaining({ date: "2026-05-25", recurringAnchorId: firstWeekly.id, type: "boxing_class" })
+      ])
+    );
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ primaryFocus: "strength", source: "plan_wizard_new_plan" }) })
       ])
     );
   });

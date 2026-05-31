@@ -317,6 +317,16 @@ export interface TrainingLoadLedger {
 
 export type TrainingGenerationReductionSource = "nutrition" | "readiness" | "availability" | "anchors" | "safety" | "cycle" | "phase";
 
+export interface PersistedGeneratedSessionAuditItem {
+  id: string;
+  date: ISODateString;
+  title: string;
+  family: GeneratedSessionFamily;
+  planRevisionId?: string | undefined;
+  trainingBlockId?: string | undefined;
+  reason: string;
+}
+
 export interface TrainingSupportGenerationAudit {
   asOfDate: ISODateString;
   planStartDate: ISODateString;
@@ -328,7 +338,10 @@ export interface TrainingSupportGenerationAudit {
   actualGeneratedSupportCount: number;
   todayGeneratedSupportCount: number;
   generatedSessionDates: readonly ISODateString[];
+  generatedSessionTitles: readonly string[];
   generatedSessionFamilies: readonly GeneratedSessionFamily[];
+  persistedGeneratedSessionsConsidered: readonly PersistedGeneratedSessionAuditItem[];
+  persistedGeneratedSessionsIgnored: readonly PersistedGeneratedSessionAuditItem[];
   candidateAllowedDays: number;
   activeAdjustmentCount: number;
   activeRiskFlagCodes: readonly string[];
