@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import type { CompletedTrainingSession, ExerciseResultRecord, PerformanceState, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/core/types";
+import type { CompletedTrainingSession, ExerciseResultRecord, PerformanceState, RiskFlag, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/core/types";
 import { materializeNextWeekTrainingPlan } from "../../engine/training/nextWeekMaterializationEngine";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
@@ -41,6 +41,34 @@ const completedExercise: ExerciseResultRecord = {
   recordedAt: `${fixtureAsOfDate}T12:00:00.000Z`,
   completedAt: `${fixtureAsOfDate}T12:00:00.000Z`
 };
+
+function repeatedLowIntakeFlag(): RiskFlag {
+  return {
+    id: "risk_repeated_low_intake",
+    domain: "nutrition",
+    code: "repeated_low_intake",
+    severity: "high",
+    status: "active",
+    message: "Repeated low intake with boxing load needs review.",
+    evidence: { days: 3 },
+    blocksPlan: true,
+    hardStop: false,
+    requiresProfessionalReview: true,
+    confidence: { level: "medium", score: 0.7, reasons: ["test"], missingInputs: [] },
+    explanation: "Repeated low intake blocks aggressive progression."
+  };
+}
+
+function withRiskFlag(state: PerformanceState, flag: RiskFlag): PerformanceState {
+  return {
+    ...state,
+    safety: {
+      ...state.safety,
+      riskFlags: [...state.safety.riskFlags, flag],
+      blocksPlan: true
+    }
+  };
+}
 
 function summaryFor(state: PerformanceState, overrides: Partial<TrainingWeekSummary> = {}): TrainingWeekSummary {
   return {
@@ -111,7 +139,7 @@ describe("next week materialization engine", () => {
   });
 
   it("blocks progress for under-fueling, fight week, and tournament context", () => {
-    const underfueling = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const underfueling = withRiskFlag(resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate }), repeatedLowIntakeFlag());
     const fightWeek = resolvePerformanceState({
       journey: {
         ...pro_4_round_build_strength,
@@ -153,13 +181,22 @@ describe("next week materialization engine", () => {
       },
       asOfDate: fixtureAsOfDate
     });
-    const underSummary = summaryFor(underfueling, { underfuelingFlag: true });
+    const underSummary = summaryFor(underfueling, { underfuelingFlag: true, safetyFlagCount: 1 });
     const fightSummary = summaryFor(fightWeek);
     const tournamentSummary = summaryFor(tournament);
 
     expect(materialize(underfueling, underSummary, decisionFor(underfueling, underSummary, { decision: "progress" })).materializedVolumeStrategy).toBe("reduce_volume");
     expect(materialize(fightWeek, fightSummary, decisionFor(fightWeek, fightSummary, { decision: "progress" })).materializedVolumeStrategy).toBe("taper");
     expect(materialize(tournament, tournamentSummary, decisionFor(tournament, tournamentSummary, { decision: "progress" })).materializedVolumeStrategy).toBe("tournament_conserve");
+  });
+
+  it("does not reduce volume from a summary under-fueling bit without active risk evidence", () => {
+    const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const summary = summaryFor(state, { underfuelingFlag: true, safetyFlagCount: 0 });
+    const preview = materialize(state, summary, decisionFor(state, summary, { decision: "progress" }));
+
+    expect(preview.materializedVolumeStrategy).toBe("progress_small");
+    expect(preview.blockedProgressionReasons.join(" ")).not.toContain("Under-fueling risk blocks progression.");
   });
 
   it("trims optional volume for high cycle symptoms without faking a deload", () => {

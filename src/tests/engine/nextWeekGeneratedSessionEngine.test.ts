@@ -80,6 +80,28 @@ function highCycle(cycle: CycleState): CycleState {
   };
 }
 
+function lowConfidenceNutrition(state: PerformanceState): PerformanceState["nutrition"] {
+  return {
+    ...state.nutrition,
+    actualIntakeSummary: {
+      ...state.nutrition.actualIntakeSummary,
+      logCount: 1,
+      confidence: { level: "low", score: 0.4, reasons: ["low-confidence food log"], missingInputs: [] }
+    },
+    confidence: { level: "low", score: 0.45, reasons: ["low food-log confidence"], missingInputs: [] }
+  };
+}
+
+function severeFuelingFlag(): RiskFlag {
+  return {
+    ...underfuelingFlag(),
+    id: "risk_rapid_weight_loss",
+    code: "rapid_weight_loss",
+    message: "Rapid body-mass loss raises under-fueling risk.",
+    explanation: "Rapid body-mass loss blocks aggressive progression."
+  };
+}
+
 function outputText(sessions: readonly ReturnType<typeof materializeGeneratedSessionsFromPreview>[number][]): string {
   return sessions.map((session) => [session.title, session.rationale, ...session.prescription, ...session.modifications, ...session.protects].join(" ")).join(" ");
 }
@@ -196,8 +218,50 @@ describe("nextWeekGeneratedSessionEngine", () => {
       })
     );
 
-    expect(sessions.length).toBeLessThanOrEqual(1);
-    expect(sessions.every((session) => session.fuelDemand !== "high" && !["strength_full_body", "power_rotational", "roadwork_intervals"].includes(session.family))).toBe(true);
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.every((session) => session.fuelDemand === "low" && !["strength_full_body", "power_rotational", "roadwork_intervals"].includes(session.family))).toBe(true);
+    expect(sessions.every((session) => session.modifications.some((modification) => modification.includes("Under-fueling risk")))).toBe(true);
+  });
+
+  it("missing food logs create multiple conservative sessions when availability allows", () => {
+    const state = stateFixture();
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
+        nutrition: state.nutrition,
+        safetyFlags: []
+      })
+    );
+
+    expect(state.nutrition.actualIntakeSummary.logCount).toBe(0);
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.every((session) => session.intensity === "easy" || session.intensity === "recovery")).toBe(true);
+    expect(sessions.every((session) => session.modifications.some((modification) => modification.includes("Fuel data is low-confidence")))).toBe(true);
+  });
+
+  it("low nutrition confidence does not cap support count without true risk evidence", () => {
+    const state = stateFixture();
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
+        nutrition: lowConfidenceNutrition(state),
+        safetyFlags: []
+      })
+    );
+
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.every((session) => session.fuelDemand === "low" || session.fuelDemand === "moderate")).toBe(true);
+    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fuel data is low-confidence")))).toBe(true);
+  });
+
+  it("severe fueling risk still caps generated support volume", () => {
+    const state = stateFixture();
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
+        safetyFlags: [severeFuelingFlag()]
+      })
+    );
+
+    expect(sessions).toHaveLength(1);
+    expect(sessions.every((session) => session.fuelDemand === "low" && session.intensity !== "hard")).toBe(true);
   });
 
   it("high cycle symptoms trim optional volume", () => {
@@ -208,6 +272,48 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(trimmed.length).toBeLessThan(normal.length);
     expect(trimmed.every((session) => session.modifications.some((modification) => modification.includes("High cycle symptoms")))).toBe(true);
+  });
+
+  it("selected availability constrains generated session placement", () => {
+    const state = stateFixture();
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
+        athlete: { ...state.athlete, scheduleAvailability: ["tuesday", "thursday", "saturday"] }
+      })
+    );
+
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.map((session) => session.date)).toEqual(expect.arrayContaining(["2026-05-26", "2026-05-28"]));
+    expect(sessions.every((session) => ["2026-05-26", "2026-05-28", "2026-05-30"].includes(session.date))).toBe(true);
+  });
+
+  it("generated sessions do not land on competition-anchor days", () => {
+    const state = stateFixture();
+    const competitionDate = state.training.nextWeekMaterialization.nextWeekStartDate;
+    const competition: ProtectedWorkout = {
+      id: "competition_next_week",
+      type: "competition",
+      date: competitionDate,
+      durationMinutes: 120,
+      intensity: "max",
+      protected: true
+    };
+    const materialization = materializationFixture(state, { materializedVolumeStrategy: "progress_small" });
+    const projection = nextWeekPreviewToMicrocycle({
+      materialization,
+      currentBlock: state.training.activeBlock,
+      protectedWorkouts: [competition],
+      asOfDate: fixtureAsOfDate
+    });
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materialization, {
+        protectedWorkouts: [competition],
+        dayPlans: projection.dayPlans
+      })
+    );
+
+    expect(sessions.length).toBeGreaterThan(0);
+    expect(sessions.some((session) => session.date === competitionDate)).toBe(false);
   });
 
   it("does not emit prohibited generated-session terms", () => {

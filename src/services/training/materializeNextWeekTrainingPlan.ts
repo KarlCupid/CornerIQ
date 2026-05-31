@@ -266,6 +266,7 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       protectedWorkouts: input.current.training.protectedAnchors,
       readiness: input.current.readiness,
       cycle: input.current.cycle,
+      nutrition: input.current.nutrition,
       safetyFlags: input.current.safety.riskFlags,
       fight: input.current.fightContext,
       tournament: input.current.tournamentContext,

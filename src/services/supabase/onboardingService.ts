@@ -566,7 +566,6 @@ export async function saveBuildGoal(input: {
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
-    supportDaysPerWeek: draft.supportDaysPerWeek,
     supportPrescription: "engine_owned",
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,

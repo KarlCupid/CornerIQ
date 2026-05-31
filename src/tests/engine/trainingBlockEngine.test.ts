@@ -94,11 +94,35 @@ describe("training block and microcycle engine", () => {
   it("protected sparring owns the day and under-fueling reduces progression", () => {
     const sparring = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const underFueling = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
+    const repeatedLowIntakeOnly = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        bodyMassHistory: [
+          { date: "2026-05-13", bodyMassKg: 66.8, source: "manual" },
+          { date: "2026-05-14", bodyMassKg: 66.8, source: "manual" },
+          { date: "2026-05-15", bodyMassKg: 66.7, source: "manual" },
+          { date: "2026-05-16", bodyMassKg: 66.8, source: "manual" },
+          { date: "2026-05-17", bodyMassKg: 66.7, source: "manual" },
+          { date: "2026-05-18", bodyMassKg: 66.8, source: "manual" },
+          { date: "2026-05-19", bodyMassKg: 66.8, source: "manual" }
+        ],
+        nutritionHistory: [
+          { date: "2026-05-17", calories: 1500, proteinGrams: 120, carbohydrateGrams: 120, fatGrams: 45, confidence: "medium" },
+          { date: "2026-05-18", calories: 1550, proteinGrams: 115, carbohydrateGrams: 130, fatGrams: 42, confidence: "medium" },
+          { date: "2026-05-19", calories: 1600, proteinGrams: 118, carbohydrateGrams: 125, fatGrams: 44, confidence: "medium" }
+        ]
+      },
+      asOfDate: fixtureAsOfDate
+    });
 
     expect(sparring.training.dayPlans[0]?.protectedAnchors.some((anchor) => anchor.type === "sparring")).toBe(true);
     expect(sparring.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
     expect(underFueling.training.blockRecommendation.warnings.join(" ")).toContain("Under-fueling");
     expect(underFueling.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
+    expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
+    expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).not.toContain("rapid_weight_loss");
+    expect(repeatedLowIntakeOnly.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(repeatedLowIntakeOnly.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
   });
 
   it("places generated support only on athlete schedule availability days", () => {

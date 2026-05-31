@@ -27,16 +27,41 @@ import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine
 import type { TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import { generatedSupportAllowedOnDate } from "./supportAvailability";
 
+const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+const FUELING_COUNT_CAP_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+
+function activeUnderFuelingFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
+  return flags?.filter((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code)) ?? [];
+}
+
 function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean {
+  return activeUnderFuelingFlags(flags).length > 0;
+}
+
+function severeFuelingRisk(flags: readonly RiskFlag[] | undefined): boolean {
+  return activeUnderFuelingFlags(flags).some((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
+}
+
+function pairedFuelingSafetyRisk(flags: readonly RiskFlag[] | undefined): boolean {
+  if (!underFuelingRiskActive(flags)) {
+    return false;
+  }
   return Boolean(
     flags?.some(
       (flag) =>
-        flag.code === "rapid_weight_loss" ||
-        flag.code === "repeated_low_intake" ||
-        flag.code === "missed_period_underfueling_risk" ||
-        flag.code === "high_underfueling_blocks_deficit"
+        flag.status === "active" &&
+        !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
+        (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
     )
   );
+}
+
+function fuelingRiskCapsSupportCount(flags: readonly RiskFlag[] | undefined): boolean {
+  return severeFuelingRisk(flags) || pairedFuelingSafetyRisk(flags);
+}
+
+function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
+  return Boolean(flags?.some((flag) => flag.status === "active" && flag.hardStop));
 }
 
 function latestByWeekIndex<T extends { weekIndex: number }>(items: readonly T[] | undefined): T | null {
@@ -112,11 +137,11 @@ export function resolveWeeklyTrainingPlan(input: {
   persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
 }): TrainingState {
   const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
+  const hardStopOrRedReadiness = input.readiness.color === "red" || hardStopSafetyActive(input.safetyFlags);
+  const fuelCountCap = fuelingRiskCapsSupportCount(input.safetyFlags);
   const targetSessions =
-    input.safetyBlocks || input.readiness.color === "red"
+    hardStopOrRedReadiness || fuelCountCap
       ? 1
-      : underFuelingRisk
-        ? 2
       : input.phase.phase === "tournament"
         ? 2
         : input.phase.phase === "fight_week"

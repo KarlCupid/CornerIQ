@@ -147,17 +147,12 @@ export interface NextWeekMaterializationInput {
   engineVersion: string;
 }
 
+const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+
 function activeUnderfueling(flags: readonly RiskFlag[], summary: TrainingWeekSummary | null): boolean {
   return Boolean(
-    summary?.underfuelingFlag ||
-      flags.some(
-        (flag) =>
-          flag.status === "active" &&
-          (flag.code === "rapid_weight_loss" ||
-            flag.code === "repeated_low_intake" ||
-            flag.code === "missed_period_underfueling_risk" ||
-            flag.code === "high_underfueling_blocks_deficit")
-      )
+    flags.some((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code)) ||
+      (summary?.underfuelingFlag === true && flags.some((flag) => flag.status === "active" && (flag.hardStop || flag.requiresProfessionalReview)))
   );
 }
 
@@ -169,7 +164,7 @@ function painOrReview(input: Pick<NextWeekMaterializationInput, "latestTrainingW
   const summaryPain = (input.latestTrainingWeekSummary?.painFlagCount ?? 0) > 0;
   const sessionPain = input.completedTrainingSessions.some((session) => session.painNotes.length > 0);
   const exercisePain = input.exerciseResults.some((result) => result.painFlag);
-  const reviewFlag = input.safetyFlags.some((flag) => flag.status === "active" && (flag.requiresProfessionalReview || flag.code === "pain_logged"));
+  const reviewFlag = input.safetyFlags.some((flag) => flag.status === "active" && !UNDERFUELING_EVIDENCE_CODES.has(flag.code) && (flag.requiresProfessionalReview || flag.code === "pain_logged"));
   return summaryPain || sessionPain || exercisePain || reviewFlag;
 }
 

@@ -5,6 +5,7 @@ import type {
   GeneratedSessionFamily,
   GeneratedTrainingSession,
   ISODateString,
+  NutritionState,
   ProtectedWorkout,
   ReadinessState,
   RiskFlag,
@@ -22,6 +23,7 @@ export interface NextWeekGeneratedSessionMaterializationInput {
   protectedWorkouts: readonly ProtectedWorkout[];
   readiness: ReadinessState;
   cycle: CycleState;
+  nutrition?: Pick<NutritionState, "actualIntakeSummary" | "confidence"> | undefined;
   safetyFlags: readonly RiskFlag[];
   fight: FightOpportunity | null;
   tournament: TournamentDetails | null;
@@ -51,6 +53,8 @@ const TAPER_FAMILIES = new Set<GeneratedSessionFamily>(["taper_maintenance", "re
 const TOURNAMENT_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "taper_maintenance"]);
 const HOLD_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"]);
 const PROHIBITED_OUTPUT = /\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight)\b/i;
+const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+const FUELING_COUNT_CAP_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 
 function stableHash(value: string): string {
   let hash = 2166136261;
@@ -61,15 +65,44 @@ function stableHash(value: string): string {
   return (hash >>> 0).toString(16);
 }
 
-function activeUnderfueling(flags: readonly RiskFlag[]): boolean {
+function activeUnderfuelingEvidenceFlags(flags: readonly RiskFlag[]): readonly RiskFlag[] {
+  return flags.filter((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code));
+}
+
+function activeUnderfuelingEvidence(flags: readonly RiskFlag[]): boolean {
+  return activeUnderfuelingEvidenceFlags(flags).length > 0;
+}
+
+function severeFuelingRisk(flags: readonly RiskFlag[]): boolean {
+  return activeUnderfuelingEvidenceFlags(flags).some((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
+}
+
+function pairedFuelingSafetyRisk(flags: readonly RiskFlag[]): boolean {
+  if (!activeUnderfuelingEvidence(flags)) {
+    return false;
+  }
   return flags.some(
     (flag) =>
       flag.status === "active" &&
-      (flag.code === "rapid_weight_loss" ||
-        flag.code === "repeated_low_intake" ||
-        flag.code === "missed_period_underfueling_risk" ||
-        flag.code === "high_underfueling_blocks_deficit")
+      !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
+      (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
   );
+}
+
+function fuelingRiskCapsSupportCount(flags: readonly RiskFlag[]): boolean {
+  return severeFuelingRisk(flags) || pairedFuelingSafetyRisk(flags);
+}
+
+function missingNutritionData(input: Pick<NextWeekGeneratedSessionMaterializationInput, "nutrition">): boolean {
+  return Boolean(input.nutrition && (input.nutrition.actualIntakeSummary.logCount === 0 || input.nutrition.confidence.missingInputs.some((item) => item.toLowerCase().includes("food log"))));
+}
+
+function lowNutritionConfidence(input: Pick<NextWeekGeneratedSessionMaterializationInput, "nutrition">): boolean {
+  return Boolean(input.nutrition && (input.nutrition.confidence.level === "low" || input.nutrition.confidence.level === "unknown" || input.nutrition.actualIntakeSummary.confidence.level === "low" || input.nutrition.actualIntakeSummary.confidence.level === "unknown"));
+}
+
+function conservativeFuelingContext(input: Pick<NextWeekGeneratedSessionMaterializationInput, "nutrition" | "safetyFlags">): boolean {
+  return activeUnderfuelingEvidence(input.safetyFlags) || missingNutritionData(input) || lowNutritionConfidence(input);
 }
 
 function activeHardStop(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness" | "safetyFlags">): boolean {
@@ -118,7 +151,7 @@ function familyBiases(input: NextWeekGeneratedSessionMaterializationInput): read
 
 function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput): number {
   const hardStop = activeHardStop(input);
-  const underfueling = activeUnderfueling(input.safetyFlags);
+  const fuelCountCap = fuelingRiskCapsSupportCount(input.safetyFlags);
   const cycleTrim = highCycleSymptoms(input.cycle);
   if (hardStop || redReadiness(input)) {
     return 1;
@@ -129,16 +162,16 @@ function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput)
       : input.materialization.materializedVolumeStrategy === "repeat_same"
         ? 2
         : input.materialization.materializedVolumeStrategy === "hold_for_review"
-          ? 1
-          : 2;
-  const trimmedForFuel = underfueling && input.materialization.materializedVolumeStrategy === "progress_small" ? Math.min(base, 1) : base;
+        ? 1
+        : 2;
+  const trimmedForFuel = fuelCountCap ? Math.min(base, 1) : base;
   return Math.max(1, cycleTrim ? trimmedForFuel - 1 : trimmedForFuel);
 }
 
 function allowedFamilyForContext(input: NextWeekGeneratedSessionMaterializationInput, family: GeneratedSessionFamily, protectedHard: boolean): GeneratedSessionFamily {
   const strategy = input.materialization.materializedVolumeStrategy;
   const hardStop = activeHardStop(input);
-  const underfueling = activeUnderfueling(input.safetyFlags);
+  const fuelConservative = conservativeFuelingContext(input);
   const cycleTrim = highCycleSymptoms(input.cycle);
   if (hardStop || redReadiness(input)) {
     return "recovery_reset";
@@ -155,7 +188,7 @@ function allowedFamilyForContext(input: NextWeekGeneratedSessionMaterializationI
   if (strategy === "hold_for_review") {
     return HOLD_FAMILIES.has(family) ? family : "recovery_reset";
   }
-  if (underfueling && HIGH_DEMAND_FAMILIES.has(family)) {
+  if (fuelConservative && HIGH_DEMAND_FAMILIES.has(family)) {
     return "trunk_durability";
   }
   if ((cycleTrim || protectedHard) && HIGH_DEMAND_FAMILIES.has(family)) {
@@ -314,7 +347,8 @@ function adjustedShape(input: NextWeekGeneratedSessionMaterializationInput, fami
   const shape = baseShape(family);
   const hardStop = activeHardStop(input);
   const readinessRed = redReadiness(input);
-  const underfueling = activeUnderfueling(input.safetyFlags);
+  const underfueling = activeUnderfuelingEvidence(input.safetyFlags);
+  const uncertainFueling = !underfueling && (missingNutritionData(input) || lowNutritionConfidence(input));
   const cycleTrim = highCycleSymptoms(input.cycle);
   const conservativeStrategy =
     input.materialization.materializedVolumeStrategy === "deload" ||
@@ -323,11 +357,12 @@ function adjustedShape(input: NextWeekGeneratedSessionMaterializationInput, fami
     input.materialization.materializedVolumeStrategy === "hold_for_review";
   return {
     ...shape,
-    durationMinutes: Math.max(12, Math.min(shape.durationMinutes, hardStop || readinessRed ? 16 : cycleTrim || protectedHard || conservativeStrategy ? 22 : shape.durationMinutes)),
+    durationMinutes: Math.max(12, Math.min(shape.durationMinutes, hardStop || readinessRed ? 16 : cycleTrim || protectedHard || conservativeStrategy || uncertainFueling ? 22 : shape.durationMinutes)),
     intensity: hardStop || readinessRed ? "recovery" : conservativeStrategy && shape.intensity === "moderate" ? "easy" : shape.intensity,
     modifications: [
       ...shape.modifications,
       ...(underfueling ? ["Under-fueling risk: progression and high fuel-demand work removed."] : []),
+      ...(uncertainFueling ? ["Fuel data is low-confidence; generated work stays conservative."] : []),
       ...(cycleTrim ? ["High cycle symptoms: optional volume trimmed."] : []),
       ...(hardStop ? ["Safety hard stop active: recovery only."] : []),
       ...(readinessRed && !hardStop ? ["Readiness is red, so CornerIQ generated recovery-only work."] : []),

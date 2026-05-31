@@ -2169,6 +2169,11 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("plan-wizard-details-step");
+    expect(output).toContain("CornerIQ decides support volume");
+    expect(output).not.toContain("Support days per week");
+
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -2176,6 +2181,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("plan-wizard-review-step");
     expect(output).toContain("New fixed anchors to save");
     expect(output).toContain("Existing fixed anchors");
+    expect(output).toContain("CornerIQ decides from availability");
+    expect(output).not.toContain("Support days per week");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
@@ -2200,12 +2207,13 @@ describe("minimal app screens", () => {
     }
     expect(savedBuildDraft.scheduleAvailability).toEqual(["monday", "wednesday", "friday", "saturday"]);
     expect(savedBuildDraft.scheduleAvailability).not.toContain("tuesday");
+    expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
     expect(anchorSaveOrder).toBeLessThan(buildSaveOrder);
   });
 
   it("PlanScreen opens the guided goal flow for build, fight camp, tournament, and recovery", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
-    const onSaveBuildGoal = vi.fn(async () => undefined);
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => undefined);
     const onSaveFightSetup = vi.fn(async () => undefined);
     const onSaveRecoveryGoal = vi.fn(async () => undefined);
     const onSaveTournamentSetup = vi.fn(async () => undefined);
@@ -2251,8 +2259,9 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
-    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ primaryFocus: "balanced", generatedSupportAvailableDays: ["tuesday"] }));
-    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ scheduleAvailability: ["tuesday"], supportDaysPerWeek: 3 }));
+    const savedBuildDraft = onSaveBuildGoal.mock.calls[0]?.[0];
+    expect(savedBuildDraft).toEqual(expect.objectContaining({ primaryFocus: "balanced", generatedSupportAvailableDays: ["tuesday"], scheduleAvailability: ["tuesday"] }));
+    expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
 
     await switchSection(renderer, "Generate plan");
     await switchSection(renderer, "Enter fight camp");

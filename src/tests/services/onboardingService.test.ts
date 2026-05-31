@@ -468,9 +468,11 @@ describe("onboardingService", () => {
     expect(store.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "TrainingPlanAdjusted", payload: expect.objectContaining({ source: "plan_wizard_amendment", scheduleAvailability: ["tuesday", "thursday"] }) }),
-        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ supportDaysPerWeek: 4, source: "plan_wizard_amendment" }) })
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ supportPrescription: "engine_owned", source: "plan_wizard_amendment" }) })
       ])
     );
+    const buildEvent = store.events.find((event) => event.type === "BuildPhaseStarted");
+    expect(buildEvent?.payload).not.toHaveProperty("supportDaysPerWeek");
   });
 
   it("plan goal saves reject an explicitly empty schedule availability", async () => {
