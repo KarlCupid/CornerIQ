@@ -78,9 +78,9 @@ const todayViewModel: TodayViewModel = {
     optional: "Food, water, pain, and cycle notes add context. Missing data stays unknown."
   },
   whatChanged: "Low confidence because several inputs are missing.",
-  primaryAction: "Complete the planned support session.",
+  primaryAction: "Complete the planned generated training session.",
   firstAppAction: "Log readiness or body mass if you have it.",
-  firstTrainingAction: "Complete the planned support session.",
+  firstTrainingAction: "Complete the planned generated training session.",
   decisionStack: [
     {
       label: "Primary action",
@@ -304,18 +304,20 @@ const trainViewModel: TrainViewModel = {
   title: "Train",
   topAction: {
     title: "Training action",
-    purpose: "Use Train for today's boxing-support work and what to log after.",
+    purpose: "Use Train for today's generated boxing training and what to log after.",
     primaryAction: "Open Workout when you are ready, then log completed or skipped.",
-    why: "Generated support fills a boxing-specific gap.",
+    why: "Generated training fills a boxing-specific gap.",
     optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
   },
-  todaySummary: "One support session.",
+  todaySummary: "One generated training session.",
   todayGeneratedSessions: [
     {
       id: "generated_1",
       title: "Strength support",
       date: "2026-05-19",
       family: "strength_full_body",
+      trainingStimulus: "strength",
+      sessionTypeLabel: "Lift",
       intensity: "moderate",
       durationMinutes: 35,
       fuelDemand: "moderate"
@@ -328,6 +330,8 @@ const trainViewModel: TrainViewModel = {
       title: "Strength support",
       date: "2026-05-19",
       family: "strength_full_body",
+      trainingStimulus: "strength",
+      sessionTypeLabel: "Lift",
       intensity: "moderate",
       durationMinutes: 35,
       fuelDemand: "moderate"
@@ -338,6 +342,8 @@ const trainViewModel: TrainViewModel = {
     title: "Strength support",
     date: "2026-05-19",
     family: "strength_full_body",
+    trainingStimulus: "strength",
+    sessionTypeLabel: "Lift",
     intensity: "moderate",
     durationMinutes: 35,
     fuelDemand: "moderate"
@@ -349,6 +355,8 @@ const trainViewModel: TrainViewModel = {
       date: "2026-05-19",
       label: "Tue, May 19",
       family: "strength_full_body",
+      trainingStimulus: "strength",
+      sessionTypeLabel: "Lift",
       intensity: "moderate",
       durationMinutes: 35,
       summary: "35 min, moderate. Fuel: moderate.",
@@ -371,15 +379,15 @@ const trainViewModel: TrainViewModel = {
   blockExplanation: "Build phase uses boxing level and completion history.",
   todayRole: {
     status: "support_day",
-    summary: "Support day around protected boxing.",
-    explanation: "Generated support fills a boxing-specific gap."
+    summary: "Generated training day around protected boxing.",
+    explanation: "Generated training fills a boxing-specific gap."
   },
   blockProgression: {
     status: "unknown",
     summary: "Progression is unknown until completion history exists.",
     why: "Missing history is unknown, not a reason to progress automatically."
   },
-  preSessionFuelHint: "Use carbs around boxing and generated support as needed.",
+  preSessionFuelHint: "Use carbs around boxing and generated training as needed.",
   postSessionFuelHint: "Protein after training supports repair.",
   hydrationHint: "Manual hydration signals are enough.",
   cycleTrainingDecision: {
@@ -430,7 +438,7 @@ const trainViewModel: TrainViewModel = {
       summary: "Progression is unknown until completion history exists.",
       why: "Missing history is unknown, not a reason to progress automatically."
     },
-    nextBestTrainingAction: "Complete or skip the next generated support session so the engine can learn from real history."
+    nextBestTrainingAction: "Complete or skip the next generated training session so the engine can learn from real history."
   },
   exerciseHistory: {
     title: "Exercise history",
@@ -1267,7 +1275,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Why");
     expect(output).toContain("Optional");
     expect(output).toContain("Log readiness or body mass if you have it");
-    expect(output).toContain("Complete the planned support session");
+    expect(output).toContain("Complete the planned generated training session");
     expect(output.indexOf("Today's mission")).toBeLessThan(output.indexOf("Training call"));
     expect(output.indexOf("Today's mission")).toBeLessThan(output.indexOf("Last body mass"));
   });
@@ -1691,7 +1699,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Training action");
-    expect(output).toContain("Use Train for today's boxing-support work");
+    expect(output).toContain("Use Train for today's generated boxing training");
     expect(output).toContain("Open Workout when you are ready");
     expect(output).toContain("Open workout, then log result.");
     expect(output).toContain("Purpose:");
@@ -1765,7 +1773,7 @@ describe("minimal app screens", () => {
       })
     );
     const planOutput = JSON.stringify(planRenderer.toJSON());
-    expect(planOutput).toContain("Generated support");
+    expect(planOutput).toContain("Generated training");
   });
 
   it("generated session merging avoids duplicate persisted support", () => {
@@ -1951,7 +1959,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Current mode");
     expect(output).toContain("Your boxing comes first");
     expect(output).toContain("Fixed boxing schedule");
-    expect(output).toContain("Generated support");
+    expect(output).toContain("Generated training");
     expect(output).toContain("Sparring");
     expect(output).toContain("Preview next week");
     expect(output).not.toContain("Engine preview, not a user-edited plan.");
@@ -2313,7 +2321,7 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-details-step");
-    expect(output).toContain("CornerIQ decides support volume");
+    expect(output).toContain("CornerIQ decides generated training volume");
     expect(output).not.toContain("Support days per week");
 
     await act(async () => {
@@ -3207,7 +3215,7 @@ describe("minimal app screens", () => {
     const accessOutput = JSON.stringify(render(React.createElement(TrainingAccessStep, stepProps)).toJSON());
     expect(accessOutput).toContain("Equipment access");
     expect(accessOutput).toContain("Bodyweight only");
-    expect(accessOutput).toContain("Pick the days you can usually train. This helps CornerIQ place support work around boxing.");
+    expect(accessOutput).toContain("Pick the days you can usually train. This helps CornerIQ place generated training around boxing.");
     for (const weekday of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]) {
       expect(accessOutput).toContain(weekday);
     }

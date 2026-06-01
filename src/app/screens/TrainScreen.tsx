@@ -60,7 +60,7 @@ function sessionPurpose(session: TrainViewModel["sessionCards"][number]): string
     return "Purpose: keep the body ready for boxing without chasing fatigue.";
   }
   const protectedWork = session.protects[0];
-  return protectedWork ? `Purpose: support ${protectedWork.toLowerCase()} while keeping boxing quality first.` : "Purpose: build support capacity around protected boxing.";
+  return protectedWork ? `Purpose: build ${protectedWork.toLowerCase()} while keeping boxing quality first.` : "Purpose: build training capacity around protected boxing.";
 }
 
 function flowAccent(index: number): LuminousAccent {
@@ -84,6 +84,7 @@ function fuelMetricValue(viewModel: TrainViewModel): string {
 }
 
 function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards"][number] }) {
+  const label = session.sessionTypeLabel ?? "Generated training";
   return (
     <EngineCard>
       <View style={{ gap: spacing.lg }}>
@@ -113,7 +114,7 @@ function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards
             </View>
             <View style={{ flex: 1, gap: spacing.xs }}>
               <Text style={screenStyles.body}>{item}</Text>
-              <Text style={screenStyles.subtle}>boxing support work</Text>
+              <Text style={screenStyles.subtle}>{label}</Text>
             </View>
           </View>
         ))}
@@ -132,9 +133,9 @@ function WeeklyGeneratedWorkCard({ viewModel }: { viewModel: TrainViewModel }) {
       <View style={{ gap: spacing.sm }} testID="train-weekly-generated-work">
         <Text style={screenStyles.sectionTitle}>Generated week</Text>
         <Text style={screenStyles.body}>
-          Current week: {generation.actualGeneratedSupportCount}/{generation.targetGeneratedSupportCount} generated support session{generation.actualGeneratedSupportCount === 1 ? "" : "s"}.
+          Current week: {generation.actualGeneratedSupportCount}/{generation.targetGeneratedSupportCount} generated training session{generation.actualGeneratedSupportCount === 1 ? "" : "s"}.
         </Text>
-        <Text style={screenStyles.subtle}>Today: {generation.todayGeneratedSupportCount} generated support session{generation.todayGeneratedSupportCount === 1 ? "" : "s"}.</Text>
+        <Text style={screenStyles.subtle}>Today: {generation.todayGeneratedSupportCount} generated training session{generation.todayGeneratedSupportCount === 1 ? "" : "s"}.</Text>
         <Text style={screenStyles.body}>{viewModel.todaySummary}</Text>
         {viewModel.weeklyWorkoutCards.length > 0 ? viewModel.weeklyWorkoutCards.map((session) => (
           <View key={session.id} style={{ gap: spacing.xs }}>
@@ -142,7 +143,7 @@ function WeeklyGeneratedWorkCard({ viewModel }: { viewModel: TrainViewModel }) {
             <Text style={screenStyles.body}>{session.title}</Text>
             <Text style={screenStyles.subtle}>{session.summary}</Text>
           </View>
-        )) : <Text style={screenStyles.subtle}>No current-week generated support sessions are active.</Text>}
+        )) : <Text style={screenStyles.subtle}>No current-week generated training sessions are active.</Text>}
         {generation.blockedGenerationReasons.map((reason, index) => <Text key={`train-generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
       </View>
     </EngineCard>
@@ -202,7 +203,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, genera
               </ActionCard>
             </View>
           )) : (
-            <EmptyState title="No generated support today" message={viewModel.todaySummary} />
+            <EmptyState title="No generated training today" message={viewModel.todaySummary} />
           )}
           <WeeklyGeneratedWorkCard viewModel={viewModel} />
           <DisclosureCard title="Plan context" summary={`${viewModel.todayRole.summary} ${viewModel.protectedAnchorSummary}`}>
@@ -239,7 +240,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, genera
                 </View>
               </EngineCard>
             )
-          )) : <EmptyState title="No workout detail today" message="No generated support detail is due today. That matters because future work should not be pulled forward from Plan. Log coach-led boxing if it happens; otherwise this section can wait." />}
+          )) : <EmptyState title="No workout detail today" message="No generated training detail is due today. Future work should not be pulled forward from Plan. Log coach-led boxing if it happens; otherwise this section can wait." />}
           <ManualTrainingLoggerSection busy={busy} quickLogs={quickLogs} />
         </View>
       ) : null}

@@ -314,7 +314,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("missing_data");
     expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
     expect(nutritionSafetyFlags.some((flag) => flag.hardStop || flag.blocksPlan)).toBe(false);
-    expect(state.viewModels.train.preSessionFuelHint).toContain("Fueling data is missing");
+    expect(state.viewModels.train.preSessionFuelHint).toContain("No food log today");
     expect(state.viewModels.fuel.why.toLowerCase()).not.toContain("shame");
   });
 

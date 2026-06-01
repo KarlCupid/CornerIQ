@@ -21,12 +21,17 @@ import type {
   GeneratedSessionDurationAuditItem,
   GeneratedSessionDurationPolicyCategory,
   GeneratedSessionIntensity,
+  GeneratedSessionTypeLabel,
   NextWeekGeneratedSupportBias,
   NextWeekTrainingVolumeStrategy,
   ProtectedWorkoutType,
   ProgressionRecommendation,
   SessionIntensity,
+  TrainingGenerationConstraintAuditItem,
+  TrainingGenerationConstraintSummaryAudit,
   TrainingGenerationReductionSource,
+  TrainingStimulus,
+  TrainingStimulusMix,
   TrainingBlockPhase,
   TrainingBlockTimelineEventType,
   TrainingDayRole
@@ -233,6 +238,8 @@ export interface TrainViewModel {
     title: string;
     date: string;
     family: string;
+    trainingStimulus?: TrainingStimulus | undefined;
+    sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -247,6 +254,8 @@ export interface TrainViewModel {
     title: string;
     date: string;
     family: string;
+    trainingStimulus?: TrainingStimulus | undefined;
+    sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -261,6 +270,8 @@ export interface TrainViewModel {
     title: string;
     date: string;
     family: string;
+    trainingStimulus?: TrainingStimulus | undefined;
+    sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -275,6 +286,8 @@ export interface TrainViewModel {
     title: string;
     date: string;
     family: string;
+    trainingStimulus?: TrainingStimulus | undefined;
+    sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -290,6 +303,8 @@ export interface TrainViewModel {
     date: string;
     label: string;
     family: string;
+    trainingStimulus?: TrainingStimulus | undefined;
+    sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     summary: string;
@@ -327,6 +342,8 @@ export interface TrainViewModel {
   cycleTrainingDecision: CycleTrainingDecisionViewModel;
   sessionCards: readonly {
     title: string;
+    trainingStimulus?: TrainingStimulus | undefined;
+    sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     prescription: readonly string[];
@@ -411,6 +428,8 @@ export interface NextWeekPreviewViewModel {
     id: string;
     title: string;
     date: string;
+    trainingStimulus?: TrainingStimulus | undefined;
+    sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
@@ -549,6 +568,8 @@ export interface PlanViewModel {
       id: string;
       title: string;
       date: string;
+      trainingStimulus?: TrainingStimulus | undefined;
+      sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
     }[];
     marker: string;
     fuelDemand: "low" | "moderate" | "high";
@@ -591,6 +612,16 @@ export interface PlanViewModel {
     candidateAllowedDays: number;
     activeAdjustmentCount: number;
     activeRiskFlagCodes: readonly string[];
+    generationConstraintSummary?: TrainingGenerationConstraintSummaryAudit | undefined;
+    hardSafetyConstraints?: readonly TrainingGenerationConstraintAuditItem[] | undefined;
+    evidenceBasedLoadConstraints?: readonly TrainingGenerationConstraintAuditItem[] | undefined;
+    advisoryUncertainty?: readonly TrainingGenerationConstraintAuditItem[] | undefined;
+    missingDataAdvisories?: readonly string[] | undefined;
+    plannedTrainingStimulusMix?: TrainingStimulusMix | undefined;
+    actualTrainingStimulusMix?: TrainingStimulusMix | undefined;
+    familySelectionReasons?: readonly string[] | undefined;
+    downshiftReasons?: readonly string[] | undefined;
+    missingLogsDidNotReduceTraining?: boolean | undefined;
     inputHash: string | null;
     outputHash: string;
     generatedSupportPlacementReasons: readonly string[];

@@ -18,7 +18,7 @@ function roleSummary(plan: TrainingDayPlan | null): string {
     case "recovery_day":
       return "Recovery day; block goals are secondary.";
     case "support_day":
-      return "Support day around protected boxing.";
+      return "Generated training day around protected boxing.";
     case "taper_day":
       return "Taper day: touch speed, drop volume.";
     case "tournament_conservation_day":
@@ -36,6 +36,8 @@ function compactSession(session: PerformanceState["training"]["generatedSessions
     title: session.title,
     date: session.date,
     family: session.family,
+    trainingStimulus: session.trainingStimulus,
+    sessionTypeLabel: session.sessionTypeLabel,
     intensity: session.intensity,
     durationMinutes: session.durationMinutes,
     fuelDemand: session.fuelDemand,
@@ -49,9 +51,9 @@ function compactSession(session: PerformanceState["training"]["generatedSessions
 
 function upcomingSummary(sessions: readonly ReturnType<typeof compactSession>[]): string {
   if (sessions.length === 0) {
-    return "No generated support today.";
+    return "No generated training today.";
   }
-  return `No generated support today. Upcoming this week: ${sessions
+  return `No generated training today. Upcoming this week: ${sessions
     .slice(0, 3)
     .map((session) => `${dayLabel(session.date)} - ${session.title}`)
     .join("; ")}.`;
@@ -107,8 +109,8 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
   }
   if (state.nutrition.actualIntakeSummary.logCount === 0) {
     return {
-      preSessionFuelHint: "Fueling data is missing, so CornerIQ keeps the session conservative. Use familiar carbs and fluids before boxing support.",
-      postSessionFuelHint: "Log food only if it helps; missing fuel data stays unknown, not unsafe.",
+      preSessionFuelHint: "No food log today: fuel this session normally and log meals to personalize recovery guidance.",
+      postSessionFuelHint: "Log food only if it helps; missing fuel data lowers confidence without removing planned training.",
       hydrationHint: "Use thirst, urine color, heat, and session length; no wearable or food log is required."
     };
   }
@@ -219,10 +221,10 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
         : plan?.explanation ?? state.training.explanation;
   const primaryTrainingAction =
     state.safety.hardStops.length > 0
-      ? "Follow the safety stop. Do not add generated support today."
+      ? "Follow the safety stop. Do not add generated training today."
       : todayGeneratedSessions.length > 0
         ? "Open Workout when you are ready, then log completed or skipped."
-        : "No generated support is due. Log coach-led boxing if it happens.";
+        : "No generated training is due. Log coach-led boxing if it happens.";
   const supportGenerationSummary = {
     targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
     actualGeneratedSupportCount: state.training.supportGenerationAudit.actualGeneratedSupportCount,
@@ -239,7 +241,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     title: "Train for boxing",
     topAction: {
       title: "Training action",
-      purpose: "Use Train for today's boxing-support work and what to log after.",
+      purpose: "Use Train for today's generated boxing training and what to log after.",
       primaryAction: primaryTrainingAction,
       why: generationExplanation,
       optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
@@ -264,6 +266,8 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     cycleTrainingDecision: cycleTrainingDecision(state),
     sessionCards: todayGeneratedSessionsRaw.map((session) => ({
       title: session.title,
+      trainingStimulus: session.trainingStimulus,
+      sessionTypeLabel: session.sessionTypeLabel,
       intensity: session.intensity,
       durationMinutes: session.durationMinutes,
       prescription: session.prescription,

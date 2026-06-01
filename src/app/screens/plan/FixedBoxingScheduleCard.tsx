@@ -132,7 +132,7 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sess
       <View style={{ gap: spacing.md }} testID="fixed-boxing-schedule-card">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
-          <Text style={screenStyles.body}>CornerIQ builds support work around these first.</Text>
+          <Text style={screenStyles.body}>CornerIQ builds generated training around these first.</Text>
         </View>
         {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
         <View style={{ gap: spacing.sm }}>

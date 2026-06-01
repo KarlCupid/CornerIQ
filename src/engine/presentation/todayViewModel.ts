@@ -14,8 +14,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     state.safety.hardStops.length > 0
       ? "Pause hard training and resolve safety first."
       : hasSparring
-        ? "Keep support work short around protected boxing."
-        : "Complete the planned support session.";
+        ? "Keep generated training short around protected boxing."
+        : "Complete the planned generated training session.";
   const decisionStack = [
     {
       label: "Primary action",
@@ -27,7 +27,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     {
       label: "Training",
       summary: hasSparring ? "Technical work stays protected." : state.training.explanation,
-      why: "Boxing anchors are resolved before support work is generated.",
+      why: "Boxing anchors are resolved before generated training is placed.",
       severity: state.training.protectedAnchors.length > 0 ? "info" : "caution",
       confidence: state.training.confidence.level
     },
@@ -75,7 +75,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
           : `${firstAppAction} Then follow the training call.`,
       why:
         state.safety.hardStops[0]?.explanation ??
-        (hasSparring ? "Protected boxing owns the day, so generated support stays secondary." : state.training.explanation),
+        (hasSparring ? "Protected boxing owns the day, so generated training stays secondary." : state.training.explanation),
       optional: "Food, water, pain, and cycle notes add context. Missing data stays unknown."
     },
     whatChanged:
@@ -84,8 +84,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
         : state.cycle.trackingEnabled && state.cycle.symptomBurden === "high"
           ? "Cycle symptoms trimmed optional work."
           : hasSparring
-            ? "Protected sparring moved support work down."
-            : "Corner Engine resolved today's support from current logs.",
+            ? "Protected sparring moved generated training down."
+            : "Corner Engine resolved today's generated training from current logs.",
     primaryAction:
       state.safety.hardStops.length > 0 ? "Pause hard training and weight-cut guidance." : firstTrainingAction,
     firstAppAction,

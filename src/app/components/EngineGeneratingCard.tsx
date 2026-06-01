@@ -16,12 +16,12 @@ export type EngineGenerationStatus =
 const copyByStatus: Record<Exclude<EngineGenerationStatus, "idle">, { title: string; lines: readonly string[]; testID: string }> = {
   saving_anchors: {
     title: "Saving protected anchors",
-    lines: ["Checking weekday or date, duration, intensity, and protected boxing priority.", "Protected boxing stays fixed before generated support is placed."],
+    lines: ["Checking weekday or date, duration, intensity, and protected boxing priority.", "Protected boxing stays fixed before generated training is placed."],
     testID: "plan-generation-pending"
   },
   generating_plan: {
     title: "Generating your plan",
-    lines: ["Checking anchors, availability, readiness, and safety.", "Placing generated support around protected boxing."],
+    lines: ["Checking anchors, availability, readiness, and safety.", "Placing generated training around protected boxing."],
     testID: "plan-generation-pending"
   },
   amending_plan: {
@@ -36,7 +36,7 @@ const copyByStatus: Record<Exclude<EngineGenerationStatus, "idle">, { title: str
   },
   materializing_next_week: {
     title: "Starting next week",
-    lines: ["Placing generated support around protected boxing.", "Persisting future day plans without bypassing safety."],
+    lines: ["Placing generated training around protected boxing.", "Persisting future day plans without bypassing safety."],
     testID: "plan-generation-pending"
   },
   generating_workout: {

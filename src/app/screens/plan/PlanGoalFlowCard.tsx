@@ -575,9 +575,9 @@ export function PlanGoalFlowCard({
           <View style={{ gap: spacing.md }} testID="plan-wizard-schedule-step">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.callout}>Step 2: Schedule</Text>
-              <Text style={screenStyles.fieldLabel}>Generated support days</Text>
-              <Text style={screenStyles.body}>Generated support will only be placed on selected available days.</Text>
-              <Text style={screenStyles.subtle}>At least one generated-support day is required. Weekly anchors are separate and do not automatically make a day available.</Text>
+              <Text style={screenStyles.fieldLabel}>Generated training days</Text>
+              <Text style={screenStyles.body}>Generated training will only be placed on selected available days.</Text>
+              <Text style={screenStyles.subtle}>At least one generated-training day is required. Weekly anchors are separate and do not automatically make a day available.</Text>
             </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {availableDayOptions.map((option) => (
@@ -656,7 +656,7 @@ export function PlanGoalFlowCard({
                     <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setPrimaryFocus(option)} />
                   ))}
                 </View>
-                <Text style={screenStyles.subtle}>CornerIQ decides support volume from selected availability, weekly anchors, readiness, safety gates, and phase.</Text>
+                <Text style={screenStyles.subtle}>CornerIQ decides generated training volume from selected availability, weekly anchors, readiness, safety gates, and phase.</Text>
               </View>
             ) : null}
 
@@ -723,7 +723,7 @@ export function PlanGoalFlowCard({
 
             {mode === "recovery" ? (
               <View style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.body}>Recovery keeps support work conservative while you get back to normal training.</Text>
+                <Text style={screenStyles.body}>Recovery keeps generated training conservative while you get back to normal training.</Text>
                 <TextInput keyboardType="number-pad" onChangeText={setRecoveryDurationDays} placeholder="Duration days optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={recoveryDurationDays} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {recoveryFocusOptions.map((option) => (
@@ -754,10 +754,10 @@ export function PlanGoalFlowCard({
               <Text style={screenStyles.body}>{goalLabel(mode)}</Text>
             </View>
             <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Generated-support availability</Text>
+              <Text style={screenStyles.fieldLabel}>Generated training availability</Text>
               <Text style={screenStyles.body}>{daySummary(selectedAvailableDays)}</Text>
               <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
-              <Text style={screenStyles.subtle}>Generated support uses only the selected availability above.</Text>
+              <Text style={screenStyles.subtle}>Generated training uses only the selected availability above.</Text>
             </View>
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>New weekly anchors to save</Text>

@@ -250,6 +250,49 @@ describe("training block and microcycle engine", () => {
     expect(state.training.generatedSessions.every((session) => selectedDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
   });
 
+  it("missing readiness and food logs do not erase strength or conditioning", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        readinessHistory: [],
+        nutritionHistory: [],
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "balanced",
+            id: "plan_missing_logs_balanced",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: selectedDays
+          })
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const families = state.training.generatedSessions.map((session) => session.family);
+
+    expect(state.readiness.color).toBe("unknown");
+    expect(state.nutrition.actualIntakeSummary.logCount).toBe(0);
+    expect(state.training.supportGenerationAudit.targetGeneratedSupportCount).toBeGreaterThan(1);
+    expect(state.training.supportGenerationAudit.actualGeneratedSupportCount).toBeGreaterThan(1);
+    expect(families.some((family) => ["strength_lower", "strength_upper", "strength_full_body"].includes(family))).toBe(true);
+    expect(families.some((family) => ["roadwork_zone2", "roadwork_tempo", "roadwork_intervals", "round_based_conditioning", "alactic_sprints"].includes(family))).toBe(true);
+    expect(families.every((family) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility", "recovery_reset"].includes(family))).toBe(false);
+    expect(state.training.supportGenerationAudit.generationConstraintSummary.hardSafetyConstraints).toEqual([]);
+    expect(state.training.supportGenerationAudit.generationConstraintSummary.advisoryUncertainty.map((item) => item.code)).toEqual(
+      expect.arrayContaining(["missing_readiness_check_in", "missing_food_log"])
+    );
+    expect(state.training.supportGenerationAudit.reducedBy).not.toContain("readiness");
+    expect(state.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
+    expect(state.training.supportGenerationAudit.missingLogsDidNotReduceTraining).toBe(true);
+  });
+
   it("normal build plan generation produces substantial support sessions with duration audit", () => {
     const selectedDays = ["tuesday", "thursday", "saturday"];
     const state = resolvePerformanceState({
@@ -454,6 +497,40 @@ describe("training block and microcycle engine", () => {
     expect(strength.training.generatedSessions.some((session) => session.family.startsWith("strength"))).toBe(true);
     expect(power.training.generatedSessions.some((session) => session.family.startsWith("power") || session.family === "reaction_rhythm")).toBe(true);
     expect(conditioning.training.generatedSessions.some((session) => session.family.startsWith("roadwork") || session.family === "round_based_conditioning")).toBe(true);
+  });
+
+  it("generated sessions expose user-facing stimulus and type labels", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "balanced",
+            id: "plan_generated_labels",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: selectedDays
+          })
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const strength = state.viewModels.train.currentWeekGeneratedSessions.find((session) => session.family.startsWith("strength"));
+    const conditioning = state.viewModels.train.currentWeekGeneratedSessions.find(
+      (session) => session.family.startsWith("roadwork") || session.family === "round_based_conditioning" || session.family === "alactic_sprints"
+    );
+    const planGeneratedSessions = state.viewModels.plan.dayPlans.flatMap((day) => day.generatedSessions);
+
+    expect(strength).toEqual(expect.objectContaining({ trainingStimulus: "strength", sessionTypeLabel: expect.stringMatching(/Lift|Strength/) }));
+    expect(conditioning).toEqual(expect.objectContaining({ trainingStimulus: "conditioning", sessionTypeLabel: expect.stringMatching(/Roadwork|Conditioning|Sprints/) }));
+    expect(planGeneratedSessions.every((session) => typeof session.sessionTypeLabel === "string" && session.sessionTypeLabel.length > 0)).toBe(true);
   });
 
   it("Train view model shows future generated sessions when today has no support", () => {

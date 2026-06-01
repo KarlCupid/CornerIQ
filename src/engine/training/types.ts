@@ -145,6 +145,8 @@ export type PlanGenerationAction = "start_new_plan" | "amend_current_plan";
 export type PlanGenerationGoalMode = "build" | "fight" | "tournament" | "recovery";
 export type PlanGenerationPrimaryFocus = "balanced" | "power" | "conditioning" | "strength" | "mobility";
 export type GeneratedSessionDurationPolicyCategory = "normal_support" | "workload_moderated" | "recovery" | "taper" | "microdose" | "safety_capped";
+export type TrainingStimulus = "strength" | "conditioning" | "power" | "durability" | "mobility" | "recovery" | "taper";
+export type GeneratedSessionTypeLabel = "Lift" | "Strength" | "Conditioning" | "Roadwork" | "Power" | "Durability" | "Mobility" | "Recovery" | "Taper";
 
 export interface GeneratedSessionDurationAudit {
   targetDurationMinutes: number;
@@ -175,6 +177,8 @@ export interface GeneratedTrainingSession {
   id: string;
   date: ISODateString;
   family: GeneratedSessionFamily;
+  trainingStimulus?: TrainingStimulus | undefined;
+  sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
   title: string;
   durationMinutes: number;
   intensity: GeneratedSessionIntensity;
@@ -338,6 +342,26 @@ export interface TrainingLoadLedger {
 
 export type TrainingGenerationReductionSource = "nutrition" | "readiness" | "availability" | "anchors" | "safety" | "cycle" | "phase";
 
+export type TrainingGenerationConstraintCategory = "hardSafetyConstraint" | "evidenceBasedLoadConstraint" | "advisoryUncertainty" | "noConstraint";
+
+export interface TrainingGenerationConstraintAuditItem {
+  category: TrainingGenerationConstraintCategory;
+  code: string;
+  source: TrainingGenerationReductionSource | "data_confidence";
+  message: string;
+}
+
+export interface TrainingGenerationConstraintSummaryAudit {
+  classification: TrainingGenerationConstraintCategory;
+  hardSafetyConstraints: readonly TrainingGenerationConstraintAuditItem[];
+  evidenceBasedLoadConstraints: readonly TrainingGenerationConstraintAuditItem[];
+  advisoryUncertainty: readonly TrainingGenerationConstraintAuditItem[];
+  missingDataAdvisories: readonly string[];
+  noConstraint: boolean;
+}
+
+export type TrainingStimulusMix = Record<TrainingStimulus, number>;
+
 export interface PersistedGeneratedSessionAuditItem {
   id: string;
   date: ISODateString;
@@ -373,6 +397,16 @@ export interface TrainingSupportGenerationAudit {
   candidateAllowedDays: number;
   activeAdjustmentCount: number;
   activeRiskFlagCodes: readonly string[];
+  generationConstraintSummary: TrainingGenerationConstraintSummaryAudit;
+  hardSafetyConstraints: readonly TrainingGenerationConstraintAuditItem[];
+  evidenceBasedLoadConstraints: readonly TrainingGenerationConstraintAuditItem[];
+  advisoryUncertainty: readonly TrainingGenerationConstraintAuditItem[];
+  missingDataAdvisories: readonly string[];
+  plannedTrainingStimulusMix: TrainingStimulusMix;
+  actualTrainingStimulusMix: TrainingStimulusMix;
+  familySelectionReasons: readonly string[];
+  downshiftReasons: readonly string[];
+  missingLogsDidNotReduceTraining: boolean;
   generatedSupportPlacementReasons: readonly string[];
   blockedGenerationReasons: readonly string[];
   reducedBy: readonly TrainingGenerationReductionSource[];

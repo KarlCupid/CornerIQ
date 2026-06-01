@@ -79,6 +79,7 @@ function SmallTag({ label, tone = "blue" }: { label: string; tone?: LuminousAcce
 }
 
 function WeekPreviewRow({ day }: { day: PlanViewModel["dayPlans"][number] }) {
+  const tagLabel = day.compactTag === "Support" ? day.generatedSessions[0]?.sessionTypeLabel ?? "Training" : day.compactTag;
   return (
     <View
       style={{
@@ -97,7 +98,7 @@ function WeekPreviewRow({ day }: { day: PlanViewModel["dayPlans"][number] }) {
       </View>
       <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
         <Text numberOfLines={1} style={screenStyles.body}>{day.compactSummary}</Text>
-        <SmallTag label={day.compactTag} tone={toneForTag(day.compactTag)} />
+        <SmallTag label={tagLabel} tone={toneForTag(day.compactTag)} />
       </View>
       <Text numberOfLines={1} style={screenStyles.subtle}>{day.compactMetric}</Text>
     </View>
@@ -146,7 +147,7 @@ function CurrentModeCard({
           <Text style={screenStyles.sectionTitle}>Current mode</Text>
           <Text style={screenStyles.callout}>{viewModel.modeLabel}</Text>
           <Text style={screenStyles.body}>{viewModel.planLifecycleLabel}. {viewModel.goalSummary}</Text>
-          <Text style={screenStyles.subtle}>Generated support days: {viewModel.scheduleAvailabilitySummary}</Text>
+          <Text style={screenStyles.subtle}>Generated training days: {viewModel.scheduleAvailabilitySummary}</Text>
           <Text style={screenStyles.subtle}>Your boxing comes first.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -181,7 +182,7 @@ function CompactWeekPreviewCard({ viewModel }: { viewModel: PlanViewModel }) {
             <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>{day.label}</Text>
               <Text style={screenStyles.subtle}>Protected boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
-              <Text style={screenStyles.subtle}>Support work: {friendlySupportText(day.generatedSupport)}</Text>
+              <Text style={screenStyles.subtle}>Generated training: {friendlySupportText(day.generatedSupport)}</Text>
               {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
               {day.warningSummary ? <Text style={screenStyles.subtle}>Review: {day.warningSummary}</Text> : null}
             </View>
@@ -211,14 +212,14 @@ function GeneratedSupportSummaryCard({
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-generated-support-summary-card">
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Generated support</Text>
-          <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support session")}</Text>
-          <Text style={screenStyles.body}>Generated support days: {viewModel.scheduleAvailabilitySummary}</Text>
-          <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds support work around your protected boxing anchors, readiness, and safety."}</Text>
+          <Text style={screenStyles.sectionTitle}>Generated training</Text>
+          <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "training session")}</Text>
+          <Text style={screenStyles.body}>Generated training days: {viewModel.scheduleAvailabilitySummary}</Text>
+          <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds generated training around your protected boxing anchors, readiness, and safety."}</Text>
           {viewModel.generationAudit ? (
             <>
               <Text style={screenStyles.body}>
-                Current week: {viewModel.generationAudit.actualGeneratedSupportCount}/{viewModel.generationAudit.targetGeneratedSupportCount} generated support session{viewModel.generationAudit.actualGeneratedSupportCount === 1 ? "" : "s"}.
+                Current week: {viewModel.generationAudit.actualGeneratedSupportCount}/{viewModel.generationAudit.targetGeneratedSupportCount} generated training session{viewModel.generationAudit.actualGeneratedSupportCount === 1 ? "" : "s"}.
               </Text>
               <Text style={screenStyles.subtle}>
                 Dates: {viewModel.generationAudit.generatedSessionDates.length > 0 ? viewModel.generationAudit.generatedSessionDates.join(", ") : "None"}
@@ -245,7 +246,7 @@ function GeneratedSupportSummaryCard({
               ))}
             </>
           ) : null}
-          <Text style={screenStyles.subtle}>Generated support will only be placed on selected available days.</Text>
+          <Text style={screenStyles.subtle}>Generated training will only be placed on selected available days.</Text>
           <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
           <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>
           {generationReasons.map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}

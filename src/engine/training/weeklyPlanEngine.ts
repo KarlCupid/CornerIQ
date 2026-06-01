@@ -31,61 +31,15 @@ import { resolveTrainingBlock } from "./trainingBlockEngine";
 import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine";
 import type { TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import { generatedSupportAllowedOnDate, generatedSupportWeekdayForDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
-
-const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
-const FUELING_COUNT_CAP_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
-
-function activeUnderFuelingFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
-  return flags?.filter((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code)) ?? [];
-}
-
-function activeHardStopFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
-  return flags?.filter((flag) => flag.status === "active" && flag.hardStop) ?? [];
-}
-
-function underFuelingRiskActive(flags: readonly RiskFlag[] | undefined): boolean {
-  return activeUnderFuelingFlags(flags).length > 0;
-}
-
-function severeFuelingRisk(flags: readonly RiskFlag[] | undefined): boolean {
-  return activeUnderFuelingFlags(flags).some((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
-}
-
-function pairedFuelingSafetyRisk(flags: readonly RiskFlag[] | undefined): boolean {
-  if (!underFuelingRiskActive(flags)) {
-    return false;
-  }
-  return Boolean(
-    flags?.some(
-      (flag) =>
-        flag.status === "active" &&
-        !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
-        (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
-    )
-  );
-}
-
-function fuelingRiskCapsSupportCount(flags: readonly RiskFlag[] | undefined): boolean {
-  return severeFuelingRisk(flags) || pairedFuelingSafetyRisk(flags);
-}
-
-function supportCountFuelCapFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
-  const activeFlags = flags?.filter((flag) => flag.status === "active") ?? [];
-  const underFuelingFlags = activeUnderFuelingFlags(flags);
-  const severeFuelingFlags = underFuelingFlags.filter((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
-  const pairedSafetyFlags = underFuelingFlags.length > 0
-    ? activeFlags.filter(
-        (flag) =>
-          !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
-          (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
-      )
-    : [];
-  const byId = new Map<string, RiskFlag>();
-  for (const flag of [...severeFuelingFlags, ...pairedSafetyFlags]) {
-    byId.set(flag.id, flag);
-  }
-  return [...byId.values()];
-}
+import {
+  activeHardStopFlags,
+  activeUnderfuelingEvidence,
+  classifyTrainingGenerationConstraints,
+  fuelingRiskCapsGeneratedCount,
+  supportCountFuelCapFlags
+} from "./trainingGenerationConstraints";
+import { trainingStimulusMix } from "./trainingStimulus";
+import { resolveWeeklyTrainingCompositionPolicy } from "./weeklyTrainingCompositionPolicy";
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(flags?.some((flag) => flag.status === "active" && flag.hardStop));
@@ -331,6 +285,7 @@ export function resolveWeeklyTrainingPlan(input: {
   highCycleSymptoms: boolean;
   safetyFlags?: readonly RiskFlag[] | undefined;
   safetyBlocks?: boolean;
+  foodLogCount?: number | undefined;
   engineVersion?: string | undefined;
   trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
   activeTrainingBlock?: TrainingBlock | null | undefined;
@@ -339,14 +294,28 @@ export function resolveWeeklyTrainingPlan(input: {
   planGenerationIntent?: PlanGenerationIntent | undefined;
   persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
 }): TrainingState {
-  const underFuelingRisk = underFuelingRiskActive(input.safetyFlags);
+  const generationConstraints = classifyTrainingGenerationConstraints({
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags ?? [],
+    foodLogCount: input.foodLogCount,
+    cycle: input.cycle,
+    protectedAnchors: input.anchors,
+    date: input.asOfDate
+  });
+  const underFuelingRisk = activeUnderfuelingEvidence(input.safetyFlags);
   const hardStopOrRedReadiness = input.readiness.color === "red" || hardStopSafetyActive(input.safetyFlags);
-  const fuelCountCap = fuelingRiskCapsSupportCount(input.safetyFlags);
+  const fuelCountCap = fuelingRiskCapsGeneratedCount(input.safetyFlags);
   const fuelCapFlags = supportCountFuelCapFlags(input.safetyFlags);
   const hardStopFlags = activeHardStopFlags(input.safetyFlags);
   const baseTargetSessions = baseTargetSessionCount({ athlete: input.athlete, phase: input.phase });
-  const targetSessions = hardStopOrRedReadiness || fuelCountCap ? 1 : baseTargetSessions;
-  if (targetSessions === 1 && !hardStopOrRedReadiness && !fuelCountCap) {
+  const compositionPolicy = resolveWeeklyTrainingCompositionPolicy({
+    athlete: input.athlete,
+    phase: input.phase,
+    primaryFocus: input.planGenerationIntent?.goalMode === "build" ? input.planGenerationIntent.primaryFocus ?? "balanced" : input.planGenerationIntent?.primaryFocus,
+    generationConstraints
+  });
+  const targetSessions = compositionPolicy.targetSessionCount;
+  if (targetSessions === 1 && !hardStopOrRedReadiness && !fuelCountCap && generationConstraints.hardSafetyConstraints.length === 0) {
     throw new Error("Unexpected one-session generated support cap without readiness, hard-stop, or fueling safety reason.");
   }
   const planStartDate = activeWeekStartDate({
@@ -421,7 +390,9 @@ export function resolveWeeklyTrainingPlan(input: {
             weekIndex: planWeekIndex,
             hardStopActive: hardStopSafetyActive(input.safetyFlags),
             underFuelingRisk,
-            severeFuelingRisk: fuelCountCap
+            severeFuelingRisk: fuelCountCap,
+            familySequence: compositionPolicy.familySequence,
+            generationConstraints
           })
         : null;
     }
@@ -443,7 +414,9 @@ export function resolveWeeklyTrainingPlan(input: {
       weekIndex: planWeekIndex,
       hardStopActive: hardStopSafetyActive(input.safetyFlags),
       underFuelingRisk,
-      severeFuelingRisk: fuelCountCap
+      severeFuelingRisk: fuelCountCap,
+      familySequence: compositionPolicy.familySequence,
+      generationConstraints
     });
   })
     .filter((session) => session !== null)
@@ -511,6 +484,26 @@ export function resolveWeeklyTrainingPlan(input: {
   const adjustmentBlockedReasons = adjustmentApplication.decisions
     .filter((decision) => decision.status === "applied" && decision.modifiedDayPlans.some((day) => day.generatedSessions.length === 0))
     .map((decision) => decision.explanation);
+  const reducedBy = generationReductionSources({
+    baseTargetSessions,
+    targetSessions,
+    hardStopOrRedReadiness,
+    fuelCountCap,
+    highCycleSymptoms: input.highCycleSymptoms,
+    underFuelingRisk,
+    readiness: input.readiness,
+    generatedSessionCount: mergedGeneratedSessions.length,
+    candidateAllowedDays,
+    blockedByAnchors,
+    phase: input.phase
+  });
+  const missingLogsDidNotReduceTraining =
+    generationConstraints.advisoryUncertainty.length > 0 &&
+    generationConstraints.hardSafetyConstraints.length === 0 &&
+    targetSessions === baseTargetSessions &&
+    !reducedBy.includes("readiness") &&
+    !reducedBy.includes("nutrition");
+  const durationDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.durationReductionReasons ?? []);
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,
     planStartDate,
@@ -530,8 +523,23 @@ export function resolveWeeklyTrainingPlan(input: {
     candidateAllowedDays,
     activeAdjustmentCount: adjustmentApplication.activeAdjustments.length,
     activeRiskFlagCodes: (input.safetyFlags ?? []).filter((flag) => flag.status === "active").map((flag) => flag.code),
+    generationConstraintSummary: generationConstraints,
+    hardSafetyConstraints: generationConstraints.hardSafetyConstraints,
+    evidenceBasedLoadConstraints: generationConstraints.evidenceBasedLoadConstraints,
+    advisoryUncertainty: generationConstraints.advisoryUncertainty,
+    missingDataAdvisories: generationConstraints.missingDataAdvisories,
+    plannedTrainingStimulusMix: compositionPolicy.plannedTrainingStimulusMix,
+    actualTrainingStimulusMix: trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family)),
+    familySelectionReasons: compositionPolicy.reasons,
+    downshiftReasons: [
+      ...durationDownshiftReasons,
+      ...(underFuelingRisk ? ["Under-fueling evidence removed hard generated training."] : []),
+      ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated training."] : []),
+      ...(missingLogsDidNotReduceTraining ? ["Missing logs did not reduce target count or remove strength and conditioning families."] : [])
+    ],
+    missingLogsDidNotReduceTraining,
     generatedSupportPlacementReasons: mergedGeneratedSessions.map(
-      (session) => `${session.date}: placed ${session.title} as ${session.intensity} ${session.family.replaceAll("_", " ")} support.`
+      (session) => `${session.date}: placed ${session.title} as ${session.intensity} ${session.sessionTypeLabel ?? session.family.replaceAll("_", " ")} generated training.`
     ),
     blockedGenerationReasons: [
       ...(candidateAllowedDays < targetSessions
@@ -548,19 +556,7 @@ export function resolveWeeklyTrainingPlan(input: {
         ? [`Generated support resolved to ${mergedGeneratedSessions.length}/${targetSessions} after active plan adjustments and current safety filters.`]
         : [])
     ],
-    reducedBy: generationReductionSources({
-      baseTargetSessions,
-      targetSessions,
-      hardStopOrRedReadiness,
-      fuelCountCap,
-      highCycleSymptoms: input.highCycleSymptoms,
-      underFuelingRisk,
-      readiness: input.readiness,
-      generatedSessionCount: mergedGeneratedSessions.length,
-      candidateAllowedDays,
-      blockedByAnchors,
-      phase: input.phase
-    })
+    reducedBy
   };
   const adjustedMicrocycle = {
     ...block.currentMicrocycle,

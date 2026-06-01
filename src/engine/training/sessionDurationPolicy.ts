@@ -153,10 +153,9 @@ export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicy
 
   const hardSafety = Boolean(input.hardStopActive) || input.readinessColor === "red" || Boolean(input.severeFuelingRisk);
   const workloadModerated = Boolean(
-    input.protectedHard ||
+      input.protectedHard ||
       input.highCycleSymptoms ||
       input.underfuelingRisk ||
-      input.uncertainFueling ||
       input.volumeStrategy === "reduce_volume" ||
       input.volumeStrategy === "hold_for_review"
   );
@@ -181,7 +180,6 @@ export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicy
     withReason(reasons, input.protectedHard, "Protected hard boxing anchor owns the main stress, so generated support uses moderated duration.");
     withReason(reasons, input.highCycleSymptoms, "High cycle symptoms reduced optional generated volume while keeping support useful.");
     withReason(reasons, Boolean(input.underfuelingRisk), "Under-fueling evidence removed high fuel-demand duration.");
-    withReason(reasons, Boolean(input.uncertainFueling), "Low-confidence fuel data reduced duration without treating missing data as safe.");
     withReason(reasons, input.volumeStrategy === "reduce_volume", "Reduce-volume strategy lowered optional generated duration.");
     withReason(reasons, input.volumeStrategy === "hold_for_review", "Review-hold strategy limited generated support to easy duration.");
   } else if (input.volumeStrategy === "conservative_start") {

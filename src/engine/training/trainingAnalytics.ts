@@ -89,7 +89,7 @@ function nextAction(progression: ProgressionRecommendation, readiness: Readiness
   if (progression.status === "can_progress") {
     return "A small progression can be considered if boxing quality and symptoms stay stable.";
   }
-  return "Complete or skip the next generated support session so the engine can learn from real history.";
+  return "Complete or skip the next generated training session so the engine can learn from real history.";
 }
 
 export function buildTrainingAnalytics(input: TrainingAnalyticsInput): TrainingAnalyticsViewModel {

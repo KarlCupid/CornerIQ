@@ -55,7 +55,7 @@ function goalSummary(draft: OnboardingDraft): string {
   if (draft.goal.phase === "maintenance_recovery") {
     return "Finishing setup will start a maintenance/recovery phase. Safety and consistency stay ahead of performance or weight-class pressure.";
   }
-  return "Finishing setup will start a build phase. The engine will protect boxing anchors and place support work around them.";
+  return "Finishing setup will start a build phase. The engine will protect boxing anchors and place generated training around them.";
 }
 
 export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {

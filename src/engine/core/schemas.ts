@@ -10,6 +10,8 @@ const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", 
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
+const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper"]);
+const GeneratedSessionTypeLabelSchema = z.enum(["Lift", "Strength", "Conditioning", "Roadwork", "Power", "Durability", "Mobility", "Recovery", "Taper"]);
 
 export const MassSchema = z.object({
   value: z.number().positive(),
@@ -350,6 +352,8 @@ export const GeneratedTrainingSessionSchema = z.object({
     "recovery_reset",
     "taper_maintenance"
   ]),
+  trainingStimulus: TrainingStimulusSchema.optional(),
+  sessionTypeLabel: GeneratedSessionTypeLabelSchema.optional(),
   title: z.string().min(1),
   durationMinutes: z.number().int().positive(),
   intensity: z.enum(["recovery", "easy", "moderate", "hard"]),

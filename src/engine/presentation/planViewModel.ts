@@ -278,6 +278,8 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
             id: session.id,
             title: session.title,
             date: session.date,
+            trainingStimulus: session.trainingStimulus,
+            sessionTypeLabel: session.sessionTypeLabel,
             intensity: session.intensity,
             durationMinutes: session.durationMinutes,
             fuelDemand: session.fuelDemand,
@@ -592,7 +594,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     title: "Plan",
     topAction: {
       title: "Your boxing comes first",
-      purpose: "CornerIQ adds support work around your protected anchors.",
+      purpose: "CornerIQ adds generated training around your protected anchors.",
       primaryAction: topActionPrimary,
       why: currentWeekSummary?.summary ?? state.training.activeBlock.weeklyStructure.summary,
       optional: "Safety notes stay visible if review is needed."
@@ -685,7 +687,9 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       generatedSessions: day.generatedSessions.map((session) => ({
         id: session.id,
         title: session.title,
-        date: session.date
+        date: session.date,
+        trainingStimulus: session.trainingStimulus,
+        sessionTypeLabel: session.sessionTypeLabel
       })),
       marker:
         day.role === "tournament_conservation_day"
@@ -721,6 +725,16 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       candidateAllowedDays: state.training.supportGenerationAudit.candidateAllowedDays,
       activeAdjustmentCount: state.training.supportGenerationAudit.activeAdjustmentCount,
       activeRiskFlagCodes: state.training.supportGenerationAudit.activeRiskFlagCodes,
+      generationConstraintSummary: state.training.supportGenerationAudit.generationConstraintSummary,
+      hardSafetyConstraints: state.training.supportGenerationAudit.hardSafetyConstraints,
+      evidenceBasedLoadConstraints: state.training.supportGenerationAudit.evidenceBasedLoadConstraints,
+      advisoryUncertainty: state.training.supportGenerationAudit.advisoryUncertainty,
+      missingDataAdvisories: state.training.supportGenerationAudit.missingDataAdvisories,
+      plannedTrainingStimulusMix: state.training.supportGenerationAudit.plannedTrainingStimulusMix,
+      actualTrainingStimulusMix: state.training.supportGenerationAudit.actualTrainingStimulusMix,
+      familySelectionReasons: state.training.supportGenerationAudit.familySelectionReasons,
+      downshiftReasons: state.training.supportGenerationAudit.downshiftReasons,
+      missingLogsDidNotReduceTraining: state.training.supportGenerationAudit.missingLogsDidNotReduceTraining,
       inputHash: null,
       outputHash: state.outputHash,
       generatedSupportPlacementReasons: state.training.supportGenerationAudit.generatedSupportPlacementReasons,
@@ -733,10 +747,10 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     protectedAnchorSummary: `${state.training.protectedAnchors.length} protected boxing anchor${state.training.protectedAnchors.length === 1 ? "" : "s"} respected and fixed.`,
     supportWorkReason:
       protectedHardAnchorCount > 0 && currentWeekGeneratedSupportCount <= 3
-        ? "Support work is low because protected boxing already creates hard days."
+        ? "Generated training is low because protected boxing already creates hard days."
         : currentWeekGeneratedSupportCount === 0
-          ? "Generated support is intentionally low because recovery and protected work own the week."
-          : `Generated support is ${currentWeekGeneratedSupportCount} session${currentWeekGeneratedSupportCount === 1 ? "" : "s"} because the block dose is balanced against protected boxing, readiness, and safety.`,
+          ? "Generated training is intentionally low because recovery and protected work own the week."
+          : `Generated training is ${currentWeekGeneratedSupportCount} session${currentWeekGeneratedSupportCount === 1 ? "" : "s"} because the block dose is balanced against protected boxing, readiness, and safety.`,
     fightOrTournamentNote:
       state.tournamentStrategy.status === "active" || state.tournamentStrategy.status === "unsafe"
         ? state.tournamentStrategy.athleteFacingSummary

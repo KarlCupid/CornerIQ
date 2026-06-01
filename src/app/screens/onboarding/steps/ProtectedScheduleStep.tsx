@@ -138,7 +138,7 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
       </FieldGroup>
       <LabeledTextInput
         example="60"
-        helper="Minutes the engine should protect before adding support work around it."
+        helper="Minutes the engine should protect before adding generated training around it."
         keyboardType="number-pad"
         label="Duration (minutes)"
         onChangeText={setDurationMinutes}

@@ -263,7 +263,23 @@ function hardDayCap(currentCap: number, strategy: NextWeekTrainingVolumeStrategy
 
 function supportBias(phase: TrainingBlockPhase, strategy: NextWeekTrainingVolumeStrategy): NextWeekGeneratedSupportBias {
   if (strategy === "conservative_start") {
-    return "durability";
+    switch (phase) {
+      case "build_strength":
+        return "strength";
+      case "build_power":
+        return "power";
+      case "aerobic_base":
+        return "aerobic_base";
+      case "fight_week_taper":
+        return "taper_speed";
+      case "tournament_week":
+        return "tournament_conserve";
+      case "recovery_deload":
+        return "recovery";
+      case "camp_support":
+      case "maintenance":
+        return "durability";
+    }
   }
   if (strategy === "deload" || strategy === "hold_for_review") {
     return "recovery";
@@ -299,13 +315,13 @@ function supportBias(phase: TrainingBlockPhase, strategy: NextWeekTrainingVolume
 function familyBiases(bias: NextWeekGeneratedSupportBias): readonly GeneratedSessionFamily[] {
   switch (bias) {
     case "strength":
-      return ["strength_full_body", "trunk_durability"];
+      return ["strength_full_body", "roadwork_zone2", "strength_lower", "trunk_durability"];
     case "power":
-      return ["power_rotational", "reaction_rhythm"];
+      return ["power_rotational", "roadwork_zone2", "reaction_rhythm", "alactic_sprints"];
     case "aerobic_base":
-      return ["roadwork_zone2", "trunk_durability"];
+      return ["roadwork_zone2", "strength_full_body", "round_based_conditioning", "trunk_durability"];
     case "durability":
-      return ["trunk_durability", "shoulder_scap_durability"];
+      return ["strength_full_body", "roadwork_zone2", "trunk_durability", "shoulder_scap_durability"];
     case "recovery":
       return ["recovery_reset", "hip_ankle_mobility"];
     case "taper_speed":

@@ -54,6 +54,24 @@ describe("session duration policy", () => {
     expect(policy.targetDurationMinutes).not.toBe(22);
   });
 
+  it("does not moderate workload solely because fueling data is uncertain", () => {
+    const policy = resolveSessionDurationPolicy({
+      family: "strength_full_body",
+      template: findWorkoutTemplate("strength_full_body_whole_body_support"),
+      boxingLevel: "pro_4_6_round",
+      phase: "build",
+      readinessColor: "unknown",
+      protectedHard: false,
+      highCycleSymptoms: false,
+      uncertainFueling: true,
+      primaryFocus: "strength"
+    });
+
+    expect(policy.durationPolicyCategory).toBe("normal_support");
+    expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(40);
+    expect(policy.durationReductionReasons.join(" ")).not.toContain("Low-confidence fuel data reduced duration");
+  });
+
   it("moderates protected hard-anchor support without forcing an under-25-minute microdose", () => {
     const policy = resolveSessionDurationPolicy({
       family: "shoulder_scap_durability",

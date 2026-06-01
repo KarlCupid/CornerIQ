@@ -150,7 +150,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
     expect(new Set(sessions.map((session) => session.family))).toEqual(new Set(["roadwork_zone2"]));
   });
 
-  it("conservative_start creates a full conservative week when availability allows", () => {
+  it("conservative_start keeps useful strength training when safety allows", () => {
     const state = stateFixture();
     const sessions = materializeGeneratedSessionsFromPreview(
       inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "conservative_start" }), {
@@ -159,9 +159,8 @@ describe("nextWeekGeneratedSessionEngine", () => {
     );
 
     expect(sessions.length).toBeGreaterThan(1);
-    expect(sessions.every((session) => session.intensity === "easy" || session.intensity === "recovery")).toBe(true);
-    expect(sessions.every((session) => session.fuelDemand === "low")).toBe(true);
-    expect(sessions.every((session) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"].includes(session.family))).toBe(true);
+    expect(sessions.some((session) => ["strength_lower", "strength_upper", "strength_full_body"].includes(session.family))).toBe(true);
+    expect(sessions.every((session) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility", "recovery_reset"].includes(session.family))).toBe(false);
   });
 
   it("reduce_volume trims volume below progress_small", () => {
@@ -276,10 +275,14 @@ describe("nextWeekGeneratedSessionEngine", () => {
     expect(sessions.every((session) => session.modifications.some((modification) => modification.includes("Under-fueling risk")))).toBe(true);
   });
 
-  it("missing food logs create multiple conservative sessions when availability allows", () => {
+  it("missing food logs do not remap strength or conditioning into trunk-only work", () => {
     const state = stateFixture();
+    const materialization = materializationFixture(state, {
+      materializedVolumeStrategy: "progress_small",
+      sessionFamilyBiases: ["strength_full_body", "roadwork_zone2", "round_based_conditioning"]
+    });
     const sessions = materializeGeneratedSessionsFromPreview(
-      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
+      inputFor(state, materialization, {
         nutrition: state.nutrition,
         safetyFlags: []
       })
@@ -287,8 +290,38 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(state.nutrition.actualIntakeSummary.logCount).toBe(0);
     expect(sessions.length).toBeGreaterThan(1);
-    expect(sessions.every((session) => session.intensity === "easy" || session.intensity === "recovery")).toBe(true);
-    expect(sessions.every((session) => session.modifications.some((modification) => modification.includes("Fuel data is low-confidence")))).toBe(true);
+    expect(sessions.some((session) => ["strength_lower", "strength_upper", "strength_full_body"].includes(session.family))).toBe(true);
+    expect(sessions.some((session) => ["roadwork_zone2", "roadwork_tempo", "roadwork_intervals", "round_based_conditioning", "alactic_sprints"].includes(session.family))).toBe(true);
+    expect(sessions.every((session) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility", "recovery_reset"].includes(session.family))).toBe(false);
+    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("No food log today")))).toBe(true);
+    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("removed hard work")))).toBe(false);
+  });
+
+  it("unknown readiness adds a warm-up gate without blocking strength or conditioning", () => {
+    const state = stateFixture();
+    const materialization = materializationFixture(state, {
+      materializedVolumeStrategy: "progress_small",
+      sessionFamilyBiases: ["strength_full_body", "roadwork_zone2"]
+    });
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materialization, {
+        readiness: {
+          ...state.readiness,
+          score: null,
+          color: "unknown",
+          drivers: ["No readiness check-in logged today."],
+          hardStops: [],
+          confidence: { level: "low", score: 0.28, reasons: ["manual readiness can still be logged"], missingInputs: ["today readiness check-in"] }
+        },
+        nutrition: healthyNutrition(state),
+        safetyFlags: []
+      })
+    );
+
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.some((session) => ["strength_lower", "strength_upper", "strength_full_body", "roadwork_zone2"].includes(session.family))).toBe(true);
+    expect(sessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
+    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("No readiness check-in today")))).toBe(true);
   });
 
   it("low nutrition confidence does not cap support count without true risk evidence", () => {
@@ -302,7 +335,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(sessions.length).toBeGreaterThan(1);
     expect(sessions.every((session) => session.fuelDemand === "low" || session.fuelDemand === "moderate")).toBe(true);
-    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fuel data is low-confidence")))).toBe(true);
+    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fueling data is low-confidence")))).toBe(true);
   });
 
   it("one healthy fuel log does not cap support count", () => {

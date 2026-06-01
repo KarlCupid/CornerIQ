@@ -11,10 +11,21 @@ import type {
   RiskFlag,
   TournamentDetails
 } from "../core/types";
-import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
+import type { NextWeekGeneratedSupportBias, NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
 import type { TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 import { durationPolicyModifications, resolveSessionDurationPolicy, type SessionDurationPolicyResult } from "./sessionDurationPolicy";
 import { generatedSupportAllowedOnDate } from "./supportAvailability";
+import {
+  activeUnderfuelingEvidence,
+  classifyTrainingGenerationConstraints,
+  fuelingRiskCapsGeneratedCount,
+  fuelingUncertaintyAdvisory,
+  highCycleSymptoms,
+  lowNutritionConfidence,
+  missingNutritionData,
+  severeFuelingRisk
+} from "./trainingGenerationConstraints";
+import { generatedSessionLabels } from "./trainingStimulus";
 import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
 
 export interface NextWeekGeneratedSessionMaterializationInput {
@@ -55,8 +66,6 @@ const TAPER_FAMILIES = new Set<GeneratedSessionFamily>(["taper_maintenance", "re
 const TOURNAMENT_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "taper_maintenance"]);
 const HOLD_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"]);
 const PROHIBITED_OUTPUT = /\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight)\b/i;
-const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
-const FUELING_COUNT_CAP_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 const NOVICE_LEVELS = new Set(["aspiring_boxer", "amateur_novice"]);
 
 function stableHash(value: string): string {
@@ -72,44 +81,8 @@ function isNovice(athlete: AthleteProfile): boolean {
   return NOVICE_LEVELS.has(athlete.boxingLevel);
 }
 
-function activeUnderfuelingEvidenceFlags(flags: readonly RiskFlag[]): readonly RiskFlag[] {
-  return flags.filter((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code));
-}
-
-function activeUnderfuelingEvidence(flags: readonly RiskFlag[]): boolean {
-  return activeUnderfuelingEvidenceFlags(flags).length > 0;
-}
-
-function severeFuelingRisk(flags: readonly RiskFlag[]): boolean {
-  return activeUnderfuelingEvidenceFlags(flags).some((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
-}
-
-function pairedFuelingSafetyRisk(flags: readonly RiskFlag[]): boolean {
-  if (!activeUnderfuelingEvidence(flags)) {
-    return false;
-  }
-  return flags.some(
-    (flag) =>
-      flag.status === "active" &&
-      !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
-      (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
-  );
-}
-
-function fuelingRiskCapsSupportCount(flags: readonly RiskFlag[]): boolean {
-  return severeFuelingRisk(flags) || pairedFuelingSafetyRisk(flags);
-}
-
-function missingNutritionData(input: Pick<NextWeekGeneratedSessionMaterializationInput, "nutrition">): boolean {
-  return Boolean(input.nutrition && (input.nutrition.actualIntakeSummary.logCount === 0 || input.nutrition.confidence.missingInputs.some((item) => item.toLowerCase().includes("food log"))));
-}
-
-function lowNutritionConfidence(input: Pick<NextWeekGeneratedSessionMaterializationInput, "nutrition">): boolean {
-  return Boolean(input.nutrition && (input.nutrition.confidence.level === "low" || input.nutrition.confidence.level === "unknown" || input.nutrition.actualIntakeSummary.confidence.level === "low" || input.nutrition.actualIntakeSummary.confidence.level === "unknown"));
-}
-
 function conservativeFuelingContext(input: Pick<NextWeekGeneratedSessionMaterializationInput, "nutrition" | "safetyFlags">): boolean {
-  return activeUnderfuelingEvidence(input.safetyFlags) || missingNutritionData(input) || lowNutritionConfidence(input);
+  return activeUnderfuelingEvidence(input.safetyFlags);
 }
 
 function activeHardStop(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness" | "safetyFlags">): boolean {
@@ -118,10 +91,6 @@ function activeHardStop(input: Pick<NextWeekGeneratedSessionMaterializationInput
 
 function redReadiness(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness">): boolean {
   return input.readiness.color === "red";
-}
-
-function highCycleSymptoms(cycle: CycleState): boolean {
-  return cycle.trackingEnabled && cycle.symptomBurden === "high";
 }
 
 function anchorsForDate(anchors: readonly ProtectedWorkout[], date: ISODateString): readonly ProtectedWorkout[] {
@@ -136,13 +105,41 @@ function hasProtectedHardAnchor(anchors: readonly ProtectedWorkout[]): boolean {
   return anchors.some((anchor) => anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max");
 }
 
+function conservativeStartFamilyBiases(bias: NextWeekGeneratedSupportBias): readonly GeneratedSessionFamily[] {
+  switch (bias) {
+    case "strength":
+      return ["strength_full_body", "roadwork_zone2", "strength_lower", "trunk_durability"];
+    case "power":
+      return ["power_rotational", "roadwork_zone2", "reaction_rhythm", "trunk_durability"];
+    case "aerobic_base":
+      return ["roadwork_zone2", "strength_full_body", "round_based_conditioning", "trunk_durability"];
+    case "durability":
+      return ["strength_full_body", "roadwork_zone2", "trunk_durability", "shoulder_scap_durability"];
+    case "recovery":
+      return ["recovery_reset", "hip_ankle_mobility", "trunk_durability"];
+    case "taper_speed":
+      return ["taper_maintenance", "reaction_rhythm"];
+    case "tournament_conserve":
+      return ["recovery_reset", "taper_maintenance"];
+  }
+}
+
 function familyBiases(input: NextWeekGeneratedSessionMaterializationInput): readonly GeneratedSessionFamily[] {
+  const constraints = classifyTrainingGenerationConstraints({
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags,
+    nutrition: input.nutrition,
+    cycle: input.cycle
+  });
+  if (constraints.hardSafetyConstraints.length > 0) {
+    return ["recovery_reset", "hip_ankle_mobility", "trunk_durability"];
+  }
   const biases: readonly GeneratedSessionFamily[] = input.materialization.sessionFamilyBiases.length > 0 ? input.materialization.sessionFamilyBiases : ["trunk_durability"];
   switch (input.materialization.materializedVolumeStrategy) {
     case "conservative_start":
-      return ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"];
+      return conservativeStartFamilyBiases(input.materialization.generatedSupportBias);
     case "progress_small":
-      return Array.from(new Set<GeneratedSessionFamily>([...biases, "trunk_durability", "shoulder_scap_durability"]));
+      return Array.from(new Set<GeneratedSessionFamily>([...biases, "roadwork_zone2", "trunk_durability", "shoulder_scap_durability"]));
     case "repeat_same":
       return Array.from(new Set<GeneratedSessionFamily>(biases));
     case "reduce_volume":
@@ -160,7 +157,7 @@ function familyBiases(input: NextWeekGeneratedSessionMaterializationInput): read
 
 function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput): number {
   const hardStop = activeHardStop(input);
-  const fuelCountCap = fuelingRiskCapsSupportCount(input.safetyFlags);
+  const fuelCountCap = fuelingRiskCapsGeneratedCount(input.safetyFlags);
   const cycleTrim = highCycleSymptoms(input.cycle);
   if (hardStop || redReadiness(input)) {
     return 1;
@@ -240,14 +237,20 @@ function adjustedShape(
   const hardStop = activeHardStop(input);
   const readinessRed = redReadiness(input);
   const underfueling = activeUnderfuelingEvidence(input.safetyFlags);
-  const uncertainFueling = !underfueling && (missingNutritionData(input) || lowNutritionConfidence(input));
+  const uncertainFueling = fuelingUncertaintyAdvisory({ nutrition: input.nutrition, safetyFlags: input.safetyFlags });
   const cycleTrim = highCycleSymptoms(input.cycle);
-  const conservativeStrategy =
+  const restrictiveStrategy =
     input.materialization.materializedVolumeStrategy === "deload" ||
-    input.materialization.materializedVolumeStrategy === "conservative_start" ||
     input.materialization.materializedVolumeStrategy === "taper" ||
     input.materialization.materializedVolumeStrategy === "tournament_conserve" ||
     input.materialization.materializedVolumeStrategy === "hold_for_review";
+  const conservativeStart = input.materialization.materializedVolumeStrategy === "conservative_start";
+  const constraints = classifyTrainingGenerationConstraints({
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags,
+    nutrition: input.nutrition,
+    cycle: input.cycle
+  });
   const template = selectWorkoutTemplate({
     family,
     equipmentAccess: input.athlete.equipmentAccess,
@@ -282,18 +285,19 @@ function adjustedShape(
     shape: {
       ...shape,
       durationMinutes: durationPolicy.finalDurationMinutes,
-      intensity: hardStop || readinessRed ? "recovery" : (conservativeStrategy || workloadModerated) && shape.intensity === "moderate" ? "easy" : workloadModerated && shape.intensity === "hard" ? "moderate" : shape.intensity,
+      intensity: hardStop || readinessRed ? "recovery" : (restrictiveStrategy || conservativeStart || workloadModerated) && shape.intensity === "moderate" ? "easy" : workloadModerated && shape.intensity === "hard" ? "moderate" : shape.intensity,
       modifications: [
         ...shape.modifications,
         ...durationPolicyModifications(durationPolicy),
+        ...constraints.missingDataAdvisories,
         ...(underfueling ? ["Under-fueling risk: progression and high fuel-demand work removed."] : []),
-        ...(uncertainFueling ? ["Fuel data is low-confidence; generated work stays conservative."] : []),
+        ...(uncertainFueling && !missingNutritionData(input.nutrition) && lowNutritionConfidence(input.nutrition) ? ["Fueling data is low-confidence; use the pre-session fuel check and log meals to personalize tomorrow."] : []),
         ...(cycleTrim ? ["High cycle symptoms: optional volume trimmed."] : []),
         ...(hardStop ? ["Safety hard stop active: recovery only."] : []),
         ...(readinessRed && !hardStop ? ["Readiness is red, so CornerIQ generated recovery-only work."] : []),
         ...(protectedHard ? ["Protected hard boxing anchor owns the stress; generated work stays easy."] : [])
       ],
-      fuelDemand: underfueling || conservativeStrategy || hardStop || readinessRed ? "low" : shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
+      fuelDemand: underfueling || restrictiveStrategy || hardStop || readinessRed ? "low" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
     }
   };
 }
@@ -341,6 +345,7 @@ export function materializeGeneratedSessionsFromPreview(input: NextWeekGenerated
         id: deterministicSessionId(input, day.date, family),
         date: day.date,
         family,
+        ...generatedSessionLabels(family),
         ...adjusted.shape,
         source: "next_week_preview_materialization",
         templateId: adjusted.templateId,
