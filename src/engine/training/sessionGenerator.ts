@@ -2,7 +2,7 @@ import type { BoxingLevel, GeneratedSessionFamily, GeneratedTrainingSession, Pha
 import type { PlanGenerationPrimaryFocus, TrainingGenerationConstraintSummaryAudit } from "./types";
 import { durationPolicyModifications, resolveSessionDurationPolicy } from "./sessionDurationPolicy";
 import { generatedSessionLabels } from "./trainingStimulus";
-import { familySequenceForTrainingFocus } from "./weeklyTrainingCompositionPolicy";
+import { familySequenceForTrainingFocus } from "./weeklyTrainingPrescriptionPolicy";
 import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
 
 const NOVICE_LEVELS = new Set<BoxingLevel>(["aspiring_boxer", "amateur_novice"]);
@@ -114,6 +114,7 @@ export interface GenerateSupportSessionInput {
   uncertainFueling?: boolean | undefined;
   familySequence?: readonly GeneratedSessionFamily[] | undefined;
   generationConstraints?: TrainingGenerationConstraintSummaryAudit | undefined;
+  prescriptionHard?: boolean | undefined;
 }
 
 export function generateSupportSession(input: GenerateSupportSessionInput): GeneratedTrainingSession {
@@ -150,6 +151,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
   const shape = generatedSessionShapeFromTemplate(template, durationPolicy.targetDurationMinutes);
   const recoveryOnly = durationPolicy.durationPolicyCategory === "safety_capped" || durationPolicy.durationPolicyCategory === "recovery" || family === "recovery_reset";
   const workloadModerated = durationPolicy.durationPolicyCategory === "workload_moderated" || durationPolicy.durationPolicyCategory === "taper";
+  const prescribedHard = Boolean(input.prescriptionHard) && !recoveryOnly && !workloadModerated && HIGH_DEMAND_FAMILIES.has(family);
 
   return assertSafeOutput({
     id: deterministicSessionId(input, family),
@@ -157,7 +159,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     family,
     title: shape.title,
     durationMinutes: durationPolicy.finalDurationMinutes,
-    intensity: recoveryOnly ? "recovery" : workloadModerated && shape.intensity === "hard" ? "moderate" : shape.intensity,
+    intensity: recoveryOnly ? "recovery" : workloadModerated && shape.intensity === "hard" ? "moderate" : prescribedHard ? "hard" : shape.intensity,
     prescription: shape.prescription,
     rationale: shape.rationale,
     protects: shape.protects,
@@ -168,6 +170,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
       ...(!input.generationConstraints && input.readiness.color === "unknown" ? ["No readiness check-in today: use the warm-up gate and downshift if symptoms appear."] : []),
       ...(!input.generationConstraints && input.uncertainFueling ? ["No food log today: fuel this session normally and log meals to personalize recovery guidance."] : []),
       ...(input.primaryFocus ? [`Plan focus: ${input.primaryFocus.replaceAll("_", " ")}.`] : []),
+      ...(prescribedHard ? ["Weekly prescription: this is a hard/high-stimulus training day."] : []),
       ...(input.readiness.color === "red" ? ["Readiness is red, so generated work is recovery only."] : []),
       ...(input.hardStopActive ? ["Safety hard-stop active: generated work is recovery only."] : []),
       ...(input.underFuelingRisk ? ["Under-fueling evidence removes high fuel-demand generated work."] : []),
@@ -176,7 +179,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
       ...(noEquipment ? ["No-equipment substitution used"] : []),
       ...(novice ? ["Lower complexity for novice track"] : [])
     ],
-    fuelDemand: recoveryOnly || input.underFuelingRisk || input.severeFuelingRisk ? "low" : protectedHard ? "high" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand,
+    fuelDemand: recoveryOnly || input.underFuelingRisk || input.severeFuelingRisk ? "low" : protectedHard || prescribedHard ? "high" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand,
     ...generatedSessionLabels(family),
     ...(input.planRevisionId ? { planRevisionId: input.planRevisionId } : {}),
     ...(input.weekIndex ? { weekIndex: input.weekIndex } : {}),

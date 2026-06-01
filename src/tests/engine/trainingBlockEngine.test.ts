@@ -291,6 +291,9 @@ describe("training block and microcycle engine", () => {
     expect(state.training.supportGenerationAudit.reducedBy).not.toContain("readiness");
     expect(state.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
     expect(state.training.supportGenerationAudit.missingLogsDidNotReduceTraining).toBe(true);
+    expect(state.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(state.training.supportGenerationAudit.minHardDayCount);
+    expect(state.training.supportGenerationAudit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(state.training.supportGenerationAudit.targetWeeklyGeneratedMinutes);
+    expect(state.training.supportGenerationAudit.unmetPrescriptionTargets).toEqual([]);
   });
 
   it("normal build plan generation produces substantial support sessions with duration audit", () => {
@@ -495,8 +498,16 @@ describe("training block and microcycle engine", () => {
     expect(strength.training.generatedSessions.map((session) => session.family)).not.toEqual(conditioning.training.generatedSessions.map((session) => session.family));
     expect(power.training.generatedSessions.map((session) => session.family)).not.toEqual(conditioning.training.generatedSessions.map((session) => session.family));
     expect(strength.training.generatedSessions.some((session) => session.family.startsWith("strength"))).toBe(true);
+    expect(strength.training.generatedSessions.some((session) => session.family.startsWith("strength") && session.intensity === "hard")).toBe(true);
+    expect(strength.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(strength.training.supportGenerationAudit.minHardDayCount);
+    expect(strength.training.supportGenerationAudit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(strength.training.supportGenerationAudit.targetWeeklyGeneratedMinutes);
     expect(power.training.generatedSessions.some((session) => session.family.startsWith("power") || session.family === "reaction_rhythm")).toBe(true);
+    expect(power.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(power.training.supportGenerationAudit.minHardDayCount);
     expect(conditioning.training.generatedSessions.some((session) => session.family.startsWith("roadwork") || session.family === "round_based_conditioning")).toBe(true);
+    expect(conditioning.training.generatedSessions.some((session) => session.family === "roadwork_zone2")).toBe(true);
+    expect(conditioning.training.generatedSessions.some((session) => ["roadwork_tempo", "roadwork_intervals", "round_based_conditioning"].includes(session.family))).toBe(true);
+    expect(conditioning.training.generatedSessions.some((session) => session.durationMinutes >= 35)).toBe(true);
+    expect(conditioning.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(conditioning.training.supportGenerationAudit.minHardDayCount);
   });
 
   it("generated sessions expose user-facing stimulus and type labels", () => {
@@ -592,6 +603,9 @@ describe("training block and microcycle engine", () => {
 
     expect(state.training.dayPlans.find((day) => day.date === "2026-05-25")?.protectedAnchors[0]).toEqual(expect.objectContaining({ recurringAnchorId: "weekly_sparring_monday", type: "sparring" }));
     expect(state.training.generatedSessions.every((session) => ["2026-05-19", "2026-05-21"].includes(session.date))).toBe(true);
+    expect(state.training.supportGenerationAudit.protectedHardDayCount).toBeGreaterThanOrEqual(1);
+    expect(state.training.supportGenerationAudit.protectedAnchorsSuppliedHardWork).toBe(true);
+    expect(state.training.dayPlans.find((day) => day.date === "2026-05-25")?.generatedSessions).toEqual([]);
     expect(state.training.nextWeekMaterialization.nextWeekDayPlanPreview.find((day) => day.date === "2026-06-01")?.protectedAnchors.join(" ")).toContain("sparring");
   });
 

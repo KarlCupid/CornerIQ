@@ -22,6 +22,8 @@ const GeneratedSupportAvailableDaysSchema = z
   .min(1)
   .transform((days) => [...normalizeGeneratedSupportWeekdays(days)]);
 const PlanLifecycleActionSchema = z.enum(["start_new_plan", "amend_current_plan"]);
+const ProtectedScheduleChoiceSchema = z.enum(["has_anchors", "no_anchors"]);
+const PlanProtectedScheduleModeSchema = z.enum(["keep_existing", "replace_for_plan", "clear_for_plan"]);
 
 export const BoxingLevelSchema = z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]);
 const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
@@ -74,7 +76,8 @@ export const FightSetupDraftSchema = z.object({
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
   planStartDate: ISODateSchema.optional(),
-  planAction: PlanLifecycleActionSchema.optional()
+  planAction: PlanLifecycleActionSchema.optional(),
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
 });
 
 export const TournamentSetupDraftSchema = z.object({
@@ -91,7 +94,8 @@ export const TournamentSetupDraftSchema = z.object({
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
   planStartDate: ISODateSchema.optional(),
-  planAction: PlanLifecycleActionSchema.optional()
+  planAction: PlanLifecycleActionSchema.optional(),
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
 });
 
 export const OnboardingDraftSchema = z.object({
@@ -111,6 +115,7 @@ export const OnboardingDraftSchema = z.object({
     equipmentAccess: z.array(z.string().min(1)).min(1),
     scheduleAvailability: z.array(z.string().min(1)).min(1)
   }),
+  protectedScheduleChoice: ProtectedScheduleChoiceSchema.optional(),
   protectedSchedule: z.array(ProtectedWorkoutDraftSchema),
   recurringProtectedSchedule: z.array(RecurringProtectedWorkoutAnchorDraftSchema).optional(),
   cycleSupport: z.object({
@@ -155,7 +160,8 @@ export const BuildGoalDraftSchema = z.object({
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
   planStartDate: ISODateSchema.optional(),
-  planAction: PlanLifecycleActionSchema.optional()
+  planAction: PlanLifecycleActionSchema.optional(),
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
 });
 
 export const RecoveryGoalDraftSchema = z.object({
@@ -164,7 +170,8 @@ export const RecoveryGoalDraftSchema = z.object({
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
   planStartDate: ISODateSchema.optional(),
-  planAction: PlanLifecycleActionSchema.optional()
+  planAction: PlanLifecycleActionSchema.optional(),
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
 });
 
 export type ProtectedWorkoutDraft = z.infer<typeof ProtectedWorkoutDraftSchema>;
@@ -176,6 +183,8 @@ export type ProfileSettingsDraft = z.infer<typeof ProfileSettingsDraftSchema>;
 export type BuildGoalDraft = z.infer<typeof BuildGoalDraftSchema>;
 export type RecoveryGoalDraft = z.infer<typeof RecoveryGoalDraftSchema>;
 export type PlanLifecycleAction = z.infer<typeof PlanLifecycleActionSchema>;
+export type ProtectedScheduleChoice = z.infer<typeof ProtectedScheduleChoiceSchema>;
+export type PlanProtectedScheduleMode = z.infer<typeof PlanProtectedScheduleModeSchema>;
 
 export const DEFAULT_BOXING_EQUIPMENT = ["jump_rope", "gloves", "hand_wraps"] as const;
 export const DEFAULT_BOXING_AVAILABILITY = ["monday", "wednesday", "saturday"] as const;
@@ -378,6 +387,7 @@ function planGenerationPayload(input: {
   goalMode: "build" | "fight" | "tournament" | "recovery";
   planStartDate?: ISODateString | undefined;
   primaryFocus?: BuildGoalDraft["primaryFocus"] | undefined;
+  protectedScheduleMode?: PlanProtectedScheduleMode | undefined;
   scheduleAvailability?: readonly GeneratedSupportWeekday[] | undefined;
   userId: string;
 }): Record<string, unknown> {
@@ -395,6 +405,7 @@ function planGenerationPayload(input: {
     ...(input.primaryFocus ? { primaryFocus: input.primaryFocus } : {}),
     selectedSupportDays,
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
+    ...(input.protectedScheduleMode ? { protectedScheduleMode: input.protectedScheduleMode } : {}),
     requestedAt,
     seed: id,
     source: "plan_wizard",
@@ -404,7 +415,8 @@ function planGenerationPayload(input: {
     planGenerationIntent: intent,
     planRevisionId: id,
     selectedSupportDays,
-    ...(input.planStartDate ? { planStartDate: input.planStartDate } : {})
+    ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
+    ...(input.protectedScheduleMode ? { protectedScheduleMode: input.protectedScheduleMode } : {})
   };
 }
 
@@ -413,6 +425,7 @@ async function appendPlanLifecycleAudit(input: {
   action: PlanLifecycleAction | undefined;
   repositories: AthleteJourneyRepositories;
   goalMode: "build" | "fight" | "tournament" | "recovery";
+  protectedScheduleMode?: PlanProtectedScheduleMode | undefined;
   scheduleAvailability?: readonly GeneratedSupportWeekday[] | undefined;
 }): Promise<void> {
   if (!input.action) {
@@ -437,6 +450,7 @@ async function appendPlanLifecycleAudit(input: {
           goalMode: input.goalMode,
           blockId: block.id,
           blockKey: block.blockKey,
+          protectedScheduleMode: input.protectedScheduleMode ?? null,
           scheduleAvailability: input.scheduleAvailability ?? null
         }
       }
@@ -452,7 +466,72 @@ async function appendPlanLifecycleAudit(input: {
     source,
     goalMode: input.goalMode,
     activeBlockCount: activeBlocks.length,
+    protectedScheduleMode: input.protectedScheduleMode ?? null,
     scheduleAvailability: input.scheduleAvailability ?? null
+  });
+}
+
+function protectedScheduleModeForNewPlan(draft: { planAction?: PlanLifecycleAction | undefined; protectedScheduleMode?: PlanProtectedScheduleMode | undefined }): PlanProtectedScheduleMode | undefined {
+  if (draft.planAction !== "start_new_plan") {
+    return undefined;
+  }
+  return draft.protectedScheduleMode ?? "replace_for_plan";
+}
+
+async function applyProtectedScheduleModeForPlan(input: {
+  userId: string;
+  mode: PlanProtectedScheduleMode | undefined;
+  planStartDate?: ISODateString | undefined;
+  repositories: AthleteJourneyRepositories;
+}): Promise<void> {
+  if (!input.mode) {
+    return;
+  }
+  const profile = await input.repositories.athlete.getProfile(input.userId);
+  const recurringCount = profile?.recurringProtectedAnchors?.length ?? 0;
+  const futureDate = input.planStartDate ?? new Date().toISOString().slice(0, 10);
+
+  if (!profile) {
+    await input.repositories.journey.appendEvent(input.userId, "ProtectedWorkoutPlanned", {
+      action: input.mode,
+      source: "plan_wizard_new_plan",
+      protectedScheduleMode: input.mode,
+      profileFound: false
+    });
+    return;
+  }
+
+  if (input.mode === "keep_existing") {
+    await input.repositories.journey.appendEvent(input.userId, "ProtectedWorkoutPlanned", {
+      action: "kept",
+      source: "plan_wizard_new_plan",
+      protectedScheduleMode: input.mode,
+      recurringAnchorCount: recurringCount,
+      futureProtectedWorkoutCount: profile.protectedBoxingSchedule.filter((workout) => workout.date >= futureDate).length
+    });
+    return;
+  }
+
+  const tableWorkouts = await input.repositories.protectedWorkout.listProtectedWorkouts(input.userId);
+  const futureTableWorkouts = tableWorkouts.filter((workout) => workout.date >= futureDate);
+  for (const workout of futureTableWorkouts) {
+    await input.repositories.protectedWorkout.deleteProtectedWorkout(input.userId, workout.id);
+  }
+
+  const nextProfile: AthleteProfile = {
+    ...profile,
+    protectedBoxingSchedule: profile.protectedBoxingSchedule.filter((workout) => workout.date < futureDate),
+    recurringProtectedAnchors: []
+  };
+  await input.repositories.athlete.upsertProfile(input.userId, nextProfile);
+  await input.repositories.journey.appendEvent(input.userId, "ProtectedWorkoutPlanned", {
+    action: input.mode === "clear_for_plan" ? "cleared" : "replaced",
+    source: "plan_wizard_new_plan",
+    protectedScheduleMode: input.mode,
+    recurringAnchorCountBefore: recurringCount,
+    recurringAnchorCountAfter: 0,
+    removedFutureProtectedWorkoutCount: futureTableWorkouts.length,
+    futureDate
   });
 }
 
@@ -649,9 +728,11 @@ export async function saveFightSetup(input: {
   const userId = assertUserId(input.userId, "fightSetup.saveFightSetup");
   const draft = parseWithSchema(FightSetupDraftSchema, input.draft, "fightSetup.saveFightSetup");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "fight", planStartDate: draft.planStartDate, scheduleAvailability });
+  const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
+  await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "fight", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
-  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "fight", scheduleAvailability });
+  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "fight", protectedScheduleMode, scheduleAvailability });
   const fight = fightOpportunityFromDraft(draft);
   const existing = await input.repositories.fight.listFightOpportunities(userId);
   const existingDraftFight = draft.id ? existing.find((item) => item.id === draft.id) ?? null : null;
@@ -666,9 +747,10 @@ export async function saveFightSetup(input: {
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
     ...planPayload,
+    protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
-  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, generatedSupportAvailableDays: scheduleAvailability, scheduleAvailability, ...planPayload, source: input.source ?? planLifecycleSource(draft.planAction) });
+  await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, generatedSupportAvailableDays: scheduleAvailability, scheduleAvailability, ...planPayload, protectedScheduleMode, source: input.source ?? planLifecycleSource(draft.planAction) });
 }
 
 export async function saveTournamentSetup(input: {
@@ -680,9 +762,11 @@ export async function saveTournamentSetup(input: {
   const userId = assertUserId(input.userId, "fightSetup.saveTournamentSetup");
   const draft = parseWithSchema(TournamentSetupDraftSchema, input.draft, "fightSetup.saveTournamentSetup");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "tournament", planStartDate: draft.planStartDate, scheduleAvailability });
+  const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
+  await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "tournament", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
-  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "tournament", scheduleAvailability });
+  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "tournament", protectedScheduleMode, scheduleAvailability });
   const tournament = tournamentDetailsFromDraft(draft);
   const result = draft.id ? await input.repositories.tournament.updateTournamentPlan(userId, draft.id, tournament) : await input.repositories.tournament.insertTournamentPlan(userId, tournament, { supersedesExisting: true });
   const superseded = await supersedeOtherUpcomingTournaments({ userId, tournament, repositories: input.repositories, supersededBy: result.id });
@@ -692,6 +776,7 @@ export async function saveTournamentSetup(input: {
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
     ...planPayload,
+    protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
 }
@@ -705,15 +790,18 @@ export async function saveBuildGoal(input: {
   const userId = assertUserId(input.userId, "planGoal.saveBuildGoal");
   const draft = parseWithSchema(BuildGoalDraftSchema, input.draft, "planGoal.saveBuildGoal");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "build", planStartDate: draft.planStartDate, primaryFocus: draft.primaryFocus, scheduleAvailability });
+  const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
+  await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "build", planStartDate: draft.planStartDate, primaryFocus: draft.primaryFocus, protectedScheduleMode, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
-  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", scheduleAvailability });
+  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
     supportPrescription: "engine_owned",
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
     ...planPayload,
+    protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
 }
@@ -727,15 +815,18 @@ export async function saveRecoveryGoal(input: {
   const userId = assertUserId(input.userId, "planGoal.saveRecoveryGoal");
   const draft = parseWithSchema(RecoveryGoalDraftSchema, input.draft, "planGoal.saveRecoveryGoal");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "recovery", planStartDate: draft.planStartDate, scheduleAvailability });
+  const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
+  await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "recovery", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
-  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "recovery", scheduleAvailability });
+  await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "recovery", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
     durationDays: draft.durationDays,
     focus: draft.focus ?? "general",
     generatedSupportAvailableDays: scheduleAvailability,
     scheduleAvailability,
     ...planPayload,
+    protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
 }
@@ -839,13 +930,21 @@ export async function deleteRecurringProtectedAnchor(input: {
   currentProfile: AthleteProfile;
   anchorId: string;
   repositories: AthleteJourneyRepositories;
-}): Promise<void> {
+}): Promise<{ profile: AthleteProfile }> {
   const userId = assertUserId(input.userId, "recurringProtectedAnchor.deleteRecurringProtectedAnchor");
   const nextAnchors = (input.currentProfile.recurringProtectedAnchors ?? []).filter((anchor) => anchor.id !== input.anchorId);
-  await input.repositories.athlete.upsertProfile(userId, {
+  const nextProfile = {
     ...input.currentProfile,
     recurringProtectedAnchors: nextAnchors
+  };
+  await input.repositories.athlete.upsertProfile(userId, nextProfile);
+  await input.repositories.journey.appendEvent(userId, "ProtectedWorkoutPlanned", {
+    action: "deleted",
+    recurring: true,
+    anchorId: input.anchorId,
+    source: "plan"
   });
+  return { profile: nextProfile };
 }
 
 export async function deleteProtectedSession(input: {
@@ -920,7 +1019,7 @@ export async function updateProfileSettings(input: {
   }
 }
 
-export function createDefaultOnboardingDraft(asOfDate: ISODateString): OnboardingDraft {
+export function createDefaultOnboardingDraft(_asOfDate: ISODateString): OnboardingDraft {
   return {
     boxing: {
       amateurOrPro: "amateur",
@@ -938,17 +1037,9 @@ export function createDefaultOnboardingDraft(asOfDate: ISODateString): Onboardin
       equipmentAccess: [...DEFAULT_BOXING_EQUIPMENT],
       scheduleAvailability: [...DEFAULT_BOXING_AVAILABILITY]
     },
+    protectedScheduleChoice: "no_anchors",
     protectedSchedule: [],
-    recurringProtectedSchedule: [
-      {
-        type: "technical_session",
-        weekday: "wednesday",
-        durationMinutes: 45,
-        intensity: "moderate",
-        note: "Coach-led technical work",
-        activeFrom: asOfDate
-      }
-    ],
+    recurringProtectedSchedule: [],
     cycleSupport: {
       preference: "undecided"
     },

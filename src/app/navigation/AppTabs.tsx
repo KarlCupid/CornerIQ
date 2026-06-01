@@ -51,6 +51,7 @@ export interface AppTabsProps {
   message: string | null;
   nextWeekPreviewActions?: NextWeekPreviewActionsHook | undefined;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => Promise<void>) | undefined;
+  onDeleteRecurringProtectedAnchor: (anchorId: string) => Promise<void>;
   onDeleteProtectedSession: (workoutId: string) => Promise<void>;
   onSaveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
@@ -68,7 +69,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteRecurringProtectedAnchor, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
@@ -173,6 +174,7 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               hasActiveFightOrTournament={Boolean(state.fightContext || state.tournamentContext)}
               isMinor={(state.athlete.ageYears ?? 99) < 18}
               nextWeekPreviewActions={nextWeekPreviewActions?.actions}
+              onDeleteRecurringProtectedAnchor={onDeleteRecurringProtectedAnchor}
               onDeleteProtectedSession={onDeleteProtectedSession}
               onSaveBuildGoal={onSaveBuildGoal}
               onSaveFightSetup={onSaveFightSetup}

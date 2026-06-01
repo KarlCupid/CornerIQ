@@ -5,7 +5,7 @@ import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import { useFormMessage } from "../../forms/useFormMessage";
 import { parseOptionalNonNegativeInteger, parseRequiredDateYYYYMMDD, parseRequiredPositiveInteger, parseRequiredTimeHHMM } from "../../forms/validation";
-import type { ProtectedWorkoutDraft } from "../../../services/supabase/onboardingService";
+import type { ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
 
 type FixedSession = PlanViewModel["fixedSchedule"][number];
@@ -32,11 +32,23 @@ const intensityOptions: readonly { label: string; value: ProtectedWorkoutDraft["
   { label: "Max", value: "max" }
 ];
 
+const weekdayOptions: readonly { label: string; value: RecurringProtectedWorkoutAnchorDraft["weekday"] }[] = [
+  { label: "Monday", value: "monday" },
+  { label: "Tuesday", value: "tuesday" },
+  { label: "Wednesday", value: "wednesday" },
+  { label: "Thursday", value: "thursday" },
+  { label: "Friday", value: "friday" },
+  { label: "Saturday", value: "saturday" },
+  { label: "Sunday", value: "sunday" }
+];
+
 export interface FixedBoxingScheduleCardProps {
   asOfDate: ISODateString;
   busy: boolean;
   onDelete: (workoutId: string) => Promise<void>;
+  onDeleteWeeklyAnchor: (anchorId: string) => Promise<void>;
   onSave: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
+  onSaveWeeklyAnchor: (anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>;
   sessions: readonly FixedSession[];
   weeklyAnchors: readonly WeeklyAnchor[];
 }
@@ -53,8 +65,9 @@ function parseOptionalTime(value: string): string | undefined {
   return value.trim() ? parseRequiredTimeHHMM(value, "Start time") : undefined;
 }
 
-export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sessions, weeklyAnchors }: FixedBoxingScheduleCardProps) {
+export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onDeleteWeeklyAnchor, onSave, onSaveWeeklyAnchor, sessions, weeklyAnchors }: FixedBoxingScheduleCardProps) {
   const [editing, setEditing] = React.useState<FixedSession | null>(null);
+  const [weeklyEditing, setWeeklyEditing] = React.useState<WeeklyAnchor | null>(null);
   const [mode, setMode] = React.useState<"idle" | "add" | "edit">("idle");
   const [type, setType] = React.useState<ProtectedWorkoutDraft["type"]>("technical_session");
   const [date, setDate] = React.useState(asOfDate);
@@ -64,6 +77,14 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sess
   const [rounds, setRounds] = React.useState("");
   const [note, setNote] = React.useState("");
   const [confirmRemove, setConfirmRemove] = React.useState(false);
+  const [weeklyType, setWeeklyType] = React.useState<RecurringProtectedWorkoutAnchorDraft["type"]>("technical_session");
+  const [weeklyWeekday, setWeeklyWeekday] = React.useState<RecurringProtectedWorkoutAnchorDraft["weekday"]>("monday");
+  const [weeklyStartTime, setWeeklyStartTime] = React.useState("");
+  const [weeklyDurationMinutes, setWeeklyDurationMinutes] = React.useState("60");
+  const [weeklyIntensity, setWeeklyIntensity] = React.useState<RecurringProtectedWorkoutAnchorDraft["intensity"]>("moderate");
+  const [weeklyRounds, setWeeklyRounds] = React.useState("");
+  const [weeklyNote, setWeeklyNote] = React.useState("");
+  const [confirmRemoveWeekly, setConfirmRemoveWeekly] = React.useState(false);
   const { message: formError, runWithMessage } = useFormMessage("Fixed boxing session could not be saved.");
 
   const resetForAdd = () => {
@@ -99,6 +120,23 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sess
     setConfirmRemove(false);
   };
 
+  const editWeeklyAnchor = (anchor: WeeklyAnchor) => {
+    setWeeklyEditing(anchor);
+    setWeeklyType(anchor.type);
+    setWeeklyWeekday(anchor.weekday);
+    setWeeklyStartTime(anchor.startTime ?? "");
+    setWeeklyDurationMinutes(`${anchor.durationMinutes}`);
+    setWeeklyIntensity(anchor.intensity);
+    setWeeklyRounds(anchor.rounds === null ? "" : `${anchor.rounds}`);
+    setWeeklyNote(anchor.note ?? "");
+    setConfirmRemoveWeekly(false);
+  };
+
+  const cancelWeekly = () => {
+    setWeeklyEditing(null);
+    setConfirmRemoveWeekly(false);
+  };
+
   const save = async () => {
     await runWithMessage(async () => {
       const parsedStartTime = parseOptionalTime(startTime);
@@ -127,6 +165,39 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sess
     });
   };
 
+  const saveWeekly = async () => {
+    if (!weeklyEditing) {
+      return;
+    }
+    await runWithMessage(async () => {
+      const parsedStartTime = parseOptionalTime(weeklyStartTime);
+      const parsedRounds = parseOptionalNonNegativeInteger(weeklyRounds, "Rounds");
+      const trimmedNote = weeklyNote.trim();
+      await onSaveWeeklyAnchor(weeklyEditing.id, {
+        type: weeklyType,
+        weekday: weeklyWeekday,
+        ...(parsedStartTime ? { localStartTime: parsedStartTime } : {}),
+        durationMinutes: parseRequiredPositiveInteger(weeklyDurationMinutes, "Duration minutes"),
+        intensity: weeklyIntensity,
+        ...(parsedRounds === undefined ? {} : { rounds: parsedRounds }),
+        ...(trimmedNote ? { note: trimmedNote } : {}),
+        ...(weeklyEditing.activeFrom ? { activeFrom: weeklyEditing.activeFrom } : {}),
+        ...(weeklyEditing.activeUntil ? { activeUntil: weeklyEditing.activeUntil } : {})
+      });
+      cancelWeekly();
+    });
+  };
+
+  const removeWeekly = async () => {
+    if (!weeklyEditing) {
+      return;
+    }
+    await runWithMessage(async () => {
+      await onDeleteWeeklyAnchor(weeklyEditing.id);
+      cancelWeekly();
+    });
+  };
+
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="fixed-boxing-schedule-card">
@@ -140,8 +211,12 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sess
           {weeklyAnchors.length > 0 ? (
             <View style={{ gap: spacing.sm }}>
               {weeklyAnchors.map((anchor) => (
-                <View
+                <Pressable
+                  accessibilityLabel={`Edit weekly ${anchor.typeLabel} on ${anchor.weekday}`}
+                  accessibilityRole="button"
+                  disabled={busy}
                   key={anchor.id}
+                  onPress={() => editWeeklyAnchor(anchor)}
                   style={{
                     borderColor: "rgba(255, 255, 255, 0.10)",
                     borderRadius: 18,
@@ -154,13 +229,44 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onSave, sess
                 >
                   <Text numberOfLines={1} style={screenStyles.fieldLabel}>{anchor.label}</Text>
                   <Text numberOfLines={1} style={screenStyles.subtle}>{anchor.intensityLabel}{anchor.rounds ? `, ${anchor.rounds} rounds` : ""}</Text>
-                </View>
+                  <Text numberOfLines={1} style={screenStyles.subtle}>Tap to edit or remove weekly anchor.</Text>
+                </Pressable>
               ))}
             </View>
           ) : (
             <Text style={screenStyles.subtle}>No weekly anchors are scheduled yet.</Text>
           )}
         </View>
+        {weeklyEditing ? (
+          <View style={{ gap: spacing.sm }} testID="weekly-anchor-editor">
+            <Text style={screenStyles.callout}>Edit weekly anchor</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {typeOptions.map((option) => <OptionButton active={weeklyType === option.value} busy={busy} key={`weekly-type:${option.value}`} label={option.label} onPress={() => setWeeklyType(option.value)} />)}
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {weekdayOptions.map((option) => <OptionButton active={weeklyWeekday === option.value} busy={busy} key={`weekly-day:${option.value}`} label={option.label} onPress={() => setWeeklyWeekday(option.value)} />)}
+            </View>
+            <TextInput keyboardType="number-pad" onChangeText={setWeeklyStartTime} placeholder="Time optional HH:MM" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weeklyStartTime} />
+            <TextInput keyboardType="number-pad" onChangeText={setWeeklyDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weeklyDurationMinutes} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {intensityOptions.map((option) => <OptionButton active={weeklyIntensity === option.value} busy={busy} key={`weekly-intensity:${option.value}`} label={option.label} onPress={() => setWeeklyIntensity(option.value)} />)}
+            </View>
+            <TextInput keyboardType="number-pad" onChangeText={setWeeklyRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weeklyRounds} />
+            <TextInput onChangeText={setWeeklyNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weeklyNote} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <Pressable accessibilityRole="button" disabled={busy} onPress={saveWeekly} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
+                <Text style={screenStyles.buttonText}>Save weekly anchor</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" disabled={busy} onPress={cancelWeekly} style={[screenStyles.quietButton, { flexBasis: 120, flexGrow: 1 }]}>
+                <Text style={screenStyles.quietButtonText}>Cancel</Text>
+              </Pressable>
+            </View>
+            {confirmRemoveWeekly ? <Text style={screenStyles.subtle}>Remove this weekly anchor?</Text> : null}
+            <Pressable accessibilityRole="button" disabled={busy} onPress={confirmRemoveWeekly ? removeWeekly : () => setConfirmRemoveWeekly(true)} style={screenStyles.quietButton}>
+              <Text style={[screenStyles.quietButtonText, { color: colors.redCorner }]}>{confirmRemoveWeekly ? "Confirm remove weekly anchor" : "Remove weekly anchor"}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.fieldLabel}>Upcoming protected sessions</Text>
           {sessions.length > 0 ? (

@@ -21,7 +21,7 @@ import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
-import { validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
+import { migrateOnboardingDraft, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 
 vi.mock("expo-status-bar", () => ({
   StatusBar: () => React.createElement("StatusBar")
@@ -2225,15 +2225,19 @@ describe("minimal app screens", () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const onSaveProtectedSession = vi.fn(async () => undefined);
     const onDeleteProtectedSession = vi.fn(async () => undefined);
+    const onSaveRecurringProtectedAnchor = vi.fn(async () => undefined);
+    const onDeleteRecurringProtectedAnchor = vi.fn(async () => undefined);
     const renderer = render(
       React.createElement(PlanScreen, {
         asOfDate: fixtureAsOfDate,
         busy: false,
         hasActiveFightOrTournament: false,
         isMinor: false,
+        onDeleteRecurringProtectedAnchor,
         onDeleteProtectedSession,
         onSaveFightSetup: vi.fn(),
         onSaveProtectedSession,
+        onSaveRecurringProtectedAnchor,
         onSaveTournamentSetup: vi.fn(),
         viewModel: planViewModel
       })
@@ -2269,6 +2273,24 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Confirm remove"));
     });
     expect(onDeleteProtectedSession).toHaveBeenCalledWith("sparring_1");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Every Monday"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Save weekly anchor"));
+    });
+    expect(onSaveRecurringProtectedAnchor).toHaveBeenCalledWith("weekly_technical_monday", expect.objectContaining({ weekday: "monday", type: "technical_session" }));
+    await act(async () => {
+      await press(pressableWithText(renderer, "Every Monday"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Remove weekly anchor"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Confirm remove weekly anchor"));
+    });
+    expect(onDeleteRecurringProtectedAnchor).toHaveBeenCalledWith("weekly_technical_monday");
   });
 
   it("Plan generation wizard adds fixed anchors separately from support availability", async () => {
@@ -2300,6 +2322,9 @@ describe("minimal app screens", () => {
     expect(output).toContain("plan-wizard-schedule-step");
     expect(output).toContain("plan-wizard-anchor-editor");
     expect(output).toContain("Weekly protected activity");
+    expect(output).toContain("Fixed schedule for this plan");
+
+    await switchSection(renderer, "Replace protected schedule for this plan");
 
     await switchSection(renderer, "Add weekly anchor");
     output = JSON.stringify(renderer.toJSON());
@@ -2355,13 +2380,14 @@ describe("minimal app screens", () => {
     const anchorSaveOrder = onSaveRecurringProtectedAnchor.mock.invocationCallOrder[0];
     const buildSaveOrder = onSaveBuildGoal.mock.invocationCallOrder[0];
     if (!savedBuildDraft || anchorSaveOrder === undefined || buildSaveOrder === undefined) {
-      throw new Error("Wizard did not save anchors before the build goal.");
+      throw new Error("Wizard did not save anchors and the build goal.");
     }
     expect(savedBuildDraft.scheduleAvailability).toEqual(["monday", "wednesday", "friday", "saturday"]);
     expect(savedBuildDraft.scheduleAvailability).not.toContain("tuesday");
     expect(savedBuildDraft.planAction).toBe("start_new_plan");
+    expect(savedBuildDraft.protectedScheduleMode).toBe("replace_for_plan");
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
-    expect(anchorSaveOrder).toBeLessThan(buildSaveOrder);
+    expect(buildSaveOrder).toBeLessThan(anchorSaveOrder);
   });
 
   it("Plan generation wizard keeps one-off dated anchors explicit", async () => {
@@ -3225,17 +3251,32 @@ describe("minimal app screens", () => {
 
     const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
     expect(protectedOutput).toContain("recurring weekly commitments");
-    expect(protectedOutput).toContain("Every ");
-    expect(protectedOutput).toContain("Wednesday");
+    expect(protectedOutput).toContain("No fixed/protected sessions right now");
+    expect(protectedOutput).toContain("CornerIQ will generate training from your availability.");
+    expect(protectedOutput).not.toContain("Every Wednesday");
     expect(protectedOutput).not.toContain("mapped to");
-    expect(protectedOutput).toContain("Day of week");
-    expect(protectedOutput).toContain("Time of day");
-    expect(protectedOutput).toContain("Duration (minutes)");
-    expect(protectedOutput).toContain("Coach-led sparring");
-    expect(protectedOutput).toContain("RPE = how hard this session usually feels. 1 = very easy, 10 = all-out.");
-    for (const rpe of ["1", "5", "10"]) {
-      expect(protectedOutput).toContain(rpe);
-    }
+    expect(protectedOutput).toContain("I have fixed sessions to protect");
+  });
+
+  it("legacy onboarding draft migration removes only the old seeded Wednesday anchor", () => {
+    const legacyDraft = {
+      ...createDefaultOnboardingDraft(fixtureAsOfDate),
+      protectedScheduleChoice: undefined,
+      recurringProtectedSchedule: [
+        {
+          type: "technical_session" as const,
+          weekday: "wednesday" as const,
+          durationMinutes: 45,
+          intensity: "moderate" as const,
+          note: "Coach-led technical work",
+          activeFrom: fixtureAsOfDate
+        }
+      ]
+    };
+    const migrated = migrateOnboardingDraft(legacyDraft, fixtureAsOfDate);
+
+    expect(migrated.protectedScheduleChoice).toBe("no_anchors");
+    expect(migrated.recurringProtectedSchedule).toEqual([]);
   });
 
   it("male safety selection hides pregnancy choices with plain explanation", async () => {

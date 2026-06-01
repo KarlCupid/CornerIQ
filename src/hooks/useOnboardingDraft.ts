@@ -150,6 +150,41 @@ function storageKey(asOfDate: ISODateString): string {
   return `corneriq:onboarding:${asOfDate}`;
 }
 
+function isLegacyDefaultRecurringAnchor(anchor: NonNullable<OnboardingDraft["recurringProtectedSchedule"]>[number], asOfDate: ISODateString): boolean {
+  return (
+    anchor.type === "technical_session" &&
+    anchor.weekday === "wednesday" &&
+    anchor.durationMinutes === 45 &&
+    anchor.intensity === "moderate" &&
+    anchor.note === "Coach-led technical work" &&
+    anchor.activeFrom === asOfDate &&
+    anchor.id === undefined &&
+    anchor.localStartTime === undefined &&
+    anchor.rounds === undefined &&
+    anchor.activeUntil === undefined
+  );
+}
+
+export function migrateOnboardingDraft(draft: OnboardingDraft, asOfDate: ISODateString): OnboardingDraft {
+  const recurring = draft.recurringProtectedSchedule ?? [];
+  const onlyLegacyDefaultAnchor =
+    draft.protectedSchedule.length === 0 &&
+    draft.protectedScheduleChoice === undefined &&
+    recurring.length === 1 &&
+    Boolean(recurring[0] && isLegacyDefaultRecurringAnchor(recurring[0], asOfDate));
+
+  if (!onlyLegacyDefaultAnchor) {
+    return draft;
+  }
+
+  return {
+    ...draft,
+    protectedScheduleChoice: "no_anchors",
+    protectedSchedule: [],
+    recurringProtectedSchedule: []
+  };
+}
+
 async function saveDraftToStorage(asOfDate: ISODateString, draft: OnboardingDraft): Promise<"async" | "memory"> {
   if (!OnboardingDraftSchema.safeParse(draft).success) {
     return (await resolveDraftStorage()).type;
@@ -182,7 +217,7 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
       try {
         const parsed = OnboardingDraftSchema.safeParse(JSON.parse(rawDraft));
         if (parsed.success) {
-          setDraft(parsed.data);
+          setDraft(migrateOnboardingDraft(parsed.data, asOfDate));
           setStorageStatus(resolved.type === "async" ? "Resume setup: saved draft loaded from this device." : "Resume setup: saved draft loaded for this app session.");
         }
       } catch {

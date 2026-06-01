@@ -79,6 +79,23 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
   const [durationMinutes, setDurationMinutes] = useState("45");
   const [rpe, setRpe] = useState<RpeOption>(6);
   const { message: error, runWithMessage } = useFormMessage("Anchor could not be added.");
+  const fixedScheduleChoice = draft.protectedScheduleChoice ?? ((draft.recurringProtectedSchedule ?? []).length > 0 || draft.protectedSchedule.length > 0 ? "has_anchors" : "no_anchors");
+
+  const chooseNoAnchors = () => {
+    updateDraft((current) => ({
+      ...current,
+      protectedScheduleChoice: "no_anchors",
+      protectedSchedule: [],
+      recurringProtectedSchedule: []
+    }));
+  };
+
+  const chooseHasAnchors = () => {
+    updateDraft((current) => ({
+      ...current,
+      protectedScheduleChoice: "has_anchors"
+    }));
+  };
 
   const addAnchor = () => {
     void runWithMessage(async () => {
@@ -86,6 +103,7 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
       const timeNote = timeOfDay === "No set time" ? "no set time" : timeOfDay.toLowerCase();
       updateDraft((current) => ({
         ...current,
+        protectedScheduleChoice: "has_anchors",
         recurringProtectedSchedule: [
           ...(current.recurringProtectedSchedule ?? []),
           {
@@ -109,52 +127,65 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
       <Text style={screenStyles.exampleText}>Example: Tuesday evening pads, 60 min, RPE 6.</Text>
       <Text style={screenStyles.exampleText}>Example: Thursday coach-led sparring, 90 min, RPE 8.</Text>
       <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, RPE 2.</Text>
+      <FieldGroup helper="Protected anchors are user-owned fixed commitments. Leave this empty when you do not have any." label="Fixed schedule">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <ChipButton active={fixedScheduleChoice === "has_anchors"} label="I have fixed sessions to protect" onPress={chooseHasAnchors} />
+          <ChipButton active={fixedScheduleChoice === "no_anchors"} label="No fixed/protected sessions right now" onPress={chooseNoAnchors} />
+        </View>
+      </FieldGroup>
+      {fixedScheduleChoice === "no_anchors" ? (
+        <Text style={screenStyles.callout}>CornerIQ will generate training from your availability. You can add protected boxing sessions later.</Text>
+      ) : null}
       {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
-      {(draft.recurringProtectedSchedule ?? []).map((workout, index) => (
-        <Text key={`protected-anchor:${index}`} style={screenStyles.body}>
-          Every {weekdayLabel(workout.weekday)} - {humanType(workout.type)} - {workout.durationMinutes} min - {rpeSummary(workout)}
-        </Text>
-      ))}
-      <FieldGroup helper="Choose the day this usually repeats each week." label="Day of week">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {weekdays.map((option) => (
-            <ChipButton active={weekday === option.value} key={`weekday:${option.value}`} label={option.label} onPress={() => setWeekday(option.value)} />
+      {fixedScheduleChoice === "has_anchors" ? (
+        <>
+          {(draft.recurringProtectedSchedule ?? []).map((workout, index) => (
+            <Text key={`protected-anchor:${index}`} style={screenStyles.body}>
+              Every {weekdayLabel(workout.weekday)} - {humanType(workout.type)} - {workout.durationMinutes} min - {rpeSummary(workout)}
+            </Text>
           ))}
-        </View>
-      </FieldGroup>
-      <FieldGroup helper="Optional. Use a broad time of day if exact clock time is not helpful." label="Time of day">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {timeOfDayOptions.map((option) => (
-            <ChipButton active={timeOfDay === option} key={option} label={option} onPress={() => setTimeOfDay(option)} />
-          ))}
-        </View>
-      </FieldGroup>
-      <FieldGroup helper="What kind of commitment is already on your calendar?" label="Anchor type">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {anchorTypes.map((option) => (
-            <ChipButton active={type === option.value} key={option.value} label={option.label} onPress={() => setType(option.value)} />
-          ))}
-        </View>
-      </FieldGroup>
-      <LabeledTextInput
-        example="60"
-        helper="Minutes the engine should protect before adding generated training around it."
-        keyboardType="number-pad"
-        label="Duration (minutes)"
-        onChangeText={setDurationMinutes}
-        placeholder="Duration minutes"
-        value={durationMinutes}
-      />
-      <FieldGroup helper="RPE = how hard this session usually feels. 1 = very easy, 10 = all-out." label="RPE">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {rpeOptions.map((option) => (
-            <ChipButton active={rpe === option} key={option} label={`${option}`} onPress={() => setRpe(option)} />
-          ))}
-        </View>
-      </FieldGroup>
-      <Pressable accessibilityRole="button" onPress={addAnchor} style={screenStyles.button}>
-        <Text style={screenStyles.buttonText}>Add anchor</Text>
-      </Pressable>
+          <FieldGroup helper="Choose the day this usually repeats each week." label="Day of week">
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {weekdays.map((option) => (
+                <ChipButton active={weekday === option.value} key={`weekday:${option.value}`} label={option.label} onPress={() => setWeekday(option.value)} />
+              ))}
+            </View>
+          </FieldGroup>
+          <FieldGroup helper="Optional. Use a broad time of day if exact clock time is not helpful." label="Time of day">
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {timeOfDayOptions.map((option) => (
+                <ChipButton active={timeOfDay === option} key={option} label={option} onPress={() => setTimeOfDay(option)} />
+              ))}
+            </View>
+          </FieldGroup>
+          <FieldGroup helper="What kind of commitment is already on your calendar?" label="Anchor type">
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {anchorTypes.map((option) => (
+                <ChipButton active={type === option.value} key={option.value} label={option.label} onPress={() => setType(option.value)} />
+              ))}
+            </View>
+          </FieldGroup>
+          <LabeledTextInput
+            example="60"
+            helper="Minutes the engine should protect before adding generated training around it."
+            keyboardType="number-pad"
+            label="Duration (minutes)"
+            onChangeText={setDurationMinutes}
+            placeholder="Duration minutes"
+            value={durationMinutes}
+          />
+          <FieldGroup helper="RPE = how hard this session usually feels. 1 = very easy, 10 = all-out." label="RPE">
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {rpeOptions.map((option) => (
+                <ChipButton active={rpe === option} key={option} label={`${option}`} onPress={() => setRpe(option)} />
+              ))}
+            </View>
+          </FieldGroup>
+          <Pressable accessibilityRole="button" onPress={addAnchor} style={screenStyles.button}>
+            <Text style={screenStyles.buttonText}>Add anchor</Text>
+          </Pressable>
+        </>
+      ) : null}
     </View>
   );
 }

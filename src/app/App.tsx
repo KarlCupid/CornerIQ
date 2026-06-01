@@ -129,6 +129,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       generationStatus={generationStatus}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onAcknowledgeNutritionSafetyReview={performance.acknowledgeNutritionSafetyReview}
+      onDeleteRecurringProtectedAnchor={performance.deleteRecurringProtectedAnchor}
       onDeleteProtectedSession={performance.deleteProtectedSession}
       onRequestNutritionSafetyReview={performance.requestNutritionSafetyReview}
       onSaveBuildGoal={performance.saveBuildGoal}
@@ -431,6 +432,11 @@ function LocalE2EApp() {
           const next = localProtectedWorkouts.filter((workout) => workout.id !== workoutId);
           refreshLocalPlan(next);
           setMessage("Local E2E fixed boxing session removed locally. No Supabase call was made.");
+        }}
+        onDeleteRecurringProtectedAnchor={async (anchorId) => {
+          const next = localRecurringAnchors.filter((anchor) => anchor.id !== anchorId);
+          refreshLocalPlan(localProtectedWorkouts, next);
+          setMessage("Local E2E weekly anchor removed locally. No Supabase call was made.");
         }}
         onRequestNutritionSafetyReview={async () => {
           setMessage("Local E2E nutrition review request stayed local. No Supabase call was made.");

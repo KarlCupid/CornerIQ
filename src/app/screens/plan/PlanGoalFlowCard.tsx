@@ -23,6 +23,7 @@ import {
   type BuildGoalDraft,
   type FightSetupDraft,
   type PlanLifecycleAction,
+  type PlanProtectedScheduleMode,
   type ProtectedWorkoutDraft,
   type RecurringProtectedWorkoutAnchorDraft,
   type RecoveryGoalDraft,
@@ -231,6 +232,7 @@ export function PlanGoalFlowCard({
   const [step, setStep] = React.useState<WizardStep>("goal");
   const [mode, setMode] = React.useState<GoalMode>("build");
   const [planAction, setPlanAction] = React.useState<PlanLifecycleAction>(() => defaultPlanAction(currentModeLabel, "build"));
+  const [protectedScheduleMode, setProtectedScheduleMode] = React.useState<PlanProtectedScheduleMode>("replace_for_plan");
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [stepError, setStepError] = React.useState<string | null>(null);
   const [selectedAvailableDays, setSelectedAvailableDays] = React.useState<GeneratedSupportDay[]>(() => [...initialAvailableDays]);
@@ -375,7 +377,19 @@ export function PlanGoalFlowCard({
     setPendingDatedAnchors((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
+  const selectProtectedScheduleMode = (mode: PlanProtectedScheduleMode) => {
+    setProtectedScheduleMode(mode);
+    if (mode === "clear_for_plan") {
+      setPendingWeeklyAnchors([]);
+      setPendingDatedAnchors([]);
+      setAnchorEditorOpen(false);
+    }
+  };
+
   const persistPendingAnchors = async () => {
+    if (protectedScheduleMode === "clear_for_plan") {
+      return;
+    }
     if (pendingWeeklyAnchors.length > 0) {
       if (!onSaveRecurringProtectedAnchor) {
         throw new Error("Weekly anchor save is unavailable.");
@@ -399,14 +413,15 @@ export function PlanGoalFlowCard({
       return;
     }
     await runWithMessage(async () => {
-      await persistPendingAnchors();
       await onSaveBuildGoal({
         primaryFocus,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
-        planAction
+        planAction,
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
       });
+      await persistPendingAnchors();
       onCancel();
     });
   };
@@ -416,7 +431,6 @@ export function PlanGoalFlowCard({
       return;
     }
     await runWithMessage(async () => {
-      await persistPendingAnchors();
       const cap = parseOptionalPositiveNumber(postWeighInWeightCapKg, "Post-weigh-in cap");
       const contractedKg = parseRequiredPositiveNumber(contractedWeightKg, "Contracted weight", { example: "64" });
       const parsedWeighInDateTime = parseOptionalISODateTime(weighInDateTime, "Weigh-in datetime");
@@ -439,8 +453,10 @@ export function PlanGoalFlowCard({
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
-        planAction
+        planAction,
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
       });
+      await persistPendingAnchors();
       onCancel();
     });
   };
@@ -450,7 +466,6 @@ export function PlanGoalFlowCard({
       return;
     }
     await runWithMessage(async () => {
-      await persistPendingAnchors();
       await onSaveTournamentSetup({
         tournamentStartDate: parseRequiredDateYYYYMMDD(tournamentStartDate, "Tournament start date"),
         tournamentEndDate: parseRequiredDateYYYYMMDD(tournamentEndDate, "Tournament end date"),
@@ -464,8 +479,10 @@ export function PlanGoalFlowCard({
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
-        planAction
+        planAction,
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
       });
+      await persistPendingAnchors();
       onCancel();
     });
   };
@@ -475,7 +492,6 @@ export function PlanGoalFlowCard({
       return;
     }
     await runWithMessage(async () => {
-      await persistPendingAnchors();
       const durationDays = parseOptionalPositiveInteger(recoveryDurationDays, "Recovery duration days");
       await onSaveRecoveryGoal({
         ...(durationDays === undefined ? {} : { durationDays }),
@@ -483,8 +499,10 @@ export function PlanGoalFlowCard({
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
-        planAction
+        planAction,
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
       });
+      await persistPendingAnchors();
       onCancel();
     });
   };
@@ -585,9 +603,25 @@ export function PlanGoalFlowCard({
               ))}
             </View>
             <Text style={screenStyles.subtle}>Selected: {daySummary(selectedAvailableDays)}</Text>
+            <View style={{ gap: spacing.sm }} testID="plan-wizard-protected-schedule-mode">
+              <Text style={screenStyles.fieldLabel}>Fixed schedule for this plan</Text>
+              <Text style={screenStyles.body}>Choose what happens to existing protected anchors when this starts as a new plan.</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                <OptionButton active={protectedScheduleMode === "keep_existing"} busy={busy} label="Keep existing protected schedule" onPress={() => selectProtectedScheduleMode("keep_existing")} />
+                <OptionButton active={protectedScheduleMode === "replace_for_plan"} busy={busy} label="Replace protected schedule for this plan" onPress={() => selectProtectedScheduleMode("replace_for_plan")} />
+                <OptionButton active={protectedScheduleMode === "clear_for_plan"} busy={busy} label="Clear protected schedule" onPress={() => selectProtectedScheduleMode("clear_for_plan")} />
+              </View>
+              <Text style={screenStyles.subtle}>
+                {protectedScheduleMode === "keep_existing"
+                  ? `Existing anchors will stay: ${existingWeeklyAnchors.length} weekly, ${existingFixedSchedule.length} dated.`
+                  : protectedScheduleMode === "replace_for_plan"
+                    ? "Existing anchors will be cleared first; only anchors added in this wizard will remain for the new plan."
+                    : "Existing weekly anchors and future dated protected sessions will be cleared for the new plan."}
+              </Text>
+            </View>
             <View style={{ gap: spacing.sm }} testID="plan-wizard-anchor-editor">
               <Text style={screenStyles.fieldLabel}>Weekly protected activity</Text>
-              <Text style={screenStyles.body}>CornerIQ will plan around this every week.</Text>
+              <Text style={screenStyles.body}>{protectedScheduleMode === "clear_for_plan" ? "No protected anchors will be saved from this wizard." : "CornerIQ will plan around this every week."}</Text>
               {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => (
                 <View key={`pending-weekly-anchor:${index}`} style={{ gap: spacing.xs }}>
                   <Text style={screenStyles.body}>{weeklyAnchorSummary(anchor)}</Text>
@@ -605,10 +639,12 @@ export function PlanGoalFlowCard({
                 </View>
               )) : null}
               {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={screenStyles.subtle}>No new weekly anchors added in this wizard yet.</Text> : null}
-              <Pressable accessibilityRole="button" accessibilityState={{ expanded: anchorEditorOpen }} disabled={busy} onPress={() => setAnchorEditorOpen((value) => !value)} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>{anchorEditorOpen ? "Hide anchor fields" : "Add weekly anchor"}</Text>
-              </Pressable>
-              {anchorEditorOpen ? (
+              {protectedScheduleMode !== "clear_for_plan" ? (
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: anchorEditorOpen }} disabled={busy} onPress={() => setAnchorEditorOpen((value) => !value)} style={screenStyles.quietButton}>
+                  <Text style={screenStyles.quietButtonText}>{anchorEditorOpen ? "Hide anchor fields" : "Add weekly anchor"}</Text>
+                </Pressable>
+              ) : null}
+              {anchorEditorOpen && protectedScheduleMode !== "clear_for_plan" ? (
                 <View style={{ gap: spacing.sm }}>
                   <Text style={screenStyles.fieldLabel}>Weekly recurring or one-off date?</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -756,8 +792,18 @@ export function PlanGoalFlowCard({
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Generated training availability</Text>
               <Text style={screenStyles.body}>{daySummary(selectedAvailableDays)}</Text>
-              <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
+              <Text style={screenStyles.subtle}>
+                {protectedScheduleMode === "keep_existing"
+                  ? "Existing weekly anchors and one-off sessions remain protected because you chose to keep them."
+                  : protectedScheduleMode === "replace_for_plan"
+                    ? "Existing protected anchors will be replaced by anchors added in this wizard."
+                    : "Existing weekly anchors and future one-off sessions will be cleared."}
+              </Text>
               <Text style={screenStyles.subtle}>Generated training uses only the selected availability above.</Text>
+            </View>
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>Fixed schedule mode</Text>
+              <Text style={screenStyles.body}>{protectedScheduleMode === "keep_existing" ? "Keep existing protected schedule" : protectedScheduleMode === "replace_for_plan" ? "Replace protected schedule for this plan" : "Clear protected schedule"}</Text>
             </View>
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>New weekly anchors to save</Text>

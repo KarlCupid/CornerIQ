@@ -23,6 +23,7 @@ export interface PlanScreenProps {
   isMinor: boolean;
   nextWeekPreviewActions?: NextWeekPreviewActions | undefined;
   generationStatus?: EngineGenerationStatus | undefined;
+  onDeleteRecurringProtectedAnchor?: ((anchorId: string) => Promise<void>) | undefined;
   onDeleteProtectedSession?: ((workoutId: string) => Promise<void>) | undefined;
   onSaveBuildGoal?: ((draft: BuildGoalDraft) => Promise<void>) | undefined;
   onSaveFightSetup: (draft: FightSetupDraft) => Promise<void>;
@@ -230,6 +231,26 @@ function GeneratedSupportSummaryCard({
               <Text style={screenStyles.subtle}>
                 Families: {viewModel.generationAudit.generatedSessionFamilies.length > 0 ? viewModel.generationAudit.generatedSessionFamilies.join(", ") : "None"}
               </Text>
+              {typeof viewModel.generationAudit.targetHardDayCount === "number" ? (
+                <Text style={screenStyles.subtle}>
+                  Target hard days: {viewModel.generationAudit.targetHardDayCount}, actual: {viewModel.generationAudit.actualHardDayCount ?? 0}
+                  {typeof viewModel.generationAudit.protectedHardDayCount === "number" ? ` (${viewModel.generationAudit.protectedHardDayCount} protected, ${viewModel.generationAudit.generatedHardDayCount ?? 0} generated)` : ""}.
+                </Text>
+              ) : null}
+              {typeof viewModel.generationAudit.targetWeeklyGeneratedMinutes === "number" ? (
+                <Text style={screenStyles.subtle}>
+                  Generated weekly minutes: {viewModel.generationAudit.actualWeeklyGeneratedMinutes ?? 0}/{viewModel.generationAudit.targetWeeklyGeneratedMinutes} target.
+                </Text>
+              ) : null}
+              {(viewModel.generationAudit.unmetPrescriptionTargets ?? []).map((target, index) => (
+                <Text key={`unmet-prescription:${index}`} style={screenStyles.subtle}>Prescription note: {target}</Text>
+              ))}
+              {(viewModel.generationAudit.whyHardDaysWereReduced ?? []).map((reason, index) => (
+                <Text key={`hard-day-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {reason}</Text>
+              ))}
+              {(viewModel.generationAudit.whyVolumeWasReduced ?? []).map((reason, index) => (
+                <Text key={`volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {reason}</Text>
+              ))}
               <Text style={screenStyles.subtle}>
                 Plan: {viewModel.generationAudit.planRevisionId} / block {viewModel.generationAudit.activeTrainingBlockId}
               </Text>
@@ -312,6 +333,7 @@ export function PlanScreen({
   generationStatus = "idle",
   isMinor,
   nextWeekPreviewActions,
+  onDeleteRecurringProtectedAnchor,
   onDeleteProtectedSession,
   onSaveBuildGoal,
   onSaveFightSetup,
@@ -324,7 +346,7 @@ export function PlanScreen({
   const [goalFlowOpen, setGoalFlowOpen] = React.useState(false);
   const [previewDetailsOpen, setPreviewDetailsOpen] = React.useState(false);
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
-  const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession;
+  const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession || !onSaveRecurringProtectedAnchor || !onDeleteRecurringProtectedAnchor;
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
   return (
     <LuminousScreen testID="plan-screen">
@@ -368,7 +390,9 @@ export function PlanScreen({
         asOfDate={asOfDate}
         busy={scheduleBusy}
         onDelete={onDeleteProtectedSession ?? (async () => undefined)}
+        onDeleteWeeklyAnchor={onDeleteRecurringProtectedAnchor ?? (async () => undefined)}
         onSave={onSaveProtectedSession ?? (async () => undefined)}
+        onSaveWeeklyAnchor={onSaveRecurringProtectedAnchor ?? (async () => undefined)}
         weeklyAnchors={viewModel.weeklyAnchors}
         sessions={viewModel.fixedSchedule}
       />

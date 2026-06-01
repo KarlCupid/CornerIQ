@@ -9,6 +9,7 @@ import {
   createDefaultFightDraft,
   createDefaultOnboardingDraft,
   createDefaultTournamentDraft,
+  deleteRecurringProtectedAnchor,
   deleteProtectedSession,
   saveRecurringProtectedAnchor,
   saveBuildGoal,
@@ -175,7 +176,15 @@ async function resolveFromStore(repositories: AthleteJourneyRepositories) {
 }
 
 describe("onboardingService", () => {
-  it("valid build-phase onboarding writes profile, body mass, weekly anchors, and events", async () => {
+  it("default onboarding draft starts with no protected anchors", () => {
+    const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
+
+    expect(draft.protectedSchedule).toEqual([]);
+    expect(draft.recurringProtectedSchedule).toEqual([]);
+    expect(draft.protectedScheduleChoice).toBe("no_anchors");
+  });
+
+  it("valid build-phase onboarding writes profile, body mass, no hidden anchors, and events", async () => {
     const { repositories, store } = createOnboardingRepositories();
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
 
@@ -184,9 +193,16 @@ describe("onboardingService", () => {
     expect(store.profile?.athleteId).toBe("user_1");
     expect(store.bodyMass).toHaveLength(1);
     expect(store.protectedWorkouts).toHaveLength(0);
-    expect(store.profile?.recurringProtectedAnchors?.[0]).toEqual(expect.objectContaining({ weekday: "wednesday", type: "technical_session" }));
+    expect(store.profile?.protectedBoxingSchedule).toEqual([]);
+    expect(store.profile?.recurringProtectedAnchors).toEqual([]);
     expect(store.events.map((event) => event.type)).toContain("OnboardingCompleted");
     expect(repositories.athlete.upsertProfile).toHaveBeenCalledWith("user_1", expect.objectContaining({ wearablePreference: "manual_only" }));
+    const result = await resolveFromStore(repositories);
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.state.training.currentMicrocycle.protectedAnchorCount).toBe(0);
+      expect(result.state.training.protectedAnchors).toEqual([]);
+    }
   });
 
   it("cycle enabled and manual-only wearable preferences write to athlete profile", async () => {
@@ -440,6 +456,91 @@ describe("onboardingService", () => {
         expect.objectContaining({ type: "ProtectedWorkoutPlanned", payload: expect.objectContaining({ recurring: true, weekday: "monday" }) })
       ])
     );
+
+    await deleteRecurringProtectedAnchor({
+      userId: "user_1",
+      currentProfile: store.profile,
+      anchorId: saved.id,
+      repositories
+    });
+
+    expect(store.profile.recurringProtectedAnchors?.some((anchor) => anchor.id === saved.id)).toBe(false);
+    const materialized = materializeProtectedWorkoutAnchors({
+      concreteWorkouts: store.profile.protectedBoxingSchedule,
+      recurringAnchors: store.profile.recurringProtectedAnchors ?? [],
+      startDate: fixtureAsOfDate,
+      endDate: "2026-05-26"
+    });
+    expect(materialized.some((anchor) => anchor.recurringAnchorId === saved.id)).toBe(false);
+  });
+
+  it("new plan clear and replace modes remove old recurring anchors and future protected workouts", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    if (!store.profile) {
+      throw new Error("profile missing");
+    }
+
+    const weekly = await saveRecurringProtectedAnchor({
+      userId: "user_1",
+      currentProfile: store.profile,
+      anchor: {
+        type: "boxing_class",
+        weekday: "monday",
+        durationMinutes: 60,
+        intensity: "moderate",
+        activeFrom: fixtureAsOfDate
+      },
+      repositories
+    });
+    const dated = await saveProtectedSession({
+      userId: "user_1",
+      currentProfile: weekly.profile,
+      workout: {
+        type: "technical_session",
+        date: "2026-05-22",
+        durationMinutes: 45,
+        intensity: "moderate"
+      },
+      repositories
+    });
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "balanced",
+        planAction: "start_new_plan",
+        protectedScheduleMode: "clear_for_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["tuesday", "thursday", "saturday"]
+      },
+      repositories
+    });
+
+    expect(store.profile?.recurringProtectedAnchors).toEqual([]);
+    expect(store.profile?.protectedBoxingSchedule.some((workout) => workout.id === dated.id)).toBe(false);
+    expect(store.protectedWorkouts.some((workout) => workout.id === dated.id)).toBe(false);
+    expect(store.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "ProtectedWorkoutPlanned", payload: expect.objectContaining({ action: "cleared", protectedScheduleMode: "clear_for_plan" }) }),
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ protectedScheduleMode: "clear_for_plan" }) })
+      ])
+    );
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "strength",
+        planAction: "start_new_plan",
+        protectedScheduleMode: "replace_for_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["tuesday", "saturday"]
+      },
+      repositories
+    });
+
+    expect(store.profile?.recurringProtectedAnchors).toEqual([]);
+    expect(store.profile?.protectedBoxingSchedule).toEqual([]);
   });
 
   it("wizard-style multiple weekly and dated anchors accumulate before saving a new plan", async () => {
@@ -498,13 +599,14 @@ describe("onboardingService", () => {
       draft: {
         primaryFocus: "strength",
         planAction: "start_new_plan",
+        protectedScheduleMode: "keep_existing",
         scheduleAvailability: ["tuesday", "saturday"],
         planStartDate: fixtureAsOfDate
       },
       repositories
     });
 
-    expect(store.profile?.recurringProtectedAnchors?.map((anchor) => anchor.weekday)).toEqual(["monday", "wednesday", "thursday"]);
+    expect(store.profile?.recurringProtectedAnchors?.map((anchor) => anchor.weekday)).toEqual(["monday", "thursday"]);
     expect(store.profile?.protectedBoxingSchedule.map((workout) => workout.id)).toContain(dated.id);
     const materialized = materializeProtectedWorkoutAnchors({
       concreteWorkouts: store.profile?.protectedBoxingSchedule ?? [],
@@ -522,7 +624,8 @@ describe("onboardingService", () => {
     );
     expect(store.events).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ primaryFocus: "strength", source: "plan_wizard_new_plan" }) })
+        expect.objectContaining({ type: "ProtectedWorkoutPlanned", payload: expect.objectContaining({ action: "kept", protectedScheduleMode: "keep_existing" }) }),
+        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ primaryFocus: "strength", source: "plan_wizard_new_plan", protectedScheduleMode: "keep_existing" }) })
       ])
     );
   });

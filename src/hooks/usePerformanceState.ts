@@ -11,6 +11,7 @@ import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, type AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 import {
   completeOnboarding,
+  deleteRecurringProtectedAnchor as deleteRecurringProtectedAnchorService,
   saveRecurringProtectedAnchor as saveRecurringProtectedAnchorService,
   deleteProtectedSession as deleteProtectedSessionService,
   saveBuildGoal,
@@ -55,6 +56,7 @@ export interface PerformanceStateHook {
   saveFightSetup: (draft: FightSetupDraft) => Promise<void>;
   saveProtectedSession: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
   saveRecurringProtectedAnchor: (anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>;
+  deleteRecurringProtectedAnchor: (anchorId: string) => Promise<void>;
   saveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   saveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
   deleteProtectedSession: (workoutId: string) => Promise<void>;
@@ -323,6 +325,35 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     [refresh, repositories, result, userId]
   );
 
+  const deleteRecurringProtectedAnchor = useCallback(
+    async (anchorId: string) => {
+      if (result?.status !== "ready") {
+        setMessage("Weekly anchors are available after engine state loads.");
+        return;
+      }
+      const currentProfile = latestAthleteProfileRef.current ?? result.state.athlete;
+      setLoading(true);
+      setGenerationStatus("amending_plan");
+      setMessage(null);
+      try {
+        const deleted = await deleteRecurringProtectedAnchorService({
+          userId,
+          currentProfile,
+          anchorId,
+          repositories
+        });
+        latestAthleteProfileRef.current = deleted.profile;
+        await refresh("amending_plan");
+        setMessage("Weekly anchor removed. Preview next week when you are ready.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Weekly anchor removal failed.");
+        setLoading(false);
+        setGenerationStatus("idle");
+      }
+    },
+    [refresh, repositories, result, userId]
+  );
+
   const saveProfileSettings = useCallback(
     async (draft: ProfileSettingsDraft) => {
       if (result?.status !== "ready") {
@@ -419,6 +450,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     saveFightSetup: saveFight,
     saveProtectedSession,
     saveRecurringProtectedAnchor,
+    deleteRecurringProtectedAnchor,
     saveRecoveryGoal: saveRecovery,
     saveTournamentSetup: saveTournament,
     deleteProtectedSession,

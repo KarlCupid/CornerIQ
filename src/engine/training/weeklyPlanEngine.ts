@@ -39,7 +39,7 @@ import {
   supportCountFuelCapFlags
 } from "./trainingGenerationConstraints";
 import { trainingStimulusMix } from "./trainingStimulus";
-import { resolveWeeklyTrainingCompositionPolicy } from "./weeklyTrainingCompositionPolicy";
+import { resolveWeeklyTrainingPrescriptionPolicy } from "./weeklyTrainingPrescriptionPolicy";
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(flags?.some((flag) => flag.status === "active" && flag.hardStop));
@@ -52,17 +52,41 @@ function flagReasonSummary(flags: readonly RiskFlag[]): string {
   return ` Active rule${flags.length === 1 ? "" : "s"}: ${flags.map((flag) => `${flag.code} - ${flag.message}`).join("; ")}.`;
 }
 
-function baseTargetSessionCount(input: { athlete: AthleteProfile; phase: PhaseState }): number {
-  if (input.phase.phase === "tournament") {
-    return 2;
+function protectedHardOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
+  return anchorsForDate(anchors, date).some((anchor) => anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max");
+}
+
+function protectedHardDayCount(anchors: readonly ProtectedWorkout[], dates: readonly ISODateString[]): number {
+  return dates.filter((date) => protectedHardOnDate(anchors, date)).length;
+}
+
+function selectGeneratedHardDates(input: {
+  candidateDates: readonly ISODateString[];
+  count: number;
+  protectedAnchors: readonly ProtectedWorkout[];
+}): ReadonlySet<ISODateString> {
+  if (input.count <= 0) {
+    return new Set();
   }
-  if (input.phase.phase === "fight_week") {
-    return input.athlete.boxingLevel === "pro_12_round" ? 2 : 3;
+  const eligible = input.candidateDates.filter((date) => !protectedHardOnDate(input.protectedAnchors, date));
+  const selected: ISODateString[] = [];
+  for (const date of eligible) {
+    if (selected.every((existing) => Math.abs(daysBetween(existing, date)) >= 2)) {
+      selected.push(date);
+    }
+    if (selected.length >= input.count) {
+      return new Set(selected);
+    }
   }
-  if (input.phase.phase === "camp" || input.phase.phase === "short_notice_camp") {
-    return 3;
+  for (const date of eligible) {
+    if (!selected.includes(date)) {
+      selected.push(date);
+    }
+    if (selected.length >= input.count) {
+      break;
+    }
   }
-  return input.athlete.boxingLevel === "amateur_novice" || input.athlete.boxingLevel === "aspiring_boxer" ? 2 : 4;
+  return new Set(selected);
 }
 
 function latestByWeekIndex<T extends { weekIndex: number }>(items: readonly T[] | undefined): T | null {
@@ -307,17 +331,6 @@ export function resolveWeeklyTrainingPlan(input: {
   const fuelCountCap = fuelingRiskCapsGeneratedCount(input.safetyFlags);
   const fuelCapFlags = supportCountFuelCapFlags(input.safetyFlags);
   const hardStopFlags = activeHardStopFlags(input.safetyFlags);
-  const baseTargetSessions = baseTargetSessionCount({ athlete: input.athlete, phase: input.phase });
-  const compositionPolicy = resolveWeeklyTrainingCompositionPolicy({
-    athlete: input.athlete,
-    phase: input.phase,
-    primaryFocus: input.planGenerationIntent?.goalMode === "build" ? input.planGenerationIntent.primaryFocus ?? "balanced" : input.planGenerationIntent?.primaryFocus,
-    generationConstraints
-  });
-  const targetSessions = compositionPolicy.targetSessionCount;
-  if (targetSessions === 1 && !hardStopOrRedReadiness && !fuelCountCap && generationConstraints.hardSafetyConstraints.length === 0) {
-    throw new Error("Unexpected one-session generated support cap without readiness, hard-stop, or fueling safety reason.");
-  }
   const planStartDate = activeWeekStartDate({
     activeTrainingBlock: input.activeTrainingBlock,
     asOfDate: input.asOfDate,
@@ -351,10 +364,34 @@ export function resolveWeeklyTrainingPlan(input: {
       !hasProtectedCompetition(input.anchors, date) &&
       !(index > 0 && hasProtectedSparring(input.anchors, date))
   ).length;
+  const allowedSupportDates = candidateDates.filter(
+    (date, index) =>
+      supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) &&
+      !hasProtectedCompetition(input.anchors, date) &&
+      !(index > 0 && hasProtectedSparring(input.anchors, date))
+  );
+  const protectedHardDays = protectedHardDayCount(input.anchors, candidateDates);
+  const prescriptionPolicy = resolveWeeklyTrainingPrescriptionPolicy({
+    athlete: input.athlete,
+    candidateAllowedDays,
+    phase: input.phase,
+    primaryFocus,
+    protectedHardDayCount: protectedHardDays,
+    selectedSupportDayCount: selectedDays.length || candidateAllowedDays,
+    generationConstraints
+  });
+  const baseTargetSessions = prescriptionPolicy.unconstrainedTargetSessionCount;
+  const targetSessions = prescriptionPolicy.targetSessionCount;
+  if (targetSessions === 1 && !hardStopOrRedReadiness && !fuelCountCap && generationConstraints.hardSafetyConstraints.length === 0) {
+    throw new Error("Unexpected one-session generated support cap without readiness, hard-stop, or fueling safety reason.");
+  }
+  const generatedHardDates = selectGeneratedHardDates({
+    candidateDates: allowedSupportDates,
+    count: prescriptionPolicy.targetGeneratedHardDayCount,
+    protectedAnchors: input.anchors
+  });
   const supportDateOrder = new Map(
-    candidateDates
-      .filter((date, index) => supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) && !hasProtectedCompetition(input.anchors, date) && !(index > 0 && hasProtectedSparring(input.anchors, date)))
-      .map((date, index) => [date, index] as const)
+    allowedSupportDates.map((date, index) => [date, index] as const)
   );
 
   const recentFamilies = input.persistedGeneratedSessions?.map((session) => session.family) ?? [];
@@ -391,8 +428,9 @@ export function resolveWeeklyTrainingPlan(input: {
             hardStopActive: hardStopSafetyActive(input.safetyFlags),
             underFuelingRisk,
             severeFuelingRisk: fuelCountCap,
-            familySequence: compositionPolicy.familySequence,
-            generationConstraints
+            familySequence: prescriptionPolicy.familySequence,
+            generationConstraints,
+            prescriptionHard: generatedHardDates.has(date)
           })
         : null;
     }
@@ -415,8 +453,9 @@ export function resolveWeeklyTrainingPlan(input: {
       hardStopActive: hardStopSafetyActive(input.safetyFlags),
       underFuelingRisk,
       severeFuelingRisk: fuelCountCap,
-      familySequence: compositionPolicy.familySequence,
-      generationConstraints
+      familySequence: prescriptionPolicy.familySequence,
+      generationConstraints,
+      prescriptionHard: generatedHardDates.has(date)
     });
   })
     .filter((session) => session !== null)
@@ -504,6 +543,55 @@ export function resolveWeeklyTrainingPlan(input: {
     !reducedBy.includes("readiness") &&
     !reducedBy.includes("nutrition");
   const durationDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.durationReductionReasons ?? []);
+  const protectedHardDayDates = new Set(candidateDates.filter((date) => protectedHardOnDate(input.anchors, date)));
+  const generatedHardDayDates = new Set(mergedGeneratedSessions.filter((session) => session.intensity === "hard").map((session) => session.date));
+  const actualHardDayDates = new Set([...protectedHardDayDates, ...generatedHardDayDates]);
+  const actualWeeklyGeneratedMinutes = mergedGeneratedSessions.reduce((total, session) => total + session.durationMinutes, 0);
+  const actualStimulusMix = trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family));
+  const realLoadConstraintActive = generationConstraints.hardSafetyConstraints.length > 0 || generationConstraints.evidenceBasedLoadConstraints.length > 0 || input.highCycleSymptoms || underFuelingRisk || fuelCountCap || input.readiness.color === "red";
+  const whyHardDaysWereReduced = [
+    ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && protectedHardDayDates.size >= prescriptionPolicy.targetHardDayCount
+      ? ["Protected hard boxing already filled the hard-day target."]
+      : []),
+    ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && realLoadConstraintActive
+      ? [
+          ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
+          ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
+          ...(input.highCycleSymptoms ? ["High cycle symptoms reduced hard generated work."] : []),
+          ...(underFuelingRisk ? ["Under-fueling evidence reduced hard generated work."] : []),
+          ...(input.readiness.color === "red" ? ["Red readiness blocked hard generated work."] : [])
+        ]
+      : []),
+    ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && !realLoadConstraintActive && candidateAllowedDays < targetSessions
+      ? [`Only ${candidateAllowedDays} selected available day${candidateAllowedDays === 1 ? "" : "s"} remained for ${targetSessions} target sessions.`]
+      : [])
+  ];
+  const whyVolumeWasReduced = [
+    ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && realLoadConstraintActive
+      ? [
+          ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
+          ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
+          ...(input.highCycleSymptoms ? ["High cycle symptoms reduced generated volume."] : []),
+          ...(underFuelingRisk ? ["Under-fueling evidence reduced generated volume."] : [])
+        ]
+      : []),
+    ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && candidateAllowedDays < targetSessions
+      ? [`Availability allowed ${candidateAllowedDays}/${targetSessions} target generated sessions.`]
+      : [])
+  ];
+  const generatedFamilies = mergedGeneratedSessions.map((session) => session.family);
+  const onlyDurabilityOrRecovery =
+    generatedFamilies.length > 0 &&
+    generatedFamilies.every((family) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility", "recovery_reset"].includes(family));
+  const unmetPrescriptionTargets = [
+    ...(actualHardDayDates.size < prescriptionPolicy.minHardDayCount && !realLoadConstraintActive
+      ? [`Actual hard/high-stimulus days ${actualHardDayDates.size}/${prescriptionPolicy.minHardDayCount} minimum without a real safety constraint.`]
+      : []),
+    ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && !realLoadConstraintActive && candidateAllowedDays >= targetSessions
+      ? [`Generated weekly minutes ${actualWeeklyGeneratedMinutes}/${prescriptionPolicy.targetWeeklyGeneratedMinutes} target without a real safety constraint.`]
+      : []),
+    ...(onlyDurabilityOrRecovery && !realLoadConstraintActive ? ["Normal week resolved to only durability, mobility, or recovery families without a real safety constraint."] : [])
+  ];
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,
     planStartDate,
@@ -528,11 +616,30 @@ export function resolveWeeklyTrainingPlan(input: {
     evidenceBasedLoadConstraints: generationConstraints.evidenceBasedLoadConstraints,
     advisoryUncertainty: generationConstraints.advisoryUncertainty,
     missingDataAdvisories: generationConstraints.missingDataAdvisories,
-    plannedTrainingStimulusMix: compositionPolicy.plannedTrainingStimulusMix,
-    actualTrainingStimulusMix: trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family)),
-    familySelectionReasons: compositionPolicy.reasons,
+    plannedTrainingStimulusMix: prescriptionPolicy.targetStimulusMix,
+    actualTrainingStimulusMix: actualStimulusMix,
+    targetHardDayCount: prescriptionPolicy.targetHardDayCount,
+    minHardDayCount: prescriptionPolicy.minHardDayCount,
+    maxHardDayCount: prescriptionPolicy.maxHardDayCount,
+    actualHardDayCount: actualHardDayDates.size,
+    protectedHardDayCount: protectedHardDayDates.size,
+    generatedHardDayCount: generatedHardDayDates.size,
+    targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes,
+    actualWeeklyGeneratedMinutes,
+    minimumUsefulSessionDuration: prescriptionPolicy.minimumUsefulSessionDuration,
+    targetStimulusMix: prescriptionPolicy.targetStimulusMix,
+    actualStimulusMix,
+    unmetPrescriptionTargets,
+    whyHardDaysWereReduced,
+    whyVolumeWasReduced,
+    missingLogsAffectedGeneration: generationConstraints.advisoryUncertainty.length > 0 && !missingLogsDidNotReduceTraining,
+    protectedAnchorsSuppliedHardWork: protectedHardDayDates.size > 0,
+    familySelectionReasons: prescriptionPolicy.reasons,
     downshiftReasons: [
       ...durationDownshiftReasons,
+      ...prescriptionPolicy.downshiftConstraints,
+      ...whyHardDaysWereReduced,
+      ...whyVolumeWasReduced,
       ...(underFuelingRisk ? ["Under-fueling evidence removed hard generated training."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated training."] : []),
       ...(missingLogsDidNotReduceTraining ? ["Missing logs did not reduce target count or remove strength and conditioning families."] : [])
