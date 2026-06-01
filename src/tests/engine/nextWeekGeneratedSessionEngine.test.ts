@@ -132,6 +132,8 @@ describe("nextWeekGeneratedSessionEngine", () => {
     expect(first.length).toBeGreaterThan(0);
     expect(first.every((session) => session.intensity !== "hard")).toBe(true);
     expect(first.every((session) => workoutTemplateCatalog.some((template) => template.family === session.family && template.title === session.title))).toBe(true);
+    expect(first.some((session) => session.family === "strength_full_body" && session.durationMinutes >= 40)).toBe(true);
+    expect(first.every((session) => session.durationPolicyCategory && session.selectedTemplateId && session.finalDurationMinutes === session.durationMinutes)).toBe(true);
     expect(first.map((session) => session.id)).toEqual(second.map((session) => session.id));
     expect(first[0]?.id).toContain("next-week:");
   });
@@ -185,7 +187,8 @@ describe("nextWeekGeneratedSessionEngine", () => {
     const sessions = materializeGeneratedSessionsFromPreview(inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "taper" })));
 
     expect(sessions.map((session) => session.family).every((family) => family === "taper_maintenance" || family === "reaction_rhythm")).toBe(true);
-    expect(sessions.every((session) => session.durationMinutes <= 22 && session.fuelDemand === "low")).toBe(true);
+    expect(sessions.every((session) => session.durationMinutes >= 15 && session.durationMinutes <= 30 && session.fuelDemand === "low")).toBe(true);
+    expect(sessions.every((session) => session.durationPolicyCategory === "taper")).toBe(true);
   });
 
   it("tournament_conserve avoids hard conditioning", () => {
@@ -238,6 +241,26 @@ describe("nextWeekGeneratedSessionEngine", () => {
     );
 
     expect(sessions.filter((session) => session.date === protectedDate).every((session) => session.intensity !== "hard")).toBe(true);
+    expect(sessions.filter((session) => session.date === protectedDate).every((session) => session.durationMinutes >= 25)).toBe(true);
+  });
+
+  it("amber readiness without a hard stop keeps generated support out of the 22-minute cap", () => {
+    const state = stateFixture();
+    const materialization = materializationFixture(state, {
+      materializedVolumeStrategy: "progress_small",
+      sessionFamilyBiases: ["roadwork_zone2", "strength_full_body"]
+    });
+    const sessions = materializeGeneratedSessionsFromPreview(
+      inputFor(state, materialization, {
+        readiness: { ...state.readiness, color: "amber" },
+        nutrition: healthyNutrition(state),
+        safetyFlags: []
+      })
+    );
+
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(Math.max(...sessions.map((session) => session.durationMinutes))).toBeGreaterThan(35);
+    expect(sessions.some((session) => session.durationMinutes === 22)).toBe(false);
   });
 
   it("under-fueling blocks progression and high fuel-demand sessions", () => {
@@ -305,6 +328,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(sessions).toHaveLength(1);
     expect(sessions.every((session) => session.fuelDemand === "low" && session.intensity !== "hard")).toBe(true);
+    expect(sessions.every((session) => session.durationPolicyCategory === "safety_capped")).toBe(true);
   });
 
   it("high cycle symptoms trim optional volume", () => {
@@ -315,6 +339,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(trimmed.length).toBeLessThan(normal.length);
     expect(trimmed.every((session) => session.modifications.some((modification) => modification.includes("High cycle symptoms")))).toBe(true);
+    expect(trimmed.every((session) => session.durationMinutes >= 25 || session.durationPolicyCategory === "recovery")).toBe(true);
   });
 
   it("selected availability constrains generated session placement", () => {

@@ -144,6 +144,18 @@ export type GeneratedSessionIntensity = "recovery" | "easy" | "moderate" | "hard
 export type PlanGenerationAction = "start_new_plan" | "amend_current_plan";
 export type PlanGenerationGoalMode = "build" | "fight" | "tournament" | "recovery";
 export type PlanGenerationPrimaryFocus = "balanced" | "power" | "conditioning" | "strength" | "mobility";
+export type GeneratedSessionDurationPolicyCategory = "normal_support" | "workload_moderated" | "recovery" | "taper" | "microdose" | "safety_capped";
+
+export interface GeneratedSessionDurationAudit {
+  targetDurationMinutes: number;
+  minDurationMinutes: number;
+  maxDurationMinutes: number;
+  durationPolicyCategory: GeneratedSessionDurationPolicyCategory;
+  durationReductionReasons: readonly string[];
+  selectedTemplateId: string;
+  selectedTemplateDefaultDuration: number;
+  finalDurationMinutes: number;
+}
 
 export interface PlanGenerationIntent {
   id: string;
@@ -177,6 +189,14 @@ export interface GeneratedTrainingSession {
   planStartDate?: ISODateString | undefined;
   source?: "active_plan_generation" | "engine_projection" | "next_week_preview_materialization" | undefined;
   templateId?: string | undefined;
+  targetDurationMinutes?: number | undefined;
+  durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+  durationReductionReasons?: readonly string[] | undefined;
+  selectedTemplateId?: string | undefined;
+  selectedTemplateDefaultDuration?: number | undefined;
+  finalDurationMinutes?: number | undefined;
+  minDurationMinutes?: number | undefined;
+  maxDurationMinutes?: number | undefined;
 }
 
 export interface ExerciseSetPrescription {
@@ -223,6 +243,7 @@ export type ExerciseResultStatus = "prescribed_only" | "completed" | "partial" |
 export interface WorkoutSection {
   name: string;
   intent: string;
+  durationMinutes: number;
   exercises: readonly ExercisePrescription[];
 }
 
@@ -327,6 +348,12 @@ export interface PersistedGeneratedSessionAuditItem {
   reason: string;
 }
 
+export interface GeneratedSessionDurationAuditItem extends GeneratedSessionDurationAudit {
+  id: string;
+  date: ISODateString;
+  family: GeneratedSessionFamily;
+}
+
 export interface TrainingSupportGenerationAudit {
   asOfDate: ISODateString;
   planStartDate: ISODateString;
@@ -340,6 +367,7 @@ export interface TrainingSupportGenerationAudit {
   generatedSessionDates: readonly ISODateString[];
   generatedSessionTitles: readonly string[];
   generatedSessionFamilies: readonly GeneratedSessionFamily[];
+  generatedSessionDurationAudit: readonly GeneratedSessionDurationAuditItem[];
   persistedGeneratedSessionsConsidered: readonly PersistedGeneratedSessionAuditItem[];
   persistedGeneratedSessionsIgnored: readonly PersistedGeneratedSessionAuditItem[];
   candidateAllowedDays: number;

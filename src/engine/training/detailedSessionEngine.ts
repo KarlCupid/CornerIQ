@@ -11,7 +11,7 @@ import type {
   WorkoutSection
 } from "../core/types";
 import { prescribeExercise } from "./substitutionEngine";
-import { findWorkoutTemplateByTitle, selectWorkoutTemplate, type WorkoutTemplate, type WorkoutTemplateSection } from "./workoutTemplateCatalog";
+import { findWorkoutTemplateByTitle, sectionDurationPlan, selectWorkoutTemplate, type WorkoutTemplate, type WorkoutTemplateSection } from "./workoutTemplateCatalog";
 
 export interface BuildDetailedTrainingSessionInput {
   generatedSession: GeneratedTrainingSession;
@@ -56,8 +56,8 @@ function trimExercise(exercise: ExercisePrescription, reason: string): ExerciseP
   };
 }
 
-function section(name: string, intent: string, exercises: readonly ExercisePrescription[]): WorkoutSection {
-  return { name, intent, exercises };
+function section(name: string, intent: string, durationMinutes: number, exercises: readonly ExercisePrescription[]): WorkoutSection {
+  return { name, intent, durationMinutes, exercises };
 }
 
 function familyOverride(input: BuildDetailedTrainingSessionInput): GeneratedSessionFamily {
@@ -104,11 +104,13 @@ function exerciseForSection(input: BuildDetailedTrainingSessionInput, templateSe
   return base;
 }
 
-function sectionsFromTemplate(input: BuildDetailedTrainingSessionInput, templateItem: WorkoutTemplate): readonly WorkoutSection[] {
-  return templateItem.sections.map((templateSection) =>
+function sectionsFromTemplate(input: BuildDetailedTrainingSessionInput, templateItem: WorkoutTemplate, targetDurationMinutes: number): readonly WorkoutSection[] {
+  const durations = sectionDurationPlan(templateItem, targetDurationMinutes);
+  return templateItem.sections.map((templateSection, index) =>
     section(
       templateSection.name,
       templateSection.intent,
+      durations[index] ?? 0,
       templateSection.exerciseIds.map((exerciseId) => exerciseForSection(input, templateSection, exerciseId))
     )
   );
@@ -147,7 +149,19 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
   const family = familyOverride(input);
   const hardAnchor = hasHardBoxingAnchor(input.protectedWorkouts, input.generatedSession.date);
   const templateItem = templateForDetail(input, family, hardAnchor);
-  const sections = sectionsFromTemplate(input, templateItem);
+  const durationMinutes =
+    family === "recovery_reset"
+      ? Math.min(input.generatedSession.durationMinutes, 20)
+      : hardAnchor
+        ? Math.min(input.generatedSession.durationMinutes, 35)
+        : input.phase?.phase === "fight_week"
+          ? Math.min(input.generatedSession.durationMinutes, 30)
+          : input.phase?.phase === "tournament"
+            ? Math.min(input.generatedSession.durationMinutes, 25)
+            : input.cycle.symptomBurden === "high"
+              ? Math.min(input.generatedSession.durationMinutes, 35)
+              : input.generatedSession.durationMinutes;
+  const sections = sectionsFromTemplate(input, templateItem, durationMinutes);
   const readinessModifications = [
     ...input.generatedSession.modifications,
     ...(input.readiness.color === "red" ? ["Red readiness: generated work changed to recovery detail."] : []),
@@ -176,18 +190,7 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     date: input.generatedSession.date,
     family,
     title: family === input.generatedSession.family ? templateItem.title : family === "recovery_reset" ? "Recovery reset detail" : templateItem.title,
-    durationMinutes:
-      family === "recovery_reset"
-        ? Math.min(input.generatedSession.durationMinutes, 20)
-        : hardAnchor
-          ? Math.min(input.generatedSession.durationMinutes, 20)
-          : input.phase?.phase === "fight_week"
-            ? Math.min(input.generatedSession.durationMinutes, 25)
-            : input.phase?.phase === "tournament"
-              ? Math.min(input.generatedSession.durationMinutes, 20)
-              : input.cycle.symptomBurden === "high"
-                ? Math.min(input.generatedSession.durationMinutes, 30)
-                : input.generatedSession.durationMinutes,
+    durationMinutes,
     intensity: family === "recovery_reset" ? "recovery" : hardAnchor || input.phase?.phase === "tournament" ? "easy" : input.phase?.phase === "fight_week" ? "easy" : input.generatedSession.intensity,
     sections,
     fuelDemand: input.generatedSession.fuelDemand,

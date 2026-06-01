@@ -18,6 +18,8 @@ export type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
 export type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
 import type {
   DetailedTrainingSession,
+  GeneratedSessionDurationAuditItem,
+  GeneratedSessionDurationPolicyCategory,
   GeneratedSessionIntensity,
   NextWeekGeneratedSupportBias,
   NextWeekTrainingVolumeStrategy,
@@ -234,6 +236,11 @@ export interface TrainViewModel {
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
+    targetDurationMinutes?: number | undefined;
+    durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+    durationReductionReasons?: readonly string[] | undefined;
+    selectedTemplateId?: string | null | undefined;
+    selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
   upcomingGeneratedSessions: readonly {
     id: string;
@@ -243,6 +250,11 @@ export interface TrainViewModel {
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
+    targetDurationMinutes?: number | undefined;
+    durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+    durationReductionReasons?: readonly string[] | undefined;
+    selectedTemplateId?: string | null | undefined;
+    selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
   currentWeekGeneratedSessions: readonly {
     id: string;
@@ -252,6 +264,11 @@ export interface TrainViewModel {
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
+    targetDurationMinutes?: number | undefined;
+    durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+    durationReductionReasons?: readonly string[] | undefined;
+    selectedTemplateId?: string | null | undefined;
+    selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
   nextGeneratedSession: {
     id: string;
@@ -261,6 +278,11 @@ export interface TrainViewModel {
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
+    targetDurationMinutes?: number | undefined;
+    durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+    durationReductionReasons?: readonly string[] | undefined;
+    selectedTemplateId?: string | null | undefined;
+    selectedTemplateDefaultDuration?: number | null | undefined;
   } | null;
   weeklyWorkoutCards: readonly {
     id: string;
@@ -272,6 +294,11 @@ export interface TrainViewModel {
     durationMinutes: number;
     summary: string;
     fuelDemand: "low" | "moderate" | "high";
+    targetDurationMinutes?: number | undefined;
+    durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+    durationReductionReasons?: readonly string[] | undefined;
+    selectedTemplateId?: string | null | undefined;
+    selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
   supportGenerationSummary: {
     targetGeneratedSupportCount: number;
@@ -282,6 +309,7 @@ export interface TrainViewModel {
     currentWeekGeneratedSessionFamilies: readonly string[];
     selectedSupportDays: readonly GeneratedSupportWeekday[];
     blockedGenerationReasons: readonly string[];
+    durationAudit?: readonly GeneratedSessionDurationAuditItem[] | undefined;
     reducedBy: readonly TrainingGenerationReductionSource[];
   };
   blockPhase: TrainingBlockPhase;
@@ -306,6 +334,8 @@ export interface TrainViewModel {
     modifications: readonly string[];
     protects: readonly string[];
     fuelDemand: "low" | "moderate" | "high";
+    durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+    durationReductionReasons?: readonly string[] | undefined;
   }[];
   detailedTodaySessions: readonly {
     generatedSessionId: string;
@@ -384,6 +414,11 @@ export interface NextWeekPreviewViewModel {
     intensity: GeneratedSessionIntensity;
     durationMinutes: number;
     fuelDemand: "low" | "moderate" | "high";
+    targetDurationMinutes?: number | undefined;
+    durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
+    durationReductionReasons?: readonly string[] | undefined;
+    selectedTemplateId?: string | null | undefined;
+    selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
   canAccept: boolean;
   showMaterializeAction: boolean;
@@ -534,6 +569,7 @@ export interface PlanViewModel {
     generatedSessionDates: readonly string[];
     generatedSessionTitles: readonly string[];
     generatedSessionFamilies: readonly string[];
+    generatedSessionDurationAudit?: readonly GeneratedSessionDurationAuditItem[] | undefined;
     persistedGeneratedSessionsConsidered: readonly {
       id: string;
       date: string;

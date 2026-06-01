@@ -179,7 +179,7 @@ describe("detailed training session engine", () => {
       phase: { ...tournamentState.phase, phase: "fight_week" }
     });
     expect(fightWeek.family).toBe("taper_maintenance");
-    expect(fightWeek.durationMinutes).toBeLessThanOrEqual(25);
+    expect(fightWeek.durationMinutes).toBeLessThanOrEqual(30);
 
     const highSymptoms = buildFamilyDetail("strength_lower", menstruating_athlete_camp_heavy_symptoms, { readiness: greenReadiness });
     expect(highSymptoms.cycleModifications.join(" ")).toContain("High cycle symptoms");
@@ -195,6 +195,7 @@ describe("detailed training session engine", () => {
     expect(names).toContain("Main strength");
     expect(names).toContain("Secondary");
     expect(names).toContain("Cooldown");
+    expect(detail.sections.reduce((sum, section) => sum + section.durationMinutes, 0)).toBe(detail.durationMinutes);
     expect(detail.whyThisMattersForBoxing).toContain("boxing");
   });
 
@@ -213,7 +214,8 @@ describe("detailed training session engine", () => {
     const detail = detailForFixture(no_wearable_manual_only);
 
     expect(detail.intensity).toBe("easy");
-    expect(detail.durationMinutes).toBeLessThanOrEqual(20);
+    expect(detail.durationMinutes).toBeGreaterThanOrEqual(25);
+    expect(detail.durationMinutes).toBeLessThanOrEqual(35);
     expect(detail.sections.length).toBeGreaterThan(0);
   });
 
@@ -240,7 +242,10 @@ describe("detailed training session engine", () => {
   });
 
   it("fight-week taper preserves speed but drops volume", () => {
-    const detail = detailForFixture(pro_12_round_taper);
+    const baseState = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const detail = buildFamilyDetail("strength_lower", pro_4_round_build_strength, {
+      phase: { ...baseState.phase, phase: "fight_week" }
+    });
 
     expect(detail.family).toBe("taper_maintenance");
     expect(detail.whyThisMattersForBoxing).toContain("preserves speed");

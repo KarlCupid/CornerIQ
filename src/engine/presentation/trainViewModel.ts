@@ -38,7 +38,12 @@ function compactSession(session: PerformanceState["training"]["generatedSessions
     family: session.family,
     intensity: session.intensity,
     durationMinutes: session.durationMinutes,
-    fuelDemand: session.fuelDemand
+    fuelDemand: session.fuelDemand,
+    targetDurationMinutes: session.targetDurationMinutes ?? session.durationMinutes,
+    durationPolicyCategory: session.durationPolicyCategory ?? (session.durationMinutes < 25 ? "microdose" : "normal_support"),
+    durationReductionReasons: session.durationReductionReasons ?? [],
+    selectedTemplateId: session.selectedTemplateId ?? session.templateId ?? null,
+    selectedTemplateDefaultDuration: session.selectedTemplateDefaultDuration ?? null
   };
 }
 
@@ -227,6 +232,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     currentWeekGeneratedSessionFamilies: currentWeekGeneratedSessions.map((session) => session.family),
     selectedSupportDays: state.training.supportGenerationAudit.selectedSupportDays,
     blockedGenerationReasons: state.training.supportGenerationAudit.blockedGenerationReasons,
+    durationAudit: state.training.supportGenerationAudit.generatedSessionDurationAudit,
     reducedBy: state.training.supportGenerationAudit.reducedBy
   };
   return {
@@ -264,7 +270,9 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       why: session.rationale,
       modifications: session.modifications,
       protects: session.protects,
-      fuelDemand: session.fuelDemand
+      fuelDemand: session.fuelDemand,
+      durationPolicyCategory: session.durationPolicyCategory ?? (session.durationMinutes < 25 ? "microdose" : "normal_support"),
+      durationReductionReasons: session.durationReductionReasons ?? []
     })),
     detailedTodaySessions,
     detailedWeeklySessions,

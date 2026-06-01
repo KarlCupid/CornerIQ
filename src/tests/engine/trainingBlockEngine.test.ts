@@ -250,6 +250,45 @@ describe("training block and microcycle engine", () => {
     expect(state.training.generatedSessions.every((session) => selectedDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
   });
 
+  it("normal build plan generation produces substantial support sessions with duration audit", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "strength",
+            id: "plan_strength_duration_policy",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: selectedDays
+          })
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const durations = state.training.generatedSessions.map((session) => session.durationMinutes);
+    const shortWithoutReason = state.training.generatedSessions.filter(
+      (session) => session.durationMinutes < 25 && session.durationPolicyCategory === "normal_support" && (session.durationReductionReasons ?? []).length === 0
+    );
+
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(Math.max(...durations)).toBeGreaterThan(35);
+    expect(state.training.generatedSessions.every((session) => session.durationMinutes >= 22 && session.durationMinutes <= 30)).toBe(false);
+    expect(state.training.generatedSessions.some((session) => session.family.startsWith("strength") && session.durationMinutes >= 40)).toBe(true);
+    expect(shortWithoutReason).toEqual([]);
+    expect(state.training.supportGenerationAudit.generatedSessionDurationAudit).toHaveLength(state.training.generatedSessions.length);
+    expect(state.training.supportGenerationAudit.generatedSessionDurationAudit.every((item) => item.selectedTemplateId.length > 0)).toBe(true);
+    expect(state.viewModels.plan.generationAudit?.generatedSessionDurationAudit?.length).toBe(state.training.generatedSessions.length);
+    expect(state.viewModels.train.supportGenerationSummary.durationAudit?.length).toBe(state.training.generatedSessions.length);
+  });
+
   it("plan generation intent creates a revision-scoped active week on selected support days", () => {
     const selectedDays = ["tuesday", "thursday", "saturday"];
     const state = resolvePerformanceState({

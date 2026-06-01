@@ -3,6 +3,9 @@ import { exerciseCatalog } from "../../engine/training/exerciseCatalog";
 import {
   GENERATED_SESSION_FAMILIES,
   fallbackTemplateForFamily,
+  findWorkoutTemplate,
+  generatedSessionShapeFromTemplate,
+  sectionDurationPlan,
   selectWorkoutTemplate,
   templatesForFamily,
   workoutTemplateCatalog,
@@ -83,5 +86,41 @@ describe("workout template catalog", () => {
         conservativeFueling: true
       }).defaultFuelDemand
     ).toBe("low");
+  });
+
+  it("keeps primary generated workout templates in normal-duration ranges", () => {
+    const minimums = {
+      strength_lower: 35,
+      strength_upper: 35,
+      strength_full_body: 40,
+      power_rotational: 30,
+      power_lower: 30,
+      power_upper: 30,
+      roadwork_zone2: 35,
+      roadwork_tempo: 35,
+      roadwork_intervals: 35,
+      round_based_conditioning: 35,
+      footwork_agility: 30,
+      trunk_durability: 25,
+      shoulder_scap_durability: 25,
+      hip_ankle_mobility: 25
+    } as const;
+
+    for (const [family, minimum] of Object.entries(minimums)) {
+      expect(
+        templatesForFamily(family as keyof typeof minimums).some((template) => !template.fallback && template.defaultDurationMinutes >= minimum),
+        family
+      ).toBe(true);
+    }
+  });
+
+  it("allocates section minutes that add up to the generated duration", () => {
+    const template = findWorkoutTemplate("strength_full_body_whole_body_support");
+    const sectionDurations = sectionDurationPlan(template, 48);
+    const shape = generatedSessionShapeFromTemplate(template, 48);
+
+    expect(sectionDurations.reduce((sum, minutes) => sum + minutes, 0)).toBe(48);
+    expect(shape.durationMinutes).toBe(48);
+    expect(shape.prescription.every((line) => /\(\d+ min\):/.test(line))).toBe(true);
   });
 });

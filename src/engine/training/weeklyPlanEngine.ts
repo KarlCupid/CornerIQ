@@ -15,6 +15,7 @@ import type {
   TrainingBlock,
   TrainingBlockHistory,
   GeneratedTrainingSession,
+  GeneratedSessionDurationAuditItem,
   PersistedGeneratedSessionAuditItem,
   TrainingGenerationReductionSource,
   TrainingState,
@@ -169,6 +170,22 @@ function persistedGeneratedSessionAuditItem(session: GeneratedTrainingSession, r
     ...(session.planRevisionId ? { planRevisionId: session.planRevisionId } : {}),
     ...(session.trainingBlockId ? { trainingBlockId: session.trainingBlockId } : {}),
     reason
+  };
+}
+
+function generatedSessionDurationAuditItem(session: GeneratedTrainingSession): GeneratedSessionDurationAuditItem {
+  return {
+    id: session.id,
+    date: session.date,
+    family: session.family,
+    targetDurationMinutes: session.targetDurationMinutes ?? session.durationMinutes,
+    minDurationMinutes: session.minDurationMinutes ?? session.durationMinutes,
+    maxDurationMinutes: session.maxDurationMinutes ?? session.durationMinutes,
+    durationPolicyCategory: session.durationPolicyCategory ?? (session.durationMinutes < 25 ? "microdose" : "normal_support"),
+    durationReductionReasons: session.durationReductionReasons ?? [],
+    selectedTemplateId: session.selectedTemplateId ?? session.templateId ?? "unknown_template",
+    selectedTemplateDefaultDuration: session.selectedTemplateDefaultDuration ?? session.durationMinutes,
+    finalDurationMinutes: session.finalDurationMinutes ?? session.durationMinutes
   };
 }
 
@@ -401,7 +418,10 @@ export function resolveWeeklyTrainingPlan(input: {
             recentFamilies,
             seed: input.planGenerationIntent?.seed ?? planRevision,
             supportDayIndex: supportDateOrder.get(date) ?? index,
-            weekIndex: planWeekIndex
+            weekIndex: planWeekIndex,
+            hardStopActive: hardStopSafetyActive(input.safetyFlags),
+            underFuelingRisk,
+            severeFuelingRisk: fuelCountCap
           })
         : null;
     }
@@ -420,7 +440,10 @@ export function resolveWeeklyTrainingPlan(input: {
       recentFamilies,
       seed: input.planGenerationIntent?.seed ?? planRevision,
       supportDayIndex: supportDateOrder.get(date) ?? index,
-      weekIndex: planWeekIndex
+      weekIndex: planWeekIndex,
+      hardStopActive: hardStopSafetyActive(input.safetyFlags),
+      underFuelingRisk,
+      severeFuelingRisk: fuelCountCap
     });
   })
     .filter((session) => session !== null)
@@ -501,6 +524,7 @@ export function resolveWeeklyTrainingPlan(input: {
     generatedSessionDates: mergedGeneratedSessions.map((session) => session.date),
     generatedSessionTitles: mergedGeneratedSessions.map((session) => session.title),
     generatedSessionFamilies: mergedGeneratedSessions.map((session) => session.family),
+    generatedSessionDurationAudit: mergedGeneratedSessions.map(generatedSessionDurationAuditItem),
     persistedGeneratedSessionsConsidered: scopedPersistedSessions.considered,
     persistedGeneratedSessionsIgnored: scopedPersistedSessions.ignored,
     candidateAllowedDays,

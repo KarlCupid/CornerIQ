@@ -73,6 +73,14 @@ type TemplateDraft = Omit<WorkoutTemplate, "contraindications" | "progressionNot
 
 const EQUIPMENT_REQUIREMENT_TAGS = new Set(["bands", "bench", "bike", "dumbbells", "landmine", "medicine_ball", "rower", "trap_bar"]);
 const CONSERVATIVE_STRATEGIES = new Set<NextWeekTrainingVolumeStrategy>(["conservative_start", "reduce_volume", "deload", "taper", "tournament_conserve", "hold_for_review"]);
+const SECTION_DURATION_WEIGHTS: Record<WorkoutTemplateSectionKind, number> = {
+  warmup: 1.2,
+  main: 3,
+  accessory: 2,
+  support: 1.5,
+  cooldown: 1,
+  reset: 1
+};
 
 function section(sectionType: WorkoutTemplateSectionKind, name: string, intent: string, exerciseIds: readonly string[]): WorkoutTemplateSection {
   return { sectionType, name, intent, exerciseIds };
@@ -95,7 +103,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_lower",
     title: "Lower-body stance strength",
     intent: "Build lower-body force and stance control with submaximal reps that do not chase fatigue.",
-    defaultDurationMinutes: 36,
+    defaultDurationMinutes: 42,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -117,7 +125,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_lower",
     title: "Hinge and unilateral strength",
     intent: "Keep lower-body strength simple, repeatable, and available without a heavy setup.",
-    defaultDurationMinutes: 30,
+    defaultDurationMinutes: 35,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -139,7 +147,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_upper",
     title: "Guard-friendly press and pull",
     intent: "Build upper-body strength around reach, row, and shoulder-blade control.",
-    defaultDurationMinutes: 34,
+    defaultDurationMinutes: 40,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -162,7 +170,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_upper",
     title: "Upper-back durability strength",
     intent: "Use low-complexity pulling, reaching, and cuff work to support guard endurance.",
-    defaultDurationMinutes: 28,
+    defaultDurationMinutes: 30,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -184,7 +192,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_full_body",
     title: "Whole-body strength support",
     intent: "Link hinge, split stance, row, and anti-rotation work without replacing boxing practice.",
-    defaultDurationMinutes: 42,
+    defaultDurationMinutes: 48,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -207,7 +215,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_full_body",
     title: "Novice full-body support",
     intent: "Build simple strength foundations with low-complexity exercises and clear stop gates.",
-    defaultDurationMinutes: 30,
+    defaultDurationMinutes: 38,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -230,7 +238,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "power_rotational",
     title: "Rotational med-ball power",
     intent: "Keep rotational power fast, low-volume, and fully recovered between efforts.",
-    defaultDurationMinutes: 26,
+    defaultDurationMinutes: 36,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -274,7 +282,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "power_lower",
     title: "Landing and pogo microdose",
     intent: "Touch lower-body speed with quiet landings and strict quality stops.",
-    defaultDurationMinutes: 22,
+    defaultDurationMinutes: 34,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -318,7 +326,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "power_upper",
     title: "Upper-body throw speed",
     intent: "Touch upper-body speed while protecting shoulder control and full recovery.",
-    defaultDurationMinutes: 24,
+    defaultDurationMinutes: 34,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -362,7 +370,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "alactic_sprints",
     title: "Alactic sprint gates",
     intent: "Use very short speed efforts only when readiness, gait, and full recovery gates are met.",
-    defaultDurationMinutes: 24,
+    defaultDurationMinutes: 34,
     defaultIntensity: "hard",
     defaultFuelDemand: "high",
     sections: [
@@ -405,7 +413,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "roadwork_zone2",
     title: "Talk-test roadwork",
     intent: "Build aerobic support at a conversational effort without requiring a wearable.",
-    defaultDurationMinutes: 32,
+    defaultDurationMinutes: 45,
     defaultIntensity: "easy",
     defaultFuelDemand: "moderate",
     sections: [
@@ -447,7 +455,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "roadwork_tempo",
     title: "Controlled tempo",
     intent: "Use controlled tempo only when safety and readiness allow more than easy aerobic work.",
-    defaultDurationMinutes: 30,
+    defaultDurationMinutes: 42,
     defaultIntensity: "moderate",
     defaultFuelDemand: "high",
     sections: [
@@ -489,7 +497,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "roadwork_intervals",
     title: "Controlled interval support",
     intent: "Use short controlled efforts with clear intensity boundaries and no all-out finish.",
-    defaultDurationMinutes: 28,
+    defaultDurationMinutes: 40,
     defaultIntensity: "moderate",
     defaultFuelDemand: "high",
     sections: [
@@ -531,7 +539,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "round_based_conditioning",
     title: "Solo round structure",
     intent: "Match boxing round timing with solo movement only and a strict quality ceiling.",
-    defaultDurationMinutes: 24,
+    defaultDurationMinutes: 42,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -573,7 +581,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "footwork_agility",
     title: "Footwork rhythm",
     intent: "Touch foot rhythm and direction changes without turning agility into conditioning.",
-    defaultDurationMinutes: 20,
+    defaultDurationMinutes: 32,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -616,7 +624,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "reaction_rhythm",
     title: "Reaction rhythm touch",
     intent: "Touch reaction timing with easy cues, long rests, and no fatigue chase.",
-    defaultDurationMinutes: 18,
+    defaultDurationMinutes: 28,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -658,7 +666,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "trunk_durability",
     title: "Anti-rotation trunk",
     intent: "Build trunk stiffness for force transfer without adding a hard day.",
-    defaultDurationMinutes: 22,
+    defaultDurationMinutes: 30,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -679,7 +687,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "trunk_durability",
     title: "Anti-extension and adductor stance",
     intent: "Support trunk and adductor capacity for stance width, pivots, and lateral exits.",
-    defaultDurationMinutes: 20,
+    defaultDurationMinutes: 30,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -701,7 +709,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "shoulder_scap_durability",
     title: "Guard durability",
     intent: "Support rotator cuff, serratus, and guard position with low-load control work.",
-    defaultDurationMinutes: 20,
+    defaultDurationMinutes: 28,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -743,7 +751,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "neck_trap_durability",
     title: "Neck and trap posture durability",
     intent: "Support neck posture and upper-trap endurance with safe isometrics and breathing.",
-    defaultDurationMinutes: 18,
+    defaultDurationMinutes: 25,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -785,7 +793,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "wrist_hand_durability",
     title: "Wrist and hand durability",
     intent: "Build wrist, hand, and forearm capacity without grip tension becoming the session.",
-    defaultDurationMinutes: 18,
+    defaultDurationMinutes: 25,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -827,7 +835,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "hip_ankle_mobility",
     title: "Hip and ankle mobility reset",
     intent: "Restore stance range and ankle capacity without adding conditioning stress.",
-    defaultDurationMinutes: 20,
+    defaultDurationMinutes: 30,
     defaultIntensity: "recovery",
     defaultFuelDemand: "low",
     sections: [
@@ -905,7 +913,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "taper_maintenance",
     title: "Taper speed touch",
     intent: "Preserve speed while dropping volume so boxing sharpness stays protected.",
-    defaultDurationMinutes: 20,
+    defaultDurationMinutes: 22,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -1005,9 +1013,47 @@ function scoreTemplate(templateItem: WorkoutTemplate, input: WorkoutTemplateSele
     score += templateItem.safetyTags.includes("taper_safe") ? 30 : 0;
   }
   if (templateItem.fallback) {
-    score -= conservative || input.novice || noEquipment ? 0 : 8;
+    score -= conservative ? 0 : 18;
   }
   return score;
+}
+
+export function sectionDurationPlan(templateItem: WorkoutTemplate, targetDurationMinutes = templateItem.defaultDurationMinutes): readonly number[] {
+  if (templateItem.sections.length === 0) {
+    return [];
+  }
+  if (templateItem.sections.length === 1) {
+    return [targetDurationMinutes];
+  }
+  const weights = templateItem.sections.map((workoutSection) => SECTION_DURATION_WEIGHTS[workoutSection.sectionType]);
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const raw = weights.map((weight) => (targetDurationMinutes * weight) / totalWeight);
+  const sectionMinutes = raw.map((minutes) => Math.max(2, Math.floor(minutes)));
+  let remaining = targetDurationMinutes - sectionMinutes.reduce((sum, minutes) => sum + minutes, 0);
+  const order = raw
+    .map((minutes, index) => ({ index, remainder: minutes - Math.floor(minutes) }))
+    .sort((left, right) => right.remainder - left.remainder)
+    .map((item) => item.index);
+
+  while (remaining > 0) {
+    for (const index of order) {
+      if (remaining <= 0) {
+        break;
+      }
+      sectionMinutes[index] = (sectionMinutes[index] ?? 0) + 1;
+      remaining -= 1;
+    }
+  }
+  while (remaining < 0) {
+    const index = [...order].reverse().find((candidate) => (sectionMinutes[candidate] ?? 0) > 2);
+    if (index === undefined) {
+      break;
+    }
+    sectionMinutes[index] = (sectionMinutes[index] ?? 0) - 1;
+    remaining += 1;
+  }
+
+  return sectionMinutes;
 }
 
 export function templatesForFamily(family: GeneratedSessionFamily): readonly WorkoutTemplate[] {
@@ -1047,13 +1093,15 @@ export function selectWorkoutTemplate(input: WorkoutTemplateSelectionInput): Wor
 }
 
 export function generatedSessionShapeFromTemplate(
-  templateItem: WorkoutTemplate
+  templateItem: WorkoutTemplate,
+  targetDurationMinutes = templateItem.defaultDurationMinutes
 ): Pick<GeneratedTrainingSession, "title" | "durationMinutes" | "intensity" | "prescription" | "rationale" | "protects" | "modifications" | "fuelDemand"> {
+  const sectionDurations = sectionDurationPlan(templateItem, targetDurationMinutes);
   return {
     title: templateItem.title,
-    durationMinutes: templateItem.defaultDurationMinutes,
+    durationMinutes: targetDurationMinutes,
     intensity: templateItem.defaultIntensity,
-    prescription: templateItem.sections.map((workoutSection) => `${workoutSection.name}: ${workoutSection.intent}`),
+    prescription: templateItem.sections.map((workoutSection, index) => `${workoutSection.name} (${sectionDurations[index] ?? 0} min): ${workoutSection.intent}`),
     rationale: templateItem.intent,
     protects: templateItem.protects,
     modifications: [],

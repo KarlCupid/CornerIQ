@@ -13,6 +13,7 @@ import type {
 } from "../core/types";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
 import type { TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
+import { durationPolicyModifications, resolveSessionDurationPolicy, type SessionDurationPolicyResult } from "./sessionDurationPolicy";
 import { generatedSupportAllowedOnDate } from "./supportAvailability";
 import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
 
@@ -235,7 +236,7 @@ function adjustedShape(
   family: GeneratedSessionFamily,
   protectedHard: boolean,
   usedTemplateIds: readonly string[]
-): { shape: SessionShape; templateId: string } {
+): { shape: SessionShape; templateId: string; durationPolicy: SessionDurationPolicyResult } {
   const hardStop = activeHardStop(input);
   const readinessRed = redReadiness(input);
   const underfueling = activeUnderfuelingEvidence(input.safetyFlags);
@@ -258,18 +259,33 @@ function adjustedShape(
     volumeStrategy: input.materialization.materializedVolumeStrategy,
     usedTemplateIds
   });
-  const shape = generatedSessionShapeFromTemplate(template);
+  const durationPolicy = resolveSessionDurationPolicy({
+    family,
+    template,
+    boxingLevel: input.athlete.boxingLevel,
+    phase: input.materialization.materializedPhase,
+    readinessColor: input.readiness.color,
+    protectedHard,
+    highCycleSymptoms: cycleTrim,
+    hardStopActive: hardStop,
+    underfuelingRisk: underfueling,
+    severeFuelingRisk: severeFuelingRisk(input.safetyFlags),
+    uncertainFueling,
+    weekIndex: input.materialization.nextWeekIndex,
+    volumeStrategy: input.materialization.materializedVolumeStrategy
+  });
+  const shape = generatedSessionShapeFromTemplate(template, durationPolicy.targetDurationMinutes);
+  const workloadModerated = durationPolicy.durationPolicyCategory === "workload_moderated" || durationPolicy.durationPolicyCategory === "taper" || durationPolicy.durationPolicyCategory === "recovery";
   return {
     templateId: template.templateId,
+    durationPolicy,
     shape: {
       ...shape,
-      durationMinutes: Math.max(
-        12,
-        Math.min(shape.durationMinutes, hardStop || readinessRed ? 16 : cycleTrim || protectedHard || conservativeStrategy || uncertainFueling ? 22 : shape.durationMinutes)
-      ),
-      intensity: hardStop || readinessRed ? "recovery" : conservativeStrategy && shape.intensity === "moderate" ? "easy" : shape.intensity,
+      durationMinutes: durationPolicy.finalDurationMinutes,
+      intensity: hardStop || readinessRed ? "recovery" : (conservativeStrategy || workloadModerated) && shape.intensity === "moderate" ? "easy" : workloadModerated && shape.intensity === "hard" ? "moderate" : shape.intensity,
       modifications: [
         ...shape.modifications,
+        ...durationPolicyModifications(durationPolicy),
         ...(underfueling ? ["Under-fueling risk: progression and high fuel-demand work removed."] : []),
         ...(uncertainFueling ? ["Fuel data is low-confidence; generated work stays conservative."] : []),
         ...(cycleTrim ? ["High cycle symptoms: optional volume trimmed."] : []),
@@ -325,7 +341,17 @@ export function materializeGeneratedSessionsFromPreview(input: NextWeekGenerated
         id: deterministicSessionId(input, day.date, family),
         date: day.date,
         family,
-        ...adjusted.shape
+        ...adjusted.shape,
+        source: "next_week_preview_materialization",
+        templateId: adjusted.templateId,
+        targetDurationMinutes: adjusted.durationPolicy.targetDurationMinutes,
+        durationPolicyCategory: adjusted.durationPolicy.durationPolicyCategory,
+        durationReductionReasons: adjusted.durationPolicy.durationReductionReasons,
+        selectedTemplateId: adjusted.durationPolicy.selectedTemplateId,
+        selectedTemplateDefaultDuration: adjusted.durationPolicy.selectedTemplateDefaultDuration,
+        finalDurationMinutes: adjusted.durationPolicy.finalDurationMinutes,
+        minDurationMinutes: adjusted.durationPolicy.minDurationMinutes,
+        maxDurationMinutes: adjusted.durationPolicy.maxDurationMinutes
       })
     );
   }

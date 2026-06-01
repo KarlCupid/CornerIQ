@@ -280,7 +280,12 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
             date: session.date,
             intensity: session.intensity,
             durationMinutes: session.durationMinutes,
-            fuelDemand: session.fuelDemand
+            fuelDemand: session.fuelDemand,
+            targetDurationMinutes: session.targetDurationMinutes ?? session.durationMinutes,
+            durationPolicyCategory: session.durationPolicyCategory ?? (session.durationMinutes < 25 ? "microdose" : "normal_support"),
+            durationReductionReasons: session.durationReductionReasons ?? [],
+            selectedTemplateId: session.selectedTemplateId ?? session.templateId ?? null,
+            selectedTemplateDefaultDuration: session.selectedTemplateDefaultDuration ?? null
           }))
       : [];
   return {
@@ -710,6 +715,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       generatedSessionDates: state.training.supportGenerationAudit.generatedSessionDates,
       generatedSessionTitles: state.training.supportGenerationAudit.generatedSessionTitles,
       generatedSessionFamilies: state.training.supportGenerationAudit.generatedSessionFamilies,
+      generatedSessionDurationAudit: state.training.supportGenerationAudit.generatedSessionDurationAudit,
       persistedGeneratedSessionsConsidered: state.training.supportGenerationAudit.persistedGeneratedSessionsConsidered,
       persistedGeneratedSessionsIgnored: state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored,
       candidateAllowedDays: state.training.supportGenerationAudit.candidateAllowedDays,

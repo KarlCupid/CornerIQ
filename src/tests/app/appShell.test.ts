@@ -1785,7 +1785,21 @@ describe("minimal app screens", () => {
 
   it("TrainScreen shows active block context and special day roles", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
-    const taper = resolvePerformanceState({ journey: pro_12_round_taper, asOfDate: fixtureAsOfDate });
+    const safeTaperFight = pro_12_round_taper.activeFightOpportunity;
+    if (!safeTaperFight) {
+      throw new Error("missing taper fixture fight");
+    }
+    const taper = resolvePerformanceState({
+      journey: {
+        ...pro_12_round_taper,
+        activeFightOpportunity: {
+          ...safeTaperFight,
+          contractedWeightKg: 66.8,
+          targetWeightClass: { label: "66.8 kg", limitKg: 66.8 }
+        }
+      },
+      asOfDate: fixtureAsOfDate
+    });
     const tournament = resolvePerformanceState({ journey: amateur_open_tournament, asOfDate: fixtureAsOfDate });
     const red = resolvePerformanceState({
       journey: {

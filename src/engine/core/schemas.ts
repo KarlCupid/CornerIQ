@@ -9,6 +9,7 @@ const confidenceLevelSchema = z.enum(["high", "medium", "low", "unknown"]);
 const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
 
 export const MassSchema = z.object({
   value: z.number().positive(),
@@ -362,7 +363,15 @@ export const GeneratedTrainingSessionSchema = z.object({
   weekIndex: z.number().int().positive().optional(),
   planStartDate: ISODateSchema.optional(),
   source: z.enum(["active_plan_generation", "engine_projection", "next_week_preview_materialization"]).optional(),
-  templateId: z.string().min(1).optional()
+  templateId: z.string().min(1).optional(),
+  targetDurationMinutes: z.number().int().positive().optional(),
+  durationPolicyCategory: GeneratedSessionDurationPolicyCategorySchema.optional(),
+  durationReductionReasons: z.array(z.string()).optional(),
+  selectedTemplateId: z.string().min(1).optional(),
+  selectedTemplateDefaultDuration: z.number().int().positive().optional(),
+  finalDurationMinutes: z.number().int().positive().optional(),
+  minDurationMinutes: z.number().int().positive().optional(),
+  maxDurationMinutes: z.number().int().positive().optional()
 });
 
 export const CompletedTrainingSessionSchema = z.object({
