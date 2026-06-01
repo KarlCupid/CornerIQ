@@ -90,6 +90,7 @@ const weekdayOptions: readonly { label: string; value: RecurringProtectedWorkout
 ];
 
 const buildFocusOptions: readonly BuildGoalDraft["primaryFocus"][] = ["balanced", "power", "conditioning", "strength", "mobility"];
+const trainingDoseOptions: readonly NonNullable<BuildGoalDraft["trainingDose"]>[] = ["minimal", "standard", "serious", "high"];
 const recoveryFocusOptions: readonly NonNullable<RecoveryGoalDraft["focus"]>[] = ["general", "soreness", "sleep", "travel", "post_bout"];
 const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
   { label: "Boxing class", value: "boxing_class" },
@@ -145,6 +146,10 @@ function goalLabel(mode: GoalMode): string {
 
 function defaultPlanAction(_currentModeLabel: PlanViewModel["modeLabel"], _nextMode: GoalMode): PlanLifecycleAction {
   return "start_new_plan";
+}
+
+function defaultTrainingDose(selectedDayCount: number): NonNullable<BuildGoalDraft["trainingDose"]> {
+  return selectedDayCount >= 5 ? "serious" : selectedDayCount >= 3 ? "standard" : "minimal";
 }
 
 function daySummary(days: readonly GeneratedSupportDay[]): string {
@@ -237,6 +242,7 @@ export function PlanGoalFlowCard({
   const [stepError, setStepError] = React.useState<string | null>(null);
   const [selectedAvailableDays, setSelectedAvailableDays] = React.useState<GeneratedSupportDay[]>(() => [...initialAvailableDays]);
   const [primaryFocus, setPrimaryFocus] = React.useState<BuildGoalDraft["primaryFocus"]>("balanced");
+  const [trainingDose, setTrainingDose] = React.useState<NonNullable<BuildGoalDraft["trainingDose"]>>(() => defaultTrainingDose(initialAvailableDays.length));
 
   const [status, setStatus] = React.useState<FightSetupDraft["status"]>(defaultFight.status);
   const [amateurOrPro, setAmateurOrPro] = React.useState<FightSetupDraft["amateurOrPro"]>(defaultFight.amateurOrPro);
@@ -415,6 +421,7 @@ export function PlanGoalFlowCard({
     await runWithMessage(async () => {
       await onSaveBuildGoal({
         primaryFocus,
+        trainingDose,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
@@ -450,6 +457,7 @@ export function PlanGoalFlowCard({
         hydrationTestingRequired,
         ...(cap === undefined ? {} : { postWeighInWeightCapKg: cap }),
         timezone: "America/Vancouver",
+        trainingDose,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
@@ -476,6 +484,7 @@ export function PlanGoalFlowCard({
         numberOfPotentialBouts: parseRequiredPositiveInteger(numberOfPotentialBouts, "Possible bouts"),
         rehydrationWindowHoursByDay: parseHourList(rehydrationWindowHoursByDay),
         strategyMode,
+        trainingDose,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
@@ -496,6 +505,7 @@ export function PlanGoalFlowCard({
       await onSaveRecoveryGoal({
         ...(durationDays === undefined ? {} : { durationDays }),
         focus: recoveryFocus,
+        trainingDose,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
@@ -526,7 +536,8 @@ export function PlanGoalFlowCard({
         `Status: ${titleCase(status)}`,
         `Ruleset: ${titleCase(amateurOrPro)}`,
         `Bout date: ${boutDate}`,
-        `Weigh-in timing: ${titleCase(weighInType)}`
+        `Weigh-in timing: ${titleCase(weighInType)}`,
+        `Training dose: ${titleCase(trainingDose)}`
       ];
     }
     if (mode === "tournament") {
@@ -534,17 +545,19 @@ export function PlanGoalFlowCard({
         `Dates: ${tournamentStartDate} to ${tournamentEndDate}`,
         `Possible bout days: ${possibleBoutDates}`,
         `Possible bouts: ${numberOfPotentialBouts}`,
-        `Strategy: ${titleCase(strategyMode)}`
+        `Strategy: ${titleCase(strategyMode)}`,
+        `Training dose: ${titleCase(trainingDose)}`
       ];
     }
     if (mode === "recovery") {
       return [
         `Duration: ${recoveryDurationDays.trim() ? `${recoveryDurationDays.trim()} days` : "Engine default"}`,
-        `Focus: ${titleCase(recoveryFocus)}`
+        `Focus: ${titleCase(recoveryFocus)}`,
+        `Training dose: ${titleCase(trainingDose)}`
       ];
     }
-    return [`Primary focus: ${titleCase(primaryFocus)}`, "Support volume: CornerIQ decides from availability, anchors, readiness, and safety."];
-  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, tournamentEndDate, tournamentStartDate, weighInType]);
+    return [`Primary focus: ${titleCase(primaryFocus)}`, `Training dose: ${titleCase(trainingDose)}`];
+  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
 
   return (
     <EngineCard>
@@ -684,6 +697,14 @@ export function PlanGoalFlowCard({
           <View style={{ gap: spacing.sm }} testID="plan-wizard-details-step">
             <Text style={screenStyles.callout}>Step 3: Goal-specific details</Text>
             <Text style={screenStyles.body}>{goalLabel(mode)}</Text>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.fieldLabel}>Generated training dose</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {trainingDoseOptions.map((option) => (
+                  <OptionButton active={trainingDose === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setTrainingDose(option)} />
+                ))}
+              </View>
+            </View>
             {mode === "build" ? (
               <View style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.fieldLabel}>Primary focus</Text>
@@ -692,7 +713,6 @@ export function PlanGoalFlowCard({
                     <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setPrimaryFocus(option)} />
                   ))}
                 </View>
-                <Text style={screenStyles.subtle}>CornerIQ decides generated training volume from selected availability, weekly anchors, readiness, safety gates, and phase.</Text>
               </View>
             ) : null}
 

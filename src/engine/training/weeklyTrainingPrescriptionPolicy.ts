@@ -3,6 +3,7 @@ import type { PhaseState } from "../phase/phaseTypes";
 import type {
   GeneratedSessionFamily,
   PlanGenerationPrimaryFocus,
+  PlanGenerationTrainingDose,
   TrainingGenerationConstraintSummaryAudit,
   TrainingStimulusMix
 } from "./types";
@@ -16,6 +17,7 @@ export interface WeeklyTrainingPrescriptionPolicyInput {
   primaryFocus?: PlanGenerationPrimaryFocus | undefined;
   protectedHardDayCount: number;
   selectedSupportDayCount: number;
+  trainingDose: PlanGenerationTrainingDose;
 }
 
 export interface WeeklyTrainingPrescriptionPolicy {
@@ -31,6 +33,7 @@ export interface WeeklyTrainingPrescriptionPolicy {
   targetDurabilityRecoveryExposures: number;
   targetWeeklyGeneratedMinutes: number;
   minimumUsefulSessionDuration: number;
+  targetSessionCountReason: string;
   intensityDistribution: {
     hard: number;
     moderate: number;
@@ -53,6 +56,10 @@ function isNovice(athlete: AthleteProfile): boolean {
 
 function isAdvanced(athlete: AthleteProfile): boolean {
   return ADVANCED_LEVELS.has(athlete.boxingLevel);
+}
+
+function supportsHighDose(athlete: AthleteProfile): boolean {
+  return !isNovice(athlete) && (isAdvanced(athlete) || athlete.trainingAgeYears >= 3);
 }
 
 function focusFromPhase(phase: PhaseState): PlanGenerationPrimaryFocus {
@@ -100,13 +107,41 @@ function normalTargetSessionCount(input: WeeklyTrainingPrescriptionPolicyInput):
   if (input.phase.phase === "recovery" || input.phase.phase === "deload") {
     return 2;
   }
-  if (input.phase.phase === "camp" || input.phase.phase === "short_notice_camp") {
-    return input.selectedSupportDayCount >= 4 ? 4 : 3;
-  }
+  const supportDays = Math.max(1, input.selectedSupportDayCount);
   if (isNovice(input.athlete)) {
-    return input.selectedSupportDayCount >= 3 ? 3 : 2;
+    if (supportDays <= 2) {
+      return 2;
+    }
+    if (supportDays <= 4) {
+      return input.trainingDose === "minimal" ? 2 : 3;
+    }
+    return input.trainingDose === "serious" || input.trainingDose === "high" ? 4 : 3;
   }
-  return input.selectedSupportDayCount >= 4 ? 4 : 3;
+  if (supportDays <= 2) {
+    return 2;
+  }
+  if (supportDays === 3) {
+    return input.trainingDose === "minimal" ? 2 : 3;
+  }
+  if (supportDays === 4) {
+    return input.trainingDose === "minimal" ? 3 : 4;
+  }
+  if (supportDays === 5) {
+    if (input.trainingDose === "minimal") {
+      return 3;
+    }
+    return input.trainingDose === "standard" ? 4 : 5;
+  }
+  if (input.trainingDose === "minimal") {
+    return 3;
+  }
+  if (input.trainingDose === "standard") {
+    return 4;
+  }
+  if (input.trainingDose === "high" && supportsHighDose(input.athlete)) {
+    return 6;
+  }
+  return 5;
 }
 
 function maxHardDaysForPhase(phase: PhaseState): number {
@@ -118,7 +153,7 @@ function maxHardDaysForPhase(phase: PhaseState): number {
       return 1;
     case "camp":
     case "short_notice_camp":
-      return 2;
+      return 3;
     default:
       return 3;
   }
@@ -131,10 +166,21 @@ function targetHardDays(input: WeeklyTrainingPrescriptionPolicyInput, focus: Pla
   if (focus === "mobility") {
     return 0;
   }
+  const supportDays = Math.max(input.selectedSupportDayCount, input.candidateAllowedDays);
+  const seriousOrHigh = input.trainingDose === "serious" || input.trainingDose === "high";
   if (isNovice(input.athlete)) {
-    return input.selectedSupportDayCount >= 4 ? 2 : 1;
+    return seriousOrHigh && supportDays >= 5 ? 2 : 1;
   }
-  if ((focus === "strength" || focus === "power") && isAdvanced(input.athlete) && input.selectedSupportDayCount >= 5) {
+  if ((input.phase.phase === "camp" || input.phase.phase === "short_notice_camp") && supportDays >= 5 && seriousOrHigh) {
+    return 3;
+  }
+  if (seriousOrHigh && supportDays >= 6) {
+    return 3;
+  }
+  if ((focus === "strength" || focus === "power") && seriousOrHigh && supportDays >= 5 && (isAdvanced(input.athlete) || input.athlete.trainingAgeYears >= 3)) {
+    return 3;
+  }
+  if (focus === "conditioning" && seriousOrHigh && supportDays >= 5 && isAdvanced(input.athlete)) {
     return 3;
   }
   return 2;
@@ -150,11 +196,25 @@ function targetMinutes(input: WeeklyTrainingPrescriptionPolicyInput, focus: Plan
   if (input.phase.phase === "recovery" || input.phase.phase === "deload") {
     return targetSessions * 30;
   }
-  const novice = isNovice(input.athlete);
-  const base = novice ? (targetSessions <= 2 ? 90 : targetSessions === 3 ? 115 : 135) : targetSessions <= 3 ? 120 : targetSessions === 4 ? 155 : 180;
+  const base = (() => {
+    switch (input.trainingDose) {
+      case "minimal":
+        return Math.min(120, Math.max(75, targetSessions * 38));
+      case "standard":
+        return Math.min(180, Math.max(120, targetSessions * 45));
+      case "serious":
+        return Math.min(260, Math.max(input.selectedSupportDayCount >= 6 && !isNovice(input.athlete) ? 220 : 180, targetSessions * 48));
+      case "high":
+        return Math.min(supportsHighDose(input.athlete) ? 330 : 260, Math.max(240, targetSessions * 55));
+    }
+  })();
   const phaseAdd = input.phase.phase === "camp" || input.phase.phase === "short_notice_camp" ? 10 : 0;
   const focusAdd = focus === "strength" || focus === "power" ? 5 : focus === "conditioning" ? 5 : 0;
   return base + phaseAdd + focusAdd;
+}
+
+function targetSessionReason(input: WeeklyTrainingPrescriptionPolicyInput, targetSessionCount: number): string {
+  return `${input.trainingDose} dose with ${input.selectedSupportDayCount} selected generated-training day${input.selectedSupportDayCount === 1 ? "" : "s"} targets ${targetSessionCount} session${targetSessionCount === 1 ? "" : "s"} before protected-anchor and safety placement.`;
 }
 
 function recoveryPolicy(input: WeeklyTrainingPrescriptionPolicyInput): WeeklyTrainingPrescriptionPolicy {
@@ -173,6 +233,7 @@ function recoveryPolicy(input: WeeklyTrainingPrescriptionPolicyInput): WeeklyTra
     targetDurabilityRecoveryExposures: targetSessionCount,
     targetWeeklyGeneratedMinutes: targetMinutes(input, "mobility", targetSessionCount),
     minimumUsefulSessionDuration: input.generationConstraints.hardSafetyConstraints.length > 0 ? 15 : 25,
+    targetSessionCountReason: targetSessionReason(input, targetSessionCount),
     intensityDistribution: { hard: 0, moderate: 0, easyRecovery: targetSessionCount },
     familySequence: sequence,
     requiredFamilyBuckets: ["recovery"],
@@ -193,8 +254,9 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
   const maxHardDayCount = maxHardDaysForPhase(input.phase);
   const targetHardDayCount = Math.min(maxHardDayCount, targetHardDays(input, focus));
   const targetGeneratedHardDayCount = Math.max(0, targetHardDayCount - input.protectedHardDayCount);
-  const targetStrengthExposures = focus === "strength" ? 2 : focus === "conditioning" ? (targetSessionCount >= 4 ? 1 : 0) : targetSessionCount >= 2 ? 1 : 0;
-  const targetConditioningExposures = focus === "conditioning" ? 2 : targetSessionCount >= 2 && focus !== "mobility" ? 1 : 0;
+  const targetStrengthExposures =
+    focus === "strength" ? (targetSessionCount >= 5 ? 3 : 2) : focus === "conditioning" ? (targetSessionCount >= 4 ? 1 : 0) : targetSessionCount >= 2 ? 1 : 0;
+  const targetConditioningExposures = focus === "conditioning" ? (targetSessionCount >= 5 ? 3 : 2) : targetSessionCount >= 2 && focus !== "mobility" ? 1 : 0;
   const targetPowerExposures = focus === "power" ? 2 : targetSessionCount >= 4 ? 1 : 0;
   const targetDurabilityRecoveryExposures = Math.max(0, targetSessionCount - targetStrengthExposures - targetConditioningExposures - targetPowerExposures);
   const sequence = familySequenceForTrainingFocus(focus);
@@ -204,7 +266,7 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
     targetSessionCount,
     unconstrainedTargetSessionCount: targetSessionCount,
     targetHardDayCount,
-    minHardDayCount: targetHardDayCount > 0 ? Math.min(targetHardDayCount, isNovice(input.athlete) ? 1 : 2) : 0,
+    minHardDayCount: targetHardDayCount,
     maxHardDayCount,
     targetGeneratedHardDayCount,
     targetStrengthExposures,
@@ -213,6 +275,7 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
     targetDurabilityRecoveryExposures,
     targetWeeklyGeneratedMinutes,
     minimumUsefulSessionDuration: 35,
+    targetSessionCountReason: targetSessionReason(input, targetSessionCount),
     intensityDistribution: {
       hard: targetGeneratedHardDayCount,
       moderate: Math.max(0, targetSessionCount - targetGeneratedHardDayCount - targetDurabilityRecoveryExposures),
@@ -228,7 +291,7 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
     targetStimulusMix: trainingStimulusMix(sequence.slice(0, targetSessionCount)),
     downshiftConstraints: input.generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
     reasons: [
-      `${focus.replaceAll("_", " ")} prescription targets ${targetSessionCount} generated sessions, ${targetHardDayCount} hard/high-stimulus day${targetHardDayCount === 1 ? "" : "s"}, and ${targetWeeklyGeneratedMinutes} generated minutes.`,
+      `${focus.replaceAll("_", " ")} ${input.trainingDose} prescription targets ${targetSessionCount} generated sessions, ${targetHardDayCount} hard/high-stimulus day${targetHardDayCount === 1 ? "" : "s"}, and ${targetWeeklyGeneratedMinutes} generated minutes.`,
       input.protectedHardDayCount > 0
         ? `${input.protectedHardDayCount} protected hard day${input.protectedHardDayCount === 1 ? "" : "s"} count toward the hard-day target.`
         : "No protected hard anchors supplied hard work, so generated sessions must provide the hard/high-stimulus exposure when safety allows.",

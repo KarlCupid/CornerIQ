@@ -1,10 +1,11 @@
 import type { AthleteJourney, JourneyEvent } from "../athlete/types";
 import type { ISODateString } from "../core/sharedTypes";
-import type { PlanGenerationAction, PlanGenerationGoalMode, PlanGenerationIntent, PlanGenerationPrimaryFocus } from "./types";
+import type { PlanGenerationAction, PlanGenerationGoalMode, PlanGenerationIntent, PlanGenerationPrimaryFocus, PlanGenerationTrainingDose } from "./types";
 import { normalizeGeneratedSupportWeekdays } from "./supportAvailability";
 
 const PLAN_WIZARD_SOURCES = new Set(["plan_wizard_new_plan", "plan_wizard_amendment"]);
 const PRIMARY_FOCUS_VALUES = new Set(["balanced", "power", "conditioning", "strength", "mobility"]);
+const TRAINING_DOSE_VALUES = new Set(["minimal", "standard", "serious", "high"]);
 const USER_PLAN_EVENT_TYPES = new Set<JourneyEvent["type"]>([
   "BuildPhaseStarted",
   "CampStarted",
@@ -73,6 +74,19 @@ function goalModeFromEvent(event: JourneyEvent, intentPayload: Record<string, un
 function primaryFocusFromPayload(payload: Record<string, unknown>, intentPayload: Record<string, unknown> | null): PlanGenerationPrimaryFocus | undefined {
   const value = stringValue(intentPayload?.primaryFocus) ?? stringValue(payload.primaryFocus);
   return value && PRIMARY_FOCUS_VALUES.has(value) ? (value as PlanGenerationPrimaryFocus) : undefined;
+}
+
+export function defaultTrainingDoseForSupportDays(selectedSupportDayCount: number): PlanGenerationTrainingDose {
+  return selectedSupportDayCount >= 5 ? "serious" : selectedSupportDayCount >= 3 ? "standard" : "minimal";
+}
+
+function trainingDoseFromPayload(
+  payload: Record<string, unknown>,
+  intentPayload: Record<string, unknown> | null,
+  selectedSupportDayCount: number
+): PlanGenerationTrainingDose {
+  const value = stringValue(intentPayload?.trainingDose) ?? stringValue(payload.trainingDose) ?? stringValue(payload.selectedTrainingDose);
+  return value && TRAINING_DOSE_VALUES.has(value) ? (value as PlanGenerationTrainingDose) : defaultTrainingDoseForSupportDays(selectedSupportDayCount);
 }
 
 function selectedSupportDaysFromPayload(
@@ -147,6 +161,7 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
     return null;
   }
   const selectedSupportDays = selectedSupportDaysFromPayload(journey, payload, intentPayload);
+  const trainingDose = trainingDoseFromPayload(payload, intentPayload, selectedSupportDays.length);
   const requestedAt = stringValue(intentPayload?.requestedAt) ?? event.occurredAt;
   const id =
     stringValue(intentPayload?.id) ??
@@ -160,6 +175,7 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
     action,
     goalMode: goalModeFromEvent(event, intentPayload),
     primaryFocus: primaryFocusFromPayload(payload, intentPayload),
+    trainingDose,
     selectedSupportDays,
     planStartDate: isoDateValue(intentPayload?.planStartDate) ?? isoDateValue(payload.planStartDate) ?? asOfDate,
     requestedAt,

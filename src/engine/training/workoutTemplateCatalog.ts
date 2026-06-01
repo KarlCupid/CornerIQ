@@ -103,7 +103,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_lower",
     title: "Lower-body stance strength",
     intent: "Build lower-body force and stance control with submaximal reps that do not chase fatigue.",
-    defaultDurationMinutes: 42,
+    defaultDurationMinutes: 60,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -147,7 +147,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_upper",
     title: "Guard-friendly press and pull",
     intent: "Build upper-body strength around reach, row, and shoulder-blade control.",
-    defaultDurationMinutes: 40,
+    defaultDurationMinutes: 55,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -192,7 +192,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "strength_full_body",
     title: "Whole-body strength support",
     intent: "Link hinge, split stance, row, and anti-rotation work without replacing boxing practice.",
-    defaultDurationMinutes: 48,
+    defaultDurationMinutes: 65,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -238,7 +238,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "power_rotational",
     title: "Rotational med-ball power",
     intent: "Keep rotational power fast, low-volume, and fully recovered between efforts.",
-    defaultDurationMinutes: 36,
+    defaultDurationMinutes: 50,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -282,7 +282,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "power_lower",
     title: "Landing and pogo microdose",
     intent: "Touch lower-body speed with quiet landings and strict quality stops.",
-    defaultDurationMinutes: 34,
+    defaultDurationMinutes: 50,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -326,7 +326,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "power_upper",
     title: "Upper-body throw speed",
     intent: "Touch upper-body speed while protecting shoulder control and full recovery.",
-    defaultDurationMinutes: 34,
+    defaultDurationMinutes: 50,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -370,7 +370,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "alactic_sprints",
     title: "Alactic sprint gates",
     intent: "Use very short speed efforts only when readiness, gait, and full recovery gates are met.",
-    defaultDurationMinutes: 34,
+    defaultDurationMinutes: 50,
     defaultIntensity: "hard",
     defaultFuelDemand: "high",
     sections: [
@@ -413,7 +413,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "roadwork_zone2",
     title: "Talk-test roadwork",
     intent: "Build aerobic support at a conversational effort without requiring a wearable.",
-    defaultDurationMinutes: 45,
+    defaultDurationMinutes: 60,
     defaultIntensity: "easy",
     defaultFuelDemand: "moderate",
     sections: [
@@ -455,7 +455,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "roadwork_tempo",
     title: "Controlled tempo",
     intent: "Use controlled tempo only when safety and readiness allow more than easy aerobic work.",
-    defaultDurationMinutes: 42,
+    defaultDurationMinutes: 55,
     defaultIntensity: "moderate",
     defaultFuelDemand: "high",
     sections: [
@@ -497,7 +497,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "roadwork_intervals",
     title: "Controlled interval support",
     intent: "Use short controlled efforts with clear intensity boundaries and no all-out finish.",
-    defaultDurationMinutes: 40,
+    defaultDurationMinutes: 55,
     defaultIntensity: "moderate",
     defaultFuelDemand: "high",
     sections: [
@@ -539,7 +539,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "round_based_conditioning",
     title: "Solo round structure",
     intent: "Match boxing round timing with solo movement only and a strict quality ceiling.",
-    defaultDurationMinutes: 42,
+    defaultDurationMinutes: 55,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
@@ -666,7 +666,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "trunk_durability",
     title: "Anti-rotation trunk",
     intent: "Build trunk stiffness for force transfer without adding a hard day.",
-    defaultDurationMinutes: 30,
+    defaultDurationMinutes: 36,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -709,7 +709,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "shoulder_scap_durability",
     title: "Guard durability",
     intent: "Support rotator cuff, serratus, and guard position with low-load control work.",
-    defaultDurationMinutes: 28,
+    defaultDurationMinutes: 36,
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
@@ -835,7 +835,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     family: "hip_ankle_mobility",
     title: "Hip and ankle mobility reset",
     intent: "Restore stance range and ankle capacity without adding conditioning stress.",
-    defaultDurationMinutes: 30,
+    defaultDurationMinutes: 36,
     defaultIntensity: "recovery",
     defaultFuelDemand: "low",
     sections: [

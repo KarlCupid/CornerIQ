@@ -2346,7 +2346,7 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-details-step");
-    expect(output).toContain("CornerIQ decides generated training volume");
+    expect(output).toContain("Generated training dose");
     expect(output).not.toContain("Support days per week");
 
     await act(async () => {
@@ -2357,7 +2357,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("New weekly anchors to save");
     expect(output).toContain("Existing weekly anchors");
     expect(output).toContain("Upcoming dated sessions");
-    expect(output).toContain("CornerIQ decides from availability");
+    expect(output).toContain("Training dose");
     expect(output).not.toContain("Support days per week");
 
     await act(async () => {

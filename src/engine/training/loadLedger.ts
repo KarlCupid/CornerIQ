@@ -1,12 +1,13 @@
 import type { GeneratedTrainingSession, ProtectedWorkout, TrainingLoadLedger } from "../core/types";
+import { isHighStimulusGeneratedSession, isHighStimulusProtectedWorkout } from "./trainingStimulus";
 
 export function buildLoadLedger(anchors: readonly ProtectedWorkout[], generated: readonly GeneratedTrainingSession[]): TrainingLoadLedger {
   const protectedBoxing = anchors.filter((anchor) =>
     ["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "competition"].includes(anchor.type)
   );
   const hardDayDates = new Set([
-    ...generated.filter((session) => session.intensity === "hard").map((session) => session.date),
-    ...protectedBoxing.filter((anchor) => anchor.intensity === "hard" || anchor.intensity === "max" || anchor.type === "sparring" || anchor.type === "competition").map((anchor) => anchor.date)
+    ...generated.filter(isHighStimulusGeneratedSession).map((session) => session.date),
+    ...protectedBoxing.filter(isHighStimulusProtectedWorkout).map((anchor) => anchor.date)
   ]);
   return {
     protectedBoxingMinutes: protectedBoxing.reduce((sum, anchor) => sum + anchor.durationMinutes, 0),

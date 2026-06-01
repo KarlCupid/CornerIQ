@@ -1,4 +1,4 @@
-import type { GeneratedSessionFamily, GeneratedSessionTypeLabel, TrainingStimulus, TrainingStimulusMix } from "./types";
+import type { GeneratedSessionFamily, GeneratedSessionTypeLabel, GeneratedTrainingSession, ProtectedWorkout, TrainingStimulus, TrainingStimulusMix } from "./types";
 
 export const EMPTY_TRAINING_STIMULUS_MIX: TrainingStimulusMix = {
   strength: 0,
@@ -74,4 +74,45 @@ export function generatedSessionLabels(family: GeneratedSessionFamily): {
     trainingStimulus: trainingStimulusForFamily(family),
     sessionTypeLabel: sessionTypeLabelForFamily(family)
   };
+}
+
+const STRENGTH_HIGH_STIMULUS_FAMILIES = new Set<GeneratedSessionFamily>(["strength_lower", "strength_upper", "strength_full_body"]);
+const CONDITIONING_HIGH_STIMULUS_FAMILIES = new Set<GeneratedSessionFamily>(["roadwork_tempo", "roadwork_intervals", "round_based_conditioning", "alactic_sprints"]);
+const POWER_HIGH_STIMULUS_FAMILIES = new Set<GeneratedSessionFamily>(["power_rotational", "power_lower", "power_upper"]);
+
+export function isHighStimulusFamily(family: GeneratedSessionFamily): boolean {
+  return STRENGTH_HIGH_STIMULUS_FAMILIES.has(family) || CONDITIONING_HIGH_STIMULUS_FAMILIES.has(family) || POWER_HIGH_STIMULUS_FAMILIES.has(family);
+}
+
+export function isHighStimulusProtectedWorkout(anchor: ProtectedWorkout): boolean {
+  return anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max";
+}
+
+export function isHighStimulusGeneratedSession(session: GeneratedTrainingSession): boolean {
+  if (session.intensity === "hard") {
+    return true;
+  }
+  if (session.durationPolicyCategory === "safety_capped" || session.durationPolicyCategory === "recovery" || session.durationPolicyCategory === "taper") {
+    return false;
+  }
+  if (session.fuelDemand === "low" || session.intensity === "recovery" || session.intensity === "easy") {
+    return false;
+  }
+  if (STRENGTH_HIGH_STIMULUS_FAMILIES.has(session.family)) {
+    return session.durationMinutes >= 60;
+  }
+  if (CONDITIONING_HIGH_STIMULUS_FAMILIES.has(session.family)) {
+    return session.durationMinutes >= 45;
+  }
+  if (POWER_HIGH_STIMULUS_FAMILIES.has(session.family)) {
+    return session.durationMinutes >= 50;
+  }
+  return false;
+}
+
+export function isHighStimulusTrainingDay(input: {
+  generatedSessions: readonly GeneratedTrainingSession[];
+  protectedAnchors: readonly ProtectedWorkout[];
+}): boolean {
+  return input.protectedAnchors.some(isHighStimulusProtectedWorkout) || input.generatedSessions.some(isHighStimulusGeneratedSession);
 }

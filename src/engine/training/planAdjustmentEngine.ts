@@ -1,5 +1,6 @@
 import type { TrainingBlock, TrainingDayPlan } from "./trainingBlockTypes";
 import type { GeneratedTrainingSession, ProtectedWorkout } from "./types";
+import { isHighStimulusGeneratedSession, isHighStimulusProtectedWorkout } from "./trainingStimulus";
 import {
   actorForAdjustmentCommand,
   type PersistedTrainingPlanAdjustment,
@@ -22,7 +23,7 @@ export interface TrainingPlanAdjustmentApplication {
 }
 
 function protectedHardAnchor(anchor: ProtectedWorkout): boolean {
-  return anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max";
+  return isHighStimulusProtectedWorkout(anchor);
 }
 
 function hasProtectedSparringOrCompetition(day: TrainingDayPlan): boolean {
@@ -30,7 +31,7 @@ function hasProtectedSparringOrCompetition(day: TrainingDayPlan): boolean {
 }
 
 function hardDayFor(day: TrainingDayPlan, generatedSessions: readonly GeneratedTrainingSession[]): boolean {
-  return day.protectedAnchors.some(protectedHardAnchor) || generatedSessions.some((session) => session.intensity === "hard");
+  return day.protectedAnchors.some(protectedHardAnchor) || generatedSessions.some(isHighStimulusGeneratedSession);
 }
 
 function fuelDemandFor(day: TrainingDayPlan, generatedSessions: readonly GeneratedTrainingSession[]): TrainingDayPlan["fuelDemand"] {

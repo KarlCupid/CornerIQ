@@ -6,6 +6,7 @@ import type {
   FightOpportunity,
   ISODateString,
   JourneyEventType,
+  PlanGenerationTrainingDose,
   ProtectedWorkout,
   RecurringProtectedWorkoutAnchor,
   TournamentDetails,
@@ -22,6 +23,7 @@ const GeneratedSupportAvailableDaysSchema = z
   .min(1)
   .transform((days) => [...normalizeGeneratedSupportWeekdays(days)]);
 const PlanLifecycleActionSchema = z.enum(["start_new_plan", "amend_current_plan"]);
+const TrainingDoseSchema = z.enum(["minimal", "standard", "serious", "high"]);
 const ProtectedScheduleChoiceSchema = z.enum(["has_anchors", "no_anchors"]);
 const PlanProtectedScheduleModeSchema = z.enum(["keep_existing", "replace_for_plan", "clear_for_plan"]);
 
@@ -75,6 +77,7 @@ export const FightSetupDraftSchema = z.object({
   timezone: z.string().min(1),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
   protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
@@ -93,6 +96,7 @@ export const TournamentSetupDraftSchema = z.object({
   strategyMode: z.enum(["stay_near_weight", "mild_daily_cut", "no_cut_recommended"]),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
   protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
@@ -159,6 +163,7 @@ export const BuildGoalDraftSchema = z.object({
   supportDaysPerWeek: z.number().int().min(1).max(6).optional(),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
   protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
@@ -169,6 +174,7 @@ export const RecoveryGoalDraftSchema = z.object({
   focus: z.enum(["general", "soreness", "sleep", "travel", "post_bout"]).optional(),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
+  trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
   protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
@@ -389,6 +395,7 @@ function planGenerationPayload(input: {
   primaryFocus?: BuildGoalDraft["primaryFocus"] | undefined;
   protectedScheduleMode?: PlanProtectedScheduleMode | undefined;
   scheduleAvailability?: readonly GeneratedSupportWeekday[] | undefined;
+  trainingDose?: PlanGenerationTrainingDose | undefined;
   userId: string;
 }): Record<string, unknown> {
   if (!input.action) {
@@ -396,13 +403,15 @@ function planGenerationPayload(input: {
   }
   const requestedAt = nowIso();
   const selectedSupportDays = input.scheduleAvailability ? [...input.scheduleAvailability] : [];
-  const id = `plan:${input.userId}:${stableHash({ action: input.action, goalMode: input.goalMode, planStartDate: input.planStartDate, primaryFocus: input.primaryFocus, requestedAt, selectedSupportDays })}`;
+  const trainingDose = input.trainingDose ?? (selectedSupportDays.length >= 5 ? "serious" : selectedSupportDays.length >= 3 ? "standard" : "minimal");
+  const id = `plan:${input.userId}:${stableHash({ action: input.action, goalMode: input.goalMode, planStartDate: input.planStartDate, primaryFocus: input.primaryFocus, requestedAt, selectedSupportDays, trainingDose })}`;
   const intent = {
     id,
     userId: input.userId,
     action: input.action,
     goalMode: input.goalMode,
     ...(input.primaryFocus ? { primaryFocus: input.primaryFocus } : {}),
+    trainingDose,
     selectedSupportDays,
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
     ...(input.protectedScheduleMode ? { protectedScheduleMode: input.protectedScheduleMode } : {}),
@@ -415,6 +424,8 @@ function planGenerationPayload(input: {
     planGenerationIntent: intent,
     planRevisionId: id,
     selectedSupportDays,
+    trainingDose,
+    selectedTrainingDose: trainingDose,
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
     ...(input.protectedScheduleMode ? { protectedScheduleMode: input.protectedScheduleMode } : {})
   };
@@ -730,7 +741,7 @@ export async function saveFightSetup(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "fight", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "fight", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "fight", protectedScheduleMode, scheduleAvailability });
   const fight = fightOpportunityFromDraft(draft);
@@ -764,7 +775,7 @@ export async function saveTournamentSetup(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "tournament", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "tournament", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "tournament", protectedScheduleMode, scheduleAvailability });
   const tournament = tournamentDetailsFromDraft(draft);
@@ -792,7 +803,7 @@ export async function saveBuildGoal(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "build", planStartDate: draft.planStartDate, primaryFocus: draft.primaryFocus, protectedScheduleMode, scheduleAvailability });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "build", planStartDate: draft.planStartDate, primaryFocus: draft.primaryFocus, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
@@ -817,7 +828,7 @@ export async function saveRecoveryGoal(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "recovery", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability });
+  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "recovery", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
   await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "recovery", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {

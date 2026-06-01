@@ -12,6 +12,7 @@ import type {
   WeeklyTrainingStructure
 } from "../core/types";
 import { anchorsForDate } from "./protectedAnchors";
+import { isHighStimulusTrainingDay } from "./trainingStimulus";
 
 export interface WeeklyMicrocycleInput {
   asOfDate: string;
@@ -30,9 +31,9 @@ function hardDayCapForPhase(phase: TrainingBlockPhase): number {
   switch (phase) {
     case "build_power":
     case "build_strength":
-      return 3;
     case "camp_support":
     case "aerobic_base":
+      return 3;
     case "maintenance":
       return 2;
     case "fight_week_taper":
@@ -179,9 +180,7 @@ export function buildWeeklyMicrocycle(input: WeeklyMicrocycleInput): {
     const protectedAnchors = anchorsForDate(input.protectedWorkouts, date);
     const generated = input.generatedSessions.filter((session) => session.date === date);
     const completed = input.completedSessions.filter((session) => session.date === date);
-    const protectedHard = protectedAnchors.some((anchor) => anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max");
-    const generatedHard = generated.some((session) => session.intensity === "hard");
-    const hardDay = protectedHard || generatedHard;
+    const hardDay = isHighStimulusTrainingDay({ protectedAnchors, generatedSessions: generated });
     const priority = recoveryPriority({
       date,
       asOfDate: input.asOfDate,

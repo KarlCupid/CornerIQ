@@ -1,5 +1,5 @@
 import type { BoxingLevel, GeneratedSessionFamily, PhaseState, ReadinessState } from "../core/types";
-import type { NextWeekTrainingVolumeStrategy, PlanGenerationPrimaryFocus, GeneratedSessionDurationAudit, GeneratedSessionDurationPolicyCategory } from "./types";
+import type { NextWeekTrainingVolumeStrategy, PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, GeneratedSessionDurationAudit, GeneratedSessionDurationPolicyCategory } from "./types";
 import type { WorkoutTemplate } from "./workoutTemplateCatalog";
 
 type DurationPhase = PhaseState["phase"] | "build_strength" | "build_power" | "aerobic_base" | "camp_support" | "fight_week_taper" | "tournament_week" | "recovery_deload" | "maintenance";
@@ -23,6 +23,7 @@ export interface ResolveSessionDurationPolicyInput {
   severeFuelingRisk?: boolean | undefined;
   uncertainFueling?: boolean | undefined;
   primaryFocus?: PlanGenerationPrimaryFocus | undefined;
+  trainingDose?: PlanGenerationTrainingDose | undefined;
   weekIndex?: number | undefined;
   volumeStrategy?: NextWeekTrainingVolumeStrategy | undefined;
 }
@@ -32,24 +33,24 @@ export type SessionDurationPolicyResult = GeneratedSessionDurationAudit;
 const NOVICE_LEVELS = new Set<BoxingLevel>(["aspiring_boxer", "amateur_novice"]);
 
 const FAMILY_PROFILES: Record<GeneratedSessionFamily, DurationProfile> = {
-  strength_lower: { min: 35, max: 50, target: 42 },
-  strength_upper: { min: 35, max: 50, target: 42 },
-  strength_full_body: { min: 40, max: 55, target: 48 },
-  power_rotational: { min: 30, max: 45, target: 36 },
-  power_lower: { min: 30, max: 45, target: 34 },
-  power_upper: { min: 30, max: 45, target: 34 },
-  alactic_sprints: { min: 30, max: 45, target: 34 },
-  roadwork_zone2: { min: 35, max: 55, target: 45 },
-  roadwork_tempo: { min: 35, max: 55, target: 42 },
-  roadwork_intervals: { min: 35, max: 55, target: 40 },
-  round_based_conditioning: { min: 35, max: 55, target: 42 },
-  footwork_agility: { min: 30, max: 40, target: 32 },
-  reaction_rhythm: { min: 20, max: 35, target: 28 },
-  trunk_durability: { min: 25, max: 40, target: 30 },
-  shoulder_scap_durability: { min: 25, max: 40, target: 30 },
+  strength_lower: { min: 50, max: 70, target: 60 },
+  strength_upper: { min: 45, max: 65, target: 55 },
+  strength_full_body: { min: 55, max: 75, target: 65 },
+  power_rotational: { min: 40, max: 60, target: 50 },
+  power_lower: { min: 40, max: 60, target: 50 },
+  power_upper: { min: 40, max: 60, target: 50 },
+  alactic_sprints: { min: 40, max: 60, target: 50 },
+  roadwork_zone2: { min: 45, max: 75, target: 60 },
+  roadwork_tempo: { min: 45, max: 65, target: 55 },
+  roadwork_intervals: { min: 45, max: 65, target: 55 },
+  round_based_conditioning: { min: 45, max: 65, target: 55 },
+  footwork_agility: { min: 35, max: 50, target: 40 },
+  reaction_rhythm: { min: 25, max: 40, target: 32 },
+  trunk_durability: { min: 30, max: 45, target: 36 },
+  shoulder_scap_durability: { min: 30, max: 45, target: 36 },
   neck_trap_durability: { min: 20, max: 30, target: 25 },
   wrist_hand_durability: { min: 20, max: 30, target: 25 },
-  hip_ankle_mobility: { min: 25, max: 40, target: 30 },
+  hip_ankle_mobility: { min: 30, max: 45, target: 36 },
   recovery_reset: { min: 15, max: 25, target: 18 },
   taper_maintenance: { min: 15, max: 30, target: 22 }
 };
@@ -62,6 +63,7 @@ const HIGH_DEMAND_FAMILIES = new Set<GeneratedSessionFamily>([
   "power_lower",
   "power_upper",
   "alactic_sprints",
+  "roadwork_zone2",
   "roadwork_tempo",
   "roadwork_intervals",
   "round_based_conditioning"
@@ -88,6 +90,28 @@ function normalProfile(input: Pick<ResolveSessionDurationPolicyInput, "boxingLev
     };
   }
   return profile;
+}
+
+function doseProfile(profile: DurationProfile, input: Pick<ResolveSessionDurationPolicyInput, "family" | "trainingDose">): DurationProfile {
+  const dose = input.trainingDose ?? "standard";
+  if (input.family === "recovery_reset" || input.family === "taper_maintenance") {
+    return profile;
+  }
+  if (dose === "minimal") {
+    return { ...profile, target: profile.min };
+  }
+  if (dose === "standard") {
+    return profile;
+  }
+  if (!HIGH_DEMAND_FAMILIES.has(input.family)) {
+    return dose === "high" ? { ...profile, target: Math.max(profile.target, profile.max - 5) } : profile;
+  }
+  const span = profile.max - profile.min;
+  const fraction = dose === "high" ? 0.85 : 0.68;
+  return {
+    ...profile,
+    target: clamp(Math.round(profile.min + span * fraction), profile.target, profile.max)
+  };
 }
 
 function withReason(reasons: string[], condition: boolean, reason: string): void {
@@ -146,7 +170,7 @@ function unique(values: readonly string[]): readonly string[] {
 }
 
 export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicyInput): SessionDurationPolicyResult {
-  const normal = normalProfile(input);
+  const normal = doseProfile(normalProfile(input), input);
   const reasons: string[] = [];
   let range = normal;
   let category: GeneratedSessionDurationPolicyCategory = "normal_support";

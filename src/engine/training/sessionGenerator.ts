@@ -1,5 +1,5 @@
 import type { BoxingLevel, GeneratedSessionFamily, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
-import type { PlanGenerationPrimaryFocus, TrainingGenerationConstraintSummaryAudit } from "./types";
+import type { PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, TrainingGenerationConstraintSummaryAudit } from "./types";
 import { durationPolicyModifications, resolveSessionDurationPolicy } from "./sessionDurationPolicy";
 import { generatedSessionLabels } from "./trainingStimulus";
 import { familySequenceForTrainingFocus } from "./weeklyTrainingPrescriptionPolicy";
@@ -104,6 +104,7 @@ export interface GenerateSupportSessionInput {
   planRevisionId?: string | undefined;
   planStartDate?: string | undefined;
   primaryFocus?: PlanGenerationPrimaryFocus | undefined;
+  trainingDose?: PlanGenerationTrainingDose | undefined;
   recentFamilies?: readonly GeneratedSessionFamily[] | undefined;
   seed?: string | undefined;
   supportDayIndex?: number | undefined;
@@ -145,6 +146,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     severeFuelingRisk: input.severeFuelingRisk,
     uncertainFueling: input.uncertainFueling,
     primaryFocus: input.primaryFocus,
+    trainingDose: input.trainingDose,
     weekIndex: input.weekIndex,
     volumeStrategy: input.phase.phase === "fight_week" ? "taper" : input.phase.phase === "tournament" ? "tournament_conserve" : undefined
   });

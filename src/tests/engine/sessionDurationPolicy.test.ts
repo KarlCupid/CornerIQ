@@ -16,8 +16,8 @@ describe("session duration policy", () => {
     });
 
     expect(policy.durationPolicyCategory).toBe("normal_support");
-    expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(40);
-    expect(policy.targetDurationMinutes).toBeLessThanOrEqual(55);
+    expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(55);
+    expect(policy.targetDurationMinutes).toBeLessThanOrEqual(75);
   });
 
   it("sets normal roadwork and conditioning support above microdose duration", () => {
@@ -33,8 +33,8 @@ describe("session duration policy", () => {
     });
 
     expect(policy.durationPolicyCategory).toBe("normal_support");
-    expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(35);
-    expect(policy.targetDurationMinutes).toBeLessThanOrEqual(55);
+    expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(45);
+    expect(policy.targetDurationMinutes).toBeLessThanOrEqual(75);
   });
 
   it("does not automatically cap amber readiness to 22 minutes", () => {
@@ -68,7 +68,7 @@ describe("session duration policy", () => {
     });
 
     expect(policy.durationPolicyCategory).toBe("normal_support");
-    expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(40);
+    expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(55);
     expect(policy.durationReductionReasons.join(" ")).not.toContain("Low-confidence fuel data reduced duration");
   });
 

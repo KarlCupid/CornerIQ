@@ -258,6 +258,27 @@ function GeneratedSupportSummaryCard({
                 Selected days: {viewModel.generationAudit.selectedSupportDays.length > 0 ? viewModel.generationAudit.selectedSupportDays.join(", ") : "None"}
               </Text>
               <Text style={screenStyles.subtle}>
+                Dose: {viewModel.generationAudit.selectedTrainingDose ?? "unknown"}; allowed days: {viewModel.generationAudit.candidateAllowedDays}; over-60 sessions: {viewModel.generationAudit.sessionsOver60Minutes ?? 0}.
+              </Text>
+              {viewModel.generationAudit.targetSessionCountReason ? (
+                <Text style={screenStyles.subtle}>Target reason: {viewModel.generationAudit.targetSessionCountReason}</Text>
+              ) : null}
+              {(viewModel.generationAudit.unusedAvailableDays ?? []).length > 0 ? (
+                <Text style={screenStyles.subtle}>Unused available days: {(viewModel.generationAudit.unusedAvailableDays ?? []).join(", ")}</Text>
+              ) : null}
+              {(viewModel.generationAudit.repairActionsApplied ?? []).map((repair, index) => (
+                <Text key={`repair-action:${index}`} style={screenStyles.subtle}>Repair: {repair}</Text>
+              ))}
+              {(viewModel.generationAudit.whyOnlyFourSessionsIfSixDaysAvailable ?? []).map((reason, index) => (
+                <Text key={`four-session-reason:${index}`} style={screenStyles.subtle}>Four-session note: {reason}</Text>
+              ))}
+              {(viewModel.generationAudit.whyOnlyTwoHardDaysIfTargetWasThree ?? []).map((reason, index) => (
+                <Text key={`two-hard-reason:${index}`} style={screenStyles.subtle}>Hard-day shortfall note: {reason}</Text>
+              ))}
+              {(viewModel.generationAudit.whyAllSessionsUnder60IfSeriousOrHigh ?? []).map((reason, index) => (
+                <Text key={`under-sixty-reason:${index}`} style={screenStyles.subtle}>Duration note: {reason}</Text>
+              ))}
+              <Text style={screenStyles.subtle}>
                 Persisted considered: {viewModel.generationAudit.persistedGeneratedSessionsConsidered.length}; ignored: {viewModel.generationAudit.persistedGeneratedSessionsIgnored.length}
               </Text>
               {viewModel.generationAudit.persistedGeneratedSessionsIgnored.slice(0, 3).map((session) => (

@@ -4,6 +4,7 @@ import type {
   ExerciseResultRecord,
   GeneratedTrainingSession,
   JourneyEvent,
+  PlanGenerationTrainingDose,
   PlanGenerationPrimaryFocus,
   ProtectedWorkout,
   RecurringProtectedWorkoutAnchor
@@ -60,6 +61,7 @@ function planWizardBuildEvent(input: {
   id: string;
   planStartDate?: string | undefined;
   selectedSupportDays?: readonly string[] | undefined;
+  trainingDose?: PlanGenerationTrainingDose | undefined;
 }): JourneyEvent {
   const selectedSupportDays = input.selectedSupportDays ?? ["tuesday", "thursday", "saturday"];
   return {
@@ -76,6 +78,7 @@ function planWizardBuildEvent(input: {
         action: "start_new_plan",
         goalMode: "build",
         primaryFocus: input.focus,
+        trainingDose: input.trainingDose ?? "standard",
         selectedSupportDays,
         planStartDate: input.planStartDate ?? fixtureAsOfDate,
         requestedAt: "2026-05-19T09:00:00.000Z",
@@ -85,6 +88,66 @@ function planWizardBuildEvent(input: {
       }
     }
   };
+}
+
+const sixSupportDays = ["tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+
+function seriousSixDayState(input: {
+  focus?: PlanGenerationPrimaryFocus | undefined;
+  id?: string | undefined;
+  journey?: typeof pro_4_round_build_strength | undefined;
+  trainingDose?: PlanGenerationTrainingDose | undefined;
+  protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
+} = {}) {
+  const base = input.journey ?? pro_4_round_build_strength;
+  return resolvePerformanceState({
+    journey: {
+      ...base,
+      athlete: {
+        ...base.athlete,
+        boxingLevel: "amateur_open",
+        amateurOrPro: "amateur",
+        trainingAgeYears: 4,
+        scheduleAvailability: sixSupportDays,
+        equipmentAccess: ["dumbbells", "bands", "medicine_ball", "trap_bar", "bench"]
+      },
+      protectedWorkouts: input.protectedWorkouts ?? [],
+      journeyEvents: [
+        planWizardBuildEvent({
+          focus: input.focus ?? "balanced",
+          id: input.id ?? "plan_six_day_serious",
+          planStartDate: "2026-05-18",
+          selectedSupportDays: sixSupportDays,
+          trainingDose: input.trainingDose ?? "serious"
+        })
+      ],
+      readinessHistory: [
+        {
+          date: fixtureAsOfDate,
+          sleepHours: 8,
+          sleepQuality1To5: 4,
+          energy1To5: 4,
+          soreness1To5: 2,
+          stress1To5: 2,
+          mood1To5: 4,
+          painNotes: [],
+          illnessSymptoms: [],
+          dizziness: false,
+          fainting: false,
+          urineColor: "normal"
+        }
+      ],
+      nutritionHistory: [
+        { date: "2026-05-17", calories: 2650, proteinGrams: 145, carbohydrateGrams: 330, fatGrams: 80, confidence: "high" },
+        { date: "2026-05-18", calories: 2700, proteinGrams: 150, carbohydrateGrams: 340, fatGrams: 82, confidence: "high" },
+        { date: "2026-05-19", calories: 2725, proteinGrams: 152, carbohydrateGrams: 350, fatGrams: 78, confidence: "high" }
+      ],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    },
+    asOfDate: fixtureAsOfDate
+  });
 }
 
 describe("training block and microcycle engine", () => {
@@ -508,6 +571,174 @@ describe("training block and microcycle engine", () => {
     expect(conditioning.training.generatedSessions.some((session) => ["roadwork_tempo", "roadwork_intervals", "round_based_conditioning"].includes(session.family))).toBe(true);
     expect(conditioning.training.generatedSessions.some((session) => session.durationMinutes >= 35)).toBe(true);
     expect(conditioning.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(conditioning.training.supportGenerationAudit.minHardDayCount);
+  });
+
+  it("six available days with serious build dose generates a full useful week", () => {
+    const state = seriousSixDayState();
+    const audit = state.training.supportGenerationAudit;
+    const durations = state.training.generatedSessions.map((session) => session.durationMinutes);
+
+    expect(audit.selectedTrainingDose).toBe("serious");
+    expect(audit.requestedSupportDayCount).toBe(6);
+    expect(audit.targetGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.targetHardDayCount).toBeGreaterThanOrEqual(3);
+    expect(audit.actualHardDayCount).toBe(audit.targetHardDayCount);
+    expect(audit.actualHighStimulusDayCount).toBe(audit.targetHighStimulusDayCount);
+    expect(audit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(220);
+    expect(Math.max(...durations)).toBeGreaterThanOrEqual(60);
+    expect(durations.every((duration) => duration < 60)).toBe(false);
+    expect(audit.sessionsOver60Minutes).toBeGreaterThanOrEqual(1);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("six available days with standard build dose stays acceptable without collapsing variety", () => {
+    const state = seriousSixDayState({ id: "plan_six_day_standard", trainingDose: "standard" });
+    const audit = state.training.supportGenerationAudit;
+    const families = state.training.generatedSessions.map((session) => session.family);
+
+    expect(audit.selectedTrainingDose).toBe("standard");
+    expect(audit.targetGeneratedSupportCount).toBeGreaterThanOrEqual(4);
+    expect(audit.targetGeneratedSupportCount).toBeLessThanOrEqual(5);
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(4);
+    expect(audit.actualGeneratedSupportCount).toBeLessThanOrEqual(5);
+    expect(audit.targetHardDayCount).toBeGreaterThanOrEqual(2);
+    expect(families.some((family) => family.startsWith("strength"))).toBe(true);
+    expect(families.some((family) => family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints")).toBe(true);
+    expect(audit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(audit.targetWeeklyGeneratedMinutes);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("serious strength focus includes a long lift and meets high-stimulus targets", () => {
+    const state = seriousSixDayState({ focus: "strength", id: "plan_six_day_strength_serious" });
+    const audit = state.training.supportGenerationAudit;
+    const strengthSessions = state.training.generatedSessions.filter((session) => session.family.startsWith("strength"));
+
+    expect(strengthSessions.length).toBeGreaterThanOrEqual(audit.targetStrengthExposures);
+    expect(strengthSessions.some((session) => session.durationMinutes >= 60)).toBe(true);
+    expect(audit.actualHighStimulusDayCount).toBe(audit.targetHighStimulusDayCount);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("serious conditioning focus includes long conditioning and meets exposure targets", () => {
+    const state = seriousSixDayState({ focus: "conditioning", id: "plan_six_day_conditioning_serious" });
+    const audit = state.training.supportGenerationAudit;
+    const conditioningSessions = state.training.generatedSessions.filter(
+      (session) => session.family.startsWith("roadwork") || session.family === "round_based_conditioning" || session.family === "alactic_sprints"
+    );
+
+    expect(conditioningSessions.length).toBeGreaterThanOrEqual(audit.targetConditioningExposures);
+    expect(conditioningSessions.some((session) => session.durationMinutes >= 55)).toBe(true);
+    expect(audit.actualHighStimulusDayCount).toBe(audit.targetHighStimulusDayCount);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("protected hard anchors count toward the serious-week hard target without same-day generated hard work", () => {
+    const sparring: ProtectedWorkout = {
+      id: "sparring_monday_anchor",
+      type: "sparring",
+      date: "2026-05-20",
+      durationMinutes: 75,
+      intensity: "hard",
+      protected: true,
+      rounds: 6
+    };
+    const state = seriousSixDayState({ id: "plan_six_day_protected_hard", protectedWorkouts: [sparring] });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(audit.protectedHardDayCount).toBe(1);
+    expect(audit.protectedAnchorsSuppliedHardWork).toBe(true);
+    expect(audit.actualHardDayCount).toBe(audit.targetHardDayCount);
+    expect(state.training.generatedSessions.some((session) => session.date === sparring.date && session.intensity === "hard")).toBe(false);
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("true safety caps serious six-day prescription with explicit audit reasons", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: sixSupportDays
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "balanced",
+            id: "plan_six_day_red_safety",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: sixSupportDays,
+            trainingDose: "serious"
+          })
+        ],
+        readinessHistory: [
+          {
+            date: fixtureAsOfDate,
+            energy1To5: 1,
+            sleepQuality1To5: 1,
+            soreness1To5: 5,
+            stress1To5: 5,
+            mood1To5: 1,
+            painNotes: [],
+            illnessSymptoms: [],
+            dizziness: true,
+            fainting: true
+          }
+        ],
+        nutritionHistory: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(audit.selectedTrainingDose).toBe("serious");
+    expect(audit.targetHardDayCount).toBe(0);
+    expect(audit.actualGeneratedSupportCount).toBeLessThan(5);
+    expect(audit.blockedGenerationReasons.join(" ")).toContain("Readiness is red");
+    expect(audit.downshiftReasons.join(" ")).toContain("Red readiness");
+  });
+
+  it("missing logs do not reduce serious six-day dose, hard targets, or generated minutes", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          boxingLevel: "amateur_open",
+          trainingAgeYears: 4,
+          scheduleAvailability: sixSupportDays,
+          equipmentAccess: ["dumbbells", "bands", "medicine_ball", "trap_bar", "bench"]
+        },
+        readinessHistory: [],
+        nutritionHistory: [],
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "balanced",
+            id: "plan_six_day_missing_logs_serious",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: sixSupportDays,
+            trainingDose: "serious"
+          })
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(state.readiness.color).toBe("unknown");
+    expect(audit.selectedTrainingDose).toBe("serious");
+    expect(audit.targetGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(audit.targetHardDayCount).toBeGreaterThanOrEqual(3);
+    expect(audit.actualHardDayCount).toBe(audit.targetHardDayCount);
+    expect(audit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(220);
+    expect(audit.missingLogsDidNotReduceTraining).toBe(true);
+    expect(audit.reducedBy).not.toContain("readiness");
+    expect(audit.reducedBy).not.toContain("nutrition");
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
   });
 
   it("generated sessions expose user-facing stimulus and type labels", () => {

@@ -14,12 +14,15 @@ import type {
   TournamentDetails,
   TrainingBlock,
   TrainingBlockHistory,
+  TrainingDayPlan,
+  GeneratedSessionFamily,
   GeneratedTrainingSession,
   GeneratedSessionDurationAuditItem,
   PersistedGeneratedSessionAuditItem,
   TrainingGenerationReductionSource,
   TrainingState,
   PlanGenerationIntent,
+  PlanGenerationTrainingDose,
   PlanGenerationPrimaryFocus
 } from "../core/types";
 import { buildLoadLedger } from "./loadLedger";
@@ -38,8 +41,16 @@ import {
   fuelingRiskCapsGeneratedCount,
   supportCountFuelCapFlags
 } from "./trainingGenerationConstraints";
-import { trainingStimulusMix } from "./trainingStimulus";
-import { resolveWeeklyTrainingPrescriptionPolicy } from "./weeklyTrainingPrescriptionPolicy";
+import {
+  isHighStimulusFamily,
+  isHighStimulusGeneratedSession,
+  isHighStimulusProtectedWorkout,
+  isHighStimulusTrainingDay,
+  trainingStimulusForFamily,
+  trainingStimulusMix
+} from "./trainingStimulus";
+import { defaultTrainingDoseForSupportDays } from "./planGenerationIntent";
+import { resolveWeeklyTrainingPrescriptionPolicy, type WeeklyTrainingPrescriptionPolicy } from "./weeklyTrainingPrescriptionPolicy";
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(flags?.some((flag) => flag.status === "active" && flag.hardStop));
@@ -53,34 +64,38 @@ function flagReasonSummary(flags: readonly RiskFlag[]): string {
 }
 
 function protectedHardOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
-  return anchorsForDate(anchors, date).some((anchor) => anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max");
+  return anchorsForDate(anchors, date).some(isHighStimulusProtectedWorkout);
 }
 
-function protectedHardDayCount(anchors: readonly ProtectedWorkout[], dates: readonly ISODateString[]): number {
-  return dates.filter((date) => protectedHardOnDate(anchors, date)).length;
+function protectedHardDayCount(anchors: readonly ProtectedWorkout[], dates: readonly ISODateString[], asOfDate: ISODateString): number {
+  return dates.filter((date) => date >= asOfDate && protectedHardOnDate(anchors, date)).length;
 }
 
 function selectGeneratedHardDates(input: {
   candidateDates: readonly ISODateString[];
   count: number;
+  familySequence: readonly GeneratedSessionFamily[];
   protectedAnchors: readonly ProtectedWorkout[];
 }): ReadonlySet<ISODateString> {
   if (input.count <= 0) {
     return new Set();
   }
-  const eligible = input.candidateDates.filter((date) => !protectedHardOnDate(input.protectedAnchors, date));
+  const eligible = input.candidateDates
+    .map((date, index) => ({
+      date,
+      hardCapable: isHighStimulusFamily(input.familySequence[index % input.familySequence.length] ?? "trunk_durability")
+    }))
+    .filter((candidate) => !protectedHardOnDate(input.protectedAnchors, candidate.date));
   const selected: ISODateString[] = [];
-  for (const date of eligible) {
-    if (selected.every((existing) => Math.abs(daysBetween(existing, date)) >= 2)) {
-      selected.push(date);
-    }
+  for (const candidate of eligible.filter((item) => item.hardCapable)) {
+    selected.push(candidate.date);
     if (selected.length >= input.count) {
       return new Set(selected);
     }
   }
-  for (const date of eligible) {
-    if (!selected.includes(date)) {
-      selected.push(date);
+  for (const candidate of eligible) {
+    if (!selected.includes(candidate.date)) {
+      selected.push(candidate.date);
     }
     if (selected.length >= input.count) {
       break;
@@ -217,6 +232,152 @@ function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSessio
     merged.set(session.id, session);
   }
   return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function stimulusBucketForFamily(family: GeneratedSessionFamily): "strength" | "conditioning" | "power" | "durability" | "mobility" | "recovery" | "taper" {
+  return trainingStimulusForFamily(family);
+}
+
+function generatedHighStimulusDateCount(sessions: readonly GeneratedTrainingSession[]): number {
+  return new Set(sessions.filter(isHighStimulusGeneratedSession).map((session) => session.date)).size;
+}
+
+function lowerStimulusSession(session: GeneratedTrainingSession): GeneratedTrainingSession {
+  const stimulus = trainingStimulusForFamily(session.family);
+  const maxUsefulDuration = stimulus === "strength" ? 59 : stimulus === "power" ? 49 : stimulus === "conditioning" ? 44 : session.durationMinutes;
+  const nextDuration = Math.min(session.durationMinutes, maxUsefulDuration);
+  return {
+    ...session,
+    durationMinutes: nextDuration,
+    finalDurationMinutes: Math.min(session.finalDurationMinutes ?? session.durationMinutes, nextDuration),
+    targetDurationMinutes: Math.min(session.targetDurationMinutes ?? session.durationMinutes, nextDuration),
+    intensity: session.intensity === "hard" ? "moderate" : session.intensity,
+    fuelDemand: session.fuelDemand === "high" ? "moderate" : session.fuelDemand,
+    modifications: [...session.modifications, "Prescription repair: kept this useful but below hard/high-stimulus stress because protected or generated hard work already met the target."]
+  };
+}
+
+function selectionScore(input: {
+  requiredBuckets: ReadonlySet<string>;
+  selected: readonly GeneratedTrainingSession[];
+  session: GeneratedTrainingSession;
+  targetGeneratedHighStimulusDays: number;
+}): number {
+  const selectedHighStimulusDays = generatedHighStimulusDateCount(input.selected);
+  const bucket = stimulusBucketForFamily(input.session.family);
+  const selectedBuckets = new Set(input.selected.map((session) => stimulusBucketForFamily(session.family)));
+  const surplusHighStimulus = isHighStimulusGeneratedSession(input.session) && selectedHighStimulusDays >= input.targetGeneratedHighStimulusDays;
+  return (
+    (isHighStimulusGeneratedSession(input.session) && selectedHighStimulusDays < input.targetGeneratedHighStimulusDays ? 120 : 0) +
+    (surplusHighStimulus ? -120 : 0) +
+    (input.requiredBuckets.has(bucket) && !selectedBuckets.has(bucket) ? 80 : 0) +
+    (input.session.durationMinutes >= 60 ? 30 : 0) +
+    (input.session.fuelDemand === "high" ? 8 : 0)
+  );
+}
+
+function selectGeneratedSessions(input: {
+  candidates: readonly GeneratedTrainingSession[];
+  policy: WeeklyTrainingPrescriptionPolicy;
+  targetSessions: number;
+  trainingDose: PlanGenerationTrainingDose;
+}): { sessions: readonly GeneratedTrainingSession[]; repairActionsApplied: readonly string[] } {
+  const targetCount = Math.min(input.targetSessions, input.candidates.length);
+  const sorted = [...input.candidates].sort((left, right) => left.date.localeCompare(right.date));
+  if (targetCount <= 0 || sorted.length === 0) {
+    return { sessions: [], repairActionsApplied: [] };
+  }
+  const selected: GeneratedTrainingSession[] = [];
+  const repairActions: string[] = [];
+  const requiredBuckets = new Set(input.policy.requiredFamilyBuckets);
+  const add = (session: GeneratedTrainingSession) => {
+    if (selected.length < targetCount && !selected.some((item) => item.id === session.id)) {
+      selected.push(session);
+    }
+  };
+
+  for (const session of sorted.filter(isHighStimulusGeneratedSession)) {
+    if (generatedHighStimulusDateCount(selected) >= input.policy.targetGeneratedHardDayCount) {
+      break;
+    }
+    add(session);
+  }
+  for (const bucket of requiredBuckets) {
+    if (selected.some((session) => stimulusBucketForFamily(session.family) === bucket)) {
+      continue;
+    }
+    const candidate = sorted.find((session) => stimulusBucketForFamily(session.family) === bucket && !selected.some((item) => item.id === session.id));
+    if (candidate) {
+      add(candidate);
+    }
+  }
+  if ((input.trainingDose === "serious" || input.trainingDose === "high") && !selected.some((session) => session.durationMinutes >= 60)) {
+    const longest = [...sorted].sort((left, right) => right.durationMinutes - left.durationMinutes)[0];
+    if (longest) {
+      add(longest);
+    }
+  }
+  while (selected.length < targetCount) {
+    const next = sorted
+      .filter((session) => !selected.some((item) => item.id === session.id))
+      .sort((left, right) => selectionScore({ requiredBuckets, selected, session: right, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }) - selectionScore({ requiredBuckets, selected, session: left, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }))[0];
+    if (!next) {
+      break;
+    }
+    add(next);
+  }
+
+  let repaired = [...selected];
+  while (generatedHighStimulusDateCount(repaired) < input.policy.targetGeneratedHardDayCount) {
+    const replacement = sorted.find((session) => isHighStimulusGeneratedSession(session) && !repaired.some((item) => item.id === session.id));
+    const replaceIndex = repaired.findIndex((session) => !isHighStimulusGeneratedSession(session));
+    if (!replacement || replaceIndex < 0) {
+      break;
+    }
+    repairActions.push(`Swapped ${repaired[replaceIndex]!.family} for ${replacement.family} to meet the hard/high-stimulus target.`);
+    repaired = repaired.map((session, index) => (index === replaceIndex ? replacement : session));
+  }
+
+  const targetMinutes = input.policy.targetWeeklyGeneratedMinutes;
+  let currentMinutes = repaired.reduce((total, session) => total + session.durationMinutes, 0);
+  if (currentMinutes < targetMinutes) {
+    repaired = repaired.map((session) => {
+      if (currentMinutes >= targetMinutes || session.durationPolicyCategory !== "normal_support") {
+        return session;
+      }
+      const maxDuration = session.maxDurationMinutes ?? session.durationMinutes;
+      const extra = Math.min(maxDuration - session.durationMinutes, targetMinutes - currentMinutes);
+      if (extra <= 0) {
+        return session;
+      }
+      currentMinutes += extra;
+      repairActions.push(`Lengthened ${session.family} on ${session.date} by ${extra} minute${extra === 1 ? "" : "s"} to meet the generated-minute target.`);
+      return {
+        ...session,
+        durationMinutes: session.durationMinutes + extra,
+        finalDurationMinutes: (session.finalDurationMinutes ?? session.durationMinutes) + extra,
+        targetDurationMinutes: (session.targetDurationMinutes ?? session.durationMinutes) + extra,
+        modifications: [...session.modifications, `Prescription repair: duration extended by ${extra} minute${extra === 1 ? "" : "s"} to meet the weekly generated-minute target.`]
+      };
+    });
+  }
+
+  while (generatedHighStimulusDateCount(repaired) > input.policy.targetGeneratedHardDayCount) {
+    const replaceIndex = [...repaired]
+      .map((session, index) => ({ index, session }))
+      .reverse()
+      .find((item) => isHighStimulusGeneratedSession(item.session) && item.session.intensity !== "hard")?.index;
+    if (replaceIndex === undefined) {
+      break;
+    }
+    repairActions.push(`Downshifted surplus high-stimulus ${repaired[replaceIndex]!.family} on ${repaired[replaceIndex]!.date} because the hard-day target was already met.`);
+    repaired = repaired.map((session, index) => (index === replaceIndex ? lowerStimulusSession(session) : session));
+  }
+
+  return {
+    sessions: repaired.sort((left, right) => left.date.localeCompare(right.date)),
+    repairActionsApplied: [...new Set(repairActions)]
+  };
 }
 
 function generatedSessionAllowedByCurrentSafety(input: {
@@ -356,21 +517,24 @@ export function resolveWeeklyTrainingPlan(input: {
   const blockedByAnchors = candidateDates.some((date, index) => {
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
-    return supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) && (hasCompetition || (index > 0 && hasSparring));
+    return date >= input.asOfDate && supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) && (hasCompetition || (index > 0 && hasSparring));
   });
   const candidateAllowedDays = candidateDates.filter(
     (date, index) =>
+      date >= input.asOfDate &&
       supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) &&
       !hasProtectedCompetition(input.anchors, date) &&
       !(index > 0 && hasProtectedSparring(input.anchors, date))
   ).length;
   const allowedSupportDates = candidateDates.filter(
     (date, index) =>
+      date >= input.asOfDate &&
       supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) &&
       !hasProtectedCompetition(input.anchors, date) &&
       !(index > 0 && hasProtectedSparring(input.anchors, date))
   );
-  const protectedHardDays = protectedHardDayCount(input.anchors, candidateDates);
+  const protectedHardDays = protectedHardDayCount(input.anchors, candidateDates, input.asOfDate);
+  const selectedTrainingDose = input.planGenerationIntent?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedDays.length || candidateAllowedDays);
   const prescriptionPolicy = resolveWeeklyTrainingPrescriptionPolicy({
     athlete: input.athlete,
     candidateAllowedDays,
@@ -378,6 +542,7 @@ export function resolveWeeklyTrainingPlan(input: {
     primaryFocus,
     protectedHardDayCount: protectedHardDays,
     selectedSupportDayCount: selectedDays.length || candidateAllowedDays,
+    trainingDose: selectedTrainingDose,
     generationConstraints
   });
   const baseTargetSessions = prescriptionPolicy.unconstrainedTargetSessionCount;
@@ -388,6 +553,7 @@ export function resolveWeeklyTrainingPlan(input: {
   const generatedHardDates = selectGeneratedHardDates({
     candidateDates: allowedSupportDates,
     count: prescriptionPolicy.targetGeneratedHardDayCount,
+    familySequence: prescriptionPolicy.familySequence,
     protectedAnchors: input.anchors
   });
   const supportDateOrder = new Map(
@@ -395,7 +561,7 @@ export function resolveWeeklyTrainingPlan(input: {
   );
 
   const recentFamilies = input.persistedGeneratedSessions?.map((session) => session.family) ?? [];
-  const generated = candidateDates.map((date, index) => {
+  const generatedCandidates = candidateDates.map((date, index) => {
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
     if (!supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date)) {
@@ -421,6 +587,7 @@ export function resolveWeeklyTrainingPlan(input: {
             planRevisionId: planRevision,
             planStartDate,
             primaryFocus,
+            trainingDose: selectedTrainingDose,
             recentFamilies,
             seed: input.planGenerationIntent?.seed ?? planRevision,
             supportDayIndex: supportDateOrder.get(date) ?? index,
@@ -446,6 +613,7 @@ export function resolveWeeklyTrainingPlan(input: {
       planRevisionId: planRevision,
       planStartDate,
       primaryFocus,
+      trainingDose: selectedTrainingDose,
       recentFamilies,
       seed: input.planGenerationIntent?.seed ?? planRevision,
       supportDayIndex: supportDateOrder.get(date) ?? index,
@@ -460,8 +628,14 @@ export function resolveWeeklyTrainingPlan(input: {
   })
     .filter((session) => session !== null)
     .filter((session) => input.phase.phase === "tournament" || session.intensity !== "hard" || !input.highCycleSymptoms)
-    .filter((session) => !underFuelingRisk || session.intensity !== "hard")
-    .slice(0, targetSessions);
+    .filter((session) => !underFuelingRisk || session.intensity !== "hard");
+  const generatedSelection = selectGeneratedSessions({
+    candidates: generatedCandidates,
+    policy: prescriptionPolicy,
+    targetSessions,
+    trainingDose: selectedTrainingDose
+  });
+  const generated = generatedSelection.sessions;
 
   const todayAnchors = anchorsForDate(input.anchors, input.asOfDate);
   const block = resolveTrainingBlock({
@@ -490,7 +664,10 @@ export function resolveWeeklyTrainingPlan(input: {
     dayPlans: block.dayPlans,
     adjustments: input.trainingPlanAdjustments ?? []
   });
-  const adjustedGeneratedSessions = adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions);
+  const adjustedGeneratedSessions =
+    adjustmentApplication.activeAdjustments.length > 0
+      ? adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions)
+      : generatedCandidates;
   const scopedPersistedSessions = scopedPersistedGeneratedSessions({
     activeTrainingBlock: input.activeTrainingBlock,
     activeTrainingBlockId: input.activeTrainingBlockId,
@@ -499,7 +676,7 @@ export function resolveWeeklyTrainingPlan(input: {
     planGenerationIntent: input.planGenerationIntent,
     planRevisionId: planRevision
   });
-  const mergedGeneratedSessions = mergeGeneratedSessions(adjustedGeneratedSessions, scopedPersistedSessions.sessions, input.asOfDate)
+  const mergedGeneratedCandidates = mergeGeneratedSessions(adjustedGeneratedSessions, scopedPersistedSessions.sessions, input.asOfDate)
     .filter((session) =>
       generatedSessionAllowedByCurrentSafety({
         anchors: input.anchors,
@@ -512,11 +689,26 @@ export function resolveWeeklyTrainingPlan(input: {
         session,
         underFuelingRisk
       })
-    )
-    .slice(0, targetSessions);
-  const adjustedDayPlans = adjustmentApplication.dayPlans.map((dayPlan) => {
+    );
+  const mergedSelection = selectGeneratedSessions({
+    candidates: mergedGeneratedCandidates,
+    policy: prescriptionPolicy,
+    targetSessions,
+    trainingDose: selectedTrainingDose
+  });
+  const mergedGeneratedSessions = mergedSelection.sessions;
+  const repairActionsApplied = [...new Set([...generatedSelection.repairActionsApplied, ...mergedSelection.repairActionsApplied])];
+  const adjustedDayPlans: readonly TrainingDayPlan[] = adjustmentApplication.dayPlans.map((dayPlan) => {
     const generatedSessions = mergedGeneratedSessions.filter((session) => session.date === dayPlan.date);
-    return { ...dayPlan, generatedSessions };
+    const hardDay = isHighStimulusTrainingDay({ protectedAnchors: dayPlan.protectedAnchors, generatedSessions });
+    const role: TrainingDayPlan["role"] = hardDay ? "hard_day" : dayPlan.role === "hard_day" ? "support_day" : dayPlan.role;
+    return {
+      ...dayPlan,
+      generatedSessions,
+      hardDay,
+      role,
+      fuelDemand: hardDay || generatedSessions.some((session) => session.fuelDemand === "high") ? "high" : generatedSessions.some((session) => session.fuelDemand === "moderate") ? "moderate" : dayPlan.fuelDemand
+    };
   });
   const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
   const ledger = buildLoadLedger(input.anchors, mergedGeneratedSessions);
@@ -543,11 +735,22 @@ export function resolveWeeklyTrainingPlan(input: {
     !reducedBy.includes("readiness") &&
     !reducedBy.includes("nutrition");
   const durationDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.durationReductionReasons ?? []);
-  const protectedHardDayDates = new Set(candidateDates.filter((date) => protectedHardOnDate(input.anchors, date)));
-  const generatedHardDayDates = new Set(mergedGeneratedSessions.filter((session) => session.intensity === "hard").map((session) => session.date));
+  const protectedHardDayDates = new Set(candidateDates.filter((date) => date >= input.asOfDate && protectedHardOnDate(input.anchors, date)));
+  const generatedHardDayDates = new Set(mergedGeneratedSessions.filter(isHighStimulusGeneratedSession).map((session) => session.date));
   const actualHardDayDates = new Set([...protectedHardDayDates, ...generatedHardDayDates]);
   const actualWeeklyGeneratedMinutes = mergedGeneratedSessions.reduce((total, session) => total + session.durationMinutes, 0);
   const actualStimulusMix = trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family));
+  const longestSessionMinutes = mergedGeneratedSessions.reduce((longest, session) => Math.max(longest, session.durationMinutes), 0);
+  const sessionsOver60Minutes = mergedGeneratedSessions.filter((session) => session.durationMinutes >= 60).length;
+  const actualStrengthExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "strength").length;
+  const actualConditioningExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "conditioning").length;
+  const actualPowerExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "power").length;
+  const unusedAvailableDays = allowedSupportDates.filter((date) => !mergedGeneratedSessions.some((session) => session.date === date));
+  const unusedAvailableDayReasons = unusedAvailableDays.map((date) =>
+    mergedGeneratedSessions.length >= targetSessions
+      ? `${date} remained open because the ${selectedTrainingDose} dose target was already filled.`
+      : `${date} was available, but generation or safety filters did not leave a usable support session.`
+  );
   const realLoadConstraintActive = generationConstraints.hardSafetyConstraints.length > 0 || generationConstraints.evidenceBasedLoadConstraints.length > 0 || input.highCycleSymptoms || underFuelingRisk || fuelCountCap || input.readiness.color === "red";
   const whyHardDaysWereReduced = [
     ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && protectedHardDayDates.size >= prescriptionPolicy.targetHardDayCount
@@ -584,14 +787,44 @@ export function resolveWeeklyTrainingPlan(input: {
     generatedFamilies.length > 0 &&
     generatedFamilies.every((family) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility", "recovery_reset"].includes(family));
   const unmetPrescriptionTargets = [
+    ...(mergedGeneratedSessions.length < targetSessions && !realLoadConstraintActive && candidateAllowedDays >= targetSessions
+      ? [`Generated support count ${mergedGeneratedSessions.length}/${targetSessions} target without a real safety constraint.`]
+      : []),
     ...(actualHardDayDates.size < prescriptionPolicy.minHardDayCount && !realLoadConstraintActive
       ? [`Actual hard/high-stimulus days ${actualHardDayDates.size}/${prescriptionPolicy.minHardDayCount} minimum without a real safety constraint.`]
       : []),
     ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && !realLoadConstraintActive && candidateAllowedDays >= targetSessions
       ? [`Generated weekly minutes ${actualWeeklyGeneratedMinutes}/${prescriptionPolicy.targetWeeklyGeneratedMinutes} target without a real safety constraint.`]
       : []),
+    ...((selectedTrainingDose === "serious" || selectedTrainingDose === "high") && sessionsOver60Minutes === 0 && mergedGeneratedSessions.length > 0 && !realLoadConstraintActive
+      ? ["Serious/high generated week has no session at or above 60 minutes without a real safety constraint."]
+      : []),
     ...(onlyDurabilityOrRecovery && !realLoadConstraintActive ? ["Normal week resolved to only durability, mobility, or recovery families without a real safety constraint."] : [])
   ];
+  const whyOnlyFourSessionsIfSixDaysAvailable =
+    (selectedDays.length || candidateAllowedDays) >= 6 && mergedGeneratedSessions.length <= 4
+      ? [
+          ...whyVolumeWasReduced,
+          ...(selectedTrainingDose === "minimal" || selectedTrainingDose === "standard" ? [`${selectedTrainingDose} dose intentionally targets a smaller support week.`] : []),
+          ...(realLoadConstraintActive ? ["Safety or evidence-based load constraints reduced the generated-support count."] : []),
+          ...(candidateAllowedDays < targetSessions ? [`Only ${candidateAllowedDays} candidate days remained after protected-anchor placement.`] : [])
+        ].filter((reason, index, list) => reason.length > 0 && list.indexOf(reason) === index)
+      : [];
+  const whyOnlyTwoHardDaysIfTargetWasThree =
+    prescriptionPolicy.targetHardDayCount >= 3 && actualHardDayDates.size <= 2
+      ? [
+          ...whyHardDaysWereReduced,
+          ...(realLoadConstraintActive ? ["Safety or load constraints reduced hard/high-stimulus work."] : []),
+          ...(candidateAllowedDays < targetSessions ? [`Only ${candidateAllowedDays} candidate days remained after protected-anchor placement.`] : [])
+        ].filter((reason, index, list) => reason.length > 0 && list.indexOf(reason) === index)
+      : [];
+  const whyAllSessionsUnder60IfSeriousOrHigh =
+    (selectedTrainingDose === "serious" || selectedTrainingDose === "high") && mergedGeneratedSessions.length > 0 && sessionsOver60Minutes === 0
+      ? [
+          ...whyVolumeWasReduced,
+          ...(realLoadConstraintActive ? ["Safety, taper, recovery, or load constraints kept every generated session below 60 minutes."] : [])
+        ].filter((reason, index, list) => reason.length > 0 && list.indexOf(reason) === index)
+      : [];
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,
     planStartDate,
@@ -599,6 +832,12 @@ export function resolveWeeklyTrainingPlan(input: {
     activeTrainingBlockId: adjustmentApplication.activeBlock.id,
     weekIndex: adjustmentApplication.activeBlock.progressionState.weekIndex,
     selectedSupportDays: selectedDays,
+    selectedTrainingDose,
+    selectedSupportDayCount: selectedDays.length || candidateAllowedDays,
+    requestedSupportDayCount: selectedDays.length || candidateAllowedDays,
+    targetSessionCountReason: prescriptionPolicy.targetSessionCountReason,
+    unusedAvailableDays,
+    unusedAvailableDayReasons,
     targetGeneratedSupportCount: targetSessions,
     actualGeneratedSupportCount: mergedGeneratedSessions.length,
     todayGeneratedSupportCount: mergedGeneratedSessions.filter((session) => session.date === input.asOfDate).length,
@@ -622,16 +861,30 @@ export function resolveWeeklyTrainingPlan(input: {
     minHardDayCount: prescriptionPolicy.minHardDayCount,
     maxHardDayCount: prescriptionPolicy.maxHardDayCount,
     actualHardDayCount: actualHardDayDates.size,
+    targetHighStimulusDayCount: prescriptionPolicy.targetHardDayCount,
+    actualHighStimulusDayCount: actualHardDayDates.size,
     protectedHardDayCount: protectedHardDayDates.size,
     generatedHardDayCount: generatedHardDayDates.size,
     targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes,
     actualWeeklyGeneratedMinutes,
+    longestSessionMinutes,
+    sessionsOver60Minutes,
     minimumUsefulSessionDuration: prescriptionPolicy.minimumUsefulSessionDuration,
     targetStimulusMix: prescriptionPolicy.targetStimulusMix,
     actualStimulusMix,
     unmetPrescriptionTargets,
     whyHardDaysWereReduced,
     whyVolumeWasReduced,
+    whyOnlyFourSessionsIfSixDaysAvailable,
+    whyOnlyTwoHardDaysIfTargetWasThree,
+    whyAllSessionsUnder60IfSeriousOrHigh,
+    repairActionsApplied,
+    targetStrengthExposures: prescriptionPolicy.targetStrengthExposures,
+    actualStrengthExposures,
+    targetConditioningExposures: prescriptionPolicy.targetConditioningExposures,
+    actualConditioningExposures,
+    targetPowerExposures: prescriptionPolicy.targetPowerExposures,
+    actualPowerExposures,
     missingLogsAffectedGeneration: generationConstraints.advisoryUncertainty.length > 0 && !missingLogsDidNotReduceTraining,
     protectedAnchorsSuppliedHardWork: protectedHardDayDates.size > 0,
     familySelectionReasons: prescriptionPolicy.reasons,
@@ -640,6 +893,7 @@ export function resolveWeeklyTrainingPlan(input: {
       ...prescriptionPolicy.downshiftConstraints,
       ...whyHardDaysWereReduced,
       ...whyVolumeWasReduced,
+      ...repairActionsApplied,
       ...(underFuelingRisk ? ["Under-fueling evidence removed hard generated training."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated training."] : []),
       ...(missingLogsDidNotReduceTraining ? ["Missing logs did not reduce target count or remove strength and conditioning families."] : [])
@@ -667,7 +921,7 @@ export function resolveWeeklyTrainingPlan(input: {
   };
   const adjustedMicrocycle = {
     ...block.currentMicrocycle,
-    plannedHardDays: adjustedDayPlans.filter((day) => day.hardDay || day.generatedSessions.some((session) => session.intensity === "hard")).length,
+    plannedHardDays: adjustedDayPlans.filter((day) => isHighStimulusTrainingDay({ protectedAnchors: day.protectedAnchors, generatedSessions: day.generatedSessions })).length,
     generatedSupportCount: mergedGeneratedSessions.length,
     recoveryDays: adjustedDayPlans.filter((day) => day.role === "recovery_day" || day.recoveryPriority === "high" || day.recoveryPriority === "hard_stop").map((day) => day.date),
     notes:

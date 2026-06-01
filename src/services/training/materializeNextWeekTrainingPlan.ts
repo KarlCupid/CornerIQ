@@ -1,6 +1,7 @@
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
 import { materializeGeneratedSessionsFromPreview } from "../../engine/training/nextWeekGeneratedSessionEngine";
 import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
+import { isHighStimulusTrainingDay } from "../../engine/training/trainingStimulus";
 import type { TrainingBlockTimelineEvent } from "../../engine/training/types";
 import type { TrainingDayPlan, TrainingMicrocycle } from "../../engine/training/trainingBlockTypes";
 import { mapGeneratedSessionToRow } from "../supabase/engineRunRepository";
@@ -105,7 +106,7 @@ function attachGeneratedSessions(input: {
     microcycle: {
       ...input.microcycle,
       generatedSupportCount: input.sessions.length,
-      plannedHardDays: dayPlans.filter((dayPlan) => dayPlan.hardDay || dayPlan.generatedSessions.some((session) => session.intensity === "hard")).length,
+      plannedHardDays: dayPlans.filter((dayPlan) => isHighStimulusTrainingDay({ protectedAnchors: dayPlan.protectedAnchors, generatedSessions: dayPlan.generatedSessions })).length,
       recoveryDays: dayPlans
         .filter((dayPlan) => dayPlan.role === "recovery_day" || dayPlan.recoveryPriority === "high" || dayPlan.recoveryPriority === "hard_stop")
         .map((dayPlan) => dayPlan.date),
