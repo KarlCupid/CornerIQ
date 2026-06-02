@@ -1571,6 +1571,163 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
     substitutions: [bodyweightSubstitution],
     safetyNotes: ["Do not let rhythm work become frantic conditioning."],
     stopConditions: ["Stop if breathing spikes or skill quality becomes chaotic."]
+  },
+  {
+    exerciseId: "technical_quality_gate",
+    name: "Technical quality gate",
+    category: "boxing_skill",
+    families: [
+      "boxing_technical_shadowboxing",
+      "boxing_bag_skill",
+      "boxing_footwork_ringcraft",
+      "boxing_defense_movement",
+      "boxing_jab_entry_exit",
+      "boxing_counter_timing",
+      "boxing_round_skill_circuit",
+      "movement_quality_prep"
+    ],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "5 min",
+    loadGuidance: "Check stance width, guard return, breathing, balance, and one session cue before technical rounds.",
+    rpeTarget: 2,
+    restText: "Pause and reset after each cue.",
+    coachingNotes: ["One quality cue only", "Guard returns before the next action", "Downshift round length if quality breaks twice"],
+    boxingTransfer: "Sets the quality gate that keeps solo boxing work skill-led instead of volume-led.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["This is a readiness gate, not extra volume."],
+    stopConditions: ["Stop or simplify if pain, dizziness, balance loss, or repeated technical breakdown appears."]
+  },
+  {
+    exerciseId: "optional_film_self_check",
+    name: "Optional film self-check",
+    category: "technical",
+    families: [
+      "boxing_technical_shadowboxing",
+      "boxing_bag_skill",
+      "boxing_footwork_ringcraft",
+      "boxing_defense_movement",
+      "boxing_jab_entry_exit",
+      "boxing_counter_timing",
+      "boxing_round_skill_circuit",
+      "movement_quality_prep"
+    ],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "1 round or 5 min",
+    loadGuidance: "Film or mentally review one round, one set, or one cue only; do not add work to fix it today.",
+    rpeTarget: 1,
+    restText: "No extra work after the check.",
+    coachingNotes: ["Pick one cue", "Look for guard return or stance reset", "Write one next-session note"],
+    boxingTransfer: "Turns technical work into a simple athlete-facing feedback loop without adding load.",
+    substitutions: [
+      {
+        exerciseId: "written_quality_note",
+        name: "Written quality note",
+        reason: "No camera or filming does not feel useful today",
+        equipmentNeeded: [],
+        loadGuidance: "Write one observation and one simplification for next time.",
+        coachingNotes: ["One sentence is enough", "Do not add volume"]
+      }
+    ],
+    safetyNotes: ["Self-checks should reduce complexity, not create pressure."],
+    stopConditions: ["Stop if review creates stress, extra volume pressure, or the urge to chase fatigue."]
+  },
+  {
+    exerciseId: "band_press_split_stance",
+    name: "Band press in split stance",
+    category: "main_strength",
+    families: ["strength_upper", "power_upper"],
+    requiredEquipment: ["bands"],
+    noviceEligible: true,
+    repsText: "2-3 x 6-8/side",
+    loadGuidance: "Light-moderate band tension; press from a stable split stance with ribs quiet.",
+    rpeTarget: 6,
+    rirTarget: 2,
+    restText: "60-75 sec",
+    coachingNotes: ["Exhale through the press", "Reach without shrugging", "Keep stance width stable"],
+    boxingTransfer: "Builds guard-friendly reach and trunk control without heavy overhead loading.",
+    substitutions: [
+      {
+        exerciseId: "incline_push_up",
+        name: "Incline push-up",
+        reason: "No band anchor or band tension changes shoulder quality",
+        equipmentNeeded: [],
+        loadGuidance: "Use a wall or stable incline and stop with clean shoulder control.",
+        coachingNotes: ["Ribs stay quiet", "Reach at the top"]
+      }
+    ],
+    safetyNotes: ["Do not let band tension pull the shoulder forward or twist the trunk."],
+    stopConditions: ["Stop if shoulder pinching, numbness, tingling, rib flare, or stance loss appears."]
+  },
+  {
+    exerciseId: "incline_push_up",
+    name: "Incline push-up",
+    category: "secondary_strength",
+    families: ["strength_upper", "shoulder_scap_durability"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    repsText: "2-3 x 6-10",
+    loadGuidance: "Choose a wall or stable incline that keeps reps smooth at RPE 5-6.",
+    rpeTarget: 6,
+    rirTarget: 2,
+    restText: "60 sec",
+    coachingNotes: ["Hands press evenly", "Reach slightly at the top", "Keep neck relaxed"],
+    boxingTransfer: "Builds basic pressing tolerance and shoulder-blade reach for guard position.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Higher incline is valid if shoulders or wrists need less load."],
+    stopConditions: ["Stop if shoulder, wrist, neck, numbness, or tingling symptoms appear."]
+  },
+  {
+    exerciseId: "side_plank_knee_down",
+    name: "Knee-down side plank",
+    category: "durability",
+    families: ["trunk_durability"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "2 x 15-25 sec/side",
+    loadGuidance: "Low-stress side plank with bottom knee down and steady breathing.",
+    rpeTarget: 5,
+    restText: "45-60 sec",
+    coachingNotes: ["Stack ribs and pelvis", "Breathe through the hold", "Stop before shaking changes position"],
+    boxingTransfer: "Supports lateral trunk control for pivots, exits, and defensive posture.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Do not chase max holds or breath-holding."],
+    stopConditions: ["Stop if back pain, rib flare, breath-holding, or shoulder discomfort appears."]
+  },
+  {
+    exerciseId: "roadwork_interval_controlled",
+    name: "Controlled roadwork intervals",
+    category: "roadwork",
+    families: ["roadwork_intervals"],
+    requiredEquipment: [],
+    noviceEligible: false,
+    durationText: "6-8 x 60-90 sec with easy recoveries",
+    loadGuidance: "RPE 6-7 controlled efforts; recover to talk-test breathing between reps and finish with gait still organized.",
+    rpeTarget: 7,
+    restText: "90-120 sec easy walk or jog between efforts",
+    coachingNotes: ["Start conservative", "Use talk-test recovery", "Keep mechanics repeatable", "End before chasing the last rep"],
+    boxingTransfer: "Builds repeatable conditioning for round recovery while protecting gait quality.",
+    substitutions: [
+      {
+        exerciseId: "bike_rower_intervals",
+        name: "Bike or rower intervals",
+        reason: "Running impact is not appropriate today",
+        equipmentNeeded: ["bike", "rower"],
+        loadGuidance: "Same RPE cap with easy recoveries and no all-out finish.",
+        coachingNotes: ["Smooth cadence", "Stop while repeatable"]
+      },
+      {
+        exerciseId: "easy_walk_reset",
+        name: "Easy walk reset",
+        reason: "Interval gates are not met",
+        equipmentNeeded: [],
+        loadGuidance: "Walk at easy effort and skip intervals today.",
+        coachingNotes: ["Keep it easy", "Protect tomorrow"]
+      }
+    ],
+    safetyNotes: ["No all-out efforts, finishers, or intervals through gait-changing pain."],
+    stopConditions: ["Stop if speed, gait quality, breathing control, or coordination drops."]
   }
 ];
 

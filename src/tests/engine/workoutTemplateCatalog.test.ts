@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { GeneratedSessionAddOnBlockSchema } from "../../engine/core/schemas";
+import { ADD_ON_BLOCK_LIBRARY } from "../../engine/training/addOnBlocks";
 import { exerciseCatalog } from "../../engine/training/exerciseCatalog";
+import { BOXING_SKILL_GENERATED_FAMILIES } from "../../engine/training/trainingStimulus";
 import {
   GENERATED_SESSION_FAMILIES,
   fallbackTemplateForFamily,
@@ -54,12 +57,34 @@ describe("workout template catalog", () => {
   });
 
   it("adds priority metadata to add-on blocks so optional notes cannot satisfy required targets", () => {
-    const addOns = workoutTemplateCatalog.flatMap((template) => template.addOnBlocks ?? []);
+    const addOns = [...Object.values(ADD_ON_BLOCK_LIBRARY), ...workoutTemplateCatalog.flatMap((template) => template.addOnBlocks ?? [])];
 
     expect(addOns.length).toBeGreaterThan(0);
+    for (const addOn of addOns) {
+      expect(GeneratedSessionAddOnBlockSchema.safeParse(addOn).success, addOn.id).toBe(true);
+    }
     expect(addOns.every((block) => block.priority && block.placementType && block.athleteFacingPurpose && block.safetyBoundary)).toBe(true);
     expect(addOns.filter((block) => block.priority === "optional").every((block) => block.countsTowardTarget === false)).toBe(true);
-    expect(addOns.filter((block) => block.priority !== "optional").every((block) => block.countsTowardTarget === true)).toBe(true);
+    expect(addOns.filter((block) => block.priority === "optional").every((block) => block.optional === true)).toBe(true);
+    expect(addOns.filter((block) => block.priority === "required").every((block) => block.countsTowardTarget === true && block.optional === false)).toBe(true);
+    expect(addOns.filter((block) => block.priority === "recommended").every((block) => block.countsTowardTarget === true && block.optional === false)).toBe(true);
+    expect(addOns.some((block) => block.priority === "required")).toBe(true);
+    expect(addOns.some((block) => block.priority === "recommended")).toBe(true);
+    expect(addOns.some((block) => block.priority === "optional")).toBe(true);
+  });
+
+  it("keeps boxing-skill templates complete enough to generate athlete-facing technical sessions", () => {
+    const boxingTemplates = workoutTemplateCatalog.filter((template) => BOXING_SKILL_GENERATED_FAMILIES.has(template.family));
+
+    expect(boxingTemplates.length).toBeGreaterThan(0);
+    for (const template of boxingTemplates) {
+      expect(template.boxingSkillTheme, template.templateId).toBeTruthy();
+      expect(template.tacticalTheme, template.templateId).toBeTruthy();
+      expect(template.technicalEmphasis?.length ?? 0, template.templateId).toBeGreaterThan(0);
+      expect(template.roundStructure, template.templateId).toBeTruthy();
+      expect(template.safetyTags, template.templateId).toContain("quality_stop");
+      expect(template.safetyTags, template.templateId).toContain("athlete_quality_checkpoint");
+    }
   });
 
   it("selects practical templates for equipment, novice, advanced, and conservative contexts", () => {

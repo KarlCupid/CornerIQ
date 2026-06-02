@@ -1,5 +1,6 @@
 import type { BoxingLevel, GeneratedSessionAddOnBlock, GeneratedSessionEquipmentMode, GeneratedSessionFamily, GeneratedSessionPriority, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
 import type { PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, TrainingGenerationConstraintSummaryAudit } from "./types";
+import { addOnBlockFromLibrary } from "./addOnBlocks";
 import { durationPolicyModifications, resolveSessionDurationPolicy } from "./sessionDurationPolicy";
 import { BOXING_SKILL_GENERATED_FAMILIES, generatedSessionLabels } from "./trainingStimulus";
 import { familySequenceForTrainingFocus } from "./weeklyTrainingPrescriptionPolicy";
@@ -96,112 +97,31 @@ function inferredEquipmentMode(family: GeneratedSessionFamily, equipmentAccess: 
   return "none";
 }
 
-function addOnPriority(id: string, optional: boolean): GeneratedSessionAddOnBlock["priority"] {
-  if (!optional) {
-    return "required";
-  }
-  if (id.includes("self_check") || id.includes("easy_shadow")) {
-    return "optional";
-  }
-  if (id.includes("reset") || id.includes("mobility") || id.includes("hip")) {
-    return "required";
-  }
-  return "recommended";
-}
-
-function addOnPlacementType(id: string): GeneratedSessionAddOnBlock["placementType"] {
-  if (id.includes("primer")) {
-    return "primer";
-  }
-  if (id.includes("recovery")) {
-    return "recovery";
-  }
-  if (id.includes("reset") || id.includes("mobility") || id.includes("hip")) {
-    return "mobility";
-  }
-  if (id.includes("self_check") || id.includes("touch")) {
-    return "technical_touch";
-  }
-  return "durability";
-}
-
-function addOnBlock(input: {
-  id: string;
-  label: string;
-  durationMinutes: number;
-  intent: string;
-  cues: readonly string[];
-  optional?: boolean | undefined;
-}): GeneratedSessionAddOnBlock {
-  const optional = input.optional ?? true;
-  const priority = addOnPriority(input.id, optional);
-  return {
-    ...input,
-    optional,
-    priority,
-    placementType: addOnPlacementType(input.id),
-    countsTowardTarget: priority !== "optional",
-    athleteFacingPurpose: input.intent,
-    safetyBoundary: "Keep it small, symptom-free, and below the point where movement quality drops."
-  };
-}
-
 function defaultAddOnBlocksForFamily(family: GeneratedSessionFamily): readonly GeneratedSessionAddOnBlock[] {
   if (family.startsWith("strength_")) {
     return [
-      addOnBlock({
-        id: "technical_shadow_primer_10",
-        label: "Technical shadowboxing primer",
-        durationMinutes: 10,
-        intent: "Set stance, guard, and jab rhythm before lifting.",
-        cues: ["Jab-only", "Guard return", "Stop before fatigue"],
-        optional: true
-      }),
-      addOnBlock({
-        id: "hip_reset_8",
-        label: "Hip reset",
-        durationMinutes: 8,
-        intent: "Restore stance range after strength work.",
-        cues: ["Pain-free range", "Easy breathing"],
-        optional: true
-      })
+      addOnBlockFromLibrary("required_movement_prep_8"),
+      addOnBlockFromLibrary("recommended_hip_ankle_reset_8"),
+      addOnBlockFromLibrary("recommended_trunk_transfer_10")
     ];
   }
   if (family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints") {
-    return [
-      addOnBlock({
-        id: "mobility_reset_10",
-        label: "Mobility reset",
-        durationMinutes: 10,
-        intent: "Downshift hips, ankles, and breathing after conditioning.",
-        cues: ["No forced range", "Leave fresher"],
-        optional: true
-      })
-    ];
+    return [addOnBlockFromLibrary("required_conditioning_cooldown_8")];
   }
   if (family.startsWith("power_")) {
     return [
-      addOnBlock({
-        id: "reactive_footwork_primer_8",
-        label: "Reactive footwork primer",
-        durationMinutes: 8,
-        intent: "Link speed work to boxing stance and first-step quality.",
-        cues: ["One cue", "Full reset", "Quiet feet"],
-        optional: true
-      })
+      addOnBlockFromLibrary("required_power_reset_6"),
+      addOnBlockFromLibrary("recommended_reactive_footwork_primer_8")
     ];
   }
+  if (BOXING_SKILL_GENERATED_FAMILIES.has(family)) {
+    return [addOnBlockFromLibrary("required_technical_quality_gate_5"), addOnBlockFromLibrary("optional_film_self_check_5")];
+  }
+  if (family === "agility_reactive_footwork" || family === "footwork_agility" || family === "reaction_rhythm") {
+    return [addOnBlockFromLibrary("recommended_reactive_footwork_primer_8"), addOnBlockFromLibrary("recommended_hip_ankle_reset_8")];
+  }
   if (family === "recovery_reset" || family === "hip_ankle_mobility" || family === "mobility_recovery_flow") {
-    return [
-      addOnBlock({
-        id: "self_check_5",
-        label: "Self-check note",
-        durationMinutes: 5,
-        intent: "Capture one note that can improve the next boxing session.",
-        cues: ["What improved?", "What broke first?"],
-        optional: true
-      })
-    ];
+    return [addOnBlockFromLibrary("optional_breathing_reset_5")];
   }
   return [];
 }
@@ -241,7 +161,15 @@ function deterministicSessionId(input: GenerateSupportSessionInput, family: Gene
 }
 
 function assertSafeOutput(session: GeneratedTrainingSession): GeneratedTrainingSession {
-  const output = [session.id, session.title, session.rationale, ...session.prescription, ...session.protects, ...session.modifications].join(" ");
+  const output = [
+    session.id,
+    session.title,
+    session.rationale,
+    ...session.prescription,
+    ...session.protects,
+    ...session.modifications,
+    ...(session.addOnBlocks ?? []).flatMap((block) => [block.label, block.intent, block.athleteFacingPurpose, block.safetyBoundary, ...block.cues])
+  ].join(" ");
   if (PROHIBITED_OUTPUT.test(output)) {
     throw new Error(`sessionGenerator produced prohibited generated-session copy for ${session.id}`);
   }

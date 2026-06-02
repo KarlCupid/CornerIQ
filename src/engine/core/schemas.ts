@@ -32,7 +32,7 @@ const GeneratedSessionTypeLabelSchema = z.enum([
   "Agility",
   "Mobility / Recovery"
 ]);
-const GeneratedSessionAddOnBlockSchema = z.object({
+export const GeneratedSessionAddOnBlockSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   durationMinutes: z.number().int().positive(),

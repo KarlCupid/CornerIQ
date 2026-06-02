@@ -1,5 +1,6 @@
 import type { GeneratedSessionAddOnBlock, GeneratedSessionEquipmentMode, GeneratedSessionFamily, GeneratedSessionIntensity, GeneratedSessionPriority, GeneratedTrainingSession } from "./types";
 import type { NextWeekTrainingVolumeStrategy } from "./nextWeekMaterializationEngine";
+import { addOnBlockFromLibrary } from "./addOnBlocks";
 
 export const GENERATED_SESSION_FAMILIES = [
   "strength_lower",
@@ -103,55 +104,6 @@ function section(sectionType: WorkoutTemplateSectionKind, name: string, intent: 
   return { sectionType, name, intent, exerciseIds };
 }
 
-function addOnPriority(id: string, optional: boolean): GeneratedSessionAddOnBlock["priority"] {
-  if (!optional) {
-    return "required";
-  }
-  if (id.includes("self_check") || id.includes("film") || id.includes("easy_shadow")) {
-    return "optional";
-  }
-  if (id.includes("reset") || id.includes("cooldown") || id.includes("mobility") || id.includes("hip")) {
-    return "required";
-  }
-  return "recommended";
-}
-
-function addOnPlacementType(id: string): GeneratedSessionAddOnBlock["placementType"] {
-  if (id.includes("primer")) {
-    return "primer";
-  }
-  if (id.includes("cooldown")) {
-    return "finisher";
-  }
-  if (id.includes("recovery")) {
-    return "recovery";
-  }
-  if (id.includes("mobility") || id.includes("reset") || id.includes("hip")) {
-    return "mobility";
-  }
-  if (id.includes("touch") || id.includes("self_check") || id.includes("film")) {
-    return "technical_touch";
-  }
-  return "durability";
-}
-
-function addOn(id: string, label: string, durationMinutes: number, intent: string, cues: readonly string[], optional = true): GeneratedSessionAddOnBlock {
-  const priority = addOnPriority(id, optional);
-  return {
-    id,
-    label,
-    durationMinutes,
-    intent,
-    cues,
-    optional,
-    priority,
-    placementType: addOnPlacementType(id),
-    countsTowardTarget: priority !== "optional",
-    athleteFacingPurpose: intent,
-    safetyBoundary: "Keep it small, symptom-free, and below the point where movement quality drops."
-  };
-}
-
 function template(input: TemplateDraft): WorkoutTemplate {
   return {
     contraindications: ["Active hard-stop safety flag", "Pain or symptoms that change movement quality"],
@@ -216,7 +168,7 @@ function boxingTemplate(input: BoxingTemplateInput): WorkoutTemplate {
     protects: input.protects,
     noviceEligible: input.noviceEligible,
     equipmentTags: input.equipmentTags,
-    safetyTags: input.safetyTags,
+    safetyTags: [...new Set([...input.safetyTags, "quality_stop", "athlete_quality_checkpoint"])],
     preferredWhen: input.preferredWhen,
     avoidWhen: input.avoidWhen,
     progressionNotes: ["Progress by adding one round, one constraint, or one support add-on after clean, symptom-free exposures."],
@@ -244,7 +196,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "primary",
     mainExerciseIds: ["jab_line_mechanics", "double_jab_exit", "shadowboxing_technical_rounds"],
     supportExerciseIds: ["slip_line_entry", "roll_pivot_reset", "serratus_wall_slide"],
-    addOnBlocks: [addOn("shoulder_durability_10", "Shoulder durability", 10, "Keep guard mechanics available after skill volume.", ["Easy cuff work", "Stop before shoulder tone rises"])],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_shoulder_guard_durability_10")],
     protects: ["jab mechanics", "guard return", "technical freshness"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal"],
@@ -268,7 +220,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     equipmentMode: "none",
     sessionPriority: "secondary",
     mainExerciseIds: ["stance_guard_reset", "jab_line_mechanics", "shadowboxing_technical_rounds"],
-    addOnBlocks: [addOn("self_check_5", "Self-check note", 5, "Write one next-session cue from the technical touch.", ["What did the jab fix?", "What broke first?"])],
+    addOnBlocks: [addOnBlockFromLibrary("optional_film_self_check_5")],
     protects: ["skill retention", "freshness", "confidence"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal"],
@@ -293,7 +245,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "primary",
     mainExerciseIds: ["bag_jab_control_round", "bag_combo_exit_round", "defense_after_combo_round"],
     supportExerciseIds: ["pivot_out_reset", "rope_line_ringcraft"],
-    addOnBlocks: [addOn("hip_ankle_reset_8", "Hip and ankle reset", 8, "Restore stance range after bag skill.", ["Pain-free range", "Easy breathing"])],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_hip_ankle_reset_8")],
     protects: ["distance control", "defense after punching", "shoulder quality"],
     noviceEligible: false,
     equipmentTags: ["bag"],
@@ -317,7 +269,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     equipmentMode: "none",
     sessionPriority: "secondary",
     mainExerciseIds: ["shadowboxing_technical_rounds", "double_jab_exit", "defense_after_combo_round"],
-    addOnBlocks: [addOn("self_check_5", "Self-check note", 5, "Capture one technical question for the next session.", ["What should you watch first?", "What stayed repeatable?"])],
+    addOnBlocks: [addOnBlockFromLibrary("optional_film_self_check_5")],
     protects: ["equipment independence", "technical quality", "freshness"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal", "mirror", "line"],
@@ -342,7 +294,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "primary",
     mainExerciseIds: ["rope_line_ringcraft", "corner_escape_pattern", "ring_cutoff_step"],
     supportExerciseIds: ["reactive_footwork_callout"],
-    addOnBlocks: [addOn("agility_finisher_8", "Reactive footwork finisher", 8, "Small reaction dose after ringcraft quality is set.", ["One cue only", "Full stance reset"])],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_reactive_footwork_primer_8")],
     protects: ["ring position", "footwork economy", "stance recovery"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal", "line"],
@@ -390,7 +342,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "primary",
     mainExerciseIds: ["slip_line_entry", "roll_pivot_reset", "pivot_out_reset"],
     supportExerciseIds: ["counter_timing_shadow", "pallof_press"],
-    addOnBlocks: [addOn("trunk_durability_10", "Trunk durability", 10, "Hold defensive positions without collapsing.", ["Ribs stacked", "No breath holding"])],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_trunk_transfer_10")],
     protects: ["defensive posture", "balance", "counter position"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal", "line"],
@@ -438,7 +390,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "primary",
     mainExerciseIds: ["jab_line_mechanics", "double_jab_exit", "jab_body_jab_head"],
     supportExerciseIds: ["pivot_out_reset"],
-    addOnBlocks: [addOn("technical_primer_10", "Technical primer", 10, "Use before boxing or protected technical work.", ["Jab-only", "Pivot exit", "Check guard return"])],
+    addOnBlocks: [addOnBlockFromLibrary("required_technical_quality_gate_5")],
     protects: ["lead hand", "entries", "exits"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal", "mirror"],
@@ -486,7 +438,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "primary",
     mainExerciseIds: ["mirror_feint_reaction", "counter_timing_shadow", "rhythm_change_round"],
     supportExerciseIds: ["pivot_out_reset"],
-    addOnBlocks: [addOn("self_check_5", "Self-check note", 5, "Choose one timing cue for the next session.", ["What did you draw?", "Where did your feet finish?"])],
+    addOnBlocks: [addOnBlockFromLibrary("optional_film_self_check_5")],
     protects: ["timing", "counter position", "rhythm control"],
     noviceEligible: false,
     equipmentTags: ["no_equipment", "minimal", "mirror"],
@@ -534,7 +486,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "primary",
     mainExerciseIds: ["shadowboxing_technical_rounds", "defense_after_combo_round", "rope_line_ringcraft", "rhythm_change_round"],
     supportExerciseIds: ["pallof_press", "serratus_wall_slide"],
-    addOnBlocks: [addOn("cooldown_flow_10", "Cooldown flow", 10, "Downshift after round skill volume.", ["Long exhale", "Easy hips", "Shoulders relaxed"])],
+    addOnBlocks: [addOnBlockFromLibrary("required_conditioning_cooldown_8")],
     protects: ["round skill", "technical endurance", "availability"],
     noviceEligible: false,
     equipmentTags: ["no_equipment", "minimal"],
@@ -582,7 +534,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "secondary",
     mainExerciseIds: ["reactive_footwork_callout", "pivot_out_reset", "low_impact_agility_clock"],
     supportExerciseIds: ["mobility_reset_flow"],
-    addOnBlocks: [addOn("mobility_reset_8", "Mobility reset", 8, "Restore ankles and hips after agility.", ["Easy range", "No forced depth"])],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_hip_ankle_reset_8")],
     protects: ["first-step quality", "braking", "stance recovery"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal", "line"],
@@ -630,7 +582,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     sessionPriority: "secondary",
     mainExerciseIds: ["mobility_reset_flow", "lateral_lunge_regression", "serratus_wall_slide"],
     supportExerciseIds: ["shadowboxing_technical_rounds"],
-    addOnBlocks: [addOn("easy_shadow_touch_10", "Easy technical touch", 10, "Only if mobility improves symptoms and coordination.", ["Jab only", "Breathe easily"])],
+    addOnBlocks: [addOnBlockFromLibrary("optional_easy_shadow_touch_10")],
     protects: ["recovery", "movement quality", "tomorrow's skill"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal"],
@@ -675,7 +627,7 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
     equipmentMode: "none",
     sessionPriority: "add_on",
     mainExerciseIds: ["stance_guard_reset", "hip_switch_step", "dead_bug_anti_extension", "serratus_wall_slide"],
-    addOnBlocks: [addOn("footwork_primer_8", "Footwork primer", 8, "Use before lift, power, or protected technical boxing.", ["Small steps", "Full reset"])],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_reactive_footwork_primer_8")],
     protects: ["movement quality", "guard posture", "availability"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal"],
@@ -1113,7 +1065,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     defaultFuelDemand: "high",
     sections: [
       section("warmup", "Prep", "Warm up enough to protect gait and calves.", ["movement_prep_flow"]),
-      section("main", "Roadwork intervals", "Short controlled efforts with clean mechanics.", ["tempo_roadwork"]),
+      section("main", "Roadwork intervals", "Short controlled efforts with clean mechanics.", ["roadwork_interval_controlled"]),
       section("cooldown", "Reset", "Stop while mechanics are still clean.", ["recovery_breathing_mobility"])
     ],
     protects: ["repeatable conditioning", "gait quality", "weekly cap"],
@@ -1748,7 +1700,16 @@ export function workoutTemplateText(templateItem: WorkoutTemplate): string {
     templateItem.roundStructure ?? "",
     templateItem.equipmentMode ?? "",
     templateItem.sessionPriority ?? "",
-    ...(templateItem.addOnBlocks ?? []).flatMap((block) => [block.label, block.intent, ...block.cues]),
+    ...(templateItem.addOnBlocks ?? []).flatMap((block) => [
+      block.id,
+      block.label,
+      block.intent,
+      block.priority,
+      block.placementType,
+      block.athleteFacingPurpose,
+      block.safetyBoundary,
+      ...block.cues
+    ]),
     ...templateItem.sections.flatMap((workoutSection) => [workoutSection.name, workoutSection.intent, ...workoutSection.exerciseIds])
   ].join(" ");
 }
