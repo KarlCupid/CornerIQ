@@ -20,7 +20,9 @@ import type {
   DetailedTrainingSession,
   GeneratedSessionDurationAuditItem,
   GeneratedSessionDurationPolicyCategory,
+  GeneratedSessionAddOnBlock,
   GeneratedSessionIntensity,
+  GeneratedSessionPriority,
   GeneratedSessionTypeLabel,
   NextWeekGeneratedSupportBias,
   NextWeekTrainingVolumeStrategy,
@@ -353,6 +355,12 @@ export interface TrainViewModel {
     fuelDemand: "low" | "moderate" | "high";
     durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
     durationReductionReasons?: readonly string[] | undefined;
+    boxingSkillTheme?: string | null | undefined;
+    tacticalTheme?: string | null | undefined;
+    technicalEmphasis?: readonly string[] | undefined;
+    roundStructure?: string | null | undefined;
+    addOnBlocks?: readonly GeneratedSessionAddOnBlock[] | undefined;
+    sessionPriority?: GeneratedSessionPriority | undefined;
   }[];
   detailedTodaySessions: readonly {
     generatedSessionId: string;
@@ -570,6 +578,10 @@ export interface PlanViewModel {
       date: string;
       trainingStimulus?: TrainingStimulus | undefined;
       sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
+      boxingSkillTheme?: string | null | undefined;
+      technicalEmphasis?: readonly string[] | undefined;
+      roundStructure?: string | null | undefined;
+      addOnLabels?: readonly string[] | undefined;
     }[];
     marker: string;
     fuelDemand: "low" | "moderate" | "high";
@@ -653,6 +665,23 @@ export interface PlanViewModel {
     actualConditioningExposures?: number | undefined;
     targetPowerExposures?: number | undefined;
     actualPowerExposures?: number | undefined;
+    targetBoxingSkillExposures?: number | undefined;
+    actualBoxingSkillExposures?: number | undefined;
+    targetTechnicalExposures?: number | undefined;
+    actualTechnicalExposures?: number | undefined;
+    targetAgilityFootworkExposures?: number | undefined;
+    actualAgilityFootworkExposures?: number | undefined;
+    targetMobilityRecoveryExposures?: number | undefined;
+    actualMobilityRecoveryExposures?: number | undefined;
+    targetAddOnBlocks?: number | undefined;
+    actualAddOnBlocks?: number | undefined;
+    targetCoachPrepOrReviewPrompts?: number | undefined;
+    actualCoachPrepOrReviewPrompts?: number | undefined;
+    boxingDevelopmentTheme?: string | undefined;
+    protectedAnchorsCountedAsSkill?: number | undefined;
+    generatedSkillSessions?: readonly string[] | undefined;
+    skillExposureMissingReasons?: readonly string[] | undefined;
+    addOnPlacementReasons?: readonly string[] | undefined;
     missingLogsAffectedGeneration?: boolean | undefined;
     protectedAnchorsSuppliedHardWork?: boolean | undefined;
     familySelectionReasons?: readonly string[] | undefined;

@@ -60,6 +60,9 @@ export type SessionIntensity = "easy" | "moderate" | "hard" | "max";
 export type WeeklyProtectedAnchorWeekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 export type ExerciseCategory =
   | "warm_up"
+  | "boxing_skill"
+  | "technical"
+  | "agility"
   | "main_strength"
   | "secondary_strength"
   | "power"
@@ -130,6 +133,16 @@ export type GeneratedSessionFamily =
   | "roadwork_tempo"
   | "roadwork_intervals"
   | "round_based_conditioning"
+  | "boxing_technical_shadowboxing"
+  | "boxing_bag_skill"
+  | "boxing_footwork_ringcraft"
+  | "boxing_defense_movement"
+  | "boxing_jab_entry_exit"
+  | "boxing_counter_timing"
+  | "boxing_round_skill_circuit"
+  | "agility_reactive_footwork"
+  | "mobility_recovery_flow"
+  | "movement_quality_prep"
   | "footwork_agility"
   | "reaction_rhythm"
   | "trunk_durability"
@@ -146,8 +159,36 @@ export type PlanGenerationGoalMode = "build" | "fight" | "tournament" | "recover
 export type PlanGenerationPrimaryFocus = "balanced" | "power" | "conditioning" | "strength" | "mobility";
 export type PlanGenerationTrainingDose = "minimal" | "standard" | "serious" | "high";
 export type GeneratedSessionDurationPolicyCategory = "normal_support" | "workload_moderated" | "recovery" | "taper" | "microdose" | "safety_capped";
-export type TrainingStimulus = "strength" | "conditioning" | "power" | "durability" | "mobility" | "recovery" | "taper";
-export type GeneratedSessionTypeLabel = "Lift" | "Strength" | "Conditioning" | "Roadwork" | "Power" | "Durability" | "Mobility" | "Recovery" | "Taper";
+export type TrainingStimulus = "strength" | "conditioning" | "power" | "durability" | "mobility" | "recovery" | "taper" | "boxing_skill" | "technical" | "agility" | "tactical";
+export type GeneratedSessionTypeLabel =
+  | "Lift"
+  | "Strength"
+  | "Conditioning"
+  | "Roadwork"
+  | "Power"
+  | "Durability"
+  | "Mobility"
+  | "Recovery"
+  | "Taper"
+  | "Technical Boxing"
+  | "Skill"
+  | "Footwork"
+  | "Ringcraft"
+  | "Defense"
+  | "Bag Skill"
+  | "Agility"
+  | "Mobility / Recovery";
+export type GeneratedSessionEquipmentMode = "none" | "bag" | "mirror" | "line" | "coach_optional";
+export type GeneratedSessionPriority = "primary" | "secondary" | "add_on";
+
+export interface GeneratedSessionAddOnBlock {
+  id: string;
+  label: string;
+  durationMinutes: number;
+  intent: string;
+  cues: readonly string[];
+  optional: boolean;
+}
 
 export interface GeneratedSessionDurationAudit {
   targetDurationMinutes: number;
@@ -203,6 +244,14 @@ export interface GeneratedTrainingSession {
   finalDurationMinutes?: number | undefined;
   minDurationMinutes?: number | undefined;
   maxDurationMinutes?: number | undefined;
+  boxingSkillTheme?: string | undefined;
+  tacticalTheme?: string | undefined;
+  technicalEmphasis?: readonly string[] | undefined;
+  roundStructure?: string | undefined;
+  skillLevel?: "novice" | "intermediate" | "advanced" | undefined;
+  equipmentMode?: GeneratedSessionEquipmentMode | undefined;
+  addOnBlocks?: readonly GeneratedSessionAddOnBlock[] | undefined;
+  sessionPriority?: GeneratedSessionPriority | undefined;
 }
 
 export interface ExerciseSetPrescription {
@@ -268,6 +317,16 @@ export interface DetailedTrainingSession {
   stopConditions: readonly string[];
   safetyNotes: readonly string[];
   noGeneratedSparring: true;
+  boxingSkillTheme?: string | undefined;
+  tacticalTheme?: string | undefined;
+  technicalEmphasis?: readonly string[] | undefined;
+  roundStructure?: string | undefined;
+  skillLevel?: "novice" | "intermediate" | "advanced" | undefined;
+  equipmentMode?: GeneratedSessionEquipmentMode | undefined;
+  addOnBlocks?: readonly GeneratedSessionAddOnBlock[] | undefined;
+  sessionPriority?: GeneratedSessionPriority | undefined;
+  coachReviewPrompts?: readonly string[] | undefined;
+  filmCue?: string | undefined;
 }
 
 export interface ExerciseResultDraft {
@@ -440,6 +499,23 @@ export interface TrainingSupportGenerationAudit {
   actualConditioningExposures: number;
   targetPowerExposures: number;
   actualPowerExposures: number;
+  targetBoxingSkillExposures: number;
+  actualBoxingSkillExposures: number;
+  targetTechnicalExposures: number;
+  actualTechnicalExposures: number;
+  targetAgilityFootworkExposures: number;
+  actualAgilityFootworkExposures: number;
+  targetMobilityRecoveryExposures: number;
+  actualMobilityRecoveryExposures: number;
+  targetAddOnBlocks: number;
+  actualAddOnBlocks: number;
+  targetCoachPrepOrReviewPrompts: number;
+  actualCoachPrepOrReviewPrompts: number;
+  boxingDevelopmentTheme: string;
+  protectedAnchorsCountedAsSkill: number;
+  generatedSkillSessions: readonly string[];
+  skillExposureMissingReasons: readonly string[];
+  addOnPlacementReasons: readonly string[];
   missingLogsAffectedGeneration: boolean;
   protectedAnchorsSuppliedHardWork: boolean;
   familySelectionReasons: readonly string[];

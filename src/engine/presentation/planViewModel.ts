@@ -679,7 +679,13 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
           : "No protected anchors.",
       generatedSupport:
         day.generatedSessions.length > 0
-          ? day.generatedSessions.map((session) => `${session.title} (${session.intensity})`).join(", ")
+          ? day.generatedSessions
+              .map((session) =>
+                `${session.sessionTypeLabel ?? "Support"}: ${session.title}${session.boxingSkillTheme ? ` - ${session.boxingSkillTheme}` : ""} (${session.intensity})${
+                  (session.addOnBlocks ?? []).length > 0 ? ` + ${(session.addOnBlocks ?? []).map((block) => block.label).join(" + ")}` : ""
+                }`
+              )
+              .join(", ")
           : "No generated support.",
       compactSummary: compactSummaryForDay(day),
       compactTag: compactTagForDay(day),
@@ -689,7 +695,11 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
         title: session.title,
         date: session.date,
         trainingStimulus: session.trainingStimulus,
-        sessionTypeLabel: session.sessionTypeLabel
+        sessionTypeLabel: session.sessionTypeLabel,
+        boxingSkillTheme: session.boxingSkillTheme ?? null,
+        technicalEmphasis: session.technicalEmphasis ?? [],
+        roundStructure: session.roundStructure ?? null,
+        addOnLabels: (session.addOnBlocks ?? []).map((block) => block.label)
       })),
       marker:
         day.role === "tournament_conservation_day"
@@ -766,6 +776,23 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       actualConditioningExposures: state.training.supportGenerationAudit.actualConditioningExposures,
       targetPowerExposures: state.training.supportGenerationAudit.targetPowerExposures,
       actualPowerExposures: state.training.supportGenerationAudit.actualPowerExposures,
+      targetBoxingSkillExposures: state.training.supportGenerationAudit.targetBoxingSkillExposures,
+      actualBoxingSkillExposures: state.training.supportGenerationAudit.actualBoxingSkillExposures,
+      targetTechnicalExposures: state.training.supportGenerationAudit.targetTechnicalExposures,
+      actualTechnicalExposures: state.training.supportGenerationAudit.actualTechnicalExposures,
+      targetAgilityFootworkExposures: state.training.supportGenerationAudit.targetAgilityFootworkExposures,
+      actualAgilityFootworkExposures: state.training.supportGenerationAudit.actualAgilityFootworkExposures,
+      targetMobilityRecoveryExposures: state.training.supportGenerationAudit.targetMobilityRecoveryExposures,
+      actualMobilityRecoveryExposures: state.training.supportGenerationAudit.actualMobilityRecoveryExposures,
+      targetAddOnBlocks: state.training.supportGenerationAudit.targetAddOnBlocks,
+      actualAddOnBlocks: state.training.supportGenerationAudit.actualAddOnBlocks,
+      targetCoachPrepOrReviewPrompts: state.training.supportGenerationAudit.targetCoachPrepOrReviewPrompts,
+      actualCoachPrepOrReviewPrompts: state.training.supportGenerationAudit.actualCoachPrepOrReviewPrompts,
+      boxingDevelopmentTheme: state.training.supportGenerationAudit.boxingDevelopmentTheme,
+      protectedAnchorsCountedAsSkill: state.training.supportGenerationAudit.protectedAnchorsCountedAsSkill,
+      generatedSkillSessions: state.training.supportGenerationAudit.generatedSkillSessions,
+      skillExposureMissingReasons: state.training.supportGenerationAudit.skillExposureMissingReasons,
+      addOnPlacementReasons: state.training.supportGenerationAudit.addOnPlacementReasons,
       missingLogsAffectedGeneration: state.training.supportGenerationAudit.missingLogsAffectedGeneration,
       protectedAnchorsSuppliedHardWork: state.training.supportGenerationAudit.protectedAnchorsSuppliedHardWork,
       familySelectionReasons: state.training.supportGenerationAudit.familySelectionReasons,

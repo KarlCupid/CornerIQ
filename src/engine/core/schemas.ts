@@ -10,8 +10,34 @@ const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", 
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
-const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper"]);
-const GeneratedSessionTypeLabelSchema = z.enum(["Lift", "Strength", "Conditioning", "Roadwork", "Power", "Durability", "Mobility", "Recovery", "Taper"]);
+const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper", "boxing_skill", "technical", "agility", "tactical"]);
+const GeneratedSessionTypeLabelSchema = z.enum([
+  "Lift",
+  "Strength",
+  "Conditioning",
+  "Roadwork",
+  "Power",
+  "Durability",
+  "Mobility",
+  "Recovery",
+  "Taper",
+  "Technical Boxing",
+  "Skill",
+  "Footwork",
+  "Ringcraft",
+  "Defense",
+  "Bag Skill",
+  "Agility",
+  "Mobility / Recovery"
+]);
+const GeneratedSessionAddOnBlockSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  durationMinutes: z.number().int().positive(),
+  intent: z.string().min(1),
+  cues: z.array(z.string()),
+  optional: z.boolean()
+});
 
 export const MassSchema = z.object({
   value: z.number().positive(),
@@ -342,6 +368,16 @@ export const GeneratedTrainingSessionSchema = z.object({
     "roadwork_tempo",
     "roadwork_intervals",
     "round_based_conditioning",
+    "boxing_technical_shadowboxing",
+    "boxing_bag_skill",
+    "boxing_footwork_ringcraft",
+    "boxing_defense_movement",
+    "boxing_jab_entry_exit",
+    "boxing_counter_timing",
+    "boxing_round_skill_circuit",
+    "agility_reactive_footwork",
+    "mobility_recovery_flow",
+    "movement_quality_prep",
     "footwork_agility",
     "reaction_rhythm",
     "trunk_durability",
@@ -375,7 +411,15 @@ export const GeneratedTrainingSessionSchema = z.object({
   selectedTemplateDefaultDuration: z.number().int().positive().optional(),
   finalDurationMinutes: z.number().int().positive().optional(),
   minDurationMinutes: z.number().int().positive().optional(),
-  maxDurationMinutes: z.number().int().positive().optional()
+  maxDurationMinutes: z.number().int().positive().optional(),
+  boxingSkillTheme: z.string().min(1).optional(),
+  tacticalTheme: z.string().min(1).optional(),
+  technicalEmphasis: z.array(z.string()).optional(),
+  roundStructure: z.string().min(1).optional(),
+  skillLevel: z.enum(["novice", "intermediate", "advanced"]).optional(),
+  equipmentMode: z.enum(["none", "bag", "mirror", "line", "coach_optional"]).optional(),
+  addOnBlocks: z.array(GeneratedSessionAddOnBlockSchema).optional(),
+  sessionPriority: z.enum(["primary", "secondary", "add_on"]).optional()
 });
 
 export const CompletedTrainingSessionSchema = z.object({

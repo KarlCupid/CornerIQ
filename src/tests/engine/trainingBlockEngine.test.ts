@@ -24,6 +24,34 @@ import {
   underfueling_risk_camp
 } from "../fixtures/engineFixtures";
 
+const generatedBoxingSkillFamilies = new Set<string>([
+  "boxing_technical_shadowboxing",
+  "boxing_bag_skill",
+  "boxing_footwork_ringcraft",
+  "boxing_defense_movement",
+  "boxing_jab_entry_exit",
+  "boxing_counter_timing",
+  "boxing_round_skill_circuit"
+]);
+
+function generatedSessionSafetyText(sessions: readonly GeneratedTrainingSession[]): string {
+  return sessions
+    .flatMap((session) => [
+      session.title,
+      session.rationale,
+      ...session.prescription,
+      ...session.protects,
+      ...session.modifications,
+      session.boxingSkillTheme ?? "",
+      session.tacticalTheme ?? "",
+      session.roundStructure ?? "",
+      ...(session.technicalEmphasis ?? []),
+      ...(session.addOnBlocks ?? []).flatMap((block) => [block.label, block.intent, ...block.cues])
+    ])
+    .join(" ")
+    .toLowerCase();
+}
+
 const completedGoodSession: CompletedTrainingSession = {
   id: "completed_good_1",
   date: "2026-05-18",
@@ -589,6 +617,48 @@ describe("training block and microcycle engine", () => {
     expect(Math.max(...durations)).toBeGreaterThanOrEqual(60);
     expect(durations.every((duration) => duration < 60)).toBe(false);
     expect(audit.sessionsOver60Minutes).toBeGreaterThanOrEqual(1);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("serious no-anchor build week generates boxing skill exposures without losing strength and conditioning", () => {
+    const state = seriousSixDayState({ id: "plan_six_day_boxing_engine" });
+    const audit = state.training.supportGenerationAudit;
+    const families = state.training.generatedSessions.map((session) => session.family);
+    const boxingSkillSessions = state.training.generatedSessions.filter((session) => generatedBoxingSkillFamilies.has(session.family));
+
+    expect(audit.targetBoxingSkillExposures).toBeGreaterThanOrEqual(2);
+    expect(audit.actualBoxingSkillExposures).toBeGreaterThanOrEqual(2);
+    expect(audit.actualTechnicalExposures).toBeGreaterThanOrEqual(1);
+    expect(audit.generatedSkillSessions.length).toBeGreaterThanOrEqual(2);
+    expect(boxingSkillSessions.some((session) => session.sessionPriority === "primary")).toBe(true);
+    expect(boxingSkillSessions.some((session) => session.boxingSkillTheme && session.roundStructure)).toBe(true);
+    expect(boxingSkillSessions.some((session) => (session.addOnBlocks ?? []).length > 0)).toBe(true);
+    expect(families.some((family) => family.startsWith("strength"))).toBe(true);
+    expect(families.some((family) => family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints")).toBe(true);
+    expect(generatedSessionSafetyText(state.training.generatedSessions)).not.toMatch(/sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight/);
+    expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("protected technical anchors count toward skill exposure while generated work prepares or consolidates away from that day", () => {
+    const technicalAnchor: ProtectedWorkout = {
+      id: "protected_technical_wednesday",
+      type: "technical_session",
+      date: "2026-05-20",
+      durationMinutes: 60,
+      intensity: "moderate",
+      protected: true,
+      rounds: 5,
+      note: "Coach-led technical boxing"
+    };
+    const state = seriousSixDayState({ id: "plan_six_day_protected_technical", protectedWorkouts: [technicalAnchor] });
+    const audit = state.training.supportGenerationAudit;
+    const generatedOnAnchorDate = state.training.generatedSessions.filter((session) => session.date === technicalAnchor.date);
+
+    expect(audit.protectedAnchorsCountedAsSkill).toBe(1);
+    expect(audit.actualBoxingSkillExposures).toBeGreaterThanOrEqual(audit.targetBoxingSkillExposures);
+    expect(audit.generatedSkillSessions.length).toBeGreaterThanOrEqual(1);
+    expect(audit.addOnPlacementReasons.join(" ")).toMatch(/prep|review|consolidat/i);
+    expect(generatedOnAnchorDate.some((session) => generatedBoxingSkillFamilies.has(session.family))).toBe(false);
     expect(audit.unmetPrescriptionTargets).toEqual([]);
   });
 

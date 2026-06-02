@@ -86,6 +86,23 @@ describe("workout template catalog", () => {
         conservativeFueling: true
       }).defaultFuelDemand
     ).toBe("low");
+
+    expect(
+      selectWorkoutTemplate({
+        family: "boxing_bag_skill",
+        equipmentAccess: ["bag"],
+        novice: false,
+        readinessColor: "green"
+      }).equipmentTags
+    ).toContain("bag");
+
+    expect(
+      selectWorkoutTemplate({
+        family: "boxing_bag_skill",
+        equipmentAccess: ["none"],
+        novice: true
+      }).equipmentTags
+    ).toContain("no_equipment");
   });
 
   it("keeps primary generated workout templates in normal-duration ranges", () => {
@@ -100,6 +117,16 @@ describe("workout template catalog", () => {
       roadwork_tempo: 35,
       roadwork_intervals: 35,
       round_based_conditioning: 35,
+      boxing_technical_shadowboxing: 40,
+      boxing_bag_skill: 40,
+      boxing_footwork_ringcraft: 35,
+      boxing_defense_movement: 35,
+      boxing_jab_entry_exit: 35,
+      boxing_counter_timing: 35,
+      boxing_round_skill_circuit: 40,
+      agility_reactive_footwork: 30,
+      mobility_recovery_flow: 25,
+      movement_quality_prep: 25,
       footwork_agility: 30,
       trunk_durability: 25,
       shoulder_scap_durability: 25,

@@ -45,7 +45,14 @@ function compactSession(session: PerformanceState["training"]["generatedSessions
     durationPolicyCategory: session.durationPolicyCategory ?? (session.durationMinutes < 25 ? "microdose" : "normal_support"),
     durationReductionReasons: session.durationReductionReasons ?? [],
     selectedTemplateId: session.selectedTemplateId ?? session.templateId ?? null,
-    selectedTemplateDefaultDuration: session.selectedTemplateDefaultDuration ?? null
+    selectedTemplateDefaultDuration: session.selectedTemplateDefaultDuration ?? null,
+    boxingSkillTheme: session.boxingSkillTheme ?? null,
+    tacticalTheme: session.tacticalTheme ?? null,
+    technicalEmphasis: session.technicalEmphasis ?? [],
+    roundStructure: session.roundStructure ?? null,
+    equipmentMode: session.equipmentMode ?? null,
+    addOnBlocks: session.addOnBlocks ?? [],
+    sessionPriority: session.sessionPriority ?? "secondary"
   };
 }
 
@@ -276,7 +283,13 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       protects: session.protects,
       fuelDemand: session.fuelDemand,
       durationPolicyCategory: session.durationPolicyCategory ?? (session.durationMinutes < 25 ? "microdose" : "normal_support"),
-      durationReductionReasons: session.durationReductionReasons ?? []
+      durationReductionReasons: session.durationReductionReasons ?? [],
+      boxingSkillTheme: session.boxingSkillTheme ?? null,
+      tacticalTheme: session.tacticalTheme ?? null,
+      technicalEmphasis: session.technicalEmphasis ?? [],
+      roundStructure: session.roundStructure ?? null,
+      addOnBlocks: session.addOnBlocks ?? [],
+      sessionPriority: session.sessionPriority ?? "secondary"
     })),
     detailedTodaySessions,
     detailedWeeklySessions,

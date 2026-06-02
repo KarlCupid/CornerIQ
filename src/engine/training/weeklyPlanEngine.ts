@@ -46,6 +46,10 @@ import {
   isHighStimulusGeneratedSession,
   isHighStimulusProtectedWorkout,
   isHighStimulusTrainingDay,
+  AGILITY_FOOTWORK_GENERATED_FAMILIES,
+  BOXING_SKILL_GENERATED_FAMILIES,
+  MOBILITY_RECOVERY_GENERATED_FAMILIES,
+  TECHNICAL_BOXING_GENERATED_FAMILIES,
   trainingStimulusForFamily,
   trainingStimulusMix
 } from "./trainingStimulus";
@@ -65,6 +69,18 @@ function flagReasonSummary(flags: readonly RiskFlag[]): string {
 
 function protectedHardOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
   return anchorsForDate(anchors, date).some(isHighStimulusProtectedWorkout);
+}
+
+function isProtectedBoxingSkillAnchor(anchor: ProtectedWorkout): boolean {
+  return anchor.type === "boxing_class" || anchor.type === "technical_session" || anchor.type === "pads_mitts" || anchor.type === "bag_work" || anchor.type === "footwork_session" || anchor.type === "sparring";
+}
+
+function protectedBoxingSkillOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
+  return anchorsForDate(anchors, date).some(isProtectedBoxingSkillAnchor);
+}
+
+function protectedBoxingSkillCount(anchors: readonly ProtectedWorkout[], dates: readonly ISODateString[], asOfDate: ISODateString): number {
+  return anchors.filter((anchor) => anchor.date >= asOfDate && dates.includes(anchor.date) && isProtectedBoxingSkillAnchor(anchor)).length;
 }
 
 function protectedHardDayCount(anchors: readonly ProtectedWorkout[], dates: readonly ISODateString[], asOfDate: ISODateString): number {
@@ -234,12 +250,33 @@ function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSessio
   return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
-function stimulusBucketForFamily(family: GeneratedSessionFamily): "strength" | "conditioning" | "power" | "durability" | "mobility" | "recovery" | "taper" {
+function stimulusBucketForFamily(family: GeneratedSessionFamily): string {
   return trainingStimulusForFamily(family);
 }
 
 function generatedHighStimulusDateCount(sessions: readonly GeneratedTrainingSession[]): number {
   return new Set(sessions.filter(isHighStimulusGeneratedSession).map((session) => session.date)).size;
+}
+
+function isPersistedMaterializedSession(session: GeneratedTrainingSession): boolean {
+  return session.id.startsWith("next-week:") || session.source === "next_week_preview_materialization";
+}
+
+function generatedFamilyCount(sessions: readonly GeneratedTrainingSession[], families: ReadonlySet<GeneratedSessionFamily>): number {
+  return sessions.filter((session) => families.has(session.family)).length;
+}
+
+function generatedAddOnCount(sessions: readonly GeneratedTrainingSession[]): number {
+  return sessions.reduce((count, session) => count + (session.addOnBlocks?.length ?? 0), 0);
+}
+
+function generatedCoachPromptCount(sessions: readonly GeneratedTrainingSession[]): number {
+  return sessions.filter(
+    (session) =>
+      BOXING_SKILL_GENERATED_FAMILIES.has(session.family) ||
+      Boolean(session.boxingSkillTheme) ||
+      (session.addOnBlocks ?? []).some((block) => block.id.includes("coach") || block.label.toLowerCase().includes("review"))
+  ).length;
 }
 
 function lowerStimulusSession(session: GeneratedTrainingSession): GeneratedTrainingSession {
@@ -268,6 +305,7 @@ function selectionScore(input: {
   const selectedBuckets = new Set(input.selected.map((session) => stimulusBucketForFamily(session.family)));
   const surplusHighStimulus = isHighStimulusGeneratedSession(input.session) && selectedHighStimulusDays >= input.targetGeneratedHighStimulusDays;
   return (
+    (isPersistedMaterializedSession(input.session) ? 1000 : 0) +
     (isHighStimulusGeneratedSession(input.session) && selectedHighStimulusDays < input.targetGeneratedHighStimulusDays ? 120 : 0) +
     (surplusHighStimulus ? -120 : 0) +
     (input.requiredBuckets.has(bucket) && !selectedBuckets.has(bucket) ? 80 : 0) +
@@ -296,6 +334,9 @@ function selectGeneratedSessions(input: {
     }
   };
 
+  for (const session of sorted.filter(isPersistedMaterializedSession)) {
+    add(session);
+  }
   for (const session of sorted.filter(isHighStimulusGeneratedSession)) {
     if (generatedHighStimulusDateCount(selected) >= input.policy.targetGeneratedHardDayCount) {
       break;
@@ -564,6 +605,7 @@ export function resolveWeeklyTrainingPlan(input: {
   const generatedCandidates = candidateDates.map((date, index) => {
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
+    const hasProtectedBoxingSkill = protectedBoxingSkillOnDate(input.anchors, date);
     if (!supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date)) {
       return null;
     }
@@ -580,6 +622,7 @@ export function resolveWeeklyTrainingPlan(input: {
             phase: input.phase,
             readiness: input.readiness,
             hasSparring: false,
+            hasProtectedBoxingSkill,
             highCycleSymptoms: input.highCycleSymptoms,
             index: 1,
             boxingLevel: input.athlete.boxingLevel,
@@ -606,6 +649,7 @@ export function resolveWeeklyTrainingPlan(input: {
       phase: input.phase,
       readiness: index === 0 ? input.readiness : { ...input.readiness, color: input.readiness.color === "red" ? "amber" : input.readiness.color },
       hasSparring,
+      hasProtectedBoxingSkill,
       highCycleSymptoms: input.highCycleSymptoms,
       index,
       boxingLevel: input.athlete.boxingLevel,
@@ -745,6 +789,36 @@ export function resolveWeeklyTrainingPlan(input: {
   const actualStrengthExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "strength").length;
   const actualConditioningExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "conditioning").length;
   const actualPowerExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "power").length;
+  const protectedAnchorsCountedAsSkill = protectedBoxingSkillCount(input.anchors, candidateDates, input.asOfDate);
+  const generatedBoxingSkillExposures = generatedFamilyCount(mergedGeneratedSessions, BOXING_SKILL_GENERATED_FAMILIES);
+  const generatedTechnicalExposures = generatedFamilyCount(mergedGeneratedSessions, TECHNICAL_BOXING_GENERATED_FAMILIES);
+  const generatedAgilityFootworkExposures = generatedFamilyCount(mergedGeneratedSessions, AGILITY_FOOTWORK_GENERATED_FAMILIES);
+  const generatedMobilityRecoveryExposures = generatedFamilyCount(mergedGeneratedSessions, MOBILITY_RECOVERY_GENERATED_FAMILIES);
+  const actualBoxingSkillExposures = generatedBoxingSkillExposures + protectedAnchorsCountedAsSkill;
+  const actualTechnicalExposures = generatedTechnicalExposures + protectedAnchorsCountedAsSkill;
+  const actualAgilityFootworkExposures = generatedAgilityFootworkExposures + input.anchors.filter((anchor) => anchor.date >= input.asOfDate && candidateDates.includes(anchor.date) && anchor.type === "footwork_session").length;
+  const actualMobilityRecoveryExposures = generatedMobilityRecoveryExposures;
+  const actualAddOnBlocks = generatedAddOnCount(mergedGeneratedSessions);
+  const actualCoachPrepOrReviewPrompts = generatedCoachPromptCount(mergedGeneratedSessions) + protectedAnchorsCountedAsSkill;
+  const generatedSkillSessions = mergedGeneratedSessions
+    .filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family))
+    .map((session) => `${session.date}: ${session.title}`);
+  const skillExposureMissingReasons = [
+    ...(actualBoxingSkillExposures < prescriptionPolicy.targetBoxingSkillExposures
+      ? [`Boxing skill exposure ${actualBoxingSkillExposures}/${prescriptionPolicy.targetBoxingSkillExposures} after generated sessions and protected anchors.`]
+      : []),
+    ...(actualTechnicalExposures < prescriptionPolicy.targetTechnicalExposures
+      ? [`Technical exposure ${actualTechnicalExposures}/${prescriptionPolicy.targetTechnicalExposures} after generated sessions and protected anchors.`]
+      : [])
+  ];
+  const addOnPlacementReasons = [
+    ...mergedGeneratedSessions.flatMap((session) =>
+      (session.addOnBlocks ?? []).map((block) => `${session.date}: ${block.label} add-on supports ${block.intent.toLowerCase()}`)
+    ),
+    ...input.anchors
+      .filter((anchor) => anchor.date >= input.asOfDate && candidateDates.includes(anchor.date) && isProtectedBoxingSkillAnchor(anchor))
+      .map((anchor) => `${anchor.date}: protected ${anchor.type.replaceAll("_", " ")} counted as skill; generated work should prep, review, or consolidate away from overload.`)
+  ];
   const unusedAvailableDays = allowedSupportDates.filter((date) => !mergedGeneratedSessions.some((session) => session.date === date));
   const unusedAvailableDayReasons = unusedAvailableDays.map((date) =>
     mergedGeneratedSessions.length >= targetSessions
@@ -799,7 +873,13 @@ export function resolveWeeklyTrainingPlan(input: {
     ...((selectedTrainingDose === "serious" || selectedTrainingDose === "high") && sessionsOver60Minutes === 0 && mergedGeneratedSessions.length > 0 && !realLoadConstraintActive
       ? ["Serious/high generated week has no session at or above 60 minutes without a real safety constraint."]
       : []),
-    ...(onlyDurabilityOrRecovery && !realLoadConstraintActive ? ["Normal week resolved to only durability, mobility, or recovery families without a real safety constraint."] : [])
+    ...(onlyDurabilityOrRecovery && !realLoadConstraintActive ? ["Normal week resolved to only durability, mobility, or recovery families without a real safety constraint."] : []),
+    ...(actualBoxingSkillExposures < prescriptionPolicy.targetBoxingSkillExposures && !realLoadConstraintActive
+      ? [`Boxing skill exposures ${actualBoxingSkillExposures}/${prescriptionPolicy.targetBoxingSkillExposures} target without a real safety constraint.`]
+      : []),
+    ...(actualAddOnBlocks < prescriptionPolicy.targetAddOnBlocks && !realLoadConstraintActive
+      ? [`Add-on blocks ${actualAddOnBlocks}/${prescriptionPolicy.targetAddOnBlocks} target without a real safety constraint.`]
+      : [])
   ];
   const whyOnlyFourSessionsIfSixDaysAvailable =
     (selectedDays.length || candidateAllowedDays) >= 6 && mergedGeneratedSessions.length <= 4
@@ -885,6 +965,23 @@ export function resolveWeeklyTrainingPlan(input: {
     actualConditioningExposures,
     targetPowerExposures: prescriptionPolicy.targetPowerExposures,
     actualPowerExposures,
+    targetBoxingSkillExposures: prescriptionPolicy.targetBoxingSkillExposures,
+    actualBoxingSkillExposures,
+    targetTechnicalExposures: prescriptionPolicy.targetTechnicalExposures,
+    actualTechnicalExposures,
+    targetAgilityFootworkExposures: prescriptionPolicy.targetAgilityFootworkExposures,
+    actualAgilityFootworkExposures,
+    targetMobilityRecoveryExposures: prescriptionPolicy.targetMobilityRecoveryExposures,
+    actualMobilityRecoveryExposures,
+    targetAddOnBlocks: prescriptionPolicy.targetAddOnBlocks,
+    actualAddOnBlocks,
+    targetCoachPrepOrReviewPrompts: prescriptionPolicy.targetCoachPrepOrReviewPrompts,
+    actualCoachPrepOrReviewPrompts,
+    boxingDevelopmentTheme: prescriptionPolicy.boxingDevelopmentTheme,
+    protectedAnchorsCountedAsSkill,
+    generatedSkillSessions,
+    skillExposureMissingReasons,
+    addOnPlacementReasons,
     missingLogsAffectedGeneration: generationConstraints.advisoryUncertainty.length > 0 && !missingLogsDidNotReduceTraining,
     protectedAnchorsSuppliedHardWork: protectedHardDayDates.size > 0,
     familySelectionReasons: prescriptionPolicy.reasons,
@@ -893,6 +990,7 @@ export function resolveWeeklyTrainingPlan(input: {
       ...prescriptionPolicy.downshiftConstraints,
       ...whyHardDaysWereReduced,
       ...whyVolumeWasReduced,
+      ...skillExposureMissingReasons,
       ...repairActionsApplied,
       ...(underFuelingRisk ? ["Under-fueling evidence removed hard generated training."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated training."] : []),
@@ -900,7 +998,10 @@ export function resolveWeeklyTrainingPlan(input: {
     ],
     missingLogsDidNotReduceTraining,
     generatedSupportPlacementReasons: mergedGeneratedSessions.map(
-      (session) => `${session.date}: placed ${session.title} as ${session.intensity} ${session.sessionTypeLabel ?? session.family.replaceAll("_", " ")} generated training.`
+      (session) =>
+        `${session.date}: placed ${session.title} as ${session.intensity} ${session.sessionTypeLabel ?? session.family.replaceAll("_", " ")} generated training${
+          session.boxingSkillTheme ? ` for ${session.boxingSkillTheme}` : ""
+        }${(session.addOnBlocks ?? []).length > 0 ? ` with ${(session.addOnBlocks ?? []).length} add-on block${(session.addOnBlocks ?? []).length === 1 ? "" : "s"}` : ""}.`
     ),
     blockedGenerationReasons: [
       ...(candidateAllowedDays < targetSessions
@@ -985,7 +1086,7 @@ export function resolveWeeklyTrainingPlan(input: {
         ? "Protected sparring owns today's hard stress. Generated support stays easy."
         : input.readiness.color === "red"
           ? "Readiness is red, so hard generated work is blocked."
-          : "Generated support fills boxing-specific strength, roadwork, power, durability, and recovery gaps.",
+          : "Generated support develops technical boxing, strength, roadwork, power, agility, durability, and recovery gaps.",
     confidence: makeConfidence(0.74, ["protected anchors and readiness resolved"], input.anchors.length > 0 ? [] : ["protected boxing schedule"])
   };
 }

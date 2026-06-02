@@ -1,7 +1,7 @@
-import type { BoxingLevel, GeneratedSessionFamily, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
+import type { BoxingLevel, GeneratedSessionAddOnBlock, GeneratedSessionEquipmentMode, GeneratedSessionFamily, GeneratedSessionPriority, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
 import type { PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, TrainingGenerationConstraintSummaryAudit } from "./types";
 import { durationPolicyModifications, resolveSessionDurationPolicy } from "./sessionDurationPolicy";
-import { generatedSessionLabels } from "./trainingStimulus";
+import { BOXING_SKILL_GENERATED_FAMILIES, generatedSessionLabels } from "./trainingStimulus";
 import { familySequenceForTrainingFocus } from "./weeklyTrainingPrescriptionPolicy";
 import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
 
@@ -16,7 +16,10 @@ const HIGH_DEMAND_FAMILIES = new Set<GeneratedSessionFamily>([
   "alactic_sprints",
   "roadwork_tempo",
   "roadwork_intervals",
-  "round_based_conditioning"
+  "round_based_conditioning",
+  "boxing_bag_skill",
+  "boxing_round_skill_circuit",
+  "agility_reactive_footwork"
 ]);
 const PROHIBITED_OUTPUT = /\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight|dehydrat(?:e|ion))\b/i;
 
@@ -38,21 +41,27 @@ function noEquipmentAccess(equipmentAccess: readonly string[]): boolean {
   return normalized.size === 0 || normalized.has("none") || normalized.has("bodyweight");
 }
 
-function phaseOverride(input: Pick<GenerateSupportSessionInput, "hasSparring" | "hardStopActive" | "highCycleSymptoms" | "phase" | "readiness" | "severeFuelingRisk" | "underFuelingRisk">, family: GeneratedSessionFamily): GeneratedSessionFamily {
+function phaseOverride(
+  input: Pick<GenerateSupportSessionInput, "hasProtectedBoxingSkill" | "hasSparring" | "hardStopActive" | "highCycleSymptoms" | "phase" | "readiness" | "severeFuelingRisk" | "underFuelingRisk">,
+  family: GeneratedSessionFamily
+): GeneratedSessionFamily {
   if (input.readiness.color === "red" || input.hardStopActive || input.severeFuelingRisk) {
     return "recovery_reset";
   }
   if (input.hasSparring) {
     return "shoulder_scap_durability";
   }
+  if (input.hasProtectedBoxingSkill && BOXING_SKILL_GENERATED_FAMILIES.has(family)) {
+    return "movement_quality_prep";
+  }
   if (input.phase.phase === "fight_week") {
-    return family === "reaction_rhythm" || family === "taper_maintenance" ? family : "taper_maintenance";
+    return family === "reaction_rhythm" || family === "taper_maintenance" || family === "boxing_technical_shadowboxing" || family === "mobility_recovery_flow" ? family : "taper_maintenance";
   }
   if (input.phase.phase === "tournament") {
-    return family === "taper_maintenance" || family === "hip_ankle_mobility" || family === "recovery_reset" ? family : "recovery_reset";
+    return family === "taper_maintenance" || family === "hip_ankle_mobility" || family === "recovery_reset" || family === "mobility_recovery_flow" || family === "boxing_technical_shadowboxing" ? family : "recovery_reset";
   }
   if (input.phase.phase === "recovery" || input.phase.phase === "deload") {
-    return family === "hip_ankle_mobility" || family === "trunk_durability" || family === "shoulder_scap_durability" ? family : "recovery_reset";
+    return family === "hip_ankle_mobility" || family === "mobility_recovery_flow" || family === "movement_quality_prep" || family === "boxing_technical_shadowboxing" || family === "trunk_durability" || family === "shoulder_scap_durability" ? family : "recovery_reset";
   }
   if (input.highCycleSymptoms && HIGH_DEMAND_FAMILIES.has(family)) {
     return "trunk_durability";
@@ -61,6 +70,103 @@ function phaseOverride(input: Pick<GenerateSupportSessionInput, "hasSparring" | 
     return "trunk_durability";
   }
   return family;
+}
+
+function skillLevelFor(boxingLevel: BoxingLevel): "novice" | "intermediate" | "advanced" {
+  if (boxingLevel === "aspiring_boxer" || boxingLevel === "amateur_novice") {
+    return "novice";
+  }
+  if (boxingLevel === "amateur_elite" || boxingLevel.startsWith("pro_")) {
+    return "advanced";
+  }
+  return "intermediate";
+}
+
+function inferredEquipmentMode(family: GeneratedSessionFamily, equipmentAccess: readonly string[]): GeneratedSessionEquipmentMode {
+  const equipment = new Set(equipmentAccess.map((item) => item.trim().toLowerCase()));
+  if (family === "boxing_bag_skill" && equipment.has("bag")) {
+    return "bag";
+  }
+  if (family === "boxing_counter_timing" && equipment.has("mirror")) {
+    return "mirror";
+  }
+  if (family === "boxing_footwork_ringcraft" || family === "agility_reactive_footwork") {
+    return "line";
+  }
+  return "none";
+}
+
+function defaultAddOnBlocksForFamily(family: GeneratedSessionFamily): readonly GeneratedSessionAddOnBlock[] {
+  if (family.startsWith("strength_")) {
+    return [
+      {
+        id: "technical_shadow_primer_10",
+        label: "Technical shadowboxing primer",
+        durationMinutes: 10,
+        intent: "Set stance, guard, and jab rhythm before lifting.",
+        cues: ["Jab-only", "Guard return", "Stop before fatigue"],
+        optional: true
+      },
+      {
+        id: "hip_reset_8",
+        label: "Hip reset",
+        durationMinutes: 8,
+        intent: "Restore stance range after strength work.",
+        cues: ["Pain-free range", "Easy breathing"],
+        optional: true
+      }
+    ];
+  }
+  if (family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints") {
+    return [
+      {
+        id: "mobility_reset_10",
+        label: "Mobility reset",
+        durationMinutes: 10,
+        intent: "Downshift hips, ankles, and breathing after conditioning.",
+        cues: ["No forced range", "Leave fresher"],
+        optional: true
+      }
+    ];
+  }
+  if (family.startsWith("power_")) {
+    return [
+      {
+        id: "reactive_footwork_primer_8",
+        label: "Reactive footwork primer",
+        durationMinutes: 8,
+        intent: "Link speed work to boxing stance and first-step quality.",
+        cues: ["One cue", "Full reset", "Quiet feet"],
+        optional: true
+      }
+    ];
+  }
+  if (family === "recovery_reset" || family === "hip_ankle_mobility" || family === "mobility_recovery_flow") {
+    return [
+      {
+        id: "coach_review_5",
+        label: "Coach review prompt",
+        durationMinutes: 5,
+        intent: "Capture one note that can improve the next boxing session.",
+        cues: ["What improved?", "What broke first?"],
+        optional: true
+      }
+    ];
+  }
+  return [];
+}
+
+function sessionPriorityForFamily(family: GeneratedSessionFamily, templatePriority?: GeneratedSessionPriority | undefined): GeneratedSessionPriority {
+  if (templatePriority) {
+    return templatePriority;
+  }
+  if (BOXING_SKILL_GENERATED_FAMILIES.has(family)) {
+    return "primary";
+  }
+  if (family === "movement_quality_prep" || family === "agility_reactive_footwork") {
+    return "add_on";
+  }
+  return "secondary";
 }
 
 function chooseFamily(input: GenerateSupportSessionInput): GeneratedSessionFamily {
@@ -97,6 +203,7 @@ export interface GenerateSupportSessionInput {
   phase: PhaseState;
   readiness: ReadinessState;
   hasSparring: boolean;
+  hasProtectedBoxingSkill?: boolean | undefined;
   highCycleSymptoms: boolean;
   index: number;
   boxingLevel: BoxingLevel;
@@ -183,6 +290,14 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     ],
     fuelDemand: recoveryOnly || input.underFuelingRisk || input.severeFuelingRisk ? "low" : protectedHard || prescribedHard ? "high" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand,
     ...generatedSessionLabels(family),
+    ...(template.boxingSkillTheme ? { boxingSkillTheme: template.boxingSkillTheme } : {}),
+    ...(template.tacticalTheme ? { tacticalTheme: template.tacticalTheme } : {}),
+    ...(template.technicalEmphasis ? { technicalEmphasis: template.technicalEmphasis } : {}),
+    ...(template.roundStructure ? { roundStructure: template.roundStructure } : {}),
+    skillLevel: skillLevelFor(input.boxingLevel),
+    equipmentMode: template.equipmentMode ?? inferredEquipmentMode(family, input.equipmentAccess),
+    addOnBlocks: template.addOnBlocks ?? defaultAddOnBlocksForFamily(family),
+    sessionPriority: sessionPriorityForFamily(family, template.sessionPriority),
     ...(input.planRevisionId ? { planRevisionId: input.planRevisionId } : {}),
     ...(input.weekIndex ? { weekIndex: input.weekIndex } : {}),
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),

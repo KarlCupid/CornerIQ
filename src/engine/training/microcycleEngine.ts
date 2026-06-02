@@ -12,7 +12,7 @@ import type {
   WeeklyTrainingStructure
 } from "../core/types";
 import { anchorsForDate } from "./protectedAnchors";
-import { isHighStimulusTrainingDay } from "./trainingStimulus";
+import { BOXING_SKILL_GENERATED_FAMILIES, isHighStimulusTrainingDay } from "./trainingStimulus";
 
 export interface WeeklyMicrocycleInput {
   asOfDate: string;
@@ -143,7 +143,10 @@ function explanationForDay(input: {
     return "This is a planned hard stress day inside the weekly cap.";
   }
   if (input.generated.length > 0) {
-    return "Generated support fills boxing-specific strength, aerobic, power, or durability gaps.";
+    if (input.generated.some((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family))) {
+      return "Generated support develops technical boxing while fitting strength, conditioning, mobility, and recovery around it.";
+    }
+    return "Generated support fills boxing-specific strength, aerobic, power, agility, mobility, or durability gaps.";
   }
   return "No generated support is needed here; recovery and protected boxing quality stay first.";
 }
@@ -216,6 +219,9 @@ export function buildWeeklyMicrocycle(input: WeeklyMicrocycleInput): {
   const plannedHardDays = dayPlans.filter((day) => day.hardDay).length;
   const protectedAnchorCount = input.protectedWorkouts.filter((anchor) => anchor.date >= weekStartDate && anchor.date <= weekEndDate).length;
   const generatedSupportCount = input.generatedSessions.filter((session) => session.date >= weekStartDate && session.date <= weekEndDate).length;
+  const skillThemes = input.generatedSessions
+    .filter((session) => session.date >= weekStartDate && session.date <= weekEndDate && BOXING_SKILL_GENERATED_FAMILIES.has(session.family))
+    .map((session) => session.boxingSkillTheme ?? session.title);
   const notes = [
     `${plannedHardDays}/${hardDayCap} hard days planned.`,
     `${protectedAnchorCount} protected anchors remain primary.`,
@@ -231,7 +237,10 @@ export function buildWeeklyMicrocycle(input: WeeklyMicrocycleInput): {
     generatedSupportCount,
     recoveryDays,
     dayPlans,
-    summary: `${generatedSupportCount} generated support sessions around ${protectedAnchorCount} protected anchors, with ${plannedHardDays}/${hardDayCap} hard days.`
+    summary:
+      skillThemes.length > 0
+        ? `This week develops ${skillThemes.slice(0, 2).join(" and ")}, strength transfer, aerobic base, and recovery quality across ${generatedSupportCount} generated sessions.`
+        : `${generatedSupportCount} generated support sessions around ${protectedAnchorCount} protected anchors, with ${plannedHardDays}/${hardDayCap} hard days.`
   };
   return {
     weeklyStructure,

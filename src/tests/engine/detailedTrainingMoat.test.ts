@@ -148,6 +148,16 @@ describe("detailed training session engine", () => {
       "roadwork_intervals",
       "alactic_sprints",
       "round_based_conditioning",
+      "boxing_technical_shadowboxing",
+      "boxing_bag_skill",
+      "boxing_footwork_ringcraft",
+      "boxing_defense_movement",
+      "boxing_jab_entry_exit",
+      "boxing_counter_timing",
+      "boxing_round_skill_circuit",
+      "agility_reactive_footwork",
+      "mobility_recovery_flow",
+      "movement_quality_prep",
       "trunk_durability",
       "wrist_hand_durability",
       "hip_ankle_mobility"
@@ -159,6 +169,31 @@ describe("detailed training session engine", () => {
       expect(detail.sections.flatMap((section) => section.exercises).length).toBeGreaterThan(0);
       expect(exercisePrescriptionText(detail).toLowerCase()).not.toMatch(/sparring|contact/);
     }
+  });
+
+  it("boxing technical detail uses round structure, constraints, quality stops, and review cues", () => {
+    const detail = buildFamilyDetail("boxing_technical_shadowboxing", pro_4_round_build_strength, {
+      generatedSession: generatedSession("boxing_technical_shadowboxing", {
+        title: "Shadowboxing technical rounds",
+        durationMinutes: 55,
+        intensity: "moderate",
+        boxingSkillTheme: "Build jab entries from stance and guard",
+        tacticalTheme: "Win center-line position before exiting",
+        roundStructure: "5 x 3:00 technical rounds, 1:00 rest",
+        technicalEmphasis: ["jab-only guard return", "double-jab entry", "pivot exit"],
+        equipmentMode: "none"
+      })
+    });
+    const text = `${exercisePrescriptionText(detail)} ${detail.roundStructure ?? ""} ${(detail.coachReviewPrompts ?? []).join(" ")} ${detail.filmCue ?? ""}`.toLowerCase();
+
+    expect(detail.boxingSkillTheme).toContain("jab");
+    expect(detail.roundStructure).toContain("round");
+    expect(text).toContain("jab");
+    expect(text).toContain("quality");
+    expect(text).toContain("film");
+    expect(text).toContain("guard");
+    expect(text).not.toMatch(/sparring|contact|partner-impact/);
+    expect(detail.noGeneratedSparring).toBe(true);
   });
 
   it("downgrades hard families for hard boxing days, tournament mode, fight week, and high cycle symptoms", () => {
@@ -187,7 +222,7 @@ describe("detailed training session engine", () => {
   });
 
   it("full-body strength detail has warm-up, main, accessory, and cooldown sections", () => {
-    const detail = detailForFixture(pro_4_round_build_strength);
+    const detail = buildFamilyDetail("strength_full_body", pro_4_round_build_strength);
     const names = detail.sections.map((section) => section.name).join(" ");
 
     expect(detail.family).toBe("strength_full_body");
@@ -200,7 +235,7 @@ describe("detailed training session engine", () => {
   });
 
   it("novice and no-equipment detail avoids complex lifts and uses substitutions", () => {
-    const detail = detailForFixture({
+    const detail = buildFamilyDetail("strength_full_body", {
       ...amateur_novice_build,
       athlete: { ...amateur_novice_build.athlete, equipmentAccess: ["none"] }
     });

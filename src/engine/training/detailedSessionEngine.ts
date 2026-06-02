@@ -35,7 +35,21 @@ function hasHardBoxingAnchor(anchors: readonly ProtectedWorkout[], date: string)
 }
 
 function isHighIntensityFamily(family: GeneratedSessionFamily): boolean {
-  return ["power_lower", "power_rotational", "power_upper", "alactic_sprints", "roadwork_intervals", "roadwork_tempo", "round_based_conditioning", "strength_lower", "strength_upper", "strength_full_body"].includes(family);
+  return [
+    "power_lower",
+    "power_rotational",
+    "power_upper",
+    "alactic_sprints",
+    "roadwork_intervals",
+    "roadwork_tempo",
+    "round_based_conditioning",
+    "boxing_bag_skill",
+    "boxing_round_skill_circuit",
+    "agility_reactive_footwork",
+    "strength_lower",
+    "strength_upper",
+    "strength_full_body"
+  ].includes(family);
 }
 
 function prescription(input: BuildDetailedTrainingSessionInput, exerciseId: string): ExercisePrescription {
@@ -118,6 +132,26 @@ function sectionsFromTemplate(input: BuildDetailedTrainingSessionInput, template
 
 function whyForFamily(family: GeneratedSessionFamily): string {
   switch (family) {
+    case "boxing_technical_shadowboxing":
+      return "Technical shadowboxing develops stance, guard, jab entries, exits, and self-review without requiring equipment.";
+    case "boxing_bag_skill":
+      return "Bag skill turns equipment access into accuracy, distance, exit, and defense-after-combination practice with a quality cap.";
+    case "boxing_footwork_ringcraft":
+      return "Ringcraft work develops angle control, corner escape, and stance recovery so movement becomes tactical.";
+    case "boxing_defense_movement":
+      return "Defense movement work builds slip, roll, pivot, and reset habits while keeping head movement small and controlled.";
+    case "boxing_jab_entry_exit":
+      return "Jab-system work links lead-hand mechanics to entries and exits so the boxer wins position before adding volume.";
+    case "boxing_counter_timing":
+      return "Counter-timing work develops rhythm breaks, draw-counter shape, and foot reset with solo cues.";
+    case "boxing_round_skill_circuit":
+      return "Round skill circuits carry technical constraints through boxing-length rounds while stopping before quality collapses.";
+    case "agility_reactive_footwork":
+      return "Reactive footwork builds first-step quality, braking, pivots, and stance recovery with low volume.";
+    case "mobility_recovery_flow":
+      return "Mobility and recovery flow restores boxing positions and optional easy skill touch without adding another hard stress.";
+    case "movement_quality_prep":
+      return "Movement quality prep primes stance range, guard posture, trunk control, and shoulders before the main stimulus.";
     case "strength_full_body":
     case "strength_lower":
     case "strength_upper":
@@ -143,6 +177,27 @@ function whyForFamily(family: GeneratedSessionFamily): string {
     default:
       return "Durability support keeps shoulders, trunk, and movement quality available for boxing-specific training.";
   }
+}
+
+function coachReviewPromptsForFamily(family: GeneratedSessionFamily, theme?: string | undefined): readonly string[] {
+  if (family.startsWith("boxing_") || family === "agility_reactive_footwork" || family === "movement_quality_prep") {
+    return [
+      `What would a coach watch first: ${theme ?? "stance, guard return, balance, and reset quality"}?`,
+      "Which cue stayed repeatable when the round got harder?",
+      "What should be simplified before adding volume?"
+    ];
+  }
+  return ["What movement quality improved today, and what should stay unchanged next session?"];
+}
+
+function filmCueForFamily(family: GeneratedSessionFamily, roundStructure?: string | undefined): string {
+  if (family.startsWith("boxing_")) {
+    return `Film one technical round${roundStructure ? ` from ${roundStructure}` : ""} and check guard return, stance width, breathing, and reset after the final action.`;
+  }
+  if (family === "agility_reactive_footwork") {
+    return "Film one short callout set and check whether feet brake quietly before the next cue.";
+  }
+  return "Use one self-review note only if it improves tomorrow's boxing quality.";
 }
 
 export function buildDetailedTrainingSession(input: BuildDetailedTrainingSessionInput): DetailedTrainingSession {
@@ -199,6 +254,16 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     whyThisMattersForBoxing: whyForFamily(family),
     stopConditions: [...allStopConditions, "Stop if dizziness, fainting, chest pain, or unusual pain appears."],
     safetyNotes: [...allSafetyNotes, "No partner-impact drills, aggressive neck loading, or fatigue-chasing finishers."],
-    noGeneratedSparring: true
+    noGeneratedSparring: true,
+    boxingSkillTheme: input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme,
+    tacticalTheme: input.generatedSession.tacticalTheme ?? templateItem.tacticalTheme,
+    technicalEmphasis: input.generatedSession.technicalEmphasis ?? templateItem.technicalEmphasis,
+    roundStructure: input.generatedSession.roundStructure ?? templateItem.roundStructure,
+    skillLevel: input.generatedSession.skillLevel,
+    equipmentMode: input.generatedSession.equipmentMode ?? templateItem.equipmentMode,
+    addOnBlocks: input.generatedSession.addOnBlocks ?? templateItem.addOnBlocks,
+    sessionPriority: input.generatedSession.sessionPriority ?? templateItem.sessionPriority,
+    coachReviewPrompts: coachReviewPromptsForFamily(family, input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme),
+    filmCue: filmCueForFamily(family, input.generatedSession.roundStructure ?? templateItem.roundStructure)
   };
 }

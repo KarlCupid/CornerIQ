@@ -44,6 +44,16 @@ const FAMILY_PROFILES: Record<GeneratedSessionFamily, DurationProfile> = {
   roadwork_tempo: { min: 45, max: 65, target: 55 },
   roadwork_intervals: { min: 45, max: 65, target: 55 },
   round_based_conditioning: { min: 45, max: 65, target: 55 },
+  boxing_technical_shadowboxing: { min: 40, max: 65, target: 55 },
+  boxing_bag_skill: { min: 40, max: 65, target: 55 },
+  boxing_footwork_ringcraft: { min: 35, max: 55, target: 45 },
+  boxing_defense_movement: { min: 35, max: 55, target: 45 },
+  boxing_jab_entry_exit: { min: 35, max: 55, target: 45 },
+  boxing_counter_timing: { min: 35, max: 55, target: 45 },
+  boxing_round_skill_circuit: { min: 40, max: 65, target: 55 },
+  agility_reactive_footwork: { min: 30, max: 50, target: 40 },
+  mobility_recovery_flow: { min: 25, max: 40, target: 32 },
+  movement_quality_prep: { min: 25, max: 40, target: 30 },
   footwork_agility: { min: 35, max: 50, target: 40 },
   reaction_rhythm: { min: 25, max: 40, target: 32 },
   trunk_durability: { min: 30, max: 45, target: 36 },
@@ -66,7 +76,10 @@ const HIGH_DEMAND_FAMILIES = new Set<GeneratedSessionFamily>([
   "roadwork_zone2",
   "roadwork_tempo",
   "roadwork_intervals",
-  "round_based_conditioning"
+  "round_based_conditioning",
+  "boxing_bag_skill",
+  "boxing_round_skill_circuit",
+  "agility_reactive_footwork"
 ]);
 
 function clamp(value: number, min: number, max: number): number {
@@ -130,7 +143,17 @@ function moderatedProfile(profile: DurationProfile, family: GeneratedSessionFami
   if (family === "neck_trap_durability" || family === "wrist_hand_durability") {
     return { min: 20, max: 30, target: 25 };
   }
-  if (family === "trunk_durability" || family === "shoulder_scap_durability" || family === "hip_ankle_mobility" || family === "reaction_rhythm" || family === "footwork_agility") {
+  if (
+    family === "trunk_durability" ||
+    family === "shoulder_scap_durability" ||
+    family === "hip_ankle_mobility" ||
+    family === "reaction_rhythm" ||
+    family === "footwork_agility" ||
+    family === "agility_reactive_footwork" ||
+    family === "mobility_recovery_flow" ||
+    family === "movement_quality_prep" ||
+    family.startsWith("boxing_")
+  ) {
     return { min: 25, max: 35, target: 30 };
   }
   return { min: 25, max: 35, target: clamp(profile.target - 10, 28, 35) };
