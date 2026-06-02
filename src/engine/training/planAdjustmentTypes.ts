@@ -169,7 +169,7 @@ export function actorForAdjustmentCommand(command: TrainingPlanAdjustmentCommand
     return {
       actorType: "coach",
       actorId: fallbackActor.actorId,
-      actorLabel: "Legacy coach actor"
+      actorLabel: "Legacy trusted actor"
     };
   }
   return fallbackActor;

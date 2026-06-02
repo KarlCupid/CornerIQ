@@ -70,7 +70,7 @@ Required fixtures:
 - fight week taper drops volume
 - tournament week avoids hard conditioning plus dehydration
 - build strength progresses while protecting boxing
-- coach-led roadwork reduces generated roadwork
+- protected or manually logged roadwork reduces generated roadwork
 - sparring day cannot receive hard intervals
 - generated session includes fuel-demand handoff
 - high cycle symptoms trim optional work

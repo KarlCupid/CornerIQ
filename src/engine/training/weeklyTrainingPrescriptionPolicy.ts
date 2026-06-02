@@ -7,6 +7,11 @@ import type {
   TrainingGenerationConstraintSummaryAudit,
   TrainingStimulusMix
 } from "./types";
+import {
+  curriculumAwareFamilySequence,
+  selectBoxingDevelopmentCurriculumTheme,
+  type BoxingDevelopmentThemeId
+} from "./boxingDevelopmentCurriculum";
 import { trainingStimulusMix } from "./trainingStimulus";
 
 export interface WeeklyTrainingPrescriptionPolicyInput {
@@ -36,7 +41,14 @@ export interface WeeklyTrainingPrescriptionPolicy {
   targetAgilityFootworkExposures: number;
   targetMobilityRecoveryExposures: number;
   targetAddOnBlocks: number;
-  targetCoachPrepOrReviewPrompts: number;
+  targetRequiredAddOnBlocks: number;
+  targetRecommendedAddOnBlocks: number;
+  targetOptionalAddOnBlocks: number;
+  targetAthleteQualityCheckpoints: number;
+  boxingDevelopmentThemeId: BoxingDevelopmentThemeId;
+  boxingDevelopmentThemeTitle: string;
+  athleteFacingThemePurpose: string;
+  targetSkillProgression: readonly string[];
   boxingDevelopmentTheme: string;
   targetWeeklyGeneratedMinutes: number;
   minimumUsefulSessionDuration: number;
@@ -51,6 +63,7 @@ export interface WeeklyTrainingPrescriptionPolicy {
   preferredFamilyBuckets: readonly string[];
   targetStimulusMix: TrainingStimulusMix;
   downshiftConstraints: readonly string[];
+  athleteFacingReasons: readonly string[];
   reasons: readonly string[];
 }
 
@@ -102,25 +115,6 @@ function recoverySequence(phase: PhaseState): readonly GeneratedSessionFamily[] 
     return ["mobility_recovery_flow", "boxing_technical_shadowboxing", "taper_maintenance"];
   }
   return ["mobility_recovery_flow", "boxing_technical_shadowboxing", "movement_quality_prep", "hip_ankle_mobility", "trunk_durability", "shoulder_scap_durability"];
-}
-
-function boxingDevelopmentTheme(input: Pick<WeeklyTrainingPrescriptionPolicyInput, "athlete" | "phase" | "primaryFocus">): string {
-  if (input.phase.phase === "fight_week") {
-    return "fight-week sharpness";
-  }
-  if (input.phase.phase === "tournament") {
-    return "tournament reset and repeatable warm-up";
-  }
-  if (input.phase.phase === "recovery" || input.phase.phase === "deload") {
-    return "low-intensity technical touches and movement quality";
-  }
-  if (input.phase.phase === "camp" || input.phase.phase === "short_notice_camp") {
-    return input.primaryFocus === "power" ? "counter timing and explosive entries" : "tactical specificity, jab entries, and defensive responsibility";
-  }
-  if (isNovice(input.athlete)) {
-    return "establish stance, guard, jab, and clean exits";
-  }
-  return input.primaryFocus === "conditioning" ? "round skill quality under controlled fatigue" : "jab entries, ringcraft, and strength transfer";
 }
 
 function targetBoxingSkillExposures(input: WeeklyTrainingPrescriptionPolicyInput, targetSessionCount: number): number {
@@ -286,13 +280,38 @@ function targetSessionReason(input: WeeklyTrainingPrescriptionPolicyInput, targe
   return `${input.trainingDose} dose with ${input.selectedSupportDayCount} selected generated-training day${input.selectedSupportDayCount === 1 ? "" : "s"} targets ${targetSessionCount} session${targetSessionCount === 1 ? "" : "s"} before protected-anchor and safety placement.`;
 }
 
+function addOnTargets(input: WeeklyTrainingPrescriptionPolicyInput, targetSessionCount: number): Pick<
+  WeeklyTrainingPrescriptionPolicy,
+  "targetAddOnBlocks" | "targetRequiredAddOnBlocks" | "targetRecommendedAddOnBlocks" | "targetOptionalAddOnBlocks"
+> {
+  if (targetSessionCount <= 0) {
+    return { targetAddOnBlocks: 0, targetRequiredAddOnBlocks: 0, targetRecommendedAddOnBlocks: 0, targetOptionalAddOnBlocks: 0 };
+  }
+  if (input.generationConstraints.hardSafetyConstraints.length > 0 || input.phase.phase === "recovery" || input.phase.phase === "deload") {
+    return { targetAddOnBlocks: 1, targetRequiredAddOnBlocks: 0, targetRecommendedAddOnBlocks: 1, targetOptionalAddOnBlocks: 0 };
+  }
+  if (input.phase.phase === "fight_week" || input.phase.phase === "tournament") {
+    return { targetAddOnBlocks: 1, targetRequiredAddOnBlocks: 1, targetRecommendedAddOnBlocks: 0, targetOptionalAddOnBlocks: 0 };
+  }
+  const required = targetSessionCount >= 5 ? 2 : 1;
+  const recommended = targetSessionCount >= 5 ? 2 : targetSessionCount >= 3 ? 1 : 0;
+  return { targetAddOnBlocks: required + recommended, targetRequiredAddOnBlocks: required, targetRecommendedAddOnBlocks: recommended, targetOptionalAddOnBlocks: 0 };
+}
+
+function athleteQualityCheckpointTarget(targetBoxingSkillExposures: number, targetTechnicalExposures: number): number {
+  return Math.max(targetBoxingSkillExposures, targetTechnicalExposures);
+}
+
 function recoveryPolicy(input: WeeklyTrainingPrescriptionPolicyInput): WeeklyTrainingPrescriptionPolicy {
-  const sequence = recoverySequence(input.phase);
+  const theme = selectBoxingDevelopmentCurriculumTheme({ athlete: input.athlete, phase: input.phase, primaryFocus: "mobility" });
+  const sequence = curriculumAwareFamilySequence({ theme, baseSequence: recoverySequence(input.phase) });
   const targetSessionCount = input.generationConstraints.hardSafetyConstraints.length > 0 ? 1 : normalTargetSessionCount(input);
   const safetyLimited = input.generationConstraints.hardSafetyConstraints.length > 0;
   const skillTargets = safetyLimited ? 0 : targetBoxingSkillExposures(input, targetSessionCount);
   const technicalTargets = safetyLimited ? 0 : targetTechnicalExposures(input, targetSessionCount);
   const mobilityTargets = targetMobilityRecoveryExposures(input, targetSessionCount);
+  const addOns = addOnTargets(input, targetSessionCount);
+  const qualityTargets = athleteQualityCheckpointTarget(skillTargets, technicalTargets);
   return {
     targetSessionCount,
     unconstrainedTargetSessionCount: normalTargetSessionCount(input),
@@ -308,9 +327,13 @@ function recoveryPolicy(input: WeeklyTrainingPrescriptionPolicyInput): WeeklyTra
     targetTechnicalExposures: technicalTargets,
     targetAgilityFootworkExposures: targetAgilityFootworkExposures(input, targetSessionCount),
     targetMobilityRecoveryExposures: mobilityTargets,
-    targetAddOnBlocks: Math.max(1, targetSessionCount),
-    targetCoachPrepOrReviewPrompts: skillTargets,
-    boxingDevelopmentTheme: boxingDevelopmentTheme(input),
+    ...addOns,
+    targetAthleteQualityCheckpoints: qualityTargets,
+    boxingDevelopmentThemeId: theme.themeId,
+    boxingDevelopmentThemeTitle: theme.athleteFacingTitle,
+    athleteFacingThemePurpose: theme.athleteFacingPurpose,
+    targetSkillProgression: theme.progressionRules,
+    boxingDevelopmentTheme: theme.athleteFacingTitle,
     targetWeeklyGeneratedMinutes: targetMinutes(input, "mobility", targetSessionCount),
     minimumUsefulSessionDuration: input.generationConstraints.hardSafetyConstraints.length > 0 ? 15 : 25,
     targetSessionCountReason: targetSessionReason(input, targetSessionCount),
@@ -320,6 +343,11 @@ function recoveryPolicy(input: WeeklyTrainingPrescriptionPolicyInput): WeeklyTra
     preferredFamilyBuckets: ["mobility", "technical", "durability"],
     targetStimulusMix: trainingStimulusMix(sequence.slice(0, targetSessionCount)),
     downshiftConstraints: input.generationConstraints.hardSafetyConstraints.map((item) => item.message),
+    athleteFacingReasons: [
+      `This week develops ${theme.athleteFacingTitle.toLowerCase()}.`,
+      theme.athleteFacingPurpose,
+      "Recovery, taper, tournament, or hard safety context keeps generated training low-stress."
+    ],
     reasons: ["Recovery, taper, tournament, or hard safety context lowers generated training stress."]
   };
 }
@@ -343,8 +371,11 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
   const targetTechnicalExposureCount = targetTechnicalExposures(input, targetSessionCount);
   const targetAgilityFootworkExposureCount = targetAgilityFootworkExposures(input, targetSessionCount);
   const targetMobilityRecoveryExposureCount = targetMobilityRecoveryExposures(input, targetSessionCount);
-  const sequence = familySequenceForTrainingFocus(focus);
+  const theme = selectBoxingDevelopmentCurriculumTheme({ athlete: input.athlete, phase: input.phase, primaryFocus: focus });
+  const sequence = curriculumAwareFamilySequence({ theme, baseSequence: familySequenceForTrainingFocus(focus) });
   const targetWeeklyGeneratedMinutes = targetMinutes(input, focus, targetSessionCount);
+  const addOns = addOnTargets(input, targetSessionCount);
+  const qualityTargets = athleteQualityCheckpointTarget(targetBoxingSkillExposureCount, targetTechnicalExposureCount);
 
   return {
     targetSessionCount,
@@ -361,9 +392,13 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
     targetTechnicalExposures: targetTechnicalExposureCount,
     targetAgilityFootworkExposures: targetAgilityFootworkExposureCount,
     targetMobilityRecoveryExposures: targetMobilityRecoveryExposureCount,
-    targetAddOnBlocks: targetSessionCount >= 5 ? 3 : targetSessionCount >= 3 ? 2 : 1,
-    targetCoachPrepOrReviewPrompts: targetBoxingSkillExposureCount,
-    boxingDevelopmentTheme: boxingDevelopmentTheme(input),
+    ...addOns,
+    targetAthleteQualityCheckpoints: qualityTargets,
+    boxingDevelopmentThemeId: theme.themeId,
+    boxingDevelopmentThemeTitle: theme.athleteFacingTitle,
+    athleteFacingThemePurpose: theme.athleteFacingPurpose,
+    targetSkillProgression: theme.progressionRules,
+    boxingDevelopmentTheme: theme.athleteFacingTitle,
     targetWeeklyGeneratedMinutes,
     minimumUsefulSessionDuration: 35,
     targetSessionCountReason: targetSessionReason(input, targetSessionCount),
@@ -384,6 +419,11 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
     preferredFamilyBuckets: [focus, "boxing_skill", "technical", "agility", "durability"].filter((item, index, list) => list.indexOf(item) === index),
     targetStimulusMix: trainingStimulusMix(sequence.slice(0, targetSessionCount)),
     downshiftConstraints: input.generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
+    athleteFacingReasons: [
+      `This week develops ${theme.athleteFacingTitle.toLowerCase()}.`,
+      theme.athleteFacingPurpose,
+      `Physical support targets ${targetStrengthExposures} strength, ${targetConditioningExposures} conditioning, ${targetPowerExposures} power, and ${targetMobilityRecoveryExposureCount} mobility/recovery exposure${targetMobilityRecoveryExposureCount === 1 ? "" : "s"}.`
+    ],
     reasons: [
       `${focus.replaceAll("_", " ")} ${input.trainingDose} prescription targets ${targetSessionCount} generated sessions, ${targetHardDayCount} hard/high-stimulus day${targetHardDayCount === 1 ? "" : "s"}, ${targetBoxingSkillExposureCount} boxing skill exposure${targetBoxingSkillExposureCount === 1 ? "" : "s"}, and ${targetWeeklyGeneratedMinutes} generated minutes.`,
       input.protectedHardDayCount > 0

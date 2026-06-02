@@ -15,7 +15,7 @@ Protected anchors are athlete or coach-owned sessions:
 - footwork session
 - sparring
 - roadwork
-- coach-assigned strength
+- assigned strength
 - competition
 - travel
 - recovery day
@@ -181,6 +181,6 @@ Allowed decisions:
 - regress
 - deload
 - swap family
-- coach review
+- qualified review
 
 Progress only when completion, RPE, pain, readiness, nutrition support, schedule load, and safety are acceptable.

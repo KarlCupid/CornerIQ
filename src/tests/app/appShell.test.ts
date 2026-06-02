@@ -367,6 +367,34 @@ const trainViewModel: TrainViewModel = {
     targetGeneratedSupportCount: 3,
     actualGeneratedSupportCount: 1,
     todayGeneratedSupportCount: 1,
+    weekDevelopmentTheme: "Stance, guard, and jab foundation",
+    athleteFacingWeekSummary: "This week develops stance, guard, and jab foundation, supported by strength and recovery quality.",
+    targetStimulusMix: {
+      strength: 1,
+      conditioning: 0,
+      power: 0,
+      durability: 0,
+      mobility: 0,
+      recovery: 0,
+      taper: 0,
+      boxing_skill: 0,
+      technical: 0,
+      agility: 0,
+      tactical: 0
+    },
+    actualStimulusMix: {
+      strength: 1,
+      conditioning: 0,
+      power: 0,
+      durability: 0,
+      mobility: 0,
+      recovery: 0,
+      taper: 0,
+      boxing_skill: 0,
+      technical: 0,
+      agility: 0,
+      tactical: 0
+    },
     currentWeekGeneratedSessionDates: ["2026-05-19"],
     currentWeekGeneratedSessionTitles: ["Strength support"],
     currentWeekGeneratedSessionFamilies: ["strength_full_body"],
@@ -475,6 +503,34 @@ const planViewModel: PlanViewModel = {
   acceptedPreviewStatus: "preview",
   boundaryDate: "2026-05-26",
   weeklySummary: "Three support days.",
+  weekDevelopmentTheme: "Stance, guard, and jab foundation",
+  athleteFacingWeekSummary: "This week develops stance, guard, and jab foundation, supported by strength and recovery quality.",
+  targetStimulusMix: {
+    strength: 1,
+    conditioning: 0,
+    power: 0,
+    durability: 0,
+    mobility: 0,
+    recovery: 0,
+    taper: 0,
+    boxing_skill: 0,
+    technical: 0,
+    agility: 0,
+    tactical: 0
+  },
+  actualStimulusMix: {
+    strength: 1,
+    conditioning: 0,
+    power: 0,
+    durability: 0,
+    mobility: 0,
+    recovery: 0,
+    taper: 0,
+    boxing_skill: 0,
+    technical: 0,
+    agility: 0,
+    tactical: 0
+  },
   weeklyTrainingStructure: "Three support days.",
   blockHistorySummary: {
     activeBlockHistoryCount: 1,
@@ -652,7 +708,7 @@ const planViewModel: PlanViewModel = {
   ],
   hardDaySummary: "Two hard days max.",
   recoveryDaySummary: "One recovery day.",
-  protectedAnchorSummary: "Coach work stays first.",
+  protectedAnchorSummary: "Protected work stays first.",
   supportWorkReason: "Support work is low because protected boxing already creates hard days.",
   fightOrTournamentNote: null,
   warnings: ["Missing readiness lowers confidence."]
@@ -1179,7 +1235,7 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Do not include emergency details or secrets.");
     expect(output).toContain("This is not emergency support");
-    expect(output).toContain("not medical or coaching review");
+    expect(output).toContain("not medical review");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Send feedback"));
@@ -2334,7 +2390,7 @@ describe("minimal app screens", () => {
     act(() => {
       changeInput(renderer, "Time optional HH:MM", "18:00");
       changeInput(renderer, "Rounds optional", "6");
-      changeInput(renderer, "Note optional", "Coach technical work");
+      changeInput(renderer, "Note optional", "Protected technical work");
     });
     await switchSection(renderer, "Add anchor to review");
     output = JSON.stringify(renderer.toJSON());
@@ -2369,7 +2425,7 @@ describe("minimal app screens", () => {
         durationMinutes: 60,
         intensity: "moderate",
         localStartTime: "18:00",
-        note: "Coach technical work",
+        note: "Protected technical work",
         rounds: 6,
         type: "technical_session",
         weekday: "monday"
@@ -2785,7 +2841,7 @@ describe("minimal app screens", () => {
                 decision: "progress - The week has structured completions.",
                 nextWeekPreviewStatus: "Persisted preview preview_1 (materialized).",
                 materializedGeneratedSessionCount: 2,
-                adjustments: ["coach note applied: Keep jab shoulder volume low."]
+                adjustments: ["trusted note applied: Keep jab shoulder volume low."]
               }
             ],
             timelineEventGroups: {
@@ -2795,7 +2851,7 @@ describe("minimal app screens", () => {
                   eventType: "adjustment_applied",
                   eventDate: "2026-05-19",
                   title: "Adjustment applied",
-                  summary: "Coach note retained."
+                  summary: "Trusted note retained."
                 }
               ],
               materializationEvents: [
@@ -2816,7 +2872,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Grouped weeks");
     expect(output).toContain("Materialized generated sessions");
     expect(output).toContain("\"2\"");
-    expect(output).toContain("coach note applied");
+    expect(output).toContain("trusted note applied");
     expect(output).toContain("Engine-owned history");
     expect(output).toContain("Screens do not mutate programming decisions");
   });
@@ -2954,7 +3010,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Beta tester notice");
     expect(output).toContain("This is a beta.");
     expect(output).toContain("Not medical advice.");
-    expect(output).toContain("Not a coach replacement.");
+    expect(output).toContain("Not a replacement for qualified human judgment.");
     expect(output).toContain("No emergency support.");
     expect(output).toContain("Do not use to self-clear hard stops.");
     expect(output).toContain("Manual logs are enough.");
@@ -3268,7 +3324,7 @@ describe("minimal app screens", () => {
           weekday: "wednesday" as const,
           durationMinutes: 45,
           intensity: "moderate" as const,
-          note: "Coach-led technical work",
+          note: "Protected technical work",
           activeFrom: fixtureAsOfDate
         }
       ]

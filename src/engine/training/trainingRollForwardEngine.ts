@@ -107,7 +107,7 @@ export function decideNextWeekProgression(input: TrainingRollForwardInput): Trai
     reason = "Red readiness or a hard-stop safety flag blocks normal roll-forward.";
   } else if (coachReviewNeeded(input)) {
     decision = "coach_review";
-    reason = "Pain flags or professional-review signals require coach review before progression.";
+    reason = "Pain flags or professional-review signals require qualified review before progression.";
   } else if (activeUnderfueling(input.safetyFlags, input.weekSummary)) {
     decision = input.weekSummary.safetyFlagCount > 0 ? "deload" : "hold";
     reason = "Under-fueling risk is active, so the engine holds or reduces training pressure instead of progressing.";
@@ -166,7 +166,7 @@ function timelineEventsFor(input: TrainingRollForwardInput, decision: TrainingPr
     events.push({
       eventType: "coach_review_flagged",
       eventDate: input.asOfDate,
-      title: "Coach review flagged",
+      title: "Qualified review flagged",
       summary: "Pain or review flags stopped automatic progression.",
       payload: basePayload
     });

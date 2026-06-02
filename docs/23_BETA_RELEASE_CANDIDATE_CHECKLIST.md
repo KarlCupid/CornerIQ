@@ -63,7 +63,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Facilitator notes are kept outside public docs when they contain private tester text.
 - Feedback collection uses Profile > Audit or private facilitator notes.
 - Privacy reminders are read before testing: no secrets, no emergency details, no medical records, no full health histories.
-- Testers are told this is a beta, not medical advice, not a coach replacement, and not emergency support.
+- Testers are told this is a beta, not medical advice, not a replacement for qualified human judgment, and not emergency support.
 - If a tester reports urgent health or weight-class concern, stop the session and seek qualified support outside the app.
 
 ## Release Decision

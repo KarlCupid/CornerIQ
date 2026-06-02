@@ -65,7 +65,7 @@ describe("beta safety static scans", () => {
     const combined = `${feedback}\n${errorBoundary}\n${betaHealth}`;
 
     expect(combined).toContain("not emergency support");
-    expect(combined).toContain("not medical or coaching review");
+    expect(combined).toContain("not medical review");
     expect(combined).toContain("Sign in is required");
     expect(combined).not.toMatch(/clear hard stop|reviewer clear button|medical clearance submitted/i);
   });

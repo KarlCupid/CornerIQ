@@ -184,7 +184,7 @@ function detailedSessionCard(state: PerformanceState, session: PerformanceState[
       intensity: session.intensity,
       sectionCount: 0,
       firstExercises: [],
-      whyThisMattersForBoxing: error instanceof Error ? `Detailed session unavailable: ${error.message}` : "Detailed session unavailable. Keep work easy and use coach guidance.",
+      whyThisMattersForBoxing: error instanceof Error ? `Detailed session unavailable: ${error.message}` : "Detailed session unavailable. Keep work easy and use the protected-session plan.",
       stopConditions: ["Stop if pain, dizziness, or unusual symptoms appear."],
       safetyNotes: ["Detailed prescription could not be built, so do not infer extra work."],
       canOpenDetail: false,
@@ -231,11 +231,15 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       ? "Follow the safety stop. Do not add generated training today."
       : todayGeneratedSessions.length > 0
         ? "Open Workout when you are ready, then log completed or skipped."
-        : "No generated training is due. Log coach-led boxing if it happens.";
+        : "No generated training is due. Log protected or manual boxing if it happens.";
   const supportGenerationSummary = {
     targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
     actualGeneratedSupportCount: state.training.supportGenerationAudit.actualGeneratedSupportCount,
     todayGeneratedSupportCount: todayGeneratedSessions.length,
+    weekDevelopmentTheme: state.training.supportGenerationAudit.boxingDevelopmentThemeTitle,
+    athleteFacingWeekSummary: state.training.supportGenerationAudit.athleteFacingWeekSummary,
+    targetStimulusMix: state.training.supportGenerationAudit.targetStimulusMix,
+    actualStimulusMix: state.training.supportGenerationAudit.actualStimulusMix,
     currentWeekGeneratedSessionDates: currentWeekGeneratedSessions.map((session) => session.date),
     currentWeekGeneratedSessionTitles: currentWeekGeneratedSessions.map((session) => session.title),
     currentWeekGeneratedSessionFamilies: currentWeekGeneratedSessions.map((session) => session.family),

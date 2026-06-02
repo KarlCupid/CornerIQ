@@ -78,7 +78,7 @@ function latestStrengthSummary(results: readonly ExerciseResultRecord[]): string
 
 function nextAction(progression: ProgressionRecommendation, readiness: ReadinessState): string {
   if (progression.status === "coach_review") {
-    return "Pause progression and share pain or high-RPE notes with a coach before adding load.";
+    return "Pause progression and review pain or high-RPE notes with qualified help before adding load.";
   }
   if (progression.status === "deload" || readiness.color === "red") {
     return "Use recovery, mobility, or easy aerobic support only until readiness improves.";

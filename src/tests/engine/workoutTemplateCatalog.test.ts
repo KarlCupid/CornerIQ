@@ -48,8 +48,18 @@ describe("workout template catalog", () => {
       .join(" ");
 
     expect(templateText).not.toMatch(prohibitedGeneratedCopy);
+    expect(templateText).not.toMatch(/coach review|coach_review|ask coach/i);
     expect(exerciseText).not.toMatch(prohibitedGeneratedCopy);
     expect(exerciseCatalog.every((exercise) => exercise.safetyNotes.length > 0 && exercise.stopConditions.length > 0)).toBe(true);
+  });
+
+  it("adds priority metadata to add-on blocks so optional notes cannot satisfy required targets", () => {
+    const addOns = workoutTemplateCatalog.flatMap((template) => template.addOnBlocks ?? []);
+
+    expect(addOns.length).toBeGreaterThan(0);
+    expect(addOns.every((block) => block.priority && block.placementType && block.athleteFacingPurpose && block.safetyBoundary)).toBe(true);
+    expect(addOns.filter((block) => block.priority === "optional").every((block) => block.countsTowardTarget === false)).toBe(true);
+    expect(addOns.filter((block) => block.priority !== "optional").every((block) => block.countsTowardTarget === true)).toBe(true);
   });
 
   it("selects practical templates for equipment, novice, advanced, and conservative contexts", () => {

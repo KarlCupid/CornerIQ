@@ -169,7 +169,7 @@ function whyForFamily(family: GeneratedSessionFamily): string {
     case "alactic_sprints":
       return "Alactic sprint support trains short bursts with full recovery and strict stop gates.";
     case "round_based_conditioning":
-      return "Round-based conditioning supports boxing work capacity without replacing coached skill practice.";
+      return "Round-based conditioning supports boxing work capacity without replacing protected technical boxing practice.";
     case "taper_maintenance":
       return "Taper work preserves speed while dropping volume so boxing sharpness stays protected.";
     case "recovery_reset":
@@ -179,15 +179,45 @@ function whyForFamily(family: GeneratedSessionFamily): string {
   }
 }
 
-function coachReviewPromptsForFamily(family: GeneratedSessionFamily, theme?: string | undefined): readonly string[] {
+function athleteQualityCuesForFamily(family: GeneratedSessionFamily, theme?: string | undefined): readonly string[] {
   if (family.startsWith("boxing_") || family === "agility_reactive_footwork" || family === "movement_quality_prep") {
     return [
-      `What would a coach watch first: ${theme ?? "stance, guard return, balance, and reset quality"}?`,
-      "Which cue stayed repeatable when the round got harder?",
-      "What should be simplified before adding volume?"
+      `Keep the main focus visible: ${theme ?? "stance, guard return, balance, and reset quality"}.`,
+      "Stay clean enough that the last round still looks like boxing.",
+      "Simplify before adding volume when the cue breaks twice."
     ];
   }
-  return ["What movement quality improved today, and what should stay unchanged next session?"];
+  return ["Keep speed, posture, timing, and breathing clean enough to protect the next boxing exposure."];
+}
+
+function sessionQualityCheckpointsForFamily(family: GeneratedSessionFamily, theme?: string | undefined): readonly string[] {
+  if (family.startsWith("boxing_")) {
+    return [
+      theme ? `${theme} stays recognizable from first round to last.` : "The main boxing skill stays recognizable from first round to last.",
+      "Guard returns before the next action.",
+      "Feet recover to stance before speed or volume rises."
+    ];
+  }
+  if (family === "agility_reactive_footwork" || family === "movement_quality_prep") {
+    return ["Feet brake quietly before the next cue.", "Stance width returns after every step.", "The drill ends before coordination fades."];
+  }
+  if (family.startsWith("strength_")) {
+    return ["No grinding reps.", "Trunk and shoulder position stay clean.", "The cooldown restores boxing positions."];
+  }
+  if (family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints") {
+    return ["Breathing stays inside the session cap.", "Gait and posture stay clean.", "Stop before conditioning turns into fatigue chasing."];
+  }
+  return ["Movement feels easier after the session.", "No symptom increase.", "Tomorrow's boxing quality is protected."];
+}
+
+function selfCheckCuesForFamily(family: GeneratedSessionFamily): readonly string[] {
+  if (family.startsWith("boxing_")) {
+    return ["What stayed clean?", "What broke first?", "What should stay simple next time?"];
+  }
+  if (family.startsWith("strength_") || family.startsWith("power_")) {
+    return ["Did every rep stay fast or clean?", "Did posture change under fatigue?", "Did the reset restore boxing positions?"];
+  }
+  return ["Did this leave you better for the next boxing session?", "Did symptoms change?", "What should you keep next time?"];
 }
 
 function filmCueForFamily(family: GeneratedSessionFamily, roundStructure?: string | undefined): string {
@@ -223,7 +253,7 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     ...(hardAnchor ? ["Protected hard boxing or competition owns hard stress today; detail stays short and easy."] : []),
     ...(input.phase?.phase === "tournament" && family !== input.generatedSession.family ? ["Tournament mode: hard conditioning is removed and no dehydration pressure is added."] : []),
     ...(input.phase?.phase === "fight_week" && family !== input.generatedSession.family ? ["Fight week: volume is trimmed to taper-safe speed and durability support."] : []),
-    ...(input.painNotes && input.painNotes.length > 0 ? ["Pain note present: stop on symptom increase and seek coach/clinician review if it persists."] : [])
+    ...(input.painNotes && input.painNotes.length > 0 ? ["Pain note present: stop on symptom increase and seek qualified clinical help if it persists."] : [])
   ];
   const cycleModifications =
     input.cycle.symptomBurden === "high"
@@ -263,7 +293,10 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     equipmentMode: input.generatedSession.equipmentMode ?? templateItem.equipmentMode,
     addOnBlocks: input.generatedSession.addOnBlocks ?? templateItem.addOnBlocks,
     sessionPriority: input.generatedSession.sessionPriority ?? templateItem.sessionPriority,
-    coachReviewPrompts: coachReviewPromptsForFamily(family, input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme),
-    filmCue: filmCueForFamily(family, input.generatedSession.roundStructure ?? templateItem.roundStructure)
+    athleteQualityCues: athleteQualityCuesForFamily(family, input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme),
+    sessionQualityCheckpoints: sessionQualityCheckpointsForFamily(family, input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme),
+    selfCheckCues: selfCheckCuesForFamily(family),
+    filmCue: filmCueForFamily(family, input.generatedSession.roundStructure ?? templateItem.roundStructure),
+    nextSessionNote: "Keep the cleanest cue from today and simplify the next exposure before adding volume."
   };
 }

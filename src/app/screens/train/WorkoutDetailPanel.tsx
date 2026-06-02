@@ -240,6 +240,9 @@ export function WorkoutDetailPanel({
           <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
         </View>
         <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
+        {session.boxingSkillTheme ? <Text style={screenStyles.subtle}>Skill: {session.boxingSkillTheme}</Text> : null}
+        {session.tacticalTheme ? <Text style={screenStyles.subtle}>Tactical theme: {session.tacticalTheme}</Text> : null}
+        {session.roundStructure ? <Text style={screenStyles.subtle}>Rounds: {session.roundStructure}</Text> : null}
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
         <Pressable accessibilityLabel={resultOpen ? "Hide workout result logger" : "Log result"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.button}>
@@ -248,9 +251,25 @@ export function WorkoutDetailPanel({
       </View>
       <View style={{ gap: spacing.md }}>
         <Text style={screenStyles.sectionTitle}>Session plan</Text>
+        {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
+            {session.sessionQualityCheckpoints.map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+          </View>
+        ) : null}
         {session.sections.map((section, index) => (
           <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
         ))}
+        {session.addOnBlocks && session.addOnBlocks.length > 0 ? (
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.fieldLabel}>Add-ons</Text>
+            {session.addOnBlocks.map((block) => (
+              <Text key={block.id} style={screenStyles.subtle}>
+                {block.priority}: {block.label} ({block.durationMinutes} min) - {block.athleteFacingPurpose}
+              </Text>
+            ))}
+          </View>
+        ) : null}
       </View>
       {resultOpen ? (
         <View style={{ gap: spacing.md }}>
@@ -308,6 +327,10 @@ export function WorkoutDetailPanel({
             <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
             {session.readinessModifications.map((item, index) => <Text key={`readiness-mod:${index}`} style={screenStyles.subtle}>Readiness: {item}</Text>)}
             {session.cycleModifications.map((item, index) => <Text key={`cycle-mod:${index}`} style={screenStyles.subtle}>Cycle: {item}</Text>)}
+            {(session.athleteQualityCues ?? []).map((item, index) => <Text key={`quality-cue:${index}`} style={screenStyles.subtle}>Cue: {item}</Text>)}
+            {(session.selfCheckCues ?? []).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Self-check: {item}</Text>)}
+            {session.filmCue ? <Text style={screenStyles.subtle}>Optional film cue: {session.filmCue}</Text> : null}
+            {session.nextSessionNote ? <Text style={screenStyles.subtle}>Next-session note: {session.nextSessionNote}</Text> : null}
             {session.stopConditions.slice(0, 3).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {item}</Text>)}
             {session.safetyNotes.slice(0, 3).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Safety: {item}</Text>)}
             <Text style={screenStyles.subtle}>Pain notes help the engine avoid automatic progression. Result statuses: completed, partial, prescribed_only, or skipped.</Text>

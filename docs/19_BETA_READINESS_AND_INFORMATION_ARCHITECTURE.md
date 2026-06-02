@@ -62,13 +62,13 @@ Feedback persists to `beta_feedback_reports` through `src/services/supabase/beta
 Privacy reminders are visible in the panel:
 
 - Do not include emergency details or secrets.
-- This is not emergency support and is not medical or coaching review.
+- This is not emergency support and is not medical review.
 - If safety concern is selected: If this is urgent, stop and seek qualified support.
 
 Feedback does not do these things:
 
 - It is not medical review.
-- It is not coach review.
+- It is not a reviewer workflow.
 - It is not emergency support.
 - It does not clear hard stops.
 - It does not expose coach, clinician, reviewer, or admin UI.
@@ -99,7 +99,7 @@ It tells testers:
 
 - This is a beta.
 - It is not medical advice.
-- It is not a coach replacement.
+- It is not a replacement for qualified human judgment.
 - There is no emergency support.
 - Urgent symptoms and urgent weight-class or health concerns need qualified support outside the app.
 - The app cannot be used to self-clear hard stops.

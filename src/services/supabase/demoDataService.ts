@@ -73,7 +73,7 @@ export async function createDemoBoxerProfile(input: {
     durationMinutes: 45,
     intensity: "moderate",
     protected: true,
-    note: "Coach-led technical work"
+    note: "Protected technical work"
   };
   await input.repositories.protectedWorkout.insertProtectedWorkout(input.userId, technicalSession);
   await input.repositories.journey.appendEvent(input.userId, "OnboardingCompleted", { source: "demo_profile" });

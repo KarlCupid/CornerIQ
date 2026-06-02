@@ -215,6 +215,8 @@ function GeneratedSupportSummaryCard({
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Generated training</Text>
           <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "training session")}</Text>
+          <Text style={screenStyles.body}>{viewModel.athleteFacingWeekSummary}</Text>
+          <Text style={screenStyles.subtle}>Development theme: {viewModel.weekDevelopmentTheme}</Text>
           <Text style={screenStyles.body}>Generated training days: {viewModel.scheduleAvailabilitySummary}</Text>
           <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds generated training around your protected boxing anchors, readiness, and safety."}</Text>
           {viewModel.generationAudit ? (
@@ -231,6 +233,17 @@ function GeneratedSupportSummaryCard({
               <Text style={screenStyles.subtle}>
                 Families: {viewModel.generationAudit.generatedSessionFamilies.length > 0 ? viewModel.generationAudit.generatedSessionFamilies.join(", ") : "None"}
               </Text>
+              {typeof viewModel.generationAudit.targetRequiredAddOnBlocks === "number" ? (
+                <Text style={screenStyles.subtle}>
+                  Required add-ons: {viewModel.generationAudit.actualRequiredAddOnBlocks ?? 0}/{viewModel.generationAudit.targetRequiredAddOnBlocks}; recommended: {viewModel.generationAudit.actualRecommendedAddOnBlocks ?? 0}/{viewModel.generationAudit.targetRecommendedAddOnBlocks ?? 0}.
+                </Text>
+              ) : null}
+              {typeof viewModel.generationAudit.targetAthleteQualityCheckpoints === "number" ? (
+                <Text style={screenStyles.subtle}>
+                  Quality checkpoints: {viewModel.generationAudit.actualAthleteQualityCheckpoints ?? 0}/{viewModel.generationAudit.targetAthleteQualityCheckpoints}.
+                </Text>
+              ) : null}
+              {viewModel.generationAudit.athleteFacingThemePurpose ? <Text style={screenStyles.subtle}>{viewModel.generationAudit.athleteFacingThemePurpose}</Text> : null}
               {typeof viewModel.generationAudit.targetHardDayCount === "number" ? (
                 <Text style={screenStyles.subtle}>
                   Target hard days: {viewModel.generationAudit.targetHardDayCount}, actual: {viewModel.generationAudit.actualHardDayCount ?? 0}

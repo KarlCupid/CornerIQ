@@ -180,6 +180,8 @@ export type GeneratedSessionTypeLabel =
   | "Mobility / Recovery";
 export type GeneratedSessionEquipmentMode = "none" | "bag" | "mirror" | "line" | "coach_optional";
 export type GeneratedSessionPriority = "primary" | "secondary" | "add_on";
+export type GeneratedSessionAddOnPriority = "required" | "recommended" | "optional";
+export type GeneratedSessionAddOnPlacementType = "primer" | "finisher" | "recovery" | "mobility" | "durability" | "technical_touch";
 
 export interface GeneratedSessionAddOnBlock {
   id: string;
@@ -188,6 +190,11 @@ export interface GeneratedSessionAddOnBlock {
   intent: string;
   cues: readonly string[];
   optional: boolean;
+  priority: GeneratedSessionAddOnPriority;
+  placementType: GeneratedSessionAddOnPlacementType;
+  countsTowardTarget: boolean;
+  athleteFacingPurpose: string;
+  safetyBoundary: string;
 }
 
 export interface GeneratedSessionDurationAudit {
@@ -325,8 +332,11 @@ export interface DetailedTrainingSession {
   equipmentMode?: GeneratedSessionEquipmentMode | undefined;
   addOnBlocks?: readonly GeneratedSessionAddOnBlock[] | undefined;
   sessionPriority?: GeneratedSessionPriority | undefined;
-  coachReviewPrompts?: readonly string[] | undefined;
+  athleteQualityCues?: readonly string[] | undefined;
+  sessionQualityCheckpoints?: readonly string[] | undefined;
+  selfCheckCues?: readonly string[] | undefined;
   filmCue?: string | undefined;
+  nextSessionNote?: string | undefined;
 }
 
 export interface ExerciseResultDraft {
@@ -509,8 +519,23 @@ export interface TrainingSupportGenerationAudit {
   actualMobilityRecoveryExposures: number;
   targetAddOnBlocks: number;
   actualAddOnBlocks: number;
-  targetCoachPrepOrReviewPrompts: number;
-  actualCoachPrepOrReviewPrompts: number;
+  targetRequiredAddOnBlocks: number;
+  actualRequiredAddOnBlocks: number;
+  targetRecommendedAddOnBlocks: number;
+  actualRecommendedAddOnBlocks: number;
+  targetOptionalAddOnBlocks: number;
+  actualOptionalAddOnBlocks: number;
+  optionalAddOnBlocks: readonly string[];
+  targetAthleteQualityCheckpoints: number;
+  actualAthleteQualityCheckpoints: number;
+  athleteQualityCues: readonly string[];
+  sessionQualityCheckpoints: readonly string[];
+  selfCheckCues: readonly string[];
+  boxingDevelopmentThemeId: string;
+  boxingDevelopmentThemeTitle: string;
+  athleteFacingThemePurpose: string;
+  targetSkillProgression: readonly string[];
+  athleteFacingWeekSummary: string;
   boxingDevelopmentTheme: string;
   protectedAnchorsCountedAsSkill: number;
   generatedSkillSessions: readonly string[];

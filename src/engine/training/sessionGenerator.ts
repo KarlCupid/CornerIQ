@@ -96,61 +96,111 @@ function inferredEquipmentMode(family: GeneratedSessionFamily, equipmentAccess: 
   return "none";
 }
 
+function addOnPriority(id: string, optional: boolean): GeneratedSessionAddOnBlock["priority"] {
+  if (!optional) {
+    return "required";
+  }
+  if (id.includes("self_check") || id.includes("easy_shadow")) {
+    return "optional";
+  }
+  if (id.includes("reset") || id.includes("mobility") || id.includes("hip")) {
+    return "required";
+  }
+  return "recommended";
+}
+
+function addOnPlacementType(id: string): GeneratedSessionAddOnBlock["placementType"] {
+  if (id.includes("primer")) {
+    return "primer";
+  }
+  if (id.includes("recovery")) {
+    return "recovery";
+  }
+  if (id.includes("reset") || id.includes("mobility") || id.includes("hip")) {
+    return "mobility";
+  }
+  if (id.includes("self_check") || id.includes("touch")) {
+    return "technical_touch";
+  }
+  return "durability";
+}
+
+function addOnBlock(input: {
+  id: string;
+  label: string;
+  durationMinutes: number;
+  intent: string;
+  cues: readonly string[];
+  optional?: boolean | undefined;
+}): GeneratedSessionAddOnBlock {
+  const optional = input.optional ?? true;
+  const priority = addOnPriority(input.id, optional);
+  return {
+    ...input,
+    optional,
+    priority,
+    placementType: addOnPlacementType(input.id),
+    countsTowardTarget: priority !== "optional",
+    athleteFacingPurpose: input.intent,
+    safetyBoundary: "Keep it small, symptom-free, and below the point where movement quality drops."
+  };
+}
+
 function defaultAddOnBlocksForFamily(family: GeneratedSessionFamily): readonly GeneratedSessionAddOnBlock[] {
   if (family.startsWith("strength_")) {
     return [
-      {
+      addOnBlock({
         id: "technical_shadow_primer_10",
         label: "Technical shadowboxing primer",
         durationMinutes: 10,
         intent: "Set stance, guard, and jab rhythm before lifting.",
         cues: ["Jab-only", "Guard return", "Stop before fatigue"],
         optional: true
-      },
-      {
+      }),
+      addOnBlock({
         id: "hip_reset_8",
         label: "Hip reset",
         durationMinutes: 8,
         intent: "Restore stance range after strength work.",
         cues: ["Pain-free range", "Easy breathing"],
         optional: true
-      }
+      })
     ];
   }
   if (family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints") {
     return [
-      {
+      addOnBlock({
         id: "mobility_reset_10",
         label: "Mobility reset",
         durationMinutes: 10,
         intent: "Downshift hips, ankles, and breathing after conditioning.",
         cues: ["No forced range", "Leave fresher"],
         optional: true
-      }
+      })
     ];
   }
   if (family.startsWith("power_")) {
     return [
-      {
+      addOnBlock({
         id: "reactive_footwork_primer_8",
         label: "Reactive footwork primer",
         durationMinutes: 8,
         intent: "Link speed work to boxing stance and first-step quality.",
         cues: ["One cue", "Full reset", "Quiet feet"],
         optional: true
-      }
+      })
     ];
   }
   if (family === "recovery_reset" || family === "hip_ankle_mobility" || family === "mobility_recovery_flow") {
     return [
-      {
-        id: "coach_review_5",
-        label: "Coach review prompt",
+      addOnBlock({
+        id: "self_check_5",
+        label: "Self-check note",
         durationMinutes: 5,
         intent: "Capture one note that can improve the next boxing session.",
         cues: ["What improved?", "What broke first?"],
         optional: true
-      }
+      })
     ];
   }
   return [];

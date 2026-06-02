@@ -27,9 +27,9 @@ const anchorTypes: Array<{ label: string; value: ProtectedWorkoutDraft["type"] }
   { label: "Pads or mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
   { label: "Footwork", value: "footwork_session" },
-  { label: "Coach-led sparring", value: "sparring" },
+  { label: "Protected sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
-  { label: "Coach-assigned strength", value: "coach_assigned_strength" },
+  { label: "Assigned strength", value: "coach_assigned_strength" },
   { label: "Travel", value: "travel" },
   { label: "Recovery day", value: "recovery_day" }
 ];
@@ -122,10 +122,10 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Protected boxing anchors</Text>
       <Text style={screenStyles.subtle}>
-        Add recurring weekly commitments the engine should protect: boxing sessions, coach-led sparring you already have, travel, or recovery days. CornerIQ does not generate sparring or contact.
+        Add recurring weekly commitments the engine should protect: boxing sessions, protected sparring you already have, travel, or recovery days. CornerIQ does not generate sparring or contact.
       </Text>
       <Text style={screenStyles.exampleText}>Example: Tuesday evening pads, 60 min, RPE 6.</Text>
-      <Text style={screenStyles.exampleText}>Example: Thursday coach-led sparring, 90 min, RPE 8.</Text>
+      <Text style={screenStyles.exampleText}>Example: Thursday protected sparring, 90 min, RPE 8.</Text>
       <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, RPE 2.</Text>
       <FieldGroup helper="Protected anchors are user-owned fixed commitments. Leave this empty when you do not have any." label="Fixed schedule">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>

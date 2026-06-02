@@ -221,7 +221,7 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
     reason:
       phase === "recovery_deload"
         ? repeatedPain
-          ? "Pain history or professional-review flags require coach review before progression."
+          ? "Pain history or professional-review flags require qualified review before progression."
           : "Readiness or training safety flags override the training block."
         : phase === "tournament_week"
           ? "Tournament context keeps generated work conservative and secondary."

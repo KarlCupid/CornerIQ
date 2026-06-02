@@ -184,7 +184,7 @@ describe("detailed training session engine", () => {
         equipmentMode: "none"
       })
     });
-    const text = `${exercisePrescriptionText(detail)} ${detail.roundStructure ?? ""} ${(detail.coachReviewPrompts ?? []).join(" ")} ${detail.filmCue ?? ""}`.toLowerCase();
+    const text = `${exercisePrescriptionText(detail)} ${detail.roundStructure ?? ""} ${(detail.athleteQualityCues ?? []).join(" ")} ${(detail.sessionQualityCheckpoints ?? []).join(" ")} ${(detail.selfCheckCues ?? []).join(" ")} ${detail.filmCue ?? ""}`.toLowerCase();
 
     expect(detail.boxingSkillTheme).toContain("jab");
     expect(detail.roundStructure).toContain("round");
@@ -192,7 +192,9 @@ describe("detailed training session engine", () => {
     expect(text).toContain("quality");
     expect(text).toContain("film");
     expect(text).toContain("guard");
-    expect(text).not.toMatch(/sparring|contact|partner-impact/);
+    expect(detail.sessionQualityCheckpoints?.length).toBeGreaterThan(0);
+    expect(detail.selfCheckCues?.join(" ").toLowerCase()).toContain("what stayed clean");
+    expect(text).not.toMatch(/sparring|contact|partner-impact|coach review|ask coach/);
     expect(detail.noGeneratedSparring).toBe(true);
   });
 
@@ -291,6 +293,7 @@ describe("detailed training session engine", () => {
     const details = [detailForFixture(pro_4_round_build_strength), detailForFixture(no_wearable_manual_only), detailForFixture(pro_12_round_taper)];
     for (const detail of details) {
       expect(exercisePrescriptionText(detail).toLowerCase()).not.toMatch(/sparring|contact/);
+      expect(`${(detail.athleteQualityCues ?? []).join(" ")} ${(detail.sessionQualityCheckpoints ?? []).join(" ")} ${(detail.selfCheckCues ?? []).join(" ")}`.toLowerCase()).not.toMatch(/coach review|ask coach/);
       expect(detail.noGeneratedSparring).toBe(true);
       expect(detail.whyThisMattersForBoxing.length).toBeGreaterThan(10);
     }
@@ -401,7 +404,7 @@ describe("progression and train view model", () => {
     expect(analytics.averageSessionRpe).toBe(7);
     expect(analytics.mostRecentExerciseResultSummary).toContain("Dumbbell Romanian deadlift");
     expect(analytics.progressionRecommendation.status).toBe("coach_review");
-    expect(analytics.nextBestTrainingAction).toContain("coach");
+    expect(analytics.nextBestTrainingAction).toContain("qualified help");
   });
 
   it("training analytics changes next action for repeat, deload, and unknown states", () => {

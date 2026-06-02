@@ -128,7 +128,7 @@ function materialize(state: PerformanceState, summary: TrainingWeekSummary | nul
 }
 
 describe("next week materialization engine", () => {
-  it("materializes progress, repeat, deload, and coach review decisions into conservative strategies", () => {
+  it("materializes progress, repeat, deload, and qualified review decisions into conservative strategies", () => {
     const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
     const summary = summaryFor(state);
 

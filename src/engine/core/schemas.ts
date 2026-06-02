@@ -11,6 +11,8 @@ const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
 const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper", "boxing_skill", "technical", "agility", "tactical"]);
+const GeneratedSessionAddOnPrioritySchema = z.enum(["required", "recommended", "optional"]);
+const GeneratedSessionAddOnPlacementTypeSchema = z.enum(["primer", "finisher", "recovery", "mobility", "durability", "technical_touch"]);
 const GeneratedSessionTypeLabelSchema = z.enum([
   "Lift",
   "Strength",
@@ -36,7 +38,12 @@ const GeneratedSessionAddOnBlockSchema = z.object({
   durationMinutes: z.number().int().positive(),
   intent: z.string().min(1),
   cues: z.array(z.string()),
-  optional: z.boolean()
+  optional: z.boolean(),
+  priority: GeneratedSessionAddOnPrioritySchema,
+  placementType: GeneratedSessionAddOnPlacementTypeSchema,
+  countsTowardTarget: z.boolean(),
+  athleteFacingPurpose: z.string().min(1),
+  safetyBoundary: z.string().min(1)
 });
 
 export const MassSchema = z.object({

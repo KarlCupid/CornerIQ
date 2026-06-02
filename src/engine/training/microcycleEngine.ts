@@ -137,7 +137,7 @@ function explanationForDay(input: {
     return "Fight week taper keeps speed touched while dropping volume.";
   }
   if (input.protectedAnchors.some((anchor) => anchor.type === "sparring")) {
-    return "Coach-led sparring is the protected anchor; support work cannot compete with it.";
+    return "Protected sparring is the fixed anchor; generated training cannot compete with it.";
   }
   if (input.hardDay) {
     return "This is a planned hard stress day inside the weekly cap.";

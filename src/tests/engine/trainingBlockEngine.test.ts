@@ -261,7 +261,7 @@ describe("training block and microcycle engine", () => {
     expect(red.training.generatedSessions.length).toBeLessThanOrEqual(1);
     expect(red.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("Readiness is red");
     expect(pain.training.activeBlock.progressionState.status).toBe("coach_review");
-    expect(pain.training.blockRecommendation.reason).toContain("coach review");
+    expect(pain.training.blockRecommendation.reason).toContain("qualified review");
   });
 
   it("protected sparring owns the day and under-fueling reduces progression", () => {
@@ -629,10 +629,22 @@ describe("training block and microcycle engine", () => {
     expect(audit.targetBoxingSkillExposures).toBeGreaterThanOrEqual(2);
     expect(audit.actualBoxingSkillExposures).toBeGreaterThanOrEqual(2);
     expect(audit.actualTechnicalExposures).toBeGreaterThanOrEqual(1);
+    expect(audit.boxingDevelopmentThemeId).toBeTruthy();
+    expect(audit.boxingDevelopmentThemeTitle).toBeTruthy();
+    expect(audit.athleteFacingThemePurpose).toContain("boxing");
+    expect(audit.athleteFacingWeekSummary).toContain("This week develops");
+    expect(audit.targetAthleteQualityCheckpoints).toBeGreaterThanOrEqual(1);
+    expect(audit.actualAthleteQualityCheckpoints).toBeGreaterThanOrEqual(1);
+    expect(audit.athleteQualityCues.length).toBeGreaterThanOrEqual(1);
+    expect(audit.sessionQualityCheckpoints.length).toBeGreaterThanOrEqual(1);
     expect(audit.generatedSkillSessions.length).toBeGreaterThanOrEqual(2);
     expect(boxingSkillSessions.some((session) => session.sessionPriority === "primary")).toBe(true);
     expect(boxingSkillSessions.some((session) => session.boxingSkillTheme && session.roundStructure)).toBe(true);
     expect(boxingSkillSessions.some((session) => (session.addOnBlocks ?? []).length > 0)).toBe(true);
+    expect(audit.targetRequiredAddOnBlocks).toBeGreaterThanOrEqual(1);
+    expect(audit.actualRequiredAddOnBlocks).toBeGreaterThanOrEqual(1);
+    expect(audit.optionalAddOnBlocks.length).toBeGreaterThanOrEqual(0);
+    expect(state.training.generatedSessions.flatMap((session) => session.addOnBlocks ?? []).every((block) => block.priority && block.placementType && block.athleteFacingPurpose && block.safetyBoundary)).toBe(true);
     expect(families.some((family) => family.startsWith("strength"))).toBe(true);
     expect(families.some((family) => family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints")).toBe(true);
     expect(generatedSessionSafetyText(state.training.generatedSessions)).not.toMatch(/sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight/);
@@ -648,7 +660,7 @@ describe("training block and microcycle engine", () => {
       intensity: "moderate",
       protected: true,
       rounds: 5,
-      note: "Coach-led technical boxing"
+      note: "Protected technical boxing"
     };
     const state = seriousSixDayState({ id: "plan_six_day_protected_technical", protectedWorkouts: [technicalAnchor] });
     const audit = state.training.supportGenerationAudit;
@@ -657,7 +669,8 @@ describe("training block and microcycle engine", () => {
     expect(audit.protectedAnchorsCountedAsSkill).toBe(1);
     expect(audit.actualBoxingSkillExposures).toBeGreaterThanOrEqual(audit.targetBoxingSkillExposures);
     expect(audit.generatedSkillSessions.length).toBeGreaterThanOrEqual(1);
-    expect(audit.addOnPlacementReasons.join(" ")).toMatch(/prep|review|consolidat/i);
+    expect(audit.addOnPlacementReasons.join(" ")).toMatch(/prep|consolidat/i);
+    expect(audit.addOnPlacementReasons.join(" ").toLowerCase()).not.toContain("review");
     expect(generatedOnAnchorDate.some((session) => generatedBoxingSkillFamilies.has(session.family))).toBe(false);
     expect(audit.unmetPrescriptionTargets).toEqual([]);
   });

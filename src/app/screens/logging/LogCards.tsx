@@ -526,6 +526,15 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
   const [note, setNote] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Training log failed.");
   const [success, setSuccess] = useState<string | null>(null);
+  const typeLabels: Record<typeof type, string> = {
+    technical_session: "technical session",
+    pads_mitts: "pads / mitts",
+    bag_work: "bag work",
+    sparring: "protected sparring",
+    roadwork: "roadwork",
+    coach_assigned_strength: "assigned strength",
+    recovery_day: "recovery day"
+  };
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -541,7 +550,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
         <InputLabel>Session type</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["technical_session", "pads_mitts", "bag_work", "sparring", "roadwork", "coach_assigned_strength", "recovery_day"] as const).map((option) => (
-            <ToggleButton active={type === option} busy={busy} key={option} label={option.replace(/_/g, " ")} onPress={() => setType(option)} />
+            <ToggleButton active={type === option} busy={busy} key={option} label={typeLabels[option]} onPress={() => setType(option)} />
           ))}
         </View>
         <InputLabel>Duration (minutes)</InputLabel>

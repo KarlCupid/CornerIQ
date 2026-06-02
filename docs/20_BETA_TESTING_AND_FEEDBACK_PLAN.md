@@ -21,7 +21,7 @@ The beta should answer:
 Use these personas across guided sessions:
 
 - Amateur novice build phase.
-- Amateur open with sparring anchors logged as protected coach-led work.
+- Amateur open with sparring anchors logged as protected manual work.
 - Amateur tournament daily weigh-ins.
 - Pro camp day-before weigh-in.
 - Same-day weigh-in amateur.
@@ -87,7 +87,7 @@ Ask these after each flow:
 
 Feedback is available in Profile > Audit through the Beta feedback panel.
 
-Profile > Audit also includes a beta tester notice. It states this is a beta, not medical advice, not a coach replacement, not emergency support, not for urgent symptoms, not for self-clearing hard stops, and that manual logs are enough while wearables are optional. Its acknowledgement is local-only and does not block app use.
+Profile > Audit also includes a beta tester notice. It states this is a beta, not medical advice, not a replacement for qualified human judgment, not emergency support, not for urgent symptoms, not for self-clearing hard stops, and that manual logs are enough while wearables are optional. Its acknowledgement is local-only and does not block app use.
 
 The panel collects:
 
@@ -100,7 +100,7 @@ The panel collects:
 The panel reminds testers:
 
 - Do not include emergency details or secrets.
-- This is not emergency support and is not medical or coaching review.
+- This is not emergency support and is not medical review.
 - For urgent safety concerns, stop and seek qualified support.
 
 Feedback is saved to `beta_feedback_reports` as user-owned data under RLS. Feedback reports are included in app data export/delete scope. There is no admin triage dashboard in the app yet, and reports are not sent to third-party analytics.
@@ -111,7 +111,7 @@ Recent reports are visible to the signed-in user in Profile > Audit. Status chip
 
 If the React tree hits an app-level error, CornerIQ shows recovery copy instead of a raw stack trace. Signed-in users can choose Report this issue, which submits sanitized bug feedback through the same beta feedback service. Signed-out users can retry, but no issue report is submitted.
 
-This flow is product issue reporting only. It is not emergency support, medical review, coach review, or hard-stop clearance.
+This flow is product issue reporting only. It is not emergency support, medical review, reviewer workflow, or hard-stop clearance.
 
 ## Automated Scenario QA
 
@@ -151,7 +151,7 @@ Future options include an admin Edge Function, a private dashboard, or private e
 - Keep wearable use optional; manual input is first-class.
 - Use only public Supabase URL and anon key in the client and smoke.
 - Do not print or document smoke email/password values.
-- Feedback is product feedback, not emergency support, medical review, coach review, or a hard-stop clearing workflow.
+- Feedback is product feedback, not emergency support, medical review, reviewer workflow, or a hard-stop clearing workflow.
 
 ## Beta Exit Criteria
 

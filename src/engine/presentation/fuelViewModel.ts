@@ -17,7 +17,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
           title: "Fight-week fuel",
           status: "blocked" as const,
           summary: state.nutrition.acuteProtocolEligibility.athleteFacingSummary,
-          actions: ["Keep regular meals and fluids steady.", "Use coach or clinician review for any weight-class pressure.", "No acute scale-manipulation steps are shown."]
+          actions: ["Keep regular meals and fluids steady.", "Use qualified clinical review for any weight-class pressure.", "No acute scale-manipulation steps are shown."]
         }
       : null;
   const lowResidueGuidance = state.nutrition.lowResidueGuidance

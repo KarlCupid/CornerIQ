@@ -9,7 +9,7 @@ import { screenStyles } from "../screens/screenStyles";
 const betaNoticeItems = [
   "This is a beta.",
   "Not medical advice.",
-  "Not a coach replacement.",
+  "Not a replacement for qualified human judgment.",
   "No emergency support.",
   "Do not use for urgent symptoms.",
   "Do not use to self-clear hard stops.",

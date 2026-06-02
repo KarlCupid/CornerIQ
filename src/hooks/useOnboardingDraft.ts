@@ -156,7 +156,7 @@ function isLegacyDefaultRecurringAnchor(anchor: NonNullable<OnboardingDraft["rec
     anchor.weekday === "wednesday" &&
     anchor.durationMinutes === 45 &&
     anchor.intensity === "moderate" &&
-    anchor.note === "Coach-led technical work" &&
+    (anchor.note === "Coach-led technical work" || anchor.note === "Protected technical work") &&
     anchor.activeFrom === asOfDate &&
     anchor.id === undefined &&
     anchor.localStartTime === undefined &&

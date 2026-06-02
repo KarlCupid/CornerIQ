@@ -17,7 +17,7 @@ export function ExercisePrescriptionCard({ exercise, sectionName }: { exercise: 
       {exercise.rirTarget ? <Text style={screenStyles.subtle}>RIR target: {exercise.rirTarget}</Text> : null}
       {exercise.tempo ? <Text style={screenStyles.subtle}>Tempo: {exercise.tempo}</Text> : null}
       <Text style={screenStyles.body}>Boxing transfer: {exercise.boxingTransfer}</Text>
-      {exercise.coachingNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Coach: {note}</Text>)}
+      {exercise.coachingNotes.map((note, index) => <Text key={`cue-note:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
       {exercise.substitutions.length > 0 ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.subtle}>Substitutions</Text>

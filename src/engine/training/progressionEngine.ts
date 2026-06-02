@@ -52,7 +52,7 @@ export function recommendTrainingProgression(input: ProgressionEngineInput): Pro
   ) {
     return {
       status: "coach_review",
-      summary: "Hold progression for coach review.",
+      summary: "Hold progression for qualified review.",
       why: "Pain notes, exercise pain flags, concerning symptoms, or very high session RPE were found in recent history."
     };
   }

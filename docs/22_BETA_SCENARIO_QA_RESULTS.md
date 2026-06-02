@@ -11,7 +11,7 @@ All scenarios resolve through `resolvePerformanceState` and the existing engine-
 | Persona | Automated status | Notes |
 | --- | --- | --- |
 | Amateur novice build phase | Passed | Confirms novice build support resolves without generic fitness defaults. |
-| Amateur open with sparring anchors | Passed | Protected coach-led sparring can exist as a manual anchor; generated support stays easy and secondary. |
+| Amateur open with sparring anchors | Passed | Protected sparring can exist as a manual anchor; generated support stays easy and secondary. |
 | Amateur tournament daily weigh-ins | Passed | Tournament Fuel and Plan context remain visible without unsafe weight-pressure copy. |
 | Pro camp day-before weigh-in | Passed | Pro fight context and day-before weigh-in rules resolve through the engine. |
 | Same-day weigh-in amateur | Passed | Amateur same-day weigh-in context resolves without acute unsafe instructions. |
@@ -77,7 +77,7 @@ These remain deferred and were not added or covered as product flows in this pas
 - Ask testers to use the quick-log forms with only the required fields first, then ask whether optional fields felt safe to skip.
 - In workout completion, ask testers to complete once with only session RPE and once with one exercise row, then compare friction.
 - In Plan Adjustments, ask testers what they think "Protect this day," "Mark unavailable," "Request deload," and "Restore engine plan" will do before pressing anything.
-- For the sparring-anchor persona, remind facilitators that sparring is a manually logged protected coach-led anchor, not generated work.
+- For the sparring-anchor persona, remind facilitators that sparring is a manually logged protected anchor, not generated work.
 - For high-symptom and red-readiness personas, ask testers to explain in their own words why hard work was reduced or blocked.
 - For feedback reporting, ask testers to submit a non-emergency confusing-moment report, then confirm the recent feedback empty/status state is understandable.
 

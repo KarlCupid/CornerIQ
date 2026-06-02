@@ -155,7 +155,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | signed-in sanitized issue report | automated_pass | Static docs/tests and source inspection. |
 | signed-out retry only | automated_pass | Static docs/tests and source inspection. |
 | no raw stack traces to user | automated_pass | Static docs/tests and source inspection. |
-| no emergency/medical/coaching support framing | automated_pass | Text and source scans. |
+| no emergency/medical review framing | automated_pass | Text and source scans. |
 
 ### J. Engine output quality
 

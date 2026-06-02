@@ -46,7 +46,7 @@ The full onboarding audit covers the real first-time path before any shortcut:
 - Boxer basics with boxing status, visible level definitions, training age, and stance.
 - Body mass with kg/cm labels, examples, and missing-data safety copy.
 - Training access with Monday-Sunday availability chips plus optional equipment and availability notes.
-- Protected weekly anchors for recurring Tuesday pads and Thursday coach-led sparring using RPE selection.
+- Protected weekly anchors for recurring Tuesday pads and Thursday protected sparring using RPE selection.
 - Cycle support disabled while confirming optional/private/non-fertility copy.
 - Manual-only wearable preference.
 - Safety screening with male sex-at-birth selection hiding pregnancy-specific choices, no medication collection, and constrained engine-relevant safety restrictions.
@@ -81,9 +81,9 @@ The Profile Audit audit covers the local E2E path after onboarding:
 
 - Profile tab visible from the local tab shell.
 - Audit section visible.
-- Beta tester notice says beta, not medical advice, not a coach replacement, and no emergency support.
+- Beta tester notice says beta, not medical advice, not a replacement for qualified human judgment, and no emergency support.
 - Beta feedback panel is visible with app section/screen, category, severity, and message inputs or equivalents.
-- Feedback warning says not to include secrets or emergency details and clarifies it is not emergency, medical, or coaching support.
+- Feedback warning says not to include secrets or emergency details and clarifies it is not emergency support or medical review.
 - Beta health preflight panel is visible.
 - Visible Profile Audit text is scanned for secret-value patterns, Supabase service-role assignments, JWTs, bearer tokens, database URLs, and concrete Supabase project URLs.
 
@@ -91,7 +91,7 @@ The Train audit covers the local E2E path after onboarding:
 
 - Train tab visible from the local tab shell.
 - Today and Workout sections visible.
-- Today's generated support visible and scanned so generated support does not include sparring, contact, partner drills, or fight simulation.
+- Today's generated training visible and scanned so generated training does not include sparring, contact, partner drills, or fight simulation.
 - Workout detail opens.
 - Protected workout logging uses Session RPE 1-10 and maps internally to existing intensity buckets.
 - Fast completion path, session RPE, and one exercise row are visible.

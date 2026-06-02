@@ -38,7 +38,7 @@ export function buildLocalE2EPerformanceState(input: {
     durationMinutes: 45,
     intensity: "moderate",
     protected: true,
-    note: "Local E2E coach-led technical work"
+    note: "Local E2E protected technical work"
   };
   const protectedSparringWork: ProtectedWorkout = {
     id: "local_e2e_sparring_2026-05-21",
@@ -48,7 +48,7 @@ export function buildLocalE2EPerformanceState(input: {
     intensity: "hard",
     protected: true,
     rounds: 6,
-    note: "Local E2E preset coach-led sparring"
+    note: "Local E2E preset protected sparring"
   };
   const journey: AthleteJourney = {
     athlete,

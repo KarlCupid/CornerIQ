@@ -122,7 +122,7 @@ Manual release-owner tasks:
 - Share the preview build link through a private channel.
 - Share tester onboarding notes, not secrets.
 - Do not share `.env`, Supabase tokens, DB passwords, service role keys, smoke credentials, or tester passwords.
-- Tell testers this is a beta, not medical advice, not a coach replacement, and not emergency support.
+- Tell testers this is a beta, not medical advice, not a replacement for qualified human judgment, and not emergency support.
 - Tell testers that manual logs are enough and wearables are optional.
 - Ask testers to use Profile > Audit for product feedback and avoid secrets or emergency details.
 

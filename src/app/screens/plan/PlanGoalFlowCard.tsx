@@ -100,7 +100,7 @@ const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft[
   { label: "Footwork", value: "footwork_session" },
   { label: "Sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
-  { label: "Coach strength", value: "coach_assigned_strength" },
+  { label: "Assigned strength", value: "coach_assigned_strength" },
   { label: "Recovery day", value: "recovery_day" },
   { label: "Travel", value: "travel" },
   { label: "Competition", value: "competition" }

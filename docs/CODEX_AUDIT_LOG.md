@@ -357,7 +357,7 @@ Command results:
 - No commit was created in this pass.
 
 Known gaps:
-- No permissioned clinician, dietitian, admin, or coach reviewer UI yet.
+- No permissioned clinician, dietitian, admin, or qualified reviewer UI yet.
 - No reviewer assignment, reviewer-note, clinician/coach messaging, or exposed reviewer-clear workflow yet.
 - History/detail surfaces are panels inside Fuel/Train/Plan, not routed screens.
 - Manual food logging is more explainable but still basic; no barcode scanner, full meal-planning system, or detailed food database.

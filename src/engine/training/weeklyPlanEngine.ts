@@ -270,13 +270,37 @@ function generatedAddOnCount(sessions: readonly GeneratedTrainingSession[]): num
   return sessions.reduce((count, session) => count + (session.addOnBlocks?.length ?? 0), 0);
 }
 
-function generatedCoachPromptCount(sessions: readonly GeneratedTrainingSession[]): number {
-  return sessions.filter(
-    (session) =>
-      BOXING_SKILL_GENERATED_FAMILIES.has(session.family) ||
-      Boolean(session.boxingSkillTheme) ||
-      (session.addOnBlocks ?? []).some((block) => block.id.includes("coach") || block.label.toLowerCase().includes("review"))
-  ).length;
+function generatedAddOnCountByPriority(sessions: readonly GeneratedTrainingSession[], priority: "required" | "recommended" | "optional"): number {
+  return sessions.reduce((count, session) => count + (session.addOnBlocks ?? []).filter((block) => block.priority === priority).length, 0);
+}
+
+function optionalAddOnLabels(sessions: readonly GeneratedTrainingSession[]): readonly string[] {
+  return sessions.flatMap((session) => (session.addOnBlocks ?? []).filter((block) => block.priority === "optional").map((block) => `${session.date}: ${block.label}`));
+}
+
+function generatedAthleteQualityCheckpointCount(sessions: readonly GeneratedTrainingSession[]): number {
+  return sessions.filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family) || Boolean(session.boxingSkillTheme) || (session.technicalEmphasis ?? []).length > 0).length;
+}
+
+function athleteQualityCues(sessions: readonly GeneratedTrainingSession[]): readonly string[] {
+  return sessions
+    .filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family) || Boolean(session.boxingSkillTheme))
+    .map((session) => {
+      const emphasis = session.technicalEmphasis?.[0] ?? session.boxingSkillTheme ?? session.title;
+      return `${session.date}: keep ${emphasis} clean enough to repeat.`;
+    });
+}
+
+function sessionQualityCheckpoints(sessions: readonly GeneratedTrainingSession[]): readonly string[] {
+  return sessions
+    .filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family) || Boolean(session.boxingSkillTheme))
+    .map((session) => `${session.date}: ${session.boxingSkillTheme ?? session.title} stays recognizable from first round to last.`);
+}
+
+function selfCheckCues(sessions: readonly GeneratedTrainingSession[]): readonly string[] {
+  return sessions
+    .filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family) || Boolean(session.boxingSkillTheme))
+    .map((session) => `${session.date}: what stayed clean, what broke first, and what should stay simple next time?`);
 }
 
 function lowerStimulusSession(session: GeneratedTrainingSession): GeneratedTrainingSession {
@@ -799,7 +823,15 @@ export function resolveWeeklyTrainingPlan(input: {
   const actualAgilityFootworkExposures = generatedAgilityFootworkExposures + input.anchors.filter((anchor) => anchor.date >= input.asOfDate && candidateDates.includes(anchor.date) && anchor.type === "footwork_session").length;
   const actualMobilityRecoveryExposures = generatedMobilityRecoveryExposures;
   const actualAddOnBlocks = generatedAddOnCount(mergedGeneratedSessions);
-  const actualCoachPrepOrReviewPrompts = generatedCoachPromptCount(mergedGeneratedSessions) + protectedAnchorsCountedAsSkill;
+  const actualRequiredAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "required");
+  const actualRecommendedAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "recommended");
+  const actualOptionalAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "optional");
+  const optionalAddOns = optionalAddOnLabels(mergedGeneratedSessions);
+  const actualAthleteQualityCheckpoints = generatedAthleteQualityCheckpointCount(mergedGeneratedSessions) + protectedAnchorsCountedAsSkill;
+  const athleteCueAudit = athleteQualityCues(mergedGeneratedSessions);
+  const qualityCheckpointAudit = sessionQualityCheckpoints(mergedGeneratedSessions);
+  const selfCheckCueAudit = selfCheckCues(mergedGeneratedSessions);
+  const athleteFacingWeekSummary = `This week develops ${prescriptionPolicy.boxingDevelopmentThemeTitle.toLowerCase()}, supported by ${prescriptionPolicy.targetStrengthExposures} strength, ${prescriptionPolicy.targetConditioningExposures} conditioning, ${prescriptionPolicy.targetPowerExposures} power, and ${prescriptionPolicy.targetMobilityRecoveryExposures} mobility/recovery exposure${prescriptionPolicy.targetMobilityRecoveryExposures === 1 ? "" : "s"}.`;
   const generatedSkillSessions = mergedGeneratedSessions
     .filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family))
     .map((session) => `${session.date}: ${session.title}`);
@@ -813,11 +845,11 @@ export function resolveWeeklyTrainingPlan(input: {
   ];
   const addOnPlacementReasons = [
     ...mergedGeneratedSessions.flatMap((session) =>
-      (session.addOnBlocks ?? []).map((block) => `${session.date}: ${block.label} add-on supports ${block.intent.toLowerCase()}`)
+      (session.addOnBlocks ?? []).map((block) => `${session.date}: ${block.priority} ${block.placementType.replaceAll("_", " ")} add-on ${block.label} supports ${block.athleteFacingPurpose.toLowerCase()}`)
     ),
     ...input.anchors
       .filter((anchor) => anchor.date >= input.asOfDate && candidateDates.includes(anchor.date) && isProtectedBoxingSkillAnchor(anchor))
-      .map((anchor) => `${anchor.date}: protected ${anchor.type.replaceAll("_", " ")} counted as skill; generated work should prep, review, or consolidate away from overload.`)
+      .map((anchor) => `${anchor.date}: protected ${anchor.type.replaceAll("_", " ")} counted as skill; generated work should prep or consolidate away from overload.`)
   ];
   const unusedAvailableDays = allowedSupportDates.filter((date) => !mergedGeneratedSessions.some((session) => session.date === date));
   const unusedAvailableDayReasons = unusedAvailableDays.map((date) =>
@@ -879,6 +911,12 @@ export function resolveWeeklyTrainingPlan(input: {
       : []),
     ...(actualAddOnBlocks < prescriptionPolicy.targetAddOnBlocks && !realLoadConstraintActive
       ? [`Add-on blocks ${actualAddOnBlocks}/${prescriptionPolicy.targetAddOnBlocks} target without a real safety constraint.`]
+      : []),
+    ...(actualRequiredAddOnBlocks < prescriptionPolicy.targetRequiredAddOnBlocks && !realLoadConstraintActive
+      ? [`Required add-on blocks ${actualRequiredAddOnBlocks}/${prescriptionPolicy.targetRequiredAddOnBlocks} target without a real safety constraint.`]
+      : []),
+    ...(actualAthleteQualityCheckpoints < prescriptionPolicy.targetAthleteQualityCheckpoints && !realLoadConstraintActive
+      ? [`Athlete quality checkpoints ${actualAthleteQualityCheckpoints}/${prescriptionPolicy.targetAthleteQualityCheckpoints} target without a real safety constraint.`]
       : [])
   ];
   const whyOnlyFourSessionsIfSixDaysAvailable =
@@ -975,8 +1013,23 @@ export function resolveWeeklyTrainingPlan(input: {
     actualMobilityRecoveryExposures,
     targetAddOnBlocks: prescriptionPolicy.targetAddOnBlocks,
     actualAddOnBlocks,
-    targetCoachPrepOrReviewPrompts: prescriptionPolicy.targetCoachPrepOrReviewPrompts,
-    actualCoachPrepOrReviewPrompts,
+    targetRequiredAddOnBlocks: prescriptionPolicy.targetRequiredAddOnBlocks,
+    actualRequiredAddOnBlocks,
+    targetRecommendedAddOnBlocks: prescriptionPolicy.targetRecommendedAddOnBlocks,
+    actualRecommendedAddOnBlocks,
+    targetOptionalAddOnBlocks: prescriptionPolicy.targetOptionalAddOnBlocks,
+    actualOptionalAddOnBlocks,
+    optionalAddOnBlocks: optionalAddOns,
+    targetAthleteQualityCheckpoints: prescriptionPolicy.targetAthleteQualityCheckpoints,
+    actualAthleteQualityCheckpoints,
+    athleteQualityCues: athleteCueAudit,
+    sessionQualityCheckpoints: qualityCheckpointAudit,
+    selfCheckCues: selfCheckCueAudit,
+    boxingDevelopmentThemeId: prescriptionPolicy.boxingDevelopmentThemeId,
+    boxingDevelopmentThemeTitle: prescriptionPolicy.boxingDevelopmentThemeTitle,
+    athleteFacingThemePurpose: prescriptionPolicy.athleteFacingThemePurpose,
+    targetSkillProgression: prescriptionPolicy.targetSkillProgression,
+    athleteFacingWeekSummary,
     boxingDevelopmentTheme: prescriptionPolicy.boxingDevelopmentTheme,
     protectedAnchorsCountedAsSkill,
     generatedSkillSessions,
@@ -984,7 +1037,7 @@ export function resolveWeeklyTrainingPlan(input: {
     addOnPlacementReasons,
     missingLogsAffectedGeneration: generationConstraints.advisoryUncertainty.length > 0 && !missingLogsDidNotReduceTraining,
     protectedAnchorsSuppliedHardWork: protectedHardDayDates.size > 0,
-    familySelectionReasons: prescriptionPolicy.reasons,
+    familySelectionReasons: [...prescriptionPolicy.athleteFacingReasons, ...prescriptionPolicy.reasons],
     downshiftReasons: [
       ...durationDownshiftReasons,
       ...prescriptionPolicy.downshiftConstraints,

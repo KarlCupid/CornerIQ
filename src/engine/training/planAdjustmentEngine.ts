@@ -229,7 +229,7 @@ export function applyTrainingPlanAdjustment(input: TrainingPlanAdjustmentEngineI
     }
 
     case "coach_note": {
-      return result({ status: "applied", explanation: "Coach note recorded for audit; no programming change was made.", modifiedDayPlans: [], command });
+      return result({ status: "applied", explanation: "Trusted note recorded for audit; no programming change was made.", modifiedDayPlans: [], command });
     }
   }
 }
@@ -263,7 +263,7 @@ function adjustedBlock(activeBlock: TrainingBlock, decisions: readonly TrainingP
           ...activeBlock.progressionState,
           status: "deload",
           progressionRecommendation: "deload",
-          reason: "User or coach deload request was accepted by the engine."
+          reason: "User or trusted external deload request was accepted by the engine."
         }
       : activeBlock.progressionState
   };

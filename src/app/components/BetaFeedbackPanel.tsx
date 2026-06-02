@@ -199,7 +199,7 @@ export function BetaFeedbackPanel({
           <Text style={{ ...typography.cardTitle, color: colors.canvas }}>Beta feedback</Text>
           <Text style={{ ...typography.body, color: colors.wrap }}>Tell us what was confusing, useful, too dense, or broken during boxer beta testing.</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>Do not include emergency details or secrets.</Text>
-          <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>This is not emergency support and is not medical or coaching review.</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>This is not emergency support and is not medical review.</Text>
         </View>
         <SelectorRow labels={SCREEN_LABELS} onChange={setScreen} title="Screen" value={screen} values={BETA_FEEDBACK_SCREENS} />
         <SelectorRow labels={CATEGORY_LABELS} onChange={setCategory} title="Category" value={category} values={BETA_FEEDBACK_CATEGORIES} />

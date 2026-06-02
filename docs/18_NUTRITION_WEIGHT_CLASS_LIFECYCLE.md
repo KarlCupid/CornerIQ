@@ -242,7 +242,7 @@ Twentieth-pass local verification:
 
 ## Known Gaps
 
-- No permissioned clinician, dietitian, admin, or coach reviewer workflow yet.
+- No permissioned clinician, dietitian, admin, or qualified reviewer workflow yet.
 - No reviewer-cleared workflow is exposed to the app.
 - No coach/clinician messaging.
 - History surfaces are panels, not routed detail screens.

@@ -386,7 +386,7 @@ function generatedSupportCopy(strategy: NextWeekTrainingVolumeStrategy, bias: Ne
     case "tournament_conserve":
       return "Conserve for tournament demands; no extra hard conditioning.";
     case "hold_for_review":
-      return "Hold generated progression until athlete or coach review clears it.";
+      return "Hold generated progression until the athlete has qualified review or symptoms clearly resolve.";
   }
 }
 
