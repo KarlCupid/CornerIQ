@@ -195,7 +195,7 @@ describe("Fuel Command Center engine", () => {
 
     expect(state.readiness.color).toBe("red");
     expect(state.nutrition.commandCenter.primaryFuelAction).toContain("Review required");
-    expect(state.nutrition.weightClassStatus.projectedReadiness).toContain("Red readiness protects");
+    expect(state.nutrition.weightClassStatus.projectedReadiness).toContain("Red readiness with hard-stop symptoms");
   });
 
   it("high fuel-demand sessions show carb and fluid priority", () => {

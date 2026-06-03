@@ -98,7 +98,10 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
     entryCount: todayFoodCount,
     actionLabel: "Add food entry",
     statusLabel: todayFoodCount > 0 ? "Entries add up" : "No food entry today",
-    summary: todayFoodCount > 0 ? `${foodLogCountToday} ${todayCalories} kcal logged in today's context.` : "No food log yet today. That lowers confidence; it is not treated as safe.",
+    summary:
+      todayFoodCount > 0
+        ? `${foodLogCountToday} ${todayCalories} kcal logged in today's context.`
+        : "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
     addEntryCopy: "Use this for one meal/snack or a day total. Multiple entries add up in today's context."
   };
 

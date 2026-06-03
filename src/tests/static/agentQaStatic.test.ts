@@ -26,7 +26,15 @@ describe("agent browser QA static checks", () => {
       "qa:agent:contact-sheet",
       "qa:agent:bundle",
       "qa:agent:ci",
-      "qa:loop:state"
+      "qa:loop:state",
+      "ci:static",
+      "ci:typecheck",
+      "ci:unit",
+      "ci:lint",
+      "ci:preflight",
+      "ci:agent-browser",
+      "ci:engine-output-review",
+      "ci:agent-bundle"
     ]) {
       expect(packageJson.scripts?.[scriptName]).toBeTruthy();
     }
@@ -68,6 +76,23 @@ describe("agent browser QA static checks", () => {
     expect(combined).not.toMatch(/Deno\.env\.get\("SUPABASE_SERVICE_ROLE_KEY"\)/);
     expect(combined).not.toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY=");
     expect(readSource(".gitignore")).toContain("qa-artifacts/");
+  });
+
+  it("keeps runtime browser guard allowances explicit and local-only", () => {
+    const scenario = readSource("qa/e2e/agent-browser-audit.spec.ts");
+
+    expect(scenario).toContain("runtimeGuardAllowlist");
+    expect(scenario).toContain("local-dev-websocket");
+    expect(scenario).toContain("local-favicon-probe");
+    expect(scenario).toContain("local-dev-source-map");
+    expect(scenario).toContain("isAllowedConsoleError");
+    expect(scenario).toContain("isAllowedFailedRequest");
+    expect(scenario).toContain("pageerror");
+    expect(scenario).toContain("external-request");
+    expect(scenario).toContain("supabase-request");
+    expect(scenario).toContain("Encountered two children with the same key");
+    expect(scenario).not.toContain("ignoreHTTPSErrors: true");
+    expect(scenario).not.toMatch(/supabase\.co.*allow/i);
   });
 
   it("covers the refined onboarding decision inputs in the agent audit", () => {
@@ -175,7 +200,24 @@ describe("agent browser QA static checks", () => {
   it("keeps agent QA bundle, workflow, and scripts free of live Supabase secret requirements", () => {
     const workflow = readSource(".github/workflows/agent-qa-loop.yml");
     expect(workflow).toContain("corneriq-agent-qa-bundle");
-    expect(workflow).toContain("npm run qa:agent:ci");
+    expect(workflow).toContain("Initialize agent QA gate results");
+    expect(workflow).toContain("node scripts/run-agent-qa-ci.mjs --init");
+    for (const gateScript of [
+      "ci:static",
+      "ci:typecheck",
+      "ci:unit",
+      "ci:lint",
+      "ci:preflight",
+      "ci:agent-browser",
+      "ci:engine-output-review",
+      "ci:agent-bundle"
+    ]) {
+      expect(workflow).toContain(`npm run ${gateScript}`);
+    }
+    expect(workflow).not.toContain("npm run qa:agent:ci");
+    expect(workflow).toContain("if: always()");
+    expect(workflow).toContain("qa-artifacts/reports/agent-gate-results.md");
+    expect(workflow).toContain("qa-artifacts/playwright/**");
     expect(workflow).not.toMatch(/SUPABASE_.*secrets\./i);
     expect(workflow).not.toContain("smoke:live-db");
 
@@ -226,20 +268,20 @@ describe("agent browser QA static checks", () => {
     expect(runner).toContain("agent-gate-results.md");
     expect(runner).toContain("agent-gate-results.json");
     for (const gate of [
-      "npm install / npm ci context",
-      "typecheck",
-      "tests",
-      "lint",
-      "quality",
-      "preflight",
-      "agent browser audit",
-      "engine output review",
-      "deterministic analysis",
-      "contact sheet",
-      "bundle creation"
+      "ci:static",
+      "ci:typecheck",
+      "ci:unit",
+      "ci:lint",
+      "ci:preflight",
+      "ci:agent-browser",
+      "ci:engine-output-review",
+      "ci:agent-bundle"
     ]) {
       expect(runner).toContain(gate);
+      expect(docs).toContain(gate);
     }
+    expect(runner).toContain("qa:agent:ci does not run npm install");
+    expect(runner).not.toContain("npm install / npm ci context");
   });
 
   it("guards generated QA evidence against object-object serialization leaks", () => {
@@ -252,6 +294,7 @@ describe("agent browser QA static checks", () => {
     expect(engineReview).toContain("[object Object]");
     expect(analysis).toContain("object_object_serialization");
     expect(analysis).toContain("object Object");
+    expect(analysis).toContain('analysis.automated_status !== "pass"');
   });
 
   it("captures scoped page-text snapshots and labels document-body fallback", () => {

@@ -192,6 +192,16 @@ const fuelViewModel: FuelViewModel = {
   },
   activeNutritionSafetyReviews: [],
   decisionStack: fuelDecisionStack,
+  trainingDemandHandoff: {
+    todayTrainingDemand: "moderate",
+    weeklyTrainingDemand: "moderate",
+    hardOrHighStimulusDates: [],
+    fuelDemandDates: ["2026-05-19"],
+    carbohydrateEmphasisBySessionType: ["2026-05-19: Support uses steady carbohydrate and fluid emphasis."],
+    missingFoodLogAdvisory: null,
+    underFuelingWarning: null,
+    deficitPressureBlocked: false
+  },
   hitTheseFirst: ["Water", "Carbs"],
   macroTargets: {
     why: "Based on body mass, training demand, readiness, phase, and safety status.",
@@ -1458,7 +1468,7 @@ describe("minimal app screens", () => {
       ...fuelViewModel,
       actualIntakeSummary: {
         title: "Actual vs target today",
-        summary: "No food logged yet today. That is a low-confidence signal, not a judgment; keep the target steady until more data exists.",
+        summary: "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
         confidence: "low",
         rows: ["0 kcal logged (0% of target)", "8g fiber logged", "700mg sodium logged"]
       },
@@ -1483,7 +1493,7 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Show History");
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Actual vs target today");
-    expect(output).toContain("not a judgment");
+    expect(output).toContain("Training still stays planned");
     expect(output).toContain("8g fiber");
     expect(output).toContain("700mg sodium");
     await switchSection(renderer, "Show Details / why");
@@ -1508,7 +1518,8 @@ describe("minimal app screens", () => {
     );
     let output = JSON.stringify(renderer.toJSON());
 
-    expect(output.indexOf("Review required before weight-class pressure continues")).toBeLessThan(output.indexOf("Log food"));
+    expect(output).toContain("Review required before weight-class pressure continues");
+    expect(output.indexOf("Review required before weight-class pressure continues")).toBeLessThan(output.indexOf("Show Safety review"));
     expect(output).toContain("Show Safety review");
     expect(output).not.toContain("Request safety review");
     await switchSection(renderer, "Show Safety review");

@@ -27,14 +27,58 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run agent QA loop
-        run: npm run qa:agent:ci
+      - name: Initialize agent QA gate results
+        run: node scripts/run-agent-qa-ci.mjs --init
+
+      - name: ci:static
+        run: npm run ci:static
+
+      - name: ci:typecheck
+        if: always()
+        run: npm run ci:typecheck
+
+      - name: ci:unit
+        if: always()
+        run: npm run ci:unit
+
+      - name: ci:lint
+        if: always()
+        run: npm run ci:lint
+
+      - name: ci:preflight
+        if: always()
+        run: npm run ci:preflight
+
+      - name: ci:agent-browser
+        if: always()
+        run: npm run ci:agent-browser
+
+      - name: ci:engine-output-review
+        if: always()
+        run: npm run ci:engine-output-review
+
+      - name: ci:agent-bundle
+        if: always()
+        run: npm run ci:agent-bundle
 
       - name: Upload agent QA bundle
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: corneriq-agent-qa-bundle
-          path: qa-artifacts/corneriq-agent-qa-bundle.zip
+          path: |
+            qa-artifacts/corneriq-agent-qa-bundle.zip
+            qa-artifacts/reports/agent-gate-results.md
+            qa-artifacts/reports/agent-gate-results.json
+            qa-artifacts/reports/agent-browser-audit-latest.md
+            qa-artifacts/reports/agent-ai-review-brief.md
+            qa-artifacts/reports/agent-qa-analysis.md
+            qa-artifacts/reports/agent-qa-analysis.json
+            qa-artifacts/reports/engine-output-review.md
+            qa-artifacts/reports/engine-output-review.json
+            qa-artifacts/browser-audit/current/summary.json
+            qa-artifacts/browser-audit/current/screenshot-manifest.json
+            qa-artifacts/browser-audit/current/screenshots/**
+            qa-artifacts/browser-audit/current/page-text/**
+            qa-artifacts/playwright/**
           if-no-files-found: warn
-

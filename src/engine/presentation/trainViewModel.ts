@@ -52,7 +52,17 @@ function compactSession(session: PerformanceState["training"]["generatedSessions
     roundStructure: session.roundStructure ?? null,
     equipmentMode: session.equipmentMode ?? null,
     addOnBlocks: session.addOnBlocks ?? [],
-    sessionPriority: session.sessionPriority ?? "secondary"
+    sessionPriority: session.sessionPriority ?? "secondary",
+    readinessGate: session.readinessGate,
+    fuelingGate: session.fuelingGate,
+    hydrationGate: session.hydrationGate,
+    executionReadinessStatus: session.executionReadinessStatus,
+    preSessionChecklist: session.preSessionChecklist ?? [],
+    downshiftIf: session.downshiftIf ?? [],
+    fuelBefore: session.fuelBefore,
+    fuelAfter: session.fuelAfter,
+    confidenceImpact: session.confidenceImpact,
+    missingDataAdvisories: session.missingDataAdvisories ?? []
   };
 }
 
@@ -173,7 +183,17 @@ function detailedSessionCard(state: PerformanceState, session: PerformanceState[
       stopConditions: detail.stopConditions,
       safetyNotes: detail.safetyNotes,
       canOpenDetail: true,
-      detail
+      detail,
+      readinessGate: detail.readinessGate,
+      fuelingGate: detail.fuelingGate,
+      hydrationGate: detail.hydrationGate,
+      executionReadinessStatus: detail.executionReadinessStatus,
+      preSessionChecklist: detail.preSessionChecklist ?? [],
+      downshiftIf: detail.downshiftIf ?? [],
+      fuelBefore: detail.fuelBefore,
+      fuelAfter: detail.fuelAfter,
+      confidenceImpact: detail.confidenceImpact,
+      missingDataAdvisories: detail.missingDataAdvisories ?? []
     };
   } catch (error) {
     return {
@@ -188,7 +208,17 @@ function detailedSessionCard(state: PerformanceState, session: PerformanceState[
       stopConditions: ["Stop if pain, dizziness, or unusual symptoms appear."],
       safetyNotes: ["Detailed prescription could not be built, so do not infer extra work."],
       canOpenDetail: false,
-      detail: null
+      detail: null,
+      readinessGate: session.readinessGate,
+      fuelingGate: session.fuelingGate,
+      hydrationGate: session.hydrationGate,
+      executionReadinessStatus: session.executionReadinessStatus,
+      preSessionChecklist: session.preSessionChecklist ?? [],
+      downshiftIf: session.downshiftIf ?? [],
+      fuelBefore: session.fuelBefore,
+      fuelAfter: session.fuelAfter,
+      confidenceImpact: session.confidenceImpact,
+      missingDataAdvisories: session.missingDataAdvisories ?? []
     };
   }
 }
@@ -223,8 +253,10 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const generationExplanation =
     state.safety.hardStops.length > 0
       ? "Safety overrides are active; no generated workout today unless the engine limits the action to recovery only."
-      : state.readiness.color === "red"
-        ? "Readiness is red, so CornerIQ generated recovery-only work."
+      : state.training.executionReadiness.readinessStatus === "red_hard_stop"
+        ? "Readiness hard-stop symptoms are active, so CornerIQ limits generated work to recovery-only guidance."
+        : state.training.executionReadiness.readinessStatus === "red_non_hard_stop"
+          ? "Readiness is red without hard-stop symptoms; CornerIQ keeps planned training available with conservative execution gates."
         : plan?.explanation ?? state.training.explanation;
   const primaryTrainingAction =
     state.safety.hardStops.length > 0
@@ -293,7 +325,17 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       technicalEmphasis: session.technicalEmphasis ?? [],
       roundStructure: session.roundStructure ?? null,
       addOnBlocks: session.addOnBlocks ?? [],
-      sessionPriority: session.sessionPriority ?? "secondary"
+      sessionPriority: session.sessionPriority ?? "secondary",
+      readinessGate: session.readinessGate,
+      fuelingGate: session.fuelingGate,
+      hydrationGate: session.hydrationGate,
+      executionReadinessStatus: session.executionReadinessStatus,
+      preSessionChecklist: session.preSessionChecklist ?? [],
+      downshiftIf: session.downshiftIf ?? [],
+      fuelBefore: session.fuelBefore,
+      fuelAfter: session.fuelAfter,
+      confidenceImpact: session.confidenceImpact,
+      missingDataAdvisories: session.missingDataAdvisories ?? []
     })),
     detailedTodaySessions,
     detailedWeeklySessions,

@@ -112,6 +112,8 @@ function TodayFuelPriorityCard({ viewModel }: { viewModel: FuelViewModel }) {
         <Text style={screenStyles.sectionTitle}>What to do now</Text>
         <Text style={screenStyles.callout}>{viewModel.commandCenter.primaryFuelAction}</Text>
         <Text style={screenStyles.body}>{viewModel.commandCenter.sessionFuelAction}</Text>
+        <Text style={screenStyles.subtle}>Training demand today: {viewModel.trainingDemandHandoff.todayTrainingDemand}; this week: {viewModel.trainingDemandHandoff.weeklyTrainingDemand}.</Text>
+        {viewModel.trainingDemandHandoff.missingFoodLogAdvisory ? <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.missingFoodLogAdvisory}</Text> : null}
         <Text style={screenStyles.subtle}>{viewModel.fuelHistory.todaySummary}</Text>
       </View>
     </EngineCard>

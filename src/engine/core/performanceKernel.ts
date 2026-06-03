@@ -81,6 +81,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   const blockHistory = trainingBlockHistoryFor(journey);
   const planGenerationIntent = resolveActivePlanGenerationIntent(journey, input.asOfDate);
   const persistedGeneratedSessions = journey.trainingHistory;
+  const foodLogCountToday = journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length;
+  const hydrationLogCountToday = journey.hydrationHistory.filter((log) => log.date === input.asOfDate).length;
+  const electrolyteLogCountToday = journey.electrolyteHistory.filter((log) => log.date === input.asOfDate).length;
   const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,
     anchors,
@@ -94,7 +97,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     recentExerciseResults: journey.exerciseResults,
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: journey.safetyFlags,
-    foodLogCount: journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length,
+    foodLogCount: foodLogCountToday,
+    hydrationLogCount: hydrationLogCountToday,
+    electrolyteLogCount: electrolyteLogCountToday,
     engineVersion: ENGINE_VERSION,
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
@@ -143,7 +148,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: safety.riskFlags,
     safetyBlocks: safety.blocksPlan,
-    foodLogCount: journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length,
+    foodLogCount: foodLogCountToday,
+    hydrationLogCount: hydrationLogCountToday,
+    electrolyteLogCount: electrolyteLogCountToday,
     engineVersion: ENGINE_VERSION,
     trainingPlanAdjustments: journey.trainingPlanAdjustments,
     activeTrainingBlock: journey.activeTrainingBlock,
@@ -181,7 +188,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     activeNutritionSafetyReviews: journey.nutritionSafetyReviews,
     nutritionSafetyReviewEvents: journey.nutritionSafetyReviewEvents,
     asOfDate: input.asOfDate,
-    foodLogCount: journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length
+    foodLogCount: foodLogCountToday
   });
   const confidence = combineConfidence(
     [phase.confidence, cycle.confidence, readiness.confidence, wearable.signalConfidence, bodyMass.confidence, training.confidence, nutrition.confidence],

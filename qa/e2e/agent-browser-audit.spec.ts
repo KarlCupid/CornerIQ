@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page, type Request, type TestInfo } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -47,6 +47,47 @@ const activeSurfaceTestIds = [
   "profile-audit-section",
   "profile-screen"
 ] as const;
+const localHttpHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+const runtimeGuardAllowlist = {
+  consoleErrors: [
+    {
+      id: "local-dev-websocket",
+      reason: "Expo web and local dev-server hot reload sockets can emit transient console noise without changing audited app behavior.",
+      pattern: /WebSocket connection .*?(localhost|127\.0\.0\.1|\[::1\]).*?(failed|error)/i
+    },
+    {
+      id: "local-favicon-probe",
+      reason: "Browser favicon probing is optional chrome noise; visible UI and scoped page text are verified separately.",
+      pattern: /Failed to load resource:.*favicon/i
+    },
+    {
+      id: "local-source-map-probe",
+      reason: "Local development source-map probes do not affect production JS execution or audited UI assertions.",
+      pattern: /source map/i
+    }
+  ],
+  failedRequests: [
+    {
+      id: "local-dev-websocket",
+      reason: "Hot reload websocket failures are local-only and optional for the screenshot audit.",
+      matches: (request: Request) =>
+        isLocalHttpUrl(request.url()) &&
+        request.resourceType() === "websocket" &&
+        /(?:hot|hmr|sockjs|websocket|\/_expo\/|\/message)/i.test(request.url())
+    },
+    {
+      id: "local-favicon-probe",
+      reason: "Missing favicons are browser chrome probes, not app data or safety behavior.",
+      matches: (request: Request) => isLocalHttpUrl(request.url()) && /\/favicon\.(?:ico|png|svg)(?:\?|$)/i.test(request.url())
+    },
+    {
+      id: "local-dev-source-map",
+      reason: "Local source-map requests are optional debug artifacts and are not product behavior.",
+      matches: (request: Request) => isLocalHttpUrl(request.url()) && /\.map(?:\?|$)/i.test(request.url())
+    }
+  ]
+};
 
 test.describe.configure({ mode: "serial" });
 
@@ -125,6 +166,32 @@ function commitInfo() {
   };
 }
 
+function parseHttpUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isLocalHttpUrl(url: string) {
+  const parsed = parseHttpUrl(url);
+  return Boolean(parsed && localHttpHosts.has(parsed.hostname));
+}
+
+function isSupabaseUrl(url: string) {
+  return /supabase\.co/i.test(url);
+}
+
+function isAllowedConsoleError(message: string) {
+  return runtimeGuardAllowlist.consoleErrors.some((allowance) => allowance.pattern.test(message));
+}
+
+function isAllowedFailedRequest(request: Request) {
+  return runtimeGuardAllowlist.failedRequests.some((allowance) => allowance.matches(request));
+}
+
 function installRuntimeGuards(page: Page, testTitle: string) {
   page.on("console", (message) => {
     const text = message.text();
@@ -133,6 +200,9 @@ function installRuntimeGuards(page: Page, testTitle: string) {
       return;
     }
     if (message.type() === "error") {
+      if (isAllowedConsoleError(text)) {
+        return;
+      }
       runtimeGuardFindings.push({ testTitle, type: "console.error", message: text });
     }
   });
@@ -140,29 +210,44 @@ function installRuntimeGuards(page: Page, testTitle: string) {
     runtimeGuardFindings.push({ testTitle, type: "pageerror", message: error.message });
   });
   page.on("requestfailed", (request) => {
+    const url = request.url();
+    if (isSupabaseUrl(url)) {
+      runtimeGuardFindings.push({
+        testTitle,
+        type: "supabase-requestfailed",
+        message: `${request.method()} ${url} ${request.failure()?.errorText ?? "failed"}`
+      });
+      return;
+    }
+    if (!isLocalHttpUrl(url)) {
+      runtimeGuardFindings.push({
+        testTitle,
+        type: "external-requestfailed",
+        message: `${request.method()} ${url} ${request.failure()?.errorText ?? "failed"}`
+      });
+      return;
+    }
+    if (isAllowedFailedRequest(request)) {
+      return;
+    }
     runtimeGuardFindings.push({
       testTitle,
       type: "requestfailed",
-      message: `${request.method()} ${request.url()} ${request.failure()?.errorText ?? "failed"}`
+      message: `${request.method()} ${url} ${request.failure()?.errorText ?? "failed"}`
     });
   });
   page.on("request", (request) => {
     const url = request.url();
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
+    const parsed = parseHttpUrl(url);
+    if (!parsed) {
       return;
-    }
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      return;
-    }
-    const localHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-    if (!localHosts.has(parsed.hostname)) {
-      runtimeGuardFindings.push({ testTitle, type: "external-request", message: `${request.method()} ${url}` });
     }
     if (/supabase\.co/i.test(url)) {
       runtimeGuardFindings.push({ testTitle, type: "supabase-request", message: `${request.method()} ${url}` });
+      return;
+    }
+    if (!localHttpHosts.has(parsed.hostname)) {
+      runtimeGuardFindings.push({ testTitle, type: "external-request", message: `${request.method()} ${url}` });
     }
   });
 }
@@ -362,7 +447,7 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Fuel the boxing work first");
   await expectVisibleText(page, "Log food");
   await expectVisibleText(page, "Add a meal, snack, or day total.");
-  await expectVisibleText(page, "No food log yet today. That lowers confidence; it is not treated as safe.");
+  await expectVisibleText(page, "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.");
   await expect(page.getByRole("button", { name: "Log food" })).toBeVisible();
   await expect(page.getByPlaceholder("Fiber g optional")).toHaveCount(0);
   await expect(page.getByPlaceholder("Sodium mg optional")).toHaveCount(0);
@@ -526,6 +611,7 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Plan");
   await expectVisibleText(page, "Current mode");
   await expectVisibleText(page, "Build phase");
+  await expectVisibleText(page, "Plan action");
   await expectVisibleText(page, "Your boxing comes first");
   await expectVisibleText(page, "This week");
   await expectVisibleText(page, "Fixed boxing schedule");

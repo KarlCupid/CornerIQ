@@ -22,6 +22,7 @@ import type {
 } from "../core/types";
 import { recommendTrainingProgression } from "./progressionEngine";
 import { buildWeeklyMicrocycle } from "./microcycleEngine";
+import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
 export interface TrainingBlockEngineInput {
   athlete: AthleteProfile;
@@ -163,8 +164,9 @@ function weekIndexFor(input: TrainingBlockEngineInput): number {
 export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): TrainingBlockRecommendation {
   const underFueling = isUnderFuelingRisk(input.safetyFlags);
   const repeatedPain = hasRepeatedPain(input);
+  const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags);
   const trainingHardStop =
-    input.readiness.color === "red" ||
+    redReadinessHardStop ||
     input.safetyFlags.some((flag) => flag.hardStop && (flag.domain === "training" || flag.domain === "readiness" || flag.domain === "cycle" || flag.domain === "medical"));
   const phase: TrainingBlockPhase = trainingHardStop || repeatedPain
     ? "recovery_deload"
@@ -222,7 +224,7 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
       phase === "recovery_deload"
         ? repeatedPain
           ? "Pain history or professional-review flags require qualified review before progression."
-          : "Readiness or training safety flags override the training block."
+          : "Readiness hard-stop symptoms or training safety flags override the training block."
         : phase === "tournament_week"
           ? "Tournament context keeps generated work conservative and secondary."
           : phase === "fight_week_taper"

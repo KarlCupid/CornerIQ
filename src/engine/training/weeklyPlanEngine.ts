@@ -42,6 +42,11 @@ import {
   supportCountFuelCapFlags
 } from "./trainingGenerationConstraints";
 import {
+  applyTrainingExecutionGuidance,
+  readinessHasHardStop,
+  resolveTrainingReadinessFuelingIntegration
+} from "./trainingReadinessFuelingIntegration";
+import {
   isHighStimulusFamily,
   isHighStimulusGeneratedSession,
   isHighStimulusProtectedWorkout,
@@ -452,6 +457,7 @@ function generatedSessionAllowedByCurrentSafety(input: {
   selectedSupportDays: readonly GeneratedSupportWeekday[];
   highCycleSymptoms: boolean;
   readiness: ReadinessState;
+  redReadinessHardStop: boolean;
   safetyBlocks?: boolean | undefined;
   session: GeneratedTrainingSession;
   underFuelingRisk: boolean;
@@ -465,7 +471,7 @@ function generatedSessionAllowedByCurrentSafety(input: {
   if (!supportAllowedOnDate(input.selectedSupportDays, input.athleteScheduleAvailability, input.session.date)) {
     return false;
   }
-  if (input.readiness.color === "red") {
+  if (input.redReadinessHardStop) {
     return input.session.intensity === "recovery";
   }
   if (input.safetyBlocks && input.session.intensity === "hard") {
@@ -500,7 +506,7 @@ function generationReductionSources(input: {
   if (input.fuelCountCap || input.underFuelingRisk) {
     sources.add("nutrition");
   }
-  if (input.targetSessions < input.baseTargetSessions && input.readiness.color === "red") {
+  if (input.targetSessions < input.baseTargetSessions && input.hardStopOrRedReadiness) {
     sources.add("readiness");
   }
   if (input.hardStopOrRedReadiness) {
@@ -536,6 +542,8 @@ export function resolveWeeklyTrainingPlan(input: {
   safetyFlags?: readonly RiskFlag[] | undefined;
   safetyBlocks?: boolean;
   foodLogCount?: number | undefined;
+  hydrationLogCount?: number | undefined;
+  electrolyteLogCount?: number | undefined;
   engineVersion?: string | undefined;
   trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
   activeTrainingBlock?: TrainingBlock | null | undefined;
@@ -552,8 +560,16 @@ export function resolveWeeklyTrainingPlan(input: {
     protectedAnchors: input.anchors,
     date: input.asOfDate
   });
+  const executionReadiness = resolveTrainingReadinessFuelingIntegration({
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags ?? [],
+    foodLogCount: input.foodLogCount ?? 0,
+    hydrationLogCount: input.hydrationLogCount ?? 0,
+    electrolyteLogCount: input.electrolyteLogCount ?? 0
+  });
+  const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags ?? []);
   const underFuelingRisk = activeUnderfuelingEvidence(input.safetyFlags);
-  const hardStopOrRedReadiness = input.readiness.color === "red" || hardStopSafetyActive(input.safetyFlags);
+  const hardStopOrRedReadiness = redReadinessHardStop || hardStopSafetyActive(input.safetyFlags);
   const fuelCountCap = fuelingRiskCapsGeneratedCount(input.safetyFlags);
   const fuelCapFlags = supportCountFuelCapFlags(input.safetyFlags);
   const hardStopFlags = activeHardStopFlags(input.safetyFlags);
@@ -659,7 +675,7 @@ export function resolveWeeklyTrainingPlan(input: {
             seed: input.planGenerationIntent?.seed ?? planRevision,
             supportDayIndex: supportDateOrder.get(date) ?? index,
             weekIndex: planWeekIndex,
-            hardStopActive: hardStopSafetyActive(input.safetyFlags),
+            hardStopActive: hardStopSafetyActive(input.safetyFlags) || (date === input.asOfDate && redReadinessHardStop),
             underFuelingRisk,
             severeFuelingRisk: fuelCountCap,
             familySequence: prescriptionPolicy.familySequence,
@@ -686,7 +702,7 @@ export function resolveWeeklyTrainingPlan(input: {
       seed: input.planGenerationIntent?.seed ?? planRevision,
       supportDayIndex: supportDateOrder.get(date) ?? index,
       weekIndex: planWeekIndex,
-      hardStopActive: hardStopSafetyActive(input.safetyFlags),
+      hardStopActive: hardStopSafetyActive(input.safetyFlags) || (date === input.asOfDate && redReadinessHardStop),
       underFuelingRisk,
       severeFuelingRisk: fuelCountCap,
       familySequence: prescriptionPolicy.familySequence,
@@ -753,6 +769,7 @@ export function resolveWeeklyTrainingPlan(input: {
         selectedSupportDays: selectedDays,
         highCycleSymptoms: input.highCycleSymptoms,
         readiness: input.readiness,
+        redReadinessHardStop,
         safetyBlocks: input.safetyBlocks,
         session,
         underFuelingRisk
@@ -764,7 +781,7 @@ export function resolveWeeklyTrainingPlan(input: {
     targetSessions,
     trainingDose: selectedTrainingDose
   });
-  const mergedGeneratedSessions = mergedSelection.sessions;
+  const mergedGeneratedSessions = mergedSelection.sessions.map((session) => applyTrainingExecutionGuidance(session, executionReadiness));
   const repairActionsApplied = [...new Set([...generatedSelection.repairActionsApplied, ...mergedSelection.repairActionsApplied])];
   const adjustedDayPlans: readonly TrainingDayPlan[] = adjustmentApplication.dayPlans.map((dayPlan) => {
     const generatedSessions = mergedGeneratedSessions.filter((session) => session.date === dayPlan.date);
@@ -857,7 +874,15 @@ export function resolveWeeklyTrainingPlan(input: {
       ? `${date} remained open because the ${selectedTrainingDose} dose target was already filled.`
       : `${date} was available, but generation or safety filters did not leave a usable support session.`
   );
-  const realLoadConstraintActive = generationConstraints.hardSafetyConstraints.length > 0 || generationConstraints.evidenceBasedLoadConstraints.length > 0 || input.highCycleSymptoms || underFuelingRisk || fuelCountCap || input.readiness.color === "red";
+  const readinessExecutionDownshift = executionReadiness.readinessStatus === "amber" || executionReadiness.readinessStatus === "red_non_hard_stop";
+  const realLoadConstraintActive =
+    generationConstraints.hardSafetyConstraints.length > 0 ||
+    generationConstraints.evidenceBasedLoadConstraints.length > 0 ||
+    input.highCycleSymptoms ||
+    underFuelingRisk ||
+    fuelCountCap ||
+    redReadinessHardStop ||
+    readinessExecutionDownshift;
   const whyHardDaysWereReduced = [
     ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && protectedHardDayDates.size >= prescriptionPolicy.targetHardDayCount
       ? ["Protected hard boxing already filled the hard-day target."]
@@ -868,7 +893,8 @@ export function resolveWeeklyTrainingPlan(input: {
           ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
           ...(input.highCycleSymptoms ? ["High cycle symptoms reduced hard generated work."] : []),
           ...(underFuelingRisk ? ["Under-fueling evidence reduced hard generated work."] : []),
-          ...(input.readiness.color === "red" ? ["Red readiness blocked hard generated work."] : [])
+          ...(redReadinessHardStop ? ["Readiness hard-stop symptoms blocked hard generated work."] : []),
+          ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Red readiness score without hard-stop symptoms changed execution targets before blocking the plan."] : [])
         ]
       : []),
     ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && !realLoadConstraintActive && candidateAllowedDays < targetSessions
@@ -881,7 +907,8 @@ export function resolveWeeklyTrainingPlan(input: {
           ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
           ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
           ...(input.highCycleSymptoms ? ["High cycle symptoms reduced generated volume."] : []),
-          ...(underFuelingRisk ? ["Under-fueling evidence reduced generated volume."] : [])
+          ...(underFuelingRisk ? ["Under-fueling evidence reduced generated volume."] : []),
+          ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Red readiness score without hard-stop symptoms reduced execution intensity before volume was removed."] : [])
         ]
       : []),
     ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && candidateAllowedDays < targetSessions
@@ -943,6 +970,28 @@ export function resolveWeeklyTrainingPlan(input: {
           ...(realLoadConstraintActive ? ["Safety, taper, recovery, or load constraints kept every generated session below 60 minutes."] : [])
         ].filter((reason, index, list) => reason.length > 0 && list.indexOf(reason) === index)
       : [];
+  const executionAdjustmentsApplied = [
+    ...executionReadiness.sessionExecutionGuidance,
+    ...executionReadiness.trainingImplications
+  ];
+  const evidenceBasedOverridesApplied = [
+    ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
+    ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
+    ...(underFuelingRisk ? ["Under-fueling evidence reduced generated load."] : []),
+    ...(fuelCountCap ? ["Severe fueling evidence capped generated-support count."] : []),
+    ...(redReadinessHardStop ? ["Readiness hard-stop symptoms blocked hard generated work."] : [])
+  ];
+  const readinessDownshiftReasons = [
+    ...(executionReadiness.readinessStatus === "unknown" ? ["Missing readiness added a warm-up gate only."] : []),
+    ...(executionReadiness.readinessStatus === "amber" ? ["Amber readiness added RPE, warm-up, and recovery execution caps."] : []),
+    ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Red readiness score without hard-stop symptoms triggered execution downshift, not automatic hard block."] : []),
+    ...(executionReadiness.readinessStatus === "red_hard_stop" ? ["Readiness hard-stop symptoms blocked hard training."] : [])
+  ];
+  const nutritionDownshiftReasons = [
+    ...(executionReadiness.fuelingStatus === "unknown" ? ["Missing food log added a fuel prompt only."] : []),
+    ...(executionReadiness.fuelingStatus === "underfueling_evidence" ? ["Under-fueling evidence reduced generated load."] : []),
+    ...(executionReadiness.fuelingStatus === "severe_underfueling_hard_stop" ? ["Severe under-fueling evidence blocked high-demand generated training."] : [])
+  ];
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,
     planStartDate,
@@ -968,6 +1017,27 @@ export function resolveWeeklyTrainingPlan(input: {
     candidateAllowedDays,
     activeAdjustmentCount: adjustmentApplication.activeAdjustments.length,
     activeRiskFlagCodes: (input.safetyFlags ?? []).filter((flag) => flag.status === "active").map((flag) => flag.code),
+    baselinePrescriptionTargets: {
+      targetGeneratedSupportCount: targetSessions,
+      targetHardDayCount: prescriptionPolicy.targetHardDayCount,
+      targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes
+    },
+    readinessGenerationImpact: executionReadiness.readinessGenerationImpact,
+    nutritionGenerationImpact: executionReadiness.nutritionGenerationImpact,
+    hydrationGenerationImpact: executionReadiness.hydrationGenerationImpact,
+    missingLogsAffectedExecutionOnly: executionReadiness.missingLogsAffectedExecutionOnly,
+    executionAdjustmentsApplied,
+    evidenceBasedOverridesApplied,
+    readinessDownshiftReasons,
+    nutritionDownshiftReasons,
+    plannedVsFinalTrainingDelta: {
+      targetGeneratedSupportCount: targetSessions,
+      actualGeneratedSupportCount: mergedGeneratedSessions.length,
+      targetHardDayCount: prescriptionPolicy.targetHardDayCount,
+      actualHardDayCount: actualHardDayDates.size,
+      targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes,
+      actualWeeklyGeneratedMinutes
+    },
     generationConstraintSummary: generationConstraints,
     hardSafetyConstraints: generationConstraints.hardSafetyConstraints,
     evidenceBasedLoadConstraints: generationConstraints.evidenceBasedLoadConstraints,
@@ -1047,6 +1117,8 @@ export function resolveWeeklyTrainingPlan(input: {
       ...repairActionsApplied,
       ...(underFuelingRisk ? ["Under-fueling evidence removed hard generated training."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated training."] : []),
+      ...readinessDownshiftReasons,
+      ...nutritionDownshiftReasons,
       ...(missingLogsDidNotReduceTraining ? ["Missing logs did not reduce target count or remove strength and conditioning families."] : [])
     ],
     missingLogsDidNotReduceTraining,
@@ -1062,7 +1134,8 @@ export function resolveWeeklyTrainingPlan(input: {
         : []),
       ...(fuelCountCap ? [`True fueling safety risk capped generated support count.${flagReasonSummary(fuelCapFlags)}`] : []),
       ...(underFuelingRisk && !fuelCountCap ? ["Under-fueling evidence removed hard generated support without capping count to one."] : []),
-      ...(input.readiness.color === "red" ? ["Readiness is red, so generated support count is capped and hard work is blocked."] : []),
+      ...(redReadinessHardStop ? ["Readiness hard-stop symptoms blocked hard generated support."] : []),
+      ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Readiness is red without hard-stop symptoms, so execution guidance downshifts before the plan is blocked."] : []),
       ...(hardStopFlags.length > 0 ? [`Hard-stop safety limited generated support.${flagReasonSummary(hardStopFlags)}`] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated work."] : []),
       ...(blockedByAnchors ? ["Protected boxing or competition anchors blocked one or more generated-support placements."] : []),
@@ -1137,9 +1210,21 @@ export function resolveWeeklyTrainingPlan(input: {
         ? "Under-fueling risk is active, so generated load is reduced and progression is held."
         : todayAnchors.some((anchor) => anchor.type === "sparring")
         ? "Protected sparring owns today's hard stress. Generated support stays easy."
-        : input.readiness.color === "red"
-          ? "Readiness is red, so hard generated work is blocked."
+        : redReadinessHardStop
+          ? "Readiness hard-stop symptoms are active, so hard generated work is blocked."
+          : executionReadiness.readinessStatus === "red_non_hard_stop"
+            ? "Readiness is red without hard-stop symptoms, so the plan stays useful with conservative execution gates."
           : "Generated support develops technical boxing, strength, roadwork, power, agility, durability, and recovery gaps.",
-    confidence: makeConfidence(0.74, ["protected anchors and readiness resolved"], input.anchors.length > 0 ? [] : ["protected boxing schedule"])
+    executionReadiness,
+    confidence: makeConfidence(
+      executionReadiness.confidenceScore,
+      ["protected anchors, prescription targets, readiness, fueling, and hydration execution context resolved"],
+      [
+        ...(input.anchors.length > 0 ? [] : ["protected boxing schedule"]),
+        ...(executionReadiness.readinessStatus === "unknown" ? ["readiness check-in"] : []),
+        ...(executionReadiness.fuelingStatus === "unknown" ? ["food logs"] : []),
+        ...(executionReadiness.hydrationStatus === "advisory" ? ["hydration logs"] : [])
+      ]
+    )
   };
 }

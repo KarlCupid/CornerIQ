@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type {
   CompletedTrainingSession,
+  ElectrolyteLog,
   ExerciseResultRecord,
+  FoodLog,
   GeneratedTrainingSession,
   JourneyEvent,
   PlanGenerationTrainingDose,
   PlanGenerationPrimaryFocus,
   ProtectedWorkout,
-  RecurringProtectedWorkoutAnchor
+  ReadinessCheckIn,
+  RecurringProtectedWorkoutAnchor,
+  WaterLog
 } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
@@ -126,6 +130,11 @@ function seriousSixDayState(input: {
   focus?: PlanGenerationPrimaryFocus | undefined;
   id?: string | undefined;
   journey?: typeof pro_4_round_build_strength | undefined;
+  readinessHistory?: readonly ReadinessCheckIn[] | undefined;
+  nutritionHistory?: readonly FoodLog[] | undefined;
+  hydrationHistory?: readonly WaterLog[] | undefined;
+  electrolyteHistory?: readonly ElectrolyteLog[] | undefined;
+  safetyFlags?: typeof pro_4_round_build_strength.safetyFlags | undefined;
   trainingDose?: PlanGenerationTrainingDose | undefined;
   protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
 } = {}) {
@@ -151,7 +160,7 @@ function seriousSixDayState(input: {
           trainingDose: input.trainingDose ?? "serious"
         })
       ],
-      readinessHistory: [
+      readinessHistory: input.readinessHistory ?? [
         {
           date: fixtureAsOfDate,
           sleepHours: 8,
@@ -167,14 +176,16 @@ function seriousSixDayState(input: {
           urineColor: "normal"
         }
       ],
-      nutritionHistory: [
+      nutritionHistory: input.nutritionHistory ?? [
         { date: "2026-05-17", calories: 2650, proteinGrams: 145, carbohydrateGrams: 330, fatGrams: 80, confidence: "high" },
         { date: "2026-05-18", calories: 2700, proteinGrams: 150, carbohydrateGrams: 340, fatGrams: 82, confidence: "high" },
         { date: "2026-05-19", calories: 2725, proteinGrams: 152, carbohydrateGrams: 350, fatGrams: 78, confidence: "high" }
       ],
+      hydrationHistory: input.hydrationHistory ?? base.hydrationHistory,
+      electrolyteHistory: input.electrolyteHistory ?? base.electrolyteHistory,
       trainingHistory: [],
       trainingPlanAdjustments: [],
-      safetyFlags: []
+      safetyFlags: input.safetyFlags ?? []
     },
     asOfDate: fixtureAsOfDate
   });
@@ -261,7 +272,7 @@ describe("training block and microcycle engine", () => {
     expect(red.training.activeBlock.phase).toBe("recovery_deload");
     expect(red.training.dayPlans[0]?.recoveryPriority).toBe("hard_stop");
     expect(red.training.generatedSessions.length).toBeLessThanOrEqual(1);
-    expect(red.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("Readiness is red");
+    expect(red.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("Readiness hard-stop symptoms");
     expect(pain.training.activeBlock.progressionState.status).toBe("coach_review");
     expect(pain.training.blockRecommendation.reason).toContain("qualified review");
   });
@@ -295,6 +306,9 @@ describe("training block and microcycle engine", () => {
     expect(underFueling.training.blockRecommendation.warnings.join(" ")).toContain("Under-fueling");
     expect(underFueling.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
     expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("fueling safety risk capped generated support count");
+    expect(underFueling.training.executionReadiness.fuelingStatus).toBe("severe_underfueling_hard_stop");
+    expect(underFueling.training.supportGenerationAudit.nutritionGenerationImpact).toBe("hard_block");
+    expect(underFueling.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).toContain("Severe fueling evidence");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).not.toContain("rapid_weight_loss");
     expect(repeatedLowIntakeOnly.training.generatedSessions.length).toBeGreaterThan(1);
@@ -780,8 +794,8 @@ describe("training block and microcycle engine", () => {
     expect(audit.selectedTrainingDose).toBe("serious");
     expect(audit.targetHardDayCount).toBe(0);
     expect(audit.actualGeneratedSupportCount).toBeLessThan(5);
-    expect(audit.blockedGenerationReasons.join(" ")).toContain("Readiness is red");
-    expect(audit.downshiftReasons.join(" ")).toContain("Red readiness");
+    expect(audit.blockedGenerationReasons.join(" ")).toContain("Readiness hard-stop symptoms");
+    expect(audit.downshiftReasons.join(" ")).toContain("hard-stop symptoms");
   });
 
   it("missing logs do not reduce serious six-day dose, hard targets, or generated minutes", () => {
@@ -822,9 +836,122 @@ describe("training block and microcycle engine", () => {
     expect(audit.actualHardDayCount).toBe(audit.targetHardDayCount);
     expect(audit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(220);
     expect(audit.missingLogsDidNotReduceTraining).toBe(true);
+    expect(audit.missingLogsAffectedGeneration).toBe(false);
+    expect(audit.missingLogsAffectedExecutionOnly).toBe(true);
+    expect(audit.readinessGenerationImpact).toBe("advisory");
+    expect(audit.nutritionGenerationImpact).toBe("advisory");
+    expect(audit.hydrationGenerationImpact).toBe("advisory");
+    expect(audit.baselinePrescriptionTargets.targetGeneratedSupportCount).toBe(audit.targetGeneratedSupportCount);
+    expect(audit.plannedVsFinalTrainingDelta.targetHardDayCount).toBe(audit.targetHardDayCount);
+    expect(state.training.executionReadiness.readinessStatus).toBe("unknown");
+    expect(state.training.executionReadiness.fuelingStatus).toBe("unknown");
+    expect(state.training.executionReadiness.missingLogsAffectedExecutionOnly).toBe(true);
+    expect(state.training.generatedSessions[0]?.readinessGate).toContain("No readiness check-in yet");
+    expect(state.training.generatedSessions[0]?.fuelingGate).toContain("Training still stays planned");
+    expect(state.training.generatedSessions[0]?.downshiftIf?.join(" ")).toContain("Downshift if dizziness");
     expect(audit.reducedBy).not.toContain("readiness");
     expect(audit.reducedBy).not.toContain("nutrition");
     expect(audit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("fresh supported logs raise execution confidence without changing the baseline prescription", () => {
+    const missing = seriousSixDayState({
+      id: "plan_six_day_missing_logs_comparison",
+      readinessHistory: [],
+      nutritionHistory: [],
+      hydrationHistory: [],
+      electrolyteHistory: []
+    });
+    const state = seriousSixDayState({
+      id: "plan_six_day_supported_logs",
+      hydrationHistory: [{ date: fixtureAsOfDate, liters: 2.7 }],
+      electrolyteHistory: [{ date: fixtureAsOfDate, sodiumMg: 600 }]
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(state.training.executionReadiness.readinessStatus).toBe("green");
+    expect(state.training.executionReadiness.fuelingStatus).toBe("logged_supported");
+    expect(state.training.executionReadiness.hydrationStatus).toBe("supported");
+    expect(audit.readinessGenerationImpact).toBe("none");
+    expect(audit.nutritionGenerationImpact).toBe("none");
+    expect(audit.hydrationGenerationImpact).toBe("none");
+    expect(audit.missingLogsAffectedExecutionOnly).toBe(false);
+    expect(audit.targetGeneratedSupportCount).toBe(missing.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(audit.targetHardDayCount).toBe(missing.training.supportGenerationAudit.targetHardDayCount);
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(5);
+    expect(state.training.confidence.score).toBeGreaterThan(missing.training.confidence.score);
+    expect(state.nutrition.trainingDemandHandoff.weeklyTrainingDemand).toBe("high");
+    expect(state.nutrition.trainingDemandHandoff.hardOrHighStimulusDates.length).toBeGreaterThan(0);
+    expect(state.nutrition.trainingDemandHandoff.carbohydrateEmphasisBySessionType.join(" ")).toContain("carbohydrate");
+  });
+
+  it("amber readiness keeps planned training with execution caps instead of erasing the week", () => {
+    const state = seriousSixDayState({
+      id: "plan_six_day_amber_readiness",
+      readinessHistory: [
+        {
+          date: fixtureAsOfDate,
+          sleepHours: 6,
+          sleepQuality1To5: 3,
+          energy1To5: 3,
+          soreness1To5: 3,
+          stress1To5: 3,
+          mood1To5: 3,
+          painNotes: [],
+          illnessSymptoms: [],
+          dizziness: false,
+          fainting: false
+        }
+      ],
+      hydrationHistory: [{ date: fixtureAsOfDate, liters: 2.4 }],
+      electrolyteHistory: [{ date: fixtureAsOfDate, sodiumMg: 500 }]
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(state.readiness.color).toBe("amber");
+    expect(state.training.executionReadiness.readinessStatus).toBe("amber");
+    expect(audit.readinessGenerationImpact).toBe("execution_adjustment");
+    expect(audit.reducedBy).not.toContain("readiness");
+    expect(audit.blockedGenerationReasons.join(" ")).not.toContain("Readiness hard-stop symptoms");
+    expect(audit.readinessDownshiftReasons.join(" ")).toContain("Amber readiness added RPE");
+    expect(state.training.generatedSessions.length).toBeGreaterThanOrEqual(5);
+    expect(state.training.generatedSessions.some((session) => session.modifications.join(" ").includes("Amber readiness execution"))).toBe(true);
+  });
+
+  it("red readiness without hard-stop symptoms keeps the plan available with conservative gates", () => {
+    const state = seriousSixDayState({
+      id: "plan_six_day_red_no_hard_stop",
+      readinessHistory: [
+        {
+          date: fixtureAsOfDate,
+          sleepHours: 4.5,
+          sleepQuality1To5: 1,
+          energy1To5: 1,
+          soreness1To5: 5,
+          stress1To5: 5,
+          mood1To5: 1,
+          painNotes: [],
+          illnessSymptoms: [],
+          dizziness: false,
+          fainting: false
+        }
+      ],
+      hydrationHistory: [{ date: fixtureAsOfDate, liters: 2.4 }],
+      electrolyteHistory: [{ date: fixtureAsOfDate, sodiumMg: 500 }]
+    });
+    const audit = state.training.supportGenerationAudit;
+
+    expect(state.readiness.color).toBe("red");
+    expect(state.readiness.hardStops).toEqual([]);
+    expect(state.training.executionReadiness.readinessStatus).toBe("red_non_hard_stop");
+    expect(audit.readinessGenerationImpact).toBe("execution_adjustment");
+    expect(audit.blockedGenerationReasons.join(" ")).toContain("Readiness is red without hard-stop symptoms");
+    expect(audit.blockedGenerationReasons.join(" ")).not.toContain("Readiness hard-stop symptoms");
+    expect(audit.evidenceBasedOverridesApplied.join(" ")).not.toContain("Readiness hard-stop symptoms");
+    expect(audit.actualGeneratedSupportCount).toBeGreaterThanOrEqual(4);
+    expect(audit.actualHardDayCount).toBeGreaterThan(0);
+    expect(state.training.generatedSessions.every((session) => session.family === "recovery_reset")).toBe(false);
+    expect(state.training.generatedSessions.some((session) => session.modifications.join(" ").includes("Red readiness without hard-stop symptoms"))).toBe(true);
   });
 
   it("generated sessions expose user-facing stimulus and type labels", () => {

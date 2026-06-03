@@ -23,10 +23,11 @@ cmd /c npm run qa:loop:state
 Then run the requested loop depth. The normal local loop is:
 
 ```powershell
+cmd /c npm install
 cmd /c npm run qa:agent:ci
 ```
 
-That command runs `npm install`, typecheck, tests, lint, quality, beta preflight, the browser audit, report generation, engine-output review, deterministic analysis, contact sheet generation, gate-result generation, and evidence bundle creation. It must stay local E2E only and must not require real Supabase credentials.
+`npm install` is a setup gate before local evidence collection. `qa:agent:ci` itself does not install packages or mutate lockfiles. It runs the named gates `ci:static`, `ci:typecheck`, `ci:unit`, `ci:lint`, `ci:preflight`, `ci:agent-browser`, `ci:engine-output-review`, and `ci:agent-bundle`. It must stay local E2E only and must not require real Supabase credentials.
 
 `qa:agent:ci` writes:
 

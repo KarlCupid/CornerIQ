@@ -136,7 +136,7 @@ function groupedDay(input: BuildFuelHistoryViewModelInput, date: ISODateString):
   const foodSodiumValues = food.map((log) => log.sodiumMg ?? 0);
   const notes: string[] = [];
   if (food.length === 0) {
-    notes.push("No food log; target context does not change.");
+    notes.push("No food log; training stays planned and target context does not change.");
   }
   if (water.length === 0) {
     notes.push("No water log; hydration confidence is lower.");
@@ -229,7 +229,7 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
     todaySummary:
       foodToday.length > 0
         ? `${todayCalories} kcal logged today: ${todayProtein}g protein, ${todayCarbs}g carbs, ${todayFat}g fat.`
-        : "No food log yet today. That lowers confidence; it is not treated as safe.",
+        : "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
     recentMeals:
       food7Day.length > 0
         ? food7Day

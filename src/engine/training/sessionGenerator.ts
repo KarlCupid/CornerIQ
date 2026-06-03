@@ -46,7 +46,7 @@ function phaseOverride(
   input: Pick<GenerateSupportSessionInput, "hasProtectedBoxingSkill" | "hasSparring" | "hardStopActive" | "highCycleSymptoms" | "phase" | "readiness" | "severeFuelingRisk" | "underFuelingRisk">,
   family: GeneratedSessionFamily
 ): GeneratedSessionFamily {
-  if (input.readiness.color === "red" || input.hardStopActive || input.severeFuelingRisk) {
+  if (input.hardStopActive || input.severeFuelingRisk) {
     return "recovery_reset";
   }
   if (input.hasSparring) {
@@ -259,7 +259,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
       ...(!input.generationConstraints && input.uncertainFueling ? ["No food log today: fuel this session normally and log meals to personalize recovery guidance."] : []),
       ...(input.primaryFocus ? [`Plan focus: ${input.primaryFocus.replaceAll("_", " ")}.`] : []),
       ...(prescribedHard ? ["Weekly prescription: this is a hard/high-stimulus training day."] : []),
-      ...(input.readiness.color === "red" ? ["Readiness is red, so generated work is recovery only."] : []),
+      ...(input.readiness.color === "red" && !input.hardStopActive ? ["Readiness is red without hard-stop symptoms: keep execution conservative and use downshift gates."] : []),
       ...(input.hardStopActive ? ["Safety hard-stop active: generated work is recovery only."] : []),
       ...(input.underFuelingRisk ? ["Under-fueling evidence removes high fuel-demand generated work."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms: optional volume trimmed."] : []),

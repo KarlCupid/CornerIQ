@@ -26,6 +26,7 @@ import {
   severeFuelingRisk
 } from "./trainingGenerationConstraints";
 import { generatedSessionLabels } from "./trainingStimulus";
+import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
 
 export interface NextWeekGeneratedSessionMaterializationInput {
@@ -86,7 +87,7 @@ function conservativeFuelingContext(input: Pick<NextWeekGeneratedSessionMaterial
 }
 
 function activeHardStop(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness" | "safetyFlags">): boolean {
-  return input.safetyFlags.some((flag) => flag.status === "active" && flag.hardStop);
+  return readinessHasHardStop(input.readiness, input.safetyFlags) || input.safetyFlags.some((flag) => flag.status === "active" && flag.hardStop);
 }
 
 function redReadiness(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness">): boolean {
@@ -285,7 +286,7 @@ function adjustedShape(
     shape: {
       ...shape,
       durationMinutes: durationPolicy.finalDurationMinutes,
-      intensity: hardStop || readinessRed ? "recovery" : (restrictiveStrategy || conservativeStart || workloadModerated) && shape.intensity === "moderate" ? "easy" : workloadModerated && shape.intensity === "hard" ? "moderate" : shape.intensity,
+      intensity: hardStop ? "recovery" : (restrictiveStrategy || conservativeStart || workloadModerated) && shape.intensity === "moderate" ? "easy" : workloadModerated && shape.intensity === "hard" ? "moderate" : shape.intensity,
       modifications: [
         ...shape.modifications,
         ...durationPolicyModifications(durationPolicy),
@@ -294,10 +295,10 @@ function adjustedShape(
         ...(uncertainFueling && !missingNutritionData(input.nutrition) && lowNutritionConfidence(input.nutrition) ? ["Fueling data is low-confidence; use the pre-session fuel check and log meals to personalize tomorrow."] : []),
         ...(cycleTrim ? ["High cycle symptoms: optional volume trimmed."] : []),
         ...(hardStop ? ["Safety hard stop active: recovery only."] : []),
-        ...(readinessRed && !hardStop ? ["Readiness is red, so CornerIQ generated recovery-only work."] : []),
+        ...(readinessRed && !hardStop ? ["Readiness is red without hard-stop symptoms, so next-week work uses conservative execution gates."] : []),
         ...(protectedHard ? ["Protected hard boxing anchor owns the stress; generated work stays easy."] : [])
       ],
-      fuelDemand: underfueling || restrictiveStrategy || hardStop || readinessRed ? "low" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
+      fuelDemand: underfueling || restrictiveStrategy || hardStop ? "low" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
     }
   };
 }

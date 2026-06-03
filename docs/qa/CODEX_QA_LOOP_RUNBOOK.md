@@ -24,11 +24,11 @@ The command records structured gate results at:
 - `qa-artifacts/reports/agent-gate-results.md`
 - `qa-artifacts/reports/agent-gate-results.json`
 
-Those gate results cover install context, typecheck, tests, lint, quality, beta preflight, agent browser audit, engine-output review, deterministic analysis, contact sheet generation, and bundle creation. Live Supabase smoke stays separate and opt-in.
+Those gate results cover the named gates `ci:static`, `ci:typecheck`, `ci:unit`, `ci:lint`, `ci:preflight`, `ci:agent-browser`, `ci:engine-output-review`, and `ci:agent-bundle`. `qa:agent:ci` does not run `npm install`, does not run `npm ci`, and does not mutate lockfiles. Live Supabase smoke stays separate and opt-in.
 
 ## GitHub Actions
 
-Run the `Agent QA Loop` workflow with `workflow_dispatch` when a remote evidence bundle is useful. It uses Node 22, `npm ci`, Playwright Chromium, and `npm run qa:agent:ci`. It uploads `corneriq-agent-qa-bundle` even if the audit fails.
+Run the `Agent QA Loop` workflow with `workflow_dispatch` when a remote evidence bundle is useful. It uses Node 22, one `npm ci`, Playwright Chromium, initializes gate results, then runs each named gate as its own workflow step. It uploads `corneriq-agent-qa-bundle` plus gate results and failure artifacts even if a gate fails.
 
 The workflow must not require Supabase secrets. Live smoke remains an explicit release-owner activity outside routine agent QA.
 

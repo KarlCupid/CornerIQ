@@ -53,6 +53,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     nutritionSafetyReview: state.nutrition.nutritionSafetyReview,
     activeNutritionSafetyReviews: state.nutrition.activeNutritionSafetyReviews,
     decisionStack: state.nutrition.decisionStack,
+    trainingDemandHandoff: state.nutrition.trainingDemandHandoff,
     hitTheseFirst: state.nutrition.hitTheseFirst,
     macroTargets: {
       why: "Based on body mass, training demand, readiness, phase, and safety status.",
@@ -60,7 +61,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
       logStatus:
         state.nutrition.actualIntakeSummary.logCount > 0
           ? `${state.nutrition.actualIntakeSummary.logCount} food log${state.nutrition.actualIntakeSummary.logCount === 1 ? "" : "s"} counted today.`
-          : "No food logged yet today; progress is lower-confidence and unknown until you add a log.",
+          : "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
       targets: [
         { label: "Calories", value: `${state.nutrition.dailyCaloriesTarget} kcal` },
         { label: "Protein", value: `${state.nutrition.proteinGrams}g` },

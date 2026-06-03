@@ -13,6 +13,7 @@ import type {
 } from "../core/types";
 import { anchorsForDate } from "./protectedAnchors";
 import { BOXING_SKILL_GENERATED_FAMILIES, isHighStimulusTrainingDay } from "./trainingStimulus";
+import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
 export interface WeeklyMicrocycleInput {
   asOfDate: string;
@@ -82,7 +83,7 @@ function recoveryPriority(input: {
   readiness: ReadinessState;
   safetyFlags: readonly RiskFlag[];
 }): TrainingDayPlan["recoveryPriority"] {
-  if (input.date === input.asOfDate && (input.readiness.color === "red" || input.safetyFlags.some((flag) => flag.hardStop))) {
+  if (input.date === input.asOfDate && (readinessHasHardStop(input.readiness, input.safetyFlags) || input.safetyFlags.some((flag) => flag.hardStop))) {
     return "hard_stop";
   }
   if (input.blockPhase === "recovery_deload" || input.generated.some((session) => session.family === "recovery_reset")) {
@@ -108,8 +109,10 @@ function daySafetyFlags(input: {
   if (input.underFuelingRisk) {
     messages.push("Under-fueling risk blocks aggressive progression this week.");
   }
-  if (input.date === input.asOfDate && input.readiness.color === "red") {
-    messages.push("Red readiness overrides block goals today.");
+  if (input.date === input.asOfDate && readinessHasHardStop(input.readiness, input.safetyFlags)) {
+    messages.push("Readiness hard-stop symptoms override block goals today.");
+  } else if (input.date === input.asOfDate && input.readiness.color === "red") {
+    messages.push("Red readiness score adds execution gates today.");
   }
   if (input.protectedAnchors.some((anchor) => anchor.type === "sparring")) {
     messages.push("Protected sparring owns the hard stress; generated work stays secondary.");

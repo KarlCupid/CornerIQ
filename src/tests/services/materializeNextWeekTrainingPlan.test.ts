@@ -244,7 +244,7 @@ describe("materializeNextWeekTrainingPlan service", () => {
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });
 
-  it("red readiness without a medical hard stop materializes recovery-only work", async () => {
+  it("red readiness without a medical hard stop materializes planned work with execution gates", async () => {
     const base = stateFixture();
     const state = stateFixture({
       readiness: {
@@ -279,8 +279,10 @@ describe("materializeNextWeekTrainingPlan service", () => {
 
     expect(result.status).toBe("materialized");
     const generatedRows = (repositories.engineRun.upsertGeneratedSessions as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] ?? [];
-    expect(JSON.stringify(generatedRows)).toContain("recovery_reset");
-    expect(JSON.stringify(generatedRows)).not.toContain("strength_full_body");
+    const generatedText = JSON.stringify(generatedRows);
+    expect(generatedText).toContain("Readiness is red without hard-stop symptoms");
+    expect(generatedText).toContain("conservative execution gates");
+    expect(generatedText).not.toContain("Safety hard stop active: recovery only");
   });
 
   it("rejects a preview that belongs to a different user", async () => {

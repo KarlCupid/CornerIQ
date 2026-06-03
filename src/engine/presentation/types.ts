@@ -9,6 +9,7 @@ import type {
   WeightClassStatus
 } from "../nutrition/fuelCommandTypes";
 import type { PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
+import type { NutritionTrainingDemandHandoff } from "../nutrition/types";
 import type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
 import type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
@@ -32,6 +33,10 @@ import type {
   TrainingGenerationConstraintAuditItem,
   TrainingGenerationConstraintSummaryAudit,
   TrainingGenerationReductionSource,
+  TrainingGenerationImpact,
+  TrainingExecutionBaselineTargets,
+  TrainingExecutionReadinessStatus,
+  PlannedVsFinalTrainingDelta,
   TrainingStimulus,
   TrainingStimulusMix,
   TrainingBlockPhase,
@@ -150,6 +155,7 @@ export interface FuelViewModel {
   nutritionSafetyReview: NutritionSafetyReview;
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   decisionStack: readonly FuelCommandDecisionItem[];
+  trainingDemandHandoff: NutritionTrainingDemandHandoff;
   hitTheseFirst: readonly string[];
   macroTargets: FuelMacroTargetsViewModel;
   calorieSummary: string;
@@ -365,6 +371,16 @@ export interface TrainViewModel {
     roundStructure?: string | null | undefined;
     addOnBlocks?: readonly GeneratedSessionAddOnBlock[] | undefined;
     sessionPriority?: GeneratedSessionPriority | undefined;
+    readinessGate?: string | undefined;
+    fuelingGate?: string | undefined;
+    hydrationGate?: string | undefined;
+    executionReadinessStatus?: TrainingExecutionReadinessStatus | undefined;
+    preSessionChecklist?: readonly string[] | undefined;
+    downshiftIf?: readonly string[] | undefined;
+    fuelBefore?: string | undefined;
+    fuelAfter?: string | undefined;
+    confidenceImpact?: string | undefined;
+    missingDataAdvisories?: readonly string[] | undefined;
   }[];
   detailedTodaySessions: readonly {
     generatedSessionId: string;
@@ -378,6 +394,16 @@ export interface TrainViewModel {
     safetyNotes: readonly string[];
     canOpenDetail: boolean;
     detail: DetailedTrainingSession | null;
+    readinessGate?: string | undefined;
+    fuelingGate?: string | undefined;
+    hydrationGate?: string | undefined;
+    executionReadinessStatus?: TrainingExecutionReadinessStatus | undefined;
+    preSessionChecklist?: readonly string[] | undefined;
+    downshiftIf?: readonly string[] | undefined;
+    fuelBefore?: string | undefined;
+    fuelAfter?: string | undefined;
+    confidenceImpact?: string | undefined;
+    missingDataAdvisories?: readonly string[] | undefined;
   }[];
   detailedWeeklySessions: readonly {
     generatedSessionId: string;
@@ -638,6 +664,16 @@ export interface PlanViewModel {
     candidateAllowedDays: number;
     activeAdjustmentCount: number;
     activeRiskFlagCodes: readonly string[];
+    baselinePrescriptionTargets?: TrainingExecutionBaselineTargets | undefined;
+    readinessGenerationImpact?: TrainingGenerationImpact | undefined;
+    nutritionGenerationImpact?: TrainingGenerationImpact | undefined;
+    hydrationGenerationImpact?: TrainingGenerationImpact | undefined;
+    missingLogsAffectedExecutionOnly?: boolean | undefined;
+    executionAdjustmentsApplied?: readonly string[] | undefined;
+    evidenceBasedOverridesApplied?: readonly string[] | undefined;
+    readinessDownshiftReasons?: readonly string[] | undefined;
+    nutritionDownshiftReasons?: readonly string[] | undefined;
+    plannedVsFinalTrainingDelta?: PlannedVsFinalTrainingDelta | undefined;
     generationConstraintSummary?: TrainingGenerationConstraintSummaryAudit | undefined;
     hardSafetyConstraints?: readonly TrainingGenerationConstraintAuditItem[] | undefined;
     evidenceBasedLoadConstraints?: readonly TrainingGenerationConstraintAuditItem[] | undefined;

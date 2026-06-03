@@ -26,6 +26,45 @@ import { resolveRehydrationPlan } from "./rehydrationEngine";
 import { sessionFuelingGuidance } from "./sessionFueling";
 import { sodiumFiberStrategy } from "./sodiumFiberStrategy";
 
+function higherDemand(left: "low" | "moderate" | "high", right: "low" | "moderate" | "high"): "low" | "moderate" | "high" {
+  const rank = { low: 0, moderate: 1, high: 2 };
+  return rank[right] > rank[left] ? right : left;
+}
+
+function trainingDemandHandoff(input: {
+  training: TrainingState;
+  foodLogCount: number;
+  asOfDate: string;
+  underFuelingBlocked: boolean;
+  blocked: boolean;
+}): NutritionState["trainingDemandHandoff"] {
+  const today = input.training.dayPlans.find((day) => day.date === input.asOfDate);
+  const weeklyTrainingDemand = input.training.dayPlans.reduce<"low" | "moderate" | "high">((demand, day) => higherDemand(demand, day.fuelDemand), "low");
+  const hardOrHighStimulusDates = input.training.dayPlans.filter((day) => day.hardDay || day.fuelDemand === "high").map((day) => day.date);
+  const fuelDemandDates = input.training.dayPlans.filter((day) => day.fuelDemand === "high" || day.fuelDemand === "moderate").map((day) => day.date);
+  const carbohydrateEmphasisBySessionType = input.training.generatedSessions
+    .filter((session) => session.fuelDemand === "high" || session.fuelDemand === "moderate")
+    .map((session) => {
+      const label = session.sessionTypeLabel ?? session.family.replaceAll("_", " ");
+      return `${session.date}: ${label} uses ${session.fuelDemand === "high" ? "higher" : "steady"} carbohydrate and fluid emphasis.`;
+    });
+  const highWeeklyLoad = hardOrHighStimulusDates.length >= 3 || input.training.loadLedger.hardDayCount >= 3;
+
+  return {
+    todayTrainingDemand: today?.fuelDemand ?? "low",
+    weeklyTrainingDemand,
+    hardOrHighStimulusDates,
+    fuelDemandDates,
+    carbohydrateEmphasisBySessionType,
+    missingFoodLogAdvisory:
+      input.foodLogCount === 0
+        ? "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback."
+        : null,
+    underFuelingWarning: input.underFuelingBlocked ? "Under-fueling evidence is active; fuel recovery and block deficit pressure." : null,
+    deficitPressureBlocked: input.blocked || input.underFuelingBlocked || highWeeklyLoad
+  };
+}
+
 export function resolveNutrition(input: {
   athlete: AthleteProfile;
   phase: PhaseState;
@@ -96,6 +135,13 @@ export function resolveNutrition(input: {
       ? ["Carbs before sparring", "Protein after", "Fluids plus electrolytes"]
       : ["Protein steady", "Carbs around boxing", "Fluids consistent"];
   const underFuelingRiskNote = underFuelingBlocked ? "Under-fueling risk is active, so deficit pressure is blocked and recovery fuel is protected." : null;
+  const demandHandoff = trainingDemandHandoff({
+    training: input.training,
+    foodLogCount: input.foodLogCount,
+    asOfDate: input.asOfDate,
+    underFuelingBlocked,
+    blocked
+  });
   const fuelHistory = buildFuelHistoryViewModel({
     asOfDate: input.asOfDate,
     foodLogs: input.foodLogs,
@@ -181,6 +227,7 @@ export function resolveNutrition(input: {
     tournamentFuelPlan: command.tournamentFuelPlan,
     nutritionSafetyReview: command.nutritionSafetyReview,
     decisionStack: command.decisionStack,
+    trainingDemandHandoff: demandHandoff,
     underFuelingRiskNote,
     explanation:
       blocked

@@ -4,7 +4,23 @@ import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationE
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import type { TrainingBlock, TrainingBlockRecommendation, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
+import type {
+  PlannedVsFinalTrainingDelta,
+  TrainingExecutionBaselineTargets,
+  TrainingExecutionReadinessStatus,
+  TrainingGenerationImpact,
+  TrainingReadinessFuelingIntegration
+} from "./trainingReadinessFuelingIntegration";
 
+export type {
+  PlannedVsFinalTrainingDelta,
+  TrainingExecutionBaselineTargets,
+  TrainingExecutionFuelingStatus,
+  TrainingExecutionHydrationStatus,
+  TrainingExecutionReadinessStatus,
+  TrainingGenerationImpact,
+  TrainingReadinessFuelingIntegration
+} from "./trainingReadinessFuelingIntegration";
 export type {
   NextWeekDayPlanPreview,
   NextWeekGeneratedSupportBias,
@@ -259,6 +275,16 @@ export interface GeneratedTrainingSession {
   equipmentMode?: GeneratedSessionEquipmentMode | undefined;
   addOnBlocks?: readonly GeneratedSessionAddOnBlock[] | undefined;
   sessionPriority?: GeneratedSessionPriority | undefined;
+  readinessGate?: string | undefined;
+  fuelingGate?: string | undefined;
+  hydrationGate?: string | undefined;
+  executionReadinessStatus?: TrainingExecutionReadinessStatus | undefined;
+  preSessionChecklist?: readonly string[] | undefined;
+  downshiftIf?: readonly string[] | undefined;
+  fuelBefore?: string | undefined;
+  fuelAfter?: string | undefined;
+  confidenceImpact?: string | undefined;
+  missingDataAdvisories?: readonly string[] | undefined;
 }
 
 export interface ExerciseSetPrescription {
@@ -337,6 +363,16 @@ export interface DetailedTrainingSession {
   selfCheckCues?: readonly string[] | undefined;
   filmCue?: string | undefined;
   nextSessionNote?: string | undefined;
+  readinessGate?: string | undefined;
+  fuelingGate?: string | undefined;
+  hydrationGate?: string | undefined;
+  executionReadinessStatus?: TrainingExecutionReadinessStatus | undefined;
+  preSessionChecklist?: readonly string[] | undefined;
+  downshiftIf?: readonly string[] | undefined;
+  fuelBefore?: string | undefined;
+  fuelAfter?: string | undefined;
+  confidenceImpact?: string | undefined;
+  missingDataAdvisories?: readonly string[] | undefined;
 }
 
 export interface ExerciseResultDraft {
@@ -474,6 +510,16 @@ export interface TrainingSupportGenerationAudit {
   candidateAllowedDays: number;
   activeAdjustmentCount: number;
   activeRiskFlagCodes: readonly string[];
+  baselinePrescriptionTargets: TrainingExecutionBaselineTargets;
+  readinessGenerationImpact: TrainingGenerationImpact;
+  nutritionGenerationImpact: TrainingGenerationImpact;
+  hydrationGenerationImpact: TrainingGenerationImpact;
+  missingLogsAffectedExecutionOnly: boolean;
+  executionAdjustmentsApplied: readonly string[];
+  evidenceBasedOverridesApplied: readonly string[];
+  readinessDownshiftReasons: readonly string[];
+  nutritionDownshiftReasons: readonly string[];
+  plannedVsFinalTrainingDelta: PlannedVsFinalTrainingDelta;
   generationConstraintSummary: TrainingGenerationConstraintSummaryAudit;
   hardSafetyConstraints: readonly TrainingGenerationConstraintAuditItem[];
   evidenceBasedLoadConstraints: readonly TrainingGenerationConstraintAuditItem[];
@@ -588,6 +634,7 @@ export interface TrainingState {
   loadLedger: TrainingLoadLedger;
   planGenerationIntent?: PlanGenerationIntent | undefined;
   supportGenerationAudit: TrainingSupportGenerationAudit;
+  executionReadiness: TrainingReadinessFuelingIntegration;
   explanation: string;
   confidence: Confidence;
 }

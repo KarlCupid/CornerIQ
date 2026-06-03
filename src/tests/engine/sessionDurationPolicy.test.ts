@@ -89,7 +89,7 @@ describe("session duration policy", () => {
     expect(policy.durationReductionReasons.join(" ")).toContain("Protected hard boxing anchor");
   });
 
-  it("keeps red readiness and hard stops recovery-sized with explicit reasons", () => {
+  it("keeps hard stops recovery-sized with explicit reasons", () => {
     const policy = resolveSessionDurationPolicy({
       family: "recovery_reset",
       template: findWorkoutTemplate("recovery_reset_breathing_mobility"),
@@ -104,7 +104,24 @@ describe("session duration policy", () => {
     expect(policy.durationPolicyCategory).toBe("safety_capped");
     expect(policy.targetDurationMinutes).toBeGreaterThanOrEqual(15);
     expect(policy.targetDurationMinutes).toBeLessThanOrEqual(25);
-    expect(policy.durationReductionReasons.join(" ")).toContain("Red readiness");
+    expect(policy.durationReductionReasons.join(" ")).toContain("Safety hard-stop");
+  });
+
+  it("keeps red readiness without hard-stop symptoms in moderated execution range", () => {
+    const policy = resolveSessionDurationPolicy({
+      family: "strength_upper",
+      template: findWorkoutTemplate("strength_upper_guard_press_pull"),
+      boxingLevel: "amateur_open",
+      phase: "build",
+      readinessColor: "red",
+      protectedHard: false,
+      highCycleSymptoms: false,
+      hardStopActive: false
+    });
+
+    expect(policy.durationPolicyCategory).toBe("workload_moderated");
+    expect(policy.targetDurationMinutes).toBeGreaterThan(25);
+    expect(policy.durationReductionReasons.join(" ")).toContain("Red readiness without a hard-stop symptom");
   });
 
   it("keeps fight-week and tournament conserve sessions in the taper range", () => {

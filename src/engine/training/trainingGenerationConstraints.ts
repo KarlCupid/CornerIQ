@@ -92,6 +92,13 @@ export function readinessUncertaintyAdvisory(readiness: ReadinessState): boolean
   return readiness.color === "unknown" || readiness.confidence.missingInputs.some((item) => item.toLowerCase().includes("readiness"));
 }
 
+function readinessHasHardStop(readiness: ReadinessState, safetyFlags: readonly RiskFlag[] = []): boolean {
+  return (
+    readiness.hardStops.length > 0 ||
+    activeHardStopFlags(safetyFlags).some((flag) => flag.domain === "readiness" || flag.domain === "medical" || flag.domain === "training" || flag.domain === "cycle")
+  );
+}
+
 export function highCycleSymptoms(cycle: CycleState | undefined): boolean {
   return Boolean(cycle?.trackingEnabled && cycle.symptomBurden === "high");
 }
@@ -131,10 +138,11 @@ export function classifyTrainingGenerationConstraints(input: {
   date?: string | undefined;
 }): TrainingGenerationConstraintSummaryAudit {
   const foodLogMissing = missingNutritionData(input.nutrition) || input.foodLogCount === 0;
+  const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags ?? []);
   const hardSafetyConstraints: TrainingGenerationConstraintAuditItem[] = [
     ...activeHardStopFlags(input.safetyFlags).map((flag) => item("hardSafetyConstraint", flag.code, "safety", flag.message)),
-    ...(input.readiness.color === "red"
-      ? [item("hardSafetyConstraint", "red_readiness", "readiness", "Red readiness blocks generated hard work.")]
+    ...(redReadinessHardStop
+      ? [item("hardSafetyConstraint", "red_readiness_hard_stop", "readiness", "Readiness hard-stop symptoms block generated hard work.")]
       : []),
     ...(severeFuelingRisk(input.safetyFlags)
       ? [item("hardSafetyConstraint", "severe_underfueling_evidence", "nutrition", "Severe under-fueling evidence limits generated training to low-demand recovery.")]
@@ -145,6 +153,9 @@ export function classifyTrainingGenerationConstraints(input: {
     ...activeUnderfuelingEvidenceFlags(input.safetyFlags)
       .filter((flag) => !(flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code)))
       .map((flag) => item("evidenceBasedLoadConstraint", flag.code, "nutrition", flag.message)),
+    ...(input.readiness.color === "red" && !redReadinessHardStop
+      ? [item("evidenceBasedLoadConstraint", "red_readiness_without_hard_stop", "readiness", "Red readiness score without hard-stop symptoms adjusts execution before blocking the plan.")]
+      : []),
     ...(highCycleSymptoms(input.cycle)
       ? [item("evidenceBasedLoadConstraint", "high_cycle_symptoms", "cycle", "High cycle symptoms trim optional generated volume.")]
       : []),

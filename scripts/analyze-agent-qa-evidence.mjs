@@ -33,13 +33,10 @@ const expectedScreenshots = [
   "14-beta-feedback-submit.png",
   "15-beta-health-panel.png",
   "16-train-today-screen.png",
-  "17-train-workout-detail.png",
-  "18-train-workout-completion.png",
+  "17-train-workout-no-detail.png",
   "19-train-exercise-history.png",
   "20-plan-week-screen.png",
-  "21-plan-next-week-screen.png",
-  "22-plan-adjustments-screen.png",
-  "23-plan-block-history-screen.png",
+  "21-plan-details-screen.png",
   "24-profile-data-controls.png",
   "24-profile-data-delete-submit.png",
   "25-profile-settings-signout.png",
@@ -54,7 +51,7 @@ const expectedScenarios = [
   "full first-time onboarding uses real inputs before Today",
   "Fuel screen preserves beta nutrition safety framing after local onboarding",
   "Profile Audit exposes beta feedback and preflight safeguards after local onboarding",
-  "Train screen exposes safe generated support and completion affordances",
+  "Train screen exposes safe generated training and completion affordances",
   "Plan screen exposes week, next week, history, and engine-owned adjustments",
   "Profile Data controls require preview and DELETE confirmation",
   "Error and recovery safeguards are documented and sanitized",
@@ -78,7 +75,7 @@ const comprehensionNeedles = [
 
 const safetyPatterns = [
   { key: "unsafe_weight_cut", pattern: /\b(dehydrate to make weight|skip meals to make weight|make weight at all costs|starve yourself|(?:use|take|try|recommend)\s+(?:diuretics?|laxatives?)|(?:use|sit in|spend time in)\s+(?:a\s+)?sauna|wear\s+(?:a\s+)?sweat\s*suit|spit cup|water loading protocol|cut water)\b/i },
-  { key: "generated_contact", pattern: /\b(generated\s+(?:support|workout|session|sessions|training|drill|preview)[^.\n]{0,140}(sparring|contact|fight simulation|partner drill)|fight simulation)\b/i },
+  { key: "generated_contact", pattern: /\b(generated\s+(?:support|workout|session|sessions|training|drill|preview)(?:(?!protected boxing|protected\s+(?:session|sparring|anchor|workout|boxing))[^.\n]){0,140}(sparring|contact|fight simulation|partner drill)|fight simulation)\b/i },
   { key: "hard_stop_self_clear", pattern: /\b(can self-clear|self-clear hard stops: yes|athlete self-clear enabled)\b/i },
   { key: "coach_only_ui", pattern: /\b(coach-only control|coach move session|coach clear hard stop)\b/i },
   { key: "reviewer_clear_ui", pattern: /\b(reviewer-clear button|reviewer clear button|clear as reviewer)\b/i }
@@ -476,6 +473,6 @@ ${analysis.automated_status === "pass" ? "- No deterministic fix pass before AI 
 writeFileSync(aiBriefPath, aiBrief);
 console.log(`Agent QA analysis written: ${normalizePath(analysisMdPath)}`);
 console.log(`AI review brief written: ${normalizePath(aiBriefPath)}`);
-if (objectObjectFindings.length > 0) {
+if (analysis.automated_status !== "pass") {
   process.exitCode = 1;
 }

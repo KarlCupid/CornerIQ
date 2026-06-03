@@ -4,6 +4,7 @@ import type { ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import type { TrainingBlock, TrainingBlockPhase, TrainingMicrocycle } from "./trainingBlockTypes";
 import type { TrainingBlockRollForwardResult, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
+import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
 export interface TrainingRollForwardInput {
   asOfDate: ISODateString;
@@ -41,7 +42,7 @@ function tournamentWeekActive(tournament: TournamentDetails | null, asOfDate: IS
 }
 
 function hardStopActive(input: Pick<TrainingRollForwardInput, "readiness" | "safetyFlags">): boolean {
-  return input.readiness.color === "red" || input.safetyFlags.some((flag) => flag.hardStop && flag.status === "active");
+  return readinessHasHardStop(input.readiness, input.safetyFlags) || input.safetyFlags.some((flag) => flag.hardStop && flag.status === "active");
 }
 
 function coachReviewNeeded(input: TrainingRollForwardInput): boolean {
@@ -104,7 +105,7 @@ export function decideNextWeekProgression(input: TrainingRollForwardInput): Trai
     reason = "Fight week is approaching, so taper overrides normal build progression.";
   } else if (hardStopActive(input)) {
     decision = "recovery";
-    reason = "Red readiness or a hard-stop safety flag blocks normal roll-forward.";
+    reason = "Readiness hard-stop symptoms or a hard-stop safety flag block normal roll-forward.";
   } else if (coachReviewNeeded(input)) {
     decision = "coach_review";
     reason = "Pain flags or professional-review signals require qualified review before progression.";

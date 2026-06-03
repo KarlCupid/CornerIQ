@@ -1,4 +1,5 @@
 import type { CompletedTrainingSession, ExerciseResultRecord, JourneyEvent, ProgressionRecommendation, ReadinessState, RiskFlag } from "../core/types";
+import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
 export interface ProgressionEngineInput {
   completedTrainingSessions: readonly CompletedTrainingSession[];
@@ -57,11 +58,11 @@ export function recommendTrainingProgression(input: ProgressionEngineInput): Pro
     };
   }
 
-  if (input.readiness.color === "red" || input.safetyFlags?.some((flag) => flag.hardStop)) {
+  if (readinessHasHardStop(input.readiness, input.safetyFlags ?? []) || input.safetyFlags?.some((flag) => flag.hardStop)) {
     return {
       status: "deload",
       summary: "Deload today.",
-      why: "Red readiness or a hard-stop safety flag blocks normal progression."
+      why: "Readiness hard-stop symptoms or a hard-stop safety flag block normal progression."
     };
   }
 

@@ -12,7 +12,7 @@ export function resolveReadiness(checkIns: readonly ReadinessCheckIn[], asOfDate
       drivers: ["No readiness check-in logged today."],
       hardStops: [],
       confidence: makeConfidence(0.28, ["manual readiness can still be logged"], ["today readiness check-in"]),
-      explanation: "No readiness check-in yet. CornerIQ will use safer defaults until you log how you slept and feel."
+      explanation: "No readiness check-in yet. CornerIQ keeps the planned training available and adds a warm-up gate so you can downshift if symptoms show up."
     };
   }
 
@@ -24,7 +24,7 @@ export function resolveReadiness(checkIns: readonly ReadinessCheckIn[], asOfDate
     hardStops.push(createRiskFlag("readiness", "severe_dizziness", "critical", "Severe dizziness was logged.", { date: asOfDate }, true));
   }
   if (today.illnessSymptoms.length > 0) {
-    hardStops.push(createRiskFlag("medical", "acute_illness", "high", "Illness symptoms were logged.", { symptoms: today.illnessSymptoms }, true));
+    hardStops.push(createRiskFlag("medical", "acute_illness", "high", "Illness symptoms were logged.", { symptoms: today.illnessSymptoms }, true, { hardStop: true }));
   }
 
   const score = scoreCheckIn(today);
@@ -43,7 +43,9 @@ export function resolveReadiness(checkIns: readonly ReadinessCheckIn[], asOfDate
     confidence: makeConfidence(0.78, ["same-day manual readiness logged"]),
     explanation:
       color === "red"
-        ? "Readiness is red. Hard generated work is blocked and safety comes first."
+        ? hardStops.length > 0
+          ? "Readiness is red with hard-stop symptoms. Hard generated work is blocked and safety comes first."
+          : "Readiness is red without hard-stop symptoms. CornerIQ keeps useful training available with conservative execution gates."
         : color === "amber"
           ? "Readiness is reduced. Keep the plan, but lower the cost of extra work."
           : "Readiness supports the planned training load."

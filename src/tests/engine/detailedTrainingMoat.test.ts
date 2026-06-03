@@ -6,6 +6,7 @@ import { buildDetailedTrainingSession } from "../../engine/training/detailedSess
 import { buildTrainingAnalytics } from "../../engine/training/trainingAnalytics";
 import { recommendTrainingProgression } from "../../engine/training/progressionEngine";
 import { summarizeFoodLogs } from "../../engine/nutrition/foodLogSummary";
+import { createHardStopFlag } from "../../engine/safety/riskSafetyEngine";
 import {
   amateur_novice_build,
   fixtureAsOfDate,
@@ -306,7 +307,13 @@ describe("detailed training session engine", () => {
 describe("progression and train view model", () => {
   it("progression handles pain, red readiness, skipped sessions, good history, and missing history", () => {
     expect(recommendTrainingProgression({ completedTrainingSessions: [completedSession], readiness: greenReadiness, painNotes: ["sharp shoulder pain"] }).status).toBe("coach_review");
-    expect(recommendTrainingProgression({ completedTrainingSessions: [completedSession], readiness: { ...greenReadiness, color: "red" } }).status).toBe("deload");
+    expect(recommendTrainingProgression({ completedTrainingSessions: [completedSession], readiness: { ...greenReadiness, color: "red" } }).status).toBe("repeat");
+    expect(
+      recommendTrainingProgression({
+        completedTrainingSessions: [completedSession],
+        readiness: { ...greenReadiness, color: "red", hardStops: [createHardStopFlag("readiness", "fainting", "Fainting was logged.", {})] }
+      }).status
+    ).toBe("deload");
     expect(
       recommendTrainingProgression({
         completedTrainingSessions: [completedSession],
@@ -436,7 +443,7 @@ describe("progression and train view model", () => {
       asOfDate: fixtureAsOfDate,
       completedTrainingSessions: [completedSession],
       exerciseResults: [],
-      readiness: { ...greenReadiness, color: "red" },
+      readiness: { ...greenReadiness, color: "red", hardStops: [createHardStopFlag("readiness", "fainting", "Fainting was logged.", {})] },
       safetyFlags: []
     });
     const unknown = buildTrainingAnalytics({
@@ -481,6 +488,6 @@ describe("food log actual-vs-target summary", () => {
     expect(summary.logCount).toBe(0);
     expect(summary.confidence.level).toBe("low");
     expect(summary.summaryCopy.toLowerCase()).not.toContain("shame");
-    expect(summary.summaryCopy).toContain("not a judgment");
+    expect(summary.summaryCopy).toBe("No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.");
   });
 });

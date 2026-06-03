@@ -145,6 +145,9 @@ function CurrentModeCard({
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-current-mode-card">
         <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>{viewModel.topAction.title}</Text>
+          <Text style={screenStyles.body}>{viewModel.topAction.purpose}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.topAction.primaryAction}</Text>
           <Text style={screenStyles.sectionTitle}>Current mode</Text>
           <Text style={screenStyles.callout}>{viewModel.modeLabel}</Text>
           <Text style={screenStyles.body}>{viewModel.planLifecycleLabel}. {viewModel.goalSummary}</Text>
@@ -255,6 +258,28 @@ function GeneratedSupportSummaryCard({
                   Generated weekly minutes: {viewModel.generationAudit.actualWeeklyGeneratedMinutes ?? 0}/{viewModel.generationAudit.targetWeeklyGeneratedMinutes} target.
                 </Text>
               ) : null}
+              {viewModel.generationAudit.baselinePrescriptionTargets ? (
+                <Text style={screenStyles.subtle}>
+                  Baseline prescription: {viewModel.generationAudit.baselinePrescriptionTargets.targetGeneratedSupportCount} sessions, {viewModel.generationAudit.baselinePrescriptionTargets.targetHardDayCount} hard days, {viewModel.generationAudit.baselinePrescriptionTargets.targetWeeklyGeneratedMinutes} generated minutes.
+                </Text>
+              ) : null}
+              {viewModel.generationAudit.plannedVsFinalTrainingDelta ? (
+                <Text style={screenStyles.subtle}>
+                  Final delta: {viewModel.generationAudit.plannedVsFinalTrainingDelta.actualGeneratedSupportCount}/{viewModel.generationAudit.plannedVsFinalTrainingDelta.targetGeneratedSupportCount} sessions, {viewModel.generationAudit.plannedVsFinalTrainingDelta.actualHardDayCount}/{viewModel.generationAudit.plannedVsFinalTrainingDelta.targetHardDayCount} hard days.
+                </Text>
+              ) : null}
+              <Text style={screenStyles.subtle}>
+                Readiness impact: {viewModel.generationAudit.readinessGenerationImpact ?? "unknown"}; nutrition impact: {viewModel.generationAudit.nutritionGenerationImpact ?? "unknown"}; hydration impact: {viewModel.generationAudit.hydrationGenerationImpact ?? "unknown"}.
+              </Text>
+              {viewModel.generationAudit.missingLogsAffectedExecutionOnly ? (
+                <Text style={screenStyles.subtle}>Missing logs affected execution guidance only; the planned prescription stayed available.</Text>
+              ) : null}
+              {(viewModel.generationAudit.executionAdjustmentsApplied ?? []).slice(0, 3).map((adjustment, index) => (
+                <Text key={`execution-adjustment:${index}`} style={screenStyles.subtle}>Execution: {adjustment}</Text>
+              ))}
+              {(viewModel.generationAudit.evidenceBasedOverridesApplied ?? []).slice(0, 3).map((override, index) => (
+                <Text key={`evidence-override:${index}`} style={screenStyles.subtle}>Override: {override}</Text>
+              ))}
               {(viewModel.generationAudit.unmetPrescriptionTargets ?? []).map((target, index) => (
                 <Text key={`unmet-prescription:${index}`} style={screenStyles.subtle}>Prescription note: {target}</Text>
               ))}

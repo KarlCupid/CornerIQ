@@ -92,7 +92,7 @@ export function summarizeFoodLogs(logs: readonly FoodLog[], date: string, target
     confidence,
     summaryCopy:
       dayLogs.length === 0
-        ? "No food logged yet today. That is a low-confidence signal, not a judgment; keep the target steady until more data exists."
+        ? "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback."
         : `${dayLogs.length} food log${dayLogs.length === 1 ? "" : "s"} recorded today. Use this as context, not a one-day calorie adjustment.`,
     rows: [
       formatTarget(totals.calories, targets?.calories ?? 0, " kcal", calorieTargetPercent),

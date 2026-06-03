@@ -197,6 +197,10 @@ export function TrainScreen({ busy, completionActions, completionMessage, genera
               >
                 <View style={{ gap: spacing.sm }}>
                   <Text style={screenStyles.body}>Why: {session.why}</Text>
+                  {session.readinessGate ? <Text style={screenStyles.subtle}>Readiness gate: {session.readinessGate}</Text> : null}
+                  {session.fuelingGate ? <Text style={screenStyles.subtle}>Fueling gate: {session.fuelingGate}</Text> : null}
+                  {session.hydrationGate ? <Text style={screenStyles.subtle}>Hydration gate: {session.hydrationGate}</Text> : null}
+                  {session.downshiftIf?.slice(0, 2).map((item, itemIndex) => <Text key={`downshift:${index}:${itemIndex}`} style={screenStyles.subtle}>Downshift if: {item}</Text>)}
                   <Text style={screenStyles.subtle}>{viewModel.postSessionFuelHint}</Text>
                   <Text style={screenStyles.subtle}>{viewModel.hydrationHint}</Text>
                   {session.modifications.map((item, itemIndex) => <Text key={`modify:${index}:${itemIndex}`} style={screenStyles.subtle}>Modify: {item}</Text>)}

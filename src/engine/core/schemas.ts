@@ -11,6 +11,7 @@ const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
 const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper", "boxing_skill", "technical", "agility", "tactical"]);
+const TrainingExecutionReadinessStatusSchema = z.enum(["unknown", "green", "amber", "red_non_hard_stop", "red_hard_stop"]);
 const GeneratedSessionAddOnPrioritySchema = z.enum(["required", "recommended", "optional"]);
 const GeneratedSessionAddOnPlacementTypeSchema = z.enum(["primer", "finisher", "recovery", "mobility", "durability", "technical_touch"]);
 const GeneratedSessionTypeLabelSchema = z.enum([
@@ -426,7 +427,17 @@ export const GeneratedTrainingSessionSchema = z.object({
   skillLevel: z.enum(["novice", "intermediate", "advanced"]).optional(),
   equipmentMode: z.enum(["none", "bag", "mirror", "line", "coach_optional"]).optional(),
   addOnBlocks: z.array(GeneratedSessionAddOnBlockSchema).optional(),
-  sessionPriority: z.enum(["primary", "secondary", "add_on"]).optional()
+  sessionPriority: z.enum(["primary", "secondary", "add_on"]).optional(),
+  readinessGate: z.string().min(1).optional(),
+  fuelingGate: z.string().min(1).optional(),
+  hydrationGate: z.string().min(1).optional(),
+  executionReadinessStatus: TrainingExecutionReadinessStatusSchema.optional(),
+  preSessionChecklist: z.array(z.string()).optional(),
+  downshiftIf: z.array(z.string()).optional(),
+  fuelBefore: z.string().min(1).optional(),
+  fuelAfter: z.string().min(1).optional(),
+  confidenceImpact: z.string().min(1).optional(),
+  missingDataAdvisories: z.array(z.string()).optional()
 });
 
 export const CompletedTrainingSessionSchema = z.object({

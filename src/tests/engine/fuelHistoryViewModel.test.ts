@@ -63,10 +63,10 @@ describe("fuelHistoryViewModel", () => {
       fightWeekActive: false
     });
 
-    expect(viewModel.todaySummary).toBe("No food log yet today. That lowers confidence; it is not treated as safe.");
+    expect(viewModel.todaySummary).toBe("No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.");
     expect(viewModel.loggingConfidence).toBe("unknown");
     expect(viewModel.missingDataCopy).toContain("keeps targets separate");
-    expect(viewModel.groupedDays[0]?.notes).toContain("No food log; target context does not change.");
+    expect(viewModel.groupedDays[0]?.notes).toContain("No food log; training stays planned and target context does not change.");
     expect(viewModel.missingDataNarrative).toContain("not treated as noncompliance");
   });
 

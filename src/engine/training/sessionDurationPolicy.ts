@@ -198,9 +198,10 @@ export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicy
   let range = normal;
   let category: GeneratedSessionDurationPolicyCategory = "normal_support";
 
-  const hardSafety = Boolean(input.hardStopActive) || input.readinessColor === "red" || Boolean(input.severeFuelingRisk);
+  const hardSafety = Boolean(input.hardStopActive) || Boolean(input.severeFuelingRisk);
   const workloadModerated = Boolean(
       input.protectedHard ||
+      input.readinessColor === "red" ||
       input.highCycleSymptoms ||
       input.underfuelingRisk ||
       input.volumeStrategy === "reduce_volume" ||
@@ -209,9 +210,8 @@ export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicy
 
   if (hardSafety) {
     category = "safety_capped";
-    range = { min: 15, max: input.family === "recovery_reset" ? 25 : 20, target: input.readinessColor === "red" || input.hardStopActive ? 16 : 20 };
+    range = { min: 15, max: input.family === "recovery_reset" ? 25 : 20, target: input.hardStopActive ? 16 : 20 };
     withReason(reasons, Boolean(input.hardStopActive), "Safety hard-stop limited generated work to recovery duration.");
-    withReason(reasons, input.readinessColor === "red", "Red readiness limited generated work to recovery duration.");
     withReason(reasons, Boolean(input.severeFuelingRisk), "Severe fueling risk limited generated work to low-demand recovery duration.");
   } else if (taperContext(input)) {
     category = "taper";
@@ -225,6 +225,7 @@ export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicy
     category = "workload_moderated";
     range = moderatedProfile(normal, input.family);
     withReason(reasons, input.protectedHard, "Protected hard boxing anchor owns the main stress, so generated support uses moderated duration.");
+    withReason(reasons, input.readinessColor === "red", "Red readiness without a hard-stop symptom uses conservative execution duration instead of recovery-only generation.");
     withReason(reasons, input.highCycleSymptoms, "High cycle symptoms reduced optional generated volume while keeping support useful.");
     withReason(reasons, Boolean(input.underfuelingRisk), "Under-fueling evidence removed high fuel-demand duration.");
     withReason(reasons, input.volumeStrategy === "reduce_volume", "Reduce-volume strategy lowered optional generated duration.");

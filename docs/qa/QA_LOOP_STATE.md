@@ -92,7 +92,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit checks meal/snack/day-total add-up copy. |
 | hydration copy safe | automated_pass | Fuel and Today audit check add-hydration/add-to-today copy without pretending to set a daily total. |
-| missing food logs unknown/lower confidence | automated_pass | Missing-food copy is shortened to "No food log yet today. That lowers confidence; it is not treated as safe." Agent audit passed. |
+| missing food logs unknown/lower confidence | automated_pass | Missing-food copy is shortened to "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback." Missing food affects execution guidance and confidence, not baseline training generation. |
 | nutrition review/hard-stop/self-clear copy safe | automated_pass | Safety review copy says users cannot self-clear hard stops, reviewer-clear workflow is not in the app yet, and urgent symptoms/unsafe weight concerns should stop and seek qualified support. Agent audit passed. |
 | body mass copy safe | automated_pass | Fuel audit. |
 | no barcode/meal-planning expectation | accepted_beta_limitation | Barcode and meal planning are deferred. |

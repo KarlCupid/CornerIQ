@@ -5,6 +5,7 @@ import type { CycleState, FightOpportunity, ReadinessState, RiskFlag, Tournament
 import type { CompletedTrainingSession, ExerciseResultRecord, GeneratedSessionFamily, ProtectedWorkout } from "./types";
 import type { TrainingBlock, TrainingBlockPhase, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 import type { TrainingProgressionDecision, TrainingProgressionDecisionValue, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
+import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
 export type NextWeekTrainingVolumeStrategy =
   | "conservative_start"
@@ -159,7 +160,7 @@ function activeUnderfueling(flags: readonly RiskFlag[], summary: TrainingWeekSum
 }
 
 function activeHardStop(flags: readonly RiskFlag[], readiness: ReadinessState): boolean {
-  return readiness.color === "red" || flags.some((flag) => flag.status === "active" && flag.hardStop);
+  return readinessHasHardStop(readiness, flags) || flags.some((flag) => flag.status === "active" && flag.hardStop);
 }
 
 function painOrReview(input: Pick<NextWeekMaterializationInput, "latestTrainingWeekSummary" | "completedTrainingSessions" | "exerciseResults" | "safetyFlags">): boolean {
@@ -340,7 +341,7 @@ function blockedProgressionReasons(input: NextWeekMaterializationInput, strategy
     reasons.push("Under-fueling risk blocks progression.");
   }
   if (activeHardStop(input.safetyFlags, input.readiness)) {
-    reasons.push("Red readiness or a hard-stop safety flag blocks generated hard work.");
+    reasons.push("Readiness hard-stop symptoms or a hard-stop safety flag block generated hard work.");
   }
   if (painOrReview(input)) {
     reasons.push("Pain or professional-review signals block automatic progression.");

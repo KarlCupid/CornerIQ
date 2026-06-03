@@ -110,7 +110,9 @@ function targetSummary(fight: FightOpportunity | null, weighInContext: WeighInCo
 
 function readinessSummary(readiness: ReadinessState): string {
   if (readiness.color === "red") {
-    return "Red readiness protects recovery fuel and blocks deficit pressure.";
+    return readiness.hardStops.length > 0
+      ? "Red readiness with hard-stop symptoms protects recovery fuel and blocks deficit pressure."
+      : "Red readiness adds conservative fueling and execution checks without requiring food logs for training.";
   }
   if (readiness.color === "amber") {
     return "Amber readiness keeps changes conservative and symptom-aware.";

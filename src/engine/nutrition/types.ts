@@ -81,6 +81,7 @@ export interface NutritionState {
   tournamentFuelPlan: TournamentFuelPlan;
   nutritionSafetyReview: NutritionSafetyReview;
   decisionStack: readonly FuelCommandDecisionItem[];
+  trainingDemandHandoff: NutritionTrainingDemandHandoff;
   underFuelingRiskNote: string | null;
   explanation: string;
   riskFlags: readonly RiskFlag[];
@@ -92,4 +93,15 @@ export interface HydrationState {
   electrolyteGuidance: string;
   riskFlags: readonly RiskFlag[];
   confidence: Confidence;
+}
+
+export interface NutritionTrainingDemandHandoff {
+  todayTrainingDemand: "low" | "moderate" | "high";
+  weeklyTrainingDemand: "low" | "moderate" | "high";
+  hardOrHighStimulusDates: readonly ISODateString[];
+  fuelDemandDates: readonly ISODateString[];
+  carbohydrateEmphasisBySessionType: readonly string[];
+  missingFoodLogAdvisory: string | null;
+  underFuelingWarning: string | null;
+  deficitPressureBlocked: boolean;
 }

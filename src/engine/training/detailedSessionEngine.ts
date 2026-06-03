@@ -75,7 +75,7 @@ function section(name: string, intent: string, durationMinutes: number, exercise
 }
 
 function familyOverride(input: BuildDetailedTrainingSessionInput): GeneratedSessionFamily {
-  if (input.readiness.color === "red") {
+  if (input.generatedSession.executionReadinessStatus === "red_hard_stop" || (input.readiness.color === "red" && input.readiness.hardStops.length > 0)) {
     return "recovery_reset";
   }
   if (hasHardBoxingAnchor(input.protectedWorkouts, input.generatedSession.date) && input.generatedSession.family !== "recovery_reset") {
@@ -249,11 +249,13 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
   const sections = sectionsFromTemplate(input, templateItem, durationMinutes);
   const readinessModifications = [
     ...input.generatedSession.modifications,
-    ...(input.readiness.color === "red" ? ["Red readiness: generated work changed to recovery detail."] : []),
+    ...(input.generatedSession.executionReadinessStatus === "red_hard_stop" ? ["Readiness hard-stop symptoms changed generated work to recovery detail."] : []),
     ...(hardAnchor ? ["Protected hard boxing or competition owns hard stress today; detail stays short and easy."] : []),
     ...(input.phase?.phase === "tournament" && family !== input.generatedSession.family ? ["Tournament mode: hard conditioning is removed and no dehydration pressure is added."] : []),
     ...(input.phase?.phase === "fight_week" && family !== input.generatedSession.family ? ["Fight week: volume is trimmed to taper-safe speed and durability support."] : []),
-    ...(input.painNotes && input.painNotes.length > 0 ? ["Pain note present: stop on symptom increase and seek qualified clinical help if it persists."] : [])
+    ...(input.painNotes && input.painNotes.length > 0 ? ["Pain note present: stop on symptom increase and seek qualified clinical help if it persists."] : []),
+    ...(input.generatedSession.readinessGate ? [input.generatedSession.readinessGate] : []),
+    ...(input.generatedSession.confidenceImpact ? [input.generatedSession.confidenceImpact] : [])
   ];
   const cycleModifications =
     input.cycle.symptomBurden === "high"
@@ -297,6 +299,16 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     sessionQualityCheckpoints: sessionQualityCheckpointsForFamily(family, input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme),
     selfCheckCues: selfCheckCuesForFamily(family),
     filmCue: filmCueForFamily(family, input.generatedSession.roundStructure ?? templateItem.roundStructure),
-    nextSessionNote: "Keep the cleanest cue from today and simplify the next exposure before adding volume."
+    nextSessionNote: "Keep the cleanest cue from today and simplify the next exposure before adding volume.",
+    readinessGate: input.generatedSession.readinessGate,
+    fuelingGate: input.generatedSession.fuelingGate,
+    hydrationGate: input.generatedSession.hydrationGate,
+    executionReadinessStatus: input.generatedSession.executionReadinessStatus,
+    preSessionChecklist: input.generatedSession.preSessionChecklist,
+    downshiftIf: input.generatedSession.downshiftIf,
+    fuelBefore: input.generatedSession.fuelBefore,
+    fuelAfter: input.generatedSession.fuelAfter,
+    confidenceImpact: input.generatedSession.confidenceImpact,
+    missingDataAdvisories: input.generatedSession.missingDataAdvisories
   };
 }
