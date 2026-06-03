@@ -29,7 +29,9 @@ describe("beta release operations", () => {
 
   it("documents release operations, feedback triage, and ChatGPT audit steps", () => {
     expect(existsSync("docs/21_BETA_RELEASE_OPERATIONS.md")).toBe(true);
+    expect(existsSync("docs/qa/INCIDENT_TRIAGE_RUNBOOK.md")).toBe(true);
     const doc = readFileSync("docs/21_BETA_RELEASE_OPERATIONS.md", "utf8");
+    const incidentRunbook = readFileSync("docs/qa/INCIDENT_TRIAGE_RUNBOOK.md", "utf8");
 
     for (const heading of [
       "Beta Readiness Status",
@@ -52,6 +54,9 @@ describe("beta release operations", () => {
     expect(doc).toContain("CI does not run live smoke");
     expect(doc).toContain("Release Quality");
     expect(doc).toContain("release-blocking");
+    expect(incidentRunbook).toContain("Severity Definitions");
+    expect(incidentRunbook).toContain("Stop-Beta Criteria");
+    expect(incidentRunbook).toContain("Normal users cannot mark reports reviewed");
     expect(doc).toContain("Reports are user-owned");
     expect(doc).toContain("no admin-review UI");
     expect(doc).not.toMatch(/make weight at all costs|sauna|sweat suit|laxative|diuretic/i);

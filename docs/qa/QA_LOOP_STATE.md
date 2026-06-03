@@ -7,14 +7,14 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 7701745e4349acd9b73e4ecbf2a40077ae30761c (short 7701745) |
-| Last QA run result | 2026-06-03 build-fix verification passed locally: `npm install`, `npm run typecheck`, `npm run lint`, `npm run preflight:beta`, approved `npx expo-doctor` (`18/18`), approved `npm test` (`489` passed, `1` skipped), approved `npm run quality`, approved `npm run smoke:fixtures` (`20` passed), approved `npm run test:coverage` (`489` passed, `1` skipped; all-files statements about `88.73%`), and approved `npm audit --audit-level=high --omit=dev` (passed with only moderate Expo-chain advisories). Prior EAS build failed in Hermes from floating `@supabase/supabase-js@2.106.0`; Supabase is pinned to `2.50.0`, Expo/Metro checks pass, and fresh EAS build is queued. |
+| Last commit tested | b718814d4ecd1e36adb740bb2cf7ef8c32f07475 (short b718814) |
+| Last QA run result | 2026-06-03 production-quality audit pass: baseline `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm run lint`, `cmd /c npm run preflight:beta`, approved `cmd /c npm test` (`489` passed, `1` skipped), approved `cmd /c npm run smoke:fixtures` (`20` passed), approved `cmd /c npm run test:coverage` (baseline all-files `88.73%` statements), and approved `cmd /c npm run qa:agent:ci` (`9` browser tests passed). Final post-change gates passed: typecheck, lint, preflight, smoke fixtures (`20` passed), quality, full tests (`498` passed, `1` skipped), coverage (`88.81%` statements, `87.05%` branches, `87.77%` functions, `88.81%` lines), approved final `cmd /c npm run qa:agent:ci` at 2026-06-03 12:51 -07:00 (`9` browser tests passed, bundle refreshed), and approved final docs/static verification at 2026-06-03 12:52 -07:00 (`15` tests passed). `npm run release:quality` failed only for intended release-owner evidence blockers: Supabase migration dry-run and final candidate SHA recording. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 1 |
+| Current open blocker count | 4 |
 | Current open high count | 0 |
 | Current required-medium count | 0 automatable; 3 human-only limitations remain explicitly tracked |
-| Next recommended action | Monitor fresh EAS Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` to success/failure and artifact URL, then run physical iPhone, live Supabase/RLS/auth/data, and human boxer comprehension checks before declaring beta ready |
+| Next recommended action | Run release-owner external evidence checks: Supabase migration dry-run for local migration `010`, CodeQL candidate run recording, live Supabase smoke if credentials are available, EAS artifact monitoring, physical iPhone checks, and guided boxer comprehension sessions before declaring distributed beta ready |
 | Beta readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.

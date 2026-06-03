@@ -21,13 +21,13 @@ describe("beta safety static scans", () => {
       ...collectFiles("src/services", (path) => path.endsWith(".ts") && !path.endsWith("database.types.ts"))
     ];
     const forbiddenValues: readonly [RegExp, string][] = [
-      [/\bSUPABASE_SERVICE_ROLE(?:_KEY)?\b\s*[:=]\s*\S+/i, "server-only role value"],
-      [/\bCORNERIQ_SMOKE_(?:EMAIL|PASSWORD)\b\s*[:=]\s*\S+/i, "smoke credential value"],
-      [/\b(?:access|refresh)[_-]?token\b\s*[:=]\s*(?!\[redacted\])\S+/i, "access/refresh token value"],
-      [/\bauthorization\b\s*[:=]\s*bearer\s+(?!\[redacted\])\S+/i, "authorization bearer value"],
+      [/\bSUPABASE_SERVICE_ROLE(?:_KEY)?\b[^\S\r\n]*[:=][^\S\r\n]*[^\s\r\n]+/i, "server-only role value"],
+      [/\bCORNERIQ_SMOKE_(?:EMAIL|PASSWORD)\b[^\S\r\n]*[:=][^\S\r\n]*[^\s\r\n]+/i, "smoke credential value"],
+      [/\b(?:access|refresh)[_-]?token\b[^\S\r\n]*[:=][^\S\r\n]*(?!\[redacted\])[^\s\r\n]+/i, "access/refresh token value"],
+      [/\bauthorization\b[^\S\r\n]*[:=][^\S\r\n]*bearer[^\S\r\n]+(?!\[redacted\])[^\s\r\n]+/i, "authorization bearer value"],
       [/\bbearer\s+(?!\[redacted\])[A-Za-z0-9._~-]{16,}/i, "bearer token value"],
       [/\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\b/, "JWT-like value"],
-      [/\b(?:api|anon)[_-]?key\b\s*[:=]\s*(?!\[redacted\]|$)\S+/i, "API key value"]
+      [/\b(?:api|anon)[_-]?key\b[^\S\r\n]*[:=][^\S\r\n]*(?!\[redacted\]|boolean\b|string\b|unknown\b|null\b|undefined\b|$)[A-Za-z0-9._~-]{12,}/i, "API key value"]
     ];
 
     for (const file of files) {

@@ -475,7 +475,6 @@ describe("nextWeekGeneratedSessionEngine", () => {
             ...severeFuelingFlag(),
             id: "risk_hard_stop",
             hardStop: true,
-            code: "hard_stop_test",
             message: "Hard stop test flag."
           }
         ]

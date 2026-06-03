@@ -48,8 +48,8 @@ For local or beta test projects that need a true fresh-account run, use the serv
 
 ```powershell
 $env:CONFIRM_CORNERIQ_RESET="DELETE_ALL_CORNERIQ_TEST_DATA"
-$env:SUPABASE_URL="https://your-test-project.supabase.co"
-$env:SUPABASE_SERVICE_ROLE_KEY="<server-side key from Supabase dashboard>"
+# Load SUPABASE_URL and the server-side role key from an ignored local env file or secret manager.
+# Do not paste or print those values in terminal output, docs, screenshots, or QA artifacts.
 cmd /c npm run dev:reset:supabase -- --dry-run
 cmd /c npm run dev:reset:supabase -- --delete-auth-users
 ```

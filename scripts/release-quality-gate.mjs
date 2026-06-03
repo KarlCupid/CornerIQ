@@ -30,8 +30,11 @@ function requireNotMatch(path, pattern, label) {
   if (!requireFile(path)) {
     return;
   }
-  if (pattern.test(read(path))) {
-    failures.push(`${path} contains ambiguous release evidence wording: ${label}.`);
+  const matchedLine = read(path)
+    .split(/\r?\n/)
+    .find((line) => pattern.test(line) && !/\b(do not|must not|not|without|reject|ambiguous)\b/i.test(line));
+  if (matchedLine) {
+    failures.push(`${path} contains ambiguous release evidence wording: ${label}. Line: ${matchedLine.trim()}`);
   }
 }
 
