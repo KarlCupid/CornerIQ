@@ -648,6 +648,9 @@ describe("Supabase repositories", () => {
     expect(source).toContain(".upsert(record, { onConflict: \"user_id,as_of_date,engine_version,input_hash\" })");
     expect(source).toContain("async saveDecisionTracesForRun");
     expect(source).toContain("async upsertRiskFlags");
+    expect(source).toContain("async syncEngineRiskFlags");
+    expect(source).toContain('filter("flag_payload->>projectionSource", "eq", "engine_projection")');
+    expect(source).toContain('status: "resolved"');
     expect(source).toContain("async upsertNutritionTarget");
     expect(source).toContain("async upsertGeneratedSessions");
     expect(source).toContain("generated_session_key");

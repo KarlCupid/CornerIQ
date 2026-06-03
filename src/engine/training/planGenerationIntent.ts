@@ -1,5 +1,6 @@
 import type { AthleteJourney, JourneyEvent } from "../athlete/types";
 import type { ISODateString } from "../core/sharedTypes";
+import { stableHash } from "../core/stableHash";
 import type { PlanGenerationAction, PlanGenerationGoalMode, PlanGenerationIntent, PlanGenerationPrimaryFocus, PlanGenerationTrainingDose } from "./types";
 import { normalizeGeneratedSupportWeekdays } from "./supportAvailability";
 
@@ -15,16 +16,6 @@ const USER_PLAN_EVENT_TYPES = new Set<JourneyEvent["type"]>([
   "TournamentStarted",
   "RecoveryStarted"
 ]);
-
-function stableHash(value: unknown): string {
-  const serialized = JSON.stringify(value);
-  let hash = 2166136261;
-  for (let index = 0; index < serialized.length; index += 1) {
-    hash ^= serialized.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
-}
 
 function objectValue(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;

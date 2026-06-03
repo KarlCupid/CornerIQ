@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AthleteProfileSchema, FightOpportunitySchema, ProtectedWorkoutSchema, RecurringProtectedWorkoutAnchorSchema, TournamentDetailsSchema } from "../../engine/core/schemas";
+import { stableHash } from "../../engine/core/stableHash";
 import type {
   AthleteProfile,
   CycleTrackingPreference,
@@ -376,16 +377,6 @@ function planLifecycleSource(action: PlanLifecycleAction | undefined): "plan_wiz
     return "plan_wizard_amendment";
   }
   return "plan";
-}
-
-function stableHash(value: unknown): string {
-  const serialized = JSON.stringify(value);
-  let hash = 2166136261;
-  for (let index = 0; index < serialized.length; index += 1) {
-    hash ^= serialized.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
 }
 
 function planGenerationPayload(input: {

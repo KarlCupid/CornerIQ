@@ -36,7 +36,7 @@ function parseEnvExampleNames() {
 function checkPackageScripts() {
   const packageJson = readJson("package.json");
   const scripts = packageJson.scripts ?? {};
-  for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "lint", "quality", "preflight:beta", "smoke:live-db"]) {
+  for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:beta", "smoke:live-db"]) {
     if (typeof scripts[scriptName] !== "string") {
       failures.push(`Missing package script: ${scriptName}`);
     }

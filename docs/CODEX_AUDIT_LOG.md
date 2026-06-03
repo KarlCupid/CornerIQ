@@ -1,5 +1,27 @@
 # Codex Audit Log
 
+## 2026-06-03 EAS project link and preview submission
+
+Goal summary:
+- Continue the deep-research audit remediation until the EAS preview-build item is either completed or proven externally pending.
+- Move beyond the previous `EAS project not configured` blocker.
+
+Command results:
+- Sandboxed `cmd /c npx eas-cli --version`: failed with npm registry/cache `EACCES`; approved rerun returned `eas-cli/19.0.5`.
+- `cmd /c npx eas-cli whoami`: `karlcupid` / `karllager333@gmail.com`.
+- `cmd /c npx eas-cli project:info --non-interactive`: initially failed with `EAS project not configured`.
+- `cmd /c npx eas-cli init --non-interactive`: found existing project `@karlcupid/corneriq` and required `--force`.
+- `cmd /c npx eas-cli init --non-interactive --force`: linked project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a` and modified `app.json`.
+- `cmd /c npx eas-cli project:info --non-interactive`: verified `@karlcupid/corneriq`.
+- `cmd /c npx eas-cli build --profile preview --platform android --non-interactive`: submitted Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453`.
+- Build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
+- Latest `build:view` status during this pass: `IN_QUEUE`.
+- Artifact URL: pending; `artifacts` was empty while queued.
+
+Decision:
+- Hold for distributed beta build until the queued EAS preview finishes and exposes an artifact.
+- EAS project setup is no longer the blocker; artifact completion is.
+
 ## 2026-05-21 02:11 America/Vancouver
 
 Goal summary:

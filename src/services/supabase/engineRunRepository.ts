@@ -5,6 +5,7 @@ import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
 export type RiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" | "severity" | "status" | "flag_payload">;
+type ActiveEngineRiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" | "flag_payload">;
 
 export interface ListActiveRiskFlagsOptions {
   asOfDate?: ISODateString | undefined;
@@ -139,6 +140,10 @@ export function generatedTrainingSessionKey(session: GeneratedTrainingSession): 
   return `${session.id}:${session.date}:${session.family}`;
 }
 
+function riskFlagPersistenceKey(record: Pick<TableInsert<"risk_flags">, "code" | "domain">): string {
+  return `${record.domain}:${record.code}`;
+}
+
 export function mapGeneratedSessionToRow(
   userId: string,
   engineVersion: string,
@@ -168,7 +173,7 @@ export function mapGeneratedSessionToRow(
 }
 
 export function createEngineRunRepository(client: CornerSupabaseClient) {
-  return {
+  const repository = {
     async listActiveRiskFlags(userId: string, options: ListActiveRiskFlagsOptions = {}): Promise<RiskFlag[]> {
       const safeUserId = assertUserId(userId, "risk_flags.listActiveRiskFlags");
       const response = await client
@@ -250,6 +255,49 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
       }
     },
 
+    async syncEngineRiskFlags(
+      userId: string,
+      records: readonly TableInsert<"risk_flags">[],
+      input: { asOfDate: ISODateString; inputHash: string }
+    ): Promise<void> {
+      const safeUserId = assertUserId(userId, "risk_flags.syncEngineRiskFlags");
+      records.forEach((record) => assertUserId(record.user_id, "risk_flags.syncEngineRiskFlags"));
+      await repository.upsertRiskFlags(records);
+
+      const currentKeys = new Set(records.map(riskFlagPersistenceKey));
+      const activeResponse = await client
+        .from("risk_flags")
+        .select("id, domain, code, flag_payload")
+        .eq("user_id", safeUserId)
+        .eq("status", "active")
+        .filter("flag_payload->>projectionSource", "eq", "engine_projection");
+      const activeRows: ActiveEngineRiskFlagRow[] = readDataOrThrow(activeResponse, "risk_flags.syncEngineRiskFlags.listActiveEngineFlags");
+      for (const row of activeRows) {
+        if (currentKeys.has(riskFlagPersistenceKey(row))) {
+          continue;
+        }
+        const payload = payloadObject(row.flag_payload, "risk_flags.flag_payload");
+        const updateResponse = await client
+          .from("risk_flags")
+          .update({
+            status: "resolved",
+            flag_payload: toJson({
+              ...payload,
+              projectionSource: "engine_projection",
+              lifecycleStatus: "resolved_by_engine_projection",
+              resolvedAsOfDate: input.asOfDate,
+              resolvedByInputHash: input.inputHash,
+              activeUntil: input.asOfDate
+            })
+          })
+          .eq("id", row.id)
+          .eq("user_id", safeUserId)
+          .select("id")
+          .single();
+        readDataOrThrow(updateResponse, "risk_flags.syncEngineRiskFlags.resolveStale");
+      }
+    },
+
     async upsertNutritionTarget(record: TableInsert<"nutrition_targets">): Promise<void> {
       assertUserId(record.user_id, "nutrition_targets.upsertNutritionTarget");
       const response = await client.from("nutrition_targets").upsert(record, { onConflict: "user_id,target_date,engine_version" });
@@ -267,4 +315,5 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
       readDataOrThrow({ data: response.data ?? [], error: response.error }, "generated_training_sessions.upsertGeneratedSessions");
     }
   };
+  return repository;
 }

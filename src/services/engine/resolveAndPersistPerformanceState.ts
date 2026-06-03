@@ -1,5 +1,6 @@
 import { AthleteJourneySchema } from "../../engine/core/schemas";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { stableHash } from "../../engine/core/stableHash";
 import type { ISODateString, PerformanceState } from "../../engine/core/types";
 import { buildFuelViewModel } from "../../engine/presentation/fuelViewModel";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
@@ -48,16 +49,6 @@ export type ResolveAndPersistPerformanceStateResult =
       error: string;
       cause?: string;
     };
-
-function stableHash(value: unknown): string {
-  const serialized = JSON.stringify(value);
-  let hash = 2166136261;
-  for (let index = 0; index < serialized.length; index += 1) {
-    hash ^= serialized.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
-}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
@@ -475,7 +466,13 @@ async function persistPerformanceState(
 ): Promise<{ state: PerformanceState; persistenceWarning?: string | undefined }> {
   const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
   await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
-  await repositories.engineRun.upsertRiskFlags(state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash, state.asOfDate)));
+  const riskFlagRows = state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash, state.asOfDate));
+  const syncEngineRiskFlags = repositories.engineRun.syncEngineRiskFlags;
+  if (typeof syncEngineRiskFlags === "function") {
+    await syncEngineRiskFlags(userId, riskFlagRows, { inputHash, asOfDate: state.asOfDate });
+  } else {
+    await repositories.engineRun.upsertRiskFlags(riskFlagRows);
+  }
   await repositories.engineRun.upsertNutritionTarget(mapNutritionTargetToRow(userId, state, inputHash));
   const reviewPersistence = await persistNutritionSafetyReviewProjection(userId, inputHash, state, repositories);
   const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories, lifecycleSource);

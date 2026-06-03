@@ -131,7 +131,7 @@ npm run preflight:beta
 
 This checks package scripts, EAS build profile presence, app config presence, required public env names in the process or `.env.example`, client config markers, and beta docs. It does not run live smoke, does not print env values, does not require smoke credentials, and does not mutate files.
 
-Use `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md` and `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md` when distributing a preview build. No actual EAS build has been run yet in this repository pass.
+Use `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md` and `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md` when distributing a preview build. On 2026-06-03, EAS project `@karlcupid/corneriq` was linked and Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` was submitted, but the latest queried status was `IN_QUEUE` and no artifact URL existed yet.
 
 ## Manual Feedback Triage
 
@@ -172,7 +172,7 @@ Beta can move from structured test to broader pilot only when:
 - Feedback reports are user-owned and not admin-reviewed in app.
 - No external analytics yet.
 - No beta health drilldown beyond Profile > Audit preflight yet.
-- No actual EAS preview build has been run yet.
+- EAS preview build is submitted but no finished artifact exists yet.
 - App store metadata, icon, and splash polish are not prepared yet.
 - Automated scenario QA exists, but real boxer findings are still not captured.
 - Routed drilldowns remain deferred.

@@ -27,15 +27,23 @@ describe("beta release config static checks", () => {
   it("keeps required package and CI scripts present and live smoke out of CI", () => {
     const packageJson = readJson("package.json") as { scripts?: Record<string, string> };
     const workflow = readSource(".github/workflows/quality.yml");
+    const codeqlWorkflow = readSource(".github/workflows/codeql.yml");
 
-    for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "lint", "quality", "preflight:beta", "smoke:live-db"]) {
+    for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:beta", "smoke:live-db"]) {
       expect(packageJson.scripts?.[scriptName]).toBeTruthy();
     }
     expect(workflow).toContain("npm run typecheck");
     expect(workflow).toContain("npm run lint");
     expect(workflow).toContain("npm test");
-    expect(workflow.toLowerCase()).not.toContain("smoke");
-    expect(workflow).not.toMatch(/CORNERIQ_SMOKE|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|SERVICE_ROLE/i);
+    expect(workflow).toContain("npm run test:coverage");
+    expect(workflow).toContain("npm run smoke:fixtures");
+    expect(workflow).toContain("npm audit --audit-level=high --omit=dev");
+    expect(codeqlWorkflow).toContain("github/codeql-action/init");
+    expect(codeqlWorkflow).toContain("javascript-typescript");
+    expect(workflow.toLowerCase()).not.toContain("smoke:live-db");
+    expect(workflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
+    expect(codeqlWorkflow.toLowerCase()).not.toContain("smoke:live-db");
+    expect(codeqlWorkflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
   });
 
   it("runs beta preflight without printing env values", () => {

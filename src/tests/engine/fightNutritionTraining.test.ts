@@ -251,6 +251,38 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
   });
 
+  it("does not treat a fixed calorie line as repeated low intake for a smaller low-demand boxer", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          currentBodyMass: { value: 50, unit: "kg" as const },
+          typicalWalkAroundWeightKg: 50
+        },
+        bodyMassHistory: [
+          { date: "2026-05-13", bodyMassKg: 50, source: "manual" },
+          { date: "2026-05-14", bodyMassKg: 50.1, source: "manual" },
+          { date: "2026-05-15", bodyMassKg: 50, source: "manual" },
+          { date: "2026-05-16", bodyMassKg: 50.1, source: "manual" },
+          { date: "2026-05-17", bodyMassKg: 50, source: "manual" },
+          { date: "2026-05-18", bodyMassKg: 50.1, source: "manual" },
+          { date: "2026-05-19", bodyMassKg: 50, source: "manual" }
+        ],
+        nutritionHistory: [
+          { date: "2026-05-17", calories: 1500, proteinGrams: 95, carbohydrateGrams: 170, fatGrams: 40, confidence: "medium" },
+          { date: "2026-05-18", calories: 1520, proteinGrams: 95, carbohydrateGrams: 175, fatGrams: 41, confidence: "medium" },
+          { date: "2026-05-19", calories: 1510, proteinGrams: 95, carbohydrateGrams: 172, fatGrams: 41, confidence: "medium" }
+        ],
+        journeyEvents: ["2026-05-17", "2026-05-18", "2026-05-19"].map((date) => foodLogCompleteEvent(date, `small_boxer_${date}`))
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.safety.riskFlags.map((flag) => flag.code)).not.toContain("repeated_low_intake");
+    expect(state.nutrition.underFuelingRiskNote).toBeNull();
+  });
+
   it("partial low-confidence food logs lower confidence without creating repeated low-intake evidence", () => {
     const state = resolvePerformanceState({
       journey: {

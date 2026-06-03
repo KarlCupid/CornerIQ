@@ -1,4 +1,5 @@
 import type { BoxingLevel, GeneratedSessionAddOnBlock, GeneratedSessionEquipmentMode, GeneratedSessionFamily, GeneratedSessionPriority, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
+import { stableHash } from "../core/stableHash";
 import type { PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, TrainingGenerationConstraintSummaryAudit } from "./types";
 import { addOnBlockFromLibrary } from "./addOnBlocks";
 import { durationPolicyModifications, resolveSessionDurationPolicy } from "./sessionDurationPolicy";
@@ -25,12 +26,7 @@ const HIGH_DEMAND_FAMILIES = new Set<GeneratedSessionFamily>([
 const PROHIBITED_OUTPUT = /\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight|dehydrat(?:e|ion))\b/i;
 
 function stableNumber(value: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
+  return Number.parseInt(stableHash(value).slice(0, 8), 16);
 }
 
 function isNovice(boxingLevel: BoxingLevel): boolean {

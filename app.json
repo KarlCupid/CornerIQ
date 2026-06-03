@@ -17,7 +17,11 @@
       "bundler": "metro"
     },
     "extra": {
-      "engineName": "Corner Engine"
-    }
+      "engineName": "Corner Engine",
+      "eas": {
+        "projectId": "906eba92-1dee-41d8-b27f-0c04f4fc6f1a"
+      }
+    },
+    "owner": "karlcupid"
   }
 }

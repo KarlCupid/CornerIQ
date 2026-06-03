@@ -8,9 +8,11 @@ This document is the operational checklist for structured CornerIQ beta releases
 
 CornerIQ is beta-ready for structured boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a beta tester notice, runtime public-env validation, EAS build profiles, a beta preflight script, a GitHub Actions quality workflow, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
 
-No new migration was added in this pass. Remote migrations `001` through `009` remain applied and dry run reports the database is up to date.
+Local migration files now run through `010_generated_sessions_training_block_scope.sql`. The last remote verification recorded on 2026-05-21 showed migrations `001` through `009` applied and dry run up to date; rerun migration list and dry run before release handoff so `010` is either applied or explicitly documented as pending.
 
-2026-05-21 release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and latest public GitHub Actions `Quality` run passed. EAS Android preview build was attempted but did not produce an artifact because the EAS project is not configured. Current release wording is release-candidate prepared, build pending.
+2026-05-21 release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and latest public GitHub Actions `Quality` run passed. EAS Android preview build was attempted but did not produce an artifact because the EAS project was not configured. Current release wording is release-candidate prepared, build pending.
+
+2026-06-03 EAS update: project `@karlcupid/corneriq` is now linked in `app.json` with project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`. Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` was submitted with profile `preview`; EAS currently reports `IN_QUEUE` and no artifact URL yet. Do not call this distributed until that build succeeds and exposes a downloadable artifact.
 
 ## Local Checks
 
@@ -21,6 +23,8 @@ npm run typecheck
 npm test
 npm run quality
 npm run lint
+npm run smoke:fixtures
+npm run test:coverage
 npm run preflight:beta
 ```
 
@@ -62,6 +66,16 @@ No successful EAS preview or production build exists yet. App icon/splash polish
 - Retry failed with `EAS project not configured`; run `npx eas-cli project:init` or `eas init` before the next non-interactive preview build.
 - No EAS build URL or artifact exists yet.
 
+2026-06-03 update:
+
+- `npx eas-cli init --non-interactive --force` linked existing project `@karlcupid/corneriq`.
+- Project ID: `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`.
+- `app.json` now includes `owner: "karlcupid"` and `extra.eas.projectId`.
+- Android preview build submitted: `d550e9bb-b705-41a3-bae7-76c2b6d38453`.
+- Build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
+- Latest queried status: `IN_QUEUE`.
+- Artifact URL: pending.
+
 ## Live Smoke
 
 Live smoke is gated and must not run in CI by default.
@@ -97,8 +111,9 @@ npm exec supabase -- db push --dry-run
 Expected current state:
 
 - CLI version verified as `2.100.1`.
-- Local and remote migrations `001` through `009` align.
-- Dry run reports `Remote database is up to date.`
+- Local migration files include `001` through `010`.
+- The last recorded remote verification aligned `001` through `009`.
+- Dry run must be rerun before release handoff and must either report `Remote database is up to date.` or document the exact pending migration.
 
 ## Feedback Workflow
 
@@ -180,7 +195,7 @@ The results and human testing adjustments are documented in `docs/22_BETA_SCENAR
 - No service role key belongs in Expo/client code.
 - Runtime beta health and startup copy show missing public env variable names only, never values.
 
-## CI Quality Workflow
+## CI Quality And Security Workflows
 
 `.github/workflows/quality.yml` runs on push and pull request:
 
@@ -189,9 +204,18 @@ The results and human testing adjustments are documented in `docs/22_BETA_SCENAR
 - `npm ci`
 - `npm run typecheck`
 - `npm run lint`
+- `npm run preflight:beta`
+- production dependency audit
+- deterministic fixture smoke
 - `npm test`
+- coverage with thresholds
+- conditional Supabase migration dry-run when CI migration secrets/vars are configured
+
+`.github/workflows/codeql.yml` runs CodeQL JavaScript/TypeScript analysis on push, pull request, and a weekly schedule. It does not run live smoke and does not require Supabase credentials.
 
 CI does not run live smoke and does not require Supabase smoke credentials.
+
+For each release-candidate commit, record the `Quality` and `CodeQL` run IDs, commit SHA, status, and conclusion before release handoff. If CodeQL has not run on the candidate commit yet, keep release status at build/security evidence pending.
 
 Latest status check from the public GitHub Actions API:
 
@@ -215,7 +239,7 @@ Still deferred:
 - Drag/drop calendar.
 - External analytics.
 - Production issue triage dashboard.
-- Successful EAS preview build execution; the latest attempt failed because EAS project setup is pending.
+- Successful EAS preview build artifact; the latest build is submitted and queued, with artifact pending.
 - App store metadata, icon, and splash polish.
 
 ## Beta Release Checklist
@@ -229,6 +253,7 @@ Still deferred:
 - Supabase migration list aligned.
 - Supabase dry run up to date.
 - CI workflow passed for PR or branch.
+- CodeQL workflow passed for PR or branch, or security evidence pending is explicitly documented.
 - Docs updated.
 - No unsafe weight-cut copy.
 - No contact-work generation.
@@ -257,17 +282,18 @@ Inspect first:
 9. `src/hooks/useBetaFeedback.ts`
 10. `src/app/screens/ProfileScreen.tsx`
 11. `.github/workflows/quality.yml`
-12. `src/tests/app/appShell.test.ts`
-13. `src/tests/engine/betaHealthViewModel.test.ts`
-14. `src/tests/services/betaRuntimeConfig.test.ts`
-15. `src/tests/beta/betaScenarioFlows.test.ts`
-16. `src/tests/static/betaSafetyStatic.test.ts`
-17. `src/tests/static/betaReleaseConfigStatic.test.ts`
-18. `src/tests/docs/betaReleaseOperations.test.ts`
-19. `src/tests/docs/betaScenarioQaResults.test.ts`
-20. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
-21. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
-22. `docs/21_BETA_RELEASE_OPERATIONS.md`
-23. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
-24. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
-25. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`
+12. `.github/workflows/codeql.yml`
+13. `src/tests/app/appShell.test.ts`
+14. `src/tests/engine/betaHealthViewModel.test.ts`
+15. `src/tests/services/betaRuntimeConfig.test.ts`
+16. `src/tests/beta/betaScenarioFlows.test.ts`
+17. `src/tests/static/betaSafetyStatic.test.ts`
+18. `src/tests/static/betaReleaseConfigStatic.test.ts`
+19. `src/tests/docs/betaReleaseOperations.test.ts`
+20. `src/tests/docs/betaScenarioQaResults.test.ts`
+21. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
+22. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+23. `docs/21_BETA_RELEASE_OPERATIONS.md`
+24. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
+25. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
+26. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`

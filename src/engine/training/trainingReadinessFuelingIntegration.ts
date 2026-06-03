@@ -59,6 +59,7 @@ export interface ResolveTrainingReadinessFuelingIntegrationInput {
   foodLogSummary: DailyFoodLogSummary;
   hydrationLogCount: number;
   electrolyteLogCount: number;
+  lowIntakeAdvisoryThresholdCalories?: number | undefined;
 }
 
 function unique(items: readonly string[]): readonly string[] {
@@ -105,7 +106,11 @@ function fuelingStatus(input: ResolveTrainingReadinessFuelingIntegrationInput): 
     case "user_marked_complete":
     case "complete_estimated":
     case "complete_high_confidence":
-      return input.foodLogSummary.totalCaloriesLogged > 0 && input.foodLogSummary.totalCaloriesLogged < 1800 ? "complete_low_advisory" : "complete_supported";
+      return input.lowIntakeAdvisoryThresholdCalories !== undefined &&
+        input.foodLogSummary.totalCaloriesLogged > 0 &&
+        input.foodLogSummary.totalCaloriesLogged < input.lowIntakeAdvisoryThresholdCalories
+        ? "complete_low_advisory"
+        : "complete_supported";
   }
 }
 

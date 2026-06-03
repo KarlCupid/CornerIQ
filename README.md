@@ -17,8 +17,9 @@ Implemented so far:
 - Domain-split engine type exports with compatibility barrel at `src/engine/core/types.ts`.
 - First deterministic performance kernel vertical slice.
 - Body-mass trend, cycle context, readiness, wearable confidence, safety flags, weigh-in eligibility, tournament strategy, nutrition targets, structured rehydration, training support generation, and presentation view models.
-- Supabase migrations through `003_projection_and_exercise_result_hardening.sql`, including idempotent engine projection keys and exercise result hardening.
+- Supabase migration files through `010_generated_sessions_training_block_scope.sql`; remote migration status is tracked in `docs/11_SUPABASE_REMOTE_STATUS.md`.
 - Engine fixtures and tests for safety, cycle, wearable/manual, nutrition, training, body mass, validation, and persistence schema checks.
+- Engine evidence registry in `docs/25_ENGINE_EVIDENCE_REGISTRY.md` and `src/engine/evidence/evidenceRegistry.ts`.
 
 ## Install
 
@@ -72,6 +73,17 @@ npm run quality
 
 `quality` runs strict TypeScript typecheck and the engine test suite.
 
+Additional release gates include:
+
+```sh
+npm run lint
+npm run preflight:beta
+npm run smoke:fixtures
+npm run test:coverage
+```
+
+GitHub Actions also run the Quality workflow plus JavaScript/TypeScript CodeQL analysis on push and pull request. Live Supabase smoke remains opt-in and outside CI by default.
+
 ## Live DB Smoke
 
 The live Supabase smoke test is skipped by default. To run it, use a dedicated smoke user and set:
@@ -100,7 +112,7 @@ Do not commit Supabase passwords, service tokens, or personal access tokens. The
 
 ## Expo SDK
 
-This pass targets stable Expo SDK 55 with React 19.2 and React Native 0.83. If Expo install tooling cannot fully reconcile local native package versions in a future environment, keep the app runnable and document the blocker here before changing SDK families.
+This pass targets Expo SDK 54 with React 19.1 and React Native 0.81.5, matching `package.json`. If Expo install tooling cannot fully reconcile local native package versions in a future environment, keep the app runnable and document the blocker here before changing SDK families.
 
 ## Current Non-Goals
 

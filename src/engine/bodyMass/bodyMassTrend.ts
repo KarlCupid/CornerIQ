@@ -1,7 +1,40 @@
 import { makeConfidence } from "../core/confidence";
 import { daysBetween } from "../core/dates";
-import { average, round } from "../core/math";
+import { average, median, round } from "../core/math";
 import type { BodyMassLog, BodyMassState, BodyMassTrend, CycleState, WeightClassFeasibility } from "../core/types";
+
+function medianDailyLogs(logs: readonly BodyMassLog[]): readonly { date: string; bodyMassKg: number }[] {
+  const byDate = new Map<string, number[]>();
+  for (const log of logs) {
+    byDate.set(log.date, [...(byDate.get(log.date) ?? []), log.bodyMassKg]);
+  }
+  return [...byDate.entries()]
+    .map(([date, values]) => ({ date, bodyMassKg: median(values) ?? values[0] ?? 0 }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function robustTrendKgPerWeek(logs: readonly BodyMassLog[], asOfDate: string): number | null {
+  const recent = medianDailyLogs(logs.filter((log) => daysBetween(log.date, asOfDate) >= 0 && daysBetween(log.date, asOfDate) <= 13));
+  const slopes: number[] = [];
+  for (let leftIndex = 0; leftIndex < recent.length; leftIndex += 1) {
+    const left = recent[leftIndex];
+    if (!left) {
+      continue;
+    }
+    for (let rightIndex = leftIndex + 1; rightIndex < recent.length; rightIndex += 1) {
+      const right = recent[rightIndex];
+      if (!right) {
+        continue;
+      }
+      const days = daysBetween(left.date, right.date);
+      if (days > 0) {
+        slopes.push(((right.bodyMassKg - left.bodyMassKg) / days) * 7);
+      }
+    }
+  }
+  const slope = median(slopes);
+  return slope === null ? null : round(slope, 2);
+}
 
 export function resolveBodyMassTrend(logs: readonly BodyMassLog[], asOfDate: string): BodyMassTrend {
   const sorted = logs
@@ -20,12 +53,7 @@ export function resolveBodyMassTrend(logs: readonly BodyMassLog[], asOfDate: str
     .map(({ log }) => log);
   const latest = sorted.at(-1);
   const last7 = sorted.filter((log) => daysBetween(log.date, asOfDate) >= 0 && daysBetween(log.date, asOfDate) <= 6);
-  const firstRecent = last7.at(0);
-  const lastRecent = last7.at(-1);
-  const trendKgPerWeek =
-    firstRecent && lastRecent && firstRecent.date !== lastRecent.date
-      ? round(((lastRecent.bodyMassKg - firstRecent.bodyMassKg) / Math.max(1, daysBetween(firstRecent.date, lastRecent.date))) * 7, 2)
-      : null;
+  const trendKgPerWeek = robustTrendKgPerWeek(sorted, asOfDate);
 
   return {
     latestKg: latest?.bodyMassKg ?? null,

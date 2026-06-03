@@ -3,6 +3,7 @@ import type {
   AcuteProtocolEligibility,
   AthleteProfile,
   BodyMassState,
+  Confidence,
   CycleState,
   DailyFoodLogStatusEvent,
   FightOpportunity,
@@ -127,6 +128,18 @@ function hydrationPriorityForTier(tier: NutritionState["trainingDemandHandoff"][
     : "Keep fluids and sodium consistent.";
 }
 
+function resolveHydrationConfidence(waterLogs: readonly WaterLog[], electrolyteLogs: readonly ElectrolyteLog[], asOfDate: string): Confidence {
+  const waterToday = waterLogs.some((log) => log.date === asOfDate);
+  const sodiumToday = electrolyteLogs.some((log) => log.date === asOfDate);
+  if (waterToday && sodiumToday) {
+    return makeConfidence(0.82, ["same-day water and electrolyte logs"]);
+  }
+  if (waterToday || sodiumToday) {
+    return makeConfidence(0.62, ["partial hydration logs"], ["same-day water or electrolyte log"]);
+  }
+  return makeConfidence(0.28, ["no same-day hydration logs"], ["same-day water log", "same-day electrolyte log"]);
+}
+
 export function resolveNutrition(input: {
   athlete: AthleteProfile;
   phase: PhaseState;
@@ -202,6 +215,7 @@ export function resolveNutrition(input: {
     input.generatedAt
   );
   const waterLiters = Number(Math.max(2.2, kg * 0.035).toFixed(1));
+  const hydrationConfidence = resolveHydrationConfidence(input.waterLogs, input.electrolyteLogs, input.asOfDate);
   const sodiumGuidance = riskFlags.some((flag) => flag.code === "excess_plain_water_low_sodium")
     ? "Do not keep adding plain water without sodium. Hydration needs electrolytes."
     : "Keep sodium consistent unless a qualified review changes the plan.";
@@ -247,7 +261,7 @@ export function resolveNutrition(input: {
       waterLiters,
       electrolyteGuidance: sodiumGuidance,
       riskFlags,
-      confidence: input.bodyMass.confidence
+      confidence: hydrationConfidence
     },
     readiness: input.readiness,
     cycle: input.cycle,

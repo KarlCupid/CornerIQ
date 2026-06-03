@@ -85,6 +85,8 @@ If EAS is not configured for the project owner yet:
 Current app config:
 
 - App name: `CornerIQ`.
+- Owner: `karlcupid`.
+- EAS project ID: `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`.
 - Slug: `corneriq`.
 - Version: `0.1.0`.
 - Orientation: portrait.
@@ -106,12 +108,28 @@ Current app config:
 - Retry failed with `EAS project not configured`; non-interactive build requires `eas init`.
 - EAS result: failed.
 - Build URL/artifact: none produced.
-- Current status: release-candidate prepared, build pending. Do not call the app distributed until EAS project setup is complete and a preview build succeeds.
+- Previous status: release-candidate prepared, build pending.
+
+2026-06-03 verification:
+
+- EAS CLI version check: `eas-cli/19.0.5`.
+- EAS auth check: signed in as `karlcupid` / `karllager333@gmail.com`.
+- `npx eas-cli project:info --non-interactive` initially failed with `EAS project not configured`.
+- `npx eas-cli init --non-interactive` found existing project `@karlcupid/corneriq` and required `--force`.
+- `npx eas-cli init --non-interactive --force` linked project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a` and modified `app.json`.
+- `npx eas-cli project:info --non-interactive` then verified `@karlcupid/corneriq`.
+- Android preview build submitted with `npx eas-cli build --profile preview --platform android --non-interactive`.
+- Build ID: `d550e9bb-b705-41a3-bae7-76c2b6d38453`.
+- Build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
+- Current EAS status from `build:view`: `IN_QUEUE`.
+- Build artifact: pending; `artifacts` is still empty while the EAS build remains queued.
+- Current status: EAS project linked and preview build submitted, artifact pending. Do not call the app distributed until the build reaches finished status and exposes a downloadable artifact.
 
 Manual release-owner tasks:
 
-- Run `npx eas-cli project:init` or `eas init`.
-- Rerun Android preview build.
+- Monitor build `d550e9bb-b705-41a3-bae7-76c2b6d38453` until it succeeds or fails.
+- If it succeeds, record the artifact URL and distribute only through a private tester channel.
+- If it fails, inspect EAS logs and record the exact failure before retrying.
 - Confirm build credentials.
 - Decide whether current icon/splash/store metadata gaps are acceptable for the private beta or add assets first.
 - Share any produced build link only through a private tester channel.

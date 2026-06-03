@@ -3,7 +3,29 @@ import { daysBetween } from "../core/dates";
 import { resolveDailyFoodLogSummary } from "../nutrition/foodLogSummary";
 import { createRiskFlag } from "./riskSafetyEngine";
 
-function recentLowIntakeDayCount(foodLogs: readonly FoodLog[], asOfDate: string, statusEvents: readonly DailyFoodLogStatusEvent[] = [], now?: string): number {
+export interface UnderFuelingCalorieTarget {
+  date: string;
+  calories: number;
+}
+
+export interface UnderFuelingCalorieTargets {
+  current: UnderFuelingCalorieTarget;
+  byDate: readonly UnderFuelingCalorieTarget[];
+}
+
+const TARGET_RELATIVE_LOW_INTAKE_RATIO = 0.75;
+
+function targetForDate(targets: UnderFuelingCalorieTargets, date: string): UnderFuelingCalorieTarget {
+  return targets.byDate.find((target) => target.date === date) ?? targets.current;
+}
+
+function recentLowIntakeEvidence(
+  foodLogs: readonly FoodLog[],
+  asOfDate: string,
+  targets: UnderFuelingCalorieTargets,
+  statusEvents: readonly DailyFoodLogStatusEvent[] = [],
+  now?: string
+): readonly { date: string; caloriesLogged: number; calorieTarget: number; targetPercent: number }[] {
   const dates = new Set<string>();
   for (const log of foodLogs) {
     if (log.date > asOfDate || daysBetween(log.date, asOfDate) > 6) {
@@ -11,10 +33,21 @@ function recentLowIntakeDayCount(foodLogs: readonly FoodLog[], asOfDate: string,
     }
     dates.add(log.date);
   }
-  return [...dates].filter((date) => {
+  return [...dates].flatMap((date) => {
     const summary = resolveDailyFoodLogSummary(foodLogs, statusEvents, date, undefined, now);
-    return summary.underFuelingEvidenceAllowed && summary.totalCaloriesLogged < 1800 && summary.confidence.score >= 0.55;
-  }).length;
+    const target = targetForDate(targets, date);
+    const threshold = target.calories * TARGET_RELATIVE_LOW_INTAKE_RATIO;
+    return summary.underFuelingEvidenceAllowed && summary.totalCaloriesLogged < threshold && summary.confidence.score >= 0.55
+      ? [
+          {
+            date,
+            caloriesLogged: summary.totalCaloriesLogged,
+            calorieTarget: target.calories,
+            targetPercent: Math.round((summary.totalCaloriesLogged / target.calories) * 100)
+          }
+        ]
+      : [];
+  });
 }
 
 export function assessUnderFuelingRisk(
@@ -24,15 +57,30 @@ export function assessUnderFuelingRisk(
   cycle?: CycleState,
   training?: TrainingState,
   foodStatusEvents: readonly DailyFoodLogStatusEvent[] = [],
-  now?: string
+  now?: string,
+  calorieTargets?: UnderFuelingCalorieTargets
 ): readonly RiskFlag[] {
   const flags: RiskFlag[] = [];
-  const recentLowIntakeDays = recentLowIntakeDayCount(foodLogs, asOfDate, foodStatusEvents, now);
+  const lowIntakeEvidence = calorieTargets ? recentLowIntakeEvidence(foodLogs, asOfDate, calorieTargets, foodStatusEvents, now) : [];
+  const recentLowIntakeDays = lowIntakeEvidence.length;
   if (trend.trendKgPerWeek !== null && trend.trendKgPerWeek < -1.2) {
     flags.push(createRiskFlag("nutrition", "rapid_weight_loss", "high", "Rapid body-mass loss raises under-fueling risk.", { trendKgPerWeek: trend.trendKgPerWeek }, true));
   }
   if (recentLowIntakeDays >= 3) {
-    flags.push(createRiskFlag("nutrition", "repeated_low_intake", "high", "Repeated low intake with boxing load needs review.", { days: recentLowIntakeDays }, true));
+    flags.push(
+      createRiskFlag(
+        "nutrition",
+        "repeated_low_intake",
+        "high",
+        "Repeated target-relative low intake with boxing load needs review.",
+        {
+          days: recentLowIntakeDays,
+          thresholdRatio: TARGET_RELATIVE_LOW_INTAKE_RATIO,
+          evidence: lowIntakeEvidence
+        },
+        true
+      )
+    );
   }
   const missedPeriodRisk =
     cycle?.trackingEnabled === true &&

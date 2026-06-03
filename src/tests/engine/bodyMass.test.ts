@@ -37,6 +37,20 @@ describe("body-mass trend", () => {
     expect(resolveBodyMassTrend(logs, "2026-05-19").rolling7DayKg).toBeCloseTo(67);
   });
 
+  it("uses a robust recent slope instead of first-versus-last scale spikes", () => {
+    const logs: BodyMassLog[] = [
+      { date: "2026-05-13", bodyMassKg: 70, source: "manual" },
+      { date: "2026-05-14", bodyMassKg: 70.1, source: "manual" },
+      { date: "2026-05-15", bodyMassKg: 70, source: "manual" },
+      { date: "2026-05-16", bodyMassKg: 70.1, source: "manual" },
+      { date: "2026-05-17", bodyMassKg: 70, source: "manual" },
+      { date: "2026-05-18", bodyMassKg: 70.1, source: "manual" },
+      { date: "2026-05-19", bodyMassKg: 73.5, source: "manual" }
+    ];
+
+    expect(resolveBodyMassTrend(logs, "2026-05-19").trendKgPerWeek).toBeLessThan(1);
+  });
+
   it("lowers confidence for insufficient logs and preserves official source representation", () => {
     const cycle = resolveCycleState({ trackingEnabled: false, consentVersion: null, cycleLogs: [], asOfDate: "2026-05-19" });
     const state = resolveBodyMassState({

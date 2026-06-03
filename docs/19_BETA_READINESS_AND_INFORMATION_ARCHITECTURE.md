@@ -203,8 +203,8 @@ These primitives are React Native compatible, use the existing dark CornerIQ the
 | Error recovery | Beta testable | App-level boundary catches React tree errors, retries, and reports sanitized bug feedback for signed-in users. |
 | Beta health | Beta testable | Profile > Audit shows preflight checks without exposing env values or claiming smoke status. |
 | Beta tester notice | Beta testable | Profile > Audit shows beta, not-medical-advice, not-coach-replacement, no-emergency-support, wearable-optional, manual-logs-enough, feedback privacy, and no-self-clear copy. |
-| Expo/EAS readiness | RC documented | `eas.json`, `npm run preflight:beta`, release-candidate checklist, and EAS distribution runbook exist. No actual EAS build has been run yet. |
-| CI | Beta testable | GitHub Actions runs typecheck, lint, and tests on push/PR; live smoke remains manual/gated. |
+| Expo/EAS readiness | Build submitted | `eas.json`, `npm run preflight:beta`, release-candidate checklist, and EAS distribution runbook exist; EAS project `@karlcupid/corneriq` is linked and Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` is queued with artifact pending. |
+| CI | Beta testable | GitHub Actions runs typecheck, lint, tests, coverage, fixture smoke, dependency audit, migration dry-run when configured, and CodeQL; live smoke remains manual/gated. |
 | Smoke | Passing | Live smoke passes with ignored `.env` values, public Supabase URL, and anon key only. |
 | Data deletion | MVP | App data deletion is DELETE-gated; Supabase auth account deletion remains server-side future work. |
 | Privacy | Beta testable | Cycle privacy copy visible; no service role in client. |

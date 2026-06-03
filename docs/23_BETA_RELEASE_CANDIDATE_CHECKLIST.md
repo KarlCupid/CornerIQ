@@ -10,10 +10,13 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - `npm test` passes.
 - `npm run quality` passes.
 - `npm run lint` passes.
+- `npm run smoke:fixtures` passes.
+- `npm run test:coverage` passes threshold gates.
 - `npm run preflight:beta` passes.
 - `npm run qa:agent:ci` passes and writes `qa-artifacts/corneriq-agent-qa-bundle.zip`.
 - `docs/qa/QA_LOOP_STATE.md` is updated with the current beta-readiness decision.
 - `.github/workflows/quality.yml` runs typecheck, lint, and tests on push or pull request.
+- `.github/workflows/codeql.yml` runs JavaScript/TypeScript CodeQL analysis on push, pull request, and weekly schedule.
 - `.github/workflows/agent-qa-loop.yml` can upload the `corneriq-agent-qa-bundle` artifact without Supabase secrets.
 - CI does not run live smoke and does not reference smoke credentials.
 
@@ -22,6 +25,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - `npm exec supabase -- --version` reports the expected CLI.
 - `npm exec supabase -- migration list` shows local and remote migrations aligned.
 - `npm exec supabase -- db push --dry-run` reports the remote database is up to date.
+- If a local migration file exists beyond the last recorded remote verification, that migration is either applied by dry run/push workflow or documented as a release blocker.
 - Live smoke passes with ignored local env values loaded into the process, or the exact missing variable names are documented.
 - Live smoke uses public Supabase URL and anon key only.
 - No new migration is added for this release-candidate pass.
@@ -76,7 +80,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 ## Release-Candidate Decision - 2026-05-21
 
 - Decision: Hold.
-- Reason: Code gates, Supabase migration checks, GitHub Actions, preflight, and live smoke passed, but no EAS preview build artifact exists yet. Android EAS preview was attempted and is held on EAS project setup.
+- Reason: Code gates, Supabase migration checks, GitHub Actions, preflight, and live smoke passed, and EAS project setup is now linked, but no EAS preview artifact exists yet. Android EAS preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` is submitted and currently queued.
 - Checks completed: `npm run typecheck`, `npm test`, `npm run quality`, `npm run lint`, `npm run preflight:beta`, Supabase CLI version, migration list, dry run, live smoke, CI workflow inspection, latest GitHub Actions run check, EAS CLI/auth check, and Android preview build attempt.
 - Live smoke: passed after ignored local `.env` values were loaded into the process without printing values; the first bare shell attempt documented missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - Preflight: passed after adding validation for malformed EAS project ids.
@@ -84,12 +88,13 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - EAS build attempted: yes.
 - EAS build profile: `preview`.
 - EAS platform: Android.
-- EAS result: failed.
-- EAS build URL/artifact: none produced.
-- EAS failure reason: first attempt failed with `Invalid UUID appId` from a pre-existing dirty `app.json` project id; that invalid id was removed. Retry failed with `EAS project not configured`; non-interactive build requires `eas init`.
+- EAS result: submitted; latest queried status `IN_QUEUE`.
+- EAS build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
+- EAS build artifact: pending; `artifacts` is empty while queued.
+- EAS setup notes: first 2026-05-21 attempt failed with `Invalid UUID appId` from a pre-existing dirty `app.json` project id; that invalid id was removed. A 2026-06-03 retry initially failed with `EAS project not configured`, then `npx eas-cli init --non-interactive --force` linked existing project `@karlcupid/corneriq` with ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`.
 - If not attempted: not applicable.
-- Release wording: release-candidate prepared, build pending. Do not call this distributed until an EAS preview build succeeds and a private tester distribution path is confirmed.
-- Remaining manual tasks: app icon/splash, store metadata, tester list, EAS account/project setup, internal build distribution, and human beta scheduling.
+- Release wording: release-candidate prepared, build submitted, artifact pending. Do not call this distributed until an EAS preview build succeeds and a private tester distribution path is confirmed.
+- Remaining manual tasks: monitor queued EAS build to completion, app icon/splash, store metadata, tester list, internal build distribution, and human beta scheduling.
 - Secrets: no smoke credentials, EAS tokens, Supabase tokens, or service-role keys were committed or documented as values.
 
 ## Known Deferred Features
@@ -129,4 +134,6 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 7. `src/app/screens/ProfileScreen.tsx`
 8. `src/tests/static/betaReleaseConfigStatic.test.ts`
 9. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
-10. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`
+10. `.github/workflows/quality.yml`
+11. `.github/workflows/codeql.yml`
+12. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`

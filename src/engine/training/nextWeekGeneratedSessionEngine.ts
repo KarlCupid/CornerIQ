@@ -11,6 +11,7 @@ import type {
   RiskFlag,
   TournamentDetails
 } from "../core/types";
+import { stableHash } from "../core/stableHash";
 import type { NextWeekGeneratedSupportBias, NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
 import type { TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 import { durationPolicyModifications, resolveSessionDurationPolicy, type SessionDurationPolicyResult } from "./sessionDurationPolicy";
@@ -68,15 +69,6 @@ const TOURNAMENT_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "
 const HOLD_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"]);
 const PROHIBITED_OUTPUT = /\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight)\b/i;
 const NOVICE_LEVELS = new Set(["aspiring_boxer", "amateur_novice"]);
-
-function stableHash(value: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
-}
 
 function isNovice(athlete: AthleteProfile): boolean {
   return NOVICE_LEVELS.has(athlete.boxingLevel);
@@ -307,7 +299,14 @@ function adjustedShape(
 
 function deterministicSessionId(input: NextWeekGeneratedSessionMaterializationInput, date: ISODateString, family: GeneratedSessionFamily): string {
   const previewKey = input.previewId ?? input.previewHash ?? "preview-unpersisted";
-  return `next-week:${stableHash(`${input.athlete.athleteId}|${input.materialization.nextWeekIndex}|${date}|${family}|${input.engineVersion}|${previewKey}`)}`;
+  return `next-week:${stableHash({
+    athleteId: input.athlete.athleteId,
+    date,
+    engineVersion: input.engineVersion,
+    family,
+    nextWeekIndex: input.materialization.nextWeekIndex,
+    previewKey
+  })}`;
 }
 
 function assertSafeOutput(session: GeneratedTrainingSession): GeneratedTrainingSession {

@@ -4,13 +4,22 @@ import { describe, expect, it } from "vitest";
 describe("beta release operations", () => {
   it("adds a CI workflow for local-equivalent quality gates without live smoke or secrets", () => {
     const workflow = readFileSync(".github/workflows/quality.yml", "utf8");
+    const codeqlWorkflow = readFileSync(".github/workflows/codeql.yml", "utf8");
 
     expect(workflow).toContain("npm ci");
     expect(workflow).toContain("npm run typecheck");
     expect(workflow).toContain("npm run lint");
     expect(workflow).toContain("npm test");
-    expect(workflow.toLowerCase()).not.toContain("smoke");
-    expect(workflow).not.toMatch(/CORNERIQ_SMOKE|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|SERVICE_ROLE/i);
+    expect(workflow).toContain("npm run test:coverage");
+    expect(workflow).toContain("npm run smoke:fixtures");
+    expect(workflow).toContain("npm audit --audit-level=high --omit=dev");
+    expect(workflow).toContain("npx supabase db push --dry-run");
+    expect(codeqlWorkflow).toContain("github/codeql-action/analyze");
+    expect(codeqlWorkflow).toContain("javascript-typescript");
+    expect(workflow.toLowerCase()).not.toContain("smoke:live-db");
+    expect(workflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
+    expect(codeqlWorkflow.toLowerCase()).not.toContain("smoke:live-db");
+    expect(codeqlWorkflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
   });
 
   it("documents release operations, feedback triage, and ChatGPT audit steps", () => {

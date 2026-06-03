@@ -80,4 +80,4 @@ Notes:
 - Physical iPhone touch, keyboard, scrolling, safe area, density, and Expo Go behavior.
 - Real Supabase auth, email confirmation, session persistence, RLS, feedback persistence/cleanup, export/delete scope, and live smoke.
 - Human safety interpretation for weight-class pressure language.
-- Distribution/EAS setup and preview build artifact.
+- EAS preview artifact completion and private distribution evidence; EAS project setup is linked, but the submitted preview build still needs a finished artifact.

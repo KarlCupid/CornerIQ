@@ -121,16 +121,42 @@ export function calculateMacroTargets(input: {
   fatGrams: number;
   todayTrainingDemandTier: TrainingDemandTier;
 } {
-  const kg = toKg(input.athlete.currentBodyMass) ?? input.athlete.typicalWalkAroundWeightKg ?? 75;
-  const todayTrainingDemandTier = trainingDemandTierForDate({ training: input.training, phase: input.phase, date: input.training.supportGenerationAudit.asOfDate });
-  const base = kg * tierCaloriesPerKg(todayTrainingDemandTier);
-  const deficit = input.applyDeficit && deficitAllowedForTier(todayTrainingDemandTier) ? Math.min(300, kg * 3.5) : 0;
-  const recoveryAdd = input.readiness.color === "red" ? kg * 2 : 0;
-  const calories = Math.round(base + recoveryAdd - deficit);
+  const dailyTarget = calculateDailyCalorieTarget({
+    athlete: input.athlete,
+    phase: input.phase,
+    training: input.training,
+    readiness: input.readiness,
+    applyDeficit: input.applyDeficit,
+    date: input.training.supportGenerationAudit.asOfDate
+  });
+  const kg = dailyTarget.bodyMassKg;
+  const calories = dailyTarget.calories;
+  const todayTrainingDemandTier = dailyTarget.trainingDemandTier;
   const proteinGrams = round(kg * (todayTrainingDemandTier === "strength" || todayTrainingDemandTier === "power" ? 2.1 : 2.0));
   const carbFactor = tierCarbFactor(todayTrainingDemandTier);
   const carbohydrateGrams = round(kg * carbFactor);
   const fatCalories = Math.max(calories - proteinGrams * 4 - carbohydrateGrams * 4, kg * 0.7 * 9);
   const fatGrams = round(fatCalories / 9);
   return { calories, proteinGrams, carbohydrateGrams, fatGrams, todayTrainingDemandTier };
+}
+
+export function calculateDailyCalorieTarget(input: {
+  athlete: AthleteProfile;
+  phase: PhaseState;
+  training: TrainingState;
+  readiness: ReadinessState;
+  applyDeficit: boolean;
+  date: string;
+}): {
+  calories: number;
+  bodyMassKg: number;
+  trainingDemandTier: TrainingDemandTier;
+} {
+  const kg = toKg(input.athlete.currentBodyMass) ?? input.athlete.typicalWalkAroundWeightKg ?? 75;
+  const trainingDemandTier = trainingDemandTierForDate({ training: input.training, phase: input.phase, date: input.date });
+  const base = kg * tierCaloriesPerKg(trainingDemandTier);
+  const deficit = input.applyDeficit && deficitAllowedForTier(trainingDemandTier) ? Math.min(300, kg * 3.5) : 0;
+  const recoveryAdd = input.readiness.color === "red" ? kg * 2 : 0;
+  const calories = Math.round(base + recoveryAdd - deficit);
+  return { calories, bodyMassKg: kg, trainingDemandTier };
 }

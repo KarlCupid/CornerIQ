@@ -4,6 +4,19 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/tests/**/*.test.ts"],
-    globals: true
+    globals: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      reportsDirectory: "coverage",
+      include: ["src/engine/**/*.ts", "src/services/**/*.ts"],
+      exclude: ["src/services/supabase/database.types.ts"],
+      thresholds: {
+        statements: 55,
+        branches: 45,
+        functions: 55,
+        lines: 55
+      }
+    }
   }
 });

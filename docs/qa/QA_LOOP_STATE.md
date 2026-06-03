@@ -222,8 +222,8 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| EAS project initialized | blocked | Known gap: no configured EAS project/build artifact. |
-| preview build artifact exists | blocked | Known gap blocks distributed beta. |
+| EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
+| preview build artifact exists | blocked | Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` is submitted but latest queried EAS status is `IN_QUEUE`, with no artifact URL yet. |
 | tester list controlled | human_review_required | Managed outside git. |
 | app icon/splash/store metadata accepted or fixed | human_review_required | Release owner required. |
 | private distribution channel confirmed | human_review_required | Release owner required. |

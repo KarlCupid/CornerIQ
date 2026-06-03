@@ -205,6 +205,22 @@ describe("Fuel Command Center engine", () => {
     expect(state.nutrition.commandCenter.sessionFuelAction).toContain("fluids");
   });
 
+  it("hydrates fuel-command confidence from hydration logs instead of body-mass confidence", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        bodyMassHistory: [],
+        hydrationHistory: [{ date: fixtureAsOfDate, liters: 2.8 }],
+        electrolyteHistory: [{ date: fixtureAsOfDate, sodiumMg: 700 }]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const hydrationDecision = state.nutrition.decisionStack.find((item) => item.label === "Hydration");
+
+    expect(state.bodyMass.confidence.level).toBe("low");
+    expect(hydrationDecision?.confidence).toBe("high");
+  });
+
   it("fuel outputs hide unsafe weight-cut terms", () => {
     const combined = [
       serializedFuel(short_notice_unsafe_cut),

@@ -36,6 +36,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
   const runStore = new Map<string, string>();
   const generatedSessionStore = new Map<string, unknown>();
   const activeRiskFlagStore = new Map<string, unknown>();
+  const resolvedRiskFlagStore = new Map<string, unknown>();
   const tracesByRun = new Map<string, readonly unknown[]>();
   const blockStore = new Map<string, string>();
   const microcycleStore = new Map<string, string>();
@@ -68,6 +69,17 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
     for (const record of records) {
       if (record.status === "active") {
         activeRiskFlagStore.set(`${record.user_id}:${record.domain}:${record.code}:${record.status}`, record);
+      }
+    }
+  });
+  const syncEngineRiskFlags = vi.fn(async (userId: string, records: readonly { code: string; domain: string; status: string; user_id: string }[]) => {
+    await upsertRiskFlags(records);
+    const currentKeys = new Set(records.map((record) => `${record.user_id}:${record.domain}:${record.code}:active`));
+    for (const key of [...activeRiskFlagStore.keys()].filter((item) => item.startsWith(`${userId}:`))) {
+      if (!currentKeys.has(key)) {
+        const record = activeRiskFlagStore.get(key);
+        activeRiskFlagStore.delete(key);
+        resolvedRiskFlagStore.set(key.replace(":active", ":resolved"), record);
       }
     }
   });
@@ -295,6 +307,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
       upsertRun,
       saveDecisionTracesForRun,
       upsertRiskFlags,
+      syncEngineRiskFlags,
       upsertNutritionTarget,
       upsertGeneratedSessions
     },
@@ -303,7 +316,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
 
   return {
     repositories,
-    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, nextWeekPreviewStore, nutritionSafetyReviewEvents, nutritionSafetyReviews, nutritionTargets, progressionDecisionStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
+    stores: { activeRiskFlagStore, blockStore, dayPlanStore, generatedSessionStore, microcycleStore, nextWeekPreviewStore, nutritionSafetyReviewEvents, nutritionSafetyReviews, nutritionTargets, progressionDecisionStore, resolvedRiskFlagStore, runStore, timelineEvents, tracesByRun, weekSummaryStore },
     calls: {
       appendNutritionSafetyReviewEvent,
       saveDecisionTracesForRun,
@@ -312,6 +325,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
       upsertGeneratedSessions,
       upsertNutritionTarget,
       upsertRiskFlags,
+      syncEngineRiskFlags,
       upsertRun,
       upsertTrainingDayPlans,
       upsertTrainingMicrocycle,
@@ -620,6 +634,22 @@ describe("resolveAndPersistPerformanceState", () => {
 
     expect(firstActiveFlagCount).toBeGreaterThan(0);
     expect(stores.activeRiskFlagStore.size).toBe(firstActiveFlagCount);
+  });
+
+  it("resolves stale engine-derived active risk flags when the current run no longer supports them", async () => {
+    const { repositories, stores, calls } = createRepositories();
+    stores.activeRiskFlagStore.set("user_1:nutrition:repeated_low_intake:active", {
+      user_id: "user_1",
+      domain: "nutrition",
+      code: "repeated_low_intake",
+      status: "active"
+    });
+
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(calls.syncEngineRiskFlags).toHaveBeenCalledTimes(1);
+    expect(stores.activeRiskFlagStore.has("user_1:nutrition:repeated_low_intake:active")).toBe(false);
+    expect(stores.resolvedRiskFlagStore.has("user_1:nutrition:repeated_low_intake:resolved")).toBe(true);
   });
 
   it("associates decision traces with the persisted engine run id", async () => {

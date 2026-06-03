@@ -1,7 +1,8 @@
 import { combineConfidence } from "./confidence";
-import { addDays } from "./dates";
+import { addDays, daysBetween } from "./dates";
 import { traceDecision } from "./decisionTrace";
 import type { EngineViewModels, PerformanceState, ResolvePerformanceStateInput } from "./types";
+import { stableHash } from "./stableHash";
 import { resolvePhase } from "../phase/phaseController";
 import { resolveCycleState } from "../cycle/cycleEngine";
 import { resolveReadiness } from "../readiness/readinessEngine";
@@ -15,11 +16,13 @@ import { resolveActivePlanGenerationIntent } from "../training/planGenerationInt
 import { resolveNutrition } from "../nutrition/nutritionEngine";
 import { foodStatusEventsFromJourneyEvents, resolveDailyFoodLogSummary } from "../nutrition/foodLogSummary";
 import { resolveHydration } from "../nutrition/hydrationEngine";
+import { calculateDailyCalorieTarget } from "../nutrition/macroTargets";
 import { assessDehydrationRisk } from "../safety/dehydrationRisk";
 import { assessInjuryRisk } from "../safety/injuryRisk";
 import { assessMedicalReview } from "../safety/medicalReviewRules";
 import { resolveSafety } from "../safety/riskSafetyEngine";
 import { assessUnderFuelingRisk } from "../safety/underFuelingRisk";
+import type { UnderFuelingCalorieTargets } from "../safety/underFuelingRisk";
 import { hardStopsFromCheckIn } from "../safety/hardStops";
 import { buildFuelViewModel } from "../presentation/fuelViewModel";
 import { buildPlanViewModel } from "../presentation/planViewModel";
@@ -31,16 +34,6 @@ import type { TrainingBlockHistory } from "../training/types";
 
 export const ENGINE_VERSION = "0.2.0";
 
-function stableHash(value: unknown): string {
-  const serialized = JSON.stringify(value);
-  let hash = 2166136261;
-  for (let index = 0; index < serialized.length; index += 1) {
-    hash ^= serialized.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16);
-}
-
 function trainingBlockHistoryFor(journey: ResolvePerformanceStateInput["journey"]): TrainingBlockHistory {
   const latestSummaryIndex = journey.trainingWeekSummaries.reduce((latest, summary) => Math.max(latest, summary.weekIndex), 0);
   const latestDecisionIndex = journey.trainingProgressionDecisions.reduce((latest, decision) => Math.max(latest, decision.weekIndex), 0);
@@ -50,6 +43,41 @@ function trainingBlockHistoryFor(journey: ResolvePerformanceStateInput["journey"
     decisions: journey.trainingProgressionDecisions,
     timelineEvents: journey.trainingBlockTimelineEvents,
     latestWeekIndex: Math.max(latestSummaryIndex, latestDecisionIndex)
+  };
+}
+
+function underFuelingCalorieTargets(input: {
+  athlete: ResolvePerformanceStateInput["journey"]["athlete"];
+  phase: ReturnType<typeof resolvePhase>;
+  readiness: ReturnType<typeof resolveReadiness>;
+  training: ReturnType<typeof resolveWeeklyTrainingPlan>;
+  foodLogs: ResolvePerformanceStateInput["journey"]["nutritionHistory"];
+  asOfDate: string;
+}): UnderFuelingCalorieTargets {
+  const plannedDates = new Set(input.training.dayPlans.map((day) => day.date));
+  const recentFoodDates = input.foodLogs
+    .filter((log) => log.date <= input.asOfDate && daysBetween(log.date, input.asOfDate) <= 6)
+    .map((log) => log.date);
+  const dates = [...new Set([...input.training.dayPlans.map((day) => day.date), ...recentFoodDates])];
+  const targetFor = (date: string) =>
+    calculateDailyCalorieTarget({
+      athlete: input.athlete,
+      phase: input.phase,
+      training: input.training,
+      readiness: input.readiness,
+      applyDeficit: false,
+      date: plannedDates.has(date) ? date : input.asOfDate
+    });
+  const currentTarget = targetFor(input.asOfDate);
+  return {
+    current: {
+      date: input.asOfDate,
+      calories: currentTarget.calories
+    },
+    byDate: dates.map((date) => ({
+      date,
+      calories: targetFor(date).calories
+    }))
   };
 }
 
@@ -119,8 +147,24 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     ...hardStopsFromCheckIn(todayCheckIn),
     ...assessInjuryRisk(todayCheckIn),
     ...assessMedicalReview(journey.athlete),
-    ...assessDehydrationRisk(journey.hydrationHistory, journey.electrolyteHistory, input.asOfDate),
-    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, input.asOfDate, cycle, initialTraining, foodStatusEvents, generatedAt)
+    ...assessDehydrationRisk(journey.hydrationHistory, journey.electrolyteHistory, input.asOfDate, journey.athlete),
+    ...assessUnderFuelingRisk(
+      trend,
+      journey.nutritionHistory,
+      input.asOfDate,
+      cycle,
+      initialTraining,
+      foodStatusEvents,
+      generatedAt,
+      underFuelingCalorieTargets({
+        athlete: journey.athlete,
+        phase,
+        readiness,
+        training: initialTraining,
+        foodLogs: journey.nutritionHistory,
+        asOfDate: input.asOfDate
+      })
+    )
   ];
   const feasibility = resolveWeightClassFeasibility({
     athlete: journey.athlete,

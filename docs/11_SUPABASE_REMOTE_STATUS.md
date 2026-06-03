@@ -8,6 +8,8 @@ Current `git rev-parse HEAD`: `235b3f8508c1194d3a6f17354d6a26b2618524de`.
 
 Commit created in this run: none.
 
+2026-06-03 local inventory note: the repository now includes local migration `010_generated_sessions_training_block_scope.sql`. The remote status below is the last recorded remote verification from 2026-05-21 and only proves `001` through `009`; rerun `cmd /c npm exec supabase -- migration list` and `cmd /c npm exec supabase -- db push --dry-run` before any release handoff.
+
 ## Project Link
 
 - Supabase CLI local dev dependency: `supabase@2.100.1`.
@@ -34,13 +36,13 @@ Latest `cmd /c npm exec supabase -- migration list` result:
 | `008` | `008` | applied remotely |
 | `009` | `009` | applied remotely |
 
-`009_beta_feedback_reports.sql` remains the latest applied migration. No migration was added in this release-candidate verification pass.
+`009_beta_feedback_reports.sql` was the latest applied migration in this recorded remote check. Current local files include `010_generated_sessions_training_block_scope.sql`, which needs a fresh remote migration verification before release.
 
 Latest `cmd /c npm exec supabase -- db push --dry-run` result:
 
 - Succeeded.
 - Reported: `Remote database is up to date.`
-- No migration was pending during the dry run.
+- No migration was pending during the 2026-05-21 dry run. Re-run dry-run after local `010` before release.
 
 Supabase CLI commands were run outside the workspace sandbox because the CLI writes telemetry metadata under the user profile and uses linked-project network access.
 
@@ -66,7 +68,7 @@ Verification completed in this pass:
 - `cmd /c npm run lint`: passed.
 - `cmd /c npm run preflight:beta`: passed.
 - `cmd /c npm exec supabase -- --version`: `2.100.1`.
-- `cmd /c npm exec supabase -- migration list`: local/remote `001` through `009` aligned.
+- `cmd /c npm exec supabase -- migration list`: last verified local/remote `001` through `009` aligned.
 - `cmd /c npm exec supabase -- db push --dry-run`: `Remote database is up to date.`
 - Live smoke with ignored `.env` loaded: passed.
 
