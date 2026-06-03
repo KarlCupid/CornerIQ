@@ -1,16 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import process from "node:process";
 
 const failures = [];
 const root = process.cwd();
 
 function read(path) {
-  return readFileSync(path, "utf8");
+  return readFileSync(join(root, path), "utf8");
 }
 
 function requireFile(path) {
-  if (!existsSync(path)) {
+  if (!existsSync(join(root, path))) {
     failures.push(`Missing required release file: ${path}`);
     return false;
   }
@@ -35,6 +36,84 @@ function requireNotMatch(path, pattern, label) {
     .find((line) => pattern.test(line) && !/\b(do not|must not|not|without|reject|ambiguous)\b/i.test(line));
   if (matchedLine) {
     failures.push(`${path} contains ambiguous release evidence wording: ${label}. Line: ${matchedLine.trim()}`);
+  }
+}
+
+function candidateSha() {
+  if (/^[0-9a-f]{40}$/i.test(process.env.GITHUB_SHA ?? "")) {
+    return process.env.GITHUB_SHA.toLowerCase();
+  }
+
+  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", shell: false });
+  const sha = result.stdout.trim().toLowerCase();
+  if (result.status === 0 && /^[0-9a-f]{40}$/i.test(sha)) {
+    return sha;
+  }
+
+  failures.push("Could not resolve candidate SHA from GITHUB_SHA or `git rev-parse HEAD`.");
+  return null;
+}
+
+function requireCurrentShaRecorded(path, fullSha, shortSha) {
+  if (!requireFile(path)) {
+    return;
+  }
+  const source = read(path);
+  if (!source.includes(fullSha)) {
+    failures.push(`${path} must record current candidate SHA ${fullSha}.`);
+  }
+  if (!source.includes(shortSha)) {
+    failures.push(`${path} must record current candidate short SHA ${shortSha}.`);
+  }
+}
+
+function requireReleaseLedgerFields(path) {
+  if (!requireFile(path)) {
+    return;
+  }
+  const source = read(path).toLowerCase();
+  for (const field of [
+    "candidate sha",
+    "quality run",
+    "codeql run",
+    "release quality run",
+    "local command results",
+    "coverage result",
+    "supabase migration list/dry-run",
+    "live smoke",
+    "eas/mobile artifact status",
+    "human beta findings",
+    "known blockers"
+  ]) {
+    if (!source.includes(field)) {
+      failures.push(`${path} must include release evidence ledger field: ${field}.`);
+    }
+  }
+}
+
+function ledgerLinesContaining(path, label) {
+  if (!requireFile(path)) {
+    return [];
+  }
+  const lowerLabel = label.toLowerCase();
+  return read(path)
+    .split(/\r?\n/)
+    .filter((line) => line.toLowerCase().includes(lowerLabel));
+}
+
+function requireLedgerEvidence(path, label, acceptablePattern, unresolvedPattern, missingMessage) {
+  const lines = ledgerLinesContaining(path, label);
+  if (lines.length === 0) {
+    failures.push(`${path} must record ${label}.`);
+    return;
+  }
+  const joined = lines.join("\n");
+  if (unresolvedPattern.test(joined)) {
+    failures.push(`${path} records unresolved ${label}; ${missingMessage}`);
+    return;
+  }
+  if (!acceptablePattern.test(joined)) {
+    failures.push(`${path} must record exact ${label} evidence. ${missingMessage}`);
   }
 }
 
@@ -77,6 +156,7 @@ requireFile(".github/workflows/codeql.yml");
 requireFile(".github/workflows/quality.yml");
 requireFile(".github/workflows/release-quality.yml");
 requireFile("docs/26_PRODUCTION_QUALITY_AUDIT.md");
+requireFile("docs/27_RELEASE_EVIDENCE_LEDGER.md");
 
 requireContains(".github/workflows/codeql.yml", "github/codeql-action/init", "CodeQL init");
 requireContains(".github/workflows/codeql.yml", "github/codeql-action/analyze", "CodeQL analyze");
@@ -100,13 +180,52 @@ for (const path of [
   "docs/21_BETA_RELEASE_OPERATIONS.md",
   "docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md",
   "docs/26_PRODUCTION_QUALITY_AUDIT.md",
+  "docs/27_RELEASE_EVIDENCE_LEDGER.md",
   "docs/qa/QA_LOOP_STATE.md"
 ]) {
-  requireNotMatch(path, /current-head pass|latest head passed|current head passed/i, "current-head pass without an exact SHA and evidence ledger");
+  requireNotMatch(path, /current-head pass|latest head passed|current head passed|current candidate passed|latest run passed/i, "current-head pass without an exact SHA and evidence ledger");
+}
+
+const sha = candidateSha();
+if (sha) {
+  const shortSha = sha.slice(0, 7);
+  requireCurrentShaRecorded("docs/26_PRODUCTION_QUALITY_AUDIT.md", sha, shortSha);
+  requireCurrentShaRecorded("docs/27_RELEASE_EVIDENCE_LEDGER.md", sha, shortSha);
+  requireCurrentShaRecorded("docs/qa/QA_LOOP_STATE.md", sha, shortSha);
+
+  requireReleaseLedgerFields("docs/27_RELEASE_EVIDENCE_LEDGER.md");
+  requireLedgerEvidence(
+    "docs/27_RELEASE_EVIDENCE_LEDGER.md",
+    "Supabase migration list/dry-run",
+    new RegExp(`${sha}.*010_generated_sessions_training_block_scope\\.sql.*(?:dry-run|migration list).*(?:pass|success|verified|up to date)`, "is"),
+    /release-blocking|not remotely verified|not verified|pending|credential-blocked|blocked|not run/i,
+    "migration 010 remote dry-run/list evidence must be exact-SHA verified before release quality can pass."
+  );
+  requireLedgerEvidence(
+    "docs/27_RELEASE_EVIDENCE_LEDGER.md",
+    "CodeQL run",
+    new RegExp(`${sha}.*(?:run id|https://github\\.com/[^\\s|]+/actions/runs/\\d+).*(?:success|passed)`, "is"),
+    /release-blocking|security evidence pending|not recorded|pending|blocked|not run/i,
+    "CodeQL current-candidate evidence must include the SHA plus a run ID or run URL."
+  );
+  requireLedgerEvidence(
+    "docs/27_RELEASE_EVIDENCE_LEDGER.md",
+    "Live smoke",
+    new RegExp(`${sha}.*(?:smoke:live-db|live smoke).*(?:pass|success|verified).*(?:rows created|rows cleaned|cleanup|cleaned)`, "is"),
+    /release-blocking|credential-blocked|not run|pending|blocked|not verified/i,
+    "live smoke must be exact-SHA verified or remain a failing release blocker."
+  );
+  requireLedgerEvidence(
+    "docs/27_RELEASE_EVIDENCE_LEDGER.md",
+    "EAS/mobile artifact status",
+    /(?:separate|excluded|mobile lane|external blocker)/i,
+    /counted as complete|included in this score/i,
+    "mobile deliverability must be excluded from in-scope release evidence or tracked separately."
+  );
 }
 
 requireEnv("CORNERIQ_RELEASE_MIGRATION_DRY_RUN_VERIFIED", "Release gate requires Supabase migration dry-run evidence.");
-requireEnv("CORNERIQ_RELEASE_CURRENT_SHA_RECORDED", "Release gate requires the candidate SHA to be recorded in release evidence.");
+requireEnv("CORNERIQ_RELEASE_LIVE_SMOKE_VERIFIED", "Release gate requires live smoke evidence.");
 
 runReleaseLocalGates();
 

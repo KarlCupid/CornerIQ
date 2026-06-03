@@ -80,4 +80,4 @@ Notes:
 - Physical iPhone touch, keyboard, scrolling, safe area, density, and Expo Go behavior.
 - Real Supabase auth, email confirmation, session persistence, RLS, feedback persistence/cleanup, export/delete scope, and live smoke.
 - Human safety interpretation for weight-class pressure language.
-- EAS preview artifact completion and private distribution evidence; EAS project setup is linked, but the submitted preview build still needs a finished artifact.
+- Private distribution evidence; EAS project setup is linked and fresh Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` produced APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`, but private tester distribution and physical-device checks still need release-owner evidence.

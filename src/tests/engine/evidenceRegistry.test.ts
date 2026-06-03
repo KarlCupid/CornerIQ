@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { ENGINE_EVIDENCE_REGISTRY, evidenceForFile } from "../../engine/evidence/evidenceRegistry";
 
 const requiredFiles = [
@@ -59,6 +60,20 @@ describe("engine evidence registry", () => {
       "active block"
     ]) {
       expect(registryText, phrase).toContain(phrase);
+    }
+  });
+
+  it("anchors every registry function name to one of the listed source files", () => {
+    for (const entry of ENGINE_EVIDENCE_REGISTRY) {
+      const listedSources = entry.files.map((file) => readFileSync(file, "utf8"));
+
+      for (const functionName of entry.functions) {
+        const functionPattern = new RegExp(`\\b${functionName}\\b`);
+        expect(
+          listedSources.some((source) => functionPattern.test(source)),
+          `${entry.id} function "${functionName}" must appear in one of: ${entry.files.join(", ")}`
+        ).toBe(true);
+      }
     }
   });
 });

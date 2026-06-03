@@ -34,12 +34,13 @@ Command results:
 - Sandboxed `cmd /c npm audit --audit-level=high --omit=dev`: failed registry access; approved rerun passed with only moderate Expo-chain advisories remaining.
 - `cmd /c npx eas-cli build --profile preview --platform android --non-interactive --clear-cache`: submitted fresh Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f`.
 - Fresh build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
-- Latest `build:view` status during this pass: `IN_QUEUE`.
-- Artifact URL: pending; `artifacts` is empty while queued.
+- Final `build:view` status during this pass: `FINISHED`.
+- Artifact URL: https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk
+- Completed at: `2026-06-03T20:29:29.176Z`.
 
 Decision:
-- Hold for distributed beta build until fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` finishes and exposes an artifact.
-- The previous Hermes/Supabase build failure is remediated locally; the remaining blocker is external EAS queue/artifact completion.
+- The previous Hermes/Supabase build failure is remediated locally and fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` produced an APK artifact.
+- Hold broad distribution until release-owner Supabase evidence, private tester controls, metadata acceptance, physical-device checks, and human boxer comprehension review are complete.
 
 ## 2026-06-03 EAS project link and preview submission
 
@@ -49,7 +50,7 @@ Goal summary:
 
 Command results:
 - Sandboxed `cmd /c npx eas-cli --version`: failed with npm registry/cache `EACCES`; approved rerun returned `eas-cli/19.0.5`.
-- `cmd /c npx eas-cli whoami`: `karlcupid` / `karllager333@gmail.com`.
+- `cmd /c npx eas-cli whoami`: release owner account verified privately; no personal email recorded.
 - `cmd /c npx eas-cli project:info --non-interactive`: initially failed with `EAS project not configured`.
 - `cmd /c npx eas-cli init --non-interactive`: found existing project `@karlcupid/corneriq` and required `--force`.
 - `cmd /c npx eas-cli init --non-interactive --force`: linked project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a` and modified `app.json`.

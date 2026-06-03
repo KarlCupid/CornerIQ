@@ -9,6 +9,7 @@ describe("beta testing documentation", () => {
     expect(source).toContain("Test Personas");
     expect(source).toContain("Test Scripts");
     expect(source).toContain("Guided Human Beta Scripts");
+    expect(source).toContain("Human Beta Findings Template");
     expect(source).toContain("Safety Checks");
     expect(source).toContain("Automated Scenario QA");
     expect(source).toContain("Feedback Prompts");
@@ -24,5 +25,18 @@ describe("beta testing documentation", () => {
     expect(source).toContain("Pass/fail criteria");
     expect(source).toContain("What would you do first in the next five seconds?");
     expect(source).toContain("Stop the session and seek qualified support");
+    for (const field of [
+      "Tester/session id alias",
+      "Flow tested",
+      "First-action comprehension",
+      "Confusion severity",
+      "Safety interpretation",
+      "Privacy interpretation",
+      "Action taken",
+      "No private health details"
+    ]) {
+      expect(source).toContain(field);
+    }
+    expect(source).toContain("Keep planned scripts, agent QA, and facilitator expectations separate from real findings.");
   });
 });

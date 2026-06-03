@@ -7,14 +7,14 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | b718814d4ecd1e36adb740bb2cf7ef8c32f07475 (short b718814) |
-| Last QA run result | 2026-06-03 production-quality audit pass: baseline `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm run lint`, `cmd /c npm run preflight:beta`, approved `cmd /c npm test` (`489` passed, `1` skipped), approved `cmd /c npm run smoke:fixtures` (`20` passed), approved `cmd /c npm run test:coverage` (baseline all-files `88.73%` statements), and approved `cmd /c npm run qa:agent:ci` (`9` browser tests passed). Final post-change gates passed: typecheck, lint, preflight, smoke fixtures (`20` passed), quality, full tests (`498` passed, `1` skipped), coverage (`88.81%` statements, `87.05%` branches, `87.77%` functions, `88.81%` lines), approved final `cmd /c npm run qa:agent:ci` at 2026-06-03 12:51 -07:00 (`9` browser tests passed, bundle refreshed), and approved final docs/static verification at 2026-06-03 12:52 -07:00 (`15` tests passed). `npm run release:quality` failed only for intended release-owner evidence blockers: Supabase migration dry-run and final candidate SHA recording. |
+| Last commit tested | 7ff2d7f524c0c50075a429163e62dd8ce4b99419 (short 7ff2d7f) |
+| Last QA run result | 2026-06-03 local verification pass completed for the audit-remediation worktree on HEAD `7ff2d7f524c0c50075a429163e62dd8ce4b99419`: install, typecheck, lint, test, quality, beta preflight, fixture smoke, coverage, high-severity dependency audit, and agent QA CI passed. GitHub API evidence recorded Quality run `26909536964`, CodeQL run `26909536499`, and Agent QA Loop run `26909536551` as successful for this SHA. `npm run release:quality` failed as designed until Supabase migration `010` is remotely applied/verified and live smoke evidence is recorded. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 4 |
+| Current open blocker count | 5 |
 | Current open high count | 0 |
 | Current required-medium count | 0 automatable; 3 human-only limitations remain explicitly tracked |
-| Next recommended action | Run release-owner external evidence checks: Supabase migration dry-run for local migration `010`, CodeQL candidate run recording, live Supabase smoke if credentials are available, EAS artifact monitoring, physical iPhone checks, and guided boxer comprehension sessions before declaring distributed beta ready |
+| Next recommended action | Apply or otherwise verify remote Supabase migration `010`, rerun migration list/dry-run until aligned, run live Supabase smoke with explicit opt-in credentials, rerun `npm run release:quality`, then complete private tester distribution, physical iPhone checks, and guided boxer comprehension sessions before declaring distributed beta ready |
 | Beta readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.
@@ -27,15 +27,15 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | Required before handoff. |
-| typecheck | automated_pass | Required before handoff. |
-| tests | automated_pass | Required before handoff. |
-| lint | automated_pass | Required before handoff. |
-| quality | automated_pass | Required before handoff. |
-| beta preflight | automated_pass | Required before handoff. |
+| npm install | automated_pass | `cmd /c npm install` passed; package tree was up to date. |
+| typecheck | automated_pass | `cmd /c npm run typecheck` passed after a strict-nullability test fixture fix. |
+| tests | automated_pass | `cmd /c npm test` passed on approved rerun after sandbox Vitest access-denied failure; 505 tests passed and 1 live-smoke test skipped. |
+| lint | automated_pass | `cmd /c npm run lint` passed. |
+| quality | automated_pass | `cmd /c npm run quality` passed on approved rerun after sandbox Vitest access-denied failure. |
+| beta preflight | automated_pass | `cmd /c npm run preflight:beta` passed. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | Covered by `qa:agent:ci`; writes structured gate results and canonical bundle manifest, and now fails on duplicate React key warnings. |
+| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on approved rerun after sandbox/local-server failure; 9 browser tests passed and the bundle was regenerated under `qa-artifacts/`. |
 
 ### B. Auth and account
 
@@ -223,7 +223,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
-| preview build artifact exists | blocked | Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes from a floating Supabase dynamic import. The dependency/config fix is applied locally and fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted, but latest queried EAS status is `IN_QUEUE`, with no artifact URL yet. |
+| preview build artifact exists | automated_pass | Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes from a floating Supabase dynamic import. The dependency/config fix is applied locally and fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` finished on 2026-06-03 with APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`. |
 | tester list controlled | human_review_required | Managed outside git. |
 | app icon/splash/store metadata accepted or fixed | human_review_required | Release owner required. |
 | private distribution channel confirmed | human_review_required | Release owner required. |

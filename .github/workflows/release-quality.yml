@@ -61,5 +61,4 @@ jobs:
       - name: Release evidence assertions
         env:
           CORNERIQ_RELEASE_MIGRATION_DRY_RUN_VERIFIED: "1"
-          CORNERIQ_RELEASE_CURRENT_SHA_RECORDED: "1"
         run: npm run release:quality

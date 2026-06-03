@@ -1,83 +1,100 @@
 # Supabase Remote Status
 
-Date: 2026-05-21 02:11 America/Vancouver
+Date: 2026-06-03
 
-Latest known commit from prompt: `235b3f8508c1194d3a6f17354d6a26b2618524de` (`Prepare beta release candidate readiness`).
-
-Current `git rev-parse HEAD`: `235b3f8508c1194d3a6f17354d6a26b2618524de`.
+Current candidate SHA: `7ff2d7f524c0c50075a429163e62dd8ce4b99419` (short `7ff2d7f`).
 
 Commit created in this run: none.
 
-2026-06-03 local inventory note: the repository now includes local migration `010_generated_sessions_training_block_scope.sql`. The remote status below is the last recorded remote verification from 2026-05-21 and only proves `001` through `009`; rerun `cmd /c npm exec supabase -- migration list` and `cmd /c npm exec supabase -- db push --dry-run` before any release handoff.
+This document separates historical remote evidence from current release evidence. The current local repository includes `010_generated_sessions_training_block_scope.sql`; remote verification for migration `010` has not been recorded for the candidate SHA above and remains release-blocking.
 
 ## Project Link
 
 - Supabase CLI local dev dependency: `supabase@2.100.1`.
-- Verified CLI version: `2.100.1`.
-- Latest verification command: `cmd /c npm exec supabase -- --version`.
-- Linked project ref: `fohdypahnobcchfmcrrn`.
-- Dashboard: https://supabase.com/dashboard/project/fohdypahnobcchfmcrrn
+- Linked project ref previously recorded: `fohdypahnobcchfmcrrn`.
 - Local CLI link metadata: `supabase/.temp/`, ignored by git.
-- Ignored local credentials: `.env`, ignored by git. No secret values are stored in this document.
+- Ignored local credentials: `.env`, ignored by git.
+- No secret values are stored in this document.
 
-## Remote Migration Status
+## Historical Remote Migration Status
 
-Latest `cmd /c npm exec supabase -- migration list` result:
+Last recorded remote migration evidence predates candidate `7ff2d7f524c0c50075a429163e62dd8ce4b99419`.
+
+Latest historical `cmd /c npm exec supabase -- migration list` result:
 
 | Local | Remote | Status |
 | --- | --- | --- |
-| `001` | `001` | applied remotely |
-| `002` | `002` | applied remotely |
-| `003` | `003` | applied remotely |
-| `004` | `004` | applied remotely |
-| `005` | `005` | applied remotely |
-| `006` | `006` | applied remotely |
-| `007` | `007` | applied remotely |
-| `008` | `008` | applied remotely |
-| `009` | `009` | applied remotely |
+| `001` | `001` | applied remotely in the historical check |
+| `002` | `002` | applied remotely in the historical check |
+| `003` | `003` | applied remotely in the historical check |
+| `004` | `004` | applied remotely in the historical check |
+| `005` | `005` | applied remotely in the historical check |
+| `006` | `006` | applied remotely in the historical check |
+| `007` | `007` | applied remotely in the historical check |
+| `008` | `008` | applied remotely in the historical check |
+| `009` | `009` | applied remotely in the historical check |
 
-`009_beta_feedback_reports.sql` was the latest applied migration in this recorded remote check. Current local files include `010_generated_sessions_training_block_scope.sql`, which needs a fresh remote migration verification before release.
+`009_beta_feedback_reports.sql` was the latest applied migration in the historical check. Current local files include `010_generated_sessions_training_block_scope.sql`, which needs fresh remote migration verification before release.
 
-Latest `cmd /c npm exec supabase -- db push --dry-run` result:
+Latest historical `cmd /c npm exec supabase -- db push --dry-run` result:
 
-- Succeeded.
-- Reported: `Remote database is up to date.`
-- No migration was pending during the 2026-05-21 dry run. Re-run dry-run after local `010` before release.
+- Succeeded for the older migration set.
+- Reported no pending migration during that older check.
+- Does not prove migration `010` is remotely applied or dry-run clean for candidate `7ff2d7f524c0c50075a429163e62dd8ce4b99419`.
 
-Supabase CLI commands were run outside the workspace sandbox because the CLI writes telemetry metadata under the user profile and uses linked-project network access.
+## Current Migration 010 Status
+
+| Evidence | Status |
+| --- | --- |
+| Local migration file | Present: `supabase/migrations/010_generated_sessions_training_block_scope.sql`. |
+| Local tests | Present in service/static coverage for generated-session active-block scope. |
+| Supabase CLI version | Approved rerun of `cmd /c npm exec supabase -- --version` reported `2.100.1`. |
+| Remote migration list | Approved rerun of `cmd /c npm exec supabase -- migration list` connected to remote and showed local `010` with blank remote status; release-blocking. |
+| Remote dry-run | Approved rerun of `cmd /c npm exec supabase -- db push --dry-run` reported it would push `010_generated_sessions_training_block_scope.sql`; no migration was applied; release-blocking. |
+
+Do not write that remote Supabase is up to date for migration `010` unless the release ledger records a later successful apply/alignment result. Current evidence proves `010` is pending remotely.
+
+Required future release-owner evidence:
+
+- `npm exec supabase -- --version`
+- `npm exec supabase -- migration list`
+- `npm exec supabase -- db push --dry-run`
+- candidate SHA
+- date/time
+- non-secret result summary
 
 ## Live Smoke Status
 
-Live smoke result for this pass:
+Live smoke is not recorded for candidate `7ff2d7f524c0c50075a429163e62dd8ce4b99419`. It remains blocked because remote migration `010` is pending, so current-app smoke would not prove production readiness against the linked remote schema.
 
-- First attempt with only `CORNERIQ_LIVE_DB_SMOKE=1` failed before DB work because the shell process was missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-- Ignored `.env` key-name check found `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `CORNERIQ_SMOKE_EMAIL`, and `CORNERIQ_SMOKE_PASSWORD` without printing values.
-- Final command loaded ignored `.env` values into the process without printing values, set `CORNERIQ_LIVE_DB_SMOKE=1`, and ran `cmd /c npm run smoke:live-db`.
-- Final result: passed with `1` test; test body `12065ms`, run duration `13.73s`.
-- Runtime used public Supabase URL and anon key only.
+Required non-secret evidence when a release owner runs it:
+
+- Date/time.
+- Candidate SHA.
+- Command: `CORNERIQ_LIVE_DB_SMOKE=1 npm run smoke:live-db`.
+- Public URL env present: yes/no.
+- Public anon key env present: yes/no.
+- Smoke email/password env names present: yes/no, without values.
+- Pass/fail.
+- Rows created and cleaned summary.
 
 The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips unless `CORNERIQ_LIVE_DB_SMOKE=1` is set.
 
-## Local Verification
+## Current Local Verification
 
-Verification completed in this pass:
+Local code verification for this pass is recorded in `docs/26_PRODUCTION_QUALITY_AUDIT.md` and `docs/27_RELEASE_EVIDENCE_LEDGER.md`: install, typecheck, lint, test, quality, beta preflight, fixture smoke, coverage, high-severity dependency audit, and agent QA CI passed after approved reruns where the Windows sandbox blocked Vitest or npm audit.
 
-- `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed outside the sandbox with `366` tests passed and `1` skipped.
-- `cmd /c npm run quality`: passed outside the sandbox.
-- `cmd /c npm run lint`: passed.
-- `cmd /c npm run preflight:beta`: passed.
-- `cmd /c npm exec supabase -- --version`: `2.100.1`.
-- `cmd /c npm exec supabase -- migration list`: last verified local/remote `001` through `009` aligned.
-- `cmd /c npm exec supabase -- db push --dry-run`: `Remote database is up to date.`
-- Live smoke with ignored `.env` loaded: passed.
+Remote Supabase release evidence is still not recorded for this SHA. A release owner must run and record non-secret results for:
 
-Vitest and Supabase CLI required approved escalation in this Codex environment for local filesystem/network reasons. That did not require service-role keys.
+- `cmd /c npm exec supabase -- --version`
+- `cmd /c npm exec supabase -- migration list`
+- `cmd /c npm exec supabase -- db push --dry-run`
+- live smoke only when ignored local credentials are available and explicit opt-in is appropriate
 
 ## Secrets
 
-- No service-role key was used in Expo/client code.
+- No service-role key is used in Expo/client code.
 - The Edge Function references `SUPABASE_SERVICE_ROLE_KEY` only through function env.
-- No smoke email or password value was printed into docs.
-- No secret values were written into tracked files.
+- No smoke email or password value should be printed into docs.
+- No secret values should be written into tracked files.
 - `.env` remains ignored by git.

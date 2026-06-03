@@ -91,7 +91,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 ## Release-Candidate Decision - 2026-05-21
 
 - Decision: Hold.
-- Reason: Code gates, preflight, dependency/Expo Doctor checks, focused smoke, coverage, and the production high/critical audit pass locally, and EAS project setup is now linked, but no EAS preview artifact exists yet. Android EAS preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes, the Supabase/Metro/Expo dependency fix is applied, and fresh cache-cleared build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted and currently queued.
+- Reason: Code gates, preflight, dependency/Expo Doctor checks, focused smoke, coverage, and the production high/critical audit pass locally, and EAS project setup is now linked. Android EAS preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes, the Supabase/Metro/Expo dependency fix is applied, and fresh cache-cleared build `c21c5692-011e-4c85-949f-355d0e1f753f` finished with an APK artifact. Hold remains for release-owner Supabase migration dry-run/live checks, private tester distribution controls, app metadata acceptance, physical-device checks, and human boxer comprehension.
 - Checks completed: `npm install`, `npm run typecheck`, `npm test`, `npm run quality`, `npm run lint`, `npm run smoke:fixtures`, `npm run test:coverage`, `npm run preflight:beta`, `npx expo-doctor`, `npm audit --audit-level=high --omit=dev`, CI workflow inspection, EAS CLI/auth check, failed Android preview build inspection, and fresh Android preview build attempt.
 - Live smoke: passed after ignored local `.env` values were loaded into the process without printing values; the first bare shell attempt documented missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - Preflight: passed after adding validation for malformed EAS project ids.
@@ -99,15 +99,15 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - EAS build attempted: yes.
 - EAS build profile: `preview`.
 - EAS platform: Android.
-- EAS result: first submitted build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed with `EAS_BUILD_UNKNOWN_GRADLE_ERROR`; fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted and latest queried status is `IN_QUEUE`.
+- EAS result: first submitted build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed with `EAS_BUILD_UNKNOWN_GRADLE_ERROR`; fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` finished.
 - Failed EAS build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
 - Fresh EAS build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
-- EAS build artifact: pending; `artifacts` is empty while the fresh build remains queued.
+- EAS build artifact: https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk
 - EAS setup notes: first 2026-05-21 attempt failed with `Invalid UUID appId` from a pre-existing dirty `app.json` project id; that invalid id was removed. A 2026-06-03 retry initially failed with `EAS project not configured`, then `npx eas-cli init --non-interactive --force` linked existing project `@karlcupid/corneriq` with ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`.
 - EAS failure notes: build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed during Gradle `:app:createBundleReleaseJsAndAssets` because Hermes rejected a dynamic OpenTelemetry import from `@supabase/supabase-js@2.106.0`; the manifest now pins `@supabase/supabase-js` exactly to `2.50.0`, adds/fixes Expo SDK-aligned dependencies, and includes an Expo default `metro.config.js`.
 - If not attempted: not applicable.
-- Release wording: release-candidate prepared, fresh build submitted, artifact pending. Do not call this distributed until an EAS preview build succeeds and a private tester distribution path is confirmed.
-- Remaining manual tasks: monitor fresh queued EAS build to completion, app icon/splash, store metadata, tester list, internal build distribution, and human beta scheduling.
+- Release wording: release-candidate prepared, EAS artifact produced. Do not call this broadly distributed until a private tester distribution path, metadata acceptance, physical-device behavior, and human beta scheduling are confirmed.
+- Remaining manual tasks: app icon/splash, store metadata, tester list, private internal build distribution, physical-device checks, live Supabase/release-owner checks, and human beta scheduling.
 - Secrets: no smoke credentials, EAS tokens, Supabase tokens, or service-role keys were committed or documented as values.
 
 ## Known Deferred Features

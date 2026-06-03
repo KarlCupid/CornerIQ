@@ -12,7 +12,7 @@ Local migration files now run through `010_generated_sessions_training_block_sco
 
 2026-05-21 release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and latest public GitHub Actions `Quality` run passed. EAS Android preview build was attempted but did not produce an artifact because the EAS project was not configured. Current release wording is release-candidate prepared, build pending.
 
-2026-06-03 EAS update: project `@karlcupid/corneriq` is now linked in `app.json` with project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`. Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes because a floating Supabase dependency resolved to `@supabase/supabase-js@2.106.0`, whose CommonJS bundle contains a dynamic OpenTelemetry import Hermes rejected. Supabase is now pinned to `2.50.0`, Expo dependency drift and Metro config warnings are fixed, local gates pass, and fresh cache-cleared Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted. EAS currently reports `IN_QUEUE` and no artifact URL yet. Do not call this distributed until that fresh build succeeds and exposes a downloadable artifact.
+2026-06-03 EAS update: project `@karlcupid/corneriq` is now linked in `app.json` with project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`. Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes because a floating Supabase dependency resolved to `@supabase/supabase-js@2.106.0`, whose CommonJS bundle contains a dynamic OpenTelemetry import Hermes rejected. Supabase is now pinned to `2.50.0`, Expo dependency drift and Metro config warnings are fixed, local gates pass, and fresh cache-cleared Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` finished with APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`. Do not call this broadly distributed until a private tester channel, tester list, metadata acceptance, and physical-device checks are confirmed.
 
 ## Local Checks
 
@@ -79,8 +79,8 @@ No successful EAS preview or production build exists yet. App icon/splash polish
 - Final local gates after remediation: `npm install`, `npm run typecheck`, `npm run lint`, `npm run preflight:beta`, approved `npx expo-doctor` (`18/18`), approved `npm test`, approved `npm run quality`, approved `npm run smoke:fixtures`, approved `npm run test:coverage`, and approved `npm audit --audit-level=high --omit=dev`.
 - Fresh Android preview build submitted with cache cleared: `c21c5692-011e-4c85-949f-355d0e1f753f`.
 - Fresh build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
-- Latest queried status: `IN_QUEUE`.
-- Artifact URL: pending.
+- Final status: `FINISHED`.
+- Artifact URL: https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk
 
 ## Live Smoke
 
@@ -254,6 +254,8 @@ Release-blocking for a beta handoff:
 
 ## Release Evidence Ledger
 
+The exact-SHA ledger for the current candidate lives in `docs/27_RELEASE_EVIDENCE_LEDGER.md`. Keep this template in sync with that file.
+
 Use this ledger shape for each release-candidate commit:
 
 | Evidence | Required status | Owner | Record |
@@ -292,7 +294,7 @@ Still deferred:
 - Drag/drop calendar.
 - External analytics.
 - Production issue triage dashboard.
-- Successful EAS preview build artifact; the latest fresh build is submitted and queued, with artifact pending.
+- EAS preview build artifact exists; release-owner private distribution and physical-device checks remain.
 - App store metadata, icon, and splash polish.
 
 ## Beta Release Checklist

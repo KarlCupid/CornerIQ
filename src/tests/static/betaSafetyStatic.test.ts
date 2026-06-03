@@ -9,6 +9,20 @@ function collectFiles(dir: string, predicate: (path: string) => boolean): string
 }
 
 describe("beta safety static scans", () => {
+  it("keeps public docs free of personal email addresses", () => {
+    const docs = collectFiles("docs", (path) => path.endsWith(".md"));
+    const allowedEmails = new Set(["user@example.com", "tester@example.com"]);
+    const emailPattern = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+
+    for (const file of docs) {
+      const source = readFileSync(file, "utf8");
+      const matches = source.match(emailPattern) ?? [];
+      const disallowed = matches.filter((email) => !allowedEmails.has(email.toLowerCase()));
+
+      expect(disallowed, `${file} contains personal email-like strings`).toHaveLength(0);
+    }
+  });
+
   it("keeps client, config, and docs free of committed secret-shaped values", () => {
     const files = [
       "app.json",

@@ -187,7 +187,7 @@ Generated screenshots belong under `qa-artifacts/browser-audit/current/screensho
 - Never copy `.env` values into reports.
 - Never use Supabase service-role keys.
 - Routine agent QA must not require `EXPO_PUBLIC_SUPABASE_URL` or `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-- Use fake local credentials such as `agent-qa@example.test` only in local E2E mode.
+- Use fake local credentials such as `user@example.com` only in local E2E mode.
 - If a screenshot shows a token, email from a real account, terminal secret, or production URL with private data, discard it and rerun after removing the exposure.
 
 ## Human Review Still Required

@@ -69,6 +69,21 @@ Facilitator rule: ask what the tester understands; do not coach, diagnose, clear
 
 Stop the session and seek qualified support outside the app if the tester reports urgent symptoms, pregnancy-related concern, eating-disorder risk, unsafe weight-class pressure, fainting, severe dizziness, or anything that sounds like a hard-stop self-clear request.
 
+## Human Beta Findings Template
+
+Use this only for real tester sessions. Keep planned scripts, agent QA, and facilitator expectations separate from real findings.
+
+| Field | Private record guidance |
+| --- | --- |
+| Tester/session id alias | Use a non-identifying alias such as `session-001`; do not use real names, emails, phone numbers, or gym identifiers. |
+| Flow tested | Onboarding, Today, Fuel, Train, Plan, Profile Data, Profile Audit, or Error Recovery. |
+| First-action comprehension | Record whether the tester could say the first safe action without coaching. |
+| Confusion severity | None, Low, Medium, High, or Critical. |
+| Safety interpretation | Record whether safety limits were understood; do not record private health details. |
+| Privacy interpretation | Record whether feedback/data/cycle/wearable boundaries were understood. |
+| Action taken | No action, copy tweak, private issue, stop-session, or release blocker. |
+| No private health details | Confirm no medical history, cycle detail, credential, personal contact detail, or private tester quote was copied into public docs. |
+
 ## Safety Checks
 
 Before and during each beta session, confirm:
@@ -146,7 +161,7 @@ npm run preflight:beta
 
 This checks package scripts, EAS build profile presence, app config presence, required public env names in the process or `.env.example`, client config markers, and beta docs. It does not run live smoke, does not print env values, does not require smoke credentials, and does not mutate files.
 
-Use `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md` and `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md` when distributing a preview build. On 2026-06-03, EAS project `@karlcupid/corneriq` was linked and Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` was submitted, but the latest queried status was `IN_QUEUE` and no artifact URL existed yet.
+Use `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md` and `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md` when distributing a preview build. On 2026-06-03, EAS project `@karlcupid/corneriq` was linked, Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes, and fresh Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` finished with APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`. Share it only through a private tester channel after release-owner checks.
 
 ## Manual Feedback Triage
 
@@ -187,8 +202,8 @@ Beta can move from structured test to broader pilot only when:
 - Feedback reports are user-owned and not admin-reviewed in app.
 - No external analytics yet.
 - No beta health drilldown beyond Profile > Audit preflight yet.
-- EAS preview build is submitted but no finished artifact exists yet.
-- App store metadata, icon, and splash polish are not prepared yet.
+- EAS Android preview build produced APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`.
+- App store metadata, icon, splash polish, private tester distribution, and physical-device checks are not prepared yet.
 - Automated scenario QA exists, but real boxer findings are still not captured.
 - Routed drilldowns remain deferred.
 - Barcode scanning, full meal planning, detailed food database, numeric load progression, drag/drop calendar, coach UI, and reviewer-clear UI remain deferred.

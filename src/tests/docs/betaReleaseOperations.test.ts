@@ -56,7 +56,19 @@ describe("beta release operations", () => {
     expect(doc).toContain("release-blocking");
     expect(incidentRunbook).toContain("Severity Definitions");
     expect(incidentRunbook).toContain("Stop-Beta Criteria");
+    expect(incidentRunbook).toContain("Critical And High Owner Actions");
+    for (const trigger of [
+      "Generated unsafe copy or contact-work language",
+      "Hard-stop bypass or self-clear interpretation",
+      "Exposed secret or credential-like value",
+      "Data deletion/export failure",
+      "Migration mismatch",
+      "Urgent health concern"
+    ]) {
+      expect(incidentRunbook).toContain(trigger);
+    }
     expect(incidentRunbook).toContain("Normal users cannot mark reports reviewed");
+    expect(incidentRunbook).toContain("Retain tester text only as long as needed");
     expect(doc).toContain("Reports are user-owned");
     expect(doc).toContain("no admin-review UI");
     expect(doc).not.toMatch(/make weight at all costs|sauna|sweat suit|laxative|diuretic/i);

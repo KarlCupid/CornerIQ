@@ -113,7 +113,7 @@ Current app config:
 2026-06-03 verification:
 
 - EAS CLI version check: `eas-cli/19.0.5`.
-- EAS auth check: signed in as `karlcupid` / `karllager333@gmail.com`.
+- EAS auth check: release owner account verified privately; no personal email recorded.
 - `npx eas-cli project:info --non-interactive` initially failed with `EAS project not configured`.
 - `npx eas-cli init --non-interactive` found existing project `@karlcupid/corneriq` and required `--force`.
 - `npx eas-cli init --non-interactive --force` linked project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a` and modified `app.json`.
@@ -130,15 +130,15 @@ Current app config:
 - Fresh Android preview build submitted with `npx eas-cli build --profile preview --platform android --non-interactive --clear-cache`.
 - Fresh build ID: `c21c5692-011e-4c85-949f-355d0e1f753f`.
 - Fresh build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
-- Current EAS status from `build:view`: `IN_QUEUE`.
-- Build artifact: pending; `artifacts` is still empty while the fresh EAS build remains queued.
-- Current status: EAS project linked, prior Hermes/Supabase failure remediated locally, fresh preview build submitted, artifact pending. Do not call the app distributed until the fresh build reaches finished status and exposes a downloadable artifact.
+- Final EAS status from `build:view`: `FINISHED`.
+- Build artifact: https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk
+- Completed at: `2026-06-03T20:29:29.176Z`.
+- Current status: EAS project linked, prior Hermes/Supabase failure remediated locally, fresh preview build finished, APK artifact produced. Share only through a private tester channel after the release owner confirms tester list, app icon/splash/store metadata acceptance, and physical-device checks.
 
 Manual release-owner tasks:
 
-- Monitor build `c21c5692-011e-4c85-949f-355d0e1f753f` until it succeeds or fails.
-- If it succeeds, record the artifact URL and distribute only through a private tester channel.
-- If it fails, inspect EAS logs and record the exact failure before retrying.
+- Record build `c21c5692-011e-4c85-949f-355d0e1f753f` and artifact URL in release handoff.
+- Distribute only through a private tester channel.
 - Confirm build credentials.
 - Decide whether current icon/splash/store metadata gaps are acceptable for the private beta or add assets first.
 - Share any produced build link only through a private tester channel.
