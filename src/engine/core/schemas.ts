@@ -6,6 +6,8 @@ import { TrainingBlockTimelineEventSchema, TrainingProgressionDecisionSchema, Tr
 const ISODateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const ISODateTimeSchema = z.string().datetime();
 const confidenceLevelSchema = z.enum(["high", "medium", "low", "unknown"]);
+const MealTagSchema = z.enum(["breakfast", "lunch", "dinner", "snack", "pre_training", "post_training", "day_total", "other"]);
+const FoodLogEntryTypeSchema = z.enum(["meal", "snack", "day_total", "quick_fuel_check"]);
 const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
@@ -250,7 +252,11 @@ export const FoodLogSchema = z.object({
   fatGrams: z.number().nonnegative(),
   fiberGrams: z.number().nonnegative().optional(),
   sodiumMg: z.number().nonnegative().optional(),
-  confidence: confidenceLevelSchema
+  confidence: confidenceLevelSchema,
+  mealTag: MealTagSchema.optional(),
+  loggedAt: ISODateTimeSchema.optional(),
+  entryType: FoodLogEntryTypeSchema.optional(),
+  sourceConfidence: confidenceLevelSchema.optional()
 });
 
 export const WaterLogSchema = z.object({
@@ -336,6 +342,7 @@ export const JourneyEventSchema = z.object({
     "RecoveryStarted",
     "BodyMassLogged",
     "FoodLogged",
+    "FoodLogStatusUpdated",
     "WaterLogged",
     "ElectrolyteLogged",
     "CycleBleedingStarted",

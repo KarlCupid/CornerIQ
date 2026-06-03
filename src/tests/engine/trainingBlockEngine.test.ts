@@ -124,6 +124,20 @@ function planWizardBuildEvent(input: {
   };
 }
 
+function foodLogCompleteEvent(date: string, id = date): JourneyEvent {
+  return {
+    id: `food_complete_${id}`,
+    type: "FoodLogStatusUpdated",
+    occurredAt: `${date}T22:00:00.000Z`,
+    payload: {
+      date,
+      status: "user_marked_complete",
+      completionSource: "user",
+      userMarkedCompleteAt: `${date}T22:00:00.000Z`
+    }
+  };
+}
+
 const sixSupportDays = ["tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
 function seriousSixDayState(input: {
@@ -137,6 +151,7 @@ function seriousSixDayState(input: {
   safetyFlags?: typeof pro_4_round_build_strength.safetyFlags | undefined;
   trainingDose?: PlanGenerationTrainingDose | undefined;
   protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
+  additionalJourneyEvents?: readonly JourneyEvent[] | undefined;
 } = {}) {
   const base = input.journey ?? pro_4_round_build_strength;
   return resolvePerformanceState({
@@ -158,7 +173,8 @@ function seriousSixDayState(input: {
           planStartDate: "2026-05-18",
           selectedSupportDays: sixSupportDays,
           trainingDose: input.trainingDose ?? "serious"
-        })
+        }),
+        ...(input.additionalJourneyEvents ?? [])
       ],
       readinessHistory: input.readinessHistory ?? [
         {
@@ -296,7 +312,8 @@ describe("training block and microcycle engine", () => {
           { date: "2026-05-17", calories: 1500, proteinGrams: 120, carbohydrateGrams: 120, fatGrams: 45, confidence: "medium" },
           { date: "2026-05-18", calories: 1550, proteinGrams: 115, carbohydrateGrams: 130, fatGrams: 42, confidence: "medium" },
           { date: "2026-05-19", calories: 1600, proteinGrams: 118, carbohydrateGrams: 125, fatGrams: 44, confidence: "medium" }
-        ]
+        ],
+        journeyEvents: ["2026-05-17", "2026-05-18", "2026-05-19"].map((date) => foodLogCompleteEvent(date, `sparring_low_${date}`))
       },
       asOfDate: fixtureAsOfDate
     });
@@ -865,12 +882,13 @@ describe("training block and microcycle engine", () => {
     const state = seriousSixDayState({
       id: "plan_six_day_supported_logs",
       hydrationHistory: [{ date: fixtureAsOfDate, liters: 2.7 }],
-      electrolyteHistory: [{ date: fixtureAsOfDate, sodiumMg: 600 }]
+      electrolyteHistory: [{ date: fixtureAsOfDate, sodiumMg: 600 }],
+      additionalJourneyEvents: [foodLogCompleteEvent(fixtureAsOfDate, "supported_today")]
     });
     const audit = state.training.supportGenerationAudit;
 
     expect(state.training.executionReadiness.readinessStatus).toBe("green");
-    expect(state.training.executionReadiness.fuelingStatus).toBe("logged_supported");
+    expect(state.training.executionReadiness.fuelingStatus).toBe("complete_supported");
     expect(state.training.executionReadiness.hydrationStatus).toBe("supported");
     expect(audit.readinessGenerationImpact).toBe("none");
     expect(audit.nutritionGenerationImpact).toBe("none");

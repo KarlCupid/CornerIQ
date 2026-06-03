@@ -4,6 +4,7 @@ import type {
   AthleteProfile,
   BodyMassState,
   CycleState,
+  DailyFoodLogStatusEvent,
   FightOpportunity,
   NutritionState,
   ElectrolyteLog,
@@ -19,9 +20,9 @@ import type {
 import { toKg } from "../core/units";
 import { buildFuelHistoryViewModel } from "../presentation/fuelHistoryViewModel";
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
-import { calculateMacroTargets } from "./macroTargets";
+import { calculateMacroTargets, trainingDemandTierForDate, weeklyTrainingDemandTier } from "./macroTargets";
 import { resolveFuelCommandCenter } from "./fuelCommandEngine";
-import { summarizeFoodLogs } from "./foodLogSummary";
+import { resolveDailyFoodLogSummary, summarizeFoodLogs } from "./foodLogSummary";
 import { resolveRehydrationPlan } from "./rehydrationEngine";
 import { sessionFuelingGuidance } from "./sessionFueling";
 import { sodiumFiberStrategy } from "./sodiumFiberStrategy";
@@ -33,15 +34,26 @@ function higherDemand(left: "low" | "moderate" | "high", right: "low" | "moderat
 
 function trainingDemandHandoff(input: {
   training: TrainingState;
-  foodLogCount: number;
+  foodLogStatus: NutritionState["dailyFoodLogSummary"]["status"];
   asOfDate: string;
   underFuelingBlocked: boolean;
   blocked: boolean;
+  phase: PhaseState;
 }): NutritionState["trainingDemandHandoff"] {
   const today = input.training.dayPlans.find((day) => day.date === input.asOfDate);
   const weeklyTrainingDemand = input.training.dayPlans.reduce<"low" | "moderate" | "high">((demand, day) => higherDemand(demand, day.fuelDemand), "low");
+  const todayTrainingDemandTier = trainingDemandTierForDate({ training: input.training, phase: input.phase, date: input.asOfDate });
+  const resolvedWeeklyTrainingDemandTier = weeklyTrainingDemandTier({ training: input.training, phase: input.phase });
   const hardOrHighStimulusDates = input.training.dayPlans.filter((day) => day.hardDay || day.fuelDemand === "high").map((day) => day.date);
   const fuelDemandDates = input.training.dayPlans.filter((day) => day.fuelDemand === "high" || day.fuelDemand === "moderate").map((day) => day.date);
+  const fuelPriorityByDate = input.training.dayPlans.map((day) => {
+    const tier = trainingDemandTierForDate({ training: input.training, phase: input.phase, date: day.date });
+    return {
+      date: day.date,
+      tier,
+      priority: fuelPriorityForTier(tier)
+    };
+  });
   const carbohydrateEmphasisBySessionType = input.training.generatedSessions
     .filter((session) => session.fuelDemand === "high" || session.fuelDemand === "moderate")
     .map((session) => {
@@ -49,20 +61,70 @@ function trainingDemandHandoff(input: {
       return `${session.date}: ${label} uses ${session.fuelDemand === "high" ? "higher" : "steady"} carbohydrate and fluid emphasis.`;
     });
   const highWeeklyLoad = hardOrHighStimulusDates.length >= 3 || input.training.loadLedger.hardDayCount >= 3;
+  const deficitPressureBlockedReason = input.blocked
+    ? "Hard-stop safety evidence blocks deficit pressure."
+    : input.underFuelingBlocked
+      ? "Under-fueling evidence is active; deficit pressure is blocked."
+      : highWeeklyLoad
+        ? "High weekly boxing/training demand blocks extra deficit pressure."
+        : null;
 
   return {
     todayTrainingDemand: today?.fuelDemand ?? "low",
     weeklyTrainingDemand,
+    todayTrainingDemandTier,
+    weeklyTrainingDemandTier: resolvedWeeklyTrainingDemandTier,
     hardOrHighStimulusDates,
     fuelDemandDates,
+    fuelPriorityByDate,
+    carbPriorityToday: carbPriorityForTier(todayTrainingDemandTier),
+    proteinPriorityToday: proteinPriorityForTier(todayTrainingDemandTier),
+    hydrationPriorityToday: hydrationPriorityForTier(todayTrainingDemandTier),
     carbohydrateEmphasisBySessionType,
     missingFoodLogAdvisory:
-      input.foodLogCount === 0
+      input.foodLogStatus === "no_log"
         ? "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback."
+        : input.foodLogStatus === "not_tracking_today"
+          ? "Food marked not tracking today. Training stays available and missing food is not under-fueling evidence."
+          : input.foodLogStatus === "partial_day" || input.foodLogStatus === "likely_partial" || input.foodLogStatus === "auto_closed_incomplete"
+            ? "Food log is partial. Logged so far can guide execution, but it is not under-fueling evidence."
         : null,
     underFuelingWarning: input.underFuelingBlocked ? "Under-fueling evidence is active; fuel recovery and block deficit pressure." : null,
-    deficitPressureBlocked: input.blocked || input.underFuelingBlocked || highWeeklyLoad
+    deficitPressureBlocked: input.blocked || input.underFuelingBlocked || highWeeklyLoad,
+    deficitPressureBlockedReason
   };
+}
+
+function fuelPriorityForTier(tier: NutritionState["trainingDemandHandoff"]["todayTrainingDemandTier"]): string {
+  const labels: Record<NutritionState["trainingDemandHandoff"]["todayTrainingDemandTier"], string> = {
+    recovery_day: "Normal meals, steady protein, no restriction pressure.",
+    technical_boxing: "Moderate carbs around skill work; keep meals normal.",
+    strength: "Protein stays steady with moderate/high carbs when lifting is longer or harder.",
+    power: "Carbs support speed quality; avoid under-fueled neural work.",
+    hard_conditioning: "High carbohydrate, fluids, and electrolytes are the priority.",
+    long_zone2: "Duration-based carbs and fluids protect the session.",
+    protected_sparring_or_hard_anchor: "High fuel priority for protected hard boxing.",
+    mixed_high_day: "High fuel priority across mixed hard training demands.",
+    fight_week_taper: "Preserve calories and familiar foods; no unsafe cut pressure.",
+    tournament_reset: "Repeat familiar fuel and avoid extra hard-conditioning pressure."
+  };
+  return labels[tier];
+}
+
+function carbPriorityForTier(tier: NutritionState["trainingDemandHandoff"]["todayTrainingDemandTier"]): string {
+  return ["hard_conditioning", "long_zone2", "protected_sparring_or_hard_anchor", "mixed_high_day", "power"].includes(tier)
+    ? "Carbs are a high priority today because the session depends on repeatable quality."
+    : "Carbs should match normal meals and the planned boxing work.";
+}
+
+function proteinPriorityForTier(tier: NutritionState["trainingDemandHandoff"]["todayTrainingDemandTier"]): string {
+  return tier === "strength" || tier === "power" ? "Protein stays steady to support strength and power work." : "Protein stays steady across the day.";
+}
+
+function hydrationPriorityForTier(tier: NutritionState["trainingDemandHandoff"]["todayTrainingDemandTier"]): string {
+  return ["hard_conditioning", "long_zone2", "protected_sparring_or_hard_anchor", "mixed_high_day"].includes(tier)
+    ? "Fluids and electrolytes are a high priority today."
+    : "Keep fluids and sodium consistent.";
 }
 
 export function resolveNutrition(input: {
@@ -83,7 +145,9 @@ export function resolveNutrition(input: {
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   nutritionSafetyReviewEvents: readonly NutritionSafetyReviewEvent[];
   foodLogCount: number;
+  foodStatusEvents: readonly DailyFoodLogStatusEvent[];
   asOfDate: string;
+  generatedAt?: string | undefined;
 }): NutritionState {
   const kg = toKg(input.athlete.currentBodyMass) ?? input.bodyMass.trend.latestKg ?? input.athlete.typicalWalkAroundWeightKg ?? 75;
   const activeReviewHardStop = input.activeNutritionSafetyReviews.some((review) => review.hardStop);
@@ -105,6 +169,12 @@ export function resolveNutrition(input: {
     readiness: input.readiness,
     applyDeficit
   });
+  const dailyFoodLogSummary = resolveDailyFoodLogSummary(input.foodLogs, input.foodStatusEvents, input.asOfDate, {
+    calories: macros.calories,
+    proteinGrams: macros.proteinGrams,
+    carbohydrateGrams: macros.carbohydrateGrams,
+    fatGrams: macros.fatGrams
+  }, input.generatedAt);
   const riskFlags = input.safetyFlags.filter((flag) => flag.domain === "nutrition" || flag.domain === "hydration" || flag.domain === "body_mass");
   const acuteProtocolStatus = input.acuteProtocolEligibility.status;
   const rehydrationPlan = resolveRehydrationPlan({
@@ -119,12 +189,18 @@ export function resolveNutrition(input: {
       : null;
   const tournamentFuelingGuidance =
     input.tournamentStrategy.status === "active" || input.tournamentStrategy.status === "unsafe" ? input.tournamentStrategy.athleteFacingSummary : null;
-  const actualIntakeSummary = summarizeFoodLogs(input.foodLogs, input.asOfDate, {
-    calories: macros.calories,
-    proteinGrams: macros.proteinGrams,
-    carbohydrateGrams: macros.carbohydrateGrams,
-    fatGrams: macros.fatGrams
-  });
+  const actualIntakeSummary = summarizeFoodLogs(
+    input.foodLogs,
+    input.asOfDate,
+    {
+      calories: macros.calories,
+      proteinGrams: macros.proteinGrams,
+      carbohydrateGrams: macros.carbohydrateGrams,
+      fatGrams: macros.fatGrams
+    },
+    input.foodStatusEvents,
+    input.generatedAt
+  );
   const waterLiters = Number(Math.max(2.2, kg * 0.035).toFixed(1));
   const sodiumGuidance = riskFlags.some((flag) => flag.code === "excess_plain_water_low_sodium")
     ? "Do not keep adding plain water without sodium. Hydration needs electrolytes."
@@ -137,10 +213,11 @@ export function resolveNutrition(input: {
   const underFuelingRiskNote = underFuelingBlocked ? "Under-fueling risk is active, so deficit pressure is blocked and recovery fuel is protected." : null;
   const demandHandoff = trainingDemandHandoff({
     training: input.training,
-    foodLogCount: input.foodLogCount,
+    foodLogStatus: dailyFoodLogSummary.status,
     asOfDate: input.asOfDate,
     underFuelingBlocked,
-    blocked
+    blocked,
+    phase: input.phase
   });
   const fuelHistory = buildFuelHistoryViewModel({
     asOfDate: input.asOfDate,
@@ -206,6 +283,7 @@ export function resolveNutrition(input: {
     fatGrams: macros.fatGrams,
     fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
     actualIntakeSummary,
+    dailyFoodLogSummary,
     fuelHistory,
     activeNutritionSafetyReviews: input.activeNutritionSafetyReviews,
     nutritionSafetyReviewEvents: input.nutritionSafetyReviewEvents,

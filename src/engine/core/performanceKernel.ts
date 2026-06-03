@@ -13,6 +13,7 @@ import { resolveWeeklyTrainingPlan } from "../training/weeklyPlanEngine";
 import { materializeProtectedWorkoutAnchors } from "../training/protectedAnchors";
 import { resolveActivePlanGenerationIntent } from "../training/planGenerationIntent";
 import { resolveNutrition } from "../nutrition/nutritionEngine";
+import { foodStatusEventsFromJourneyEvents, resolveDailyFoodLogSummary } from "../nutrition/foodLogSummary";
 import { resolveHydration } from "../nutrition/hydrationEngine";
 import { assessDehydrationRisk } from "../safety/dehydrationRisk";
 import { assessInjuryRisk } from "../safety/injuryRisk";
@@ -82,6 +83,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   const planGenerationIntent = resolveActivePlanGenerationIntent(journey, input.asOfDate);
   const persistedGeneratedSessions = journey.trainingHistory;
   const foodLogCountToday = journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length;
+  const foodStatusEvents = foodStatusEventsFromJourneyEvents(journey.journeyEvents);
+  const dailyFoodLogSummary = resolveDailyFoodLogSummary(journey.nutritionHistory, foodStatusEvents, input.asOfDate, undefined, generatedAt);
   const hydrationLogCountToday = journey.hydrationHistory.filter((log) => log.date === input.asOfDate).length;
   const electrolyteLogCountToday = journey.electrolyteHistory.filter((log) => log.date === input.asOfDate).length;
   const initialTraining = resolveWeeklyTrainingPlan({
@@ -97,6 +100,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     recentExerciseResults: journey.exerciseResults,
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: journey.safetyFlags,
+    foodLogSummary: dailyFoodLogSummary,
     foodLogCount: foodLogCountToday,
     hydrationLogCount: hydrationLogCountToday,
     electrolyteLogCount: electrolyteLogCountToday,
@@ -116,7 +120,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     ...assessInjuryRisk(todayCheckIn),
     ...assessMedicalReview(journey.athlete),
     ...assessDehydrationRisk(journey.hydrationHistory, journey.electrolyteHistory, input.asOfDate),
-    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, input.asOfDate, cycle, initialTraining)
+    ...assessUnderFuelingRisk(trend, journey.nutritionHistory, input.asOfDate, cycle, initialTraining, foodStatusEvents, generatedAt)
   ];
   const feasibility = resolveWeightClassFeasibility({
     athlete: journey.athlete,
@@ -148,6 +152,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: safety.riskFlags,
     safetyBlocks: safety.blocksPlan,
+    foodLogSummary: dailyFoodLogSummary,
     foodLogCount: foodLogCountToday,
     hydrationLogCount: hydrationLogCountToday,
     electrolyteLogCount: electrolyteLogCountToday,
@@ -188,7 +193,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     activeNutritionSafetyReviews: journey.nutritionSafetyReviews,
     nutritionSafetyReviewEvents: journey.nutritionSafetyReviewEvents,
     asOfDate: input.asOfDate,
-    foodLogCount: foodLogCountToday
+    foodLogCount: foodLogCountToday,
+    foodStatusEvents,
+    generatedAt
   });
   const confidence = combineConfidence(
     [phase.confidence, cycle.confidence, readiness.confidence, wearable.signalConfidence, bodyMass.confidence, training.confidence, nutrition.confidence],

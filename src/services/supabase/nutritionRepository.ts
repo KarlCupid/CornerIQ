@@ -1,5 +1,5 @@
 import { FoodLogSchema } from "../../engine/core/schemas";
-import type { FoodLog, ISODateString } from "../../engine/core/types";
+import type { FoodLog, FoodLogEntryType, ISODateString, ISODateTimeString, MealTag } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
@@ -16,6 +16,10 @@ export interface CreateFoodLogInput {
   fiberGrams?: number;
   sodiumMg?: number;
   confidence?: FoodLog["confidence"];
+  mealTag?: MealTag;
+  loggedAt?: ISODateTimeString;
+  entryType?: FoodLogEntryType;
+  sourceConfidence?: FoodLog["confidence"];
 }
 
 export function mapFoodLogRow(row: FoodLogRow): FoodLog {
@@ -53,7 +57,11 @@ export function createNutritionRepository(client: CornerSupabaseClient) {
           fatGrams: input.fatGrams,
           fiberGrams: input.fiberGrams,
           sodiumMg: input.sodiumMg,
-          confidence: input.confidence ?? "low"
+          confidence: input.confidence ?? "low",
+          mealTag: input.mealTag,
+          loggedAt: input.loggedAt,
+          entryType: input.entryType,
+          sourceConfidence: input.sourceConfidence
         },
         "food_logs.insertFoodLog"
       );
@@ -67,7 +75,11 @@ export function createNutritionRepository(client: CornerSupabaseClient) {
           fatGrams: log.fatGrams,
           fiberGrams: log.fiberGrams,
           sodiumMg: log.sodiumMg,
-          confidence: log.confidence
+          confidence: log.confidence,
+          mealTag: log.mealTag,
+          loggedAt: log.loggedAt,
+          entryType: log.entryType,
+          sourceConfidence: log.sourceConfidence
         })
       };
       const response = await client.from("food_logs").insert(insert).select("id").single();

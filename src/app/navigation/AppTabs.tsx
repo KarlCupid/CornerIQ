@@ -135,7 +135,7 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
           })}
       >
         <Tab.Screen name="Today">
-          {() => (
+          {({ navigation }) => (
             <TodayScreen
               busy={busy}
               cycleQuickLogEnabled={state.cycle.trackingEnabled}
@@ -143,6 +143,8 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
               cycleSymptomOptions={cycleSymptomOptions}
               message={message}
+              onOpenFuel={() => navigation.navigate("Fuel")}
+              onOpenTrain={() => navigation.navigate("Train")}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.today}

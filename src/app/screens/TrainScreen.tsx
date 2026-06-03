@@ -152,6 +152,31 @@ function WeeklyGeneratedWorkCard({ viewModel }: { viewModel: TrainViewModel }) {
   );
 }
 
+function ExecutionOverlayCard({ viewModel }: { viewModel: TrainViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="train-execution-overlay-card">
+        <Text style={screenStyles.sectionTitle}>Planned workout</Text>
+        <Text style={screenStyles.body}>{viewModel.executionOverlay.plannedTraining}</Text>
+        <Text style={screenStyles.sectionTitle}>Execution guidance</Text>
+        {viewModel.executionOverlay.executionGuidance.map((item, index) => <Text key={`train-execution-guidance:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+        {viewModel.executionOverlay.missingDataAdvisories.length > 0 ? (
+          <>
+            <Text style={screenStyles.sectionTitle}>Missing-data advisory</Text>
+            {viewModel.executionOverlay.missingDataAdvisories.map((item, index) => <Text key={`train-missing-advisory:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+          </>
+        ) : null}
+        {viewModel.executionOverlay.safetyOverrideReason ? (
+          <>
+            <Text style={screenStyles.sectionTitle}>Evidence-based safety override</Text>
+            <Text style={screenStyles.body}>{viewModel.executionOverlay.safetyOverrideReason}</Text>
+          </>
+        ) : null}
+      </View>
+    </EngineCard>
+  );
+}
+
 export function TrainScreen({ busy, completionActions, completionMessage, generationStatus = "idle", quickLogs, recentLogs, viewModel }: TrainScreenProps) {
   const [section, setSection] = React.useState<TrainSection>("today");
   return (
@@ -181,6 +206,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, genera
       ) : null}
       {section === "today" ? (
         <View style={{ gap: spacing.lg }} testID="train-today-section">
+          <ExecutionOverlayCard viewModel={viewModel} />
           {viewModel.sessionCards[0] ? <WorkoutFlowPreview session={viewModel.sessionCards[0]} /> : null}
           {viewModel.sessionCards.length > 0 ? viewModel.sessionCards.map((session, index) => (
             <View key={`today-session:${index}`} testID={index === 0 ? "train-main-workout-command" : undefined}>

@@ -86,7 +86,20 @@ function lowConfidenceNutrition(state: PerformanceState): PerformanceState["nutr
     ...state.nutrition,
     actualIntakeSummary: {
       ...state.nutrition.actualIntakeSummary,
+      status: "partial_day",
       logCount: 1,
+      caloriesLogged: 900,
+      targetComparisonAllowed: false,
+      underFuelingEvidenceAllowed: false,
+      summaryCopy: "Partial log so far. This is not under-fueling evidence unless you mark the day complete.",
+      dailySummary: {
+        ...state.nutrition.actualIntakeSummary.dailySummary,
+        status: "partial_day",
+        totalCaloriesLogged: 900,
+        targetComparisonAllowed: false,
+        underFuelingEvidenceAllowed: false,
+        athleteFacingSummary: "Partial log so far. This is not under-fueling evidence unless you mark the day complete."
+      },
       confidence: { level: "low", score: 0.4, reasons: ["low-confidence food log"], missingInputs: [] }
     },
     confidence: { level: "low", score: 0.45, reasons: ["low food-log confidence"], missingInputs: [] }
@@ -335,6 +348,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(sessions.length).toBeGreaterThan(1);
     expect(sessions.every((session) => session.fuelDemand === "low" || session.fuelDemand === "moderate")).toBe(true);
+    expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Food log is incomplete")))).toBe(true);
     expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fueling data is low-confidence")))).toBe(true);
   });
 

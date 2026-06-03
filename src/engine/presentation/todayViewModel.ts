@@ -66,17 +66,29 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   ] as const;
   return {
     title,
+    dailyOperatingMode: state.training.dailyOperatingMode,
+    statusSnapshot: {
+      readinessStatus: state.training.executionReadiness.readinessStatus.replaceAll("_", " "),
+      fuelLogStatus: state.nutrition.dailyFoodLogSummary.status.replaceAll("_", " "),
+      hydrationStatus: state.training.executionReadiness.hydrationStatus.replaceAll("_", " "),
+      operatingMode: state.training.dailyOperatingMode.title
+    },
+    executionGuidance: state.training.dailyOperatingMode.executionGuidance,
+    whyThisMatters: "Your training stays planned. Logging readiness and fuel helps CornerIQ adjust how you execute it. Missing logs lower confidence; they do not remove planned training. Safety evidence can still override the plan.",
+    secondaryActions: [
+      { label: "Start without logging", action: "start_without_logging" },
+      { label: "Log food", action: "log_food" },
+      { label: "Log readiness", action: "log_readiness" },
+      { label: "Mark not tracking food today", action: "mark_food_not_tracking" }
+    ],
     mission: {
       title: "Today's mission",
       purpose: "Use Today as the command center for the next useful step.",
-      primaryAction:
-        state.safety.hardStops.length > 0
-          ? "Read the safety note first. Log only what is true today."
-          : `${firstAppAction} Then follow the training call.`,
+      primaryAction: state.training.dailyOperatingMode.primaryAction,
       why:
         state.safety.hardStops[0]?.explanation ??
         (hasSparring ? "Protected boxing owns the day, so generated training stays secondary." : state.training.explanation),
-      optional: "Food, water, pain, and cycle notes add context. Missing data stays unknown."
+      optional: "Food, water, pain, and cycle notes add context. Workout-only use still gets useful training."
     },
     whatChanged:
       state.safety.hardStops.length > 0

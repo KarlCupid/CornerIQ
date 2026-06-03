@@ -124,7 +124,21 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
       hydrationHint: "Keep fluids and electrolytes consistent; avoid weight-pressure tactics."
     };
   }
-  if (state.nutrition.actualIntakeSummary.logCount === 0) {
+  if (state.nutrition.actualIntakeSummary.status === "not_tracking_today") {
+    return {
+      preSessionFuelHint: "Food is marked not tracking today: fuel the session normally and start without turning missing food into under-fueling evidence.",
+      postSessionFuelHint: "Log food only if it helps; not-tracking keeps training guidance available.",
+      hydrationHint: "Use thirst, urine color, heat, and session length; no wearable or food log is required."
+    };
+  }
+  if (state.nutrition.actualIntakeSummary.status === "partial_day" || state.nutrition.actualIntakeSummary.status === "likely_partial" || state.nutrition.actualIntakeSummary.status === "auto_closed_incomplete") {
+    return {
+      preSessionFuelHint: "Partial food log so far: use it as execution context, not under-fueling evidence.",
+      postSessionFuelHint: "If today is complete later, mark it done; until then, recovery fuel guidance stays advisory.",
+      hydrationHint: "Use thirst, urine color, heat, and session length; no wearable or complete food log is required."
+    };
+  }
+  if (state.nutrition.actualIntakeSummary.status === "no_log") {
     return {
       preSessionFuelHint: "No food log today: fuel this session normally and log meals to personalize recovery guidance.",
       postSessionFuelHint: "Log food only if it helps; missing fuel data lowers confidence without removing planned training.",
@@ -282,6 +296,12 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   };
   return {
     title: "Train for boxing",
+    executionOverlay: {
+      plannedTraining: todayGeneratedSessions.length > 0 ? todayGeneratedSessions.map((session) => `${session.title} (${session.durationMinutes} min)`).join(", ") : upcomingSummary(upcomingGeneratedSessions),
+      executionGuidance: state.training.dailyOperatingMode.executionGuidance,
+      missingDataAdvisories: todayGeneratedSessions.flatMap((session) => session.missingDataAdvisories ?? []),
+      safetyOverrideReason: state.training.dailyOperatingMode.safetyOverrideReason
+    },
     topAction: {
       title: "Training action",
       purpose: "Use Train for today's generated boxing training and what to log after.",

@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { CycleSymptom, CycleViewModel, RecentLogsViewModel, TodayViewModel } from "../../engine/core/types";
 import { ActionCard } from "../../design/components/ActionCard";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
@@ -25,6 +25,8 @@ export interface TodayScreenProps {
   cycleSymptomOptions: readonly CycleSymptom[];
   busy: boolean;
   message: string | null;
+  onOpenFuel?: (() => void) | undefined;
+  onOpenTrain?: (() => void) | undefined;
 }
 
 function readinessMetric(recentLogs: RecentLogsViewModel) {
@@ -36,8 +38,11 @@ function readinessMetric(recentLogs: RecentLogsViewModel) {
 }
 
 function fuelMetric(viewModel: TodayViewModel, recentLogs: RecentLogsViewModel) {
+  if (recentLogs.foodToday.status === "not_tracking_today") {
+    return { meta: "Not tracking", value: "Advisory" } as const;
+  }
   if (recentLogs.foodToday.entryCount === 0) {
-    return { meta: "Food unknown", value: "Log meal" } as const;
+    return { meta: "Food unknown", value: "Fuel gate" } as const;
   }
   if (/carb/i.test(viewModel.fuelPriority)) {
     return { meta: recentLogs.foodToday.statusLabel, value: "Carbs needed" } as const;
@@ -77,7 +82,80 @@ function TodayContextCard({ recentLogs, viewModel }: { recentLogs: RecentLogsVie
   );
 }
 
-export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cycleQuickLogEnabled, cycleTrackingStatus, cycleSymptomOptions, busy, message }: TodayScreenProps) {
+function DailyOperatingModeCard({
+  busy,
+  onOpenFuel,
+  onOpenTrain,
+  quickLogs,
+  recentLogs,
+  viewModel
+}: {
+  busy: boolean;
+  onOpenFuel?: (() => void) | undefined;
+  onOpenTrain?: (() => void) | undefined;
+  quickLogs: QuickLogActions;
+  recentLogs: RecentLogsViewModel;
+  viewModel: TodayViewModel;
+}) {
+  const actionPress = (action: TodayViewModel["secondaryActions"][number]["action"]) => {
+    if (action === "start_without_logging") {
+      onOpenTrain?.();
+      return;
+    }
+    if (action === "log_food") {
+      onOpenFuel?.();
+      return;
+    }
+    if (action === "mark_food_not_tracking") {
+      void quickLogs.markFoodNotTrackingToday();
+    }
+  };
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="today-operating-mode-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>Daily Check-In / Daily Operating Mode</Text>
+          <Text style={screenStyles.callout}>{viewModel.dailyOperatingMode.title}</Text>
+          <Text style={screenStyles.body}>{viewModel.dailyOperatingMode.athleteFacingSummary}</Text>
+          <Text style={screenStyles.subtle}>Readiness: {viewModel.statusSnapshot.readinessStatus}. Fuel log: {viewModel.statusSnapshot.fuelLogStatus}. Hydration: {viewModel.statusSnapshot.hydrationStatus}.</Text>
+        </View>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => undefined} style={screenStyles.button}>
+          <Text style={screenStyles.buttonText}>Do 60-sec check-in</Text>
+        </Pressable>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {viewModel.secondaryActions.map((action) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
+              key={`today-secondary:${action.action}`}
+              onPress={() => actionPress(action.action)}
+              style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}
+            >
+              <Text style={screenStyles.quietButtonText}>{action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={screenStyles.subtle}>{recentLogs.foodToday.summary}</Text>
+      </View>
+    </EngineCard>
+  );
+}
+
+function ExecutionGuidanceCard({ viewModel }: { viewModel: TodayViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="today-execution-guidance-card">
+        <Text style={screenStyles.sectionTitle}>Execution Guidance</Text>
+        {viewModel.executionGuidance.map((item, index) => <Text key={`today-execution:${index}`} style={screenStyles.body}>{item}</Text>)}
+        <Text style={screenStyles.sectionTitle}>Why This Matters</Text>
+        <Text style={screenStyles.subtle}>{viewModel.whyThisMatters}</Text>
+      </View>
+    </EngineCard>
+  );
+}
+
+export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cycleQuickLogEnabled, cycleTrackingStatus, cycleSymptomOptions, busy, message, onOpenFuel, onOpenTrain }: TodayScreenProps) {
   const hasRisk = viewModel.riskSummary.length > 0;
   const hasRecentLogs = recentLogs.today.length > 0;
   const readiness = readinessMetric(recentLogs);
@@ -100,6 +178,8 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         <MetricTile accent="orange" label="Fuel" meta={fuel.meta} value={fuel.value} />
         <MetricTile accent="blue" label="Weight" meta={bodyMass.meta} value={bodyMass.value} />
       </View>
+      <DailyOperatingModeCard busy={busy} onOpenFuel={onOpenFuel} onOpenTrain={onOpenTrain} quickLogs={quickLogs} recentLogs={recentLogs} viewModel={viewModel} />
+      <ExecutionGuidanceCard viewModel={viewModel} />
       <TodayContextCard recentLogs={recentLogs} viewModel={viewModel} />
       {hasRisk ? (
         <RiskBanner title="Safety check" message="The engine is surfacing this before logs because missing or risky data is unknown, not safe." tone="critical">

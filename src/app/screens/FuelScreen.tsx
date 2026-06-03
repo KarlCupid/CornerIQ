@@ -112,7 +112,10 @@ function TodayFuelPriorityCard({ viewModel }: { viewModel: FuelViewModel }) {
         <Text style={screenStyles.sectionTitle}>What to do now</Text>
         <Text style={screenStyles.callout}>{viewModel.commandCenter.primaryFuelAction}</Text>
         <Text style={screenStyles.body}>{viewModel.commandCenter.sessionFuelAction}</Text>
-        <Text style={screenStyles.subtle}>Training demand today: {viewModel.trainingDemandHandoff.todayTrainingDemand}; this week: {viewModel.trainingDemandHandoff.weeklyTrainingDemand}.</Text>
+        <Text style={screenStyles.subtle}>Session fueling handoff: {viewModel.trainingDemandHandoff.fuelPriorityByDate.find((item) => item.date === viewModel.foodLogStatus.date)?.priority ?? viewModel.trainingDemandHandoff.carbPriorityToday}</Text>
+        <Text style={screenStyles.subtle}>Training demand today: {viewModel.trainingDemandHandoff.todayTrainingDemand}; tier: {viewModel.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " ")}. This week: {viewModel.trainingDemandHandoff.weeklyTrainingDemandTier.replaceAll("_", " ")}.</Text>
+        <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.carbPriorityToday}</Text>
+        <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.hydrationPriorityToday}</Text>
         {viewModel.trainingDemandHandoff.missingFoodLogAdvisory ? <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.missingFoodLogAdvisory}</Text> : null}
         <Text style={screenStyles.subtle}>{viewModel.fuelHistory.todaySummary}</Text>
       </View>
@@ -140,7 +143,9 @@ function FuelMacroTargetsCard({ recentLogs, viewModel }: { recentLogs: RecentLog
       <View style={{ gap: spacing.md }} testID="fuel-macro-target-card">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Today's fuel targets</Text>
+          <Text style={screenStyles.fieldLabel}>Why these targets</Text>
           <Text style={screenStyles.body}>{viewModel.macroTargets.why}</Text>
+          <Text style={screenStyles.subtle}>Logs help compare what happened.</Text>
           <Text style={screenStyles.subtle}>{statusLine}. {viewModel.macroTargets.logStatus}</Text>
         </View>
         <View style={{ gap: spacing.md }}>
@@ -152,6 +157,51 @@ function FuelMacroTargetsCard({ recentLogs, viewModel }: { recentLogs: RecentLog
               </View>
               <LuminousProgressBar accent={macroAccent(item.label)} progress={progressRatio(item.logged, item.target)} />
             </View>
+          ))}
+        </View>
+      </View>
+    </EngineCard>
+  );
+}
+
+function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quickLogs: QuickLogActions; viewModel: FuelViewModel }) {
+  const run = (kind: FuelViewModel["completionControls"]["actions"][number]["kind"]) => {
+    if (kind === "still_logging") {
+      void quickLogs.markFoodStillLoggingToday();
+      return;
+    }
+    if (kind === "done_logging") {
+      void quickLogs.markFoodDoneLoggingToday();
+      return;
+    }
+    void quickLogs.markFoodNotTrackingToday();
+  };
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-food-status-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>{viewModel.completionControls.statusTitle}</Text>
+          <Text style={screenStyles.callout}>{viewModel.foodLogStatus.status.replaceAll("_", " ")}</Text>
+          <Text style={screenStyles.body}>{viewModel.foodLogStatus.athleteFacingSummary}</Text>
+          <Text style={screenStyles.subtle}>Logged so far: {viewModel.foodLogStatus.totalCaloriesLogged} kcal / {viewModel.calorieSummary}.</Text>
+          <Text style={screenStyles.subtle}>This is not under-fueling evidence unless you mark the day complete.</Text>
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          {viewModel.completionControls.helperCopy.map((item, index) => <Text key={`fuel-completion-helper:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {viewModel.completionControls.actions.map((action) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
+              key={`fuel-completion-action:${action.kind}`}
+              onPress={() => run(action.kind)}
+              style={[action.kind === "done_logging" ? screenStyles.button : screenStyles.quietButton, { flexBasis: 220, flexGrow: 1 }]}
+            >
+              <Text style={action.kind === "done_logging" ? screenStyles.buttonText : screenStyles.quietButtonText}>{action.label}</Text>
+              <Text style={screenStyles.subtle}>{action.summary}</Text>
+            </Pressable>
           ))}
         </View>
       </View>
@@ -221,6 +271,7 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         <FuelStartHereCard viewModel={viewModel} />
         <FuelMacroTargetsCard recentLogs={recentLogs} viewModel={viewModel} />
         <TodayFuelPriorityCard viewModel={viewModel} />
+        <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} />
         {primaryLog === "food" ? (
           <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
         ) : (

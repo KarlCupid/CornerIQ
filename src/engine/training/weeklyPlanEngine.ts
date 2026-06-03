@@ -4,6 +4,7 @@ import type {
   AthleteProfile,
   CompletedTrainingSession,
   CycleState,
+  DailyFoodLogSummary,
   ExerciseResultRecord,
   FightOpportunity,
   ISODateString,
@@ -59,6 +60,7 @@ import {
   trainingStimulusMix
 } from "./trainingStimulus";
 import { defaultTrainingDoseForSupportDays } from "./planGenerationIntent";
+import { resolveDailyOperatingMode } from "./dailyOperatingMode";
 import { resolveWeeklyTrainingPrescriptionPolicy, type WeeklyTrainingPrescriptionPolicy } from "./weeklyTrainingPrescriptionPolicy";
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
@@ -541,6 +543,7 @@ export function resolveWeeklyTrainingPlan(input: {
   highCycleSymptoms: boolean;
   safetyFlags?: readonly RiskFlag[] | undefined;
   safetyBlocks?: boolean;
+  foodLogSummary: DailyFoodLogSummary;
   foodLogCount?: number | undefined;
   hydrationLogCount?: number | undefined;
   electrolyteLogCount?: number | undefined;
@@ -556,6 +559,7 @@ export function resolveWeeklyTrainingPlan(input: {
     readiness: input.readiness,
     safetyFlags: input.safetyFlags ?? [],
     foodLogCount: input.foodLogCount,
+    foodLogSummary: input.foodLogSummary,
     cycle: input.cycle,
     protectedAnchors: input.anchors,
     date: input.asOfDate
@@ -563,7 +567,7 @@ export function resolveWeeklyTrainingPlan(input: {
   const executionReadiness = resolveTrainingReadinessFuelingIntegration({
     readiness: input.readiness,
     safetyFlags: input.safetyFlags ?? [],
-    foodLogCount: input.foodLogCount ?? 0,
+    foodLogSummary: input.foodLogSummary,
     hydrationLogCount: input.hydrationLogCount ?? 0,
     electrolyteLogCount: input.electrolyteLogCount ?? 0
   });
@@ -796,6 +800,14 @@ export function resolveWeeklyTrainingPlan(input: {
     };
   });
   const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
+  const todayPlanForOperatingMode = adjustedDayPlans.find((dayPlan) => dayPlan.date === input.asOfDate) ?? null;
+  const dailyOperatingMode = resolveDailyOperatingMode({
+    integration: executionReadiness,
+    safetyFlags: input.safetyFlags ?? [],
+    todayPlan: todayPlanForOperatingMode,
+    todaySessions,
+    phase: input.phase
+  });
   const ledger = buildLoadLedger(input.anchors, mergedGeneratedSessions);
   const adjustmentBlockedReasons = adjustmentApplication.decisions
     .filter((decision) => decision.status === "applied" && decision.modifiedDayPlans.some((day) => day.generatedSessions.length === 0))
@@ -989,6 +1001,11 @@ export function resolveWeeklyTrainingPlan(input: {
   ];
   const nutritionDownshiftReasons = [
     ...(executionReadiness.fuelingStatus === "unknown" ? ["Missing food log added a fuel prompt only."] : []),
+    ...(executionReadiness.fuelingStatus === "quick_fuel_check_supported" ? ["Quick fuel check improved execution confidence only."] : []),
+    ...(executionReadiness.fuelingStatus === "not_tracking_today" ? ["Food marked not tracking today; no under-fueling evidence was inferred."] : []),
+    ...(executionReadiness.fuelingStatus === "partial_day" || executionReadiness.fuelingStatus === "likely_partial" ? ["Partial food log stayed advisory and did not reduce generated training."] : []),
+    ...(executionReadiness.fuelingStatus === "complete_low_advisory" ? ["One complete low intake day added caution only."] : []),
+    ...(executionReadiness.fuelingStatus === "repeated_low_complete_evidence" ? ["Repeated complete low intake reduced generated load."] : []),
     ...(executionReadiness.fuelingStatus === "underfueling_evidence" ? ["Under-fueling evidence reduced generated load."] : []),
     ...(executionReadiness.fuelingStatus === "severe_underfueling_hard_stop" ? ["Severe under-fueling evidence blocked high-demand generated training."] : [])
   ];
@@ -1205,6 +1222,7 @@ export function resolveWeeklyTrainingPlan(input: {
     loadLedger: ledger,
     ...(input.planGenerationIntent ? { planGenerationIntent: input.planGenerationIntent } : {}),
     supportGenerationAudit,
+    dailyOperatingMode,
     explanation:
       underFuelingRisk
         ? "Under-fueling risk is active, so generated load is reduced and progression is held."
@@ -1223,6 +1241,7 @@ export function resolveWeeklyTrainingPlan(input: {
         ...(input.anchors.length > 0 ? [] : ["protected boxing schedule"]),
         ...(executionReadiness.readinessStatus === "unknown" ? ["readiness check-in"] : []),
         ...(executionReadiness.fuelingStatus === "unknown" ? ["food logs"] : []),
+        ...(executionReadiness.fuelingStatus === "partial_day" || executionReadiness.fuelingStatus === "likely_partial" ? ["complete food log"] : []),
         ...(executionReadiness.hydrationStatus === "advisory" ? ["hydration logs"] : [])
       ]
     )

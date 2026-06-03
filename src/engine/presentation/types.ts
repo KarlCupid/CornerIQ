@@ -9,7 +9,7 @@ import type {
   WeightClassStatus
 } from "../nutrition/fuelCommandTypes";
 import type { PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
-import type { NutritionTrainingDemandHandoff } from "../nutrition/types";
+import type { DailyFoodLogStatus, DailyFoodLogSummary, NutritionTrainingDemandHandoff } from "../nutrition/types";
 import type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
 import type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
@@ -36,6 +36,7 @@ import type {
   TrainingGenerationImpact,
   TrainingExecutionBaselineTargets,
   TrainingExecutionReadinessStatus,
+  DailyOperatingModeView,
   PlannedVsFinalTrainingDelta,
   TrainingStimulus,
   TrainingStimulusMix,
@@ -113,6 +114,7 @@ export interface RecentLogsViewModel {
   };
   foodToday: {
     entryCount: number;
+    status: DailyFoodLogStatus;
     actionLabel: string;
     statusLabel: string;
     summary: string;
@@ -127,6 +129,19 @@ export interface RecentLogsViewModel {
 
 export interface TodayViewModel {
   title: string;
+  dailyOperatingMode: DailyOperatingModeView;
+  statusSnapshot: {
+    readinessStatus: string;
+    fuelLogStatus: string;
+    hydrationStatus: string;
+    operatingMode: string;
+  };
+  executionGuidance: readonly string[];
+  whyThisMatters: string;
+  secondaryActions: readonly {
+    label: string;
+    action: "start_without_logging" | "log_food" | "log_readiness" | "mark_food_not_tracking";
+  }[];
   mission: TopActionViewModel;
   whatChanged: string;
   primaryAction: string;
@@ -156,6 +171,16 @@ export interface FuelViewModel {
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   decisionStack: readonly FuelCommandDecisionItem[];
   trainingDemandHandoff: NutritionTrainingDemandHandoff;
+  foodLogStatus: DailyFoodLogSummary;
+  completionControls: {
+    statusTitle: string;
+    helperCopy: readonly string[];
+    actions: readonly {
+      label: string;
+      kind: "still_logging" | "done_logging" | "not_tracking";
+      summary: string;
+    }[];
+  };
   hitTheseFirst: readonly string[];
   macroTargets: FuelMacroTargetsViewModel;
   calorieSummary: string;
@@ -239,6 +264,12 @@ export interface CycleTrainingDecisionViewModel {
 
 export interface TrainViewModel {
   title: string;
+  executionOverlay: {
+    plannedTraining: string;
+    executionGuidance: readonly string[];
+    missingDataAdvisories: readonly string[];
+    safetyOverrideReason: string | null;
+  };
   topAction: TopActionViewModel;
   todaySummary: string;
   todayGeneratedSessions: readonly {

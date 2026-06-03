@@ -54,14 +54,25 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     activeNutritionSafetyReviews: state.nutrition.activeNutritionSafetyReviews,
     decisionStack: state.nutrition.decisionStack,
     trainingDemandHandoff: state.nutrition.trainingDemandHandoff,
+    foodLogStatus: state.nutrition.dailyFoodLogSummary,
+    completionControls: {
+      statusTitle: "Food log status",
+      helperCopy: [
+        "Only tap done when today's food log represents your full day.",
+        "If you're still eating or logging later, leave it partial.",
+        "If you ate but are not tracking today, CornerIQ will keep training guidance available and will not treat missing food as under-fueling evidence."
+      ],
+      actions: [
+        { label: "Still logging today", kind: "still_logging", summary: "Status becomes partial day; under-fueling evidence stays off." },
+        { label: "I'm done logging today", kind: "done_logging", summary: "Status becomes complete enough for target comparison." },
+        { label: "I ate but I'm not tracking today", kind: "not_tracking", summary: "Training guidance remains available; food is advisory-only." }
+      ]
+    },
     hitTheseFirst: state.nutrition.hitTheseFirst,
     macroTargets: {
-      why: "Based on body mass, training demand, readiness, phase, and safety status.",
+      why: `Targets are based on your profile and today's training. Demand tier: ${state.nutrition.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " ")}.`,
       confidence: state.nutrition.confidence.level,
-      logStatus:
-        state.nutrition.actualIntakeSummary.logCount > 0
-          ? `${state.nutrition.actualIntakeSummary.logCount} food log${state.nutrition.actualIntakeSummary.logCount === 1 ? "" : "s"} counted today.`
-          : "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
+      logStatus: state.nutrition.dailyFoodLogSummary.athleteFacingSummary,
       targets: [
         { label: "Calories", value: `${state.nutrition.dailyCaloriesTarget} kcal` },
         { label: "Protein", value: `${state.nutrition.proteinGrams}g` },
@@ -81,7 +92,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     macroSummary: `${state.nutrition.proteinGrams}g protein, ${state.nutrition.carbohydrateGrams}g carbs, ${state.nutrition.fatGrams}g fat`,
     hydrationSummary: `${state.nutrition.waterLiters}L fluids. ${state.nutrition.sodiumGuidance}`,
     actualIntakeSummary: {
-      title: "Actual vs target today",
+      title: "Logged so far",
       summary: state.nutrition.actualIntakeSummary.summaryCopy,
       confidence: state.nutrition.actualIntakeSummary.confidence.level,
       rows: state.nutrition.actualIntakeSummary.rows

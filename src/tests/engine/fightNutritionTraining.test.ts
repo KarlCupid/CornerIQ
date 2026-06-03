@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { resolveRehydrationPlan } from "../../engine/nutrition/rehydrationEngine";
-import type { AthleteJourney, FightOpportunity, GeneratedTrainingSession, ProtectedWorkout } from "../../engine/core/types";
+import type { AthleteJourney, FightOpportunity, GeneratedTrainingSession, JourneyEvent, ProtectedWorkout } from "../../engine/core/types";
 import {
   amateur_open_tournament,
   fixtureAsOfDate,
@@ -52,6 +52,20 @@ function hardSparringAnchor(id: string, date: string): ProtectedWorkout {
     protected: true,
     rounds: 6,
     type: "sparring"
+  };
+}
+
+function foodLogCompleteEvent(date: string, id = date): JourneyEvent {
+  return {
+    id: `food_complete_${id}`,
+    type: "FoodLogStatusUpdated",
+    occurredAt: `${date}T22:00:00.000Z`,
+    payload: {
+      date,
+      status: "user_marked_complete",
+      completionSource: "user",
+      userMarkedCompleteAt: `${date}T22:00:00.000Z`
+    }
   };
 }
 
@@ -227,7 +241,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
           { date: "2026-05-17", calories: 1500, proteinGrams: 110, carbohydrateGrams: 130, fatGrams: 40, confidence: "medium" },
           { date: "2026-05-18", calories: 1600, proteinGrams: 112, carbohydrateGrams: 140, fatGrams: 42, confidence: "medium" },
           { date: "2026-05-19", calories: 1550, proteinGrams: 115, carbohydrateGrams: 135, fatGrams: 41, confidence: "medium" }
-        ]
+        ],
+        journeyEvents: ["2026-05-17", "2026-05-18", "2026-05-19"].map((date) => foodLogCompleteEvent(date, `repeated_${date}`))
       },
       asOfDate: fixtureAsOfDate
     });
@@ -261,7 +276,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     const state = resolvePerformanceState({
       journey: {
         ...pro_4_round_build_strength,
-        nutritionHistory: [{ date: fixtureAsOfDate, calories: 2400, proteinGrams: 130, carbohydrateGrams: 285, fatGrams: 70, confidence: "low" }]
+        nutritionHistory: [{ date: fixtureAsOfDate, calories: 2400, proteinGrams: 130, carbohydrateGrams: 285, fatGrams: 70, confidence: "low" }],
+        journeyEvents: [foodLogCompleteEvent(fixtureAsOfDate, "healthy_today")]
       },
       asOfDate: fixtureAsOfDate
     });

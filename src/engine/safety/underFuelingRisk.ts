@@ -1,20 +1,20 @@
-import type { BodyMassTrend, CycleState, FoodLog, RiskFlag, TrainingState } from "../core/types";
+import type { BodyMassTrend, CycleState, DailyFoodLogStatusEvent, FoodLog, RiskFlag, TrainingState } from "../core/types";
 import { daysBetween } from "../core/dates";
+import { resolveDailyFoodLogSummary } from "../nutrition/foodLogSummary";
 import { createRiskFlag } from "./riskSafetyEngine";
 
-function recentLowIntakeDayCount(foodLogs: readonly FoodLog[], asOfDate: string): number {
-  const totalsByDate = new Map<string, { calories: number; hasReliableDayContext: boolean }>();
+function recentLowIntakeDayCount(foodLogs: readonly FoodLog[], asOfDate: string, statusEvents: readonly DailyFoodLogStatusEvent[] = [], now?: string): number {
+  const dates = new Set<string>();
   for (const log of foodLogs) {
     if (log.date > asOfDate || daysBetween(log.date, asOfDate) > 6) {
       continue;
     }
-    const existing = totalsByDate.get(log.date) ?? { calories: 0, hasReliableDayContext: false };
-    totalsByDate.set(log.date, {
-      calories: existing.calories + log.calories,
-      hasReliableDayContext: existing.hasReliableDayContext || log.confidence === "medium" || log.confidence === "high"
-    });
+    dates.add(log.date);
   }
-  return [...totalsByDate.values()].filter((day) => day.hasReliableDayContext && day.calories < 1800).length;
+  return [...dates].filter((date) => {
+    const summary = resolveDailyFoodLogSummary(foodLogs, statusEvents, date, undefined, now);
+    return summary.underFuelingEvidenceAllowed && summary.totalCaloriesLogged < 1800 && summary.confidence.score >= 0.55;
+  }).length;
 }
 
 export function assessUnderFuelingRisk(
@@ -22,10 +22,12 @@ export function assessUnderFuelingRisk(
   foodLogs: readonly FoodLog[],
   asOfDate: string,
   cycle?: CycleState,
-  training?: TrainingState
+  training?: TrainingState,
+  foodStatusEvents: readonly DailyFoodLogStatusEvent[] = [],
+  now?: string
 ): readonly RiskFlag[] {
   const flags: RiskFlag[] = [];
-  const recentLowIntakeDays = recentLowIntakeDayCount(foodLogs, asOfDate);
+  const recentLowIntakeDays = recentLowIntakeDayCount(foodLogs, asOfDate, foodStatusEvents, now);
   if (trend.trendKgPerWeek !== null && trend.trendKgPerWeek < -1.2) {
     flags.push(createRiskFlag("nutrition", "rapid_weight_loss", "high", "Rapid body-mass loss raises under-fueling risk.", { trendKgPerWeek: trend.trendKgPerWeek }, true));
   }

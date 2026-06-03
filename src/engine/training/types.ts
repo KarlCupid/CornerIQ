@@ -1,5 +1,6 @@
 import type { Confidence, ISODateString } from "../core/sharedTypes";
 import type { GeneratedSupportWeekday } from "./supportAvailability";
+import type { DailyOperatingModeView } from "./dailyOperatingMode";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
@@ -12,6 +13,10 @@ import type {
   TrainingReadinessFuelingIntegration
 } from "./trainingReadinessFuelingIntegration";
 
+export type {
+  DailyOperatingMode,
+  DailyOperatingModeView
+} from "./dailyOperatingMode";
 export type {
   PlannedVsFinalTrainingDelta,
   TrainingExecutionBaselineTargets,
@@ -635,6 +640,7 @@ export interface TrainingState {
   planGenerationIntent?: PlanGenerationIntent | undefined;
   supportGenerationAudit: TrainingSupportGenerationAudit;
   executionReadiness: TrainingReadinessFuelingIntegration;
+  dailyOperatingMode: DailyOperatingModeView;
   explanation: string;
   confidence: Confidence;
 }

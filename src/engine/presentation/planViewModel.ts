@@ -369,8 +369,11 @@ function fuelRiskClassification(state: PerformanceState): FuelRiskClassification
   if (activeFuelFlags.length > 0) {
     return "underfueling_evidence";
   }
-  if (state.nutrition.actualIntakeSummary.logCount === 0) {
+  if (state.nutrition.actualIntakeSummary.status === "no_log" || state.nutrition.actualIntakeSummary.status === "not_tracking_today") {
     return "missing_data";
+  }
+  if (!state.nutrition.actualIntakeSummary.targetComparisonAllowed) {
+    return "low_confidence";
   }
   if ((state.nutrition.actualIntakeSummary.calorieTargetPercent ?? 0) >= 80) {
     return "healthy_logged";

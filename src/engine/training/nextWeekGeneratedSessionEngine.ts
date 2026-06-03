@@ -130,6 +130,7 @@ function familyBiases(input: NextWeekGeneratedSessionMaterializationInput): read
     readiness: input.readiness,
     safetyFlags: input.safetyFlags,
     nutrition: input.nutrition,
+    foodLogSummary: input.nutrition?.actualIntakeSummary.dailySummary,
     cycle: input.cycle
   });
   if (constraints.hardSafetyConstraints.length > 0) {
@@ -250,6 +251,7 @@ function adjustedShape(
     readiness: input.readiness,
     safetyFlags: input.safetyFlags,
     nutrition: input.nutrition,
+    foodLogSummary: input.nutrition?.actualIntakeSummary.dailySummary,
     cycle: input.cycle
   });
   const template = selectWorkoutTemplate({

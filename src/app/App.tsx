@@ -187,6 +187,9 @@ function useLocalE2EQuickLogs(setMessage: (message: string) => void): QuickLogAc
       logHydration: async () => save("Hydration log"),
       logCycle: async () => save("Cycle log"),
       logFood: async () => save("Food quick log"),
+      markFoodStillLoggingToday: async () => save("Food partial status"),
+      markFoodDoneLoggingToday: async () => save("Food complete status"),
+      markFoodNotTrackingToday: async () => save("Food not-tracking status"),
       logProtectedWorkout: async () => save("Training log")
     };
   }, [setMessage]);

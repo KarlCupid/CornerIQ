@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { CompletedTrainingSession, DetailedTrainingSession, ExerciseResultRecord, GeneratedSessionFamily, GeneratedTrainingSession, JourneyEvent, ReadinessState } from "../../engine/core/types";
+import type {
+  CompletedTrainingSession,
+  DailyFoodLogStatusEvent,
+  DetailedTrainingSession,
+  ExerciseResultRecord,
+  FoodLog,
+  GeneratedSessionFamily,
+  GeneratedTrainingSession,
+  JourneyEvent,
+  ReadinessState
+} from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { exerciseCatalog } from "../../engine/training/exerciseCatalog";
 import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
@@ -464,6 +474,16 @@ describe("progression and train view model", () => {
 });
 
 describe("food log actual-vs-target summary", () => {
+  function foodLogStatusEvent(status: DailyFoodLogStatusEvent["status"], date = fixtureAsOfDate): DailyFoodLogStatusEvent {
+    return {
+      date,
+      status,
+      completionSource: status === "not_tracking_today" ? "not_tracking" : "user",
+      occurredAt: `${date}T22:00:00.000Z`,
+      userMarkedCompleteAt: status === "user_marked_complete" ? `${date}T22:00:00.000Z` : undefined
+    };
+  }
+
   it("summarizes macros, fiber, sodium, and confidence without shame copy", () => {
     const summary = summarizeFoodLogs(
       [
@@ -479,6 +499,8 @@ describe("food log actual-vs-target summary", () => {
     expect(summary.fiberLoggedGrams).toBe(8);
     expect(summary.sodiumLoggedMg).toBe(700);
     expect(summary.calorieTargetPercent).toBe(40);
+    expect(summary.status).toBe("partial_day");
+    expect(summary.underFuelingEvidenceAllowed).toBe(false);
     expect(summary.rows.join(" ")).toContain("sodium");
   });
 
@@ -489,5 +511,35 @@ describe("food log actual-vs-target summary", () => {
     expect(summary.confidence.level).toBe("low");
     expect(summary.summaryCopy.toLowerCase()).not.toContain("shame");
     expect(summary.summaryCopy).toBe("No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.");
+  });
+
+  it("separates partial, complete, not-tracking, and quick fuel-check food states", () => {
+    const targets = { calories: 2000, proteinGrams: 120, carbohydrateGrams: 250, fatGrams: 70 };
+    const lowDay: FoodLog = { date: fixtureAsOfDate, calories: 900, proteinGrams: 55, carbohydrateGrams: 110, fatGrams: 25, confidence: "medium" };
+    const quickCheck: FoodLog = {
+      date: fixtureAsOfDate,
+      calories: 250,
+      proteinGrams: 5,
+      carbohydrateGrams: 55,
+      fatGrams: 3,
+      confidence: "medium",
+      entryType: "quick_fuel_check"
+    };
+
+    const partial = summarizeFoodLogs([lowDay], fixtureAsOfDate, targets);
+    const complete = summarizeFoodLogs([lowDay], fixtureAsOfDate, targets, [foodLogStatusEvent("user_marked_complete")]);
+    const notTracking = summarizeFoodLogs([], fixtureAsOfDate, targets, [foodLogStatusEvent("not_tracking_today")]);
+    const quick = summarizeFoodLogs([quickCheck], fixtureAsOfDate, targets);
+
+    expect(partial.status).toBe("partial_day");
+    expect(partial.targetComparisonAllowed).toBe(false);
+    expect(partial.underFuelingEvidenceAllowed).toBe(false);
+    expect(complete.status).toBe("complete_estimated");
+    expect(complete.targetComparisonAllowed).toBe(true);
+    expect(complete.underFuelingEvidenceAllowed).toBe(true);
+    expect(notTracking.status).toBe("not_tracking_today");
+    expect(notTracking.underFuelingEvidenceAllowed).toBe(false);
+    expect(quick.status).toBe("quick_fuel_check_only");
+    expect(quick.targetComparisonAllowed).toBe(false);
   });
 });

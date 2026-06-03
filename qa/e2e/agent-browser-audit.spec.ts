@@ -438,11 +438,17 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("Log food or water if you have it");
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("can wait unless a safety note is active");
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Today's fuel targets");
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Based on body mass, training demand, readiness, phase, and safety status.");
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Targets are based on your profile and today's training\. Demand tier:/);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Logs help compare what happened.");
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Calories\s*\d+\s*kcal\s*\/\s*\d+\s*kcal/i);
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Protein\s*\d+g\s*\/\s*\d+g/i);
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Carbs\s*\d+g\s*\/\s*\d+g/i);
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Fat\s*\d+g\s*\/\s*\d+g/i);
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Food log status");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("This is not under-fueling evidence unless you mark the day complete.");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Still logging today");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("I'm done logging today");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("I ate but I'm not tracking today");
   await expectVisibleText(page, "What to do now");
   await expectVisibleText(page, "Fuel the boxing work first");
   await expectVisibleText(page, "Log food");
@@ -534,6 +540,8 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("train-top-action-card")).toContainText("Training action");
   await expect(page.getByTestId("train-top-action-card")).toContainText("Use Train for today's generated boxing training");
   await expect(page.getByTestId("train-top-action-card")).toContainText(/Exercise history and progression can wait/i);
+  await expect(page.getByTestId("train-execution-overlay-card")).toContainText("Planned workout");
+  await expect(page.getByTestId("train-execution-overlay-card")).toContainText("Execution guidance");
   const mainWorkoutCount = await page.getByTestId("train-main-workout-command").count();
   if (mainWorkoutCount > 0) {
     await expectVisibleText(page, "What to do");
@@ -834,8 +842,12 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("today-screen")).toBeVisible();
   await expect(page.getByTestId("today-mission-card")).toContainText("Today's mission");
   await expect(page.getByTestId("today-mission-card")).toContainText("Use Today as the command center");
-  await expect(page.getByTestId("today-mission-card")).toContainText("Log readiness or body mass");
-  await expect(page.getByTestId("today-mission-card")).toContainText("Missing data stays unknown");
+  await expect(page.getByTestId("today-mission-card")).toContainText("Workout-only use still gets useful training");
+  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Daily Check-In / Daily Operating Mode");
+  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Do 60-sec check-in");
+  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Start without logging");
+  await expect(page.getByTestId("today-execution-guidance-card")).toContainText("Why This Matters");
+  await expect(page.getByTestId("today-execution-guidance-card")).toContainText("Missing logs lower confidence; they do not remove planned training.");
   await expect(page.getByTestId("today-screen")).toContainText(/Readiness check due|Readiness summary/);
   await expect(page.getByTestId("today-screen")).toContainText(/Body mass log due|Today's body mass logged/);
   await expect(page.getByTestId("today-screen")).toContainText("Today's hydration total");
@@ -911,8 +923,12 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
   await expect(page.getByTestId("today-screen")).toBeVisible();
   await expect(page.getByTestId("today-mission-card")).toContainText("Today's mission");
   await expect(page.getByTestId("today-mission-card")).toContainText("Use Today as the command center");
-  await expect(page.getByTestId("today-mission-card")).toContainText("Log readiness or body mass");
-  await expect(page.getByTestId("today-mission-card")).toContainText("Missing data stays unknown");
+  await expect(page.getByTestId("today-mission-card")).toContainText("Workout-only use still gets useful training");
+  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Daily Check-In / Daily Operating Mode");
+  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Do 60-sec check-in");
+  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Start without logging");
+  await expect(page.getByTestId("today-execution-guidance-card")).toContainText("Why This Matters");
+  await expect(page.getByTestId("today-execution-guidance-card")).toContainText("Missing logs lower confidence; they do not remove planned training.");
   await expect(page.getByTestId("today-screen")).toContainText(/Readiness check due|Readiness summary/);
   await expect(page.getByTestId("today-screen")).toContainText(/Body mass log due|Today's body mass logged/);
   await expect(page.getByTestId("today-screen")).toContainText("Add hydration to today. Each save adds another water/sodium entry");

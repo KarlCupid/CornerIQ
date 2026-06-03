@@ -1,5 +1,5 @@
 import type { CycleState } from "../cycle/types";
-import type { NutritionState } from "../nutrition/types";
+import type { DailyFoodLogSummary, NutritionState } from "../nutrition/types";
 import type { ReadinessState } from "../readiness/types";
 import type { RiskFlag } from "../safety/types";
 import type { ProtectedWorkout, TrainingGenerationConstraintAuditItem, TrainingGenerationConstraintSummaryAudit } from "./types";
@@ -65,7 +65,7 @@ export function supportCountFuelCapFlags(flags: readonly RiskFlag[] | undefined)
 export function missingNutritionData(nutrition: NutritionTrainingContext | undefined): boolean {
   return Boolean(
     nutrition &&
-      (nutrition.actualIntakeSummary.logCount === 0 ||
+      (nutrition.actualIntakeSummary.status === "no_log" ||
         nutrition.confidence.missingInputs.some((item) => item.toLowerCase().includes("food log")) ||
         nutrition.actualIntakeSummary.confidence.missingInputs.some((item) => item.toLowerCase().includes("food log")))
   );
@@ -86,6 +86,28 @@ export function fuelingUncertaintyAdvisory(input: {
   safetyFlags?: readonly RiskFlag[] | undefined;
 }): boolean {
   return !activeUnderfuelingEvidence(input.safetyFlags) && (missingNutritionData(input.nutrition) || lowNutritionConfidence(input.nutrition));
+}
+
+function foodStatusAdvisory(summary: DailyFoodLogSummary | undefined): TrainingGenerationConstraintAuditItem | null {
+  if (!summary) {
+    return null;
+  }
+  switch (summary.status) {
+    case "no_log":
+      return item("advisoryUncertainty", "missing_food_log", "nutrition", "No food log today; fuel the planned session normally and log meals only to personalize guidance.");
+    case "quick_fuel_check_only":
+      return item("advisoryUncertainty", "quick_fuel_check_only", "nutrition", "Quick fuel check supports execution confidence but is not macro completeness.");
+    case "not_tracking_today":
+      return item("advisoryUncertainty", "food_not_tracking_today", "nutrition", "Food marked not tracking today; training stays planned and missing food is not under-fueling evidence.");
+    case "partial_day":
+    case "likely_partial":
+    case "auto_closed_incomplete":
+      return item("advisoryUncertainty", "partial_food_log", "nutrition", "Food log is incomplete; logged so far is advisory and cannot create under-fueling evidence.");
+    case "user_marked_complete":
+    case "complete_estimated":
+    case "complete_high_confidence":
+      return null;
+  }
 }
 
 export function readinessUncertaintyAdvisory(readiness: ReadinessState): boolean {
@@ -133,11 +155,13 @@ export function classifyTrainingGenerationConstraints(input: {
   safetyFlags?: readonly RiskFlag[] | undefined;
   nutrition?: NutritionTrainingContext | undefined;
   foodLogCount?: number | undefined;
+  foodLogSummary?: DailyFoodLogSummary | undefined;
   cycle?: CycleState | undefined;
   protectedAnchors?: readonly ProtectedWorkout[] | undefined;
   date?: string | undefined;
 }): TrainingGenerationConstraintSummaryAudit {
-  const foodLogMissing = missingNutritionData(input.nutrition) || input.foodLogCount === 0;
+  const statusAdvisory = foodStatusAdvisory(input.foodLogSummary);
+  const foodLogMissing = input.foodLogSummary ? input.foodLogSummary.status === "no_log" : missingNutritionData(input.nutrition) || input.foodLogCount === 0;
   const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags ?? []);
   const hardSafetyConstraints: TrainingGenerationConstraintAuditItem[] = [
     ...activeHardStopFlags(input.safetyFlags).map((flag) => item("hardSafetyConstraint", flag.code, "safety", flag.message)),
@@ -165,7 +189,9 @@ export function classifyTrainingGenerationConstraints(input: {
     ...(readinessUncertaintyAdvisory(input.readiness)
       ? [item("advisoryUncertainty", "missing_readiness_check_in", "readiness", "No readiness check-in today; use the warm-up gate before training.")]
       : []),
-    ...(foodLogMissing
+    ...(statusAdvisory
+      ? [statusAdvisory]
+      : foodLogMissing
       ? [item("advisoryUncertainty", "missing_food_log", "nutrition", "No food log today; fuel the planned session normally and log meals only to personalize guidance.")]
       : []),
     ...(!foodLogMissing && lowNutritionConfidence(input.nutrition)

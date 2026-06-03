@@ -39,7 +39,8 @@ vi.mock("@react-navigation/native", () => ({
 vi.mock("@react-navigation/bottom-tabs", () => ({
   createBottomTabNavigator: () => ({
     Navigator: ({ children }: { children?: React.ReactNode }) => React.createElement("TabNavigator", null, children),
-    Screen: ({ children }: { children?: React.ReactNode | (() => React.ReactNode) }) => React.createElement("TabScreen", null, typeof children === "function" ? children() : children)
+    Screen: ({ children }: { children?: React.ReactNode | ((props: { navigation: { navigate: (name: string) => void } }) => React.ReactNode) }) =>
+      React.createElement("TabScreen", null, typeof children === "function" ? children({ navigation: { navigate: () => undefined } }) : children)
   })
 }));
 
@@ -68,14 +69,72 @@ vi.mock("react-native", () => {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const testConfidence = {
+  level: "medium" as const,
+  score: 0.72,
+  reasons: ["test fixture"],
+  missingInputs: []
+};
+
+const dailyOperatingMode: TodayViewModel["dailyOperatingMode"] = {
+  mode: "full_plan",
+  title: "Full plan",
+  athleteFacingSummary: "Training stays planned from athlete profile, phase, availability, anchors, and history.",
+  primaryAction: "Open the planned workout when ready.",
+  secondaryAction: "Start without logging if you need to train now.",
+  requiredGates: [],
+  executionGuidance: ["Readiness supports the planned session.", "Fuel and hydrate normally."],
+  missingDataImpact: "Fresh supported logs improve execution confidence.",
+  safetyOverrideReason: null,
+  confidence: 0.72
+};
+
+const dailyFoodLogSummary: FuelViewModel["foodLogStatus"] = {
+  date: fixtureAsOfDate,
+  status: "complete_estimated",
+  totalCaloriesLogged: 1200,
+  proteinGramsLogged: 80,
+  carbohydrateGramsLogged: 140,
+  fatGramsLogged: 35,
+  fiberGramsLogged: 18,
+  sodiumMgLogged: 1800,
+  mealTagsLogged: ["day_total"],
+  entryCount: 1,
+  userMarkedCompleteAt: `${fixtureAsOfDate}T23:00:00.000Z`,
+  completionSource: "user",
+  confidence: testConfidence,
+  coverageScore: 0.82,
+  macroCompletenessScore: 0.58,
+  targetComparisonAllowed: true,
+  underFuelingEvidenceAllowed: true,
+  missingMealHints: [],
+  athleteFacingSummary: "Day marked complete. CornerIQ can compare intake to today's training demand.",
+  engineInterpretation: "Complete food evidence can inform low-intake cautions and repeated-day safety evidence."
+};
+
 const todayViewModel: TodayViewModel = {
   title: "Today",
+  dailyOperatingMode,
+  statusSnapshot: {
+    readinessStatus: "green",
+    fuelLogStatus: "complete estimated",
+    hydrationStatus: "supported",
+    operatingMode: "Full plan"
+  },
+  executionGuidance: dailyOperatingMode.executionGuidance,
+  whyThisMatters: "Your training stays planned. Logging readiness and fuel helps CornerIQ adjust how you execute it. Missing logs lower confidence; they do not remove planned training. Safety evidence can still override the plan.",
+  secondaryActions: [
+    { label: "Start without logging", action: "start_without_logging" },
+    { label: "Log food", action: "log_food" },
+    { label: "Log readiness", action: "log_readiness" },
+    { label: "Mark not tracking food today", action: "mark_food_not_tracking" }
+  ],
   mission: {
     title: "Today's mission",
     purpose: "Use Today as the command center for the next useful step.",
-    primaryAction: "Log readiness or body mass if you have it. Then follow the training call.",
+    primaryAction: "Open the planned workout when ready.",
     why: "The engine is waiting for fresh manual inputs.",
-    optional: "Food, water, pain, and cycle notes add context. Missing data stays unknown."
+    optional: "Food, water, pain, and cycle notes add context. Workout-only use still gets useful training."
   },
   whatChanged: "Low confidence because several inputs are missing.",
   primaryAction: "Complete the planned generated training session.",
@@ -195,18 +254,45 @@ const fuelViewModel: FuelViewModel = {
   trainingDemandHandoff: {
     todayTrainingDemand: "moderate",
     weeklyTrainingDemand: "moderate",
+    todayTrainingDemandTier: "strength",
+    weeklyTrainingDemandTier: "strength",
     hardOrHighStimulusDates: [],
     fuelDemandDates: ["2026-05-19"],
+    fuelPriorityByDate: [
+      {
+        date: "2026-05-19",
+        tier: "strength",
+        priority: "Protein stays steady with moderate/high carbs when lifting is longer or harder."
+      }
+    ],
+    carbPriorityToday: "Carbs should match normal meals and the planned boxing work.",
+    proteinPriorityToday: "Protein stays steady to support strength and power work.",
+    hydrationPriorityToday: "Keep fluids and sodium consistent.",
     carbohydrateEmphasisBySessionType: ["2026-05-19: Support uses steady carbohydrate and fluid emphasis."],
     missingFoodLogAdvisory: null,
     underFuelingWarning: null,
-    deficitPressureBlocked: false
+    deficitPressureBlocked: false,
+    deficitPressureBlockedReason: null
+  },
+  foodLogStatus: dailyFoodLogSummary,
+  completionControls: {
+    statusTitle: "Food log status",
+    helperCopy: [
+      "Only tap done when today's food log represents your full day.",
+      "If you're still eating or logging later, leave it partial.",
+      "If you ate but are not tracking today, CornerIQ will keep training guidance available and will not treat missing food as under-fueling evidence."
+    ],
+    actions: [
+      { label: "Still logging today", kind: "still_logging", summary: "Status becomes partial day; under-fueling evidence stays off." },
+      { label: "I'm done logging today", kind: "done_logging", summary: "Status becomes complete enough for target comparison." },
+      { label: "I ate but I'm not tracking today", kind: "not_tracking", summary: "Training guidance remains available; food is advisory-only." }
+    ]
   },
   hitTheseFirst: ["Water", "Carbs"],
   macroTargets: {
-    why: "Based on body mass, training demand, readiness, phase, and safety status.",
+    why: "Targets are based on your profile and today's training. Demand tier: strength.",
     confidence: "medium",
-    logStatus: "1 food log counted today.",
+    logStatus: "Day marked complete. CornerIQ can compare intake to today's training demand.",
     targets: [
       { label: "Calories", value: "2200 kcal" },
       { label: "Protein", value: "130g" },
@@ -226,8 +312,8 @@ const fuelViewModel: FuelViewModel = {
   macroSummary: "130g protein",
   hydrationSummary: "2.5L water",
   actualIntakeSummary: {
-    title: "Actual intake today",
-    summary: "1 food log recorded today.",
+    title: "Logged so far",
+    summary: "Day marked complete. CornerIQ can compare intake to today's training demand.",
     confidence: "low",
     rows: ["1200 kcal logged"]
   },
@@ -312,6 +398,12 @@ const fuelViewModel: FuelViewModel = {
 
 const trainViewModel: TrainViewModel = {
   title: "Train",
+  executionOverlay: {
+    plannedTraining: "Strength support (35 min)",
+    executionGuidance: ["Readiness supports the planned session.", "Fuel and hydrate normally."],
+    missingDataAdvisories: [],
+    safetyOverrideReason: null
+  },
   topAction: {
     title: "Training action",
     purpose: "Use Train for today's generated boxing training and what to log after.",
@@ -797,6 +889,7 @@ const recentLogsViewModel: RecentLogsViewModel = {
   },
   foodToday: {
     entryCount: 1,
+    status: "complete_estimated",
     actionLabel: "Add food entry",
     statusLabel: "Entries add up",
     summary: "1 food log today. 2200 kcal logged in today's context.",
@@ -814,6 +907,9 @@ const quickLogActions: QuickLogActions = {
   logCycle: vi.fn(),
   logFood: vi.fn(),
   logHydration: vi.fn(),
+  markFoodStillLoggingToday: vi.fn(),
+  markFoodDoneLoggingToday: vi.fn(),
+  markFoodNotTrackingToday: vi.fn(),
   logProtectedWorkout: vi.fn(),
   logReadiness: vi.fn()
 };
@@ -1340,7 +1436,12 @@ describe("minimal app screens", () => {
     expect(output).toContain("Do now");
     expect(output).toContain("Why");
     expect(output).toContain("Optional");
-    expect(output).toContain("Log readiness or body mass if you have it");
+    expect(output).toContain("Open the planned workout when ready");
+    expect(output).toContain("Daily Check-In / Daily Operating Mode");
+    expect(output).toContain("Do 60-sec check-in");
+    expect(output).toContain("Start without logging");
+    expect(output).toContain("Execution Guidance");
+    expect(output).toContain("Missing logs lower confidence; they do not remove planned training.");
     expect(output).toContain("Complete the planned generated training session");
     expect(output.indexOf("Today's mission")).toBeLessThan(output.indexOf("Training call"));
     expect(output.indexOf("Today's mission")).toBeLessThan(output.indexOf("Last body mass"));
@@ -1439,9 +1540,17 @@ describe("minimal app screens", () => {
     expect(output).toContain("Log food or water if you have it");
     expect(output).toContain("Targets, body mass, and review history can wait");
     expect(output).toContain("Today's fuel targets");
-    expect(output).toContain("Based on body mass, training demand, readiness, phase, and safety status.");
+    expect(output).toContain("Targets are based on your profile and today's training. Demand tier: strength.");
+    expect(output).toContain("Logs help compare what happened.");
     expect(output).toContain("Calories");
     expect(output).toContain("2200 kcal");
+    expect(output).toContain("Food log status");
+    expect(output).toContain("Logged so far:");
+    expect(output).toContain("1200");
+    expect(output).toContain("This is not under-fueling evidence unless you mark the day complete.");
+    expect(output).toContain("Still logging today");
+    expect(output).toContain("I'm done logging today");
+    expect(output).toContain("I ate but I'm not tracking today");
     expect(output).toContain("What to do now");
     expect(output).toContain("Log food");
     expect(output).not.toContain("Log water");
@@ -1454,11 +1563,11 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Show Body Mass");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Body-mass trajectory");
-    expect(output).not.toContain("2200 kcal target");
+    expect(output).toContain("Body-mass trajectory detail");
     await switchSection(renderer, "Show History");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Recent fuel history");
-    expect(output).toContain("Actual intake today");
+    expect(output).toContain("Logged so far");
     expect(output).toContain("Log water");
   });
 
@@ -1767,6 +1876,9 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Training action");
     expect(output).toContain("Use Train for today's generated boxing training");
+    expect(output).toContain("Planned workout");
+    expect(output).toContain("Execution guidance");
+    expect(output).toContain("Strength support (35 min)");
     expect(output).toContain("Open Workout when you are ready");
     expect(output).toContain("Open workout, then log result.");
     expect(output).toContain("Purpose:");
@@ -3381,6 +3493,9 @@ describe("minimal app screens", () => {
       logCycle: vi.fn(),
       logFood: vi.fn(),
       logHydration: vi.fn(),
+      markFoodStillLoggingToday: vi.fn(),
+      markFoodDoneLoggingToday: vi.fn(),
+      markFoodNotTrackingToday: vi.fn(),
       logProtectedWorkout: vi.fn(),
       logReadiness: vi.fn()
     };
@@ -3409,6 +3524,9 @@ describe("minimal app screens", () => {
       logCycle: vi.fn(),
       logFood: vi.fn(),
       logHydration: vi.fn(),
+      markFoodStillLoggingToday: vi.fn(),
+      markFoodDoneLoggingToday: vi.fn(),
+      markFoodNotTrackingToday: vi.fn(),
       logProtectedWorkout: vi.fn(),
       logReadiness: vi.fn()
     };
@@ -3451,6 +3569,9 @@ describe("minimal app screens", () => {
       logCycle: vi.fn(),
       logFood: vi.fn(),
       logHydration: vi.fn(),
+      markFoodStillLoggingToday: vi.fn(),
+      markFoodDoneLoggingToday: vi.fn(),
+      markFoodNotTrackingToday: vi.fn(),
       logProtectedWorkout: vi.fn(),
       logReadiness: vi.fn()
     };

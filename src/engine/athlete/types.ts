@@ -93,6 +93,7 @@ export type JourneyEventType =
   | "RecoveryStarted"
   | "BodyMassLogged"
   | "FoodLogged"
+  | "FoodLogStatusUpdated"
   | "WaterLogged"
   | "ElectrolyteLogged"
   | "CycleBleedingStarted"

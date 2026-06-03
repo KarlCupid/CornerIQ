@@ -1,13 +1,17 @@
-import type { GeneratedTrainingSession, ReadinessState, RiskFlag } from "../core/types";
+import type { DailyFoodLogSummary, GeneratedTrainingSession, ReadinessState, RiskFlag } from "../core/types";
 import { activeHardStopFlags, activeUnderfuelingEvidenceFlags, severeFuelingRisk } from "./trainingGenerationConstraints";
 
 export type TrainingGenerationImpact = "none" | "advisory" | "execution_adjustment" | "load_downshift" | "hard_block";
 export type TrainingExecutionReadinessStatus = "unknown" | "green" | "amber" | "red_non_hard_stop" | "red_hard_stop";
 export type TrainingExecutionFuelingStatus =
   | "unknown"
-  | "logged_supported"
-  | "logged_low_confidence"
-  | "underfueled_advisory"
+  | "quick_fuel_check_supported"
+  | "not_tracking_today"
+  | "partial_day"
+  | "likely_partial"
+  | "complete_supported"
+  | "complete_low_advisory"
+  | "repeated_low_complete_evidence"
   | "underfueling_evidence"
   | "severe_underfueling_hard_stop";
 export type TrainingExecutionHydrationStatus = "unknown" | "supported" | "advisory" | "hard_stop";
@@ -52,7 +56,7 @@ export interface TrainingReadinessFuelingIntegration {
 export interface ResolveTrainingReadinessFuelingIntegrationInput {
   readiness: ReadinessState;
   safetyFlags: readonly RiskFlag[];
-  foodLogCount: number;
+  foodLogSummary: DailyFoodLogSummary;
   hydrationLogCount: number;
   electrolyteLogCount: number;
 }
@@ -84,12 +88,25 @@ function fuelingStatus(input: ResolveTrainingReadinessFuelingIntegrationInput): 
     return "severe_underfueling_hard_stop";
   }
   if (underfuelingFlags.length > 0) {
-    return "underfueling_evidence";
+    return underfuelingFlags.some((flag) => flag.code === "repeated_low_intake") ? "repeated_low_complete_evidence" : "underfueling_evidence";
   }
-  if (input.foodLogCount === 0) {
-    return "unknown";
+  switch (input.foodLogSummary.status) {
+    case "no_log":
+      return "unknown";
+    case "quick_fuel_check_only":
+      return "quick_fuel_check_supported";
+    case "not_tracking_today":
+      return "not_tracking_today";
+    case "partial_day":
+      return "partial_day";
+    case "likely_partial":
+    case "auto_closed_incomplete":
+      return "likely_partial";
+    case "user_marked_complete":
+    case "complete_estimated":
+    case "complete_high_confidence":
+      return input.foodLogSummary.totalCaloriesLogged > 0 && input.foodLogSummary.totalCaloriesLogged < 1800 ? "complete_low_advisory" : "complete_supported";
   }
-  return "logged_supported";
 }
 
 function hydrationStatus(input: ResolveTrainingReadinessFuelingIntegrationInput): TrainingExecutionHydrationStatus {
@@ -122,14 +139,18 @@ function impactFromFueling(status: TrainingExecutionFuelingStatus): TrainingGene
   switch (status) {
     case "severe_underfueling_hard_stop":
       return "hard_block";
+    case "repeated_low_complete_evidence":
     case "underfueling_evidence":
       return "load_downshift";
-    case "underfueled_advisory":
-    case "logged_low_confidence":
+    case "complete_low_advisory":
       return "execution_adjustment";
+    case "quick_fuel_check_supported":
+    case "not_tracking_today":
+    case "partial_day":
+    case "likely_partial":
     case "unknown":
       return "advisory";
-    case "logged_supported":
+    case "complete_supported":
       return "none";
   }
 }
@@ -177,12 +198,20 @@ function fuelingGateFor(status: TrainingExecutionFuelingStatus): string {
   switch (status) {
     case "unknown":
       return "No food log today. Training still stays planned. Fuel the planned session normally; for hard or high-demand sessions, get carbohydrate and fluid before training when possible.";
-    case "logged_supported":
-      return "Food logging supports normal training confidence. Match carbs and fluids to the planned session demand.";
-    case "logged_low_confidence":
-      return "Food logging is low confidence. Keep training available, add a fuel prompt, and avoid all-out finishers until the athlete feels supported.";
-    case "underfueled_advisory":
-      return "Low intake is advisory today. Fuel before training, trim optional finishers if quality drops, and avoid all-out work.";
+    case "quick_fuel_check_supported":
+      return "Quick fuel check supports pre-session confidence. It does not act like a full macro log.";
+    case "not_tracking_today":
+      return "Food marked not tracking today. Training guidance remains available and missing food is not under-fueling evidence.";
+    case "partial_day":
+      return "Food log is partial so far. Logged intake can guide execution, but it is not under-fueling evidence.";
+    case "likely_partial":
+      return "Food log is likely partial or auto-closed incomplete. Treat it as advisory execution context only.";
+    case "complete_supported":
+      return "Complete food logging supports normal training confidence. Match carbs and fluids to the planned session demand.";
+    case "complete_low_advisory":
+      return "One complete low intake day adds caution. Fuel before training, protect recovery fuel, and trim optional finishers if quality drops.";
+    case "repeated_low_complete_evidence":
+      return "Repeated complete low intake evidence is active. Downshift high-demand work and protect recovery fuel.";
     case "underfueling_evidence":
       return "Under-fueling evidence is active. Downshift high-demand work and protect recovery fuel.";
     case "severe_underfueling_hard_stop":
@@ -214,14 +243,24 @@ export function resolveTrainingReadinessFuelingIntegration(
   const hydrationGenerationImpact = impactFromHydration(resolvedHydrationStatus);
   const generationImpact = strongestImpact([readinessGenerationImpact, nutritionGenerationImpact, hydrationGenerationImpact]);
   const missingReadiness = resolvedReadinessStatus === "unknown";
+  const fuelStatusIsExecutionOnly =
+    resolvedFuelingStatus === "unknown" ||
+    resolvedFuelingStatus === "quick_fuel_check_supported" ||
+    resolvedFuelingStatus === "not_tracking_today" ||
+    resolvedFuelingStatus === "partial_day" ||
+    resolvedFuelingStatus === "likely_partial";
   const missingFuel = resolvedFuelingStatus === "unknown";
   const missingHydration = input.hydrationLogCount === 0 && resolvedHydrationStatus !== "hard_stop";
-  const missingLogsAffectedExecutionOnly = (missingReadiness || missingFuel || missingHydration) && generationImpact !== "hard_block" && generationImpact !== "load_downshift";
+  const missingLogsAffectedExecutionOnly = (missingReadiness || fuelStatusIsExecutionOnly || missingHydration) && generationImpact !== "hard_block" && generationImpact !== "load_downshift";
   const executionAdjustmentsApplied = [
     ...(resolvedReadinessStatus === "unknown" ? ["warm-up gate for missing readiness"] : []),
     ...(resolvedReadinessStatus === "amber" ? ["amber readiness RPE and recovery cap"] : []),
     ...(resolvedReadinessStatus === "red_non_hard_stop" ? ["red readiness execution downshift without hard-stop block"] : []),
     ...(resolvedFuelingStatus === "unknown" ? ["fuel prompt for missing food log"] : []),
+    ...(resolvedFuelingStatus === "partial_day" || resolvedFuelingStatus === "likely_partial" ? ["partial food log kept advisory"] : []),
+    ...(resolvedFuelingStatus === "not_tracking_today" ? ["not-tracking food status kept advisory"] : []),
+    ...(resolvedFuelingStatus === "complete_low_advisory" ? ["one complete low intake day caution"] : []),
+    ...(resolvedFuelingStatus === "repeated_low_complete_evidence" ? ["load downshift for repeated complete low intake"] : []),
     ...(resolvedFuelingStatus === "underfueling_evidence" ? ["load downshift for under-fueling evidence"] : []),
     ...(resolvedHydrationStatus === "advisory" || resolvedHydrationStatus === "unknown" ? ["hydration prompt"] : [])
   ];
@@ -231,6 +270,7 @@ export function resolveTrainingReadinessFuelingIntegration(
     generationImpact === "hard_block" ? "Hard safety evidence blocks baseline execution." : "Baseline prescription stays available unless explicit evidence overrides it.",
     generationImpact === "load_downshift" ? "Fueling evidence can reduce load while preserving useful training structure." : "",
     missingLogsAffectedExecutionOnly ? "Missing logs affect confidence and execution guidance only." : "",
+    fuelStatusIsExecutionOnly && !missingFuel ? "Incomplete or not-tracking food status cannot create under-fueling evidence." : "",
     ...executionAdjustmentsApplied.map((item) => `Execution layer: ${item}.`)
   ]);
   const sessionExecutionGuidance = unique([
@@ -250,15 +290,18 @@ export function resolveTrainingReadinessFuelingIntegration(
     ...underfuelingReasons,
     ...(missingReadiness ? ["Readiness log missing: advisory only."] : []),
     ...(missingFuel ? ["Food log missing: advisory only."] : []),
+    ...(resolvedFuelingStatus === "partial_day" || resolvedFuelingStatus === "likely_partial" ? ["Food log incomplete: advisory only."] : []),
+    ...(resolvedFuelingStatus === "not_tracking_today" ? ["Food marked not tracking: no under-fueling evidence."] : []),
+    ...(resolvedFuelingStatus === "complete_low_advisory" ? ["One complete low food day: caution only."] : []),
     ...(missingHydration ? ["Hydration log missing: advisory only."] : []),
     ...executionAdjustmentsApplied
   ]);
   const confidenceScore =
     generationImpact === "hard_block"
       ? 0.86
-      : resolvedReadinessStatus === "green" && resolvedFuelingStatus === "logged_supported" && resolvedHydrationStatus === "supported"
+      : resolvedReadinessStatus === "green" && resolvedFuelingStatus === "complete_supported" && resolvedHydrationStatus === "supported"
         ? 0.83
-        : missingReadiness || missingFuel || missingHydration
+        : missingReadiness || fuelStatusIsExecutionOnly || missingHydration
           ? 0.62
           : 0.72;
 
@@ -281,7 +324,7 @@ export function resolveTrainingReadinessFuelingIntegration(
     confidenceImpact:
       confidenceScore >= 0.8
         ? "Fresh consistent readiness, fueling, and hydration logs increase confidence."
-        : missingReadiness || missingFuel || missingHydration
+        : missingReadiness || fuelStatusIsExecutionOnly || missingHydration
           ? "Missing logs lower confidence and add execution gates, but do not reduce baseline generation."
           : "Execution guidance is adjusted from explicit athlete context.",
     confidenceScore,
@@ -292,7 +335,7 @@ export function resolveTrainingReadinessFuelingIntegration(
 
 function sessionFuelBefore(session: GeneratedTrainingSession, integration: TrainingReadinessFuelingIntegration): string {
   if (session.fuelDemand === "high") {
-    return integration.fuelingStatus === "unknown"
+    return integration.fuelingStatus === "unknown" || integration.fuelingStatus === "partial_day" || integration.fuelingStatus === "likely_partial" || integration.fuelingStatus === "not_tracking_today"
       ? "For this high-demand session, get familiar carbohydrate and fluid before training when possible."
       : "Use familiar carbohydrate and fluid before this high-demand session.";
   }
@@ -313,6 +356,9 @@ export function applyTrainingExecutionGuidance(
   const missingDataAdvisories = unique([
     ...(integration.readinessStatus === "unknown" ? ["No readiness check-in yet; warm-up gate added without reducing the planned session."] : []),
     ...(integration.fuelingStatus === "unknown" ? ["No food log today; fuel prompt added without removing hard work by default."] : []),
+    ...(integration.fuelingStatus === "partial_day" || integration.fuelingStatus === "likely_partial" ? ["Food log is incomplete; advisory only, with no under-fueling evidence."] : []),
+    ...(integration.fuelingStatus === "not_tracking_today" ? ["Food marked not tracking today; training remains available and no under-fueling evidence is inferred."] : []),
+    ...(integration.fuelingStatus === "quick_fuel_check_supported" ? ["Quick fuel check supports execution only, not macro completeness."] : []),
     ...(integration.hydrationStatus === "advisory" || integration.hydrationStatus === "unknown" ? ["Hydration confidence is advisory; hydrate normally and downshift only if symptoms appear."] : [])
   ]);
   const executionAdjustments = unique([
@@ -323,7 +369,10 @@ export function applyTrainingExecutionGuidance(
     ...(integration.readinessStatus === "red_non_hard_stop"
       ? ["Red readiness without hard-stop symptoms: session stays planned with conservative execution and downshift rules."]
       : []),
-    ...(integration.fuelingStatus === "underfueling_evidence"
+    ...(integration.fuelingStatus === "complete_low_advisory"
+      ? ["One complete low intake day: keep the planned session, protect recovery fuel, and trim optional finishers if quality drops."]
+      : []),
+    ...(integration.fuelingStatus === "underfueling_evidence" || integration.fuelingStatus === "repeated_low_complete_evidence"
       ? ["Under-fueling evidence: remove all-out finishers and protect recovery fuel."]
       : []),
     ...(integration.generationImpact === "hard_block" ? ["Hard-stop evidence: do not turn this into hard training."] : [])

@@ -35,13 +35,17 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
   const todayWaterTotal = todayWaterLogs.reduce((total, log) => total + log.liters, 0);
   const todaySodiumTotal = todayElectrolytes.reduce((total, log) => total + log.sodiumMg, 0);
   const todayCalories = todayFoodLogs.reduce((total, log) => total + log.calories, 0);
+  const foodStatus = state.nutrition.dailyFoodLogSummary.status;
 
   const bodyMassTrendSummary =
     state.bodyMass.trend.logCount7Day < 4
       ? "Body mass trend unknown until 4 logs."
       : `7-day body mass ${state.bodyMass.trend.rolling7DayKg?.toFixed(1) ?? "unknown"} kg.`;
   const readinessLastCheckSummary = lastReadiness ? `Last readiness ${lastReadiness.date}: energy ${lastReadiness.energy1To5 ?? "unknown"}/5.` : "No readiness check-in yet.";
-  const foodLogCountToday = todayFoodCount === 1 ? "1 food log today." : `${todayFoodCount} food logs today.`;
+  const foodLogCountToday =
+    todayFoodCount === 0
+      ? state.nutrition.dailyFoodLogSummary.athleteFacingSummary
+      : `${todayFoodCount === 1 ? "1 food log" : `${todayFoodCount} food logs`} today. ${state.nutrition.dailyFoodLogSummary.athleteFacingSummary}`;
   const cycleLastLogSummary = lastCycle ? `Last cycle log ${lastCycle.date}: ${lastCycle.symptoms.length} symptoms, flow ${lastCycle.flowLevel}.` : "No cycle log yet.";
   const trainingRecentSummary = lastCompleted
     ? `Last completed session ${lastCompleted.date}: ${lastCompleted.type.replace(/_/g, " ")}.`
@@ -96,12 +100,10 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
   };
   const foodToday = {
     entryCount: todayFoodCount,
+    status: foodStatus,
     actionLabel: "Add food entry",
-    statusLabel: todayFoodCount > 0 ? "Entries add up" : "No food entry today",
-    summary:
-      todayFoodCount > 0
-        ? `${foodLogCountToday} ${todayCalories} kcal logged in today's context.`
-        : "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
+    statusLabel: foodStatus.replaceAll("_", " "),
+    summary: todayFoodCount > 0 ? `${todayFoodCount} food entr${todayFoodCount === 1 ? "y" : "ies"}; ${todayCalories} kcal logged so far. ${state.nutrition.dailyFoodLogSummary.athleteFacingSummary}` : state.nutrition.dailyFoodLogSummary.athleteFacingSummary,
     addEntryCopy: "Use this for one meal/snack or a day total. Multiple entries add up in today's context."
   };
 
