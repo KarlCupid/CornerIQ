@@ -292,7 +292,10 @@ describe("detailed training session engine", () => {
   it("detailed exercise prescriptions contain no generated partner-impact prescription", () => {
     const details = [detailForFixture(pro_4_round_build_strength), detailForFixture(no_wearable_manual_only), detailForFixture(pro_12_round_taper)];
     for (const detail of details) {
-      expect(exercisePrescriptionText(detail).toLowerCase()).not.toMatch(/sparring|contact/);
+      const topLevelDetailText = `${detail.whyThisMattersForBoxing} ${detail.safetyNotes.join(" ")} ${detail.stopConditions.join(" ")}`.toLowerCase();
+
+      expect(exercisePrescriptionText(detail).toLowerCase()).not.toMatch(/sparring|contact|partner-impact|clinch|collision/);
+      expect(topLevelDetailText).not.toMatch(/sparring|contact|partner-impact|clinch|collision/);
       expect(`${(detail.athleteQualityCues ?? []).join(" ")} ${(detail.sessionQualityCheckpoints ?? []).join(" ")} ${(detail.selfCheckCues ?? []).join(" ")}`.toLowerCase()).not.toMatch(/coach review|ask coach/);
       expect(detail.noGeneratedSparring).toBe(true);
       expect(detail.whyThisMattersForBoxing.length).toBeGreaterThan(10);

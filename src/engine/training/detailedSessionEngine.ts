@@ -283,7 +283,7 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     cycleModifications,
     whyThisMattersForBoxing: whyForFamily(family),
     stopConditions: [...allStopConditions, "Stop if dizziness, fainting, chest pain, or unusual pain appears."],
-    safetyNotes: [...allSafetyNotes, "No partner-impact drills, aggressive neck loading, or fatigue-chasing finishers."],
+    safetyNotes: [...allSafetyNotes, "Live exchange work is out of scope; avoid aggressive neck loading or fatigue-chasing finishers."],
     noGeneratedSparring: true,
     boxingSkillTheme: input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme,
     tacticalTheme: input.generatedSession.tacticalTheme ?? templateItem.tacticalTheme,

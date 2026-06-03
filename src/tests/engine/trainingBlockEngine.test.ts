@@ -12,6 +12,7 @@ import type {
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
+import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
 import {
   amateur_novice_build,
   amateur_open_tournament,
@@ -33,6 +34,7 @@ const generatedBoxingSkillFamilies = new Set<string>([
   "boxing_counter_timing",
   "boxing_round_skill_circuit"
 ]);
+const phaseVariantTemplateIds = new Set(workoutTemplateCatalog.filter((template) => template.safetyTags.includes("phase_variant")).map((template) => template.templateId));
 
 function generatedSessionSafetyText(sessions: readonly GeneratedTrainingSession[]): string {
   return sessions
@@ -617,6 +619,7 @@ describe("training block and microcycle engine", () => {
     expect(Math.max(...durations)).toBeGreaterThanOrEqual(60);
     expect(durations.every((duration) => duration < 60)).toBe(false);
     expect(audit.sessionsOver60Minutes).toBeGreaterThanOrEqual(1);
+    expect(state.training.generatedSessions.some((session) => phaseVariantTemplateIds.has(session.selectedTemplateId ?? session.templateId ?? ""))).toBe(true);
     expect(audit.unmetPrescriptionTargets).toEqual([]);
   });
 

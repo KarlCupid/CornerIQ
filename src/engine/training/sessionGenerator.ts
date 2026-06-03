@@ -216,6 +216,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     highCycleSymptoms: input.highCycleSymptoms,
     protectedHard,
     conservativeFueling: input.readiness.color === "red" || input.underFuelingRisk || input.severeFuelingRisk,
+    trainingDose: input.trainingDose,
     volumeStrategy: input.phase.phase === "fight_week" ? "taper" : input.phase.phase === "tournament" ? "tournament_conserve" : undefined
   });
   const durationPolicy = resolveSessionDurationPolicy({

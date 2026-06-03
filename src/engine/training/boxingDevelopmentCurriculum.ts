@@ -88,7 +88,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Guard returns before the next step.", "Feet reset under the hips after the jab.", "Breathing stays easy enough to keep shape."],
     progressionRules: ["Progress to jab entries when guard return stays clean across repeated rounds."],
     regressionRules: ["Return to stance and single-jab touches when balance or guard return breaks twice."],
-    safetyBoundaries: ["Solo skill only.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Solo skill only.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -103,7 +103,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Lead hand returns home after every entry.", "Exit happens before adding another combination.", "Shoulders stay relaxed enough to repeat the round."],
     progressionRules: ["Add feint entry or body-line variation after clean jab and exit rounds."],
     regressionRules: ["Simplify to single and double jab if rhythm changes pull the guard open."],
-    safetyBoundaries: ["Keep the skill quality-capped.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Keep the skill quality-capped.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -118,7 +118,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Exit foot lands quietly.", "Head and ribs stay stacked through the pivot.", "Next stance is ready before the next cue."],
     progressionRules: ["Layer rhythm change after exits stay repeatable under moderate fatigue."],
     regressionRules: ["Cut round length or remove the second action when exits get rushed."],
-    safetyBoundaries: ["Solo movement and bag skill only when equipment is available.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Solo movement and bag skill only when equipment is available.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -133,7 +133,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Defense ends in stance.", "Head movement stays small and controlled.", "Counter shape appears only after balance returns."],
     progressionRules: ["Add draw-counter timing after defense resets stay clean."],
     regressionRules: ["Return to one punch plus one defensive reset if posture or breathing breaks."],
-    safetyBoundaries: ["Use solo, line, mirror, or bag constraints.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Use solo, line, mirror, or bag constraints.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -148,13 +148,13 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Feet do not cross during exits.", "The last step restores stance width.", "Hands stay available while moving."],
     progressionRules: ["Progress to callout or angle constraints after line-drill quality is consistent."],
     regressionRules: ["Remove reaction cues when lower-leg quality or stance width breaks."],
-    safetyBoundaries: ["Low-impact footwork first.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Low-impact footwork first.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
     themeId: "counter_timing",
     athleteFacingTitle: "Counter timing and rhythm breaks",
-    athleteFacingPurpose: "Practice drawing, responding, and resetting without needing opponent contact or fatigue pressure.",
+    athleteFacingPurpose: "Practice drawing, responding, and resetting without external pressure or fatigue chasing.",
     skillLevel: "advanced",
     phaseFit: ["camp", "build"],
     preferredFamilies: ["boxing_counter_timing", "boxing_defense_movement", "reaction_rhythm"],
@@ -163,7 +163,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Counter cue stays one action, not a flurry.", "Feet recover before the next cue.", "Timing improves without tension rising."],
     progressionRules: ["Add tactical constraint density only after timing stays crisp with full resets."],
     regressionRules: ["Return to self-called cues when reaction work gets rushed or stressful."],
-    safetyBoundaries: ["Opponent-style scenarios must stay solo and non-contact.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Opponent-style scenarios must stay solo and self-directed.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -178,7 +178,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Pressure stays balanced.", "The exit is planned before volume rises.", "Breathing is controlled enough to keep skill."],
     progressionRules: ["Add round density only when the athlete can keep exits and breathing under control."],
     regressionRules: ["Drop tempo or round count when pressure turns into fatigue chasing."],
-    safetyBoundaries: ["No all-out finishers.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["No all-out finishers.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -193,13 +193,13 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["The jab controls distance before the feet leave.", "Circle-out finishes in punch range or safely out.", "Posture stays tall without locking."],
     progressionRules: ["Add reaction cues after distance and stance stay repeatable."],
     regressionRules: ["Remove reaction cues and return to line drills if the boxer drifts or crosses feet."],
-    safetyBoundaries: ["Solo and line-drill constraints only.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Solo and line-drill constraints only.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
     themeId: "inside_position_without_contact",
-    athleteFacingTitle: "Inside position without contact",
-    athleteFacingPurpose: "Practice stance, trunk, and exit shapes that help inside exchanges without generating clinch, collision, or partner-impact drills.",
+    athleteFacingTitle: "Inside-position solo shapes",
+    athleteFacingPurpose: "Practice stance, trunk, and exit shapes that help compact-position boxing without creating tie-up drills.",
     skillLevel: "advanced",
     phaseFit: ["camp", "build"],
     preferredFamilies: ["boxing_defense_movement", "boxing_round_skill_circuit", "trunk_durability"],
@@ -208,7 +208,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Compact shape does not collapse posture.", "Exit happens before speed rises.", "Shoulders stay relaxed enough to breathe."],
     progressionRules: ["Add round constraints only when trunk and exit shape stay clean."],
     regressionRules: ["Return to easy defensive shape touches when shoulders, neck, or trunk tension rises."],
-    safetyBoundaries: ["No clinch, collision, partner-impact, or contact simulation.", "No generated sparring."],
+    safetyBoundaries: ["Inside-shape work stays solo and position-based.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -223,7 +223,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["The last round still looks like boxing.", "One constraint stays clear each round.", "Breathing and posture recover during rest."],
     progressionRules: ["Add a round or one constraint only after repeated clean exposures."],
     regressionRules: ["Cut a round or simplify the constraint when technical quality drops late."],
-    safetyBoundaries: ["Quality cap beats volume.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Quality cap beats volume.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -238,7 +238,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Leave the session feeling sharper, not drained.", "Speed stays easy.", "No fatigue finishers are added."],
     progressionRules: ["Preserve sharpness only; do not chase new volume in fight week."],
     regressionRules: ["Drop to recovery and light technical touch if readiness or fueling is poor."],
-    safetyBoundaries: ["No fatigue chasing or acute weight pressure.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["No fatigue chasing or acute fueling pressure.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -253,7 +253,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Warm-up feels familiar.", "Movement restores range without fatigue.", "No extra hard conditioning is added."],
     progressionRules: ["Repeat the reset; tournament weeks prioritize consistency over novelty."],
     regressionRules: ["Use recovery only when symptoms, fatigue, or schedule pressure rises."],
-    safetyBoundaries: ["No dehydration or scale manipulation.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Fueling and hydration stay conservative.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({
@@ -268,7 +268,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["The session restores quality.", "Technical touch stays optional and easy.", "Symptoms guide the stop point."],
     progressionRules: ["Return to the prior skill theme after recovery quality and readiness improve."],
     regressionRules: ["Remove skill touch and keep recovery only if symptoms increase."],
-    safetyBoundaries: ["Recovery days are not hidden hard sessions.", "No generated sparring, partner-impact, or contact drill."],
+    safetyBoundaries: ["Recovery days are not hidden hard sessions.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   })
 ];

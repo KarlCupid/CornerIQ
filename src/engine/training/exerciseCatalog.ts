@@ -1728,6 +1728,530 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
     ],
     safetyNotes: ["No all-out efforts, finishers, or intervals through gait-changing pain."],
     stopConditions: ["Stop if speed, gait quality, breathing control, or coordination drops."]
+  },
+  {
+    exerciseId: "single_jab_exit_reset",
+    name: "Single jab exit reset",
+    category: "technical",
+    families: ["boxing_jab_entry_exit", "boxing_technical_shadowboxing", "movement_quality_prep"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 90 sec",
+    loadGuidance: "Jab once, exit small, and fully reset before adding any new action.",
+    rpeTarget: 4,
+    restText: "45-60 sec",
+    coachingNotes: ["One jab only", "Exit before admiring the work", "Freeze the reset before the next rep"],
+    boxingTransfer: "Links offense to a clean exit habit while keeping the athlete in stance.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Keep the exit small and stance-led."],
+    stopConditions: ["Stop if feet cross, guard return fades, or the exit gets rushed."]
+  },
+  {
+    exerciseId: "feint_jab_entry",
+    name: "Feint-to-jab entry",
+    category: "technical",
+    families: ["boxing_jab_entry_exit", "boxing_counter_timing", "boxing_technical_shadowboxing"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 2 min",
+    loadGuidance: "Small feint, one balanced jab entry, full reset; keep rhythm relaxed.",
+    rpeTarget: 4,
+    restText: "60 sec",
+    coachingNotes: ["Feint with less tension than you think", "Enter only while balance stays quiet", "Reset after one clean jab"],
+    boxingTransfer: "Develops entry timing and lead-hand rhythm without chasing volume.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Keep feints small enough that shoulders and neck stay relaxed."],
+    stopConditions: ["Stop if feints create tension, rushing, or balance loss."]
+  },
+  {
+    exerciseId: "jab_cross_exit",
+    name: "Jab-cross exit",
+    category: "technical",
+    families: ["boxing_technical_shadowboxing", "boxing_jab_entry_exit", "boxing_round_skill_circuit"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4-5 x 2 min",
+    loadGuidance: "Use a basic jab-cross, recover the rear hip, then exit before adding another action.",
+    rpeTarget: 5,
+    restText: "60 sec",
+    coachingNotes: ["Rear hand returns before the feet go", "Rear hip comes home", "Exit while posture is still clean"],
+    boxingTransfer: "Connects a basic combination to stance recovery and exit discipline.",
+    substitutions: [
+      {
+        exerciseId: "double_jab_exit",
+        name: "Double jab and pivot exit",
+        reason: "Rear shoulder or trunk quality is not clean today",
+        equipmentNeeded: [],
+        loadGuidance: "Stay with lead-hand work and a full reset.",
+        coachingNotes: ["Own the second jab", "Exit before adding more"]
+      }
+    ],
+    safetyNotes: ["Keep the cross submaximal and posture-led."],
+    stopConditions: ["Stop if shoulder, wrist, low-back, or balance compensation appears."]
+  },
+  {
+    exerciseId: "body_head_shadow_sequence",
+    name: "Body-head shadow sequence",
+    category: "technical",
+    families: ["boxing_jab_entry_exit", "boxing_technical_shadowboxing", "boxing_round_skill_circuit"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 2 min",
+    loadGuidance: "Small level change from the legs, return to guard, then exit after the head-line action.",
+    rpeTarget: 5,
+    restText: "60 sec",
+    coachingNotes: ["Level change stays shallow", "Eyes stay up", "Guard returns before the exit"],
+    boxingTransfer: "Builds body-head rhythm while protecting posture and stance width.",
+    substitutions: [
+      {
+        exerciseId: "jab_body_jab_head",
+        name: "Jab body-line to head-line",
+        reason: "Keep the pattern lead-hand only",
+        equipmentNeeded: [],
+        loadGuidance: "Use the same shallow level change and exit rule.",
+        coachingNotes: ["Do not dive at the body line", "Exit after the head-line jab"]
+      }
+    ],
+    safetyNotes: ["Do not force depth through knees, hips, or back."],
+    stopConditions: ["Stop if posture folds, knees object, or breathing spikes."]
+  },
+  {
+    exerciseId: "guard_return_timer",
+    name: "Guard return timer",
+    category: "technical",
+    families: ["boxing_technical_shadowboxing", "boxing_bag_skill", "movement_quality_prep"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "6 x 30 sec",
+    loadGuidance: "Use a timer and count only actions that finish with both hands home.",
+    rpeTarget: 3,
+    restText: "30 sec",
+    coachingNotes: ["Hands return before feet move again", "Count missed returns honestly", "Stay relaxed enough to repeat"],
+    boxingTransfer: "Creates immediate athlete feedback for guard quality during solo technical work.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["This is a quality checkpoint, not extra volume."],
+    stopConditions: ["Stop if shoulders tighten, breathing spikes, or guard return quality fades twice in a row."]
+  },
+  {
+    exerciseId: "pull_reset_shadow",
+    name: "Pull reset shadow drill",
+    category: "technical",
+    families: ["boxing_defense_movement", "boxing_counter_timing", "boxing_technical_shadowboxing"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 60-90 sec",
+    loadGuidance: "Pull just enough to keep stance, then reset feet before any counter shape.",
+    rpeTarget: 4,
+    restText: "45-60 sec",
+    coachingNotes: ["Small pull", "Feet stay under you", "Reset before a response"],
+    boxingTransfer: "Builds distance management while keeping defensive movement stance-led.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Do not lean back into the neck or low back."],
+    stopConditions: ["Stop if leaning replaces foot control or balance breaks."]
+  },
+  {
+    exerciseId: "single_counter_exit",
+    name: "Single counter and exit",
+    category: "technical",
+    families: ["boxing_counter_timing", "boxing_defense_movement", "boxing_round_skill_circuit"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 90 sec",
+    loadGuidance: "Self-call one cue, respond with one counter shape, exit, and reset fully.",
+    rpeTarget: 4,
+    restText: "60 sec",
+    coachingNotes: ["One response only", "Exit is part of the rep", "Speed never overrides shape"],
+    boxingTransfer: "Reinforces that counter positions finish balanced instead of turning into extra volume.",
+    substitutions: [
+      {
+        exerciseId: "counter_timing_shadow",
+        name: "Counter-timing shadow round",
+        reason: "Need a simpler cue-response structure",
+        equipmentNeeded: [],
+        loadGuidance: "Respond once and reset fully.",
+        coachingNotes: ["Draw the cue", "Feet finish under you"]
+      }
+    ],
+    safetyNotes: ["Keep the response small and relaxed."],
+    stopConditions: ["Stop if tension rises, counters become flurries, or balance fades."]
+  },
+  {
+    exerciseId: "defense_shape_quality_check",
+    name: "Defense shape quality check",
+    category: "technical",
+    families: ["boxing_defense_movement", "boxing_counter_timing", "boxing_round_skill_circuit"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "5 min",
+    loadGuidance: "Pause after defense work and rate balance, guard, breathing, and foot recovery.",
+    rpeTarget: 1,
+    restText: "No added work after the check.",
+    coachingNotes: ["Pick one cue to keep", "Regress the next round if two checks fail", "Write one simple note"],
+    boxingTransfer: "Turns defense practice into an athlete-facing quality loop instead of more volume.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["The check should simplify the session."],
+    stopConditions: ["Stop if review creates extra volume pressure or repeated quality misses."]
+  },
+  {
+    exerciseId: "step_slide_stance_lane",
+    name: "Step-slide stance lane",
+    category: "agility",
+    families: ["boxing_footwork_ringcraft", "footwork_agility", "movement_quality_prep"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "5 x 60 sec",
+    loadGuidance: "Use a floor line or imagined lane; step-slide while stance width stays constant.",
+    rpeTarget: 4,
+    restText: "45 sec",
+    coachingNotes: ["Quiet feet", "Hands stay available", "Return to stance before changing direction"],
+    boxingTransfer: "Builds economical movement and stance preservation for ringcraft.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["Use smaller steps when lower legs feel loaded."],
+    stopConditions: ["Stop if lower-leg pain changes stepping or stance width collapses."]
+  },
+  {
+    exerciseId: "l_step_escape",
+    name: "L-step escape",
+    category: "agility",
+    families: ["boxing_footwork_ringcraft", "footwork_agility", "boxing_defense_movement"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 90 sec",
+    loadGuidance: "Step, turn, and reset without crossing feet; keep the escape compact.",
+    rpeTarget: 4,
+    restText: "60 sec",
+    coachingNotes: ["Step first", "Turn around the stance", "Finish ready to jab"],
+    boxingTransfer: "Builds corner-exit mechanics and angle creation for solo ringcraft work.",
+    substitutions: [
+      {
+        exerciseId: "pivot_out_reset",
+        name: "Pivot-out reset",
+        reason: "Need a smaller exit pattern",
+        equipmentNeeded: [],
+        loadGuidance: "Use a small pivot and full reset.",
+        coachingNotes: ["Keep stance width", "Do not rush the reset"]
+      }
+    ],
+    safetyNotes: ["Stay in a pain-free pivot and step range."],
+    stopConditions: ["Stop if hips, knees, ankles, or balance object."]
+  },
+  {
+    exerciseId: "circle_out_center_reclaim",
+    name: "Circle-out and center reclaim",
+    category: "agility",
+    families: ["boxing_footwork_ringcraft", "footwork_agility"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 2 min",
+    loadGuidance: "Circle with purpose, reclaim stance, and finish each rep ready to jab.",
+    rpeTarget: 5,
+    restText: "60 sec",
+    coachingNotes: ["Do not drift", "Reclaim the center line", "Hands stay useful while feet move"],
+    boxingTransfer: "Teaches ring-position logic through controlled solo movement.",
+    substitutions: [
+      {
+        exerciseId: "rope_line_ringcraft",
+        name: "Rope-line ringcraft drill",
+        reason: "Need a clearer boundary cue",
+        equipmentNeeded: [],
+        loadGuidance: "Use a line as the ring boundary.",
+        coachingNotes: ["Feel the boundary", "Exit before feet cross"]
+      }
+    ],
+    safetyNotes: ["Keep direction changes controlled and low impact."],
+    stopConditions: ["Stop if movement becomes drifting, frantic, or painful."]
+  },
+  {
+    exerciseId: "pivot_reaction_pairing",
+    name: "Pivot reaction pairing",
+    category: "agility",
+    families: ["agility_reactive_footwork", "boxing_footwork_ringcraft", "reaction_rhythm"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "6 x 20 sec",
+    loadGuidance: "Cue once, pivot once, and finish with jab-ready stance before another cue.",
+    rpeTarget: 5,
+    restText: "60 sec",
+    coachingNotes: ["React once", "Brake quietly", "Reset before repeating"],
+    boxingTransfer: "Links reaction timing to usable pivots and stance recovery.",
+    substitutions: [
+      {
+        exerciseId: "reaction_cue_step",
+        name: "Reaction cue step",
+        reason: "Pivot quality is not available today",
+        equipmentNeeded: [],
+        loadGuidance: "Use one small step and full reset.",
+        coachingNotes: ["Small cue", "Quiet brake"]
+      }
+    ],
+    safetyNotes: ["Low volume only; keep pivots small if lower legs are irritated."],
+    stopConditions: ["Stop when pivot speed reduces quality, foot noise rises, or pain appears."]
+  },
+  {
+    exerciseId: "footwork_quality_finisher",
+    name: "Footwork quality closeout",
+    category: "agility",
+    families: ["footwork_agility", "boxing_footwork_ringcraft", "movement_quality_prep"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "4 x 30 sec",
+    loadGuidance: "End with easy quality rounds only; the goal is clean stance, not fatigue.",
+    rpeTarget: 3,
+    restText: "30-45 sec",
+    coachingNotes: ["End clean", "Keep steps quiet", "Stop while coordination is still sharp"],
+    boxingTransfer: "Reinforces footwork quality after the main session without adding hidden load.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["This closeout must stay easy and technical."],
+    stopConditions: ["Stop if it starts to feel like conditioning or foot placement degrades."]
+  },
+  {
+    exerciseId: "bag_body_head_variation",
+    name: "Bag body-head variation",
+    category: "boxing_skill",
+    families: ["boxing_bag_skill", "boxing_jab_entry_exit", "boxing_round_skill_circuit"],
+    requiredEquipment: ["bag"],
+    noviceEligible: false,
+    durationText: "4 x 2:30 rounds",
+    loadGuidance: "Use shallow level changes, moderate touch, and an exit after the head-line action.",
+    rpeTarget: 6,
+    restText: "60 sec",
+    coachingNotes: ["Level change with legs", "Head-line punch waits for posture", "Exit before adding more"],
+    boxingTransfer: "Transfers body-head patterning to a target while preserving posture discipline.",
+    substitutions: [
+      {
+        exerciseId: "body_head_shadow_sequence",
+        name: "Body-head shadow sequence",
+        reason: "No bag or impact does not fit today",
+        equipmentNeeded: [],
+        loadGuidance: "Use the same shallow level-change rule in shadowboxing.",
+        coachingNotes: ["Eyes stay up", "Guard returns before exit"]
+      }
+    ],
+    safetyNotes: ["Keep power capped and do not dive at body height."],
+    stopConditions: ["Stop if posture dives, back or knee symptoms appear, or accuracy collapses."]
+  },
+  {
+    exerciseId: "bag_defense_after_combo",
+    name: "Bag defense-after-combo round",
+    category: "boxing_skill",
+    families: ["boxing_bag_skill", "boxing_defense_movement", "boxing_round_skill_circuit"],
+    requiredEquipment: ["bag"],
+    noviceEligible: false,
+    durationText: "4 x 3 min",
+    loadGuidance: "Every bag sequence ends with a small slip, roll, pivot, or step-out reset.",
+    rpeTarget: 6,
+    restText: "60 sec",
+    coachingNotes: ["Defense is part of the combination", "Reset before the next entry", "Do not chase the bag"],
+    boxingTransfer: "Keeps bag work from teaching stationary offense by pairing every sequence with a reset.",
+    substitutions: [
+      {
+        exerciseId: "defense_after_combo_round",
+        name: "Defense-after-combination round",
+        reason: "No bag available",
+        equipmentNeeded: [],
+        loadGuidance: "Use the same defense-after-action rule in shadowboxing.",
+        coachingNotes: ["Defense stays small", "Reset before the next entry"]
+      }
+    ],
+    safetyNotes: ["Keep defense shapes small and stance-led."],
+    stopConditions: ["Stop if defense becomes sloppy, rushed, or balance breaks."]
+  },
+  {
+    exerciseId: "bag_angle_reset_round",
+    name: "Bag angle reset round",
+    category: "boxing_skill",
+    families: ["boxing_bag_skill", "boxing_footwork_ringcraft", "boxing_round_skill_circuit"],
+    requiredEquipment: ["bag"],
+    noviceEligible: false,
+    durationText: "5 x 2 min",
+    loadGuidance: "Touch the bag, step to a small angle, and reset before the next entry.",
+    rpeTarget: 6,
+    restText: "60 sec",
+    coachingNotes: ["Touch before moving", "Step the angle, do not spin", "Reset hands and feet together"],
+    boxingTransfer: "Improves angle creation after offense while keeping bag work skill-led.",
+    substitutions: [
+      {
+        exerciseId: "rope_line_ringcraft",
+        name: "Rope-line ringcraft drill",
+        reason: "No bag available",
+        equipmentNeeded: [],
+        loadGuidance: "Use a floor line and the same angle-reset rule.",
+        coachingNotes: ["Move along the boundary", "Exit before feet cross"]
+      }
+    ],
+    safetyNotes: ["Keep pivots small and power moderate."],
+    stopConditions: ["Stop if ankles, knees, balance, or guard return deteriorate."]
+  },
+  {
+    exerciseId: "bag_rhythm_change_round",
+    name: "Bag rhythm change round",
+    category: "boxing_skill",
+    families: ["boxing_bag_skill", "boxing_counter_timing", "boxing_round_skill_circuit"],
+    requiredEquipment: ["bag"],
+    noviceEligible: false,
+    durationText: "4-5 x 2:30 rounds",
+    loadGuidance: "Change rhythm once per sequence, then return to relaxed shape and exit.",
+    rpeTarget: 6,
+    restText: "60 sec",
+    coachingNotes: ["One rhythm change only", "Stay loose after the pause", "Exit while breathing is calm"],
+    boxingTransfer: "Develops timing and unpredictability on the bag without turning rounds into volume chasing.",
+    substitutions: [
+      {
+        exerciseId: "rhythm_change_round",
+        name: "Rhythm-change round",
+        reason: "No bag available",
+        equipmentNeeded: [],
+        loadGuidance: "Use shadowboxing with the same one-change rule.",
+        coachingNotes: ["Break rhythm without rushing", "Hands stay home after the feint"]
+      }
+    ],
+    safetyNotes: ["Power and pace stay capped by rhythm quality."],
+    stopConditions: ["Stop if rhythm changes become tense, frantic, or inaccurate."]
+  },
+  {
+    exerciseId: "bag_accuracy_marks",
+    name: "Bag accuracy marks",
+    category: "boxing_skill",
+    families: ["boxing_bag_skill", "boxing_jab_entry_exit"],
+    requiredEquipment: ["bag"],
+    noviceEligible: false,
+    durationText: "4 x 2 min",
+    loadGuidance: "Aim small, touch cleanly, and reset; accuracy matters more than force.",
+    rpeTarget: 5,
+    restText: "60 sec",
+    coachingNotes: ["Pick a small target", "Hit clean, then reset", "Do not increase force when accuracy drops"],
+    boxingTransfer: "Builds precision and discipline for bag skill without power chasing.",
+    substitutions: [
+      {
+        exerciseId: "jab_line_mechanics",
+        name: "Jab line mechanics",
+        reason: "No bag or no mark available",
+        equipmentNeeded: [],
+        loadGuidance: "Use an imagined target and full guard return.",
+        coachingNotes: ["Pick a visual target", "Full guard return"]
+      }
+    ],
+    safetyNotes: ["Wrap hands if normally used and keep impact moderate."],
+    stopConditions: ["Stop if accuracy collapses or hand, wrist, shoulder, or headache symptoms appear."]
+  },
+  {
+    exerciseId: "bag_round_quality_check",
+    name: "Bag round quality check",
+    category: "boxing_skill",
+    families: ["boxing_bag_skill", "boxing_round_skill_circuit"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "1 min after final round",
+    loadGuidance: "Rate guard return, balance, breathing, accuracy, and exit quality without adding work.",
+    rpeTarget: 1,
+    restText: "No extra work after the check.",
+    coachingNotes: ["One honest score", "Choose the next simplification", "Let the session end"],
+    boxingTransfer: "Turns bag rounds into measurable skill development instead of more volume.",
+    substitutions: [bodyweightSubstitution],
+    safetyNotes: ["The check should lower complexity for the next exposure."],
+    stopConditions: ["Stop if the check creates pressure to add more rounds."]
+  },
+  {
+    exerciseId: "run_walk_zone2",
+    name: "Run-walk Zone 2",
+    category: "roadwork",
+    families: ["roadwork_zone2"],
+    requiredEquipment: [],
+    noviceEligible: true,
+    durationText: "30-60 min alternating easy jog and walk",
+    loadGuidance: "Use talk-test RPE 3-4; alternate easy jog and relaxed walk to keep impact low.",
+    rpeTarget: 4,
+    restText: "Walk breaks are built into the prescription.",
+    coachingNotes: ["Talk-test stays available", "Walk before gait changes", "Finish repeatable"],
+    boxingTransfer: "Builds aerobic base for returning or novice athletes while protecting lower-leg capacity.",
+    substitutions: [
+      {
+        exerciseId: "easy_walk_reset",
+        name: "Easy walk reset",
+        reason: "Jogging impact is not appropriate today",
+        equipmentNeeded: [],
+        loadGuidance: "Stay at easy talk-test walking effort.",
+        coachingNotes: ["Keep it easy", "Protect tomorrow"]
+      },
+      {
+        exerciseId: "bike_rower_zone2",
+        name: "Bike or rower Zone 2",
+        reason: "Lower-impact aerobic option needed",
+        equipmentNeeded: ["bike", "rower"],
+        loadGuidance: "Same talk-test RPE 3-4 effort.",
+        coachingNotes: ["Smooth cadence", "Finish repeatable"]
+      }
+    ],
+    safetyNotes: ["Walk breaks are a valid progression tool."],
+    stopConditions: ["Stop if dizziness appears or lower-leg pain changes stride."]
+  },
+  {
+    exerciseId: "roadwork_interval_400s",
+    name: "Controlled roadwork 400s",
+    category: "conditioning",
+    families: ["roadwork_intervals"],
+    requiredEquipment: [],
+    noviceEligible: false,
+    durationText: "6-10 x 60-90 sec with easy recovery",
+    loadGuidance: "RPE 7 cap; use a marked distance or time window, but never race the rep.",
+    rpeTarget: 7,
+    restText: "90 sec easy walk or jog",
+    coachingNotes: ["Smooth first rep", "Repeatable mechanics", "End before chasing the last rep"],
+    boxingTransfer: "Develops repeatable interval output for round recovery while protecting gait quality.",
+    substitutions: [
+      {
+        exerciseId: "roadwork_interval_controlled",
+        name: "Controlled roadwork intervals",
+        reason: "Time-based prescription is clearer than distance today",
+        equipmentNeeded: [],
+        loadGuidance: "Same RPE cap and easy recoveries.",
+        coachingNotes: ["Start conservative", "Use talk-test recovery"]
+      },
+      {
+        exerciseId: "bike_rower_intervals",
+        name: "Bike or rower intervals",
+        reason: "Running impact is not appropriate today",
+        equipmentNeeded: ["bike", "rower"],
+        loadGuidance: "Use the same RPE cap with smooth cadence.",
+        coachingNotes: ["No all-out finish", "Stop while repeatable"]
+      }
+    ],
+    safetyNotes: ["No all-out reps and no intervals through gait-changing pain."],
+    stopConditions: ["Stop if speed, breathing control, gait, or coordination drops."]
+  },
+  {
+    exerciseId: "hill_stride_gated",
+    name: "Gated hill stride",
+    category: "conditioning",
+    families: ["alactic_sprints", "power_lower"],
+    requiredEquipment: ["hill"],
+    noviceEligible: false,
+    durationText: "6-10 x 8-12 sec",
+    loadGuidance: "Short burst only with walk-back or full rest; finish while mechanics are crisp.",
+    rpeTarget: 7,
+    restText: "Walk-back plus extra rest as needed",
+    coachingNotes: ["Fast but relaxed", "Full recovery", "No extra rep after speed fades"],
+    boxingTransfer: "Supports alactic acceleration and first-step intent without turning speed into conditioning.",
+    substitutions: [
+      {
+        exerciseId: "alactic_sprint_gated",
+        name: "Alactic sprint gates",
+        reason: "No hill available and flat gait is pain-free",
+        equipmentNeeded: [],
+        loadGuidance: "Use the same short-burst, full-recovery gate.",
+        coachingNotes: ["Relaxed speed", "Stop before mechanics fade"]
+      },
+      {
+        exerciseId: "bike_alactic_spin",
+        name: "Bike alactic spin-up",
+        reason: "Running impact is not appropriate today",
+        equipmentNeeded: ["bike"],
+        loadGuidance: "Short spin-up with generous recovery.",
+        coachingNotes: ["Smooth cadence", "Stop while sharp"]
+      }
+    ],
+    safetyNotes: ["Skip with calf, Achilles, foot, knee, or gait symptoms."],
+    stopConditions: ["Stop when speed drops, mechanics fade, or pain appears."]
   }
 ];
 

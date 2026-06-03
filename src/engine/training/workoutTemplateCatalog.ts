@@ -1,4 +1,12 @@
-import type { GeneratedSessionAddOnBlock, GeneratedSessionEquipmentMode, GeneratedSessionFamily, GeneratedSessionIntensity, GeneratedSessionPriority, GeneratedTrainingSession } from "./types";
+import type {
+  GeneratedSessionAddOnBlock,
+  GeneratedSessionEquipmentMode,
+  GeneratedSessionFamily,
+  GeneratedSessionIntensity,
+  GeneratedSessionPriority,
+  GeneratedTrainingSession,
+  PlanGenerationTrainingDose
+} from "./types";
 import type { NextWeekTrainingVolumeStrategy } from "./nextWeekMaterializationEngine";
 import { addOnBlockFromLibrary } from "./addOnBlocks";
 
@@ -82,6 +90,7 @@ export interface WorkoutTemplateSelectionInput {
   highCycleSymptoms?: boolean | undefined;
   protectedHard?: boolean | undefined;
   conservativeFueling?: boolean | undefined;
+  trainingDose?: PlanGenerationTrainingDose | undefined;
   volumeStrategy?: NextWeekTrainingVolumeStrategy | undefined;
   usedTemplateIds?: readonly string[] | undefined;
 }
@@ -99,19 +108,72 @@ const SECTION_DURATION_WEIGHTS: Record<WorkoutTemplateSectionKind, number> = {
   cooldown: 1,
   reset: 1
 };
+const STRENGTH_TEMPLATE_FAMILIES = new Set<GeneratedSessionFamily>(["strength_lower", "strength_upper", "strength_full_body"]);
+const CONDITIONING_TEMPLATE_FAMILIES = new Set<GeneratedSessionFamily>([
+  "alactic_sprints",
+  "roadwork_zone2",
+  "roadwork_tempo",
+  "roadwork_intervals",
+  "round_based_conditioning"
+]);
+const MOBILITY_RECOVERY_TEMPLATE_FAMILIES = new Set<GeneratedSessionFamily>(["mobility_recovery_flow", "movement_quality_prep", "hip_ankle_mobility", "recovery_reset", "taper_maintenance"]);
 
 function section(sectionType: WorkoutTemplateSectionKind, name: string, intent: string, exerciseIds: readonly string[]): WorkoutTemplateSection {
   return { sectionType, name, intent, exerciseIds };
 }
 
+function defaultProgressionNotesForFamily(family: GeneratedSessionFamily): readonly string[] {
+  if (family.startsWith("boxing_") || family === "agility_reactive_footwork" || family === "footwork_agility" || family === "reaction_rhythm") {
+    return [
+      "Progress only when stance, guard, exits, timing, and the round's single constraint stay clean across repeated rounds.",
+      "Add one round, one constraint, or one support block only after technical quality holds through the last round."
+    ];
+  }
+  if (STRENGTH_TEMPLATE_FAMILIES.has(family)) {
+    return [
+      "Progress one variable only: add one set, 1-2 reps, 2.5-5% load, a slightly more complex variation, or longer rest for quality.",
+      "Protect next-day boxing quality; clean speed and repeatable mechanics matter more than load."
+    ];
+  }
+  if (CONDITIONING_TEMPLATE_FAMILIES.has(family)) {
+    return [
+      "Progress one variable only: add 5-10 min Zone 2, one tempo interval, a slightly longer interval, slightly shorter recovery, or easy-to-tempo density.",
+      "Keep gait, breathing, and fueling evidence stable before increasing conditioning pressure."
+    ];
+  }
+  if (MOBILITY_RECOVERY_TEMPLATE_FAMILIES.has(family)) {
+    return [
+      "Do not progress recovery or prep into load; progress only by improving range quality, reducing symptoms, or restoring stance comfort.",
+      "Add an optional easy technical touch only when it improves coordination and leaves the athlete fresher."
+    ];
+  }
+  return ["Progress only one small variable after multiple clean, symptom-free exposures."];
+}
+
+function defaultRegressionNotesForFamily(family: GeneratedSessionFamily): readonly string[] {
+  if (family.startsWith("boxing_") || family === "agility_reactive_footwork" || family === "footwork_agility" || family === "reaction_rhythm") {
+    return ["Regress when guard return fails, feet cross, balance is lost, the constraint disappears, or output chasing replaces skill."];
+  }
+  if (STRENGTH_TEMPLATE_FAMILIES.has(family)) {
+    return ["Regress if pain changes mechanics, reps grind, RPE exceeds target, readiness is red, or next-day boxing quality is impaired."];
+  }
+  if (CONDITIONING_TEMPLATE_FAMILIES.has(family)) {
+    return ["Regress if gait changes, breathing spikes unpredictably, dizziness appears, soreness compromises skill work, or under-fueling evidence is present."];
+  }
+  if (MOBILITY_RECOVERY_TEMPLATE_FAMILIES.has(family)) {
+    return ["Regress to easier range, breathing, or walking only when symptoms, coordination, or stance comfort worsen."];
+  }
+  return ["Reduce range, load, or duration before removing the session when safety still allows easy work."];
+}
+
 function template(input: TemplateDraft): WorkoutTemplate {
   return {
     contraindications: ["Active hard-stop safety flag", "Pain or symptoms that change movement quality"],
-    progressionNotes: ["Progress only by adding one small set or a few minutes after multiple clean, symptom-free exposures."],
-    regressionNotes: ["Reduce range, load, or duration before removing the session when safety still allows easy work."],
     safetyNotes: ["Manual readiness is enough; do not require a wearable.", "Keep the session secondary to protected boxing work."],
     stopConditions: ["Stop if pain, dizziness, faintness, chest pain, or unusual symptoms appear.", "Stop when speed, posture, timing, or breathing quality clearly drops."],
-    ...input
+    ...input,
+    progressionNotes: input.progressionNotes ?? defaultProgressionNotesForFamily(input.family),
+    regressionNotes: input.regressionNotes ?? defaultRegressionNotesForFamily(input.family)
   };
 }
 
@@ -171,8 +233,8 @@ function boxingTemplate(input: BoxingTemplateInput): WorkoutTemplate {
     safetyTags: [...new Set([...input.safetyTags, "quality_stop", "athlete_quality_checkpoint"])],
     preferredWhen: input.preferredWhen,
     avoidWhen: input.avoidWhen,
-    progressionNotes: ["Progress by adding one round, one constraint, or one support add-on after clean, symptom-free exposures."],
-    regressionNotes: ["Reduce round length, remove a constraint, or use the fallback technical touch before removing skill work entirely."],
+    progressionNotes: defaultProgressionNotesForFamily(input.family),
+    regressionNotes: defaultRegressionNotesForFamily(input.family),
     safetyNotes: ["Solo skill work only; quality beats volume.", "Stop before fatigue changes stance, guard, head position, or foot placement."],
     stopConditions: ["Stop if pain, dizziness, unusual symptoms, balance loss, or repeated technical breakdown appears.", "Stop when the quality cue fails twice in a row."],
     fallback: input.fallback
@@ -660,6 +722,707 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
   })
 ];
 
+const phaseDoseWorkoutTemplates: readonly WorkoutTemplate[] = [
+  template({
+    templateId: "strength_lower_force_transfer_day",
+    family: "strength_lower",
+    title: "Lower-body force transfer day",
+    intent: "Use a higher-value lower-body strength exposure to connect stance force, lateral range, trunk control, and cooldown quality.",
+    defaultDurationMinutes: 65,
+    defaultIntensity: "hard",
+    defaultFuelDemand: "high",
+    sections: [
+      section("warmup", "Warm-up", "Prepare hips, ankles, and trunk before hard lower-body work.", ["movement_prep_flow"]),
+      section("main", "Force transfer strength", "Use clean lower-body force work without grinding reps.", ["trap_bar_deadlift", "goblet_squat_to_box"]),
+      section("accessory", "Split-stance and lateral support", "Build stance force and side-to-side range.", ["rear_foot_elevated_split_squat", "lateral_lunge_regression"]),
+      section("support", "Trunk transfer", "Keep force transfer organized through the trunk.", ["pallof_press"]),
+      section("cooldown", "Required reset", "Restore hips, ankles, and breathing after hard work.", ["mobility_reset_flow"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_hip_ankle_reset_8")],
+    protects: ["stance force", "braking", "next-day boxing quality"],
+    noviceEligible: false,
+    equipmentTags: ["trap_bar", "dumbbells", "bench"],
+    safetyTags: ["strength", "phase_variant", "high_fuel", "quality_stop"],
+    preferredWhen: ["Serious or high dose", "Green readiness", "Strength focus needs a hard lift"],
+    avoidWhen: ["Hard protected anchor today", "Lower-body pain", "Conservative fueling context"],
+    fallback: false
+  }),
+  template({
+    templateId: "strength_upper_punch_deceleration_day",
+    family: "strength_upper",
+    title: "Punch deceleration upper day",
+    intent: "Build guard-friendly press, pull, cuff, trunk, and wrist tolerance for punch deceleration.",
+    defaultDurationMinutes: 60,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    sections: [
+      section("warmup", "Warm-up", "Prepare ribs, shoulder blades, and guard posture.", ["movement_prep_flow", "serratus_wall_slide"]),
+      section("main", "Press and pull contrast", "Press and pull on clean paths with no max loading.", ["landmine_press", "one_arm_row"]),
+      section("support", "Deceleration support", "Support cuff and upper-back control after strength work.", ["band_external_rotation", "ytwl_raise"]),
+      section("accessory", "Hand and trunk tolerance", "Finish with trunk and wrist control that preserves relaxation.", ["pallof_press", "wrist_pronation_supination"]),
+      section("cooldown", "Reset", "Downshift shoulder and neck tone.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_shoulder_guard_durability_10")],
+    protects: ["guard posture", "punch deceleration", "shoulder quality"],
+    noviceEligible: false,
+    equipmentTags: ["landmine", "dumbbells", "bands"],
+    safetyTags: ["strength", "phase_variant", "moderate_fuel", "quality_stop"],
+    preferredWhen: ["Upper-body strength focus", "Bag volume needs balancing", "Green or amber readiness"],
+    avoidWhen: ["Shoulder, neck, wrist, numbness, or tingling symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "strength_full_body_transfer_trunk_day",
+    family: "strength_full_body",
+    title: "Strength transfer and trunk day",
+    intent: "Link whole-body strength, rotational trunk control, upper-back support, and stance durability.",
+    defaultDurationMinutes: 62,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "high",
+    sections: [
+      section("warmup", "Warm-up", "Open hips, trunk, and shoulders before transfer work.", ["movement_prep_flow"]),
+      section("main", "Whole-body strength", "Use a hinge or squat pattern with clean reps only.", ["hip_hinge_rdl", "goblet_squat_to_box"]),
+      section("support", "Rotational trunk", "Hold transfer positions without breath-holding.", ["pallof_press", "dead_bug_anti_extension"]),
+      section("accessory", "Upper back and stance", "Balance force work with row and stance capacity.", ["band_row", "split_squat_iso"]),
+      section("cooldown", "Reset", "Downshift and restore range.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_trunk_transfer_10")],
+    protects: ["force transfer", "trunk control", "stance durability"],
+    noviceEligible: true,
+    equipmentTags: ["dumbbells", "bands"],
+    safetyTags: ["strength", "phase_variant", "novice_safe", "quality_stop"],
+    preferredWhen: ["Strength plus trunk theme", "Standard or serious dose", "No hard boxing conflict"],
+    avoidWhen: ["Red readiness", "Pain changes bracing"],
+    fallback: false
+  }),
+  template({
+    templateId: "power_rotational_jab_transfer",
+    family: "power_rotational",
+    title: "Power-to-jab transfer",
+    intent: "Bridge low-volume rotational speed into lead-hand mechanics while keeping every rep fresh.",
+    defaultDurationMinutes: 48,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    sections: [
+      section("warmup", "Warm-up", "Prepare rotation and stance without fatigue.", ["movement_prep_flow"]),
+      section("main", "Rotational speed", "Use short rotational power reps with complete reset.", ["med_ball_rotational_throw", "step_and_snap_rotation"]),
+      section("support", "Jab transfer", "Connect rotation to clean jab line mechanics.", ["jab_line_mechanics", "single_jab_exit_reset"]),
+      section("cooldown", "Power reset", "Stop while speed and timing are still sharp.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("required_power_reset_6")],
+    protects: ["rotational speed", "jab mechanics", "freshness"],
+    noviceEligible: true,
+    equipmentTags: ["medicine_ball", "no_equipment", "minimal"],
+    safetyTags: ["power", "phase_variant", "quality_stop", "novice_safe"],
+    preferredWhen: ["Power focus", "Skill transfer needs a bridge", "Green or amber readiness"],
+    avoidWhen: ["Speed drops early", "Shoulder or trunk symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "power_lower_braking_pivot",
+    family: "power_lower",
+    title: "Braking and pivot power",
+    intent: "Tie lower-body speed to quiet braking, pivot quality, and stance recovery.",
+    defaultDurationMinutes: 48,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    sections: [
+      section("warmup", "Warm-up", "Prepare ankles, hips, and landing mechanics.", ["movement_prep_flow"]),
+      section("main", "Landing and braking", "Use low-volume landing and foot contacts with full recovery.", ["snap_down_landing", "low_amplitude_pogo"]),
+      section("support", "Pivot reaction", "Pair speed with small pivots and full stance reset.", ["pivot_reaction_pairing", "reactive_footwork_callout"]),
+      section("cooldown", "Reset", "Restore lower-leg and hip range.", ["mobility_reset_flow"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_reactive_footwork_primer_8")],
+    protects: ["braking", "first-step quality", "stance recovery"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["power", "phase_variant", "quality_stop", "novice_safe"],
+    preferredWhen: ["Power and footwork bridge", "Taper-safe speed touch", "No equipment"],
+    avoidWhen: ["Calf, Achilles, foot, knee, or hip symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "power_upper_reach_deceleration",
+    family: "power_upper",
+    title: "Reach-speed and deceleration",
+    intent: "Train fast reach intent, then immediately support shoulder deceleration and trunk position.",
+    defaultDurationMinutes: 48,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    sections: [
+      section("warmup", "Warm-up", "Prepare ribs and shoulder blades.", ["movement_prep_flow", "serratus_wall_slide"]),
+      section("main", "Reach speed", "Use low-force speed reps and stop before shoulder tone rises.", ["fast_wall_push", "band_press_split_stance"]),
+      section("support", "Deceleration support", "Keep cuff and upper back available after speed work.", ["band_external_rotation", "one_arm_row"]),
+      section("cooldown", "Reset", "Release shoulders, hands, and breathing.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_shoulder_guard_durability_10")],
+    protects: ["reach speed", "shoulder deceleration", "guard quality"],
+    noviceEligible: true,
+    equipmentTags: ["bands", "no_equipment", "minimal"],
+    safetyTags: ["power", "phase_variant", "quality_stop", "novice_safe"],
+    preferredWhen: ["Upper power focus", "Minimal equipment", "Shoulder quality is clean"],
+    avoidWhen: ["Shoulder pinching, numbness, tingling, or wrist symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "alactic_sprints_hill_stride_touch",
+    family: "alactic_sprints",
+    title: "Hill stride speed touch",
+    intent: "Use short hill strides as a bounded alactic exposure when gait quality and lower legs are ready.",
+    defaultDurationMinutes: 42,
+    defaultIntensity: "hard",
+    defaultFuelDemand: "moderate",
+    sections: [
+      section("warmup", "Warm-up", "Prepare gait, ankles, and landing mechanics.", ["movement_prep_flow", "snap_down_landing"]),
+      section("main", "Hill stride gates", "Use very short hill strides with full recovery and strict quality stops.", ["hill_stride_gated"]),
+      section("cooldown", "Required cooldown", "Downshift calves, gait, and breathing.", ["mobility_reset_flow", "recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("required_conditioning_cooldown_8")],
+    protects: ["acceleration", "lower-leg quality", "fresh speed"],
+    noviceEligible: false,
+    equipmentTags: ["minimal"],
+    safetyTags: ["conditioning", "phase_variant", "quality_stop"],
+    preferredWhen: ["Green readiness", "Pain-free gait", "Speed target needs a hill option"],
+    avoidWhen: ["Calf, Achilles, foot, knee, or gait symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "roadwork_zone2_run_walk_base",
+    family: "roadwork_zone2",
+    title: "Run-walk aerobic base",
+    intent: "Build aerobic base with a run-walk structure that keeps talk-test effort and gait quality intact.",
+    defaultDurationMinutes: 50,
+    defaultIntensity: "easy",
+    defaultFuelDemand: "moderate",
+    sections: [
+      section("warmup", "Prep", "Confirm talk-test breathing and pain-free gait.", ["movement_prep_flow"]),
+      section("main", "Run-walk Zone 2", "Alternate easy jog and walk without chasing pace.", ["run_walk_zone2"]),
+      section("support", "Lower-leg support", "Keep ankles and calves calm after aerobic work.", ["calf_ankle_capacity"]),
+      section("cooldown", "Reset", "Downshift breathing and lower-leg tone.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_hip_ankle_reset_8")],
+    protects: ["aerobic base", "lower-leg tolerance", "repeatability"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["roadwork", "phase_variant", "novice_safe"],
+    preferredWhen: ["Novice or returning athlete", "Standard dose", "Impact is tolerated"],
+    avoidWhen: ["Gait-changing pain", "Dizziness", "Red readiness"],
+    fallback: false
+  }),
+  template({
+    templateId: "roadwork_tempo_progression_run",
+    family: "roadwork_tempo",
+    title: "Tempo progression run",
+    intent: "Use one controlled tempo segment inside an easy run so sustained pressure stays repeatable.",
+    defaultDurationMinutes: 55,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "high",
+    sections: [
+      section("warmup", "Prep", "Ease into gait and breathing before tempo.", ["movement_prep_flow"]),
+      section("main", "Tempo progression", "Build from easy running into one controlled tempo segment.", ["tempo_roadwork"]),
+      section("support", "Calf and ankle reset", "Protect lower-leg quality after tempo work.", ["calf_ankle_capacity"]),
+      section("cooldown", "Reset", "Return breathing to easy before stopping.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("required_conditioning_cooldown_8")],
+    protects: ["pace control", "sustained pressure", "gait quality"],
+    noviceEligible: false,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["roadwork", "phase_variant", "quality_stop"],
+    preferredWhen: ["Intermediate athlete", "Serious dose", "No hard boxing conflict"],
+    avoidWhen: ["Red readiness", "Hard protected anchor today", "Lower-leg symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "roadwork_intervals_short_aerobic_power",
+    family: "roadwork_intervals",
+    title: "Short aerobic power intervals",
+    intent: "Use short bounded intervals to build repeatability without all-out output.",
+    defaultDurationMinutes: 50,
+    defaultIntensity: "hard",
+    defaultFuelDemand: "high",
+    sections: [
+      section("warmup", "Prep", "Warm up gait and breathing before interval work.", ["movement_prep_flow"]),
+      section("main", "Short aerobic power", "Run controlled 60-90 second efforts with easy recovery.", ["roadwork_interval_400s"]),
+      section("cooldown", "Required cooldown", "Stop while mechanics remain clean and breathing returns.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("required_conditioning_cooldown_8")],
+    protects: ["repeatability", "gait quality", "round recovery"],
+    noviceEligible: false,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["conditioning", "phase_variant", "quality_stop"],
+    preferredWhen: ["Green readiness", "Conditioning target needs intervals", "No high-stress anchor conflict"],
+    avoidWhen: ["Conservative fueling context", "Gait-changing pain", "Breathing control is poor"],
+    fallback: false
+  }),
+  template({
+    templateId: "round_conditioning_skill_constraints",
+    family: "round_based_conditioning",
+    title: "Conditioning with skill constraints",
+    intent: "Use boxing-length rounds with one technical constraint per round and a strict quality ceiling.",
+    defaultDurationMinutes: 55,
+    defaultIntensity: "hard",
+    defaultFuelDemand: "high",
+    sections: [
+      section("warmup", "Prep", "Prepare stance, breathing, and quality gates.", ["movement_prep_flow", "technical_quality_gate"]),
+      section("main", "Skill-constrained rounds", "Build work capacity through solo rounds while preserving shape.", ["round_based_conditioning_support", "guard_return_timer"]),
+      section("support", "Trunk support", "Keep posture available after round work.", ["dead_bug_anti_extension", "side_plank_knee_down"]),
+      section("cooldown", "Required cooldown", "Downshift breathing and coordination.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("required_conditioning_cooldown_8")],
+    protects: ["work capacity", "skill shape", "breathing control"],
+    noviceEligible: false,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["conditioning", "phase_variant", "quality_stop"],
+    preferredWhen: ["Camp or serious dose", "Skill quality is stable", "No hard protected anchor today"],
+    avoidWhen: ["Red readiness", "Technique breaks early", "Conservative fueling context"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "boxing_shadowboxing_advanced_tactical_rounds",
+    family: "boxing_technical_shadowboxing",
+    title: "Advanced tactical shadow rounds",
+    intent: "Layer lead-hand entries, rhythm breaks, defense, and exits across quality-capped tactical rounds.",
+    defaultDurationMinutes: 60,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    boxingSkillTheme: "Integrated solo tactical shadowboxing",
+    tacticalTheme: "Enter, change rhythm, defend, and exit before adding volume",
+    technicalEmphasis: ["feint-to-jab entry", "jab-cross exit", "guard return timer", "defense reset"],
+    roundStructure: "6 x 2:30-3:00 tactical shadow rounds, 1:00 rest",
+    equipmentMode: "mirror",
+    sessionPriority: "primary",
+    mainExerciseIds: ["feint_jab_entry", "jab_cross_exit", "guard_return_timer", "shadowboxing_technical_rounds"],
+    supportExerciseIds: ["defense_shape_quality_check", "optional_film_self_check"],
+    addOnBlocks: [addOnBlockFromLibrary("required_technical_quality_gate_5")],
+    protects: ["tactical clarity", "guard return", "solo skill quality"],
+    noviceEligible: false,
+    equipmentTags: ["no_equipment", "mirror", "minimal"],
+    safetyTags: ["boxing_skill", "phase_variant", "quality_stop"],
+    preferredWhen: ["Intermediate or advanced athlete", "No protected boxing anchor", "Skill density target"],
+    avoidWhen: ["Novice skill base", "Symptoms change balance or guard"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "boxing_bag_skill_controlled_fatigue",
+    family: "boxing_bag_skill",
+    title: "Bag skill under controlled fatigue",
+    intent: "Use bag rounds with a final quality round only while accuracy, guard return, and exits stay clean.",
+    defaultDurationMinutes: 60,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "high",
+    boxingSkillTheme: "Bag accuracy, rhythm, and exits under a quality cap",
+    tacticalTheme: "Touch, change rhythm, exit, and check quality before adding another round",
+    technicalEmphasis: ["accuracy marks", "body-head variation", "rhythm change", "round quality check"],
+    roundStructure: "6-7 x 2:30-3:00 bag rounds, 1:00 rest; final round only if quality is clean",
+    equipmentMode: "bag",
+    sessionPriority: "primary",
+    mainExerciseIds: ["bag_accuracy_marks", "bag_body_head_variation", "bag_rhythm_change_round", "bag_round_quality_check"],
+    supportExerciseIds: ["bag_angle_reset_round", "wrist_pronation_supination"],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_shoulder_guard_durability_10")],
+    protects: ["bag accuracy", "exit discipline", "hand and shoulder quality"],
+    noviceEligible: false,
+    equipmentTags: ["bag"],
+    safetyTags: ["boxing_skill", "phase_variant", "quality_stop", "high_fuel"],
+    preferredWhen: ["Bag available", "Advanced or camp athlete", "Green readiness"],
+    avoidWhen: ["Hand, wrist, shoulder, headache, or accuracy symptoms"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "boxing_ringcraft_center_reclaim_corner_escape",
+    family: "boxing_footwork_ringcraft",
+    title: "Center reclaim and corner escape",
+    intent: "Develop corner escape, circle-out, center reclaim, and cut-off logic through line-based solo rounds.",
+    defaultDurationMinutes: 55,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    boxingSkillTheme: "Ringcraft position and angle control",
+    tacticalTheme: "Exit pressure, reclaim center, and cut off without chasing",
+    technicalEmphasis: ["L-step escape", "circle-out center reclaim", "corner escape", "ring cut-off"],
+    roundStructure: "5-6 x 2:00-2:30 ringcraft rounds, 1:00 rest",
+    equipmentMode: "line",
+    sessionPriority: "primary",
+    mainExerciseIds: ["l_step_escape", "circle_out_center_reclaim", "corner_escape_pattern", "ring_cutoff_step"],
+    supportExerciseIds: ["pivot_reaction_pairing"],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_hip_ankle_reset_8")],
+    protects: ["angle control", "center control", "stance recovery"],
+    noviceEligible: false,
+    equipmentTags: ["no_equipment", "line", "minimal"],
+    safetyTags: ["boxing_skill", "phase_variant", "quality_stop"],
+    preferredWhen: ["Ringcraft theme", "Footwork quality is stable", "No lower-leg symptoms"],
+    avoidWhen: ["Feet cross repeatedly", "Lower-leg pain changes stepping"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "boxing_defense_after_offense",
+    family: "boxing_defense_movement",
+    title: "Defense after offense",
+    intent: "Pair one punch or short combination with a small defensive shape and full reset.",
+    defaultDurationMinutes: 55,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    boxingSkillTheme: "Defensive responsibility after offense",
+    tacticalTheme: "Punch, defend, pivot, and reset before adding work",
+    technicalEmphasis: ["single jab exit", "pull reset", "roll pivot", "defense quality check"],
+    roundStructure: "5-6 x 2:00-2:30 defense-after-offense rounds, 1:00 rest",
+    equipmentMode: "none",
+    sessionPriority: "primary",
+    mainExerciseIds: ["single_jab_exit_reset", "pull_reset_shadow", "roll_pivot_reset", "defense_shape_quality_check"],
+    supportExerciseIds: ["dead_bug_anti_extension", "side_plank_knee_down"],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_trunk_transfer_10")],
+    protects: ["defensive shape", "balance", "trunk position"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["boxing_skill", "phase_variant", "quality_stop", "novice_safe"],
+    preferredWhen: ["Defense theme", "Build or camp week", "Needs trunk support"],
+    avoidWhen: ["Neck, dizziness, balance, knee, hip, or back symptoms"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "boxing_jab_lead_hand_pressure_control",
+    family: "boxing_jab_entry_exit",
+    title: "Lead-hand pressure control",
+    intent: "Use feints, body-head jabs, double jabs, and exits to develop lead-hand control.",
+    defaultDurationMinutes: 55,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    boxingSkillTheme: "Lead-hand pressure without overreaching",
+    tacticalTheme: "Show, enter, touch two lines, and exit on balance",
+    technicalEmphasis: ["feint-to-jab", "double jab", "body-head jab", "single jab exit"],
+    roundStructure: "5 x 2:30 lead-hand rounds, 1:00 rest",
+    equipmentMode: "none",
+    sessionPriority: "primary",
+    mainExerciseIds: ["feint_jab_entry", "double_jab_exit", "jab_body_jab_head", "single_jab_exit_reset"],
+    supportExerciseIds: ["guard_return_timer"],
+    addOnBlocks: [addOnBlockFromLibrary("required_technical_quality_gate_5")],
+    protects: ["lead-hand rhythm", "entry timing", "exit quality"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["boxing_skill", "phase_variant", "quality_stop", "novice_safe"],
+    preferredWhen: ["Jab development theme", "No bag needed", "Skill exposure target"],
+    avoidWhen: ["Shoulder, wrist, balance, or breathing quality drops"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "boxing_counter_rhythm_break_tactical",
+    family: "boxing_counter_timing",
+    title: "Rhythm break tactical rounds",
+    intent: "Use self-called cues, rhythm changes, and single counter exits to develop relaxed timing.",
+    defaultDurationMinutes: 55,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "moderate",
+    boxingSkillTheme: "Counter timing and rhythm breaks",
+    tacticalTheme: "Invite a cue, respond once, exit, and reset",
+    technicalEmphasis: ["mirror feint reaction", "single counter exit", "rhythm change", "pull reset"],
+    roundStructure: "6 x 2:00 cue-response rounds, 1:00 rest",
+    equipmentMode: "mirror",
+    sessionPriority: "primary",
+    mainExerciseIds: ["mirror_feint_reaction", "single_counter_exit", "rhythm_change_round", "pull_reset_shadow"],
+    supportExerciseIds: ["defense_shape_quality_check"],
+    addOnBlocks: [addOnBlockFromLibrary("optional_film_self_check_5")],
+    protects: ["timing", "relaxation", "reset discipline"],
+    noviceEligible: false,
+    equipmentTags: ["no_equipment", "mirror", "minimal"],
+    safetyTags: ["boxing_skill", "phase_variant", "quality_stop"],
+    preferredWhen: ["Intermediate or advanced skill theme", "Reaction rhythm target", "Fresh technical day"],
+    avoidWhen: ["Rushing, stress, or tension increases"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "boxing_round_skill_quality_controlled_fatigue",
+    family: "boxing_round_skill_circuit",
+    title: "Skill quality under controlled fatigue",
+    intent: "Blend jab, defense, ringcraft, and rhythm constraints through round structure with a strict quality cap.",
+    defaultDurationMinutes: 62,
+    defaultIntensity: "hard",
+    defaultFuelDemand: "high",
+    boxingSkillTheme: "Integrated round skill quality",
+    tacticalTheme: "Change one constraint per round and stop before shape collapses",
+    technicalEmphasis: ["technical rounds", "defense after combination", "ringcraft line", "rhythm change"],
+    roundStructure: "6-8 x 2:30-3:00 constrained solo rounds, 1:00 rest",
+    equipmentMode: "line",
+    sessionPriority: "primary",
+    mainExerciseIds: ["shadowboxing_technical_rounds", "defense_after_combo_round", "rope_line_ringcraft", "rhythm_change_round"],
+    supportExerciseIds: ["guard_return_timer", "recovery_breathing_mobility"],
+    addOnBlocks: [addOnBlockFromLibrary("required_conditioning_cooldown_8")],
+    protects: ["skill density", "round rhythm", "quality under load"],
+    noviceEligible: false,
+    equipmentTags: ["no_equipment", "line", "minimal"],
+    safetyTags: ["boxing_skill", "phase_variant", "quality_stop", "high_fuel"],
+    preferredWhen: ["Camp or serious dose", "Advanced skill quality is stable", "No protected high-stress anchor"],
+    avoidWhen: ["Conservative fueling context", "Quality breaks twice", "Red readiness"],
+    fallback: false
+  }),
+  template({
+    templateId: "agility_reactive_ringcraft_add_on",
+    family: "agility_reactive_footwork",
+    title: "Agility and ringcraft add-on",
+    intent: "Use a short reactive add-on after skill or power work to connect braking, pivots, and stance recovery.",
+    defaultDurationMinutes: 32,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "low",
+    sections: [
+      section("warmup", "Prep", "Confirm feet are quiet and stance is available.", ["movement_prep_flow"]),
+      section("main", "Reactive ringcraft", "Use low-volume reaction and pivot pairings with full reset.", ["reactive_footwork_callout", "pivot_reaction_pairing"]),
+      section("cooldown", "Reset", "Restore hips, ankles, and breathing.", ["mobility_reset_flow"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_reactive_footwork_primer_8")],
+    protects: ["reaction", "braking", "ringcraft transfer"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["agility", "phase_variant", "quality_stop", "novice_safe"],
+    preferredWhen: ["After power day", "Footwork target needs a short add-on", "Taper-safe speed touch"],
+    avoidWhen: ["Lower-leg pain", "Foot noise rises early"],
+    fallback: false
+  }),
+  template({
+    templateId: "mobility_recovery_post_hard_day_reset",
+    family: "mobility_recovery_flow",
+    title: "Post-hard-day reset",
+    intent: "Use walking, breathing, hips, ankles, shoulders, and trunk reset to make recovery own the day.",
+    defaultDurationMinutes: 32,
+    defaultIntensity: "recovery",
+    defaultFuelDemand: "low",
+    sections: [
+      section("reset", "Breathing and walk", "Downshift stress before mobility.", ["easy_walk_reset", "recovery_breathing_mobility"]),
+      section("main", "Hip and shoulder reset", "Restore usable boxing positions without forced range.", ["mobility_reset_flow", "serratus_wall_slide"]),
+      section("support", "Trunk reset", "Use low-stress trunk control only if it improves positions.", ["dead_bug_anti_extension"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("optional_breathing_reset_5")],
+    protects: ["recovery", "range", "next-session quality"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["recovery", "phase_variant", "low_fuel", "novice_safe"],
+    preferredWhen: ["After hard day", "Recovery or deload week", "Symptoms improve with easy movement"],
+    avoidWhen: ["Symptoms worsen with easy movement"],
+    fallback: false
+  }),
+  boxingTemplate({
+    templateId: "movement_quality_pre_lift_boxing_prep",
+    family: "movement_quality_prep",
+    title: "Pre-lift boxing prep",
+    intent: "Prime stance, trunk, shoulders, and guard rhythm before a higher-stimulus lift without adding fatigue.",
+    defaultDurationMinutes: 22,
+    defaultIntensity: "easy",
+    defaultFuelDemand: "low",
+    boxingSkillTheme: "Stance and guard prep before lifting",
+    tacticalTheme: "Start the lift from boxing positions that feel organized",
+    technicalEmphasis: ["stance reset", "trunk anti-extension", "shoulder rhythm", "guard return"],
+    roundStructure: "Short primer blocks only; stop fresh",
+    equipmentMode: "none",
+    sessionPriority: "add_on",
+    mainExerciseIds: ["stance_guard_reset", "dead_bug_anti_extension", "serratus_wall_slide", "guard_return_timer"],
+    addOnBlocks: [addOnBlockFromLibrary("required_movement_prep_8")],
+    protects: ["lift setup", "guard posture", "movement quality"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["mobility", "phase_variant", "novice_safe", "quality_stop"],
+    preferredWhen: ["Before hard lift", "Movement quality target", "No equipment"],
+    avoidWhen: ["Prep creates fatigue or symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "footwork_agility_primer_add_on",
+    family: "footwork_agility",
+    title: "Footwork primer add-on",
+    intent: "Use brief line steps, pivots, and guard resets before skill or power work.",
+    defaultDurationMinutes: 18,
+    defaultIntensity: "easy",
+    defaultFuelDemand: "low",
+    sections: [
+      section("warmup", "Warm-up", "Ease into stance range.", ["movement_prep_flow"]),
+      section("main", "Footwork primer", "Use small steps, pivots, and clean guard return.", ["step_slide_stance_lane", "pivot_out_reset", "footwork_quality_finisher"]),
+      section("cooldown", "Reset", "Stop fresh before the main work.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_reactive_footwork_primer_8")],
+    protects: ["foot rhythm", "stance width", "freshness"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["agility", "phase_variant", "low_fuel", "novice_safe"],
+    preferredWhen: ["Before skill or power", "Short add-on target", "No equipment"],
+    avoidWhen: ["Foot placement degrades", "Lower-leg symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "reaction_rhythm_visual_support",
+    family: "reaction_rhythm",
+    title: "Visual rhythm support",
+    intent: "Use mirror, timer, or ball cues to keep reaction timing sharp with low stress.",
+    defaultDurationMinutes: 30,
+    defaultIntensity: "easy",
+    defaultFuelDemand: "low",
+    sections: [
+      section("warmup", "Warm-up", "Prepare stance and eyes before cues.", ["movement_prep_flow"]),
+      section("main", "Visual rhythm", "Pair visual or self-called cues with one reaction and full reset.", ["mirror_feint_reaction", "reaction_cue_step", "tennis_ball_reaction_drop"]),
+      section("cooldown", "Reset", "Downshift breathing and timing pressure.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("optional_film_self_check_5")],
+    protects: ["reaction timing", "rhythm", "freshness"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "mirror", "minimal"],
+    safetyTags: ["agility", "phase_variant", "low_fuel", "novice_safe", "quality_stop"],
+    preferredWhen: ["Optional timing day", "Taper-safe rhythm touch", "No hard conditioning needed"],
+    avoidWhen: ["Cues create stress or rushing"],
+    fallback: false
+  }),
+  template({
+    templateId: "trunk_durability_defense_position_support",
+    family: "trunk_durability",
+    title: "Defense-position trunk support",
+    intent: "Support defensive posture with anti-rotation, side plank, and adductor/trunk control.",
+    defaultDurationMinutes: 36,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "low",
+    sections: [
+      section("warmup", "Warm-up", "Open stance range and ribs.", ["movement_prep_flow"]),
+      section("main", "Defense-position trunk", "Use clean trunk positions that support slips, rolls, and pivots.", ["pallof_press", "side_plank_knee_down"]),
+      section("support", "Adductor and anti-extension", "Keep stance-width support low stress.", ["adductor_side_plank_regression", "dead_bug_anti_extension"]),
+      section("cooldown", "Reset", "Release trunk tone and breathing.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_trunk_transfer_10")],
+    protects: ["defensive posture", "pivots", "trunk transfer"],
+    noviceEligible: true,
+    equipmentTags: ["bands", "no_equipment", "minimal"],
+    safetyTags: ["durability", "phase_variant", "novice_safe"],
+    preferredWhen: ["Defense theme", "Trunk support target", "Low fuel available"],
+    avoidWhen: ["Back pain, rib flare, breath-holding, or shoulder discomfort"],
+    fallback: false
+  }),
+  template({
+    templateId: "shoulder_scap_punch_deceleration_support",
+    family: "shoulder_scap_durability",
+    title: "Punch deceleration support",
+    intent: "Use reach control, row balance, cuff rhythm, and trunk support to preserve shoulder quality.",
+    defaultDurationMinutes: 40,
+    defaultIntensity: "moderate",
+    defaultFuelDemand: "low",
+    sections: [
+      section("warmup", "Warm-up", "Prepare shoulder blades and ribs.", ["movement_prep_flow", "serratus_wall_slide"]),
+      section("main", "Deceleration support", "Build cuff and upper-back control around punching volume.", ["band_external_rotation", "one_arm_row", "push_up_plus"]),
+      section("support", "Trunk support", "Keep reach connected to trunk position.", ["pallof_press"]),
+      section("cooldown", "Reset", "Downshift shoulder and neck tone.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_shoulder_guard_durability_10")],
+    protects: ["shoulder quality", "guard endurance", "punch deceleration"],
+    noviceEligible: true,
+    equipmentTags: ["bands", "dumbbells", "no_equipment"],
+    safetyTags: ["durability", "phase_variant", "novice_safe", "quality_stop"],
+    preferredWhen: ["After bag or upper-body work", "Shoulder support target", "Guard fatigue needs support"],
+    avoidWhen: ["Pinching, numbness, tingling, or neck symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "neck_trap_travel_posture_reset",
+    family: "neck_trap_durability",
+    title: "Travel and posture neck reset",
+    intent: "Use gentle neck, shoulder, and breathing work as recovery-only posture support.",
+    defaultDurationMinutes: 20,
+    defaultIntensity: "recovery",
+    defaultFuelDemand: "low",
+    sections: [
+      section("reset", "Posture reset", "Relax neck and shoulder tone before any isometrics.", ["recovery_breathing_mobility"]),
+      section("main", "Gentle neck posture", "Use very light hand-resisted isometrics and upper-back rhythm.", ["neck_isometric_hand_resisted", "ytwl_raise"]),
+      section("cooldown", "Breathing reset", "Finish with jaw, neck, and rib relaxation.", ["trap_posture_breathing_carry"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("optional_breathing_reset_5")],
+    protects: ["neck comfort", "guard posture", "recovery"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["durability", "phase_variant", "low_fuel", "novice_safe"],
+    preferredWhen: ["Travel week", "Posture reset", "Recovery-only support"],
+    avoidWhen: ["Headache, dizziness, neck pain, numbness, or tingling"],
+    fallback: false
+  }),
+  template({
+    templateId: "wrist_hand_forearm_capacity_support",
+    family: "wrist_hand_durability",
+    title: "Forearm capacity support",
+    intent: "Build light wrist, hand, and carry tolerance while preserving relaxed guard and grip.",
+    defaultDurationMinutes: 30,
+    defaultIntensity: "easy",
+    defaultFuelDemand: "low",
+    sections: [
+      section("warmup", "Warm-up", "Prepare shoulders, wrists, and hands.", ["movement_prep_flow"]),
+      section("main", "Forearm capacity", "Use smooth wrist control and light grip work without max squeezing.", ["wrist_pronation_supination", "wrist_extension_flexion_control", "grip_endurance_carry"]),
+      section("support", "Release drills", "Finish with hand relaxation and breathing.", ["open_close_hand_pump", "towel_squeeze_breathing"]),
+      section("cooldown", "Reset", "Relax hands, jaw, and shoulders.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("optional_breathing_reset_5")],
+    protects: ["hand tolerance", "wrist control", "relaxed guard"],
+    noviceEligible: true,
+    equipmentTags: ["dumbbells", "no_equipment", "minimal"],
+    safetyTags: ["durability", "phase_variant", "low_fuel", "novice_safe"],
+    preferredWhen: ["Bag tolerance support", "Forearm tension needs release", "Optional durability day"],
+    avoidWhen: ["Hand, wrist, elbow, cramping, numbness, or tingling symptoms"],
+    fallback: false
+  }),
+  template({
+    templateId: "hip_ankle_post_roadwork_reset",
+    family: "hip_ankle_mobility",
+    title: "Post-roadwork lower-leg reset",
+    intent: "Restore calf, ankle, hip, and breathing quality after roadwork without adding hidden load.",
+    defaultDurationMinutes: 24,
+    defaultIntensity: "recovery",
+    defaultFuelDemand: "low",
+    sections: [
+      section("reset", "Lower-leg reset", "Release calves and ankles after roadwork.", ["calf_ankle_capacity"]),
+      section("main", "Hip and ankle mobility", "Restore stance range and lateral positions.", ["hip_switch_step", "lateral_lunge_regression"]),
+      section("cooldown", "Breathing reset", "Downshift before the next training stress.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("recommended_hip_ankle_reset_8")],
+    protects: ["lower-leg recovery", "stance range", "tomorrow's footwork"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["mobility", "phase_variant", "low_fuel", "novice_safe"],
+    preferredWhen: ["After roadwork", "Deload week", "Lower-leg stiffness without pain"],
+    avoidWhen: ["Achilles, calf, foot, hip, groin, or knee pain rises"],
+    fallback: false
+  }),
+  template({
+    templateId: "recovery_reset_plus_skill_touch",
+    family: "recovery_reset",
+    title: "Recovery plus skill touch",
+    intent: "Use recovery first, then add an optional easy technical touch only if the athlete feels better.",
+    defaultDurationMinutes: 28,
+    defaultIntensity: "recovery",
+    defaultFuelDemand: "low",
+    sections: [
+      section("reset", "Recovery first", "Breathing and mobility own the session.", ["recovery_breathing_mobility", "mobility_reset_flow"]),
+      section("support", "Optional easy skill touch", "Use a tiny jab-only touch only if symptoms and coordination improve.", ["stance_guard_reset", "single_jab_exit_reset"]),
+      section("cooldown", "Stop fresh", "Let the session end without adding work.", ["optional_film_self_check"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("optional_easy_shadow_touch_10")],
+    protects: ["recovery", "confidence", "technical feel"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["recovery", "phase_variant", "low_fuel", "novice_safe", "taper_safe"],
+    preferredWhen: ["Recovery day", "Symptoms improve with easy movement", "Taper or deload week"],
+    avoidWhen: ["Symptoms worsen", "Coordination fades", "Any hard-stop safety flag"],
+    fallback: false
+  }),
+  template({
+    templateId: "taper_maintenance_tournament_repeatable_warmup",
+    family: "taper_maintenance",
+    title: "Tournament repeatable warm-up",
+    intent: "Create a repeatable low-volume warm-up that preserves rhythm and confidence across tournament days.",
+    defaultDurationMinutes: 24,
+    defaultIntensity: "easy",
+    defaultFuelDemand: "low",
+    sections: [
+      section("warmup", "Mobility warm-up", "Open stance range without fatigue.", ["movement_prep_flow", "mobility_reset_flow"]),
+      section("main", "Rhythm touch", "Use easy reaction and speed touches with long resets.", ["reaction_cue_step", "taper_speed_step"]),
+      section("cooldown", "Reset", "Leave fresher and ready to repeat.", ["recovery_breathing_mobility"])
+    ],
+    addOnBlocks: [addOnBlockFromLibrary("optional_breathing_reset_5")],
+    protects: ["freshness", "repeatability", "confidence"],
+    noviceEligible: true,
+    equipmentTags: ["no_equipment", "minimal"],
+    safetyTags: ["taper", "phase_variant", "low_fuel", "novice_safe", "taper_safe", "quality_stop"],
+    preferredWhen: ["Tournament week", "Fight-week travel", "Need repeatable warm-up"],
+    avoidWhen: ["Red readiness requires recovery only", "Timing or symptoms worsen"],
+    fallback: false
+  })
+];
+
 export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
   template({
     templateId: "strength_lower_stance_strength",
@@ -1140,6 +1903,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     fallback: true
   }),
   ...boxingDevelopmentTemplates,
+  ...phaseDoseWorkoutTemplates,
   template({
     templateId: "footwork_agility_rhythm",
     family: "footwork_agility",
@@ -1552,6 +2316,7 @@ function conservativeContext(input: WorkoutTemplateSelectionInput): boolean {
 function scoreTemplate(templateItem: WorkoutTemplate, input: WorkoutTemplateSelectionInput): number {
   const noEquipment = noEquipmentAccess(input.equipmentAccess);
   const conservative = conservativeContext(input);
+  const phaseDosePreferred = input.trainingDose === "serious" || input.trainingDose === "high";
   const used = new Set(input.usedTemplateIds ?? []);
   const required = templateRequiredEquipment(templateItem);
   const requiredEquipmentAvailable = equipmentFits(templateItem, input.equipmentAccess);
@@ -1580,6 +2345,12 @@ function scoreTemplate(templateItem: WorkoutTemplate, input: WorkoutTemplateSele
   }
   if (input.volumeStrategy === "taper" || input.volumeStrategy === "tournament_conserve") {
     score += templateItem.safetyTags.includes("taper_safe") ? 30 : 0;
+  }
+  if (phaseDosePreferred && !conservative && requiredEquipmentAvailable && templateItem.safetyTags.includes("phase_variant")) {
+    score += 24;
+  }
+  if (!phaseDosePreferred && templateItem.safetyTags.includes("phase_variant")) {
+    score -= 4;
   }
   if (templateItem.fallback) {
     score -= conservative ? 0 : 18;

@@ -154,6 +154,116 @@ export const ADD_ON_BLOCK_LIBRARY = {
     placementType: "recovery",
     athleteFacingPurpose: "Downshift stress before leaving the session.",
     safetyBoundary: "Stop if breathing feels abnormal or symptoms appear."
+  }),
+  movement_prep_required_10: addOnBlock({
+    id: "movement_prep_required_10",
+    label: "Required movement prep",
+    durationMinutes: 10,
+    intent: "Prepare stance, hips, ankles, trunk, and shoulders before high-stimulus work.",
+    cues: ["Stance-width reset", "Hips and ankles easy", "Ribs stacked", "Guard relaxed"],
+    priority: "required",
+    placementType: "primer",
+    athleteFacingPurpose: "Prepare stance, hips, ankles, trunk, and shoulders before high-stimulus work.",
+    safetyBoundary: "Stop or simplify if pain, dizziness, or coordination changes appear."
+  }),
+  technical_shadow_primer_10: addOnBlock({
+    id: "technical_shadow_primer_10",
+    label: "Technical shadowboxing primer",
+    durationMinutes: 10,
+    intent: "Prime jab, guard, stance, and exit quality before lift, power, or skill work.",
+    cues: ["Jab only", "Guard returns", "Small exit", "Stop fresh"],
+    priority: "recommended",
+    placementType: "technical_touch",
+    athleteFacingPurpose: "Prime jab, guard, stance, and exit quality before lift, power, or skill work.",
+    safetyBoundary: "Keep the primer easy; do not add rounds when quality fades."
+  }),
+  hip_ankle_reset_8: addOnBlock({
+    id: "hip_ankle_reset_8",
+    label: "Hip and ankle reset",
+    durationMinutes: 8,
+    intent: "Restore pivot and stance range after roadwork, lifting, or footwork.",
+    cues: ["Pain-free range", "Slow pivots", "No forced depth", "Breathe out"],
+    priority: "recommended",
+    placementType: "mobility",
+    athleteFacingPurpose: "Restore pivot and stance range after roadwork, lifting, or footwork.",
+    safetyBoundary: "Stop if hip, groin, knee, ankle, calf, or foot pain rises."
+  }),
+  shoulder_durability_10: addOnBlock({
+    id: "shoulder_durability_10",
+    label: "Shoulder durability",
+    durationMinutes: 10,
+    intent: "Support serratus, cuff, and upper-back control after skill or bag volume.",
+    cues: ["Neck relaxed", "Reach smoothly", "Ribs quiet", "No pinching"],
+    priority: "recommended",
+    placementType: "durability",
+    athleteFacingPurpose: "Support serratus, cuff, and upper-back control after skill or bag volume.",
+    safetyBoundary: "Stop on shoulder pain, pinching, numbness, tingling, or neck symptoms."
+  }),
+  trunk_durability_10: addOnBlock({
+    id: "trunk_durability_10",
+    label: "Trunk durability",
+    durationMinutes: 10,
+    intent: "Support anti-extension and anti-rotation after defense, bag, or power work.",
+    cues: ["Ribs stacked", "Breathe through the brace", "No max holds", "Clean reset"],
+    priority: "recommended",
+    placementType: "durability",
+    athleteFacingPurpose: "Support anti-extension and anti-rotation after defense, bag, or power work.",
+    safetyBoundary: "Stop on back pain, rib flare, breath-holding, or symptoms."
+  }),
+  mobility_cooldown_required_10: addOnBlock({
+    id: "mobility_cooldown_required_10",
+    label: "Required mobility cooldown",
+    durationMinutes: 10,
+    intent: "Downshift after hard conditioning, serious lower-body lifting, or interval work.",
+    cues: ["Long exhale", "Easy walk", "Hips loose", "Shoulders relaxed"],
+    priority: "required",
+    placementType: "recovery",
+    athleteFacingPurpose: "Downshift after hard conditioning, serious lower-body lifting, or interval work.",
+    safetyBoundary: "Do not add extra intervals, reps, or hard efforts after cooldown begins."
+  }),
+  reactive_footwork_primer_8: addOnBlock({
+    id: "reactive_footwork_primer_8",
+    label: "Reactive footwork primer",
+    durationMinutes: 8,
+    intent: "Use low-volume callout and pivot work before power or ringcraft.",
+    cues: ["One cue", "Quiet brake", "Full reset", "Small pivot"],
+    priority: "recommended",
+    placementType: "primer",
+    athleteFacingPurpose: "Use low-volume callout and pivot work before power or ringcraft.",
+    safetyBoundary: "Keep it low stress and stop if lower-leg quality changes."
+  }),
+  wrist_hand_flush_8: addOnBlock({
+    id: "wrist_hand_flush_8",
+    label: "Wrist and hand flush",
+    durationMinutes: 8,
+    intent: "Relax hand, wrist, and forearm tone after bag or upper-body work.",
+    cues: ["Gentle open-close", "Relax grip", "Long exhale", "No max squeeze"],
+    priority: "optional",
+    placementType: "recovery",
+    athleteFacingPurpose: "Relax hand, wrist, and forearm tone after bag or upper-body work.",
+    safetyBoundary: "Skip or stop if cramping, numbness, tingling, or pain appears."
+  }),
+  easy_shadow_touch_10: addOnBlock({
+    id: "easy_shadow_touch_10",
+    label: "Easy technical touch",
+    durationMinutes: 10,
+    intent: "Use optional jab-only shadowboxing on recovery days when it improves quality.",
+    cues: ["Jab only", "Guard return", "Breathe easily", "Stop fresh"],
+    priority: "optional",
+    placementType: "technical_touch",
+    athleteFacingPurpose: "Use optional jab-only shadowboxing on recovery days when it improves quality.",
+    safetyBoundary: "Optional only; skip if symptoms, coordination, or fatigue worsen."
+  }),
+  athlete_quality_note_3: addOnBlock({
+    id: "athlete_quality_note_3",
+    label: "Athlete quality note",
+    durationMinutes: 3,
+    intent: "Record one athlete-facing cue about what stayed clean and what should simplify next time.",
+    cues: ["One cue", "What stayed clean", "What gets simpler", "No extra work"],
+    priority: "recommended",
+    placementType: "recovery",
+    athleteFacingPurpose: "Record one athlete-facing cue about what stayed clean and what should simplify next time.",
+    safetyBoundary: "This is a note, not permission to add work."
   })
 } as const satisfies Record<string, GeneratedSessionAddOnBlock>;
 
