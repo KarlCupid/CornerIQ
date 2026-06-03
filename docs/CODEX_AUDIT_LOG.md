@@ -1,5 +1,46 @@
 # Codex Audit Log
 
+## 2026-06-03 EAS build failure remediation and fresh preview submission
+
+Goal summary:
+- Continue the deep-research audit remediation after the submitted Android preview build failed.
+- Diagnose the EAS `Run gradlew` failure, fix the app/build configuration, rerun local gates, and submit a fresh preview build.
+
+Key changes:
+- Diagnosed failed EAS build `d550e9bb-b705-41a3-bae7-76c2b6d38453`: status `ERRORED`, error code `EAS_BUILD_UNKNOWN_GRADLE_ERROR`, no artifacts.
+- Decoded EAS logs and found Hermes failed during `:app:createBundleReleaseJsAndAssets` on a dynamic `import(/* webpackIgnore: true */ ...)` expression in the generated Android bundle.
+- Traced the bundle source to `@supabase/supabase-js@2.106.0`, which was installed because the manifest used a floating `^2.45.0` range.
+- Pinned `@supabase/supabase-js` exactly to `2.50.0`; this removes the Hermes-incompatible dynamic import text and avoids the vulnerable Supabase/auth range reported for `2.45.0`.
+- Corrected Expo dependency drift by moving to `expo@~54.0.35`, adding `expo-font@~14.0.12`, and keeping `@expo/vector-icons@^15.0.3`.
+- Added `metro.config.js` using Expo's default Metro config and scoped the ESLint CommonJS exception to that config file.
+- Updated EAS/release/QA docs with the failed build cause, remediation, fresh build ID, and current artifact blocker.
+
+Command results:
+- `cmd /c npx eas-cli build:view d550e9bb-b705-41a3-bae7-76c2b6d38453 --json`: failed build status `ERRORED`, error code `EAS_BUILD_UNKNOWN_GRADLE_ERROR`, no artifact URLs.
+- EAS log decode: Hermes rejected the dynamic OpenTelemetry import from the generated bundle during Gradle `:app:createBundleReleaseJsAndAssets`.
+- `cmd /c npm install @supabase/supabase-js@2.45.0`: sandboxed run failed with npm registry/cache `EACCES`; approved rerun installed, but production audit showed the Supabase/auth advisory range still applied.
+- `cmd /c npm install @supabase/supabase-js@2.50.0`: approved rerun installed the earliest non-vulnerable tested line; `npm ls` resolved `@supabase/auth-js@2.70.0`.
+- `rg -n -uuu "otelModulePromise|webpackIgnore|import\(/\*" node_modules\@supabase\supabase-js src package.json package-lock.json`: no matches after the final `2.50.0` pin.
+- `cmd /c npm install`: passed, up to date.
+- `cmd /c npm run typecheck`: passed.
+- `cmd /c npm run lint`: passed after the Metro config ESLint override.
+- `cmd /c npm run preflight:beta`: passed.
+- Sandboxed `cmd /c npx expo-doctor`: failed with npm registry/cache `EACCES`; approved rerun passed `18/18`.
+- Sandboxed `cmd /c npm test`, `cmd /c npm run quality`, `cmd /c npm run smoke:fixtures`, and `cmd /c npm run test:coverage`: failed from the known Vitest/esbuild Windows sandbox config read restriction; approved reruns passed.
+- Final approved `cmd /c npm test`: `489` passed, `1` skipped.
+- Final approved `cmd /c npm run quality`: passed with typecheck plus tests.
+- Final approved `cmd /c npm run smoke:fixtures`: `20` passed.
+- Final approved `cmd /c npm run test:coverage`: `489` passed, `1` skipped; all-files statements about `88.73%`.
+- Sandboxed `cmd /c npm audit --audit-level=high --omit=dev`: failed registry access; approved rerun passed with only moderate Expo-chain advisories remaining.
+- `cmd /c npx eas-cli build --profile preview --platform android --non-interactive --clear-cache`: submitted fresh Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f`.
+- Fresh build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
+- Latest `build:view` status during this pass: `IN_QUEUE`.
+- Artifact URL: pending; `artifacts` is empty while queued.
+
+Decision:
+- Hold for distributed beta build until fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` finishes and exposes an artifact.
+- The previous Hermes/Supabase build failure is remediated locally; the remaining blocker is external EAS queue/artifact completion.
+
 ## 2026-06-03 EAS project link and preview submission
 
 Goal summary:

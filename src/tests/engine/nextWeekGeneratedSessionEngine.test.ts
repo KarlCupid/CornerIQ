@@ -451,4 +451,51 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(text).not.toMatch(/\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight)\b/);
   });
+
+  it("keeps generated support conservative across strategy and safety combinations", () => {
+    const state = stateFixture();
+    const strategies: NextWeekTrainingMaterialization["materializedVolumeStrategy"][] = [
+      "conservative_start",
+      "progress_small",
+      "repeat_same",
+      "reduce_volume",
+      "deload",
+      "taper",
+      "tournament_conserve",
+      "hold_for_review"
+    ];
+    const safetyCases = [
+      { label: "clear", safetyFlags: [] },
+      { label: "under_fueled", safetyFlags: [underfuelingFlag()] },
+      { label: "severe_fueling", safetyFlags: [severeFuelingFlag()] },
+      {
+        label: "hard_stop",
+        safetyFlags: [
+          {
+            ...severeFuelingFlag(),
+            id: "risk_hard_stop",
+            hardStop: true,
+            code: "hard_stop_test",
+            message: "Hard stop test flag."
+          }
+        ]
+      }
+    ] as const;
+
+    for (const strategy of strategies) {
+      for (const safetyCase of safetyCases) {
+        const sessions = materializeGeneratedSessionsFromPreview(
+          inputFor(state, materializationFixture(state, { materializedVolumeStrategy: strategy }), {
+            safetyFlags: safetyCase.safetyFlags
+          })
+        );
+        const text = outputText(sessions).toLowerCase();
+
+        expect(text, `${strategy}:${safetyCase.label}`).not.toMatch(/\b(sparring|contact|fight simulation|sauna|sweat\s*suit|laxative|diuretic)\b/);
+        if (safetyCase.label !== "clear" || strategy === "reduce_volume" || strategy === "deload" || strategy === "taper" || strategy === "tournament_conserve" || strategy === "hold_for_review") {
+          expect(sessions.every((session) => session.intensity !== "hard"), `${strategy}:${safetyCase.label}`).toBe(true);
+        }
+      }
+    }
+  });
 });

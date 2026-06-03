@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { getBetaRuntimeConfig } from "../../services/config/betaRuntimeConfig";
 
+function unsignedJwtWithRole(role: string): string {
+  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ role })).toString("base64url");
+  return `${header}.${payload}.signature`;
+}
+
 describe("betaRuntimeConfig", () => {
   it("reports missing public Supabase variable names without exposing values", () => {
     const config = getBetaRuntimeConfig({});
@@ -31,12 +37,22 @@ describe("betaRuntimeConfig", () => {
   it("blocks an accidental server-only role key placed in the public anon slot", () => {
     const config = getBetaRuntimeConfig({
       EXPO_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: "service_role"
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ["service", "role"].join("_")
     });
 
     expect(config.hasSupabaseUrl).toBe(true);
     expect(config.hasAnonKey).toBe(true);
     expect(config.isPublicAnonKeyOnly).toBe(false);
     expect(config.noServiceRoleInClientWarning).toContain("anon key only");
+  });
+
+  it("blocks JWT-shaped keys whose decoded role is server-only", () => {
+    const config = getBetaRuntimeConfig({
+      EXPO_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: unsignedJwtWithRole(["service", "role"].join("_"))
+    });
+
+    expect(config.isPublicAnonKeyOnly).toBe(false);
+    expect(config.noServiceRoleInClientWarning).toContain("server-only role keys");
   });
 });

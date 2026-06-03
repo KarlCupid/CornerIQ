@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("beta release operations", () => {
   it("adds a CI workflow for local-equivalent quality gates without live smoke or secrets", () => {
     const workflow = readFileSync(".github/workflows/quality.yml", "utf8");
+    const releaseWorkflow = readFileSync(".github/workflows/release-quality.yml", "utf8");
     const codeqlWorkflow = readFileSync(".github/workflows/codeql.yml", "utf8");
 
     expect(workflow).toContain("npm ci");
@@ -14,6 +15,10 @@ describe("beta release operations", () => {
     expect(workflow).toContain("npm run smoke:fixtures");
     expect(workflow).toContain("npm audit --audit-level=high --omit=dev");
     expect(workflow).toContain("npx supabase db push --dry-run");
+    expect(releaseWorkflow).toContain("test -n \"$SUPABASE_ACCESS_TOKEN\"");
+    expect(releaseWorkflow).toContain("npx supabase db push --dry-run");
+    expect(releaseWorkflow).toContain("npm run qa:agent:ci");
+    expect(releaseWorkflow).toContain("npm run release:quality");
     expect(codeqlWorkflow).toContain("github/codeql-action/analyze");
     expect(codeqlWorkflow).toContain("javascript-typescript");
     expect(workflow.toLowerCase()).not.toContain("smoke:live-db");
@@ -37,11 +42,16 @@ describe("beta release operations", () => {
       "Data And Privacy",
       "Deferred Features",
       "Beta Release Checklist",
+      "Advisory Vs Release-Blocking Gates",
+      "Release Evidence Ledger",
+      "Private Incident Triage Runbook",
       "How ChatGPT Should Audit Next Commit"
     ]) {
       expect(doc).toContain(heading);
     }
     expect(doc).toContain("CI does not run live smoke");
+    expect(doc).toContain("Release Quality");
+    expect(doc).toContain("release-blocking");
     expect(doc).toContain("Reports are user-owned");
     expect(doc).toContain("no admin-review UI");
     expect(doc).not.toMatch(/make weight at all costs|sauna|sweat suit|laxative|diuretic/i);

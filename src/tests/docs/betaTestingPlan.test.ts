@@ -8,6 +8,7 @@ describe("beta testing documentation", () => {
     expect(source).toContain("Beta Purpose");
     expect(source).toContain("Test Personas");
     expect(source).toContain("Test Scripts");
+    expect(source).toContain("Guided Human Beta Scripts");
     expect(source).toContain("Safety Checks");
     expect(source).toContain("Automated Scenario QA");
     expect(source).toContain("Feedback Prompts");
@@ -18,5 +19,10 @@ describe("beta testing documentation", () => {
     expect(source).toContain("missing data = unknown");
     expect(source).toContain("docs/22_BETA_SCENARIO_QA_RESULTS.md");
     expect(source).toContain("Did Fuel feel useful without barcode scanning?");
+    expect(source).toContain("Facilitator asks");
+    expect(source).toContain("Expected comprehension");
+    expect(source).toContain("Pass/fail criteria");
+    expect(source).toContain("What would you do first in the next five seconds?");
+    expect(source).toContain("Stop the session and seek qualified support");
   });
 });

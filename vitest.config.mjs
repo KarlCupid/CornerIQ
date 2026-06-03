@@ -12,10 +12,10 @@ export default defineConfig({
       include: ["src/engine/**/*.ts", "src/services/**/*.ts"],
       exclude: ["src/services/supabase/database.types.ts"],
       thresholds: {
-        statements: 55,
-        branches: 45,
-        functions: 55,
-        lines: 55
+        statements: 75,
+        branches: 65,
+        functions: 75,
+        lines: 75
       }
     }
   }

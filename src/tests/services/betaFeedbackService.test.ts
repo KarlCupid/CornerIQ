@@ -18,6 +18,12 @@ function betaFeedbackReport(overrides: Partial<BetaFeedbackReport> = {}): BetaFe
   };
 }
 
+function unsignedJwtWithRole(role: string): string {
+  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ role })).toString("base64url");
+  return `${header}.${payload}.signature`;
+}
+
 describe("submitBetaFeedback", () => {
   it("inserts a sanitized payload with safe app context", async () => {
     const insertBetaFeedbackReport = vi.fn(async (input: InsertBetaFeedbackReportInput) => betaFeedbackReport({ message: input.message, feedbackPayload: input.feedbackPayload ?? {} }));
@@ -96,6 +102,52 @@ describe("submitBetaFeedback", () => {
     expect(savedMessage).not.toContain("do-not-save");
     expect(savedMessage).not.toContain("abc123");
     expect(savedMessage).toContain("[redacted");
+  });
+
+  it("redacts API keys, authorization strings, JWT-like text, and server-only role markers from messages", async () => {
+    const insertBetaFeedbackReport = vi.fn(async (input: InsertBetaFeedbackReportInput) => betaFeedbackReport({ message: input.message }));
+    const jwt = unsignedJwtWithRole("authenticated");
+    const result = await submitBetaFeedback({
+      userId: "user_1",
+      screen: "profile",
+      category: "bug",
+      severity: "high",
+      message: `api_key=abc123 anon_key=anon-secret authorization: Bearer secret-token pasted ${jwt} by mistake.`,
+      repositories: { betaFeedback: { insertBetaFeedbackReport } }
+    });
+
+    expect(result.status).toBe("submitted");
+    const savedMessage = insertBetaFeedbackReport.mock.calls[0]?.[0].message as string;
+    expect(savedMessage).not.toContain("abc123");
+    expect(savedMessage).not.toContain("anon-secret");
+    expect(savedMessage).not.toContain("secret-token");
+    expect(savedMessage).not.toContain(jwt);
+    expect(savedMessage).toContain("[redacted");
+  });
+
+  it("deeply sanitizes feedback payloads with key redaction and bounded text", async () => {
+    const insertBetaFeedbackReport = vi.fn(async (input: InsertBetaFeedbackReportInput) => betaFeedbackReport({ feedbackPayload: input.feedbackPayload ?? {} }));
+    const result = await submitBetaFeedback({
+      userId: "user_1",
+      screen: "profile",
+      category: "other",
+      severity: "medium",
+      message: "Payload redaction check.",
+      feedbackPayload: {
+        nested: { a: { b: { c: { tooDeep: "do not keep" } } } },
+        tokenBundle: { value: "do-not-keep" },
+        longText: "x".repeat(700),
+        list: Array.from({ length: 25 }, (_, index) => index)
+      },
+      repositories: { betaFeedback: { insertBetaFeedbackReport } }
+    });
+
+    expect(result.status).toBe("submitted");
+    const payload = insertBetaFeedbackReport.mock.calls[0]?.[0].feedbackPayload as { extra: Record<string, unknown> };
+    expect(payload.extra.tokenBundle).toBe("[redacted]");
+    expect(payload.extra.longText).toHaveLength(500);
+    expect(payload.extra.list).toHaveLength(20);
+    expect(payload.extra.nested).toEqual({ a: { b: { c: "[truncated]" } } });
   });
 
   it("does not expose service-role behavior", () => {

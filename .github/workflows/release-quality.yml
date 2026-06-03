@@ -1,0 +1,65 @@
+name: Release Quality
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Beta preflight
+        run: npm run preflight:beta
+
+      - name: Static safety scan
+        run: npm exec vitest -- run src/tests/static
+
+      - name: Fixture smoke
+        run: npm run smoke:fixtures
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Production dependency audit
+        run: npm audit --audit-level=high --omit=dev
+
+      - name: Agent QA evidence loop
+        run: npm run qa:agent:ci
+
+      - name: Supabase migration dry-run
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_DB_PASSWORD"
+          test -n "$SUPABASE_PROJECT_REF"
+          npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          npx supabase db push --dry-run
+
+      - name: Release evidence assertions
+        env:
+          CORNERIQ_RELEASE_MIGRATION_DRY_RUN_VERIFIED: "1"
+          CORNERIQ_RELEASE_CURRENT_SHA_RECORDED: "1"
+        run: npm run release:quality

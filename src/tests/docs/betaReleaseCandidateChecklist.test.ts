@@ -14,12 +14,15 @@ describe("beta release candidate docs", () => {
       "Beta Tester Gates",
       "Release Decision",
       "Known Deferred Features",
-      "Manual Sign-Off Checklist"
+      "Manual Sign-Off Checklist",
+      "Release-Blocking Evidence"
     ]) {
       expect(source).toContain(section);
     }
     expect(source).toContain("typecheck");
+    expect(source).toContain("release:quality");
     expect(source).toContain("live smoke");
+    expect(source).toContain("migration dry-run");
     expect(source).toContain("coach UI hidden");
     expect(source).toContain("barcode");
     expect(source).not.toMatch(/make weight at all costs|sauna|sweat suit|laxative|diuretic/i);

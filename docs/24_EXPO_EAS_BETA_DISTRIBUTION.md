@@ -121,13 +121,22 @@ Current app config:
 - Android preview build submitted with `npx eas-cli build --profile preview --platform android --non-interactive`.
 - Build ID: `d550e9bb-b705-41a3-bae7-76c2b6d38453`.
 - Build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
+- Final EAS status from `build:view`: `ERRORED`.
+- Failure code: `EAS_BUILD_UNKNOWN_GRADLE_ERROR`.
+- Failure phase: Gradle `:app:createBundleReleaseJsAndAssets`, where Hermes rejected a dynamic `import(/* webpackIgnore: true */ ...)` expression in the generated Android bundle.
+- Root cause found locally: the floating `@supabase/supabase-js` range had resolved to `2.106.0`, whose CommonJS bundle includes OpenTelemetry tracing dynamic import code that Hermes could parse as invalid syntax.
+- Remediation: `@supabase/supabase-js` is now pinned exactly to `2.50.0`, which brings `@supabase/auth-js@2.70.0`, avoids the vulnerable `2.41.1 - 2.49.10` Supabase audit range, and has no matching `otelModulePromise` / `webpackIgnore` dynamic import text in the installed Supabase bundle. Expo dependency drift was also corrected with `expo@~54.0.35`, `expo-font@~14.0.12`, and an explicit Expo default `metro.config.js`.
+- Local verification after remediation: `npm install`, `npm run typecheck`, `npm run lint`, `npm run preflight:beta`, approved `npx expo-doctor` (`18/18`), approved `npm test` (`489` passed, `1` skipped), approved `npm run quality`, approved `npm run smoke:fixtures` (`20` passed), approved `npm run test:coverage` (`489` passed, `1` skipped; all-files statements about `88.73%`), `npm audit --audit-level=high --omit=dev` passed with only moderate Expo-chain advisories remaining.
+- Fresh Android preview build submitted with `npx eas-cli build --profile preview --platform android --non-interactive --clear-cache`.
+- Fresh build ID: `c21c5692-011e-4c85-949f-355d0e1f753f`.
+- Fresh build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
 - Current EAS status from `build:view`: `IN_QUEUE`.
-- Build artifact: pending; `artifacts` is still empty while the EAS build remains queued.
-- Current status: EAS project linked and preview build submitted, artifact pending. Do not call the app distributed until the build reaches finished status and exposes a downloadable artifact.
+- Build artifact: pending; `artifacts` is still empty while the fresh EAS build remains queued.
+- Current status: EAS project linked, prior Hermes/Supabase failure remediated locally, fresh preview build submitted, artifact pending. Do not call the app distributed until the fresh build reaches finished status and exposes a downloadable artifact.
 
 Manual release-owner tasks:
 
-- Monitor build `d550e9bb-b705-41a3-bae7-76c2b6d38453` until it succeeds or fails.
+- Monitor build `c21c5692-011e-4c85-949f-355d0e1f753f` until it succeeds or fails.
 - If it succeeds, record the artifact URL and distribute only through a private tester channel.
 - If it fails, inspect EAS logs and record the exact failure before retrying.
 - Confirm build credentials.

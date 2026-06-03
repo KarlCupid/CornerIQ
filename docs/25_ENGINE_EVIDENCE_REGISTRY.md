@@ -2,7 +2,9 @@
 
 CornerIQ uses conservative deterministic rules, not a validated physiological model. This registry records the current threshold posture so engine rules are auditable, reviewable, and honest about uncertainty.
 
-The source of truth for threshold coverage is `src/engine/evidence/evidenceRegistry.ts`. Each entry lists affected files, threshold values, rationale, source posture, owner, review cadence, and sources or internal policy notes.
+The source of truth for threshold coverage is `src/engine/evidence/evidenceRegistry.ts`. Each entry lists affected files, functions, threshold values, rationale, source posture, owner, review cadence, known limitations, beta calibration plan, and sources or internal policy notes.
+
+This is not a clinical validation package. Current thresholds are conservative beta heuristics unless a future qualified review and calibration dataset says otherwise. The registry is meant to make the engine reviewable, not to make medical, dietetic, or coaching claims.
 
 ## Current Coverage
 
@@ -14,12 +16,16 @@ The source of truth for threshold coverage is `src/engine/evidence/evidenceRegis
 - Acute weight-class safety gates.
 - Generated support duration and load gates.
 - Macro targets by body size and training demand.
+- Fight-week low-residue, tournament, and rehydration guidance.
+- Generated session active block and preview scope.
 
 ## Evidence Posture
 
 - External guidance informs broad fueling, RED-S, hydration, and cycle-health posture.
 - CornerIQ-specific thresholds remain conservative heuristics until athlete outcome data and qualified review calibrate them.
 - No threshold should be marketed as a clinical diagnosis, medical advice, validated dietetic prescription, or guaranteed performance model.
+- Generated training should be described as boxing support, not coaching/programming replacement.
+- Low-residue and rehydration outputs are safety-oriented checklists, not weight-cut instructions.
 - Missing data remains unknown, not safe.
 
 ## Source Anchors

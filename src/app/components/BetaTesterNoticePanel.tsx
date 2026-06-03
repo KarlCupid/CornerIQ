@@ -9,10 +9,13 @@ import { screenStyles } from "../screens/screenStyles";
 const betaNoticeItems = [
   "This is a beta.",
   "Not medical advice.",
+  "Not dietetic care.",
+  "Not a boxing coaching replacement.",
   "Not a replacement for qualified human judgment.",
   "No emergency support.",
   "Do not use for urgent symptoms.",
   "Do not use to self-clear hard stops.",
+  "Minors, pregnancy, eating-disorder risk, and urgent symptoms need qualified support outside the app.",
   "Wearables are optional.",
   "Manual logs are enough.",
   "Feedback is product feedback and may be reviewed manually.",

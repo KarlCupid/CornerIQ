@@ -3133,9 +3133,12 @@ describe("minimal app screens", () => {
     expect(output).toContain("Beta tester notice");
     expect(output).toContain("This is a beta.");
     expect(output).toContain("Not medical advice.");
+    expect(output).toContain("Not dietetic care.");
+    expect(output).toContain("Not a boxing coaching replacement.");
     expect(output).toContain("Not a replacement for qualified human judgment.");
     expect(output).toContain("No emergency support.");
     expect(output).toContain("Do not use to self-clear hard stops.");
+    expect(output).toContain("pregnancy");
     expect(output).toContain("Manual logs are enough.");
     expect(output).toContain("Beta health preflight");
     expect(output).toContain("Beta feedback");
@@ -3153,9 +3156,12 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("This is a beta.");
     expect(output).toContain("Not medical advice.");
+    expect(output).toContain("Not dietetic care.");
+    expect(output).toContain("Not a boxing coaching replacement.");
     expect(output).toContain("No emergency support.");
     expect(output).toContain("Do not use for urgent symptoms.");
     expect(output).toContain("Do not use to self-clear hard stops.");
+    expect(output).toContain("eating-disorder risk");
     expect(output).toContain("Wearables are optional.");
     expect(output).toContain("Manual logs are enough.");
     expect(output).toContain("Avoid entering secrets or emergency details in feedback.");

@@ -27,9 +27,10 @@ describe("beta release config static checks", () => {
   it("keeps required package and CI scripts present and live smoke out of CI", () => {
     const packageJson = readJson("package.json") as { scripts?: Record<string, string> };
     const workflow = readSource(".github/workflows/quality.yml");
+    const releaseWorkflow = readSource(".github/workflows/release-quality.yml");
     const codeqlWorkflow = readSource(".github/workflows/codeql.yml");
 
-    for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:beta", "smoke:live-db"]) {
+    for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:beta", "smoke:live-db", "release:quality"]) {
       expect(packageJson.scripts?.[scriptName]).toBeTruthy();
     }
     expect(workflow).toContain("npm run typecheck");
@@ -40,6 +41,10 @@ describe("beta release config static checks", () => {
     expect(workflow).toContain("npm audit --audit-level=high --omit=dev");
     expect(codeqlWorkflow).toContain("github/codeql-action/init");
     expect(codeqlWorkflow).toContain("javascript-typescript");
+    expect(releaseWorkflow).toContain("npm run qa:agent:ci");
+    expect(releaseWorkflow).toContain("npx supabase db push --dry-run");
+    expect(releaseWorkflow).toContain("npm run release:quality");
+    expect(releaseWorkflow).toContain("npm exec vitest -- run src/tests/static");
     expect(workflow.toLowerCase()).not.toContain("smoke:live-db");
     expect(workflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
     expect(codeqlWorkflow.toLowerCase()).not.toContain("smoke:live-db");

@@ -8,13 +8,13 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | --- | --- |
 | Current QA phase | needs_human_review |
 | Last commit tested | 7701745e4349acd9b73e4ecbf2a40077ae30761c (short 7701745) |
-| Last QA run result | all normal gates passed after approved Windows/esbuild sandbox reruns where needed; focused engine-value/density pass added Fuel macro targets from nutrition engine output, simplified Train Today to one main workout command, made workout detail copy more practical, collapsed Exercise History density by default, clarified Plan Week/Next Week with concise top cards and protected-vs-generated separation, fixed duplicate-prone React keys, added a duplicate-key runtime guard, passed 9/9 Playwright scenarios, deterministic safety/secret/serialization scans, engine-output review, contact sheet, gate-result artifacts, canonical bundle manifest, and bundle creation |
+| Last QA run result | 2026-06-03 build-fix verification passed locally: `npm install`, `npm run typecheck`, `npm run lint`, `npm run preflight:beta`, approved `npx expo-doctor` (`18/18`), approved `npm test` (`489` passed, `1` skipped), approved `npm run quality`, approved `npm run smoke:fixtures` (`20` passed), approved `npm run test:coverage` (`489` passed, `1` skipped; all-files statements about `88.73%`), and approved `npm audit --audit-level=high --omit=dev` (passed with only moderate Expo-chain advisories). Prior EAS build failed in Hermes from floating `@supabase/supabase-js@2.106.0`; Supabase is pinned to `2.50.0`, Expo/Metro checks pass, and fresh EAS build is queued. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
-| Current open blocker count | 0 |
+| Current open blocker count | 1 |
 | Current open high count | 0 |
 | Current required-medium count | 0 automatable; 3 human-only limitations remain explicitly tracked |
-| Next recommended action | Verify the action-first Today/Fuel/Train/Plan flows with a human boxer in Expo Go, then run physical iPhone, live Supabase/RLS/auth/data, and release-owner distribution checks before declaring beta ready |
+| Next recommended action | Monitor fresh EAS Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` to success/failure and artifact URL, then run physical iPhone, live Supabase/RLS/auth/data, and human boxer comprehension checks before declaring beta ready |
 | Beta readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.
@@ -223,7 +223,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
-| preview build artifact exists | blocked | Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` is submitted but latest queried EAS status is `IN_QUEUE`, with no artifact URL yet. |
+| preview build artifact exists | blocked | Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes from a floating Supabase dynamic import. The dependency/config fix is applied locally and fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted, but latest queried EAS status is `IN_QUEUE`, with no artifact URL yet. |
 | tester list controlled | human_review_required | Managed outside git. |
 | app icon/splash/store metadata accepted or fixed | human_review_required | Release owner required. |
 | private distribution channel confirmed | human_review_required | Release owner required. |

@@ -54,6 +54,21 @@ Run each script as observation, not coaching advice. Ask the tester to narrate w
 17. In Plan > Adjustments, ask what each engine-request button means before pressing it: Protect this day, Mark unavailable, Request deload, and Restore engine plan.
 18. Review the Profile > Audit beta tester notice and ask the tester to summarize the beta boundaries.
 
+## Guided Human Beta Scripts
+
+Facilitator rule: ask what the tester understands; do not coach, diagnose, clear hard stops, or suggest weight-cut tactics.
+
+| Flow | Facilitator asks | Expected comprehension | Pass/fail criteria | Private record |
+| --- | --- | --- | --- | --- |
+| Onboarding first run | "What is CornerIQ asking for, and what can you skip or change later?" | Boxer profile, manual schedule, cycle/wearable choices, and safety basics shape engine confidence. | Pass if the tester can complete setup without thinking a wearable is required. Fail if safety/cycle fields feel coercive or confusing. | Section, confusion quote summary, no private health detail. |
+| Today | "What would you do first in the next five seconds?" | Primary action first; missing logs are unknown, not safe. | Pass if first action is obvious. Fail if tester hunts through cards or thinks missing data means safe. | First-action answer and time-to-answer bucket. |
+| Fuel | "What is the first safe fuel action and what is CornerIQ not doing?" | Fuel supports boxing quality, not unsafe weight cutting or dietetic care. | Pass if tester sees safety/review copy and no pressure to cut. Fail on pressure, precision overclaim, or unsafe interpretation. | Flow, category, severity, private note if needed. |
+| Train fast completion | "How would you finish logging if you only had 30 seconds?" | Session RPE-only completion is acceptable; detailed exercise rows are optional. | Pass if fast path is found. Fail if tester thinks full exercise data is required. | Completion path used and friction note. |
+| Plan Week/Next Week | "What changed, what is pending, and what stays engine-owned?" | Current week, preview, acceptance, and boundary materialization are distinct. | Pass if tester does not think future hard work can be pulled forward freely. Fail on stale-preview or coach-replacement confusion. | Preview explanation and any unsafe assumption. |
+| Profile Data/Audit | "What can you export/delete/report, and what cannot feedback do?" | App data controls are DELETE-gated; feedback is not emergency support, medical review, coaching review, or hard-stop clearance. | Pass if tester can explain limits. Fail if feedback seems like clearance or emergency help. | Report id or private issue id, no secrets. |
+
+Stop the session and seek qualified support outside the app if the tester reports urgent symptoms, pregnancy-related concern, eating-disorder risk, unsafe weight-class pressure, fainting, severe dizziness, or anything that sounds like a hard-stop self-clear request.
+
 ## Safety Checks
 
 Before and during each beta session, confirm:

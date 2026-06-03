@@ -12,7 +12,7 @@ Local migration files now run through `010_generated_sessions_training_block_sco
 
 2026-05-21 release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and latest public GitHub Actions `Quality` run passed. EAS Android preview build was attempted but did not produce an artifact because the EAS project was not configured. Current release wording is release-candidate prepared, build pending.
 
-2026-06-03 EAS update: project `@karlcupid/corneriq` is now linked in `app.json` with project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`. Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` was submitted with profile `preview`; EAS currently reports `IN_QUEUE` and no artifact URL yet. Do not call this distributed until that build succeeds and exposes a downloadable artifact.
+2026-06-03 EAS update: project `@karlcupid/corneriq` is now linked in `app.json` with project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`. Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes because a floating Supabase dependency resolved to `@supabase/supabase-js@2.106.0`, whose CommonJS bundle contains a dynamic OpenTelemetry import Hermes rejected. Supabase is now pinned to `2.50.0`, Expo dependency drift and Metro config warnings are fixed, local gates pass, and fresh cache-cleared Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted. EAS currently reports `IN_QUEUE` and no artifact URL yet. Do not call this distributed until that fresh build succeeds and exposes a downloadable artifact.
 
 ## Local Checks
 
@@ -73,6 +73,12 @@ No successful EAS preview or production build exists yet. App icon/splash polish
 - `app.json` now includes `owner: "karlcupid"` and `extra.eas.projectId`.
 - Android preview build submitted: `d550e9bb-b705-41a3-bae7-76c2b6d38453`.
 - Build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
+- Final status for that build: `ERRORED`, with `EAS_BUILD_UNKNOWN_GRADLE_ERROR` in `:app:createBundleReleaseJsAndAssets`.
+- Failure cause: Hermes rejected the dynamic OpenTelemetry import emitted by `@supabase/supabase-js@2.106.0`.
+- Remediation: pin `@supabase/supabase-js` exactly to `2.50.0`, add/fix Expo SDK-aligned dependencies, and add the Expo default `metro.config.js`.
+- Final local gates after remediation: `npm install`, `npm run typecheck`, `npm run lint`, `npm run preflight:beta`, approved `npx expo-doctor` (`18/18`), approved `npm test`, approved `npm run quality`, approved `npm run smoke:fixtures`, approved `npm run test:coverage`, and approved `npm audit --audit-level=high --omit=dev`.
+- Fresh Android preview build submitted with cache cleared: `c21c5692-011e-4c85-949f-355d0e1f753f`.
+- Fresh build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
 - Latest queried status: `IN_QUEUE`.
 - Artifact URL: pending.
 
@@ -215,6 +221,8 @@ The results and human testing adjustments are documented in `docs/22_BETA_SCENAR
 
 CI does not run live smoke and does not require Supabase smoke credentials.
 
+`.github/workflows/release-quality.yml` is stricter and manual-only. It runs the local quality gates, agent QA evidence loop, production dependency audit, and a non-optional Supabase migration dry-run. It then runs `npm run release:quality`, which fails if release-critical evidence is missing. Missing Supabase migration credentials are therefore advisory in normal CI but release-blocking in Release Quality.
+
 For each release-candidate commit, record the `Quality` and `CodeQL` run IDs, commit SHA, status, and conclusion before release handoff. If CodeQL has not run on the candidate commit yet, keep release status at build/security evidence pending.
 
 Latest status check from the public GitHub Actions API:
@@ -225,6 +233,51 @@ Latest status check from the public GitHub Actions API:
 - Event: `push`.
 - Status: completed.
 - Conclusion: success.
+
+## Advisory Vs Release-Blocking Gates
+
+Advisory in normal development:
+
+- Local browser agent QA can pass without live Supabase credentials because it runs with `EXPO_PUBLIC_CORNERIQ_E2E_LOCAL=1`.
+- Normal `Quality` CI may skip Supabase dry-run when migration secrets or project vars are absent.
+- Live smoke is opt-in and must not run in default CI.
+- EAS preview artifact, app icon, splash, store metadata, and physical-device distribution are outside this run.
+
+Release-blocking for a beta handoff:
+
+- `npm run release:quality` must pass in a release-owner context.
+- Supabase migration dry-run must be verified for the candidate SHA, including migration `010`.
+- CodeQL must be configured and a candidate run result must be recorded.
+- Coverage thresholds must remain at least statements 75, functions 75, lines 75, and branches 65.
+- Beta preflight, static safety scans, smoke fixtures, typecheck, lint, tests, coverage, and agent QA evidence loop must pass.
+- Docs must not claim current-head pass without exact SHA evidence.
+
+## Release Evidence Ledger
+
+Use this ledger shape for each release-candidate commit:
+
+| Evidence | Required status | Owner | Record |
+| --- | --- | --- | --- |
+| Candidate SHA | exact full SHA and short SHA recorded | Release owner | `docs/26_PRODUCTION_QUALITY_AUDIT.md` and QA gate results |
+| Typecheck/lint/test/coverage/smoke/preflight | pass | Agent or CI | command output or CI run URL |
+| Agent QA evidence loop | pass | Agent or CI | `qa-artifacts/corneriq-agent-qa-bundle.zip` |
+| Static safety scans | pass | Agent or CI | `src/tests/static` |
+| Supabase migration dry-run | verified or release-blocking | Release owner | migration list and dry-run result |
+| CodeQL | configured and candidate result recorded | Release owner | CodeQL run URL/result |
+| Live smoke | verified or exact credential blocker documented | Release owner | private notes, no values |
+| EAS/mobile deliverability | excluded in this run | Release owner | separate distribution ledger |
+
+## Private Incident Triage Runbook
+
+The private triage runbook lives at `docs/qa/INCIDENT_TRIAGE_RUNBOOK.md`. It defines Critical/High/Medium/Low severity, emergency redirect language, privacy handling for tester text, private issue criteria, stop-beta criteria, and the rule that normal users cannot mark reports reviewed, resolved, dismissed, or cleared.
+
+Short form:
+
+- Critical reports include urgent health concern, unsafe weight-class pressure, exposed secret, hard-stop bypass, generated contact-work language, data deletion failure, or migration mismatch that affects user-owned data.
+- For urgent symptoms, pregnancy-related concern, eating-disorder risk, fainting, severe dizziness, or unsafe pressure, stop the beta session and seek qualified support outside the app.
+- Feedback is product feedback, not emergency support, medical care, dietetic care, or boxing coaching replacement.
+- Tester text is sensitive by default and should not be copied into public issues.
+- Private issue creation is appropriate for Critical/High safety, privacy, persistence, or comprehension failures.
 
 ## Deferred Features
 
@@ -239,7 +292,7 @@ Still deferred:
 - Drag/drop calendar.
 - External analytics.
 - Production issue triage dashboard.
-- Successful EAS preview build artifact; the latest build is submitted and queued, with artifact pending.
+- Successful EAS preview build artifact; the latest fresh build is submitted and queued, with artifact pending.
 - App store metadata, icon, and splash polish.
 
 ## Beta Release Checklist

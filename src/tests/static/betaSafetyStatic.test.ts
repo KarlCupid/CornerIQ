@@ -9,6 +9,35 @@ function collectFiles(dir: string, predicate: (path: string) => boolean): string
 }
 
 describe("beta safety static scans", () => {
+  it("keeps client, config, and docs free of committed secret-shaped values", () => {
+    const files = [
+      "app.json",
+      "eas.json",
+      "package.json",
+      ".env.example",
+      ...collectFiles("docs", (path) => path.endsWith(".md")),
+      ...collectFiles("src/app", (path) => path.endsWith(".tsx") || path.endsWith(".ts")),
+      ...collectFiles("src/hooks", (path) => path.endsWith(".ts")),
+      ...collectFiles("src/services", (path) => path.endsWith(".ts") && !path.endsWith("database.types.ts"))
+    ];
+    const forbiddenValues: readonly [RegExp, string][] = [
+      [/\bSUPABASE_SERVICE_ROLE(?:_KEY)?\b\s*[:=]\s*\S+/i, "server-only role value"],
+      [/\bCORNERIQ_SMOKE_(?:EMAIL|PASSWORD)\b\s*[:=]\s*\S+/i, "smoke credential value"],
+      [/\b(?:access|refresh)[_-]?token\b\s*[:=]\s*(?!\[redacted\])\S+/i, "access/refresh token value"],
+      [/\bauthorization\b\s*[:=]\s*bearer\s+(?!\[redacted\])\S+/i, "authorization bearer value"],
+      [/\bbearer\s+(?!\[redacted\])[A-Za-z0-9._~-]{16,}/i, "bearer token value"],
+      [/\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\b/, "JWT-like value"],
+      [/\b(?:api|anon)[_-]?key\b\s*[:=]\s*(?!\[redacted\]|$)\S+/i, "API key value"]
+    ];
+
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      for (const [pattern, label] of forbiddenValues) {
+        expect(source, `${file} contains ${label}`).not.toMatch(pattern);
+      }
+    }
+  });
+
   it("keeps unsafe Fuel terms out of app and engine output copy", () => {
     const files = [
       ...collectFiles("src/engine/nutrition", (path) => path.endsWith(".ts")),

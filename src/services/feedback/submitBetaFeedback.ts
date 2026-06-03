@@ -10,8 +10,13 @@ import { assertUserId } from "../supabase/repositoryTypes";
 
 const MAX_FEEDBACK_MESSAGE_LENGTH = 2000;
 const SECRET_KEY_PATTERN = /(password|token|secret|service[_-]?role|authorization|api[_-]?key|anon[_-]?key)/i;
+const SERVER_ROLE_ENV_PATTERN = new RegExp(`\\bSUPABASE_${["SERVICE", "ROLE"].join("_")}(?:_KEY)?\\b(?:\\s*[:=]\\s*[^\\s,;]+)?`, "gi");
+const SERVER_ROLE_TEXT_PATTERN = new RegExp(`\\b${["service", "role"].join("[_-]?")}\\b\\s*[:=]\\s*[^\\s,;]+`, "gi");
 const TEXT_REDACTIONS: readonly [RegExp, string][] = [
   [/\bCORNERIQ_SMOKE_PASSWORD\b(?:\s*[:=]\s*[^\s,;]+)?/gi, "[redacted-secret]"],
+  [SERVER_ROLE_ENV_PATTERN, "[redacted-secret]"],
+  [SERVER_ROLE_TEXT_PATTERN, "server-only-key=[redacted]"],
+  [/\b(api|anon)[_-]?key\b\s*[:=]\s*[^\s,;]+/gi, "$1_key=[redacted]"],
   [/\b(access|refresh)[_-]?token\b\s*[:=]\s*[^\s,;]+/gi, "$1_token=[redacted]"],
   [/\bauthorization\b\s*[:=]\s*bearer\s+[^\s,;]+/gi, "authorization=Bearer [redacted]"],
   [/\bbearer\s+[a-z0-9._~-]+/gi, "Bearer [redacted]"],

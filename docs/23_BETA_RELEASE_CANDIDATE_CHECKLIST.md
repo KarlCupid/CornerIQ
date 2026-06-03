@@ -14,11 +14,22 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - `npm run test:coverage` passes threshold gates.
 - `npm run preflight:beta` passes.
 - `npm run qa:agent:ci` passes and writes `qa-artifacts/corneriq-agent-qa-bundle.zip`.
+- `npm run release:quality` passes in a release-owner context after migration dry-run evidence is recorded.
 - `docs/qa/QA_LOOP_STATE.md` is updated with the current beta-readiness decision.
 - `.github/workflows/quality.yml` runs typecheck, lint, and tests on push or pull request.
 - `.github/workflows/codeql.yml` runs JavaScript/TypeScript CodeQL analysis on push, pull request, and weekly schedule.
 - `.github/workflows/agent-qa-loop.yml` can upload the `corneriq-agent-qa-bundle` artifact without Supabase secrets.
 - CI does not run live smoke and does not reference smoke credentials.
+
+## Release-Blocking Evidence
+
+- Normal push CI can skip Supabase migration dry-run when credentials are absent; Release Quality cannot.
+- `npx supabase db push --dry-run` must be verified for the candidate SHA before release handoff.
+- Migration `010_generated_sessions_training_block_scope.sql` must be applied or explicitly marked release-blocking.
+- CodeQL must be configured and the candidate run result must be recorded before security evidence is considered complete.
+- Coverage thresholds must remain at least statements 75, functions 75, lines 75, and branches 65.
+- Release docs must record exact full and short SHA evidence, not vague current-head pass language.
+- Live smoke remains opt-in, but missing live-smoke credentials must be documented as an external blocker rather than treated as a pass.
 
 ## Supabase Gates
 
@@ -80,21 +91,23 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 ## Release-Candidate Decision - 2026-05-21
 
 - Decision: Hold.
-- Reason: Code gates, Supabase migration checks, GitHub Actions, preflight, and live smoke passed, and EAS project setup is now linked, but no EAS preview artifact exists yet. Android EAS preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` is submitted and currently queued.
-- Checks completed: `npm run typecheck`, `npm test`, `npm run quality`, `npm run lint`, `npm run preflight:beta`, Supabase CLI version, migration list, dry run, live smoke, CI workflow inspection, latest GitHub Actions run check, EAS CLI/auth check, and Android preview build attempt.
+- Reason: Code gates, preflight, dependency/Expo Doctor checks, focused smoke, coverage, and the production high/critical audit pass locally, and EAS project setup is now linked, but no EAS preview artifact exists yet. Android EAS preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes, the Supabase/Metro/Expo dependency fix is applied, and fresh cache-cleared build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted and currently queued.
+- Checks completed: `npm install`, `npm run typecheck`, `npm test`, `npm run quality`, `npm run lint`, `npm run smoke:fixtures`, `npm run test:coverage`, `npm run preflight:beta`, `npx expo-doctor`, `npm audit --audit-level=high --omit=dev`, CI workflow inspection, EAS CLI/auth check, failed Android preview build inspection, and fresh Android preview build attempt.
 - Live smoke: passed after ignored local `.env` values were loaded into the process without printing values; the first bare shell attempt documented missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - Preflight: passed after adding validation for malformed EAS project ids.
 - GitHub Actions status checked: yes. Latest public `Quality` run `26215681543` for commit `235b3f8508c1194d3a6f17354d6a26b2618524de` completed with `success`.
 - EAS build attempted: yes.
 - EAS build profile: `preview`.
 - EAS platform: Android.
-- EAS result: submitted; latest queried status `IN_QUEUE`.
-- EAS build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
-- EAS build artifact: pending; `artifacts` is empty while queued.
+- EAS result: first submitted build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed with `EAS_BUILD_UNKNOWN_GRADLE_ERROR`; fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` is submitted and latest queried status is `IN_QUEUE`.
+- Failed EAS build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/d550e9bb-b705-41a3-bae7-76c2b6d38453
+- Fresh EAS build URL: https://expo.dev/accounts/karlcupid/projects/corneriq/builds/c21c5692-011e-4c85-949f-355d0e1f753f
+- EAS build artifact: pending; `artifacts` is empty while the fresh build remains queued.
 - EAS setup notes: first 2026-05-21 attempt failed with `Invalid UUID appId` from a pre-existing dirty `app.json` project id; that invalid id was removed. A 2026-06-03 retry initially failed with `EAS project not configured`, then `npx eas-cli init --non-interactive --force` linked existing project `@karlcupid/corneriq` with ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`.
+- EAS failure notes: build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed during Gradle `:app:createBundleReleaseJsAndAssets` because Hermes rejected a dynamic OpenTelemetry import from `@supabase/supabase-js@2.106.0`; the manifest now pins `@supabase/supabase-js` exactly to `2.50.0`, adds/fixes Expo SDK-aligned dependencies, and includes an Expo default `metro.config.js`.
 - If not attempted: not applicable.
-- Release wording: release-candidate prepared, build submitted, artifact pending. Do not call this distributed until an EAS preview build succeeds and a private tester distribution path is confirmed.
-- Remaining manual tasks: monitor queued EAS build to completion, app icon/splash, store metadata, tester list, internal build distribution, and human beta scheduling.
+- Release wording: release-candidate prepared, fresh build submitted, artifact pending. Do not call this distributed until an EAS preview build succeeds and a private tester distribution path is confirmed.
+- Remaining manual tasks: monitor fresh queued EAS build to completion, app icon/splash, store metadata, tester list, internal build distribution, and human beta scheduling.
 - Secrets: no smoke credentials, EAS tokens, Supabase tokens, or service-role keys were committed or documented as values.
 
 ## Known Deferred Features

@@ -9,7 +9,7 @@ import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/sup
 import { createHydrationRepository } from "../../services/supabase/hydrationRepository";
 import { loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
 import { createReadinessRepository } from "../../services/supabase/readinessRepository";
-import { exportUserOwnedData, deleteUserOwnedData, previewUserOwnedDataExport, USER_OWNED_TABLES } from "../../services/supabase/userDataService";
+import { exportUserOwnedData, deleteUserOwnedData, groupUserOwnedPreviewCounts, previewUserOwnedDataExport, USER_OWNED_TABLES } from "../../services/supabase/userDataService";
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
 import { createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
@@ -1197,6 +1197,35 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
     expect(USER_OWNED_TABLES).toHaveLength(38);
+  });
+
+  it("userDataService deletion order keeps known child tables before parent tables", () => {
+    const index = (table: (typeof USER_OWNED_TABLES)[number]) => USER_OWNED_TABLES.indexOf(table);
+
+    expect(index("exercise_results")).toBeLessThan(index("completed_training_sessions"));
+    expect(index("nutrition_safety_review_events")).toBeLessThan(index("nutrition_safety_reviews"));
+    expect(index("training_day_plans")).toBeLessThan(index("training_microcycles"));
+    expect(index("training_microcycles")).toBeLessThan(index("training_blocks"));
+    expect(index("training_next_week_previews")).toBeLessThan(index("training_blocks"));
+    expect(index("training_progression_decisions")).toBeLessThan(index("training_blocks"));
+    expect(index("training_week_summaries")).toBeLessThan(index("training_blocks"));
+    expect(index("training_plan_adjustments")).toBeLessThan(index("training_blocks"));
+    expect(index("decision_traces")).toBeLessThan(index("engine_runs"));
+    expect(index("risk_flags")).toBeLessThan(index("engine_runs"));
+    expect(index("athlete_profiles")).toBeLessThan(index("users_public"));
+  });
+
+  it("groups export preview counts into user-facing categories", () => {
+    const preview = Object.fromEntries(USER_OWNED_TABLES.map((table) => [table, 1])) as Record<(typeof USER_OWNED_TABLES)[number], number>;
+    const grouped = groupUserOwnedPreviewCounts(preview);
+
+    expect(grouped.profile).toBeGreaterThan(0);
+    expect(grouped.logs).toBeGreaterThan(0);
+    expect(grouped.training).toBeGreaterThan(0);
+    expect(grouped.nutrition).toBeGreaterThan(0);
+    expect(grouped["cycle/wearable"]).toBeGreaterThan(0);
+    expect(grouped["projections/traces"]).toBeGreaterThan(0);
+    expect(Object.values(grouped).reduce((sum, value) => sum + value, 0)).toBe(USER_OWNED_TABLES.length);
   });
 
   it("Expo-side services do not reference service role keys", () => {
