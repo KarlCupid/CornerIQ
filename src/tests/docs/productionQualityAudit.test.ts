@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -8,8 +7,7 @@ describe("production quality audit documentation", () => {
     expect(existsSync("docs/27_RELEASE_EVIDENCE_LEDGER.md")).toBe(true);
     const source = readFileSync("docs/26_PRODUCTION_QUALITY_AUDIT.md", "utf8");
     const ledger = readFileSync("docs/27_RELEASE_EVIDENCE_LEDGER.md", "utf8");
-    const currentSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-    const currentShortSha = currentSha.slice(0, 7);
+    const combined = `${source}\n${ledger}`;
 
     for (const section of [
       "Score Summary",
@@ -24,10 +22,13 @@ describe("production quality audit documentation", () => {
       expect(source).toContain(section);
     }
 
-    expect(source).toContain(currentSha);
-    expect(source).toContain(currentShortSha);
-    expect(ledger).toContain(currentSha);
-    expect(ledger).toContain(currentShortSha);
+    expect(source).toContain("generated release evidence");
+    expect(source).toContain("qa-artifacts/release-evidence/current-release-evidence.md");
+    expect(source).toContain("self-invalidating SHA loop");
+    expect(ledger).toContain("Release Evidence Ledger Template");
+    expect(ledger).toContain("Generated Artifact Rules");
+    expect(ledger).toContain("Human Beta Findings Template");
+    expect(combined).not.toMatch(/Current commit tested|Candidate SHA for this ledger/i);
     expect(source).not.toMatch(/working-tree changes from this pass|plus working tree changes/i);
 
     for (const category of [
@@ -49,16 +50,12 @@ describe("production quality audit documentation", () => {
     expect(source).toContain("Mobile deliverability");
     expect(source).toContain("explicitly excluded");
     expect(source).toContain("cmd /c npm run qa:agent:ci");
-    expect(source).toContain("Passed after approved rerun");
-    expect(source).toContain("Sandboxed Vitest failed");
     expect(source).toContain("release-blocking");
     expect(source).toContain("010_generated_sessions_training_block_scope.sql");
-    expect(source).toContain("not remotely verified");
-    expect(source).toContain("26909536499");
+    expect(source).toContain("remote status is release-blocking");
     expect(source).toContain("CodeQL run");
-    expect(ledger).toContain("run ID `26909536499`");
-    expect(ledger).toContain("remote migration `010` is pending");
-    expect(`${source}\n${ledger}`).not.toContain("security evidence pending");
+    expect(ledger).toContain("migration `010`");
+    expect(combined).not.toContain("security evidence pending");
     expect(source).not.toMatch(/current-head pass|latest head passed|current head passed/i);
 
     for (const field of [
@@ -77,12 +74,12 @@ describe("production quality audit documentation", () => {
       expect(ledger).toContain(field);
     }
 
-    const unsupportedMigrationPassClaims = `${source}\n${ledger}`
+    const unsupportedMigrationPassClaims = combined
       .split(/\r?\n/)
       .filter((line) => /010_generated_sessions_training_block_scope\.sql/i.test(line))
       .filter((line) => /remote(?:ly)? verified|up to date|applied remotely/i.test(line))
       .filter((line) => !/\b(not|do not|must not|release-blocking)\b/i.test(line));
     expect(unsupportedMigrationPassClaims).toHaveLength(0);
-    expect(`${source}\n${ledger}`).not.toMatch(/CodeQL[^.\n]*(latest run passed|passed)(?![^.\n]*(run ID|https:\/\/github\.com))/i);
+    expect(combined).not.toMatch(/CodeQL[^.\n]*(latest run passed|passed)(?![^.\n]*(run ID|https:\/\/github\.com))/i);
   });
 });

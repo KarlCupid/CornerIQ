@@ -14,7 +14,8 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - `npm run test:coverage` passes threshold gates.
 - `npm run preflight:beta` passes.
 - `npm run qa:agent:ci` passes and writes `qa-artifacts/corneriq-agent-qa-bundle.zip`.
-- `npm run release:quality` passes in a release-owner context after migration dry-run evidence is recorded.
+- `npm run release:evidence` writes exact-SHA generated evidence under `qa-artifacts/release-evidence/`.
+- `npm run release:quality` passes in a release-owner context after exact-SHA generated evidence records migration dry-run, live smoke, Quality, and CodeQL evidence.
 - `docs/qa/QA_LOOP_STATE.md` is updated with the current beta-readiness decision.
 - `.github/workflows/quality.yml` runs typecheck, lint, and tests on push or pull request.
 - `.github/workflows/codeql.yml` runs JavaScript/TypeScript CodeQL analysis on push, pull request, and weekly schedule.
@@ -28,7 +29,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Migration `010_generated_sessions_training_block_scope.sql` must be applied or explicitly marked release-blocking.
 - CodeQL must be configured and the candidate run result must be recorded before security evidence is considered complete.
 - Coverage thresholds must remain at least statements 75, functions 75, lines 75, and branches 65.
-- Release docs must record exact full and short SHA evidence, not vague current-head pass language.
+- Generated release evidence must record exact full and short SHA evidence; committed docs must not be forced to contain their own final SHA.
 - Live smoke remains opt-in, but missing live-smoke credentials must be documented as an external blocker rather than treated as a pass.
 
 ## Supabase Gates
@@ -37,7 +38,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - `npm exec supabase -- migration list` shows local and remote migrations aligned.
 - `npm exec supabase -- db push --dry-run` reports the remote database is up to date.
 - If a local migration file exists beyond the last recorded remote verification, that migration is either applied by dry run/push workflow or documented as a release blocker.
-- Live smoke passes with ignored local env values loaded into the process, or the exact missing variable names are documented.
+- Live smoke passes with ignored local env values loaded into the process and exact-SHA generated evidence, or the exact blocker is documented.
 - Live smoke uses public Supabase URL and anon key only.
 - No new migration is added for this release-candidate pass.
 
@@ -88,14 +89,14 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Blocker: any safety gate, env gate, migration mismatch, live smoke failure with available env, or credential exposure is unresolved.
 - Do not claim physical iPhone, live Supabase/email confirmation, distribution, or human boxer comprehension complete from local E2E automation alone.
 
-## Release-Candidate Decision - 2026-05-21
+## Historical Release-Candidate Decision - 2026-05-21
 
 - Decision: Hold.
 - Reason: Code gates, preflight, dependency/Expo Doctor checks, focused smoke, coverage, and the production high/critical audit pass locally, and EAS project setup is now linked. Android EAS preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes, the Supabase/Metro/Expo dependency fix is applied, and fresh cache-cleared build `c21c5692-011e-4c85-949f-355d0e1f753f` finished with an APK artifact. Hold remains for release-owner Supabase migration dry-run/live checks, private tester distribution controls, app metadata acceptance, physical-device checks, and human boxer comprehension.
 - Checks completed: `npm install`, `npm run typecheck`, `npm test`, `npm run quality`, `npm run lint`, `npm run smoke:fixtures`, `npm run test:coverage`, `npm run preflight:beta`, `npx expo-doctor`, `npm audit --audit-level=high --omit=dev`, CI workflow inspection, EAS CLI/auth check, failed Android preview build inspection, and fresh Android preview build attempt.
-- Live smoke: passed after ignored local `.env` values were loaded into the process without printing values; the first bare shell attempt documented missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- Live smoke: passed for that older candidate after ignored local `.env` values were loaded into the process without printing values; the first bare shell attempt documented missing `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`. This does not prove any later candidate.
 - Preflight: passed after adding validation for malformed EAS project ids.
-- GitHub Actions status checked: yes. Latest public `Quality` run `26215681543` for commit `235b3f8508c1194d3a6f17354d6a26b2618524de` completed with `success`.
+- GitHub Actions status checked: yes. Historical public `Quality` run `26215681543` for commit `235b3f8508c1194d3a6f17354d6a26b2618524de` completed with `success`.
 - EAS build attempted: yes.
 - EAS build profile: `preview`.
 - EAS platform: Android.
@@ -133,7 +134,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - [ ] `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md` reviewed.
 - [ ] App icon, splash, store metadata, and EAS project ownership are either ready or explicitly accepted as beta limitations.
 - [ ] Test accounts and tester list are controlled outside git.
-- [ ] Live smoke result or exact non-secret missing-variable reason is recorded in `docs/CODEX_LAST_HANDOFF.md`.
+- [ ] Live smoke result or exact non-secret blocker is recorded in generated release evidence.
 - [ ] Known gaps are copied into `docs/KNOWN_GAPS.md`.
 
 ## Auditor Inspect First

@@ -2,115 +2,152 @@
 
 Date: 2026-06-03
 
-Scope: in-scope production-quality readiness for CornerIQ code, deterministic engine behavior, local QA, safety posture, release gates, persistence evidence, feedback/incident handling, UX evidence, observability runbooks, and liability boundaries. Mobile deliverability is explicitly excluded from this score run. An EAS Android preview APK now exists in the separate mobile lane; app icon, splash, store metadata, TestFlight, Play Console, private tester distribution, and physical-device distribution remain explicitly separate release-owner work.
+Purpose: stable production-readiness audit, release-evidence runbook, and historical evidence summary for CornerIQ. This committed document is not authoritative proof for the final SHA of a future release commit.
 
-Current commit tested: `7ff2d7f524c0c50075a429163e62dd8ce4b99419` (short `7ff2d7f`) on branch `main`.
+Mobile deliverability is explicitly excluded from local production-readiness scores. EAS/APK status is tracked only as a separate mobile lane until private distribution, physical-device checks, app metadata, and tester instructions are release-owner verified.
 
-This audit records the committed candidate SHA above. It does not treat working-tree edits, environment flags, previous CI runs, previous live smoke, or previous Supabase dry-runs as proof for a future commit. After any new commit, the release evidence ledger must be refreshed with that exact SHA before release handoff.
+## Evidence Model
+
+- Committed docs define the audit template, release rules, latest known historical evidence, and non-overclaim boundaries.
+- Exact candidate proof is generated at release time under `qa-artifacts/release-evidence/current-release-evidence.md` by `npm run release:evidence`.
+- `npm run release:quality` validates the generated release evidence artifact against `GITHUB_SHA` or `git rev-parse HEAD`.
+- A committed doc must not be required to contain the final commit SHA of the commit that changes that doc. That creates a self-invalidating SHA loop.
+- Env flags alone do not satisfy release evidence. Non-secret command results, run IDs, migration status, live-smoke status, and blockers must be recorded in the generated artifact or a CI artifact for the exact SHA.
+- Historical SHA examples in committed docs are informational only. They do not prove the current candidate.
+
+Latest historical context: the follow-up audit observed `224132c08ee0181210967de82880c3a5707de728` on `main`, while previously committed audit docs still described older candidate `7ff2d7f524c0c50075a429163e62dd8ce4b99419`. That mismatch is the reason exact-SHA evidence moved to ignored generated artifacts.
 
 ## Score Summary
 
-| Category | Baseline | Current self-audit | Evidence |
-| --- | ---: | ---: | --- |
-| Scientific evidence posture | 7.6 | 8.6 | Evidence registry covers readiness, under-fueling, hydration, body mass, cycle, weight-class safety, training generation, macro targets, low-residue/rehydration/tournament guidance, and generated-session active-block scope. Registry `functions` entries now use exact code names and are statically verified against listed files. |
-| Training science | 7.7 | 8.7 | Training generation invariants cover hard stops, severe fueling risk, protected boxing anchors, fight-week/tournament conservatism, high cycle symptoms, missing data, prohibited language, and active-block persistence scope. |
-| Nutrition science | 7.2 | 8.7 | Tests cover partial/not-tracking food logs, repeated low intake only from complete confident logs, deficit blockers, provisional targets, hydration caution, low-residue, and rehydration framing. |
-| Testing depth | 7.6 | 8.6 | Coverage thresholds remain statements 75, functions 75, lines 75, branches 65. `cmd /c npm run test:coverage` passed in this verification pass with statements 88.81, functions 87.77, lines 88.81, branches 87.05. |
-| CI/release gates | 7.1 | 8.6 | `npm run release:quality` now computes the candidate SHA from `GITHUB_SHA` or `git rev-parse HEAD`, requires exact SHA evidence in docs, rejects ambiguous current-head wording, and fails on unresolved Supabase or live-smoke evidence. Current-SHA Quality and CodeQL runs are recorded. Release pass status remains blocked until Supabase/live evidence is resolved. |
-| Security posture | 7.4 | 8.6 | Static scans cover role markers, smoke credentials, access/refresh tokens, JWT-like strings, bearer strings, API-key values, nested payload truncation, client anon-key validation, and personal email-like strings in public docs. |
-| Supabase/persistence local readiness only | 7.0 | 8.5 | Local migration `010_generated_sessions_training_block_scope.sql` is present and test-covered for stale generated-session scope. Remote migration `010` is not verified for this SHA and remains release-blocking. |
-| Feedback/incident reporting | 6.8 | 8.6 | Feedback remains signed-in, sanitized, user-owned, and read-only for status in the client. Private triage docs cover Critical/High owner actions, unsafe generated copy, hard-stop bypass, exposed secret, deletion failure, migration mismatch, and urgent health concern escalation. |
-| UX readiness (scripted beta) | 6.7 | 8.5 | Agent/browser and scenario scripts support beta rehearsal, and a human beta findings template separates real findings from planned scripts. Production UX validation remains below this score until real boxer sessions are recorded. |
-| Production observability/ops | 5.5 | 8.6 | New exact-SHA release evidence ledger is structured and test-backed for Quality, CodeQL, Release Quality, local commands, coverage, Supabase migration list/dry-run, live smoke, EAS/mobile, human findings, and known blockers. No external production monitoring is claimed. |
-| Regulatory/liability readiness | 6.2 | 8.6 | Beta notice and docs clarify not medical care, not dietetic care, not coaching replacement, no emergency support, no self-clear, cycle privacy, wearable optionality, minors/pregnancy/ED/urgent symptom qualified-support boundaries, and future reviewer-clear requirements. |
+These scores describe local code posture and evidence-system maturity, not public production launch readiness.
 
-Overall in-scope local production-readiness evidence is stricter than the previous audit, but this is not public production launch readiness. Release-owner external evidence and mobile/EAS distribution remain blockers.
+| Category | Baseline | Current self-audit | Evidence rule |
+| --- | ---: | ---: | --- |
+| Scientific evidence posture | 7.6 | 8.6 | Evidence registry and deterministic tests remain the source for engine heuristics. |
+| Training science | 7.7 | 8.7 | Training generation remains boxing-only and blocks unsafe generated contact-work language. |
+| Nutrition science | 7.2 | 8.7 | Nutrition and weight-class guidance remain conservative, symptom-aware, and no-unsafe-cut. |
+| Testing depth | 7.6 | 8.6 | Coverage floors remain statements 75, functions 75, lines 75, branches 65; exact run output belongs in generated evidence. |
+| CI/release gates | 7.1 | 8.7 | Release quality now checks generated exact-SHA evidence instead of committed self-SHA docs. |
+| Security posture | 7.4 | 8.6 | Static scans reject personal emails in public docs and secret-shaped values in client/config/docs. |
+| Supabase/persistence local readiness only | 7.0 | 8.5 | Local migration `010_generated_sessions_training_block_scope.sql` is present and test-covered; remote status is release-blocking unless generated evidence proves alignment. |
+| Feedback/incident reporting | 6.8 | 8.6 | Feedback remains user-owned, signed-in, sanitized, and not emergency or medical review. |
+| UX readiness (scripted beta) | 6.7 | 8.5 | Automated and scripted beta evidence is separate from real boxer validation. |
+| Production observability/ops | 5.5 | 8.6 | Release evidence fields are now generated per SHA and validated by the release gate. |
+| Regulatory/liability readiness | 6.2 | 8.6 | Docs and app copy keep medical, dietetic, coaching, hard-stop, cycle, and wearable boundaries explicit. |
+
+Overall local code readiness is stronger than the previous audit, but production launch readiness remains blocked by external and human evidence lanes.
 
 ## Commands Run
 
-| Command | Result | Notes |
+For each release candidate, run and record non-secret results in `qa-artifacts/release-evidence/current-release-evidence.md`:
+
+| Command | Release evidence rule | Notes |
 | --- | --- | --- |
-| `cmd /c npm install` | Passed | Up to date in 2s; no package changes. |
-| `cmd /c npm run typecheck` | Passed | `tsc --noEmit`. |
-| `cmd /c npm test` | Passed after approved rerun | Sandboxed Vitest failed with an esbuild `Cannot read directory "../.."` access-denied error; approved rerun passed with 505 tests and 1 live-smoke test skipped. |
-| `cmd /c npm run lint` | Passed | ESLint completed with no reported findings. |
-| `cmd /c npm run quality` | Passed after approved rerun | Sandboxed Vitest failed with the same esbuild access-denied error; approved rerun passed typecheck plus 505 tests and 1 live-smoke test skipped. |
-| `cmd /c npm run preflight:beta` | Passed | Checked public env declarations, package scripts, EAS profiles, app config, client config markers, and beta release docs. |
-| `cmd /c npm run smoke:fixtures` | Passed after approved rerun | Sandboxed Vitest failed with the same esbuild access-denied error; approved rerun passed 20 fixture smoke tests. |
-| `cmd /c npm run test:coverage` | Passed after approved rerun | Sandboxed Vitest failed with the same esbuild access-denied error; approved rerun passed with statements 88.81, functions 87.77, lines 88.81, branches 87.05. |
-| `cmd /c npm audit --audit-level=high --omit=dev` | Passed after approved rerun | Sandboxed npm audit could not complete the registry/cache path; approved rerun exited 0. It reported only moderate Expo-chain advisories with a breaking Expo 56 force-fix path. |
-| `cmd /c npm run qa:agent:ci` | Passed after approved rerun | Sandboxed run failed from Vitest/esbuild access denial and local Expo/Playwright reset; approved rerun passed static checks, typecheck, unit tests, lint, preflight, 9 browser tests, engine-output analysis, and bundle generation. |
-| `cmd /c npm run release:quality` | Expected fail until external evidence is recorded | Failed on unresolved Supabase migration `010` remote dry-run/list evidence, unresolved live-smoke evidence, and missing release-owner env acknowledgements. |
-| `cmd /c npm exec supabase -- --version` | Sandbox fail, approved rerun pass | Sandbox blocked CLI telemetry write; approved rerun reported `2.100.1`. |
-| `cmd /c npm exec supabase -- migration list` | Approved rerun partial external evidence | Connected to remote; local `010` had blank remote status, so migration `010` is pending remotely. |
-| `cmd /c npm exec supabase -- db push --dry-run` | Approved rerun partial external evidence | Dry-run reported it would push `010_generated_sessions_training_block_scope.sql`; no migration was applied. |
-| GitHub API current-SHA workflow query | Sandbox network fail, approved rerun pass | Found Quality run `26909536964` success, CodeQL run `26909536499` success, and Agent QA Loop run `26909536551` success for `7ff2d7f524c0c50075a429163e62dd8ce4b99419`. |
+| `cmd /c npm install` | Record pass/fail and package-lock changes, if any. | Required before handoff when dependencies may drift. |
+| `cmd /c npm run typecheck` | Record exact-SHA pass/fail. | Required local gate. |
+| `cmd /c npm test` | Record exact-SHA pass/fail. | Historical Windows runs needed an approved rerun when sandboxed Vitest failed with esbuild access denial. |
+| `cmd /c npm run lint` | Record exact-SHA pass/fail. | Required local gate. |
+| `cmd /c npm run quality` | Record exact-SHA pass/fail. | Historical Windows runs needed an approved rerun for the same Vitest/esbuild sandbox issue. |
+| `cmd /c npm run preflight:beta` | Record exact-SHA pass/fail. | Required beta release gate. |
+| `cmd /c npm run smoke:fixtures` | Record exact-SHA pass/fail. | Historical Windows runs needed an approved rerun for Vitest/esbuild sandbox access. |
+| `cmd /c npm run test:coverage` | Record pass/fail plus statements, functions, lines, and branches. | Coverage numbers belong in generated evidence, not as self-SHA committed proof. |
+| `cmd /c npm audit --audit-level=high --omit=dev` | Record exact-SHA pass/fail and high/critical result. | Registry/cache sandbox failures must be documented if rerun with approval. |
+| `cmd /c npm run qa:agent:ci` | Record exact-SHA pass/fail and artifact paths. | Writes ignored QA artifacts under `qa-artifacts/`. |
+| `cmd /c npm run release:evidence` | Generate exact-SHA evidence artifact. | Defaults unresolved external lanes to blocking. |
+| `cmd /c npm run release:quality` | Validate exact-SHA generated evidence. | Must fail if generated evidence is absent, stale, or unresolved. |
 
 ## Release Evidence Ledger
 
-Authoritative current ledger: `docs/27_RELEASE_EVIDENCE_LEDGER.md`.
+Authoritative current-candidate artifact: `qa-artifacts/release-evidence/current-release-evidence.md`.
 
-| Evidence | Current status | Release rule |
-| --- | --- | --- |
-| Candidate SHA | `7ff2d7f524c0c50075a429163e62dd8ce4b99419` (short `7ff2d7f`) recorded in this audit, the release ledger, and QA loop state. | Release-blocking if a future commit is not recorded exactly. |
-| Local deterministic gates | Passed locally for this worktree: install, typecheck, lint, test, quality, preflight, fixture smoke, coverage, and high-severity dependency audit. | Release-blocking for a committed release candidate if these are stale. |
-| Agent QA evidence loop | Passed locally after approved rerun; artifacts regenerated under `qa-artifacts/` and are not committed. | Release-blocking for local evidence when feasible; artifacts are not committed. |
-| Supabase migration dry-run | CLI `2.100.1`; migration list and dry-run connected. Remote `010` is pending; dry-run would push `010_generated_sessions_training_block_scope.sql`. | Release-blocking until migration `010` is applied/verified, not merely pending. |
-| CodeQL | Current-candidate CodeQL run `26909536499` completed with success. URL: https://github.com/KarlCupid/CornerIQ/actions/runs/26909536499. | Resolved for this candidate; future commits need fresh exact-SHA evidence. |
-| Live Supabase smoke | Not run for this SHA because remote migration `010` is pending. | Release-blocking until migration evidence is resolved and live smoke is verified with non-secret evidence. |
-| Mobile/EAS deliverability | Separate lane. Fresh Android preview artifact exists: `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`. TestFlight/Play Console, app icon/splash, metadata, private tester distribution, and physical-device checks are not counted here. | Outside this score run; still blocks broad distributed beta until release-owner checks pass. |
+Committed template and historical ledger: `docs/27_RELEASE_EVIDENCE_LEDGER.md`.
+
+Required generated evidence fields:
+
+| Field | Required content |
+| --- | --- |
+| Candidate SHA | Full SHA from `GITHUB_SHA` or `git rev-parse HEAD`, plus short SHA. |
+| Quality run | Run ID or URL, status, conclusion, and exact SHA. |
+| CodeQL run | Run ID or URL, status, conclusion, and exact SHA. |
+| Release Quality run | Current local command evidence or workflow run ID/URL for exact SHA. |
+| Local command results | Commands, pass/fail, and non-secret notes. |
+| Coverage result | Statements, functions, lines, branches, command, and pass/fail. |
+| Supabase migration list/dry-run | CLI version, migration `010` status, dry-run result, and exact SHA. |
+| Live smoke | Command, env names present yes/no, pass/fail, rows created/cleaned summary, and exact SHA. |
+| EAS/mobile artifact status | Separate mobile-lane status only; not counted as local production readiness. |
+| Human beta findings | Scripted beta readiness versus real boxer findings, with no private health detail. |
+| Known blockers | External, credential, remote, mobile, and human-review blockers. |
 
 ## Migration Verification Ledger
 
-| Migration | Local status | Remote status |
+| Migration | Local status | Release rule |
 | --- | --- | --- |
-| `001` through `009` | Present. | Last recorded remote verification predates this commit and does not prove current release readiness. |
-| `010_generated_sessions_training_block_scope.sql` | Present; static and service tests cover active-block generated-session scope. | not remotely verified/applied for `7ff2d7f524c0c50075a429163e62dd8ce4b99419`; migration list shows blank remote for `010`, and dry-run would push `010_generated_sessions_training_block_scope.sql`. Release-blocking until applied/verified. |
+| `001` through `009` | Present; historically recorded as applied remotely. | Historical evidence is not current-candidate proof. |
+| `010_generated_sessions_training_block_scope.sql` | Present; service/static tests cover active-block generated-session scope. | Release-blocking until generated evidence records migration list and dry-run alignment for the exact SHA. |
 
-Docs must not say migration `010` is remotely verified, remote-applied, or up to date unless the ledger records command, date/time, SHA, and non-secret result.
+Do not write that remote Supabase is up to date for migration `010` unless the generated evidence records command, date/time, exact SHA, and non-secret result proving alignment.
 
 ## Live Smoke Evidence Template
 
-Record privately, without values:
+Record only non-secret status in generated release evidence:
 
-- Date/time:
-- Candidate SHA:
-- Supabase project ref:
-- Public URL env present: yes/no
-- Public anon key env present: yes/no
-- Smoke email/password loaded from ignored local env: yes/no
-- Command: `cmd /c npm run smoke:live-db`
-- Result:
-- Rows created and cleaned:
-- Exact blocker if not run:
+- Date/time.
+- Candidate SHA.
+- Supabase project ref, if safe to identify.
+- Public URL env present: yes/no.
+- Public anon key env present: yes/no.
+- Smoke email/password env names present: yes/no.
+- Command: `cmd /c npm run smoke:live-db` with `CORNERIQ_LIVE_DB_SMOKE=1`.
+- Result: pass/fail.
+- Rows created and cleaned summary.
+- Exact blocker if not run.
+
+Live smoke must not run before migration `010` is applied or verified unless the evidence explicitly states why the smoke would still prove production readiness. At present, it should remain blocked while remote `010` is pending.
+
+## Human Beta Findings Template
+
+Committed docs may define fields only. Real findings belong in a private or ignored artifact.
+
+Required private fields:
+
+- Tester/session alias.
+- Flow tested.
+- First-action comprehension.
+- Confusion severity.
+- Safety interpretation.
+- Privacy interpretation.
+- Action taken.
+- No private health details.
+
+Scripted beta readiness is not real boxer validation.
 
 ## Known Risk Register
 
 | Risk | Current handling |
 | --- | --- |
-| Current-SHA evidence drift | `release:quality` now fails if docs do not contain the actual candidate SHA from Git/GitHub. |
-| Mobile/EAS deliverability | Android preview artifact exists; private distribution and physical-device checks are tracked separately in distribution docs and the release ledger. |
-| Remote Supabase migration `010` | Local tests and docs present; remote dry-run/list evidence is release-blocking. |
-| CodeQL candidate evidence | Current-candidate run recorded as success; rerun required for future SHAs. |
-| Live auth/email confirmation | Human/live check required; routine local QA cannot prove it. |
-| Live smoke | Credential-gated and not run for this SHA; release-blocking. |
-| Physical iPhone behavior | Human review required; local web QA is not proof of device readiness. |
-| Human boxer comprehension | Guided scripts and findings template exist; real findings remain human review required. |
-| Admin/reviewer-clear workflow | Not exposed; future path requires identity, permission, audit, and server-side trust. |
-| External analytics | Not added; first-party feedback/audit path remains preferred for beta. |
+| Self-referential SHA loop | Removed from committed docs; exact SHA is generated under `qa-artifacts/`. |
+| Missing generated release evidence | `npm run release:quality` fails if the artifact is absent or stale. |
+| Ambiguous pass wording | Release gate rejects ambiguous current-head/latest-run pass wording in committed docs and generated evidence. |
+| Remote Supabase migration `010` | Release-blocking unless generated evidence proves remote alignment. |
+| Live smoke | Release-blocking unless generated evidence proves exact-SHA pass with rows-created/cleaned summary. |
+| CodeQL and Quality evidence | Must be tied to exact SHA with run ID or URL. |
+| Mobile/EAS deliverability | Android APK artifact can be recorded separately; distribution remains human/release-owner work. |
+| Human boxer comprehension | No production UX validation claim until real findings are recorded privately. |
+| Coach/reviewer clear workflows | Not exposed until identity, permission, audit, and server-side trust are implemented and tested. |
 
 ## Remaining Non-Goals
 
-- Mobile install distribution, TestFlight, Play Console, app icon, splash, and store metadata.
-- Generated sparring, generated contact drills, fight simulation, unsafe weight-cut instructions, sauna/sweatsuit/laxative/diuretic guidance.
-- Coach UI, reviewer-clear UI, or hard-stop self-clear without server-side identity, permission, and audit.
-- External analytics packages by default.
-- Barcode scanning, full meal planning, detailed food database, drag/drop calendar, numeric load progression, and broad routed drilldowns.
+- Generated sparring, generated contact drills, fight simulation, partner drills, or broad combat-sports defaults.
+- Unsafe weight-cut instructions, sauna, sweatsuit, laxative, diuretic, or make-weight-at-all-costs language.
+- Coach UI, reviewer-clear UI, or hard-stop self-clear.
+- External analytics packages.
+- Barcode scanning, full meal planning, detailed food database, drag/drop calendar, numeric load progression, and routed drilldowns.
+- Counting EAS/mobile artifact status inside local production-readiness scores.
 
 ## Blockers
 
-- Release-owner Supabase credentials or CI secrets are required to verify remote migration dry-run and migration `010`.
-- Release-owner live smoke credentials are required for live Supabase/email confirmation evidence.
-- CodeQL candidate run is recorded for `7ff2d7f524c0c50075a429163e62dd8ce4b99419`; future commits need fresh run evidence.
-- Mobile private distribution and physical-device deliverability remain outside this run and must not be counted as complete here.
-- Real boxer comprehension findings have not been recorded; UX production validation remains human-review-required.
+- Supabase migration `010` must be applied or verified remotely for the exact candidate SHA.
+- Live Supabase smoke must pass for the exact candidate SHA after migration alignment, or remain release-blocking.
+- Quality, CodeQL, and Release Quality evidence must be exact-SHA, with run IDs/URLs where applicable.
+- Private tester distribution, physical-device checks, app metadata, icon/splash acceptance, and tester instructions remain release-owner lanes.
+- Real boxer comprehension and safety/privacy interpretation findings remain human_review_required.

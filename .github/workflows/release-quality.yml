@@ -58,7 +58,16 @@ jobs:
           npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
           npx supabase db push --dry-run
 
+      - name: Generate release evidence artifact
+        run: npm run release:evidence
+
+      - name: Upload release evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence
+          path: qa-artifacts/release-evidence/current-release-evidence.md
+          if-no-files-found: warn
+
       - name: Release evidence assertions
-        env:
-          CORNERIQ_RELEASE_MIGRATION_DRY_RUN_VERIFIED: "1"
         run: npm run release:quality

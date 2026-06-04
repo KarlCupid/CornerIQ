@@ -7,14 +7,14 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 7ff2d7f524c0c50075a429163e62dd8ce4b99419 (short 7ff2d7f) |
-| Last QA run result | 2026-06-03 local verification pass completed for the audit-remediation worktree on HEAD `7ff2d7f524c0c50075a429163e62dd8ce4b99419`: install, typecheck, lint, test, quality, beta preflight, fixture smoke, coverage, high-severity dependency audit, and agent QA CI passed. GitHub API evidence recorded Quality run `26909536964`, CodeQL run `26909536499`, and Agent QA Loop run `26909536551` as successful for this SHA. `npm run release:quality` failed as designed until Supabase migration `010` is remotely applied/verified and live smoke evidence is recorded. |
+| Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
+| Last QA run result | 2026-06-03 evidence-model fix in progress: committed docs now act as templates/historical runbooks, `npm run release:evidence` generates exact-SHA proof, and `npm run release:quality` validates generated evidence instead of requiring committed docs to contain their own final SHA. Supabase migration `010`, live smoke, physical-device checks, private distribution, and real boxer findings remain unresolved until exact generated or human evidence is recorded. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 5 |
 | Current open high count | 0 |
 | Current required-medium count | 0 automatable; 3 human-only limitations remain explicitly tracked |
-| Next recommended action | Apply or otherwise verify remote Supabase migration `010`, rerun migration list/dry-run until aligned, run live Supabase smoke with explicit opt-in credentials, rerun `npm run release:quality`, then complete private tester distribution, physical iPhone checks, and guided boxer comprehension sessions before declaring distributed beta ready |
+| Next recommended action | Generate exact-SHA release evidence, apply or otherwise verify remote Supabase migration `010`, rerun migration list/dry-run until aligned, run live Supabase smoke with explicit opt-in credentials, rerun `npm run release:quality`, then complete private tester distribution, physical iPhone checks, and guided boxer comprehension sessions before declaring distributed beta ready |
 | Beta readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.

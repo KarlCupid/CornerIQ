@@ -33,6 +33,7 @@
     "ci:agent-browser": "node scripts/run-agent-qa-ci.mjs --gate ci:agent-browser",
     "ci:engine-output-review": "node scripts/run-agent-qa-ci.mjs --gate ci:engine-output-review",
     "ci:agent-bundle": "node scripts/run-agent-qa-ci.mjs --gate ci:agent-bundle",
+    "release:evidence": "node scripts/generate-release-evidence.mjs",
     "release:quality": "node scripts/release-quality-gate.mjs",
     "dev:reset:supabase": "node scripts/dev-reset-supabase.mjs",
     "preflight:beta": "node scripts/beta-preflight.mjs",

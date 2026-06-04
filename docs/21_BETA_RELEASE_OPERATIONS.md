@@ -6,13 +6,15 @@ This document is the operational checklist for structured CornerIQ beta releases
 
 ## Beta Readiness Status
 
-CornerIQ is beta-ready for structured boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a beta tester notice, runtime public-env validation, EAS build profiles, a beta preflight script, a GitHub Actions quality workflow, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
+CornerIQ is beta-ready for structured local/scripted boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a beta tester notice, runtime public-env validation, EAS build profiles, a beta preflight script, GitHub Actions quality workflows, CodeQL, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
 
 Local migration files now run through `010_generated_sessions_training_block_scope.sql`. The last remote verification recorded on 2026-05-21 showed migrations `001` through `009` applied and dry run up to date; rerun migration list and dry run before release handoff so `010` is either applied or explicitly documented as pending.
 
-2026-05-21 release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and latest public GitHub Actions `Quality` run passed. EAS Android preview build was attempted but did not produce an artifact because the EAS project was not configured. Current release wording is release-candidate prepared, build pending.
+2026-05-21 historical release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and a public GitHub Actions `Quality` run passed for that older candidate. That historical result does not prove any later candidate.
 
 2026-06-03 EAS update: project `@karlcupid/corneriq` is now linked in `app.json` with project ID `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`. Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes because a floating Supabase dependency resolved to `@supabase/supabase-js@2.106.0`, whose CommonJS bundle contains a dynamic OpenTelemetry import Hermes rejected. Supabase is now pinned to `2.50.0`, Expo dependency drift and Metro config warnings are fixed, local gates pass, and fresh cache-cleared Android preview build `c21c5692-011e-4c85-949f-355d0e1f753f` finished with APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`. Do not call this broadly distributed until a private tester channel, tester list, metadata acceptance, and physical-device checks are confirmed.
+
+2026-06-03 release-evidence update: committed production docs are now templates and historical runbooks. Exact candidate proof belongs in the ignored generated artifact `qa-artifacts/release-evidence/current-release-evidence.md`, produced by `npm run release:evidence` and validated by `npm run release:quality`.
 
 ## Local Checks
 
@@ -54,7 +56,7 @@ Distribution runbook: `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`.
 
 Release-candidate checklist: `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`.
 
-No successful EAS preview or production build exists yet. App icon/splash polish and store metadata remain manual release-owner tasks before broader distribution.
+An Android EAS preview APK artifact exists in the separate mobile lane. App icon/splash polish, store metadata, private tester distribution, and physical-device acceptance remain manual release-owner tasks before broader distribution.
 
 2026-05-21 update:
 
@@ -223,16 +225,9 @@ CI does not run live smoke and does not require Supabase smoke credentials.
 
 `.github/workflows/release-quality.yml` is stricter and manual-only. It runs the local quality gates, agent QA evidence loop, production dependency audit, and a non-optional Supabase migration dry-run. It then runs `npm run release:quality`, which fails if release-critical evidence is missing. Missing Supabase migration credentials are therefore advisory in normal CI but release-blocking in Release Quality.
 
-For each release-candidate commit, record the `Quality` and `CodeQL` run IDs, commit SHA, status, and conclusion before release handoff. If CodeQL has not run on the candidate commit yet, keep release status at build/security evidence pending.
+For each release-candidate commit, record the `Quality` and `CodeQL` run IDs, commit SHA, status, and conclusion in generated release evidence before release handoff. If CodeQL has not run on the candidate commit yet, keep release status at build/security evidence pending.
 
-Latest status check from the public GitHub Actions API:
-
-- Workflow: `Quality`.
-- Run: `26215681543`.
-- Commit: `235b3f8508c1194d3a6f17354d6a26b2618524de`.
-- Event: `push`.
-- Status: completed.
-- Conclusion: success.
+Do not use latest-run wording as proof. Run IDs and URLs must be tied to the exact candidate SHA.
 
 ## Advisory Vs Release-Blocking Gates
 
@@ -251,16 +246,24 @@ Release-blocking for a beta handoff:
 - Coverage thresholds must remain at least statements 75, functions 75, lines 75, and branches 65.
 - Beta preflight, static safety scans, smoke fixtures, typecheck, lint, tests, coverage, and agent QA evidence loop must pass.
 - Docs must not claim current-head pass without exact SHA evidence.
+- Committed docs must not be required to contain their own final commit SHA.
 
 ## Release Evidence Ledger
 
-The exact-SHA ledger for the current candidate lives in `docs/27_RELEASE_EVIDENCE_LEDGER.md`. Keep this template in sync with that file.
+The committed ledger at `docs/27_RELEASE_EVIDENCE_LEDGER.md` is a template and historical context file. The exact-SHA ledger for a release candidate lives in `qa-artifacts/release-evidence/current-release-evidence.md` or an equivalent CI artifact.
+
+Generate and validate it with:
+
+```bash
+npm run release:evidence
+npm run release:quality
+```
 
 Use this ledger shape for each release-candidate commit:
 
 | Evidence | Required status | Owner | Record |
 | --- | --- | --- | --- |
-| Candidate SHA | exact full SHA and short SHA recorded | Release owner | `docs/26_PRODUCTION_QUALITY_AUDIT.md` and QA gate results |
+| Candidate SHA | exact full SHA and short SHA recorded | Release owner | generated release evidence artifact |
 | Typecheck/lint/test/coverage/smoke/preflight | pass | Agent or CI | command output or CI run URL |
 | Agent QA evidence loop | pass | Agent or CI | `qa-artifacts/corneriq-agent-qa-bundle.zip` |
 | Static safety scans | pass | Agent or CI | `src/tests/static` |
@@ -304,9 +307,9 @@ Still deferred:
 - Quality passed.
 - Lint passed.
 - Beta preflight passed.
-- Live smoke passed with ignored local env loaded, or exact missing variable names were documented.
-- Supabase migration list aligned.
-- Supabase dry run up to date.
+- Live smoke passed with ignored local env loaded and exact-SHA generated evidence, or exact blocker was documented.
+- Supabase migration list aligned in exact-SHA generated evidence.
+- Supabase dry run up to date in exact-SHA generated evidence.
 - CI workflow passed for PR or branch.
 - CodeQL workflow passed for PR or branch, or security evidence pending is explicitly documented.
 - Docs updated.
