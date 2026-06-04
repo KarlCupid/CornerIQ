@@ -18,7 +18,8 @@ if (!existsSync(statePath)) {
 const state = readFileSync(statePath, "utf8");
 const analysis = existsSync(analysisPath) ? JSON.parse(readFileSync(analysisPath, "utf8")) : null;
 const lastCommitTested = valueFor("Last commit tested", state);
-const ambiguousLastCommitPattern = /\bplus\s+working\s+tree\s+changes\b|\bworking\s+tree\s+changes\s+from\s+this\s+pass\b|\blatest\s+HEAD\b/i;
+const generatedReleaseEvidencePath = "qa-artifacts/release-evidence/current-release-evidence.md";
+const ambiguousLastCommitPattern = /\bplus\s+working\s+tree\s+changes\b|\bworking\s+tree\s+changes\s+from\s+this\s+pass\b|\blatest\s+HEAD\b|\bcurrent\s+head\s+passed\b/i;
 
 console.log("CornerIQ QA loop state");
 console.log(`Current QA phase: ${valueFor("Current QA phase", state)}`);
@@ -26,9 +27,10 @@ console.log(`Last commit tested: ${lastCommitTested}`);
 console.log(`Last QA run result: ${valueFor("Last QA run result", state)}`);
 console.log(`Beta readiness decision: ${valueFor("Beta readiness decision", state)}`);
 console.log(`Next recommended action: ${valueFor("Next recommended action", state)}`);
+console.log(`Generated release evidence: ${generatedReleaseEvidencePath}`);
 
 if (ambiguousLastCommitPattern.test(lastCommitTested)) {
-  console.error("QA loop state uses ambiguous last-commit wording. Record the exact HEAD full SHA and short SHA instead.");
+  console.error("QA loop state uses ambiguous current-head wording. Record exact candidate proof in generated release evidence instead.");
   process.exitCode = 1;
 }
 

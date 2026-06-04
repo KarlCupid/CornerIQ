@@ -238,21 +238,16 @@ describe("agent browser QA static checks", () => {
     expect(readSource("docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md")).toContain("qa-artifacts/corneriq-agent-qa-bundle.zip");
   });
 
-  it("records an exact commit shape in QA state and rejects ambiguous working-tree wording", () => {
+  it("points QA state to generated release evidence and rejects ambiguous working-tree wording", () => {
     const state = readSource("docs/qa/QA_LOOP_STATE.md");
-    const lastCommitMatch = state.match(/\| Last commit tested \| ([0-9a-f]{40}) \(short ([0-9a-f]{7,12})\) \|/i);
-
-    expect(lastCommitMatch).toBeTruthy();
-    if (!lastCommitMatch) {
-      throw new Error("Last commit tested row must include full and short SHA.");
-    }
-    const [, fullSha, shortSha] = lastCommitMatch as RegExpMatchArray & [string, string, string];
-    expect(fullSha.startsWith(shortSha)).toBe(true);
-    expect(state).not.toMatch(/plus working tree changes from this pass|plus working tree changes|latest HEAD/i);
+    expect(state).toContain("qa-artifacts/release-evidence/current-release-evidence.md");
+    expect(state).toContain("not stored in this committed state file");
+    expect(state).not.toMatch(/plus working tree changes from this pass|plus working tree changes|latest HEAD|current head passed/i);
 
     const loopStateScript = readSource("scripts/print-qa-loop-state.mjs");
+    expect(loopStateScript).toContain("generatedReleaseEvidencePath");
     expect(loopStateScript).toContain("ambiguousLastCommitPattern");
-    expect(loopStateScript).toContain("exact HEAD full SHA and short SHA");
+    expect(loopStateScript).toContain("generated release evidence");
   });
 
   it("documents and writes structured gate result artifacts from qa:agent:ci", () => {
