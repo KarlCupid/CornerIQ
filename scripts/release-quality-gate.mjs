@@ -177,6 +177,7 @@ function runReleaseLocalGates() {
 }
 
 requireFile("scripts/beta-preflight.mjs");
+requireFile("scripts/collect-release-evidence-input.mjs");
 requireFile(".github/workflows/codeql.yml");
 requireFile(".github/workflows/quality.yml");
 requireFile(".github/workflows/release-quality.yml");
@@ -186,12 +187,16 @@ requireFile("docs/27_RELEASE_EVIDENCE_LEDGER.md");
 requireContains(".gitignore", "qa-artifacts/", "ignored generated QA/release artifacts");
 requireContains(".github/workflows/codeql.yml", "github/codeql-action/init", "CodeQL init");
 requireContains(".github/workflows/codeql.yml", "github/codeql-action/analyze", "CodeQL analyze");
-requireContains(".github/workflows/release-quality.yml", "npx supabase db push --dry-run", "non-optional Supabase migration dry-run");
+requireContains("scripts/collect-release-evidence-input.mjs", '"db", "push", "--dry-run"', "non-optional Supabase migration dry-run collection");
+requireContains(".github/workflows/release-quality.yml", "node scripts/collect-release-evidence-input.mjs", "release evidence input collection step");
+requireContains(".github/workflows/release-quality.yml", "run_live_smoke", "live smoke workflow dispatch input");
+requireContains(".github/workflows/release-quality.yml", "allow_remote_db_push", "remote DB push workflow dispatch input");
 requireContains(".github/workflows/release-quality.yml", "npm run test:coverage", "coverage gate");
 requireContains(".github/workflows/release-quality.yml", "npm run preflight:beta", "beta preflight gate");
 requireContains(".github/workflows/release-quality.yml", "npm exec vitest -- run src/tests/static", "static safety gate");
 requireContains(".github/workflows/release-quality.yml", "npm audit --audit-level=high --omit=dev", "production dependency audit");
 requireContains(".github/workflows/release-quality.yml", "npm run release:evidence", "generated release evidence step");
+requireContains("vitest.config.mjs", "json-summary", "machine-readable coverage summary reporter");
 requireContains("package.json", "\"release:evidence\"", "release:evidence package script");
 requireContains("package.json", "\"release:quality\"", "release:quality package script");
 
@@ -240,9 +245,9 @@ if (sha) {
   requireLedgerEvidence(
     releaseEvidencePath,
     "Release Quality run",
-    new RegExp(`${sha}.*(?:(?:run id|https://github\\.com/[^\\s|]+/actions/runs/\\d+).*(?:success|passed)|(?:release:quality|this release-quality execution).*(?:pass|passed|success))`, "is"),
-    /release-blocking|not recorded|pending|blocked|not run|missing|unavailable|failed/i,
-    "Release Quality evidence must be exact-SHA local pass evidence or a run ID/URL."
+    new RegExp(`${sha}.*(?:(?:run id|https://github\\.com/[^\\s|]+/actions/runs/\\d+).*(?:success|passed)|(?:release:quality|this release-quality execution|current release quality workflow run).*(?:validated by.*exit code|gate exit code|no pass is pre-claimed|pass|passed|success))`, "is"),
+    /release-blocking|not recorded|blocked|not run|missing|unavailable|failed/i,
+    "Release Quality evidence must be exact-SHA local pass evidence, a run ID/URL, or the current execution validated by this gate's exit code."
   );
   requireLedgerEvidence(
     releaseEvidencePath,

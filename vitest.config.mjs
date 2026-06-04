@@ -7,7 +7,7 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "lcov"],
+      reporter: ["text", "lcov", "json-summary"],
       reportsDirectory: "coverage",
       include: ["src/engine/**/*.ts", "src/services/**/*.ts"],
       exclude: ["src/services/supabase/database.types.ts"],

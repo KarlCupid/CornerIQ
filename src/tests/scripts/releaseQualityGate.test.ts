@@ -64,16 +64,19 @@ function writeFixture(overrides: Partial<Record<string, string | undefined>> = {
     ".gitignore": "qa-artifacts/\n",
     "package.json": '{ "scripts": { "release:evidence": "node scripts/generate-release-evidence.mjs", "release:quality": "node scripts/release-quality-gate.mjs" } }',
     "scripts/beta-preflight.mjs": "console.log('Beta preflight fixture');\n",
-    "vitest.config.mjs": "export default { test: { coverage: { thresholds: { statements: 75, functions: 75, lines: 75, branches: 65 } } } };",
+    "scripts/collect-release-evidence-input.mjs": 'const dryRun = ["db", "push", "--dry-run"];\nconsole.log(dryRun.join(" "));\n',
+    "vitest.config.mjs": "export default { test: { coverage: { reporter: ['text', 'json-summary'], thresholds: { statements: 75, functions: 75, lines: 75, branches: 65 } } } };",
     ".github/workflows/codeql.yml": "steps:\n  - uses: github/codeql-action/init@v3\n  - uses: github/codeql-action/analyze@v3\n",
     ".github/workflows/quality.yml": "name: Quality\n",
     ".github/workflows/release-quality.yml": [
       "name: Release Quality",
-      "run: npx supabase db push --dry-run",
+      "run_live_smoke:",
+      "allow_remote_db_push:",
       "run: npm run test:coverage",
       "run: npm run preflight:beta",
       "run: npm exec vitest -- run src/tests/static",
       "run: npm audit --audit-level=high --omit=dev",
+      "run: node scripts/collect-release-evidence-input.mjs",
       "run: npm run release:evidence",
       "run: npm run release:quality"
     ].join("\n"),
@@ -176,6 +179,51 @@ describe("release quality gate", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("records unresolved Supabase migration list/dry-run");
     expect(result.stderr).toContain("records unresolved Live smoke");
+  });
+
+  it("fails Quality and CodeQL rows without exact run IDs or URLs", () => {
+    const result = runGate(
+      writeFixture({
+        [EVIDENCE_PATH]: passingEvidence().replace(
+          `| Quality run | Candidate ${CURRENT_SHA}; run ID 111; URL https://github.com/example/corneriq/actions/runs/111; status completed; conclusion success. |`,
+          `| Quality run | Candidate ${CURRENT_SHA}; status completed; conclusion success without run URL. |`
+        ).replace(
+          `| CodeQL run | Candidate ${CURRENT_SHA}; run ID 222; URL https://github.com/example/corneriq/actions/runs/222; status completed; conclusion success. |`,
+          `| CodeQL run | Candidate ${CURRENT_SHA}; status completed; conclusion success without run URL. |`
+        )
+      })
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("must record exact Quality run evidence");
+    expect(result.stderr).toContain("must record exact CodeQL run evidence");
+  });
+
+  it("fails coverage rows that omit required exact-SHA coverage metrics", () => {
+    const result = runGate(
+      writeFixture({
+        [EVIDENCE_PATH]: passingEvidence().replace(
+          `| Coverage result | Candidate ${CURRENT_SHA}; statements 88.81, functions 87.77, lines 88.81, branches 87.05; npm run test:coverage passed. |`,
+          `| Coverage result | Candidate ${CURRENT_SHA}; statements 88.81, functions 87.77, lines 88.81; npm run test:coverage passed. |`
+        )
+      })
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("must record exact Coverage result evidence");
+  });
+
+  it("allows the Release Quality row to reference the current execution without pre-claiming success", () => {
+    const result = runGate(
+      writeFixture({
+        [EVIDENCE_PATH]: passingEvidence().replace(
+          `| Release Quality run | Candidate ${CURRENT_SHA}; npm run release:quality passed in this release-quality execution. |`,
+          `| Release Quality run | Candidate ${CURRENT_SHA}; current Release Quality workflow run ID 333; URL https://github.com/example/corneriq/actions/runs/333; status in_progress; conclusion pending; this release-quality execution is validated by the npm run release:quality exit code. |`
+        )
+      })
+    );
+
+    expect(result.status).toBe(0);
   });
 
   it("allows committed docs to omit the exact current SHA", () => {

@@ -15,8 +15,9 @@ describe("beta release operations", () => {
     expect(workflow).toContain("npm run smoke:fixtures");
     expect(workflow).toContain("npm audit --audit-level=high --omit=dev");
     expect(workflow).toContain("npx supabase db push --dry-run");
-    expect(releaseWorkflow).toContain("test -n \"$SUPABASE_ACCESS_TOKEN\"");
-    expect(releaseWorkflow).toContain("npx supabase db push --dry-run");
+    expect(releaseWorkflow).toContain("node scripts/collect-release-evidence-input.mjs");
+    expect(releaseWorkflow).toContain("allow_remote_db_push");
+    expect(releaseWorkflow).toContain("run_live_smoke");
     expect(releaseWorkflow).toContain("npm run qa:agent:ci");
     expect(releaseWorkflow).toContain("npm run release:quality");
     expect(codeqlWorkflow).toContain("github/codeql-action/analyze");

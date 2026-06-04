@@ -42,7 +42,9 @@ describe("beta release config static checks", () => {
     expect(codeqlWorkflow).toContain("github/codeql-action/init");
     expect(codeqlWorkflow).toContain("javascript-typescript");
     expect(releaseWorkflow).toContain("npm run qa:agent:ci");
-    expect(releaseWorkflow).toContain("npx supabase db push --dry-run");
+    expect(releaseWorkflow).toContain("node scripts/collect-release-evidence-input.mjs");
+    expect(releaseWorkflow).toContain("run_live_smoke");
+    expect(releaseWorkflow).toContain("allow_remote_db_push");
     expect(releaseWorkflow).toContain("npm run release:quality");
     expect(releaseWorkflow).toContain("npm exec vitest -- run src/tests/static");
     expect(workflow.toLowerCase()).not.toContain("smoke:live-db");
