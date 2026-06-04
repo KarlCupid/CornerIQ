@@ -110,10 +110,10 @@ function ledgerLinesContaining(path, label) {
   if (!requireFile(path)) {
     return [];
   }
-  const lowerLabel = label.toLowerCase();
+  const fieldPattern = new RegExp(`^\\|\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\|`, "i");
   return read(path)
     .split(/\r?\n/)
-    .filter((line) => line.toLowerCase().includes(lowerLabel));
+    .filter((line) => fieldPattern.test(line));
 }
 
 function requireLedgerEvidence(path, label, acceptablePattern, unresolvedPattern, missingMessage) {
@@ -254,7 +254,7 @@ if (sha) {
   requireLedgerEvidence(
     releaseEvidencePath,
     "Coverage result",
-    new RegExp(`${sha}.*statements\\s+\\d+(?:\\.\\d+)?.*functions\\s+\\d+(?:\\.\\d+)?.*lines\\s+\\d+(?:\\.\\d+)?.*branches\\s+\\d+(?:\\.\\d+)?.*(?:pass|passed|success)`, "is"),
+    new RegExp(`(?=.*${sha})(?=.*statements\\s+\\d+(?:\\.\\d+)?)(?=.*functions\\s+\\d+(?:\\.\\d+)?)(?=.*lines\\s+\\d+(?:\\.\\d+)?)(?=.*branches\\s+\\d+(?:\\.\\d+)?)(?=.*(?:pass|passed|success))`, "is"),
     /release-blocking|not recorded|pending|blocked|not run|missing|unavailable|failed/i,
     "coverage evidence must include exact-SHA command results and threshold numbers."
   );
