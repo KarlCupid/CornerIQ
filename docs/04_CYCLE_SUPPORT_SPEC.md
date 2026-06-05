@@ -2,7 +2,7 @@
 
 ## Product Boundary
 
-Cycle support is optional, private, consent-based, and boxing-specific. It is not fertility advice, medical diagnosis, or a deterministic phase rule system.
+Cycle support is optional, private, consent-based, and boxing-specific. It is not medical diagnosis, cycle-window prediction, or a deterministic phase rule system.
 
 ## Inputs
 
@@ -122,7 +122,7 @@ Supported categories:
 - ring
 - unknown
 
-The engine uses contraception context, bleeding pattern, and symptoms. It does not infer fertility windows.
+The engine uses contraception context, bleeding pattern, and symptoms. It does not predict private cycle windows.
 
 ## Safety Flags
 

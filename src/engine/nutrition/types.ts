@@ -101,6 +101,15 @@ export interface RehydrationPlan {
   confidence: Confidence;
 }
 
+export type NutritionTargetConfidenceStatus = "confident" | "provisional" | "low_confidence" | "blocked_by_safety";
+
+export interface NutritionTargetConfidence {
+  status: NutritionTargetConfidenceStatus;
+  reasons: readonly string[];
+  missingInputs: readonly string[];
+  athleteFacingCopy: string;
+}
+
 export interface NutritionState {
   dailyCaloriesTarget: number;
   calorieRange: {
@@ -136,6 +145,7 @@ export interface NutritionState {
   decisionStack: readonly FuelCommandDecisionItem[];
   trainingDemandHandoff: NutritionTrainingDemandHandoff;
   underFuelingRiskNote: string | null;
+  targetConfidence: NutritionTargetConfidence;
   explanation: string;
   riskFlags: readonly RiskFlag[];
   confidence: Confidence;

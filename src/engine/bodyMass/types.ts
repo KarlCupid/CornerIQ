@@ -10,6 +10,7 @@ export interface BodyMassLog {
 
 export interface BodyMassTrend {
   latestKg: number | null;
+  latestDate: ISODateString | null;
   rolling7DayKg: number | null;
   trendKgPerWeek: number | null;
   logCount7Day: number;

@@ -12,6 +12,7 @@ import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanA
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
+import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
 
 export interface PlanScreenProps {
@@ -463,6 +464,9 @@ export function PlanScreen({
         viewModel={viewModel}
       />
       <PlanReviewNotes viewModel={viewModel} />
+      <DisclosureCard title="Block history" summary="Open persisted week, progression, materialization, and safety history only when you need audit detail.">
+        <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
+      </DisclosureCard>
     </LuminousScreen>
   );
 }

@@ -15,7 +15,13 @@ const requiredFiles = [
   "src/engine/nutrition/sodiumFiberStrategy.ts",
   "src/engine/training/nextWeekGeneratedSessionEngine.ts",
   "src/services/supabase/trainingRepository.ts",
-  "supabase/migrations/010_generated_sessions_training_block_scope.sql"
+  "supabase/migrations/010_generated_sessions_training_block_scope.sql",
+  "src/engine/training/trainingAnalytics.ts",
+  "src/engine/presentation/exerciseHistoryViewModel.ts",
+  "src/engine/nutrition/nutritionEngine.ts",
+  "src/engine/nutrition/reviewerWorkflow.ts",
+  "supabase/functions/review-nutrition-safety/policy.ts",
+  "src/services/supabase/userDataService.ts"
 ];
 
 describe("engine evidence registry", () => {
@@ -57,7 +63,12 @@ describe("engine evidence registry", () => {
       "low-residue",
       "rehydration",
       "tournament",
-      "active block"
+      "active block",
+      "Structured exercise",
+      "target confidence",
+      "reviewer transition",
+      "Cycle longitudinal",
+      "Portable app-data export"
     ]) {
       expect(registryText, phrase).toContain(phrase);
     }

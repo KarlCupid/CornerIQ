@@ -332,6 +332,9 @@ export interface ExercisePrescription {
 }
 
 export type ExerciseResultStatus = "prescribed_only" | "completed" | "partial" | "skipped";
+export type ExerciseResultLoadUnit = "kg" | "lb" | "bodyweight" | "band" | "other";
+export type ExerciseResultSide = "left" | "right" | "bilateral" | "alternating" | "not_applicable";
+export type ExerciseResultTechnicalQuality = "clean" | "mostly_clean" | "technical_breakdown" | "stopped_for_pain" | "unknown";
 
 export interface WorkoutSection {
   name: string;
@@ -387,6 +390,13 @@ export interface ExerciseResultDraft {
   prescribed: ExercisePrescription;
   resultStatus: ExerciseResultStatus;
   completedSets?: number | undefined;
+  loadValue?: number | undefined;
+  loadUnit?: ExerciseResultLoadUnit | undefined;
+  repsCompleted?: number | undefined;
+  timeSeconds?: number | undefined;
+  distanceMeters?: number | undefined;
+  side?: ExerciseResultSide | undefined;
+  technicalQuality?: ExerciseResultTechnicalQuality | undefined;
   loadText?: string | undefined;
   rpe?: number | undefined;
   notes?: string | undefined;
@@ -401,6 +411,13 @@ export interface ExerciseResultRecord {
   prescribed: Record<string, unknown>;
   resultStatus: ExerciseResultStatus;
   completedSets?: number | undefined;
+  loadValue?: number | undefined;
+  loadUnit?: ExerciseResultLoadUnit | undefined;
+  repsCompleted?: number | undefined;
+  timeSeconds?: number | undefined;
+  distanceMeters?: number | undefined;
+  side?: ExerciseResultSide | undefined;
+  technicalQuality?: ExerciseResultTechnicalQuality | undefined;
   loadText?: string | undefined;
   rpe?: number | undefined;
   notes?: string | undefined;

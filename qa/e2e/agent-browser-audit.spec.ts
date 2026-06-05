@@ -438,7 +438,11 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("Log food or water if you have it");
   await expect(page.getByTestId("fuel-top-action-card")).toContainText("can wait unless a safety note is active");
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Today's fuel targets");
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Targets are based on your profile and today's training\. Demand tier:/);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Why these targets");
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Targets are (confident|provisional|low confidence|blocked by safety)/i);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Demand tier:/);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Target status:/);
+  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Missing or weak inputs:/);
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Logs help compare what happened.");
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Calories\s*\d+\s*kcal\s*\/\s*\d+\s*kcal/i);
   await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Protein\s*\d+g\s*\/\s*\d+g/i);
@@ -486,7 +490,8 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Show Safety review" }).click();
   await expectVisibleText(page, "Nutrition review history");
   await expectVisibleText(page, /You cannot self-clear nutrition hard stops/i);
-  await expectVisibleText(page, /Reviewer-clear workflow is not in the app yet/i);
+  await expectVisibleText(page, /Athlete UI is read-only for reviewer decisions/i);
+  await expectVisibleText(page, /reviewer clear requires trusted server-side identity and audit/i);
   await expectVisibleText(page, /For urgent symptoms or unsafe weight concerns, stop and seek qualified support/i);
   await expect(page.getByRole("button", { name: /clear/i })).toHaveCount(0);
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-reviews-section"));
@@ -652,7 +657,8 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await openSection(page, "Data");
   await expectVisibleText(page, "Data controls");
   await expectVisibleText(page, "Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.");
-  await expectVisibleText(page, "This does not delete your Supabase auth account.");
+  await expectVisibleText(page, /Delete app data removes user-owned app rows only/);
+  await expectVisibleText(page, /Auth identity deletion requires a trusted server-side function/);
   const deleteButton = page.getByRole("button", { name: "Delete app data" });
   await expect(deleteButton).toBeDisabled();
   await page.getByRole("button", { name: "Preview export" }).click();

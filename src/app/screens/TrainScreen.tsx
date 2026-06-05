@@ -310,6 +310,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, genera
               {viewModel.analytics.mostRecentExerciseResultSummary ? <Text style={screenStyles.subtle}>Recent exercise: {viewModel.analytics.mostRecentExerciseResultSummary}</Text> : null}
               {viewModel.analytics.mostRepeatedExercise ? <Text style={screenStyles.subtle}>Repeated exercise: {viewModel.analytics.mostRepeatedExercise}</Text> : null}
               {viewModel.analytics.latestStrengthExerciseSummary ? <Text style={screenStyles.subtle}>Strength actual: {viewModel.analytics.latestStrengthExerciseSummary}</Text> : null}
+              <Text style={screenStyles.subtle}>{viewModel.analytics.structuredLoadSummary}</Text>
               {viewModel.analytics.painFlagExercises.map((exercise, index) => <Text key={`pain-flag-exercise:${index}`} style={screenStyles.subtle}>Pain flag exercise: {exercise}</Text>)}
               <Text style={screenStyles.subtle}>Today's completion will influence next week's dose, but no numeric load progression is inferred from notes.</Text>
             </View>

@@ -79,7 +79,7 @@ describe("nutritionReviewHistoryViewModel", () => {
       asOfDate: fixtureAsOfDate
     });
 
-    expect(viewModel.activeReviews[0]?.status).toBe("acknowledged");
+    expect(viewModel.activeReviews[0]?.status).toBe("acknowledged_by_athlete");
     expect(viewModel.activeReviews[0]?.canAcknowledge).toBe(false);
     expect(viewModel.safetyCopy).toContain("cannot self-clear");
     expect(viewModel.historyEvents[0]?.summary).toContain("does not clear the plan");
@@ -100,7 +100,7 @@ describe("nutritionReviewHistoryViewModel", () => {
     });
 
     expect(viewModel.noHistoryCopy).toContain("No review events");
-    expect(viewModel.reviewerFutureCopy).toContain("not in the app yet");
+    expect(viewModel.reviewerFutureCopy).toContain("server-side identity");
     expect(viewModel.urgentSupportCopy).toContain("urgent symptoms");
     expect(JSON.stringify(viewModel)).not.toContain("doctor approved");
   });

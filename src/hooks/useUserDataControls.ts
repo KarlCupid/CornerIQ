@@ -1,14 +1,24 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CornerSupabaseClient } from "../services/supabase/client";
-import { deleteUserOwnedData, groupUserOwnedPreviewCounts, previewUserOwnedDataExport, type UserOwnedDataExportPreview } from "../services/supabase/userDataService";
+import {
+  deleteUserOwnedData,
+  generateUserOwnedDataExportBundleString,
+  groupUserOwnedPreviewCounts,
+  previewUserOwnedDataExport,
+  type UserOwnedDataExportPreview
+} from "../services/supabase/userDataService";
 
 export interface UserDataControlsHook {
+  accountDeletionCopy: string;
+  bundleText: string | null;
   busy: boolean;
   deleteConfirmation: string;
   deleteData: () => Promise<void>;
+  generateExportBundle: () => Promise<void>;
   message: string | null;
   preview: UserOwnedDataExportPreview | null;
   previewExport: () => Promise<void>;
+  portableExportRows: readonly string[];
   previewRows: readonly string[];
   setDeleteConfirmation: (value: string) => void;
 }
@@ -22,6 +32,7 @@ export function useUserDataControls(input: {
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [preview, setPreview] = useState<UserOwnedDataExportPreview | null>(null);
+  const [bundleText, setBundleText] = useState<string | null>(null);
 
   const previewExport = useCallback(async () => {
     setBusy(true);
@@ -57,13 +68,43 @@ export function useUserDataControls(input: {
     }
   }, [deleteConfirmation, input, preview]);
 
+  const generateExportBundle = useCallback(async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const next = await generateUserOwnedDataExportBundleString(input.userId, input.client);
+      setBundleText(next);
+      setMessage("Portable JSON export bundle generated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Export bundle failed.");
+    } finally {
+      setBusy(false);
+    }
+  }, [input.client, input.userId]);
+
   const previewRows = useMemo(() => (preview ? Object.entries(groupUserOwnedPreviewCounts(preview)).map(([category, count]) => `${category}: ${count}`) : []), [preview]);
+  const portableExportRows = useMemo(
+    () =>
+      bundleText
+        ? [
+            `Portable JSON: ${bundleText.length} characters`,
+            "Includes grouped user-owned rows and redacted user id hash.",
+            "Copy or save this JSON with the platform tools available on this device."
+          ]
+        : [],
+    [bundleText]
+  );
 
   return {
+    accountDeletionCopy:
+      "Delete app data removes user-owned app rows only. Deleting the Supabase auth identity requires a trusted server-side function and is not claimed by this client.",
+    bundleText,
     busy,
     deleteConfirmation,
     deleteData,
+    generateExportBundle,
     message,
+    portableExportRows,
     preview,
     previewExport,
     previewRows,

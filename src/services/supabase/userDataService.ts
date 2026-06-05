@@ -1,6 +1,7 @@
 import type { CornerSupabaseClient } from "./client";
 import type { TableName } from "./repositoryTypes";
 import { assertUserId, readDataOrThrow } from "./repositoryTypes";
+import { stableHash } from "../../engine/core/stableHash";
 
 export const USER_OWNED_TABLES = [
   "exercise_results",
@@ -48,6 +49,25 @@ export type UserOwnedDataExport = Record<UserOwnedTable, unknown[]>;
 export type UserOwnedDataExportPreview = Record<UserOwnedTable, number>;
 export type UserOwnedDataCategory = "profile" | "logs" | "training" | "nutrition" | "cycle/wearable" | "projections/traces";
 export type UserOwnedDataExportPreviewGrouped = Record<UserOwnedDataCategory, number>;
+export type UserOwnedDataExportRowsByCategory = Record<UserOwnedDataCategory, Partial<Record<UserOwnedTable, unknown[]>>>;
+export interface UserOwnedDataExportBundle {
+  metadata: {
+    schemaVersion: "corneriq.app_data_export.v1";
+    generatedAt: string;
+    userIdHash: string;
+    appVersion: string | null;
+    engineVersion: string | null;
+    tableCount: number;
+  };
+  groupedCounts: UserOwnedDataExportPreviewGrouped;
+  tableCounts: UserOwnedDataExportPreview;
+  rowsByCategory: UserOwnedDataExportRowsByCategory;
+}
+export interface UserOwnedDataExportBundleOptions {
+  appVersion?: string | null | undefined;
+  engineVersion?: string | null | undefined;
+  generatedAt?: string | undefined;
+}
 export type UserOwnedDeleteResult = {
   [TTable in UserOwnedTable]: {
     count: number | null;
@@ -97,6 +117,18 @@ export const USER_OWNED_TABLE_CATEGORIES: Record<UserOwnedTable, UserOwnedDataCa
 };
 
 const USER_OWNED_DATA_CATEGORIES: readonly UserOwnedDataCategory[] = ["profile", "logs", "training", "nutrition", "cycle/wearable", "projections/traces"];
+const SECRET_KEY_PATTERN = /(password|token|secret|service[_-]?role|authorization|api[_-]?key|anon[_-]?key|refresh[_-]?token|access[_-]?token)/i;
+const SERVER_ROLE_ENV_PATTERN = new RegExp(`\\bSUPABASE_${["SERVICE", "ROLE"].join("_")}(?:_KEY)?\\b(?:\\s*[:=]\\s*[^\\s,;]+)?`, "gi");
+const TEXT_REDACTIONS: readonly [RegExp, string][] = [
+  [SERVER_ROLE_ENV_PATTERN, "[redacted-secret]"],
+  [/\bCORNERIQ_SMOKE_(?:EMAIL|PASSWORD)\b(?:\s*[:=]\s*[^\s,;]+)?/gi, "[redacted-secret]"],
+  [/\b(api|anon)[_-]?key\b\s*[:=]\s*[^\s,;]+/gi, "$1_key=[redacted]"],
+  [/\b(access|refresh)[_-]?token\b\s*[:=]\s*[^\s,;]+/gi, "$1_token=[redacted]"],
+  [/\bauthorization\b\s*[:=]\s*bearer\s+[^\s,;]+/gi, "authorization=Bearer [redacted]"],
+  [/\bbearer\s+[a-z0-9._~-]+/gi, "Bearer [redacted]"],
+  [/\bsbp_[a-z0-9]{12,}\b/gi, "[redacted-token]"],
+  [/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[redacted-token]"]
+];
 
 export function groupUserOwnedPreviewCounts(preview: UserOwnedDataExportPreview): UserOwnedDataExportPreviewGrouped {
   const grouped = Object.fromEntries(USER_OWNED_DATA_CATEGORIES.map((category) => [category, 0])) as UserOwnedDataExportPreviewGrouped;
@@ -104,6 +136,50 @@ export function groupUserOwnedPreviewCounts(preview: UserOwnedDataExportPreview)
     grouped[USER_OWNED_TABLE_CATEGORIES[table]] += preview[table];
   }
   return grouped;
+}
+
+function redactText(value: string): string {
+  return TEXT_REDACTIONS.reduce((next, [pattern, replacement]) => next.replace(pattern, replacement), value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function sanitizeExportValue(value: unknown, depth = 0): unknown {
+  if (value === null || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    return redactText(value);
+  }
+  if (Array.isArray(value)) {
+    if (depth >= 8) {
+      return "[truncated]";
+    }
+    return value.map((item) => sanitizeExportValue(item, depth + 1));
+  }
+  if (isRecord(value)) {
+    if (depth >= 8) {
+      return "[truncated]";
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, SECRET_KEY_PATTERN.test(key) ? "[redacted]" : sanitizeExportValue(entry, depth + 1)])
+    );
+  }
+  return null;
+}
+
+function emptyRowsByCategory(): UserOwnedDataExportRowsByCategory {
+  return Object.fromEntries(USER_OWNED_DATA_CATEGORIES.map((category) => [category, {}])) as UserOwnedDataExportRowsByCategory;
+}
+
+function tableCounts(exported: UserOwnedDataExport): UserOwnedDataExportPreview {
+  const preview: Partial<UserOwnedDataExportPreview> = {};
+  for (const table of USER_OWNED_TABLES) {
+    preview[table] = exported[table].length;
+  }
+  return preview as UserOwnedDataExportPreview;
 }
 
 export async function exportUserOwnedData(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDataExport> {
@@ -120,11 +196,44 @@ export async function exportUserOwnedData(userId: string, client: CornerSupabase
 
 export async function previewUserOwnedDataExport(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDataExportPreview> {
   const exported = await exportUserOwnedData(userId, client);
-  const preview: Partial<UserOwnedDataExportPreview> = {};
+  return tableCounts(exported);
+}
+
+export async function generateUserOwnedDataExportBundle(
+  userId: string,
+  client: CornerSupabaseClient,
+  options: UserOwnedDataExportBundleOptions = {}
+): Promise<UserOwnedDataExportBundle> {
+  const safeUserId = assertUserId(userId, "userDataService.generateUserOwnedDataExportBundle");
+  const exported = await exportUserOwnedData(safeUserId, client);
+  const counts = tableCounts(exported);
+  const rowsByCategory = emptyRowsByCategory();
   for (const table of USER_OWNED_TABLES) {
-    preview[table] = exported[table].length;
+    const category = USER_OWNED_TABLE_CATEGORIES[table];
+    rowsByCategory[category][table] = exported[table].map((row) => sanitizeExportValue(row));
   }
-  return preview as UserOwnedDataExportPreview;
+
+  return {
+    metadata: {
+      schemaVersion: "corneriq.app_data_export.v1",
+      generatedAt: options.generatedAt ?? new Date().toISOString(),
+      userIdHash: stableHash({ scope: "corneriq_user_export", userId: safeUserId }),
+      appVersion: options.appVersion ?? null,
+      engineVersion: options.engineVersion ?? null,
+      tableCount: USER_OWNED_TABLES.length
+    },
+    groupedCounts: groupUserOwnedPreviewCounts(counts),
+    tableCounts: counts,
+    rowsByCategory
+  };
+}
+
+export async function generateUserOwnedDataExportBundleString(
+  userId: string,
+  client: CornerSupabaseClient,
+  options: UserOwnedDataExportBundleOptions = {}
+): Promise<string> {
+  return `${JSON.stringify(await generateUserOwnedDataExportBundle(userId, client, options), null, 2)}\n`;
 }
 
 export async function deleteUserOwnedData(userId: string, client: CornerSupabaseClient, confirmation: string): Promise<UserOwnedDeleteResult> {

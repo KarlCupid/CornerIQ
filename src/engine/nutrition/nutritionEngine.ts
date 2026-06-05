@@ -1,4 +1,5 @@
 import { makeConfidence } from "../core/confidence";
+import { daysBetween } from "../core/dates";
 import type {
   AcuteProtocolEligibility,
   AthleteProfile,
@@ -140,6 +141,90 @@ function resolveHydrationConfidence(waterLogs: readonly WaterLog[], electrolyteL
   return makeConfidence(0.28, ["no same-day hydration logs"], ["same-day water log", "same-day electrolyte log"]);
 }
 
+function latestBodyMassLogDate(bodyMass: BodyMassState): string | null {
+  return bodyMass.trend.latestDate ?? [...bodyMass.recentLogs].sort((left, right) => right.date.localeCompare(left.date))[0]?.date ?? null;
+}
+
+function resolveNutritionTargetConfidence(input: {
+  activeReview: boolean;
+  athlete: AthleteProfile;
+  bodyMass: BodyMassState;
+  blocked: boolean;
+  cycleNoisy: boolean;
+  dailyFoodLogSummary: NutritionState["dailyFoodLogSummary"];
+  hardStop: boolean;
+  underFuelingBlocked: boolean;
+  asOfDate: string;
+}): NutritionState["targetConfidence"] {
+  const reasons: string[] = [];
+  const missingInputs = new Set<string>();
+  const latestDate = latestBodyMassLogDate(input.bodyMass);
+
+  if (input.hardStop) {
+    reasons.push("Hard-stop safety evidence is active.");
+  }
+  if (input.underFuelingBlocked) {
+    reasons.push("Under-fueling evidence blocks deficit pressure.");
+  }
+  if (input.activeReview) {
+    reasons.push("A nutrition safety review is active.");
+  }
+  if (!input.athlete.currentBodyMass && input.bodyMass.trend.latestKg === null) {
+    reasons.push("Body mass is missing, so targets use conservative fallback context.");
+    missingInputs.add("current body mass");
+  }
+  if (latestDate && daysBetween(latestDate, input.asOfDate) > 14) {
+    reasons.push("Body-mass log is stale.");
+    missingInputs.add("fresh body mass");
+  }
+  if (input.bodyMass.confidence.level === "low" || input.bodyMass.confidence.level === "unknown") {
+    reasons.push("Body-mass trend confidence is low.");
+    input.bodyMass.confidence.missingInputs.forEach((item) => missingInputs.add(item));
+  }
+  if (input.dailyFoodLogSummary.status === "no_log") {
+    reasons.push("No food log is available for target comparison.");
+    missingInputs.add("food logs");
+  }
+  if (["partial_day", "likely_partial", "auto_closed_incomplete", "quick_fuel_check_only"].includes(input.dailyFoodLogSummary.status)) {
+    reasons.push("Food log coverage is partial.");
+    missingInputs.add("complete food-log context");
+  }
+  if (
+    input.dailyFoodLogSummary.status !== "no_log" &&
+    (input.dailyFoodLogSummary.confidence.level === "low" || input.dailyFoodLogSummary.confidence.level === "unknown" || input.dailyFoodLogSummary.confidence.score < 0.55)
+  ) {
+    reasons.push("Food-log confidence is low.");
+    missingInputs.add("higher-confidence food-log context");
+  }
+  if (input.cycleNoisy) {
+    reasons.push("Cycle-related scale noise lowers body-mass interpretation confidence.");
+  }
+
+  const status =
+    input.blocked || input.underFuelingBlocked
+      ? "blocked_by_safety"
+      : missingInputs.has("current body mass") || input.bodyMass.confidence.level === "unknown"
+        ? "low_confidence"
+        : reasons.length > 0 || missingInputs.size > 0
+          ? "provisional"
+          : "confident";
+  const athleteFacingCopy =
+    status === "blocked_by_safety"
+      ? "Targets are safety-gated today. Do not use them to add deficit pressure."
+      : status === "low_confidence"
+        ? "Targets are low-confidence because key inputs are missing or stale."
+        : status === "provisional"
+          ? "Targets are provisional. Use them as a fueling guide, not exact instructions."
+          : "Targets have enough current context for normal fueling guidance.";
+
+  return {
+    status,
+    reasons: reasons.length > 0 ? reasons : ["Current body mass, training demand, food-log status, and safety context are available."],
+    missingInputs: [...missingInputs],
+    athleteFacingCopy
+  };
+}
+
 export function resolveNutrition(input: {
   athlete: AthleteProfile;
   phase: PhaseState;
@@ -233,6 +318,17 @@ export function resolveNutrition(input: {
     blocked,
     phase: input.phase
   });
+  const targetConfidence = resolveNutritionTargetConfidence({
+    activeReview: input.activeNutritionSafetyReviews.length > 0,
+    athlete: input.athlete,
+    bodyMass: input.bodyMass,
+    blocked,
+    cycleNoisy,
+    dailyFoodLogSummary,
+    hardStop: blocked,
+    underFuelingBlocked,
+    asOfDate: input.asOfDate
+  });
   const fuelHistory = buildFuelHistoryViewModel({
     asOfDate: input.asOfDate,
     foodLogs: input.foodLogs,
@@ -321,6 +417,7 @@ export function resolveNutrition(input: {
     decisionStack: command.decisionStack,
     trainingDemandHandoff: demandHandoff,
     underFuelingRiskNote,
+    targetConfidence,
     explanation:
       blocked
         ? activeReviewHardStop

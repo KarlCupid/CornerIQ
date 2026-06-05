@@ -9,7 +9,15 @@ import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/sup
 import { createHydrationRepository } from "../../services/supabase/hydrationRepository";
 import { loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
 import { createReadinessRepository } from "../../services/supabase/readinessRepository";
-import { exportUserOwnedData, deleteUserOwnedData, groupUserOwnedPreviewCounts, previewUserOwnedDataExport, USER_OWNED_TABLES } from "../../services/supabase/userDataService";
+import {
+  deleteUserOwnedData,
+  exportUserOwnedData,
+  generateUserOwnedDataExportBundle,
+  generateUserOwnedDataExportBundleString,
+  groupUserOwnedPreviewCounts,
+  previewUserOwnedDataExport,
+  USER_OWNED_TABLES
+} from "../../services/supabase/userDataService";
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
 import { createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
@@ -401,7 +409,7 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
   } as unknown as AthleteJourneyRepositories;
 }
 
-function createUserDataClient() {
+function createUserDataClient(rowsByTable: Partial<Record<(typeof USER_OWNED_TABLES)[number], unknown[]>> = {}) {
   const selected: { table: string; userId: string }[] = [];
   const deleted: { table: string; userId: string }[] = [];
   const client = {
@@ -411,7 +419,7 @@ function createUserDataClient() {
           return {
             eq(column: string, value: string) {
               selected.push({ table, userId: `${column}:${value}` });
-              return Promise.resolve({ data: [], error: null });
+              return Promise.resolve({ data: rowsByTable[table as (typeof USER_OWNED_TABLES)[number]] ?? [], error: null });
             }
           };
         },
@@ -1259,6 +1267,50 @@ describe("Supabase repositories", () => {
     expect(deleted.map((item) => item.table)).toEqual([...USER_OWNED_TABLES]);
     expect(selected.every((item) => item.userId === "user_id:user_1")).toBe(true);
     expect(deleted.every((item) => item.userId === "user_id:user_1")).toBe(true);
+  });
+
+  it("userDataService builds a portable grouped export bundle with redacted identifiers and secrets", async () => {
+    const { client } = createUserDataClient({
+      athlete_profiles: [{ id: "profile_1", user_id: "user_1", display_name: "Boxer" }],
+      beta_feedback_reports: [{ id: "feedback_1", user_id: "user_1", message: "authorization: Bearer secret-token", apiKey: "do-not-export" }],
+      exercise_results: [{ id: "result_1", user_id: "user_1", result_payload: { accessToken: "secret-token", exerciseName: "Split squat" } }]
+    });
+
+    const bundle = await generateUserOwnedDataExportBundle("user_1", client, {
+      appVersion: "0.1.0",
+      engineVersion: "0.2.0",
+      generatedAt: "2026-05-19T00:00:00.000Z"
+    });
+    const bundleText = await generateUserOwnedDataExportBundleString("user_1", client, { generatedAt: "2026-05-19T00:00:00.000Z" });
+
+    expect(bundle.metadata.schemaVersion).toBe("corneriq.app_data_export.v1");
+    expect(bundle.metadata.userIdHash).not.toBe("user_1");
+    expect(bundle.tableCounts.athlete_profiles).toBe(1);
+    expect(bundle.tableCounts.exercise_results).toBe(1);
+    expect(bundle.groupedCounts.profile).toBeGreaterThan(0);
+    expect(JSON.stringify(bundle.rowsByCategory.training)).toContain("Split squat");
+    expect(JSON.stringify(bundle)).not.toContain("secret-token");
+    expect(JSON.stringify(bundle)).not.toContain("do-not-export");
+    expect(bundleText).toContain("corneriq.app_data_export.v1");
+  });
+
+  it("userDataService returns an empty portable bundle and propagates repository failures", async () => {
+    const { client } = createUserDataClient();
+    const bundle = await generateUserOwnedDataExportBundle("user_1", client, { generatedAt: "2026-05-19T00:00:00.000Z" });
+    expect(Object.values(bundle.tableCounts).every((count) => count === 0)).toBe(true);
+
+    const failingClient = {
+      from() {
+        return {
+          select() {
+            return {
+              eq: async () => ({ data: null, error: { message: "remote export failed" } })
+            };
+          }
+        };
+      }
+    } as unknown as CornerSupabaseClient;
+    await expect(generateUserOwnedDataExportBundle("user_1", failingClient)).rejects.toThrow(/remote export failed/);
   });
 
   it("userDataService rejects missing user ids before Supabase calls", async () => {

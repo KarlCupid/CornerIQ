@@ -57,6 +57,7 @@ export function resolveBodyMassTrend(logs: readonly BodyMassLog[], asOfDate: str
 
   return {
     latestKg: latest?.bodyMassKg ?? null,
+    latestDate: latest?.date ?? null,
     rolling7DayKg: average(last7.map((log) => log.bodyMassKg)),
     trendKgPerWeek,
     logCount7Day: last7.length

@@ -6,7 +6,9 @@ import {
   menstruating_athlete_build_phase_scale_noise,
   menstruating_athlete_camp_heavy_symptoms,
   minor_athlete_weight_cut_blocked,
+  no_data_low_confidence,
   no_wearable_manual_only,
+  pro_4_round_build_strength,
   pro_12_round_taper,
   pro_8_round_camp_day_before_weigh_in,
   short_notice_unsafe_cut,
@@ -203,6 +205,105 @@ describe("Fuel Command Center engine", () => {
 
     expect(state.nutrition.commandCenter.sessionFuelAction).toContain("carbs");
     expect(state.nutrition.commandCenter.sessionFuelAction).toContain("fluids");
+  });
+
+  it("labels fuel targets by confidence before precise numbers", () => {
+    const completeFoodLogJourney: AthleteJourney = {
+      ...pro_4_round_build_strength,
+      nutritionHistory: [
+        {
+          date: fixtureAsOfDate,
+          calories: 2500,
+          proteinGrams: 140,
+          carbohydrateGrams: 310,
+          fatGrams: 75,
+          confidence: "high",
+          entryType: "day_total",
+          sourceConfidence: "high",
+          loggedAt: "2026-05-19T20:00:00.000Z"
+        }
+      ],
+      journeyEvents: [
+        {
+          id: "food_complete_1",
+          type: "FoodLogStatusUpdated",
+          occurredAt: "2026-05-19T20:05:00.000Z",
+          payload: {
+            date: fixtureAsOfDate,
+            status: "complete_high_confidence",
+            completionSource: "user",
+            userMarkedCompleteAt: "2026-05-19T20:05:00.000Z"
+          }
+        }
+      ]
+    };
+    const lowConfidenceLogJourney: AthleteJourney = {
+      ...pro_4_round_build_strength,
+      nutritionHistory: [
+        {
+          date: fixtureAsOfDate,
+          calories: 800,
+          proteinGrams: 40,
+          carbohydrateGrams: 90,
+          fatGrams: 25,
+          confidence: "low",
+          mealTag: "breakfast",
+          sourceConfidence: "low",
+          loggedAt: "2026-05-19T08:00:00.000Z"
+        }
+      ]
+    };
+    const staleBodyMassJourney: AthleteJourney = {
+      ...pro_4_round_build_strength,
+      bodyMassHistory: [{ date: "2026-04-30", bodyMassKg: 66.9, source: "manual" }]
+    };
+    const cycleNoiseJourney: AthleteJourney = {
+      ...completeFoodLogJourney,
+      athlete: { ...completeFoodLogJourney.athlete, cycleTrackingPreference: "enabled" },
+      activeObjective: "camp",
+      activeFightOpportunity: pro_8_round_camp_day_before_weigh_in.activeFightOpportunity,
+      bodyMassHistory: [
+        { date: "2026-05-13", bodyMassKg: 66.4, source: "manual" },
+        { date: "2026-05-14", bodyMassKg: 66.4, source: "manual" },
+        { date: "2026-05-15", bodyMassKg: 66.5, source: "manual" },
+        { date: "2026-05-16", bodyMassKg: 66.4, source: "manual" },
+        { date: "2026-05-17", bodyMassKg: 66.5, source: "manual" },
+        { date: "2026-05-18", bodyMassKg: 66.6, source: "manual" },
+        { date: "2026-05-19", bodyMassKg: 67.2, source: "manual" }
+      ],
+      cycleHistory: [
+        { date: "2026-05-15", bleedStart: true, flowLevel: "light", symptoms: ["cramps"], hormonalContraception: "none" },
+        {
+          date: fixtureAsOfDate,
+          flowLevel: "moderate",
+          symptoms: ["cramps", "bloating", "water_retention", "cravings", "low_energy"],
+          hormonalContraception: "none"
+        }
+      ]
+    };
+
+    const missingBodyMass = resolvePerformanceState({ journey: no_data_low_confidence, asOfDate: fixtureAsOfDate });
+    const staleBodyMass = resolvePerformanceState({ journey: staleBodyMassJourney, asOfDate: fixtureAsOfDate });
+    const lowConfidenceLog = resolvePerformanceState({ journey: lowConfidenceLogJourney, asOfDate: fixtureAsOfDate });
+    const cycleNoise = resolvePerformanceState({ journey: cycleNoiseJourney, asOfDate: fixtureAsOfDate });
+    const complete = resolvePerformanceState({ journey: completeFoodLogJourney, asOfDate: fixtureAsOfDate });
+    const underFueling = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
+    const hardStop = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
+
+    expect(missingBodyMass.nutrition.targetConfidence.status).toBe("low_confidence");
+    expect(missingBodyMass.nutrition.targetConfidence.missingInputs.join(" ")).toContain("current body mass");
+    expect(staleBodyMass.nutrition.targetConfidence.status).toBe("provisional");
+    expect(staleBodyMass.nutrition.targetConfidence.reasons.join(" ")).toContain("stale");
+    expect(lowConfidenceLog.nutrition.targetConfidence.status).toBe("provisional");
+    expect(lowConfidenceLog.nutrition.targetConfidence.reasons.join(" ")).toContain("Food-log confidence is low");
+    expect(cycleNoise.nutrition.targetConfidence.status).toBe("provisional");
+    expect(cycleNoise.nutrition.targetConfidence.reasons.join(" ")).toContain("Cycle-related scale noise");
+    expect(complete.nutrition.targetConfidence.status).toBe("confident");
+    expect(complete.viewModels.fuel.macroTargets.targetConfidence.athleteFacingCopy).toContain("enough current context");
+    expect(underFueling.nutrition.targetConfidence.status).toBe("blocked_by_safety");
+    expect(hardStop.nutrition.targetConfidence.status).toBe("blocked_by_safety");
+    expect(hardStop.viewModels.fuel.macroTargets.why).toContain("safety-gated");
+    expect(JSON.stringify(complete.viewModels.fuel.macroTargets).toLowerCase()).not.toContain("exact");
   });
 
   it("hydrates fuel-command confidence from hydration logs instead of body-mass confidence", () => {

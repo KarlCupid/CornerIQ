@@ -30,6 +30,13 @@ function firstExerciseResult(session: DetailedTrainingSession): ExerciseResultDr
     prescribed: firstExercise,
     resultStatus: "completed",
     completedSets: 2,
+    loadValue: 20,
+    loadUnit: "kg",
+    repsCompleted: 8,
+    timeSeconds: 45,
+    distanceMeters: 10,
+    side: "bilateral",
+    technicalQuality: "clean",
     loadText: "bodyweight",
     rpe: 6,
     notes: "Clean reps"
@@ -209,6 +216,13 @@ describe("exerciseResultRepository", () => {
         section: result.section,
         prescribed: result.prescribed,
         completedSets: 2,
+        loadValue: 20,
+        loadUnit: "kg",
+        repsCompleted: 8,
+        timeSeconds: 45,
+        distanceMeters: 10,
+        side: "bilateral",
+        technicalQuality: "clean",
         source: "test",
         engineVersion: "0.2.0",
         generatedSessionId: session.generatedSessionId
@@ -217,6 +231,10 @@ describe("exerciseResultRepository", () => {
     expect(mapped.recordedAt).toBe("2026-05-19T12:00:00.000Z");
     expect(mapped.generatedSessionId).toBe(session.generatedSessionId);
     expect(mapped.resultStatus).toBe("partial");
+    expect(mapped.loadValue).toBe(20);
+    expect(mapped.loadUnit).toBe("kg");
+    expect(mapped.repsCompleted).toBe(8);
+    expect(mapped.technicalQuality).toBe("clean");
   });
 
   it("persists exercise result intent and smoke metadata", async () => {

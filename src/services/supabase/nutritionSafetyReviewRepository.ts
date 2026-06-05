@@ -22,7 +22,15 @@ import type { Json } from "./database.types";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
 import { RepositoryError, assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
-const ACTIVE_REVIEW_STATUSES: readonly NutritionSafetyReviewStatus[] = ["requested", "acknowledged", "in_review", "blocked"];
+const ACTIVE_REVIEW_STATUSES: readonly NutritionSafetyReviewStatus[] = [
+  "requested",
+  "acknowledged_by_athlete",
+  "reviewer_reviewing",
+  "not_cleared",
+  "acknowledged",
+  "in_review",
+  "blocked"
+];
 
 type NutritionSafetyReviewRow = Pick<
   TableRow<"nutrition_safety_reviews">,
@@ -294,10 +302,10 @@ export function createNutritionSafetyReviewRepository(client: CornerSupabaseClie
       const safeUserId = assertUserId(userId, "nutrition_safety_reviews.acknowledgeNutritionSafetyReview");
       const response = await client
         .from("nutrition_safety_reviews")
-        .update({ status: "acknowledged" })
+        .update({ status: "acknowledged_by_athlete" })
         .eq("user_id", safeUserId)
         .eq("id", reviewId)
-        .in("status", ["requested", "blocked", "in_review"])
+        .in("status", ["requested", "blocked", "in_review", "reviewer_reviewing"])
         .select(reviewSelect)
         .single();
       return mapNutritionSafetyReviewRow(readDataOrThrow(response, "nutrition_safety_reviews.acknowledgeNutritionSafetyReview"));
@@ -313,7 +321,7 @@ export function createNutritionSafetyReviewRepository(client: CornerSupabaseClie
         .eq("user_id", safeUserId)
         .eq("review_type", safeReviewType)
         .eq("hard_stop", false)
-        .in("status", ["requested", "acknowledged", "in_review"]);
+        .in("status", ["requested", "acknowledged", "acknowledged_by_athlete", "in_review", "reviewer_reviewing", "not_cleared"]);
       if (asOfDate) {
         query = query.lte("as_of_date", asOfDate);
       }

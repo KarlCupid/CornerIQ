@@ -55,13 +55,26 @@ function eventSummary(event: NutritionSafetyReviewEvent): string {
   if (summary) {
     return `${event.eventType.replaceAll("_", " ")} by ${event.actorType}: ${summary}`;
   }
-  if (event.eventType === "acknowledged") {
+  if (event.eventType === "acknowledged" || event.eventType === "acknowledged_by_athlete") {
     return "Acknowledged by athlete. This does not clear the plan.";
   }
   if (event.eventType === "cleared_by_reviewer") {
     return "Permissioned reviewer clear event is persisted.";
   }
   return `${event.eventType.replaceAll("_", " ")} by ${event.actorType}.`;
+}
+
+function statusDisplay(status: PersistedNutritionSafetyReview["status"]): PersistedNutritionSafetyReview["status"] {
+  if (status === "acknowledged") {
+    return "acknowledged_by_athlete";
+  }
+  if (status === "in_review") {
+    return "reviewer_reviewing";
+  }
+  if (status === "blocked") {
+    return "not_cleared";
+  }
+  return status;
 }
 
 export function buildNutritionReviewHistoryViewModel(input: {
@@ -78,11 +91,11 @@ export function buildNutritionReviewHistoryViewModel(input: {
     activeReviewCount: activeReviews.length,
     hardStopReviewCount,
     latestReviewSummary: latestReview
-      ? `${latestReview.reviewType.replaceAll("_", " ")} review is ${latestReview.status.replaceAll("_", " ")} as of ${input.asOfDate}.`
+      ? `${latestReview.reviewType.replaceAll("_", " ")} review is ${statusDisplay(latestReview.status).replaceAll("_", " ")} as of ${input.asOfDate}.`
       : "No active nutrition safety review is loaded.",
     activeReviews: activeReviews.map((review) => ({
       reviewId: review.id,
-      status: review.status,
+      status: statusDisplay(review.status),
       reviewType: review.reviewType,
       severity: review.severity,
       hardStop: review.hardStop,
@@ -90,7 +103,7 @@ export function buildNutritionReviewHistoryViewModel(input: {
       blockingFlags: review.blockingFlags,
       suggestedNextSteps: review.suggestedNextSteps,
       requestedAt: review.createdAt,
-      canAcknowledge: review.status === "requested" || review.status === "blocked",
+      canAcknowledge: review.status === "requested" || review.status === "blocked" || review.status === "not_cleared",
       canSelfClear: false
     })),
     historyEvents: [...input.reviewEvents]
@@ -103,7 +116,7 @@ export function buildNutritionReviewHistoryViewModel(input: {
       })),
     noHistoryCopy: "No review events are loaded yet. Active hard stops still remain active.",
     safetyCopy: "You cannot self-clear nutrition hard stops.",
-    reviewerFutureCopy: "Reviewer-clear workflow is not in the app yet.",
+    reviewerFutureCopy: "Athlete UI is read-only for reviewer decisions; reviewer clear requires trusted server-side identity and audit.",
     urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support."
   };
 }

@@ -18,6 +18,11 @@ This is not a clinical validation package. Current thresholds are conservative b
 - Macro targets by body size and training demand.
 - Fight-week low-residue, tournament, and rehydration guidance.
 - Generated session active block and preview scope.
+- Structured exercise actuals without load-note inference.
+- Nutrition target confidence/provisionality.
+- Nutrition reviewer permission boundaries.
+- Cycle longitudinal symptom summaries.
+- Portable app-data export redaction.
 
 ## Evidence Posture
 

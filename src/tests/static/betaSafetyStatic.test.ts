@@ -101,6 +101,41 @@ describe("beta safety static scans", () => {
     expect(packageJson).not.toMatch(/@sentry|segment|mixpanel|amplitude|posthog|firebase\/analytics|expo-firebase-analytics/i);
   });
 
+  it("keeps reviewer-clear status writes out of athlete UI and hooks", () => {
+    const athleteClientFiles = [
+      ...collectFiles("src/app", (path) => path.endsWith(".tsx") || path.endsWith(".ts")),
+      ...collectFiles("src/hooks", (path) => path.endsWith(".ts"))
+    ];
+
+    for (const file of athleteClientFiles) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/cleared_by_reviewer|not_cleared|reviewer_reviewing/);
+      expect(source, file).not.toMatch(/mark .*review(?:ed|ing)|resolve feedback|dismiss feedback/i);
+    }
+  });
+
+  it("keeps load-text notes from becoming structured load progression", () => {
+    const files = ["src/engine/training/trainingAnalytics.ts", "src/engine/presentation/exerciseHistoryViewModel.ts", "src/services/supabase/exerciseResultRepository.ts"];
+
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/loadText[\s\S]{0,80}(?:Number|parseFloat|parseInt)|(?:Number|parseFloat|parseInt)[\s\S]{0,80}loadText/);
+    }
+  });
+
+  it("keeps cycle support away from fertility-window or phase-certainty claims", () => {
+    const files = [
+      ...collectFiles("src/engine/cycle", (path) => path.endsWith(".ts")),
+      "src/engine/core/performanceKernel.ts",
+      "src/app/screens/cycle/CycleContextCard.tsx"
+    ];
+
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/fertility|ovulation|fertile window|phase certainty|performance certainty/i);
+    }
+  });
+
   it("keeps feedback copy outside emergency, medical, or coaching review", () => {
     const feedback = readFileSync("src/app/components/BetaFeedbackPanel.tsx", "utf8");
     const errorBoundary = readFileSync("src/app/components/AppErrorBoundary.tsx", "utf8");

@@ -95,7 +95,7 @@ describe("Corner Engine performance kernel", () => {
     expect(blocked.viewModels.today.decisionStack.some((item) => item.label === "Safety" && item.severity !== "info")).toBe(true);
     expect(blocked.viewModels.fuel.fightWeekFuel?.summary).toBeTruthy();
     expect(JSON.stringify(blocked.viewModels.fuel.fightWeekFuel)).not.toMatch(/dehydrat|water cut/i);
-    expect(cycle.viewModels.cycle?.privacyReminder).toContain("not fertility tracking");
+    expect(cycle.viewModels.cycle?.privacyReminder).toContain("not a window-prediction tool");
     expect(cycle.viewModels.cycle?.estimatedPhase).toContain("hormonal contraception");
   });
 });

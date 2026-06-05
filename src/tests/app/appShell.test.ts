@@ -292,6 +292,12 @@ const fuelViewModel: FuelViewModel = {
   macroTargets: {
     why: "Targets are based on your profile and today's training. Demand tier: strength.",
     confidence: "medium",
+    targetConfidence: {
+      status: "confident",
+      reasons: ["Current context is available."],
+      missingInputs: [],
+      athleteFacingCopy: "Targets have enough current context for normal fueling guidance."
+    },
     logStatus: "Day marked complete. CornerIQ can compare intake to today's training demand.",
     targets: [
       { label: "Calories", value: "2200 kcal" },
@@ -562,6 +568,7 @@ const trainViewModel: TrainViewModel = {
     mostRecentExerciseResultSummary: null,
     mostRepeatedExercise: null,
     latestStrengthExerciseSummary: null,
+    structuredLoadSummary: "Not enough structured data for load progression; free-text notes are not parsed.",
     consistencySummary: "No completed exercise actuals in the last 7 days; missing history stays unknown.",
     progressionRecommendation: {
       status: "unknown",
@@ -583,6 +590,8 @@ const trainViewModel: TrainViewModel = {
     recentRpeValues: [],
     latestStrengthExerciseSummary: null,
     loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
+    structuredLoadStatus: "not_enough_data",
+    structuredLoadSummary: "Not enough structured data for progression. Load notes remain notes and are not parsed.",
     mostRepeatedExercise: null,
     groupedExercises: [],
     topPainFlaggedExercises: [],
@@ -1218,13 +1227,13 @@ function createBetaFeedbackHookClient() {
 describe("minimal app screens", () => {
   it("AuthScreen renders", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
-    expect(() => render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onSignIn: vi.fn(), onSignUp: vi.fn() }))).not.toThrow();
+    expect(() => render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp: vi.fn() }))).not.toThrow();
   });
 
   it("AuthScreen validates empty credentials before calling auth actions", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
     const onSignIn = vi.fn();
-    const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onSignIn, onSignUp: vi.fn() }));
+    const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn, onSignUp: vi.fn() }));
     const signInButton = renderer.root.findAllByType("Pressable")[0];
     const onPress = signInButton?.props.onPress;
     if (typeof onPress !== "function") {
@@ -1241,12 +1250,22 @@ describe("minimal app screens", () => {
 
   it("AuthScreen separates info messages from errors", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
-    const infoOutput = JSON.stringify(render(React.createElement(AuthScreen, { loading: false, error: null, message: "Check your email.", onSignIn: vi.fn(), onSignUp: vi.fn() })).toJSON());
-    const errorOutput = JSON.stringify(render(React.createElement(AuthScreen, { loading: false, error: "Invalid login.", message: "Check your email.", onSignIn: vi.fn(), onSignUp: vi.fn() })).toJSON());
+    const infoOutput = JSON.stringify(render(React.createElement(AuthScreen, { loading: false, error: null, message: "Check your email.", onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp: vi.fn() })).toJSON());
+    const errorOutput = JSON.stringify(render(React.createElement(AuthScreen, { loading: false, error: "Invalid login.", message: "Check your email.", onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp: vi.fn() })).toJSON());
 
     expect(infoOutput).toContain("Check your email.");
     expect(errorOutput).toContain("Invalid login.");
     expect(errorOutput).not.toContain("Check your email.");
+  });
+
+  it("AuthScreen exposes signed-out password recovery without requiring a password", async () => {
+    const { AuthScreen } = await import("../../app/screens/AuthScreen");
+    const onRequestPasswordReset = vi.fn();
+    const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset, onSignIn: vi.fn(), onSignUp: vi.fn() }));
+
+    await switchSection(renderer, "Forgot password? Request reset.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Send reset email");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Enter the password");
   });
 
   it("reusable UI primitives render copy and handle local interactions", async () => {
@@ -1636,7 +1655,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Review required before this plan can continue");
     expect(output).toContain("Request safety review");
     expect(output).toContain("You cannot self-clear nutrition hard stops.");
-    expect(output).toContain("Reviewer-clear workflow is not in the app yet.");
+    expect(output).toContain("Athlete UI is read-only for reviewer decisions; reviewer clear requires trusted server-side identity and audit.");
     expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and seek qualified support.");
     await act(async () => {
       await press(pressableWithText(renderer, "Request safety review"));
@@ -2909,6 +2928,8 @@ describe("minimal app screens", () => {
           painFlagsByExercise: ["Split squat"],
           recentRpeValues: ["Split squat: RPE 7"],
           latestStrengthExerciseSummary: "Split squat: completed, bodyweight plus band; notes only, no numeric load progression inferred",
+          structuredLoadStatus: "not_enough_data",
+          structuredLoadSummary: "Not enough structured data for progression. Load notes remain notes and are not parsed.",
           loadProgressionNote: "Free-text load is shown as notes only. Numeric load progression is intentionally not inferred yet.",
           mostRepeatedExercise: "Split squat (2 completed or partial result row(s))",
           groupedExercises: [
@@ -2919,6 +2940,7 @@ describe("minimal app screens", () => {
               prescribedOnlyCount: 1,
               painFlagCount: 1,
               recentRpe: "RPE 7",
+              structuredActualSummary: null,
               latestLoadTextNote: "bodyweight plus band (notes only)",
               noNumericProgressionCopy: "No numeric progression inferred."
             }
@@ -3038,6 +3060,8 @@ describe("minimal app screens", () => {
             painFlagsByExercise: [],
             recentRpeValues: [],
             latestStrengthExerciseSummary: null,
+            structuredLoadStatus: "not_enough_data",
+            structuredLoadSummary: "Not enough structured data for progression. Load notes remain notes and are not parsed.",
             loadProgressionNote: "Free-text load is notes only.",
             mostRepeatedExercise: null,
             groupedExercises: [],
@@ -3210,6 +3234,7 @@ describe("minimal app screens", () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     const previewExport = vi.fn(async () => undefined);
     const deleteData = vi.fn(async () => undefined);
+    const generateExportBundle = vi.fn(async () => undefined);
     const renderer = render(
       React.createElement(ProfileScreen, {
         asOfDate: fixtureAsOfDate,
@@ -3223,10 +3248,14 @@ describe("minimal app screens", () => {
         preferredUnits: "metric",
         recentLogs: recentLogsViewModel,
         userDataControls: {
+          accountDeletionCopy: "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function.",
+          bundleText: "{\n  \"metadata\": { \"schemaVersion\": \"corneriq.app_data_export.v1\" }\n}\n",
           busy: false,
           deleteConfirmation: "",
           deleteData,
+          generateExportBundle,
           message: "Export preview loaded.",
+          portableExportRows: ["Portable JSON: 72 characters"],
           preview: null,
           previewExport,
           previewRows: ["training: 1"],
@@ -3243,6 +3272,11 @@ describe("minimal app screens", () => {
     });
     expect(previewExport).toHaveBeenCalled();
     expect(JSON.stringify(renderer.toJSON())).toContain("training: 1");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Generate portable JSON export"));
+    });
+    expect(generateExportBundle).toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
     const deleteButton = pressableWithText(renderer, "Delete app data");
     expect(deleteButton?.props.disabled).toBe(true);
   });
@@ -3317,6 +3351,11 @@ describe("minimal app screens", () => {
     });
     expect(selected.length).toBeGreaterThan(0);
     expect(snapshot.current?.previewRows.join(" ")).toContain("training");
+    await act(async () => {
+      await snapshot.current?.generateExportBundle();
+    });
+    expect(snapshot.current?.bundleText).toContain("corneriq.app_data_export.v1");
+    expect(snapshot.current?.portableExportRows.join(" ")).toContain("Portable JSON");
 
     await act(async () => {
       await snapshot.current?.deleteData();
@@ -3708,7 +3747,11 @@ describe("minimal app screens", () => {
       nutritionAdjustment: "Keep carbs steady.",
       safetyFlags: [],
       privacyReminder: "Cycle support is optional, private, symptom-aware, and not fertility tracking.",
-      historySummary: "Recent cycle history."
+      historySummary: "Recent cycle history.",
+      trendSummary: "Longitudinal cycle trend is uncertain; training support stays symptom-first.",
+      symptomTrend: "Recent symptoms are high enough to prioritize training adjustment over phase labels.",
+      trainingAdjustmentHistorySummary: "Trim optional volume.",
+      uncertaintyCopy: "Hormonal contraception context avoids natural phase certainty; symptoms and consent drive adjustments."
     };
 
     const enabledOutput = JSON.stringify(render(React.createElement(CycleContextCard, { cycleContext: enabled })).toJSON());
@@ -3716,6 +3759,7 @@ describe("minimal app screens", () => {
     expect(enabledOutput).toContain("Keep carbs steady.");
     expect(enabledOutput).toContain("Scale noise");
     expect(enabledOutput).toContain("symptom-based");
+    expect(enabledOutput).toContain("Longitudinal cycle trend");
 
     const disabledOutput = JSON.stringify(render(React.createElement(CycleContextCard, { cycleContext: null, minimal: true })).toJSON());
     expect(disabledOutput).toContain("No cycle assumptions");
@@ -3936,6 +3980,7 @@ describe("minimal app screens", () => {
     const fakeAuth = {
       getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      requestPasswordReset: vi.fn(async () => ({ data: {}, error: null })),
       signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: { message: "Invalid login", name: "AuthApiError" } })),
       signOut: vi.fn(async () => ({ error: null })),
       signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null }))
@@ -3961,6 +4006,62 @@ describe("minimal app screens", () => {
     });
     expect(snapshot.current?.authError).toBeNull();
     expect(snapshot.current?.authMessage).toContain("Check your email");
+  });
+
+  it("useSupabaseSession handles password reset success, failure, signed-in state, and missing config", async () => {
+    const signedInSession = { user: { id: "user_1", email: "boxer@example.com" } } as unknown as Session;
+    const fakeAuth = {
+      getSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      requestPasswordReset: vi
+        .fn()
+        .mockResolvedValueOnce({ data: {}, error: null })
+        .mockResolvedValueOnce({ data: {}, error: { message: "Reset service unavailable", name: "AuthApiError" } }),
+      signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      signOut: vi.fn(async () => ({ error: null })),
+      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null }))
+    };
+    const fakeClientFactory = () => ({ auth: {} }) as unknown as CornerSupabaseClient;
+    const fakeAuthServiceFactory = () => fakeAuth as unknown as ReturnType<typeof createAuthService>;
+    const snapshot: { current: SupabaseSessionState | null } = { current: null };
+    function Probe() {
+      snapshot.current = useSupabaseSession({
+        authServiceFactory: fakeAuthServiceFactory,
+        clientFactory: fakeClientFactory
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => undefined);
+    expect(snapshot.current?.session).toBe(signedInSession);
+
+    await act(async () => {
+      await snapshot.current?.requestPasswordReset(" boxer@example.com ");
+    });
+    expect(fakeAuth.requestPasswordReset).toHaveBeenCalledWith("boxer@example.com");
+    expect(snapshot.current?.authError).toBeNull();
+    expect(snapshot.current?.authMessage).toContain("password reset instructions");
+
+    await act(async () => {
+      await snapshot.current?.requestPasswordReset("boxer@example.com");
+    });
+    expect(snapshot.current?.authError).toBe("Reset service unavailable");
+    expect(snapshot.current?.authMessage).toBeNull();
+
+    const missingSnapshot: { current: SupabaseSessionState | null } = { current: null };
+    function MissingConfigProbe() {
+      missingSnapshot.current = useSupabaseSession({ clientFactory: () => null });
+      return React.createElement("View");
+    }
+    render(React.createElement(MissingConfigProbe));
+    await act(async () => undefined);
+    expect(missingSnapshot.current?.status).toBe("missing_config");
+
+    await act(async () => {
+      await missingSnapshot.current?.requestPasswordReset("boxer@example.com");
+    });
+    expect(missingSnapshot.current?.authError).toContain("not configured");
   });
 
   it("usePerformanceState handles ready, needs_profile, and error results", async () => {

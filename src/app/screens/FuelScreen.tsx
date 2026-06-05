@@ -145,6 +145,11 @@ function FuelMacroTargetsCard({ recentLogs, viewModel }: { recentLogs: RecentLog
           <Text style={screenStyles.sectionTitle}>Today's fuel targets</Text>
           <Text style={screenStyles.fieldLabel}>Why these targets</Text>
           <Text style={screenStyles.body}>{viewModel.macroTargets.why}</Text>
+          <Text style={screenStyles.callout}>Target status: {viewModel.macroTargets.targetConfidence.status.replaceAll("_", " ")}</Text>
+          {viewModel.macroTargets.targetConfidence.reasons.slice(0, 3).map((reason, index) => <Text key={`fuel-target-reason:${index}`} style={screenStyles.subtle}>{reason}</Text>)}
+          {viewModel.macroTargets.targetConfidence.missingInputs.length > 0 ? (
+            <Text style={screenStyles.subtle}>Missing or weak inputs: {viewModel.macroTargets.targetConfidence.missingInputs.join(", ")}</Text>
+          ) : null}
           <Text style={screenStyles.subtle}>Logs help compare what happened.</Text>
           <Text style={screenStyles.subtle}>{statusLine}. {viewModel.macroTargets.logStatus}</Text>
         </View>

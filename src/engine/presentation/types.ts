@@ -9,7 +9,7 @@ import type {
   WeightClassStatus
 } from "../nutrition/fuelCommandTypes";
 import type { PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
-import type { DailyFoodLogStatus, DailyFoodLogSummary, NutritionTrainingDemandHandoff } from "../nutrition/types";
+import type { DailyFoodLogStatus, DailyFoodLogSummary, NutritionTargetConfidence, NutritionTrainingDemandHandoff } from "../nutrition/types";
 import type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
 import type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
@@ -72,6 +72,7 @@ export interface FuelContextCard {
 export interface FuelMacroTargetsViewModel {
   why: string;
   confidence: ConfidenceLevel;
+  targetConfidence: NutritionTargetConfidence;
   logStatus: string;
   targets: readonly {
     label: string;
@@ -223,6 +224,7 @@ export interface TrainingAnalyticsViewModel {
   mostRecentExerciseResultSummary: string | null;
   mostRepeatedExercise: string | null;
   latestStrengthExerciseSummary: string | null;
+  structuredLoadSummary: string;
   consistencySummary: string;
   progressionRecommendation: ProgressionRecommendation;
   nextBestTrainingAction: string;
@@ -241,6 +243,8 @@ export interface ExerciseHistoryViewModel {
   recentRpeValues: readonly string[];
   latestStrengthExerciseSummary: string | null;
   loadProgressionNote: string;
+  structuredLoadStatus: "available" | "not_enough_data";
+  structuredLoadSummary: string;
   mostRepeatedExercise: string | null;
   groupedExercises: readonly {
     exerciseName: string;
@@ -249,6 +253,7 @@ export interface ExerciseHistoryViewModel {
     prescribedOnlyCount: number;
     painFlagCount: number;
     recentRpe: string | null;
+    structuredActualSummary: string | null;
     latestLoadTextNote: string;
     noNumericProgressionCopy: string;
   }[];
@@ -806,6 +811,10 @@ export interface CycleViewModel {
   safetyFlags: readonly string[];
   privacyReminder: string;
   historySummary: string;
+  trendSummary: string;
+  symptomTrend: string;
+  trainingAdjustmentHistorySummary: string;
+  uncertaintyCopy: string;
 }
 
 export interface ProfileViewModel {

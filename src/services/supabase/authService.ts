@@ -5,6 +5,7 @@ export function createAuthService(client: CornerSupabaseClient) {
   return {
     getSession: () => client.auth.getSession(),
     onAuthStateChange: (callback: (event: AuthChangeEvent, session: Session | null) => void) => client.auth.onAuthStateChange(callback),
+    requestPasswordReset: (email: string) => client.auth.resetPasswordForEmail(email),
     signInWithPassword: (email: string, password: string) => client.auth.signInWithPassword({ email, password }),
     signUpWithPassword: (email: string, password: string) => client.auth.signUp({ email, password }),
     signOut: () => client.auth.signOut()

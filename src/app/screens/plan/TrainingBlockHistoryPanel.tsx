@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { TrainingBlockHistoryDetailViewModel } from "../../../engine/core/types";
 import { spacing } from "../../../design/theme";
 import { screenStyles } from "../screenStyles";
@@ -13,6 +13,8 @@ function textKey(prefix: string, index: number): string {
 }
 
 export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanelProps) {
+  const [selectedWeekIndex, setSelectedWeekIndex] = React.useState(history.groupedWeeks[0]?.weekIndex ?? null);
+  const selectedWeek = history.groupedWeeks.find((week) => week.weekIndex === selectedWeekIndex) ?? history.groupedWeeks[0] ?? null;
   const hasNoHistory =
     history.weekSummaries.length === 0 &&
     history.progressionDecisions.length === 0 &&
@@ -34,18 +36,25 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
       <Text style={screenStyles.callout}>Grouped weeks</Text>
       {history.groupedWeeks.length > 0 ? (
         history.groupedWeeks.map((week, index) => (
-          <View key={`grouped-week:${index}`} style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.body}>Week {week.weekIndex}</Text>
-            <Text style={screenStyles.subtle}>{week.summary}</Text>
-            <Text style={screenStyles.subtle}>{week.decision}</Text>
-            <Text style={screenStyles.subtle}>{week.nextWeekPreviewStatus}</Text>
-            <Text style={screenStyles.subtle}>Materialized generated sessions: {week.materializedGeneratedSessionCount}</Text>
-            {week.adjustments.length > 0 ? week.adjustments.map((adjustment, adjustmentIndex) => <Text key={`week-adjustment:${index}:${adjustmentIndex}`} style={screenStyles.subtle}>Adjustment: {adjustment}</Text>) : <Text style={screenStyles.subtle}>No adjustments linked to this week.</Text>}
-          </View>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedWeek?.weekIndex === week.weekIndex }} key={`grouped-week:${index}`} onPress={() => setSelectedWeekIndex(week.weekIndex)} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>Week {week.weekIndex}</Text>
+          </Pressable>
         ))
       ) : (
         <Text style={screenStyles.subtle}>No grouped week history yet.</Text>
       )}
+      {selectedWeek ? (
+        <View style={{ gap: spacing.xs }} testID="training-block-history-week-detail">
+          <Text style={screenStyles.callout}>Week detail</Text>
+          <Text style={screenStyles.body}>Week {selectedWeek.weekIndex}</Text>
+          <Text style={screenStyles.subtle}>{selectedWeek.summary}</Text>
+          <Text style={screenStyles.subtle}>{selectedWeek.decision}</Text>
+          <Text style={screenStyles.subtle}>{selectedWeek.nextWeekPreviewStatus}</Text>
+          <Text style={screenStyles.subtle}>Materialized generated sessions: {selectedWeek.materializedGeneratedSessionCount}</Text>
+          <Text style={screenStyles.subtle}>Why it matters: this explains engine-owned block changes without exposing raw payloads.</Text>
+          {selectedWeek.adjustments.length > 0 ? selectedWeek.adjustments.map((adjustment, adjustmentIndex) => <Text key={`week-adjustment:${adjustmentIndex}`} style={screenStyles.subtle}>Adjustment: {adjustment}</Text>) : <Text style={screenStyles.subtle}>No adjustments linked to this week.</Text>}
+        </View>
+      ) : null}
       <Text style={screenStyles.callout}>Current week</Text>
       {history.weekSummaries.length > 0 ? history.weekSummaries.map((summary, index) => <Text key={textKey("week-summary", index)} style={screenStyles.subtle}>{summary}</Text>) : <Text style={screenStyles.subtle}>No persisted week summaries yet.</Text>}
       <Text style={screenStyles.callout}>Decisions</Text>

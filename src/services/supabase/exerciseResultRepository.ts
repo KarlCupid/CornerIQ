@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ExerciseResultDraft, ExerciseResultRecord, ExerciseResultStatus } from "../../engine/core/types";
+import type { ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultRecord, ExerciseResultSide, ExerciseResultStatus, ExerciseResultTechnicalQuality } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
@@ -11,6 +11,13 @@ const ExerciseResultPayloadSchema = z.object({
   prescribed: z.record(z.unknown()),
   resultStatus: z.enum(["prescribed_only", "completed", "partial", "skipped"]).optional(),
   completedSets: z.number().int().nonnegative().optional(),
+  loadValue: z.number().positive().optional(),
+  loadUnit: z.enum(["kg", "lb", "bodyweight", "band", "other"]).optional(),
+  repsCompleted: z.number().int().nonnegative().optional(),
+  timeSeconds: z.number().positive().optional(),
+  distanceMeters: z.number().positive().optional(),
+  side: z.enum(["left", "right", "bilateral", "alternating", "not_applicable"]).optional(),
+  technicalQuality: z.enum(["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"]).optional(),
   loadText: z.string().optional(),
   rpe: z.number().min(1).max(10).optional(),
   notes: z.string().optional(),
@@ -59,6 +66,13 @@ export function mapExerciseResultRow(row: ExerciseResultRow): ExerciseResultReco
     prescribed: payload.prescribed,
     resultStatus,
     ...(payload.completedSets === undefined ? {} : { completedSets: payload.completedSets }),
+    ...(payload.loadValue === undefined ? {} : { loadValue: payload.loadValue as ExerciseResultRecord["loadValue"] }),
+    ...(payload.loadUnit === undefined ? {} : { loadUnit: payload.loadUnit as ExerciseResultLoadUnit }),
+    ...(payload.repsCompleted === undefined ? {} : { repsCompleted: payload.repsCompleted }),
+    ...(payload.timeSeconds === undefined ? {} : { timeSeconds: payload.timeSeconds }),
+    ...(payload.distanceMeters === undefined ? {} : { distanceMeters: payload.distanceMeters }),
+    ...(payload.side === undefined ? {} : { side: payload.side as ExerciseResultSide }),
+    ...(payload.technicalQuality === undefined ? {} : { technicalQuality: payload.technicalQuality as ExerciseResultTechnicalQuality }),
     ...(payload.loadText === undefined ? {} : { loadText: payload.loadText }),
     ...(payload.rpe === undefined ? {} : { rpe: payload.rpe }),
     ...(payload.notes === undefined ? {} : { notes: payload.notes }),
@@ -75,7 +89,20 @@ export function mapExerciseResultRow(row: ExerciseResultRow): ExerciseResultReco
 }
 
 function inferLegacyResultStatus(payload: z.infer<typeof ExerciseResultPayloadSchema>): ExerciseResultStatus {
-  if (payload.completedSets !== undefined || payload.loadText || payload.rpe !== undefined || payload.notes || payload.painFlag) {
+  if (
+    payload.completedSets !== undefined ||
+    payload.loadValue !== undefined ||
+    payload.loadUnit !== undefined ||
+    payload.repsCompleted !== undefined ||
+    payload.timeSeconds !== undefined ||
+    payload.distanceMeters !== undefined ||
+    payload.side !== undefined ||
+    payload.technicalQuality !== undefined ||
+    payload.loadText ||
+    payload.rpe !== undefined ||
+    payload.notes ||
+    payload.painFlag
+  ) {
     return "partial";
   }
   return "prescribed_only";
@@ -91,6 +118,13 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
       prescribed: input.result.prescribed,
       resultStatus: input.result.resultStatus,
       ...(input.result.completedSets === undefined ? {} : { completedSets: input.result.completedSets }),
+      ...(input.result.loadValue === undefined ? {} : { loadValue: input.result.loadValue }),
+      ...(input.result.loadUnit === undefined ? {} : { loadUnit: input.result.loadUnit }),
+      ...(input.result.repsCompleted === undefined ? {} : { repsCompleted: input.result.repsCompleted }),
+      ...(input.result.timeSeconds === undefined ? {} : { timeSeconds: input.result.timeSeconds }),
+      ...(input.result.distanceMeters === undefined ? {} : { distanceMeters: input.result.distanceMeters }),
+      ...(input.result.side === undefined ? {} : { side: input.result.side }),
+      ...(input.result.technicalQuality === undefined ? {} : { technicalQuality: input.result.technicalQuality }),
       ...(input.result.loadText === undefined ? {} : { loadText: input.result.loadText }),
       ...(input.result.rpe === undefined ? {} : { rpe: input.result.rpe }),
       ...(input.result.notes === undefined ? {} : { notes: input.result.notes }),

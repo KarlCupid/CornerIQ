@@ -31,12 +31,17 @@ const SCREEN_LABELS: Record<BetaFeedbackScreen, string> = {
 const CATEGORY_LABELS: Record<BetaFeedbackCategory, string> = {
   bug: "Bug",
   confusing: "Confusing",
+  confusing_flow: "Confusing flow",
   copy_issue: "Copy issue",
   cycle_feedback: "Cycle feedback",
+  data_deletion_export_issue: "Export/delete issue",
+  exposed_secret: "Exposed secret",
+  app_crash: "App crash",
   fuel_feedback: "Fuel feedback",
   missing_feature: "Missing feature",
   other: "Other",
   safety_concern: "Safety concern",
+  unsafe_generated_output: "Unsafe output",
   weight_class_feedback: "Weight-class feedback",
   workout_feedback: "Workout feedback"
 };
@@ -159,7 +164,7 @@ export function BetaFeedbackPanel({
   statusMessage?: string | null | undefined;
 }) {
   const [screen, setScreen] = React.useState<BetaFeedbackScreen>(defaultScreen);
-  const [category, setCategory] = React.useState<BetaFeedbackCategory>("confusing");
+  const [category, setCategory] = React.useState<BetaFeedbackCategory>("confusing_flow");
   const [severity, setSeverity] = React.useState<BetaFeedbackSeverity>("medium");
   const [message, setMessage] = React.useState("");
   const [localStatus, setLocalStatus] = React.useState<string | null>(null);
@@ -200,6 +205,7 @@ export function BetaFeedbackPanel({
           <Text style={{ ...typography.body, color: colors.wrap }}>Tell us what was confusing, useful, too dense, or broken during boxer beta testing.</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>Do not include emergency details or secrets.</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>This is not emergency support and is not medical review.</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>After submission, status history is read-only here: received, reviewed, resolved, or dismissed.</Text>
         </View>
         <SelectorRow labels={SCREEN_LABELS} onChange={setScreen} title="Screen" value={screen} values={BETA_FEEDBACK_SCREENS} />
         <SelectorRow labels={CATEGORY_LABELS} onChange={setCategory} title="Category" value={category} values={BETA_FEEDBACK_CATEGORIES} />

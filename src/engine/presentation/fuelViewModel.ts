@@ -10,6 +10,20 @@ function macroProgress(logged: number, target: number, unit: string): { logged: 
   };
 }
 
+function displayActiveReviewStatus(
+  review: PerformanceState["nutrition"]["activeNutritionSafetyReviews"][number]
+): PerformanceState["nutrition"]["activeNutritionSafetyReviews"][number] {
+  const status =
+    review.status === "acknowledged"
+      ? "acknowledged_by_athlete"
+      : review.status === "in_review"
+        ? "reviewer_reviewing"
+        : review.status === "blocked"
+          ? "not_cleared"
+          : review.status;
+  return { ...review, status };
+}
+
 export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
   const blockedAcuteProtocol =
     state.nutrition.acuteProtocolStatus === "blocked"
@@ -51,7 +65,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     rehydrationChecklist: state.nutrition.rehydrationChecklist,
     tournamentFuelPlan: state.nutrition.tournamentFuelPlan,
     nutritionSafetyReview: state.nutrition.nutritionSafetyReview,
-    activeNutritionSafetyReviews: state.nutrition.activeNutritionSafetyReviews,
+    activeNutritionSafetyReviews: state.nutrition.activeNutritionSafetyReviews.map(displayActiveReviewStatus),
     decisionStack: state.nutrition.decisionStack,
     trainingDemandHandoff: state.nutrition.trainingDemandHandoff,
     foodLogStatus: state.nutrition.dailyFoodLogSummary,
@@ -70,8 +84,9 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     },
     hitTheseFirst: state.nutrition.hitTheseFirst,
     macroTargets: {
-      why: `Targets are based on your profile and today's training. Demand tier: ${state.nutrition.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " ")}.`,
+      why: `${state.nutrition.targetConfidence.athleteFacingCopy} Demand tier: ${state.nutrition.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " ")}.`,
       confidence: state.nutrition.confidence.level,
+      targetConfidence: state.nutrition.targetConfidence,
       logStatus: state.nutrition.dailyFoodLogSummary.athleteFacingSummary,
       targets: [
         { label: "Calories", value: `${state.nutrition.dailyCaloriesTarget} kcal` },

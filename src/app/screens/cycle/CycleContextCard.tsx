@@ -51,6 +51,11 @@ export function CycleContextCard({
         <Text style={screenStyles.body}>Training: {cycleContext.trainingAdjustment}</Text>
         <Text style={screenStyles.body}>Nutrition: {cycleContext.nutritionAdjustment}</Text>
         <Text style={screenStyles.body}>Scale: {cycleContext.scaleNoiseNote}</Text>
+        <Text style={screenStyles.callout}>Longitudinal support</Text>
+        <Text style={screenStyles.body}>{cycleContext.trendSummary}</Text>
+        <Text style={screenStyles.subtle}>{cycleContext.symptomTrend}</Text>
+        <Text style={screenStyles.subtle}>{cycleContext.trainingAdjustmentHistorySummary}</Text>
+        <Text style={screenStyles.subtle}>{cycleContext.uncertaintyCopy}</Text>
         {cycleContext.safetyFlags.map((flag, index) => <Text key={`cycle-safety:${index}`} style={screenStyles.subtle}>Safety: {flag}</Text>)}
         {contraceptionNote ? <Text style={screenStyles.subtle}>{contraceptionNote}</Text> : null}
         <Text style={screenStyles.subtle}>{cycleContext.historySummary}</Text>

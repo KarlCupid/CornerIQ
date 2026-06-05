@@ -7,8 +7,13 @@ import { RepositoryError, assertUserId, isoDateTimeValue, parseWithSchema, paylo
 export const BETA_FEEDBACK_SCREENS = ["today", "fuel", "train", "plan", "profile", "onboarding", "auth", "unknown"] as const;
 export const BETA_FEEDBACK_CATEGORIES = [
   "confusing",
+  "confusing_flow",
   "bug",
   "safety_concern",
+  "exposed_secret",
+  "data_deletion_export_issue",
+  "unsafe_generated_output",
+  "app_crash",
   "copy_issue",
   "missing_feature",
   "workout_feedback",

@@ -364,8 +364,23 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
           trainingAdjustment: cycle.trainingAdjustment,
           nutritionAdjustment: cycle.nutritionAdjustment,
           safetyFlags: cycle.safetyFlags.map((flag) => flag.message),
-          privacyReminder: "Cycle support is optional, private, symptom-aware, and not fertility tracking.",
-          historySummary: recentLogs.cycleLastLogSummary
+          privacyReminder: "Cycle support is optional, private, symptom-aware, and not a window-prediction tool.",
+          historySummary: recentLogs.cycleLastLogSummary,
+          trendSummary:
+            cycle.cycleRegularity === "irregular" || cycle.cycleRegularity === "unknown"
+              ? "Longitudinal cycle trend is uncertain; training support stays symptom-first."
+              : `Longitudinal cycle trend is ${cycle.cycleRegularity} with ${cycle.symptomBurden} recent symptom burden.`,
+          symptomTrend:
+            cycle.symptomBurden === "high"
+              ? "Recent symptoms are high enough to prioritize training adjustment over phase labels."
+              : cycle.symptomBurden === "moderate"
+                ? "Recent symptoms are moderate; optional fatigue can be reduced if readiness is not green."
+                : "Recent symptom burden is low or not logged.",
+          trainingAdjustmentHistorySummary: cycle.trainingAdjustment,
+          uncertaintyCopy:
+            cycle.hormonalContraception !== "none" && cycle.hormonalContraception !== "unknown"
+              ? "Hormonal contraception context keeps timing uncertain; symptoms and consent drive adjustments."
+              : "Cycle estimates remain uncertain and are never used for window prediction."
         }
       : null,
     profile: buildProfileViewModel(viewModelInput),

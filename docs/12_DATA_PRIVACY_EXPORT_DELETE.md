@@ -23,8 +23,18 @@ Include every user-owned table:
 - `wearable_signal_logs`
 - `generated_training_blocks`
 - `generated_training_sessions`
+- `training_blocks`
+- `training_microcycles`
+- `training_day_plans`
+- `training_week_summaries`
+- `training_progression_decisions`
+- `training_next_week_previews`
+- `training_block_timeline_events`
+- `training_plan_adjustments`
 - `completed_training_sessions`
 - `exercise_results`
+- `nutrition_safety_reviews`
+- `nutrition_safety_review_events`
 - `nutrition_targets`
 - `weight_class_plans`
 - `fight_week_protocols`
@@ -33,12 +43,27 @@ Include every user-owned table:
 - `risk_flags`
 - `decision_traces`
 - `engine_runs`
+- `beta_feedback_reports`
+
+## Portable Export Bundle
+
+`generateUserOwnedDataExportBundle(userId, client, options)` returns a file-ready JSON object with:
+
+- `metadata.schemaVersion = "corneriq.app_data_export.v1"`
+- `metadata.generatedAt`
+- redacted `metadata.userIdHash`
+- optional app and engine version fields
+- grouped table counts
+- per-table counts
+- user-owned rows grouped by category
+
+`generateUserOwnedDataExportBundleString(...)` returns the same bundle as formatted JSON text for the Profile > Data fallback export flow. Secret-shaped keys and values are redacted before rows are placed in the bundle. The export is app-data only; it does not include Supabase service-role data and does not claim to delete or export the Auth identity record.
 
 ## Delete Scope
 
 Delete by `user_id` for all user-owned tables, using dependency-aware ordering: projection/result tables first, source/profile tables later, and `users_public` last. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
 
-Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, and `deleteUserOwnedData(userId, client, confirmation)`. These helpers use the anon client under RLS and never delete from `auth.users`.
+Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, `generateUserOwnedDataExportBundle(userId, client, options)`, `generateUserOwnedDataExportBundleString(userId, client, options)`, and `deleteUserOwnedData(userId, client, confirmation)`. These helpers use the anon client under RLS and never delete from `auth.users`.
 
 Deletion requires the exact confirmation string `DELETE`. Production account deletion must later call a server-side Edge Function or other trusted backend path to delete `auth.users`; Expo/client code must not use a service role key.
 
@@ -68,6 +93,7 @@ The script is `scripts/dev-reset-supabase.mjs`. It previews row counts first, de
 - Verify RLS remains enabled on every user-owned table.
 - Verify owner policies use `auth.uid() = user_id`.
 - Verify export includes JSON payload fields without silently dropping unknown keys.
+- Verify export bundle redacts secret-shaped keys and values.
 - Verify delete removes generated projections as well as source logs.
 - Verify no service role key is used from Expo or client runtime code.
 - Verify account deletion is double-confirmed in production UI and routed through a server-side function for `auth.users`.

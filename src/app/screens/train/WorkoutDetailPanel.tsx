@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import type { DetailedTrainingSession, ExerciseResultDraft } from "../../../engine/core/types";
+import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
@@ -10,6 +10,13 @@ import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
 
 interface ExerciseResultInputs {
   completedSets: string;
+  loadValue: string;
+  loadUnit: string;
+  repsCompleted: string;
+  timeSeconds: string;
+  distanceMeters: string;
+  side: string;
+  technicalQuality: string;
   loadText: string;
   rpe: string;
   notes: string;
@@ -19,6 +26,13 @@ interface ExerciseResultInputs {
 function emptyExerciseResultInputs(): ExerciseResultInputs {
   return {
     completedSets: "",
+    loadValue: "",
+    loadUnit: "",
+    repsCompleted: "",
+    timeSeconds: "",
+    distanceMeters: "",
+    side: "",
+    technicalQuality: "",
     loadText: "",
     rpe: "",
     notes: "",
@@ -26,8 +40,20 @@ function emptyExerciseResultInputs(): ExerciseResultInputs {
   };
 }
 
+function hasStructuredExerciseInput(input: ExerciseResultInputs): boolean {
+  return Boolean(
+    input.loadValue.trim() ||
+      input.loadUnit.trim() ||
+      input.repsCompleted.trim() ||
+      input.timeSeconds.trim() ||
+      input.distanceMeters.trim() ||
+      input.side.trim() ||
+      input.technicalQuality.trim()
+  );
+}
+
 function hasActualExerciseInput(input: ExerciseResultInputs): boolean {
-  return Boolean(input.completedSets.trim() || input.loadText.trim() || input.rpe.trim() || input.notes.trim() || input.painFlag);
+  return Boolean(input.completedSets.trim() || hasStructuredExerciseInput(input) || input.loadText.trim() || input.rpe.trim() || input.notes.trim() || input.painFlag);
 }
 
 function resultStatus(exerciseSetCount: number, input: ExerciseResultInputs, completedSets: number | undefined): ExerciseResultDraft["resultStatus"] {
@@ -44,11 +70,45 @@ function resultStatus(exerciseSetCount: number, input: ExerciseResultInputs, com
   return "partial";
 }
 
+const LOAD_UNITS: readonly ExerciseResultLoadUnit[] = ["kg", "lb", "bodyweight", "band", "other"];
+const EXERCISE_SIDES: readonly ExerciseResultSide[] = ["left", "right", "bilateral", "alternating", "not_applicable"];
+const TECHNICAL_QUALITIES: readonly ExerciseResultTechnicalQuality[] = ["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"];
+
+function parseEnumValue<TValue extends string>(value: string, allowed: readonly TValue[], label: string, exerciseName: string): TValue | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (allowed.includes(trimmed as TValue)) {
+    return trimmed as TValue;
+  }
+  throw new Error(`${exerciseName} ${label} must be one of: ${allowed.join(", ")}.`);
+}
+
+function parseLoadUnit(value: string, exerciseName: string): ExerciseResultLoadUnit | undefined {
+  return parseEnumValue(value, LOAD_UNITS, "load unit", exerciseName);
+}
+
+function parseSide(value: string, exerciseName: string): ExerciseResultSide | undefined {
+  return parseEnumValue(value, EXERCISE_SIDES, "side", exerciseName);
+}
+
+function parseTechnicalQuality(value: string, exerciseName: string): ExerciseResultTechnicalQuality | undefined {
+  return parseEnumValue(value, TECHNICAL_QUALITIES, "technical quality", exerciseName);
+}
+
 function parseExerciseResult(session: DetailedTrainingSession, values: Record<string, ExerciseResultInputs>): ExerciseResultDraft[] {
   return session.sections.flatMap((section) =>
     section.exercises.map((exercise) => {
       const input = values[exercise.exerciseId] ?? emptyExerciseResultInputs();
       const completedSets = parseOptionalNonNegativeInteger(input.completedSets, `${exercise.name} completed sets`, { required: false });
+      const loadValue = parseOptionalPositiveNumber(input.loadValue, `${exercise.name} structured load`, { required: false });
+      const repsCompleted = parseOptionalNonNegativeInteger(input.repsCompleted, `${exercise.name} reps completed`, { required: false });
+      const timeSeconds = parseOptionalPositiveNumber(input.timeSeconds, `${exercise.name} time seconds`, { required: false });
+      const distanceMeters = parseOptionalPositiveNumber(input.distanceMeters, `${exercise.name} distance meters`, { required: false });
+      const loadUnit = parseLoadUnit(input.loadUnit, exercise.name);
+      const side = parseSide(input.side, exercise.name);
+      const technicalQuality = parseTechnicalQuality(input.technicalQuality, exercise.name);
       const rpe = parseOptionalPositiveNumber(input.rpe, `${exercise.name} RPE`, { required: false });
       if (rpe !== undefined && rpe > 10) {
         throw new Error(`${exercise.name} RPE must be 10 or lower.`);
@@ -60,6 +120,13 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
         prescribed: exercise,
         resultStatus: resultStatus(exercise.sets.length, input, completedSets),
         ...(completedSets === undefined ? {} : { completedSets }),
+        ...(loadValue === undefined ? {} : { loadValue }),
+        ...(loadUnit === undefined ? {} : { loadUnit }),
+        ...(repsCompleted === undefined ? {} : { repsCompleted }),
+        ...(timeSeconds === undefined ? {} : { timeSeconds }),
+        ...(distanceMeters === undefined ? {} : { distanceMeters }),
+        ...(side === undefined ? {} : { side }),
+        ...(technicalQuality === undefined ? {} : { technicalQuality }),
         ...(input.loadText.trim() ? { loadText: input.loadText.trim() } : {}),
         ...(rpe === undefined ? {} : { rpe }),
         ...(input.notes.trim() ? { notes: input.notes.trim() } : {}),
@@ -184,6 +251,7 @@ export function WorkoutDetailPanel({
 }) {
   const [resultOpen, setResultOpen] = useState(false);
   const [exerciseDetailsOpen, setExerciseDetailsOpen] = useState(false);
+  const [structuredActualsOpen, setStructuredActualsOpen] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
   const [sessionRpe, setSessionRpe] = useState("");
   const [painNotes, setPainNotes] = useState("");
@@ -294,6 +362,11 @@ export function WorkoutDetailPanel({
               <Text style={screenStyles.quietButtonText}>{exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"}</Text>
             </Pressable>
             <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows save as prescribed_only; skipped sessions do not save exercise rows.</Text>
+            {exerciseDetailsOpen ? (
+              <Pressable accessibilityLabel={structuredActualsOpen ? "Hide structured exercise actuals" : "Show structured exercise actuals"} accessibilityRole="button" accessibilityState={{ selected: structuredActualsOpen }} onPress={() => setStructuredActualsOpen((value) => !value)} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>{structuredActualsOpen ? "Hide structured actuals" : "Show structured actuals"}</Text>
+              </Pressable>
+            ) : null}
             {exerciseDetailsOpen ? session.sections.map((section, sectionIndex) => (
               <View key={`detail-section:${sectionIndex}`} style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.sectionTitle}>{section.name}</Text>
@@ -305,6 +378,18 @@ export function WorkoutDetailPanel({
                       <ExercisePrescriptionCard exercise={exercise} sectionName={section.name} />
                       <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, completedSets: value }))} placeholder="Completed sets optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.completedSets} />
                       <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadText} />
+                      {structuredActualsOpen ? (
+                        <View style={{ gap: spacing.sm }}>
+                          <Text style={screenStyles.subtle}>Structured fields are optional and are never inferred from load notes.</Text>
+                          <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadValue: value }))} placeholder="Structured load value optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadValue} />
+                          <TextInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadUnit: value }))} placeholder="Load unit: kg, lb, bodyweight, band, other" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadUnit} />
+                          <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, repsCompleted: value }))} placeholder="Reps completed optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.repsCompleted} />
+                          <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, timeSeconds: value }))} placeholder="Time seconds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.timeSeconds} />
+                          <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, distanceMeters: value }))} placeholder="Distance meters optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.distanceMeters} />
+                          <TextInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, side: value }))} placeholder="Side: bilateral, left, right, alternating, not_applicable" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.side} />
+                          <TextInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, technicalQuality: value }))} placeholder="Quality: clean, mostly_clean, technical_breakdown, stopped_for_pain, unknown" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.technicalQuality} />
+                        </View>
+                      ) : null}
                       <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, rpe: value }))} placeholder="Exercise RPE optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.rpe} />
                       <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, notes: value }))} placeholder="Exercise notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.notes} />
                       <Pressable accessibilityLabel={`${input.painFlag ? "Remove" : "Add"} pain flag for ${exercise.name}`} accessibilityRole="button" accessibilityState={{ disabled: busy, selected: input.painFlag }} disabled={busy} onPress={() => updateExercise(exercise.exerciseId, (current) => ({ ...current, painFlag: !current.painFlag }))} style={[screenStyles.quietButton, input.painFlag ? { borderColor: colors.amberCaution } : null]}>

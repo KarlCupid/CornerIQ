@@ -72,8 +72,28 @@ function latestStrengthSummary(results: readonly ExerciseResultRecord[]): string
     return null;
   }
   const load = latest.loadText?.trim();
-  const loadNote = load ? (/^\d+(\.\d+)?(\s?(kg|lb|lbs))?$/i.test(load) ? `load logged as ${load}` : `load logged as ${load}; no numeric load progression inferred`) : "no load logged";
+  const loadNote = structuredActualSummary(latest) ?? (load ? "load text saved as notes only; no numeric load progression inferred" : "no structured load logged");
   return `${latest.exerciseName}: ${latest.resultStatus}, ${loadNote}`;
+}
+
+function structuredActualSummary(result: ExerciseResultRecord): string | null {
+  const parts = [
+    result.loadValue === undefined || result.loadUnit === undefined ? null : `${result.loadValue}${result.loadUnit}`,
+    result.repsCompleted === undefined ? null : `${result.repsCompleted} reps`,
+    result.timeSeconds === undefined ? null : `${result.timeSeconds}s`,
+    result.distanceMeters === undefined ? null : `${result.distanceMeters}m`,
+    result.side === undefined ? null : result.side.replaceAll("_", " "),
+    result.technicalQuality === undefined ? null : result.technicalQuality.replaceAll("_", " ")
+  ].filter((item): item is string => item !== null);
+  return parts.length > 0 ? `structured load available: ${parts.join(", ")}` : null;
+}
+
+function structuredLoadSummary(results: readonly ExerciseResultRecord[]): string {
+  const structured = [...results]
+    .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt))
+    .map(structuredActualSummary)
+    .find((summary): summary is string => summary !== null);
+  return structured ?? "Not enough structured data for load progression; free-text notes are not parsed.";
 }
 
 function nextAction(progression: ProgressionRecommendation, readiness: ReadinessState): string {
@@ -137,6 +157,7 @@ export function buildTrainingAnalytics(input: TrainingAnalyticsInput): TrainingA
     mostRecentExerciseResultSummary: exerciseSummary(latestExerciseResult(input.exerciseResults)),
     mostRepeatedExercise: mostRepeatedExercise(input.exerciseResults),
     latestStrengthExerciseSummary: latestStrengthSummary(input.exerciseResults),
+    structuredLoadSummary: structuredLoadSummary(input.exerciseResults),
     consistencySummary:
       recentExerciseResults.length > 0
         ? `${recentSessions.filter((session) => session.completionStatus === "completed").length} completed sessions and ${recentExerciseResults.filter((result) => result.resultStatus !== "prescribed_only").length} exercise actuals in the last 7 days.`

@@ -59,7 +59,7 @@ function repositories(overrides: Partial<NutritionSafetyReviewRepositories["nutr
         eventPayload: {},
         createdAt: "2026-05-19T00:00:00.000Z"
       })),
-      acknowledgeNutritionSafetyReview: vi.fn(async () => persistedReview({ status: "acknowledged" })),
+      acknowledgeNutritionSafetyReview: vi.fn(async () => persistedReview({ status: "acknowledged_by_athlete" })),
       supersedeNutritionSafetyReviews: vi.fn(),
       ...overrides
     }
@@ -187,6 +187,7 @@ describe("requestNutritionSafetyReview", () => {
 
     expect(result).toMatchObject({ status: "acknowledged", hardStopRemains: true });
     expect(repo.nutritionSafetyReview.acknowledgeNutritionSafetyReview).toHaveBeenCalledWith("user_1", "review_1");
+    expect(repo.nutritionSafetyReview.appendNutritionSafetyReviewEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: "acknowledged_by_athlete" }));
     expect("clearNutritionSafetyReview" in repo.nutritionSafetyReview).toBe(false);
   });
 });

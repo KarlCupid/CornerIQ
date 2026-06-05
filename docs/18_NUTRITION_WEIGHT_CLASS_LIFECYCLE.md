@@ -2,7 +2,7 @@
 
 Date: 2026-05-20
 
-This document describes the Fuel / Weight-Class Command Center after the eighteenth, nineteenth, and twentieth implementation passes. The eighteenth pass turned nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle. The nineteenth pass added view-model-driven review history, manual Fuel history, and body-mass trajectory detail panels. The twentieth pass made those surfaces easier to test by splitting Fuel into Command / History / Reviews / Body Mass sections without adding barcode scanning, full meal planning, a detailed food database, reviewer-clear UI, or unsafe weight-cut instructions.
+This document describes the Fuel / Weight-Class Command Center after the eighteenth, nineteenth, twentieth, and app-functionality implementation passes. The eighteenth pass turned nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle. The nineteenth pass added view-model-driven review history, manual Fuel history, and body-mass trajectory detail panels. The twentieth pass made those surfaces easier to test by splitting Fuel into Command / History / Reviews / Body Mass sections. The app-functionality pass added target confidence/provisionality, stateful Fuel history detail, precise reviewer statuses, and a trusted-server reviewer skeleton without adding barcode scanning, full meal planning, a detailed food database, reviewer-clear UI, or unsafe weight-cut instructions.
 
 ## Engine Shape
 
@@ -14,6 +14,7 @@ Primary files:
 - `src/engine/nutrition/fuelCommandEngine.ts`
 - `src/engine/nutrition/nutritionSafetyReviewTypes.ts`
 - `src/engine/nutrition/nutritionEngine.ts`
+- `src/engine/nutrition/reviewerWorkflow.ts`
 - `src/engine/presentation/fuelViewModel.ts`
 - `src/engine/presentation/nutritionReviewHistoryViewModel.ts`
 - `src/engine/presentation/fuelHistoryViewModel.ts`
@@ -21,6 +22,7 @@ Primary files:
 - `src/services/nutrition/requestNutritionSafetyReview.ts`
 - `src/services/nutrition/loadNutritionSafetyReviewHistory.ts`
 - `src/services/supabase/nutritionSafetyReviewRepository.ts`
+- `supabase/functions/review-nutrition-safety/policy.ts`
 - `src/app/screens/FuelScreen.tsx`
 - `src/app/screens/fuel/FuelCommandCards.tsx`
 - `src/app/screens/fuel/NutritionReviewHistoryPanel.tsx`
@@ -39,22 +41,22 @@ Both tables are owner-scoped with RLS using `auth.uid() = user_id`. No permissiv
 Review statuses:
 
 - `requested`
-- `acknowledged`
-- `in_review`
+- `acknowledged_by_athlete`
+- `reviewer_reviewing`
 - `cleared_by_reviewer`
-- `blocked`
+- `not_cleared`
 - `superseded`
+- legacy readable statuses `acknowledged`, `in_review`, and `blocked` are still mapped for existing rows
 
 `cleared_by_reviewer` exists in the schema and mappers for future permissioned workflows only. The current client exposes no athlete method or button that can set it.
 
 Event types:
 
 - `requested`
-- `acknowledged`
-- `reviewer_assigned`
-- `reviewer_note`
+- `acknowledged_by_athlete`
+- `reviewer_reviewing`
 - `cleared_by_reviewer`
-- `blocked`
+- `not_cleared`
 - `superseded`
 
 Current athlete actions:
@@ -70,7 +72,23 @@ Current athlete non-actions:
 - Cannot assign a reviewer.
 - Cannot write coach, clinician, dietitian, or admin review events.
 
-Hard stops remain active after request and acknowledgement. They can only be lifted by future permissioned reviewer infrastructure with relationship policy or a trusted server-side function.
+Hard stops remain active after request and acknowledgement. Reviewer transitions are centralized in `canTransitionNutritionSafetyReview`. Clear/not-clear/reviewing transitions require trusted server-side reviewer/admin identity and audit event creation. The `review-nutrition-safety` Edge Function is intentionally non-operative until relationship lookup and audit persistence are wired.
+
+## Target Confidence
+
+`nutrition.targetConfidence` and `FuelMacroTargetsViewModel.targetConfidence` surface whether macro targets are `confident`, `provisional`, `low_confidence`, or `blocked_by_safety`.
+
+Factors include:
+
+- missing or stale body mass
+- low-confidence body-mass trend
+- missing, partial, or low-confidence food logs
+- cycle-related scale noise
+- under-fueling evidence
+- hard-stop safety flags
+- active nutrition safety review
+
+Fuel UI shows this status before macro numbers so targets do not look more exact than the inputs support. Under-fueling and hard-stop states preserve useful fueling context but explicitly block deficit pressure.
 
 ## Review Persistence
 
@@ -157,7 +175,7 @@ Rules:
 - Barcode scanning is not required or implemented.
 - Full meal planning is not implemented.
 
-`FuelHistoryPanel` renders the history view model in Fuel after the quick/recent logging cards. It includes the explicit copy: "This does not change targets by itself."
+`FuelHistoryPanel` renders the history view model in Fuel after the quick/recent logging cards. It includes the explicit copy: "This does not change targets by itself." A compact list can open a stateful day detail with what happened, why it matters, confidence notes, and safety context without raw JSON.
 
 ## Body-Mass Trajectory
 

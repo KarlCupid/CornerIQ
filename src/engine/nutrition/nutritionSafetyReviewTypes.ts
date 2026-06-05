@@ -1,7 +1,17 @@
 import { z } from "zod";
 import type { ISODateString, ISODateTimeString } from "../core/sharedTypes";
 
-export const NutritionSafetyReviewStatusSchema = z.enum(["requested", "acknowledged", "in_review", "cleared_by_reviewer", "blocked", "superseded"]);
+export const NutritionSafetyReviewStatusSchema = z.enum([
+  "requested",
+  "acknowledged_by_athlete",
+  "reviewer_reviewing",
+  "cleared_by_reviewer",
+  "not_cleared",
+  "superseded",
+  "acknowledged",
+  "in_review",
+  "blocked"
+]);
 export type NutritionSafetyReviewStatus = z.infer<typeof NutritionSafetyReviewStatusSchema>;
 
 export const NutritionSafetyReviewTypeSchema = z.enum([
@@ -25,9 +35,12 @@ export type NutritionSafetyReviewerRole = z.infer<typeof NutritionSafetyReviewer
 export const NutritionSafetyReviewEventTypeSchema = z.enum([
   "requested",
   "acknowledged",
+  "acknowledged_by_athlete",
+  "reviewer_reviewing",
   "reviewer_assigned",
   "reviewer_note",
   "cleared_by_reviewer",
+  "not_cleared",
   "blocked",
   "superseded"
 ]);

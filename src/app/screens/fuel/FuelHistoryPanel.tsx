@@ -1,11 +1,13 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { FuelHistoryViewModel } from "../../../engine/core/types";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { spacing } from "../../../design/theme";
 import { screenStyles } from "../screenStyles";
 
 export function FuelHistoryPanel({ history }: { history: FuelHistoryViewModel }) {
+  const [selectedDate, setSelectedDate] = React.useState(history.groupedDays[0]?.date ?? null);
+  const selectedDay = history.groupedDays.find((day) => day.date === selectedDate) ?? history.groupedDays[0] ?? null;
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -17,17 +19,24 @@ export function FuelHistoryPanel({ history }: { history: FuelHistoryViewModel })
         <Text style={screenStyles.body}>{history.hydrationConsistency}</Text>
         <Text style={screenStyles.callout}>Last 7 days</Text>
         {history.groupedDays.map((day, dayIndex) => (
-          <View key={`fuel-day:${dayIndex}`} style={{ gap: spacing.xs }}>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedDay?.date === day.date }} key={`fuel-day:${dayIndex}`} onPress={() => setSelectedDate(day.date)} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>{day.date}: {day.calories} kcal, confidence {day.confidence}</Text>
+          </Pressable>
+        ))}
+        {selectedDay ? (
+          <View style={{ gap: spacing.xs }} testID="fuel-history-day-detail">
+            <Text style={screenStyles.callout}>Day detail</Text>
             <Text style={screenStyles.body}>
-              {day.date}: {day.calories} kcal, {day.protein}g protein, {day.carbs}g carbs, {day.fat}g fat.
+              {selectedDay.date}: {selectedDay.calories} kcal, {selectedDay.protein}g protein, {selectedDay.carbs}g carbs, {selectedDay.fat}g fat.
             </Text>
             <Text style={screenStyles.subtle}>
-              Fiber {day.fiber === null ? "unknown" : `${day.fiber}g`}; sodium {day.sodium === null ? "unknown" : `${day.sodium}mg`}; water {day.waterLiters.toFixed(1)}L; confidence {day.confidence}.
+              Fiber {selectedDay.fiber === null ? "unknown" : `${selectedDay.fiber}g`}; sodium {selectedDay.sodium === null ? "unknown" : `${selectedDay.sodium}mg`}; water {selectedDay.waterLiters.toFixed(1)}L; confidence {selectedDay.confidence}.
             </Text>
-            <Text style={screenStyles.subtle}>{day.electrolyteSummary}</Text>
-            {day.notes.map((note, index) => <Text key={`fuel-day-note:${dayIndex}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
+            <Text style={screenStyles.subtle}>{selectedDay.electrolyteSummary}</Text>
+            <Text style={screenStyles.subtle}>Why it matters: fuel history is context only; missing data lowers confidence without changing targets by itself.</Text>
+            {selectedDay.notes.map((note, index) => <Text key={`fuel-day-detail-note:${index}`} style={screenStyles.subtle}>{note}</Text>)}
           </View>
-        ))}
+        ) : null}
         <Text style={screenStyles.callout}>Session fuel link</Text>
         {history.sessionFuelLink.length > 0 ? (
           history.sessionFuelLink.map((item, index) => <Text key={`session-fuel:${index}`} style={screenStyles.subtle}>{item.summary}</Text>)

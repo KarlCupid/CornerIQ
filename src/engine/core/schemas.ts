@@ -16,6 +16,9 @@ const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "dur
 const TrainingExecutionReadinessStatusSchema = z.enum(["unknown", "green", "amber", "red_non_hard_stop", "red_hard_stop"]);
 const GeneratedSessionAddOnPrioritySchema = z.enum(["required", "recommended", "optional"]);
 const GeneratedSessionAddOnPlacementTypeSchema = z.enum(["primer", "finisher", "recovery", "mobility", "durability", "technical_touch"]);
+const ExerciseResultLoadUnitSchema = z.enum(["kg", "lb", "bodyweight", "band", "other"]);
+const ExerciseResultSideSchema = z.enum(["left", "right", "bilateral", "alternating", "not_applicable"]);
+const ExerciseResultTechnicalQualitySchema = z.enum(["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"]);
 const GeneratedSessionTypeLabelSchema = z.enum([
   "Lift",
   "Strength",
@@ -475,6 +478,13 @@ export const ExerciseResultRecordSchema = z.object({
   prescribed: z.record(z.unknown()),
   resultStatus: z.enum(["prescribed_only", "completed", "partial", "skipped"]),
   completedSets: z.number().int().nonnegative().optional(),
+  loadValue: z.number().positive().optional(),
+  loadUnit: ExerciseResultLoadUnitSchema.optional(),
+  repsCompleted: z.number().int().nonnegative().optional(),
+  timeSeconds: z.number().positive().optional(),
+  distanceMeters: z.number().positive().optional(),
+  side: ExerciseResultSideSchema.optional(),
+  technicalQuality: ExerciseResultTechnicalQualitySchema.optional(),
   loadText: z.string().optional(),
   rpe: z.number().min(1).max(10).optional(),
   notes: z.string().optional(),

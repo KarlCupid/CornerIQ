@@ -17,6 +17,7 @@ export interface SupabaseSessionState {
   authLoading: boolean;
   authMessage: string | null;
   client: CornerSupabaseClient | null;
+  requestPasswordReset: (email: string) => Promise<void>;
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -138,6 +139,31 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
     [auth]
   );
 
+  const requestPasswordReset = useCallback(
+    async (rawEmail: string) => {
+      const email = rawEmail.trim();
+      if (!email) {
+        setAuthError("Email is required before requesting a password reset.");
+        setAuthMessage(null);
+        return;
+      }
+      if (!auth) {
+        setAuthError("Password reset is unavailable because Supabase auth is not configured.");
+        setAuthMessage(null);
+        return;
+      }
+
+      setAuthLoading(true);
+      setAuthError(null);
+      setAuthMessage(null);
+      const { error } = await auth.requestPasswordReset(email);
+      setAuthError(error?.message ?? null);
+      setAuthMessage(error ? null : "If that email is registered, Supabase will send password reset instructions.");
+      setAuthLoading(false);
+    },
+    [auth]
+  );
+
   const signOut = useCallback(async () => {
     if (auth) {
       await auth.signOut();
@@ -149,6 +175,7 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
     authLoading,
     authMessage,
     client,
+    requestPasswordReset,
     session,
     signIn,
     signOut,

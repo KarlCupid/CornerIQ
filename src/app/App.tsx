@@ -242,12 +242,22 @@ function LocalE2EApp() {
   );
   const userDataControls = useMemo<UserDataControlsHook>(
     () => ({
+      accountDeletionCopy:
+        "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function and is unavailable in local E2E.",
+      bundleText: dataPreviewLoaded ? "{\n  \"metadata\": { \"schemaVersion\": \"corneriq.app_data_export.v1\" },\n  \"rowsByCategory\": {}\n}\n" : null,
       busy: false,
       deleteConfirmation,
       deleteData: async () => {
         setDataMessage("Local E2E data deletion is disabled. No Supabase call was made.");
       },
+      generateExportBundle: async () => {
+        setDataPreviewLoaded(true);
+        setDataMessage("Local E2E portable JSON export generated locally only. No Supabase call was made.");
+      },
       message: dataMessage,
+      portableExportRows: dataPreviewLoaded
+        ? ["Portable JSON: local E2E sample", "Includes grouped user-owned rows and redacted user id hash.", "Copy or save this JSON with platform tools."]
+        : [],
       preview: dataPreviewLoaded ? ({} as NonNullable<UserDataControlsHook["preview"]>) : null,
       previewExport: async () => {
         setDataPreviewLoaded(true);
@@ -379,6 +389,9 @@ function LocalE2EApp() {
           error={null}
           loading={false}
           message="Local E2E sign-in accepts any non-empty email and password."
+          onRequestPasswordReset={async () => {
+            setMessage("Local E2E password reset stayed local. No Supabase email was sent.");
+          }}
           onSignIn={async () => {
             setSignedIn(true);
             setMessage("Local E2E sign-in complete. Continue through demo onboarding.");
@@ -505,7 +518,7 @@ function CornerIQApp() {
 
   if (supabaseSession.status === "missing_config") {
     const missing = runtimeConfig.missingVariableNames.join(", ") || "EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY";
-    return <StartupState title="Supabase not configured" message={`Set ${missing} to use the app shell with the public anon key only. Runtime values are never displayed. In test mode this state is expected and no secret key is needed.`} />;
+    return <StartupState title="Supabase not configured" message={`Set ${missing} to use the app shell with the public anon key only. Sign-in and password reset are unavailable until this is configured. Runtime values are never displayed. In test mode this state is expected and no secret key is needed.`} />;
   }
 
   if (supabaseSession.status === "starting" || !supabaseSession.client) {
@@ -518,6 +531,7 @@ function CornerIQApp() {
         error={supabaseSession.authError}
         loading={supabaseSession.authLoading}
         message={supabaseSession.authMessage}
+        onRequestPasswordReset={supabaseSession.requestPasswordReset}
         onSignIn={supabaseSession.signIn}
         onSignUp={supabaseSession.signUp}
       />

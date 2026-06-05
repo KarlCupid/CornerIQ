@@ -68,6 +68,7 @@ export function ProfileScreen({
   const deleteConfirmation = userDataControls?.deleteConfirmation ?? fallbackDeleteConfirmation;
   const setDeleteConfirmation = userDataControls?.setDeleteConfirmation ?? setFallbackDeleteConfirmation;
   const [section, setSection] = React.useState<ProfileSection>("athlete");
+  const [auditDetailOpen, setAuditDetailOpen] = React.useState(false);
   return (
     <LuminousScreen testID="profile-screen">
       <ScreenHeader eyebrow="Private" title={viewModel.title} />
@@ -123,11 +124,18 @@ export function ProfileScreen({
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Data controls</Text>
               <Text style={screenStyles.body}>Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.</Text>
-              <Text style={screenStyles.subtle}>This does not delete your Supabase auth account.</Text>
+              <Text style={screenStyles.subtle}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function."}</Text>
               <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Preview export</Text>
               </Pressable>
               {userDataControls?.previewRows.map((row, index) => <Text key={`profile-preview-row:${index}`} style={screenStyles.subtle}>{row}</Text>)}
+              <Pressable accessibilityLabel="Generate portable export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.generateExportBundle()} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>Generate portable JSON export</Text>
+              </Pressable>
+              {userDataControls?.portableExportRows.map((row, index) => <Text key={`profile-portable-export-row:${index}`} style={screenStyles.subtle}>{row}</Text>)}
+              {userDataControls?.bundleText ? (
+                <TextInput accessibilityLabel="Portable JSON export payload" editable={false} multiline style={[screenStyles.input, { minHeight: 120 }]} value={userDataControls.bundleText} />
+              ) : null}
               {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
               <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
               <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
@@ -162,6 +170,21 @@ export function ProfileScreen({
               )}
             </View>
           </EngineCard>
+          <Pressable accessibilityLabel={auditDetailOpen ? "Hide audit history detail" : "Show audit history detail"} accessibilityRole="button" accessibilityState={{ selected: auditDetailOpen }} onPress={() => setAuditDetailOpen((value) => !value)} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>{auditDetailOpen ? "Hide audit history detail" : "Show audit history detail"}</Text>
+          </Pressable>
+          {auditDetailOpen ? (
+            <EngineCard>
+              <View style={{ gap: spacing.sm }} testID="profile-audit-history-detail">
+                <Text style={screenStyles.sectionTitle}>Audit history detail</Text>
+                <Text style={screenStyles.body}>What happened: recent profile and journey events are summarized below when available.</Text>
+                <Text style={screenStyles.subtle}>Why it matters: audit history explains saved app state; it does not clear safety reviews or expose private server controls.</Text>
+                {recentLogs.profile.length > 0 ? recentLogs.profile.map((item, index) => <Text key={`profile-audit-detail:${index}`} style={screenStyles.subtle}>{item}</Text>) : <Text style={screenStyles.subtle}>No profile or journey audit detail is loaded yet.</Text>}
+                <Text style={screenStyles.subtle}>Training block week {viewModel.trainingAuditSummary.currentWeekIndex}; persisted week summaries {viewModel.trainingAuditSummary.activeBlockHistoryCount}.</Text>
+                {viewModel.trainingAuditSummary.latestEventSummary ? <Text style={screenStyles.subtle}>{viewModel.trainingAuditSummary.latestEventSummary}</Text> : null}
+              </View>
+            </EngineCard>
+          ) : null}
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Fuel review audit</Text>

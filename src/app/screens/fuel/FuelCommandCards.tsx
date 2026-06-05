@@ -77,7 +77,7 @@ export function NutritionSafetyReviewCard({
         {activeReview ? <Text style={screenStyles.body}>Review {activeReview.id}: {statusLabel(activeReview.status)}.</Text> : null}
         {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Hard stop remains active.</Text> : null}
         <Text style={screenStyles.subtle}>You cannot self-clear nutrition hard stops.</Text>
-        <Text style={screenStyles.subtle}>Reviewer-clear workflow is not in the app yet.</Text>
+        <Text style={screenStyles.subtle}>Athlete UI is read-only for reviewer decisions; reviewer clear requires trusted server-side identity and audit.</Text>
         <Text style={screenStyles.subtle}>For urgent symptoms or unsafe weight concerns, stop and seek qualified support.</Text>
         <Lines items={reasons.length > 0 ? reasons : ["Safety review is active."]} />
         {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Blocking flags</Text> : null}

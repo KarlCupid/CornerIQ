@@ -230,6 +230,95 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
       { kind: "internal_policy", label: "Persisted generated sessions cannot escape active plan/block scope." },
       { kind: "internal_policy", label: "Missing or stale generated-session scope is unknown, not safe." }
     ]
+  },
+  {
+    id: "structured-load-no-free-text-inference",
+    title: "Structured exercise actuals without load-note inference",
+    files: [
+      "src/engine/training/trainingAnalytics.ts",
+      "src/engine/presentation/exerciseHistoryViewModel.ts",
+      "src/services/supabase/exerciseResultRepository.ts"
+    ],
+    functions: ["structuredActualSummary", "structuredLoadSummary", "mapExerciseResultRow"],
+    thresholds: ["loadValue/loadUnit required for structured load", "loadText remains notes only", "not enough structured data until explicit fields exist"],
+    rationale:
+      "Exercise load progression must come from explicit actual fields rather than free-text notes. This prevents accidental scientific overclaiming from ambiguous boxer-entered text.",
+    sourcePosture: "internal_conservative_policy",
+    owner: "training_safety",
+    reviewCadence: "after_calibration_data",
+    knownLimitations: ["Structured fields are optional and sparse during beta.", "The engine does not auto-progress load prescriptions from a single structured row."],
+    betaCalibrationPlan: "Audit completion speed, structured-field usage, and coach/athlete comprehension before enabling load-prescription progression.",
+    sources: [
+      { kind: "internal_policy", label: "Free-text load notes are display notes only; missing structured actuals are unknown." }
+    ]
+  },
+  {
+    id: "nutrition-target-provisionality",
+    title: "Nutrition target confidence and provisionality",
+    files: ["src/engine/nutrition/nutritionEngine.ts", "src/engine/presentation/fuelViewModel.ts"],
+    functions: ["resolveNutritionTargetConfidence", "buildFuelViewModel"],
+    thresholds: ["missing body mass lowers confidence", "stale body mass > 14 days is provisional", "under-fueling or hard stops block deficit pressure"],
+    rationale:
+      "Fuel targets can look falsely precise. The app therefore surfaces confidence, missing inputs, and safety-gated copy before macro numbers when target context is weak.",
+    sourcePosture: "internal_conservative_policy",
+    owner: "nutrition_safety",
+    reviewCadence: "after_calibration_data",
+    knownLimitations: ["Food logs and body mass can be incomplete or intentionally skipped.", "Confidence status is product copy guidance, not dietetic diagnosis."],
+    betaCalibrationPlan: "Review whether athletes understand targets as provisional and whether low-confidence copy reduces weight-class pressure.",
+    sources: [
+      { kind: "internal_policy", label: "Missing data is unknown, not safe; safety beats performance and weight-class pressure." }
+    ]
+  },
+  {
+    id: "nutrition-reviewer-permission-boundary",
+    title: "Nutrition reviewer transition boundaries",
+    files: ["src/engine/nutrition/reviewerWorkflow.ts", "supabase/functions/review-nutrition-safety/policy.ts"],
+    functions: ["canTransitionNutritionSafetyReview", "evaluateReviewNutritionSafetyPolicy"],
+    thresholds: ["athlete may only acknowledge requested reviews", "clear/not-clear requires trusted server-side reviewer identity", "every reviewer decision requires audit event"],
+    rationale:
+      "Hard-stop reviews must be readable to athletes but not self-clearable. Reviewer decisions need centralized transition rules before any private reviewer UI exists.",
+    sourcePosture: "internal_conservative_policy",
+    owner: "nutrition_safety",
+    reviewCadence: "before_beta_release",
+    knownLimitations: ["Relationship lookup remains a server-side skeleton and returns non-operative until wired.", "No coach/reviewer UI is exposed in the athlete app."],
+    betaCalibrationPlan: "Wire active relationship checks and audit persistence in a separate permissioned server pass before exposing reviewer actions.",
+    sources: [
+      { kind: "internal_policy", label: "No hard-stop self-clear and no reviewer clear without trusted identity plus audit." }
+    ]
+  },
+  {
+    id: "cycle-longitudinal-privacy-boundary",
+    title: "Cycle longitudinal symptom summaries",
+    files: ["src/engine/core/performanceKernel.ts", "src/app/screens/cycle/CycleContextCard.tsx"],
+    functions: ["resolvePerformanceState", "CycleContextCard"],
+    thresholds: ["disabled tracking shows no cycle trend", "symptom-first support only", "uncertainty copy avoids phase/performance certainty"],
+    rationale:
+      "Cycle support should help athletes inspect symptom burden and training adjustments without turning private cycle data into fertility or phase-performance claims.",
+    sourcePosture: "internal_conservative_policy",
+    owner: "cycle_privacy",
+    reviewCadence: "quarterly",
+    knownLimitations: ["Longitudinal summaries depend on sparse optional logs.", "The engine does not infer fertility windows or claim performance certainty by phase."],
+    betaCalibrationPlan: "Review private-cycle copy with testers for comprehension, comfort, and absence of fertility/performance overclaiming.",
+    sources: [
+      { kind: "internal_policy", label: "Cycle support is optional, private, symptom-aware, and uncertainty-forward." }
+    ]
+  },
+  {
+    id: "portable-export-redaction",
+    title: "Portable app-data export redaction",
+    files: ["src/services/supabase/userDataService.ts", "src/hooks/useUserDataControls.ts"],
+    functions: ["generateUserOwnedDataExportBundle", "generateUserOwnedDataExportBundleString"],
+    thresholds: ["schemaVersion corneriq.app_data_export.v1", "user id hashed", "secret-shaped keys and values redacted"],
+    rationale:
+      "User-owned app data export should be portable without exposing secret-shaped payloads, service-only data, or raw auth identity deletion claims.",
+    sourcePosture: "internal_conservative_policy",
+    owner: "engine",
+    reviewCadence: "before_beta_release",
+    knownLimitations: ["The export is JSON text rather than platform share-sheet/file-save integration.", "Auth identity deletion remains a trusted server-side gap."],
+    betaCalibrationPlan: "Review exported table coverage and redaction fixtures before adding platform save/share or any auth identity deletion workflow.",
+    sources: [
+      { kind: "internal_policy", label: "Never commit secrets; user data export must redact secret-shaped fields and values." }
+    ]
   }
 ];
 
