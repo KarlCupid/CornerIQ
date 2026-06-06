@@ -43,7 +43,6 @@ Include every user-owned table:
 - `risk_flags`
 - `decision_traces`
 - `engine_runs`
-- `beta_feedback_reports`
 
 ## Portable Export Bundle
 
@@ -69,7 +68,7 @@ Deletion requires the exact confirmation string `DELETE`. Production account del
 
 ## Development/Test Full Reset
 
-For local or beta test projects that need a true fresh-account run, use the server-side reset script only from a trusted shell:
+For local test projects that need a true fresh-account run, use the server-side reset script only from a trusted shell:
 
 ```powershell
 $env:CONFIRM_CORNERIQ_RESET="DELETE_ALL_CORNERIQ_TEST_DATA"

@@ -28,7 +28,6 @@ export interface FuelScreenProps {
   busy: boolean;
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
-  onRequestNutritionSafetyReview?: (() => void | Promise<void>) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: FuelViewModel;
@@ -267,7 +266,7 @@ function FuelRiskCard({ message, viewModel }: { message: string | null; viewMode
   );
 }
 
-export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, onRequestNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
+export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   const primaryLog = recentLogs.foodToday.entryCount === 0 || recentLogs.hydrationToday.loggedToday ? "food" : "water";
   return (
     <LuminousScreen testID="fuel-screen">
@@ -284,14 +283,13 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         )}
       </View>
       <CollapsibleFuelSection
-        summary="Open only when a hard stop, review request, or reviewer context matters."
+        summary="Open when a hard stop or saved safety history matters."
         testID="fuel-reviews-section"
         title="Safety review"
       >
         <NutritionSafetyReviewCard
           activeReviews={viewModel.activeNutritionSafetyReviews}
           onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
-          onRequestReview={onRequestNutritionSafetyReview}
           review={viewModel.nutritionSafetyReview}
         />
         <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
@@ -326,7 +324,7 @@ export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, 
         <RecentFuelLogsCard recentLogs={recentLogs} />
       </CollapsibleFuelSection>
       <CollapsibleFuelSection
-        summary="Body-mass context is secondary unless the engine or a qualified reviewer flags a safety concern."
+        summary="Body-mass context is secondary unless the engine flags a safety concern."
         testID="fuel-body-mass-section"
         title="Body Mass"
       >

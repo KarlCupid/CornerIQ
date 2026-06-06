@@ -8,5 +8,16 @@ function readRuntimeEnv(): RuntimeEnv {
 }
 
 export function isLocalE2EMode(env: RuntimeEnv = readRuntimeEnv()): boolean {
-  return env[LOCAL_E2E_MODE_ENV] === "1";
+  return env[LOCAL_E2E_MODE_ENV] === "1" && isNonProductionRuntime(env);
+}
+
+export function isNonProductionRuntime(env: RuntimeEnv = readRuntimeEnv()): boolean {
+  const runtime = globalThis as { __DEV__?: boolean };
+  if (runtime.__DEV__ === true) {
+    return true;
+  }
+  if (env.NODE_ENV === "production" || env.EXPO_PUBLIC_CORNERIQ_PRODUCTION === "1") {
+    return false;
+  }
+  return true;
 }

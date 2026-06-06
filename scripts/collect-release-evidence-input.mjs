@@ -15,7 +15,7 @@ const releaseEvidenceFields = [
   "supabaseMigration",
   "liveSmoke",
   "easMobile",
-  "humanBeta",
+  "humanBoxerValidation",
   "knownBlockers"
 ];
 const manualEvidenceEnv = {
@@ -27,7 +27,7 @@ const manualEvidenceEnv = {
   supabaseMigration: "CORNERIQ_RELEASE_SUPABASE_MIGRATION",
   liveSmoke: "CORNERIQ_RELEASE_LIVE_SMOKE",
   easMobile: "CORNERIQ_RELEASE_EAS_MOBILE",
-  humanBeta: "CORNERIQ_RELEASE_HUMAN_BETA",
+  humanBoxerValidation: "CORNERIQ_RELEASE_HUMAN_BOXER_VALIDATION",
   knownBlockers: "CORNERIQ_RELEASE_KNOWN_BLOCKERS"
 };
 
@@ -182,9 +182,9 @@ function localCommandResultsEvidence(sha) {
   const workflowName = process.env.GITHUB_WORKFLOW ?? "";
   const url = githubRunUrl();
   if (runId && url && /release quality/i.test(workflowName)) {
-    return `Candidate ${sha}; current Release Quality workflow run ID ${runId}; URL ${url}; reached evidence collector after npm run typecheck passed; npm test passed; npm run lint passed; npm run preflight:beta passed; npm exec vitest -- run src/tests/static passed; npm run smoke:fixtures passed; npm run test:coverage passed; npm audit --audit-level=high --omit=dev passed; npm run qa:agent:ci passed.`;
+    return `Candidate ${sha}; current Release Quality workflow run ID ${runId}; URL ${url}; reached evidence collector after npm run typecheck passed; npm test passed; npm run lint passed; npm run preflight:production passed; npm exec vitest -- run src/tests/static passed; npm run smoke:fixtures passed; npm run test:coverage passed; npm audit --audit-level=high --omit=dev passed; npm run qa:agent:ci passed.`;
   }
-  return `Candidate ${sha}; local command results not recorded by collector; run typecheck, test, lint, quality, preflight:beta, smoke:fixtures, test:coverage, audit, and qa:agent:ci, then supply non-secret exact-SHA results; release-blocking.`;
+  return `Candidate ${sha}; local command results not recorded by collector; run typecheck, test, lint, quality, preflight:production, smoke:fixtures, test:coverage, audit, and qa:agent:ci, then supply non-secret exact-SHA results; release-blocking.`;
 }
 
 function coverageThresholds() {
@@ -402,7 +402,7 @@ const initialFields = {
   liveSmoke: collectLiveSmokeEvidence(sha, supabaseEvidence.aligned),
   easMobile:
     "Separate mobile lane, explicitly excluded from local production-readiness scoring. Android APK/EAS artifacts can be recorded only as mobile-lane evidence; private distribution and physical-device checks remain release-owner work.",
-  humanBeta: `No real boxer findings recorded for candidate ${sha}; scripted beta readiness only and production UX validation remains human_review_required.`,
+  humanBoxerValidation: `No real boxer findings recorded for candidate ${sha}; scripted automation only and production UX validation remains human_review_required.`,
   knownBlockers: ""
 };
 const overriddenFields = applyManualOverrides(initialFields);

@@ -33,7 +33,7 @@ This committed template defines required release evidence fields. Generated rele
 | Supabase migration list/dry-run | CLI version, command, migration 010 status, dry-run result, and SHA. |
 | Live smoke | Date/time, command, env names present yes/no, pass/fail, rows created/cleaned summary, and SHA. |
 | EAS/mobile artifact status | Separate mobile lane. |
-| Human beta findings | Scripted beta readiness versus real findings. |
+| Human boxer validation | Scripted automation versus real boxer validation. |
 | Known blockers | Unresolved external or human-review blockers. |
 `;
 }
@@ -48,12 +48,12 @@ function passingEvidence(sha = CURRENT_SHA): string {
 | Quality run | Candidate ${sha}; run ID 111; URL https://github.com/example/corneriq/actions/runs/111; status completed; conclusion success. |
 | CodeQL run | Candidate ${sha}; run ID 222; URL https://github.com/example/corneriq/actions/runs/222; status completed; conclusion success. |
 | Release Quality run | Candidate ${sha}; npm run release:quality passed in this release-quality execution. |
-| Local command results | Candidate ${sha}; npm run typecheck passed; npm test passed; npm run lint passed; npm run quality passed; npm run preflight:beta passed; npm run smoke:fixtures passed; npm run test:coverage passed; npm audit passed; npm run qa:agent:ci passed. |
+| Local command results | Candidate ${sha}; npm run typecheck passed; npm test passed; npm run lint passed; npm run quality passed; npm run preflight:production passed; npm run smoke:fixtures passed; npm run test:coverage passed; npm audit passed; npm run qa:agent:ci passed. |
 | Coverage result | Candidate ${sha}; statements 88.81, functions 87.77, lines 88.81, branches 87.05; npm run test:coverage passed. |
 | Supabase migration list/dry-run | Candidate ${sha}; migration list includes 010_generated_sessions_training_block_scope.sql; db push dry-run passed and reported remote database is up to date. |
 | Live smoke | Candidate ${sha}; smoke:live-db passed; env names present yes/no recorded without values; rows created 1 and rows cleaned 1. |
 | EAS/mobile artifact status | Mobile lane separate and excluded from this in-scope release-quality proof. |
-| Human beta findings | No real boxer findings recorded; scripted beta readiness only. |
+| Human boxer validation | No real boxer findings recorded; scripted automation only and human_review_required. |
 | Known blockers | None for in-scope local release gates; mobile deliverability remains separate. |
 `;
 }
@@ -63,7 +63,7 @@ function writeFixture(overrides: Partial<Record<string, string | undefined>> = {
   const files: Record<string, string | undefined> = {
     ".gitignore": "qa-artifacts/\n",
     "package.json": '{ "scripts": { "release:evidence": "node scripts/generate-release-evidence.mjs", "release:quality": "node scripts/release-quality-gate.mjs" } }',
-    "scripts/beta-preflight.mjs": "console.log('Beta preflight fixture');\n",
+    "scripts/production-preflight.mjs": "console.log('Production preflight fixture');\n",
     "scripts/collect-release-evidence-input.mjs": 'const dryRun = ["db", "push", "--dry-run"];\nconsole.log(dryRun.join(" "));\n',
     "vitest.config.mjs": "export default { test: { coverage: { reporter: ['text', 'json-summary'], thresholds: { statements: 75, functions: 75, lines: 75, branches: 65 } } } };",
     ".github/workflows/codeql.yml": "steps:\n  - uses: github/codeql-action/init@v3\n  - uses: github/codeql-action/analyze@v3\n",
@@ -73,7 +73,7 @@ function writeFixture(overrides: Partial<Record<string, string | undefined>> = {
       "run_live_smoke:",
       "allow_remote_db_push:",
       "run: npm run test:coverage",
-      "run: npm run preflight:beta",
+      "run: npm run preflight:production",
       "run: npm exec vitest -- run src/tests/static",
       "run: npm audit --audit-level=high --omit=dev",
       "run: node scripts/collect-release-evidence-input.mjs",
@@ -165,12 +165,12 @@ describe("release quality gate", () => {
 | Quality run | Candidate ${CURRENT_SHA}; run ID 111; URL https://github.com/example/corneriq/actions/runs/111; status completed; conclusion success. |
 | CodeQL run | Candidate ${CURRENT_SHA}; run ID 222; URL https://github.com/example/corneriq/actions/runs/222; status completed; conclusion success. |
 | Release Quality run | Candidate ${CURRENT_SHA}; npm run release:quality passed in this release-quality execution. |
-| Local command results | Candidate ${CURRENT_SHA}; npm run typecheck passed; npm test passed; npm run lint passed; npm run quality passed; npm run preflight:beta passed. |
+| Local command results | Candidate ${CURRENT_SHA}; npm run typecheck passed; npm test passed; npm run lint passed; npm run quality passed; npm run preflight:production passed. |
 | Coverage result | Candidate ${CURRENT_SHA}; statements 88.81, functions 87.77, lines 88.81, branches 87.05; npm run test:coverage passed. |
 | Supabase migration list/dry-run | Candidate ${CURRENT_SHA}; 010_generated_sessions_training_block_scope.sql not remotely verified; release-blocking. |
 | Live smoke | Candidate ${CURRENT_SHA}; credential-blocked and not run. |
 | EAS/mobile artifact status | Mobile lane separate and excluded. |
-| Human beta findings | No real boxer findings recorded; scripted beta readiness only. |
+| Human boxer validation | No real boxer findings recorded; scripted automation only and human_review_required. |
 | Known blockers | External release evidence blockers remain. |
 `
       })

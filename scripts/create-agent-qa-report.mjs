@@ -90,7 +90,7 @@ const screenshotList =
     : "- No screenshots were captured. Check the Playwright output for early startup failure.";
 const nextFixArea =
   status === "passed"
-    ? "No automated product failure. Next manual review should focus on Fuel safety/copy nuance, Profile Audit feedback/preflight clarity, and physical mobile behavior before starting any fix pass."
+    ? "No automated product failure. Next manual review should focus on Fuel safety/copy nuance, Profile Safety history clarity, and physical mobile behavior before starting any fix pass."
     : "Start with the first failing audit step in the Playwright output, then decide whether the next pass is harness repair or product UX work.";
 
 mkdirSync(reportDir, { recursive: true });

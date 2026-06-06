@@ -36,7 +36,8 @@
     "release:evidence": "node scripts/generate-release-evidence.mjs",
     "release:quality": "node scripts/release-quality-gate.mjs",
     "dev:reset:supabase": "node scripts/dev-reset-supabase.mjs",
-    "preflight:beta": "node scripts/beta-preflight.mjs",
+    "preflight:production": "node scripts/production-preflight.mjs",
+    "preflight:beta": "npm run preflight:production",
     "smoke:live-db": "vitest run src/tests/live/liveDbSmoke.test.ts"
   },
   "dependencies": {

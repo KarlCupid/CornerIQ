@@ -6,10 +6,10 @@ export function buildProfileViewModel(state: PerformanceState): ProfileViewModel
     title: "Boxer profile",
     topAction: {
       title: "Profile action",
-      purpose: "Use Profile for boxer settings, privacy, data controls, and beta feedback.",
+      purpose: "Use Profile for boxer settings, privacy, data controls, and safety history.",
       primaryAction: "Keep athlete basics and preferences current when they change.",
       why: "Settings shape engine confidence; manual input remains enough without a wearable.",
-      optional: "Audit, export/delete, and feedback can wait until you need them."
+      optional: "Safety history and export/delete can wait until you need them."
     },
     summary: `${state.athlete.boxingLevel.replaceAll("_", " ")} - ${state.athlete.amateurOrPro}`,
     trainingAuditSummary: {

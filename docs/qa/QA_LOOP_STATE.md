@@ -1,6 +1,6 @@
 # QA Loop State
 
-This file is the persistent QA memory for CornerIQ beta readiness. Update it after every audit, AI review, fix pass, and verification pass.
+This file is the persistent QA memory for CornerIQ launch readiness. Update it after every audit, AI review, fix pass, and verification pass.
 
 ## Summary
 
@@ -14,12 +14,12 @@ This file is the persistent QA memory for CornerIQ beta readiness. Update it aft
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 3 human/AI review limitations remain explicitly tracked |
-| Next recommended action | Send `qa-artifacts/corneriq-agent-qa-bundle.zip` and `qa-artifacts/reports/agent-ai-review-brief.md` for AI qualitative review, then schedule physical iPhone checks and live Supabase/release-owner verification, including remote migrations `010` and `011`, before declaring controlled or distributed beta readiness. |
-| Beta readiness decision | needs_human_review |
+| Next recommended action | Send `qa-artifacts/corneriq-agent-qa-bundle.zip` and `qa-artifacts/reports/agent-ai-review-brief.md` for AI qualitative review, then schedule physical iPhone checks and live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
+| Launch readiness decision | needs_human_review |
 
-Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `controlled_beta_ready`, `distributed_beta_ready`.
+Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
 
-Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `needs_fix`, `fixed_needs_verification`, `verified`, `human_review_required`, `blocked`, `deferred`, `accepted_beta_limitation`.
+Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `needs_fix`, `fixed_needs_verification`, `verified`, `human_review_required`, `blocked`, `deferred`, `accepted_launch_limitation`.
 
 ## Surface Status
 
@@ -32,7 +32,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | tests | automated_pass | `cmd /c npm test` passed directly and again inside `qa:agent:ci`/`quality`; 528 tests passed and 1 live-smoke test skipped. |
 | lint | automated_pass | `cmd /c npm run lint` passed directly and again inside `qa:agent:ci`. |
 | quality | automated_pass | `cmd /c npm run quality` passed after the final app-functionality edits; 528 tests passed and 1 live-smoke test skipped. |
-| beta preflight | automated_pass | `cmd /c npm run preflight:beta` passed directly and again inside `qa:agent:ci`. |
+| production preflight | automated_pass | `cmd /c npm run preflight:production` passed directly and again inside `qa:agent:ci`. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
 | agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-05; 9 browser tests passed and the bundle was regenerated under `qa-artifacts/`. |
@@ -95,7 +95,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | missing food logs unknown/lower confidence | automated_pass | Missing-food copy is shortened to "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback." Missing food affects execution guidance and confidence, not baseline training generation. |
 | nutrition review/hard-stop/self-clear copy safe | automated_pass | Safety review copy says users cannot self-clear hard stops; athlete UI is read-only for reviewer decisions, and reviewer clear requires trusted server-side identity and audit. Agent audit passed. |
 | body mass copy safe | automated_pass | Fuel audit. |
-| no barcode/meal-planning expectation | accepted_beta_limitation | Barcode and meal planning are deferred. |
+| no barcode/meal-planning expectation | accepted_launch_limitation | Barcode and meal planning are deferred. |
 
 ### F. Train
 
@@ -125,7 +125,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Request deload understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
 | Restore engine plan understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
 | no coach-only controls exposed | automated_pass | Plan audit and scan. |
-| no drag/drop expectation | accepted_beta_limitation | Drag/drop calendar is deferred. |
+| no drag/drop expectation | accepted_launch_limitation | Drag/drop calendar is deferred. |
 | adjustment result/rejection copy understandable | human_review_required | Plan audit exercises controls; real boxer interpretation remains human-only. |
 | roll-forward/next-week materialization explanation | human_review_required | Next Week audit exercises controls where available; review-required copy avoids hard-stop labeling unless safety is actually blocking. |
 
@@ -136,12 +136,12 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | athlete section | automated_pass | Profile tab audit checks `profile-top-action-card` plus athlete/privacy context. |
 | settings section | automated_pass | Profile tab/sign-out audit required. |
 | data section | automated_pass | New data controls audit. |
-| audit section | automated_pass | Profile Audit audit. |
+| safety section | automated_pass | Profile Safety audit. |
 | sign out | automated_pass | Profile Settings smoke required. |
-| beta tester notice | automated_pass | Profile Audit audit. |
-| beta health preflight | automated_pass | Profile Audit audit. |
-| feedback panel | automated_pass | Profile Audit audit. |
-| feedback history | automated_pass | Profile Audit audit refresh control. |
+| launch notice removed | automated_pass | Profile Safety audit verifies removed runtime notice/panel text does not appear. |
+| runtime-readiness panel removed | automated_pass | Profile Safety audit verifies removed runtime-readiness panel text does not appear. |
+| in-app feedback removed | automated_pass | Profile Safety audit verifies in-app feedback/reporting surfaces do not appear. |
+| feedback history removed | automated_pass | Profile Safety audit verifies in-app feedback history does not appear. |
 | data export preview | automated_pass | Data controls audit covers export preview and generated portable JSON export affordance; portable bundle generation is service-tested. |
 | DELETE-gated deletion copy | automated_pass | New data controls audit. |
 | no accidental destructive action | automated_pass | Delete button disabled until preview plus DELETE. |
@@ -165,7 +165,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Fuel command output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
 | Train workout output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer usefulness remains human-only. |
 | Plan recommendation output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
-| beta persona coverage | automated_pass | Engine-output report required; object serialization leaks fail deterministic analysis. |
+| local launch persona coverage | automated_pass | Engine-output report required; object serialization leaks fail deterministic analysis. |
 | under-fueling risk case | automated_pass | Engine-output report required. |
 | red readiness case | automated_pass | Engine-output report required. |
 | same-day weigh-in case | automated_pass | Engine-output report required. |
@@ -187,20 +187,20 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no env values displayed | automated_pass | Static tests and page text scans. |
 | no tokens in screenshots/reports/page text | automated_pass | Deterministic scan. |
 | no medical history request beyond engine-relevant restrictions | automated_pass | Onboarding audit. |
-| no secrets in feedback | automated_pass | Profile Audit audit. |
-| no emergency details requested | automated_pass | Profile Audit audit. |
+| no in-app free-form support intake | automated_pass | Profile Safety audit verifies removed support/feedback fields do not appear. |
+| no emergency details requested | automated_pass | Profile Safety audit. |
 | cycle privacy respected | human_review_required | Automation checks copy and engine consent boundary; real user trust review remains human-only. |
 | wearable optional | automated_pass | Onboarding/Profile checks. |
-| feedback user-owned | human_review_required | Live data ownership requires Supabase/RLS check. |
+| support data ownership | deferred | In-app support intake is removed from launch runtime; any future support workflow needs Supabase/RLS review. |
 
 ### L. Supabase/live data
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| migrations aligned | human_review_required | Local migration `011_reviewer_workflow_export_feedback_statuses.sql` was added; remote migrations `010` and `011` still require release-owner/live Supabase verification. |
+| migrations aligned | human_review_required | Local migration `012_remove_beta_feedback_launch.sql` was added; remote migrations `010` through `012` still require release-owner/live Supabase verification. |
 | dry run up to date | human_review_required | Release-owner check, opt-in only. |
 | live smoke passes | human_review_required | Explicit live smoke only. |
-| feedback submit persists and cleans up | human_review_required | Live data check only. |
+| support intake removed from live app | automated_pass | In-app feedback persistence was removed from launch runtime; live data check should verify the old table is absent after migration `012`. |
 | data export/delete scope works | human_review_required | Live data check only. |
 | RLS/user-owned behavior remains safe | human_review_required | Live data check only. |
 | real auth/email confirmation reviewed | human_review_required | Live auth check only. |
@@ -224,7 +224,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | --- | --- | --- |
 | EAS project initialized | automated_pass | `app.json` links EAS project `906eba92-1dee-41d8-b27f-0c04f4fc6f1a`; `npx eas-cli project:info --non-interactive` verified `@karlcupid/corneriq` on 2026-06-03. |
 | preview build artifact exists | automated_pass | Android preview build `d550e9bb-b705-41a3-bae7-76c2b6d38453` failed in Gradle/Hermes from a floating Supabase dynamic import. The dependency/config fix is applied locally and fresh build `c21c5692-011e-4c85-949f-355d0e1f753f` finished on 2026-06-03 with APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`. |
-| tester list controlled | human_review_required | Managed outside git. |
+| private distribution list controlled | human_review_required | Managed outside git. |
 | app icon/splash/store metadata accepted or fixed | human_review_required | Release owner required. |
 | private distribution channel confirmed | human_review_required | Release owner required. |
 | no secrets in build config | automated_pass | Static/preflight checks required. |

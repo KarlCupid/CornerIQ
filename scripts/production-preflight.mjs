@@ -36,7 +36,7 @@ function parseEnvExampleNames() {
 function checkPackageScripts() {
   const packageJson = readJson("package.json");
   const scripts = packageJson.scripts ?? {};
-  for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:beta", "smoke:live-db"]) {
+  for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:production", "smoke:live-db"]) {
     if (typeof scripts[scriptName] !== "string") {
       failures.push(`Missing package script: ${scriptName}`);
     }
@@ -70,7 +70,7 @@ function checkPublicEnvDeclarations() {
 }
 
 function checkSensitiveConfigMarkers() {
-  const files = ["app.json", "app.config.js", "app.config.ts", "eas.json", "src/services/supabase/client.ts", "src/services/config/betaRuntimeConfig.ts"].filter((path) =>
+  const files = ["app.json", "app.config.js", "app.config.ts", "eas.json", "src/services/supabase/client.ts", "src/services/config/runtimeConfig.ts"].filter((path) =>
     existsSync(pathFromRoot(path))
   );
   const markers = [
@@ -89,7 +89,7 @@ function checkSensitiveConfigMarkers() {
   }
 }
 
-for (const file of ["app.json", "eas.json", "docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md", "docs/21_BETA_RELEASE_OPERATIONS.md", "docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md", "docs/24_EXPO_EAS_BETA_DISTRIBUTION.md"]) {
+for (const file of ["app.json", "eas.json", "docs/FEATURE_STATUS.md", "docs/KNOWN_GAPS.md", "docs/qa/README.md"]) {
   requireFile(file);
 }
 
@@ -100,13 +100,13 @@ checkPublicEnvDeclarations();
 checkSensitiveConfigMarkers();
 
 if (failures.length > 0) {
-  console.error("Beta preflight failed:");
+  console.error("Production preflight failed:");
   for (const failure of failures) {
     console.error(`- ${failure}`);
   }
   process.exit(1);
 }
 
-console.log("Beta preflight passed.");
+console.log("Production preflight passed.");
 console.log("Checked public env declarations: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY.");
-console.log("Checked package scripts, EAS profiles, app config, client config markers, and beta release docs.");
+console.log("Checked package scripts, EAS profiles, app config, client config markers, and launch docs.");

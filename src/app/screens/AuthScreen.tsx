@@ -59,7 +59,7 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
             {recovering
               ? "Request a Supabase password reset email. If your account exists, the reset happens outside this app."
               : signingUp
-                ? "Create an account for beta testing. After sign-up, check your email to confirm before signing in."
+                ? "Create an account. After sign-up, check your email to confirm before signing in."
                 : "Already have an account? Sign in to load your boxer prep state."}
           </Text>
         </View>
@@ -79,7 +79,7 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
         </View>
         {!recovering ? <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.fieldLabel}>Password</Text>
-          <Text style={screenStyles.subtle}>{signingUp ? "Use a password you will remember for the beta." : "Enter the password for your existing account."}</Text>
+          <Text style={screenStyles.subtle}>{signingUp ? "Use a password you will remember." : "Enter the password for your existing account."}</Text>
           <TextInput
             accessibilityLabel="Password"
             onChangeText={setPassword}

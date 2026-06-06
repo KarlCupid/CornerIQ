@@ -12,6 +12,8 @@ describe("agent browser QA static checks", () => {
     expect(isLocalE2EMode({})).toBe(false);
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "0" })).toBe(false);
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1" })).toBe(true);
+    expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", NODE_ENV: "production" })).toBe(false);
+    expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PRODUCTION: "1" })).toBe(false);
   });
 
   it("defines agent QA scripts, docs, and Playwright scenario", () => {
@@ -107,7 +109,7 @@ describe("agent browser QA static checks", () => {
     expect(scenario).toContain("medications");
   });
 
-  it("defines the beta QA loop rubric, matrix, state, and bundle outputs", () => {
+  it("defines the launch QA loop rubric, matrix, state, and bundle outputs", () => {
     const rubric = readSource("docs/qa/QA_RUBRIC.md");
     for (const severity of ["Blocker", "High", "Medium", "Low"]) {
       expect(rubric).toContain(`## ${severity}`);
@@ -164,7 +166,7 @@ describe("agent browser QA static checks", () => {
       "human_review_required",
       "blocked",
       "deferred",
-      "accepted_beta_limitation"
+      "accepted_launch_limitation"
     ]) {
       expect(state).toContain(status);
     }
@@ -310,7 +312,7 @@ describe("agent browser QA static checks", () => {
       "fuel-command-section",
       "train-today-section",
       "plan-week-section",
-      "profile-audit-section",
+      "profile-safety-section",
       "profile-data-section"
     ]) {
       expect(scenario).toContain(scope);

@@ -104,7 +104,7 @@ const fields = {
     `Candidate ${sha}; not recorded yet; run npm run release:quality after exact external evidence is captured.`,
   localCommandResults:
     input.localCommandResults ??
-    `Candidate ${sha}; not recorded yet. Run typecheck, test, lint, preflight:beta, smoke:fixtures, test:coverage, audit, qa:agent:ci, and record pass/fail without secrets.`,
+    `Candidate ${sha}; not recorded yet. Run typecheck, test, lint, preflight:production, smoke:fixtures, test:coverage, audit, qa:agent:ci, and record pass/fail without secrets.`,
   coverageResult:
     input.coverageResult ??
     `Candidate ${sha}; not recorded yet. Record statements, functions, lines, and branches from npm run test:coverage.`,
@@ -117,9 +117,10 @@ const fields = {
   easMobile:
     input.easMobile ??
     "Separate mobile lane, explicitly excluded from local production-readiness scoring. Android APK artifact can be recorded here only as mobile-lane evidence; private distribution and physical-device checks remain release-owner work.",
-  humanBeta:
+  humanBoxerValidation:
+    input.humanBoxerValidation ??
     input.humanBeta ??
-    `No real boxer findings recorded for candidate ${sha}; scripted beta readiness only and production UX validation remains human_review_required.`,
+    `No real boxer findings recorded for candidate ${sha}; scripted automation only and production UX validation remains human_review_required.`,
   knownBlockers:
     input.knownBlockers ??
     "Supabase migration 010 remote alignment, live smoke, exact Quality/CodeQL run evidence, Release Quality pass evidence, private mobile distribution, physical-device checks, and real boxer comprehension findings remain unresolved until recorded."
@@ -144,7 +145,7 @@ ${tableRow("Coverage result", fields.coverageResult)}
 ${tableRow("Supabase migration list/dry-run", fields.supabaseMigration)}
 ${tableRow("Live smoke", fields.liveSmoke)}
 ${tableRow("EAS/mobile artifact status", fields.easMobile)}
-${tableRow("Human beta findings", fields.humanBeta)}
+${tableRow("Human boxer validation", fields.humanBoxerValidation)}
 ${tableRow("Known blockers", fields.knownBlockers)}
 
 ## Release Rules
@@ -155,7 +156,7 @@ ${tableRow("Known blockers", fields.knownBlockers)}
 - Supabase migration \`010_generated_sessions_training_block_scope.sql\` remains release-blocking until migration list and dry-run evidence prove remote alignment.
 - Live smoke remains release-blocking until \`smoke:live-db\` passes with non-secret rows-created/rows-cleaned evidence.
 - EAS/mobile status is a separate lane and must not be counted as local production readiness.
-- Scripted beta readiness is not real boxer validation.
+- Scripted automation is not real boxer validation.
 `;
 
 mkdirSync(dirname(resolvePath(outputPath)), { recursive: true });

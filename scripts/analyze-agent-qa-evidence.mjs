@@ -28,10 +28,8 @@ const expectedScreenshots = [
   "11-mobile-today-after-real-onboarding.png",
   "12-fuel-screen.png",
   "12-fuel-food-quick-log-submit.png",
-  "13-profile-audit-screen.png",
-  "14-beta-feedback-panel.png",
-  "14-beta-feedback-submit.png",
-  "15-beta-health-panel.png",
+  "13-profile-safety-screen.png",
+  "14-profile-safety-history-detail.png",
   "16-train-today-screen.png",
   "17-train-workout-no-detail.png",
   "19-train-exercise-history.png",
@@ -49,8 +47,8 @@ const expectedScreenshots = [
 
 const expectedScenarios = [
   "full first-time onboarding uses real inputs before Today",
-  "Fuel screen preserves beta nutrition safety framing after local onboarding",
-  "Profile Audit exposes beta feedback and preflight safeguards after local onboarding",
+  "Fuel screen preserves launch nutrition safety framing after local onboarding",
+  "Profile Safety exposes launch safety history after local onboarding",
   "Train screen exposes safe generated training and completion affordances",
   "Plan screen exposes week, next week, history, and engine-owned adjustments",
   "Profile Data controls require preview and DELETE confirmation",
@@ -65,10 +63,7 @@ const comprehensionNeedles = [
   { key: "Training action", pattern: /training action/i },
   { key: "Plan action", pattern: /plan action/i },
   { key: "Profile action", pattern: /profile action/i },
-  { key: "not medical advice", pattern: /not medical advice/i },
-  { key: "not emergency support", pattern: /no emergency support|not emergency support/i },
-  { key: "beta notice", pattern: /this is a beta|beta tester notice/i },
-  { key: "feedback warning", pattern: /do not include emergency details or secrets|avoid entering secrets or emergency details/i },
+  { key: "support outside app", pattern: /qualified support outside the app|contact support outside the app/i },
   { key: "manual input and wearable optional", pattern: /(manual logs are enough|manual input is first-class|manual-only is a complete setup).*(wearables are optional|wearable|manual input remains first-class)/is },
   { key: "unknown is not safe", pattern: /unknown, not safe|missing data (?:is|stays) unknown|missing data lowers confidence|missed logs stay unknown/i }
 ];
@@ -382,14 +377,14 @@ ${notStarted > 0 ? "- See docs/qa/QA_LOOP_STATE.md for any remaining not_started
 - Fuel pressure/safety nuance.
 - Train boxing specificity, usefulness, and overconfidence.
 - Plan adjustment and next-week comprehension.
-- Engine-output quality across beta personas.
+- Engine-output quality across local launch personas.
 
 ## Surfaces Requiring Human Review
 
-- Real Supabase auth, email confirmation, session persistence, RLS, live feedback/data behavior.
+- Real Supabase auth, email confirmation, session persistence, RLS, and live data behavior.
 - Physical iPhone touch, keyboard, scrolling, safe area, and density.
 - Real boxer comprehension, trust, safety interpretation, and usefulness.
-- Distribution/EAS preview artifact, tester list, metadata, and private release channel.
+- Distribution/EAS artifact, private distribution list, metadata, and release channel.
 
 ## Open Findings
 
@@ -442,7 +437,7 @@ ${objectObjectFindings.length ? objectObjectFindings.map((item) => `- ${item.key
 - Fuel safety without weight-class pressure.
 - Train generated support and completion path.
 - Plan week, next week, and adjustment controls.
-- Profile feedback, beta health, and data controls.
+- Profile safety history and data controls.
 
 ## Human-Comprehension Review Targets
 
@@ -450,7 +445,7 @@ ${objectObjectFindings.length ? objectObjectFindings.map((item) => `- ${item.key
 - Does any copy create weight-class pressure?
 - Does missing data read as unknown rather than safe?
 - Does the app avoid pretending to be medical, emergency, coach, or reviewer support?
-- Would a real beta tester trust the data and feedback controls?
+- Would a real boxer trust the safety-history and data controls?
 
 ## Recommended Next Fix Pass
 
@@ -460,14 +455,14 @@ ${analysis.automated_status === "pass" ? "- No deterministic fix pass before AI 
 
 - ${analysis.next_recommended_surface}
 
-## Do Not Mark Beta-Ready Until
+## Do Not Mark Launch-Ready Until
 
 - All deterministic Blocker and High findings are resolved.
 - Any required Medium findings are resolved or explicitly accepted by the release owner.
 - AI qualitative review has reviewed the bundle.
 - Live Supabase/auth/email/data behavior has real opt-in evidence.
 - Physical iPhone behavior has real device evidence.
-- Distribution has a preview build artifact and controlled tester path before any distributed-beta claim.
+- Distribution has an accepted build artifact and controlled private distribution path before any external launch claim.
 `;
 
 writeFileSync(aiBriefPath, aiBrief);

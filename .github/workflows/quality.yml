@@ -26,8 +26,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Beta preflight
-        run: npm run preflight:beta
+      - name: Production preflight
+        run: npm run preflight:production
 
       - name: Dependency audit
         run: npm audit --audit-level=high --omit=dev

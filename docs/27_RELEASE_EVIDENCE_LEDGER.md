@@ -31,7 +31,7 @@ Use this exact field set in the generated release evidence artifact for each can
 | Supabase migration list/dry-run | Supabase CLI version, migration list status, `010_generated_sessions_training_block_scope.sql` status, dry-run result, and exact SHA. |
 | Live smoke | Date/time, command, env names present yes/no, pass/fail, rows created/cleaned summary, and exact SHA. |
 | EAS/mobile artifact status | Separate mobile-lane status; artifact URL only if private-sharing rules allow recording it. |
-| Human beta findings | Scripted beta readiness versus real boxer findings status. |
+| Human boxer validation | Scripted automation versus real boxer validation status. |
 | Known blockers | Unresolved credential, remote, workflow, mobile, physical-device, or human-review blockers. |
 
 ## Generated Artifact Rules
@@ -50,22 +50,22 @@ Use this exact field set in the generated release evidence artifact for each can
 - Do not mark Supabase migration `010` remotely verified unless migration list and dry-run evidence are recorded for the exact SHA.
 - Do not mark live smoke passed unless the command result and rows-created/rows-cleaned summary are recorded without secret values.
 - Do not count EAS/mobile deliverability inside local production-readiness scores.
-- Do not convert scripted beta QA into real boxer findings.
+- Do not convert scripted automation into real boxer validation.
 - Do not claim production launch readiness while Supabase migration `010`, live smoke, physical-device checks, private distribution, or real boxer findings remain unresolved.
 
-## Human Beta Findings Template
+## Human Boxer Validation Template
 
 Committed docs may include only this structure. Real findings belong in a private or ignored artifact.
 
 | Field | Notes |
 | --- | --- |
-| Tester/session alias | Use an alias, not a personal email or full name. |
+| Session alias | Use an alias, not a personal email or full name. |
 | Flow tested | Today, Fuel, Train, Plan, Profile, auth, data controls, or another explicit flow. |
 | First-action comprehension | What the boxer thought they should do first. |
 | Confusion severity | None, low, medium, high, or critical. |
 | Safety interpretation | Whether the boxer understood hard stops, under-fueling, weight-class pressure, and qualified-support boundaries. |
-| Privacy interpretation | Whether the boxer understood cycle, wearable, feedback, and data-control boundaries. |
-| Action taken | Product change, documentation update, accepted beta limitation, or no action. |
+| Privacy interpretation | Whether the boxer understood cycle, wearable, support, and data-control boundaries. |
+| Action taken | Product change, documentation update, accepted launch limitation, or no action. |
 | Private health details | Must not be recorded in committed docs. |
 
 ## Example Generated Evidence Commands
@@ -81,4 +81,4 @@ Optional ignored input for the generator:
 qa-artifacts/release-evidence/release-evidence-input.json
 ```
 
-The input file may contain sanitized strings for `qualityRun`, `codeqlRun`, `releaseQualityRun`, `localCommandResults`, `coverageResult`, `supabaseMigration`, `liveSmoke`, `easMobile`, `humanBeta`, and `knownBlockers`. The generator rejects obvious secret-shaped values.
+The input file may contain sanitized strings for `qualityRun`, `codeqlRun`, `releaseQualityRun`, `localCommandResults`, `coverageResult`, `supabaseMigration`, `liveSmoke`, `easMobile`, `humanBoxerValidation`, and `knownBlockers`. The generator rejects obvious secret-shaped values.

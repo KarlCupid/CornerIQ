@@ -129,45 +129,6 @@ export type Database = {
         }
         Relationships: []
       }
-      beta_feedback_reports: {
-        Row: {
-          category: string
-          created_at: string
-          feedback_payload: Json
-          id: string
-          message: string
-          screen: string
-          severity: string
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          category: string
-          created_at?: string
-          feedback_payload?: Json
-          id?: string
-          message: string
-          screen: string
-          severity?: string
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          category?: string
-          created_at?: string
-          feedback_payload?: Json
-          id?: string
-          message?: string
-          screen?: string
-          severity?: string
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       body_mass_logs: {
         Row: {
           body_mass_kg: number

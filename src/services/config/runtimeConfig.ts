@@ -1,13 +1,13 @@
 export const PUBLIC_SUPABASE_URL_ENV = "EXPO_PUBLIC_SUPABASE_URL";
 export const PUBLIC_SUPABASE_ANON_KEY_ENV = "EXPO_PUBLIC_SUPABASE_ANON_KEY";
 
-export type BetaRuntimePublicEnvName = typeof PUBLIC_SUPABASE_URL_ENV | typeof PUBLIC_SUPABASE_ANON_KEY_ENV;
+export type PublicRuntimeEnvName = typeof PUBLIC_SUPABASE_URL_ENV | typeof PUBLIC_SUPABASE_ANON_KEY_ENV;
 
-export interface BetaRuntimeConfig {
+export interface PublicRuntimeConfig {
   hasAnonKey: boolean;
   hasSupabaseUrl: boolean;
   isPublicAnonKeyOnly: boolean;
-  missingVariableNames: readonly BetaRuntimePublicEnvName[];
+  missingVariableNames: readonly PublicRuntimeEnvName[];
   noServiceRoleInClientWarning: string | null;
 }
 
@@ -39,15 +39,15 @@ function keyLooksServerOnly(value: string): boolean {
   return value.toLowerCase().includes(blockedRole) || decodeJwtRole(value) === blockedRole;
 }
 
-export function getBetaRuntimeConfig(env: RuntimeEnv = readRuntimeEnv()): BetaRuntimeConfig {
+export function getPublicRuntimeConfig(env: RuntimeEnv = readRuntimeEnv()): PublicRuntimeConfig {
   const supabaseUrl = env[PUBLIC_SUPABASE_URL_ENV]?.trim();
   const anonKey = env[PUBLIC_SUPABASE_ANON_KEY_ENV]?.trim();
   const hasSupabaseUrl = Boolean(supabaseUrl);
   const hasAnonKey = Boolean(anonKey);
-  const missingVariableNames: BetaRuntimePublicEnvName[] = [
+  const missingVariableNames: PublicRuntimeEnvName[] = [
     hasSupabaseUrl ? null : PUBLIC_SUPABASE_URL_ENV,
     hasAnonKey ? null : PUBLIC_SUPABASE_ANON_KEY_ENV
-  ].filter((name): name is BetaRuntimePublicEnvName => name !== null);
+  ].filter((name): name is PublicRuntimeEnvName => name !== null);
   const isPublicAnonKeyOnly = hasAnonKey && anonKey ? !keyLooksServerOnly(anonKey) : false;
   const noServiceRoleInClientWarning =
     hasAnonKey && !isPublicAnonKeyOnly

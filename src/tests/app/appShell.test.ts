@@ -4,12 +4,10 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 import type { CycleSymptom, FuelViewModel, GeneratedTrainingSession, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
-import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
-import { useBetaFeedback, type BetaFeedbackHook } from "../../hooks/useBetaFeedback";
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
 import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
 import { useSupabaseSession } from "../../hooks/useSupabaseSession";
@@ -388,8 +386,8 @@ const fuelViewModel: FuelViewModel = {
     historyEvents: [],
     noHistoryCopy: "No review events are loaded yet. Active hard stops still remain active.",
     safetyCopy: "You cannot self-clear nutrition hard stops.",
-    reviewerFutureCopy: "Reviewer-clear workflow is not in the app yet.",
-    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support."
+    qualifiedSupportCopy: "CornerIQ cannot clear hard stops in the app. Seek qualified support outside the app when a safety stop is active.",
+    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app."
   },
   bodyMassSummary: "Trend unknown",
   cycleNote: null,
@@ -829,10 +827,10 @@ const profileViewModel: ProfileViewModel = {
   title: "Profile",
   topAction: {
     title: "Profile action",
-    purpose: "Use Profile for boxer settings, privacy, data controls, and beta feedback.",
+    purpose: "Use Profile for boxer settings, privacy, data controls, and safety history.",
     primaryAction: "Keep athlete basics and preferences current when they change.",
     why: "Settings shape engine confidence; manual input remains enough without a wearable.",
-    optional: "Audit, export/delete, and feedback can wait until you need them."
+    optional: "Safety history and export/delete can wait until you need them."
   },
   summary: "Amateur novice boxer.",
   trainingAuditSummary: {
@@ -841,31 +839,6 @@ const profileViewModel: ProfileViewModel = {
     currentWeekIndex: 2
   },
   privacyNotes: ["Cycle tracking is optional and private."]
-};
-
-const betaHealthViewModel: BetaHealthViewModel = {
-  betaTesterCopy: "This beta session is ready for structured boxer testing.",
-  checks: [
-    {
-      key: "auth_session",
-      label: "Auth session",
-      nextAction: null,
-      status: "ready",
-      summary: "Signed in with public client configuration."
-    },
-    {
-      key: "feedback_available",
-      label: "Feedback available",
-      nextAction: null,
-      status: "ready",
-      summary: "Profile Audit can submit and show user-owned beta feedback."
-    }
-  ],
-  nextSafeAction: null,
-  overallStatus: "ready",
-  supportCopy: "Use Profile Audit feedback for bugs or confusing moments. Urgent safety concerns need qualified support outside the app.",
-  title: "Beta health preflight",
-  warnings: []
 };
 
 const recentLogsViewModel: RecentLogsViewModel = {
@@ -1163,67 +1136,6 @@ function createUserDataClient() {
   return { client: client as unknown as CornerSupabaseClient, deleted, selected };
 }
 
-function createBetaFeedbackHookClient() {
-  const inserted: unknown[] = [];
-  const listed: unknown[] = [];
-  const row = {
-    id: "feedback_1",
-    user_id: "user_1",
-    screen: "profile",
-    category: "confusing",
-    severity: "medium",
-    message: "Audit section was dense.",
-    status: "received",
-    feedback_payload: { source: "test" },
-    created_at: "2026-05-20T00:00:00.000Z",
-    updated_at: "2026-05-20T00:00:00.000Z"
-  };
-  const query = {
-    eq(column: string, value: string) {
-      listed.push({ method: "eq", column, value });
-      return query;
-    },
-    order() {
-      return query;
-    },
-    limit(value: number) {
-      listed.push({ method: "limit", value });
-      return Promise.resolve({ data: [row], error: null });
-    }
-  };
-  const client = {
-    from(table: string) {
-      return {
-        insert(record: unknown) {
-          inserted.push({ table, record });
-          const saved = record as Record<string, unknown>;
-          return {
-            select() {
-              return {
-                single: async () => ({
-                  data: {
-                    ...row,
-                    ...saved,
-                    id: "feedback_1",
-                    created_at: row.created_at,
-                    updated_at: row.updated_at,
-                    status: saved.status ?? "received"
-                  },
-                  error: null
-                })
-              };
-            }
-          };
-        },
-        select() {
-          return query;
-        }
-      };
-    }
-  };
-  return { client: client as unknown as CornerSupabaseClient, inserted, listed };
-}
-
 describe("minimal app screens", () => {
   it("AuthScreen renders", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
@@ -1335,103 +1247,6 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).not.toContain("Expanded child");
     await switchSection(renderer, "Empty action");
     expect(onAction).toHaveBeenCalled();
-  });
-
-  it("BetaFeedbackPanel validates notes, submits through the hook boundary, and shows safety copy", async () => {
-    const { BetaFeedbackPanel } = await import("../../app/components/BetaFeedbackPanel");
-    const onSubmit = vi.fn(async () => ({
-      status: "submitted" as const,
-      report: {
-        id: "feedback_1",
-        userId: "user_1",
-        screen: "profile" as const,
-        category: "safety_concern" as const,
-        severity: "high" as const,
-        message: "Safety copy felt unclear.",
-        status: "received" as const,
-        feedbackPayload: {},
-        createdAt: "2026-05-20T00:00:00.000Z",
-        updatedAt: "2026-05-20T00:00:00.000Z"
-      },
-      message: "Feedback received. It is saved to your account for beta review."
-    }));
-    const renderer = render(React.createElement(BetaFeedbackPanel, { defaultScreen: "profile", onSubmit }));
-
-    let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Do not include emergency details or secrets.");
-    expect(output).toContain("This is not emergency support");
-    expect(output).toContain("not medical review");
-
-    await act(async () => {
-      await press(pressableWithText(renderer, "Send feedback"));
-    });
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(JSON.stringify(renderer.toJSON())).toContain("Add a short note");
-
-    await switchSection(renderer, "Safety concern");
-    output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("If this is urgent, stop and seek qualified support.");
-
-    act(() => {
-      changeInput(renderer, "What should we know?", "Safety copy felt unclear.");
-    });
-    await act(async () => {
-      await press(pressableWithText(renderer, "Send feedback"));
-    });
-
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ category: "safety_concern", message: "Safety copy felt unclear." }));
-    expect(JSON.stringify(renderer.toJSON())).toContain("Feedback received");
-  });
-
-  it("BetaFeedbackPanel renders recent feedback status history without client status editing", async () => {
-    const { BetaFeedbackPanel } = await import("../../app/components/BetaFeedbackPanel");
-    const reports = [
-      {
-        id: "feedback_received",
-        userId: "user_1",
-        screen: "profile" as const,
-        category: "bug" as const,
-        severity: "high" as const,
-        message: "Profile Audit crashed after opening.",
-        status: "received" as const,
-        feedbackPayload: {},
-        createdAt: "2026-05-20T00:00:00.000Z",
-        updatedAt: "2026-05-20T00:00:00.000Z"
-      },
-      {
-        id: "feedback_resolved",
-        userId: "user_1",
-        screen: "fuel" as const,
-        category: "fuel_feedback" as const,
-        severity: "medium" as const,
-        message: "Fuel copy was clearer after review.",
-        status: "resolved" as const,
-        feedbackPayload: {},
-        createdAt: "2026-05-21T00:00:00.000Z",
-        updatedAt: "2026-05-21T00:00:00.000Z"
-      }
-    ];
-    const output = JSON.stringify(render(React.createElement(BetaFeedbackPanel, { defaultScreen: "profile", onSubmit: vi.fn(), recentReports: reports })).toJSON());
-
-    expect(output).toContain("Recent feedback");
-    expect(output).toContain("Received");
-    expect(output).toContain("Resolved");
-    expect(output).toContain("2026-05-20");
-    expect(output).toContain("Profile Audit crashed");
-    expect(output).not.toMatch(/mark reviewed|mark resolved|dismiss report|edit status/i);
-  });
-
-  it("BetaFeedbackPanel renders recent feedback empty and signed-out states clearly", async () => {
-    const { BetaFeedbackPanel } = await import("../../app/components/BetaFeedbackPanel");
-    const signedOut = render(React.createElement(BetaFeedbackPanel, { defaultScreen: "profile", recentReports: [] }));
-
-    let output = JSON.stringify(signedOut.toJSON());
-    expect(output).toContain("No feedback reports yet. Send a note after a confusing beta moment");
-    await act(async () => {
-      await press(pressableWithText(signedOut, "Send feedback"));
-    });
-    output = JSON.stringify(signedOut.toJSON());
-    expect(output).toContain("Sign in is required before sending beta feedback.");
   });
 
   it("TodayScreen renders view model fields", async () => {
@@ -1633,12 +1448,10 @@ describe("minimal app screens", () => {
   it("FuelScreen renders safety review up front without dangerous instructions", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const state = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
-    const onRequestNutritionSafetyReview = vi.fn();
     const renderer = render(
       React.createElement(FuelScreen, {
         busy: false,
         message: null,
-        onRequestNutritionSafetyReview,
         quickLogs: quickLogActions,
         recentLogs: recentLogsViewModel,
         viewModel: state.viewModels.fuel
@@ -1653,14 +1466,10 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Show Safety review");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Review required before this plan can continue");
-    expect(output).toContain("Request safety review");
+    expect(output).not.toContain("Request safety review");
     expect(output).toContain("You cannot self-clear nutrition hard stops.");
-    expect(output).toContain("Athlete UI is read-only for reviewer decisions; reviewer clear requires trusted server-side identity and audit.");
-    expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and seek qualified support.");
-    await act(async () => {
-      await press(pressableWithText(renderer, "Request safety review"));
-    });
-    expect(onRequestNutritionSafetyReview).toHaveBeenCalledTimes(1);
+    expect(output).toContain("CornerIQ cannot clear hard stops in the app.");
+    expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app.");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
   });
 
@@ -1744,7 +1553,7 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Acknowledge review status"));
     });
     expect(onAcknowledgeNutritionSafetyReview).toHaveBeenCalledWith("review_1");
-    expect(output).not.toMatch(/clear review|clear hard stop|cleared/i);
+    expect(output).not.toMatch(/clear review|clear as reviewer|reviewer-clear/i);
 
     await switchSection(renderer, "Hide Safety review");
     await switchSection(renderer, "Show History");
@@ -1796,14 +1605,15 @@ describe("minimal app screens", () => {
             {
               date: "2026-05-19",
               eventType: "acknowledged",
+              eventLabel: "acknowledged",
               actorType: "athlete",
               summary: "Acknowledged by athlete. This does not clear the plan."
             }
           ],
           noHistoryCopy: "No review events are loaded yet.",
           safetyCopy: "You cannot self-clear nutrition hard stops.",
-          reviewerFutureCopy: "Reviewer-clear workflow is not in the app yet.",
-          urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support."
+          qualifiedSupportCopy: "CornerIQ cannot clear hard stops in the app. Seek qualified support outside the app when a safety stop is active.",
+          urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app."
         }
       })
     );
@@ -1812,7 +1622,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("review_1");
     expect(output).toContain("hard stop remains active");
     expect(output).toContain("You cannot self-clear nutrition hard stops.");
-    expect(output).toContain("Reviewer-clear workflow is not in the app yet.");
+    expect(output).toContain("CornerIQ cannot clear hard stops in the app.");
     expect(output).toContain("For urgent symptoms or unsafe weight concerns");
     expect(renderer.root.findAllByType("Pressable")).toHaveLength(0);
     expect(output).not.toMatch(/clear button|self-clear: yes/i);
@@ -3131,20 +2941,19 @@ describe("minimal app screens", () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     const renderer = render(
       React.createElement(ProfileScreen, {
-            asOfDate: fixtureAsOfDate,
-            betaHealth: betaHealthViewModel,
-            busy: false,
-            cycleTrackingStatus: "undecided",
-            cycleContext: null,
-            equipmentAccess: ["jump_rope"],
-            onSignOut: vi.fn(),
-            onUpdateSettings: vi.fn(),
-            preferredUnits: "metric",
-            recentLogs: recentLogsViewModel,
-            viewModel: profileViewModel,
-            wearablePreference: "manual_only",
-            wearableStatus: "manual only"
-        })
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        cycleTrackingStatus: "undecided",
+        cycleContext: null,
+        equipmentAccess: ["jump_rope"],
+        onSignOut: vi.fn(),
+        onUpdateSettings: vi.fn(),
+        preferredUnits: "metric",
+        recentLogs: recentLogsViewModel,
+        viewModel: profileViewModel,
+        wearablePreference: "manual_only",
+        wearableStatus: "manual only"
+      })
     );
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Profile action");
@@ -3152,82 +2961,13 @@ describe("minimal app screens", () => {
     expect(output).toContain("manual input remains enough");
     expect(output).toContain("Cycle tracking is optional and private.");
     expect(output).toContain("Cycle data is optional");
-    await switchSection(renderer, "Audit");
+    await switchSection(renderer, "Safety");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Beta tester notice");
-    expect(output).toContain("This is a beta.");
-    expect(output).toContain("Not medical advice.");
-    expect(output).toContain("Not dietetic care.");
-    expect(output).toContain("Not a boxing coaching replacement.");
-    expect(output).toContain("Not a replacement for qualified human judgment.");
-    expect(output).toContain("No emergency support.");
-    expect(output).toContain("Do not use to self-clear hard stops.");
-    expect(output).toContain("pregnancy");
-    expect(output).toContain("Manual logs are enough.");
-    expect(output).toContain("Beta health preflight");
-    expect(output).toContain("Beta feedback");
-    expect(output).toContain("Do not include emergency details or secrets.");
-    expect(output).toContain("Training audit");
+    expect(output).toContain("Training history");
     expect(output).toContain("Current block week");
-    expect(output).toContain("Fuel review audit");
+    expect(output).toContain("Fuel safety history");
     expect(output).toContain("cannot self-clear");
-  });
-
-  it("BetaTesterNoticePanel renders beta consent copy and local acknowledgement", async () => {
-    const { BetaTesterNoticePanel } = await import("../../app/components/BetaTesterNoticePanel");
-    const renderer = render(React.createElement(BetaTesterNoticePanel));
-    let output = JSON.stringify(renderer.toJSON());
-
-    expect(output).toContain("This is a beta.");
-    expect(output).toContain("Not medical advice.");
-    expect(output).toContain("Not dietetic care.");
-    expect(output).toContain("Not a boxing coaching replacement.");
-    expect(output).toContain("No emergency support.");
-    expect(output).toContain("Do not use for urgent symptoms.");
-    expect(output).toContain("Do not use to self-clear hard stops.");
-    expect(output).toContain("eating-disorder risk");
-    expect(output).toContain("Wearables are optional.");
-    expect(output).toContain("Manual logs are enough.");
-    expect(output).toContain("Avoid entering secrets or emergency details in feedback.");
-    expect(output).toContain("I understand this beta notice");
-
-    await act(async () => {
-      await press(pressableWithText(renderer, "I understand this beta notice"));
-    });
-    output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Beta notice acknowledged");
-    expect(output).toContain("local to this screen");
-  });
-
-  it("BetaHealthPanel renders warning next action", async () => {
-    const { BetaHealthPanel } = await import("../../app/components/BetaHealthPanel");
-    const output = JSON.stringify(
-      render(
-        React.createElement(BetaHealthPanel, {
-          viewModel: {
-            ...betaHealthViewModel,
-            betaTesterCopy: "This beta session needs attention before it should be treated as ready.",
-            checks: [
-              ...betaHealthViewModel.checks,
-              {
-                key: "profile_complete",
-                label: "Profile complete",
-                nextAction: "Finish boxer setup before using beta training or fuel decisions.",
-                status: "warning",
-                summary: "Boxer setup is incomplete."
-              }
-            ],
-            nextSafeAction: "Finish boxer setup before using beta training or fuel decisions.",
-            overallStatus: "warning",
-            warnings: ["Profile complete: Boxer setup is incomplete."]
-          }
-        })
-      ).toJSON()
-    );
-
-    expect(output).toContain("Beta preflight needs attention");
-    expect(output).toContain("Next safe action:");
-    expect(output).toContain("Finish boxer setup before using beta training or fuel decisions.");
+    expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback/i);
   });
 
   it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {
@@ -3238,7 +2978,6 @@ describe("minimal app screens", () => {
     const renderer = render(
       React.createElement(ProfileScreen, {
         asOfDate: fixtureAsOfDate,
-        betaHealth: betaHealthViewModel,
         busy: false,
         cycleTrackingStatus: "undecided",
         cycleContext: null,
@@ -3279,61 +3018,6 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
     const deleteButton = pressableWithText(renderer, "Delete app data");
     expect(deleteButton?.props.disabled).toBe(true);
-  });
-
-  it("ProfileScreen Audit section submits beta feedback through the provided hook", async () => {
-    const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
-    const submitFeedback = vi.fn(async () => ({
-      status: "submitted" as const,
-      report: {
-        id: "feedback_1",
-        userId: "user_1",
-        screen: "profile" as const,
-        category: "confusing" as const,
-        severity: "medium" as const,
-        message: "Audit tab was dense.",
-        status: "received" as const,
-        feedbackPayload: {},
-        createdAt: "2026-05-20T00:00:00.000Z",
-        updatedAt: "2026-05-20T00:00:00.000Z"
-      },
-      message: "Feedback received. It is saved to your account for beta review."
-    }));
-    const renderer = render(
-      React.createElement(ProfileScreen, {
-        asOfDate: fixtureAsOfDate,
-        betaFeedback: {
-          busy: false,
-          loadRecentFeedbackReports: vi.fn(),
-          message: null,
-          recentReports: [],
-          refreshReports: vi.fn(),
-          submitFeedback
-        },
-        betaHealth: betaHealthViewModel,
-        busy: false,
-        cycleTrackingStatus: "undecided",
-        cycleContext: null,
-        equipmentAccess: ["jump_rope"],
-        onSignOut: vi.fn(),
-        onUpdateSettings: vi.fn(),
-        preferredUnits: "metric",
-        recentLogs: recentLogsViewModel,
-        viewModel: profileViewModel,
-        wearablePreference: "manual_only",
-        wearableStatus: "manual only"
-      })
-    );
-
-    await switchSection(renderer, "Audit");
-    act(() => {
-      changeInput(renderer, "What should we know?", "Audit tab was dense.");
-    });
-    await act(async () => {
-      await press(pressableWithText(renderer, "Send feedback"));
-    });
-
-    expect(submitFeedback).toHaveBeenCalledWith(expect.objectContaining({ screen: "profile", message: "Audit tab was dense." }));
   });
 
   it("useUserDataControls previews counts, blocks delete without DELETE, and signs out after delete", async () => {
@@ -3392,35 +3076,6 @@ describe("minimal app screens", () => {
     expect(deleted).toHaveLength(0);
     expect(onAfterDelete).not.toHaveBeenCalled();
     expect(snapshot.current?.message).toContain("Preview export");
-  });
-
-  it("useBetaFeedback submits sanitized feedback and tracks recent reports", async () => {
-    const { client, inserted, listed } = createBetaFeedbackHookClient();
-    const snapshot: { current: BetaFeedbackHook | null } = { current: null };
-    function Probe() {
-      snapshot.current = useBetaFeedback({ client, engineVersion: "0.2.0", userId: "user_1" });
-      return React.createElement("View");
-    }
-
-    render(React.createElement(Probe));
-    await act(async () => undefined);
-    const listCallsBeforeSubmit = listed.length;
-    await act(async () => {
-      await snapshot.current?.submitFeedback({
-        screen: "profile",
-        category: "confusing",
-        severity: "medium",
-        message: "Audit section was dense.",
-        feedbackPayload: { accessToken: "secret-token" }
-      });
-    });
-
-    expect(inserted).toHaveLength(1);
-    expect(listed.length).toBeGreaterThan(listCallsBeforeSubmit);
-    expect(listed).toEqual(expect.arrayContaining([{ method: "eq", column: "user_id", value: "user_1" }]));
-    expect(JSON.stringify(inserted)).not.toContain("secret-token");
-    expect(snapshot.current?.message).toContain("Feedback received");
-    expect(snapshot.current?.recentReports[0]?.id).toBe("feedback_1");
   });
 
   it("OnboardingScreen renders the first setup step with demo as secondary action", async () => {
@@ -3898,7 +3553,7 @@ describe("minimal app screens", () => {
     expect(stackOutput).not.toContain(" at stack");
   });
 
-  it("AppErrorBoundary catches render errors, retries, and reports sanitized bug feedback for signed-in users", async () => {
+  it("AppErrorBoundary catches render errors, retries, and shows support guidance without submitting reports", async () => {
     const { AppErrorBoundary, buildAppErrorSummary } = await import("../../app/components/AppErrorBoundary");
     expect(buildAppErrorSummary(new Error("service_role password leaked"))).toContain("[redacted]");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -3910,38 +3565,15 @@ describe("minimal app screens", () => {
         }
         return React.createElement("Text", null, "Recovered child");
       }
-      const onReportIssue = vi.fn(async () => ({
-        status: "submitted" as const,
-        report: {
-          id: "feedback_1",
-          userId: "user_1",
-          screen: "unknown" as const,
-          category: "bug" as const,
-          severity: "high" as const,
-          message: "App error: Something went wrong.",
-          status: "received" as const,
-          feedbackPayload: {},
-          createdAt: "2026-05-20T00:00:00.000Z",
-          updatedAt: "2026-05-20T00:00:00.000Z"
-        },
-        message: "Feedback received. It is saved to your account for beta review."
-      }));
-      const renderer = render(React.createElement(AppErrorBoundary, { onReportIssue, signedIn: true }, React.createElement(MaybeBroken)));
+      const renderer = render(React.createElement(AppErrorBoundary, { signedIn: true }, React.createElement(MaybeBroken)));
 
       let output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Something went wrong.");
       expect(output).toContain("Your data is still protected.");
+      expect(output).toContain("contact support outside the app");
       expect(output).not.toContain("RawStack");
       expect(output.toLowerCase()).not.toContain("render failed");
-
-      await act(async () => {
-        await press(pressableWithText(renderer, "Report this issue"));
-      });
-      expect(onReportIssue).toHaveBeenCalledWith(
-        expect.objectContaining({
-          errorSummary: expect.stringContaining("render failed")
-        })
-      );
+      expect(output).not.toContain("Report this issue");
 
       shouldThrow = false;
       await act(async () => {
@@ -3949,28 +3581,6 @@ describe("minimal app screens", () => {
       });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Recovered child");
-    } finally {
-      consoleError.mockRestore();
-    }
-  });
-
-  it("AppErrorBoundary does not submit issue reports without a signed-in user", async () => {
-    const { AppErrorBoundary } = await import("../../app/components/AppErrorBoundary");
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    try {
-      function BrokenSignedOutTree(): React.ReactElement {
-        throw new Error("render failed");
-      }
-      const onReportIssue = vi.fn();
-      const renderer = render(React.createElement(AppErrorBoundary, { onReportIssue, signedIn: false }, React.createElement(BrokenSignedOutTree)));
-
-      await act(async () => {
-        await press(pressableWithText(renderer, "Sign in to report issue"));
-      });
-
-      expect(onReportIssue).not.toHaveBeenCalled();
-      expect(JSON.stringify(renderer.toJSON())).toContain("Sign in is required to report this issue.");
-      expect(JSON.stringify(renderer.toJSON())).toContain("No report was submitted");
     } finally {
       consoleError.mockRestore();
     }

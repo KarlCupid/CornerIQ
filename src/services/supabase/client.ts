@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { getBetaRuntimeConfig, PUBLIC_SUPABASE_ANON_KEY_ENV, PUBLIC_SUPABASE_URL_ENV } from "../config/betaRuntimeConfig";
+import { getPublicRuntimeConfig, PUBLIC_SUPABASE_ANON_KEY_ENV, PUBLIC_SUPABASE_URL_ENV } from "../config/runtimeConfig";
 import type { Database } from "./database.types";
 
 export type CornerSupabaseClient = SupabaseClient<Database>;
@@ -34,7 +34,7 @@ function isValidHttpUrl(value: string): boolean {
 export function getSupabaseConfigFromEnv(env: RuntimeEnv = readRuntimeEnv()): CornerSupabaseConfig | null {
   const url = env[PUBLIC_SUPABASE_URL_ENV];
   const anonKey = env[PUBLIC_SUPABASE_ANON_KEY_ENV];
-  const runtimeConfig = getBetaRuntimeConfig(env);
+  const runtimeConfig = getPublicRuntimeConfig(env);
   const missing = runtimeConfig.missingVariableNames;
 
   if (missing.length > 0) {

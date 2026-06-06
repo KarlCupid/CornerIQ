@@ -99,7 +99,7 @@ export function ProfileSettingsScreen({
           <OptionButton active={wearable === "undecided"} busy={busy} label="Not sure" onPress={() => setWearable("undecided")} />
         </View>
       </SettingsGroup>
-      <SettingsGroup title="Units" subtitle="CornerIQ stores kg internally during this beta.">
+      <SettingsGroup title="Units" subtitle="CornerIQ stores kg internally for safety calculations.">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <OptionButton active={units === "metric"} busy={busy} label="Metric" onPress={() => setUnits("metric")} />
           <OptionButton active={units === "imperial"} busy={busy} label="Imperial" onPress={() => setUnits("imperial")} />

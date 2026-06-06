@@ -6,7 +6,6 @@ import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, ISODateString, PerformanceState } from "../../engine/core/types";
-import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
 import { colors } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen } from "../screens/FuelScreen";
@@ -15,7 +14,6 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { TodayScreen } from "../screens/TodayScreen";
 import { TrainScreen } from "../screens/TrainScreen";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
-import type { BetaFeedbackHook } from "../../hooks/useBetaFeedback";
 import type { NextWeekPreviewActionsHook } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
@@ -44,8 +42,6 @@ const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> =
 export interface AppTabsProps {
   asOfDate: ISODateString;
   busy: boolean;
-  betaFeedback?: BetaFeedbackHook | undefined;
-  betaHealth: BetaHealthViewModel;
   cycleSymptomOptions: readonly CycleSymptom[];
   generationStatus?: EngineGenerationStatus | undefined;
   message: string | null;
@@ -59,7 +55,6 @@ export interface AppTabsProps {
   onSaveRecurringProtectedAnchor: (anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>;
   onSaveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
-  onRequestNutritionSafetyReview?: (() => Promise<void>) | undefined;
   onSignOut: () => Promise<void>;
   onUpdateProfileSettings: (draft: ProfileSettingsDraft) => Promise<void>;
   quickLogs: QuickLogActions;
@@ -69,7 +64,7 @@ export interface AppTabsProps {
   workoutCompletion?: WorkoutCompletionActions | undefined;
 }
 
-export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteRecurringProtectedAnchor, onDeleteProtectedSession, onRequestNutritionSafetyReview, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
+export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteRecurringProtectedAnchor, onDeleteProtectedSession, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
@@ -157,7 +152,6 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               busy={busy}
               message={message}
               onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
-              onRequestNutritionSafetyReview={onRequestNutritionSafetyReview}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.fuel}
@@ -193,7 +187,6 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
             <ProfileScreen
               asOfDate={asOfDate}
               busy={busy}
-              betaHealth={betaHealth}
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
               cycleContext={state.viewModels.cycle}
               equipmentAccess={state.athlete.equipmentAccess}
@@ -202,7 +195,6 @@ export function AppTabs({ asOfDate, busy, betaFeedback, betaHealth, cycleSymptom
               onUpdateSettings={onUpdateProfileSettings}
               preferredUnits={state.athlete.preferredUnits}
               recentLogs={state.viewModels.recentLogs}
-              betaFeedback={betaFeedback}
               userDataControls={userDataControls}
               viewModel={state.viewModels.profile}
               wearablePreference={state.athlete.wearablePreference}

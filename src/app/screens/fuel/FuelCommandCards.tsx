@@ -53,12 +53,10 @@ export function FuelCommandCard({ command }: { command: FuelCommandCenterState }
 export function NutritionSafetyReviewCard({
   activeReviews,
   onAcknowledgeReview,
-  onRequestReview,
   review
 }: {
   activeReviews?: readonly PersistedNutritionSafetyReview[] | undefined;
   onAcknowledgeReview?: ((reviewId: string) => void | Promise<void>) | undefined;
-  onRequestReview?: (() => void | Promise<void>) | undefined;
   review: NutritionSafetyReview;
 }) {
   const activeReview = activeReviews?.[0] ?? review.activeReview ?? null;
@@ -77,17 +75,12 @@ export function NutritionSafetyReviewCard({
         {activeReview ? <Text style={screenStyles.body}>Review {activeReview.id}: {statusLabel(activeReview.status)}.</Text> : null}
         {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Hard stop remains active.</Text> : null}
         <Text style={screenStyles.subtle}>You cannot self-clear nutrition hard stops.</Text>
-        <Text style={screenStyles.subtle}>Athlete UI is read-only for reviewer decisions; reviewer clear requires trusted server-side identity and audit.</Text>
-        <Text style={screenStyles.subtle}>For urgent symptoms or unsafe weight concerns, stop and seek qualified support.</Text>
+        <Text style={screenStyles.subtle}>CornerIQ cannot clear hard stops in the app. Seek qualified support outside the app when a safety stop is active.</Text>
+        <Text style={screenStyles.subtle}>For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app.</Text>
         <Lines items={reasons.length > 0 ? reasons : ["Safety review is active."]} />
         {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Blocking flags</Text> : null}
         <Lines items={blockingFlags} />
         <Lines items={suggestedNextSteps} tone="body" />
-        {!activeReview && onRequestReview ? (
-          <Pressable accessibilityRole="button" onPress={() => void onRequestReview()} style={screenStyles.button}>
-            <Text style={screenStyles.buttonText}>Request safety review</Text>
-          </Pressable>
-        ) : null}
         {canAcknowledge && activeReview ? (
           <Pressable accessibilityRole="button" onPress={() => void onAcknowledgeReview?.(activeReview.id)} style={screenStyles.button}>
             <Text style={screenStyles.buttonText}>Acknowledge review status</Text>

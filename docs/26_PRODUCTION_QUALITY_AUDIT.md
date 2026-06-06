@@ -4,7 +4,7 @@ Date: 2026-06-03
 
 Purpose: stable production-readiness audit, release-evidence runbook, and historical evidence summary for CornerIQ. This committed document is not authoritative proof for the final SHA of a future release commit.
 
-Mobile deliverability is explicitly excluded from local production-readiness scores. EAS/APK status is tracked only as a separate mobile lane until private distribution, physical-device checks, app metadata, and tester instructions are release-owner verified.
+Mobile deliverability is explicitly excluded from local production-readiness scores. EAS/APK status is tracked only as a separate mobile lane until private distribution, physical-device checks, app metadata, and user instructions are release-owner verified.
 
 ## Evidence Model
 
@@ -30,8 +30,8 @@ These scores describe local code posture and evidence-system maturity, not publi
 | CI/release gates | 7.1 | 8.7 | Release quality now checks generated exact-SHA evidence instead of committed self-SHA docs. |
 | Security posture | 7.4 | 8.6 | Static scans reject personal emails in public docs and secret-shaped values in client/config/docs. |
 | Supabase/persistence local readiness only | 7.0 | 8.5 | Local migration `010_generated_sessions_training_block_scope.sql` is present and test-covered; remote status is release-blocking unless generated evidence proves alignment. |
-| Feedback/incident reporting | 6.8 | 8.6 | Feedback remains user-owned, signed-in, sanitized, and not emergency or medical review. |
-| UX readiness (scripted beta) | 6.7 | 8.5 | Automated and scripted beta evidence is separate from real boxer validation. |
+| Support/incident boundary | 6.8 | 8.6 | In-app feedback/reporting is removed from launch runtime; support intake remains outside the app until a privacy-reviewed path exists. |
+| UX readiness (automated local) | 6.7 | 8.5 | Automated local evidence is separate from real boxer validation. |
 | Production observability/ops | 5.5 | 8.6 | Release evidence fields are now generated per SHA and validated by the release gate. |
 | Regulatory/liability readiness | 6.2 | 8.6 | Docs and app copy keep medical, dietetic, coaching, hard-stop, cycle, and wearable boundaries explicit. |
 
@@ -48,7 +48,7 @@ For each release candidate, run and record non-secret results in `qa-artifacts/r
 | `cmd /c npm test` | Record exact-SHA pass/fail. | Historical Windows runs needed an approved rerun when sandboxed Vitest failed with esbuild access denial. |
 | `cmd /c npm run lint` | Record exact-SHA pass/fail. | Required local gate. |
 | `cmd /c npm run quality` | Record exact-SHA pass/fail. | Historical Windows runs needed an approved rerun for the same Vitest/esbuild sandbox issue. |
-| `cmd /c npm run preflight:beta` | Record exact-SHA pass/fail. | Required beta release gate. |
+| `cmd /c npm run preflight:production` | Record exact-SHA pass/fail. | Required production launch-code gate. |
 | `cmd /c npm run smoke:fixtures` | Record exact-SHA pass/fail. | Historical Windows runs needed an approved rerun for Vitest/esbuild sandbox access. |
 | `cmd /c npm run test:coverage` | Record pass/fail plus statements, functions, lines, and branches. | Coverage numbers belong in generated evidence, not as self-SHA committed proof. |
 | `cmd /c npm audit --audit-level=high --omit=dev` | Record exact-SHA pass/fail and high/critical result. | Registry/cache sandbox failures must be documented if rerun with approval. |
@@ -75,7 +75,7 @@ Required generated evidence fields:
 | Supabase migration list/dry-run | CLI version, migration `010` status, dry-run result, and exact SHA. |
 | Live smoke | Command, env names present yes/no, pass/fail, rows created/cleaned summary, and exact SHA. |
 | EAS/mobile artifact status | Separate mobile-lane status only; not counted as local production readiness. |
-| Human beta findings | Scripted beta readiness versus real boxer findings, with no private health detail. |
+| Human boxer validation | Scripted automation versus real boxer findings, with no private health detail. |
 | Known blockers | External, credential, remote, mobile, and human-review blockers. |
 
 ## Migration Verification Ledger
@@ -104,13 +104,13 @@ Record only non-secret status in generated release evidence:
 
 Live smoke must not run before migration `010` is applied or verified unless the evidence explicitly states why the smoke would still prove production readiness. At present, it should remain blocked while remote `010` is pending.
 
-## Human Beta Findings Template
+## Human Boxer Validation Template
 
 Committed docs may define fields only. Real findings belong in a private or ignored artifact.
 
 Required private fields:
 
-- Tester/session alias.
+- Session alias.
 - Flow tested.
 - First-action comprehension.
 - Confusion severity.
@@ -119,7 +119,7 @@ Required private fields:
 - Action taken.
 - No private health details.
 
-Scripted beta readiness is not real boxer validation.
+Scripted automation is not real boxer validation.
 
 ## Known Risk Register
 
@@ -149,5 +149,5 @@ Scripted beta readiness is not real boxer validation.
 - Supabase migration `010` must be applied or verified remotely for the exact candidate SHA.
 - Live Supabase smoke must pass for the exact candidate SHA after migration alignment, or remain release-blocking.
 - Quality, CodeQL, and Release Quality evidence must be exact-SHA, with run IDs/URLs where applicable.
-- Private tester distribution, physical-device checks, app metadata, icon/splash acceptance, and tester instructions remain release-owner lanes.
+- Private distribution, physical-device checks, app metadata, icon/splash acceptance, and user instructions remain release-owner lanes.
 - Real boxer comprehension and safety/privacy interpretation findings remain human_review_required.

@@ -252,7 +252,7 @@ const body = `# Engine Output Review
 - Commit tested full SHA: ${commit.full}
 - Branch: ${git(["branch", "--show-current"])}
 - Date: ${new Date().toISOString()}
-- Source: deterministic beta personas resolved through the engine and presentation view models.
+- Source: deterministic local launch personas resolved through the engine and presentation view models.
 
 This report is AI-reviewable evidence. It scans for prohibited phrases and summarizes output, but it does not replace human boxer comprehension review.
 
@@ -283,7 +283,7 @@ AI review questions:
 - Does it avoid weight-class pressure?
 - Does it avoid overconfidence?
 - Is missing data treated as unknown?
-- Is this usable for a real beta tester?
+- Is this usable for a real boxer?
 `
   )
   .join("\n")}

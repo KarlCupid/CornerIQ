@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDemoAthleteProfile } from "../../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
-import { createBetaFeedbackRepository } from "../../services/supabase/betaFeedbackRepository";
 import { createAuthService } from "../../services/supabase/authService";
 import { createCornerSupabaseClient, getSupabaseConfigFromEnv } from "../../services/supabase/client";
 import type { Json } from "../../services/supabase/database.types";
@@ -13,7 +12,6 @@ import { applyTrainingPlanAdjustmentService } from "../../services/training/appl
 import { autoRollForwardTrainingPlan } from "../../services/training/autoRollForwardTrainingPlan";
 import { materializeNextWeekTrainingPlan } from "../../services/training/materializeNextWeekTrainingPlan";
 import { acknowledgeNutritionSafetyReview, requestNutritionSafetyReview } from "../../services/nutrition/requestNutritionSafetyReview";
-import { submitBetaFeedback } from "../../services/feedback/submitBetaFeedback";
 
 const runLiveSmoke = process.env.CORNERIQ_LIVE_DB_SMOKE === "1";
 const describeLive = runLiveSmoke ? describe : describe.skip;
@@ -85,7 +83,6 @@ describeLive("live Supabase CRUD smoke", () => {
     let inputHash: string | null = null;
     let engineRunIds: string[] = [];
     let completedTrainingSessionId: string | null = null;
-    let betaFeedbackReportId: string | null = null;
     let nutritionSafetyReviewId: string | null = null;
     let trainingAdjustmentId: string | null = null;
     let trainingBlockId: string | null = null;
@@ -176,39 +173,6 @@ describeLive("live Supabase CRUD smoke", () => {
       expect(resolved.state.viewModels.fuel.fuelHistory.todaySummary).toContain("2100 kcal logged today");
       expect(resolved.state.viewModels.fuel.fuelHistory.hydrationTrend7Day[0]).toContain("2.0L logged");
       expect(resolved.state.viewModels.fuel.bodyMassTrajectory.latestWeight).toContain("68.0 kg");
-      const betaFeedback = await submitBetaFeedback({
-        userId,
-        screen: "profile",
-        category: "other",
-        severity: "low",
-        message: `Live smoke beta feedback ${smokeRunId}`,
-        context: {
-          appSection: "profile",
-          engineVersion: resolved.state.engineVersion,
-          viewModelStatusLabels: ["live smoke feedback"]
-        },
-        feedbackPayload: {
-          smokeRunId,
-          source: "live_smoke"
-        },
-        repositories: {
-          betaFeedback: createBetaFeedbackRepository(client)
-        }
-      });
-      expect(betaFeedback.status).toBe("submitted");
-      if (betaFeedback.status !== "submitted") {
-        throw new Error(`Live smoke beta feedback failed: ${betaFeedback.message}`);
-      }
-      betaFeedbackReportId = betaFeedback.report.id;
-      const betaFeedbackRows = await client
-        .from("beta_feedback_reports")
-        .select("id, feedback_payload, message, status")
-        .eq("user_id", userId)
-        .eq("id", betaFeedback.report.id)
-        .filter("feedback_payload->>smokeRunId", "eq", smokeRunId);
-      expect(betaFeedbackRows.error).toBeNull();
-      expect(betaFeedbackRows.data?.[0]?.status).toBe("received");
-      expect(JSON.stringify(betaFeedbackRows.data?.[0]?.feedback_payload ?? {}).toLowerCase()).not.toMatch(/password|access_token|service_role/);
       trainingBlockId = resolved.state.training.blockPersistenceStatus?.trainingBlockId ?? null;
       expect(trainingBlockId).toBeTruthy();
       const blockResponse = await client.from("training_blocks").select("id, block_payload").eq("user_id", userId).eq("id", trainingBlockId!).maybeSingle();
@@ -672,10 +636,6 @@ describeLive("live Supabase CRUD smoke", () => {
       const activeReviews = await repositories.nutritionSafetyReview.listActiveNutritionSafetyReviews(userId);
       expect(activeReviews.some((review) => review.id === reviewResult.reviewId && review.status === "acknowledged")).toBe(true);
     } finally {
-      if (betaFeedbackReportId) {
-        await client.from("beta_feedback_reports").delete().eq("user_id", userId).eq("id", betaFeedbackReportId).filter("feedback_payload->>smokeRunId", "eq", smokeRunId);
-      }
-      await client.from("beta_feedback_reports").delete().eq("user_id", userId).filter("feedback_payload->>smokeRunId", "eq", smokeRunId);
       for (const id of nutritionSafetyReviewEventIds) {
         await client.from("nutrition_safety_review_events").delete().eq("user_id", userId).eq("id", id);
       }

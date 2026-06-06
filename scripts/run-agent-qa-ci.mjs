@@ -33,7 +33,7 @@ const gateDefinitions = [
   npmStep("ci:typecheck", "ci:typecheck", ["run", "typecheck"]),
   npmStep("ci:unit", "ci:unit", ["test"]),
   npmStep("ci:lint", "ci:lint", ["run", "lint"]),
-  npmStep("ci:preflight", "ci:preflight", ["run", "preflight:beta"], "Live Supabase smoke remains separate and opt-in."),
+  npmStep("ci:preflight", "ci:preflight", ["run", "preflight:production"], "Live Supabase smoke remains separate and opt-in."),
   nodeStep("ci:agent-browser", "ci:agent-browser", "scripts/run-agent-browser-audit.mjs", "Local E2E only; no live Supabase credentials."),
   multiStep(
     "ci:engine-output-review",

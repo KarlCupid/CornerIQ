@@ -29,7 +29,7 @@ To regenerate the markdown report from the last audit:
 cmd /c npm run qa:agent:report
 ```
 
-For the full beta-readiness evidence bundle, run:
+For the full launch-readiness evidence bundle, run:
 
 ```powershell
 cmd /c npm run qa:agent:ci
@@ -73,19 +73,18 @@ The Fuel audit covers the local E2E path after onboarding:
 - Default Fuel view is focused on the start-here card, today's fuel priority, manual food logging, and hydration.
 - Details / why, History, Safety review, and Body Mass sections remain available behind collapsed controls.
 - Missing food logs are framed as unknown/lower-confidence context, not safe.
-- Safety review section shows nutrition review history, "You cannot self-clear nutrition hard stops", reviewer-clear-not-in-app copy, and urgent-support copy.
+- Safety review section shows nutrition review history, "You cannot self-clear nutrition hard stops", hard-stops-cannot-clear-in-app copy, and urgent-support copy.
 - Body Mass section keeps unknown context visible.
 - Visible Fuel text is scanned for unsafe weight-cut instruction phrases such as dehydration, diuretics, laxatives, sauna, starvation, sweat-suit, or water-loading instructions.
 
-The Profile Audit audit covers the local E2E path after onboarding:
+The Profile Safety audit covers the local E2E path after onboarding:
 
 - Profile tab visible from the local tab shell.
-- Audit section visible.
-- Beta tester notice says beta, not medical advice, not a replacement for qualified human judgment, and no emergency support.
-- Beta feedback panel is visible with app section/screen, category, severity, and message inputs or equivalents.
-- Feedback warning says not to include secrets or emergency details and clarifies it is not emergency support or medical review.
-- Beta health preflight panel is visible.
-- Visible Profile Audit text is scanned for secret-value patterns, Supabase service-role assignments, JWTs, bearer tokens, database URLs, and concrete Supabase project URLs.
+- Safety section visible.
+- Training history and Fuel safety history are visible.
+- Saved history detail opens without exposing private server controls.
+- In-app feedback, issue reporting, launch notice, and runtime-readiness panel text do not appear.
+- Visible Profile Safety text is scanned for secret-value patterns, Supabase service-role assignments, JWTs, bearer tokens, database URLs, and concrete Supabase project URLs.
 
 The Train audit covers the local E2E path after onboarding:
 
@@ -118,11 +117,11 @@ The Profile Data audit covers:
 The Error and Recovery audit is static-only by design:
 
 - App error boundary source exists.
-- Signed-in issue reporting is sanitized.
-- Signed-out users get retry/sign-in copy and cannot submit issue reports.
+- Error recovery gives retry plus support-outside-app guidance.
+- Users cannot submit issue reports from the app shell.
 - Raw stack traces are not rendered to users.
 
-Use the full onboarding audit when checking whether first-run labels, helper text, and field affordances still work. Current onboarding checks include boxer level definitions, day-of-week availability, protected-anchor RPE, and the simplified safety screen. Use the Fuel and Profile Audit scenarios as focused beta-safety guards after onboarding. Use the smoke shortcut audit as a fast guard that local auth, the demo shortcut, Today, quick logs, and mobile rendering still boot.
+Use the full onboarding audit when checking whether first-run labels, helper text, and field affordances still work. Current onboarding checks include boxer level definitions, day-of-week availability, protected-anchor RPE, and the simplified safety screen. Use the Fuel and Profile Safety scenarios as focused launch-safety guards after onboarding. Use the smoke shortcut audit as a fast guard that local auth, the demo shortcut, Today, quick logs, and mobile rendering still boot.
 
 The full onboarding audit writes these screenshots under `qa-artifacts/browser-audit/current/screenshots/`:
 
@@ -138,21 +137,24 @@ The full onboarding audit writes these screenshots under `qa-artifacts/browser-a
 - `10-today-after-real-onboarding.png`
 - `11-mobile-today-after-real-onboarding.png`
 - `12-fuel-screen.png`
-- `13-profile-audit-screen.png`
-- `14-beta-feedback-panel.png`
-- `15-beta-health-panel.png`
+- `12-fuel-food-quick-log-submit.png`
+- `13-profile-safety-screen.png`
+- `14-profile-safety-history-detail.png`
 - `16-train-today-screen.png`
-- `17-train-workout-detail.png`
-- `18-train-workout-completion.png`
+- `17-train-workout-no-detail.png`
 - `19-train-exercise-history.png`
 - `20-plan-week-screen.png`
-- `21-plan-next-week-screen.png`
-- `22-plan-adjustments-screen.png`
-- `23-plan-block-history-screen.png`
+- `21-plan-details-screen.png`
 - `24-profile-data-controls.png`
+- `24-profile-data-delete-submit.png`
 - `25-profile-settings-signout.png`
+- `smoke-01-auth-screen.png`
+- `smoke-02-onboarding-shortcut-screen.png`
+- `smoke-03-today-screen.png`
+- `smoke-04-mobile-today-screen.png`
+- `smoke-05-today-quick-log-saves.png`
 
-The generated markdown report groups screenshots by scenario so Fuel and Profile Audit results are separated from onboarding and smoke coverage.
+The generated markdown report groups screenshots by scenario so Fuel and Profile Safety results are separated from onboarding and smoke coverage.
 
 Each screenshot has a matching visible page-text snapshot under `qa-artifacts/browser-audit/current/page-text/`, plus an entry in `qa-artifacts/browser-audit/current/screenshot-manifest.json`. Use those text files for AI review and deterministic scans.
 
@@ -160,7 +162,7 @@ Each screenshot has a matching visible page-text snapshot under `qa-artifacts/br
 
 - Blocker: The app cannot launch, the audit cannot reach Auth/Onboarding/Today, secrets appear, production data is touched, or unsafe boxing/weight-cut/contact behavior is exposed.
 - High: A core first-run step is unusable, hidden, misleading, or contradicts safety rules.
-- Medium: A core step works but is confusing, poorly labeled, or likely to create tester error.
+- Medium: A core step works but is confusing, poorly labeled, or likely to create user error.
 - Low: Cosmetic, copy, spacing, or evidence-quality issue that does not block the flow.
 
 ## Documenting Findings
@@ -195,7 +197,7 @@ Generated screenshots belong under `qa-artifacts/browser-audit/current/screensho
 Agent QA does not replace:
 
 - Real Supabase auth and email-confirmation testing.
-- Real beta account data checks.
+- Real account data checks.
 - Physical iPhone/Android keyboard, safe-area, and touch testing.
 - Human review of boxing safety, cycle privacy, and weight-class language.
 - Release owner checks for EAS, TestFlight, stores, or external distribution.
@@ -208,7 +210,7 @@ Before handoff, run and document:
 - `cmd /c npm test`
 - `cmd /c npm run lint`
 - `cmd /c npm run quality`
-- `cmd /c npm run preflight:beta`
+- `cmd /c npm run preflight:production`
 - `cmd /c npm run qa:agent:ci`
 
 Commit only after verification passes or after exact blockers are documented.

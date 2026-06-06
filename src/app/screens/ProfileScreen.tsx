@@ -8,30 +8,23 @@ import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousSc
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
-import type { BetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
-import type { BetaFeedbackHook } from "../../hooks/useBetaFeedback";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
-import { BetaFeedbackPanel } from "../components/BetaFeedbackPanel";
-import { BetaHealthPanel } from "../components/BetaHealthPanel";
-import { BetaTesterNoticePanel } from "../components/BetaTesterNoticePanel";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
 
-type ProfileSection = "athlete" | "settings" | "data" | "audit";
+type ProfileSection = "athlete" | "settings" | "data" | "safety";
 
 const profileSections: readonly SectionTabItem<ProfileSection>[] = [
   { key: "athlete", label: "Athlete" },
   { key: "settings", label: "Settings" },
   { key: "data", label: "Data" },
-  { key: "audit", label: "Audit" }
+  { key: "safety", label: "Safety" }
 ];
 
 export interface ProfileScreenProps {
   asOfDate: ISODateString;
-  betaFeedback?: BetaFeedbackHook | undefined;
-  betaHealth: BetaHealthViewModel;
   busy: boolean;
   cycleTrackingStatus: string;
   equipmentAccess: readonly string[];
@@ -48,8 +41,6 @@ export interface ProfileScreenProps {
 }
 
 export function ProfileScreen({
-  betaFeedback,
-  betaHealth,
   busy,
   cycleTrackingStatus,
   equipmentAccess,
@@ -68,7 +59,7 @@ export function ProfileScreen({
   const deleteConfirmation = userDataControls?.deleteConfirmation ?? fallbackDeleteConfirmation;
   const setDeleteConfirmation = userDataControls?.setDeleteConfirmation ?? setFallbackDeleteConfirmation;
   const [section, setSection] = React.useState<ProfileSection>("athlete");
-  const [auditDetailOpen, setAuditDetailOpen] = React.useState(false);
+  const [historyDetailOpen, setHistoryDetailOpen] = React.useState(false);
   return (
     <LuminousScreen testID="profile-screen">
       <ScreenHeader eyebrow="Private" title={viewModel.title} />
@@ -141,26 +132,16 @@ export function ProfileScreen({
               <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Delete app data</Text>
               </Pressable>
-              <Text style={screenStyles.subtle}>Account deletion requires a server-side function later; this only removes user-owned app data.</Text>
+              <Text style={screenStyles.subtle}>Auth identity deletion requires a trusted support path. This button only removes user-owned app data.</Text>
             </View>
           </EngineCard>
         </View>
       ) : null}
-      {section === "audit" ? (
-        <View style={{ gap: spacing.lg }} testID="profile-audit-section">
-          <BetaTesterNoticePanel />
-          <BetaHealthPanel viewModel={betaHealth} />
-          <BetaFeedbackPanel
-            busy={busy || betaFeedback?.busy}
-            defaultScreen="profile"
-            onRefreshReports={betaFeedback?.loadRecentFeedbackReports}
-            onSubmit={betaFeedback?.submitFeedback}
-            recentReports={betaFeedback?.recentReports}
-            statusMessage={betaFeedback?.message}
-          />
+      {section === "safety" ? (
+        <View style={{ gap: spacing.lg }} testID="profile-safety-section">
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Training audit</Text>
+              <Text style={screenStyles.sectionTitle}>Training history</Text>
               <Text style={screenStyles.body}>Current block week {viewModel.trainingAuditSummary.currentWeekIndex}</Text>
               <Text style={screenStyles.body}>Persisted week summaries: {viewModel.trainingAuditSummary.activeBlockHistoryCount}</Text>
               {viewModel.trainingAuditSummary.latestEventSummary ? (
@@ -170,16 +151,16 @@ export function ProfileScreen({
               )}
             </View>
           </EngineCard>
-          <Pressable accessibilityLabel={auditDetailOpen ? "Hide audit history detail" : "Show audit history detail"} accessibilityRole="button" accessibilityState={{ selected: auditDetailOpen }} onPress={() => setAuditDetailOpen((value) => !value)} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>{auditDetailOpen ? "Hide audit history detail" : "Show audit history detail"}</Text>
+          <Pressable accessibilityLabel={historyDetailOpen ? "Hide saved history detail" : "Show saved history detail"} accessibilityRole="button" accessibilityState={{ selected: historyDetailOpen }} onPress={() => setHistoryDetailOpen((value) => !value)} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>{historyDetailOpen ? "Hide saved history detail" : "Show saved history detail"}</Text>
           </Pressable>
-          {auditDetailOpen ? (
+          {historyDetailOpen ? (
             <EngineCard>
-              <View style={{ gap: spacing.sm }} testID="profile-audit-history-detail">
-                <Text style={screenStyles.sectionTitle}>Audit history detail</Text>
+              <View style={{ gap: spacing.sm }} testID="profile-safety-history-detail">
+                <Text style={screenStyles.sectionTitle}>Saved history detail</Text>
                 <Text style={screenStyles.body}>What happened: recent profile and journey events are summarized below when available.</Text>
-                <Text style={screenStyles.subtle}>Why it matters: audit history explains saved app state; it does not clear safety reviews or expose private server controls.</Text>
-                {recentLogs.profile.length > 0 ? recentLogs.profile.map((item, index) => <Text key={`profile-audit-detail:${index}`} style={screenStyles.subtle}>{item}</Text>) : <Text style={screenStyles.subtle}>No profile or journey audit detail is loaded yet.</Text>}
+                <Text style={screenStyles.subtle}>Why it matters: saved history explains app state; it does not clear safety stops or expose private server controls.</Text>
+                {recentLogs.profile.length > 0 ? recentLogs.profile.map((item, index) => <Text key={`profile-history-detail:${index}`} style={screenStyles.subtle}>{item}</Text>) : <Text style={screenStyles.subtle}>No profile or journey history detail is loaded yet.</Text>}
                 <Text style={screenStyles.subtle}>Training block week {viewModel.trainingAuditSummary.currentWeekIndex}; persisted week summaries {viewModel.trainingAuditSummary.activeBlockHistoryCount}.</Text>
                 {viewModel.trainingAuditSummary.latestEventSummary ? <Text style={screenStyles.subtle}>{viewModel.trainingAuditSummary.latestEventSummary}</Text> : null}
               </View>
@@ -187,9 +168,9 @@ export function ProfileScreen({
           ) : null}
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Fuel review audit</Text>
+              <Text style={screenStyles.sectionTitle}>Fuel safety history</Text>
               <Text style={screenStyles.body}>Nutrition review history is available in Fuel &gt; Reviews when active or recently persisted.</Text>
-              <Text style={screenStyles.subtle}>Reviewer-clear workflow is not exposed in the client. Athletes cannot self-clear nutrition hard stops.</Text>
+              <Text style={screenStyles.subtle}>CornerIQ cannot clear hard stops in the app. Seek qualified support outside the app when a safety stop is active, and athletes cannot self-clear nutrition hard stops.</Text>
             </View>
           </EngineCard>
           {recentLogs.profile.length > 0 ? (
@@ -200,7 +181,7 @@ export function ProfileScreen({
               </View>
             </EngineCard>
           ) : (
-            <EmptyState title="No audit events yet" message="Onboarding, logs, or engine-owned persistence events are missing from the journey history. This matters for traceability, not safety clearance. Keep using manual logs; events appear after real saves." />
+            <EmptyState title="No safety history yet" message="Onboarding, logs, or engine-owned persistence events are missing from journey history. This matters for traceability, not safety clearance. Keep using manual logs; events appear after real saves." />
           )}
         </View>
       ) : null}

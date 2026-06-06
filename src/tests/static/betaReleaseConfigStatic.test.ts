@@ -11,8 +11,8 @@ function readSource(path: string): string {
   return readFileSync(path, "utf8");
 }
 
-describe("beta release config static checks", () => {
-  it("defines EAS beta build profiles without app config secrets", () => {
+describe("release config static checks", () => {
+  it("defines EAS build profiles without app config secrets", () => {
     expect(existsSync("eas.json")).toBe(true);
     const eas = readJson("eas.json") as { build?: Record<string, unknown> };
     const appConfig = readSource("app.json");
@@ -30,7 +30,7 @@ describe("beta release config static checks", () => {
     const releaseWorkflow = readSource(".github/workflows/release-quality.yml");
     const codeqlWorkflow = readSource(".github/workflows/codeql.yml");
 
-    for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:beta", "smoke:live-db", "release:quality"]) {
+    for (const scriptName of ["start", "android", "ios", "web", "typecheck", "test", "test:coverage", "lint", "quality", "smoke:fixtures", "preflight:production", "smoke:live-db", "release:quality"]) {
       expect(packageJson.scripts?.[scriptName]).toBeTruthy();
     }
     expect(workflow).toContain("npm run typecheck");
@@ -53,11 +53,11 @@ describe("beta release config static checks", () => {
     expect(codeqlWorkflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
   });
 
-  it("runs beta preflight without printing env values", () => {
-    expect(existsSync("scripts/beta-preflight.mjs")).toBe(true);
+  it("runs production preflight without printing env values", () => {
+    expect(existsSync("scripts/production-preflight.mjs")).toBe(true);
     const secretUrl = "https://do-not-print.supabase.co";
     const secretAnon = "anon-value-that-must-not-print";
-    const output = execFileSync(process.execPath, ["scripts/beta-preflight.mjs"], {
+    const output = execFileSync(process.execPath, ["scripts/production-preflight.mjs"], {
       cwd: process.cwd(),
       encoding: "utf8",
       env: {
@@ -67,7 +67,7 @@ describe("beta release config static checks", () => {
       }
     });
 
-    expect(output).toContain("Beta preflight passed.");
+    expect(output).toContain("Production preflight passed.");
     expect(output).toContain("EXPO_PUBLIC_SUPABASE_URL");
     expect(output).toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY");
     expect(output).not.toContain(secretUrl);
@@ -76,10 +76,10 @@ describe("beta release config static checks", () => {
 
   it("documents public env names, no client role key, and release artifacts", () => {
     const combinedDocs = [
-      "docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md",
-      "docs/21_BETA_RELEASE_OPERATIONS.md",
-      "docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md",
-      "docs/24_EXPO_EAS_BETA_DISTRIBUTION.md"
+      "docs/FEATURE_STATUS.md",
+      "docs/KNOWN_GAPS.md",
+      "docs/11_SUPABASE_REMOTE_STATUS.md",
+      "docs/26_PRODUCTION_QUALITY_AUDIT.md"
     ]
       .map((path) => readSource(path))
       .join("\n");
@@ -87,7 +87,7 @@ describe("beta release config static checks", () => {
     expect(combinedDocs).toContain("EXPO_PUBLIC_SUPABASE_URL");
     expect(combinedDocs).toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY");
     expect(combinedDocs).toContain("service role");
-    expect(combinedDocs).toContain("npm run preflight:beta");
-    expect(combinedDocs).toContain("eas build --profile preview");
+    expect(combinedDocs).toContain("npm run preflight:production");
+    expect(combinedDocs).toContain("production");
   });
 });

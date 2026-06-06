@@ -34,4 +34,4 @@
 - Physical mobile device behavior:
 - Boxing-domain safety copy:
 - Privacy/secret exposure:
-- Release/beta readiness:
+- Release/launch readiness:

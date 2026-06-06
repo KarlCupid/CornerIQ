@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Text, View } from "react-native";
 import { AppProviders } from "./providers/AppProviders";
-import { AppErrorBoundary, type AppErrorReportInput } from "./components/AppErrorBoundary";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { AppErrorState } from "./components/AppErrorState";
 import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
@@ -11,15 +11,13 @@ import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions, type NextWeekPreviewActionsHook } from "../hooks/useNextWeekPreviewActions";
 import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
-import { useBetaFeedback, type BetaFeedbackHook } from "../hooks/useBetaFeedback";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion, type WorkoutCompletionActions } from "../hooks/useWorkoutCompletion";
-import { buildBetaHealthViewModel } from "../engine/presentation/betaHealthViewModel";
 import type { CycleSymptom, PerformanceState, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../engine/core/types";
-import { getBetaRuntimeConfig } from "../services/config/betaRuntimeConfig";
 import { isLocalE2EMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
+import { getPublicRuntimeConfig } from "../services/config/runtimeConfig";
 import { buildLocalE2EPerformanceState, LOCAL_E2E_AS_OF_DATE } from "../services/e2e/localE2EState";
 import { recurringAnchorFromDraft, workoutFromDraft } from "../services/supabase/onboardingService";
 import type { CornerSupabaseClient } from "../services/supabase/client";
@@ -45,35 +43,6 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
     userId: session.user.id
   });
   const readyState = performance.result?.status === "ready" ? performance.result.state : null;
-  const betaFeedback = useBetaFeedback({
-    client,
-    engineVersion: readyState?.engineVersion,
-    userId: session.user.id
-  });
-  const betaHealth = buildBetaHealthViewModel({
-    exportDeleteAvailable: Boolean(userDataControls),
-    feedbackAvailable: Boolean(betaFeedback.submitFeedback),
-    isSignedIn: true,
-    performanceState: readyState,
-    profileComplete: Boolean(readyState),
-    runtimeConfig: getBetaRuntimeConfig()
-  });
-  const reportAppIssue = useCallback(
-    async (report: AppErrorReportInput) =>
-      betaFeedback.submitFeedback({
-        screen: "unknown",
-        category: "bug",
-        severity: "high",
-        message: "App error: Something went wrong.",
-        feedbackPayload: {
-          componentStack: report.componentStack,
-          errorSummary: report.errorSummary,
-          source: "app_error_boundary"
-        },
-        viewModelStatusLabels: ["app_error_boundary", betaHealth.overallStatus]
-      }),
-    [betaFeedback, betaHealth.overallStatus]
-  );
   const trainingPlanAdjustments = useTrainingPlanAdjustments({
     onRefresh: performance.refresh,
     repositories: performance.repositories,
@@ -122,16 +91,15 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   }
 
   return (
-    <AppErrorBoundary onReportIssue={reportAppIssue} signedIn>
+    <AppErrorBoundary signedIn>
       <AppTabs
-      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy || betaFeedback.busy}
+      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       generationStatus={generationStatus}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
       onAcknowledgeNutritionSafetyReview={performance.acknowledgeNutritionSafetyReview}
       onDeleteRecurringProtectedAnchor={performance.deleteRecurringProtectedAnchor}
       onDeleteProtectedSession={performance.deleteProtectedSession}
-      onRequestNutritionSafetyReview={performance.requestNutritionSafetyReview}
       onSaveBuildGoal={performance.saveBuildGoal}
       onSignOut={onSignOut}
       onSaveFightSetup={performance.saveFightSetup}
@@ -145,8 +113,6 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       state={performance.result.state}
       nextWeekPreviewActions={nextWeekPreviewActions}
       trainingPlanAdjustments={trainingPlanAdjustments}
-      betaFeedback={betaFeedback}
-      betaHealth={betaHealth}
       userDataControls={userDataControls}
       workoutCompletion={workoutCompletion.actions}
       />
@@ -167,7 +133,7 @@ function LocalE2EFrame({ children }: { children: React.ReactNode }) {
         testID="local-e2e-banner"
       >
         <Text style={{ color: colors.canvas, fontWeight: "700" }}>
-          Local E2E mode: no Supabase connection, demo data only. Disable {LOCAL_E2E_MODE_ENV} for normal beta testing.
+          Local E2E mode: no Supabase connection, demo data only. Disable {LOCAL_E2E_MODE_ENV} for normal app use.
         </Text>
       </View>
       {children}
@@ -206,40 +172,6 @@ function LocalE2EApp() {
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const quickLogs = useLocalE2EQuickLogs(setMessage);
   const cycleSymptomOptions = useMemo<readonly CycleSymptom[]>(() => ["cramps", "low_energy", "poor_sleep"], []);
-  const betaFeedback = useMemo<BetaFeedbackHook>(
-    () => ({
-      busy: false,
-      loadRecentFeedbackReports: async () => {
-        setMessage("Local E2E feedback history refresh stayed local. No Supabase call was made.");
-      },
-      message: null,
-      recentReports: [],
-      refreshReports: async () => {
-        setMessage("Local E2E feedback history refresh stayed local. No Supabase call was made.");
-      },
-      submitFeedback: async () => {
-        const timestamp = new Date().toISOString();
-        setMessage("Local E2E beta feedback was captured locally only. No Supabase call was made.");
-        return {
-          status: "submitted",
-          report: {
-            id: "local_e2e_feedback",
-            userId: "local-e2e-athlete",
-            screen: "profile",
-            category: "confusing",
-            severity: "medium",
-            message: "Local E2E beta feedback captured locally only.",
-            status: "received",
-            feedbackPayload: { source: "local_e2e" },
-            createdAt: timestamp,
-            updatedAt: timestamp
-          },
-          message: "Local E2E beta feedback captured locally only. No Supabase call was made."
-        };
-      }
-    }),
-    [setMessage]
-  );
   const userDataControls = useMemo<UserDataControlsHook>(
     () => ({
       accountDeletionCopy:
@@ -331,7 +263,7 @@ function LocalE2EApp() {
             status: "rejected",
             explanation: `Local E2E move request for ${sessionId} from ${fromDate} to ${toDate} was not applied.`,
             modifiedDayPlans: [],
-            safetyFlags: ["Move-session UI is intentionally not exposed during beta QA."],
+            safetyFlags: ["Move-session UI is intentionally not exposed in local E2E mode."],
             persistedAdjustmentPayload: { command: { type: "move_generated_session", sessionId, fromDate, toDate } }
           };
         }
@@ -425,18 +357,6 @@ function LocalE2EApp() {
     <LocalE2EFrame>
       <AppTabs
         asOfDate={LOCAL_E2E_AS_OF_DATE}
-        betaFeedback={betaFeedback}
-        betaHealth={buildBetaHealthViewModel({
-          exportDeleteAvailable: true,
-          feedbackAvailable: true,
-          isSignedIn: true,
-          performanceState: todayState,
-          profileComplete: true,
-          runtimeConfig: getBetaRuntimeConfig({
-            EXPO_PUBLIC_SUPABASE_ANON_KEY: "",
-            EXPO_PUBLIC_SUPABASE_URL: ""
-          })
-        })}
         busy={false}
         cycleSymptomOptions={cycleSymptomOptions}
         generationStatus="idle"
@@ -453,9 +373,6 @@ function LocalE2EApp() {
           const next = localRecurringAnchors.filter((anchor) => anchor.id !== anchorId);
           refreshLocalPlan(localProtectedWorkouts, next);
           setMessage("Local E2E weekly anchor removed locally. No Supabase call was made.");
-        }}
-        onRequestNutritionSafetyReview={async () => {
-          setMessage("Local E2E nutrition review request stayed local. No Supabase call was made.");
         }}
         onSaveBuildGoal={async () => {
           setMessage("Local E2E build goal save stayed local. No Supabase call was made.");
@@ -510,7 +427,7 @@ function CornerIQApp() {
   }
 
   const supabaseSession = useSupabaseSession();
-  const runtimeConfig = getBetaRuntimeConfig();
+  const runtimeConfig = getPublicRuntimeConfig();
 
   if (supabaseSession.status === "error") {
     return <StartupState title="Supabase startup failed" message={supabaseSession.startupError ?? "Supabase startup failed."} />;

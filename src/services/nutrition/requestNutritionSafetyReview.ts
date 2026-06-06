@@ -154,7 +154,7 @@ export async function requestNutritionSafetyReview(input: {
         status: "already_active",
         reviewId: persisted.review.id,
         hardStopRemains: persisted.review.hardStop,
-        message: "Review is already active. Hard stops remain active until a future permissioned reviewer workflow clears them."
+        message: "Safety state is already active. Hard stops remain active; CornerIQ cannot clear them in the app."
       };
     }
 

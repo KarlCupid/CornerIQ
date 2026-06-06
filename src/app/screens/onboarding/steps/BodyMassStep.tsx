@@ -43,7 +43,7 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
       <Text style={screenStyles.subtle}>Required. These values keep weight-class decisions conservative; missing or invalid data stays unknown, not safe.</Text>
       <LabeledTextInput
         example="82"
-        helper="Your current scale value. Enter kilograms in this beta setup."
+        helper="Your current scale value. Enter kilograms during setup."
         keyboardType="decimal-pad"
         label="Current body mass (kg)"
         onChangeText={(value) => {

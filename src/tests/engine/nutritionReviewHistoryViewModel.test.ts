@@ -85,7 +85,7 @@ describe("nutritionReviewHistoryViewModel", () => {
     expect(viewModel.historyEvents[0]?.summary).toContain("does not clear the plan");
   });
 
-  it("renders no-history and future reviewer copy without implying a review happened", () => {
+  it("renders no-history and support copy without implying a review happened", () => {
     const viewModel = buildNutritionReviewHistoryViewModel({
       activeReviews: [],
       reviewEvents: [],
@@ -100,7 +100,7 @@ describe("nutritionReviewHistoryViewModel", () => {
     });
 
     expect(viewModel.noHistoryCopy).toContain("No review events");
-    expect(viewModel.reviewerFutureCopy).toContain("server-side identity");
+    expect(viewModel.qualifiedSupportCopy).toContain("outside the app");
     expect(viewModel.urgentSupportCopy).toContain("urgent symptoms");
     expect(JSON.stringify(viewModel)).not.toContain("doctor approved");
   });

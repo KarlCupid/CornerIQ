@@ -38,7 +38,6 @@ export const USER_OWNED_TABLES = [
   "fight_opportunities",
   "tournament_plans",
   "athlete_journey_events",
-  "beta_feedback_reports",
   "engine_runs",
   "athlete_profiles",
   "users_public"
@@ -79,7 +78,6 @@ export const USER_OWNED_TABLE_CATEGORIES: Record<UserOwnedTable, UserOwnedDataCa
   users_public: "profile",
   athlete_profiles: "profile",
   athlete_journey_events: "profile",
-  beta_feedback_reports: "profile",
   body_mass_logs: "logs",
   readiness_checkins: "logs",
   water_logs: "logs",

@@ -19,7 +19,7 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
           Active reviews: {history.activeReviewCount}. Hard stops: {history.hardStopReviewCount}.
         </Text>
         <Text style={screenStyles.subtle}>{history.safetyCopy}</Text>
-        <Text style={screenStyles.subtle}>{history.reviewerFutureCopy}</Text>
+        <Text style={screenStyles.subtle}>{history.qualifiedSupportCopy}</Text>
         <Text style={screenStyles.subtle}>{history.urgentSupportCopy}</Text>
         {history.activeReviews.length > 0 ? (
           history.activeReviews.map((review) => (
@@ -43,7 +43,7 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
         {history.historyEvents.length > 0 ? (
           history.historyEvents.map((event, index) => (
             <Text key={`review-event:${index}`} style={screenStyles.subtle}>
-              {event.date} - {statusLabel(event.eventType)} by {event.actorType}: {event.summary}
+              {event.date} - {event.eventLabel} by {event.actorType}: {event.summary}
             </Text>
           ))
         ) : (

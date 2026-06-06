@@ -44,7 +44,7 @@ const activeSurfaceTestIds = [
   "profile-athlete-section",
   "profile-settings-section",
   "profile-data-section",
-  "profile-audit-section",
+  "profile-safety-section",
   "profile-screen"
 ] as const;
 const localHttpHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
@@ -490,10 +490,10 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Show Safety review" }).click();
   await expectVisibleText(page, "Nutrition review history");
   await expectVisibleText(page, /You cannot self-clear nutrition hard stops/i);
-  await expectVisibleText(page, /Athlete UI is read-only for reviewer decisions/i);
-  await expectVisibleText(page, /reviewer clear requires trusted server-side identity and audit/i);
+  await expectVisibleText(page, /CornerIQ cannot clear hard stops in the app/i);
   await expectVisibleText(page, /For urgent symptoms or unsafe weight concerns, stop and seek qualified support/i);
   await expect(page.getByRole("button", { name: /clear/i })).toHaveCount(0);
+  expect(await visiblePageText(page, "fuel-reviews-section")).not.toMatch(/reviewer clear|clear as reviewer|qualified reviewer/i);
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-reviews-section"));
 
   await page.getByRole("button", { name: "Show Body Mass" }).click();
@@ -501,41 +501,29 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-body-mass-section"));
 }
 
-async function auditProfileAudit(page: Page, testInfo: TestInfo) {
+async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Profile");
   await expectVisibleText(page, "Boxer profile");
   await expect(page.getByTestId("profile-top-action-card")).toContainText("Profile action");
   await expect(page.getByTestId("profile-top-action-card")).toContainText("Use Profile for boxer settings");
   await expect(page.getByTestId("profile-top-action-card")).toContainText("manual input remains enough");
-  await page.getByRole("button", { name: "Show Audit section" }).click();
-  await expectVisibleText(page, "Beta tester notice");
-  await expectVisibleText(page, "This is a beta.");
-  await expectVisibleText(page, "Not medical advice.");
-  await expectVisibleText(page, "Not a replacement for qualified human judgment.");
-  await expectVisibleText(page, "No emergency support.");
-  await capture(page, testInfo, "Profile Audit screen", "13-profile-audit-screen.png", { scopeTestId: "profile-screen" });
-
-  await expectVisibleText(page, "Beta feedback");
-  await expectVisibleText(page, "Screen");
-  await expectVisibleText(page, "Category");
-  await expectVisibleText(page, "Severity");
-  await expect(page.getByLabel("Beta feedback message")).toBeVisible();
-  await expectVisibleText(page, "Do not include emergency details or secrets.");
-  await expectVisibleText(page, "This is not emergency support and is not medical review.");
-  await page.getByLabel("Beta feedback message").fill("The local beta audit confirms this feedback form submits without remote data.");
-  await page.getByRole("button", { name: "Send beta feedback" }).click();
-  await expectVisibleText(page, "Local E2E beta feedback captured locally only. No Supabase call was made.");
-  await expectVisibleText(page, "Recent feedback");
-  await expect(page.getByRole("button", { name: "Refresh feedback history" })).toBeVisible();
-  await page.getByText("Beta feedback", { exact: true }).scrollIntoViewIfNeeded();
-  await capture(page, testInfo, "Beta feedback panel", "14-beta-feedback-panel.png", { fullPage: false, scopeTestId: "profile-audit-section" });
-  await capture(page, testInfo, "Beta feedback submit", "14-beta-feedback-submit.png", { fullPage: false, scopeTestId: "profile-audit-section" });
-
-  await expectVisibleText(page, "Beta health preflight");
-  await page.getByText("Beta health preflight").scrollIntoViewIfNeeded();
-  await capture(page, testInfo, "Beta health panel", "15-beta-health-panel.png", { fullPage: false, scopeTestId: "profile-audit-section" });
-  expectNoDisplayedSecretValues(await visiblePageText(page, "profile-audit-section"));
+  await page.getByRole("button", { name: "Show Safety section" }).click();
+  await expectVisibleText(page, "Training history");
+  await expectVisibleText(page, "Fuel safety history");
+  await expectVisibleText(page, /Nutrition review history is available in Fuel > Reviews/i);
+  await expectVisibleText(page, /CornerIQ cannot clear hard stops in the app/i);
+  await expectVisibleText(page, /athletes cannot self-clear nutrition hard stops/i);
+  await expect(page.getByRole("button", { name: "Show saved history detail" })).toBeVisible();
+  await page.getByRole("button", { name: "Show saved history detail" }).click();
+  await expectVisibleText(page, "Saved history detail");
+  await expectVisibleText(page, /does not clear safety stops or expose private server controls/i);
+  const output = await visiblePageText(page, "profile-safety-section");
+  expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback|report this issue/i);
+  expect(output).not.toMatch(/reviewer-clear|clear as reviewer|coach-only/i);
+  await capture(page, testInfo, "Profile Safety screen", "13-profile-safety-screen.png", { scopeTestId: "profile-screen" });
+  await capture(page, testInfo, "Profile Safety history detail", "14-profile-safety-history-detail.png", { fullPage: false, scopeTestId: "profile-safety-section" });
+  expectNoDisplayedSecretValues(output);
 }
 
 async function auditTrain(page: Page, testInfo: TestInfo) {
@@ -668,7 +656,7 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expect(deleteButton).toBeDisabled();
   await page.getByLabel("Delete confirmation").fill("DELETE");
   await expect(deleteButton).toBeEnabled();
-  await expectVisibleText(page, "Account deletion requires a server-side function later; this only removes user-owned app data.");
+  await expectVisibleText(page, "Auth identity deletion requires a trusted support path. This button only removes user-owned app data.");
   await deleteButton.click();
   await expectVisibleText(page, "Local E2E data deletion is disabled. No Supabase call was made.");
   expectNoDisplayedSecretValues(await visiblePageText(page, "profile-data-section"));
@@ -686,22 +674,17 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
 function expectErrorRecoverySource() {
   const boundaryPath = path.join(process.cwd(), "src", "app", "components", "AppErrorBoundary.tsx");
   const statePath = path.join(process.cwd(), "src", "app", "components", "AppErrorState.tsx");
-  const feedbackPath = path.join(process.cwd(), "src", "services", "feedback", "submitBetaFeedback.ts");
   expect(existsSync(boundaryPath)).toBe(true);
   expect(existsSync(statePath)).toBe(true);
-  expect(existsSync(feedbackPath)).toBe(true);
 
   const boundary = readFileSync(boundaryPath, "utf8");
   const state = readFileSync(statePath, "utf8");
-  const feedback = readFileSync(feedbackPath, "utf8");
   expect(boundary).toContain("buildAppErrorSummary");
   expect(boundary).toContain("redactSensitiveText");
-  expect(boundary).toContain("Sign in is required before sending an issue report.");
-  expect(boundary).toContain("Sign in to report issue");
+  expect(boundary).toContain("contact support outside the app");
   expect(boundary).toContain("Your data is still protected.");
   expect(state).toContain("Details are available in the development logs.");
-  expect(feedback).toContain("sanitizePayload");
-  expect(feedback).toContain("redactSecretsFromText");
+  expect(boundary).not.toMatch(/report this issue|submit|feedback/i);
   expect(boundary).not.toContain("{this.state.componentStack}");
   expect(boundary).not.toMatch(/componentStack}\s*<\/Text>/);
 }
@@ -734,7 +717,7 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Body mass");
   await expectVisibleText(page, /missing or invalid data stays unknown, not safe/i);
   await expectVisibleText(page, "Current body mass (kg)");
-  await expectVisibleText(page, /Your current scale value\. Enter kilograms in this beta setup\./);
+  await expectVisibleText(page, /Your current scale value\. Enter kilograms during setup\./);
   await expectVisibleText(page, /Example: 82/);
   await expectVisibleText(page, "Typical walk-around body mass (kg)");
   await expectVisibleText(page, /Your normal training weight when not trying to make a class\. This is not a target\./);
@@ -878,16 +861,16 @@ test("full first-time onboarding uses real inputs before Today", async ({ page }
   await completeRealOnboarding(page, testInfo);
 });
 
-test("Fuel screen preserves beta nutrition safety framing after local onboarding", async ({ page }, testInfo) => {
+test("Fuel screen preserves launch nutrition safety framing after local onboarding", async ({ page }, testInfo) => {
   testInfo.setTimeout(90_000);
   await openLocalToday(page);
   await auditFuel(page, testInfo);
 });
 
-test("Profile Audit exposes beta feedback and preflight safeguards after local onboarding", async ({ page }, testInfo) => {
+test("Profile Safety exposes launch safety history after local onboarding", async ({ page }, testInfo) => {
   testInfo.setTimeout(90_000);
   await openLocalToday(page);
-  await auditProfileAudit(page, testInfo);
+  await auditProfileSafety(page, testInfo);
 });
 
 test("Train screen exposes safe generated training and completion affordances", async ({ page }, testInfo) => {

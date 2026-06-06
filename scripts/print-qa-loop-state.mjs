@@ -25,7 +25,7 @@ console.log("CornerIQ QA loop state");
 console.log(`Current QA phase: ${valueFor("Current QA phase", state)}`);
 console.log(`Last commit tested: ${lastCommitTested}`);
 console.log(`Last QA run result: ${valueFor("Last QA run result", state)}`);
-console.log(`Beta readiness decision: ${valueFor("Beta readiness decision", state)}`);
+console.log(`Launch readiness decision: ${valueFor("Launch readiness decision", state)}`);
 console.log(`Next recommended action: ${valueFor("Next recommended action", state)}`);
 console.log(`Generated release evidence: ${generatedReleaseEvidencePath}`);
 
@@ -46,8 +46,8 @@ if (analysis) {
 
 console.log("");
 console.log("Exit criteria");
-console.log("- all automatable beta-readiness gates pass");
+console.log("- all automatable launch-readiness gates pass");
 console.log("- no Blocker findings remain");
 console.log("- no High findings remain");
-console.log("- no Medium finding marked must fix before beta remains");
+console.log("- no Medium finding marked must fix before launch remains");
 console.log("- human-only gates remain human_review_required until real evidence exists");

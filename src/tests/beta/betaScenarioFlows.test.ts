@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AthleteJourney, PerformanceState } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import { buildBetaHealthViewModel } from "../../engine/presentation/betaHealthViewModel";
-import { getBetaRuntimeConfig } from "../../services/config/betaRuntimeConfig";
 import {
   amateur_elite_camp_same_day_weigh_in,
   amateur_novice_build,
@@ -14,7 +12,7 @@ import {
   underfueling_risk_camp
 } from "../fixtures/engineFixtures";
 
-type BetaScenario = {
+type LaunchScenario = {
   assert?: (state: PerformanceState) => void;
   journey: AthleteJourney;
   name: string;
@@ -73,7 +71,7 @@ function generatedSupportCopy(state: PerformanceState): string {
   );
 }
 
-function assertSharedBetaStructure(state: PerformanceState) {
+function assertSharedLaunchStructure(state: PerformanceState) {
   expect(state.engineVersion).toBeTruthy();
   expect(state.outputHash).toBeTruthy();
   expect(state.viewModels.today.primaryAction.length).toBeGreaterThan(0);
@@ -84,20 +82,6 @@ function assertSharedBetaStructure(state: PerformanceState) {
   expect(state.viewModels.plan.weeklyTrainingStructure.length).toBeGreaterThan(0);
   expect(state.viewModels.plan.dayPlans).toHaveLength(7);
   expect(state.viewModels.profile.title).toBe("Boxer profile");
-
-  const betaHealth = buildBetaHealthViewModel({
-    exportDeleteAvailable: true,
-    feedbackAvailable: true,
-    isSignedIn: true,
-    performanceState: state,
-    profileComplete: true,
-    runtimeConfig: getBetaRuntimeConfig({
-      EXPO_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: "public-anon-test-key"
-    })
-  });
-  expect(betaHealth.checks.find((item) => item.key === "engine_state")?.status).toBe("ready");
-  expect(JSON.stringify(betaHealth)).toContain("Manual");
 
   expect(JSON.stringify(state.viewModels.fuel)).not.toMatch(unsafeFuelCopy);
   expect(generatedSupportCopy(state)).not.toMatch(generatedContactCopy);
@@ -115,7 +99,7 @@ function assertSharedBetaStructure(state: PerformanceState) {
   }
 }
 
-const scenarios: readonly BetaScenario[] = [
+const scenarios: readonly LaunchScenario[] = [
   {
     name: "Amateur novice build phase",
     journey: amateur_novice_build,
@@ -199,11 +183,11 @@ const scenarios: readonly BetaScenario[] = [
   }
 ];
 
-describe("beta scenario QA flows", () => {
-  it.each(scenarios)("$name resolves safe beta view models", ({ assert, journey }) => {
+describe("launch scenario QA flows", () => {
+  it.each(scenarios)("$name resolves safe launch view models", ({ assert, journey }) => {
     const state = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate });
 
-    assertSharedBetaStructure(state);
+    assertSharedLaunchStructure(state);
     assert?.(state);
   });
 });

@@ -16,10 +16,10 @@ function displayActiveReviewStatus(
   const status =
     review.status === "acknowledged"
       ? "acknowledged_by_athlete"
-      : review.status === "in_review"
-        ? "reviewer_reviewing"
-        : review.status === "blocked"
-          ? "not_cleared"
+      : review.status === "in_review" || review.status === "reviewer_reviewing" || review.status === "blocked" || review.status === "not_cleared"
+        ? "requested"
+        : review.status === "cleared_by_reviewer"
+          ? "superseded"
           : review.status;
   return { ...review, status };
 }

@@ -1,10 +1,10 @@
 # QA Rubric
 
-Use this rubric for agent findings, AI review notes, and human beta session notes. Severity is based on beta-blocking risk, not how hard the fix looks.
+Use this rubric for agent findings, AI review notes, and human boxer validation notes. Severity is based on launch-blocking risk, not how hard the fix looks.
 
 ## Blocker
 
-A Blocker stops controlled beta until fixed or until a release owner explicitly accepts a non-user-facing limitation.
+A Blocker stops launch readiness until fixed or until a release owner explicitly accepts a non-user-facing limitation.
 
 - App cannot launch.
 - Auth prevents all testing.
@@ -16,24 +16,24 @@ A Blocker stops controlled beta until fixed or until a release owner explicitly 
 - Service-role exposure.
 - Migration or live-smoke blocker.
 - Data deletion unsafe.
-- Distributed beta claimed without a build artifact.
+- External launch claimed without a build artifact.
 
 ## High
 
-High findings usually block beta because a core user path is likely to fail or mislead a boxer.
+High findings usually block launch readiness because a core user path is likely to fail or mislead a boxer.
 
 - Core flow unusable.
 - User cannot tell what to do first on Today, Fuel, Train, or Plan.
 - Onboarding field causes likely wrong engine input.
 - Fuel copy feels weight-pressuring.
 - Workout completion cannot be completed.
-- Profile feedback unavailable.
+- Removed in-app support/reporting surface reappears.
 - Data export/delete unclear.
 - Engine output materially unsafe or misleading.
 
 ## Medium
 
-Medium findings are confusing but usable. Mark `must fix before beta` when they affect safety, first action clarity, or input quality.
+Medium findings are confusing but usable. Mark `must fix before launch` when they affect safety, first action clarity, or input quality.
 
 - Confusing but usable.
 - Too dense.
@@ -43,7 +43,7 @@ Medium findings are confusing but usable. Mark `must fix before beta` when they 
 
 ## Low
 
-Low findings do not block a controlled beta by themselves.
+Low findings do not block launch readiness by themselves.
 
 - Polish.
 - Spacing.
@@ -70,4 +70,3 @@ Deferred features must not be backfilled during a QA pass unless the user explic
 ## Automation Limits
 
 Automation can pass a surface and still leave it `human_review_required`. Human boxer comprehension cannot be fully automated. Physical device checks cannot be fully automated. Local E2E can prove rendered text and interaction smoke paths, but it cannot prove trust, usefulness, physical phone ergonomics, live auth/email behavior, or distribution readiness.
-

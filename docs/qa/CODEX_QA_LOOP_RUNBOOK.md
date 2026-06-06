@@ -1,6 +1,6 @@
 # Codex QA Loop Runbook
 
-Use this runbook for a full beta-readiness QA loop. It extends the browser audit runbook with analysis, AI review, bundle creation, and persistent state.
+Use this runbook for a full launch-readiness QA loop. It extends the browser audit runbook with analysis, AI review, bundle creation, and persistent state.
 
 ## Local Full Loop
 
@@ -12,12 +12,12 @@ cmd /c npm run typecheck
 cmd /c npm test
 cmd /c npm run lint
 cmd /c npm run quality
-cmd /c npm run preflight:beta
+cmd /c npm run preflight:production
 cmd /c npm run qa:agent:ci
 cmd /c npm run qa:loop:state
 ```
 
-`qa:agent:ci` writes the current evidence bundle under `qa-artifacts/` and must stay local-only. It sets no live Supabase credentials and does not need real beta accounts.
+`qa:agent:ci` writes the current evidence bundle under `qa-artifacts/` and must stay local-only. It sets no live Supabase credentials and does not need real accounts.
 
 The command records structured gate results at:
 
@@ -70,7 +70,7 @@ After every pass, update `docs/qa/QA_LOOP_STATE.md` with:
 - Last AI review brief path.
 - Open Blocker, High, and required Medium counts.
 - Next recommended action.
-- Beta readiness decision.
+- Launch readiness decision.
 - Surface statuses.
 
 Use only these statuses:
@@ -84,15 +84,15 @@ Use only these statuses:
 - `human_review_required`
 - `blocked`
 - `deferred`
-- `accepted_beta_limitation`
+- `accepted_launch_limitation`
 
 ## Stop Conditions
 
 Stop the loop when all automatable gates pass and the next action is one of:
 
-- `human beta session`
+- `human boxer validation`
 - `physical iPhone review`
 - `live Supabase/release-owner check`
-- `ready for controlled beta with documented limitations`
+- `launch_code_ready with documented limitations`
 
 Never mark physical iPhone, live Supabase, email confirmation, distribution, or human comprehension complete from local E2E automation alone.

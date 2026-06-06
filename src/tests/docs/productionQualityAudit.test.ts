@@ -27,7 +27,7 @@ describe("production quality audit documentation", () => {
     expect(source).toContain("self-invalidating SHA loop");
     expect(ledger).toContain("Release Evidence Ledger Template");
     expect(ledger).toContain("Generated Artifact Rules");
-    expect(ledger).toContain("Human Beta Findings Template");
+    expect(ledger).toContain("Human Boxer Validation Template");
     expect(combined).not.toMatch(/Current commit tested|Candidate SHA for this ledger/i);
     expect(source).not.toMatch(/working-tree changes from this pass|plus working tree changes/i);
 
@@ -39,7 +39,7 @@ describe("production quality audit documentation", () => {
       "CI/release gates",
       "Security posture",
       "Supabase/persistence",
-      "Feedback/incident reporting",
+      "Support/incident boundary",
       "UX readiness",
       "Production observability/ops",
       "Regulatory/liability readiness"
@@ -68,7 +68,7 @@ describe("production quality audit documentation", () => {
       "Supabase migration list/dry-run",
       "Live smoke",
       "EAS/mobile artifact status",
-      "Human beta findings",
+      "Human boxer validation",
       "Known blockers"
     ]) {
       expect(ledger).toContain(field);

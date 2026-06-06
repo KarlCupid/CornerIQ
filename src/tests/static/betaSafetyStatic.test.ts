@@ -136,15 +136,20 @@ describe("beta safety static scans", () => {
     }
   });
 
-  it("keeps feedback copy outside emergency, medical, or coaching review", () => {
-    const feedback = readFileSync("src/app/components/BetaFeedbackPanel.tsx", "utf8");
-    const errorBoundary = readFileSync("src/app/components/AppErrorBoundary.tsx", "utf8");
-    const betaHealth = readFileSync("src/engine/presentation/betaHealthViewModel.ts", "utf8");
-    const combined = `${feedback}\n${errorBoundary}\n${betaHealth}`;
+  it("keeps launch runtime files free of beta, tester, preflight, and in-app feedback surfaces", () => {
+    const files = [
+      ...collectFiles("src/app", (path) => path.endsWith(".tsx") || path.endsWith(".ts")),
+      ...collectFiles("src/hooks", (path) => path.endsWith(".ts")),
+      ...collectFiles("src/services", (path) => path.endsWith(".ts") && !path.endsWith("database.types.ts"))
+    ];
 
-    expect(combined).toContain("not emergency support");
-    expect(combined).toContain("not medical review");
-    expect(combined).toContain("Sign in is required");
-    expect(combined).not.toMatch(/clear hard stop|reviewer clear button|medical clearance submitted/i);
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/beta|tester|preflight|release candidate|structured beta|beta feedback|send feedback|feedback report/i);
+    }
+
+    const errorBoundary = readFileSync("src/app/components/AppErrorBoundary.tsx", "utf8");
+    expect(errorBoundary).toContain("contact support outside the app");
+    expect(errorBoundary).not.toMatch(/submit|report this issue|feedback/i);
   });
 });

@@ -97,7 +97,7 @@ function requireReleaseEvidenceFields(path) {
     "supabase migration list/dry-run",
     "live smoke",
     "eas/mobile artifact status",
-    "human beta findings",
+    "human boxer validation",
     "known blockers"
   ]) {
     if (!source.includes(field)) {
@@ -132,19 +132,19 @@ function requireLedgerEvidence(path, label, acceptablePattern, unresolvedPattern
   }
 }
 
-function requireHumanBetaStatus(path) {
-  const lines = ledgerLinesContaining(path, "Human beta findings");
+function requireHumanBoxerValidationStatus(path) {
+  const lines = ledgerLinesContaining(path, "Human boxer validation");
   if (lines.length === 0) {
-    failures.push(`${displayPath(path)} must record Human beta findings.`);
+    failures.push(`${displayPath(path)} must record Human boxer validation.`);
     return;
   }
   const joined = lines.join("\n");
   if (/real boxer validated|production ux validated|human validation complete/i.test(joined)) {
-    failures.push(`${displayPath(path)} overclaims human beta findings; record private findings or state scripted beta readiness only.`);
+    failures.push(`${displayPath(path)} overclaims human boxer validation; record private findings or state human_review_required.`);
     return;
   }
-  if (!/(scripted beta readiness only|no real boxer findings|human_review_required|real boxer findings recorded)/i.test(joined)) {
-    failures.push(`${displayPath(path)} must separate scripted beta readiness from real boxer findings.`);
+  if (!/(scripted automation only|no real boxer findings|human_review_required|real boxer findings recorded)/i.test(joined)) {
+    failures.push(`${displayPath(path)} must separate automated evidence from real boxer validation.`);
   }
 }
 
@@ -168,7 +168,7 @@ function runReleaseLocalGates() {
   if (process.env.CORNERIQ_RELEASE_RUN_LOCAL_GATES !== "1") {
     return;
   }
-  runCommand("beta preflight", process.execPath, ["scripts/beta-preflight.mjs"]);
+  runCommand("production preflight", process.execPath, ["scripts/production-preflight.mjs"]);
   if (process.platform === "win32") {
     runCommand("static safety scan", process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "npm exec vitest -- run src/tests/static"]);
   } else {
@@ -176,7 +176,7 @@ function runReleaseLocalGates() {
   }
 }
 
-requireFile("scripts/beta-preflight.mjs");
+requireFile("scripts/production-preflight.mjs");
 requireFile("scripts/collect-release-evidence-input.mjs");
 requireFile(".github/workflows/codeql.yml");
 requireFile(".github/workflows/quality.yml");
@@ -192,7 +192,7 @@ requireContains(".github/workflows/release-quality.yml", "node scripts/collect-r
 requireContains(".github/workflows/release-quality.yml", "run_live_smoke", "live smoke workflow dispatch input");
 requireContains(".github/workflows/release-quality.yml", "allow_remote_db_push", "remote DB push workflow dispatch input");
 requireContains(".github/workflows/release-quality.yml", "npm run test:coverage", "coverage gate");
-requireContains(".github/workflows/release-quality.yml", "npm run preflight:beta", "beta preflight gate");
+requireContains(".github/workflows/release-quality.yml", "npm run preflight:production", "production preflight gate");
 requireContains(".github/workflows/release-quality.yml", "npm exec vitest -- run src/tests/static", "static safety gate");
 requireContains(".github/workflows/release-quality.yml", "npm audit --audit-level=high --omit=dev", "production dependency audit");
 requireContains(".github/workflows/release-quality.yml", "npm run release:evidence", "generated release evidence step");
@@ -284,7 +284,7 @@ if (sha) {
     /counted as complete|included in this score/i,
     "mobile deliverability must be excluded from in-scope release evidence or tracked separately."
   );
-  requireHumanBetaStatus(releaseEvidencePath);
+  requireHumanBoxerValidationStatus(releaseEvidencePath);
 }
 
 runReleaseLocalGates();

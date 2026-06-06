@@ -3,10 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import type { AthleteProfile, ISODateString } from "../engine/core/types";
 import { useAutoRollForward } from "./useAutoRollForward";
 import { resolveAndPersistPerformanceState, type ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
-import {
-  acknowledgeNutritionSafetyReview as acknowledgeNutritionSafetyReviewService,
-  requestNutritionSafetyReview as requestNutritionSafetyReviewService
-} from "../services/nutrition/requestNutritionSafetyReview";
+import { acknowledgeNutritionSafetyReview as acknowledgeNutritionSafetyReviewService } from "../services/nutrition/requestNutritionSafetyReview";
 import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, type AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 import {
@@ -50,7 +47,6 @@ export interface PerformanceStateHook {
   message: string | null;
   refresh: (status?: EngineGenerationStatus) => Promise<ResolveAndPersistPerformanceStateResult>;
   repositories: AthleteJourneyRepositories;
-  requestNutritionSafetyReview: () => Promise<void>;
   result: ResolveAndPersistPerformanceStateResult | null;
   saveBuildGoal: (draft: BuildGoalDraft) => Promise<void>;
   saveFightSetup: (draft: FightSetupDraft) => Promise<void>;
@@ -68,21 +64,6 @@ export function todayLocalISODate(): ISODateString {
   const month = `${now.getMonth() + 1}`.padStart(2, "0");
   const day = `${now.getDate()}`.padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
-}
-
-function nutritionSafetyReviewActionPayload(result: ResolveAndPersistPerformanceStateResult): Record<string, unknown> {
-  if (result.status !== "ready") {
-    return {};
-  }
-  return {
-    source: "fuel_screen_action",
-    commandPhase: result.state.viewModels.fuel.commandCenter.phase,
-    weightClassStatus: result.state.viewModels.fuel.weightClassStatus.status,
-    fightWeekStatus: result.state.viewModels.fuel.fightWeekFuelPlan.status,
-    rehydrationStatus: result.state.viewModels.fuel.rehydrationChecklist.status,
-    tournamentStatus: result.state.viewModels.fuel.tournamentFuelPlan.status,
-    activeReviewCount: result.state.viewModels.fuel.activeNutritionSafetyReviews.length
-  };
 }
 
 export function usePerformanceState(input: UsePerformanceStateInput): PerformanceStateHook {
@@ -375,39 +356,6 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     [refresh, repositories, result, userId]
   );
 
-  const requestNutritionSafetyReview = useCallback(async () => {
-    if (result?.status !== "ready") {
-      setMessage("Safety review can be logged after engine state loads.");
-      return;
-    }
-    if (!repositories.nutritionSafetyReview) {
-      setMessage("Safety review persistence is unavailable.");
-      return;
-    }
-    setLoading(true);
-    setMessage(null);
-    try {
-      const reviewResult = await requestNutritionSafetyReviewService({
-        userId,
-        asOfDate,
-        repositories: {
-          journey: repositories.journey,
-          nutritionSafetyReview: repositories.nutritionSafetyReview
-        },
-        review: result.state.viewModels.fuel.nutritionSafetyReview,
-        engineVersion: result.state.engineVersion,
-        inputHash: result.inputHash,
-        outputHash: result.state.outputHash,
-        sourcePayload: nutritionSafetyReviewActionPayload(result)
-      });
-      await refresh();
-      setMessage(reviewResult.message);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Nutrition safety review request failed.");
-      setLoading(false);
-    }
-  }, [asOfDate, refresh, repositories, result, userId]);
-
   const acknowledgeNutritionSafetyReview = useCallback(
     async (reviewId: string) => {
       if (!repositories.nutritionSafetyReview) {
@@ -444,7 +392,6 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     message,
     refresh,
     repositories,
-    requestNutritionSafetyReview,
     result,
     saveBuildGoal: saveBuild,
     saveFightSetup: saveFight,
