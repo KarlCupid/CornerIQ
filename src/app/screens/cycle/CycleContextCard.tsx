@@ -7,40 +7,40 @@ import { screenStyles } from "../screenStyles";
 
 export function CycleContextCard({
   cycleContext,
+  framed = true,
   minimal = false,
   trackingStatus
 }: {
   cycleContext: CycleViewModel | null;
+  framed?: boolean | undefined;
   minimal?: boolean | undefined;
   trackingStatus?: "enabled" | "disabled" | "undecided" | string | undefined;
 }) {
+  const frame = (children: React.ReactElement) => (framed ? <EngineCard>{children}</EngineCard> : children);
   if (!cycleContext) {
     if (trackingStatus === "undecided") {
-      return (
-        <EngineCard>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.sectionTitle}>Cycle context</Text>
-            <Text style={screenStyles.body}>Cycle support is optional and private. You can decide later; no cycle assumptions are applied.</Text>
-          </View>
-        </EngineCard>
+      return frame(
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Cycle context</Text>
+          <Text style={screenStyles.body}>Cycle support is optional and private. You can decide later; no cycle assumptions are applied.</Text>
+        </View>
       );
     }
-    return minimal ? (
-      <EngineCard>
+    return minimal
+      ? frame(
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.sectionTitle}>Cycle context</Text>
           <Text style={screenStyles.body}>Cycle tracking is off. No cycle assumptions are applied.</Text>
         </View>
-      </EngineCard>
-    ) : null;
+      )
+      : null;
   }
 
   const contraceptionNote = cycleContext.estimatedPhase.includes("contraception")
     ? "Hormonal contraception context stays symptom-based; CornerIQ does not treat it as natural-cycle certainty."
     : null;
 
-  return (
-    <EngineCard>
+  return frame(
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Cycle context</Text>
         <Text style={screenStyles.body}>Tracking: {cycleContext.trackingStatus}</Text>
@@ -61,6 +61,5 @@ export function CycleContextCard({
         <Text style={screenStyles.subtle}>{cycleContext.historySummary}</Text>
         <Text style={screenStyles.subtle}>{cycleContext.privacyReminder}</Text>
       </View>
-    </EngineCard>
   );
 }

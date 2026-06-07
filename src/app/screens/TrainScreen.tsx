@@ -2,11 +2,10 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
-import { ActionCard } from "../../design/components/ActionCard";
-import { DisclosureCard } from "../../design/components/DisclosureCard";
+import { CollapsedDetailDisclosure, CompactStatusStrip, PrimaryTaskCard } from "../../design/components/FastTask";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
-import { LuminousScreen, MetricTile, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
+import { LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
@@ -89,7 +88,6 @@ function fuelMetricValue(viewModel: TrainViewModel): string {
 function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards"][number] }) {
   const label = session.sessionTypeLabel ?? "Generated training";
   return (
-    <EngineCard>
       <View style={{ gap: spacing.lg }}>
         <Text style={screenStyles.sectionTitle}>Flow</Text>
         {session.prescription.slice(0, 4).map((item, index) => (
@@ -122,7 +120,6 @@ function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards
           </View>
         ))}
       </View>
-    </EngineCard>
   );
 }
 
@@ -155,9 +152,8 @@ function WeeklyGeneratedWorkCard({ viewModel }: { viewModel: TrainViewModel }) {
   );
 }
 
-function ExecutionOverlayCard({ viewModel }: { viewModel: TrainViewModel }) {
+function ExecutionOverlayDetails({ viewModel }: { viewModel: TrainViewModel }) {
   return (
-    <EngineCard>
       <View style={{ gap: spacing.sm }} testID="train-execution-overlay-card">
         <Text style={screenStyles.sectionTitle}>Planned workout</Text>
         <Text style={screenStyles.body}>{viewModel.executionOverlay.plannedTraining}</Text>
@@ -176,7 +172,6 @@ function ExecutionOverlayCard({ viewModel }: { viewModel: TrainViewModel }) {
           </>
         ) : null}
       </View>
-    </EngineCard>
   );
 }
 
@@ -213,10 +208,13 @@ export function TrainScreen({
         title={viewModel.topAction.title}
         why={viewModel.topAction.why}
       />
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <MetricTile accent="purple" label="Session" meta={viewModel.todayRole.status.replace(/_/g, " ")} value={sessionMetricValue(viewModel)} />
-        <MetricTile accent="orange" label="Fuel" meta="Carbs + water" value={fuelMetricValue(viewModel)} />
-      </View>
+      <CompactStatusStrip
+        items={[
+          { accent: "purple", label: "Session", meta: viewModel.todayRole.status.replace(/_/g, " "), value: sessionMetricValue(viewModel) },
+          { accent: "orange", label: "Fuel", meta: "Carbs + water", value: fuelMetricValue(viewModel) }
+        ]}
+        testID="train-compact-status-strip"
+      />
       <SectionTabs items={trainSections} value={section} onChange={setSection} />
       {viewModel.riskSummary.length > 0 ? (
         <RiskBanner title="Training safety check" message="Training changes stay blocked or reduced while these safety notes are active." tone="critical">
@@ -227,46 +225,51 @@ export function TrainScreen({
       ) : null}
       {section === "today" ? (
         <View style={{ gap: spacing.lg }} testID="train-today-section">
-          <ExecutionOverlayCard viewModel={viewModel} />
-          {viewModel.sessionCards[0] ? <WorkoutFlowPreview session={viewModel.sessionCards[0]} /> : null}
           {viewModel.sessionCards.length > 0 ? viewModel.sessionCards.map((session, index) => (
             <View key={`today-session:${index}`} testID={index === 0 ? "train-main-workout-command" : undefined}>
-              <ActionCard
-                action="Open workout, then log result."
-                actionLabel="Open workout"
-                detailLabel="why / safety"
-                detailSummary="Plan context, fuel notes, and safety detail stay here unless a hard stop is active."
-                highlights={session.prescription.slice(0, 6)}
-                onAction={() => setSection("workout")}
-                status={`${session.durationMinutes} min, ${session.intensity}. Fuel: ${viewModel.preSessionFuelHint}`}
-                subtitle={sessionPurpose(session)}
+              <PrimaryTaskCard
+                accent="purple"
+                primaryAction="Open workout, then log result."
+                primaryButton={{ disabled: busy, label: "Open workout", onPress: () => setSection("workout"), summary: "Log result first" }}
+                purpose={`${session.durationMinutes} min, ${session.intensity}. ${sessionPurpose(session)}`}
+                testID={index === 0 ? "train-primary-workout-task" : undefined}
                 title={session.title}
-              >
+              />
+              <CollapsedDetailDisclosure title="why / safety" summary="Plan context, fuel notes, and safety detail stay hidden unless you need them.">
                 <View style={{ gap: spacing.sm }}>
                   <Text style={screenStyles.body}>Why: {session.why}</Text>
                   {session.readinessGate ? <Text style={screenStyles.subtle}>Readiness gate: {session.readinessGate}</Text> : null}
                   {session.fuelingGate ? <Text style={screenStyles.subtle}>Fueling gate: {session.fuelingGate}</Text> : null}
                   {session.hydrationGate ? <Text style={screenStyles.subtle}>Hydration gate: {session.hydrationGate}</Text> : null}
+                  {session.prescription.slice(0, 6).map((item, itemIndex) => <Text key={`prescription:${index}:${itemIndex}`} style={screenStyles.subtle}>Plan: {item}</Text>)}
                   {session.downshiftIf?.slice(0, 2).map((item, itemIndex) => <Text key={`downshift:${index}:${itemIndex}`} style={screenStyles.subtle}>Downshift if: {item}</Text>)}
                   <Text style={screenStyles.subtle}>{viewModel.postSessionFuelHint}</Text>
                   <Text style={screenStyles.subtle}>{viewModel.hydrationHint}</Text>
                   {session.modifications.map((item, itemIndex) => <Text key={`modify:${index}:${itemIndex}`} style={screenStyles.subtle}>Modify: {item}</Text>)}
                   {session.protects.map((item, itemIndex) => <Text key={`protects:${index}:${itemIndex}`} style={screenStyles.subtle}>Protects: {item}</Text>)}
                 </View>
-              </ActionCard>
+              </CollapsedDetailDisclosure>
             </View>
           )) : (
             <EmptyState title="No generated training today" message={viewModel.todaySummary} />
           )}
+          <CollapsedDetailDisclosure title="Execution guidance" summary="Planned workout and missing-data execution notes stay collapsed by default.">
+            <ExecutionOverlayDetails viewModel={viewModel} />
+          </CollapsedDetailDisclosure>
+          {viewModel.sessionCards[0] ? (
+            <CollapsedDetailDisclosure title="Workout flow" summary="Open for section order when you need the plan before training.">
+              <WorkoutFlowPreview session={viewModel.sessionCards[0]} />
+            </CollapsedDetailDisclosure>
+          ) : null}
           <WeeklyGeneratedWorkCard viewModel={viewModel} />
-          <DisclosureCard title="Plan context" summary={`${viewModel.todayRole.summary} ${viewModel.protectedAnchorSummary}`}>
+          <CollapsedDetailDisclosure title="Plan context" summary={`${viewModel.todayRole.summary} ${viewModel.protectedAnchorSummary}`}>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} - {viewModel.blockGoal}</Text>
               <Text style={screenStyles.body}>{viewModel.blockExplanation}</Text>
               <Text style={screenStyles.subtle}>{viewModel.todayRole.explanation}</Text>
               <Text style={screenStyles.subtle}>{viewModel.analytics.nextBestTrainingAction}</Text>
             </View>
-          </DisclosureCard>
+          </CollapsedDetailDisclosure>
           {viewModel.cycleTrainingDecision.status !== "none" ? (
           <EngineCard>
             <View style={{ gap: spacing.sm }}>

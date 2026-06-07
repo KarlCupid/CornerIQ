@@ -8,7 +8,7 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | --- | --- |
 | Current QA phase | needs_human_review |
 | Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
-| Last QA run result | 2026-06-05 app-functionality verification pass: `cmd /c npm run qa:agent:ci` passed with 9 browser scenarios, `cmd /c npm run quality` passed, fixture smoke passed, and coverage passed. Deterministic analysis reported 0 blockers, 0 high, and 3 medium human/AI review items. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
+| Last QA run result | 2026-06-07 fatigue-first launch UX verification pass: `cmd /c npm run qa:agent:ci` passed with 9 browser scenarios, regenerated the QA bundle, and reported 0 blockers, 0 high, and 3 medium human/AI review items. Direct install, typecheck, unit, lint, quality, fixture smoke, coverage, beta/production preflight, and high-severity production audit gates also passed. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
@@ -29,13 +29,13 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | --- | --- | --- |
 | npm install | automated_pass | `cmd /c npm install` passed; package tree was up to date. |
 | typecheck | automated_pass | `cmd /c npm run typecheck` passed directly and again inside `qa:agent:ci` and `quality`. |
-| tests | automated_pass | `cmd /c npm test` passed directly and again inside `qa:agent:ci`/`quality`; 528 tests passed and 1 live-smoke test skipped. |
+| tests | automated_pass | `cmd /c npm test` passed directly and again inside `qa:agent:ci`/`quality`; 511 tests passed and 1 live-smoke test skipped. |
 | lint | automated_pass | `cmd /c npm run lint` passed directly and again inside `qa:agent:ci`. |
-| quality | automated_pass | `cmd /c npm run quality` passed after the final app-functionality edits; 528 tests passed and 1 live-smoke test skipped. |
+| quality | automated_pass | `cmd /c npm run quality` passed after the fatigue-first UX edits; 511 tests passed and 1 live-smoke test skipped. |
 | production preflight | automated_pass | `cmd /c npm run preflight:production` passed directly and again inside `qa:agent:ci`. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-05; 9 browser tests passed and the bundle was regenerated under `qa-artifacts/`. |
+| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed and the bundle was regenerated under `qa-artifacts/`. |
 
 ### B. Auth and account
 
@@ -71,10 +71,10 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| first action obvious within 5 seconds | human_review_required | Automation checks readiness due/summary, body-mass due/summary, add-hydration copy, and action-led training call placement; real boxer comprehension remains human-only. |
+| first action obvious within 5 seconds | human_review_required | Automation checks the fatigue-first Today surface: mission, "Do this now", compact readiness/body-mass/water actions, 60-second check-in, and workout routing before optional detail. Real boxer comprehension remains human-only. |
 | primary action clarity | human_review_required | Automation checks Today daily log actions and training call are visible before optional/history detail; real boxer comprehension remains human-only. |
 | why disclosure | automated_pass | Browser audit requires Today evidence. |
-| quick logs visible | automated_pass | Browser audit requires readiness, body mass, and hydration action cards with due-or-summary states. |
+| quick logs visible | automated_pass | Browser audit requires readiness, body mass, and water quick actions on the first Today surface, then opens the 60-second check-in to verify the manual form path. |
 | quick logs use 1-5 explanations where relevant | human_review_required | Text evidence is present; real boxer interpretation remains human-only. |
 | save success/feedback | automated_pass | Quick-log feedback smoke requires confidence/context messages for body mass, readiness, hydration, food, and training paths, including update states. |
 | missing data unknown/not safe | automated_pass | Deterministic scan required. |
@@ -86,12 +86,12 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | command visible | automated_pass | Fuel audit. |
-| daily macro targets visible | automated_pass | Fuel audit checks the top-level "Today's fuel targets" card with calories, protein, carbs, fat, demand tier, target status, and missing/weak input copy where available. |
+| daily macro targets visible | automated_pass | Fuel audit checks the first-view target summary, then opens "Show Targets" to verify calories, protein, carbs, fat, demand tier, target status, and missing/weak input copy where available. |
 | first safe action clear | automated_pass | Fuel food logging now says "Add meal/snack" and explains one meal/snack or day total entries add up in today's context; real boxer comprehension remains human_review_required. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit checks meal/snack/day-total add-up copy. |
-| hydration copy safe | automated_pass | Fuel and Today audit check add-hydration/add-to-today copy without pretending to set a daily total. |
+| hydration copy safe | automated_pass | Fuel and Today audit check the Water quick action plus add-hydration/add-to-today copy after opening the manual log path, without pretending to set a daily total. |
 | missing food logs unknown/lower confidence | automated_pass | Missing-food copy is shortened to "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback." Missing food affects execution guidance and confidence, not baseline training generation. |
 | nutrition review/hard-stop/self-clear copy safe | automated_pass | Safety review copy says users cannot self-clear hard stops; athlete UI is read-only for reviewer decisions, and reviewer clear requires trusted server-side identity and audit. Agent audit passed. |
 | body mass copy safe | automated_pass | Fuel audit. |

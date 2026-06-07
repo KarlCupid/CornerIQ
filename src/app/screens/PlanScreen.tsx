@@ -158,7 +158,7 @@ function CurrentModeCard({
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable accessibilityRole="button" disabled={busy} onPress={onChangeGoal} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.buttonText}>Change goal / setup plan</Text>
+            <Text style={screenStyles.buttonText}>Change goal or schedule</Text>
           </Pressable>
           <Pressable accessibilityRole="button" disabled={busy} onPress={onPreviewNextWeek} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
             <Text style={screenStyles.quietButtonText}>Preview next week</Text>
@@ -220,30 +220,8 @@ function GeneratedSupportSummaryCard({
           <Text style={screenStyles.sectionTitle}>Generated training</Text>
           <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "training session")}</Text>
           <Text style={screenStyles.body}>{viewModel.athleteFacingWeekSummary}</Text>
-          <Text style={screenStyles.subtle}>Development theme: {viewModel.weekDevelopmentTheme}</Text>
           <Text style={screenStyles.body}>Generated training days: {viewModel.scheduleAvailabilitySummary}</Text>
           <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds generated training around your protected boxing anchors, readiness, and safety."}</Text>
-          {viewModel.generationAudit ? (
-            <>
-              <Text style={screenStyles.body}>
-                Current week: {viewModel.generationAudit.actualGeneratedSupportCount}/{viewModel.generationAudit.targetGeneratedSupportCount} generated training session{viewModel.generationAudit.actualGeneratedSupportCount === 1 ? "" : "s"}.
-              </Text>
-              <Text style={screenStyles.subtle}>Dates: {viewModel.generationAudit.generatedSessionDates.length > 0 ? viewModel.generationAudit.generatedSessionDates.join(", ") : "None"}</Text>
-              <Text style={screenStyles.subtle}>Titles: {viewModel.generationAudit.generatedSessionTitles.length > 0 ? viewModel.generationAudit.generatedSessionTitles.join(", ") : "None"}</Text>
-              <Text style={screenStyles.subtle}>Families: {viewModel.generationAudit.generatedSessionFamilies.length > 0 ? viewModel.generationAudit.generatedSessionFamilies.join(", ") : "None"}</Text>
-              {typeof viewModel.generationAudit.targetRequiredAddOnBlocks === "number" ? (
-                <Text style={screenStyles.subtle}>
-                  Required add-ons: {viewModel.generationAudit.actualRequiredAddOnBlocks ?? 0}/{viewModel.generationAudit.targetRequiredAddOnBlocks}; recommended: {viewModel.generationAudit.actualRecommendedAddOnBlocks ?? 0}/{viewModel.generationAudit.targetRecommendedAddOnBlocks ?? 0}.
-                </Text>
-              ) : null}
-              {typeof viewModel.generationAudit.targetAthleteQualityCheckpoints === "number" ? (
-                <Text style={screenStyles.subtle}>Quality checkpoints: {viewModel.generationAudit.actualAthleteQualityCheckpoints ?? 0}/{viewModel.generationAudit.targetAthleteQualityCheckpoints}.</Text>
-              ) : null}
-            </>
-          ) : null}
-          <Text style={screenStyles.subtle}>Generated training will only be placed on selected available days.</Text>
-          <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
-          <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (

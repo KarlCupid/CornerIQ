@@ -6,7 +6,7 @@ export function buildProfileViewModel(state: PerformanceState): ProfileViewModel
     title: "Boxer profile",
     topAction: {
       title: "Profile action",
-      purpose: "Use Profile for boxer settings, privacy, data controls, and safety history.",
+      purpose: "Use Profile for boxer settings, privacy, data controls, and safety history during rare maintenance, not daily workflow.",
       primaryAction: "Keep athlete basics and preferences current when they change.",
       why: "Settings shape engine confidence; manual input remains enough without a wearable.",
       optional: "Safety history and export/delete can wait until you need them."

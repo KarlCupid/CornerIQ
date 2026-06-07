@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
+import { PostActionNextStep } from "../../../design/components/FastTask";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { colors, spacing } from "../../../design/theme";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
@@ -254,6 +255,7 @@ export function WorkoutDetailPanel({
   session: DetailedTrainingSession;
 }) {
   const [resultOpen, setResultOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
   const [exerciseDetailsOpen, setExerciseDetailsOpen] = useState(false);
   const [structuredActualsOpen, setStructuredActualsOpen] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
@@ -312,8 +314,8 @@ export function WorkoutDetailPanel({
     followUpState === "review"
       ? "Review pain/RPE before progressing."
       : followUpState === "skipped"
-        ? "Skipped. Plan remains conservative; add reason only if useful."
-        : "Done. Check Fuel only if you need post-session food/hydration context.";
+        ? "Skipped. Plan remains conservative."
+        : "Done. Fuel check optional.";
 
   return (
     <EngineCard>
@@ -326,58 +328,31 @@ export function WorkoutDetailPanel({
           <SessionMeta label={session.intensity.replace(/_/g, " ")} />
           <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
         </View>
-        <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
-        {session.boxingSkillTheme ? <Text style={screenStyles.subtle}>Skill: {session.boxingSkillTheme}</Text> : null}
-        {session.tacticalTheme ? <Text style={screenStyles.subtle}>Tactical theme: {session.tacticalTheme}</Text> : null}
-        {session.roundStructure ? <Text style={screenStyles.subtle}>Rounds: {session.roundStructure}</Text> : null}
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
         {followUpState ? (
-          <View
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.055)",
-              borderColor: colors.line,
-              borderRadius: 16,
-              borderWidth: 1,
-              gap: spacing.sm,
-              padding: spacing.md
-            }}
+          <PostActionNextStep
+            actions={
+              followUpState === "completed" && onOpenFuel
+                ? [{ disabled: busy, label: "Open Fuel", onPress: onOpenFuel }]
+                : []
+            }
+            body={followUpCopy}
+            framed={false}
             testID="workout-next-action-card"
-          >
-            <Text style={screenStyles.sectionTitle}>Next action</Text>
-            <Text style={screenStyles.body}>{followUpCopy}</Text>
-            {followUpState === "completed" && onOpenFuel ? (
-              <Pressable accessibilityLabel="Open Fuel after workout" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onOpenFuel} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>Open Fuel</Text>
-              </Pressable>
-            ) : null}
-          </View>
+          />
         ) : null}
         <Pressable accessibilityLabel={resultOpen ? "Hide workout result logger" : "Log result"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.button}>
           <Text style={screenStyles.buttonText}>{resultOpen ? "Hide result logger" : "Log result"}</Text>
         </Pressable>
-      </View>
-      <View style={{ gap: spacing.md }}>
-        <Text style={screenStyles.sectionTitle}>Session plan</Text>
-        {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
-          <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
-            {session.sessionQualityCheckpoints.map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{item}</Text>)}
-          </View>
-        ) : null}
-        {session.sections.map((section, index) => (
-          <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
-        ))}
-        {session.addOnBlocks && session.addOnBlocks.length > 0 ? (
-          <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.fieldLabel}>Add-ons</Text>
-            {session.addOnBlocks.map((block) => (
-              <Text key={block.id} style={screenStyles.subtle}>
-                {block.priority}: {block.label} ({block.durationMinutes} min) - {block.athleteFacingPurpose}
-              </Text>
-            ))}
-          </View>
-        ) : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <Pressable accessibilityLabel={planOpen ? "Hide workout plan" : "Show workout plan"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide workout plan" : "Show workout plan"}</Text>
+          </Pressable>
+          <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>Skip</Text>
+          </Pressable>
+        </View>
       </View>
       {resultOpen ? (
         <View style={{ gap: spacing.md }}>
@@ -441,6 +416,30 @@ export function WorkoutDetailPanel({
               </View>
             )) : null}
           </View>
+        </View>
+      ) : null}
+      {planOpen ? (
+        <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
+          <Text style={screenStyles.sectionTitle}>Session plan</Text>
+          {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
+              {session.sessionQualityCheckpoints.map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+            </View>
+          ) : null}
+          {session.sections.map((section, index) => (
+            <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
+          ))}
+          {session.addOnBlocks && session.addOnBlocks.length > 0 ? (
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>Add-ons</Text>
+              {session.addOnBlocks.map((block) => (
+                <Text key={block.id} style={screenStyles.subtle}>
+                  {block.priority}: {block.label} ({block.durationMinutes} min) - {block.athleteFacingPurpose}
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
       <View style={{ gap: spacing.sm }}>

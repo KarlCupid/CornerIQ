@@ -120,12 +120,7 @@ function TodayFuelPriorityCard({ viewModel }: { viewModel: FuelViewModel }) {
         <Text style={screenStyles.sectionTitle}>What to do now</Text>
         <Text style={screenStyles.callout}>{viewModel.commandCenter.primaryFuelAction}</Text>
         <Text style={screenStyles.body}>{viewModel.commandCenter.sessionFuelAction}</Text>
-        <Text style={screenStyles.subtle}>Session fueling handoff: {viewModel.trainingDemandHandoff.fuelPriorityByDate.find((item) => item.date === viewModel.foodLogStatus.date)?.priority ?? viewModel.trainingDemandHandoff.carbPriorityToday}</Text>
-        <Text style={screenStyles.subtle}>Training demand today: {viewModel.trainingDemandHandoff.todayTrainingDemand}; tier: {viewModel.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " ")}. This week: {viewModel.trainingDemandHandoff.weeklyTrainingDemandTier.replaceAll("_", " ")}.</Text>
-        <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.carbPriorityToday}</Text>
-        <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.hydrationPriorityToday}</Text>
         {viewModel.trainingDemandHandoff.missingFoodLogAdvisory ? <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.missingFoodLogAdvisory}</Text> : null}
-        <Text style={screenStyles.subtle}>{viewModel.fuelHistory.todaySummary}</Text>
       </View>
     </EngineCard>
   );
@@ -237,12 +232,18 @@ function FuelLogActionSection({
 }) {
   return (
     <View style={{ gap: spacing.lg }} testID="fuel-log-action-section">
-      <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} />
       {primaryLog === "food" ? (
         <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
       ) : (
         <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
       )}
+      <CollapsibleFuelSection
+        summary={`${viewModel.foodLogStatus.status.replaceAll("_", " ")}. ${viewModel.foodLogStatus.athleteFacingSummary}`}
+        testID="fuel-food-status-detail"
+        title="Food status"
+      >
+        <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} />
+      </CollapsibleFuelSection>
     </View>
   );
 }
@@ -347,6 +348,11 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         ? "food"
         : "water";
   const logSection = <FuelLogActionSection busy={busy} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} viewModel={viewModel} />;
+  const targetSummary =
+    viewModel.macroTargets.targetConfidence.missingInputs.length > 0
+      ? `Targets: ${viewModel.macroTargets.targetConfidence.status.replaceAll("_", " ")}, missing ${viewModel.macroTargets.targetConfidence.missingInputs.join(", ")}.`
+      : `Targets: ${viewModel.macroTargets.targetConfidence.status.replaceAll("_", " ")}. ${viewModel.macroTargets.targetConfidence.athleteFacingCopy}`;
+  const targetsDefaultOpen = safetyReviewActive || Boolean(viewModel.underFuelingRisk);
   return (
     <LuminousScreen testID="fuel-screen">
       <ScreenHeader eyebrow="Today" title={viewModel.title} />
@@ -361,9 +367,17 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
           />
         ) : null}
         {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? logSection : null}
-        <TodayFuelPriorityCard viewModel={viewModel} />
+        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? null : <TodayFuelPriorityCard viewModel={viewModel} />}
         {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? null : logSection}
-        <FuelMacroTargetsCard recentLogs={recentLogs} viewModel={viewModel} />
+        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? <TodayFuelPriorityCard viewModel={viewModel} /> : null}
+        <CollapsibleFuelSection
+          defaultOpen={targetsDefaultOpen}
+          summary={targetSummary}
+          testID="fuel-targets-section"
+          title="Targets"
+        >
+          <FuelMacroTargetsCard recentLogs={recentLogs} viewModel={viewModel} />
+        </CollapsibleFuelSection>
       </View>
       {!safetyReviewActive ? (
         <FuelSafetyReviewSection
