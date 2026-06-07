@@ -16,7 +16,7 @@ import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 import { ExerciseHistoryPanel } from "./train/ExerciseHistoryPanel";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
-import { WorkoutPlayer, type WorkoutPlayerStatus } from "./train/WorkoutPlayer";
+import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 
 export type TrainSection = "today" | "workout" | "progress";
 
@@ -38,16 +38,26 @@ function plainTrainCopy(value: string): string {
 }
 
 export interface TrainScreenProps {
+  activeWorkout?: TrainWorkoutPlayerSummary | null | undefined;
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
   completionMessage?: string | null | undefined;
   generationStatus?: EngineGenerationStatus | undefined;
   initialSection?: TrainSection | undefined;
   onInitialSectionApplied?: (() => void) | undefined;
+  onDiscardWorkout?: (() => void) | undefined;
   onOpenFuelAfterWorkout?: (() => void) | undefined;
+  onResumeWorkout?: (() => void) | undefined;
+  onStartWorkout?: ((session: DetailedTrainingSession) => void) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: TrainViewModel;
+}
+
+export interface TrainWorkoutPlayerSummary {
+  sessionId: string;
+  status: WorkoutPlayerStatus;
+  title: string;
 }
 
 function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quickLogs: QuickLogActions }) {
@@ -126,7 +136,7 @@ function WorkoutInProgressCard({
       <View style={{ gap: spacing.sm }} testID="train-workout-in-progress-card">
         <Text style={screenStyles.sectionTitle}>Workout in progress</Text>
         <Text style={screenStyles.body}>{sessionTitle}</Text>
-        <Text style={screenStyles.subtle}>Status: {status.replace(/_/g, " ")}. Progress stays available while Train remains mounted.</Text>
+        <Text style={screenStyles.subtle}>Status: {status.replace(/_/g, " ")}. Progress stays available in the full-screen workout surface while the app session remains mounted.</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable accessibilityRole="button" onPress={onResume} style={screenStyles.button}>
             <Text style={screenStyles.buttonText}>Resume workout</Text>
@@ -231,22 +241,22 @@ function ExecutionOverlayDetails({ viewModel }: { viewModel: TrainViewModel }) {
 }
 
 export function TrainScreen({
+  activeWorkout,
   busy,
   completionActions,
   completionMessage,
   generationStatus = "idle",
   initialSection,
+  onDiscardWorkout,
   onInitialSectionApplied,
   onOpenFuelAfterWorkout,
+  onResumeWorkout,
+  onStartWorkout,
   quickLogs,
   recentLogs,
   viewModel
 }: TrainScreenProps) {
   const [section, setSection] = React.useState<TrainSection>(initialSection ?? "today");
-  const [playerSessionId, setPlayerSessionId] = React.useState<string | null>(null);
-  const [playerInstanceKey, setPlayerInstanceKey] = React.useState(0);
-  const [playerVisible, setPlayerVisible] = React.useState(false);
-  const [playerStatus, setPlayerStatus] = React.useState<WorkoutPlayerStatus>("not_started");
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
   const [quickLogRequest, setQuickLogRequest] = React.useState<{ key: number; sessionId: string | null }>({ key: 0, sessionId: null });
   const [planOpenRequest, setPlanOpenRequest] = React.useState<{ key: number; sessionId: string | null }>({ key: 0, sessionId: null });
@@ -261,54 +271,34 @@ export function TrainScreen({
   const detailedSessions = viewModel.detailedTodaySessions
     .map((session) => session.detail)
     .filter((session): session is DetailedTrainingSession => session !== null);
-  const playerSession = detailedSessions.find((session) => session.generatedSessionId === playerSessionId) ?? null;
   const pendingStartSession = detailedSessions.find((session) => session.generatedSessionId === pendingStartSessionId) ?? null;
-  const playerInProgress = Boolean(playerSession && playerStatusIsInProgress(playerStatus));
-
-  const discardPlayer = () => {
-    setPlayerVisible(false);
-    setPlayerSessionId(null);
-    setPendingStartSessionId(null);
-    setPlayerStatus("not_started");
-    setPlayerInstanceKey((value) => value + 1);
-  };
+  const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
 
   const startWorkout = (sessionDetail: DetailedTrainingSession) => {
     const blockedReason = startWorkoutBlockedReason(viewModel, sessionDetail);
     if (blockedReason) {
       return;
     }
-    if (playerInProgress && playerSessionId && playerSessionId !== sessionDetail.generatedSessionId) {
+    if (playerInProgress && activeWorkout && activeWorkout.sessionId !== sessionDetail.generatedSessionId) {
       setPendingStartSessionId(sessionDetail.generatedSessionId);
-      setPlayerVisible(false);
       return;
     }
-    if (playerSessionId !== sessionDetail.generatedSessionId || playerStatus === "completed" || playerStatus === "skipped") {
-      setPlayerInstanceKey((value) => value + 1);
-      setPlayerStatus("active");
-    }
-    setPlayerSessionId(sessionDetail.generatedSessionId);
     setPendingStartSessionId(null);
-    setPlayerVisible(true);
+    onStartWorkout?.(sessionDetail);
   };
 
   const openQuickLog = (sessionDetail: DetailedTrainingSession) => {
     setSection("workout");
-    setPlayerVisible(false);
     setQuickLogRequest((current) => ({ key: current.key + 1, sessionId: sessionDetail.generatedSessionId }));
   };
 
   const openPlan = (sessionDetail: DetailedTrainingSession) => {
     setSection("workout");
-    setPlayerVisible(false);
     setPlanOpenRequest((current) => ({ key: current.key + 1, sessionId: sessionDetail.generatedSessionId }));
   };
 
   const changeSection = (nextSection: TrainSection) => {
     setSection(nextSection);
-    if (playerInProgress) {
-      setPlayerVisible(false);
-    }
   };
   return (
     <LuminousScreen testID="train-screen">
@@ -338,23 +328,21 @@ export function TrainScreen({
           </View>
         </RiskBanner>
       ) : null}
-      {pendingStartSession && playerSession ? (
+      {pendingStartSession && activeWorkout ? (
         <EngineCard>
           <View style={{ gap: spacing.sm }} testID="train-start-conflict-card">
             <Text style={screenStyles.sectionTitle}>Workout in progress</Text>
-            <Text style={screenStyles.body}>Resume {playerSession.title} or discard it before starting {pendingStartSession.title}.</Text>
+            <Text style={screenStyles.body}>Resume {activeWorkout.title} or discard it before starting {pendingStartSession.title}.</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              <Pressable accessibilityRole="button" onPress={() => setPlayerVisible(true)} style={screenStyles.button}>
+              <Pressable accessibilityRole="button" onPress={onResumeWorkout} style={screenStyles.button}>
                 <Text style={screenStyles.buttonText}>Resume workout</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
-                  setPlayerSessionId(pendingStartSession.generatedSessionId);
                   setPendingStartSessionId(null);
-                  setPlayerStatus("active");
-                  setPlayerInstanceKey((value) => value + 1);
-                  setPlayerVisible(true);
+                  onDiscardWorkout?.();
+                  onStartWorkout?.(pendingStartSession);
                 }}
                 style={screenStyles.quietButton}
               >
@@ -364,30 +352,18 @@ export function TrainScreen({
           </View>
         </EngineCard>
       ) : null}
-      {playerInProgress && !playerVisible && playerSession ? (
+      {playerInProgress && activeWorkout ? (
         <WorkoutInProgressCard
-          onDiscard={discardPlayer}
-          onResume={() => setPlayerVisible(true)}
-          sessionTitle={playerSession.title}
-          status={playerStatus}
+          onDiscard={() => {
+            setPendingStartSessionId(null);
+            onDiscardWorkout?.();
+          }}
+          onResume={() => onResumeWorkout?.()}
+          sessionTitle={activeWorkout.title}
+          status={activeWorkout.status}
         />
       ) : null}
-      {playerSession ? (
-        <View style={{ display: playerVisible ? "flex" : "none" }}>
-          <WorkoutPlayer
-            busy={busy}
-            completionActions={completionActions}
-            completionMessage={completionMessage}
-            key={`${playerSession.generatedSessionId}:${playerInstanceKey}`}
-            onClose={() => setPlayerVisible(false)}
-            onDiscard={discardPlayer}
-            onOpenFuel={onOpenFuelAfterWorkout}
-            onStatusChange={setPlayerStatus}
-            session={playerSession}
-          />
-        </View>
-      ) : null}
-      {!playerVisible && section === "today" ? (
+      {section === "today" ? (
         <View style={{ gap: spacing.lg }} testID="train-today-section">
           {viewModel.sessionCards.length > 0 ? viewModel.sessionCards.map((session, index) => {
             const detail = viewModel.detailedTodaySessions[index]?.detail ?? null;
@@ -463,7 +439,7 @@ export function TrainScreen({
           ) : null}
         </View>
       ) : null}
-      {!playerVisible && section === "workout" ? (
+      {section === "workout" ? (
         <View style={{ gap: spacing.lg }} testID="train-workout-section">
           {viewModel.detailedTodaySessions.length > 0 ? viewModel.detailedTodaySessions.map((session) => (
             session.detail ? (
@@ -496,7 +472,7 @@ export function TrainScreen({
           <ManualTrainingLoggerSection busy={busy} quickLogs={quickLogs} />
         </View>
       ) : null}
-      {!playerVisible && section === "progress" ? (
+      {section === "progress" ? (
         <View style={{ gap: spacing.lg }} testID="train-progress-section">
           <WeeklySupportWorkCard viewModel={viewModel} />
           <EngineCard>

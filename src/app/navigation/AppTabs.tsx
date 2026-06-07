@@ -5,14 +5,15 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { CycleSymptom, ISODateString, PerformanceState } from "../../engine/core/types";
+import type { CycleSymptom, DetailedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
 import { colors } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen, type FuelFocusIntent } from "../screens/FuelScreen";
 import { PlanScreen } from "../screens/PlanScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { TodayScreen } from "../screens/TodayScreen";
-import { TrainScreen, type TrainSection } from "../screens/TrainScreen";
+import { TrainScreen, type TrainSection, type TrainWorkoutPlayerSummary } from "../screens/TrainScreen";
+import { WorkoutPlayer, type WorkoutPlayerStatus } from "../screens/train/WorkoutPlayer";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { NextWeekPreviewActionsHook } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
@@ -38,6 +39,10 @@ const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> =
   Today: "today-outline",
   Train: "barbell-outline"
 };
+
+function playerStatusIsInProgress(status: WorkoutPlayerStatus): boolean {
+  return status === "active" || status === "paused" || status === "finishing";
+}
 
 export interface AppTabsProps {
   asOfDate: ISODateString;
@@ -68,6 +73,57 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
   const insets = useSafeAreaInsets();
   const [fuelFocusIntent, setFuelFocusIntent] = React.useState<FuelFocusIntent | undefined>();
   const [trainInitialSection, setTrainInitialSection] = React.useState<TrainSection | undefined>();
+  const [playerInstanceKey, setPlayerInstanceKey] = React.useState(0);
+  const [playerScreenVisible, setPlayerScreenVisible] = React.useState(false);
+  const [playerSessionId, setPlayerSessionId] = React.useState<string | null>(null);
+  const [playerStatus, setPlayerStatus] = React.useState<WorkoutPlayerStatus>("not_started");
+  const detailedTrainSessions = React.useMemo(
+    () =>
+      state.viewModels.train.detailedTodaySessions
+        .map((session) => session.detail)
+        .filter((session): session is DetailedTrainingSession => session !== null),
+    [state.viewModels.train.detailedTodaySessions]
+  );
+  const playerSession = detailedTrainSessions.find((session) => session.generatedSessionId === playerSessionId) ?? null;
+  const activeWorkout: TrainWorkoutPlayerSummary | null = playerSession
+    ? {
+        sessionId: playerSession.generatedSessionId,
+        status: playerStatus,
+        title: playerSession.title
+      }
+    : null;
+
+  const discardWorkoutPlayer = React.useCallback(() => {
+    setPlayerScreenVisible(false);
+    setPlayerSessionId(null);
+    setPlayerStatus("not_started");
+    setPlayerInstanceKey((value) => value + 1);
+  }, []);
+
+  const openWorkoutPlayer = React.useCallback((session: DetailedTrainingSession) => {
+    if (playerSessionId !== session.generatedSessionId || playerStatus === "completed" || playerStatus === "skipped") {
+      setPlayerInstanceKey((value) => value + 1);
+      setPlayerStatus("not_started");
+    }
+    setPlayerSessionId(session.generatedSessionId);
+    setPlayerScreenVisible(true);
+  }, [playerSessionId, playerStatus]);
+
+  const resumeWorkoutPlayer = React.useCallback(() => {
+    if (playerSessionId) {
+      setPlayerScreenVisible(true);
+    }
+  }, [playerSessionId]);
+
+  const closeWorkoutPlayer = React.useCallback(() => {
+    setPlayerScreenVisible(false);
+    if (!playerStatusIsInProgress(playerStatus)) {
+      setPlayerSessionId(null);
+      setPlayerStatus("not_started");
+      setPlayerInstanceKey((value) => value + 1);
+    }
+  }, [playerStatus]);
+
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
       <NavigationContainer>
@@ -171,11 +227,15 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               completionMessage={message}
               generationStatus={generationStatus}
               initialSection={trainInitialSection}
+              activeWorkout={activeWorkout}
+              onDiscardWorkout={discardWorkoutPlayer}
               onInitialSectionApplied={() => setTrainInitialSection(undefined)}
               onOpenFuelAfterWorkout={() => {
                 setFuelFocusIntent("log_hydration");
                 navigation.navigate("Fuel");
               }}
+              onResumeWorkout={resumeWorkoutPlayer}
+              onStartWorkout={openWorkoutPlayer}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.train}
@@ -241,6 +301,36 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>
+      {playerSession ? (
+        <View
+          pointerEvents={playerScreenVisible ? "auto" : "none"}
+          style={{
+            backgroundColor: colors.cornerBlack,
+            bottom: 0,
+            display: playerScreenVisible ? "flex" : "none",
+            left: 0,
+            position: "absolute",
+            right: 0,
+            top: 0,
+            zIndex: 40
+          }}
+        >
+          <WorkoutPlayer
+            busy={busy}
+            completionActions={workoutCompletion}
+            completionMessage={message}
+            key={`${playerSession.generatedSessionId}:${playerInstanceKey}`}
+            onClose={closeWorkoutPlayer}
+            onDiscard={discardWorkoutPlayer}
+            onOpenFuel={() => {
+              setFuelFocusIntent("log_hydration");
+              discardWorkoutPlayer();
+            }}
+            onStatusChange={setPlayerStatus}
+            session={playerSession}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

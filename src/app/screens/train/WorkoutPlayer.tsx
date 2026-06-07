@@ -1,10 +1,11 @@
 import React from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DetailedTrainingSession, ExercisePrescription, ExerciseSubstitution } from "../../../engine/core/types";
 import { buildWorkoutPlayerExerciseResults } from "../../../engine/presentation/workoutPlayerResults";
 import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
-import { EngineCard } from "../../../design/components/EngineCard";
-import { AccentPill, LuminousProgressBar } from "../../../design/components/LuminousScreen";
+import { LuminousProgressBar } from "../../../design/components/LuminousScreen";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { screenStyles } from "../screenStyles";
@@ -157,6 +158,260 @@ function DetailPill({ label }: { label: string }) {
     <View style={[screenStyles.chip, { minHeight: 34, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }]}>
       <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{label}</Text>
     </View>
+  );
+}
+
+function GlassPanel({ children, testID }: { children: React.ReactNode; testID?: string | undefined }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "rgba(255, 255, 255, 0.085)",
+        borderColor: "rgba(255, 255, 255, 0.15)",
+        borderRadius: 28,
+        borderWidth: 1,
+        gap: spacing.md,
+        padding: spacing.lg
+      }}
+      testID={testID}
+    >
+      {children}
+    </View>
+  );
+}
+
+function ScreenIconButton({
+  accessibilityLabel,
+  icon,
+  onPress
+}: {
+  accessibilityLabel: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={{
+        alignItems: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.07)",
+        borderColor: colors.line,
+        borderRadius: 16,
+        borderWidth: 1,
+        height: 40,
+        justifyContent: "center",
+        width: 40
+      }}
+    >
+      <Ionicons color={colors.canvas} name={icon} size={20} />
+    </Pressable>
+  );
+}
+
+function WorkoutScreenFrame({
+  children,
+  mode,
+  onClose,
+  testID = "workout-player-screen"
+}: {
+  children: React.ReactNode;
+  mode: string;
+  onClose: () => void;
+  testID?: string | undefined;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }} testID={testID}>
+      <ScrollView
+        contentContainerStyle={{
+          gap: spacing.lg,
+          paddingBottom: Math.max(insets.bottom, spacing.xl) + spacing.xl,
+          paddingHorizontal: spacing.lg,
+          paddingTop: Math.max(insets.top, spacing.lg) + spacing.lg
+        }}
+        style={{ flex: 1 }}
+      >
+        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+          <ScreenIconButton accessibilityLabel="Close workout player" icon="chevron-back" onPress={onClose} />
+          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", letterSpacing: 1.4, lineHeight: 18 }}>{mode}</Text>
+          <ScreenIconButton accessibilityLabel="Workout options" icon="ellipsis-horizontal" onPress={() => undefined} />
+        </View>
+        {children}
+      </ScrollView>
+    </View>
+  );
+}
+
+function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | "green" | "orange" | "quiet" | undefined }) {
+  const toneColor = tone === "green" ? colors.readyGreen : tone === "orange" ? colors.amberCaution : tone === "quiet" ? colors.wrap : colors.blueIQ;
+  return (
+    <View
+      style={{
+        backgroundColor: tone === "quiet" ? "rgba(255, 255, 255, 0.07)" : `${toneColor}1F`,
+        borderColor: tone === "quiet" ? colors.line : `${toneColor}73`,
+        borderRadius: radii.pill,
+        borderWidth: 1,
+        minHeight: 34,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs
+      }}
+    >
+      <Text style={{ color: tone === "orange" ? colors.canvas : toneColor, fontSize: 12, fontWeight: "900", lineHeight: 17 }}>{label}</Text>
+    </View>
+  );
+}
+
+function sectionPreviewSubtitle(section: DetailedTrainingSession["sections"][number]): string {
+  const firstExercise = section.exercises[0];
+  if (!firstExercise) {
+    return section.intent;
+  }
+  return `${exerciseDoseText(firstExercise, 0)} - ${firstExercise.name}`;
+}
+
+function SessionFlowRow({
+  index,
+  onPress,
+  section
+}: {
+  index: number;
+  onPress: () => void;
+  section: DetailedTrainingSession["sections"][number];
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={{
+        alignItems: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.065)",
+        borderColor: colors.line,
+        borderRadius: 18,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        minHeight: 64,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: "rgba(39, 206, 241, 0.13)",
+          borderColor: "rgba(39, 206, 241, 0.52)",
+          borderRadius: 16,
+          borderWidth: 1,
+          height: 42,
+          justifyContent: "center",
+          width: 42
+        }}
+      >
+        <Text style={{ color: colors.blueIQ, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
+      </View>
+      <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+        <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{section.name}</Text>
+        <Text style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>{sectionPreviewSubtitle(section)}</Text>
+      </View>
+      <Ionicons color={colors.mutedText} name="chevron-forward" size={18} />
+    </Pressable>
+  );
+}
+
+function LiveCueCard({ index, text }: { index: number; text: string }) {
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.065)",
+        borderColor: colors.line,
+        borderRadius: 18,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        minHeight: 66,
+        padding: spacing.md
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: "rgba(56, 226, 138, 0.14)",
+          borderColor: "rgba(56, 226, 138, 0.46)",
+          borderRadius: 12,
+          borderWidth: 1,
+          height: 34,
+          justifyContent: "center",
+          width: 34
+        }}
+      >
+        <Text style={{ color: colors.readyGreen, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{index + 1}</Text>
+      </View>
+      <Text style={{ color: colors.wrap, flex: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{text}</Text>
+    </View>
+  );
+}
+
+function TimerOrb({ label, seconds }: { label: string; seconds: number }) {
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        alignSelf: "center",
+        backgroundColor: colors.cornerBlack,
+        borderColor: colors.blueIQ,
+        borderRadius: 128,
+        borderWidth: 14,
+        height: 256,
+        justifyContent: "center",
+        width: 256
+      }}
+      testID="workout-player-big-timer"
+    >
+      <Text style={{ color: colors.canvas, fontSize: 50, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 58 }}>{formatTimer(seconds)}</Text>
+      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", letterSpacing: 1.6, lineHeight: 16 }}>{label}</Text>
+    </View>
+  );
+}
+
+function LiveControlButton({
+  disabled = false,
+  icon,
+  label,
+  onPress,
+  primary = false
+}: {
+  disabled?: boolean | undefined;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  primary?: boolean | undefined;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={{
+        alignItems: "center",
+        backgroundColor: primary ? colors.blueIQ : "rgba(255, 255, 255, 0.075)",
+        borderColor: primary ? colors.blueIQ : colors.line,
+        borderRadius: 20,
+        borderWidth: primary ? 0 : 1,
+        gap: spacing.xs,
+        justifyContent: "center",
+        minHeight: 58,
+        minWidth: primary ? 78 : 62,
+        opacity: disabled ? 0.55 : 1,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.sm
+      }}
+    >
+      <Ionicons color={primary ? colors.cornerBlack : colors.canvas} name={icon} size={primary ? 24 : 21} />
+      <Text style={{ color: primary ? colors.cornerBlack : colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 14 }}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -324,7 +579,7 @@ export function WorkoutPlayer({
   onStatusChange,
   session
 }: WorkoutPlayerProps) {
-  const [status, setStatus] = React.useState<WorkoutPlayerStatus>("active");
+  const [status, setStatus] = React.useState<WorkoutPlayerStatus>("not_started");
   const [activeSectionIndex, setActiveSectionIndex] = React.useState(0);
   const [activeExerciseIndex, setActiveExerciseIndex] = React.useState(0);
   const [activeSetIndex, setActiveSetIndex] = React.useState(0);
@@ -390,13 +645,13 @@ export function WorkoutPlayer({
 
   if (!currentSection || !currentExercise || steps.length === 0) {
     return (
-      <EngineCard>
-        <View style={{ gap: spacing.sm }}>
+      <WorkoutScreenFrame mode="WORKOUT PREVIEW" onClose={onClose}>
+        <GlassPanel>
           <Text style={screenStyles.sectionTitle}>Workout player unavailable</Text>
           <Text style={screenStyles.body}>No exercise steps are available for this support workout.</Text>
           <PlayerButton label="Close" onPress={onClose} />
-        </View>
-      </EngineCard>
+        </GlassPanel>
+      </WorkoutScreenFrame>
     );
   }
 
@@ -423,6 +678,75 @@ export function WorkoutPlayer({
   const partialExerciseCount = playerResults.filter((result) => result.resultStatus === "partial").length;
   const skippedExerciseCount = playerResults.filter((result) => result.resultStatus === "skipped").length;
   const painFlagCount = playerResults.filter((result) => result.painFlag).length;
+  const fuelLabel = session.fuelingGate ? "Fuel check" : session.fuelDemand === "high" ? "High fuel" : "Fuel okay";
+  const coachNote = session.sessionQualityCheckpoints?.[0] ?? session.athleteQualityCues?.[0] ?? session.selfCheckCues?.[0] ?? "Keep this smooth. Finish feeling sharper, not cooked.";
+
+  if (status === "not_started") {
+    return (
+      <WorkoutScreenFrame mode="WORKOUT PREVIEW" onClose={onClose}>
+        <GlassPanel testID="workout-player-preview">
+          <View style={{ gap: spacing.sm }}>
+            <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>GENERATED WORKOUT</Text>
+            <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38 }}>{session.title}</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <PreviewPill label={`${session.durationMinutes} min`} />
+              <PreviewPill label={session.intensity.replace(/_/g, " ")} tone="green" />
+              <PreviewPill label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} tone="quiet" />
+              <PreviewPill label={fuelLabel} tone={session.fuelDemand === "high" ? "orange" : "green"} />
+            </View>
+          </View>
+          <View
+            style={{
+              backgroundColor: "rgba(7, 11, 24, 0.54)",
+              borderColor: colors.line,
+              borderRadius: 20,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+          >
+            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Why today</Text>
+            <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>{session.whyThisMattersForBoxing}</Text>
+          </View>
+        </GlassPanel>
+
+        <View style={{ gap: spacing.md }}>
+          <View style={{ alignItems: "flex-end", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+            <Text style={{ color: colors.canvas, flex: 1, fontSize: 24, fontWeight: "900", lineHeight: 29 }}>Session flow</Text>
+            <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Tap any block to preview</Text>
+          </View>
+          {session.sections.map((section, index) => (
+            <SessionFlowRow
+              index={index}
+              key={`preview-section:${section.name}:${index}`}
+              onPress={() => {
+                setActiveSectionIndex(index);
+                setActiveExerciseIndex(0);
+                setActiveSetIndex(0);
+              }}
+              section={section}
+            />
+          ))}
+        </View>
+
+        <View
+          style={{
+            backgroundColor: "rgba(255, 216, 97, 0.08)",
+            borderColor: "rgba(255, 216, 97, 0.32)",
+            borderRadius: 20,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+        >
+          <Text style={{ color: colors.gold, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Coach note</Text>
+          <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{coachNote}</Text>
+        </View>
+
+        <PlayerButton disabled={busy} label="Start workout" onPress={() => setStatus("active")} tone="primary" />
+      </WorkoutScreenFrame>
+    );
+  }
 
   const touchExercise = (exerciseId = currentExercise.exerciseId) => {
     setTouchedExerciseMap((current) => ({ ...current, [exerciseId]: true }));
@@ -562,29 +886,33 @@ export function WorkoutPlayer({
 
   if (status === "completed") {
     return (
-      <PostActionNextStep
-        actions={onOpenFuel ? [{ disabled: busy, label: "Open Fuel", onPress: onOpenFuel }] : []}
-        body={painFlagCount > 0 ? "Workout saved. Review pain flags before progressing." : "Workout saved. Fuel check optional."}
-        testID="workout-player-completed-state"
-        title="Workout saved"
-      />
+      <WorkoutScreenFrame mode="WORKOUT SAVED" onClose={onClose}>
+        <PostActionNextStep
+          actions={onOpenFuel ? [{ disabled: busy, label: "Open Fuel", onPress: onOpenFuel }] : []}
+          body={painFlagCount > 0 ? "Workout saved. Review pain flags before progressing." : "Workout saved. Fuel check optional."}
+          testID="workout-player-completed-state"
+          title="Workout saved"
+        />
+      </WorkoutScreenFrame>
     );
   }
 
   if (status === "skipped") {
     return (
-      <PostActionNextStep
-        body="Workout skipped. Plan remains conservative."
-        testID="workout-player-skipped-state"
-        title="Workout skipped"
-      />
+      <WorkoutScreenFrame mode="WORKOUT SKIPPED" onClose={onClose}>
+        <PostActionNextStep
+          body="Workout skipped. Plan remains conservative."
+          testID="workout-player-skipped-state"
+          title="Workout skipped"
+        />
+      </WorkoutScreenFrame>
     );
   }
 
   if (status === "finishing") {
     return (
-      <EngineCard>
-        <View style={{ gap: spacing.lg }} testID="workout-player-finish-sheet">
+      <WorkoutScreenFrame mode="FINISH WORKOUT" onClose={onClose}>
+        <GlassPanel testID="workout-player-finish-sheet">
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>Finish workout</Text>
             <Text style={screenStyles.heroTitle}>{session.title}</Text>
@@ -610,118 +938,155 @@ export function WorkoutPlayer({
             {skipConfirm ? <PlayerButton disabled={busy} label="Confirm skip workout" onPress={() => void skipWorkout()} tone="warning" /> : <PlayerButton label="Skip workout" onPress={() => setSkipConfirm(true)} tone="warning" />}
             {discardConfirm ? <PlayerButton label="Confirm discard" onPress={onDiscard} tone="warning" /> : <PlayerButton label="Discard workout" onPress={() => setDiscardConfirm(true)} tone="warning" />}
           </View>
-        </View>
-      </EngineCard>
+        </GlassPanel>
+      </WorkoutScreenFrame>
     );
   }
 
-  return (
-    <View style={{ gap: spacing.lg }} testID="workout-player">
-      <EngineCard>
-        <View style={{ gap: spacing.md }}>
-          <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
-            <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-              <Text style={screenStyles.fieldLabel}>Workout player</Text>
-              <Text style={screenStyles.heroTitle}>{session.title}</Text>
-              <Text style={screenStyles.subtle}>{session.durationMinutes} min, {session.intensity.replace(/_/g, " ")}. Elapsed {formatElapsed(elapsedSeconds)}</Text>
-            </View>
-            <AccentPill accent={status === "paused" ? "orange" : "green"} label={status === "paused" ? "Paused" : "Active"} />
-          </View>
-          <LuminousProgressBar accent="purple" progress={progress} />
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-            {session.sections.map((section, index) => (
-              <View
-                key={`section-chip:${index}`}
-                style={[
-                  screenStyles.chip,
-                  {
-                    backgroundColor: index === activeSectionIndex ? "rgba(150, 87, 245, 0.18)" : "rgba(255, 255, 255, 0.055)",
-                    borderColor: index === activeSectionIndex ? "rgba(150, 87, 245, 0.52)" : colors.line,
-                    minHeight: 34,
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.xs
-                  }
-                ]}
-              >
-                <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{section.name}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </EngineCard>
+  const remainingSessionSeconds = Math.max(0, session.durationMinutes * 60 - elapsedSeconds);
+  const bigTimerSeconds = timer.kind !== null ? timer.remainingSeconds : workSeconds ?? remainingSessionSeconds;
+  const bigTimerLabel = timer.kind !== null ? timer.label.toUpperCase() : workSeconds !== null ? "BLOCK TIMER" : "REMAINING";
+  const liveProgress = steps.length > 0 ? Math.min(1, (Math.max(0, currentStepIndex) + 1) / steps.length) : progress;
+  const liveCues = (displayNotes.length > 0 ? displayNotes : session.selfCheckCues ?? []).slice(0, 2);
+  const liveCueFallback = liveCues.length > 0 ? liveCues : ["Keep the shoulders loose and the breath under control.", "Do not chase the clock if form starts to slip."];
 
-      <EngineCard>
-        <View style={{ gap: spacing.lg }} testID="workout-player-current-step">
-          <View style={{ gap: spacing.xs }}>
-            <Text style={{ color: colors.powerPurple, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{currentSection.name}</Text>
-            <Text style={{ color: colors.canvas, fontSize: 30, fontWeight: "900", lineHeight: 36 }}>{displayName}</Text>
-            {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {currentExercise.name}</Text> : null}
-            <Text style={screenStyles.body}>{currentSection.intent}</Text>
-          </View>
-          <SetTracker activeSetIndex={activeSetIndex} completedSetIndices={completedSets} setCount={setCount} />
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-            <DetailPill label={`Set ${activeSetIndex + 1} of ${setCount}`} />
-            <DetailPill label={exerciseDoseText(currentExercise, activeSetIndex)} />
-            {exerciseTargetText(currentExercise, activeSetIndex).map((target) => <DetailPill key={`target:${target}`} label={target} />)}
-          </View>
-          <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.fieldLabel}>Load guidance</Text>
-            <Text style={screenStyles.body}>{displayLoad}</Text>
-          </View>
-          <SafetyStack exercise={currentExercise} session={session} />
-          <SubstitutionChooser
-            exercise={currentExercise}
-            onChoose={(substitution) => {
-              touchExercise();
-              setSubstitutionMap((current) => ({ ...current, [currentExercise.exerciseId]: substitution }));
-            }}
-            selected={selectedSubstitution}
-          />
-          <CollapsedDetailDisclosure framed={false} title="Coaching notes" summary={displayNotes[0] ?? "Cues are available when you need them."} testID="workout-player-coaching-notes">
-            {displayNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
-          </CollapsedDetailDisclosure>
-          <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
-            <Text style={screenStyles.body}>{currentExercise.boxingTransfer}</Text>
-          </CollapsedDetailDisclosure>
-          <TimerCard
-            durationSeconds={restSeconds}
-            onPause={() => setTimer((current) => ({ ...current, running: false }))}
-            onReset={() => restSeconds === null ? setTimer(emptyTimer) : resetTimer("rest", restSeconds, currentExercise.restText)}
-            onStart={() => restSeconds === null ? undefined : startTimer("rest", restSeconds, currentExercise.restText)}
-            timer={timer}
-            title="Rest timer"
-          />
-          {workSeconds !== null ? (
-            <TimerCard
-              durationSeconds={workSeconds}
-              onPause={() => setTimer((current) => ({ ...current, running: false }))}
-              onReset={() => resetTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block")}
-              onStart={() => startTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block")}
-              timer={timer}
-              title="Timed block"
-            />
-          ) : null}
-          {nextStep ? (
-            <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
-              <Text style={screenStyles.fieldLabel}>Next up</Text>
-              <Text style={screenStyles.body}>{nextStep.section.name}: {nextStep.exercise.name}, set {nextStep.setIndex + 1}</Text>
-            </View>
-          ) : null}
-          {painFlagMap[currentExercise.exerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <PlayerButton disabled={busy || status === "paused"} label="Done set" onPress={markDone} tone="primary" />
-            <PlayerButton disabled={busy} label="Skip set" onPress={skipSet} />
-            <PlayerButton disabled={busy} label={painFlagMap[currentExercise.exerciseId] ? "Pain flagged" : "Flag pain"} onPress={togglePainFlag} tone="warning" />
-          </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <PlayerButton label="Back" onPress={moveBack} />
-            <PlayerButton label="Next" onPress={moveNext} />
-            <PlayerButton label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
-            <PlayerButton label="Skip exercise" onPress={skipExercise} tone="warning" />
-            <PlayerButton label="Finish workout" onPress={() => setStatus("finishing")} tone="primary" />
-          </View>
+  return (
+    <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {activeSectionIndex + 1} of {session.sections.length}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }}>{formatTimer(remainingSessionSeconds)} left</Text>
         </View>
-      </EngineCard>
+        <LuminousProgressBar accent="blue" progress={liveProgress} />
+      </View>
+
+      <GlassPanel testID="workout-player-current-step">
+        <View style={{ alignItems: "center", gap: spacing.xs }}>
+          <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>NOW WORKING</Text>
+          <Text style={{ color: colors.canvas, fontSize: 30, fontWeight: "900", lineHeight: 35, textAlign: "center" }}>{displayName}</Text>
+          {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {currentExercise.name}</Text> : null}
+          <Text style={{ color: colors.mutedText, fontSize: 14, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{currentSection.intent}</Text>
+        </View>
+
+        <TimerOrb label={bigTimerLabel} seconds={bigTimerSeconds} />
+
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "center" }}>
+          <LiveControlButton
+            icon="refresh"
+            label="Reset"
+            onPress={() => {
+              if (timer.kind === "rest" && restSeconds !== null) {
+                resetTimer("rest", restSeconds, currentExercise.restText);
+                return;
+              }
+              if (timer.kind === "work" && workSeconds !== null) {
+                resetTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block");
+              }
+            }}
+          />
+          <LiveControlButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} primary />
+          <LiveControlButton disabled={busy || status === "paused"} icon="checkmark" label="Done" onPress={markDone} />
+        </View>
+
+        <SetTracker activeSetIndex={activeSetIndex} completedSetIndices={completedSets} setCount={setCount} />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+          <DetailPill label={`Set ${activeSetIndex + 1} of ${setCount}`} />
+          <DetailPill label={exerciseDoseText(currentExercise, activeSetIndex)} />
+          {exerciseTargetText(currentExercise, activeSetIndex).map((target) => <DetailPill key={`target:${target}`} label={target} />)}
+        </View>
+      </GlassPanel>
+
+      {liveCueFallback.map((cue, index) => <LiveCueCard index={index} key={`live-cue:${index}`} text={cue} />)}
+
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: "rgba(255, 255, 255, 0.065)",
+          borderColor: colors.line,
+          borderRadius: 20,
+          borderWidth: 1,
+          flexDirection: "row",
+          gap: spacing.md,
+          padding: spacing.md
+        }}
+      >
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+          <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, lineHeight: 15 }}>AFTER THIS</Text>
+          <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>
+            {nextStep ? `Next up: ${nextStep.section.name} - ${nextStep.exercise.name}, set ${nextStep.setIndex + 1}` : "Finish workout"}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={nextStep ? moveNext : () => setStatus("finishing")}
+          style={{
+            alignItems: "center",
+            backgroundColor: "rgba(56, 226, 138, 0.16)",
+            borderColor: "rgba(56, 226, 138, 0.52)",
+            borderRadius: 18,
+            borderWidth: 1,
+            minHeight: 48,
+            minWidth: 82,
+            justifyContent: "center",
+            paddingHorizontal: spacing.md
+          }}
+        >
+          <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{nextStep ? "Next" : "Finish"}</Text>
+        </Pressable>
+      </View>
+
+      <GlassPanel>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Load guidance</Text>
+          <Text style={screenStyles.body}>{displayLoad}</Text>
+        </View>
+        <SafetyStack exercise={currentExercise} session={session} />
+        <SubstitutionChooser
+          exercise={currentExercise}
+          onChoose={(substitution) => {
+            touchExercise();
+            setSubstitutionMap((current) => ({ ...current, [currentExercise.exerciseId]: substitution }));
+          }}
+          selected={selectedSubstitution}
+        />
+        <CollapsedDetailDisclosure framed={false} title="Coaching notes" summary={displayNotes[0] ?? "Cues are available when you need them."} testID="workout-player-coaching-notes">
+          {displayNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
+        </CollapsedDetailDisclosure>
+        <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
+          <Text style={screenStyles.body}>{currentExercise.boxingTransfer}</Text>
+        </CollapsedDetailDisclosure>
+        <TimerCard
+          durationSeconds={restSeconds}
+          onPause={() => setTimer((current) => ({ ...current, running: false }))}
+          onReset={() => restSeconds === null ? setTimer(emptyTimer) : resetTimer("rest", restSeconds, currentExercise.restText)}
+          onStart={() => restSeconds === null ? undefined : startTimer("rest", restSeconds, currentExercise.restText)}
+          timer={timer}
+          title="Rest timer"
+        />
+        {workSeconds !== null ? (
+          <TimerCard
+            durationSeconds={workSeconds}
+            onPause={() => setTimer((current) => ({ ...current, running: false }))}
+            onReset={() => resetTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block")}
+            onStart={() => startTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block")}
+            timer={timer}
+            title="Timed block"
+          />
+        ) : null}
+        {painFlagMap[currentExercise.exerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <PlayerButton disabled={busy || status === "paused"} label="Done set" onPress={markDone} tone="primary" />
+          <PlayerButton disabled={busy} label="Skip set" onPress={skipSet} />
+          <PlayerButton disabled={busy} label={painFlagMap[currentExercise.exerciseId] ? "Pain flagged" : "Flag pain"} onPress={togglePainFlag} tone="warning" />
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <PlayerButton label="Back" onPress={moveBack} />
+          <PlayerButton label="Next" onPress={moveNext} />
+          <PlayerButton label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
+          <PlayerButton label="Skip exercise" onPress={skipExercise} tone="warning" />
+          <PlayerButton label="Finish workout" onPress={() => setStatus("finishing")} tone="primary" />
+        </View>
+      </GlassPanel>
 
       <CollapsedDetailDisclosure title="Session prep" summary="Checklist, self-check cues, quality checkpoints, and add-ons stay available while you train." testID="workout-player-session-prep">
         <View style={{ gap: spacing.xs }}>
@@ -734,6 +1099,6 @@ export function WorkoutPlayer({
           {session.fuelAfter ? <Text style={screenStyles.subtle}>After: {session.fuelAfter}</Text> : null}
         </View>
       </CollapsedDetailDisclosure>
-    </View>
+    </WorkoutScreenFrame>
   );
 }

@@ -1624,6 +1624,53 @@ describe("minimal app screens", () => {
     expect(output.indexOf("fuel-log-action-section")).toBeLessThan(output.indexOf("fuel-today-priority"));
   });
 
+  it("AppTabs opens the workout player as a confined preview and live screen", async () => {
+    const { AppTabs } = await import("../../app/navigation/AppTabs");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const renderer = render(
+      React.createElement(AppTabs, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        cycleSymptomOptions: ["cramps"],
+        message: null,
+        onDeleteRecurringProtectedAnchor: vi.fn(async () => undefined),
+        onDeleteProtectedSession: vi.fn(async () => undefined),
+        onSaveBuildGoal: vi.fn(async () => undefined),
+        onSaveFightSetup: vi.fn(async () => undefined),
+        onSaveProtectedSession: vi.fn(async () => undefined),
+        onSaveRecurringProtectedAnchor: vi.fn(async () => undefined),
+        onSaveRecoveryGoal: vi.fn(async () => undefined),
+        onSaveTournamentSetup: vi.fn(async () => undefined),
+        onSignOut: vi.fn(async () => undefined),
+        onUpdateProfileSettings: vi.fn(async () => undefined),
+        quickLogs: quickLogActions,
+        state,
+        workoutCompletion: { complete: vi.fn(), skip: vi.fn() }
+      })
+    );
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Start workout"));
+    });
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("WORKOUT PREVIEW");
+    expect(output).toContain("workout-player-preview");
+    expect(output).toContain("Session flow");
+    expect(output).not.toContain("LIVE PLAYER");
+
+    const startButtons = (renderer.root.findAllByType("Pressable") as TestInstance[]).filter((item) => JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)).includes("Start workout"));
+    await act(async () => {
+      await press(startButtons[startButtons.length - 1]);
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("LIVE PLAYER");
+    expect(output).toContain("NOW WORKING");
+    expect(output).toContain("workout-player-big-timer");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Pause"));
+    });
+  });
+
   it("FuelScreen renders the start-here action path before raw details", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
@@ -2154,39 +2201,57 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("Support workouts done/skipped");
   });
 
-  it("TrainScreen opens the workout player and resumes in-progress work after switching sections", async () => {
-    vi.useFakeTimers();
-    try {
-      const { TrainScreen } = await import("../../app/screens/TrainScreen");
-      const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
-      const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
+  it("TrainScreen delegates workout player launch and keeps resume controls outside the player", async () => {
+    const { TrainScreen } = await import("../../app/screens/TrainScreen");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const completionActions = { complete: vi.fn(), skip: vi.fn() };
+    const onDiscardWorkout = vi.fn();
+    const onResumeWorkout = vi.fn();
+    const onStartWorkout = vi.fn<(session: DetailedTrainingSession) => void>();
+    const baseProps = {
+      busy: false,
+      completionActions,
+      onDiscardWorkout,
+      onResumeWorkout,
+      onStartWorkout,
+      quickLogs: quickLogActions,
+      recentLogs: recentLogsViewModel,
+      viewModel: state.viewModels.train
+    };
+    const renderer = render(React.createElement(TrainScreen, baseProps));
 
-      await act(async () => {
-        await press(pressableWithText(renderer, "Start workout"));
-      });
-      let output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("workout-player");
-      expect(output).toContain("Done set");
-      expect(output).toContain("Next up");
-
-      await act(async () => {
-        await press(pressableWithText(renderer, "Done set"));
-      });
-      await switchSection(renderer, "Progress");
-      output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Workout in progress");
-      expect(output).toContain("Resume workout");
-
-      await act(async () => {
-        await press(pressableWithText(renderer, "Resume workout"));
-      });
-      expect(JSON.stringify(renderer.toJSON())).toContain("workout-player");
-      await act(async () => {
-        await press(pressableWithText(renderer, "Pause"));
-      });
-    } finally {
-      vi.useRealTimers();
+    await act(async () => {
+      await press(pressableWithText(renderer, "Start workout"));
+    });
+    const startedSession = onStartWorkout.mock.calls[0]?.[0];
+    if (!startedSession) {
+      throw new Error("missing started workout");
     }
+    let output = JSON.stringify(renderer.toJSON());
+    expect(onStartWorkout).toHaveBeenCalledWith(startedSession);
+    expect(output).not.toContain("LIVE PLAYER");
+    expect(output).not.toContain("workout-player-current-step");
+
+    await act(async () => {
+      (renderer as unknown as { update: (element: React.ReactElement) => void }).update(
+        React.createElement(TrainScreen, {
+          ...baseProps,
+          activeWorkout: {
+            sessionId: startedSession.generatedSessionId,
+            status: "active",
+            title: startedSession.title
+          }
+        })
+      );
+    });
+    await switchSection(renderer, "Progress");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Workout in progress");
+    expect(output).toContain("Resume workout");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Resume workout"));
+    });
+    expect(onResumeWorkout).toHaveBeenCalled();
   });
 
   it("WorkoutPlayer shows the active step, timer controls, substitutions, and safety notes", async () => {
@@ -2205,8 +2270,18 @@ describe("minimal app screens", () => {
       );
 
       let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("WORKOUT PREVIEW");
       expect(output).toContain("Player test workout");
       expect(output).toContain("Strength primer");
+      expect(output).toContain("Session flow");
+      expect(output).toContain("Coach note");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Start workout"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("LIVE PLAYER");
+      expect(output).toContain("NOW WORKING");
       expect(output).toContain("Tempo squat");
       expect(output).toContain("Set 1 of 2");
       expect(output).toContain("8 reps");
@@ -2272,6 +2347,9 @@ describe("minimal app screens", () => {
         })
       );
 
+      await act(async () => {
+        await press(pressableWithText(renderer, "Start workout"));
+      });
       await act(async () => {
         await press(pressableWithText(renderer, "Done set"));
       });
