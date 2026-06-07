@@ -1998,7 +1998,7 @@ describe("minimal app screens", () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Generated workout");
+    expect(output).toContain("Support workout");
     expect(output).toContain("WORKOUT PREVIEW");
     expect(output).not.toContain("Show Execution guidance");
     expect(output).toContain("Strength support");
@@ -3792,10 +3792,13 @@ describe("minimal app screens", () => {
     expect(snapshot.current?.message).toContain("Preview export");
   });
 
-  it("OnboardingScreen renders the first setup step with demo as secondary action", async () => {
+  it("OnboardingScreen renders the first setup step and gates the demo shortcut", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const output = JSON.stringify(
       render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn() })).toJSON()
+    );
+    const e2eOutput = JSON.stringify(
+      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, demoShortcutEnabled: true, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn() })).toJSON()
     );
 
     expect(output).toContain("Boxer setup");
@@ -3804,7 +3807,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Training for boxing, not competing yet.");
     expect(output).toContain("Early amateur; limited sanctioned bouts.");
     expect(output).toContain("Years of boxing training");
-    expect(output).toContain("Development shortcut: create safe demo boxer");
+    expect(output).not.toContain("Development shortcut: create safe demo boxer");
+    expect(e2eOutput).toContain("Development shortcut: create safe demo boxer");
   });
 
   it("onboarding setup steps show visible labels, examples, chips, and recurring anchor copy", async () => {

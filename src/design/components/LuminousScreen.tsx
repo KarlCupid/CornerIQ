@@ -9,9 +9,12 @@ const DOCKED_TAB_BAR_HEIGHT = 64;
 
 const luminousStyles = {
   content: {
-    gap: spacing.xl,
+    alignSelf: "center" as const,
+    gap: spacing.lg,
     flexGrow: 1,
-    paddingHorizontal: spacing.lg
+    maxWidth: 1120,
+    paddingHorizontal: spacing.lg,
+    width: "100%" as const
   },
   headerPill: {
     alignSelf: "flex-start" as const,

@@ -371,6 +371,7 @@ function LocalE2EApp() {
         <OnboardingScreen
           asOfDate={localAsOfDate}
           busy={false}
+          demoShortcutEnabled
           message={message}
           onComplete={async () => loadToday()}
           onCreateDemoProfile={() => {

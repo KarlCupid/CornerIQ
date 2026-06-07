@@ -19,6 +19,7 @@ import { WearablePreferenceStep } from "./steps/WearablePreferenceStep";
 export interface OnboardingScreenProps {
   asOfDate: ISODateString;
   busy: boolean;
+  demoShortcutEnabled?: boolean | undefined;
   message: string | null;
   onComplete: (draft: OnboardingDraft) => Promise<void>;
   onCreateDemoProfile: () => void;
@@ -58,7 +59,7 @@ function goalSummary(draft: OnboardingDraft): string {
   return "Finishing setup will start a build phase. CornerIQ will protect boxing sessions and place support workouts around them.";
 }
 
-export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {
+export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {
   const onboarding = useOnboardingDraft(asOfDate);
   const stepProps = { draft: onboarding.draft, setStepError: onboarding.setStepError, updateDraft: onboarding.updateDraft };
   const step = (() => {
@@ -132,9 +133,11 @@ export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreate
               </Pressable>
             )}
           </View>
-          <Pressable accessibilityLabel="Create safe demo boxer" accessibilityRole="button" disabled={busy} onPress={onCreateDemoProfile} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>Development shortcut: create safe demo boxer</Text>
-          </Pressable>
+          {demoShortcutEnabled ? (
+            <Pressable accessibilityLabel="Create safe demo boxer" accessibilityRole="button" disabled={busy} onPress={onCreateDemoProfile} style={screenStyles.quietButton}>
+              <Text style={screenStyles.quietButtonText}>Development shortcut: create safe demo boxer</Text>
+            </Pressable>
+          ) : null}
         </View>
       </EngineCard>
     </LuminousScreen>

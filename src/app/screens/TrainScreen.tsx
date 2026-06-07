@@ -4,7 +4,8 @@ import type { DetailedTrainingSession, RecentLogsViewModel, TrainViewModel } fro
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
-import { LuminousScreen } from "../../design/components/LuminousScreen";
+import { CompactStatusStrip, PrimaryTaskCard, type FastTaskAction } from "../../design/components/FastTask";
+import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { DashboardCard, DashboardPill, MiniBarChart, TimelineStrip } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { colors, spacing } from "../../design/theme";
@@ -46,6 +47,7 @@ function plainTrainCopy(value: string): string {
   return value
     .replace(new RegExp("generated boxing " + "training", "gi"), "support workout")
     .replace(new RegExp("generated " + "training", "gi"), "support workout")
+    .replace(new RegExp("generated " + "support", "gi"), "support work")
     .replace(new RegExp("protected " + "anchors?", "gi"), "boxing sessions you added")
     .replace(new RegExp("protected " + "boxing", "gi"), "fixed boxing")
     .replace(new RegExp("protected " + "work", "gi"), "boxing work")
@@ -61,6 +63,10 @@ function toneForIntensity(intensity: string): VisualTone {
     return "green";
   }
   return "blue";
+}
+
+function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple" | "gold" | "red" {
+  return tone === "muted" ? "blue" : tone;
 }
 
 function currentWeekBars(viewModel: TrainViewModel): readonly BarVisual[] {
@@ -155,7 +161,7 @@ function WorkoutSummaryCard({ viewModel }: { viewModel: TrainViewModel }) {
   const fuelDemand = card?.fuelDemand ?? generated?.fuelDemand ?? "moderate";
   return (
     <DashboardCard testID="train-workout-summary-card" title="Workout preview">
-      <Text style={screenStyles.fieldLabel}>Generated workout</Text>
+      <Text style={screenStyles.fieldLabel}>Support workout</Text>
       <Text style={screenStyles.callout}>{plainTrainCopy(title)}</Text>
       <Text style={screenStyles.body}>{durationMinutes} min, {intensity}. Fuel: {fuelDemand}.</Text>
       {card?.why ? <Text style={screenStyles.subtle}>Purpose: {plainTrainCopy(card.why)}</Text> : null}
@@ -226,6 +232,8 @@ export function TrainScreen({
   viewModel
 }: TrainScreenProps) {
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
+  const [planOpenRequestKey, setPlanOpenRequestKey] = React.useState(0);
+  const [quickLogOpenRequestKey, setQuickLogOpenRequestKey] = React.useState(0);
 
   React.useEffect(() => {
     if (initialSection) {
@@ -242,6 +250,8 @@ export function TrainScreen({
   const primarySession = detailedSessions[0] ?? previewOnlyWeeklySession?.detail ?? null;
   const pendingStartSession = detailedSessions.find((session) => session.generatedSessionId === pendingStartSessionId) ?? null;
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
+  const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? startWorkoutBlockedReason(viewModel, primarySession) : undefined;
+  const primarySessionTone = primarySession ? toneForIntensity(primarySession.intensity) : viewModel.riskSummary.length > 0 ? "red" : "blue";
 
   const startWorkout = (sessionDetail: DetailedTrainingSession) => {
     const blockedReason = startWorkoutBlockedReason(viewModel, sessionDetail);
@@ -255,10 +265,80 @@ export function TrainScreen({
     setPendingStartSessionId(null);
     onStartWorkout?.(sessionDetail);
   };
+  const topPrimaryAction =
+    primarySession
+      ? previewOnlyWeeklySession
+        ? "Preview the next support workout. Do not pull it forward."
+        : plainTrainCopy(primarySession.title)
+      : "Log the boxing work you actually did.";
+  const topPurpose =
+    primarySession
+      ? `${primarySession.durationMinutes} min, ${primarySession.intensity.replace(/_/g, " ")}. ${plainTrainCopy(viewModel.preSessionFuelHint)}`
+      : plainTrainCopy(viewModel.todaySummary);
+  const topPrimaryButton: FastTaskAction | undefined = primarySession
+    ? {
+        accessibilityLabel: "Start workout",
+        disabled: busy || Boolean(primarySessionBlockedReason) || Boolean(previewOnlyWeeklySession) || !onStartWorkout,
+        label: previewOnlyWeeklySession ? "Preview only" : "Start workout",
+        onPress: () => startWorkout(primarySession),
+        summary: previewOnlyWeeklySession ? "Preview only" : primarySessionBlockedReason ? "Blocked" : "Follow along"
+      }
+    : undefined;
+  const topSecondaryActions: FastTaskAction[] = [
+    ...(primarySession && !previewOnlyWeeklySession
+      ? [{
+          disabled: busy,
+          label: "Quick log",
+          onPress: () => setQuickLogOpenRequestKey((value) => value + 1),
+          summary: "RPE only"
+        }]
+      : []),
+    ...(primarySession
+      ? [{
+          disabled: busy,
+          label: "Show workout plan",
+          onPress: () => setPlanOpenRequestKey((value) => value + 1),
+          summary: "Exercises"
+        }]
+      : [])
+  ];
 
   return (
     <LuminousScreen testID="train-screen">
+      <ScreenHeader eyebrow="Today" title="Train" />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
+      <PrimaryTaskCard
+        accent={accentForTone(primarySessionTone)}
+        primaryAction={topPrimaryAction}
+        primaryButton={topPrimaryButton}
+        purpose={topPurpose}
+        secondaryActions={topSecondaryActions}
+        testID="train-primary-task"
+        title="Do now"
+      >
+        <CompactStatusStrip
+          items={[
+            {
+              accent: viewModel.riskSummary.length > 0 ? "red" : "blue",
+              label: "Today",
+              meta: plainTrainCopy(viewModel.todayRole.summary),
+              value: plainTrainCopy(viewModel.todayRole.status.replace(/_/g, " "))
+            },
+            {
+              accent: accentForTone(primarySessionTone),
+              label: "Workout",
+              meta: primarySession ? `${primarySession.durationMinutes} min` : "Manual log",
+              value: primarySession ? primarySession.intensity.replace(/_/g, " ") : "None"
+            },
+            {
+              accent: "green",
+              label: "Week",
+              meta: "Support workouts",
+              value: `${viewModel.supportGenerationSummary.actualGeneratedSupportCount}/${viewModel.supportGenerationSummary.targetGeneratedSupportCount}`
+            }
+          ]}
+        />
+      </PrimaryTaskCard>
       {viewModel.riskSummary.length > 0 ? (
         <RiskBanner title="Training safety check" message="Training changes stay blocked or reduced while these safety notes are active." tone="critical">
           <View style={{ gap: spacing.xs }}>
@@ -310,7 +390,9 @@ export function TrainScreen({
             completionMessage={completionMessage}
             onOpenFuel={onOpenFuelAfterWorkout}
             onStartWorkout={previewOnlyWeeklySession ? undefined : () => startWorkout(primarySession)}
+            planOpenRequestKey={planOpenRequestKey}
             previewOnlyReason={previewOnlyWeeklySession ? `Scheduled for ${previewOnlyWeeklySession.date}. Do not pull future support work forward from Plan.` : undefined}
+            quickLogOpenRequestKey={quickLogOpenRequestKey}
             session={primarySession}
             startWorkoutDisabledReason={previewOnlyWeeklySession ? undefined : startWorkoutBlockedReason(viewModel, primarySession)}
             trainViewModel={viewModel}

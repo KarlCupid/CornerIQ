@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
+import { CompactStatusStrip, PrimaryTaskCard, type FastTaskAction } from "../../design/components/FastTask";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import {
   DashboardCard,
@@ -13,7 +14,7 @@ import {
   TrendLineChart
 } from "../../design/components/PerformanceVisuals";
 import { colors, spacing } from "../../design/theme";
-import { buildFuelDashboardVisual, type FuelDashboardVisual } from "../../engine/presentation/dashboardVisualData";
+import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
@@ -41,6 +42,10 @@ function plainFuelCopy(value: string): string {
     .replace(new RegExp("under-" + "fueling", "gi"), "too little food")
     .replace(new RegExp("body-" + "mass context", "gi"), "weight trend")
     .replace(new RegExp("hard " + "stop", "gi"), "safety stop");
+}
+
+function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple" | "gold" | "red" {
+  return tone === "muted" ? "blue" : tone;
 }
 
 function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quickLogs: QuickLogActions; viewModel: FuelViewModel }) {
@@ -235,10 +240,10 @@ function FuelVisualDashboard({
       <DashboardCard headerRight={<DashboardPill label={dashboard.recommendation.label} tone={dashboard.recommendation.tone} />} title="Today's recommendation">
         <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{dashboard.recommendation.body}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <Pressable accessibilityLabel="Log meal" accessibilityRole="button" onPress={onLogMeal} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
+          <Pressable accessibilityLabel="Open food logger from recommendation" accessibilityRole="button" onPress={onLogMeal} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
             <Text style={screenStyles.buttonText}>Log meal</Text>
           </Pressable>
-          <Pressable accessibilityLabel="Log hydration" accessibilityRole="button" onPress={onLogHydration} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
+          <Pressable accessibilityLabel="Open hydration logger from recommendation" accessibilityRole="button" onPress={onLogHydration} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
             <Text style={screenStyles.quietButtonText}>Add water</Text>
           </Pressable>
         </View>
@@ -266,9 +271,63 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
   const logSection = <FuelLogActionSection busy={busy} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />;
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
   const showLogSection = appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration";
+  const primaryFuelButton: FastTaskAction = primaryLog === "water"
+    ? {
+        disabled: busy,
+        label: "Add water",
+        onPress: () => setAppliedFocusIntent("log_hydration"),
+        summary: "Fast log"
+      }
+    : {
+        disabled: busy,
+        label: "Log meal",
+        onPress: () => setAppliedFocusIntent("log_food"),
+        summary: "Optional"
+      };
+  const secondaryFuelActions: FastTaskAction[] = primaryLog === "water"
+    ? [{
+        disabled: busy,
+        label: "Log meal",
+        onPress: () => setAppliedFocusIntent("log_food"),
+        summary: "If useful"
+      }]
+    : [{
+        disabled: busy,
+        label: "Add water",
+        onPress: () => setAppliedFocusIntent("log_hydration"),
+        summary: "Fast log"
+      }];
   return (
     <LuminousScreen testID="fuel-screen">
       <ScreenHeader eyebrow="Today" title="Fuel" />
+      <PrimaryTaskCard
+        accent={accentForTone(dashboard.recommendation.tone)}
+        primaryAction={dashboard.recommendation.body}
+        primaryButton={primaryFuelButton}
+        purpose="Log only what you know. Missing food stays unknown, not unsafe by itself."
+        secondaryActions={secondaryFuelActions}
+        testID="fuel-primary-task"
+        title="Do now"
+      >
+        <CompactStatusStrip
+          items={[
+            ...dashboard.macros.slice(0, 3).map((item) => ({
+              accent: accentForTone(item.tone),
+              label: item.label,
+              meta: item.targetLabel,
+              value: item.valueLabel
+            })),
+            {
+              accent: accentForTone(dashboard.hydration.tone),
+              label: "Water",
+              meta: dashboard.hydration.targetLabel,
+              value: dashboard.hydration.valueLabel
+            }
+          ]}
+        />
+      </PrimaryTaskCard>
+      {showLogSection ? logSection : null}
+      {showLogSection ? <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} /> : null}
       <FuelVisualDashboard
         dashboard={dashboard}
         onLogHydration={() => setAppliedFocusIntent("log_hydration")}
@@ -281,8 +340,6 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
           viewModel={viewModel}
         />
       ) : null}
-      {showLogSection ? logSection : null}
-      {showLogSection ? <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} /> : null}
       {viewModel.underFuelingRisk ? (
         <EngineCard>
           <View style={{ gap: spacing.sm }}>

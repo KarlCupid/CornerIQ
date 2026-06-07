@@ -52,7 +52,7 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
       testID="auth-screen"
     >
       <StatusBar style="light" />
-      <View style={{ gap: spacing.lg }}>
+      <View style={{ alignSelf: "center", gap: spacing.lg, maxWidth: 520, width: "100%" }}>
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.title}>CornerIQ</Text>
           <Text style={screenStyles.body}>

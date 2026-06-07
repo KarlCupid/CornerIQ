@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
+import { CompactStatusStrip, PrimaryTaskCard, type FastTaskAction } from "../../design/components/FastTask";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import {
   DashboardCard,
@@ -17,7 +18,7 @@ import {
 } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { colors, spacing } from "../../design/theme";
-import { buildTodayDashboardVisual, type TodayDashboardVisual } from "../../engine/presentation/dashboardVisualData";
+import { buildTodayDashboardVisual, type TodayDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, CycleLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
@@ -50,8 +51,14 @@ type TodayQuickCheckFocus = "readiness" | "body_mass" | "hydration";
 
 function plainTodayCopy(value: string): string {
   return value
+    .replace(new RegExp("Generated support", "g"), "Support work")
+    .replace(new RegExp("generated support", "gi"), "support work")
     .replace(new RegExp("hard " + "stops", "gi"), "safety stops")
     .replace(new RegExp("hard " + "stop", "gi"), "safety stop");
+}
+
+function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple" | "gold" | "red" {
+  return tone === "muted" ? "blue" : tone;
 }
 
 export const handledTodaySecondaryActions: Record<TodaySecondaryAction, true> = {
@@ -338,9 +345,77 @@ export function TodayScreen({
     }
     (onOpenTrainWorkout ?? onOpenTrain)?.();
   };
+  const primaryTaskLabel =
+    dashboard.ctaLabel === "Open Fuel"
+      ? "Log food"
+      : dashboard.ctaLabel === "Open training"
+        ? "Open workout"
+        : dashboard.ctaLabel;
+  const primaryButton: FastTaskAction = {
+    disabled: busy,
+    label: primaryTaskLabel,
+    onPress: runDashboardPrimaryAction,
+    testID: "today-primary-task-action"
+  };
+  const secondaryActions: FastTaskAction[] = [
+    {
+      disabled: busy,
+      label: "Quick check-in",
+      onPress: () => openQuickCheck("readiness"),
+      summary: "30 sec"
+    },
+    ...((onOpenFuelLog ?? onOpenFuel)
+      ? [{
+          disabled: busy,
+          label: "Log food",
+          onPress: () => (onOpenFuelLog ?? onOpenFuel)?.(),
+          summary: "If useful"
+        }]
+      : []),
+    ...((onOpenTrainWorkout ?? onOpenTrain)
+      ? [{
+          disabled: busy,
+          label: "Open workout",
+          onPress: () => (onOpenTrainWorkout ?? onOpenTrain)?.(),
+          summary: "Follow plan"
+        }]
+      : [])
+  ].filter((action) => action.label !== primaryButton.label);
   return (
     <LuminousScreen testID="today-screen">
       <ScreenHeader eyebrow="Daily mission" title="Today" />
+      <PrimaryTaskCard
+        accent={accentForTone(dashboard.decision.tone)}
+        primaryAction={plainTodayCopy(dashboard.decision.title)}
+        primaryButton={primaryButton}
+        purpose={plainTodayCopy(dashboard.decision.subtitle)}
+        secondaryActions={secondaryActions}
+        testID="today-primary-task"
+        title="Do now"
+      >
+        <CompactStatusStrip
+          items={[
+            {
+              accent: accentForTone(dashboard.readiness.tone),
+              label: "Readiness",
+              meta: dashboard.readiness.statusLabel,
+              value: dashboard.readiness.score === null ? "Unknown" : dashboard.readiness.scoreLabel
+            },
+            {
+              accent: accentForTone(dashboard.decision.tone),
+              label: "Training",
+              meta: `ACWR ${dashboard.acwrLabel}`,
+              value: dashboard.loadStateLabel
+            },
+            {
+              accent: accentForTone(dashboard.fuel[0]?.tone ?? "muted"),
+              label: "Fuel",
+              meta: "Food stays optional",
+              value: dashboard.fuel.length > 0 ? dashboard.fuel[0]?.valueLabel ?? "Unknown" : "Unknown"
+            }
+          ]}
+        />
+      </PrimaryTaskCard>
       <TodayDashboardSection
         busy={busy}
         dashboard={dashboard}

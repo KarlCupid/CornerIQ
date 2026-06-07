@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality, TrainViewModel } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
-import { PostActionNextStep } from "../../../design/components/FastTask";
+import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
 import {
   DashboardCard,
   DashboardPill,
@@ -419,7 +419,7 @@ export function WorkoutDetailPanel({
   return (
     <View style={{ gap: spacing.lg }}>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.fieldLabel}>Generated workout</Text>
+        <Text style={screenStyles.fieldLabel}>Support workout</Text>
         <Text style={screenStyles.heroTitle}>Workout preview</Text>
         <Text style={screenStyles.callout}>{session.title}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
@@ -428,7 +428,9 @@ export function WorkoutDetailPanel({
           <SessionMeta label={session.intensity.replace(/_/g, " ")} />
           <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
         </View>
-        <WorkoutPreviewDashboard preview={preview} session={session} />
+        <CollapsedDetailDisclosure framed={false} summary="Charts are optional. Start, quick log, and workout plan are the main controls." title="workout preview">
+          <WorkoutPreviewDashboard preview={preview} session={session} />
+        </CollapsedDetailDisclosure>
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
         {followUpState ? (

@@ -664,9 +664,9 @@ export function PlanScreen({
       ) : null}
       {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={plainPlanCopy(viewModel.lastAutoRollForwardMessage)} tone="info" /> : null}
       {adjustmentMessage ? <RiskBanner title="Plan update" message={plainPlanCopy(adjustmentMessage)} tone="info" /> : null}
+      <PlanActionCard busy={busy} onOpenWorkspace={openWorkspace} viewModel={viewModel} />
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
       <PlanVisualDashboard dashboard={dashboard} onAdjustPlan={() => openWorkspace("goal_wizard")} viewModel={viewModel} />
-      <PlanActionCard busy={busy} onOpenWorkspace={openWorkspace} viewModel={viewModel} />
     </LuminousScreen>
   );
 }

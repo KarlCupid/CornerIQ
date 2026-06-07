@@ -46,6 +46,7 @@ function ActionButton({
         flexGrow: 1,
         justifyContent: "center",
         minHeight: 48,
+        opacity: action.disabled ? 0.55 : 1,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm
       }}
@@ -177,6 +178,7 @@ export function QuickActionRow({
               flexGrow: 1,
               justifyContent: "center",
               minHeight: 44,
+              opacity: action.disabled ? 0.55 : 1,
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm
             }}

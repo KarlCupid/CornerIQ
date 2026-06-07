@@ -27,8 +27,8 @@ export const spacing = {
 } as const;
 
 export const radii = {
-  card: 24,
-  tile: 18,
-  control: 22,
+  card: 18,
+  tile: 14,
+  control: 18,
   pill: 999
 } as const;

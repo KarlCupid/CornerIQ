@@ -12,7 +12,7 @@ export function EngineCard({ children }: PropsWithChildren) {
         borderRadius: radii.card,
         borderWidth: 1,
         gap: spacing.md,
-        padding: 18
+        padding: spacing.lg
       }}
     >
       {children}

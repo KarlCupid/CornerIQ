@@ -27,8 +27,8 @@ export function TopActionCard({
         borderColor: "rgba(255, 255, 255, 0.12)",
         borderRadius: radii.card,
         borderWidth: 1,
-        gap: spacing.md,
-        padding: 18
+        gap: spacing.sm,
+        padding: spacing.lg
       }}
       testID={testID}
     >
@@ -36,7 +36,7 @@ export function TopActionCard({
       <View style={{ flexDirection: "row", gap: spacing.md }}>
         <View style={{ flex: 1, gap: spacing.sm, minWidth: 0 }}>
           <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>Do now</Text>
-          <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 18, fontWeight: "600", lineHeight: 24 }}>{primaryAction}</Text>
+          <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 17, fontWeight: "700", lineHeight: 23 }}>{primaryAction}</Text>
           <Text style={{ ...typography.body, color: colors.wrap }}>{purpose}</Text>
         </View>
       </View>
