@@ -8,11 +8,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, ISODateString, PerformanceState } from "../../engine/core/types";
 import { colors } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
-import { FuelScreen } from "../screens/FuelScreen";
+import { FuelScreen, type FuelFocusIntent } from "../screens/FuelScreen";
 import { PlanScreen } from "../screens/PlanScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { TodayScreen } from "../screens/TodayScreen";
-import { TrainScreen } from "../screens/TrainScreen";
+import { TrainScreen, type TrainSection } from "../screens/TrainScreen";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { NextWeekPreviewActionsHook } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentsHook } from "../../hooks/useTrainingPlanAdjustments";
@@ -66,6 +66,8 @@ export interface AppTabsProps {
 
 export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteRecurringProtectedAnchor, onDeleteProtectedSession, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
+  const [fuelFocusIntent, setFuelFocusIntent] = React.useState<FuelFocusIntent | undefined>();
+  const [trainInitialSection, setTrainInitialSection] = React.useState<TrainSection | undefined>();
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
       <NavigationContainer>
@@ -138,11 +140,45 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
               cycleSymptomOptions={cycleSymptomOptions}
               message={message}
-              onOpenFuel={() => navigation.navigate("Fuel")}
+              onOpenFuel={() => {
+                setFuelFocusIntent("action");
+                navigation.navigate("Fuel");
+              }}
+              onOpenFuelLog={() => {
+                setFuelFocusIntent("log_food");
+                navigation.navigate("Fuel");
+              }}
+              onOpenFuelSafety={() => {
+                setFuelFocusIntent("safety_review");
+                navigation.navigate("Fuel");
+              }}
               onOpenTrain={() => navigation.navigate("Train")}
+              onOpenTrainWorkout={() => {
+                setTrainInitialSection("workout");
+                navigation.navigate("Train");
+              }}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.today}
+            />
+          )}
+        </Tab.Screen>
+        <Tab.Screen name="Train">
+          {({ navigation }) => (
+            <TrainScreen
+              busy={busy}
+              completionActions={workoutCompletion}
+              completionMessage={message}
+              generationStatus={generationStatus}
+              initialSection={trainInitialSection}
+              onInitialSectionApplied={() => setTrainInitialSection(undefined)}
+              onOpenFuelAfterWorkout={() => {
+                setFuelFocusIntent("log_hydration");
+                navigation.navigate("Fuel");
+              }}
+              quickLogs={quickLogs}
+              recentLogs={state.viewModels.recentLogs}
+              viewModel={state.viewModels.train}
             />
           )}
         </Tab.Screen>
@@ -150,15 +186,16 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
           {() => (
             <FuelScreen
               busy={busy}
+              focusIntent={fuelFocusIntent}
               message={message}
               onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+              onFocusIntentApplied={() => setFuelFocusIntent(undefined)}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.fuel}
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Train">{() => <TrainScreen busy={busy} completionActions={workoutCompletion} completionMessage={message} generationStatus={generationStatus} quickLogs={quickLogs} recentLogs={state.viewModels.recentLogs} viewModel={state.viewModels.train} />}</Tab.Screen>
         <Tab.Screen name="Plan">
           {() => (
             <PlanScreen

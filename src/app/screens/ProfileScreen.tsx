@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { CycleViewModel, ProfileViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import type { ISODateString } from "../../engine/core/types";
+import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
@@ -113,9 +114,8 @@ export function ProfileScreen({
         <View style={{ gap: spacing.lg }} testID="profile-data-section">
           <EngineCard>
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Data controls</Text>
+              <Text style={screenStyles.sectionTitle}>Export</Text>
               <Text style={screenStyles.body}>Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.</Text>
-              <Text style={screenStyles.subtle}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function."}</Text>
               <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Preview export</Text>
               </Pressable>
@@ -128,13 +128,27 @@ export function ProfileScreen({
                 <TextInput accessibilityLabel="Portable JSON export payload" editable={false} multiline style={[screenStyles.input, { minHeight: 120 }]} value={userDataControls.bundleText} />
               ) : null}
               {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
+            </View>
+          </EngineCard>
+          <EngineCard>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.sectionTitle}>Account and app data</Text>
+              <Text style={screenStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function."}</Text>
+              <Text style={screenStyles.subtle}>Export first is recommended before any destructive data action.</Text>
+            </View>
+          </EngineCard>
+          <DisclosureCard title="Danger Zone" summary="Delete controls are hidden until opened. Export first is recommended.">
+            <View style={{ gap: spacing.sm }} testID="profile-danger-zone">
+              <Text style={screenStyles.sectionTitle}>Delete app data</Text>
+              <Text style={screenStyles.body}>Deletes user-owned app rows only. It does not delete auth identity.</Text>
+              <Text style={screenStyles.subtle}>Requires an export preview and the exact word DELETE.</Text>
               <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" style={screenStyles.input} value={deleteConfirmation} />
               <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Delete app data</Text>
               </Pressable>
-              <Text style={screenStyles.subtle}>Auth identity deletion requires a trusted support path. This button only removes user-owned app data.</Text>
+              <Text style={screenStyles.subtle}>Auth identity deletion requires a trusted support path outside this client.</Text>
             </View>
-          </EngineCard>
+          </DisclosureCard>
         </View>
       ) : null}
       {section === "safety" ? (

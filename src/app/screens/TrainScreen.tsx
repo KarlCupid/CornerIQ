@@ -18,7 +18,7 @@ import { screenStyles } from "./screenStyles";
 import { ExerciseHistoryPanel } from "./train/ExerciseHistoryPanel";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 
-type TrainSection = "today" | "workout" | "history" | "progression";
+export type TrainSection = "today" | "workout" | "history" | "progression";
 
 const trainSections: readonly SectionTabItem<TrainSection>[] = [
   { key: "today", label: "Today" },
@@ -32,6 +32,9 @@ export interface TrainScreenProps {
   completionActions?: WorkoutCompletionActions | undefined;
   completionMessage?: string | null | undefined;
   generationStatus?: EngineGenerationStatus | undefined;
+  initialSection?: TrainSection | undefined;
+  onInitialSectionApplied?: (() => void) | undefined;
+  onOpenFuelAfterWorkout?: (() => void) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: TrainViewModel;
@@ -177,8 +180,26 @@ function ExecutionOverlayCard({ viewModel }: { viewModel: TrainViewModel }) {
   );
 }
 
-export function TrainScreen({ busy, completionActions, completionMessage, generationStatus = "idle", quickLogs, recentLogs, viewModel }: TrainScreenProps) {
-  const [section, setSection] = React.useState<TrainSection>("today");
+export function TrainScreen({
+  busy,
+  completionActions,
+  completionMessage,
+  generationStatus = "idle",
+  initialSection,
+  onInitialSectionApplied,
+  onOpenFuelAfterWorkout,
+  quickLogs,
+  recentLogs,
+  viewModel
+}: TrainScreenProps) {
+  const [section, setSection] = React.useState<TrainSection>(initialSection ?? "today");
+  React.useEffect(() => {
+    if (!initialSection) {
+      return;
+    }
+    setSection(initialSection);
+    onInitialSectionApplied?.();
+  }, [initialSection, onInitialSectionApplied]);
   return (
     <LuminousScreen testID="train-screen">
       <ScreenHeader eyebrow="Workout" title={viewModel.title} />
@@ -261,7 +282,7 @@ export function TrainScreen({ busy, completionActions, completionMessage, genera
         <View style={{ gap: spacing.lg }} testID="train-workout-section">
           {viewModel.detailedTodaySessions.length > 0 ? viewModel.detailedTodaySessions.map((session) => (
             session.detail ? (
-              <WorkoutDetailPanel busy={busy} completionActions={completionActions} completionMessage={completionMessage} key={session.generatedSessionId} session={session.detail} />
+              <WorkoutDetailPanel busy={busy} completionActions={completionActions} completionMessage={completionMessage} key={session.generatedSessionId} onOpenFuel={onOpenFuelAfterWorkout} session={session.detail} />
             ) : (
               <EngineCard key={session.generatedSessionId}>
                 <View style={{ gap: spacing.sm }}>

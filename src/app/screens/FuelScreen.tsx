@@ -26,12 +26,16 @@ import { screenStyles } from "./screenStyles";
 
 export interface FuelScreenProps {
   busy: boolean;
+  focusIntent?: FuelFocusIntent | undefined;
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  onFocusIntentApplied?: (() => void) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: FuelViewModel;
 }
+
+export type FuelFocusIntent = "action" | "log_food" | "log_hydration" | "safety_review";
 
 function CollapsibleFuelSection({
   children,
@@ -46,6 +50,11 @@ function CollapsibleFuelSection({
   title: string;
 }>) {
   const [open, setOpen] = React.useState(defaultOpen);
+  React.useEffect(() => {
+    if (defaultOpen) {
+      setOpen(true);
+    }
+  }, [defaultOpen]);
   return (
     <View style={{ gap: spacing.sm }}>
       <Pressable
@@ -213,6 +222,31 @@ function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quic
   );
 }
 
+function FuelLogActionSection({
+  busy,
+  primaryLog,
+  quickLogs,
+  recentLogs,
+  viewModel
+}: {
+  busy: boolean;
+  primaryLog: "food" | "water";
+  quickLogs: QuickLogActions;
+  recentLogs: RecentLogsViewModel;
+  viewModel: FuelViewModel;
+}) {
+  return (
+    <View style={{ gap: spacing.lg }} testID="fuel-log-action-section">
+      <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} />
+      {primaryLog === "food" ? (
+        <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
+      ) : (
+        <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
+      )}
+    </View>
+  );
+}
+
 function ActualIntakeCard({ viewModel }: { viewModel: FuelViewModel }) {
   return (
     <EngineCard>
@@ -266,35 +300,79 @@ function FuelRiskCard({ message, viewModel }: { message: string | null; viewMode
   );
 }
 
-export function FuelScreen({ busy, message, onAcknowledgeNutritionSafetyReview, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
-  const primaryLog = recentLogs.foodToday.entryCount === 0 || recentLogs.hydrationToday.loggedToday ? "food" : "water";
+function FuelSafetyReviewSection({
+  defaultOpen,
+  message,
+  onAcknowledgeNutritionSafetyReview,
+  viewModel
+}: {
+  defaultOpen: boolean;
+  message: string | null;
+  onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  viewModel: FuelViewModel;
+}) {
+  return (
+    <CollapsibleFuelSection
+      defaultOpen={defaultOpen}
+      summary={defaultOpen ? "Safety review is visible because an active or requested review is present." : "Open when a hard stop or saved safety history matters."}
+      testID="fuel-reviews-section"
+      title="Safety review"
+    >
+      <NutritionSafetyReviewCard
+        activeReviews={viewModel.activeNutritionSafetyReviews}
+        onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
+        review={viewModel.nutritionSafetyReview}
+      />
+      <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
+      <FuelRiskCard message={message} viewModel={viewModel} />
+    </CollapsibleFuelSection>
+  );
+}
+
+export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
+  const [appliedFocusIntent, setAppliedFocusIntent] = React.useState<FuelFocusIntent | null>(null);
+  React.useEffect(() => {
+    if (!focusIntent) {
+      return;
+    }
+    setAppliedFocusIntent(focusIntent);
+    onFocusIntentApplied?.();
+  }, [focusIntent, onFocusIntentApplied]);
+  const safetyReviewActive = viewModel.nutritionSafetyReview.required || viewModel.activeNutritionSafetyReviews.length > 0 || viewModel.nutritionReviewHistory.activeReviewCount > 0;
+  const safetyReviewDefaultOpen = safetyReviewActive || appliedFocusIntent === "safety_review" || focusIntent === "safety_review";
+  const primaryLog =
+    appliedFocusIntent === "log_hydration" || focusIntent === "log_hydration"
+      ? "water"
+      : appliedFocusIntent === "log_food" || focusIntent === "log_food" || recentLogs.foodToday.entryCount === 0 || recentLogs.hydrationToday.loggedToday
+        ? "food"
+        : "water";
+  const logSection = <FuelLogActionSection busy={busy} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} viewModel={viewModel} />;
   return (
     <LuminousScreen testID="fuel-screen">
       <ScreenHeader eyebrow="Today" title={viewModel.title} />
       <View style={{ gap: spacing.lg }} testID="fuel-command-section">
         <FuelStartHereCard viewModel={viewModel} />
-        <FuelMacroTargetsCard recentLogs={recentLogs} viewModel={viewModel} />
+        {safetyReviewActive ? (
+          <FuelSafetyReviewSection
+            defaultOpen={safetyReviewDefaultOpen}
+            message={message}
+            onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+            viewModel={viewModel}
+          />
+        ) : null}
+        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? logSection : null}
         <TodayFuelPriorityCard viewModel={viewModel} />
-        <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} />
-        {primaryLog === "food" ? (
-          <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
-        ) : (
-          <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
-        )}
+        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? null : logSection}
+        <FuelMacroTargetsCard recentLogs={recentLogs} viewModel={viewModel} />
       </View>
-      <CollapsibleFuelSection
-        summary="Open when a hard stop or saved safety history matters."
-        testID="fuel-reviews-section"
-        title="Safety review"
-      >
-        <NutritionSafetyReviewCard
-          activeReviews={viewModel.activeNutritionSafetyReviews}
-          onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
-          review={viewModel.nutritionSafetyReview}
+      {!safetyReviewActive ? (
+        <FuelSafetyReviewSection
+          defaultOpen={safetyReviewDefaultOpen}
+          message={message}
+          onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+          viewModel={viewModel}
         />
-        <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
-        <FuelRiskCard message={message} viewModel={viewModel} />
-      </CollapsibleFuelSection>
+      ) : null}
       <CollapsibleFuelSection
         summary="Engine rationale, confidence, and fight-week or tournament detail live here."
         testID="fuel-command-detail-section"

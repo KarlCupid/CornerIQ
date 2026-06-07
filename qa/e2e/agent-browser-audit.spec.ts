@@ -647,6 +647,8 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.");
   await expectVisibleText(page, /Delete app data removes user-owned app rows only/);
   await expectVisibleText(page, /Auth identity deletion requires a trusted server-side function/);
+  await expect(page.getByRole("button", { name: "Delete app data" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show Danger Zone" }).click();
   const deleteButton = page.getByRole("button", { name: "Delete app data" });
   await expect(deleteButton).toBeDisabled();
   await page.getByRole("button", { name: "Preview export" }).click();
@@ -656,7 +658,7 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expect(deleteButton).toBeDisabled();
   await page.getByLabel("Delete confirmation").fill("DELETE");
   await expect(deleteButton).toBeEnabled();
-  await expectVisibleText(page, "Auth identity deletion requires a trusted support path. This button only removes user-owned app data.");
+  await expectVisibleText(page, "Auth identity deletion requires a trusted support path outside this client.");
   await deleteButton.click();
   await expectVisibleText(page, "Local E2E data deletion is disabled. No Supabase call was made.");
   expectNoDisplayedSecretValues(await visiblePageText(page, "profile-data-section"));

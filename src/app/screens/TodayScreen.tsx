@@ -26,8 +26,21 @@ export interface TodayScreenProps {
   busy: boolean;
   message: string | null;
   onOpenFuel?: (() => void) | undefined;
+  onOpenFuelLog?: (() => void) | undefined;
+  onOpenFuelSafety?: (() => void) | undefined;
   onOpenTrain?: (() => void) | undefined;
+  onOpenTrainWorkout?: (() => void) | undefined;
 }
+
+type TodaySecondaryAction = TodayViewModel["secondaryActions"][number]["action"];
+type TodayQuickCheckFocus = "readiness" | "body_mass" | "hydration";
+
+export const handledTodaySecondaryActions: Record<TodaySecondaryAction, true> = {
+  log_food: true,
+  log_readiness: true,
+  mark_food_not_tracking: true,
+  start_without_logging: true
+};
 
 function readinessMetric(recentLogs: RecentLogsViewModel) {
   return {
@@ -85,31 +98,33 @@ function TodayContextCard({ recentLogs, viewModel }: { recentLogs: RecentLogsVie
 function DailyOperatingModeCard({
   busy,
   onOpenFuel,
+  onOpenFuelLog,
+  onOpenQuickCheck,
   onOpenTrain,
+  onOpenTrainWorkout,
   quickLogs,
   recentLogs,
   viewModel
 }: {
   busy: boolean;
   onOpenFuel?: (() => void) | undefined;
+  onOpenFuelLog?: (() => void) | undefined;
+  onOpenQuickCheck: (focus: TodayQuickCheckFocus) => void;
   onOpenTrain?: (() => void) | undefined;
+  onOpenTrainWorkout?: (() => void) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: TodayViewModel;
 }) {
-  const actionPress = (action: TodayViewModel["secondaryActions"][number]["action"]) => {
-    if (action === "start_without_logging") {
-      onOpenTrain?.();
-      return;
-    }
-    if (action === "log_food") {
-      onOpenFuel?.();
-      return;
-    }
-    if (action === "mark_food_not_tracking") {
+  const actionHandlers: Record<TodaySecondaryAction, () => void> = {
+    log_food: () => (onOpenFuelLog ?? onOpenFuel)?.(),
+    log_readiness: () => onOpenQuickCheck("readiness"),
+    mark_food_not_tracking: () => {
       void quickLogs.markFoodNotTrackingToday();
-    }
+    },
+    start_without_logging: () => (onOpenTrainWorkout ?? onOpenTrain)?.()
   };
+  const actionPress = (action: TodaySecondaryAction) => actionHandlers[action]();
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="today-operating-mode-card">
@@ -119,7 +134,14 @@ function DailyOperatingModeCard({
           <Text style={screenStyles.body}>{viewModel.dailyOperatingMode.athleteFacingSummary}</Text>
           <Text style={screenStyles.subtle}>Readiness: {viewModel.statusSnapshot.readinessStatus}. Fuel log: {viewModel.statusSnapshot.fuelLogStatus}. Hydration: {viewModel.statusSnapshot.hydrationStatus}.</Text>
         </View>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => undefined} style={screenStyles.button}>
+        <Pressable
+          accessibilityLabel="Do 60-sec check-in"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={() => onOpenQuickCheck("readiness")}
+          style={screenStyles.button}
+        >
           <Text style={screenStyles.buttonText}>Do 60-sec check-in</Text>
         </Pressable>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -142,6 +164,60 @@ function DailyOperatingModeCard({
   );
 }
 
+function TodayQuickCheckSection({
+  busy,
+  cycleQuickLogEnabled,
+  cycleSymptomOptions,
+  focus,
+  quickLogs,
+  recentLogs
+}: {
+  busy: boolean;
+  cycleQuickLogEnabled: boolean;
+  cycleSymptomOptions: readonly CycleSymptom[];
+  focus: TodayQuickCheckFocus;
+  quickLogs: QuickLogActions;
+  recentLogs: RecentLogsViewModel;
+}) {
+  const focusCopy =
+    focus === "readiness"
+      ? "Readiness first"
+      : focus === "body_mass"
+        ? "Body-mass context first"
+        : "Hydration first";
+  return (
+    <View style={{ gap: spacing.lg }} testID="today-quick-check-section">
+      <EngineCard>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>Quick check</Text>
+          <Text style={screenStyles.callout}>{focusCopy}</Text>
+          <Text style={screenStyles.subtle}>Manual inputs improve confidence; missing data stays unknown, not safe.</Text>
+        </View>
+      </EngineCard>
+      {focus === "hydration" ? (
+        <>
+          <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
+          <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
+          <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
+        </>
+      ) : focus === "body_mass" ? (
+        <>
+          <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
+          <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
+          <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
+        </>
+      ) : (
+        <>
+          <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
+          <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
+          <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
+        </>
+      )}
+      {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} /> : null}
+    </View>
+  );
+}
+
 function ExecutionGuidanceCard({ viewModel }: { viewModel: TodayViewModel }) {
   return (
     <EngineCard>
@@ -155,12 +231,33 @@ function ExecutionGuidanceCard({ viewModel }: { viewModel: TodayViewModel }) {
   );
 }
 
-export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cycleQuickLogEnabled, cycleTrackingStatus, cycleSymptomOptions, busy, message, onOpenFuel, onOpenTrain }: TodayScreenProps) {
+export function TodayScreen({
+  viewModel,
+  recentLogs,
+  cycleContext,
+  quickLogs,
+  cycleQuickLogEnabled,
+  cycleTrackingStatus,
+  cycleSymptomOptions,
+  busy,
+  message,
+  onOpenFuel,
+  onOpenFuelLog,
+  onOpenFuelSafety,
+  onOpenTrain,
+  onOpenTrainWorkout
+}: TodayScreenProps) {
+  const [quickCheckOpen, setQuickCheckOpen] = React.useState(true);
+  const [quickCheckFocus, setQuickCheckFocus] = React.useState<TodayQuickCheckFocus>("readiness");
   const hasRisk = viewModel.riskSummary.length > 0;
   const hasRecentLogs = recentLogs.today.length > 0;
   const readiness = readinessMetric(recentLogs);
   const fuel = fuelMetric(viewModel, recentLogs);
   const bodyMass = bodyMassMetric(recentLogs);
+  const openQuickCheck = (focus: TodayQuickCheckFocus) => {
+    setQuickCheckFocus(focus);
+    setQuickCheckOpen(true);
+  };
   return (
     <LuminousScreen testID="today-screen">
       <ScreenHeader eyebrow="CornerIQ" title={viewModel.title} />
@@ -173,25 +270,44 @@ export function TodayScreen({ viewModel, recentLogs, cycleContext, quickLogs, cy
         title={viewModel.mission.title}
         why={viewModel.mission.why}
       />
+      {hasRisk ? (
+        <RiskBanner title="Safety check" message="The engine is surfacing this before normal guidance because missing or risky data is unknown, not safe." tone="critical">
+          <View style={{ gap: spacing.sm }}>
+            {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{risk}</Text>)}
+            <Pressable accessibilityLabel="Inspect safety review in Fuel" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => (onOpenFuelSafety ?? onOpenFuel)?.()} style={screenStyles.quietButton}>
+              <Text style={screenStyles.quietButtonText}>Inspect safety review in Fuel</Text>
+            </Pressable>
+          </View>
+        </RiskBanner>
+      ) : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         <MetricTile accent={readiness.accent} label="Readiness" meta={readiness.meta} value={readiness.value} />
         <MetricTile accent="orange" label="Fuel" meta={fuel.meta} value={fuel.value} />
         <MetricTile accent="blue" label="Weight" meta={bodyMass.meta} value={bodyMass.value} />
       </View>
-      <DailyOperatingModeCard busy={busy} onOpenFuel={onOpenFuel} onOpenTrain={onOpenTrain} quickLogs={quickLogs} recentLogs={recentLogs} viewModel={viewModel} />
+      <DailyOperatingModeCard
+        busy={busy}
+        onOpenFuel={onOpenFuel}
+        onOpenFuelLog={onOpenFuelLog}
+        onOpenQuickCheck={openQuickCheck}
+        onOpenTrain={onOpenTrain}
+        onOpenTrainWorkout={onOpenTrainWorkout}
+        quickLogs={quickLogs}
+        recentLogs={recentLogs}
+        viewModel={viewModel}
+      />
+      {quickCheckOpen ? (
+        <TodayQuickCheckSection
+          busy={busy}
+          cycleQuickLogEnabled={cycleQuickLogEnabled}
+          cycleSymptomOptions={cycleSymptomOptions}
+          focus={quickCheckFocus}
+          quickLogs={quickLogs}
+          recentLogs={recentLogs}
+        />
+      ) : null}
       <ExecutionGuidanceCard viewModel={viewModel} />
       <TodayContextCard recentLogs={recentLogs} viewModel={viewModel} />
-      {hasRisk ? (
-        <RiskBanner title="Safety check" message="The engine is surfacing this before logs because missing or risky data is unknown, not safe." tone="critical">
-          <View style={{ gap: spacing.xs }}>
-            {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{risk}</Text>)}
-          </View>
-        </RiskBanner>
-      ) : null}
-      <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
-      <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
-      <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
-      {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} /> : null}
       {message ? (
         <EngineCard>
           <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing engine state stays visible unless a hard stop says otherwise.</Text>

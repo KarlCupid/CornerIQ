@@ -8,6 +8,8 @@ import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validatio
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
 
+type WorkoutFollowUpState = "completed" | "skipped" | "review";
+
 interface ExerciseResultInputs {
   completedSets: string;
   loadValue: string;
@@ -242,11 +244,13 @@ export function WorkoutDetailPanel({
   busy,
   completionActions,
   completionMessage,
+  onOpenFuel,
   session
 }: {
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
   completionMessage?: string | null | undefined;
+  onOpenFuel?: (() => void) | undefined;
   session: DetailedTrainingSession;
 }) {
   const [resultOpen, setResultOpen] = useState(false);
@@ -258,6 +262,7 @@ export function WorkoutDetailPanel({
   const [notes, setNotes] = useState("");
   const [exerciseInputs, setExerciseInputs] = useState<Record<string, ExerciseResultInputs>>({});
   const [localError, setLocalError] = useState<string | null>(null);
+  const [followUpState, setFollowUpState] = useState<WorkoutFollowUpState | null>(null);
 
   const updateExercise = (exerciseId: string, updater: (current: ExerciseResultInputs) => ExerciseResultInputs) => {
     setExerciseInputs((current) => ({ ...current, [exerciseId]: updater(current[exerciseId] ?? emptyExerciseResultInputs()) }));
@@ -274,12 +279,18 @@ export function WorkoutDetailPanel({
       if (parsedSessionRpe !== undefined && parsedSessionRpe > 10) {
         throw new Error("Session RPE must be 10 or lower.");
       }
+      const exerciseResults = parseExerciseResult(session, exerciseInputs);
+      const needsReview =
+        Boolean(painNotes.trim()) ||
+        (parsedSessionRpe !== undefined && parsedSessionRpe >= 8) ||
+        exerciseResults.some((result) => result.painFlag || (typeof result.rpe === "number" && result.rpe >= 8));
       await completionActions.complete(session, {
         ...(parsedSessionRpe === undefined ? {} : { sessionRpe: parsedSessionRpe }),
         painNotes: painNotes.trim() ? [painNotes.trim()] : [],
         notes: notes.trim(),
-        exerciseResults: parseExerciseResult(session, exerciseInputs)
+        exerciseResults
       });
+      setFollowUpState(needsReview ? "review" : "completed");
       setResultOpen(false);
     } catch (error) {
       setLocalError(validationError(error, "Workout completion failed."));
@@ -293,8 +304,16 @@ export function WorkoutDetailPanel({
     }
     setLocalError(null);
     await completionActions.skip(session, notes.trim());
+    setFollowUpState("skipped");
     setResultOpen(false);
   };
+
+  const followUpCopy =
+    followUpState === "review"
+      ? "Review pain/RPE before progressing."
+      : followUpState === "skipped"
+        ? "Skipped. Plan remains conservative; add reason only if useful."
+        : "Done. Check Fuel only if you need post-session food/hydration context.";
 
   return (
     <EngineCard>
@@ -313,6 +332,27 @@ export function WorkoutDetailPanel({
         {session.roundStructure ? <Text style={screenStyles.subtle}>Rounds: {session.roundStructure}</Text> : null}
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
+        {followUpState ? (
+          <View
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.055)",
+              borderColor: colors.line,
+              borderRadius: 16,
+              borderWidth: 1,
+              gap: spacing.sm,
+              padding: spacing.md
+            }}
+            testID="workout-next-action-card"
+          >
+            <Text style={screenStyles.sectionTitle}>Next action</Text>
+            <Text style={screenStyles.body}>{followUpCopy}</Text>
+            {followUpState === "completed" && onOpenFuel ? (
+              <Pressable accessibilityLabel="Open Fuel after workout" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onOpenFuel} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>Open Fuel</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
         <Pressable accessibilityLabel={resultOpen ? "Hide workout result logger" : "Log result"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.button}>
           <Text style={screenStyles.buttonText}>{resultOpen ? "Hide result logger" : "Log result"}</Text>
         </Pressable>

@@ -11,6 +11,7 @@ import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActio
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
+import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
@@ -157,7 +158,7 @@ function CurrentModeCard({
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable accessibilityRole="button" disabled={busy} onPress={onChangeGoal} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.buttonText}>Generate plan</Text>
+            <Text style={screenStyles.buttonText}>Change goal / setup plan</Text>
           </Pressable>
           <Pressable accessibilityRole="button" disabled={busy} onPress={onPreviewNextWeek} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
             <Text style={screenStyles.quietButtonText}>Preview next week</Text>
@@ -212,7 +213,6 @@ function GeneratedSupportSummaryCard({
   viewModel: PlanViewModel;
 }) {
   const preview = viewModel.nextWeekPreview;
-  const generationReasons = viewModel.generationAudit?.blockedGenerationReasons ?? [];
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-generated-support-summary-card">
@@ -228,114 +228,22 @@ function GeneratedSupportSummaryCard({
               <Text style={screenStyles.body}>
                 Current week: {viewModel.generationAudit.actualGeneratedSupportCount}/{viewModel.generationAudit.targetGeneratedSupportCount} generated training session{viewModel.generationAudit.actualGeneratedSupportCount === 1 ? "" : "s"}.
               </Text>
-              <Text style={screenStyles.subtle}>
-                Dates: {viewModel.generationAudit.generatedSessionDates.length > 0 ? viewModel.generationAudit.generatedSessionDates.join(", ") : "None"}
-              </Text>
-              <Text style={screenStyles.subtle}>
-                Titles: {viewModel.generationAudit.generatedSessionTitles.length > 0 ? viewModel.generationAudit.generatedSessionTitles.join(", ") : "None"}
-              </Text>
-              <Text style={screenStyles.subtle}>
-                Families: {viewModel.generationAudit.generatedSessionFamilies.length > 0 ? viewModel.generationAudit.generatedSessionFamilies.join(", ") : "None"}
-              </Text>
+              <Text style={screenStyles.subtle}>Dates: {viewModel.generationAudit.generatedSessionDates.length > 0 ? viewModel.generationAudit.generatedSessionDates.join(", ") : "None"}</Text>
+              <Text style={screenStyles.subtle}>Titles: {viewModel.generationAudit.generatedSessionTitles.length > 0 ? viewModel.generationAudit.generatedSessionTitles.join(", ") : "None"}</Text>
+              <Text style={screenStyles.subtle}>Families: {viewModel.generationAudit.generatedSessionFamilies.length > 0 ? viewModel.generationAudit.generatedSessionFamilies.join(", ") : "None"}</Text>
               {typeof viewModel.generationAudit.targetRequiredAddOnBlocks === "number" ? (
                 <Text style={screenStyles.subtle}>
                   Required add-ons: {viewModel.generationAudit.actualRequiredAddOnBlocks ?? 0}/{viewModel.generationAudit.targetRequiredAddOnBlocks}; recommended: {viewModel.generationAudit.actualRecommendedAddOnBlocks ?? 0}/{viewModel.generationAudit.targetRecommendedAddOnBlocks ?? 0}.
                 </Text>
               ) : null}
               {typeof viewModel.generationAudit.targetAthleteQualityCheckpoints === "number" ? (
-                <Text style={screenStyles.subtle}>
-                  Quality checkpoints: {viewModel.generationAudit.actualAthleteQualityCheckpoints ?? 0}/{viewModel.generationAudit.targetAthleteQualityCheckpoints}.
-                </Text>
+                <Text style={screenStyles.subtle}>Quality checkpoints: {viewModel.generationAudit.actualAthleteQualityCheckpoints ?? 0}/{viewModel.generationAudit.targetAthleteQualityCheckpoints}.</Text>
               ) : null}
-              {viewModel.generationAudit.athleteFacingThemePurpose ? <Text style={screenStyles.subtle}>{viewModel.generationAudit.athleteFacingThemePurpose}</Text> : null}
-              {typeof viewModel.generationAudit.targetHardDayCount === "number" ? (
-                <Text style={screenStyles.subtle}>
-                  Target hard days: {viewModel.generationAudit.targetHardDayCount}, actual: {viewModel.generationAudit.actualHardDayCount ?? 0}
-                  {typeof viewModel.generationAudit.protectedHardDayCount === "number" ? ` (${viewModel.generationAudit.protectedHardDayCount} protected, ${viewModel.generationAudit.generatedHardDayCount ?? 0} generated)` : ""}.
-                </Text>
-              ) : null}
-              {typeof viewModel.generationAudit.targetWeeklyGeneratedMinutes === "number" ? (
-                <Text style={screenStyles.subtle}>
-                  Generated weekly minutes: {viewModel.generationAudit.actualWeeklyGeneratedMinutes ?? 0}/{viewModel.generationAudit.targetWeeklyGeneratedMinutes} target.
-                </Text>
-              ) : null}
-              {viewModel.generationAudit.baselinePrescriptionTargets ? (
-                <Text style={screenStyles.subtle}>
-                  Baseline prescription: {viewModel.generationAudit.baselinePrescriptionTargets.targetGeneratedSupportCount} sessions, {viewModel.generationAudit.baselinePrescriptionTargets.targetHardDayCount} hard days, {viewModel.generationAudit.baselinePrescriptionTargets.targetWeeklyGeneratedMinutes} generated minutes.
-                </Text>
-              ) : null}
-              {viewModel.generationAudit.plannedVsFinalTrainingDelta ? (
-                <Text style={screenStyles.subtle}>
-                  Final delta: {viewModel.generationAudit.plannedVsFinalTrainingDelta.actualGeneratedSupportCount}/{viewModel.generationAudit.plannedVsFinalTrainingDelta.targetGeneratedSupportCount} sessions, {viewModel.generationAudit.plannedVsFinalTrainingDelta.actualHardDayCount}/{viewModel.generationAudit.plannedVsFinalTrainingDelta.targetHardDayCount} hard days.
-                </Text>
-              ) : null}
-              <Text style={screenStyles.subtle}>
-                Readiness impact: {viewModel.generationAudit.readinessGenerationImpact ?? "unknown"}; nutrition impact: {viewModel.generationAudit.nutritionGenerationImpact ?? "unknown"}; hydration impact: {viewModel.generationAudit.hydrationGenerationImpact ?? "unknown"}.
-              </Text>
-              {viewModel.generationAudit.missingLogsAffectedExecutionOnly ? (
-                <Text style={screenStyles.subtle}>Missing logs affected execution guidance only; the planned prescription stayed available.</Text>
-              ) : null}
-              {(viewModel.generationAudit.executionAdjustmentsApplied ?? []).slice(0, 3).map((adjustment, index) => (
-                <Text key={`execution-adjustment:${index}`} style={screenStyles.subtle}>Execution: {adjustment}</Text>
-              ))}
-              {(viewModel.generationAudit.evidenceBasedOverridesApplied ?? []).slice(0, 3).map((override, index) => (
-                <Text key={`evidence-override:${index}`} style={screenStyles.subtle}>Override: {override}</Text>
-              ))}
-              {(viewModel.generationAudit.unmetPrescriptionTargets ?? []).map((target, index) => (
-                <Text key={`unmet-prescription:${index}`} style={screenStyles.subtle}>Prescription note: {target}</Text>
-              ))}
-              {(viewModel.generationAudit.whyHardDaysWereReduced ?? []).map((reason, index) => (
-                <Text key={`hard-day-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {reason}</Text>
-              ))}
-              {(viewModel.generationAudit.whyVolumeWasReduced ?? []).map((reason, index) => (
-                <Text key={`volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {reason}</Text>
-              ))}
-              <Text style={screenStyles.subtle}>
-                Plan: {viewModel.generationAudit.planRevisionId} / block {viewModel.generationAudit.activeTrainingBlockId}
-              </Text>
-              <Text style={screenStyles.subtle}>
-                Selected days: {viewModel.generationAudit.selectedSupportDays.length > 0 ? viewModel.generationAudit.selectedSupportDays.join(", ") : "None"}
-              </Text>
-              <Text style={screenStyles.subtle}>
-                Dose: {viewModel.generationAudit.selectedTrainingDose ?? "unknown"}; allowed days: {viewModel.generationAudit.candidateAllowedDays}; over-60 sessions: {viewModel.generationAudit.sessionsOver60Minutes ?? 0}.
-              </Text>
-              {viewModel.generationAudit.targetSessionCountReason ? (
-                <Text style={screenStyles.subtle}>Target reason: {viewModel.generationAudit.targetSessionCountReason}</Text>
-              ) : null}
-              {(viewModel.generationAudit.unusedAvailableDays ?? []).length > 0 ? (
-                <Text style={screenStyles.subtle}>Unused available days: {(viewModel.generationAudit.unusedAvailableDays ?? []).join(", ")}</Text>
-              ) : null}
-              {(viewModel.generationAudit.repairActionsApplied ?? []).map((repair, index) => (
-                <Text key={`repair-action:${index}`} style={screenStyles.subtle}>Repair: {repair}</Text>
-              ))}
-              {(viewModel.generationAudit.whyOnlyFourSessionsIfSixDaysAvailable ?? []).map((reason, index) => (
-                <Text key={`four-session-reason:${index}`} style={screenStyles.subtle}>Four-session note: {reason}</Text>
-              ))}
-              {(viewModel.generationAudit.whyOnlyTwoHardDaysIfTargetWasThree ?? []).map((reason, index) => (
-                <Text key={`two-hard-reason:${index}`} style={screenStyles.subtle}>Hard-day shortfall note: {reason}</Text>
-              ))}
-              {(viewModel.generationAudit.whyAllSessionsUnder60IfSeriousOrHigh ?? []).map((reason, index) => (
-                <Text key={`under-sixty-reason:${index}`} style={screenStyles.subtle}>Duration note: {reason}</Text>
-              ))}
-              <Text style={screenStyles.subtle}>
-                Persisted considered: {viewModel.generationAudit.persistedGeneratedSessionsConsidered.length}; ignored: {viewModel.generationAudit.persistedGeneratedSessionsIgnored.length}
-              </Text>
-              {viewModel.generationAudit.persistedGeneratedSessionsIgnored.slice(0, 3).map((session) => (
-                <Text key={`ignored-generated-session:${session.id}`} style={screenStyles.subtle}>
-                  Ignored persisted: {session.title} - {session.reason}
-                </Text>
-              ))}
             </>
           ) : null}
           <Text style={screenStyles.subtle}>Generated training will only be placed on selected available days.</Text>
           <Text style={screenStyles.subtle}>Weekly anchors and one-off sessions remain protected.</Text>
           <Text style={screenStyles.subtle}>Readiness, safety, and phase rules still gate the final plan.</Text>
-          {generationReasons.map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
-          {viewModel.generationAudit ? (
-            <Text style={screenStyles.subtle}>
-              Audit: as-of {viewModel.generationAudit.asOfDate}, starts {viewModel.generationAudit.planStartDate}, revision {viewModel.generationAudit.planRevisionId}, generated {viewModel.generationAudit.actualGeneratedSupportCount}/{viewModel.generationAudit.targetGeneratedSupportCount}.
-            </Text>
-          ) : null}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (
@@ -386,7 +294,117 @@ function PlanReviewNotes({ viewModel }: { viewModel: PlanViewModel }) {
   );
 }
 
+function PlanAdjustmentsSection({
+  adjustmentActions,
+  asOfDate,
+  busy,
+  viewModel
+}: {
+  adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
+  asOfDate: ISODateString;
+  busy: boolean;
+  viewModel: PlanViewModel;
+}) {
+  const dayPlan = viewModel.dayPlans.find((day) => day.date === asOfDate) ?? viewModel.dayPlans[0] ?? null;
+  return (
+    <DisclosureCard title="Adjustments" summary={viewModel.adjustmentSummary}>
+      <View style={{ gap: spacing.sm }}>
+        {viewModel.activeAdjustments.length > 0 ? viewModel.activeAdjustments.map((adjustment, index) => <Text key={`active-adjustment:${index}`} style={screenStyles.subtle}>{adjustment}</Text>) : <Text style={screenStyles.subtle}>No active plan adjustments.</Text>}
+        <PlanAdjustmentControls
+          actions={adjustmentActions}
+          busy={busy}
+          date={(dayPlan?.date ?? asOfDate) as ISODateString}
+          generatedSessions={dayPlan?.generatedSessions ?? []}
+        />
+      </View>
+    </DisclosureCard>
+  );
+}
+
+function PlanTechnicalAuditDetails({ viewModel }: { viewModel: PlanViewModel }) {
+  const audit = viewModel.generationAudit;
+  return (
+    <DisclosureCard title="Technical plan audit" summary={audit ? "Open generated-support placement, blocked reasons, and revision identifiers." : "No technical generation audit is available for this plan."}>
+      <View style={{ gap: spacing.sm }}>
+        {audit ? (
+          <>
+            <Text style={screenStyles.body}>
+              Current week: {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount} generated training session{audit.actualGeneratedSupportCount === 1 ? "" : "s"}.
+            </Text>
+            <Text style={screenStyles.subtle}>Dates: {audit.generatedSessionDates.length > 0 ? audit.generatedSessionDates.join(", ") : "None"}</Text>
+            <Text style={screenStyles.subtle}>Titles: {audit.generatedSessionTitles.length > 0 ? audit.generatedSessionTitles.join(", ") : "None"}</Text>
+            <Text style={screenStyles.subtle}>Families: {audit.generatedSessionFamilies.length > 0 ? audit.generatedSessionFamilies.join(", ") : "None"}</Text>
+            {typeof audit.targetRequiredAddOnBlocks === "number" ? (
+              <Text style={screenStyles.subtle}>
+                Required add-ons: {audit.actualRequiredAddOnBlocks ?? 0}/{audit.targetRequiredAddOnBlocks}; recommended: {audit.actualRecommendedAddOnBlocks ?? 0}/{audit.targetRecommendedAddOnBlocks ?? 0}.
+              </Text>
+            ) : null}
+            {typeof audit.targetAthleteQualityCheckpoints === "number" ? (
+              <Text style={screenStyles.subtle}>Quality checkpoints: {audit.actualAthleteQualityCheckpoints ?? 0}/{audit.targetAthleteQualityCheckpoints}.</Text>
+            ) : null}
+            {audit.athleteFacingThemePurpose ? <Text style={screenStyles.subtle}>{audit.athleteFacingThemePurpose}</Text> : null}
+            {typeof audit.targetHardDayCount === "number" ? (
+              <Text style={screenStyles.subtle}>
+                Target hard days: {audit.targetHardDayCount}, actual: {audit.actualHardDayCount ?? 0}
+                {typeof audit.protectedHardDayCount === "number" ? ` (${audit.protectedHardDayCount} protected, ${audit.generatedHardDayCount ?? 0} generated)` : ""}.
+              </Text>
+            ) : null}
+            {typeof audit.targetWeeklyGeneratedMinutes === "number" ? (
+              <Text style={screenStyles.subtle}>Generated weekly minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes} target.</Text>
+            ) : null}
+            {audit.baselinePrescriptionTargets ? (
+              <Text style={screenStyles.subtle}>
+                Baseline prescription: {audit.baselinePrescriptionTargets.targetGeneratedSupportCount} sessions, {audit.baselinePrescriptionTargets.targetHardDayCount} hard days, {audit.baselinePrescriptionTargets.targetWeeklyGeneratedMinutes} generated minutes.
+              </Text>
+            ) : null}
+            {audit.plannedVsFinalTrainingDelta ? (
+              <Text style={screenStyles.subtle}>
+                Final delta: {audit.plannedVsFinalTrainingDelta.actualGeneratedSupportCount}/{audit.plannedVsFinalTrainingDelta.targetGeneratedSupportCount} sessions, {audit.plannedVsFinalTrainingDelta.actualHardDayCount}/{audit.plannedVsFinalTrainingDelta.targetHardDayCount} hard days.
+              </Text>
+            ) : null}
+            <Text style={screenStyles.subtle}>
+              Readiness impact: {audit.readinessGenerationImpact ?? "unknown"}; nutrition impact: {audit.nutritionGenerationImpact ?? "unknown"}; hydration impact: {audit.hydrationGenerationImpact ?? "unknown"}.
+            </Text>
+            {audit.missingLogsAffectedExecutionOnly ? <Text style={screenStyles.subtle}>Missing logs affected execution guidance only; the planned prescription stayed available.</Text> : null}
+            {(audit.executionAdjustmentsApplied ?? []).slice(0, 3).map((adjustment, index) => (
+              <Text key={`execution-adjustment:${index}`} style={screenStyles.subtle}>Execution: {adjustment}</Text>
+            ))}
+            {(audit.evidenceBasedOverridesApplied ?? []).slice(0, 3).map((override, index) => (
+              <Text key={`evidence-override:${index}`} style={screenStyles.subtle}>Override: {override}</Text>
+            ))}
+            {(audit.unmetPrescriptionTargets ?? []).map((target, index) => <Text key={`unmet-prescription:${index}`} style={screenStyles.subtle}>Prescription note: {target}</Text>)}
+            {(audit.blockedGenerationReasons ?? []).map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
+            {(audit.whyHardDaysWereReduced ?? []).map((reason, index) => <Text key={`hard-day-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {reason}</Text>)}
+            {(audit.whyVolumeWasReduced ?? []).map((reason, index) => <Text key={`volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {reason}</Text>)}
+            <Text style={screenStyles.subtle}>Plan: {audit.planRevisionId} / block {audit.activeTrainingBlockId}</Text>
+            <Text style={screenStyles.subtle}>Selected days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None"}</Text>
+            <Text style={screenStyles.subtle}>Dose: {audit.selectedTrainingDose ?? "unknown"}; allowed days: {audit.candidateAllowedDays}; over-60 sessions: {audit.sessionsOver60Minutes ?? 0}.</Text>
+            {audit.targetSessionCountReason ? <Text style={screenStyles.subtle}>Target reason: {audit.targetSessionCountReason}</Text> : null}
+            {(audit.unusedAvailableDays ?? []).length > 0 ? <Text style={screenStyles.subtle}>Unused available days: {(audit.unusedAvailableDays ?? []).join(", ")}</Text> : null}
+            {(audit.repairActionsApplied ?? []).map((repair, index) => <Text key={`repair-action:${index}`} style={screenStyles.subtle}>Repair: {repair}</Text>)}
+            {(audit.whyOnlyFourSessionsIfSixDaysAvailable ?? []).map((reason, index) => <Text key={`four-session-reason:${index}`} style={screenStyles.subtle}>Four-session note: {reason}</Text>)}
+            {(audit.whyOnlyTwoHardDaysIfTargetWasThree ?? []).map((reason, index) => <Text key={`two-hard-reason:${index}`} style={screenStyles.subtle}>Hard-day shortfall note: {reason}</Text>)}
+            {(audit.whyAllSessionsUnder60IfSeriousOrHigh ?? []).map((reason, index) => <Text key={`under-sixty-reason:${index}`} style={screenStyles.subtle}>Duration note: {reason}</Text>)}
+            <Text style={screenStyles.subtle}>Persisted considered: {audit.persistedGeneratedSessionsConsidered.length}; ignored: {audit.persistedGeneratedSessionsIgnored.length}</Text>
+            {audit.persistedGeneratedSessionsIgnored.slice(0, 3).map((session) => (
+              <Text key={`ignored-generated-session:${session.id}`} style={screenStyles.subtle}>
+                Ignored persisted: {session.title} - {session.reason}
+              </Text>
+            ))}
+            <Text style={screenStyles.subtle}>
+              Audit: as-of {audit.asOfDate}, starts {audit.planStartDate}, revision {audit.planRevisionId}, generated {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount}.
+            </Text>
+          </>
+        ) : (
+          <Text style={screenStyles.subtle}>No generated-support audit was produced for this plan.</Text>
+        )}
+      </View>
+    </DisclosureCard>
+  );
+}
+
 export function PlanScreen({
+  adjustmentActions,
   adjustmentMessage,
   asOfDate,
   busy,
@@ -427,6 +445,24 @@ export function PlanScreen({
         onPreviewNextWeek={() => setPreviewDetailsOpen(true)}
         viewModel={viewModel}
       />
+      <CompactWeekPreviewCard viewModel={viewModel} />
+      <GeneratedSupportSummaryCard
+        busy={busy}
+        nextWeekPreviewActions={nextWeekPreviewActions}
+        onSecondaryAction={() => setPreviewDetailsOpen(viewModel.nextWeekPreview.canAccept ? false : true)}
+        previewDetailsOpen={previewDetailsOpen}
+        viewModel={viewModel}
+      />
+      <FixedBoxingScheduleCard
+        asOfDate={asOfDate}
+        busy={scheduleBusy}
+        onDelete={onDeleteProtectedSession ?? (async () => undefined)}
+        onDeleteWeeklyAnchor={onDeleteRecurringProtectedAnchor ?? (async () => undefined)}
+        onSave={onSaveProtectedSession ?? (async () => undefined)}
+        onSaveWeeklyAnchor={onSaveRecurringProtectedAnchor ?? (async () => undefined)}
+        weeklyAnchors={viewModel.weeklyAnchors}
+        sessions={viewModel.fixedSchedule}
+      />
       {goalFlowOpen ? (
         <PlanGoalFlowCard
           asOfDate={asOfDate}
@@ -445,28 +481,12 @@ export function PlanScreen({
           onSaveTournamentSetup={onSaveTournamentSetup}
         />
       ) : null}
-      <CompactWeekPreviewCard viewModel={viewModel} />
-      <FixedBoxingScheduleCard
-        asOfDate={asOfDate}
-        busy={scheduleBusy}
-        onDelete={onDeleteProtectedSession ?? (async () => undefined)}
-        onDeleteWeeklyAnchor={onDeleteRecurringProtectedAnchor ?? (async () => undefined)}
-        onSave={onSaveProtectedSession ?? (async () => undefined)}
-        onSaveWeeklyAnchor={onSaveRecurringProtectedAnchor ?? (async () => undefined)}
-        weeklyAnchors={viewModel.weeklyAnchors}
-        sessions={viewModel.fixedSchedule}
-      />
-      <GeneratedSupportSummaryCard
-        busy={busy}
-        nextWeekPreviewActions={nextWeekPreviewActions}
-        onSecondaryAction={() => setPreviewDetailsOpen(viewModel.nextWeekPreview.canAccept ? false : true)}
-        previewDetailsOpen={previewDetailsOpen}
-        viewModel={viewModel}
-      />
       <PlanReviewNotes viewModel={viewModel} />
+      <PlanAdjustmentsSection adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />
       <DisclosureCard title="Block history" summary="Open persisted week, progression, materialization, and safety history only when you need audit detail.">
         <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
       </DisclosureCard>
+      <PlanTechnicalAuditDetails viewModel={viewModel} />
     </LuminousScreen>
   );
 }
