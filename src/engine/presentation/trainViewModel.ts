@@ -18,7 +18,7 @@ function roleSummary(plan: TrainingDayPlan | null): string {
     case "recovery_day":
       return "Recovery day; block goals are secondary.";
     case "support_day":
-      return "Generated training day around protected boxing.";
+      return "Support workout day around boxing you added.";
     case "taper_day":
       return "Taper day: touch speed, drop volume.";
     case "tournament_conservation_day":
@@ -68,9 +68,9 @@ function compactSession(session: PerformanceState["training"]["generatedSessions
 
 function upcomingSummary(sessions: readonly ReturnType<typeof compactSession>[]): string {
   if (sessions.length === 0) {
-    return "No generated training today.";
+    return "No support workout today.";
   }
-  return `No generated training today. Upcoming this week: ${sessions
+  return `No support workout today. Upcoming this week: ${sessions
     .slice(0, 3)
     .map((session) => `${dayLabel(session.date)} - ${session.title}`)
     .join("; ")}.`;
@@ -87,7 +87,7 @@ function cycleTrainingDecision(state: PerformanceState): CycleTrainingDecisionVi
   if (state.cycle.safetyFlags.some((flag) => flag.code === "heavy_bleeding_with_dizziness")) {
     return {
       status: "safety_review",
-      summary: "Heavy bleeding with dizziness hard-stops optional training.",
+      summary: "Heavy bleeding with dizziness stops optional training for safety.",
       action: "Choose recovery only and seek qualified help if symptoms persist or worsen."
     };
   }
@@ -95,7 +95,7 @@ function cycleTrainingDecision(state: PerformanceState): CycleTrainingDecisionVi
     return {
       status: "symptom_trim",
       summary: "High cycle symptoms trim optional training volume.",
-      action: "Keep protected boxing only if safe; remove extra hard generated work."
+      action: "Keep boxing you added only if safe; remove extra hard support work."
     };
   }
   if (state.cycle.cycleRelatedWeightNoiseRisk === "high" || state.cycle.cycleRelatedWeightNoiseRisk === "moderate") {
@@ -126,14 +126,14 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
   }
   if (state.nutrition.actualIntakeSummary.status === "not_tracking_today") {
     return {
-      preSessionFuelHint: "Food is marked not tracking today: fuel the session normally and start without turning missing food into under-fueling evidence.",
+      preSessionFuelHint: "Food is marked not tracking today: fuel the session normally and start without treating missing food as too little food for the work.",
       postSessionFuelHint: "Log food only if it helps; not-tracking keeps training guidance available.",
       hydrationHint: "Use thirst, urine color, heat, and session length; no wearable or food log is required."
     };
   }
   if (state.nutrition.actualIntakeSummary.status === "partial_day" || state.nutrition.actualIntakeSummary.status === "likely_partial" || state.nutrition.actualIntakeSummary.status === "auto_closed_incomplete") {
     return {
-      preSessionFuelHint: "Partial food log so far: use it as execution context, not under-fueling evidence.",
+      preSessionFuelHint: "Partial food log so far: use it as what we know today, not proof of too little food for the work.",
       postSessionFuelHint: "If today is complete later, mark it done; until then, recovery fuel guidance stays advisory.",
       hydrationHint: "Use thirst, urine color, heat, and session length; no wearable or complete food log is required."
     };
@@ -266,18 +266,18 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const hints = fuelHints(state, plan);
   const generationExplanation =
     state.safety.hardStops.length > 0
-      ? "Safety overrides are active; no generated workout today unless the engine limits the action to recovery only."
+      ? "Safety stops are active; no support workout today unless CornerIQ limits the action to recovery only."
       : state.training.executionReadiness.readinessStatus === "red_hard_stop"
-        ? "Readiness hard-stop symptoms are active, so CornerIQ limits generated work to recovery-only guidance."
+        ? "Stop-for-safety symptoms are active, so CornerIQ limits work to recovery-only guidance."
         : state.training.executionReadiness.readinessStatus === "red_non_hard_stop"
-          ? "Readiness is red without hard-stop symptoms; CornerIQ keeps planned training available with conservative execution gates."
+          ? "Readiness is red without stop-for-safety symptoms; CornerIQ keeps planned training available with conservative changes."
         : plan?.explanation ?? state.training.explanation;
   const primaryTrainingAction =
     state.safety.hardStops.length > 0
-      ? "Follow the safety stop. Do not add generated training today."
+      ? "Follow the safety stop. Do not add a support workout today."
       : todayGeneratedSessions.length > 0
         ? "Open Workout when you are ready, then log completed or skipped."
-        : "No generated training is due. Log protected or manual boxing if it happens.";
+        : "No support workout is due. Log fixed or manual boxing if it happens.";
   const supportGenerationSummary = {
     targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
     actualGeneratedSupportCount: state.training.supportGenerationAudit.actualGeneratedSupportCount,
@@ -304,7 +304,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     },
     topAction: {
       title: "Training action",
-      purpose: "Use Train for today's generated boxing training and what to log after.",
+      purpose: "Use Train for today's support workout and what to log after.",
       primaryAction: primaryTrainingAction,
       why: generationExplanation,
       optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
@@ -365,7 +365,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     protectedAnchorSummary:
       todayAnchors.length > 0
         ? todayAnchors.map((anchor) => `${anchor.type.replaceAll("_", " ")} (${anchor.intensity})`).join(", ")
-        : "No protected boxing anchors today.",
+        : "No boxing you added today.",
     riskSummary: riskSummary(state.safety.riskFlags.filter((flag) => flag.domain === "training" || flag.domain === "readiness"))
   };
 }

@@ -39,7 +39,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
         title: "Fight-week fuel",
         status: "info" as const,
         summary: state.nutrition.lowResidueGuidance,
-        actions: ["Lower fiber does not mean lower calories.", "Keep protein, carbs, fluids, and sodium consistent unless the engine flags safety."]
+        actions: ["Lower fiber does not mean lower calories.", "Keep protein, carbs, fluids, and sodium consistent unless CornerIQ flags safety."]
       }
     : null;
   const rehydration = state.nutrition.rehydrationPlan.status === "not_applicable" ? null : state.nutrition.rehydrationPlan;
@@ -56,7 +56,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
         ? state.nutrition.commandCenter.safetyAction
         : state.nutrition.commandCenter.sessionFuelAction,
       optional: safetyReviewFirst
-        ? "Food and target details can wait. Missing data stays unknown while the safety note is active."
+        ? "Food and target details can wait. Missing logs stay uncertain while the safety note is active."
         : "Targets, body mass, and review history can wait unless a safety note is active."
     },
     commandCenter: state.nutrition.commandCenter,
@@ -74,10 +74,10 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
       helperCopy: [
         "Only tap done when today's food log represents your full day.",
         "If you're still eating or logging later, leave it partial.",
-        "If you ate but are not tracking today, CornerIQ will keep training guidance available and will not treat missing food as under-fueling evidence."
+        "If you ate but are not tracking today, CornerIQ will keep training guidance available and will not treat missing food as too little food for the work."
       ],
       actions: [
-        { label: "Still logging today", kind: "still_logging", summary: "Status becomes partial day; under-fueling evidence stays off." },
+        { label: "Still logging today", kind: "still_logging", summary: "Status becomes partial day; too-little-food warnings stay off." },
         { label: "I'm done logging today", kind: "done_logging", summary: "Status becomes complete enough for target comparison." },
         { label: "I ate but I'm not tracking today", kind: "not_tracking", summary: "Training guidance remains available; food is advisory-only." }
       ]

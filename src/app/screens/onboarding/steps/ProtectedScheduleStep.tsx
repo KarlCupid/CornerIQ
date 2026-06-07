@@ -27,7 +27,7 @@ const anchorTypes: Array<{ label: string; value: ProtectedWorkoutDraft["type"] }
   { label: "Pads or mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
   { label: "Footwork", value: "footwork_session" },
-  { label: "Protected sparring", value: "sparring" },
+  { label: "Scheduled sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Assigned strength", value: "coach_assigned_strength" },
   { label: "Travel", value: "travel" },
@@ -78,7 +78,7 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
   const [timeOfDay, setTimeOfDay] = useState<(typeof timeOfDayOptions)[number]>("Evening");
   const [durationMinutes, setDurationMinutes] = useState("45");
   const [rpe, setRpe] = useState<RpeOption>(6);
-  const { message: error, runWithMessage } = useFormMessage("Anchor could not be added.");
+  const { message: error, runWithMessage } = useFormMessage("Session could not be added.");
   const fixedScheduleChoice = draft.protectedScheduleChoice ?? ((draft.recurringProtectedSchedule ?? []).length > 0 || draft.protectedSchedule.length > 0 ? "has_anchors" : "no_anchors");
 
   const chooseNoAnchors = () => {
@@ -109,9 +109,9 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
           {
             type,
             weekday,
-            durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Anchor duration"),
+            durationMinutes: parseRequiredPositiveInteger(durationMinutes, "Session duration"),
             intensity: intensityForRpe(rpe),
-            note: `RPE ${rpe}; weekly ${dayLabel} ${timeNote} anchor`
+            note: `RPE ${rpe}; weekly ${dayLabel} ${timeNote} session`
           }
         ]
       }));
@@ -120,21 +120,21 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>Protected boxing anchors</Text>
+      <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
       <Text style={screenStyles.subtle}>
-        Add recurring weekly commitments the engine should protect: boxing sessions, protected sparring you already have, travel, or recovery days. CornerIQ does not generate sparring or contact.
+        Add recurring weekly boxing commitments, sparring you already have, travel, or recovery days. CornerIQ only adds support workouts around these; it does not create sparring or contact.
       </Text>
       <Text style={screenStyles.exampleText}>Example: Tuesday evening pads, 60 min, RPE 6.</Text>
-      <Text style={screenStyles.exampleText}>Example: Thursday protected sparring, 90 min, RPE 8.</Text>
+      <Text style={screenStyles.exampleText}>Example: Thursday sparring you already have, 90 min, RPE 8.</Text>
       <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, RPE 2.</Text>
-      <FieldGroup helper="Protected anchors are user-owned fixed commitments. Leave this empty when you do not have any." label="Fixed schedule">
+      <FieldGroup helper="Boxing sessions you add are fixed commitments. Leave this empty when you do not have any." label="Fixed schedule">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <ChipButton active={fixedScheduleChoice === "has_anchors"} label="I have fixed sessions to protect" onPress={chooseHasAnchors} />
-          <ChipButton active={fixedScheduleChoice === "no_anchors"} label="No fixed/protected sessions right now" onPress={chooseNoAnchors} />
+          <ChipButton active={fixedScheduleChoice === "has_anchors"} label="I have fixed boxing sessions" onPress={chooseHasAnchors} />
+          <ChipButton active={fixedScheduleChoice === "no_anchors"} label="No fixed sessions right now" onPress={chooseNoAnchors} />
         </View>
       </FieldGroup>
       {fixedScheduleChoice === "no_anchors" ? (
-        <Text style={screenStyles.callout}>CornerIQ will generate training from your availability. You can add protected boxing sessions later.</Text>
+        <Text style={screenStyles.callout}>CornerIQ will place support workouts from your availability. You can add fixed boxing sessions later.</Text>
       ) : null}
       {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
       {fixedScheduleChoice === "has_anchors" ? (
@@ -158,7 +158,7 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
               ))}
             </View>
           </FieldGroup>
-          <FieldGroup helper="What kind of commitment is already on your calendar?" label="Anchor type">
+          <FieldGroup helper="What kind of commitment is already on your calendar?" label="Session type">
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {anchorTypes.map((option) => (
                 <ChipButton active={type === option.value} key={option.value} label={option.label} onPress={() => setType(option.value)} />
@@ -167,7 +167,7 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
           </FieldGroup>
           <LabeledTextInput
             example="60"
-            helper="Minutes the engine should protect before adding generated training around it."
+            helper="Minutes CornerIQ should respect before adding support workouts around it."
             keyboardType="number-pad"
             label="Duration (minutes)"
             onChangeText={setDurationMinutes}
@@ -182,7 +182,7 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
             </View>
           </FieldGroup>
           <Pressable accessibilityRole="button" onPress={addAnchor} style={screenStyles.button}>
-            <Text style={screenStyles.buttonText}>Add anchor</Text>
+            <Text style={screenStyles.buttonText}>Add session</Text>
           </Pressable>
         </>
       ) : null}

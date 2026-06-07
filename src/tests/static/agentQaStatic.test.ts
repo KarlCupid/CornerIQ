@@ -189,7 +189,7 @@ describe("agent browser QA static checks", () => {
       expect(docs).toContain(coverage);
     }
     for (const implemented of [
-      "Train screen exposes safe generated training",
+      "Train screen exposes safe support workouts",
       "Plan screen exposes week, next week",
       "Profile Data controls require preview",
       "Error and recovery safeguards"

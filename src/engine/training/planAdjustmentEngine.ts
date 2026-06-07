@@ -217,19 +217,19 @@ export function applyTrainingPlanAdjustment(input: TrainingPlanAdjustmentEngineI
       if (modified.length === 0) {
         return result({ status: "rejected", explanation: "Deload request did not match any day plans.", modifiedDayPlans: [], command });
       }
-      return result({ status: "applied", explanation: "Deload request applied by the engine for the selected date range.", modifiedDayPlans: modified, command });
+      return result({ status: "applied", explanation: "Deload request applied for the selected date range.", modifiedDayPlans: modified, command });
     }
 
     case "restore_engine_plan": {
-      return result({ status: "applied", explanation: "Restore engine plan accepted; matching active adjustments can be superseded by the service.", modifiedDayPlans: [], command });
+      return result({ status: "applied", explanation: "Restore plan accepted; matching active changes can be replaced.", modifiedDayPlans: [], command });
     }
 
     case "note": {
-      return result({ status: "applied", explanation: "Athlete note recorded for audit; no programming change was made.", modifiedDayPlans: [], command });
+      return result({ status: "applied", explanation: "Athlete note recorded; the plan was not changed.", modifiedDayPlans: [], command });
     }
 
     case "coach_note": {
-      return result({ status: "applied", explanation: "Trusted note recorded for audit; no programming change was made.", modifiedDayPlans: [], command });
+      return result({ status: "applied", explanation: "Trusted note recorded; the plan was not changed.", modifiedDayPlans: [], command });
     }
   }
 }

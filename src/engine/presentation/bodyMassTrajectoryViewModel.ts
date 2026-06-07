@@ -66,7 +66,7 @@ export function buildBodyMassTrajectoryViewModel(input: {
     input.bodyMass.trend.latestKg === null
       ? ["Add a manual body-mass log if it feels safe and useful.", "Keep missing scale data marked unknown."]
       : blocked
-        ? ["Use the nutrition safety review action.", "Keep meals and hydration steady while review is pending."]
+        ? ["Use the nutrition safety stop action.", "Keep meals and hydration steady while review is pending."]
         : [input.weightClassStatus.nextAction, "Use the 7/14-day trend instead of reacting to one scale entry."];
   return {
     latestWeight: `Latest: ${kgLabel(input.bodyMass.trend.latestKg)}`,
@@ -80,11 +80,11 @@ export function buildBodyMassTrajectoryViewModel(input: {
       input.bodyMass.trend.latestKg === null
         ? "Log body mass manually if it feels safe and useful."
         : blocked
-          ? "Use the safety review action before any weight-class pressure continues."
+          ? "Use the safety stop action before any weight-class pressure continues."
           : input.weightClassStatus.nextAction,
     missingDataCopy:
       input.bodyMass.trend.latestKg === null || input.bodyMass.trend.logCount7Day < 3
-        ? "Unknown data stays unknown. The engine does not assume missing scale data is safe."
+        ? "Missing logs stay uncertain. CornerIQ does not assume missing scale data is safe."
         : "Trajectory uses recent manual logs and does not react to one-day spikes.",
     last14Days: input.bodyMass.recentLogs.map((log) => ({
       date: log.date,

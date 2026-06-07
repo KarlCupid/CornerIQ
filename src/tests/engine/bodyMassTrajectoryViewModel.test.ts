@@ -16,7 +16,7 @@ describe("bodyMassTrajectoryViewModel", () => {
     const state = resolvePerformanceState({ journey: no_data_low_confidence, asOfDate: fixtureAsOfDate });
 
     expect(state.viewModels.fuel.bodyMassTrajectory.latestWeight).toContain("unknown");
-    expect(state.viewModels.fuel.bodyMassTrajectory.missingDataCopy).toContain("Unknown data stays unknown");
+    expect(state.viewModels.fuel.bodyMassTrajectory.missingDataCopy).toContain("Missing logs stay uncertain");
     expect(state.viewModels.fuel.bodyMassTrajectory.last14Days).toHaveLength(0);
     expect(state.viewModels.fuel.bodyMassTrajectory.targetGapKg).toContain("unknown");
   });
@@ -25,8 +25,8 @@ describe("bodyMassTrajectoryViewModel", () => {
     const state = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
 
     expect(state.viewModels.fuel.bodyMassTrajectory.reviewActionVisible).toBe(true);
-    expect(state.viewModels.fuel.bodyMassTrajectory.nextSafeAction).toContain("safety review");
-    expect(state.viewModels.fuel.bodyMassTrajectory.nextSafeActions.join(" ")).toContain("safety review");
+    expect(state.viewModels.fuel.bodyMassTrajectory.nextSafeAction).toContain("safety stop");
+    expect(state.viewModels.fuel.bodyMassTrajectory.nextSafeActions.join(" ")).toContain("safety stop");
     expect(state.viewModels.fuel.bodyMassTrajectory.weighInCountdown).toContain("day(s) until weigh-in");
   });
 

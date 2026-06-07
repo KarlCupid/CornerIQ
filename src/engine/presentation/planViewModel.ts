@@ -299,8 +299,8 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
     plannedSupportCount,
     protectedAnchorSummary:
       protectedAnchorCount > 0
-        ? `${protectedAnchorCount} protected boxing anchor${protectedAnchorCount === 1 ? "" : "s"} considered.`
-        : "No protected boxing anchors are scheduled in the preview.",
+        ? `${protectedAnchorCount} boxing session${protectedAnchorCount === 1 ? "" : "s"} you added considered.`
+        : "No boxing sessions you added are scheduled in the preview.",
     phase: preview.materializedPhase,
     decision: preview.materializedDecision.replaceAll("_", " "),
     volumeStrategy: preview.materializedVolumeStrategy,
@@ -311,7 +311,7 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
       persistedStatus === "not_persisted"
         ? "Preview persistence pending."
         : `Persisted preview ${persisted?.previewId ?? "unknown"} (${persistedStatus.replaceAll("_", " ")}).${
-            persistedStatus === "materialized" ? ` Generated sessions: ${materializedGeneratedSessions.length}.` : ""
+            persistedStatus === "materialized" ? ` Support workouts: ${materializedGeneratedSessions.length}.` : ""
           }`,
     generatedSessionCount: materializedGeneratedSessions.length,
     generatedSessionPersistence: persistedStatus === "materialized" && materializedGeneratedSessions.length > 0 ? "persisted" : "preview_only",
@@ -319,13 +319,13 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
     canAccept: persistedStatus === "preview",
     showMaterializeAction: Boolean(persisted?.previewId && state.asOfDate >= preview.nextWeekStartDate && persistedStatus === "accepted"),
     requiresReview,
-    actionCopy: requiresReview ? "Review required before materializing." : "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
+    actionCopy: requiresReview ? "Review required before saving next week." : "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
     explanation: preview.explanation,
     safetyNotes: preview.safetyNotes,
     dayPlanPreview: preview.nextWeekDayPlanPreview.map((day) => ({
       date: day.date,
       role: day.role.replaceAll("_", " "),
-      protectedAnchors: day.protectedAnchors.length > 0 ? day.protectedAnchors.join(", ") : "No protected anchors.",
+      protectedAnchors: day.protectedAnchors.length > 0 ? day.protectedAnchors.join(", ") : "No boxing added.",
       generatedSupport: day.generatedSupport,
       compactSummary:
         day.protectedAnchors[0] ??
@@ -414,7 +414,7 @@ function rollForwardStatus(
       return {
         rollForwardStatus: "blocked",
         rollForwardMessage: "Safety is blocking the next-week plan today.",
-        rollForwardRiskLabel: "Hard stop",
+        rollForwardRiskLabel: "Safety stop",
         rollForwardRiskTone: "critical"
       };
     }
@@ -443,7 +443,7 @@ function rollForwardStatus(
   }
   return {
     rollForwardStatus: "not_available",
-    rollForwardMessage: "No accepted preview is ready for automatic materialization.",
+    rollForwardMessage: "No accepted preview is ready to save automatically.",
     rollForwardRiskLabel: "Notice",
     rollForwardRiskTone: "info"
   };
@@ -458,13 +458,13 @@ function lastAutoRollForwardMessage(state: PerformanceState): string | null {
   }
   const generatedSessionCount = event.payload.generatedSessionCount;
   return typeof generatedSessionCount === "number"
-    ? `${event.title}: ${event.summary} Generated sessions: ${generatedSessionCount}.`
+    ? `${event.title}: ${event.summary} Support workouts: ${generatedSessionCount}.`
     : `${event.title}: ${event.summary}`;
 }
 
 function timelineSummary(event: TrainingBlockTimelineEvent): string {
   const generatedSessionCount = event.payload.generatedSessionCount;
-  return typeof generatedSessionCount === "number" ? `${event.summary} Generated sessions: ${generatedSessionCount}.` : event.summary;
+  return typeof generatedSessionCount === "number" ? `${event.summary} Support workouts: ${generatedSessionCount}.` : event.summary;
 }
 
 function timelineEventView(event: TrainingBlockTimelineEvent) {
@@ -559,8 +559,8 @@ function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextW
       materializationEvents,
       safetyReviewEvents
     },
-    engineOwnedCopy: "Engine-owned history.",
-    screenMutationCopy: "Screens do not mutate programming decisions."
+    engineOwnedCopy: "Plan history is saved by CornerIQ.",
+    screenMutationCopy: "Plan changes are handled by CornerIQ."
   };
 }
 
@@ -592,12 +592,12 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const topActionPrimary =
     nextWeekPreview.canAccept
       ? "Preview next week is ready when you want to review it."
-      : "Change goal or update protected boxing anchors when your schedule changes.";
+      : "Change goal or update boxing sessions you added when your schedule changes.";
   return {
     title: "Plan",
     topAction: {
       title: "Plan action",
-      purpose: "CornerIQ adds generated training around your protected anchors.",
+      purpose: "CornerIQ adds support workouts around boxing sessions you added.",
       primaryAction: topActionPrimary,
       why: currentWeekSummary?.summary ?? state.training.activeBlock.weeklyStructure.summary,
       optional: "Safety notes stay visible if review is needed."
@@ -629,7 +629,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
           summary: currentWeekSummary.summary,
           rows: [
             `${currentWeekSummary.completionCount} completed session(s), ${currentWeekSummary.skippedCount} skipped.`,
-            `${currentWeekSummary.completedResultCount} completed exercise result(s), ${currentWeekSummary.partialResultCount} partial, ${currentWeekSummary.prescribedOnlyCount} prescribed-only.`,
+            `${currentWeekSummary.completedResultCount} completed exercise detail(s), ${currentWeekSummary.partialResultCount} partial, ${currentWeekSummary.prescribedOnlyCount} not logged.`,
             currentWeekSummary.averageSessionRpe === null ? "Average session RPE unknown." : `Average session RPE ${currentWeekSummary.averageSessionRpe}.`,
             currentWeekSummary.averageExerciseRpe === null ? "Average exercise RPE unknown." : `Average exercise RPE ${currentWeekSummary.averageExerciseRpe}.`,
             `${currentWeekSummary.painFlagCount} pain flag(s), ${currentWeekSummary.safetyFlagCount} active safety flag(s).`
@@ -670,8 +670,8 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     weeklyAnchors,
     adjustmentSummary:
       adjustmentHistory.length > 0
-        ? `${activeAdjustments.length} active engine-owned adjustment(s), ${rejectedAdjustments.length} rejected adjustment(s) retained for audit.`
-        : "No engine-owned plan adjustments yet.",
+        ? `${activeAdjustments.length} active plan change(s), ${rejectedAdjustments.length} rejected change(s) kept in history.`
+        : "No plan changes yet.",
     activeAdjustments: activeAdjustments.map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")}: ${adjustment.engineResponse.explanation}`),
     trainingBlockId: state.training.blockPersistenceStatus?.trainingBlockId ?? null,
     blockPersistenceStatus: state.training.blockPersistenceStatus
@@ -683,7 +683,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       protectedAnchors:
         day.protectedAnchors.length > 0
           ? day.protectedAnchors.map((anchor) => `${anchor.type.replaceAll("_", " ")} (${anchor.intensity})`).join(", ")
-          : "No protected anchors.",
+          : "No boxing added.",
       generatedSupport:
         day.generatedSessions.length > 0
           ? day.generatedSessions
@@ -839,13 +839,13 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     },
     hardDaySummary: `${state.training.activeBlock.weeklyStructure.plannedHardDays}/${state.training.activeBlock.weeklyStructure.hardDayCap} planned hard days used.`,
     recoveryDaySummary: `${state.training.activeBlock.weeklyStructure.recoveryDays.length} recovery/reset days planned.`,
-    protectedAnchorSummary: `${state.training.protectedAnchors.length} protected boxing anchor${state.training.protectedAnchors.length === 1 ? "" : "s"} respected and fixed.`,
+    protectedAnchorSummary: `${state.training.protectedAnchors.length} boxing session${state.training.protectedAnchors.length === 1 ? "" : "s"} you added respected and fixed.`,
     supportWorkReason:
       protectedHardAnchorCount > 0 && currentWeekGeneratedSupportCount <= 3
-        ? "Generated training is low because protected boxing already creates hard days."
+        ? "Support workouts are low because boxing you added already creates hard days."
         : currentWeekGeneratedSupportCount === 0
-          ? "Generated training is intentionally low because recovery and protected work own the week."
-          : `Generated training is ${currentWeekGeneratedSupportCount} session${currentWeekGeneratedSupportCount === 1 ? "" : "s"} because the block dose is balanced against protected boxing, readiness, and safety.`,
+          ? "Support workouts are intentionally low because recovery and boxing you added own the week."
+          : `Support workouts total ${currentWeekGeneratedSupportCount} session${currentWeekGeneratedSupportCount === 1 ? "" : "s"} because the block dose is balanced against boxing, readiness, and safety.`,
     fightOrTournamentNote:
       state.tournamentStrategy.status === "active" || state.tournamentStrategy.status === "unsafe"
         ? state.tournamentStrategy.athleteFacingSummary

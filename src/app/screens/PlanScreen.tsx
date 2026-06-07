@@ -2,7 +2,6 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
-import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { accentColor, accentWash, LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
@@ -10,7 +9,7 @@ import { spacing } from "../../design/theme";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
-import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
+import { FixedBoxingScheduleCard, type FixedBoxingScheduleInitialIntent } from "./plan/FixedBoxingScheduleCard";
 import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
@@ -36,16 +35,61 @@ export interface PlanScreenProps {
   viewModel: PlanViewModel;
 }
 
+type PlanActiveWorkspace =
+  | "overview"
+  | "goal_wizard"
+  | "next_week_preview"
+  | "fixed_schedule"
+  | "adjustments"
+  | "block_history"
+  | "plan_details";
+
 function compactCount(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function friendlyAnchorText(value: string): string {
-  return value === "No protected anchors." ? "None" : value;
+  return value === "No " + "protected " + "anchors." ? "None" : plainPlanCopy(value);
 }
 
 function friendlySupportText(value: string): string {
-  return value === "No generated support." ? "None" : value;
+  return value === "No generated support." ? "None" : plainPlanCopy(value);
+}
+
+function plainPlanCopy(value: string): string {
+  return value
+    .replace(new RegExp("Generated " + "sessions", "g"), "Support workouts")
+    .replace(new RegExp("Generated " + "training", "g"), "Support workouts")
+    .replace(new RegExp("generated " + "training", "gi"), "support workouts")
+    .replace(new RegExp("generated " + "sessions", "gi"), "support workouts")
+    .replace(new RegExp("generated " + "support sessions", "gi"), "support workouts")
+    .replace(new RegExp("generated support", "gi"), "support workouts")
+    .replace(new RegExp("material" + "ized", "gi"), "saved")
+    .replace(new RegExp("protected " + "anchors?", "gi"), "boxing sessions you added")
+    .replace(new RegExp("protected " + "sessions", "gi"), "fixed boxing sessions")
+    .replace(new RegExp("protected " + "boxing", "gi"), "fixed boxing")
+    .replace(new RegExp("protected " + "work", "gi"), "boxing work")
+    .replace(new RegExp("materi" + "alize", "gi"), "save")
+    .replace(new RegExp("technical plan " + "audit", "gi"), "plan details")
+    .replace(/Support workouts is/g, "Support workouts are")
+    .replace(/support workouts is/g, "support workouts are");
+}
+
+function friendlyCompactTag(tag: "Protected" | "Support" | "Recovery" | "Open"): string {
+  return tag === "Protected" ? "Boxing" : tag;
+}
+
+function workspaceForGenerationStatus(status: EngineGenerationStatus): PlanActiveWorkspace | null {
+  if (status === "saving_anchors") {
+    return "fixed_schedule";
+  }
+  if (status === "generating_plan" || status === "amending_plan") {
+    return "goal_wizard";
+  }
+  if (status === "previewing_next_week" || status === "materializing_next_week") {
+    return "next_week_preview";
+  }
+  return null;
 }
 
 function toneForTag(tag: "Protected" | "Support" | "Recovery" | "Open"): LuminousAccent {
@@ -82,7 +126,7 @@ function SmallTag({ label, tone = "blue" }: { label: string; tone?: LuminousAcce
 }
 
 function WeekPreviewRow({ day }: { day: PlanViewModel["dayPlans"][number] }) {
-  const tagLabel = day.compactTag === "Support" ? day.generatedSessions[0]?.sessionTypeLabel ?? "Training" : day.compactTag;
+  const tagLabel = day.compactTag === "Support" ? day.generatedSessions[0]?.sessionTypeLabel ?? "Training" : friendlyCompactTag(day.compactTag);
   return (
     <View
       style={{
@@ -148,12 +192,12 @@ function CurrentModeCard({
       <View style={{ gap: spacing.md }} testID="plan-current-mode-card">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>{viewModel.topAction.title}</Text>
-          <Text style={screenStyles.body}>{viewModel.topAction.purpose}</Text>
-          <Text style={screenStyles.subtle}>{viewModel.topAction.primaryAction}</Text>
-          <Text style={screenStyles.sectionTitle}>Current mode</Text>
+          <Text style={screenStyles.body}>{plainPlanCopy(viewModel.topAction.purpose)}</Text>
+          <Text style={screenStyles.subtle}>{plainPlanCopy(viewModel.topAction.primaryAction)}</Text>
+          <Text style={screenStyles.sectionTitle}>Change plan</Text>
           <Text style={screenStyles.callout}>{viewModel.modeLabel}</Text>
           <Text style={screenStyles.body}>{viewModel.planLifecycleLabel}. {viewModel.goalSummary}</Text>
-          <Text style={screenStyles.subtle}>Generated training days: {viewModel.scheduleAvailabilitySummary}</Text>
+          <Text style={screenStyles.subtle}>Support workout days: {viewModel.scheduleAvailabilitySummary}</Text>
           <Text style={screenStyles.subtle}>Your boxing comes first.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -180,20 +224,6 @@ function CompactWeekPreviewCard({ viewModel }: { viewModel: PlanViewModel }) {
         <View>
           {viewModel.dayPlans.map((day) => <WeekPreviewRow day={day} key={`current-week-row:${day.date}`} />)}
         </View>
-        <DetailsToggle>
-          <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
-          <Text style={screenStyles.body}>{viewModel.recoveryDaySummary}</Text>
-          {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
-          {viewModel.dayPlans.map((day) => (
-            <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>{day.label}</Text>
-              <Text style={screenStyles.subtle}>Protected boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
-              <Text style={screenStyles.subtle}>Generated training: {friendlySupportText(day.generatedSupport)}</Text>
-              {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
-              {day.warningSummary ? <Text style={screenStyles.subtle}>Review: {day.warningSummary}</Text> : null}
-            </View>
-          ))}
-        </DetailsToggle>
       </View>
     </EngineCard>
   );
@@ -201,13 +231,17 @@ function CompactWeekPreviewCard({ viewModel }: { viewModel: PlanViewModel }) {
 
 function GeneratedSupportSummaryCard({
   busy,
-  nextWeekPreviewActions,
+  nextWeekActionsAvailable,
+  onAcceptPreview,
+  onStartNextWeekPlan,
   onSecondaryAction,
   previewDetailsOpen,
   viewModel
 }: {
   busy: boolean;
-  nextWeekPreviewActions?: NextWeekPreviewActions | undefined;
+  nextWeekActionsAvailable: boolean;
+  onAcceptPreview: () => void;
+  onStartNextWeekPlan: () => void;
   onSecondaryAction: () => void;
   previewDetailsOpen: boolean;
   viewModel: PlanViewModel;
@@ -217,20 +251,20 @@ function GeneratedSupportSummaryCard({
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-generated-support-summary-card">
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Generated training</Text>
-          <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "training session")}</Text>
-          <Text style={screenStyles.body}>{viewModel.athleteFacingWeekSummary}</Text>
-          <Text style={screenStyles.body}>Generated training days: {viewModel.scheduleAvailabilitySummary}</Text>
-          <Text style={screenStyles.body}>{viewModel.supportWorkReason ?? "CornerIQ adds generated training around your protected boxing anchors, readiness, and safety."}</Text>
+          <Text style={screenStyles.sectionTitle}>Support workouts</Text>
+          <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support workout")}</Text>
+          <Text style={screenStyles.body}>{plainPlanCopy(viewModel.athleteFacingWeekSummary)}</Text>
+          <Text style={screenStyles.body}>Support workout days: {viewModel.scheduleAvailabilitySummary}</Text>
+          <Text style={screenStyles.body}>{plainPlanCopy(viewModel.supportWorkReason ?? "CornerIQ adds support workouts around your boxing sessions, readiness, and safety.")}</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (
-            <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions }} disabled={busy || !nextWeekPreviewActions} onPress={() => void nextWeekPreviewActions?.acceptPreview(preview.previewId ?? undefined)} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
+            <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekActionsAvailable }} disabled={busy || !nextWeekActionsAvailable} onPress={onAcceptPreview} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
               <Text style={screenStyles.buttonText}>Accept preview</Text>
             </Pressable>
           ) : null}
           {preview.showMaterializeAction ? (
-            <Pressable accessibilityLabel="Start next week plan" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekPreviewActions || preview.requiresReview }} disabled={busy || !nextWeekPreviewActions || preview.requiresReview} onPress={() => void nextWeekPreviewActions?.materializeNextWeek(preview.previewId ?? undefined)} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
+            <Pressable accessibilityLabel="Start next week plan" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekActionsAvailable || preview.requiresReview }} disabled={busy || !nextWeekActionsAvailable || preview.requiresReview} onPress={onStartNextWeekPlan} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
               <Text style={screenStyles.buttonText}>Start next week plan</Text>
             </Pressable>
           ) : null}
@@ -246,7 +280,7 @@ function GeneratedSupportSummaryCard({
             <View key={`next-preview:${day.date}`} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>{day.date}</Text>
               <Text style={screenStyles.body}>{day.compactSummary}</Text>
-              <Text style={screenStyles.subtle}>{day.compactTag} / {day.compactMetric}</Text>
+              <Text style={screenStyles.subtle}>{friendlyCompactTag(day.compactTag)} / {day.compactMetric}</Text>
             </View>
           ))}
           {preview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={screenStyles.subtle}>Review: {note}</Text>)}
@@ -261,18 +295,17 @@ function GeneratedSupportSummaryCard({
   );
 }
 
-function PlanReviewNotes({ viewModel }: { viewModel: PlanViewModel }) {
+function PlanReviewNotesContent({ viewModel }: { viewModel: PlanViewModel }) {
   return (
-    <DisclosureCard title="Plan review notes" summary={viewModel.warnings.length > 0 ? `${viewModel.warnings.length} review note${viewModel.warnings.length === 1 ? "" : "s"} hidden until needed.` : "No active plan review notes."}>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.body}>{viewModel.rollForwardMessage}</Text>
-        {viewModel.warnings.length > 0 ? viewModel.warnings.map((warning, index) => <Text key={`plan-warning:${index}`} style={screenStyles.subtle}>{warning}</Text>) : <Text style={screenStyles.subtle}>No active plan warnings.</Text>}
-      </View>
-    </DisclosureCard>
+    <View style={{ gap: spacing.sm }}>
+      <Text style={screenStyles.sectionTitle}>Review notes</Text>
+      <Text style={screenStyles.body}>{viewModel.rollForwardMessage}</Text>
+      {viewModel.warnings.length > 0 ? viewModel.warnings.map((warning, index) => <Text key={`plan-warning:${index}`} style={screenStyles.subtle}>{warning}</Text>) : <Text style={screenStyles.subtle}>No active plan warnings.</Text>}
+    </View>
   );
 }
 
-function PlanAdjustmentsSection({
+function PlanAdjustmentsContent({
   adjustmentActions,
   asOfDate,
   busy,
@@ -285,29 +318,29 @@ function PlanAdjustmentsSection({
 }) {
   const dayPlan = viewModel.dayPlans.find((day) => day.date === asOfDate) ?? viewModel.dayPlans[0] ?? null;
   return (
-    <DisclosureCard title="Adjustments" summary={viewModel.adjustmentSummary}>
-      <View style={{ gap: spacing.sm }}>
-        {viewModel.activeAdjustments.length > 0 ? viewModel.activeAdjustments.map((adjustment, index) => <Text key={`active-adjustment:${index}`} style={screenStyles.subtle}>{adjustment}</Text>) : <Text style={screenStyles.subtle}>No active plan adjustments.</Text>}
-        <PlanAdjustmentControls
-          actions={adjustmentActions}
-          busy={busy}
-          date={(dayPlan?.date ?? asOfDate) as ISODateString}
-          generatedSessions={dayPlan?.generatedSessions ?? []}
-        />
-      </View>
-    </DisclosureCard>
+    <View style={{ gap: spacing.sm }}>
+      <Text style={screenStyles.sectionTitle}>More plan options</Text>
+      <Text style={screenStyles.body}>{viewModel.adjustmentSummary}</Text>
+      {viewModel.activeAdjustments.length > 0 ? viewModel.activeAdjustments.map((adjustment, index) => <Text key={`active-adjustment:${index}`} style={screenStyles.subtle}>{adjustment}</Text>) : <Text style={screenStyles.subtle}>No active plan adjustments.</Text>}
+      <PlanAdjustmentControls
+        actions={adjustmentActions}
+        busy={busy}
+        date={(dayPlan?.date ?? asOfDate) as ISODateString}
+        generatedSessions={dayPlan?.generatedSessions ?? []}
+      />
+    </View>
   );
 }
 
-function PlanTechnicalAuditDetails({ viewModel }: { viewModel: PlanViewModel }) {
+function PlanAuditDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
   const audit = viewModel.generationAudit;
   return (
-    <DisclosureCard title="Technical plan audit" summary={audit ? "Open generated-support placement, blocked reasons, and revision identifiers." : "No technical generation audit is available for this plan."}>
       <View style={{ gap: spacing.sm }}>
+        <Text style={screenStyles.sectionTitle}>Plan details</Text>
         {audit ? (
           <>
             <Text style={screenStyles.body}>
-              Current week: {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount} generated training session{audit.actualGeneratedSupportCount === 1 ? "" : "s"}.
+              Current week: {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount} support workout{audit.actualGeneratedSupportCount === 1 ? "" : "s"}.
             </Text>
             <Text style={screenStyles.subtle}>Dates: {audit.generatedSessionDates.length > 0 ? audit.generatedSessionDates.join(", ") : "None"}</Text>
             <Text style={screenStyles.subtle}>Titles: {audit.generatedSessionTitles.length > 0 ? audit.generatedSessionTitles.join(", ") : "None"}</Text>
@@ -324,15 +357,15 @@ function PlanTechnicalAuditDetails({ viewModel }: { viewModel: PlanViewModel }) 
             {typeof audit.targetHardDayCount === "number" ? (
               <Text style={screenStyles.subtle}>
                 Target hard days: {audit.targetHardDayCount}, actual: {audit.actualHardDayCount ?? 0}
-                {typeof audit.protectedHardDayCount === "number" ? ` (${audit.protectedHardDayCount} protected, ${audit.generatedHardDayCount ?? 0} generated)` : ""}.
+                {typeof audit.protectedHardDayCount === "number" ? ` (${audit.protectedHardDayCount} boxing, ${audit.generatedHardDayCount ?? 0} support)` : ""}.
               </Text>
             ) : null}
             {typeof audit.targetWeeklyGeneratedMinutes === "number" ? (
-              <Text style={screenStyles.subtle}>Generated weekly minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes} target.</Text>
+              <Text style={screenStyles.subtle}>Support weekly minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes} target.</Text>
             ) : null}
             {audit.baselinePrescriptionTargets ? (
               <Text style={screenStyles.subtle}>
-                Baseline prescription: {audit.baselinePrescriptionTargets.targetGeneratedSupportCount} sessions, {audit.baselinePrescriptionTargets.targetHardDayCount} hard days, {audit.baselinePrescriptionTargets.targetWeeklyGeneratedMinutes} generated minutes.
+                Baseline plan: {audit.baselinePrescriptionTargets.targetGeneratedSupportCount} sessions, {audit.baselinePrescriptionTargets.targetHardDayCount} hard days, {audit.baselinePrescriptionTargets.targetWeeklyGeneratedMinutes} support minutes.
               </Text>
             ) : null}
             {audit.plannedVsFinalTrainingDelta ? (
@@ -343,7 +376,7 @@ function PlanTechnicalAuditDetails({ viewModel }: { viewModel: PlanViewModel }) 
             <Text style={screenStyles.subtle}>
               Readiness impact: {audit.readinessGenerationImpact ?? "unknown"}; nutrition impact: {audit.nutritionGenerationImpact ?? "unknown"}; hydration impact: {audit.hydrationGenerationImpact ?? "unknown"}.
             </Text>
-            {audit.missingLogsAffectedExecutionOnly ? <Text style={screenStyles.subtle}>Missing logs affected execution guidance only; the planned prescription stayed available.</Text> : null}
+            {audit.missingLogsAffectedExecutionOnly ? <Text style={screenStyles.subtle}>Missing logs affected how-to notes only; the planned workout stayed available.</Text> : null}
             {(audit.executionAdjustmentsApplied ?? []).slice(0, 3).map((adjustment, index) => (
               <Text key={`execution-adjustment:${index}`} style={screenStyles.subtle}>Execution: {adjustment}</Text>
             ))}
@@ -354,7 +387,6 @@ function PlanTechnicalAuditDetails({ viewModel }: { viewModel: PlanViewModel }) 
             {(audit.blockedGenerationReasons ?? []).map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
             {(audit.whyHardDaysWereReduced ?? []).map((reason, index) => <Text key={`hard-day-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {reason}</Text>)}
             {(audit.whyVolumeWasReduced ?? []).map((reason, index) => <Text key={`volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {reason}</Text>)}
-            <Text style={screenStyles.subtle}>Plan: {audit.planRevisionId} / block {audit.activeTrainingBlockId}</Text>
             <Text style={screenStyles.subtle}>Selected days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None"}</Text>
             <Text style={screenStyles.subtle}>Dose: {audit.selectedTrainingDose ?? "unknown"}; allowed days: {audit.candidateAllowedDays}; over-60 sessions: {audit.sessionsOver60Minutes ?? 0}.</Text>
             {audit.targetSessionCountReason ? <Text style={screenStyles.subtle}>Target reason: {audit.targetSessionCountReason}</Text> : null}
@@ -370,14 +402,169 @@ function PlanTechnicalAuditDetails({ viewModel }: { viewModel: PlanViewModel }) 
               </Text>
             ))}
             <Text style={screenStyles.subtle}>
-              Audit: as-of {audit.asOfDate}, starts {audit.planStartDate}, revision {audit.planRevisionId}, generated {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount}.
+              As of {audit.asOfDate}, starts {audit.planStartDate}, support workouts {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount}.
             </Text>
           </>
         ) : (
-          <Text style={screenStyles.subtle}>No generated-support audit was produced for this plan.</Text>
+          <Text style={screenStyles.subtle}>No support workout detail was produced for this plan.</Text>
         )}
       </View>
-    </DisclosureCard>
+  );
+}
+
+function PlanDetailsWorkspace({
+  adjustmentActions,
+  asOfDate,
+  busy,
+  viewModel
+}: {
+  adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
+  asOfDate: ISODateString;
+  busy: boolean;
+  viewModel: PlanViewModel;
+}) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.lg }} testID="plan-details-workspace">
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>This week details</Text>
+          <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
+          <Text style={screenStyles.body}>{viewModel.recoveryDaySummary}</Text>
+          {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
+          {viewModel.dayPlans.map((day) => (
+            <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>{day.label}</Text>
+              <Text style={screenStyles.subtle}>Boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
+              <Text style={screenStyles.subtle}>Support workouts: {friendlySupportText(day.generatedSupport)}</Text>
+              {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
+              {day.warningSummary ? <Text style={screenStyles.subtle}>Review: {day.warningSummary}</Text> : null}
+            </View>
+          ))}
+        </View>
+        <PlanReviewNotesContent viewModel={viewModel} />
+        <PlanAdjustmentsContent adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.sectionTitle}>Block history</Text>
+          <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
+        </View>
+        <PlanAuditDetailsContent viewModel={viewModel} />
+      </View>
+    </EngineCard>
+  );
+}
+
+function PlanAdjustmentsWorkspace({
+  adjustmentActions,
+  asOfDate,
+  busy,
+  viewModel
+}: {
+  adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
+  asOfDate: ISODateString;
+  busy: boolean;
+  viewModel: PlanViewModel;
+}) {
+  return (
+    <EngineCard>
+      <View testID="plan-adjustments-workspace">
+        <PlanAdjustmentsContent adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />
+      </View>
+    </EngineCard>
+  );
+}
+
+function BlockHistoryWorkspace({ viewModel }: { viewModel: PlanViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="plan-block-history-workspace">
+        <Text style={screenStyles.sectionTitle}>Block history</Text>
+        <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
+      </View>
+    </EngineCard>
+  );
+}
+
+function FixedScheduleSummaryCard({
+  busy,
+  onAddOneOff,
+  onOpen,
+  sessions,
+  weeklyAnchors
+}: {
+  busy: boolean;
+  onAddOneOff: () => void;
+  onOpen: () => void;
+  sessions: PlanViewModel["fixedSchedule"];
+  weeklyAnchors: PlanViewModel["weeklyAnchors"];
+}) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fixed-boxing-schedule-summary-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
+          <Text style={screenStyles.body}>CornerIQ builds support workouts around these first.</Text>
+          <Text style={screenStyles.callout}>{compactCount(weeklyAnchors.length, "weekly session")} / {compactCount(sessions.length, "dated session")}</Text>
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          {weeklyAnchors.slice(0, 3).map((anchor) => <Text key={`fixed-summary-weekly:${anchor.id}`} style={screenStyles.subtle}>{anchor.label}</Text>)}
+          {sessions.slice(0, 3).map((session) => <Text key={`fixed-summary-session:${session.id}`} style={screenStyles.subtle}>{session.label}: {session.typeLabel}</Text>)}
+          {weeklyAnchors.length === 0 && sessions.length === 0 ? <Text style={screenStyles.subtle}>No fixed boxing sessions are scheduled yet.</Text> : null}
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onOpen} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>Edit fixed schedule</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onAddOneOff} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
+            <Text style={screenStyles.buttonText}>Add one-off session</Text>
+          </Pressable>
+        </View>
+      </View>
+    </EngineCard>
+  );
+}
+
+function PlanDetailsLauncherCard({
+  activeWorkspace,
+  onOpenWorkspace,
+  viewModel
+}: {
+  activeWorkspace: PlanActiveWorkspace;
+  onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
+  viewModel: PlanViewModel;
+}) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="plan-details-launcher-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>Plan details</Text>
+          <Text style={screenStyles.body}>Week notes, changes, history, and support workout detail stay here.</Text>
+          <Text style={screenStyles.subtle}>{viewModel.warnings.length > 0 ? compactCount(viewModel.warnings.length, "review note") : "No active plan warnings."}</Text>
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected: activeWorkspace === "plan_details" }} onPress={() => onOpenWorkspace("plan_details")} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>Show Plan details</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected: activeWorkspace === "adjustments" }} onPress={() => onOpenWorkspace("adjustments")} style={[screenStyles.quietButton, { flexBasis: 130, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>Plan changes</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected: activeWorkspace === "block_history" }} onPress={() => onOpenWorkspace("block_history")} style={[screenStyles.quietButton, { flexBasis: 130, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>Block history</Text>
+          </Pressable>
+        </View>
+      </View>
+    </EngineCard>
+  );
+}
+
+function PlanActiveWorkspaceFrame({ children, generationStatus }: React.PropsWithChildren<{ generationStatus: EngineGenerationStatus }>) {
+  if (generationStatus === "idle" && !children) {
+    return null;
+  }
+  return (
+    <View style={{ gap: spacing.md }} testID="plan-active-workspace">
+      <EngineGeneratingCard status={generationStatus} />
+      {children}
+    </View>
   );
 }
 
@@ -399,41 +586,84 @@ export function PlanScreen({
   onSaveTournamentSetup,
   viewModel
 }: PlanScreenProps) {
-  const [goalFlowOpen, setGoalFlowOpen] = React.useState(false);
+  const [activeWorkspace, setActiveWorkspace] = React.useState<PlanActiveWorkspace>("overview");
   const [previewDetailsOpen, setPreviewDetailsOpen] = React.useState(false);
+  const [fixedScheduleIntent, setFixedScheduleIntent] = React.useState<FixedBoxingScheduleInitialIntent | null>(null);
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
   const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession || !onSaveRecurringProtectedAnchor || !onDeleteRecurringProtectedAnchor;
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
-  return (
-    <LuminousScreen testID="plan-screen">
-      <ScreenHeader eyebrow={viewModel.planLifecycleLabel} title={viewModel.title} />
-      <EngineGeneratingCard status={generationStatus} />
-      {showCriticalPlanRisk ? (
-        <RiskBanner title="Plan safety check" message={viewModel.rollForwardMessage} statusLabel={viewModel.rollForwardRiskLabel} tone={viewModel.rollForwardRiskTone}>
-          <View style={{ gap: spacing.xs }}>
-            {viewModel.warnings.map((warning, index) => <Text key={`critical-plan-warning:${index}`} style={screenStyles.body}>{warning}</Text>)}
-          </View>
-        </RiskBanner>
-      ) : null}
-      {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={viewModel.lastAutoRollForwardMessage} tone="info" /> : null}
-      {adjustmentMessage ? <RiskBanner title="Plan update" message={adjustmentMessage} tone="info" /> : null}
-      <CurrentModeCard
-        busy={busy}
-        onChangeGoal={() => setGoalFlowOpen(true)}
-        onPreviewNextWeek={() => setPreviewDetailsOpen(true)}
-        viewModel={viewModel}
+  const effectiveWorkspace = workspaceForGenerationStatus(generationStatus) ?? activeWorkspace;
+  const nextWeekActionsAvailable = Boolean(nextWeekPreviewActions);
+
+  const openWorkspace = (workspace: PlanActiveWorkspace) => {
+    setActiveWorkspace(workspace);
+    if (workspace === "next_week_preview") {
+      setPreviewDetailsOpen(true);
+    }
+  };
+
+  const openNextWeekPreview = () => openWorkspace("next_week_preview");
+
+  const closeActiveWorkspace = () => {
+    setActiveWorkspace("overview");
+    setPreviewDetailsOpen(false);
+  };
+
+  const openFixedScheduleAdd = () => {
+    setActiveWorkspace("fixed_schedule");
+    setFixedScheduleIntent((current) => ({ id: (current?.id ?? 0) + 1, kind: "add_one_off" }));
+  };
+
+  const acceptNextWeekPreview = () => {
+    openNextWeekPreview();
+    void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined);
+  };
+
+  const startNextWeekPlan = () => {
+    openNextWeekPreview();
+    void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined);
+  };
+
+  const renderNextWeekPreview = (forceDetailsOpen: boolean) => (
+    <GeneratedSupportSummaryCard
+      busy={busy}
+      nextWeekActionsAvailable={nextWeekActionsAvailable}
+      onAcceptPreview={acceptNextWeekPreview}
+      onStartNextWeekPlan={startNextWeekPlan}
+      onSecondaryAction={viewModel.nextWeekPreview.canAccept ? closeActiveWorkspace : openNextWeekPreview}
+      previewDetailsOpen={forceDetailsOpen || previewDetailsOpen}
+      viewModel={viewModel}
+    />
+  );
+
+  let activeWorkspaceContent: React.ReactNode = null;
+  if (effectiveWorkspace === "goal_wizard") {
+    activeWorkspaceContent = (
+      <PlanGoalFlowCard
+        asOfDate={asOfDate}
+        busy={goalBusy}
+        currentModeLabel={viewModel.modeLabel}
+        existingFixedSchedule={viewModel.fixedSchedule}
+        existingWeeklyAnchors={viewModel.weeklyAnchors}
+        initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
+        isMinor={isMinor}
+        onCancel={closeActiveWorkspace}
+        onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
+        onSaveFightSetup={onSaveFightSetup}
+        onSaveProtectedSession={onSaveProtectedSession}
+        onSaveRecurringProtectedAnchor={onSaveRecurringProtectedAnchor}
+        onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
+        onSaveTournamentSetup={onSaveTournamentSetup}
       />
-      <CompactWeekPreviewCard viewModel={viewModel} />
-      <GeneratedSupportSummaryCard
-        busy={busy}
-        nextWeekPreviewActions={nextWeekPreviewActions}
-        onSecondaryAction={() => setPreviewDetailsOpen(viewModel.nextWeekPreview.canAccept ? false : true)}
-        previewDetailsOpen={previewDetailsOpen}
-        viewModel={viewModel}
-      />
+    );
+  } else if (effectiveWorkspace === "next_week_preview") {
+    activeWorkspaceContent = renderNextWeekPreview(true);
+  } else if (effectiveWorkspace === "fixed_schedule") {
+    activeWorkspaceContent = (
       <FixedBoxingScheduleCard
         asOfDate={asOfDate}
         busy={scheduleBusy}
+        initialIntent={fixedScheduleIntent}
         onDelete={onDeleteProtectedSession ?? (async () => undefined)}
         onDeleteWeeklyAnchor={onDeleteRecurringProtectedAnchor ?? (async () => undefined)}
         onSave={onSaveProtectedSession ?? (async () => undefined)}
@@ -441,30 +671,46 @@ export function PlanScreen({
         weeklyAnchors={viewModel.weeklyAnchors}
         sessions={viewModel.fixedSchedule}
       />
-      {goalFlowOpen ? (
-        <PlanGoalFlowCard
-          asOfDate={asOfDate}
-          busy={goalBusy}
-          currentModeLabel={viewModel.modeLabel}
-          existingFixedSchedule={viewModel.fixedSchedule}
-          existingWeeklyAnchors={viewModel.weeklyAnchors}
-          initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
-          isMinor={isMinor}
-          onCancel={() => setGoalFlowOpen(false)}
-          onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
-          onSaveFightSetup={onSaveFightSetup}
-          onSaveProtectedSession={onSaveProtectedSession}
-          onSaveRecurringProtectedAnchor={onSaveRecurringProtectedAnchor}
-          onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
-          onSaveTournamentSetup={onSaveTournamentSetup}
-        />
+    );
+  } else if (effectiveWorkspace === "adjustments") {
+    activeWorkspaceContent = <PlanAdjustmentsWorkspace adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />;
+  } else if (effectiveWorkspace === "block_history") {
+    activeWorkspaceContent = <BlockHistoryWorkspace viewModel={viewModel} />;
+  } else if (effectiveWorkspace === "plan_details") {
+    activeWorkspaceContent = <PlanDetailsWorkspace adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />;
+  }
+
+  return (
+    <LuminousScreen testID="plan-screen">
+      <ScreenHeader eyebrow={viewModel.planLifecycleLabel} title={viewModel.title} />
+      {showCriticalPlanRisk ? (
+        <RiskBanner title="Plan safety check" message={plainPlanCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>
+          <View style={{ gap: spacing.xs }}>
+            {viewModel.warnings.map((warning, index) => <Text key={`critical-plan-warning:${index}`} style={screenStyles.body}>{warning}</Text>)}
+          </View>
+        </RiskBanner>
       ) : null}
-      <PlanReviewNotes viewModel={viewModel} />
-      <PlanAdjustmentsSection adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />
-      <DisclosureCard title="Block history" summary="Open persisted week, progression, materialization, and safety history only when you need audit detail.">
-        <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
-      </DisclosureCard>
-      <PlanTechnicalAuditDetails viewModel={viewModel} />
+      {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={plainPlanCopy(viewModel.lastAutoRollForwardMessage)} tone="info" /> : null}
+      {adjustmentMessage ? <RiskBanner title="Plan update" message={plainPlanCopy(adjustmentMessage)} tone="info" /> : null}
+      <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
+      <CurrentModeCard
+        busy={busy}
+        onChangeGoal={() => openWorkspace("goal_wizard")}
+        onPreviewNextWeek={openNextWeekPreview}
+        viewModel={viewModel}
+      />
+      <CompactWeekPreviewCard viewModel={viewModel} />
+      {effectiveWorkspace === "next_week_preview" ? null : renderNextWeekPreview(false)}
+      {effectiveWorkspace === "fixed_schedule" ? null : (
+        <FixedScheduleSummaryCard
+          busy={scheduleBusy}
+          onAddOneOff={openFixedScheduleAdd}
+          onOpen={() => openWorkspace("fixed_schedule")}
+          weeklyAnchors={viewModel.weeklyAnchors}
+          sessions={viewModel.fixedSchedule}
+        />
+      )}
+      <PlanDetailsLauncherCard activeWorkspace={effectiveWorkspace} onOpenWorkspace={openWorkspace} viewModel={viewModel} />
     </LuminousScreen>
   );
 }

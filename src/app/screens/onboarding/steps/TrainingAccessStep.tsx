@@ -87,7 +87,7 @@ export function TrainingAccessStep({ draft, updateDraft }: OnboardingStepProps) 
         placeholder="Equipment notes optional"
         value={customEquipment}
       />
-      <FieldGroup helper="Pick the days you can usually train. This helps CornerIQ place generated training around boxing." label="Training availability">
+      <FieldGroup helper="Pick the days you can usually train. This helps CornerIQ place support workouts around boxing." label="Training availability">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {availabilityOptions.map((option) => (
             <ChipButton

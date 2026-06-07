@@ -103,7 +103,7 @@ The Plan audit covers the local E2E path after onboarding:
 - Plan tab visible from the local tab shell.
 - Week, Next Week, Block History, and Adjustments sections visible.
 - Next Week explains preview/materialization as engine-owned and safety-bound.
-- Adjustments expose Protect this day, Mark unavailable, Request deload, and Restore engine plan as requests to the engine.
+- Adjustments expose Keep for boxing, Mark unavailable, Request deload, and Restore plan as requests to update the plan.
 - No coach-only controls or drag/drop expectation is exposed.
 
 The Profile Data audit covers:
@@ -129,7 +129,7 @@ The full onboarding audit writes these screenshots under `qa-artifacts/browser-a
 - `02-onboarding-boxing-basics.png`
 - `03-onboarding-body-mass.png`
 - `04-onboarding-training-access.png`
-- `05-onboarding-protected-anchors.png`
+- `05-onboarding-fixed-boxing-schedule.png`
 - `06-onboarding-cycle.png`
 - `07-onboarding-wearable.png`
 - `08-onboarding-safety.png`
@@ -142,7 +142,7 @@ The full onboarding audit writes these screenshots under `qa-artifacts/browser-a
 - `14-profile-safety-history-detail.png`
 - `16-train-today-screen.png`
 - `17-train-workout-no-detail.png`
-- `19-train-exercise-history.png`
+- `19-train-progress.png`
 - `20-plan-week-screen.png`
 - `21-plan-details-screen.png`
 - `24-profile-data-controls.png`

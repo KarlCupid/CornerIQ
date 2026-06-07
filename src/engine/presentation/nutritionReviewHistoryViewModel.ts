@@ -106,7 +106,7 @@ export function buildNutritionReviewHistoryViewModel(input: {
     hardStopReviewCount,
     latestReviewSummary: latestReview
       ? `${latestReview.reviewType.replaceAll("_", " ")} review is ${statusDisplay(latestReview.status).replaceAll("_", " ")} as of ${input.asOfDate}.`
-      : "No active nutrition safety review is loaded.",
+      : "No active nutrition safety stop is loaded.",
     activeReviews: activeReviews.map((review) => ({
       reviewId: review.id,
       status: statusDisplay(review.status),
@@ -129,9 +129,9 @@ export function buildNutritionReviewHistoryViewModel(input: {
         actorType: event.actorType,
         summary: eventSummary(event)
       })),
-    noHistoryCopy: "No review events are loaded yet. Active hard stops still remain active.",
-    safetyCopy: "You cannot self-clear nutrition hard stops.",
-    qualifiedSupportCopy: "CornerIQ cannot clear hard stops in the app. Seek qualified support outside the app when a safety stop is active.",
+    noHistoryCopy: "No review events are loaded yet. Active safety stops still remain active.",
+    safetyCopy: "You cannot clear nutrition safety stops yourself.",
+    qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Seek qualified support outside the app when a safety stop is active.",
     urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app."
   };
 }

@@ -94,8 +94,8 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
         : "Today's hydration total: no water logged yet.",
     summary:
       todayWaterLogs.length > 0
-        ? "Hydration entries are summed for today's context."
-        : "Add water when you have a true amount. Missing hydration lowers confidence; it is not treated as safe.",
+        ? "Hydration entries logged today are added together."
+        : "Add water when you have a true amount. Missing water logs make the plan less certain.",
     addToTodayCopy: "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."
   };
   const foodToday = {
@@ -104,7 +104,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
     actionLabel: "Add food entry",
     statusLabel: foodStatus.replaceAll("_", " "),
     summary: todayFoodCount > 0 ? `${todayFoodCount} food entr${todayFoodCount === 1 ? "y" : "ies"}; ${todayCalories} kcal logged so far. ${state.nutrition.dailyFoodLogSummary.athleteFacingSummary}` : state.nutrition.dailyFoodLogSummary.athleteFacingSummary,
-    addEntryCopy: "Use this for one meal/snack or a day total. Multiple entries add up in today's context."
+    addEntryCopy: "Use this for one meal/snack or a day total. Multiple entries today add up."
   };
 
   return {

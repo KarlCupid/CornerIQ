@@ -45,6 +45,7 @@ const weekdayOptions: readonly { label: string; value: RecurringProtectedWorkout
 export interface FixedBoxingScheduleCardProps {
   asOfDate: ISODateString;
   busy: boolean;
+  initialIntent?: FixedBoxingScheduleInitialIntent | null | undefined;
   onDelete: (workoutId: string) => Promise<void>;
   onDeleteWeeklyAnchor: (anchorId: string) => Promise<void>;
   onSave: (workoutId: string | null, draft: ProtectedWorkoutDraft) => Promise<void>;
@@ -52,6 +53,11 @@ export interface FixedBoxingScheduleCardProps {
   sessions: readonly FixedSession[];
   weeklyAnchors: readonly WeeklyAnchor[];
 }
+
+export type FixedBoxingScheduleInitialIntent = {
+  id: number;
+  kind: "add_one_off";
+};
 
 function OptionButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
@@ -65,7 +71,7 @@ function parseOptionalTime(value: string): string | undefined {
   return value.trim() ? parseRequiredTimeHHMM(value, "Start time") : undefined;
 }
 
-export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onDeleteWeeklyAnchor, onSave, onSaveWeeklyAnchor, sessions, weeklyAnchors }: FixedBoxingScheduleCardProps) {
+export function FixedBoxingScheduleCard({ asOfDate, busy, initialIntent, onDelete, onDeleteWeeklyAnchor, onSave, onSaveWeeklyAnchor, sessions, weeklyAnchors }: FixedBoxingScheduleCardProps) {
   const [editing, setEditing] = React.useState<FixedSession | null>(null);
   const [weeklyEditing, setWeeklyEditing] = React.useState<WeeklyAnchor | null>(null);
   const [mode, setMode] = React.useState<"idle" | "add" | "edit">("idle");
@@ -85,6 +91,7 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onDeleteWeek
   const [weeklyRounds, setWeeklyRounds] = React.useState("");
   const [weeklyNote, setWeeklyNote] = React.useState("");
   const [confirmRemoveWeekly, setConfirmRemoveWeekly] = React.useState(false);
+  const handledInitialIntentIdRef = React.useRef<number | null>(null);
   const { message: formError, runWithMessage } = useFormMessage("Fixed boxing session could not be saved.");
 
   const resetForAdd = () => {
@@ -99,6 +106,14 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onDeleteWeek
     setNote("");
     setConfirmRemove(false);
   };
+
+  React.useEffect(() => {
+    if (initialIntent?.kind !== "add_one_off" || initialIntent.id === handledInitialIntentIdRef.current) {
+      return;
+    }
+    handledInitialIntentIdRef.current = initialIntent.id;
+    resetForAdd();
+  }, [asOfDate, initialIntent?.id, initialIntent?.kind]);
 
   const editSession = (session: FixedSession) => {
     setEditing(session);
@@ -203,11 +218,11 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onDeleteWeek
       <View style={{ gap: spacing.md }} testID="fixed-boxing-schedule-card">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
-          <Text style={screenStyles.body}>CornerIQ builds generated training around these first.</Text>
+          <Text style={screenStyles.body}>CornerIQ builds support workouts around these first.</Text>
         </View>
         {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
         <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.fieldLabel}>Weekly anchors</Text>
+          <Text style={screenStyles.fieldLabel}>Weekly boxing sessions</Text>
           {weeklyAnchors.length > 0 ? (
             <View style={{ gap: spacing.sm }}>
               {weeklyAnchors.map((anchor) => (
@@ -229,17 +244,17 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onDeleteWeek
                 >
                   <Text numberOfLines={1} style={screenStyles.fieldLabel}>{anchor.label}</Text>
                   <Text numberOfLines={1} style={screenStyles.subtle}>{anchor.intensityLabel}{anchor.rounds ? `, ${anchor.rounds} rounds` : ""}</Text>
-                  <Text numberOfLines={1} style={screenStyles.subtle}>Tap to edit or remove weekly anchor.</Text>
+                  <Text numberOfLines={1} style={screenStyles.subtle}>Tap to edit or remove weekly session.</Text>
                 </Pressable>
               ))}
             </View>
           ) : (
-            <Text style={screenStyles.subtle}>No weekly anchors are scheduled yet.</Text>
+            <Text style={screenStyles.subtle}>No weekly boxing sessions are scheduled yet.</Text>
           )}
         </View>
         {weeklyEditing ? (
           <View style={{ gap: spacing.sm }} testID="weekly-anchor-editor">
-            <Text style={screenStyles.callout}>Edit weekly anchor</Text>
+            <Text style={screenStyles.callout}>Edit weekly session</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {typeOptions.map((option) => <OptionButton active={weeklyType === option.value} busy={busy} key={`weekly-type:${option.value}`} label={option.label} onPress={() => setWeeklyType(option.value)} />)}
             </View>
@@ -255,20 +270,20 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, onDelete, onDeleteWeek
             <TextInput onChangeText={setWeeklyNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weeklyNote} />
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               <Pressable accessibilityRole="button" disabled={busy} onPress={saveWeekly} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
-                <Text style={screenStyles.buttonText}>Save weekly anchor</Text>
+                <Text style={screenStyles.buttonText}>Save weekly session</Text>
               </Pressable>
               <Pressable accessibilityRole="button" disabled={busy} onPress={cancelWeekly} style={[screenStyles.quietButton, { flexBasis: 120, flexGrow: 1 }]}>
                 <Text style={screenStyles.quietButtonText}>Cancel</Text>
               </Pressable>
             </View>
-            {confirmRemoveWeekly ? <Text style={screenStyles.subtle}>Remove this weekly anchor?</Text> : null}
+            {confirmRemoveWeekly ? <Text style={screenStyles.subtle}>Remove this weekly session?</Text> : null}
             <Pressable accessibilityRole="button" disabled={busy} onPress={confirmRemoveWeekly ? removeWeekly : () => setConfirmRemoveWeekly(true)} style={screenStyles.quietButton}>
-              <Text style={[screenStyles.quietButtonText, { color: colors.redCorner }]}>{confirmRemoveWeekly ? "Confirm remove weekly anchor" : "Remove weekly anchor"}</Text>
+              <Text style={[screenStyles.quietButtonText, { color: colors.redCorner }]}>{confirmRemoveWeekly ? "Confirm remove weekly session" : "Remove weekly session"}</Text>
             </Pressable>
           </View>
         ) : null}
         <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.fieldLabel}>Upcoming protected sessions</Text>
+          <Text style={screenStyles.fieldLabel}>Upcoming boxing sessions</Text>
           {sessions.length > 0 ? (
             <View style={{ gap: spacing.sm }}>
               {sessions.map((session) => (

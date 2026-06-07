@@ -372,7 +372,7 @@ function LocalE2EApp() {
         onDeleteRecurringProtectedAnchor={async (anchorId) => {
           const next = localRecurringAnchors.filter((anchor) => anchor.id !== anchorId);
           refreshLocalPlan(localProtectedWorkouts, next);
-          setMessage("Local E2E weekly anchor removed locally. No Supabase call was made.");
+          setMessage("Local E2E weekly session removed locally. No Supabase call was made.");
         }}
         onSaveBuildGoal={async () => {
           setMessage("Local E2E build goal save stayed local. No Supabase call was made.");
@@ -394,7 +394,7 @@ function LocalE2EApp() {
           const existing = anchorId ? localRecurringAnchors.findIndex((item) => item.id === anchorId) : -1;
           const next = existing >= 0 ? localRecurringAnchors.map((item, index) => (index === existing ? anchor : item)) : [...localRecurringAnchors, anchor];
           refreshLocalPlan(localProtectedWorkouts, next);
-          setMessage(anchorId ? "Local E2E weekly anchor updated locally. No Supabase call was made." : "Local E2E weekly anchor added locally. No Supabase call was made.");
+          setMessage(anchorId ? "Local E2E weekly session updated locally. No Supabase call was made." : "Local E2E weekly session added locally. No Supabase call was made.");
         }}
         onSaveRecoveryGoal={async () => {
           setMessage("Local E2E recovery goal save stayed local. No Supabase call was made.");

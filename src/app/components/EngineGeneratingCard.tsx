@@ -15,33 +15,33 @@ export type EngineGenerationStatus =
 
 const copyByStatus: Record<Exclude<EngineGenerationStatus, "idle">, { title: string; lines: readonly string[]; testID: string }> = {
   saving_anchors: {
-    title: "Saving protected anchors",
-    lines: ["Checking weekday or date, duration, intensity, and protected boxing priority.", "Protected boxing stays fixed before generated training is placed."],
+    title: "Saving fixed boxing sessions",
+    lines: ["Checking weekday or date, duration, intensity, and fixed boxing priority.", "Fixed boxing stays in place before support workouts are added."],
     testID: "plan-generation-pending"
   },
   generating_plan: {
-    title: "Generating your plan",
-    lines: ["Checking anchors, availability, readiness, and safety.", "Placing generated training around protected boxing."],
+    title: "Building your plan",
+    lines: ["Checking fixed boxing, availability, readiness, and safety.", "Placing support workouts around fixed boxing."],
     testID: "plan-generation-pending"
   },
   amending_plan: {
-    title: "Amending your plan",
-    lines: ["Checking anchors, availability, readiness, and safety.", "Keeping the current week index unless you start a new plan."],
+    title: "Updating your plan",
+    lines: ["Checking fixed boxing, availability, readiness, and safety.", "Keeping the current week index unless you start a new plan."],
     testID: "plan-generation-pending"
   },
   previewing_next_week: {
     title: "Previewing next week",
-    lines: ["Checking anchors, availability, readiness, and safety.", "Building a conservative preview before anything is accepted."],
+    lines: ["Checking fixed boxing, availability, readiness, and safety.", "Building a conservative preview before anything is accepted."],
     testID: "plan-generation-pending"
   },
   materializing_next_week: {
     title: "Starting next week",
-    lines: ["Placing generated training around protected boxing.", "Persisting future day plans without bypassing safety."],
+    lines: ["Placing support workouts around fixed boxing.", "Saving future day plans without bypassing safety."],
     testID: "plan-generation-pending"
   },
   generating_workout: {
-    title: "Generating today's workout",
-    lines: ["Building a conservative session from today's context.", "Readiness and safety still gate the final work."],
+    title: "Building today's workout",
+    lines: ["Building a conservative session from what we know today.", "Readiness and safety still decide the workout."],
     testID: "workout-generation-pending"
   }
 };

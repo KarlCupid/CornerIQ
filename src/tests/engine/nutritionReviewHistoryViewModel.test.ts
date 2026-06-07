@@ -81,7 +81,7 @@ describe("nutritionReviewHistoryViewModel", () => {
 
     expect(viewModel.activeReviews[0]?.status).toBe("acknowledged_by_athlete");
     expect(viewModel.activeReviews[0]?.canAcknowledge).toBe(false);
-    expect(viewModel.safetyCopy).toContain("cannot self-clear");
+    expect(viewModel.safetyCopy).toContain("cannot clear nutrition safety stops");
     expect(viewModel.historyEvents[0]?.summary).toContain("does not clear the plan");
   });
 

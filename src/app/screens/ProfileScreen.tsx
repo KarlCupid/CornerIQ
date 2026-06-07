@@ -184,7 +184,7 @@ export function ProfileScreen({
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.sectionTitle}>Fuel safety history</Text>
               <Text style={screenStyles.body}>Nutrition review history is available in Fuel &gt; Reviews when active or recently persisted.</Text>
-              <Text style={screenStyles.subtle}>CornerIQ cannot clear hard stops in the app. Seek qualified support outside the app when a safety stop is active, and athletes cannot self-clear nutrition hard stops.</Text>
+              <Text style={screenStyles.subtle}>CornerIQ cannot clear safety stops in the app. Seek qualified support outside the app when a safety stop is active, and athletes cannot clear nutrition safety stops themselves.</Text>
             </View>
           </EngineCard>
           {recentLogs.profile.length > 0 ? (

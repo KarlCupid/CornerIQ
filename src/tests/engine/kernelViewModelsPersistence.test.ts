@@ -140,7 +140,7 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(holdForReview.rollForwardRiskTone).toBe("caution");
     expect(unaccepted.rollForwardMessage).toContain("not accepted");
     expect(materialized.rollForwardStatus).toBe("materialized");
-    expect(materialized.lastAutoRollForwardMessage).toContain("Generated sessions: 2");
+    expect(materialized.lastAutoRollForwardMessage).toContain("Support workouts: 2");
   });
 
   it("migrations contain RLS, owner policies, indexes, comments, and exercise results", () => {

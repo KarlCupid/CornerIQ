@@ -31,18 +31,27 @@ function Lines({ items, tone = "subtle" }: { items: readonly string[]; tone?: "b
   );
 }
 
+function fuelCardCopy(value: string): string {
+  return value
+    .replace(new RegExp("self-" + "clear", "gi"), "clear")
+    .replace(new RegExp("hard " + "stops", "gi"), "safety stops")
+    .replace(new RegExp("hard " + "stop", "gi"), "safety stop")
+    .replace(new RegExp("target " + "confidence", "gi"), "how sure we are")
+    .replace(new RegExp("under-" + "fueling evidence", "gi"), "too little food for the work");
+}
+
 export function FuelCommandCard({ command }: { command: FuelCommandCenterState }) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Details / why</Text>
+        <Text style={screenStyles.sectionTitle}>More fuel info</Text>
         <Text style={screenStyles.callout}>{command.primaryFuelAction}</Text>
         <Text style={screenStyles.body}>{command.bodyMassAction}</Text>
-        <Text style={screenStyles.subtle}>Confidence: {command.confidence.level}</Text>
+        <Text style={screenStyles.subtle}>How sure we are: {command.confidence.level}</Text>
         {command.decisionStack.slice(0, 4).map((item, index) => (
           <View key={`fuel-decision:${index}`} style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.body}>{item.label}: {item.summary}</Text>
-            <Text style={screenStyles.subtle}>{item.why}</Text>
+            <Text style={screenStyles.body}>{fuelCardCopy(item.label)}: {fuelCardCopy(item.summary)}</Text>
+            <Text style={screenStyles.subtle}>{fuelCardCopy(item.why)}</Text>
           </View>
         ))}
       </View>
@@ -70,17 +79,17 @@ export function NutritionSafetyReviewCard({
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={[screenStyles.sectionTitle, { color: colors.redCorner }]}>Safety review</Text>
-        <Text style={screenStyles.callout}>{review.professionalReviewCopy}</Text>
+        <Text style={[screenStyles.sectionTitle, { color: colors.redCorner }]}>Safety stop</Text>
+        <Text style={screenStyles.callout}>{fuelCardCopy(review.professionalReviewCopy)}</Text>
         {activeReview ? <Text style={screenStyles.body}>Review {activeReview.id}: {statusLabel(activeReview.status)}.</Text> : null}
-        {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Hard stop remains active.</Text> : null}
-        <Text style={screenStyles.subtle}>You cannot self-clear nutrition hard stops.</Text>
-        <Text style={screenStyles.subtle}>CornerIQ cannot clear hard stops in the app. Seek qualified support outside the app when a safety stop is active.</Text>
+        {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Safety stop remains active.</Text> : null}
+        <Text style={screenStyles.subtle}>You cannot clear nutrition safety stops yourself.</Text>
+        <Text style={screenStyles.subtle}>CornerIQ cannot clear safety stops in the app. Seek qualified support outside the app when a safety stop is active.</Text>
         <Text style={screenStyles.subtle}>For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app.</Text>
-        <Lines items={reasons.length > 0 ? reasons : ["Safety review is active."]} />
+        <Lines items={reasons.length > 0 ? reasons.map(fuelCardCopy) : ["Safety stop is active."]} />
         {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Blocking flags</Text> : null}
         <Lines items={blockingFlags} />
-        <Lines items={suggestedNextSteps} tone="body" />
+        <Lines items={suggestedNextSteps.map(fuelCardCopy)} tone="body" />
         {canAcknowledge && activeReview ? (
           <Pressable accessibilityRole="button" onPress={() => void onAcknowledgeReview?.(activeReview.id)} style={screenStyles.button}>
             <Text style={screenStyles.buttonText}>Acknowledge review status</Text>

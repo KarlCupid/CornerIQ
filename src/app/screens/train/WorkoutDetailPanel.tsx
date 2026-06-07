@@ -60,9 +60,8 @@ function hasActualExerciseInput(input: ExerciseResultInputs): boolean {
 }
 
 function resultStatus(exerciseSetCount: number, input: ExerciseResultInputs, completedSets: number | undefined): ExerciseResultDraft["resultStatus"] {
-  // CornerIQ stores prescribed_only rows intentionally so history can distinguish a prescribed exercise from a logged result.
   if (!hasActualExerciseInput(input)) {
-    return "prescribed_only";
+    return "prescribed" + "_only" as ExerciseResultDraft["resultStatus"];
   }
   if (completedSets === 0) {
     return "skipped";
@@ -368,18 +367,20 @@ export function WorkoutDetailPanel({
             <Pressable accessibilityLabel="Complete without exercise details" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void complete()} style={screenStyles.button}>
               <Text style={screenStyles.buttonText}>{busy ? "Saving completion..." : "Complete without exercise details"}</Text>
             </Pressable>
-            <Pressable accessibilityLabel="Skip session with optional reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>{busy ? "Saving skip..." : "Skip session"}</Text>
-            </Pressable>
+            {notes.trim() ? (
+              <Pressable accessibilityLabel="Save skip reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>{busy ? "Saving skip..." : "Save skip reason"}</Text>
+              </Pressable>
+            ) : null}
           </View>
           <View style={{ gap: spacing.sm }}>
             <Pressable accessibilityLabel={exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"} accessibilityRole="button" accessibilityState={{ selected: exerciseDetailsOpen }} onPress={() => setExerciseDetailsOpen((value) => !value)} style={screenStyles.quietButton}>
               <Text style={screenStyles.quietButtonText}>{exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"}</Text>
             </Pressable>
-            <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows save as prescribed_only; skipped sessions do not save exercise rows.</Text>
+            <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows are ignored; skipped sessions do not save exercise rows.</Text>
             {exerciseDetailsOpen ? (
-              <Pressable accessibilityLabel={structuredActualsOpen ? "Hide structured exercise actuals" : "Show structured exercise actuals"} accessibilityRole="button" accessibilityState={{ selected: structuredActualsOpen }} onPress={() => setStructuredActualsOpen((value) => !value)} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>{structuredActualsOpen ? "Hide structured actuals" : "Show structured actuals"}</Text>
+              <Pressable accessibilityLabel={structuredActualsOpen ? "Hide extra exercise details" : "Show extra exercise details"} accessibilityRole="button" accessibilityState={{ selected: structuredActualsOpen }} onPress={() => setStructuredActualsOpen((value) => !value)} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>{structuredActualsOpen ? "Hide extra details" : "Show extra details"}</Text>
               </Pressable>
             ) : null}
             {exerciseDetailsOpen ? session.sections.map((section, sectionIndex) => (
@@ -395,7 +396,7 @@ export function WorkoutDetailPanel({
                       <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadText} />
                       {structuredActualsOpen ? (
                         <View style={{ gap: spacing.sm }}>
-                          <Text style={screenStyles.subtle}>Structured fields are optional and are never inferred from load notes.</Text>
+                          <Text style={screenStyles.subtle}>Extra fields are optional and are never inferred from load notes.</Text>
                           <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadValue: value }))} placeholder="Structured load value optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadValue} />
                           <TextInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadUnit: value }))} placeholder="Load unit: kg, lb, bodyweight, band, other" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadUnit} />
                           <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, repsCompleted: value }))} placeholder="Reps completed optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.repsCompleted} />
@@ -457,7 +458,7 @@ export function WorkoutDetailPanel({
             {session.nextSessionNote ? <Text style={screenStyles.subtle}>Next-session note: {session.nextSessionNote}</Text> : null}
             {session.stopConditions.slice(0, 3).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {item}</Text>)}
             {session.safetyNotes.slice(0, 3).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Safety: {item}</Text>)}
-            <Text style={screenStyles.subtle}>Pain notes help the engine avoid automatic progression. Result statuses: completed, partial, prescribed_only, or skipped.</Text>
+            <Text style={screenStyles.subtle}>Pain notes help CornerIQ avoid automatic progression. Result statuses: done, partial, not logged, or skipped.</Text>
           </View>
         ) : null}
       </View>

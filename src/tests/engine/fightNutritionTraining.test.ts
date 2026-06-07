@@ -326,8 +326,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
   it("no-workout plan rows do not render fuel demand or support tags", () => {
     const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
-    const emptyDays = state.viewModels.plan.dayPlans.filter((day) => day.generatedSessions.length === 0 && day.protectedAnchors === "No protected anchors.");
-    const generatedDay = state.viewModels.plan.dayPlans.find((day) => day.generatedSessions.length > 0 && day.protectedAnchors === "No protected anchors.");
+    const emptyDays = state.viewModels.plan.dayPlans.filter((day) => day.generatedSessions.length === 0 && day.protectedAnchors === "No boxing added.");
+    const generatedDay = state.viewModels.plan.dayPlans.find((day) => day.generatedSessions.length > 0 && day.protectedAnchors === "No boxing added.");
 
     expect(emptyDays.length).toBeGreaterThan(0);
     expect(emptyDays.every((day) => day.compactSummary === "No support work")).toBe(true);

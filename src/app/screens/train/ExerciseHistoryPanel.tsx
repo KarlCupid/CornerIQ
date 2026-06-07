@@ -11,7 +11,7 @@ export interface ExerciseHistoryPanelProps {
 export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [selectedExercise, setSelectedExercise] = React.useState(history.groupedExercises[0]?.exerciseName ?? null);
-  const counts = `Completed/partial/prescribed-only/skipped: ${history.statusCounts.completed}/${history.statusCounts.partial}/${history.statusCounts.prescribedOnly}/${history.statusCounts.skipped}`;
+  const counts = `Done/partial/not logged/skipped: ${history.statusCounts.completed}/${history.statusCounts.partial}/${history.statusCounts.prescribedOnly}/${history.statusCounts.skipped}`;
   const selected = history.groupedExercises.find((exercise) => exercise.exerciseName === selectedExercise) ?? history.groupedExercises[0] ?? null;
   const hasNoHistory =
     history.recentExerciseResults.length === 0 &&
@@ -35,11 +35,11 @@ export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
       </Pressable>
       {detailsOpen ? (
         <View style={{ gap: spacing.sm }} testID="exercise-history-details">
-          <Text style={screenStyles.callout}>Prescribed-only rows</Text>
+          <Text style={screenStyles.callout}>Not logged rows</Text>
           <Text style={screenStyles.body}>{counts}</Text>
           <Text style={screenStyles.subtle}>Pain flags stop automatic progression.</Text>
           <Text style={screenStyles.subtle}>{history.loadProgressionNote}</Text>
-          <Text style={screenStyles.subtle}>Structured load status: {history.structuredLoadStatus.replaceAll("_", " ")}.</Text>
+          <Text style={screenStyles.subtle}>Extra detail status: {history.structuredLoadStatus.replaceAll("_", " ")}.</Text>
           <Text style={screenStyles.callout}>Strength notes</Text>
           {history.latestStrengthExerciseSummary ? <Text style={screenStyles.subtle}>Latest strength: {history.latestStrengthExerciseSummary}</Text> : null}
           {history.mostRepeatedExercise ? <Text style={screenStyles.subtle}>Most repeated: {history.mostRepeatedExercise}</Text> : null}
@@ -58,10 +58,10 @@ export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
               <Text style={screenStyles.callout}>Exercise detail</Text>
               <Text style={screenStyles.body}>{selected.exerciseName}</Text>
                 <Text style={screenStyles.subtle}>
-                  Completed/partial/prescribed-only/pain flags: {selected.completedCount}/{selected.partialCount}/{selected.prescribedOnlyCount}/{selected.painFlagCount}
+                  Done/partial/not logged/pain flags: {selected.completedCount}/{selected.partialCount}/{selected.prescribedOnlyCount}/{selected.painFlagCount}
                 </Text>
               {selected.recentRpe ? <Text style={screenStyles.subtle}>Recent {selected.recentRpe}</Text> : null}
-              {selected.structuredActualSummary ? <Text style={screenStyles.subtle}>Structured: {selected.structuredActualSummary}</Text> : <Text style={screenStyles.subtle}>No structured actuals for this exercise yet.</Text>}
+              {selected.structuredActualSummary ? <Text style={screenStyles.subtle}>Extra details: {selected.structuredActualSummary}</Text> : <Text style={screenStyles.subtle}>No extra details for this exercise yet.</Text>}
               <Text style={screenStyles.subtle}>Load note: {selected.latestLoadTextNote}</Text>
               <Text style={screenStyles.subtle}>{selected.noNumericProgressionCopy}</Text>
             </View>
@@ -74,7 +74,7 @@ export function ExerciseHistoryPanel({ history }: ExerciseHistoryPanelProps) {
           {history.recentRpeValues.length > 0 ? history.recentRpeValues.map((rpe, index) => <Text key={`recent-rpe:${index}`} style={screenStyles.subtle}>{rpe}</Text>) : <Text style={screenStyles.subtle}>No recent exercise RPE values.</Text>}
           <Text style={screenStyles.callout}>Pain flags</Text>
           {history.painFlagsByExercise.length > 0 ? history.painFlagsByExercise.map((exercise, index) => <Text key={`pain-flag:${index}`} style={screenStyles.subtle}>{`Pain flag: ${exercise}`}</Text>) : <Text style={screenStyles.subtle}>No exercise pain flags.</Text>}
-          <Text style={screenStyles.callout}>Recent actuals</Text>
+          <Text style={screenStyles.callout}>Recent results</Text>
           {history.recentExerciseResults.length > 0 ? history.recentExerciseResults.map((result, index) => <Text key={`recent-actual:${index}`} style={screenStyles.subtle}>{result}</Text>) : <Text style={screenStyles.subtle}>No exercise result history yet.</Text>}
         </View>
       ) : null}

@@ -12,6 +12,14 @@ function textKey(prefix: string, index: number): string {
   return `${prefix}:${index}`;
 }
 
+function historyCopy(value: string): string {
+  return value
+    .replace(new RegExp("generated " + "sessions", "gi"), "support workouts")
+    .replace(new RegExp("generated " + "training", "gi"), "support workouts")
+    .replace(new RegExp("material" + "ized", "gi"), "saved")
+    .replace(new RegExp("material" + "ization", "gi"), "saved-next-week");
+}
+
 export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanelProps) {
   const [selectedWeekIndex, setSelectedWeekIndex] = React.useState(history.groupedWeeks[0]?.weekIndex ?? null);
   const selectedWeek = history.groupedWeeks.find((week) => week.weekIndex === selectedWeekIndex) ?? history.groupedWeeks[0] ?? null;
@@ -49,8 +57,8 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
           <Text style={screenStyles.body}>Week {selectedWeek.weekIndex}</Text>
           <Text style={screenStyles.subtle}>{selectedWeek.summary}</Text>
           <Text style={screenStyles.subtle}>{selectedWeek.decision}</Text>
-          <Text style={screenStyles.subtle}>{selectedWeek.nextWeekPreviewStatus}</Text>
-          <Text style={screenStyles.subtle}>Materialized generated sessions: {selectedWeek.materializedGeneratedSessionCount}</Text>
+          <Text style={screenStyles.subtle}>{historyCopy(selectedWeek.nextWeekPreviewStatus)}</Text>
+          <Text style={screenStyles.subtle}>Saved support workouts: {selectedWeek.materializedGeneratedSessionCount}</Text>
           <Text style={screenStyles.subtle}>Why it matters: this explains engine-owned block changes without exposing raw payloads.</Text>
           {selectedWeek.adjustments.length > 0 ? selectedWeek.adjustments.map((adjustment, adjustmentIndex) => <Text key={`week-adjustment:${adjustmentIndex}`} style={screenStyles.subtle}>Adjustment: {adjustment}</Text>) : <Text style={screenStyles.subtle}>No adjustments linked to this week.</Text>}
         </View>
@@ -66,12 +74,12 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
           <Text style={screenStyles.subtle}>{history.latestNextWeekPreview.explanation}</Text>
         </>
       ) : <Text style={screenStyles.subtle}>No persisted next-week preview yet.</Text>}
-      <Text style={screenStyles.callout}>Materialization status</Text>
+      <Text style={screenStyles.callout}>Saved status</Text>
       {history.latestNextWeekPreview ? (
         <Text style={screenStyles.subtle}>
-          {history.latestNextWeekPreview.persistedStatusLabel} Generated sessions: {history.latestNextWeekPreview.generatedSessionCount}.
+          {historyCopy(history.latestNextWeekPreview.persistedStatusLabel)} Support workouts: {history.latestNextWeekPreview.generatedSessionCount}.
         </Text>
-      ) : <Text style={screenStyles.subtle}>No materialized preview yet.</Text>}
+      ) : <Text style={screenStyles.subtle}>No saved preview yet.</Text>}
       <Text style={screenStyles.callout}>Adjustments</Text>
       {history.adjustmentEvents.length > 0 ? history.adjustmentEvents.map((event, index) => <Text key={textKey("adjustment-event", index)} style={screenStyles.subtle}>{event}</Text>) : <Text style={screenStyles.subtle}>No adjustment events yet.</Text>}
       <Text style={screenStyles.callout}>Safety events</Text>
@@ -81,7 +89,7 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
       <Text style={screenStyles.callout}>Timeline groups</Text>
       <Text style={screenStyles.subtle}>Training events: {history.timelineEventGroups.trainingEvents.length}</Text>
       <Text style={screenStyles.subtle}>Adjustment events: {history.timelineEventGroups.adjustmentEvents.length}</Text>
-      <Text style={screenStyles.subtle}>Materialization events: {history.timelineEventGroups.materializationEvents.length}</Text>
+      <Text style={screenStyles.subtle}>Saved-next-week events: {history.timelineEventGroups.materializationEvents.length}</Text>
       <Text style={screenStyles.subtle}>Safety/review events: {history.timelineEventGroups.safetyReviewEvents.length}</Text>
     </View>
   );

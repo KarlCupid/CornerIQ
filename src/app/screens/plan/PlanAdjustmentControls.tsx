@@ -39,12 +39,12 @@ export function PlanAdjustmentControls({ actions, busy, date }: PlanAdjustmentCo
 
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={screenStyles.callout}>Engine-owned adjustment</Text>
-      <Text style={screenStyles.subtle}>These buttons request a change from the engine. The screen does not rewrite the plan.</Text>
-      {!actions ? <Text style={screenStyles.subtle}>Plan adjustment actions are available after engine services connect.</Text> : null}
+      <Text style={screenStyles.callout}>Plan change</Text>
+      <Text style={screenStyles.subtle}>These buttons ask CornerIQ to update the plan while keeping boxing and safety first.</Text>
+      {!actions ? <Text style={screenStyles.subtle}>Plan changes are available after setup finishes.</Text> : null}
       <View style={{ gap: spacing.sm }}>
-        <Pressable accessibilityLabel="Protect this day" accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} style={screenStyles.quietButton} onPress={() => void runAdjustment(() => actions!.protectDay(date))}>
-          <Text style={screenStyles.quietButtonText}>{busy ? "Requesting..." : "Protect this day"}</Text>
+        <Pressable accessibilityLabel="Keep for boxing" accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} style={screenStyles.quietButton} onPress={() => void runAdjustment(() => actions!.protectDay(date))}>
+          <Text style={screenStyles.quietButtonText}>{busy ? "Requesting..." : "Keep for boxing"}</Text>
         </Pressable>
         <Pressable accessibilityLabel="Mark unavailable" accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} style={screenStyles.quietButton} onPress={() => void runAdjustment(() => actions!.markUnavailable(date))}>
           <Text style={screenStyles.quietButtonText}>{busy ? "Requesting..." : "Mark unavailable"}</Text>
@@ -52,8 +52,8 @@ export function PlanAdjustmentControls({ actions, busy, date }: PlanAdjustmentCo
         <Pressable accessibilityLabel="Request deload" accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} style={screenStyles.quietButton} onPress={() => void runAdjustment(() => actions!.requestDeload(date, date))}>
           <Text style={screenStyles.quietButtonText}>{busy ? "Requesting..." : "Request deload"}</Text>
         </Pressable>
-        <Pressable accessibilityLabel="Restore engine plan" accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} style={screenStyles.quietButton} onPress={() => void runAdjustment(() => actions!.restoreEnginePlan(date))}>
-          <Text style={screenStyles.quietButtonText}>{busy ? "Requesting..." : "Restore engine plan"}</Text>
+        <Pressable accessibilityLabel="Restore plan" accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} style={screenStyles.quietButton} onPress={() => void runAdjustment(() => actions!.restoreEnginePlan(date))}>
+          <Text style={screenStyles.quietButtonText}>{busy ? "Requesting..." : "Restore plan"}</Text>
         </Pressable>
       </View>
       {result && rejected ? (
@@ -61,7 +61,7 @@ export function PlanAdjustmentControls({ actions, busy, date }: PlanAdjustmentCo
           {result.safetyFlags.map((flag, index) => <Text key={`plan-adjustment-safety:${index}`} style={screenStyles.subtle}>{flag}</Text>)}
         </RiskBanner>
       ) : null}
-      {result && !rejected ? <Text style={screenStyles.subtle}>Engine response: {result.explanation}</Text> : null}
+      {result && !rejected ? <Text style={screenStyles.subtle}>Plan updated: {result.explanation}</Text> : null}
     </View>
   );
 }

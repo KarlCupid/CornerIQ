@@ -18,7 +18,7 @@ export function RiskBanner({
   tone?: Extract<StatusBadgeTone, "info" | "caution" | "critical"> | undefined;
 }>) {
   const borderColor = tone === "critical" ? colors.redCorner : tone === "info" ? colors.blueIQ : colors.amberCaution;
-  const resolvedStatusLabel = statusLabel ?? (tone === "critical" ? "Hard stop" : tone === "info" ? "Notice" : "Caution");
+  const resolvedStatusLabel = statusLabel ?? (tone === "critical" ? "Safety stop" : tone === "info" ? "Notice" : "Caution");
   return (
     <View
       accessibilityLabel={`${title}. ${message}`}

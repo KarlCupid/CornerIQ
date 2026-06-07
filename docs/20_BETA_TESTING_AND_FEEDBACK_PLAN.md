@@ -21,7 +21,7 @@ The beta should answer:
 Use these personas across guided sessions:
 
 - Amateur novice build phase.
-- Amateur open with sparring anchors logged as protected manual work.
+- Amateur open with scheduled sparring logged as fixed manual work.
 - Amateur tournament daily weigh-ins.
 - Pro camp day-before weigh-in.
 - Same-day weigh-in amateur.
@@ -51,7 +51,7 @@ Run each script as observation, not coaching advice. Ask the tester to narrate w
 14. Submit beta feedback from Profile > Audit.
 15. Reopen Profile > Audit and confirm the recent feedback list shows the submitted report as received.
 16. Review the Beta health preflight and explain any warning in the tester's own words.
-17. In Plan > Adjustments, ask what each engine-request button means before pressing it: Protect this day, Mark unavailable, Request deload, and Restore engine plan.
+17. In Plan > Adjustments, ask what each plan-change button means before pressing it: Keep for boxing, Mark unavailable, Request deload, and Restore plan.
 18. Review the Profile > Audit beta tester notice and ask the tester to summarize the beta boundaries.
 
 ## Guided Human Beta Scripts

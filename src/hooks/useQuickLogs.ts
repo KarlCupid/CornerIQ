@@ -273,7 +273,7 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
           });
         },
         workoutInput.logKind === "planned"
-          ? "Planned anchor saved. CornerIQ has a boxing commitment to protect when the plan refreshes."
+          ? "Planned session saved. CornerIQ has a boxing commitment to protect when the plan refreshes."
           : "Training logged. Plan confidence has more real completion and RPE context."
         )
     }),

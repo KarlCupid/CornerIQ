@@ -32,6 +32,12 @@ export interface TodayScreenProps {
 type TodaySecondaryAction = TodayViewModel["secondaryActions"][number]["action"];
 type TodayQuickCheckFocus = "readiness" | "body_mass" | "hydration";
 
+function plainTodayCopy(value: string): string {
+  return value
+    .replace(new RegExp("hard " + "stops", "gi"), "safety stops")
+    .replace(new RegExp("hard " + "stop", "gi"), "safety stop");
+}
+
 export const handledTodaySecondaryActions: Record<TodaySecondaryAction, true> = {
   log_food: true,
   log_readiness: true,
@@ -52,7 +58,7 @@ function fuelMetric(viewModel: TodayViewModel, recentLogs: RecentLogsViewModel) 
     return { meta: "Not tracking", value: "Advisory" } as const;
   }
   if (recentLogs.foodToday.entryCount === 0) {
-    return { meta: "Food unknown", value: "Fuel gate" } as const;
+    return { meta: "Food unknown", value: "Fuel check" } as const;
   }
   if (/carb/i.test(viewModel.fuelPriority)) {
     return { meta: recentLogs.foodToday.statusLabel, value: "Carbs needed" } as const;
@@ -67,32 +73,8 @@ function bodyMassMetric(recentLogs: RecentLogsViewModel) {
   } as const;
 }
 
-function TodayContextDetails({ recentLogs, viewModel }: { recentLogs: RecentLogsViewModel; viewModel: TodayViewModel }) {
-  return (
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Today's context</Text>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>Readiness</Text>
-          <Text style={screenStyles.body}>{viewModel.readinessContext}</Text>
-          <Text style={screenStyles.subtle}>{recentLogs.readinessToday.summary}</Text>
-        </View>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>Fuel</Text>
-          <Text style={screenStyles.body}>{viewModel.fuelPriority}</Text>
-          <Text style={screenStyles.subtle}>{recentLogs.foodToday.summary}</Text>
-        </View>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>Body mass</Text>
-          <Text style={screenStyles.body}>{viewModel.bodyMassStatus}</Text>
-          <Text style={screenStyles.subtle}>{recentLogs.bodyMassToday.summary}</Text>
-        </View>
-      </View>
-  );
-}
-
 function TodayFastTaskCard({
   busy,
-  cycleQuickLogEnabled,
   onOpenFuel,
   onOpenFuelLog,
   onOpenQuickCheck,
@@ -103,7 +85,6 @@ function TodayFastTaskCard({
   viewModel
 }: {
   busy: boolean;
-  cycleQuickLogEnabled: boolean;
   onOpenFuel?: (() => void) | undefined;
   onOpenFuelLog?: (() => void) | undefined;
   onOpenQuickCheck: (focus: TodayQuickCheckFocus) => void;
@@ -132,12 +113,9 @@ function TodayFastTaskCard({
   };
   const actionPress = (action: TodaySecondaryAction) => actionHandlers[action]();
   const quickActions: FastTaskAction[] = [
-    { disabled: busy, label: "Readiness", onPress: () => onOpenQuickCheck("readiness"), summary: recentLogs.readinessToday.loggedToday ? "Logged" : "Check" },
-    { disabled: busy, label: "Body mass", onPress: () => onOpenQuickCheck("body_mass"), summary: recentLogs.bodyMassToday.loggedToday ? "Logged" : "Optional" },
-    { disabled: busy, label: "Water", onPress: () => onOpenQuickCheck("hydration"), summary: recentLogs.hydrationToday.loggedToday ? "Logged" : "Add" },
-    ...(openFuel ? [{ disabled: busy, label: "Food", onPress: openFuel, summary: recentLogs.foodToday.entryCount > 0 ? "Logged" : "Log" }] : []),
-    ...(openWorkout ? [{ disabled: busy, label: "Training result", onPress: openWorkout, summary: "Workout" }] : []),
-    ...(cycleQuickLogEnabled ? [{ disabled: busy, label: "Cycle symptoms", onPress: () => onOpenQuickCheck("readiness"), summary: "Optional" }] : [])
+    { disabled: busy, label: "Quick check-in", onPress: () => onOpenQuickCheck("readiness"), summary: recentLogs.readinessToday.loggedToday ? "Logged" : "60 sec" },
+    ...(openFuel ? [{ disabled: busy, label: "Log food", onPress: openFuel, summary: recentLogs.foodToday.entryCount > 0 ? "Logged" : "Food/water" }] : []),
+    ...(openWorkout ? [{ disabled: busy, label: "Open workout", onPress: openWorkout, summary: "Then log" }] : [])
   ];
   const shortcutActions = viewModel.secondaryActions
     .filter((action) => {
@@ -163,15 +141,17 @@ function TodayFastTaskCard({
       primaryAction={viewModel.dailyOperatingMode.primaryAction}
       primaryButton={primaryRoute}
       purpose={viewModel.dailyOperatingMode.athleteFacingSummary}
-      secondaryActions={[{ disabled: busy, label: "Do 60-sec check-in", onPress: () => onOpenQuickCheck("readiness"), summary: "Readiness first" }]}
+      secondaryActions={[{ disabled: busy, label: "Quick check-in", onPress: () => onOpenQuickCheck("readiness"), summary: "Readiness first" }]}
       testID="today-operating-mode-card"
       title="Do this now"
     >
       <QuickActionRow actions={quickActions} label="Log this if you have 30 seconds" testID="today-quick-action-row" />
-      <CollapsedDetailDisclosure framed={false} title="More manual shortcuts" summary="Food, readiness, and skip-ahead options stay out of the first glance.">
-        <QuickActionRow actions={shortcutActions} />
-      </CollapsedDetailDisclosure>
-      <Text style={screenStyles.subtle}>Mode: {viewModel.dailyOperatingMode.title}. {recentLogs.foodToday.summary}</Text>
+      {shortcutActions.length > 0 ? (
+        <CollapsedDetailDisclosure framed={false} title="More logs" summary="Extra logging shortcuts stay out of the first glance.">
+          <QuickActionRow actions={shortcutActions} />
+        </CollapsedDetailDisclosure>
+      ) : null}
+      <Text style={screenStyles.subtle}>Today's plan: {viewModel.dailyOperatingMode.title}. {recentLogs.foodToday.summary}</Text>
     </PrimaryTaskCard>
   );
 }
@@ -194,8 +174,8 @@ function TodayQuickCheckSection({
   const focusCopy =
     focus === "readiness"
       ? "Readiness first"
-      : focus === "body_mass"
-        ? "Body-mass context first"
+    : focus === "body_mass"
+        ? "Weight trend first"
         : "Hydration first";
   return (
     <View style={{ gap: spacing.lg }} testID="today-quick-check-section">
@@ -203,7 +183,7 @@ function TodayQuickCheckSection({
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Quick check</Text>
           <Text style={screenStyles.callout}>{focusCopy}</Text>
-          <Text style={screenStyles.subtle}>Manual inputs improve confidence; missing data stays unknown, not safe.</Text>
+          <Text style={screenStyles.subtle}>Logging helps the plan. Missing logs make the plan less certain.</Text>
         </View>
       </EngineCard>
       {focus === "hydration" ? (
@@ -230,14 +210,41 @@ function TodayQuickCheckSection({
   );
 }
 
-function ExecutionGuidanceDetails({ viewModel }: { viewModel: TodayViewModel }) {
+function TodayPlanReasonDetails({
+  hasRecentLogs,
+  recentLogs,
+  showCycleImpact,
+  viewModel
+}: {
+  hasRecentLogs: boolean;
+  recentLogs: RecentLogsViewModel;
+  showCycleImpact: boolean;
+  viewModel: TodayViewModel;
+}) {
   return (
-      <View style={{ gap: spacing.sm }} testID="today-execution-guidance-card">
-        <Text style={screenStyles.sectionTitle}>Execution Guidance</Text>
-        {viewModel.executionGuidance.map((item, index) => <Text key={`today-execution:${index}`} style={screenStyles.body}>{item}</Text>)}
-        <Text style={screenStyles.sectionTitle}>Why This Matters</Text>
-        <Text style={screenStyles.subtle}>{viewModel.whyThisMatters}</Text>
-      </View>
+    <View style={{ gap: spacing.sm }} testID="today-plan-reason-card">
+      <Text style={screenStyles.sectionTitle}>What changed</Text>
+      <Text style={screenStyles.body}>{viewModel.whatChanged}</Text>
+      <Text style={screenStyles.sectionTitle}>How to do it</Text>
+      {viewModel.executionGuidance.map((item, index) => <Text key={`today-how-to:${index}`} style={screenStyles.body}>{item}</Text>)}
+      <Text style={screenStyles.sectionTitle}>What we know</Text>
+      <Text style={screenStyles.body}>Readiness: {viewModel.readinessContext}</Text>
+      <Text style={screenStyles.body}>Fuel: {viewModel.fuelPriority}</Text>
+      <Text style={screenStyles.body}>Weight trend: {viewModel.bodyMassStatus}</Text>
+      {showCycleImpact && viewModel.cycleContext ? <Text style={screenStyles.body}>Cycle: {viewModel.cycleContext}</Text> : null}
+      <Text style={screenStyles.sectionTitle}>Missing logs</Text>
+      <Text style={screenStyles.subtle}>{recentLogs.bodyMassToday.statusLabel}; {recentLogs.readinessToday.statusLabel}; {recentLogs.hydrationToday.statusLabel}.</Text>
+      <Text style={screenStyles.subtle}>Add only the true logs you have. Missing logs make the plan less certain; they are never permission to push harder.</Text>
+      <Text style={screenStyles.sectionTitle}>Recent summary</Text>
+      {hasRecentLogs ? (
+        recentLogs.today.map((item, index) => <Text key={`today-recent-log:${index}`} style={screenStyles.body}>{item}</Text>)
+      ) : (
+        <Text style={screenStyles.body}>No logs yet today. Start with the smallest true log.</Text>
+      )}
+      <Text style={screenStyles.sectionTitle}>Why</Text>
+      <Text style={screenStyles.body}>{viewModel.why}</Text>
+      <Text style={screenStyles.subtle}>{viewModel.whyThisMatters}</Text>
+    </View>
   );
 }
 
@@ -264,6 +271,16 @@ export function TodayScreen({
   const readiness = readinessMetric(recentLogs);
   const fuel = fuelMetric(viewModel, recentLogs);
   const bodyMass = bodyMassMetric(recentLogs);
+  const cycleText = [
+    viewModel.cycleContext ?? "",
+    viewModel.whatChanged,
+    viewModel.trainingPriority,
+    viewModel.fuelPriority,
+    viewModel.why,
+    ...viewModel.executionGuidance,
+    ...viewModel.riskSummary
+  ].join(" ");
+  const showCycleImpact = Boolean(viewModel.cycleContext && /cycle|symptom|cramp|period|flow/i.test(cycleText));
   const openQuickCheck = (focus: TodayQuickCheckFocus) => {
     setQuickCheckFocus(focus);
     setQuickCheckOpen(true);
@@ -281,11 +298,11 @@ export function TodayScreen({
         why={viewModel.mission.why}
       />
       {hasRisk ? (
-        <RiskBanner title="Safety check" message="The engine is surfacing this before normal guidance because missing or risky data is unknown, not safe." tone="critical">
+        <RiskBanner title="Safety stop" message="Safety comes before the plan. Missing or risky logs are unknown, not permission to push." tone="critical">
           <View style={{ gap: spacing.sm }}>
-            {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{risk}</Text>)}
-            <Pressable accessibilityLabel="Inspect safety review in Fuel" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => (onOpenFuelSafety ?? onOpenFuel)?.()} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>Inspect safety review in Fuel</Text>
+            {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{plainTodayCopy(risk)}</Text>)}
+            <Pressable accessibilityLabel="Open safety in Fuel" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => (onOpenFuelSafety ?? onOpenFuel)?.()} style={screenStyles.quietButton}>
+              <Text style={screenStyles.quietButtonText}>Open safety in Fuel</Text>
             </Pressable>
           </View>
         </RiskBanner>
@@ -300,7 +317,6 @@ export function TodayScreen({
       />
       <TodayFastTaskCard
         busy={busy}
-        cycleQuickLogEnabled={cycleQuickLogEnabled}
         onOpenFuel={onOpenFuel}
         onOpenFuelLog={onOpenFuelLog}
         onOpenQuickCheck={openQuickCheck}
@@ -322,76 +338,23 @@ export function TodayScreen({
       ) : null}
       {message ? (
         <EngineCard>
-          <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing engine state stays visible unless a hard stop says otherwise.</Text>
+          <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing plan stays visible unless safety says otherwise.</Text>
         </EngineCard>
       ) : null}
-      <CollapsedDetailDisclosure title="Execution guidance" summary="Open for training execution notes after the first action.">
-        <ExecutionGuidanceDetails viewModel={viewModel} />
-      </CollapsedDetailDisclosure>
-      <CollapsedDetailDisclosure title="Today's context" summary="Readiness, fuel, and body-mass context stay available without crowding the command center.">
-        <TodayContextDetails recentLogs={recentLogs} viewModel={viewModel} />
-      </CollapsedDetailDisclosure>
-      <CollapsedDetailDisclosure title="Training call" summary={`Confidence: ${viewModel.confidenceLabel}. Missing data remains unknown.`}>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Training call</Text>
-          <Text style={screenStyles.callout}>{viewModel.primaryAction}</Text>
-          <Text style={screenStyles.body}>{viewModel.whatChanged}</Text>
-          <Text style={screenStyles.fieldLabel}>Training</Text>
-          <Text style={screenStyles.body}>{viewModel.trainingPriority}</Text>
-          <Text style={screenStyles.subtle}>{recentLogs.trainingRecentSummary}</Text>
-          <Text style={screenStyles.fieldLabel}>Fuel</Text>
-          <Text style={screenStyles.body}>{viewModel.fuelPriority}</Text>
-          <Text style={screenStyles.subtle}>{recentLogs.foodLogCountToday}</Text>
-        </View>
-      </CollapsedDetailDisclosure>
-      <CollapsedDetailDisclosure
-        title="Missing and optional context"
-        summary={`${recentLogs.bodyMassToday.statusLabel}; ${recentLogs.readinessToday.statusLabel}; ${recentLogs.hydrationToday.statusLabel}. Manual input is first-class.`}
-      >
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Missing and optional context</Text>
-          <Text style={screenStyles.body}>Add only the true manual logs you have.</Text>
-          <Text style={screenStyles.subtle}>No-shame logging: missing entries lower confidence; they are never treated as failure or permission to push harder.</Text>
-          <Text style={screenStyles.body}>Body mass: {viewModel.bodyMassStatus}</Text>
-          <Text style={screenStyles.body}>Readiness: {viewModel.readinessContext}</Text>
-          {viewModel.cycleContext ? <Text style={screenStyles.body}>Cycle: {viewModel.cycleContext}</Text> : null}
-          {viewModel.quickLogs.map((item, index) => <Text key={`today-quick-log:${index}`} style={screenStyles.subtle}>Optional log: {item}</Text>)}
-        </View>
-      </CollapsedDetailDisclosure>
-      {cycleContext || cycleTrackingStatus === "undecided" ? (
-        <CollapsedDetailDisclosure title="Cycle context" summary="Optional private symptom-aware context stays collapsed unless enabled or undecided.">
+      {showCycleImpact && (cycleContext || cycleTrackingStatus === "undecided") ? (
+        <EngineCard>
           <CycleContextCard cycleContext={cycleContext} framed={false} trackingStatus={cycleTrackingStatus} />
-        </CollapsedDetailDisclosure>
+        </EngineCard>
       ) : null}
-      <CollapsedDetailDisclosure title="engine detail" summary="Optional rationale, confidence, and safety context.">
-        <View style={{ gap: spacing.sm }}>
-          {viewModel.decisionStack.map((item, index) => (
-            <View key={`decision-stack:${index}`} style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.callout}>{item.label}: {item.summary}</Text>
-              <Text style={screenStyles.subtle}>Why: {item.why} Confidence: {item.confidence}</Text>
-            </View>
-          ))}
-        </View>
-      </CollapsedDetailDisclosure>
-      <CollapsedDetailDisclosure title="why this decision" summary="Open this when you want the engine rationale without crowding the first action.">
-        <Text style={screenStyles.body}>{viewModel.why}</Text>
-      </CollapsedDetailDisclosure>
       <CollapsedDetailDisclosure
-        title="Recent summary"
+        title="Why this plan?"
         summary={
           hasRecentLogs
-            ? `${recentLogs.today.length} recent item${recentLogs.today.length === 1 ? "" : "s"} hidden until needed.`
-            : "No logs yet today. Start with the smallest true manual log; missing data stays unknown, not safe."
+            ? `${recentLogs.today.length} recent item${recentLogs.today.length === 1 ? "" : "s"}, missing logs, and the short why.`
+            : "What changed, missing logs, and the short why."
         }
       >
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Recent summary</Text>
-          {hasRecentLogs ? (
-            recentLogs.today.map((item, index) => <Text key={`today-recent-log:${index}`} style={screenStyles.body}>{item}</Text>)
-          ) : (
-            <Text style={screenStyles.body}>Readiness, body mass, food, water, or training history is missing. That lowers confidence because the engine has less context.</Text>
-          )}
-        </View>
+        <TodayPlanReasonDetails hasRecentLogs={hasRecentLogs} recentLogs={recentLogs} showCycleImpact={showCycleImpact} viewModel={viewModel} />
       </CollapsedDetailDisclosure>
     </LuminousScreen>
   );

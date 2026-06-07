@@ -20,6 +20,7 @@ export function DisclosureCard({
       <View style={{ gap: spacing.sm }}>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
           onPress={() => setOpen((value) => !value)}
             style={{
               alignItems: "center",

@@ -251,7 +251,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const saveRecurringProtectedAnchor = useCallback(
     async (anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => {
       if (result?.status !== "ready") {
-        setMessage("Weekly anchors are available after engine state loads.");
+        setMessage("Weekly boxing sessions are available after engine state loads.");
         return;
       }
       const currentProfile = latestAthleteProfileRef.current ?? result.state.athlete;
@@ -269,9 +269,9 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         });
         latestAthleteProfileRef.current = saved.profile;
         await refresh("amending_plan");
-        setMessage(anchorId ? "Weekly anchor updated. Preview next week when you are ready." : "Weekly anchor added. Preview next week when you are ready.");
+        setMessage(anchorId ? "Weekly boxing session updated. Preview next week when you are ready." : "Weekly boxing session added. Preview next week when you are ready.");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Weekly anchor save failed.");
+        setMessage(error instanceof Error ? error.message : "Weekly boxing session save failed.");
         setLoading(false);
         setGenerationStatus("idle");
       }
@@ -309,7 +309,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const deleteRecurringProtectedAnchor = useCallback(
     async (anchorId: string) => {
       if (result?.status !== "ready") {
-        setMessage("Weekly anchors are available after engine state loads.");
+        setMessage("Weekly boxing sessions are available after engine state loads.");
         return;
       }
       const currentProfile = latestAthleteProfileRef.current ?? result.state.athlete;
@@ -325,9 +325,9 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         });
         latestAthleteProfileRef.current = deleted.profile;
         await refresh("amending_plan");
-        setMessage("Weekly anchor removed. Preview next week when you are ready.");
+        setMessage("Weekly boxing session removed. Preview next week when you are ready.");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Weekly anchor removal failed.");
+        setMessage(error instanceof Error ? error.message : "Weekly boxing session removal failed.");
         setLoading(false);
         setGenerationStatus("idle");
       }

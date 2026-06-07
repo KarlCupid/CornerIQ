@@ -89,7 +89,7 @@ export function useTrainingPlanAdjustments(input: {
         applyCommand({
           type: "mark_unavailable",
           date,
-          reason: "Athlete is unavailable for generated support.",
+          reason: "Athlete is unavailable for support workouts.",
           requestedBy: "user",
           actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()
@@ -119,7 +119,7 @@ export function useTrainingPlanAdjustments(input: {
           sessionId,
           fromDate,
           toDate,
-          reason: "Athlete requested a generated support move.",
+          reason: "Athlete requested a support workout move.",
           requestedBy: "user",
           actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()

@@ -315,11 +315,11 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
   const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Hydration log failed.");
   const [success, setSuccess] = useState<string | null>(null);
-  const actionLabel = status?.actionLabel ?? "Log water";
+  const actionLabel = (status?.actionLabel ?? "Add water").replace(/log\s+water/i, "Add water");
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Log water</Text>
+        <Text style={screenStyles.sectionTitle}>Add water</Text>
         <Text style={screenStyles.callout}>{status?.totalLabel ?? "Today's hydration total: add water when you have a true amount."}</Text>
         <Text style={screenStyles.subtle}>{status?.addToTodayCopy ?? "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."}</Text>
         {status ? <Text style={screenStyles.subtle}>Status: {status.statusLabel}. {status.summary}</Text> : <QuickLogHelp />}
@@ -530,7 +530,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
     technical_session: "technical session",
     pads_mitts: "pads / mitts",
     bag_work: "bag work",
-    sparring: "protected sparring",
+    sparring: "sparring",
     roadwork: "roadwork",
     coach_assigned_strength: "assigned strength",
     recovery_day: "recovery day"
@@ -539,13 +539,13 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Training log</Text>
-        <Text style={screenStyles.subtle}>Log enough for today. Completed sessions are history; planned anchors are protected boxing commitments.</Text>
+        <Text style={screenStyles.subtle}>Log enough for today. Completed sessions are history; planned sessions are fixed boxing commitments.</Text>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <InputLabel>Log type</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ToggleButton active={logKind === "completed"} busy={busy} label="Completed session" onPress={() => setLogKind("completed")} />
-          <ToggleButton active={logKind === "planned"} busy={busy} label="Planned anchor" onPress={() => setLogKind("planned")} />
+          <ToggleButton active={logKind === "planned"} busy={busy} label="Planned session" onPress={() => setLogKind("planned")} />
         </View>
         <InputLabel>Session type</InputLabel>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -565,7 +565,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
         <InputLabel>Note (optional)</InputLabel>
         <TextInput onChangeText={setNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={note} />
         <Pressable
-          accessibilityLabel={busy ? "Saving training log" : logKind === "completed" ? "Log completed session" : "Save planned anchor"}
+          accessibilityLabel={busy ? "Saving training log" : logKind === "completed" ? "Log completed session" : "Save planned session"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
@@ -590,13 +590,13 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
               setSuccess(
                 logKind === "completed"
                   ? "Training logged. Plan confidence has more real completion and RPE context."
-                  : "Planned anchor saved. CornerIQ has a boxing commitment to protect when the plan refreshes."
+                  : "Planned session saved. CornerIQ has a boxing commitment to protect when the plan refreshes."
               );
             })
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving training..." : logKind === "completed" ? "Log completed session" : "Save planned anchor"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving training..." : logKind === "completed" ? "Log completed session" : "Save planned session"}</Text>
         </Pressable>
       </View>
     </EngineCard>

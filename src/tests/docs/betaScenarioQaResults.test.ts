@@ -8,7 +8,7 @@ describe("beta scenario QA results documentation", () => {
 
     for (const persona of [
       "Amateur novice build phase",
-      "Amateur open with sparring anchors",
+      "Amateur open with fixed sparring sessions",
       "Amateur tournament daily weigh-ins",
       "Pro camp day-before weigh-in",
       "Same-day weigh-in amateur",

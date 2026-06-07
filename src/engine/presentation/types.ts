@@ -583,7 +583,7 @@ export interface PlanViewModel {
   nextWeekPreview: NextWeekPreviewViewModel;
   rollForwardStatus: "eligible" | "accepted_waiting" | "materialized" | "blocked" | "not_available";
   rollForwardMessage: string;
-  rollForwardRiskLabel: "Notice" | "Caution" | "Review required" | "Hard stop";
+  rollForwardRiskLabel: "Notice" | "Caution" | "Review required" | "Safety stop";
   rollForwardRiskTone: "info" | "caution" | "critical";
   lastAutoRollForwardMessage: string | null;
   blockHistoryDetail: TrainingBlockHistoryDetailViewModel;

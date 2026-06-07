@@ -181,7 +181,7 @@ npm test
 The scenario-specific coverage lives in `src/tests/beta/betaScenarioFlows.test.ts`. It exercises:
 
 - Amateur novice build phase.
-- Amateur open with sparring anchors.
+- Amateur open with scheduled sparring.
 - Amateur tournament daily weigh-ins.
 - Pro camp day-before weigh-in.
 - Same-day weigh-in amateur.

@@ -80,7 +80,7 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Goal phase</Text>
-      <Text style={screenStyles.subtle}>Choose the planning context for Today and Plan. Finishing setup creates your boxer profile, saves today's body-mass log, and protects any weekly anchors you entered.</Text>
+      <Text style={screenStyles.subtle}>Choose the planning context for Today and Plan. Finishing setup creates your boxer profile, saves today's body-mass log, and respects any weekly boxing sessions you entered.</Text>
       <FieldGroup helper="Pick the closest current situation. You can keep fight details tentative." label="Current goal">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={phaseOf(draft) === "build"} label="Build phase" onPress={setBuild} />
@@ -89,7 +89,7 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
           <ChipButton active={phaseOf(draft) === "tournament_known"} label="Tournament known" onPress={setTournament} />
         </View>
       </FieldGroup>
-      <Text style={screenStyles.subtle}>Build phase: build boxing-specific capacity around protected work.</Text>
+      <Text style={screenStyles.subtle}>Build phase: build boxing-specific capacity around fixed boxing work.</Text>
       <Text style={screenStyles.subtle}>Maintenance/recovery: keep consistency and safety ahead of performance pressure.</Text>
       <Text style={screenStyles.subtle}>Fight known: add bout date, weigh-in timing, and contracted weight so the engine can avoid unsafe assumptions.</Text>
       <Text style={screenStyles.subtle}>Tournament known: add tournament dates so daily weigh-in and bout-day context stay explicit.</Text>

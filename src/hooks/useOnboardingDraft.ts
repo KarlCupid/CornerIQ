@@ -6,7 +6,7 @@ export const ONBOARDING_STEPS = [
   "Boxer basics",
   "Body mass",
   "Training access",
-  "Protected schedule",
+  "Fixed boxing schedule",
   "Cycle support",
   "Wearables",
   "Safety",
@@ -113,9 +113,9 @@ export function validateOnboardingStep(draft: OnboardingDraft, stepIndex: number
     const invalidAnchor = draft.protectedSchedule.find((anchor) => !validISODate(anchor.date) || !Number.isInteger(anchor.durationMinutes) || anchor.durationMinutes <= 0);
     const invalidRecurringAnchor = (draft.recurringProtectedSchedule ?? []).find((anchor) => !Number.isInteger(anchor.durationMinutes) || anchor.durationMinutes <= 0);
     if (invalidAnchor) {
-      return "One-off protected sessions need a real date and positive duration.";
+      return "One-off boxing sessions need a real date and positive duration.";
     }
-    return invalidRecurringAnchor ? "Weekly protected anchors need a weekday and positive duration." : null;
+    return invalidRecurringAnchor ? "Weekly boxing sessions need a weekday and positive duration." : null;
   }
   if (stepIndex === 6) {
     return Number.isInteger(draft.safety.ageYears) && draft.safety.ageYears >= 5 && draft.safety.ageYears <= 80 ? null : "Age is required for safety screening.";

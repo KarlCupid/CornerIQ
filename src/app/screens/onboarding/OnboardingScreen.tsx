@@ -33,7 +33,7 @@ function stepWhy(stepIndex: number): string {
     case 2:
       return "Required: equipment and availability can be simple. none/bodyweight is valid if that is the setup.";
     case 3:
-      return "Optional but recommended: protected anchors tell CornerIQ what boxing work must stay first.";
+      return "Optional but recommended: boxing sessions you add tell CornerIQ what work must stay first.";
     case 4:
       return "Required choice, optional tracking: cycle support is private, symptom-aware, and not fertility tracking.";
     case 5:
@@ -55,7 +55,7 @@ function goalSummary(draft: OnboardingDraft): string {
   if (draft.goal.phase === "maintenance_recovery") {
     return "Finishing setup will start a maintenance/recovery phase. Safety and consistency stay ahead of performance or weight-class pressure.";
   }
-  return "Finishing setup will start a build phase. The engine will protect boxing anchors and place generated training around them.";
+  return "Finishing setup will start a build phase. CornerIQ will protect boxing sessions and place support workouts around them.";
 }
 
 export function OnboardingScreen({ asOfDate, busy, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {

@@ -11,7 +11,7 @@ All scenarios resolve through `resolvePerformanceState` and the existing engine-
 | Persona | Automated status | Notes |
 | --- | --- | --- |
 | Amateur novice build phase | Passed | Confirms novice build support resolves without generic fitness defaults. |
-| Amateur open with sparring anchors | Passed | Protected sparring can exist as a manual anchor; generated support stays easy and secondary. |
+| Amateur open with fixed sparring sessions | Passed | Scheduled sparring can exist as a manual fixed session; generated support stays easy and secondary. |
 | Amateur tournament daily weigh-ins | Passed | Tournament Fuel and Plan context remain visible without unsafe weight-pressure copy. |
 | Pro camp day-before weigh-in | Passed | Pro fight context and day-before weigh-in rules resolve through the engine. |
 | Same-day weigh-in amateur | Passed | Amateur same-day weigh-in context resolves without acute unsafe instructions. |
@@ -46,7 +46,7 @@ Additional static scans in `src/tests/static/betaSafetyStatic.test.ts` cover uns
 - Workout completion was functional but dense. Copy now makes the low-friction path explicit: session RPE is enough, blank exercise rows become `prescribed_only`, skipped sessions do not save exercise rows, and pain notes help avoid automatic progression.
 - Plan adjustments were safe but read like direct edits. Copy now frames buttons as engine requests and shows rejected or review-needed explanations in a risk banner.
 - Feedback and error reporting were present but needed clearer boundaries. Copy now states that feedback is not emergency support, signed-out issue reporting requires sign-in, and recent feedback has a clearer empty state.
-- Generated support around a protected sparring anchor now uses neutral "protected boxing support" copy while still allowing protected sparring to be logged manually.
+- Generated support around a scheduled sparring session now uses neutral fixed-session support copy while still allowing sparring to be logged manually.
 
 ## Known Risks For Human Beta Sessions
 
@@ -76,8 +76,8 @@ These remain deferred and were not added or covered as product flows in this pas
 
 - Ask testers to use the quick-log forms with only the required fields first, then ask whether optional fields felt safe to skip.
 - In workout completion, ask testers to complete once with only session RPE and once with one exercise row, then compare friction.
-- In Plan Adjustments, ask testers what they think "Protect this day," "Mark unavailable," "Request deload," and "Restore engine plan" will do before pressing anything.
-- For the sparring-anchor persona, remind facilitators that sparring is a manually logged protected anchor, not generated work.
+- In Plan Adjustments, ask testers what they think "Add fixed boxing," "Mark unavailable," "Request deload," and "Restore plan" will do before pressing anything.
+- For the fixed-sparring persona, remind facilitators that sparring is a manually logged fixed session, not generated work.
 - For high-symptom and red-readiness personas, ask testers to explain in their own words why hard work was reduced or blocked.
 - For feedback reporting, ask testers to submit a non-emergency confusing-moment report, then confirm the recent feedback empty/status state is understandable.
 

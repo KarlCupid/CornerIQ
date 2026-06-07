@@ -3,7 +3,7 @@ import { riskSummary } from "./explanationCopy";
 
 export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   const hasSparring = state.training.protectedAnchors.some((anchor) => anchor.date === state.asOfDate && anchor.type === "sparring");
-  const title = state.safety.hardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: protect sparring" : "Today: build the boxer";
+  const title = state.safety.hardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: keep sparring quality" : "Today: build the boxer";
   const safetySeverity = state.safety.hardStops[0]?.severity ?? (state.safety.riskFlags.length > 0 ? "caution" : "info");
   const cycleRelevant = state.cycle.trackingEnabled || state.athlete.cycleTrackingPreference === "undecided";
   const firstAppAction =
@@ -14,8 +14,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     state.safety.hardStops.length > 0
       ? "Pause hard training and resolve safety first."
       : hasSparring
-        ? "Keep generated training short around protected boxing."
-        : "Complete the planned generated training session.";
+        ? "Keep the support workout short around boxing you added."
+        : "Complete today's support workout.";
   const decisionStack = [
     {
       label: "Primary action",
@@ -26,8 +26,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     },
     {
       label: "Training",
-      summary: hasSparring ? "Technical work stays protected." : state.training.explanation,
-      why: "Boxing anchors are resolved before generated training is placed.",
+      summary: hasSparring ? "Boxing you added stays fixed." : state.training.explanation,
+      why: "Boxing sessions you added are placed before support workouts.",
       severity: state.training.protectedAnchors.length > 0 ? "info" : "caution",
       confidence: state.training.confidence.level
     },
@@ -41,7 +41,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     {
       label: "Body mass",
       summary: state.bodyMass.trend.logCount7Day < 4 ? "Trend unknown until 4 logs." : state.bodyMass.feasibility.explanation,
-      why: state.bodyMass.trend.logCount7Day < 4 ? "Missing data is unknown, not safe." : state.bodyMass.scaleNoise.explanation,
+      why: state.bodyMass.trend.logCount7Day < 4 ? "Missing logs make the plan less certain." : state.bodyMass.scaleNoise.explanation,
       severity: state.bodyMass.trend.logCount7Day < 4 ? "caution" : "info",
       confidence: state.bodyMass.confidence.level
     },
@@ -58,7 +58,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
       : []),
     {
       label: "Safety",
-      summary: state.safety.hardStops.length > 0 ? state.safety.hardStops[0]?.message ?? "Safety flag blocks the plan." : "No active hard stops.",
+      summary: state.safety.hardStops.length > 0 ? state.safety.hardStops[0]?.message ?? "Safety flag blocks the plan." : "No active safety stops.",
       why: state.safety.explanation,
       severity: safetySeverity,
       confidence: state.confidence.level
@@ -74,7 +74,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
       operatingMode: state.training.dailyOperatingMode.title
     },
     executionGuidance: state.training.dailyOperatingMode.executionGuidance,
-    whyThisMatters: "Your training stays planned. Logging readiness and fuel helps CornerIQ adjust how you execute it. Missing logs lower confidence; they do not remove planned training. Safety evidence can still override the plan.",
+    whyThisMatters: "Your training stays planned. Logging readiness and fuel helps CornerIQ adjust how you do it. Missing logs make the plan less certain; they do not remove planned training. Safety signs can still override the plan.",
     secondaryActions: [
       { label: "Start without logging", action: "start_without_logging" },
       { label: "Log food", action: "log_food" },
@@ -87,7 +87,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
       primaryAction: state.training.dailyOperatingMode.primaryAction,
       why:
         state.safety.hardStops[0]?.explanation ??
-        (hasSparring ? "Protected boxing owns the day, so generated training stays secondary." : state.training.explanation),
+        (hasSparring ? "Boxing you added owns the day, so support work stays secondary." : state.training.explanation),
       optional: "Food, water, pain, and cycle notes add context. Workout-only use still gets useful training."
     },
     whatChanged:
@@ -96,8 +96,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
         : state.cycle.trackingEnabled && state.cycle.symptomBurden === "high"
           ? "Cycle symptoms trimmed optional work."
           : hasSparring
-            ? "Protected sparring moved generated training down."
-            : "Corner Engine resolved today's generated training from current logs.",
+            ? "Scheduled sparring moved support work down."
+            : "CornerIQ built today's workout from current logs.",
     primaryAction:
       state.safety.hardStops.length > 0 ? "Pause hard training and weight-cut guidance." : firstTrainingAction,
     firstAppAction,
@@ -110,7 +110,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     readinessContext: state.readiness.explanation,
     riskSummary: riskSummary(state.safety.riskFlags),
     confidenceLabel: state.confidence.level,
-    why: state.decisionTrace.at(-1)?.rationale ?? "Corner Engine resolved today from canonical athlete state.",
+    why: state.decisionTrace.at(-1)?.rationale ?? "CornerIQ resolved today from current athlete state.",
     quickLogs: ["Readiness", "Body mass", "Food", "Water", "Training RPE", state.cycle.trackingEnabled ? "Cycle symptoms" : "Pain note"].filter(Boolean)
   };
 }

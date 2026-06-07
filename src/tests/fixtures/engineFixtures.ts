@@ -141,7 +141,7 @@ const sparringAnchor: ProtectedWorkout = {
   intensity: "hard",
   protected: true,
   rounds: 6,
-  note: "Protected sparring"
+  note: "Scheduled sparring"
 };
 
 const cycleSpikeLog: CycleLog = {
