@@ -2,40 +2,22 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { DetailedTrainingSession, RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
-import { CollapsedDetailDisclosure, CompactStatusStrip, PrimaryTaskCard } from "../../design/components/FastTask";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
-import { LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
+import { LuminousScreen } from "../../design/components/LuminousScreen";
+import { DashboardCard, DashboardPill, MiniBarChart, TimelineStrip } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
-import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
-import { TopActionCard } from "../../design/components/TopActionCard";
 import { colors, spacing } from "../../design/theme";
+import type { BarVisual, TimelineVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { clamp01 } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
-import { ExerciseHistoryPanel } from "./train/ExerciseHistoryPanel";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 
 export type TrainSection = "today" | "workout" | "progress";
-
-const trainSections: readonly SectionTabItem<TrainSection>[] = [
-  { key: "today", label: "Today" },
-  { key: "workout", label: "Workout" },
-  { key: "progress", label: "Progress" }
-];
-
-function plainTrainCopy(value: string): string {
-  return value
-    .replace(new RegExp("generated boxing " + "training", "gi"), "support workout")
-    .replace(new RegExp("generated " + "training", "gi"), "support workout")
-    .replace(new RegExp("protected " + "anchors?", "gi"), "boxing sessions you added")
-    .replace(new RegExp("protected " + "boxing", "gi"), "fixed boxing")
-    .replace(new RegExp("protected " + "work", "gi"), "boxing work")
-    .replace(new RegExp("prescribed" + "_only", "gi"), "not logged")
-    .replace(new RegExp("structured " + "actuals", "gi"), "extra details");
-}
 
 export interface TrainScreenProps {
   activeWorkout?: TrainWorkoutPlayerSummary | null | undefined;
@@ -60,50 +42,50 @@ export interface TrainWorkoutPlayerSummary {
   title: string;
 }
 
-function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quickLogs: QuickLogActions }) {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <View style={{ gap: spacing.lg }} testID="train-manual-logger-section">
-      <EngineCard>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Log your own training</Text>
-          <Text style={screenStyles.subtle}>Use this for boxing class, roadwork, sparring you already do, or strength work not created by CornerIQ.</Text>
-          <Pressable accessibilityRole="button" accessibilityState={{ selected: open }} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>{open ? "Hide manual training log" : "Show manual training log"}</Text>
-          </Pressable>
-        </View>
-      </EngineCard>
-      {open ? <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} /> : null}
-    </View>
-  );
+function plainTrainCopy(value: string): string {
+  return value
+    .replace(new RegExp("generated boxing " + "training", "gi"), "support workout")
+    .replace(new RegExp("generated " + "training", "gi"), "support workout")
+    .replace(new RegExp("protected " + "anchors?", "gi"), "boxing sessions you added")
+    .replace(new RegExp("protected " + "boxing", "gi"), "fixed boxing")
+    .replace(new RegExp("protected " + "work", "gi"), "boxing work")
+    .replace(new RegExp("prescribed" + "_only", "gi"), "not logged")
+    .replace(new RegExp("structured " + "actuals", "gi"), "extra details");
 }
 
-function sessionPurpose(session: TrainViewModel["sessionCards"][number]): string {
-  if (session.intensity === "easy" || session.intensity === "recovery") {
-    return "Purpose: keep the body ready for boxing without chasing fatigue.";
+function toneForIntensity(intensity: string): VisualTone {
+  if (intensity === "hard" || intensity === "max") {
+    return "orange";
   }
-  const protectedWork = session.protects[0];
-  return protectedWork ? `Purpose: build ${protectedWork.toLowerCase()} while keeping boxing quality first.` : "Purpose: build training capacity around fixed boxing.";
-}
-
-function flowAccent(index: number): LuminousAccent {
-  return (["blue", "purple", "orange", "green"] as const)[index % 4] ?? "blue";
-}
-
-function sessionMetricValue(viewModel: TrainViewModel): string {
-  const count = viewModel.sessionCards.length;
-  if (count === 0) {
-    return "No session";
+  if (intensity === "easy" || intensity === "recovery") {
+    return "green";
   }
-  return `${count} session${count === 1 ? "" : "s"}`;
+  return "blue";
 }
 
-function fuelMetricValue(viewModel: TrainViewModel): string {
-  const demand = viewModel.sessionCards[0]?.fuelDemand;
-  if (!demand) {
-    return "Fuel check";
+function currentWeekBars(viewModel: TrainViewModel): readonly BarVisual[] {
+  const maxMinutes = Math.max(1, ...viewModel.weeklyWorkoutCards.map((session) => session.durationMinutes));
+  return viewModel.weeklyWorkoutCards.slice(0, 7).map((session) => ({
+    label: session.label.split(" ")[0]?.slice(0, 3).toUpperCase() ?? session.date.slice(5),
+    value: session.durationMinutes,
+    valueLabel: `${session.durationMinutes} min`,
+    ratio: clamp01(session.durationMinutes / maxMinutes),
+    tone: toneForIntensity(session.intensity),
+    faded: session.date < (viewModel.todayGeneratedSessions[0]?.date ?? "")
+  }));
+}
+
+function weeklyTimeline(viewModel: TrainViewModel): readonly TimelineVisual[] {
+  const sessions = viewModel.weeklyWorkoutCards.slice(0, 4);
+  if (sessions.length === 0) {
+    return [{ label: "Week", title: "No support workout", subtitle: "Log boxing if it happens", tone: "muted" }];
   }
-  return `${demand.charAt(0).toUpperCase()}${demand.slice(1)} fuel demand`;
+  return sessions.map((session) => ({
+    label: session.label.split(" ")[0]?.slice(0, 3).toUpperCase() ?? session.date.slice(5),
+    title: session.title,
+    subtitle: `${session.durationMinutes} min - ${session.intensity}`,
+    tone: toneForIntensity(session.intensity)
+  }));
 }
 
 function startWorkoutBlockedReason(viewModel: TrainViewModel, session: DetailedTrainingSession): string | undefined {
@@ -132,111 +114,99 @@ function WorkoutInProgressCard({
   status: WorkoutPlayerStatus;
 }) {
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="train-workout-in-progress-card">
-        <Text style={screenStyles.sectionTitle}>Workout in progress</Text>
-        <Text style={screenStyles.body}>{sessionTitle}</Text>
-        <Text style={screenStyles.subtle}>Status: {status.replace(/_/g, " ")}. Progress stays available in the full-screen workout surface while the app session remains mounted.</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <Pressable accessibilityRole="button" onPress={onResume} style={screenStyles.button}>
-            <Text style={screenStyles.buttonText}>Resume workout</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={onDiscard} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>Discard progress</Text>
-          </Pressable>
-        </View>
+    <DashboardCard testID="train-workout-in-progress-card" title="Workout in progress">
+      <Text style={screenStyles.body}>{sessionTitle}</Text>
+      <Text style={screenStyles.subtle}>Status: {status.replace(/_/g, " ")}.</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <Pressable accessibilityRole="button" onPress={onResume} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
+          <Text style={screenStyles.buttonText}>Resume workout</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onDiscard} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
+          <Text style={screenStyles.quietButtonText}>Discard progress</Text>
+        </Pressable>
       </View>
-    </EngineCard>
+    </DashboardCard>
   );
 }
 
-function WorkoutFlowPreview({ session }: { session: TrainViewModel["sessionCards"][number] }) {
-  const label = session.sessionTypeLabel ?? "Support workout";
+function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
+  const roleLabel = viewModel.todayRole.status.replace(/_/g, " ");
   return (
-      <View style={{ gap: spacing.lg }}>
-        <Text style={screenStyles.sectionTitle}>Flow</Text>
-        {session.prescription.slice(0, 4).map((item, index) => (
-          <View key={`flow:${index}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
-            <View
-              style={{
-                alignItems: "center",
-                backgroundColor: "rgba(255, 255, 255, 0.06)",
-                borderColor:
-                  flowAccent(index) === "blue"
-                    ? "rgba(39, 206, 241, 0.36)"
-                    : flowAccent(index) === "purple"
-                      ? "rgba(150, 87, 245, 0.34)"
-                      : flowAccent(index) === "orange"
-                        ? "rgba(255, 148, 72, 0.34)"
-                        : "rgba(56, 226, 138, 0.34)",
-                borderRadius: 16,
-                borderWidth: 1,
-                height: 48,
-                justifyContent: "center",
-                width: 48
-              }}
-            >
-              <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "800" }}>{String(index + 1).padStart(2, "0")}</Text>
-            </View>
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text style={screenStyles.body}>{item}</Text>
-              <Text style={screenStyles.subtle}>{label}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
+    <DashboardCard headerRight={<DashboardPill label={roleLabel} tone={viewModel.riskSummary.length > 0 ? "red" : "blue"} />} testID="train-overview-card" title="Training overview">
+      <Text style={screenStyles.body}>{plainTrainCopy(viewModel.todaySummary)}</Text>
+      <Text style={screenStyles.callout}>{plainTrainCopy(viewModel.todayRole.summary)}</Text>
+      <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.todayRole.explanation)}</Text>
+      <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.blockExplanation)}</Text>
+      <Text style={screenStyles.subtle}>Fuel check: {plainTrainCopy(viewModel.preSessionFuelHint)}</Text>
+      <Text style={screenStyles.subtle}>Hydration: {plainTrainCopy(viewModel.hydrationHint)}</Text>
+    </DashboardCard>
   );
 }
 
-function WeeklySupportWorkCard({ viewModel }: { viewModel: TrainViewModel }) {
-  const generation = viewModel.supportGenerationSummary;
-  if (viewModel.weeklyWorkoutCards.length === 0 && generation.blockedGenerationReasons.length === 0) {
+function WorkoutSummaryCard({ viewModel }: { viewModel: TrainViewModel }) {
+  const card = viewModel.sessionCards[0];
+  const generated = viewModel.todayGeneratedSessions[0] ?? viewModel.nextGeneratedSession;
+  if (!card && !generated) {
     return null;
   }
+  const title = card?.title ?? generated?.title ?? "Support workout";
+  const durationMinutes = card?.durationMinutes ?? generated?.durationMinutes ?? 0;
+  const intensity = card?.intensity ?? generated?.intensity ?? "moderate";
+  const fuelDemand = card?.fuelDemand ?? generated?.fuelDemand ?? "moderate";
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="train-weekly-generated-work">
-        <Text style={screenStyles.sectionTitle}>Support workouts</Text>
-        <Text style={screenStyles.body}>
-          Current week: {generation.actualGeneratedSupportCount}/{generation.targetGeneratedSupportCount} support workout{generation.actualGeneratedSupportCount === 1 ? "" : "s"}.
-        </Text>
-        <Text style={screenStyles.body}>{plainTrainCopy(generation.athleteFacingWeekSummary)}</Text>
-        <Text style={screenStyles.subtle}>Development theme: {generation.weekDevelopmentTheme}</Text>
-        <Text style={screenStyles.subtle}>Today: {generation.todayGeneratedSupportCount} support workout{generation.todayGeneratedSupportCount === 1 ? "" : "s"}.</Text>
-        <Text style={screenStyles.body}>{plainTrainCopy(viewModel.todaySummary)}</Text>
-        {viewModel.weeklyWorkoutCards.length > 0 ? viewModel.weeklyWorkoutCards.map((session) => (
-          <View key={session.id} style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.fieldLabel}>{session.label}</Text>
-            <Text style={screenStyles.body}>{session.sessionTypeLabel ?? "Support workout"}: {session.title}</Text>
-            <Text style={screenStyles.subtle}>{session.summary}</Text>
-          </View>
-        )) : <Text style={screenStyles.subtle}>No current-week support workouts are active.</Text>}
-        {generation.blockedGenerationReasons.map((reason, index) => <Text key={`train-generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {plainTrainCopy(reason)}</Text>)}
-      </View>
-    </EngineCard>
+    <DashboardCard testID="train-workout-summary-card" title="Workout preview">
+      <Text style={screenStyles.fieldLabel}>Generated workout</Text>
+      <Text style={screenStyles.callout}>{plainTrainCopy(title)}</Text>
+      <Text style={screenStyles.body}>{durationMinutes} min, {intensity}. Fuel: {fuelDemand}.</Text>
+      {card?.why ? <Text style={screenStyles.subtle}>Purpose: {plainTrainCopy(card.why)}</Text> : null}
+      {card?.protects && card.protects.length > 0 ? <Text style={screenStyles.subtle}>Boxing benefit: {card.protects.map(plainTrainCopy).join(", ")}</Text> : null}
+      {card?.modifications && card.modifications.length > 0 ? (
+        <View style={{ gap: spacing.xs }}>
+          {card.modifications.slice(0, 3).map((item, index) => <Text key={`train-summary-mod:${index}`} style={screenStyles.subtle}>{plainTrainCopy(item)}</Text>)}
+        </View>
+      ) : null}
+      <Text style={screenStyles.subtle}>Detailed player is unavailable for this session, so log the real workout manually if you complete it.</Text>
+    </DashboardCard>
   );
 }
 
-function ExecutionOverlayDetails({ viewModel }: { viewModel: TrainViewModel }) {
+function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quickLogs: QuickLogActions }) {
+  const [open, setOpen] = React.useState(false);
   return (
-      <View style={{ gap: spacing.sm }} testID="train-execution-overlay-card">
-        <Text style={screenStyles.sectionTitle}>Planned workout</Text>
-        <Text style={screenStyles.body}>{viewModel.executionOverlay.plannedTraining}</Text>
-        <Text style={screenStyles.sectionTitle}>How to do it</Text>
-        {viewModel.executionOverlay.executionGuidance.map((item, index) => <Text key={`train-how-to:${index}`} style={screenStyles.subtle}>{item}</Text>)}
-        {viewModel.executionOverlay.missingDataAdvisories.length > 0 ? (
-          <>
-            <Text style={screenStyles.sectionTitle}>Missing-data advisory</Text>
-            {viewModel.executionOverlay.missingDataAdvisories.map((item, index) => <Text key={`train-missing-advisory:${index}`} style={screenStyles.subtle}>{item}</Text>)}
-          </>
-        ) : null}
-        {viewModel.executionOverlay.safetyOverrideReason ? (
-          <>
-            <Text style={screenStyles.sectionTitle}>Evidence-based safety override</Text>
-            <Text style={screenStyles.body}>{viewModel.executionOverlay.safetyOverrideReason}</Text>
-          </>
-        ) : null}
+    <View style={{ gap: spacing.md }} testID="train-manual-logger-section">
+      <DashboardCard title="Manual boxing log">
+        <Text style={screenStyles.body}>Use this for boxing class, roadwork, boxing sessions you already do, or strength work not created by CornerIQ.</Text>
+        <Text style={screenStyles.subtle}>Free-text load notes are never treated as exact load progression.</Text>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
+          <Text style={screenStyles.quietButtonText}>{open ? "Hide manual log" : "Show manual log"}</Text>
+        </Pressable>
+      </DashboardCard>
+      {open ? <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} /> : null}
+    </View>
+  );
+}
+
+function WeekContextCard({ viewModel }: { viewModel: TrainViewModel }) {
+  const bars = currentWeekBars(viewModel);
+  return (
+    <DashboardCard
+      headerRight={<DashboardPill label={`${viewModel.supportGenerationSummary.actualGeneratedSupportCount}/${viewModel.supportGenerationSummary.targetGeneratedSupportCount} support`} tone="blue" />}
+      testID="train-week-context"
+      title="Next 7 days"
+    >
+      {bars.length > 0 ? <MiniBarChart bars={bars} height={96} referenceLabel="Support load" /> : <TimelineStrip items={weeklyTimeline(viewModel)} />}
+      <Text style={screenStyles.body}>
+        Current week: {viewModel.supportGenerationSummary.actualGeneratedSupportCount}/{viewModel.supportGenerationSummary.targetGeneratedSupportCount} support workouts.
+      </Text>
+      <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.supportGenerationSummary.athleteFacingWeekSummary)}</Text>
+      <View style={{ gap: spacing.xs }}>
+        {viewModel.weeklyWorkoutCards.slice(0, 4).map((session) => (
+          <Text key={`train-week-session:${session.id}`} style={screenStyles.subtle}>
+            {session.date}: {plainTrainCopy(session.title)} ({session.durationMinutes} min)
+          </Text>
+        ))}
       </View>
+    </DashboardCard>
   );
 }
 
@@ -253,27 +223,23 @@ export function TrainScreen({
   onResumeWorkout,
   onStartWorkout,
   quickLogs,
-  recentLogs,
   viewModel
 }: TrainScreenProps) {
-  const [section, setSection] = React.useState<TrainSection>(initialSection ?? "today");
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
-  const [quickLogRequest, setQuickLogRequest] = React.useState<{ key: number; sessionId: string | null }>({ key: 0, sessionId: null });
-  const [planOpenRequest, setPlanOpenRequest] = React.useState<{ key: number; sessionId: string | null }>({ key: 0, sessionId: null });
+
   React.useEffect(() => {
-    if (!initialSection) {
-      return;
+    if (initialSection) {
+      onInitialSectionApplied?.();
     }
-    setSection(initialSection);
-    onInitialSectionApplied?.();
   }, [initialSection, onInitialSectionApplied]);
 
   const detailedSessions = viewModel.detailedTodaySessions
     .map((session) => session.detail)
     .filter((session): session is DetailedTrainingSession => session !== null);
-  const previewOnlyWeeklySession = viewModel.detailedTodaySessions.length === 0
+  const previewOnlyWeeklySession = detailedSessions.length === 0
     ? viewModel.detailedWeeklySessions.find((session) => session.detail !== null)
     : null;
+  const primarySession = detailedSessions[0] ?? previewOnlyWeeklySession?.detail ?? null;
   const pendingStartSession = detailedSessions.find((session) => session.generatedSessionId === pendingStartSessionId) ?? null;
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
 
@@ -290,40 +256,9 @@ export function TrainScreen({
     onStartWorkout?.(sessionDetail);
   };
 
-  const openQuickLog = (sessionDetail: DetailedTrainingSession) => {
-    setSection("workout");
-    setQuickLogRequest((current) => ({ key: current.key + 1, sessionId: sessionDetail.generatedSessionId }));
-  };
-
-  const openPlan = (sessionDetail: DetailedTrainingSession) => {
-    setSection("workout");
-    setPlanOpenRequest((current) => ({ key: current.key + 1, sessionId: sessionDetail.generatedSessionId }));
-  };
-
-  const changeSection = (nextSection: TrainSection) => {
-    setSection(nextSection);
-  };
   return (
     <LuminousScreen testID="train-screen">
-      <ScreenHeader eyebrow="Workout" title={viewModel.title} />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
-      <TopActionCard
-        accent="purple"
-        optional={plainTrainCopy(viewModel.topAction.optional)}
-        primaryAction={plainTrainCopy(viewModel.topAction.primaryAction)}
-        purpose={plainTrainCopy(viewModel.topAction.purpose)}
-        testID="train-top-action-card"
-        title={viewModel.topAction.title}
-        why={plainTrainCopy(viewModel.topAction.why)}
-      />
-      <CompactStatusStrip
-        items={[
-          { accent: "purple", label: "Session", meta: viewModel.todayRole.status.replace(/_/g, " "), value: sessionMetricValue(viewModel) },
-          { accent: "orange", label: "Fuel", meta: "Carbs + water", value: fuelMetricValue(viewModel) }
-        ]}
-        testID="train-compact-status-strip"
-      />
-      <SectionTabs items={trainSections} value={section} onChange={changeSection} />
       {viewModel.riskSummary.length > 0 ? (
         <RiskBanner title="Training safety check" message="Training changes stay blocked or reduced while these safety notes are active." tone="critical">
           <View style={{ gap: spacing.xs }}>
@@ -366,165 +301,37 @@ export function TrainScreen({
           status={activeWorkout.status}
         />
       ) : null}
-      {section === "today" ? (
-        <View style={{ gap: spacing.lg }} testID="train-today-section">
-          {viewModel.sessionCards.length > 0 ? viewModel.sessionCards.map((session, index) => {
-            const detail = viewModel.detailedTodaySessions[index]?.detail ?? null;
-            const blockedReason = detail ? startWorkoutBlockedReason(viewModel, detail) : undefined;
-            return (
-            <View key={`today-session:${index}`} testID={index === 0 ? "train-main-workout-command" : undefined}>
-              <PrimaryTaskCard
-                accent="purple"
-                primaryAction={detail ? "Start workout and follow one step at a time." : "Open workout, then quick log."}
-                primaryButton={
-                  detail
-                    ? {
-                        disabled: busy || Boolean(blockedReason),
-                        label: blockedReason ? "Safety first" : "Start workout",
-                        onPress: () => startWorkout(detail),
-                        summary: blockedReason ? "Start unavailable" : "Follow along"
-                      }
-                    : { disabled: busy, label: "Open workout", onPress: () => changeSection("workout"), summary: "Quick log" }
-                }
-                purpose={`${session.durationMinutes} min, ${session.intensity}. ${sessionPurpose(session)}`}
-                secondaryActions={
-                  detail
-                    ? [
-                        { disabled: busy, label: "Quick log", onPress: () => openQuickLog(detail), summary: "Fast fallback" },
-                        { disabled: busy, label: "Show plan", onPress: () => openPlan(detail), summary: "Collapsed detail" }
-                      ]
-                    : []
-                }
-                testID={index === 0 ? "train-primary-workout-task" : undefined}
-                title={session.title}
-              />
-              {blockedReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{blockedReason}</Text> : null}
-              <CollapsedDetailDisclosure title="Why / safety" summary="Plan context, fuel notes, and safety detail stay hidden unless you need them.">
-                <View style={{ gap: spacing.sm }}>
-                  <Text style={screenStyles.body}>Why: {session.why}</Text>
-                  {session.readinessGate ? <Text style={screenStyles.subtle}>Readiness check: {session.readinessGate}</Text> : null}
-                  {session.fuelingGate ? <Text style={screenStyles.subtle}>Fuel check: {session.fuelingGate}</Text> : null}
-                  {session.hydrationGate ? <Text style={screenStyles.subtle}>Hydration check: {session.hydrationGate}</Text> : null}
-                  {session.prescription.slice(0, 6).map((item, itemIndex) => <Text key={`prescription:${index}:${itemIndex}`} style={screenStyles.subtle}>Plan: {item}</Text>)}
-                  {session.downshiftIf?.slice(0, 2).map((item, itemIndex) => <Text key={`downshift:${index}:${itemIndex}`} style={screenStyles.subtle}>Downshift if: {item}</Text>)}
-                  <Text style={screenStyles.subtle}>{viewModel.postSessionFuelHint}</Text>
-                  <Text style={screenStyles.subtle}>{viewModel.hydrationHint}</Text>
-                  {session.modifications.map((item, itemIndex) => <Text key={`modify:${index}:${itemIndex}`} style={screenStyles.subtle}>Modify: {item}</Text>)}
-                  {session.protects.map((item, itemIndex) => <Text key={`protects:${index}:${itemIndex}`} style={screenStyles.subtle}>Protects: {item}</Text>)}
-                </View>
-              </CollapsedDetailDisclosure>
-            </View>
-          );
-          }) : (
-            <EmptyState title="No support workout today" message={plainTrainCopy(viewModel.todaySummary)} />
-          )}
-          {viewModel.sessionCards[0] ? (
-            <CollapsedDetailDisclosure title="Workout flow" summary="Open for section order when you need the plan before training.">
-              <WorkoutFlowPreview session={viewModel.sessionCards[0]} />
-            </CollapsedDetailDisclosure>
-          ) : null}
-          <CollapsedDetailDisclosure title="Plan context" summary={`${viewModel.todayRole.summary} ${viewModel.protectedAnchorSummary}`}>
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.body}>{viewModel.blockPhase.replaceAll("_", " ")} - {viewModel.blockGoal}</Text>
-              <Text style={screenStyles.body}>{viewModel.blockExplanation}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.todayRole.explanation}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.analytics.nextBestTrainingAction}</Text>
-            </View>
-          </CollapsedDetailDisclosure>
-          {viewModel.cycleTrainingDecision.status !== "none" ? (
-          <EngineCard>
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Cycle context</Text>
-              <Text style={screenStyles.body}>{viewModel.cycleTrainingDecision.summary}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.cycleTrainingDecision.action}</Text>
-            </View>
-          </EngineCard>
-          ) : null}
+      <TrainingOverviewCard viewModel={viewModel} />
+      {primarySession ? (
+        <View testID="train-workout-section">
+          <WorkoutDetailPanel
+            busy={busy}
+            completionActions={completionActions}
+            completionMessage={completionMessage}
+            onOpenFuel={onOpenFuelAfterWorkout}
+            onStartWorkout={previewOnlyWeeklySession ? undefined : () => startWorkout(primarySession)}
+            previewOnlyReason={previewOnlyWeeklySession ? `Scheduled for ${previewOnlyWeeklySession.date}. Do not pull future support work forward from Plan.` : undefined}
+            session={primarySession}
+            startWorkoutDisabledReason={previewOnlyWeeklySession ? undefined : startWorkoutBlockedReason(viewModel, primarySession)}
+            trainViewModel={viewModel}
+          />
         </View>
-      ) : null}
-      {section === "workout" ? (
-        <View style={{ gap: spacing.lg }} testID="train-workout-section">
-          {viewModel.detailedTodaySessions.length > 0 ? viewModel.detailedTodaySessions.map((session) => (
-            session.detail ? (
-              <WorkoutDetailPanel
-                busy={busy}
-                completionActions={completionActions}
-                completionMessage={completionMessage}
-                key={session.generatedSessionId}
-                onOpenFuel={onOpenFuelAfterWorkout}
-                onStartWorkout={() => startWorkout(session.detail!)}
-                planOpenRequestKey={planOpenRequest.sessionId === session.generatedSessionId ? planOpenRequest.key : 0}
-                quickLogOpenRequestKey={quickLogRequest.sessionId === session.generatedSessionId ? quickLogRequest.key : 0}
-                session={session.detail}
-                startWorkoutDisabledReason={startWorkoutBlockedReason(viewModel, session.detail)}
-                trainViewModel={viewModel}
-              />
-            ) : (
-              <EngineCard key={session.generatedSessionId}>
-                <View style={{ gap: spacing.sm }}>
-                  <Text style={screenStyles.sectionTitle}>{session.title}</Text>
-                  {session.firstExercises.map((item, index) => <Text key={`first-exercise:${session.generatedSessionId}:${index}`} style={screenStyles.body}>{item}</Text>)}
-                  <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
-                  {session.safetyNotes.map((note, index) => <Text key={`fallback-safety:${session.generatedSessionId}:${index}`} style={screenStyles.subtle}>{note}</Text>)}
-                </View>
-              </EngineCard>
-            )
-          )) : previewOnlyWeeklySession?.detail ? (
-            <View style={{ gap: spacing.md }}>
-              <EmptyState title="No workout detail today" message="No support workout detail is due today. The next generated support workout is shown as a preview only." />
-              <WorkoutDetailPanel
-                busy={busy}
-                key={previewOnlyWeeklySession.generatedSessionId}
-                previewOnlyReason={`Scheduled for ${previewOnlyWeeklySession.date}. Do not pull future support work forward from Plan.`}
-                session={previewOnlyWeeklySession.detail}
-                trainViewModel={viewModel}
-              />
-            </View>
-          ) : <EmptyState title="No workout detail today" message="No support workout detail is due today. Future work should not be pulled forward from Plan. Log boxing if it happens; otherwise this section can wait." />}
-          <CollapsedDetailDisclosure title="How to do it" summary="Planned workout and missing-log notes stay collapsed by default.">
-            <ExecutionOverlayDetails viewModel={viewModel} />
-          </CollapsedDetailDisclosure>
-          <ManualTrainingLoggerSection busy={busy} quickLogs={quickLogs} />
+      ) : viewModel.sessionCards.length > 0 || viewModel.todayGeneratedSessions.length > 0 || viewModel.nextGeneratedSession ? (
+        <View testID="train-workout-section">
+          <WorkoutSummaryCard viewModel={viewModel} />
         </View>
+      ) : (
+        <EmptyState title="No support workout today" message={plainTrainCopy(viewModel.todaySummary)} />
+      )}
+      <WeekContextCard viewModel={viewModel} />
+      {viewModel.cycleTrainingDecision.status !== "none" ? (
+        <DashboardCard title="Cycle context">
+          <Text style={screenStyles.body}>{viewModel.cycleTrainingDecision.summary}</Text>
+          <Text style={screenStyles.subtle}>{viewModel.cycleTrainingDecision.action}</Text>
+        </DashboardCard>
       ) : null}
-      {section === "progress" ? (
-        <View style={{ gap: spacing.lg }} testID="train-progress-section">
-          <WeeklySupportWorkCard viewModel={viewModel} />
-          <EngineCard>
-            <ExerciseHistoryPanel history={viewModel.exerciseHistory} />
-          </EngineCard>
-          <EngineCard>
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Recent training</Text>
-              {recentLogs.training.length > 0 ? recentLogs.training.map((item, index) => <Text key={`recent-training:${index}`} style={screenStyles.body}>{item}</Text>) : <Text style={screenStyles.body}>No recent training logs yet.</Text>}
-              {viewModel.analytics.lastCompletedSession ? <Text style={screenStyles.subtle}>Last completed: {viewModel.analytics.lastCompletedSession}</Text> : null}
-              {viewModel.analytics.lastSkippedSession ? <Text style={screenStyles.subtle}>Last skipped: {viewModel.analytics.lastSkippedSession}</Text> : null}
-              <Text style={screenStyles.subtle}>Completions last 7 days: {viewModel.analytics.completionCountLast7Days}</Text>
-              <Text style={screenStyles.subtle}>Exercise results last 7 days: {viewModel.analytics.exerciseResultCountLast7Days}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.analytics.consistencySummary}</Text>
-            </View>
-          </EngineCard>
-          <EngineCard>
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.sectionTitle}>Progress</Text>
-              <Text style={screenStyles.body}>{viewModel.progressionSummary.summary}</Text>
-              <Text style={screenStyles.subtle}>{viewModel.progressionSummary.status}: {viewModel.progressionSummary.why}</Text>
-              <Text style={screenStyles.callout}>{viewModel.analytics.nextBestTrainingAction}</Text>
-              <Text style={screenStyles.subtle}>Support workouts done/skipped: {viewModel.analytics.generatedSessionsCompleted}/{viewModel.analytics.generatedSessionsSkipped}</Text>
-              <Text style={screenStyles.subtle}>Pain flags: {viewModel.analytics.painFlagCount}</Text>
-              <Text style={screenStyles.subtle}>Exercise status done/partial/not logged: {viewModel.analytics.completedResultCount}/{viewModel.analytics.partialResultCount}/{viewModel.analytics.prescribedOnlyCount}</Text>
-              {viewModel.analytics.averageSessionRpe === null ? null : <Text style={screenStyles.subtle}>Average session RPE: {viewModel.analytics.averageSessionRpe}</Text>}
-              {viewModel.analytics.averageExerciseRpe === null ? null : <Text style={screenStyles.subtle}>Average exercise RPE: {viewModel.analytics.averageExerciseRpe}</Text>}
-              {viewModel.analytics.mostRecentExerciseResultSummary ? <Text style={screenStyles.subtle}>Recent exercise: {viewModel.analytics.mostRecentExerciseResultSummary}</Text> : null}
-              {viewModel.analytics.mostRepeatedExercise ? <Text style={screenStyles.subtle}>Repeated exercise: {viewModel.analytics.mostRepeatedExercise}</Text> : null}
-              {viewModel.analytics.latestStrengthExerciseSummary ? <Text style={screenStyles.subtle}>Strength actual: {viewModel.analytics.latestStrengthExerciseSummary}</Text> : null}
-              <Text style={screenStyles.subtle}>{viewModel.analytics.structuredLoadSummary}</Text>
-              {viewModel.analytics.painFlagExercises.map((exercise, index) => <Text key={`pain-flag-exercise:${index}`} style={screenStyles.subtle}>Pain flag exercise: {exercise}</Text>)}
-              <Text style={screenStyles.subtle}>Today's completion will influence next week's dose, but no numeric load progression is inferred from notes.</Text>
-            </View>
-          </EngineCard>
-        </View>
-      ) : null}
+      <ManualTrainingLoggerSection busy={busy} quickLogs={quickLogs} />
+      {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
     </LuminousScreen>
   );
 }

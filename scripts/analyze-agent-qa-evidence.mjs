@@ -30,10 +30,10 @@ const expectedScreenshots = [
   "12-fuel-food-quick-log-submit.png",
   "13-profile-safety-screen.png",
   "14-profile-safety-history-detail.png",
-  "16-train-today-screen.png",
-  "17-train-workout-no-detail.png",
-  "19-train-progress.png",
-  "20-plan-week-screen.png",
+  "16-train-screen.png",
+  "18-train-manual-log-completion.png",
+  "19-train-week-context.png",
+  "20-plan-screen.png",
   "21-plan-details-screen.png",
   "24-profile-data-controls.png",
   "24-profile-data-delete-submit.png",
@@ -58,9 +58,9 @@ const expectedScenarios = [
 ];
 
 const comprehensionNeedles = [
-  { key: "Today's mission", pattern: /today(?:'|’)?s mission/i },
-  { key: "Fuel action", pattern: /fuel action/i },
-  { key: "Training action", pattern: /training action/i },
+  { key: "Today dashboard", pattern: /today dashboard|readiness score/i },
+  { key: "Fuel dashboard", pattern: /fuel dashboard|macro summary/i },
+  { key: "Training overview", pattern: /training overview/i },
   { key: "Plan action", pattern: /plan action/i },
   { key: "Profile action", pattern: /profile action/i },
   { key: "support outside app", pattern: /qualified support outside the app|contact support outside the app/i },

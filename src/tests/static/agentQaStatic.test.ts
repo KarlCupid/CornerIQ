@@ -309,9 +309,9 @@ describe("agent browser QA static checks", () => {
     expect(scenario).toContain("document.body");
     for (const scope of [
       "today-screen",
-      "fuel-command-section",
-      "train-today-section",
-      "plan-week-section",
+      "fuel-visual-dashboard",
+      "train-overview-card",
+      "plan-visual-dashboard",
       "profile-safety-section",
       "profile-data-section"
     ]) {
@@ -328,7 +328,8 @@ describe("agent browser QA static checks", () => {
 
     expect(panel).not.toMatch(/key=\{(?:summary|decision|event|flag|item)\}/);
     expect(panel).toContain("progression-decision");
-    expect(plan).toContain("current-week-row");
+    expect(plan).toContain("week-detail:${day.date}");
+    expect(plan).toContain("plan-structure:${day.day}");
     expect(scenario).toContain("Encountered two children with the same key");
   });
 

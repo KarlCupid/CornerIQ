@@ -47,7 +47,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
   return {
     title: "Fuel the rounds",
     topAction: {
-      title: "Fuel action",
+      title: "Fuel dashboard",
       purpose: "Use Fuel to cover today's boxing work without weight-class pressure.",
       primaryAction: safetyReviewFirst
         ? state.nutrition.nutritionSafetyReview.professionalReviewCopy

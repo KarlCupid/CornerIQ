@@ -59,7 +59,7 @@ describe("fatigue-first UI copy density static checks", () => {
 
   it("keeps the simplified first-screen action labels present", () => {
     const source = screenFiles.map((file) => readFileSync(file, "utf8")).join("\n");
-    const requiredLabels = ["Quick check-in", "Open workout", "Log food", "Add water", "Food guide", "Why this plan?", "Plan details"];
+    const requiredLabels = ["Quick check-in", "Open workout", "Log meal", "Add water", "Manual inputs", "Plan actions", "Plan details"];
 
     for (const label of requiredLabels) {
       expect(source, `missing ${label}`).toContain(label);

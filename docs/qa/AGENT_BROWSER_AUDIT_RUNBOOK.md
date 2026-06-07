@@ -140,10 +140,10 @@ The full onboarding audit writes these screenshots under `qa-artifacts/browser-a
 - `12-fuel-food-quick-log-submit.png`
 - `13-profile-safety-screen.png`
 - `14-profile-safety-history-detail.png`
-- `16-train-today-screen.png`
-- `17-train-workout-no-detail.png`
-- `19-train-progress.png`
-- `20-plan-week-screen.png`
+- `16-train-screen.png`
+- `18-train-manual-log-completion.png`
+- `19-train-week-context.png`
+- `20-plan-screen.png`
 - `21-plan-details-screen.png`
 - `24-profile-data-controls.png`
 - `24-profile-data-delete-submit.png`

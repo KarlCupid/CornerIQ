@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
-import { accentColor, accentWash, LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
+import { accentColor, LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import {
   BlockOverviewDots,
   DashboardCard,
@@ -19,7 +19,7 @@ import { buildPlanDashboardVisual, type PlanDashboardVisual } from "../../engine
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
-import { FixedBoxingScheduleCard, type FixedBoxingScheduleInitialIntent } from "./plan/FixedBoxingScheduleCard";
+import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
 import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
@@ -121,66 +121,6 @@ function workspaceForGenerationStatus(status: EngineGenerationStatus): PlanActiv
   return null;
 }
 
-function toneForTag(tag: "Protected" | "Support" | "Recovery" | "Open"): LuminousAccent {
-  if (tag === "Protected") {
-    return "green";
-  }
-  if (tag === "Recovery") {
-    return "gold";
-  }
-  if (tag === "Open") {
-    return "purple";
-  }
-  return "blue";
-}
-
-function SmallTag({ label, tone = "blue" }: { label: string; tone?: LuminousAccent | undefined }) {
-  return (
-    <View
-      style={{
-        alignItems: "center",
-        alignSelf: "flex-start",
-        backgroundColor: accentWash[tone],
-        borderColor: `${accentColor[tone]}55`,
-        borderRadius: 999,
-        borderWidth: 1,
-        justifyContent: "center",
-        minHeight: 26,
-        paddingHorizontal: spacing.sm
-      }}
-    >
-      <Text numberOfLines={1} style={{ color: accentColor[tone], fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{label}</Text>
-    </View>
-  );
-}
-
-function WeekPreviewRow({ day }: { day: PlanViewModel["dayPlans"][number] }) {
-  const tagLabel = day.compactTag === "Support" ? day.generatedSessions[0]?.sessionTypeLabel ?? "Training" : friendlyCompactTag(day.compactTag);
-  return (
-    <View
-      style={{
-        alignItems: "center",
-        borderTopColor: "rgba(255, 255, 255, 0.08)",
-        borderTopWidth: 1,
-        flexDirection: "row",
-        gap: spacing.sm,
-        minHeight: 52,
-        paddingVertical: spacing.sm
-      }}
-    >
-      <View style={{ width: 74 }}>
-        <Text numberOfLines={1} style={screenStyles.fieldLabel}>{day.label.split(",")[0] ?? day.label}</Text>
-        <Text numberOfLines={1} style={screenStyles.subtle}>{day.label.split(", ")[1] ?? day.date}</Text>
-      </View>
-      <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-        <Text numberOfLines={1} style={screenStyles.body}>{day.compactSummary}</Text>
-        <SmallTag label={tagLabel} tone={toneForTag(day.compactTag)} />
-      </View>
-      <Text numberOfLines={1} style={screenStyles.subtle}>{day.compactMetric}</Text>
-    </View>
-  );
-}
-
 function DetailsToggle({
   children,
   closedLabel = "Show details",
@@ -202,59 +142,6 @@ function DetailsToggle({
       </Pressable>
       {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
     </View>
-  );
-}
-
-function CurrentModeCard({
-  busy,
-  onChangeGoal,
-  onPreviewNextWeek,
-  viewModel
-}: {
-  busy: boolean;
-  onChangeGoal: () => void;
-  onPreviewNextWeek: () => void;
-  viewModel: PlanViewModel;
-}) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-current-mode-card">
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>{viewModel.topAction.title}</Text>
-          <Text style={screenStyles.body}>{plainPlanCopy(viewModel.topAction.purpose)}</Text>
-          <Text style={screenStyles.subtle}>{plainPlanCopy(viewModel.topAction.primaryAction)}</Text>
-          <Text style={screenStyles.sectionTitle}>Change plan</Text>
-          <Text style={screenStyles.callout}>{viewModel.modeLabel}</Text>
-          <Text style={screenStyles.body}>{viewModel.planLifecycleLabel}. {viewModel.goalSummary}</Text>
-          <Text style={screenStyles.subtle}>Support workout days: {viewModel.scheduleAvailabilitySummary}</Text>
-          <Text style={screenStyles.subtle}>Your boxing comes first.</Text>
-        </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <Pressable accessibilityRole="button" disabled={busy} onPress={onChangeGoal} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.buttonText}>Change goal or schedule</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" disabled={busy} onPress={onPreviewNextWeek} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>Preview next week</Text>
-          </Pressable>
-        </View>
-      </View>
-    </EngineCard>
-  );
-}
-
-function CompactWeekPreviewCard({ viewModel }: { viewModel: PlanViewModel }) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-compact-week-preview-card">
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>This week</Text>
-          <Text style={screenStyles.body}>{viewModel.weeklySummary}</Text>
-        </View>
-        <View>
-          {viewModel.dayPlans.map((day) => <WeekPreviewRow day={day} key={`current-week-row:${day.date}`} />)}
-        </View>
-      </View>
-    </EngineCard>
   );
 }
 
@@ -513,78 +400,6 @@ function BlockHistoryWorkspace({ viewModel }: { viewModel: PlanViewModel }) {
   );
 }
 
-function FixedScheduleSummaryCard({
-  busy,
-  onAddOneOff,
-  onOpen,
-  sessions,
-  weeklyAnchors
-}: {
-  busy: boolean;
-  onAddOneOff: () => void;
-  onOpen: () => void;
-  sessions: PlanViewModel["fixedSchedule"];
-  weeklyAnchors: PlanViewModel["weeklyAnchors"];
-}) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="fixed-boxing-schedule-summary-card">
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
-          <Text style={screenStyles.body}>CornerIQ builds support workouts around these first.</Text>
-          <Text style={screenStyles.callout}>{compactCount(weeklyAnchors.length, "weekly session")} / {compactCount(sessions.length, "dated session")}</Text>
-        </View>
-        <View style={{ gap: spacing.xs }}>
-          {weeklyAnchors.slice(0, 3).map((anchor) => <Text key={`fixed-summary-weekly:${anchor.id}`} style={screenStyles.subtle}>{anchor.label}</Text>)}
-          {sessions.slice(0, 3).map((session) => <Text key={`fixed-summary-session:${session.id}`} style={screenStyles.subtle}>{session.label}: {session.typeLabel}</Text>)}
-          {weeklyAnchors.length === 0 && sessions.length === 0 ? <Text style={screenStyles.subtle}>No fixed boxing sessions are scheduled yet.</Text> : null}
-        </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onOpen} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>Edit fixed schedule</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onAddOneOff} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.buttonText}>Add one-off session</Text>
-          </Pressable>
-        </View>
-      </View>
-    </EngineCard>
-  );
-}
-
-function PlanDetailsLauncherCard({
-  activeWorkspace,
-  onOpenWorkspace,
-  viewModel
-}: {
-  activeWorkspace: PlanActiveWorkspace;
-  onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
-  viewModel: PlanViewModel;
-}) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-details-launcher-card">
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Plan details</Text>
-          <Text style={screenStyles.body}>Week notes, changes, history, and support workout detail stay here.</Text>
-          <Text style={screenStyles.subtle}>{viewModel.warnings.length > 0 ? compactCount(viewModel.warnings.length, "review note") : "No active plan warnings."}</Text>
-        </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <Pressable accessibilityRole="button" accessibilityState={{ selected: activeWorkspace === "plan_details" }} onPress={() => onOpenWorkspace("plan_details")} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>Show Plan details</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityState={{ selected: activeWorkspace === "adjustments" }} onPress={() => onOpenWorkspace("adjustments")} style={[screenStyles.quietButton, { flexBasis: 130, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>Plan changes</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityState={{ selected: activeWorkspace === "block_history" }} onPress={() => onOpenWorkspace("block_history")} style={[screenStyles.quietButton, { flexBasis: 130, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>Block history</Text>
-          </Pressable>
-        </View>
-      </View>
-    </EngineCard>
-  );
-}
-
 function PlanActiveWorkspaceFrame({ children, generationStatus }: React.PropsWithChildren<{ generationStatus: EngineGenerationStatus }>) {
   if (generationStatus === "idle" && !children) {
     return null;
@@ -691,6 +506,45 @@ function PlanVisualDashboard({
   );
 }
 
+function PlanActionCard({
+  busy,
+  onOpenWorkspace,
+  viewModel
+}: {
+  busy: boolean;
+  onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
+  viewModel: PlanViewModel;
+}) {
+  return (
+    <DashboardCard
+      headerRight={<DashboardPill label={`${viewModel.modeLabel} - Week ${viewModel.weekIndex}`} tone="blue" />}
+      testID="plan-action-card"
+      title="Plan actions"
+    >
+      <Text style={screenStyles.body}>{plainPlanCopy(viewModel.athleteFacingWeekSummary)}</Text>
+      {viewModel.fightOrTournamentNote ? <Text style={screenStyles.subtle}>{plainPlanCopy(viewModel.fightOrTournamentNote)}</Text> : null}
+      <Text style={screenStyles.subtle}>{viewModel.warnings.length > 0 ? compactCount(viewModel.warnings.length, "review note") : "No active plan warnings."}</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("goal_wizard")} style={[screenStyles.button, { flexBasis: 180, flexGrow: 1 }]}>
+          <Text style={screenStyles.buttonText}>Change goal or schedule</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("next_week_preview")} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
+          <Text style={screenStyles.quietButtonText}>Preview next week</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("fixed_schedule")} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
+          <Text style={screenStyles.quietButtonText}>Edit fixed schedule</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("adjustments")} style={[screenStyles.quietButton, { flexBasis: 140, flexGrow: 1 }]}>
+          <Text style={screenStyles.quietButtonText}>Plan changes</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("plan_details")} style={[screenStyles.quietButton, { flexBasis: 140, flexGrow: 1 }]}>
+          <Text style={screenStyles.quietButtonText}>Plan details</Text>
+        </Pressable>
+      </View>
+    </DashboardCard>
+  );
+}
+
 export function PlanScreen({
   adjustmentActions,
   adjustmentMessage,
@@ -711,7 +565,6 @@ export function PlanScreen({
 }: PlanScreenProps) {
   const [activeWorkspace, setActiveWorkspace] = React.useState<PlanActiveWorkspace>("overview");
   const [previewDetailsOpen, setPreviewDetailsOpen] = React.useState(false);
-  const [fixedScheduleIntent, setFixedScheduleIntent] = React.useState<FixedBoxingScheduleInitialIntent | null>(null);
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
   const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession || !onSaveRecurringProtectedAnchor || !onDeleteRecurringProtectedAnchor;
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
@@ -730,11 +583,6 @@ export function PlanScreen({
   const closeActiveWorkspace = () => {
     setActiveWorkspace("overview");
     setPreviewDetailsOpen(false);
-  };
-
-  const openFixedScheduleAdd = () => {
-    setActiveWorkspace("fixed_schedule");
-    setFixedScheduleIntent((current) => ({ id: (current?.id ?? 0) + 1, kind: "add_one_off" }));
   };
 
   const acceptNextWeekPreview = () => {
@@ -786,7 +634,7 @@ export function PlanScreen({
       <FixedBoxingScheduleCard
         asOfDate={asOfDate}
         busy={scheduleBusy}
-        initialIntent={fixedScheduleIntent}
+        initialIntent={null}
         onDelete={onDeleteProtectedSession ?? (async () => undefined)}
         onDeleteWeeklyAnchor={onDeleteRecurringProtectedAnchor ?? (async () => undefined)}
         onSave={onSaveProtectedSession ?? (async () => undefined)}
@@ -818,24 +666,7 @@ export function PlanScreen({
       {adjustmentMessage ? <RiskBanner title="Plan update" message={plainPlanCopy(adjustmentMessage)} tone="info" /> : null}
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
       <PlanVisualDashboard dashboard={dashboard} onAdjustPlan={() => openWorkspace("goal_wizard")} viewModel={viewModel} />
-      <CurrentModeCard
-        busy={busy}
-        onChangeGoal={() => openWorkspace("goal_wizard")}
-        onPreviewNextWeek={openNextWeekPreview}
-        viewModel={viewModel}
-      />
-      <CompactWeekPreviewCard viewModel={viewModel} />
-      {effectiveWorkspace === "next_week_preview" ? null : renderNextWeekPreview(false)}
-      {effectiveWorkspace === "fixed_schedule" ? null : (
-        <FixedScheduleSummaryCard
-          busy={scheduleBusy}
-          onAddOneOff={openFixedScheduleAdd}
-          onOpen={() => openWorkspace("fixed_schedule")}
-          weeklyAnchors={viewModel.weeklyAnchors}
-          sessions={viewModel.fixedSchedule}
-        />
-      )}
-      <PlanDetailsLauncherCard activeWorkspace={effectiveWorkspace} onOpenWorkspace={openWorkspace} viewModel={viewModel} />
+      <PlanActionCard busy={busy} onOpenWorkspace={openWorkspace} viewModel={viewModel} />
     </LuminousScreen>
   );
 }

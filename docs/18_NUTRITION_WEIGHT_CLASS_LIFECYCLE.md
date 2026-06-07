@@ -24,7 +24,7 @@ Primary files:
 - `src/services/supabase/nutritionSafetyReviewRepository.ts`
 - `supabase/functions/review-nutrition-safety/policy.ts`
 - `src/app/screens/FuelScreen.tsx`
-- `src/app/screens/fuel/FuelCommandCards.tsx`
+- `src/app/screens/fuel/NutritionSafetyReviewCard.tsx`
 - `src/app/screens/fuel/NutritionReviewHistoryPanel.tsx`
 - `src/app/screens/fuel/FuelHistoryPanel.tsx`
 - `src/app/screens/fuel/BodyMassTrajectoryPanel.tsx`
@@ -114,12 +114,12 @@ Recent review events are loaded through `loadAthleteJourney` with a bounded repo
 
 ## Review UI And History
 
-Fuel now uses local sections:
+Fuel now uses a dashboard-first screen:
 
-- Command: Fuel Command Card, active Nutrition Safety Review Card, Weight-Class Status Card, Session Fueling Card, active fight-week/rehydration/tournament context when applicable, and fuel quick logs.
-- History: actual-vs-target, recent manual fuel logs, `FuelHistoryCard`, and `FuelHistoryPanel`.
-- Reviews: active review status plus `NutritionReviewHistoryPanel`.
-- Body Mass: `BodyMassTrajectoryCard`, `BodyMassTrajectoryPanel`, and target/cycle context.
+- Dashboard: macro summary, hydration/sodium, meal distribution, body-mass and fueling trend, recovery support, and today's recommendation.
+- Manual logging: `Log meal` and `Add water` open supported quick-log paths without requiring a wearable or food database.
+- Reviews: active review status plus `NutritionSafetyReviewCard` and `NutritionReviewHistoryPanel`.
+- Body Mass: dashboard trend context, target confidence, and cycle scale-noise copy when relevant.
 
 If an active nutrition review exists and the athlete switches away from Command or Reviews, `FuelScreen` renders a RiskBanner at the top. Safety review visibility is therefore not hidden by section state.
 

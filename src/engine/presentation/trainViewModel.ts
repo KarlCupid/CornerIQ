@@ -303,8 +303,8 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       safetyOverrideReason: state.training.dailyOperatingMode.safetyOverrideReason
     },
     topAction: {
-      title: "Training action",
-      purpose: "Use Train for today's support workout and what to log after.",
+      title: "Training overview",
+      purpose: "Use Train for today's support workout, week context, and manual boxing log.",
       primaryAction: primaryTrainingAction,
       why: generationExplanation,
       optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."

@@ -8,7 +8,7 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | --- | --- |
 | Current QA phase | needs_human_review |
 | Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
-| Last QA run result | 2026-06-07 fatigue-first launch UX verification pass: approved `cmd /c npm run qa:agent:ci` passed with 9 browser scenarios, regenerated the QA bundle, and reported 0 blockers, 0 high, and 3 medium human/AI review items. Direct install, typecheck, unit, lint, quality, fixture smoke, coverage, beta/production preflight, and high-severity production audit gates also passed. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
+| Last QA run result | 2026-06-07 Figma screenshot dashboard redesign verification pass: approved `cmd /c npm run qa:agent:ci` passed with 9 browser scenarios, regenerated the 192-file QA bundle, and reported 0 blockers, 0 high, and 3 medium human/AI review items. Direct install, typecheck, unit, lint, quality, beta/production preflight, browser audit, engine-output review, deterministic analysis, contact sheet, and bundle gates passed. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
@@ -29,13 +29,13 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | --- | --- | --- |
 | npm install | automated_pass | `cmd /c npm install` passed; package tree was up to date. |
 | typecheck | automated_pass | `cmd /c npm run typecheck` passed directly and again inside `qa:agent:ci` and `quality`. |
-| tests | automated_pass | `cmd /c npm test` passed directly and again inside `qa:agent:ci`/`quality`; 514 tests passed and 1 live-smoke test skipped. |
+| tests | automated_pass | `cmd /c npm test` passed directly and again inside `qa:agent:ci`/`quality`; 526 tests passed and 1 live-smoke test skipped. |
 | lint | automated_pass | `cmd /c npm run lint` passed directly and again inside `qa:agent:ci`. |
-| quality | automated_pass | `cmd /c npm run quality` passed after the fatigue-first UX edits; 514 tests passed and 1 live-smoke test skipped. |
+| quality | automated_pass | `cmd /c npm run quality` passed after the dashboard redesign edits; 526 tests passed and 1 live-smoke test skipped. |
 | production preflight | automated_pass | `cmd /c npm run preflight:production` passed directly and again inside `qa:agent:ci`. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed and the bundle was regenerated under `qa-artifacts/`. |
+| agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. |
 
 ### B. Auth and account
 
@@ -71,8 +71,8 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| first action obvious within 5 seconds | human_review_required | Automation checks the fatigue-first Today surface: mission, "Do this now", three quick actions (`Quick check-in`, `Log food`, `Open workout`), and collapsed logs/why detail. Real boxer comprehension remains human-only. |
-| primary action clarity | human_review_required | Automation checks Today quick actions and plan rationale before optional/history detail; real boxer comprehension remains human-only. |
+| first action obvious within 5 seconds | human_review_required | Automation checks the redesigned Today dashboard: readiness, weekly load, fuel status, training decision, manual inputs, and quick actions (`Quick check-in`, `Log food`, `Open workout`). Real boxer comprehension remains human-only. |
+| primary action clarity | human_review_required | Automation checks Today dashboard actions and plan rationale without restoring the old mission/detail surfaces; real boxer comprehension remains human-only. |
 | why disclosure | automated_pass | Browser audit requires Today evidence. |
 | quick logs visible | automated_pass | Browser audit requires the first Today surface to stay at three quick actions, then opens `Quick check-in` to verify readiness, body mass, hydration, and manual form paths. |
 | quick logs use 1-5 explanations where relevant | human_review_required | Text evidence is present; real boxer interpretation remains human-only. |
@@ -86,7 +86,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | command visible | automated_pass | Fuel audit. |
-| daily macro targets visible | automated_pass | Fuel audit checks the first-view action/logging path, then opens `Food guide` and `More fuel info` to verify targets, context, history, and missing/weak input copy where available. |
+| daily macro targets visible | automated_pass | Fuel audit checks the redesigned Fuel dashboard, macro summary, hydration/sodium, meal distribution, body-mass trend, recovery support, and manual `Log meal`/`Add water` paths. |
 | first safe action clear | automated_pass | Fuel food logging now says "Add meal/snack" and explains one meal/snack or day total entries add up today; real boxer comprehension remains human_review_required. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
@@ -101,7 +101,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Today/Workout screen visible | automated_pass | Train audit checks one main workout command card, practical Workout detail, completion affordances, and collapsed secondary manual logging/detail. |
+| Today/Workout screen visible | automated_pass | Train audit checks the new Training Overview dashboard, preview-only future generated workouts, manual boxing log completion, next-7-days context, and completion affordances when the generated workout is available today. |
 | generated workout feels boxing-supportive, not generic | human_review_required | Engine report and screenshots pass deterministic scans, cards show concrete prescription lines, and robotic engine copy is collapsed; real boxer usefulness remains human-only. |
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
 | no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
@@ -116,7 +116,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Week visible | automated_pass | Plan audit checks the Week top card plus fixed boxing sessions, support workouts, and rest/recovery separated clearly. |
+| Week visible | automated_pass | Plan audit checks the new Plan dashboard: weekly structure, load balance, energy systems, anchored sessions, risk/spacing, block overview, and Plan actions. |
 | Next Week visible | automated_pass | Plan audit checks a concise top card with goal, planned support count, fixed boxing context, and status; dense detail is collapsed. |
 | Block History visible | automated_pass | Plan audit and static checks cover Block History while avoiding duplicate-prone user-facing string keys. |
 | Adjustments visible | automated_pass | New Plan audit. |

@@ -499,7 +499,7 @@ Goal summary:
 Key changes:
 - Added `fuelCommandTypes` and `fuelCommandEngine` with command center, weight-class status, fight-week plan, rehydration checklist, tournament plan, nutrition safety review, and decision stack.
 - Integrated Fuel command outputs into `NutritionState` and `FuelViewModel`.
-- Updated Fuel screen and added `FuelCommandCards` so primary action, safety review, weight-class status, session fuel, actual intake, hydration, fight-week/tournament/rehydration, quick logs, and recent logs render in that order.
+- Updated Fuel screen with the older fuel-card layout at the time; current launch UI now uses the dashboard-first Fuel screen plus `NutritionSafetyReviewCard`.
 - Added `requestNutritionSafetyReview` service plus `NutritionSafetyReviewRequested` journey event type/schema. The service records review need but does not clear hard stops.
 - Reused existing `nutrition_targets.target_payload` for command snapshot persistence; no `008` migration was added.
 - Extended live smoke to verify persisted nutrition target payload includes command center/weight-class status and excludes tested unsafe terms.

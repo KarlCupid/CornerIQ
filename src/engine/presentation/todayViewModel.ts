@@ -82,8 +82,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
       { label: "Mark not tracking food today", action: "mark_food_not_tracking" }
     ],
     mission: {
-      title: "Today's mission",
-      purpose: "Use Today as the command center for the next useful step.",
+      title: "Today dashboard",
+      purpose: "Use Today as the command center for readiness, fuel, training decision, and manual inputs.",
       primaryAction: state.training.dailyOperatingMode.primaryAction,
       why:
         state.safety.hardStops[0]?.explanation ??

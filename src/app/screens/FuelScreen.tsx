@@ -1,9 +1,8 @@
-import React, { type PropsWithChildren } from "react";
+import React from "react";
 import { Pressable, Text, View } from "react-native";
-import type { FuelContextCard, FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
+import type { FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
-import { EmptyState } from "../../design/components/EmptyState";
-import { LuminousProgressBar, LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
+import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import {
   DashboardCard,
   DashboardPill,
@@ -13,23 +12,10 @@ import {
   RangeGauge,
   TrendLineChart
 } from "../../design/components/PerformanceVisuals";
-import { TopActionCard } from "../../design/components/TopActionCard";
 import { colors, spacing } from "../../design/theme";
 import { buildFuelDashboardVisual, type FuelDashboardVisual } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
-import {
-  FightWeekFuelCard,
-  BodyMassTrajectoryCard,
-  FuelCommandCard,
-  FuelHistoryCard,
-  NutritionSafetyReviewCard,
-  RehydrationChecklistCard,
-  SessionFuelingCard,
-  TournamentFuelCard,
-  WeightClassStatusCard
-} from "./fuel/FuelCommandCards";
-import { BodyMassTrajectoryPanel } from "./fuel/BodyMassTrajectoryPanel";
-import { FuelHistoryPanel } from "./fuel/FuelHistoryPanel";
+import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
@@ -47,63 +33,6 @@ export interface FuelScreenProps {
 
 export type FuelFocusIntent = "action" | "log_food" | "log_hydration" | "safety_review";
 
-function CollapsibleFuelSection({
-  children,
-  defaultOpen = false,
-  summary,
-  testID,
-  title
-}: PropsWithChildren<{
-  defaultOpen?: boolean | undefined;
-  summary: string;
-  testID: string;
-  title: string;
-}>) {
-  const [open, setOpen] = React.useState(defaultOpen);
-  React.useEffect(() => {
-    if (defaultOpen) {
-      setOpen(true);
-    }
-  }, [defaultOpen]);
-  return (
-    <View style={{ gap: spacing.sm }}>
-      <Pressable
-        accessibilityHint={open ? `${title} is visible.` : `Open ${title}.`}
-        accessibilityRole="button"
-        accessibilityState={{ selected: open }}
-        onPress={() => setOpen((value) => !value)}
-        style={screenStyles.quietButton}
-      >
-        <Text style={screenStyles.quietButtonText}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
-      </Pressable>
-      <Text style={screenStyles.subtle}>{summary}</Text>
-      {open ? <View style={{ gap: spacing.lg }} testID={testID}>{children}</View> : null}
-    </View>
-  );
-}
-
-function progressRatio(logged: string, target: string): number {
-  const loggedNumber = Number.parseFloat(logged.replace(/,/g, ""));
-  const targetNumber = Number.parseFloat(target.replace(/,/g, ""));
-  if (!Number.isFinite(loggedNumber) || !Number.isFinite(targetNumber) || targetNumber <= 0) {
-    return 0.42;
-  }
-  return loggedNumber / targetNumber;
-}
-
-function macroAccent(label: string): LuminousAccent {
-  if (/protein/i.test(label)) {
-    return "green";
-  }
-  if (/carb|water/i.test(label)) {
-    return "blue";
-  }
-  if (/fat|fiber/i.test(label)) {
-    return "gold";
-  }
-  return "orange";
-}
-
 function plainFuelCopy(value: string): string {
   return value
     .replace(new RegExp("target " + "confidence", "gi"), "how sure we are")
@@ -112,94 +41,6 @@ function plainFuelCopy(value: string): string {
     .replace(new RegExp("under-" + "fueling", "gi"), "too little food")
     .replace(new RegExp("body-" + "mass context", "gi"), "weight trend")
     .replace(new RegExp("hard " + "stop", "gi"), "safety stop");
-}
-
-function foodGuideSummary(viewModel: FuelViewModel, safetyReviewActive: boolean): string {
-  if (safetyReviewActive) {
-    return "Stopped for safety.";
-  }
-  if (viewModel.macroTargets.targetConfidence.missingInputs.length > 0 || viewModel.macroTargets.targetConfidence.status !== "confident") {
-    return "Rough guide. Add weight/logs to improve it.";
-  }
-  return "Good enough for today.";
-}
-
-function loggedIsZero(value: string): boolean {
-  const loggedNumber = Number.parseFloat(value.replace(/,/g, ""));
-  return Number.isFinite(loggedNumber) && loggedNumber === 0;
-}
-
-function FuelStartHereCard({ viewModel }: { viewModel: FuelViewModel }) {
-  return (
-    <TopActionCard
-      accent="orange"
-      optional={viewModel.topAction.optional}
-      primaryAction={viewModel.topAction.primaryAction}
-      purpose={viewModel.topAction.purpose}
-      testID="fuel-top-action-card"
-      title={viewModel.topAction.title}
-      why={viewModel.topAction.why}
-    />
-  );
-}
-
-function TodayFuelPriorityCard({ viewModel }: { viewModel: FuelViewModel }) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="fuel-today-priority">
-        <Text style={screenStyles.sectionTitle}>What to do now</Text>
-        <Text style={screenStyles.callout}>{viewModel.commandCenter.primaryFuelAction}</Text>
-        <Text style={screenStyles.body}>{viewModel.commandCenter.sessionFuelAction}</Text>
-        {viewModel.trainingDemandHandoff.missingFoodLogAdvisory ? <Text style={screenStyles.subtle}>{viewModel.trainingDemandHandoff.missingFoodLogAdvisory}</Text> : null}
-      </View>
-    </EngineCard>
-  );
-}
-
-function FuelContextCardView({ card }: { card: FuelContextCard }) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>{card.title}</Text>
-        <Text style={screenStyles.body}>{card.summary}</Text>
-        {card.actions.map((item, index) => <Text key={`fuel-context-action:${index}`} style={screenStyles.subtle}>{item}</Text>)}
-      </View>
-    </EngineCard>
-  );
-}
-
-function FuelMacroTargetsCard({ recentLogs, viewModel }: { recentLogs: RecentLogsViewModel; viewModel: FuelViewModel }) {
-  const noFoodLogged = recentLogs.foodToday.entryCount === 0 || viewModel.macroTargets.progress.every((item) => loggedIsZero(item.logged));
-  const statusLine = noFoodLogged ? "No food logged yet" : `How sure we are: ${viewModel.macroTargets.confidence}`;
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="fuel-macro-target-card">
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Food guide</Text>
-          <Text style={screenStyles.fieldLabel}>Why</Text>
-          <Text style={screenStyles.body}>{plainFuelCopy(viewModel.macroTargets.why)}</Text>
-          <Text style={screenStyles.callout}>{foodGuideSummary(viewModel, false)}</Text>
-          {viewModel.macroTargets.targetConfidence.reasons.slice(0, 3).map((reason, index) => <Text key={`fuel-target-reason:${index}`} style={screenStyles.subtle}>{plainFuelCopy(reason)}</Text>)}
-          {viewModel.macroTargets.targetConfidence.missingInputs.length > 0 ? (
-            <Text style={screenStyles.subtle}>Missing logs: {viewModel.macroTargets.targetConfidence.missingInputs.join(", ")}</Text>
-          ) : null}
-          <Text style={screenStyles.subtle}>Logs help compare what happened.</Text>
-          <Text style={screenStyles.subtle}>{statusLine}. {plainFuelCopy(viewModel.macroTargets.logStatus)}</Text>
-        </View>
-        <View style={{ gap: spacing.md }}>
-          {viewModel.macroTargets.progress.map((item, index) => (
-            <View key={`fuel-progress:${index}`} style={{ gap: spacing.xs }}>
-              <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
-                <Text style={[screenStyles.fieldLabel, { flexShrink: 1, minWidth: 0 }]}>{item.label}</Text>
-                <Text style={[screenStyles.subtle, { color: colors.canvas, flexShrink: 1, minWidth: 0, textAlign: "right" }]}>{item.logged} / {item.target}</Text>
-              </View>
-              <LuminousProgressBar accent={macroAccent(item.label)} progress={progressRatio(item.logged, item.target)} />
-            </View>
-          ))}
-        </View>
-      </View>
-    </EngineCard>
-  );
 }
 
 function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quickLogs: QuickLogActions; viewModel: FuelViewModel }) {
@@ -273,46 +114,6 @@ function FuelLogActionSection({
       {primaryCard}
       {secondaryCard}
     </View>
-  );
-}
-
-function ActualIntakeCard({ viewModel }: { viewModel: FuelViewModel }) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>{viewModel.actualIntakeSummary.title}</Text>
-        <Text style={screenStyles.body}>{viewModel.actualIntakeSummary.summary}</Text>
-        <Text style={screenStyles.subtle}>How sure we are: {viewModel.actualIntakeSummary.confidence}. One day of food logging informs context only; the guide still comes from CornerIQ.</Text>
-        {viewModel.actualIntakeSummary.rows.map((item, index) => <Text key={`actual-intake:${index}`} style={screenStyles.subtle}>{item}</Text>)}
-      </View>
-    </EngineCard>
-  );
-}
-
-function HydrationContextCard({ viewModel }: { viewModel: FuelViewModel }) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Hydration target context</Text>
-        <Text style={screenStyles.body}>{viewModel.commandCenter.hydrationAction}</Text>
-        <Text style={screenStyles.subtle}>{viewModel.hydrationSummary}</Text>
-      </View>
-    </EngineCard>
-  );
-}
-
-function RecentFuelLogsCard({ recentLogs }: { recentLogs: RecentLogsViewModel }) {
-  if (recentLogs.fuel.length === 0) {
-    return <EmptyState title="No recent fuel logs" message="Food or hydration history is missing. It matters because Fuel confidence is lower without real intake context. Log food or water when you have it; targets stay engine-led." />;
-  }
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Recent fuel logs</Text>
-        <Text style={screenStyles.body}>{recentLogs.foodLogCountToday}</Text>
-        {recentLogs.fuel.map((item, index) => <Text key={`recent-fuel:${index}`} style={screenStyles.subtle}>{item}</Text>)}
-      </View>
-    </EngineCard>
   );
 }
 
@@ -463,60 +264,39 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         ? "food"
         : "water";
   const logSection = <FuelLogActionSection busy={busy} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />;
-  const targetsDefaultOpen = safetyReviewActive || Boolean(viewModel.underFuelingRisk);
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
+  const showLogSection = appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration";
   return (
     <LuminousScreen testID="fuel-screen">
       <ScreenHeader eyebrow="Today" title="Fuel" />
-      <View style={{ gap: spacing.lg }} testID="fuel-command-section">
-        <FuelVisualDashboard
-          dashboard={dashboard}
-          onLogHydration={() => setAppliedFocusIntent("log_hydration")}
-          onLogMeal={() => setAppliedFocusIntent("log_food")}
+      <FuelVisualDashboard
+        dashboard={dashboard}
+        onLogHydration={() => setAppliedFocusIntent("log_hydration")}
+        onLogMeal={() => setAppliedFocusIntent("log_food")}
+      />
+      {safetyReviewActive ? (
+        <FuelSafetyReviewSection
+          message={message}
+          onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+          viewModel={viewModel}
         />
-        <Text style={screenStyles.subtle}>{viewModel.title}</Text>
-        <FuelStartHereCard viewModel={viewModel} />
-        {safetyReviewActive ? (
-          <FuelSafetyReviewSection
-            message={message}
-            onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
-            viewModel={viewModel}
-          />
-        ) : null}
-        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? logSection : null}
-        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? null : <TodayFuelPriorityCard viewModel={viewModel} />}
-        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? null : logSection}
-        {appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration" ? <TodayFuelPriorityCard viewModel={viewModel} /> : null}
-        <CollapsibleFuelSection
-          defaultOpen={targetsDefaultOpen}
-          summary={foodGuideSummary(viewModel, safetyReviewActive)}
-          testID="fuel-targets-section"
-          title="Food guide"
-        >
-          <FuelMacroTargetsCard recentLogs={recentLogs} viewModel={viewModel} />
-        </CollapsibleFuelSection>
-      </View>
-      <CollapsibleFuelSection
-        summary="Recent logs, weight trend, and fight-week details stay out of the first action."
-        testID="fuel-command-detail-section"
-        title="More fuel info"
-      >
-        <FuelCommandCard command={viewModel.commandCenter} />
-        <SessionFuelingCard command={viewModel.commandCenter} hitTheseFirst={viewModel.hitTheseFirst} />
-        {viewModel.underFuelingRisk ? <FuelContextCardView card={viewModel.underFuelingRisk} /> : null}
-        <FightWeekFuelCard plan={viewModel.fightWeekFuelPlan} />
-        <RehydrationChecklistCard checklist={viewModel.rehydrationChecklist} />
-        <TournamentFuelCard plan={viewModel.tournamentFuelPlan} />
-        <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} />
-        <ActualIntakeCard viewModel={viewModel} />
-        <FuelHistoryCard history={viewModel.fuelHistory} />
-        <FuelHistoryPanel history={viewModel.fuelHistory} />
-        <HydrationContextCard viewModel={viewModel} />
-        <RecentFuelLogsCard recentLogs={recentLogs} />
-        <BodyMassTrajectoryCard trajectory={viewModel.bodyMassTrajectory} />
-        <BodyMassTrajectoryPanel trajectory={viewModel.bodyMassTrajectory} />
-        <WeightClassStatusCard status={viewModel.weightClassStatus} />
-      </CollapsibleFuelSection>
+      ) : null}
+      {showLogSection ? logSection : null}
+      {showLogSection ? <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} /> : null}
+      {viewModel.underFuelingRisk ? (
+        <EngineCard>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={screenStyles.sectionTitle}>{viewModel.underFuelingRisk.title}</Text>
+            <Text style={screenStyles.body}>{viewModel.underFuelingRisk.summary}</Text>
+            {viewModel.underFuelingRisk.actions.map((item, index) => <Text key={`fuel-under-risk:${index}`} style={screenStyles.subtle}>{plainFuelCopy(item)}</Text>)}
+          </View>
+        </EngineCard>
+      ) : null}
+      {message && !safetyReviewActive ? (
+        <EngineCard>
+          <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{message}</Text>
+        </EngineCard>
+      ) : null}
     </LuminousScreen>
   );
 }

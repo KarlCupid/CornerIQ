@@ -20,24 +20,31 @@ const runtimeGuardFindings: { message: string; testTitle: string; type: string }
 const activeSurfaceTestIds = [
   "auth-screen",
   "onboarding-screen",
-  "today-mission-card",
+  "today-visual-dashboard",
+  "today-readiness-gauge",
+  "today-weekly-load-chart",
+  "today-fuel-status-bars",
+  "today-training-decision-meter",
+  "today-manual-actions",
   "today-screen",
-  "fuel-top-action-card",
-  "fuel-command-section",
-  "fuel-history-section",
+  "fuel-visual-dashboard",
+  "fuel-macro-summary",
+  "fuel-meal-distribution",
+  "fuel-food-status-card",
   "fuel-reviews-section",
-  "fuel-body-mass-section",
   "fuel-screen",
-  "train-top-action-card",
-  "train-today-section",
+  "train-overview-card",
   "train-workout-section",
-  "train-progress-section",
+  "train-week-context",
+  "train-manual-logger-section",
   "train-screen",
-  "plan-top-action-card",
-  "plan-week-section",
-  "plan-next-week-section",
-  "plan-history-section",
-  "plan-adjustments-section",
+  "plan-visual-dashboard",
+  "plan-weekly-structure",
+  "plan-load-balance",
+  "plan-anchor-timeline",
+  "plan-block-overview",
+  "plan-action-card",
+  "plan-active-workspace",
   "plan-screen",
   "profile-top-action-card",
   "profile-athlete-section",
@@ -287,7 +294,7 @@ async function openLocalToday(page: Page) {
 
 async function exerciseTodayQuickLogSaves(page: Page) {
   if ((await page.getByPlaceholder("kg").count()) === 0) {
-    await page.getByTestId("today-quick-action-row").getByRole("button", { name: "Quick check-in" }).click();
+    await page.getByTestId("today-manual-actions").getByRole("button", { name: "Quick check-in" }).click();
   }
 
   const updateBodyMass = page.getByRole("button", { name: "Update body mass" });
@@ -326,22 +333,20 @@ async function expectVisibleText(page: Page, text: string | RegExp) {
   await expect(page.getByText(text).first()).toBeVisible();
 }
 
-async function expectTodayFastTaskSurface(page: Page) {
-  await expect(page.getByTestId("today-mission-card")).toContainText("Today's mission");
-  await expect(page.getByTestId("today-mission-card")).toContainText("Use Today as the command center");
-  await expect(page.getByTestId("today-mission-card")).toContainText("Workout-only use still gets useful training");
-  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Do this now");
-  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Log this if you have 30 seconds");
-  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Quick check-in");
-  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Log food");
-  await expect(page.getByTestId("today-operating-mode-card")).toContainText("Open workout");
-  await expect(page.getByTestId("today-quick-action-row").getByRole("button", { name: "Quick check-in" })).toBeVisible();
-  await expect(page.getByTestId("today-quick-action-row").getByRole("button", { name: "Log food" })).toBeVisible();
-  await expect(page.getByTestId("today-quick-action-row").getByRole("button", { name: "Open workout" })).toBeVisible();
-  await expect(page.getByTestId("today-operating-mode-card")).not.toContainText("Body mass");
-  await expect(page.getByRole("button", { name: "Show More logs" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show Why this plan?" })).toBeVisible();
-  await expect(page.getByTestId("today-screen")).toContainText(/Readiness check due|Readiness summary|ReadinessLogged/);
+async function expectTodayDashboardSurface(page: Page) {
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("READINESS SCORE");
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("WEEKLY TRAINING LOAD");
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("FUEL STATUS");
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("TODAY'S TRAINING DECISION");
+  await expect(page.getByTestId("today-manual-actions")).toContainText("MANUAL INPUTS");
+  await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Quick check-in" })).toBeVisible();
+  await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Log food" })).toBeVisible();
+  await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Open workout" })).toBeVisible();
+  await expect(page.getByTestId("today-manual-actions")).toContainText("Missing data stays unknown, not safe.");
+  await expect(page.getByRole("button", { name: "Show More logs" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Show Why this plan?" })).toHaveCount(0);
+  await expect(page.getByTestId("today-readiness-gauge")).toContainText("READINESS SCORE");
+  await expect(page.getByTestId("today-readiness-gauge")).toContainText(/Logged|Checked|Log readiness/);
 }
 
 async function openTab(page: Page, tabName: "Fuel" | "Profile" | "Train" | "Plan") {
@@ -453,35 +458,28 @@ function expectNoCoachOrReviewerControls(text: string) {
 async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
-  await expectVisibleText(page, "Fuel the rounds");
-  await expect(page.getByTestId("fuel-top-action-card")).toContainText("Fuel action");
-  await expect(page.getByTestId("fuel-top-action-card")).toContainText("Use Fuel to cover today's boxing work");
-  await expect(page.getByTestId("fuel-top-action-card")).toContainText("Log food or water if you have it");
-  await expect(page.getByTestId("fuel-top-action-card")).toContainText("can wait unless a safety note is active");
-  await expect(page.getByRole("button", { name: "Show Food guide" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show More fuel info" })).toBeVisible();
-  await expect(page.getByTestId("fuel-command-section")).toContainText(/Good enough for today|Rough guide\. Add weight\/logs to improve it|Stopped for safety/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toHaveCount(0);
+  await expectVisibleText(page, "Fuel");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("MACRO SUMMARY");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("HYDRATION");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("SODIUM");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("MEAL DISTRIBUTION");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("BODY MASS AND FUELING TREND");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("RECOVERY SUPPORT");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("TODAY'S RECOMMENDATION");
+  await expect(page.getByRole("button", { name: "Show Food guide" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Show More fuel info" })).toHaveCount(0);
   await expect(page.getByTestId("fuel-food-status-card")).toHaveCount(0);
-  await expectVisibleText(page, "What to do now");
-  await expectVisibleText(page, "Fuel the boxing work first");
-  await expectVisibleText(page, "Log food");
+  await expect(page.getByTestId("fuel-log-action-section")).toHaveCount(0);
+  await expectVisibleText(page, "Log meal");
   await expectVisibleText(page, "Add water");
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-visual-dashboard"));
+  await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-screen" });
+
+  await page.getByRole("button", { name: "Log meal" }).click();
+  await expect(page.getByTestId("fuel-log-action-section")).toBeVisible();
   await expectVisibleText(page, "Add a meal, snack, or day total.");
   await expectVisibleText(page, "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.");
   await expect(page.getByRole("button", { name: "Log food" })).toBeVisible();
-  await page.getByRole("button", { name: "Show Food guide" }).click();
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Food guide");
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Why");
-  await expect(page.getByTestId("fuel-macro-target-card")).not.toContainText(/Target status:|provisional|under-fueling evidence/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText("Logs help compare what happened.");
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Calories\s*\d+\s*kcal\s*\/\s*\d+\s*kcal/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Protein\s*\d+g\s*\/\s*\d+g/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Carbs\s*\d+g\s*\/\s*\d+g/i);
-  await expect(page.getByTestId("fuel-macro-target-card")).toContainText(/Fat\s*\d+g\s*\/\s*\d+g/i);
-  await page.getByRole("button", { name: "Show More fuel info" }).click();
-  await expect(page.getByTestId("fuel-command-detail-section")).toContainText("More fuel info");
-  await expect(page.getByTestId("fuel-command-detail-section")).toContainText("Session fueling");
   await expect(page.getByTestId("fuel-food-status-card")).toContainText("Food log status");
   await expect(page.getByTestId("fuel-food-status-card")).toContainText("Too little food for the work is only considered after you say the day is done.");
   await expect(page.getByTestId("fuel-food-status-card")).toContainText("Still logging today");
@@ -489,9 +487,6 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("fuel-food-status-card")).toContainText("I ate but I'm not tracking today");
   await expect(page.getByPlaceholder("Fiber g optional")).toHaveCount(0);
   await expect(page.getByPlaceholder("Sodium mg optional")).toHaveCount(0);
-  await expect(page.getByTestId("fuel-command-section")).not.toContainText("Body-mass trajectory");
-  await expect(page.getByTestId("fuel-command-section")).not.toContainText("Nutrition review history");
-  await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-screen" });
 
   await page.getByPlaceholder("Calories").fill("650");
   await page.getByPlaceholder("Protein g").fill("40");
@@ -503,12 +498,12 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Log food" }).click();
   await expectVisibleText(page, "Food logged. Fuel confidence has more intake context; missing hydration still lowers confidence when absent.");
   await expectVisibleText(page, "Food quick log captured in local E2E mode only.");
-  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-command-section"));
-  await capture(page, testInfo, "Fuel food quick log submit", "12-fuel-food-quick-log-submit.png", { fullPage: false, scopeTestId: "fuel-command-section" });
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-log-action-section"));
+  await capture(page, testInfo, "Fuel food quick log submit", "12-fuel-food-quick-log-submit.png", { fullPage: false, scopeTestId: "fuel-log-action-section" });
 
   await expect(page.getByRole("button", { name: /Show Safety review|Show Targets|Show Food status|Show Body Mass|Show History/ })).toHaveCount(0);
   await expectVisibleText(page, /unknown/i);
-  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-command-detail-section"));
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-screen"));
 }
 
 async function auditProfileSafety(page: Page, testInfo: TestInfo) {
@@ -539,50 +534,47 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
 async function auditTrain(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Train");
-  await expectVisibleText(page, "Train for boxing");
-  await expect(page.getByTestId("train-top-action-card")).toContainText("Training action");
-  await expect(page.getByTestId("train-top-action-card")).toContainText("Use Train for today's support workout");
-  await expect(page.getByTestId("train-top-action-card")).toContainText(/Exercise history and progression can wait/i);
+  await expectVisibleText(page, "TRAINING OVERVIEW");
+  await expect(page.getByTestId("train-overview-card")).toContainText(/Fuel check:/i);
+  await expect(page.getByTestId("train-overview-card")).toContainText(/Hydration:/i);
   await expect(page.getByTestId("train-execution-overlay-card")).toHaveCount(0);
-  const mainWorkoutCount = await page.getByTestId("train-main-workout-command").count();
-  if (mainWorkoutCount > 0) {
-    await expectVisibleText(page, "What to do");
-    await expect(page.getByTestId("train-main-workout-command")).toHaveCount(1);
-    await expect(page.getByTestId("train-main-workout-command")).toContainText("Open workout, then log result.");
-    await expect(page.getByRole("button", { name: "Open workout" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show why / safety" }).first()).toBeVisible();
-    await expect(page.getByTestId("train-today-section")).not.toContainText(/Movement prep|Band external rotation|RPE 3-4|Dynamic warm-up|Easy breathing/i);
-    await page.getByRole("button", { name: "Show why / safety" }).first().click();
-    await expect(page.getByTestId("train-main-workout-command")).toContainText(/Fuel check: (Fuel this session with carbs and fluids before training|Normal meals are enough; keep fluids consistent)/i);
-    await page.getByRole("button", { name: "Show Workout flow" }).click();
-    await expect(page.getByTestId("train-today-section")).toContainText(/Movement prep|Band external rotation|RPE 3-4|Dynamic warm-up|Easy breathing/i);
+  const workoutCount = await page.getByTestId("train-workout-section").count();
+  let generatedQuickLogAvailable = false;
+  if (workoutCount > 0) {
+    await expectVisibleText(page, "WORKOUT PREVIEW");
+    await expect(page.getByRole("button", { name: "Start workout" }).first()).toBeVisible();
+    generatedQuickLogAvailable = await page.getByRole("button", { name: "Quick log" }).first().count() > 0;
+    if (generatedQuickLogAvailable) {
+      await expect(page.getByRole("button", { name: "Quick log" }).first()).toBeVisible();
+    } else {
+      await expect(page.getByTestId("train-workout-section")).toContainText("Do not pull future support work forward from Plan.");
+    }
+    await expect(page.getByRole("button", { name: "Show why and safety" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show workout plan" }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Show why and safety" }).first().click();
+    await expect(page.getByTestId("train-workout-section")).toContainText(/Pain notes help CornerIQ avoid automatic progression/i);
+    await page.getByRole("button", { name: "Show workout plan" }).first().click();
+    await expect(page.getByTestId("train-workout-section")).toContainText("Session plan");
   } else {
-    await expect(page.getByTestId("train-today-section")).toContainText("No support workout today");
+    await expectVisibleText(page, "No support workout today");
   }
-  await openSection(page, "Workout");
-  await page.getByRole("button", { name: "Show How to do it" }).click();
-  await expect(page.getByTestId("train-execution-overlay-card")).toContainText("Planned workout");
-  await expect(page.getByTestId("train-execution-overlay-card")).toContainText("How to do it");
-  await openSection(page, "Today");
-  await expect(page.getByTestId("train-today-section")).not.toContainText("Today's training decision");
-  await expect(page.getByTestId("train-today-section")).not.toContainText("Fuel handoff");
-  await expect(page.getByRole("button", { name: "Show Plan context" })).toBeVisible();
-  expectNoGeneratedContactLanguage(await visiblePageText(page, "train-today-section"));
-  await capture(page, testInfo, "Train Today screen", "16-train-today-screen.png", { scopeTestId: "train-screen" });
+  expectNoGeneratedContactLanguage(await visiblePageText(page, "train-screen"));
+  await capture(page, testInfo, "Train screen", "16-train-screen.png", { scopeTestId: "train-screen" });
 
-  await openSection(page, "Workout");
-  await expectVisibleText(page, "Log your own training");
-  await expectVisibleText(page, "Use this for boxing class, roadwork, sparring you already do, or strength work not created by CornerIQ.");
-  await expect(page.getByRole("button", { name: "Show manual training log" })).toBeVisible();
+  await expectVisibleText(page, "MANUAL BOXING LOG");
+  await expectVisibleText(page, "Use this for boxing class, roadwork, boxing sessions you already do, or strength work not created by CornerIQ.");
+  await expectVisibleText(page, "Free-text load notes are never treated as exact load progression.");
+  await expect(page.getByRole("button", { name: "Show manual log" })).toBeVisible();
   await expect(page.getByPlaceholder("Session RPE 1-10", { exact: true })).toHaveCount(0);
-  if (mainWorkoutCount > 0) {
-    await expect(page.getByRole("button", { name: "Log result" })).toBeVisible();
-    await page.getByRole("button", { name: "Log result" }).click();
-    await expectVisibleText(page, "Complete without exercise details when time is tight.");
+  await page.getByRole("button", { name: "Show manual log" }).click();
+  if (workoutCount > 0 && generatedQuickLogAvailable) {
+    await expect(page.getByRole("button", { name: "Quick log" })).toBeVisible();
+    await page.getByRole("button", { name: "Quick log" }).click();
+    await expectVisibleText(page, "Mark workout done without follow-along when time is tight.");
     await expectVisibleText(page, "Session RPE is enough if you are short on time.");
     await expect(page.getByPlaceholder("Session RPE 1-10 optional")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show optional exercise details" })).toBeVisible();
-    await page.getByRole("button", { name: "Show optional exercise details" }).click();
+    await expect(page.getByRole("button", { name: "Add exercise details" })).toBeVisible();
+    await page.getByRole("button", { name: "Add exercise details" }).click();
     await expect(page.getByPlaceholder("Completed sets optional").first()).toBeVisible();
     await expect(page.getByPlaceholder("Exercise RPE optional").first()).toBeVisible();
     expectNoGeneratedContactLanguage(await visiblePageText(page, "train-workout-section"));
@@ -591,53 +583,45 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
     await page.getByPlaceholder("Completed sets optional").first().fill("1");
     await page.getByPlaceholder("Exercise RPE optional").first().fill("5");
     await page.getByPlaceholder("Session RPE 1-10 optional").fill("5");
-    await page.getByRole("button", { name: "Complete without exercise details" }).click();
+    await page.getByRole("button", { name: "Mark workout done" }).click();
     await expectVisibleText(page, "Local E2E workout completion captured locally only.");
     await capture(page, testInfo, "Train Workout completion", "18-train-workout-completion.png", { scopeTestId: "train-workout-section" });
+  } else if (workoutCount > 0) {
+    await expect(page.getByPlaceholder("Duration minutes")).toBeVisible();
+    await expect(page.getByPlaceholder("Session RPE 1-10", { exact: true })).toBeVisible();
+    await page.getByPlaceholder("Duration minutes").fill("45");
+    await page.getByPlaceholder("Session RPE 1-10", { exact: true }).fill("5");
+    await page.getByRole("button", { name: "Log completed session" }).click();
+    await expectVisibleText(page, "Training logged. Plan confidence has more real completion and RPE context.");
+    await capture(page, testInfo, "Train manual log completion", "18-train-manual-log-completion.png", { scopeTestId: "train-screen" });
   } else {
     await expectVisibleText(page, "No workout detail today");
     expectNoGeneratedContactLanguage(await visiblePageText(page, "train-workout-section"));
     await capture(page, testInfo, "Train Workout no-detail", "17-train-workout-no-detail.png", { scopeTestId: "train-workout-section" });
   }
 
-  await openSection(page, "Progress");
-  await expect(page.getByTestId("train-weekly-generated-work")).toContainText("Support workouts");
-  await expect(page.getByTestId("train-weekly-generated-work")).toContainText("Current week:");
-  await expectVisibleText(page, "Exercise history");
-  await expectVisibleText(page, "Latest workout");
-  await expectVisibleText(page, "Key change");
-  await expect(page.getByRole("button", { name: "Show details" })).toBeVisible();
-  const historyText = await visiblePageText(page, "train-progress-section");
-  expect(historyText).not.toContain("Grouped exercises");
-  expect(historyText).not.toContain("Not logged rows");
-  expect(historyText).not.toMatch(/\bexact load progression\b/i);
-  expectNoGeneratedContactLanguage(historyText);
-  await page.getByRole("button", { name: "Show details" }).click();
-  await expectVisibleText(page, "Not logged rows");
-  await expectVisibleText(page, "Pain flags stop automatic progression.");
-  await capture(page, testInfo, "Train Progress", "19-train-progress.png", { scopeTestId: "train-progress-section" });
-
-  await expectVisibleText(page, "Progress");
-  await expectVisibleText(page, "no numeric load progression is inferred from notes");
+  await expect(page.getByTestId("train-week-context")).toContainText("NEXT 7 DAYS");
+  await expect(page.getByTestId("train-week-context")).toContainText("Current week:");
+  await capture(page, testInfo, "Train week context", "19-train-week-context.png", { scopeTestId: "train-week-context" });
+  await expectVisibleText(page, "Free-text load notes are never treated as exact load progression.");
 }
 
 async function auditPlan(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Plan");
   await expectVisibleText(page, "Plan");
-  await expectVisibleText(page, "Change plan");
   await expectVisibleText(page, "Build phase");
-  await expectVisibleText(page, "Plan action");
-  await expectVisibleText(page, "Your boxing comes first");
-  await expectVisibleText(page, "This week");
-  await expectVisibleText(page, "Fixed boxing schedule");
-  await expectVisibleText(page, "Support workouts");
-  await expectVisibleText(page, "Support");
-  await expectVisibleText(page, "Boxing");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("WEEKLY STRUCTURE");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("WEEKLY LOAD BALANCE");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("ENERGY SYSTEMS MIX");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("ANCHORED SESSIONS");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("BLOCK OVERVIEW");
+  await expect(page.getByTestId("plan-action-card")).toContainText("PLAN ACTIONS");
   await expectVisibleText(page, /Preview next week/i);
   await expectVisibleText(page, "Change goal or schedule");
-  await expect(page.getByRole("button", { name: "Show Plan details" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add one-off session" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plan details" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit fixed schedule" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add one-off session" })).toHaveCount(0);
   await expect(page.getByPlaceholder("Contracted weight kg")).toHaveCount(0);
   const firstViewText = await visiblePageText(page, "plan-screen");
   expect(firstViewText).not.toContain("Dates:");
@@ -647,9 +631,12 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   expect(firstViewText).not.toContain("Quality checkpoints:");
   expect(firstViewText).not.toMatch(/generated training|protected anchors?|protected schedule|protected boxing|protected sparring|protected work/i);
   expectNoCoachOrReviewerControls(firstViewText);
-  await capture(page, testInfo, "Plan Week screen", "20-plan-week-screen.png", { scopeTestId: "plan-screen" });
-  await page.getByRole("button", { name: "Show Plan details" }).click();
-  await expectVisibleText(page, /Support workouts are low because boxing you added already creates hard days\./);
+  await capture(page, testInfo, "Plan screen", "20-plan-screen.png", { scopeTestId: "plan-screen" });
+  await page.getByRole("button", { name: "Plan details" }).click();
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("This week details");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("Review notes");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("Block history");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("Plan details");
   await expectVisibleText(page, "Current week:");
   await expectVisibleText(page, "Dates:");
   await expectVisibleText(page, "Titles:");
@@ -852,12 +839,12 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
 
   await page.getByRole("button", { name: "Finish boxer setup" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expectTodayFastTaskSurface(page);
+  await expectTodayDashboardSurface(page);
   await capture(page, testInfo, "Today after real onboarding", "10-today-after-real-onboarding.png", { scopeTestId: "today-screen" });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expectTodayFastTaskSurface(page);
+  await expectTodayDashboardSurface(page);
   await capture(page, testInfo, "Mobile Today after real onboarding", "11-mobile-today-after-real-onboarding.png", { scopeTestId: "today-screen" });
 }
 
@@ -922,7 +909,7 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
 
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expectTodayFastTaskSurface(page);
+  await expectTodayDashboardSurface(page);
   await capture(page, testInfo, "Smoke Today screen", "smoke-03-today-screen.png", { scopeTestId: "today-screen" });
   await exerciseTodayQuickLogSaves(page);
   await capture(page, testInfo, "Smoke Today quick log saves", "smoke-05-today-quick-log-saves.png", { scopeTestId: "today-screen" });
@@ -938,8 +925,8 @@ test("mobile-size browser layout smoke reaches Today", async ({ browser }, testI
   try {
     await openLocalToday(page);
     await expect(page.getByTestId("local-e2e-banner")).toBeVisible();
-    await expect(page.getByTestId("today-mission-card")).toBeVisible();
-    await expectTodayFastTaskSurface(page);
+    await expect(page.getByTestId("today-visual-dashboard")).toBeVisible();
+    await expectTodayDashboardSurface(page);
     await capture(page, testInfo, "Mobile Today smoke", "smoke-04-mobile-today-screen.png", { scopeTestId: "today-screen" });
   } finally {
     await context.close();
