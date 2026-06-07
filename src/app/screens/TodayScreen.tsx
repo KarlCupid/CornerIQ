@@ -453,6 +453,13 @@ export function TodayScreen({
   return (
     <LuminousScreen testID="today-screen">
       <ScreenHeader eyebrow="Daily mission" title="Today" />
+      <TodayDashboardSection
+        busy={busy}
+        dashboard={dashboard}
+        onOpenFuel={onOpenFuel}
+        onOpenQuickCheck={openQuickCheck}
+        onPrimaryAction={runDashboardPrimaryAction}
+      />
       <TopActionCard
         accent="blue"
         optional={viewModel.mission.optional}
@@ -472,13 +479,6 @@ export function TodayScreen({
           </View>
         </RiskBanner>
       ) : null}
-      <TodayDashboardSection
-        busy={busy}
-        dashboard={dashboard}
-        onOpenFuel={onOpenFuel}
-        onOpenQuickCheck={openQuickCheck}
-        onPrimaryAction={runDashboardPrimaryAction}
-      />
       <CompactStatusStrip
         items={[
           { accent: readiness.accent, label: "Readiness", meta: readiness.meta, value: readiness.value },

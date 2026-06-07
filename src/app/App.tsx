@@ -15,10 +15,10 @@ import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion, type WorkoutCompletionActions } from "../hooks/useWorkoutCompletion";
-import type { CycleSymptom, PerformanceState, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../engine/core/types";
+import type { CycleSymptom, ISODateString, PerformanceState, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../engine/core/types";
 import { isLocalE2EMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
 import { getPublicRuntimeConfig } from "../services/config/runtimeConfig";
-import { buildLocalE2EPerformanceState, LOCAL_E2E_AS_OF_DATE } from "../services/e2e/localE2EState";
+import { buildLocalE2EPerformanceState, localE2EDefaultAsOfDateForScenario, normalizeLocalE2EScenario, type LocalE2EScenario } from "../services/e2e/localE2EState";
 import { recurringAnchorFromDraft, workoutFromDraft } from "../services/supabase/onboardingService";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 import { colors, spacing } from "../design/theme";
@@ -120,7 +120,32 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   );
 }
 
-function LocalE2EFrame({ children }: { children: React.ReactNode }) {
+interface LocalE2EConfig {
+  asOfDate: ISODateString;
+  scenario: LocalE2EScenario;
+}
+
+function isISODateString(value: string | null): value is ISODateString {
+  return value !== null && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function localE2EUrlParams(): URLSearchParams {
+  const locationLike = "location" in globalThis ? (globalThis.location as { search?: unknown }) : null;
+  const search = typeof locationLike?.search === "string" ? locationLike.search : "";
+  return new URLSearchParams(search);
+}
+
+function readLocalE2EConfig(): LocalE2EConfig {
+  const params = localE2EUrlParams();
+  const scenario = normalizeLocalE2EScenario(params.get("corneriqE2EScenario"));
+  const requestedDate = params.get("corneriqE2EAsOfDate");
+  return {
+    asOfDate: isISODateString(requestedDate) ? requestedDate : localE2EDefaultAsOfDateForScenario(scenario),
+    scenario
+  };
+}
+
+function LocalE2EFrame({ asOfDate, children, scenario }: { asOfDate: ISODateString; children: React.ReactNode; scenario: LocalE2EScenario }) {
   return (
     <View style={{ flex: 1 }} testID="local-e2e-app">
       <View
@@ -133,7 +158,7 @@ function LocalE2EFrame({ children }: { children: React.ReactNode }) {
         testID="local-e2e-banner"
       >
         <Text style={{ color: colors.canvas, fontWeight: "700" }}>
-          Local E2E mode: no Supabase connection, demo data only. Disable {LOCAL_E2E_MODE_ENV} for normal app use.
+          Local E2E mode: no Supabase connection, demo data only. Scenario: {scenario}. Date: {asOfDate}. Disable {LOCAL_E2E_MODE_ENV} for normal app use.
         </Text>
       </View>
       {children}
@@ -162,6 +187,9 @@ function useLocalE2EQuickLogs(setMessage: (message: string) => void): QuickLogAc
 }
 
 function LocalE2EApp() {
+  const localConfig = useMemo(readLocalE2EConfig, []);
+  const localAsOfDate = localConfig.asOfDate;
+  const localScenario = localConfig.scenario;
   const [signedIn, setSignedIn] = useState(false);
   const [todayState, setTodayState] = useState<PerformanceState | null>(null);
   const [localProtectedWorkouts, setLocalProtectedWorkouts] = useState<ProtectedWorkout[]>([]);
@@ -303,20 +331,20 @@ function LocalE2EApp() {
   const refreshLocalPlan = useCallback((protectedWorkouts: readonly ProtectedWorkout[], recurringAnchors: readonly RecurringProtectedWorkoutAnchor[] = localRecurringAnchors) => {
     setLocalProtectedWorkouts([...protectedWorkouts]);
     setLocalRecurringAnchors([...recurringAnchors]);
-    setTodayState(buildLocalE2EPerformanceState({ protectedWorkouts, recurringProtectedAnchors: recurringAnchors }));
-  }, [localRecurringAnchors]);
+    setTodayState(buildLocalE2EPerformanceState({ asOfDate: localAsOfDate, protectedWorkouts, recurringProtectedAnchors: recurringAnchors, scenario: localScenario }));
+  }, [localAsOfDate, localRecurringAnchors, localScenario]);
 
   const loadToday = useCallback(async () => {
-    const state = buildLocalE2EPerformanceState();
+    const state = buildLocalE2EPerformanceState({ asOfDate: localAsOfDate, scenario: localScenario });
     setTodayState(state);
     setLocalProtectedWorkouts([...state.training.protectedAnchors.filter((anchor) => !anchor.recurringAnchorId)]);
     setLocalRecurringAnchors([...(state.athlete.recurringProtectedAnchors ?? [])]);
     setMessage("Local E2E demo profile loaded. No Supabase writes occurred.");
-  }, []);
+  }, [localAsOfDate, localScenario]);
 
   if (!signedIn) {
     return (
-      <LocalE2EFrame>
+      <LocalE2EFrame asOfDate={localAsOfDate} scenario={localScenario}>
         <AuthScreen
           error={null}
           loading={false}
@@ -339,9 +367,9 @@ function LocalE2EApp() {
 
   if (!todayState) {
     return (
-      <LocalE2EFrame>
+      <LocalE2EFrame asOfDate={localAsOfDate} scenario={localScenario}>
         <OnboardingScreen
-          asOfDate={LOCAL_E2E_AS_OF_DATE}
+          asOfDate={localAsOfDate}
           busy={false}
           message={message}
           onComplete={async () => loadToday()}
@@ -354,9 +382,9 @@ function LocalE2EApp() {
   }
 
   return (
-    <LocalE2EFrame>
+    <LocalE2EFrame asOfDate={localAsOfDate} scenario={localScenario}>
       <AppTabs
-        asOfDate={LOCAL_E2E_AS_OF_DATE}
+        asOfDate={localAsOfDate}
         busy={false}
         cycleSymptomOptions={cycleSymptomOptions}
         generationStatus="idle"

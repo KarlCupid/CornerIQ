@@ -468,14 +468,14 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
   return (
     <LuminousScreen testID="fuel-screen">
       <ScreenHeader eyebrow="Today" title="Fuel" />
-      <Text style={screenStyles.subtle}>{viewModel.title}</Text>
       <View style={{ gap: spacing.lg }} testID="fuel-command-section">
-        <FuelStartHereCard viewModel={viewModel} />
         <FuelVisualDashboard
           dashboard={dashboard}
           onLogHydration={() => setAppliedFocusIntent("log_hydration")}
           onLogMeal={() => setAppliedFocusIntent("log_food")}
         />
+        <Text style={screenStyles.subtle}>{viewModel.title}</Text>
+        <FuelStartHereCard viewModel={viewModel} />
         {safetyReviewActive ? (
           <FuelSafetyReviewSection
             message={message}

@@ -135,14 +135,14 @@ function PlayerButton({
       onPress={onPress}
       style={{
         alignItems: "center",
+        alignSelf: "stretch",
         backgroundColor: primary ? colors.blueIQ : warning ? "rgba(255, 148, 72, 0.14)" : "rgba(255, 255, 255, 0.07)",
         borderColor: primary ? colors.blueIQ : warning ? "rgba(255, 148, 72, 0.42)" : colors.line,
         borderRadius: 20,
         borderWidth: primary ? 0 : 1,
-        flexBasis: primary ? 220 : 128,
-        flexGrow: 1,
         justifyContent: "center",
         minHeight: primary ? 56 : 48,
+        minWidth: primary ? 180 : 128,
         opacity: disabled ? 0.55 : 1,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm

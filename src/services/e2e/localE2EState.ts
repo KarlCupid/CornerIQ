@@ -3,15 +3,29 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { buildDemoAthleteProfile } from "../supabase/demoDataService";
 
 export const LOCAL_E2E_AS_OF_DATE: ISODateString = "2026-05-19";
+export const LOCAL_E2E_DUE_WORKOUT_AS_OF_DATE: ISODateString = "2026-05-18";
+export const LOCAL_E2E_DUE_WORKOUT_SCENARIO = "due_workout_today";
 export const LOCAL_E2E_USER_ID = "local-e2e-athlete";
+
+export type LocalE2EScenario = "default" | typeof LOCAL_E2E_DUE_WORKOUT_SCENARIO;
+
+export function normalizeLocalE2EScenario(value: string | null | undefined): LocalE2EScenario {
+  return value === LOCAL_E2E_DUE_WORKOUT_SCENARIO ? LOCAL_E2E_DUE_WORKOUT_SCENARIO : "default";
+}
+
+export function localE2EDefaultAsOfDateForScenario(scenario: LocalE2EScenario): ISODateString {
+  return scenario === LOCAL_E2E_DUE_WORKOUT_SCENARIO ? LOCAL_E2E_DUE_WORKOUT_AS_OF_DATE : LOCAL_E2E_AS_OF_DATE;
+}
 
 export function buildLocalE2EPerformanceState(input: {
   asOfDate?: ISODateString | undefined;
   protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
   recurringProtectedAnchors?: readonly RecurringProtectedWorkoutAnchor[] | undefined;
+  scenario?: LocalE2EScenario | undefined;
   userId?: string | undefined;
 } = {}): PerformanceState {
-  const asOfDate = input.asOfDate ?? LOCAL_E2E_AS_OF_DATE;
+  const scenario = input.scenario ?? "default";
+  const asOfDate = input.asOfDate ?? localE2EDefaultAsOfDateForScenario(scenario);
   const userId = input.userId ?? LOCAL_E2E_USER_ID;
   const athlete = {
     ...buildDemoAthleteProfile(userId),
@@ -50,6 +64,7 @@ export function buildLocalE2EPerformanceState(input: {
     rounds: 6,
     note: "Local E2E preset protected sparring"
   };
+  const defaultProtectedWorkouts = scenario === LOCAL_E2E_DUE_WORKOUT_SCENARIO ? [] : [protectedTechnicalWork, protectedSparringWork];
   const journey: AthleteJourney = {
     athlete,
     activePhase: null,
@@ -74,7 +89,7 @@ export function buildLocalE2EPerformanceState(input: {
     exerciseResults: [],
     trainingHistory: [],
     trainingPlanAdjustments: [],
-    protectedWorkouts: input.protectedWorkouts ?? [protectedTechnicalWork, protectedSparringWork],
+    protectedWorkouts: input.protectedWorkouts ?? defaultProtectedWorkouts,
     safetyFlags: [],
     journeyEvents: [
       {

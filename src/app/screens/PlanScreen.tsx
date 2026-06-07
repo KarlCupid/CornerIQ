@@ -89,6 +89,25 @@ function friendlyCompactTag(tag: "Protected" | "Support" | "Recovery" | "Open"):
   return tag === "Protected" ? "Boxing" : tag;
 }
 
+function compactPlanStructureTitle(title: string): string {
+  if (/spar/i.test(title)) {
+    return "Box";
+  }
+  if (/shadow|technical|skill|pads|mitt/i.test(title)) {
+    return "Tech";
+  }
+  if (/strength|power|trunk|transfer/i.test(title)) {
+    return "Str";
+  }
+  if (/road|run|bike|tempo|aerobic|conditioning/i.test(title)) {
+    return "Cond";
+  }
+  if (/mobility|recovery|rest|no support/i.test(title)) {
+    return "Rec";
+  }
+  return title.split(/\s+/).find((word) => word.length > 0)?.slice(0, 5) ?? "Plan";
+}
+
 function workspaceForGenerationStatus(status: EngineGenerationStatus): PlanActiveWorkspace | null {
   if (status === "saving_anchors") {
     return "fixed_schedule";
@@ -594,29 +613,31 @@ function PlanVisualDashboard({
         testID="plan-weekly-structure"
         title="Weekly structure"
       >
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <View style={{ alignItems: "stretch", flexDirection: "row", gap: 5 }}>
           {dashboard.weeklyStructure.map((day) => (
             <View
               key={`plan-structure:${day.day}`}
               style={{
                 backgroundColor: "rgba(255, 255, 255, 0.055)",
                 borderColor: "rgba(255, 255, 255, 0.12)",
-                borderRadius: 18,
+                borderRadius: 14,
                 borderWidth: 1,
-                flexBasis: 84,
-                flexGrow: 1,
+                flex: 1,
                 gap: spacing.xs,
-                minHeight: 118,
-                padding: spacing.sm
+                justifyContent: "space-between",
+                minHeight: 96,
+                minWidth: 0,
+                paddingHorizontal: 5,
+                paddingVertical: spacing.sm
               }}
             >
-              <Text numberOfLines={1} style={{ color: accentColor[day.tone === "muted" ? "blue" : day.tone], fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+              <Text numberOfLines={1} style={{ color: accentColor[day.tone === "muted" ? "blue" : day.tone], fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
                 {day.day}
               </Text>
-              <Text numberOfLines={2} style={{ color: "white", fontSize: 13, fontWeight: "900", lineHeight: 17 }}>
-                {day.title}
+              <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={{ color: "white", fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
+                {compactPlanStructureTitle(day.title)}
               </Text>
-              <Text numberOfLines={1} style={screenStyles.subtle}>{day.subtitle}</Text>
+              <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[screenStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>{day.subtitle}</Text>
               <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: 999, height: 7, overflow: "hidden" }}>
                 <View style={{ backgroundColor: accentColor[day.tone === "muted" ? "blue" : day.tone], height: "100%", width: `${Math.max(8, day.intensityRatio * 100)}%` }} />
               </View>

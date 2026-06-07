@@ -321,6 +321,7 @@ export function WorkoutDetailPanel({
   onStartWorkout,
   onOpenFuel,
   planOpenRequestKey = 0,
+  previewOnlyReason,
   quickLogOpenRequestKey = 0,
   startWorkoutDisabledReason,
   session,
@@ -332,6 +333,7 @@ export function WorkoutDetailPanel({
   onStartWorkout?: (() => void) | undefined;
   onOpenFuel?: (() => void) | undefined;
   planOpenRequestKey?: number | undefined;
+  previewOnlyReason?: string | undefined;
   quickLogOpenRequestKey?: number | undefined;
   startWorkoutDisabledReason?: string | undefined;
   session: DetailedTrainingSession;
@@ -412,6 +414,7 @@ export function WorkoutDetailPanel({
         ? "Skipped. Plan remains conservative."
         : "Done. Fuel check optional.";
   const preview = buildWorkoutPreviewVisual(session, trainViewModel);
+  const startBlockedReason = previewOnlyReason ?? startWorkoutDisabledReason;
 
   return (
     <View style={{ gap: spacing.lg }}>
@@ -440,32 +443,36 @@ export function WorkoutDetailPanel({
             testID="workout-next-action-card"
           />
         ) : null}
-        {onStartWorkout ? (
+        {onStartWorkout || previewOnlyReason ? (
           <Pressable
             accessibilityLabel="Start workout"
             accessibilityRole="button"
-            accessibilityState={{ disabled: busy || Boolean(startWorkoutDisabledReason) }}
-            disabled={busy || Boolean(startWorkoutDisabledReason)}
+            accessibilityState={{ disabled: busy || Boolean(startBlockedReason) }}
+            disabled={busy || Boolean(startBlockedReason)}
             onPress={onStartWorkout}
-            style={[screenStyles.button, startWorkoutDisabledReason ? { backgroundColor: "rgba(255, 255, 255, 0.12)" } : null]}
+            style={[screenStyles.button, startBlockedReason ? { backgroundColor: "rgba(255, 255, 255, 0.12)" } : null]}
           >
-            <Text style={screenStyles.buttonText}>{startWorkoutDisabledReason ? "Start blocked" : "Start workout"}</Text>
+            <Text style={screenStyles.buttonText}>{previewOnlyReason ? "Preview only" : startBlockedReason ? "Start blocked" : "Start workout"}</Text>
           </Pressable>
         ) : null}
-        {startWorkoutDisabledReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startWorkoutDisabledReason}</Text> : null}
-        <Pressable accessibilityLabel={resultOpen ? "Hide quick log" : "Quick log"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.quietButton}>
-          <Text style={screenStyles.quietButtonText}>{resultOpen ? "Hide quick log" : "Quick log"}</Text>
-        </Pressable>
+        {startBlockedReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startBlockedReason}</Text> : null}
+        {!previewOnlyReason ? (
+          <Pressable accessibilityLabel={resultOpen ? "Hide quick log" : "Quick log"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>{resultOpen ? "Hide quick log" : "Quick log"}</Text>
+          </Pressable>
+        ) : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable accessibilityLabel={planOpen ? "Hide workout plan" : "Show workout plan"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
             <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide workout plan" : "Show workout plan"}</Text>
           </Pressable>
-          <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>Skip</Text>
-          </Pressable>
+          {!previewOnlyReason ? (
+            <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
+              <Text style={screenStyles.quietButtonText}>Skip</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
-      {resultOpen ? (
+      {resultOpen && !previewOnlyReason ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.sectionTitle}>Quick log</Text>

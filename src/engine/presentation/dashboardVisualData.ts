@@ -242,6 +242,21 @@ function dayLabelFromPlan(label: string, date: string): string {
   return first && first.length >= 3 ? first : shortDateLabel(date);
 }
 
+function weekdayDisplayIndex(date: string): number {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return 7;
+  }
+  const sundayFirstIndex = parsed.getUTCDay();
+  return sundayFirstIndex === 0 ? 6 : sundayFirstIndex - 1;
+}
+
+function planDaysInDisplayOrder(plan: PlanViewModel): PlanViewModel["dayPlans"] {
+  return plan.dayPlans
+    .slice()
+    .sort((left, right) => weekdayDisplayIndex(left.date) - weekdayDisplayIndex(right.date) || left.date.localeCompare(right.date));
+}
+
 function intensityRatio(intensity: string | undefined): number {
   if (intensity === "hard" || intensity === "max") {
     return 0.95;
@@ -307,9 +322,10 @@ function barsFromPlan(plan: PlanViewModel | undefined, asOfDate?: string | undef
       faded: index >= 5
     }));
   }
-  const values = plan.dayPlans.map(loadValueForDay);
+  const days = planDaysInDisplayOrder(plan);
+  const values = days.map(loadValueForDay);
   const max = Math.max(1, ...values);
-  return plan.dayPlans.map((day, index) => ({
+  return days.map((day, index) => ({
     label: dayLabelFromPlan(day.label, day.date),
     value: values[index] ?? 0,
     valueLabel: day.compactMetric,
@@ -350,7 +366,7 @@ function readinessScore(today: TodayViewModel, recentLogs: RecentLogsViewModel):
       { label: "Sleep", value: logged ? "Logged" : "Unknown", ratio: logged ? 0.78 : 0.22, tone: logged ? "blue" : "orange" },
       { label: "Stress", value: logged ? "Checked" : "Unknown", ratio: logged ? 0.72 : 0.22, tone: logged ? "green" : "orange" },
       { label: "Soreness", value: logged ? "Checked" : "Unknown", ratio: logged ? 0.62 : 0.22, tone: logged ? "gold" : "orange" },
-      { label: "Hydration", value: recentLogs.hydrationToday.loggedToday ? recentLogs.hydrationToday.totalLabel : "Unknown", ratio: recentLogs.hydrationToday.loggedToday ? 0.72 : 0.2, tone: recentLogs.hydrationToday.loggedToday ? "blue" : "orange" }
+      { label: "Hydration", value: recentLogs.hydrationToday.loggedToday ? "Logged" : "Unknown", ratio: recentLogs.hydrationToday.loggedToday ? 0.72 : 0.2, tone: recentLogs.hydrationToday.loggedToday ? "blue" : "orange" }
     ]
   };
 }
@@ -482,14 +498,18 @@ export function buildTodayDashboardVisual(input: {
 function macroRows(fuel: FuelViewModel): readonly ProgressVisual[] {
   return fuel.macroTargets.progress
     .filter((item) => /protein|carb|fat/i.test(item.label))
-    .map((item) =>
-      progressFromText(
-        item.label,
-        item.logged,
-        item.target,
-        /protein/i.test(item.label) ? "purple" : /carb/i.test(item.label) ? "orange" : "gold"
-      )
-    );
+    .map((item) => {
+      const tone: VisualTone = /protein/i.test(item.label) ? "purple" : /carb/i.test(item.label) ? "orange" : "gold";
+      return {
+        ...progressFromText(
+          item.label,
+          item.logged,
+          item.target,
+          tone
+        ),
+        tone
+      };
+    });
 }
 
 function mealDistribution(fuel: FuelViewModel): readonly BarVisual[] {
@@ -547,6 +567,10 @@ function recommendationFromFuel(fuel: FuelViewModel, fuelRows: readonly Progress
   const carbs = fuelRows.find((item) => /carb/i.test(item.label));
   const hydration = fuelRows.find((item) => /hydration/i.test(item.label));
   const protein = fuelRows.find((item) => /protein/i.test(item.label));
+  const noFoodLogged = fuelRows.filter((item) => /protein|carb|fat/i.test(item.label)).every((item) => item.ratio <= 0.05);
+  if (noFoodLogged) {
+    return { label: "Log meal", tone: "orange", body: "Log food you have. Fuel advice stays cautious until intake is known." };
+  }
   if (hydration && hydration.ratio < 0.55) {
     return { label: "Hydrate", tone: "blue", body: fuel.commandCenter.hydrationAction };
   }
@@ -774,7 +798,7 @@ export function buildPlanDashboardVisual(plan: PlanViewModel): PlanDashboardVisu
     return "muted" as const;
   });
   return {
-    weeklyStructure: plan.dayPlans.map((day) => ({
+    weeklyStructure: planDaysInDisplayOrder(plan).map((day) => ({
       day: dayLabelFromPlan(day.label, day.date),
       title: day.compactSummary,
       subtitle: day.compactMetric,

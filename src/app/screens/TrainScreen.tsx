@@ -271,6 +271,9 @@ export function TrainScreen({
   const detailedSessions = viewModel.detailedTodaySessions
     .map((session) => session.detail)
     .filter((session): session is DetailedTrainingSession => session !== null);
+  const previewOnlyWeeklySession = viewModel.detailedTodaySessions.length === 0
+    ? viewModel.detailedWeeklySessions.find((session) => session.detail !== null)
+    : null;
   const pendingStartSession = detailedSessions.find((session) => session.generatedSessionId === pendingStartSessionId) ?? null;
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
 
@@ -466,7 +469,18 @@ export function TrainScreen({
                 </View>
               </EngineCard>
             )
-          )) : <EmptyState title="No workout detail today" message="No support workout detail is due today. Future work should not be pulled forward from Plan. Log boxing if it happens; otherwise this section can wait." />}
+          )) : previewOnlyWeeklySession?.detail ? (
+            <View style={{ gap: spacing.md }}>
+              <EmptyState title="No workout detail today" message="No support workout detail is due today. The next generated support workout is shown as a preview only." />
+              <WorkoutDetailPanel
+                busy={busy}
+                key={previewOnlyWeeklySession.generatedSessionId}
+                previewOnlyReason={`Scheduled for ${previewOnlyWeeklySession.date}. Do not pull future support work forward from Plan.`}
+                session={previewOnlyWeeklySession.detail}
+                trainViewModel={viewModel}
+              />
+            </View>
+          ) : <EmptyState title="No workout detail today" message="No support workout detail is due today. Future work should not be pulled forward from Plan. Log boxing if it happens; otherwise this section can wait." />}
           <CollapsedDetailDisclosure title="How to do it" summary="Planned workout and missing-log notes stay collapsed by default.">
             <ExecutionOverlayDetails viewModel={viewModel} />
           </CollapsedDetailDisclosure>
