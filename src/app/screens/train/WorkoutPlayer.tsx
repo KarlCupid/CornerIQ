@@ -915,7 +915,7 @@ export function WorkoutPlayer({
 
   return (
     <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
-      <View style={{ gap: spacing.sm }}>
+      <View style={{ gap: spacing.sm }} testID="workout-player-progress">
         <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
           <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {activeSectionIndex + 1} of {session.sections.length}</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }}>{formatTimer(remainingSessionSeconds)} left</Text>
@@ -923,7 +923,8 @@ export function WorkoutPlayer({
         <LuminousProgressBar accent="blue" progress={liveProgress} />
       </View>
 
-      <GlassPanel testID="workout-player-current-step">
+      <GlassPanel testID="workout-player-current-block">
+        <View testID="workout-player-current-step" />
         <View style={{ alignItems: "center", gap: spacing.xs }}>
           <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>DO THIS NOW</Text>
           <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 39, textAlign: "center" }}>{displayName}</Text>

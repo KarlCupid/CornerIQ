@@ -4,8 +4,18 @@ import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { accentColor, accentWash, LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
+import {
+  BlockOverviewDots,
+  DashboardCard,
+  DashboardPill,
+  DonutBreakdown,
+  MiniBarChart,
+  ModifierRow,
+  TimelineStrip
+} from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { spacing } from "../../design/theme";
+import { buildPlanDashboardVisual, type PlanDashboardVisual } from "../../engine/presentation/dashboardVisualData";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
@@ -568,6 +578,98 @@ function PlanActiveWorkspaceFrame({ children, generationStatus }: React.PropsWit
   );
 }
 
+function PlanVisualDashboard({
+  dashboard,
+  onAdjustPlan,
+  viewModel
+}: {
+  dashboard: PlanDashboardVisual;
+  onAdjustPlan: () => void;
+  viewModel: PlanViewModel;
+}) {
+  return (
+    <View style={{ gap: spacing.md }} testID="plan-visual-dashboard">
+      <DashboardCard
+        headerRight={<DashboardPill label={`${viewModel.modeLabel} · Week ${viewModel.weekIndex}`} tone="blue" />}
+        testID="plan-weekly-structure"
+        title="Weekly structure"
+      >
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {dashboard.weeklyStructure.map((day) => (
+            <View
+              key={`plan-structure:${day.day}`}
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.055)",
+                borderColor: "rgba(255, 255, 255, 0.12)",
+                borderRadius: 18,
+                borderWidth: 1,
+                flexBasis: 84,
+                flexGrow: 1,
+                gap: spacing.xs,
+                minHeight: 118,
+                padding: spacing.sm
+              }}
+            >
+              <Text numberOfLines={1} style={{ color: accentColor[day.tone === "muted" ? "blue" : day.tone], fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+                {day.day}
+              </Text>
+              <Text numberOfLines={2} style={{ color: "white", fontSize: 13, fontWeight: "900", lineHeight: 17 }}>
+                {day.title}
+              </Text>
+              <Text numberOfLines={1} style={screenStyles.subtle}>{day.subtitle}</Text>
+              <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: 999, height: 7, overflow: "hidden" }}>
+                <View style={{ backgroundColor: accentColor[day.tone === "muted" ? "blue" : day.tone], height: "100%", width: `${Math.max(8, day.intensityRatio * 100)}%` }} />
+              </View>
+            </View>
+          ))}
+        </View>
+      </DashboardCard>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard testID="plan-load-balance" title="Weekly load balance">
+            <MiniBarChart bars={dashboard.loadBalance} height={128} referenceLabel="Planned load" />
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard title="Energy systems mix">
+            <DonutBreakdown items={dashboard.energyMix} label="100%" size={128} />
+          </DashboardCard>
+        </View>
+      </View>
+
+      <DashboardCard testID="plan-anchor-timeline" title="Anchored sessions">
+        <TimelineStrip items={dashboard.anchors} />
+      </DashboardCard>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard title="Progressive overload">
+            <View style={{ gap: spacing.xs }}>
+              {dashboard.overload.map((item) => <ModifierRow item={item} key={`plan-overload:${item.label}`} />)}
+            </View>
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard title="Risk and spacing">
+            <View style={{ gap: spacing.xs }}>
+              {dashboard.risk.map((item) => <ModifierRow item={item} key={`plan-risk:${item.label}`} />)}
+            </View>
+          </DashboardCard>
+        </View>
+      </View>
+
+      <DashboardCard testID="plan-block-overview" title="Block overview (next 4 weeks)">
+        <BlockOverviewDots weeks={dashboard.blockOverview} />
+      </DashboardCard>
+
+      <Pressable accessibilityLabel="Adjust plan" accessibilityRole="button" onPress={onAdjustPlan} style={[screenStyles.button, { minHeight: 56 }]}>
+        <Text style={[screenStyles.buttonText, { fontSize: 17 }]}>Adjust plan</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export function PlanScreen({
   adjustmentActions,
   adjustmentMessage,
@@ -679,10 +781,11 @@ export function PlanScreen({
   } else if (effectiveWorkspace === "plan_details") {
     activeWorkspaceContent = <PlanDetailsWorkspace adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />;
   }
+  const dashboard = buildPlanDashboardVisual(viewModel);
 
   return (
     <LuminousScreen testID="plan-screen">
-      <ScreenHeader eyebrow={viewModel.planLifecycleLabel} title={viewModel.title} />
+      <ScreenHeader eyebrow="Current block" title="Plan" />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={plainPlanCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>
           <View style={{ gap: spacing.xs }}>
@@ -693,6 +796,7 @@ export function PlanScreen({
       {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={plainPlanCopy(viewModel.lastAutoRollForwardMessage)} tone="info" /> : null}
       {adjustmentMessage ? <RiskBanner title="Plan update" message={plainPlanCopy(adjustmentMessage)} tone="info" /> : null}
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
+      <PlanVisualDashboard dashboard={dashboard} onAdjustPlan={() => openWorkspace("goal_wizard")} viewModel={viewModel} />
       <CurrentModeCard
         busy={busy}
         onChangeGoal={() => openWorkspace("goal_wizard")}

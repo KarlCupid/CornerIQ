@@ -1,19 +1,36 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
-import type { CycleSymptom, CycleViewModel, RecentLogsViewModel, TodayViewModel } from "../../engine/core/types";
+import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { CollapsedDetailDisclosure, CompactStatusStrip, PrimaryTaskCard, QuickActionRow, type FastTaskAction } from "../../design/components/FastTask";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
+import {
+  DashboardCard,
+  DashboardPill,
+  MetricRing,
+  ModifierRow,
+  ProgressMeter,
+  SemiGauge,
+  TimelineStrip,
+  TrendLineChart,
+  VisualMetricTile,
+  WeeklyLoadBars
+} from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { colors, spacing } from "../../design/theme";
+import { buildTodayDashboardVisual, type TodayDashboardVisual } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, CycleLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
 export interface TodayScreenProps {
+  asOfDate?: string | undefined;
   viewModel: TodayViewModel;
+  fuelViewModel?: FuelViewModel | undefined;
+  planViewModel?: PlanViewModel | undefined;
+  trainViewModel?: TrainViewModel | undefined;
   recentLogs: RecentLogsViewModel;
   cycleContext: CycleViewModel | null;
   quickLogs: QuickLogActions;
@@ -25,6 +42,7 @@ export interface TodayScreenProps {
   onOpenFuel?: (() => void) | undefined;
   onOpenFuelLog?: (() => void) | undefined;
   onOpenFuelSafety?: (() => void) | undefined;
+  onOpenPlan?: (() => void) | undefined;
   onOpenTrain?: (() => void) | undefined;
   onOpenTrainWorkout?: (() => void) | undefined;
 }
@@ -248,8 +266,131 @@ function TodayPlanReasonDetails({
   );
 }
 
+function TodayDashboardSection({
+  busy,
+  dashboard,
+  onOpenFuel,
+  onOpenQuickCheck,
+  onPrimaryAction
+}: {
+  busy: boolean;
+  dashboard: TodayDashboardVisual;
+  onOpenFuel?: (() => void) | undefined;
+  onOpenQuickCheck: (focus: TodayQuickCheckFocus) => void;
+  onPrimaryAction: () => void;
+}) {
+  return (
+    <View style={{ gap: spacing.md }} testID="today-visual-dashboard">
+      <DashboardCard
+        headerRight={<DashboardPill label={dashboard.readiness.statusLabel} tone={dashboard.readiness.tone} />}
+        testID="today-readiness-gauge"
+        title="Readiness score"
+      >
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.lg }}>
+          <MetricRing
+            label="Readiness score"
+            subLabel={dashboard.readiness.score === null ? "readiness" : "/100"}
+            tone={dashboard.readiness.tone}
+            value={dashboard.readiness.score}
+          />
+          <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, minWidth: 220 }}>
+            {dashboard.readiness.metrics.map((item) => <VisualMetricTile item={item} key={`today-readiness-metric:${item.label}`} />)}
+          </View>
+        </View>
+        {dashboard.readiness.emptyActionLabel ? (
+          <Pressable
+            accessibilityLabel="Log readiness"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() => onOpenQuickCheck("readiness")}
+            style={screenStyles.quietButton}
+          >
+            <Text style={screenStyles.quietButtonText}>{dashboard.readiness.emptyActionLabel}</Text>
+          </Pressable>
+        ) : null}
+      </DashboardCard>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard
+            headerRight={<DashboardPill label={dashboard.loadStateLabel} tone={dashboard.loadStateLabel === "High" ? "red" : dashboard.loadStateLabel === "Watch" ? "orange" : "green"} />}
+            testID="today-weekly-load-chart"
+            title="Weekly training load"
+          >
+            <Text style={screenStyles.subtle}>ACWR {dashboard.acwrLabel}</Text>
+            <WeeklyLoadBars bars={dashboard.weeklyLoad} />
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard
+            headerRight={onOpenFuel ? <DashboardPill label="Details" tone="blue" /> : null}
+            testID="today-fuel-status-bars"
+            title="Fuel status"
+          >
+            <View style={{ gap: spacing.sm }}>
+              {dashboard.fuel.map((item) => <ProgressMeter compact item={item} key={`today-fuel:${item.label}`} />)}
+            </View>
+          </DashboardCard>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard title="Body mass trend">
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.canvas, fontSize: 28, fontWeight: "900", lineHeight: 34 }}>{dashboard.bodyMass.currentLabel}</Text>
+                <Text style={{ color: dashboard.bodyMass.tone === "green" ? colors.readyGreen : colors.amberCaution, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>
+                  {dashboard.bodyMass.deltaLabel}
+                </Text>
+              </View>
+              <TrendLineChart accent="blue" points={dashboard.bodyMass.points} width={230} />
+              {dashboard.bodyMass.points.length === 0 ? <Text style={screenStyles.subtle}>{dashboard.bodyMass.emptyLabel}</Text> : null}
+            </View>
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard testID="today-training-decision-meter" title="Today's training decision">
+            <View style={{ gap: spacing.sm }}>
+              <Text style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>{dashboard.decision.title}</Text>
+              <Text numberOfLines={2} style={screenStyles.subtle}>{dashboard.decision.subtitle}</Text>
+              <View style={{ alignItems: "center" }}>
+                <SemiGauge label={dashboard.decision.title} score={dashboard.decision.score} tone={dashboard.decision.tone} />
+              </View>
+              <View style={{ gap: spacing.xs }}>
+                {dashboard.decision.tags.map((item) => <ModifierRow item={item} key={`today-decision:${item.label}`} />)}
+              </View>
+            </View>
+          </DashboardCard>
+        </View>
+      </View>
+
+      <DashboardCard title="Today's schedule">
+        <TimelineStrip items={dashboard.schedule} />
+      </DashboardCard>
+
+      <Pressable
+        accessibilityLabel={dashboard.ctaLabel}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy }}
+        disabled={busy}
+        onPress={onPrimaryAction}
+        style={[screenStyles.button, { minHeight: 56 }]}
+        testID="today-primary-dashboard-action"
+      >
+        <Text style={[screenStyles.buttonText, { fontSize: 17 }]}>{dashboard.ctaLabel}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export function TodayScreen({
+  asOfDate,
   viewModel,
+  fuelViewModel,
+  planViewModel,
+  trainViewModel,
   recentLogs,
   cycleContext,
   quickLogs,
@@ -261,6 +402,7 @@ export function TodayScreen({
   onOpenFuel,
   onOpenFuelLog,
   onOpenFuelSafety,
+  onOpenPlan,
   onOpenTrain,
   onOpenTrainWorkout
 }: TodayScreenProps) {
@@ -285,9 +427,32 @@ export function TodayScreen({
     setQuickCheckFocus(focus);
     setQuickCheckOpen(true);
   };
+  const dashboard = buildTodayDashboardVisual({
+    asOfDate,
+    fuel: fuelViewModel,
+    plan: planViewModel,
+    recentLogs,
+    today: viewModel,
+    train: trainViewModel
+  });
+  const runDashboardPrimaryAction = () => {
+    if (/fuel/i.test(dashboard.ctaLabel)) {
+      (onOpenFuelLog ?? onOpenFuel)?.();
+      return;
+    }
+    if (/readiness/i.test(dashboard.ctaLabel)) {
+      openQuickCheck("readiness");
+      return;
+    }
+    if (/adjust/i.test(dashboard.ctaLabel)) {
+      (onOpenPlan ?? onOpenTrain)?.();
+      return;
+    }
+    (onOpenTrainWorkout ?? onOpenTrain)?.();
+  };
   return (
     <LuminousScreen testID="today-screen">
-      <ScreenHeader eyebrow="CornerIQ" title={viewModel.title} />
+      <ScreenHeader eyebrow="Daily mission" title="Today" />
       <TopActionCard
         accent="blue"
         optional={viewModel.mission.optional}
@@ -307,6 +472,13 @@ export function TodayScreen({
           </View>
         </RiskBanner>
       ) : null}
+      <TodayDashboardSection
+        busy={busy}
+        dashboard={dashboard}
+        onOpenFuel={onOpenFuel}
+        onOpenQuickCheck={openQuickCheck}
+        onPrimaryAction={runDashboardPrimaryAction}
+      />
       <CompactStatusStrip
         items={[
           { accent: readiness.accent, label: "Readiness", meta: readiness.meta, value: readiness.value },

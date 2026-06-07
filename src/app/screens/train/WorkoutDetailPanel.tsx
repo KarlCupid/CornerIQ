@@ -1,10 +1,19 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality } from "../../../engine/core/types";
+import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality, TrainViewModel } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { PostActionNextStep } from "../../../design/components/FastTask";
-import { EngineCard } from "../../../design/components/EngineCard";
+import {
+  DashboardCard,
+  DashboardPill,
+  DonutBreakdown,
+  MiniBarChart,
+  ModifierRow,
+  SemiGauge,
+  TimelineStrip
+} from "../../../design/components/PerformanceVisuals";
 import { colors, spacing } from "../../../design/theme";
+import { buildWorkoutPreviewVisual, type WorkoutPreviewVisual } from "../../../engine/presentation/dashboardVisualData";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
@@ -165,6 +174,71 @@ function SessionMeta({ label }: { label: string }) {
   );
 }
 
+function WorkoutPreviewDashboard({
+  preview,
+  session
+}: {
+  preview: WorkoutPreviewVisual;
+  session: DetailedTrainingSession;
+}) {
+  const totalMinutes = preview.sections.reduce((total, item) => total + item.value, 0);
+  const highIntensity = preview.intensity.find((item) => item.label === "High")?.percent ?? 0;
+  return (
+    <View style={{ gap: spacing.md }}>
+      <DashboardCard
+        headerRight={<DashboardPill label={`${session.durationMinutes} min`} tone="blue" />}
+        testID="workout-preview-session-overview"
+        title="Session overview"
+      >
+        <DonutBreakdown items={preview.sections} label={`${totalMinutes}`} size={136} />
+      </DashboardCard>
+
+      <DashboardCard testID="workout-preview-session-flow" title="Session flow">
+        <TimelineStrip items={preview.flow} />
+      </DashboardCard>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 260, flexGrow: 1 }}>
+          <DashboardCard headerRight={<DashboardPill label={`${highIntensity}% high`} tone={highIntensity > 35 ? "orange" : "green"} />} title="Target intensity">
+            <View style={{ alignItems: "center", gap: spacing.sm }}>
+              <SemiGauge label={session.intensity.replace(/_/g, " ")} score={session.intensity === "hard" ? 78 : session.intensity === "moderate" ? 64 : 38} tone={session.intensity === "hard" ? "orange" : "blue"} />
+              {preview.intensity.map((item) => <ModifierRow item={{ label: item.label, ratio: item.percent / 100, tone: item.tone, value: item.valueLabel }} key={`intensity:${item.label}`} />)}
+            </View>
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 260, flexGrow: 1 }}>
+          <DashboardCard title="Readiness modifiers">
+            <View style={{ gap: spacing.xs }}>
+              {preview.modifiers.map((item) => <ModifierRow item={item} key={`modifier:${item.label}`} />)}
+            </View>
+          </DashboardCard>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 260, flexGrow: 1 }}>
+          <DashboardCard title="Quality checks">
+            <View style={{ gap: spacing.xs }}>
+              {preview.checkpoints.map((item) => <ModifierRow item={item} key={`checkpoint:${item.label}`} />)}
+            </View>
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 260, flexGrow: 1 }}>
+          <DashboardCard title="Why this matters for boxing">
+            <View style={{ gap: spacing.xs }}>
+              {preview.benefits.map((item) => <ModifierRow item={item} key={`benefit:${item.label}`} />)}
+            </View>
+          </DashboardCard>
+        </View>
+      </View>
+
+      <DashboardCard headerRight={<DashboardPill label={preview.tomorrowRisk.value} tone={preview.tomorrowRisk.tone} />} title="Next 7 days">
+        <MiniBarChart bars={preview.next7Days} height={94} referenceLabel="Projected load" />
+      </DashboardCard>
+    </View>
+  );
+}
+
 function WorkoutSectionCard({
   index,
   section
@@ -249,7 +323,8 @@ export function WorkoutDetailPanel({
   planOpenRequestKey = 0,
   quickLogOpenRequestKey = 0,
   startWorkoutDisabledReason,
-  session
+  session,
+  trainViewModel
 }: {
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
@@ -260,6 +335,7 @@ export function WorkoutDetailPanel({
   quickLogOpenRequestKey?: number | undefined;
   startWorkoutDisabledReason?: string | undefined;
   session: DetailedTrainingSession;
+  trainViewModel?: TrainViewModel | undefined;
 }) {
   const [resultOpen, setResultOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
@@ -335,18 +411,21 @@ export function WorkoutDetailPanel({
       : followUpState === "skipped"
         ? "Skipped. Plan remains conservative."
         : "Done. Fuel check optional.";
+  const preview = buildWorkoutPreviewVisual(session, trainViewModel);
 
   return (
-    <EngineCard>
     <View style={{ gap: spacing.lg }}>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.fieldLabel}>Generated workout</Text>
-        <Text style={screenStyles.heroTitle}>{session.title}</Text>
+        <Text style={screenStyles.heroTitle}>Workout preview</Text>
+        <Text style={screenStyles.callout}>{session.title}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
           <SessionMeta label={`${session.durationMinutes} min`} />
+          <SessionMeta label={session.family.replace(/_/g, " ")} />
           <SessionMeta label={session.intensity.replace(/_/g, " ")} />
           <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
         </View>
+        <WorkoutPreviewDashboard preview={preview} session={session} />
         {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
         {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
         {followUpState ? (
@@ -496,6 +575,5 @@ export function WorkoutDetailPanel({
         ) : null}
       </View>
     </View>
-    </EngineCard>
   );
 }

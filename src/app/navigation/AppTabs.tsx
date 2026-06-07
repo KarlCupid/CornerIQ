@@ -190,11 +190,13 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         <Tab.Screen name="Today">
           {({ navigation }) => (
             <TodayScreen
+              asOfDate={asOfDate}
               busy={busy}
               cycleQuickLogEnabled={state.cycle.trackingEnabled}
               cycleContext={state.viewModels.cycle}
               cycleTrackingStatus={state.cycle.trackingEnabled ? "enabled" : state.athlete.cycleTrackingPreference}
               cycleSymptomOptions={cycleSymptomOptions}
+              fuelViewModel={state.viewModels.fuel}
               message={message}
               onOpenFuel={() => {
                 setFuelFocusIntent("action");
@@ -208,13 +210,16 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
                 setFuelFocusIntent("safety_review");
                 navigation.navigate("Fuel");
               }}
+              onOpenPlan={() => navigation.navigate("Plan")}
               onOpenTrain={() => navigation.navigate("Train")}
               onOpenTrainWorkout={() => {
                 setTrainInitialSection("workout");
                 navigation.navigate("Train");
               }}
+              planViewModel={state.viewModels.plan}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
+              trainViewModel={state.viewModels.train}
               viewModel={state.viewModels.today}
             />
           )}

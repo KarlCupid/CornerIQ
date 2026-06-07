@@ -454,6 +454,7 @@ export function TrainScreen({
                 quickLogOpenRequestKey={quickLogRequest.sessionId === session.generatedSessionId ? quickLogRequest.key : 0}
                 session={session.detail}
                 startWorkoutDisabledReason={startWorkoutBlockedReason(viewModel, session.detail)}
+                trainViewModel={viewModel}
               />
             ) : (
               <EngineCard key={session.generatedSessionId}>

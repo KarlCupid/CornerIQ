@@ -4,8 +4,18 @@ import type { FuelContextCard, FuelViewModel, RecentLogsViewModel } from "../../
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { LuminousProgressBar, LuminousScreen, ScreenHeader, type LuminousAccent } from "../../design/components/LuminousScreen";
+import {
+  DashboardCard,
+  DashboardPill,
+  MacroRing,
+  MiniBarChart,
+  ProgressMeter,
+  RangeGauge,
+  TrendLineChart
+} from "../../design/components/PerformanceVisuals";
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { colors, spacing } from "../../design/theme";
+import { buildFuelDashboardVisual, type FuelDashboardVisual } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import {
   FightWeekFuelCard,
@@ -347,6 +357,95 @@ function FuelSafetyReviewSection({
   );
 }
 
+function FuelVisualDashboard({
+  dashboard,
+  onLogHydration,
+  onLogMeal
+}: {
+  dashboard: FuelDashboardVisual;
+  onLogHydration: () => void;
+  onLogMeal: () => void;
+}) {
+  return (
+    <View style={{ gap: spacing.md }} testID="fuel-visual-dashboard">
+      <DashboardCard testID="fuel-macro-summary" title="Macro summary">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
+          {dashboard.macros.map((item) => <MacroRing item={item} key={`fuel-macro-ring:${item.label}`} />)}
+        </View>
+      </DashboardCard>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 240, flexGrow: 1 }}>
+          <DashboardCard headerRight={<DashboardPill label={dashboard.hydration.stateLabel ?? "Today"} tone={dashboard.hydration.tone} />} title="Hydration">
+            <ProgressMeter item={dashboard.hydration} />
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 240, flexGrow: 1 }}>
+          <DashboardCard headerRight={<DashboardPill label={dashboard.sodium.stateLabel ?? "Today"} tone={dashboard.sodium.tone} />} title="Sodium">
+            <ProgressMeter item={dashboard.sodium} />
+          </DashboardCard>
+        </View>
+      </View>
+
+      <DashboardCard
+        headerRight={<DashboardPill label={dashboard.mealReferenceLabel} tone={dashboard.meals.some((item) => item.value > 0) ? "blue" : "orange"} />}
+        testID="fuel-meal-distribution"
+        title="Meal distribution"
+      >
+        <MiniBarChart bars={dashboard.meals} height={112} referenceLabel="Target context" />
+      </DashboardCard>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard title="Body mass and fueling trend">
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.subtle}>Body mass</Text>
+              <TrendLineChart accent="blue" points={dashboard.trend.bodyMass} width={230} />
+              <Text style={screenStyles.subtle}>Carbs</Text>
+              <TrendLineChart accent="orange" points={dashboard.trend.carbs} width={230} />
+            </View>
+          </DashboardCard>
+        </View>
+        <View style={{ flexBasis: 280, flexGrow: 1 }}>
+          <DashboardCard title={dashboard.bodyMassRange.title}>
+            <RangeGauge
+              current={dashboard.bodyMassRange.current}
+              currentLabel={dashboard.bodyMassRange.currentLabel}
+              max={dashboard.bodyMassRange.max}
+              min={dashboard.bodyMassRange.min}
+              target={dashboard.bodyMassRange.target}
+              targetLabel={dashboard.bodyMassRange.targetLabel}
+            />
+            <Text style={screenStyles.subtle}>{dashboard.bodyMass.deltaLabel}</Text>
+          </DashboardCard>
+        </View>
+      </View>
+
+      <DashboardCard title="Recovery support">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
+          {dashboard.recovery.map((item) => (
+            <View key={`fuel-recovery:${item.label}`} style={{ flexBasis: 140, flexGrow: 1 }}>
+              <ProgressMeter compact item={item} />
+            </View>
+          ))}
+        </View>
+      </DashboardCard>
+
+      <DashboardCard headerRight={<DashboardPill label={dashboard.recommendation.label} tone={dashboard.recommendation.tone} />} title="Today's recommendation">
+        <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{dashboard.recommendation.body}</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <Pressable accessibilityLabel="Log meal" accessibilityRole="button" onPress={onLogMeal} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
+            <Text style={screenStyles.buttonText}>Log meal</Text>
+          </Pressable>
+          <Pressable accessibilityLabel="Log hydration" accessibilityRole="button" onPress={onLogHydration} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
+            <Text style={screenStyles.quietButtonText}>Add water</Text>
+          </Pressable>
+        </View>
+      </DashboardCard>
+    </View>
+  );
+}
+
 export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   const [appliedFocusIntent, setAppliedFocusIntent] = React.useState<FuelFocusIntent | null>(null);
   React.useEffect(() => {
@@ -365,11 +464,18 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         : "water";
   const logSection = <FuelLogActionSection busy={busy} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />;
   const targetsDefaultOpen = safetyReviewActive || Boolean(viewModel.underFuelingRisk);
+  const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
   return (
     <LuminousScreen testID="fuel-screen">
-      <ScreenHeader eyebrow="Today" title={viewModel.title} />
+      <ScreenHeader eyebrow="Today" title="Fuel" />
+      <Text style={screenStyles.subtle}>{viewModel.title}</Text>
       <View style={{ gap: spacing.lg }} testID="fuel-command-section">
         <FuelStartHereCard viewModel={viewModel} />
+        <FuelVisualDashboard
+          dashboard={dashboard}
+          onLogHydration={() => setAppliedFocusIntent("log_hydration")}
+          onLogMeal={() => setAppliedFocusIntent("log_food")}
+        />
         {safetyReviewActive ? (
           <FuelSafetyReviewSection
             message={message}
