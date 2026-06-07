@@ -3,13 +3,14 @@ import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
-import type { CycleSymptom, FuelViewModel, GeneratedTrainingSession, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
+import type { CycleSymptom, DetailedTrainingSession, ExercisePrescription, FuelViewModel, GeneratedTrainingSession, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
 import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
+import type { WorkoutCompletionFormDraft } from "../../hooks/useWorkoutCompletion";
 import { useSupabaseSession } from "../../hooks/useSupabaseSession";
 import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
 import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useUserDataControls";
@@ -410,7 +411,7 @@ const trainViewModel: TrainViewModel = {
   topAction: {
     title: "Training action",
     purpose: "Use Train for today's generated boxing training and what to log after.",
-    primaryAction: "Open Workout when you are ready, then log completed or skipped.",
+    primaryAction: "Start today's support workout when you are ready. Quick log remains available.",
     why: "Support workouts fill a boxing-specific gap.",
     optional: "Exercise history and progression can wait. Session RPE is enough when time is tight."
   },
@@ -954,6 +955,109 @@ async function switchSection(renderer: ReactTestRenderer, label: string): Promis
   await act(async () => {
     await press(pressableWithText(renderer, label));
   });
+}
+
+function workoutPlayerTestSession(): DetailedTrainingSession {
+  const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+  const detail = state.viewModels.train.detailedTodaySessions[0]?.detail;
+  const sourceSection = detail?.sections[0];
+  const sourceExercises = detail?.sections.flatMap((section) => section.exercises) ?? [];
+  const first = sourceExercises[0];
+  const second = sourceExercises[1] ?? sourceExercises[0];
+  const third = sourceExercises[2] ?? sourceExercises[0];
+  if (!detail || !sourceSection || !first || !second || !third) {
+    throw new Error("missing detailed workout fixture");
+  }
+  const firstExercise: ExercisePrescription = {
+    ...first,
+    exerciseId: "player_tempo_squat",
+    name: "Tempo squat",
+    repsText: "8 reps",
+    durationText: undefined,
+    loadGuidance: "Use bodyweight or a light load you can control.",
+    rpeTarget: 6,
+    rirTarget: 2,
+    tempo: "3-1-1",
+    restText: "45 sec",
+    sets: [
+      { setLabel: "Set 1", repsText: "8 reps", loadGuidance: "Light and smooth", rpeTarget: 6, rirTarget: 2, tempo: "3-1-1", restText: "45 sec" },
+      { setLabel: "Set 2", repsText: "8 reps", loadGuidance: "Light and smooth", rpeTarget: 6, rirTarget: 2, tempo: "3-1-1", restText: "45 sec" }
+    ],
+    coachingNotes: ["Stack ribs over hips."],
+    boxingTransfer: "Builds stance control for boxing.",
+    substitutions: [
+      {
+        exerciseId: "player_chair_squat",
+        name: "Chair squat",
+        reason: "Use when depth or equipment is limited.",
+        equipmentNeeded: [],
+        loadGuidance: "Bodyweight only.",
+        coachingNotes: ["Sit lightly, then stand tall."]
+      }
+    ],
+    safetyNotes: ["Keep range comfortable."],
+    stopConditions: ["Stop if sharp knee pain appears."]
+  };
+  const secondExercise: ExercisePrescription = {
+    ...second,
+    exerciseId: "player_timed_carry",
+    name: "Timed carry",
+    repsText: undefined,
+    durationText: "30 sec",
+    loadGuidance: "Carry a light object close to the body.",
+    rpeTarget: 5,
+    rirTarget: undefined,
+    tempo: undefined,
+    restText: "60 sec",
+    sets: [{ setLabel: "Block 1", durationText: "30 sec", loadGuidance: "Light and steady", rpeTarget: 5, restText: "60 sec" }],
+    coachingNotes: ["Walk tall and breathe."],
+    boxingTransfer: "Supports posture under fatigue.",
+    substitutions: [],
+    safetyNotes: ["Set the load down if posture breaks."],
+    stopConditions: ["Stop if pain changes your gait."]
+  };
+  const thirdExercise: ExercisePrescription = {
+    ...third,
+    exerciseId: "player_dead_bug",
+    name: "Dead bug reach",
+    repsText: "6 each side",
+    durationText: undefined,
+    loadGuidance: "Bodyweight only.",
+    rpeTarget: 4,
+    rirTarget: undefined,
+    tempo: "controlled",
+    restText: "30 sec",
+    sets: [{ setLabel: "Set 1", repsText: "6 each side", loadGuidance: "Bodyweight only", rpeTarget: 4, tempo: "controlled", restText: "30 sec" }],
+    coachingNotes: ["Move slowly."],
+    boxingTransfer: "Supports trunk control.",
+    substitutions: [],
+    safetyNotes: ["Keep low back comfortable."],
+    stopConditions: ["Stop if symptoms increase."]
+  };
+  return {
+    ...detail,
+    title: "Player test workout",
+    stopConditions: ["Stop if dizziness or unusual symptoms appear."],
+    safetyNotes: ["Keep support work controlled."],
+    preSessionChecklist: ["Shoes tied and water nearby."],
+    selfCheckCues: ["Breathing feels steady."],
+    sessionQualityCheckpoints: ["Clean reps before speed."],
+    sections: [
+      {
+        ...sourceSection,
+        name: "Strength primer",
+        intent: "Build smooth support strength for boxing.",
+        durationMinutes: 12,
+        exercises: [firstExercise, secondExercise]
+      },
+      {
+        name: "Durability close",
+        intent: "Finish with trunk control.",
+        durationMinutes: 6,
+        exercises: [thirdExercise]
+      }
+    ]
+  };
 }
 
 function expectActiveWorkspaceBeforeOverview(output: string, focusedTestId: string): void {
@@ -1865,8 +1969,8 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Strength support (35 min)");
     expect(output).toContain("Strength support");
     expect(output).toContain("35 min, moderate");
-    expect(output).toContain("Open Workout when you are ready");
-    expect(output).toContain("Open workout, then log result.");
+    expect(output).toContain("Start today's support workout when you are ready");
+    expect(output).toContain("Open workout, then quick log.");
     expect(output).toContain("Purpose:");
     expect(output).not.toContain("Fuel handoff");
     expect(output).not.toContain("Today's training decision");
@@ -1894,7 +1998,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
     await switchSection(renderer, "Workout");
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Log result");
+    expect(output).toContain("Quick log");
     expect(output).toContain("Progress");
   });
 
@@ -1914,7 +2018,7 @@ describe("minimal app screens", () => {
     );
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("train-workout-section");
-    expect(output).toContain("Log result");
+    expect(output).toContain("Quick log");
     expect(onInitialSectionApplied).toHaveBeenCalled();
   });
 
@@ -2022,20 +2126,20 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
     await switchSection(renderer, "Workout");
     const closedOutput = JSON.stringify(renderer.toJSON());
-    expect(closedOutput).toContain("Log result");
+    expect(closedOutput).toContain("Quick log");
     expect(closedOutput).not.toContain("Recent training");
     expect(closedOutput).not.toContain("Session plan");
     expect(closedOutput).not.toContain("Quality checkpoints");
     expect(closedOutput).toContain("Show workout plan");
     expect(closedOutput).toContain("Show why / safety");
     await act(async () => {
-      await press(pressableWithText(renderer, "Log result"));
+      await press(pressableWithText(renderer, "Quick log"));
     });
     const openOutput = JSON.stringify(renderer.toJSON());
-    expect(openOutput).toContain("Complete without exercise details");
+    expect(openOutput).toContain("Mark workout done");
     expect(openOutput).toContain("Session RPE is enough if you are short on time.");
     expect(openOutput).not.toContain("Save skip reason");
-    expect(openOutput).toContain("Blank rows are ignored");
+    expect(openOutput).toContain("Blank rows save as not logged");
     await act(async () => {
       await press(pressableWithText(renderer, "Show why / safety"));
     });
@@ -2050,6 +2154,190 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("Support workouts done/skipped");
   });
 
+  it("TrainScreen opens the workout player and resumes in-progress work after switching sections", async () => {
+    vi.useFakeTimers();
+    try {
+      const { TrainScreen } = await import("../../app/screens/TrainScreen");
+      const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+      const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Start workout"));
+      });
+      let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("workout-player");
+      expect(output).toContain("Done set");
+      expect(output).toContain("Next up");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Done set"));
+      });
+      await switchSection(renderer, "Progress");
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Workout in progress");
+      expect(output).toContain("Resume workout");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Resume workout"));
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("workout-player");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Pause"));
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("WorkoutPlayer shows the active step, timer controls, substitutions, and safety notes", async () => {
+    vi.useFakeTimers();
+    try {
+      const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
+      const session = workoutPlayerTestSession();
+      const renderer = render(
+        React.createElement(WorkoutPlayer, {
+          busy: false,
+          completionActions: { complete: vi.fn(), skip: vi.fn() },
+          onClose: vi.fn(),
+          onDiscard: vi.fn(),
+          session
+        })
+      );
+
+      let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Player test workout");
+      expect(output).toContain("Strength primer");
+      expect(output).toContain("Tempo squat");
+      expect(output).toContain("Set 1 of 2");
+      expect(output).toContain("8 reps");
+      expect(output).toContain("Use bodyweight or a light load");
+      expect(output).toContain("RPE 6");
+      expect(output).toContain("RIR 2");
+      expect(output).toContain("Tempo 3-1-1");
+      expect(output).toContain("Rest 45 sec");
+      expect(output).toContain("Stop / safety");
+      expect(output).toContain("Stop if sharp knee pain appears.");
+      expect(output).toContain("Next up");
+      expect(output).toContain("Rest timer");
+      expect(output).toContain("0:45");
+      expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
+
+      await switchSection(renderer, "Show Swap exercise");
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Chair squat");
+      expect(output).toContain("Bodyweight only.");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Chair squat"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Swapped from");
+      expect(output).toContain("Tempo squat");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Start timer"));
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("0:44");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Pause timer"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Reset timer"));
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("0:45");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Pause"));
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("WorkoutPlayer advances across exercises and saves partial, skipped, and pain-flag results", async () => {
+    vi.useFakeTimers();
+    try {
+      const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
+      const session = workoutPlayerTestSession();
+      const complete = vi.fn<(sessionArg: DetailedTrainingSession, draft: WorkoutCompletionFormDraft) => Promise<void>>(async () => undefined);
+      const renderer = render(
+        React.createElement(WorkoutPlayer, {
+          busy: false,
+          completionActions: { complete, skip: vi.fn() },
+          onClose: vi.fn(),
+          onDiscard: vi.fn(),
+          session
+        })
+      );
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Done set"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Skip set"));
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("Timed carry");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Skip exercise"));
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("Dead bug reach");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Flag pain"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Finish workout"));
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("Finish workout");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Save workout"));
+      });
+
+      const draft = complete.mock.calls[0]?.[1];
+      if (!draft) {
+        throw new Error("missing workout completion draft");
+      }
+      expect(draft.exerciseResults.find((result: { exerciseId: string }) => result.exerciseId === "player_tempo_squat")).toEqual(expect.objectContaining({ completedSets: 1, resultStatus: "partial" }));
+      expect(draft.exerciseResults.find((result: { exerciseId: string }) => result.exerciseId === "player_timed_carry")).toEqual(expect.objectContaining({ completedSets: 0, resultStatus: "skipped" }));
+      expect(draft.exerciseResults.find((result: { exerciseId: string }) => result.exerciseId === "player_dead_bug")).toEqual(expect.objectContaining({ completedSets: 0, painFlag: true, resultStatus: "partial" }));
+      expect(draft.painNotes[0]).toContain("Dead bug reach");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Workout saved");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("WorkoutPlayer result mapping covers completed, skipped, pain, substitution, and untouched exercises", async () => {
+    const { buildWorkoutPlayerExerciseResults } = await import("../../engine/presentation/workoutPlayerResults");
+    const session = workoutPlayerTestSession();
+    const [first, second, third] = session.sections.flatMap((section) => section.exercises);
+    if (!first || !second || !third) {
+      throw new Error("missing player exercises");
+    }
+
+    const results = buildWorkoutPlayerExerciseResults(session, {
+      completedSetsByExerciseId: { [first.exerciseId]: 2 },
+      painFlagExerciseIds: [third.exerciseId],
+      skippedExerciseIds: [second.exerciseId],
+      substitutionByExerciseId: { [first.exerciseId]: first.substitutions[0] },
+      touchedExerciseIds: [third.exerciseId]
+    });
+    expect(results.find((result) => result.exerciseId === first.exerciseId)).toEqual(expect.objectContaining({ completedSets: 2, resultStatus: "completed", notes: expect.stringContaining("Substitution used: Chair squat") }));
+    expect(results.find((result) => result.exerciseId === second.exerciseId)).toEqual(expect.objectContaining({ completedSets: 0, resultStatus: "skipped" }));
+    expect(results.find((result) => result.exerciseId === third.exerciseId)).toEqual(expect.objectContaining({ completedSets: 0, painFlag: true, resultStatus: "partial" }));
+
+    const untouched = buildWorkoutPlayerExerciseResults(session, {
+      completedSetsByExerciseId: { [first.exerciseId]: 2 },
+      painFlagExerciseIds: [],
+      skippedExerciseIds: []
+    });
+    expect(untouched.find((result) => result.exerciseId === second.exerciseId)).toEqual(expect.objectContaining({ resultStatus: "prescribed_only" }));
+    expect(untouched.find((result) => result.exerciseId === second.exerciseId)).not.toHaveProperty("completedSets");
+  });
+
   it("WorkoutDetailPanel saves blank rows as prescribed_only and omits exercise results when skipped", async () => {
     const { WorkoutDetailPanel } = await import("../../app/screens/train/WorkoutDetailPanel");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
@@ -2062,18 +2350,18 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(WorkoutDetailPanel, { busy: false, completionActions: { complete, skip }, session }));
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Log result"));
+      await press(pressableWithText(renderer, "Quick log"));
     });
     expect(JSON.stringify(renderer.toJSON()).toLowerCase()).not.toMatch(/\b(contact|sparring)\b/);
     await act(async () => {
-      await press(pressableWithText(renderer, "Complete without exercise details"));
+      await press(pressableWithText(renderer, "Mark workout done"));
     });
     expect(complete).toHaveBeenCalledWith(session, expect.objectContaining({ exerciseResults: expect.any(Array) }));
     expect(complete.mock.calls[0]?.[1].exerciseResults.every((result: { resultStatus: string }) => result.resultStatus === "prescribed_only")).toBe(true);
     expect(JSON.stringify(renderer.toJSON())).toContain("Done. Fuel check optional.");
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Log result"));
+      await press(pressableWithText(renderer, "Quick log"));
     });
     act(() => {
       changeInput(renderer, "Session notes / skip reason optional", "Travel day");
@@ -2086,13 +2374,13 @@ describe("minimal app screens", () => {
 
     const reviewRenderer = render(React.createElement(WorkoutDetailPanel, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, session }));
     await act(async () => {
-      await press(pressableWithText(reviewRenderer, "Log result"));
+      await press(pressableWithText(reviewRenderer, "Quick log"));
     });
     act(() => {
       changeInput(reviewRenderer, "Session RPE 1-10 optional", "8");
     });
     await act(async () => {
-      await press(pressableWithText(reviewRenderer, "Complete without exercise details"));
+      await press(pressableWithText(reviewRenderer, "Mark workout done"));
     });
     expect(JSON.stringify(reviewRenderer.toJSON())).toContain("Review pain/RPE before progressing.");
   });

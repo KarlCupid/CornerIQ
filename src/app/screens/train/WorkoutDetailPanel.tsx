@@ -244,13 +244,21 @@ export function WorkoutDetailPanel({
   busy,
   completionActions,
   completionMessage,
+  onStartWorkout,
   onOpenFuel,
+  planOpenRequestKey = 0,
+  quickLogOpenRequestKey = 0,
+  startWorkoutDisabledReason,
   session
 }: {
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
   completionMessage?: string | null | undefined;
+  onStartWorkout?: (() => void) | undefined;
   onOpenFuel?: (() => void) | undefined;
+  planOpenRequestKey?: number | undefined;
+  quickLogOpenRequestKey?: number | undefined;
+  startWorkoutDisabledReason?: string | undefined;
   session: DetailedTrainingSession;
 }) {
   const [resultOpen, setResultOpen] = useState(false);
@@ -264,6 +272,18 @@ export function WorkoutDetailPanel({
   const [exerciseInputs, setExerciseInputs] = useState<Record<string, ExerciseResultInputs>>({});
   const [localError, setLocalError] = useState<string | null>(null);
   const [followUpState, setFollowUpState] = useState<WorkoutFollowUpState | null>(null);
+
+  React.useEffect(() => {
+    if (quickLogOpenRequestKey > 0) {
+      setResultOpen(true);
+    }
+  }, [quickLogOpenRequestKey]);
+
+  React.useEffect(() => {
+    if (planOpenRequestKey > 0) {
+      setPlanOpen(true);
+    }
+  }, [planOpenRequestKey]);
 
   const updateExercise = (exerciseId: string, updater: (current: ExerciseResultInputs) => ExerciseResultInputs) => {
     setExerciseInputs((current) => ({ ...current, [exerciseId]: updater(current[exerciseId] ?? emptyExerciseResultInputs()) }));
@@ -341,8 +361,21 @@ export function WorkoutDetailPanel({
             testID="workout-next-action-card"
           />
         ) : null}
-        <Pressable accessibilityLabel={resultOpen ? "Hide workout result logger" : "Log result"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.button}>
-          <Text style={screenStyles.buttonText}>{resultOpen ? "Hide result logger" : "Log result"}</Text>
+        {onStartWorkout ? (
+          <Pressable
+            accessibilityLabel="Start workout"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy || Boolean(startWorkoutDisabledReason) }}
+            disabled={busy || Boolean(startWorkoutDisabledReason)}
+            onPress={onStartWorkout}
+            style={[screenStyles.button, startWorkoutDisabledReason ? { backgroundColor: "rgba(255, 255, 255, 0.12)" } : null]}
+          >
+            <Text style={screenStyles.buttonText}>{startWorkoutDisabledReason ? "Start blocked" : "Start workout"}</Text>
+          </Pressable>
+        ) : null}
+        {startWorkoutDisabledReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startWorkoutDisabledReason}</Text> : null}
+        <Pressable accessibilityLabel={resultOpen ? "Hide quick log" : "Quick log"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.quietButton}>
+          <Text style={screenStyles.quietButtonText}>{resultOpen ? "Hide quick log" : "Quick log"}</Text>
         </Pressable>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable accessibilityLabel={planOpen ? "Hide workout plan" : "Show workout plan"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
@@ -356,16 +389,16 @@ export function WorkoutDetailPanel({
       {resultOpen ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.sectionTitle}>Log result</Text>
-            <Text style={screenStyles.body}>Complete without exercise details when time is tight.</Text>
+            <Text style={screenStyles.sectionTitle}>Quick log</Text>
+            <Text style={screenStyles.body}>Mark workout done without follow-along when time is tight.</Text>
             <Text style={screenStyles.subtle}>Session RPE is enough if you are short on time.</Text>
           </View>
           <TextInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
           <TextInput onChangeText={setPainNotes} placeholder="Pain note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
           <TextInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={notes} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityLabel="Complete without exercise details" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void complete()} style={screenStyles.button}>
-              <Text style={screenStyles.buttonText}>{busy ? "Saving completion..." : "Complete without exercise details"}</Text>
+            <Pressable accessibilityLabel="Mark workout done" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void complete()} style={screenStyles.button}>
+              <Text style={screenStyles.buttonText}>{busy ? "Saving workout..." : "Mark workout done"}</Text>
             </Pressable>
             {notes.trim() ? (
               <Pressable accessibilityLabel="Save skip reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={screenStyles.quietButton}>
@@ -374,13 +407,13 @@ export function WorkoutDetailPanel({
             ) : null}
           </View>
           <View style={{ gap: spacing.sm }}>
-            <Pressable accessibilityLabel={exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"} accessibilityRole="button" accessibilityState={{ selected: exerciseDetailsOpen }} onPress={() => setExerciseDetailsOpen((value) => !value)} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>{exerciseDetailsOpen ? "Hide optional exercise details" : "Show optional exercise details"}</Text>
+            <Pressable accessibilityLabel={exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"} accessibilityRole="button" accessibilityState={{ selected: exerciseDetailsOpen }} onPress={() => setExerciseDetailsOpen((value) => !value)} style={screenStyles.quietButton}>
+              <Text style={screenStyles.quietButtonText}>{exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"}</Text>
             </Pressable>
-            <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows are ignored; skipped sessions do not save exercise rows.</Text>
+            <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows save as not logged when the workout is marked done; skipped sessions do not save exercise rows.</Text>
             {exerciseDetailsOpen ? (
-              <Pressable accessibilityLabel={structuredActualsOpen ? "Hide extra exercise details" : "Show extra exercise details"} accessibilityRole="button" accessibilityState={{ selected: structuredActualsOpen }} onPress={() => setStructuredActualsOpen((value) => !value)} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>{structuredActualsOpen ? "Hide extra details" : "Show extra details"}</Text>
+              <Pressable accessibilityLabel={structuredActualsOpen ? "Hide extra fields" : "Extra fields"} accessibilityRole="button" accessibilityState={{ selected: structuredActualsOpen }} onPress={() => setStructuredActualsOpen((value) => !value)} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>{structuredActualsOpen ? "Hide extra fields" : "Extra fields"}</Text>
               </Pressable>
             ) : null}
             {exerciseDetailsOpen ? session.sections.map((section, sectionIndex) => (

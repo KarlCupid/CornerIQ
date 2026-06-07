@@ -276,7 +276,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     state.safety.hardStops.length > 0
       ? "Follow the safety stop. Do not add a support workout today."
       : todayGeneratedSessions.length > 0
-        ? "Open Workout when you are ready, then log completed or skipped."
+        ? "Start today's support workout when you are ready. Quick log remains available."
         : "No support workout is due. Log fixed or manual boxing if it happens.";
   const supportGenerationSummary = {
     targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
