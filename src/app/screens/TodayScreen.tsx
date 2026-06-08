@@ -1,5 +1,6 @@
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { CompactStatusStrip, PrimaryTaskCard, type FastTaskAction } from "../../design/components/FastTask";
@@ -74,6 +75,7 @@ function TodayQuickCheckSection({
   framed = true,
   focus,
   includeOtherLogs = true,
+  onClose,
   quickLogs,
   recentLogs
 }: {
@@ -81,6 +83,7 @@ function TodayQuickCheckSection({
   framed?: boolean | undefined;
   focus: TodayQuickCheckFocus;
   includeOtherLogs?: boolean | undefined;
+  onClose?: (() => void) | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
 }) {
@@ -109,10 +112,22 @@ function TodayQuickCheckSection({
       style={{ gap: spacing.md }}
       testID="today-quick-check-section"
     >
-      <View style={{ gap: spacing.xs }}>
-        <Text style={screenStyles.sectionTitle}>Quick check</Text>
-        <Text style={screenStyles.callout}>{focusCopy}</Text>
-        <Text style={screenStyles.subtle}>Log only what you know. Missing data stays unknown.</Text>
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+          <Text style={screenStyles.sectionTitle}>Quick check</Text>
+          <Text style={screenStyles.callout}>{focusCopy}</Text>
+          <Text style={screenStyles.subtle}>Log only what you know. Missing data stays unknown.</Text>
+        </View>
+        {onClose ? (
+          <Pressable
+            accessibilityLabel="Close quick check"
+            accessibilityRole="button"
+            onPress={onClose}
+            style={[screenStyles.quietButton, { minHeight: 44, minWidth: 76, paddingHorizontal: spacing.md }]}
+          >
+            <Text style={screenStyles.quietButtonText}>Close</Text>
+          </Pressable>
+        ) : null}
       </View>
       {orderedFocuses.map((item) => (
         <View key={`today-quick-check-card:${item}`} style={{ gap: spacing.sm }}>
@@ -140,14 +155,116 @@ function TodayQuickCheckSection({
   );
 }
 
+function TodayQuickCheckModal({
+  busy,
+  onClose,
+  quickCheck,
+  quickLogs,
+  recentLogs
+}: {
+  busy: boolean;
+  onClose: () => void;
+  quickCheck: { focus: TodayQuickCheckFocus; placement: TodayQuickCheckPlacement } | null;
+  quickLogs: QuickLogActions;
+  recentLogs: RecentLogsViewModel;
+}) {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  if (!quickCheck) {
+    return null;
+  }
+
+  const maxPanelHeight = Math.max(340, Math.min(height - insets.top - insets.bottom - spacing.xxl, 720));
+  const includeOtherLogs = quickCheck.placement === "top" || quickCheck.placement === "manual";
+  const modalShadowStyle: ViewStyle =
+    Platform.OS === "web"
+      ? ({ boxShadow: "0 16px 28px rgba(0, 0, 0, 0.36)" } as ViewStyle)
+      : {
+          elevation: 12,
+          shadowColor: "#000000",
+          shadowOffset: { height: 16, width: 0 },
+          shadowOpacity: 0.36,
+          shadowRadius: 28
+        };
+
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      transparent
+      visible
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{
+          alignItems: "center",
+          flex: 1,
+          justifyContent: "center",
+          paddingBottom: Math.max(insets.bottom, spacing.lg),
+          paddingHorizontal: spacing.lg,
+          paddingTop: Math.max(insets.top, spacing.lg)
+        }}
+      >
+        <Pressable
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          onPress={onClose}
+          style={{
+            backgroundColor: "rgba(3, 6, 15, 0.74)",
+            bottom: 0,
+            left: 0,
+            position: "absolute",
+            right: 0,
+            top: 0
+          }}
+        />
+        <View
+          accessibilityLabel="Quick check popup"
+          accessibilityViewIsModal
+          style={[
+            {
+              backgroundColor: colors.panelDeep,
+              borderColor: colors.lineStrong,
+              borderRadius: radii.card,
+              borderWidth: 1,
+              maxHeight: maxPanelHeight,
+              maxWidth: 640,
+              padding: spacing.lg,
+              width: "100%"
+            },
+            modalShadowStyle
+          ]}
+          testID="today-quick-check-modal"
+        >
+          <ScrollView
+            contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.xs }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TodayQuickCheckSection
+              busy={busy}
+              focus={quickCheck.focus}
+              framed={false}
+              includeOtherLogs={includeOtherLogs}
+              onClose={onClose}
+              quickLogs={quickLogs}
+              recentLogs={recentLogs}
+            />
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 function TodayDashboardSection({
   busy,
   dashboard,
   onOpenFuel,
   onOpenTrainWorkout,
   onOpenQuickCheck,
-  onPrimaryAction,
-  renderQuickCheck
+  onPrimaryAction
 }: {
   busy: boolean;
   dashboard: TodayDashboardVisual;
@@ -155,7 +272,6 @@ function TodayDashboardSection({
   onOpenTrainWorkout?: (() => void) | undefined;
   onOpenQuickCheck: (focus: TodayQuickCheckFocus, placement: TodayQuickCheckPlacement) => void;
   onPrimaryAction: (placement: TodayQuickCheckPlacement) => void;
-  renderQuickCheck: (placement: TodayQuickCheckPlacement, framed?: boolean | undefined) => React.ReactNode;
 }) {
   const actionButtonStyle = [screenStyles.quietButton, { flexBasis: 148, flexGrow: 1 }];
   const hasBodyMassLine = dashboard.bodyMass.points.length >= 2;
@@ -190,7 +306,6 @@ function TodayDashboardSection({
             <Text style={screenStyles.quietButtonText}>{dashboard.readiness.emptyActionLabel}</Text>
           </Pressable>
         ) : null}
-        {renderQuickCheck("readiness_card", false)}
       </DashboardCard>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
@@ -262,7 +377,6 @@ function TodayDashboardSection({
               >
                 <Text style={screenStyles.quietButtonText}>{/no body (mass|weight)|unknown/i.test(dashboard.bodyMass.currentLabel) ? "Log body weight" : "Update body weight"}</Text>
               </Pressable>
-              {renderQuickCheck("body_mass_card", false)}
             </View>
           </DashboardCard>
         </View>
@@ -324,7 +438,6 @@ function TodayDashboardSection({
           ) : null}
         </View>
         <Text style={screenStyles.subtle}>Add only true manual logs. Missing data stays unknown, not safe.</Text>
-        {renderQuickCheck("manual", false)}
       </DashboardCard>
 
       <Pressable
@@ -338,7 +451,6 @@ function TodayDashboardSection({
       >
         <Text style={[screenStyles.buttonText, { fontSize: 17 }]}>{dashboard.ctaLabel}</Text>
       </Pressable>
-      {renderQuickCheck("dashboard_primary")}
     </View>
   );
 }
@@ -377,6 +489,9 @@ export function TodayScreen({
   const openQuickCheck = (focus: TodayQuickCheckFocus, placement: TodayQuickCheckPlacement = "top") => {
     setQuickCheck({ focus, placement });
   };
+  const closeQuickCheck = () => {
+    setQuickCheck(null);
+  };
   const dashboard = buildTodayDashboardVisual({
     asOfDate,
     fuel: fuelViewModel,
@@ -385,17 +500,6 @@ export function TodayScreen({
     today: viewModel,
     train: trainViewModel
   });
-  const renderQuickCheck = (placement: TodayQuickCheckPlacement, framed = true) =>
-    quickCheck?.placement === placement ? (
-      <TodayQuickCheckSection
-        busy={busy}
-        focus={quickCheck.focus}
-        framed={framed}
-        includeOtherLogs={placement === "top" || placement === "manual"}
-        quickLogs={quickLogs}
-        recentLogs={recentLogs}
-      />
-    ) : null;
   const runDashboardPrimaryAction = (quickCheckPlacement: TodayQuickCheckPlacement = "top") => {
     if (/fuel/i.test(dashboard.ctaLabel)) {
       (onOpenFuelLog ?? onOpenFuel)?.();
@@ -448,70 +552,77 @@ export function TodayScreen({
       : [])
   ].filter((action) => action.label !== primaryButton.label);
   return (
-    <LuminousScreen testID="today-screen">
-      <ScreenHeader eyebrow="Daily mission" title="Today" />
-      <PrimaryTaskCard
-        accent={accentForTone(dashboard.decision.tone)}
-        primaryAction={plainTodayCopy(dashboard.decision.title)}
-        primaryButton={primaryButton}
-        purpose={plainTodayCopy(dashboard.decision.subtitle)}
-        secondaryActions={secondaryActions}
-        testID="today-primary-task"
-        title="Do now"
-      >
-        <CompactStatusStrip
-          items={[
-            {
-              accent: accentForTone(dashboard.readiness.tone),
-              label: "Readiness",
-              meta: dashboard.readiness.statusLabel,
-              value: dashboard.readiness.score === null ? "Unknown" : dashboard.readiness.scoreLabel
-            },
-            {
-              accent: accentForTone(dashboard.decision.tone),
-              label: "Training",
-              meta: `ACWR ${dashboard.acwrLabel}`,
-              value: dashboard.loadStateLabel
-            },
-            {
-              accent: accentForTone(dashboard.fuel[0]?.tone ?? "muted"),
-              label: "Fuel",
-              meta: "Food stays optional",
-              value: dashboard.fuel.length > 0 ? dashboard.fuel[0]?.valueLabel ?? "Unknown" : "Unknown"
-            }
-          ]}
+    <>
+      <LuminousScreen testID="today-screen">
+        <ScreenHeader eyebrow="Daily mission" title="Today" />
+        <PrimaryTaskCard
+          accent={accentForTone(dashboard.decision.tone)}
+          primaryAction={plainTodayCopy(dashboard.decision.title)}
+          primaryButton={primaryButton}
+          purpose={plainTodayCopy(dashboard.decision.subtitle)}
+          secondaryActions={secondaryActions}
+          testID="today-primary-task"
+          title="Do now"
+        >
+          <CompactStatusStrip
+            items={[
+              {
+                accent: accentForTone(dashboard.readiness.tone),
+                label: "Readiness",
+                meta: dashboard.readiness.statusLabel,
+                value: dashboard.readiness.score === null ? "Unknown" : dashboard.readiness.scoreLabel
+              },
+              {
+                accent: accentForTone(dashboard.decision.tone),
+                label: "Training",
+                meta: `ACWR ${dashboard.acwrLabel}`,
+                value: dashboard.loadStateLabel
+              },
+              {
+                accent: accentForTone(dashboard.fuel[0]?.tone ?? "muted"),
+                label: "Fuel",
+                meta: "Food stays optional",
+                value: dashboard.fuel.length > 0 ? dashboard.fuel[0]?.valueLabel ?? "Unknown" : "Unknown"
+              }
+            ]}
+          />
+        </PrimaryTaskCard>
+        <TodayDashboardSection
+          busy={busy}
+          dashboard={dashboard}
+          onOpenFuel={onOpenFuelLog ?? onOpenFuel}
+          onOpenTrainWorkout={onOpenTrainWorkout ?? onOpenTrain}
+          onOpenQuickCheck={openQuickCheck}
+          onPrimaryAction={runDashboardPrimaryAction}
         />
-      </PrimaryTaskCard>
-      {renderQuickCheck("top")}
-      <TodayDashboardSection
+        {hasRisk ? (
+          <RiskBanner title="Safety stop" message="Safety comes before the plan. Missing or risky logs are unknown, not permission to push." tone="critical">
+            <View style={{ gap: spacing.sm }}>
+              {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{plainTodayCopy(risk)}</Text>)}
+              <Pressable accessibilityLabel="Open safety in Fuel" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => (onOpenFuelSafety ?? onOpenFuel)?.()} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>Open safety in Fuel</Text>
+              </Pressable>
+            </View>
+          </RiskBanner>
+        ) : null}
+        {message ? (
+          <EngineCard>
+            <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing plan stays visible unless safety says otherwise.</Text>
+          </EngineCard>
+        ) : null}
+        {showCycleImpact && (cycleContext || cycleTrackingStatus === "undecided") ? (
+          <EngineCard>
+            <CycleContextCard cycleContext={cycleContext} framed={false} trackingStatus={cycleTrackingStatus} />
+          </EngineCard>
+        ) : null}
+      </LuminousScreen>
+      <TodayQuickCheckModal
         busy={busy}
-        dashboard={dashboard}
-        onOpenFuel={onOpenFuelLog ?? onOpenFuel}
-        onOpenTrainWorkout={onOpenTrainWorkout ?? onOpenTrain}
-        onOpenQuickCheck={openQuickCheck}
-        onPrimaryAction={runDashboardPrimaryAction}
-        renderQuickCheck={renderQuickCheck}
+        onClose={closeQuickCheck}
+        quickCheck={quickCheck}
+        quickLogs={quickLogs}
+        recentLogs={recentLogs}
       />
-      {hasRisk ? (
-        <RiskBanner title="Safety stop" message="Safety comes before the plan. Missing or risky logs are unknown, not permission to push." tone="critical">
-          <View style={{ gap: spacing.sm }}>
-            {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{plainTodayCopy(risk)}</Text>)}
-            <Pressable accessibilityLabel="Open safety in Fuel" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => (onOpenFuelSafety ?? onOpenFuel)?.()} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>Open safety in Fuel</Text>
-            </Pressable>
-          </View>
-        </RiskBanner>
-      ) : null}
-      {message ? (
-        <EngineCard>
-          <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing plan stays visible unless safety says otherwise.</Text>
-        </EngineCard>
-      ) : null}
-      {showCycleImpact && (cycleContext || cycleTrackingStatus === "undecided") ? (
-        <EngineCard>
-          <CycleContextCard cycleContext={cycleContext} framed={false} trackingStatus={cycleTrackingStatus} />
-        </EngineCard>
-      ) : null}
-    </LuminousScreen>
+    </>
   );
 }

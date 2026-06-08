@@ -308,7 +308,6 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
       </NavigationContainer>
       {playerSession ? (
         <View
-          pointerEvents={playerScreenVisible ? "auto" : "none"}
           style={{
             backgroundColor: colors.cornerBlack,
             bottom: 0,

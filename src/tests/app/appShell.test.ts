@@ -56,6 +56,7 @@ vi.mock("react-native", () => {
   return {
     ActivityIndicator: component("ActivityIndicator"),
     KeyboardAvoidingView: component("KeyboardAvoidingView"),
+    Modal: component("Modal"),
     Platform: { OS: "ios" },
     Pressable: component("Pressable"),
     ScrollView: component("ScrollView"),
@@ -941,6 +942,10 @@ function pressableWithAccessibilityLabel(renderer: ReactTestRenderer, label: str
   return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => (item.props as { accessibilityLabel?: string }).accessibilityLabel === label);
 }
 
+function visibleModalCount(renderer: ReactTestRenderer): number {
+  return (renderer.root.findAllByType("Modal") as TestInstance[]).filter((item) => (item.props as { visible?: boolean }).visible === true).length;
+}
+
 function pressableLabels(renderer: ReactTestRenderer): string[] {
   return (renderer.root.findAllByType("Pressable") as TestInstance[]).map((item) => JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)));
 }
@@ -1453,15 +1458,17 @@ describe("minimal app screens", () => {
 
     expect(Object.keys(handledTodaySecondaryActions).sort()).toEqual(todayViewModel.secondaryActions.map((action) => action.action).sort());
     expect(JSON.stringify(renderer.toJSON())).not.toContain("today-quick-check-section");
-    expect(JSON.stringify(renderer.toJSON())).not.toContain("today-quick-check-section");
+    expect(visibleModalCount(renderer)).toBe(0);
 
     await act(async () => {
       await press(pressableWithText(renderer, "Quick check-in"));
     });
     const quickCheckOutput = JSON.stringify(renderer.toJSON());
+    expect(visibleModalCount(renderer)).toBe(1);
+    expect(quickCheckOutput).toContain("today-quick-check-modal");
     expect(quickCheckOutput).toContain("today-quick-check-section");
     expect(quickCheckOutput).toContain("Quick check");
-    expect(quickCheckOutput.indexOf("today-quick-check-section")).toBeLessThan(quickCheckOutput.indexOf("today-visual-dashboard"));
+    expect(quickCheckOutput.indexOf("today-visual-dashboard")).toBeLessThan(quickCheckOutput.indexOf("today-quick-check-modal"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Open workout"));
@@ -1476,7 +1483,7 @@ describe("minimal app screens", () => {
     expect(markFoodNotTrackingToday).not.toHaveBeenCalled();
   });
 
-  it("TodayScreen routes top check-in to an in-place quick-check wizard", async () => {
+  it("TodayScreen routes top check-in to a popup quick-check wizard", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const renderer = render(
       React.createElement(TodayScreen, {
@@ -1495,12 +1502,20 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Quick check-in"));
     });
     const output = JSON.stringify(renderer.toJSON());
+    expect(visibleModalCount(renderer)).toBe(1);
+    expect(output).toContain("today-quick-check-modal");
     expect(output).toContain("today-quick-check-section");
     expect(output).toContain("Readiness first");
-    expect(output.indexOf("today-quick-check-section")).toBeLessThan(output.indexOf("today-visual-dashboard"));
+    expect(output.indexOf("today-visual-dashboard")).toBeLessThan(output.indexOf("today-quick-check-modal"));
+
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Close quick check"));
+    });
+    expect(visibleModalCount(renderer)).toBe(0);
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("today-quick-check-section");
   });
 
-  it("TodayScreen opens readiness and body-weight inputs inside the card that launched them", async () => {
+  it("TodayScreen opens readiness and body-weight inputs in the popup that launched them", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const missingReadinessLogs: RecentLogsViewModel = {
       ...recentLogsViewModel,
@@ -1532,17 +1547,19 @@ describe("minimal app screens", () => {
       await press(logReadinessButtons[logReadinessButtons.length - 1]);
     });
     const readinessOutput = JSON.stringify(renderer.toJSON());
+    expect(visibleModalCount(renderer)).toBe(1);
+    expect(readinessOutput).toContain("today-quick-check-modal");
     expect(readinessOutput).toContain("Readiness first");
-    expect(readinessOutput.indexOf("READINESS SCORE")).toBeLessThan(readinessOutput.indexOf("today-quick-check-section"));
-    expect(readinessOutput.indexOf("today-quick-check-section")).toBeLessThan(readinessOutput.indexOf("WEEKLY TRAINING LOAD"));
+    expect(readinessOutput.indexOf("today-visual-dashboard")).toBeLessThan(readinessOutput.indexOf("today-quick-check-modal"));
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Open trend body weight input"));
     });
     const bodyMassOutput = JSON.stringify(renderer.toJSON());
+    expect(visibleModalCount(renderer)).toBe(1);
+    expect(bodyMassOutput).toContain("today-quick-check-modal");
     expect(bodyMassOutput).toContain("Weight trend first");
-    expect(bodyMassOutput.indexOf("BODY WEIGHT TREND")).toBeLessThan(bodyMassOutput.indexOf("today-quick-check-section"));
-    expect(bodyMassOutput.indexOf("today-quick-check-section")).toBeLessThan(bodyMassOutput.indexOf("TODAY'S TRAINING DECISION"));
+    expect(bodyMassOutput.indexOf("today-visual-dashboard")).toBeLessThan(bodyMassOutput.indexOf("today-quick-check-modal"));
   });
 
   it("TodayScreen keeps risk, why, and no-shame missing-log copy visible", async () => {
