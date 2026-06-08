@@ -83,7 +83,7 @@ function statusDisplay(status: PersistedNutritionSafetyReview["status"]): Persis
 
 function eventLabel(eventType: NutritionSafetyReviewEvent["eventType"]): string {
   if (eventType === "reviewer_reviewing" || eventType === "reviewer_assigned" || eventType === "reviewer_note") {
-    return "qualified support";
+    return "outside support";
   }
   if (eventType === "cleared_by_reviewer" || eventType === "not_cleared") {
     return "support status";
@@ -131,7 +131,7 @@ export function buildNutritionReviewHistoryViewModel(input: {
       })),
     noHistoryCopy: "No review events are loaded yet. Active safety stops still remain active.",
     safetyCopy: "You cannot clear nutrition safety stops yourself.",
-    qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Seek qualified support outside the app when a safety stop is active.",
-    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app."
+    qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
+    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now."
   };
 }

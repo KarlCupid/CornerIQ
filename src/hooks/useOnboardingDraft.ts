@@ -4,7 +4,7 @@ import { createDefaultOnboardingDraft, OnboardingDraftSchema, type OnboardingDra
 
 export const ONBOARDING_STEPS = [
   "Boxer basics",
-  "Body mass",
+  "Body weight",
   "Training access",
   "Fixed boxing schedule",
   "Cycle support",
@@ -97,8 +97,8 @@ export function validateOnboardingStep(draft: OnboardingDraft, stepIndex: number
   if (stepIndex === 1) {
     return (
       validatePositiveNumber(draft.bodyMass.heightCm, "Height") ??
-      validatePositiveNumber(draft.bodyMass.currentBodyMassKg, "Current body mass") ??
-      validatePositiveNumber(draft.bodyMass.typicalWalkAroundWeightKg, "Walk-around body mass")
+      validatePositiveNumber(draft.bodyMass.currentBodyMassKg, "Current body weight") ??
+      validatePositiveNumber(draft.bodyMass.typicalWalkAroundWeightKg, "Walk-around body weight")
     );
   }
   if (stepIndex === 2) {

@@ -33,7 +33,7 @@ function kgLabel(value: number | null): string {
 
 function trendLabel(trendKgPerWeek: number | null): string {
   if (trendKgPerWeek === null) {
-    return "Trend unknown until more body-mass logs exist.";
+    return "Trend unknown until more body weight logs exist.";
   }
   if (Math.abs(trendKgPerWeek) < 0.05) {
     return "Trend is stable over the last week.";
@@ -59,18 +59,18 @@ export function buildBodyMassTrajectoryViewModel(input: {
       : input.bodyMass.scaleNoise.explanation;
   const targetGap =
     input.weightClassStatus.latestBodyMassKg === null || input.bodyMass.feasibility.requiredLossKg === null
-      ? "Target gap unknown until current body mass and fight target are both known."
+      ? "Target gap unknown until current body weight and fight target are both known."
       : `${input.bodyMass.feasibility.requiredLossKg.toFixed(1)} kg from target context. This is not a short-term weight instruction.`;
   const reviewActionVisible = blocked;
   const nextSafeActions =
     input.bodyMass.trend.latestKg === null
-      ? ["Add a manual body-mass log if it feels safe and useful.", "Keep missing scale data marked unknown."]
+      ? ["Add a manual body weight log if it feels safe and useful.", "Keep missing scale data marked unknown."]
       : blocked
         ? ["Use the nutrition safety stop action.", "Keep meals and hydration steady while review is pending."]
         : [input.weightClassStatus.nextAction, "Use the 7/14-day trend instead of reacting to one scale entry."];
   return {
     latestWeight: `Latest: ${kgLabel(input.bodyMass.trend.latestKg)}`,
-    logCount7Day: `${input.bodyMass.trend.logCount7Day} body-mass log(s) in the last 7 days.`,
+    logCount7Day: `${input.bodyMass.trend.logCount7Day} body weight log(s) in the last 7 days.`,
     trend: trendLabel(input.bodyMass.trend.trendKgPerWeek),
     target: input.weightClassStatus.targetSummary,
     daysToWeighIn: days === null ? "Weigh-in timing unknown." : `${days} day(s) to weigh-in.`,
@@ -78,7 +78,7 @@ export function buildBodyMassTrajectoryViewModel(input: {
     cycleNoiseNote: cycleNoise,
     nextSafeAction:
       input.bodyMass.trend.latestKg === null
-        ? "Log body mass manually if it feels safe and useful."
+        ? "Log body weight manually if it feels safe and useful."
         : blocked
           ? "Use the safety stop action before any weight-class pressure continues."
           : input.weightClassStatus.nextAction,
@@ -101,7 +101,7 @@ export function buildBodyMassTrajectoryViewModel(input: {
         : "Cycle scale-noise window is not elevated today.",
     riskExplanation:
       input.weightClassStatus.status === "blocked" || input.weightClassStatus.status === "unsafe"
-        ? "Body-mass trajectory is blocked or unsafe, so review is the next step."
+        ? "Body weight trend is blocked or unsafe, so review is the next step."
         : input.weightClassStatus.explanation,
     nextSafeActions,
     reviewActionVisible

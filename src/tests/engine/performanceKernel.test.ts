@@ -83,7 +83,7 @@ describe("Corner Engine performance kernel", () => {
     const state = resolvePerformanceState({ journey: no_data_low_confidence, asOfDate: fixtureAsOfDate });
 
     expect(state.viewModels.today.decisionStack[0]?.label).toBe("Primary action");
-    expect(state.viewModels.today.decisionStack.some((item) => item.label === "Body mass" && item.summary.includes("Trend unknown"))).toBe(true);
+    expect(state.viewModels.today.decisionStack.some((item) => item.label === "Body weight" && item.summary.includes("Trend unknown"))).toBe(true);
     expect(state.viewModels.recentLogs.bodyMassTrendSummary).toContain("unknown");
     expect(state.viewModels.recentLogs.today.length).toBeGreaterThan(0);
   });

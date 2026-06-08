@@ -142,7 +142,7 @@ function groupedDay(input: BuildFuelHistoryViewModelInput, date: ISODateString):
     notes.push("No water log; hydration confidence is lower.");
   }
   if (input.highFuelDemandDates?.includes(date)) {
-    notes.push("High fuel-demand session day; low food-log confidence should be reviewed before interpreting intake.");
+    notes.push("High-fuel workout day; low food-log confidence should be reviewed before reading intake.");
   }
   if (input.fightWeekActive && (fiberValues.length > 0 || foodSodiumValues.length > 0 || electrolytes.length > 0)) {
     notes.push("Fight-week fiber and sodium context is for consistency, not acute manipulation.");
@@ -196,8 +196,8 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
       foodLogConfidence: foodConfidence,
       summary:
         foodConfidence === "unknown" || foodConfidence === "low"
-          ? `${date}: high fuel-demand training with ${foodConfidence} food-log confidence. Interpret fuel history cautiously.`
-          : `${date}: high fuel-demand training has ${foodConfidence} manual fuel context.`
+          ? `${date}: high-fuel training with ${foodConfidence} food-log confidence. Interpret fuel history cautiously.`
+          : `${date}: high-fuel training has ${foodConfidence} manual fuel context.`
     };
   });
   const fightWeekMarkers = input.fightWeekActive
@@ -267,6 +267,6 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
     fightWeekMarkers,
     hydrationConsistency,
     missingDataNarrative,
-    warnings: input.fightWeekActive ? ["Fight-week fiber and sodium context is for consistency and gut comfort; it is not an acute protocol."] : []
+    warnings: input.fightWeekActive ? ["Fight-week fiber and sodium are for consistency and gut comfort; this is not a quick cut plan."] : []
   };
 }

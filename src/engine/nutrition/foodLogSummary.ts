@@ -1,4 +1,5 @@
 import { makeConfidence } from "../core/confidence";
+import { estimateFoodLogMacroCalories, validateFoodLogEnergy } from "./foodLogEnergyValidation";
 import type {
   Confidence,
   ConfidenceLevel,
@@ -222,7 +223,10 @@ function resolveStatus(input: {
   return loggedHour !== null && loggedHour >= 20 && input.coverage < 0.75 ? "likely_partial" : "partial_day";
 }
 
-function summaryCopyFor(summary: DailyFoodLogSummary): string {
+function summaryCopyFor(summary: Pick<DailyFoodLogSummary, "status">, inconsistentEntryCount = 0): string {
+  if (inconsistentEntryCount > 0) {
+    return `${inconsistentEntryCount === 1 ? "One food entry has" : `${inconsistentEntryCount} food entries have`} calories that do not match protein, carbs, and fat. Correct the entry before target comparison.`;
+  }
   switch (summary.status) {
     case "no_log":
       return "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.";
@@ -245,7 +249,10 @@ function summaryCopyFor(summary: DailyFoodLogSummary): string {
   }
 }
 
-function engineInterpretationFor(summary: Pick<DailyFoodLogSummary, "status" | "targetComparisonAllowed" | "underFuelingEvidenceAllowed">): string {
+function engineInterpretationFor(summary: Pick<DailyFoodLogSummary, "status" | "targetComparisonAllowed" | "underFuelingEvidenceAllowed">, inconsistentEntryCount = 0): string {
+  if (inconsistentEntryCount > 0) {
+    return "Food calories and macros disagree, so the log is advisory-only and cannot create under-fueling evidence.";
+  }
   if (summary.underFuelingEvidenceAllowed) {
     return "Complete food evidence can inform low-intake cautions and repeated-day safety evidence.";
   }
@@ -280,6 +287,7 @@ export function resolveDailyFoodLogSummary(
   );
   const sortedLoggedAt = dayLogs.map((log) => log.loggedAt).filter((value): value is ISODateTimeString => Boolean(value)).sort();
   const mealTagsLogged = [...new Set(dayLogs.map(mealTagForLog))];
+  const energyValidationIssues = dayLogs.map(validateFoodLogEnergy).filter((validation) => !validation.valid);
   const coverage = coverageScore({ totals, targets, mealTags: mealTagsLogged, entryCount: dayLogs.length });
   const status = resolveStatus({
     dayLogs,
@@ -289,28 +297,31 @@ export function resolveDailyFoodLogSummary(
     asOfDate: date,
     lastLoggedAt: sortedLoggedAt.at(-1)
   });
-  const targetComparisonAllowed = completeStatuses.has(status);
-  const underFuelingEvidenceAllowed = completeStatuses.has(status);
+  const targetComparisonAllowed = completeStatuses.has(status) && energyValidationIssues.length === 0;
+  const underFuelingEvidenceAllowed = completeStatuses.has(status) && energyValidationIssues.length === 0;
   const score =
-    status === "complete_high_confidence"
-      ? 0.9
-      : status === "complete_estimated"
-        ? 0.78
-        : status === "user_marked_complete"
-          ? 0.68
-          : status === "quick_fuel_check_only"
-            ? 0.58
-            : status === "not_tracking_today"
-              ? 0.52
-              : status === "partial_day" || status === "likely_partial"
-                ? 0.48
-                : status === "auto_closed_incomplete"
-                  ? 0.42
-                  : 0.24;
+    energyValidationIssues.length > 0
+      ? 0.34
+      : status === "complete_high_confidence"
+        ? 0.9
+        : status === "complete_estimated"
+          ? 0.78
+          : status === "user_marked_complete"
+            ? 0.68
+            : status === "quick_fuel_check_only"
+              ? 0.58
+              : status === "not_tracking_today"
+                ? 0.52
+                : status === "partial_day" || status === "likely_partial"
+                  ? 0.48
+                  : status === "auto_closed_incomplete"
+                    ? 0.42
+                    : 0.24;
   const missingInputs = [
     ...(status === "no_log" ? ["food logs"] : []),
     ...(status === "partial_day" || status === "likely_partial" || status === "auto_closed_incomplete" ? ["complete food log"] : []),
-    ...(status === "quick_fuel_check_only" ? ["full day macro log"] : [])
+    ...(status === "quick_fuel_check_only" ? ["full day macro log"] : []),
+    ...(energyValidationIssues.length > 0 ? ["macro-consistent food log"] : [])
   ];
   const summary = {
     date,
@@ -335,8 +346,8 @@ export function resolveDailyFoodLogSummary(
             ? latestEvent?.completionSource ?? "user"
             : null,
     confidence: makeConfidence(
-      Math.max(score, dayLogs.length > 0 ? Math.min(0.9, confidenceScore(dayLogs)) * (targetComparisonAllowed ? 1 : 0.72) : score),
-      [summaryCopyFor({ status } as DailyFoodLogSummary)],
+      energyValidationIssues.length > 0 ? score : Math.max(score, dayLogs.length > 0 ? Math.min(0.9, confidenceScore(dayLogs)) * (targetComparisonAllowed ? 1 : 0.72) : score),
+      [summaryCopyFor({ status }, energyValidationIssues.length)],
       missingInputs
     ),
     coverageScore: coverage,
@@ -353,8 +364,8 @@ export function resolveDailyFoodLogSummary(
 
   return {
     ...summary,
-    athleteFacingSummary: summaryCopyFor(summary),
-    engineInterpretation: engineInterpretationFor(summary)
+    athleteFacingSummary: summaryCopyFor(summary, energyValidationIssues.length),
+    engineInterpretation: engineInterpretationFor(summary, energyValidationIssues.length)
   };
 }
 
@@ -383,6 +394,8 @@ export function summarizeFoodLogs(
   const proteinTargetPercent = targets ? percent(totals.proteinGrams, targets.proteinGrams) : null;
   const carbohydrateTargetPercent = targets ? percent(totals.carbohydrateGrams, targets.carbohydrateGrams) : null;
   const fatTargetPercent = targets ? percent(totals.fatGrams, targets.fatGrams) : null;
+  const macroCalories = estimateFoodLogMacroCalories(totals);
+  const energyValidation = validateFoodLogEnergy(totals);
   const dailySummary = resolveDailyFoodLogSummary(logs, statusEvents, date, targets, now);
 
   return {
@@ -410,6 +423,13 @@ export function summarizeFoodLogs(
     summaryCopy: dailySummary.athleteFacingSummary,
     rows: [
       formatTarget(totals.calories, targets?.calories ?? 0, " kcal", calorieTargetPercent),
+      ...(dayLogs.length > 0
+        ? [
+            energyValidation.valid
+              ? `Protein/carbs/fat estimate ${macroCalories} kcal`
+              : `Protein/carbs/fat estimate ${macroCalories} kcal; calories need ${energyValidation.calorieRange.min}-${energyValidation.calorieRange.max} kcal`
+          ]
+        : []),
       formatTarget(totals.proteinGrams, targets?.proteinGrams ?? 0, "g protein", proteinTargetPercent),
       formatTarget(totals.carbohydrateGrams, targets?.carbohydrateGrams ?? 0, "g carbs", carbohydrateTargetPercent),
       formatTarget(totals.fatGrams, targets?.fatGrams ?? 0, "g fat", fatTargetPercent),

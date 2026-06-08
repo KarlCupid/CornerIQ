@@ -321,7 +321,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("healthy_logged");
     expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
     expect(state.viewModels.plan.dayPlans.map((day) => day.compactMetric.toLowerCase())).not.toContain("low fuel");
-    expect(state.viewModels.plan.nextWeekPreview.dayPlanPreview.map((day) => day.compactMetric).join(" ")).toContain("fuel demand");
+    expect(state.viewModels.plan.nextWeekPreview.dayPlanPreview.map((day) => day.compactMetric).join(" ").toLowerCase()).toContain("fuel");
   });
 
   it("no-workout plan rows do not render fuel demand or support tags", () => {

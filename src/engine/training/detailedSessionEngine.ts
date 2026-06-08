@@ -12,6 +12,7 @@ import type {
 } from "../core/types";
 import { prescribeExercise } from "./substitutionEngine";
 import { findWorkoutTemplateByTitle, sectionDurationPlan, selectWorkoutTemplate, type WorkoutTemplate, type WorkoutTemplateSection } from "./workoutTemplateCatalog";
+import { plainGeneratedSessionFamilyWhy, plainSectionIntent, plainSectionName, plainWorkoutTitle } from "../presentation/trainingCopy";
 
 export interface BuildDetailedTrainingSessionInput {
   generatedSession: GeneratedTrainingSession;
@@ -122,8 +123,8 @@ function sectionsFromTemplate(input: BuildDetailedTrainingSessionInput, template
   const durations = sectionDurationPlan(templateItem, targetDurationMinutes);
   return templateItem.sections.map((templateSection, index) =>
     section(
-      templateSection.name,
-      templateSection.intent,
+      plainSectionName(templateSection.name),
+      plainSectionIntent(templateSection.intent),
       durations[index] ?? 0,
       templateSection.exerciseIds.map((exerciseId) => exerciseForSection(input, templateSection, exerciseId))
     )
@@ -131,83 +132,30 @@ function sectionsFromTemplate(input: BuildDetailedTrainingSessionInput, template
 }
 
 function whyForFamily(family: GeneratedSessionFamily): string {
-  switch (family) {
-    case "boxing_technical_shadowboxing":
-      return "Technical shadowboxing develops stance, guard, jab entries, exits, and self-review without requiring equipment.";
-    case "boxing_bag_skill":
-      return "Bag skill turns equipment access into accuracy, distance, exit, and defense-after-combination practice with a quality cap.";
-    case "boxing_footwork_ringcraft":
-      return "Ringcraft work develops angle control, corner escape, and stance recovery so movement becomes tactical.";
-    case "boxing_defense_movement":
-      return "Defense movement work builds slip, roll, pivot, and reset habits while keeping head movement small and controlled.";
-    case "boxing_jab_entry_exit":
-      return "Jab-system work links lead-hand mechanics to entries and exits so the boxer wins position before adding volume.";
-    case "boxing_counter_timing":
-      return "Counter-timing work develops rhythm breaks, draw-counter shape, and foot reset with solo cues.";
-    case "boxing_round_skill_circuit":
-      return "Round skill circuits carry technical constraints through boxing-length rounds while stopping before quality collapses.";
-    case "agility_reactive_footwork":
-      return "Reactive footwork builds first-step quality, braking, pivots, and stance recovery with low volume.";
-    case "mobility_recovery_flow":
-      return "Mobility and recovery flow restores boxing positions and optional easy skill touch without adding another hard stress.";
-    case "movement_quality_prep":
-      return "Movement quality prep primes stance range, guard posture, trunk control, and shoulders before the main stimulus.";
-    case "strength_full_body":
-    case "strength_lower":
-    case "strength_upper":
-      return "Strength support builds force transfer, trunk stiffness, and stance durability without replacing boxing practice.";
-    case "roadwork_zone2":
-      return "Zone 2 roadwork builds the aerobic base that helps recovery between rounds and between hard sessions.";
-    case "roadwork_tempo":
-    case "roadwork_intervals":
-      return "Roadwork support builds repeatable conditioning with clear intensity gates so boxing quality stays protected.";
-    case "power_rotational":
-      return "Rotational power work keeps speed crisp and low-volume so punching transfer improves without fatigue chasing.";
-    case "power_lower":
-    case "power_upper":
-      return "Power support keeps fast force production crisp while stopping before fatigue changes skill quality.";
-    case "alactic_sprints":
-      return "Alactic sprint support trains short bursts with full recovery and strict stop gates.";
-    case "round_based_conditioning":
-      return "Round-based conditioning supports boxing work capacity without replacing protected technical boxing practice.";
-    case "taper_maintenance":
-      return "Taper work preserves speed while dropping volume so boxing sharpness stays protected.";
-    case "recovery_reset":
-      return "Recovery detail protects health and tomorrow's boxing when readiness or symptoms say hard work is not appropriate.";
-    default:
-      return "Durability support keeps shoulders, trunk, and movement quality available for boxing-specific training.";
-  }
+  return plainGeneratedSessionFamilyWhy(family);
 }
 
 function athleteQualityCuesForFamily(family: GeneratedSessionFamily, theme?: string | undefined): readonly string[] {
   if (family.startsWith("boxing_") || family === "agility_reactive_footwork" || family === "movement_quality_prep") {
-    return [
-      `Keep the main focus visible: ${theme ?? "stance, guard return, balance, and reset quality"}.`,
-      "Stay clean enough that the last round still looks like boxing.",
-      "Simplify before adding volume when the cue breaks twice."
-    ];
+    return [`Main focus: ${theme ?? "stance, guard return, balance, and reset"}.`, "Last round should still look clean.", "Simplify if the cue breaks twice."];
   }
-  return ["Keep speed, posture, timing, and breathing clean enough to protect the next boxing exposure."];
+  return ["Keep speed, posture, timing, and breathing clean."];
 }
 
 function sessionQualityCheckpointsForFamily(family: GeneratedSessionFamily, theme?: string | undefined): readonly string[] {
   if (family.startsWith("boxing_")) {
-    return [
-      theme ? `${theme} stays recognizable from first round to last.` : "The main boxing skill stays recognizable from first round to last.",
-      "Guard returns before the next action.",
-      "Feet recover to stance before speed or volume rises."
-    ];
+    return [theme ? `${theme} stays clear.` : "The main boxing skill stays clear.", "Guard returns first.", "Feet reset before speed rises."];
   }
   if (family === "agility_reactive_footwork" || family === "movement_quality_prep") {
-    return ["Feet brake quietly before the next cue.", "Stance width returns after every step.", "The drill ends before coordination fades."];
+    return ["Brake quietly.", "Return to stance.", "Stop before coordination fades."];
   }
   if (family.startsWith("strength_")) {
-    return ["No grinding reps.", "Trunk and shoulder position stay clean.", "The cooldown restores boxing positions."];
+    return ["No grinding reps.", "Trunk and shoulders stay clean.", "Cooldown restores boxing positions."];
   }
   if (family.startsWith("roadwork") || family === "round_based_conditioning" || family === "alactic_sprints") {
-    return ["Breathing stays inside the session cap.", "Gait and posture stay clean.", "Stop before conditioning turns into fatigue chasing."];
+    return ["Breathing stays controlled.", "Gait and posture stay clean.", "Stop before chasing fatigue."];
   }
-  return ["Movement feels easier after the session.", "No symptom increase.", "Tomorrow's boxing quality is protected."];
+  return ["Move easier after.", "No symptom increase.", "Protect tomorrow's boxing."];
 }
 
 function selfCheckCuesForFamily(family: GeneratedSessionFamily): readonly string[] {
@@ -222,12 +170,12 @@ function selfCheckCuesForFamily(family: GeneratedSessionFamily): readonly string
 
 function filmCueForFamily(family: GeneratedSessionFamily, roundStructure?: string | undefined): string {
   if (family.startsWith("boxing_")) {
-    return `Film one technical round${roundStructure ? ` from ${roundStructure}` : ""} and check guard return, stance width, breathing, and reset after the final action.`;
+    return `Optional: film one round${roundStructure ? ` from ${roundStructure}` : ""}. Check guard, stance, breathing, and reset.`;
   }
   if (family === "agility_reactive_footwork") {
-    return "Film one short callout set and check whether feet brake quietly before the next cue.";
+    return "Optional: film one short set and check quiet braking.";
   }
-  return "Use one self-review note only if it improves tomorrow's boxing quality.";
+  return "Use one self-review note only if it helps the next boxing session.";
 }
 
 export function buildDetailedTrainingSession(input: BuildDetailedTrainingSessionInput): DetailedTrainingSession {
@@ -249,11 +197,11 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
   const sections = sectionsFromTemplate(input, templateItem, durationMinutes);
   const readinessModifications = [
     ...input.generatedSession.modifications,
-    ...(input.generatedSession.executionReadinessStatus === "red_hard_stop" ? ["Readiness hard-stop symptoms changed generated work to recovery detail."] : []),
-    ...(hardAnchor ? ["Protected hard boxing or competition owns hard stress today; detail stays short and easy."] : []),
-    ...(input.phase?.phase === "tournament" && family !== input.generatedSession.family ? ["Tournament mode: hard conditioning is removed and no dehydration pressure is added."] : []),
-    ...(input.phase?.phase === "fight_week" && family !== input.generatedSession.family ? ["Fight week: volume is trimmed to taper-safe speed and durability support."] : []),
-    ...(input.painNotes && input.painNotes.length > 0 ? ["Pain note present: stop on symptom increase and seek qualified clinical help if it persists."] : []),
+    ...(input.generatedSession.executionReadinessStatus === "red_hard_stop" ? ["Safety symptoms changed this to recovery."] : []),
+    ...(hardAnchor ? ["Hard boxing already owns the stress today; keep this short and easy."] : []),
+    ...(input.phase?.phase === "tournament" && family !== input.generatedSession.family ? ["Tournament mode removes hard conditioning."] : []),
+    ...(input.phase?.phase === "fight_week" && family !== input.generatedSession.family ? ["Fight week trims volume and keeps speed fresh."] : []),
+    ...(input.painNotes && input.painNotes.length > 0 ? ["Pain noted: stop if symptoms rise."] : []),
     ...(input.generatedSession.readinessGate ? [input.generatedSession.readinessGate] : []),
     ...(input.generatedSession.confidenceImpact ? [input.generatedSession.confidenceImpact] : [])
   ];
@@ -276,7 +224,7 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     generatedSessionId: input.generatedSession.id,
     date: input.generatedSession.date,
     family,
-    title: family === input.generatedSession.family ? templateItem.title : family === "recovery_reset" ? "Recovery reset detail" : templateItem.title,
+    title: family === "recovery_reset" ? "Recovery reset" : plainWorkoutTitle(templateItem.title, family),
     durationMinutes,
     intensity: family === "recovery_reset" ? "recovery" : hardAnchor || input.phase?.phase === "tournament" ? "easy" : input.phase?.phase === "fight_week" ? "easy" : input.generatedSession.intensity,
     sections,

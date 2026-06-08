@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import type { NextWeekTrainingVolumeStrategy } from "./nextWeekMaterializationEngine";
 import { addOnBlockFromLibrary } from "./addOnBlocks";
+import { plainSectionIntent, plainSectionName, plainWorkoutTitle } from "../presentation/trainingCopy";
 
 export const GENERATED_SESSION_FAMILIES = [
   "strength_lower",
@@ -2417,7 +2418,7 @@ export function findWorkoutTemplate(templateId: string): WorkoutTemplate {
 }
 
 export function findWorkoutTemplateByTitle(family: GeneratedSessionFamily, title: string): WorkoutTemplate | null {
-  return templatesForFamily(family).find((templateItem) => templateItem.title === title) ?? null;
+  return templatesForFamily(family).find((templateItem) => templateItem.title === title || plainWorkoutTitle(templateItem.title, templateItem.family) === title) ?? null;
 }
 
 export function selectWorkoutTemplate(input: WorkoutTemplateSelectionInput): WorkoutTemplate {
@@ -2438,11 +2439,13 @@ export function generatedSessionShapeFromTemplate(
 ): Pick<GeneratedTrainingSession, "title" | "durationMinutes" | "intensity" | "prescription" | "rationale" | "protects" | "modifications" | "fuelDemand"> {
   const sectionDurations = sectionDurationPlan(templateItem, targetDurationMinutes);
   return {
-    title: templateItem.title,
+    title: plainWorkoutTitle(templateItem.title, templateItem.family),
     durationMinutes: targetDurationMinutes,
     intensity: templateItem.defaultIntensity,
-    prescription: templateItem.sections.map((workoutSection, index) => `${workoutSection.name} (${sectionDurations[index] ?? 0} min): ${workoutSection.intent}`),
-    rationale: templateItem.intent,
+    prescription: templateItem.sections.map(
+      (workoutSection, index) => `${plainSectionName(workoutSection.name)} (${sectionDurations[index] ?? 0} min): ${plainSectionIntent(workoutSection.intent)}`
+    ),
+    rationale: plainSectionIntent(templateItem.intent),
     protects: templateItem.protects,
     modifications: [],
     fuelDemand: templateItem.defaultFuelDemand

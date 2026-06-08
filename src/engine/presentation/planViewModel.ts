@@ -13,6 +13,7 @@ import type {
   WeeklyProtectedAnchorWeekday
 } from "../core/types";
 import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
+import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
 const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 const SEVERE_FUELING_RISK_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
@@ -99,7 +100,7 @@ function compactSummaryForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "
   }
   const firstGenerated = day.generatedSessions[0];
   if (firstGenerated) {
-    return firstGenerated.title;
+    return plainWorkoutTitle(firstGenerated.title, firstGenerated.family);
   }
   if (day.role === "tournament_conservation_day") {
     return "Tournament conservation";
@@ -114,12 +115,15 @@ function compactSummaryForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "
 }
 
 function fuelDemandLabel(demand: TrainingDayPlan["fuelDemand"]): string {
-  const labels: Record<TrainingDayPlan["fuelDemand"], string> = {
-    low: "Low fuel demand",
-    moderate: "Moderate fuel demand",
-    high: "High fuel demand"
-  };
-  return labels[demand];
+  return plainFuelDemandLabel(demand);
+}
+
+function auditGeneratedSessionTitle(state: PerformanceState, title: string, index: number): string {
+  return plainWorkoutTitle(title, state.training.supportGenerationAudit.generatedSessionFamilies[index]);
+}
+
+function auditGeneratedSessionFamilyLabel(family: string): string {
+  return plainGeneratedSessionFamilyLabel(family);
 }
 
 function compactMetricForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): string {
@@ -276,7 +280,7 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
           .filter((session) => session.date >= preview.nextWeekStartDate && session.date <= preview.nextWeekEndDate)
           .map((session) => ({
             id: session.id,
-            title: session.title,
+            title: plainWorkoutTitle(session.title, session.family),
             date: session.date,
             trainingStimulus: session.trainingStimulus,
             sessionTypeLabel: session.sessionTypeLabel,
@@ -320,13 +324,13 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
     showMaterializeAction: Boolean(persisted?.previewId && state.asOfDate >= preview.nextWeekStartDate && persistedStatus === "accepted"),
     requiresReview,
     actionCopy: requiresReview ? "Review required before saving next week." : "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
-    explanation: preview.explanation,
-    safetyNotes: preview.safetyNotes,
+    explanation: plainTrainingCopy(preview.explanation),
+    safetyNotes: preview.safetyNotes.map(plainTrainingCopy),
     dayPlanPreview: preview.nextWeekDayPlanPreview.map((day) => ({
       date: day.date,
       role: day.role.replaceAll("_", " "),
       protectedAnchors: day.protectedAnchors.length > 0 ? day.protectedAnchors.join(", ") : "No boxing added.",
-      generatedSupport: day.generatedSupport,
+      generatedSupport: plainTrainingCopy(day.generatedSupport),
       compactSummary:
         day.protectedAnchors[0] ??
         (day.generatedSupport === "No generated support."
@@ -688,25 +692,27 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
         day.generatedSessions.length > 0
           ? day.generatedSessions
               .map((session) =>
-                `${session.sessionTypeLabel ?? "Support"}: ${session.title}${session.boxingSkillTheme ? ` - ${session.boxingSkillTheme}` : ""} (${session.intensity})${
-                  (session.addOnBlocks ?? []).length > 0 ? ` + ${(session.addOnBlocks ?? []).map((block) => block.label).join(" + ")}` : ""
+                `${session.sessionTypeLabel ?? "Support"}: ${plainWorkoutTitle(session.title, session.family)}${
+                  session.boxingSkillTheme ? ` - ${plainTrainingCopy(session.boxingSkillTheme)}` : ""
+                } (${session.intensity})${
+                  (session.addOnBlocks ?? []).length > 0 ? ` + ${(session.addOnBlocks ?? []).map((block) => plainWorkoutTitle(block.label)).join(" + ")}` : ""
                 }`
               )
               .join(", ")
-          : "No generated support.",
+          : "No support workout.",
       compactSummary: compactSummaryForDay(day),
       compactTag: compactTagForDay(day),
       compactMetric: compactMetricForDay(day),
       generatedSessions: day.generatedSessions.map((session) => ({
         id: session.id,
-        title: session.title,
+        title: plainWorkoutTitle(session.title, session.family),
         date: session.date,
         trainingStimulus: session.trainingStimulus,
         sessionTypeLabel: session.sessionTypeLabel,
-        boxingSkillTheme: session.boxingSkillTheme ?? null,
-        technicalEmphasis: session.technicalEmphasis ?? [],
+        boxingSkillTheme: session.boxingSkillTheme ? plainTrainingCopy(session.boxingSkillTheme) : null,
+        technicalEmphasis: (session.technicalEmphasis ?? []).map(plainTrainingCopy),
         roundStructure: session.roundStructure ?? null,
-        addOnLabels: (session.addOnBlocks ?? []).map((block) => block.label)
+        addOnLabels: (session.addOnBlocks ?? []).map((block) => plainWorkoutTitle(block.label))
       })),
       marker:
         day.role === "tournament_conservation_day"
@@ -719,9 +725,9 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
                 ? "Hard day"
                 : "Support",
       fuelDemand: day.fuelDemand,
-      warningSummary: day.safetyFlags.length > 0 ? day.safetyFlags.join(" ") : null,
-      adjustmentNotes: notesForDate(day.date),
-      explanation: day.explanation
+      warningSummary: day.safetyFlags.length > 0 ? day.safetyFlags.map(plainTrainingCopy).join(" ") : null,
+      adjustmentNotes: notesForDate(day.date).map(plainTrainingCopy),
+      explanation: plainTrainingCopy(day.explanation)
     })),
     generationAudit: {
       asOfDate: state.training.supportGenerationAudit.asOfDate,
@@ -740,11 +746,21 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       actualGeneratedSupportCount: state.training.supportGenerationAudit.actualGeneratedSupportCount,
       todayGeneratedSupportCount: state.training.supportGenerationAudit.todayGeneratedSupportCount,
       generatedSessionDates: state.training.supportGenerationAudit.generatedSessionDates,
-      generatedSessionTitles: state.training.supportGenerationAudit.generatedSessionTitles,
-      generatedSessionFamilies: state.training.supportGenerationAudit.generatedSessionFamilies,
+      generatedSessionTitles: state.training.supportGenerationAudit.generatedSessionTitles.map((title, index) => auditGeneratedSessionTitle(state, title, index)),
+      generatedSessionFamilies: state.training.supportGenerationAudit.generatedSessionFamilies.map(auditGeneratedSessionFamilyLabel),
       generatedSessionDurationAudit: state.training.supportGenerationAudit.generatedSessionDurationAudit,
-      persistedGeneratedSessionsConsidered: state.training.supportGenerationAudit.persistedGeneratedSessionsConsidered,
-      persistedGeneratedSessionsIgnored: state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored,
+      persistedGeneratedSessionsConsidered: state.training.supportGenerationAudit.persistedGeneratedSessionsConsidered.map((session) => ({
+        ...session,
+        title: plainWorkoutTitle(session.title, session.family),
+        family: plainGeneratedSessionFamilyLabel(session.family),
+        reason: plainTrainingCopy(session.reason)
+      })),
+      persistedGeneratedSessionsIgnored: state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.map((session) => ({
+        ...session,
+        title: plainWorkoutTitle(session.title, session.family),
+        family: plainGeneratedSessionFamilyLabel(session.family),
+        reason: plainTrainingCopy(session.reason)
+      })),
       candidateAllowedDays: state.training.supportGenerationAudit.candidateAllowedDays,
       activeAdjustmentCount: state.training.supportGenerationAudit.activeAdjustmentCount,
       activeRiskFlagCodes: state.training.supportGenerationAudit.activeRiskFlagCodes,

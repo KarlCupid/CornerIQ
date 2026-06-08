@@ -80,7 +80,7 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Goal phase</Text>
-      <Text style={screenStyles.subtle}>Choose the planning context for Today and Plan. Finishing setup creates your boxer profile, saves today's body-mass log, and respects any weekly boxing sessions you entered.</Text>
+      <Text style={screenStyles.subtle}>Choose the planning context for Today and Plan. Finishing setup creates your boxer profile, saves today's body weight log, and respects any weekly boxing sessions you entered.</Text>
       <FieldGroup helper="Pick the closest current situation. You can keep fight details tentative." label="Current goal">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={phaseOf(draft) === "build"} label="Build phase" onPress={setBuild} />

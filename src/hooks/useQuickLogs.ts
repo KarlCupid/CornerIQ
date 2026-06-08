@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CompletedTrainingSession, CycleLog, CycleSymptom, DailyFoodLogStatus, ISODateString, ProtectedWorkout, SessionIntensity } from "../engine/core/types";
+import { assertValidFoodLogEnergy, validateFoodLogEnergy, type FoodLogEnergyValidationResult } from "../engine/nutrition/foodLogEnergyValidation";
 import type { ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 
@@ -82,6 +83,7 @@ export interface QuickLogActions {
   logReadiness: (input: ReadinessQuickLogInput) => Promise<void>;
   logHydration: (input: HydrationQuickLogInput) => Promise<void>;
   logCycle: (input: CycleQuickLogInput) => Promise<void>;
+  validateFoodEnergy?: (input: FoodQuickLogInput) => FoodLogEnergyValidationResult;
   logFood: (input: FoodQuickLogInput) => Promise<void>;
   markFoodStillLoggingToday: () => Promise<void>;
   markFoodDoneLoggingToday: () => Promise<void>;
@@ -153,7 +155,7 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
         runQuickLog(async () => {
           await input.repositories.bodyMass.insertManualLog({ userId: input.userId, date: input.asOfDate, bodyMassKg });
           await input.repositories.journey.appendEvent(input.userId, "BodyMassLogged", { date: input.asOfDate, bodyMassKg, source: "manual" });
-        }, "Body mass logged. Trend confidence has fresher scale context; missing readiness still lowers confidence."),
+        }, "Body weight logged. Scale trend is fresher; readiness can still be unknown."),
       logReadiness: (checkIn) =>
         runQuickLog(async () => {
           await input.repositories.readiness.insertCheckIn({ userId: input.userId, date: input.asOfDate, ...checkIn });
@@ -196,8 +198,10 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
             });
           }
         }, "Cycle log saved. Symptom context stays private and can improve today's confidence when relevant."),
+      validateFoodEnergy: validateFoodLogEnergy,
       logFood: (food) =>
         runQuickLog(async () => {
+          assertValidFoodLogEnergy(food);
           await input.repositories.nutrition.insertFoodLog({ userId: input.userId, date: input.asOfDate, confidence: "low", entryType: "meal", loggedAt: new Date().toISOString(), ...food });
           await input.repositories.journey.appendEvent(input.userId, "FoodLogged", { date: input.asOfDate, confidence: "low" });
           await input.repositories.journey.appendEvent(input.userId, "FoodLogStatusUpdated", foodStatusPayload(input.asOfDate, "partial_day", "food_entry_logged"));
@@ -205,7 +209,7 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
       markFoodStillLoggingToday: () =>
         runQuickLog(async () => {
           await input.repositories.journey.appendEvent(input.userId, "FoodLogStatusUpdated", foodStatusPayload(input.asOfDate, "partial_day", "still_logging_today"));
-        }, "Food log marked partial. CornerIQ will not treat logged-so-far food as under-fueling evidence."),
+        }, "Food log marked partial. Logged-so-far food will not count as too little food."),
       markFoodDoneLoggingToday: () =>
         runQuickLog(async () => {
           await input.repositories.journey.appendEvent(input.userId, "FoodLogStatusUpdated", foodStatusPayload(input.asOfDate, "user_marked_complete", "user_done_logging_today"));
@@ -213,7 +217,7 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
       markFoodNotTrackingToday: () =>
         runQuickLog(async () => {
           await input.repositories.journey.appendEvent(input.userId, "FoodLogStatusUpdated", foodStatusPayload(input.asOfDate, "not_tracking_today", "ate_not_tracking_today"));
-        }, "Food marked not tracking today. Training guidance remains available and food data will not be used as under-fueling evidence."),
+        }, "Food marked not tracking today. Training guidance remains available; food data will not count as too little food."),
       logProtectedWorkout: (workoutInput) =>
         runQuickLog(async () => {
           assertSessionRpe(workoutInput.sessionRpe);

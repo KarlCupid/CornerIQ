@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PersistedTrainingPlanAdjustment } from "../training/types";
+import { validateFoodLogEnergy } from "../nutrition/foodLogEnergyValidation";
 import { NutritionSafetyReviewEventSchema, PersistedNutritionSafetyReviewSchema } from "../nutrition/nutritionSafetyReviewTypes";
 import { TrainingBlockTimelineEventSchema, TrainingProgressionDecisionSchema, TrainingWeekSummarySchema } from "../training/trainingBlockHistoryTypes";
 
@@ -260,6 +261,14 @@ export const FoodLogSchema = z.object({
   loggedAt: ISODateTimeSchema.optional(),
   entryType: FoodLogEntryTypeSchema.optional(),
   sourceConfidence: confidenceLevelSchema.optional()
+}).superRefine((log, context) => {
+  const validation = validateFoodLogEnergy(log);
+  if (!validation.valid) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: validation.engineReason
+    });
+  }
 });
 
 export const WaterLogSchema = z.object({

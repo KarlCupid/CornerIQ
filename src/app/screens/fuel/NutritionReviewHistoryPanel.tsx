@@ -3,17 +3,11 @@ import { Text, View } from "react-native";
 import type { NutritionReviewHistoryViewModel } from "../../../engine/core/types";
 import { EngineCard } from "../../../design/components/EngineCard";
 import { spacing } from "../../../design/theme";
+import { plainFuelCopy } from "../../../engine/presentation/fuelCopy";
 import { screenStyles } from "../screenStyles";
 
 function statusLabel(value: string): string {
-  return value.replaceAll("_", " ");
-}
-
-function reviewCopy(value: string): string {
-  return value
-    .replace(new RegExp("self-" + "clear", "gi"), "clear")
-    .replace(new RegExp("hard " + "stops", "gi"), "safety stops")
-    .replace(new RegExp("hard " + "stop", "gi"), "safety stop");
+  return plainFuelCopy(value.replaceAll("_", " "));
 }
 
 export function NutritionReviewHistoryPanel({ history }: { history: NutritionReviewHistoryViewModel }) {
@@ -21,25 +15,25 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>{history.title}</Text>
-        <Text style={screenStyles.callout}>{history.latestReviewSummary}</Text>
+        <Text style={screenStyles.callout}>{plainFuelCopy(history.latestReviewSummary)}</Text>
         <Text style={screenStyles.body}>
           Active reviews: {history.activeReviewCount}. Safety stops: {history.hardStopReviewCount}.
         </Text>
-        <Text style={screenStyles.subtle}>{reviewCopy(history.safetyCopy)}</Text>
-        <Text style={screenStyles.subtle}>{reviewCopy(history.qualifiedSupportCopy)}</Text>
-        <Text style={screenStyles.subtle}>{reviewCopy(history.urgentSupportCopy)}</Text>
+        <Text style={screenStyles.subtle}>{plainFuelCopy(history.safetyCopy)}</Text>
+        <Text style={screenStyles.subtle}>{plainFuelCopy(history.qualifiedSupportCopy)}</Text>
+        <Text style={screenStyles.subtle}>{plainFuelCopy(history.urgentSupportCopy)}</Text>
         {history.activeReviews.length > 0 ? (
-          history.activeReviews.map((review) => (
+          history.activeReviews.slice(0, 3).map((review) => (
             <View key={review.reviewId} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.callout}>
                 {review.reviewId}: {statusLabel(review.status)} {review.hardStop ? "- safety stop remains active" : ""}
               </Text>
               <Text style={screenStyles.subtle}>
-                Type: {statusLabel(review.reviewType)}. Severity: {review.severity}. Acknowledge available: {review.canAcknowledge ? "yes" : "no"}. Athlete clear: no.
+                Type: {statusLabel(review.reviewType)}. Severity: {review.severity}. Athlete clear: no.
               </Text>
-              {review.reasons.map((reason, reasonIndex) => <Text key={`review-reason:${reasonIndex}`} style={screenStyles.subtle}>Reason: {reviewCopy(reason)}</Text>)}
-              {review.blockingFlags.map((flag, flagIndex) => <Text key={`review-flag:${flagIndex}`} style={screenStyles.subtle}>Blocking flag: {flag}</Text>)}
-              {review.suggestedNextSteps.map((step, stepIndex) => <Text key={`review-step:${stepIndex}`} style={screenStyles.subtle}>Next: {reviewCopy(step)}</Text>)}
+              {review.reasons.slice(0, 3).map((reason, reasonIndex) => <Text key={`review-reason:${reasonIndex}`} style={screenStyles.subtle}>Reason: {plainFuelCopy(reason)}</Text>)}
+              {review.blockingFlags.slice(0, 3).map((flag, flagIndex) => <Text key={`review-flag:${flagIndex}`} style={screenStyles.subtle}>Safety flag: {statusLabel(flag)}</Text>)}
+              {review.suggestedNextSteps.slice(0, 3).map((step, stepIndex) => <Text key={`review-step:${stepIndex}`} style={screenStyles.subtle}>Next: {plainFuelCopy(step)}</Text>)}
               <Text style={screenStyles.subtle}>This does not clear the plan.</Text>
             </View>
           ))
@@ -54,7 +48,7 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
             </Text>
           ))
         ) : (
-          <Text style={screenStyles.subtle}>{reviewCopy(history.noHistoryCopy)}</Text>
+          <Text style={screenStyles.subtle}>{plainFuelCopy(history.noHistoryCopy)}</Text>
         )}
       </View>
     </EngineCard>

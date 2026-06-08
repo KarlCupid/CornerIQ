@@ -14,6 +14,17 @@ import {
 } from "../../../design/components/PerformanceVisuals";
 import { colors, spacing } from "../../../design/theme";
 import { buildWorkoutPreviewVisual, type WorkoutPreviewVisual } from "../../../engine/presentation/dashboardVisualData";
+import {
+  plainExerciseCategoryLabel,
+  plainGeneratedSessionFamilyLabel,
+  plainFuelDemandLabel,
+  plainIntensityLabel,
+  plainMovementWhy,
+  plainSectionIntent,
+  plainSectionName,
+  plainTrainingCopy,
+  plainWorkoutTitle
+} from "../../../engine/presentation/trainingCopy";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
@@ -152,7 +163,7 @@ function exercisePrescriptionParts(exercise: DetailedTrainingSession["sections"]
   const setCount = exercise.sets.length > 1 ? `${exercise.sets.length} sets` : undefined;
   const dose = exercise.repsText ?? exercise.durationText ?? firstSet?.repsText ?? firstSet?.durationText;
   const rpe = exercise.rpeTarget ?? firstSet?.rpeTarget;
-  return [setCount, dose, rpe ? `RPE ${rpe}` : null, `rest ${exercise.restText}`].filter(Boolean) as string[];
+  return [setCount, dose, rpe ? `RPE ${rpe}` : null, `rest ${plainTrainingCopy(exercise.restText)}`].filter(Boolean) as string[];
 }
 
 function SessionMeta({ label }: { label: string }) {
@@ -201,7 +212,7 @@ function WorkoutPreviewDashboard({
         <View style={{ flexBasis: 260, flexGrow: 1 }}>
           <DashboardCard headerRight={<DashboardPill label={`${highIntensity}% high`} tone={highIntensity > 35 ? "orange" : "green"} />} title="Target intensity">
             <View style={{ alignItems: "center", gap: spacing.sm }}>
-              <SemiGauge label={session.intensity.replace(/_/g, " ")} score={session.intensity === "hard" ? 78 : session.intensity === "moderate" ? 64 : 38} tone={session.intensity === "hard" ? "orange" : "blue"} />
+              <SemiGauge label={plainIntensityLabel(session.intensity)} score={session.intensity === "hard" ? 78 : session.intensity === "moderate" ? 64 : 38} tone={session.intensity === "hard" ? "orange" : "blue"} />
               {preview.intensity.map((item) => <ModifierRow item={{ label: item.label, ratio: item.percent / 100, tone: item.tone, value: item.valueLabel }} key={`intensity:${item.label}`} />)}
             </View>
           </DashboardCard>
@@ -273,8 +284,8 @@ function WorkoutSectionCard({
           <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
         </View>
         <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>{section.name}</Text>
-          <Text style={screenStyles.subtle}>{section.intent}</Text>
+          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>{plainSectionName(section.name)}</Text>
+          <Text style={screenStyles.subtle}>{plainSectionIntent(section.intent)}</Text>
         </View>
       </View>
       <View style={{ gap: spacing.sm }}>
@@ -292,8 +303,8 @@ function WorkoutSectionCard({
             >
               <View style={{ flexDirection: "row", gap: spacing.sm }}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "700", lineHeight: 22 }}>{exercise.name}</Text>
-                  <Text style={screenStyles.subtle}>{exercise.category.replace(/_/g, " ")}</Text>
+                  <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "700", lineHeight: 22 }}>{plainWorkoutTitle(exercise.name)}</Text>
+                  <Text style={screenStyles.subtle}>{plainExerciseCategoryLabel(exercise.category)}</Text>
                 </View>
               </View>
               {parts.length > 0 ? (
@@ -305,7 +316,8 @@ function WorkoutSectionCard({
                   ))}
                 </View>
               ) : null}
-              <Text style={screenStyles.subtle}>Load: {exercise.loadGuidance}</Text>
+              <Text style={screenStyles.subtle}>Load: {plainTrainingCopy(exercise.loadGuidance)}</Text>
+              <Text style={screenStyles.subtle}>Why: {plainMovementWhy(exercise.boxingTransfer)}</Text>
             </View>
           );
         })}
@@ -421,11 +433,12 @@ export function WorkoutDetailPanel({
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.fieldLabel}>Support workout</Text>
         <Text style={screenStyles.heroTitle}>Workout preview</Text>
-        <Text style={screenStyles.callout}>{session.title}</Text>
+        <Text style={screenStyles.callout}>{plainWorkoutTitle(session.title, session.family)}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
           <SessionMeta label={`${session.durationMinutes} min`} />
-          <SessionMeta label={session.family.replace(/_/g, " ")} />
-          <SessionMeta label={session.intensity.replace(/_/g, " ")} />
+          <SessionMeta label={plainGeneratedSessionFamilyLabel(session.family)} />
+          <SessionMeta label={plainIntensityLabel(session.intensity)} />
+          <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
           <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
         </View>
         <CollapsedDetailDisclosure framed={false} summary="Charts are optional. Start, quick log, and workout plan are the main controls." title="workout preview">
@@ -506,13 +519,13 @@ export function WorkoutDetailPanel({
             ) : null}
             {exerciseDetailsOpen ? session.sections.map((section, sectionIndex) => (
               <View key={`detail-section:${sectionIndex}`} style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.sectionTitle}>{section.name}</Text>
-                <Text style={screenStyles.subtle}>{section.intent}</Text>
+                <Text style={screenStyles.sectionTitle}>{plainSectionName(section.name)}</Text>
+                <Text style={screenStyles.subtle}>{plainSectionIntent(section.intent)}</Text>
                 {section.exercises.map((exercise) => {
                   const input = exerciseInputs[exercise.exerciseId] ?? emptyExerciseResultInputs();
                   return (
                     <View key={exercise.exerciseId} style={{ gap: spacing.sm }}>
-                      <ExercisePrescriptionCard exercise={exercise} sectionName={section.name} />
+                      <ExercisePrescriptionCard exercise={exercise} sectionName={plainSectionName(section.name)} />
                       <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, completedSets: value }))} placeholder="Completed sets optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.completedSets} />
                       <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadText} />
                       {structuredActualsOpen ? (
@@ -542,11 +555,11 @@ export function WorkoutDetailPanel({
       ) : null}
       {planOpen ? (
         <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
-          <Text style={screenStyles.sectionTitle}>Session plan</Text>
+            <Text style={screenStyles.sectionTitle}>Workout plan</Text>
           {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
-              {session.sessionQualityCheckpoints.map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{item}</Text>)}
+              {session.sessionQualityCheckpoints.slice(0, 3).map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{plainTrainingCopy(item)}</Text>)}
             </View>
           ) : null}
           {session.sections.map((section, index) => (
@@ -557,7 +570,7 @@ export function WorkoutDetailPanel({
               <Text style={screenStyles.fieldLabel}>Add-ons</Text>
               {session.addOnBlocks.map((block) => (
                 <Text key={block.id} style={screenStyles.subtle}>
-                  {block.priority}: {block.label} ({block.durationMinutes} min) - {block.athleteFacingPurpose}
+                {block.priority}: {plainWorkoutTitle(block.label)} ({block.durationMinutes} min) - {plainTrainingCopy(block.athleteFacingPurpose)}
                 </Text>
               ))}
             </View>
@@ -570,15 +583,15 @@ export function WorkoutDetailPanel({
         </Pressable>
         {whyOpen ? (
           <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.body}>{session.whyThisMattersForBoxing}</Text>
-            {session.readinessModifications.map((item, index) => <Text key={`readiness-mod:${index}`} style={screenStyles.subtle}>Readiness: {item}</Text>)}
-            {session.cycleModifications.map((item, index) => <Text key={`cycle-mod:${index}`} style={screenStyles.subtle}>Cycle: {item}</Text>)}
-            {(session.athleteQualityCues ?? []).map((item, index) => <Text key={`quality-cue:${index}`} style={screenStyles.subtle}>Cue: {item}</Text>)}
-            {(session.selfCheckCues ?? []).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Self-check: {item}</Text>)}
-            {session.filmCue ? <Text style={screenStyles.subtle}>Optional film cue: {session.filmCue}</Text> : null}
-            {session.nextSessionNote ? <Text style={screenStyles.subtle}>Next-session note: {session.nextSessionNote}</Text> : null}
-            {session.stopConditions.slice(0, 3).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {item}</Text>)}
-            {session.safetyNotes.slice(0, 3).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Safety: {item}</Text>)}
+            <Text style={screenStyles.body}>{plainTrainingCopy(session.whyThisMattersForBoxing)}</Text>
+            {session.readinessModifications.slice(0, 2).map((item, index) => <Text key={`readiness-mod:${index}`} style={screenStyles.subtle}>Readiness: {plainTrainingCopy(item)}</Text>)}
+            {session.cycleModifications.slice(0, 1).map((item, index) => <Text key={`cycle-mod:${index}`} style={screenStyles.subtle}>Cycle: {plainTrainingCopy(item)}</Text>)}
+            {(session.athleteQualityCues ?? []).slice(0, 2).map((item, index) => <Text key={`quality-cue:${index}`} style={screenStyles.subtle}>Cue: {plainTrainingCopy(item)}</Text>)}
+            {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Self-check: {plainTrainingCopy(item)}</Text>)}
+            {session.filmCue ? <Text style={screenStyles.subtle}>Optional film: {plainTrainingCopy(session.filmCue)}</Text> : null}
+            {session.nextSessionNote ? <Text style={screenStyles.subtle}>Next: {plainTrainingCopy(session.nextSessionNote)}</Text> : null}
+            {session.stopConditions.slice(0, 2).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {plainTrainingCopy(item)}</Text>)}
+            {session.safetyNotes.slice(0, 2).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Safety: {plainTrainingCopy(item)}</Text>)}
             <Text style={screenStyles.subtle}>Pain notes help CornerIQ avoid automatic progression. Result statuses: done, partial, not logged, or skipped.</Text>
           </View>
         ) : null}

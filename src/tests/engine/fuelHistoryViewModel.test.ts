@@ -82,9 +82,9 @@ describe("fuelHistoryViewModel", () => {
     });
 
     expect(viewModel.fiberSodiumSummary).toContain("fiber");
-    expect(viewModel.warnings[0]).toContain("not an acute protocol");
+    expect(viewModel.warnings[0]).toContain("not a quick cut plan");
     expect(viewModel.fightWeekMarkers[0]?.summary).toContain("consistency context only");
-    expect(viewModel.sessionFuelLink[0]?.summary).toContain("high fuel-demand training");
+    expect(viewModel.sessionFuelLink[0]?.summary).toContain("high-fuel training");
     expect(JSON.stringify(viewModel)).not.toMatch(/sauna|sweat suit|laxative|diuretic|water cut|make weight at all costs/i);
   });
 });

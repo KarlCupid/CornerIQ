@@ -17,6 +17,7 @@ import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
+import { plainFuelDemandLabel, plainIntensityLabel, plainTrainingCopy as plainTrainCopy, plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
 
 export type TrainSection = "today" | "workout" | "progress";
 
@@ -41,18 +42,6 @@ export interface TrainWorkoutPlayerSummary {
   sessionId: string;
   status: WorkoutPlayerStatus;
   title: string;
-}
-
-function plainTrainCopy(value: string): string {
-  return value
-    .replace(new RegExp("generated boxing " + "training", "gi"), "support workout")
-    .replace(new RegExp("generated " + "training", "gi"), "support workout")
-    .replace(new RegExp("generated " + "support", "gi"), "support work")
-    .replace(new RegExp("protected " + "anchors?", "gi"), "boxing sessions you added")
-    .replace(new RegExp("protected " + "boxing", "gi"), "fixed boxing")
-    .replace(new RegExp("protected " + "work", "gi"), "boxing work")
-    .replace(new RegExp("prescribed" + "_only", "gi"), "not logged")
-    .replace(new RegExp("structured " + "actuals", "gi"), "extra details");
 }
 
 function toneForIntensity(intensity: string): VisualTone {
@@ -88,8 +77,8 @@ function weeklyTimeline(viewModel: TrainViewModel): readonly TimelineVisual[] {
   }
   return sessions.map((session) => ({
     label: session.label.split(" ")[0]?.slice(0, 3).toUpperCase() ?? session.date.slice(5),
-    title: session.title,
-    subtitle: `${session.durationMinutes} min - ${session.intensity}`,
+    title: plainWorkoutTitle(session.title, session.family),
+    subtitle: `${session.durationMinutes} min - ${plainIntensityLabel(session.intensity)}`,
     tone: toneForIntensity(session.intensity)
   }));
 }
@@ -136,7 +125,7 @@ function WorkoutInProgressCard({
 }
 
 function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
-  const roleLabel = viewModel.todayRole.status.replace(/_/g, " ");
+  const roleLabel = plainTrainCopy(viewModel.todayRole.status.replace(/_/g, " "));
   return (
     <DashboardCard headerRight={<DashboardPill label={roleLabel} tone={viewModel.riskSummary.length > 0 ? "red" : "blue"} />} testID="train-overview-card" title="Training overview">
       <Text style={screenStyles.body}>{plainTrainCopy(viewModel.todaySummary)}</Text>
@@ -163,7 +152,7 @@ function WorkoutSummaryCard({ viewModel }: { viewModel: TrainViewModel }) {
     <DashboardCard testID="train-workout-summary-card" title="Workout preview">
       <Text style={screenStyles.fieldLabel}>Support workout</Text>
       <Text style={screenStyles.callout}>{plainTrainCopy(title)}</Text>
-      <Text style={screenStyles.body}>{durationMinutes} min, {intensity}. Fuel: {fuelDemand}.</Text>
+      <Text style={screenStyles.body}>{durationMinutes} min, {plainIntensityLabel(intensity)}. {plainFuelDemandLabel(fuelDemand)}.</Text>
       {card?.why ? <Text style={screenStyles.subtle}>Purpose: {plainTrainCopy(card.why)}</Text> : null}
       {card?.protects && card.protects.length > 0 ? <Text style={screenStyles.subtle}>Boxing benefit: {card.protects.map(plainTrainCopy).join(", ")}</Text> : null}
       {card?.modifications && card.modifications.length > 0 ? (
@@ -208,7 +197,7 @@ function WeekContextCard({ viewModel }: { viewModel: TrainViewModel }) {
       <View style={{ gap: spacing.xs }}>
         {viewModel.weeklyWorkoutCards.slice(0, 4).map((session) => (
           <Text key={`train-week-session:${session.id}`} style={screenStyles.subtle}>
-            {session.date}: {plainTrainCopy(session.title)} ({session.durationMinutes} min)
+            {session.date}: {plainWorkoutTitle(session.title, session.family)} ({session.durationMinutes} min)
           </Text>
         ))}
       </View>
@@ -269,11 +258,11 @@ export function TrainScreen({
     primarySession
       ? previewOnlyWeeklySession
         ? "Preview the next support workout. Do not pull it forward."
-        : plainTrainCopy(primarySession.title)
+        : plainWorkoutTitle(primarySession.title, primarySession.family)
       : "Log the boxing work you actually did.";
   const topPurpose =
     primarySession
-      ? `${primarySession.durationMinutes} min, ${primarySession.intensity.replace(/_/g, " ")}. ${plainTrainCopy(viewModel.preSessionFuelHint)}`
+      ? `${primarySession.durationMinutes} min, ${plainIntensityLabel(primarySession.intensity)}. ${plainTrainCopy(viewModel.preSessionFuelHint)}`
       : plainTrainCopy(viewModel.todaySummary);
   const topPrimaryButton: FastTaskAction | undefined = primarySession
     ? {
@@ -328,7 +317,7 @@ export function TrainScreen({
               accent: accentForTone(primarySessionTone),
               label: "Workout",
               meta: primarySession ? `${primarySession.durationMinutes} min` : "Manual log",
-              value: primarySession ? primarySession.intensity.replace(/_/g, " ") : "None"
+              value: primarySession ? plainIntensityLabel(primarySession.intensity) : "None"
             },
             {
               accent: "green",

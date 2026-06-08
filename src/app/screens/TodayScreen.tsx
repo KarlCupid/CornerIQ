@@ -17,11 +17,11 @@ import {
   WeeklyLoadBars
 } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
-import { colors, spacing } from "../../design/theme";
+import { colors, radii, spacing } from "../../design/theme";
 import { buildTodayDashboardVisual, type TodayDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
-import { BodyMassLogCard, CycleLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
+import { BodyMassLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 
 export interface TodayScreenProps {
@@ -48,6 +48,7 @@ export interface TodayScreenProps {
 
 type TodaySecondaryAction = TodayViewModel["secondaryActions"][number]["action"];
 type TodayQuickCheckFocus = "readiness" | "body_mass" | "hydration";
+type TodayQuickCheckPlacement = "top" | "readiness_card" | "body_mass_card" | "manual" | "dashboard_primary";
 
 function plainTodayCopy(value: string): string {
   return value
@@ -70,16 +71,16 @@ export const handledTodaySecondaryActions: Record<TodaySecondaryAction, true> = 
 
 function TodayQuickCheckSection({
   busy,
-  cycleQuickLogEnabled,
-  cycleSymptomOptions,
+  framed = true,
   focus,
+  includeOtherLogs = true,
   quickLogs,
   recentLogs
 }: {
   busy: boolean;
-  cycleQuickLogEnabled: boolean;
-  cycleSymptomOptions: readonly CycleSymptom[];
+  framed?: boolean | undefined;
   focus: TodayQuickCheckFocus;
+  includeOtherLogs?: boolean | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
 }) {
@@ -89,35 +90,52 @@ function TodayQuickCheckSection({
     : focus === "body_mass"
         ? "Weight trend first"
         : "Hydration first";
-  return (
-    <View style={{ gap: spacing.lg }} testID="today-quick-check-section">
-      <EngineCard>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Quick check</Text>
-          <Text style={screenStyles.callout}>{focusCopy}</Text>
-          <Text style={screenStyles.subtle}>Logging helps the plan. Missing logs make the plan less certain.</Text>
+  const logCards = {
+    body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} forceOpen={focus === "body_mass"} framed={false} status={recentLogs.bodyMassToday} />,
+    hydration: <HydrationLogCard actions={quickLogs} busy={busy} framed={false} status={recentLogs.hydrationToday} />,
+    readiness: <ReadinessCheckInCard actions={quickLogs} busy={busy} forceOpen={focus === "readiness"} framed={false} status={recentLogs.readinessToday} />
+  } satisfies Record<TodayQuickCheckFocus, React.ReactNode>;
+  const orderedFocuses: readonly TodayQuickCheckFocus[] =
+    !includeOtherLogs
+      ? [focus]
+      : focus === "body_mass"
+      ? ["body_mass", "readiness", "hydration"]
+      : focus === "hydration"
+        ? ["hydration", "readiness", "body_mass"]
+        : ["readiness", "body_mass", "hydration"];
+  const content = (
+    <View
+      accessibilityLabel="Quick check wizard"
+      style={{ gap: spacing.md }}
+      testID="today-quick-check-section"
+    >
+      <View style={{ gap: spacing.xs }}>
+        <Text style={screenStyles.sectionTitle}>Quick check</Text>
+        <Text style={screenStyles.callout}>{focusCopy}</Text>
+        <Text style={screenStyles.subtle}>Log only what you know. Missing data stays unknown.</Text>
+      </View>
+      {orderedFocuses.map((item) => (
+        <View key={`today-quick-check-card:${item}`} style={{ gap: spacing.sm }}>
+          {logCards[item]}
         </View>
-      </EngineCard>
-      {focus === "hydration" ? (
-        <>
-          <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
-          <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
-          <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
-        </>
-      ) : focus === "body_mass" ? (
-        <>
-          <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
-          <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
-          <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
-        </>
-      ) : (
-        <>
-          <ReadinessCheckInCard actions={quickLogs} busy={busy} status={recentLogs.readinessToday} />
-          <BodyMassLogCard actions={quickLogs} busy={busy} status={recentLogs.bodyMassToday} />
-          <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
-        </>
-      )}
-      {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} /> : null}
+      ))}
+    </View>
+  );
+
+  if (framed) {
+    return <EngineCard>{content}</EngineCard>;
+  }
+
+  return (
+    <View
+      style={{
+        borderColor: "rgba(255, 255, 255, 0.12)",
+        borderTopWidth: 1,
+        gap: spacing.md,
+        paddingTop: spacing.md
+      }}
+    >
+      {content}
     </View>
   );
 }
@@ -128,16 +146,20 @@ function TodayDashboardSection({
   onOpenFuel,
   onOpenTrainWorkout,
   onOpenQuickCheck,
-  onPrimaryAction
+  onPrimaryAction,
+  renderQuickCheck
 }: {
   busy: boolean;
   dashboard: TodayDashboardVisual;
   onOpenFuel?: (() => void) | undefined;
   onOpenTrainWorkout?: (() => void) | undefined;
-  onOpenQuickCheck: (focus: TodayQuickCheckFocus) => void;
-  onPrimaryAction: () => void;
+  onOpenQuickCheck: (focus: TodayQuickCheckFocus, placement: TodayQuickCheckPlacement) => void;
+  onPrimaryAction: (placement: TodayQuickCheckPlacement) => void;
+  renderQuickCheck: (placement: TodayQuickCheckPlacement, framed?: boolean | undefined) => React.ReactNode;
 }) {
   const actionButtonStyle = [screenStyles.quietButton, { flexBasis: 148, flexGrow: 1 }];
+  const hasBodyMassLine = dashboard.bodyMass.points.length >= 2;
+  const latestBodyMassPoint = dashboard.bodyMass.points[dashboard.bodyMass.points.length - 1];
   return (
     <View style={{ gap: spacing.md }} testID="today-visual-dashboard">
       <DashboardCard
@@ -162,12 +184,13 @@ function TodayDashboardSection({
             accessibilityRole="button"
             accessibilityState={{ disabled: busy }}
             disabled={busy}
-            onPress={() => onOpenQuickCheck("readiness")}
+            onPress={() => onOpenQuickCheck("readiness", "readiness_card")}
             style={screenStyles.quietButton}
           >
             <Text style={screenStyles.quietButtonText}>{dashboard.readiness.emptyActionLabel}</Text>
           </Pressable>
         ) : null}
+        {renderQuickCheck("readiness_card", false)}
       </DashboardCard>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
@@ -196,16 +219,50 @@ function TodayDashboardSection({
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         <View style={{ flexBasis: 280, flexGrow: 1 }}>
-          <DashboardCard title="Body mass trend">
+          <DashboardCard testID="today-body-mass-trend-card" title="Body weight trend">
             <View style={{ gap: spacing.sm }}>
-              <View style={{ alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.canvas, fontSize: 28, fontWeight: "900", lineHeight: 34 }}>{dashboard.bodyMass.currentLabel}</Text>
-                <Text style={{ color: dashboard.bodyMass.tone === "green" ? colors.readyGreen : colors.amberCaution, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>
+              <View style={{ alignItems: "flex-end", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
+                <Text numberOfLines={1} style={{ color: colors.canvas, flexShrink: 1, fontSize: 28, fontWeight: "900", lineHeight: 34, minWidth: 0 }}>
+                  {dashboard.bodyMass.currentLabel}
+                </Text>
+                <Text numberOfLines={1} style={{ color: dashboard.bodyMass.tone === "green" ? colors.readyGreen : colors.amberCaution, flexShrink: 1, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>
                   {dashboard.bodyMass.deltaLabel}
                 </Text>
               </View>
-              <TrendLineChart accent="blue" points={dashboard.bodyMass.points} width={230} />
-              {dashboard.bodyMass.points.length === 0 ? <Text style={screenStyles.subtle}>{dashboard.bodyMass.emptyLabel}</Text> : null}
+              {hasBodyMassLine ? (
+                <TrendLineChart accent="blue" height={72} points={dashboard.bodyMass.points} />
+              ) : (
+                <View
+                  style={{
+                    alignItems: "center",
+                    borderColor: colors.line,
+                    borderRadius: radii.tile,
+                    borderWidth: 1,
+                    gap: spacing.xs,
+                    justifyContent: "center",
+                    minHeight: 76,
+                    padding: spacing.md
+                  }}
+                >
+                  <Text style={{ color: colors.blueIQ, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>
+                    {latestBodyMassPoint ? "Latest log only" : "Trend unknown"}
+                  </Text>
+                  <Text style={[screenStyles.subtle, { textAlign: "center" }]}>
+                    {latestBodyMassPoint ? "One more scale log makes this a trend." : dashboard.bodyMass.emptyLabel}
+                  </Text>
+                </View>
+              )}
+              <Pressable
+                accessibilityLabel={busy ? "Saving body weight log" : "Open trend body weight input"}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy }}
+                disabled={busy}
+                onPress={() => onOpenQuickCheck("body_mass", "body_mass_card")}
+                style={screenStyles.quietButton}
+              >
+                <Text style={screenStyles.quietButtonText}>{/no body (mass|weight)|unknown/i.test(dashboard.bodyMass.currentLabel) ? "Log body weight" : "Update body weight"}</Text>
+              </Pressable>
+              {renderQuickCheck("body_mass_card", false)}
             </View>
           </DashboardCard>
         </View>
@@ -236,7 +293,7 @@ function TodayDashboardSection({
             accessibilityRole="button"
             accessibilityState={{ disabled: busy }}
             disabled={busy}
-            onPress={() => onOpenQuickCheck("readiness")}
+            onPress={() => onOpenQuickCheck("readiness", "manual")}
             style={actionButtonStyle}
           >
             <Text style={screenStyles.quietButtonText}>Quick check-in</Text>
@@ -267,6 +324,7 @@ function TodayDashboardSection({
           ) : null}
         </View>
         <Text style={screenStyles.subtle}>Add only true manual logs. Missing data stays unknown, not safe.</Text>
+        {renderQuickCheck("manual", false)}
       </DashboardCard>
 
       <Pressable
@@ -274,12 +332,13 @@ function TodayDashboardSection({
         accessibilityRole="button"
         accessibilityState={{ disabled: busy }}
         disabled={busy}
-        onPress={onPrimaryAction}
+        onPress={() => onPrimaryAction("dashboard_primary")}
         style={[screenStyles.button, { minHeight: 56 }]}
         testID="today-primary-dashboard-action"
       >
         <Text style={[screenStyles.buttonText, { fontSize: 17 }]}>{dashboard.ctaLabel}</Text>
       </Pressable>
+      {renderQuickCheck("dashboard_primary")}
     </View>
   );
 }
@@ -293,9 +352,7 @@ export function TodayScreen({
   recentLogs,
   cycleContext,
   quickLogs,
-  cycleQuickLogEnabled,
   cycleTrackingStatus,
-  cycleSymptomOptions,
   busy,
   message,
   onOpenFuel,
@@ -305,8 +362,7 @@ export function TodayScreen({
   onOpenTrain,
   onOpenTrainWorkout
 }: TodayScreenProps) {
-  const [quickCheckOpen, setQuickCheckOpen] = React.useState(false);
-  const [quickCheckFocus, setQuickCheckFocus] = React.useState<TodayQuickCheckFocus>("readiness");
+  const [quickCheck, setQuickCheck] = React.useState<{ focus: TodayQuickCheckFocus; placement: TodayQuickCheckPlacement } | null>(null);
   const hasRisk = viewModel.riskSummary.length > 0;
   const cycleText = [
     viewModel.cycleContext ?? "",
@@ -318,9 +374,8 @@ export function TodayScreen({
     ...viewModel.riskSummary
   ].join(" ");
   const showCycleImpact = Boolean(viewModel.cycleContext && /cycle|symptom|cramp|period|flow/i.test(cycleText));
-  const openQuickCheck = (focus: TodayQuickCheckFocus) => {
-    setQuickCheckFocus(focus);
-    setQuickCheckOpen(true);
+  const openQuickCheck = (focus: TodayQuickCheckFocus, placement: TodayQuickCheckPlacement = "top") => {
+    setQuickCheck({ focus, placement });
   };
   const dashboard = buildTodayDashboardVisual({
     asOfDate,
@@ -330,13 +385,24 @@ export function TodayScreen({
     today: viewModel,
     train: trainViewModel
   });
-  const runDashboardPrimaryAction = () => {
+  const renderQuickCheck = (placement: TodayQuickCheckPlacement, framed = true) =>
+    quickCheck?.placement === placement ? (
+      <TodayQuickCheckSection
+        busy={busy}
+        focus={quickCheck.focus}
+        framed={framed}
+        includeOtherLogs={placement === "top" || placement === "manual"}
+        quickLogs={quickLogs}
+        recentLogs={recentLogs}
+      />
+    ) : null;
+  const runDashboardPrimaryAction = (quickCheckPlacement: TodayQuickCheckPlacement = "top") => {
     if (/fuel/i.test(dashboard.ctaLabel)) {
       (onOpenFuelLog ?? onOpenFuel)?.();
       return;
     }
     if (/readiness/i.test(dashboard.ctaLabel)) {
-      openQuickCheck("readiness");
+      openQuickCheck("readiness", quickCheckPlacement);
       return;
     }
     if (/adjust/i.test(dashboard.ctaLabel)) {
@@ -354,14 +420,14 @@ export function TodayScreen({
   const primaryButton: FastTaskAction = {
     disabled: busy,
     label: primaryTaskLabel,
-    onPress: runDashboardPrimaryAction,
+    onPress: () => runDashboardPrimaryAction("top"),
     testID: "today-primary-task-action"
   };
   const secondaryActions: FastTaskAction[] = [
     {
       disabled: busy,
       label: "Quick check-in",
-      onPress: () => openQuickCheck("readiness"),
+      onPress: () => openQuickCheck("readiness", "top"),
       summary: "30 sec"
     },
     ...((onOpenFuelLog ?? onOpenFuel)
@@ -416,6 +482,7 @@ export function TodayScreen({
           ]}
         />
       </PrimaryTaskCard>
+      {renderQuickCheck("top")}
       <TodayDashboardSection
         busy={busy}
         dashboard={dashboard}
@@ -423,6 +490,7 @@ export function TodayScreen({
         onOpenTrainWorkout={onOpenTrainWorkout ?? onOpenTrain}
         onOpenQuickCheck={openQuickCheck}
         onPrimaryAction={runDashboardPrimaryAction}
+        renderQuickCheck={renderQuickCheck}
       />
       {hasRisk ? (
         <RiskBanner title="Safety stop" message="Safety comes before the plan. Missing or risky logs are unknown, not permission to push." tone="critical">
@@ -433,16 +501,6 @@ export function TodayScreen({
             </Pressable>
           </View>
         </RiskBanner>
-      ) : null}
-      {quickCheckOpen ? (
-        <TodayQuickCheckSection
-          busy={busy}
-          cycleQuickLogEnabled={cycleQuickLogEnabled}
-          cycleSymptomOptions={cycleSymptomOptions}
-          focus={quickCheckFocus}
-          quickLogs={quickLogs}
-          recentLogs={recentLogs}
-        />
       ) : null}
       {message ? (
         <EngineCard>

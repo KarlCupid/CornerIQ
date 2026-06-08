@@ -5,6 +5,7 @@ import { materializeGeneratedSessionsFromPreview } from "../../engine/training/n
 import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationEngine";
 import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
 import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
+import { plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
 import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function stateFixture(): PerformanceState {
@@ -144,7 +145,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
     expect(first.length).toBeGreaterThan(0);
     expect(first.every((session) => session.intensity !== "hard")).toBe(true);
-    expect(first.every((session) => workoutTemplateCatalog.some((template) => template.family === session.family && template.title === session.title))).toBe(true);
+    expect(first.every((session) => workoutTemplateCatalog.some((template) => template.family === session.family && plainWorkoutTitle(template.title) === session.title))).toBe(true);
     expect(first.some((session) => session.family === "strength_full_body" && session.durationMinutes >= 40)).toBe(true);
     expect(first.every((session) => session.durationPolicyCategory && session.selectedTemplateId && session.finalDurationMinutes === session.durationMinutes)).toBe(true);
     expect(first.map((session) => session.id)).toEqual(second.map((session) => session.id));

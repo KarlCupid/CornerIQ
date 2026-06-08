@@ -173,7 +173,7 @@ function useLocalE2EQuickLogs(setMessage: (message: string) => void): QuickLogAc
     };
 
     return {
-      logBodyMass: async () => save("Body mass log"),
+      logBodyMass: async () => save("Body weight log"),
       logReadiness: async () => save("Readiness log"),
       logHydration: async () => save("Hydration log"),
       logCycle: async () => save("Cycle log"),

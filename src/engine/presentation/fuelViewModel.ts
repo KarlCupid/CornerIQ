@@ -2,6 +2,7 @@ import type { FuelViewModel, PerformanceState } from "../core/types";
 import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import { riskSummary } from "./explanationCopy";
 import { buildNutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
+import { compactFuelCopy, plainFuelCopy } from "./fuelCopy";
 
 function macroProgress(logged: number, target: number, unit: string): { logged: string; target: string } {
   return {
@@ -28,66 +29,88 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
   const blockedAcuteProtocol =
     state.nutrition.acuteProtocolStatus === "blocked"
       ? {
-          title: "Fight-week fuel",
-          status: "blocked" as const,
-          summary: state.nutrition.acuteProtocolEligibility.athleteFacingSummary,
-          actions: ["Keep regular meals and fluids steady.", "Use qualified clinical review for any weight-class pressure.", "No acute scale-manipulation steps are shown."]
-        }
+        title: "Fight-week fuel",
+        status: "blocked" as const,
+        summary: plainFuelCopy(state.nutrition.acuteProtocolEligibility.athleteFacingSummary),
+        actions: ["Keep regular meals and fluids steady.", "Use qualified review for weight pressure.", "No quick scale-change steps are shown."]
+      }
       : null;
   const lowResidueGuidance = state.nutrition.lowResidueGuidance
     ? {
         title: "Fight-week fuel",
         status: "info" as const,
-        summary: state.nutrition.lowResidueGuidance,
-        actions: ["Lower fiber does not mean lower calories.", "Keep protein, carbs, fluids, and sodium consistent unless CornerIQ flags safety."]
+        summary: plainFuelCopy(state.nutrition.lowResidueGuidance),
+        actions: ["Lower fiber does not mean lower calories.", "Keep protein, carbs, fluids, and sodium steady unless safety changes."]
       }
     : null;
   const rehydration = state.nutrition.rehydrationPlan.status === "not_applicable" ? null : state.nutrition.rehydrationPlan;
   const safetyReviewFirst = state.nutrition.nutritionSafetyReview.required;
   return {
-    title: "Fuel the rounds",
-    topAction: {
+      title: "Fuel the rounds",
+      topAction: {
       title: "Fuel dashboard",
-      purpose: "Use Fuel to cover today's boxing work without weight-class pressure.",
+      purpose: "Fuel today's boxing without weight pressure.",
       primaryAction: safetyReviewFirst
-        ? state.nutrition.nutritionSafetyReview.professionalReviewCopy
+        ? plainFuelCopy(state.nutrition.nutritionSafetyReview.professionalReviewCopy)
         : "Log food or water if you have it. Fuel the boxing work first.",
       why: safetyReviewFirst
-        ? state.nutrition.commandCenter.safetyAction
-        : state.nutrition.commandCenter.sessionFuelAction,
+        ? plainFuelCopy(state.nutrition.commandCenter.safetyAction)
+        : compactFuelCopy(state.nutrition.commandCenter.sessionFuelAction),
       optional: safetyReviewFirst
-        ? "Food and target details can wait. Missing logs stay uncertain while the safety note is active."
-        : "Targets, body mass, and review history can wait unless a safety note is active."
+        ? "Food details can wait. Missing logs stay unknown."
+        : "Targets and history can wait unless safety is active."
     },
-    commandCenter: state.nutrition.commandCenter,
+    commandCenter: {
+      ...state.nutrition.commandCenter,
+      primaryFuelAction: compactFuelCopy(state.nutrition.commandCenter.primaryFuelAction),
+      bodyMassAction: plainFuelCopy(state.nutrition.commandCenter.bodyMassAction),
+      sessionFuelAction: compactFuelCopy(state.nutrition.commandCenter.sessionFuelAction),
+      hydrationAction: compactFuelCopy(state.nutrition.commandCenter.hydrationAction),
+      cycleAction: plainFuelCopy(state.nutrition.commandCenter.cycleAction),
+      safetyAction: plainFuelCopy(state.nutrition.commandCenter.safetyAction),
+      decisionStack: state.nutrition.commandCenter.decisionStack.map((item) => ({
+        ...item,
+        summary: plainFuelCopy(item.summary),
+        why: plainFuelCopy(item.why)
+      }))
+    },
     weightClassStatus: state.nutrition.weightClassStatus,
     fightWeekFuelPlan: state.nutrition.fightWeekFuelPlan,
     rehydrationChecklist: state.nutrition.rehydrationChecklist,
     tournamentFuelPlan: state.nutrition.tournamentFuelPlan,
     nutritionSafetyReview: state.nutrition.nutritionSafetyReview,
     activeNutritionSafetyReviews: state.nutrition.activeNutritionSafetyReviews.map(displayActiveReviewStatus),
-    decisionStack: state.nutrition.decisionStack,
+    decisionStack: state.nutrition.decisionStack.map((item) => ({
+      ...item,
+      summary: plainFuelCopy(item.summary),
+      why: plainFuelCopy(item.why)
+    })),
     trainingDemandHandoff: state.nutrition.trainingDemandHandoff,
     foodLogStatus: state.nutrition.dailyFoodLogSummary,
     completionControls: {
-      statusTitle: "Food log status",
+      statusTitle: "Food log",
       helperCopy: [
-        "Only tap done when today's food log represents your full day.",
+        "Tap done only when today's food log covers the full day.",
         "If you're still eating or logging later, leave it partial.",
-        "If you ate but are not tracking today, CornerIQ will keep training guidance available and will not treat missing food as too little food for the work."
+        "If you ate but are not tracking today, training guidance stays available."
       ],
       actions: [
-        { label: "Still logging today", kind: "still_logging", summary: "Status becomes partial day; too-little-food warnings stay off." },
-        { label: "I'm done logging today", kind: "done_logging", summary: "Status becomes complete enough for target comparison." },
-        { label: "I ate but I'm not tracking today", kind: "not_tracking", summary: "Training guidance remains available; food is advisory-only." }
+        { label: "Still logging", kind: "still_logging", summary: "Keeps food as partial." },
+        { label: "Done logging", kind: "done_logging", summary: "Use this for full-day comparison." },
+        { label: "Not tracking", kind: "not_tracking", summary: "Food stays unknown; training remains available." }
       ]
     },
-    hitTheseFirst: state.nutrition.hitTheseFirst,
+    hitTheseFirst: state.nutrition.hitTheseFirst.map(plainFuelCopy),
     macroTargets: {
-      why: `${state.nutrition.targetConfidence.athleteFacingCopy} Demand tier: ${state.nutrition.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " ")}.`,
+      why: `${plainFuelCopy(state.nutrition.targetConfidence.athleteFacingCopy)} Today: ${plainFuelCopy(state.nutrition.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " "))}.`,
       confidence: state.nutrition.confidence.level,
-      targetConfidence: state.nutrition.targetConfidence,
-      logStatus: state.nutrition.dailyFoodLogSummary.athleteFacingSummary,
+      targetConfidence: {
+        ...state.nutrition.targetConfidence,
+        athleteFacingCopy: plainFuelCopy(state.nutrition.targetConfidence.athleteFacingCopy),
+        reasons: state.nutrition.targetConfidence.reasons.map(plainFuelCopy),
+        missingInputs: state.nutrition.targetConfidence.missingInputs.map(plainFuelCopy)
+      },
+      logStatus: plainFuelCopy(state.nutrition.dailyFoodLogSummary.athleteFacingSummary),
       targets: [
         { label: "Calories", value: `${state.nutrition.dailyCaloriesTarget} kcal` },
         { label: "Protein", value: `${state.nutrition.proteinGrams}g` },
@@ -103,12 +126,12 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
         { label: "Fat", ...macroProgress(state.nutrition.actualIntakeSummary.fatLoggedGrams, state.nutrition.fatGrams, "g") }
       ]
     },
-    calorieSummary: `${state.nutrition.dailyCaloriesTarget} kcal target (${state.nutrition.calorieRange.min}-${state.nutrition.calorieRange.max})`,
+    calorieSummary: `${state.nutrition.dailyCaloriesTarget} kcal guide (${state.nutrition.calorieRange.min}-${state.nutrition.calorieRange.max})`,
     macroSummary: `${state.nutrition.proteinGrams}g protein, ${state.nutrition.carbohydrateGrams}g carbs, ${state.nutrition.fatGrams}g fat`,
     hydrationSummary: `${state.nutrition.waterLiters}L fluids. ${state.nutrition.sodiumGuidance}`,
     actualIntakeSummary: {
       title: "Logged so far",
-      summary: state.nutrition.actualIntakeSummary.summaryCopy,
+      summary: plainFuelCopy(state.nutrition.actualIntakeSummary.summaryCopy),
       confidence: state.nutrition.actualIntakeSummary.confidence.level,
       rows: state.nutrition.actualIntakeSummary.rows
     },
@@ -125,15 +148,15 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
       currentSafetyReview: state.nutrition.nutritionSafetyReview,
       asOfDate: state.asOfDate
     }),
-    bodyMassSummary: state.nutrition.bodyMassNote,
-    cycleNote: state.nutrition.cycleNote,
-    fightOrTournamentNote: state.nutrition.tournamentFuelingGuidance ?? state.nutrition.lowResidueGuidance,
+    bodyMassSummary: plainFuelCopy(state.nutrition.bodyMassNote),
+    cycleNote: state.nutrition.cycleNote ? plainFuelCopy(state.nutrition.cycleNote) : null,
+    fightOrTournamentNote: state.nutrition.tournamentFuelingGuidance || state.nutrition.lowResidueGuidance ? plainFuelCopy(state.nutrition.tournamentFuelingGuidance ?? state.nutrition.lowResidueGuidance ?? "") : null,
     fightWeekFuel: blockedAcuteProtocol ?? lowResidueGuidance,
     tournamentFuel: state.nutrition.tournamentFuelingGuidance
       ? {
           title: "Tournament fuel",
           status: "info",
-          summary: state.nutrition.tournamentFuelingGuidance,
+          summary: plainFuelCopy(state.nutrition.tournamentFuelingGuidance),
           actions: ["Stay near weight between bouts.", "Prioritize predictable carbs, fluids, and sodium.", "Avoid chasing scale noise between daily weigh-ins."]
         }
       : null,
@@ -150,18 +173,18 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
             ...(rehydration.carbPriority ? [rehydration.carbPriority] : []),
             ...rehydration.gutComfortRules,
             ...rehydration.warnings
-          ]
+          ].map(plainFuelCopy)
         }
       : null,
     underFuelingRisk: state.nutrition.underFuelingRiskNote
       ? {
-          title: "Under-fueling risk",
+          title: "Too little food risk",
           status: "caution",
-          summary: state.nutrition.underFuelingRiskNote,
-          actions: ["Do not push a deficit through hard boxing days.", "Use the next logs to restore confidence before changing weight pressure."]
+          summary: plainFuelCopy(state.nutrition.underFuelingRiskNote),
+          actions: ["Do not push weight loss through hard boxing days.", "Use the next logs before changing weight pressure."]
         }
       : null,
-    riskSummary: riskSummary(state.nutrition.riskFlags),
-    why: state.nutrition.explanation
+    riskSummary: riskSummary(state.nutrition.riskFlags).map(plainFuelCopy),
+    why: plainFuelCopy(state.nutrition.explanation)
   };
 }

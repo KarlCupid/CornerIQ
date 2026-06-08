@@ -307,13 +307,15 @@ async function exerciseTodayQuickLogSaves(page: Page) {
   await expectVisibleText(page, "Body mass log captured in local E2E mode only.");
 
   const updateReadiness = page.getByRole("button", { name: "Update readiness" });
-  if (await updateReadiness.count()) {
+  if ((await page.getByPlaceholder("Sleep hours").count()) === 0 && await updateReadiness.count()) {
     await updateReadiness.first().click();
   }
   await page.getByPlaceholder("Sleep hours").fill("7.5");
   await page.getByRole("button", { name: "Energy (1-5) 4" }).click();
   await page.getByRole("button", { name: "Soreness (1-5) 2" }).click();
-  await page.getByRole("button", { name: "Show More signals" }).click();
+  if (await page.getByRole("button", { name: "Show More signals" }).count()) {
+    await page.getByRole("button", { name: "Show More signals" }).click();
+  }
   await page.getByRole("button", { name: "Sleep quality (1-5) 4" }).click();
   await page.getByRole("button", { name: "Stress (1-5) 2" }).click();
   await page.getByRole("button", { name: "Mood (1-5) 4" }).click();

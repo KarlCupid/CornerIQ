@@ -63,7 +63,7 @@ function friendlyAnchorText(value: string): string {
 }
 
 function friendlySupportText(value: string): string {
-  return value === "No generated support." ? "None" : plainPlanCopy(value);
+  return value === "No generated support." || value === "No support workout." ? "None" : plainPlanCopy(value);
 }
 
 function plainPlanCopy(value: string): string {

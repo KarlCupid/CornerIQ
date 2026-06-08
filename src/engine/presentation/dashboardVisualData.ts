@@ -1,6 +1,8 @@
 import type { DetailedTrainingSession, GeneratedSessionIntensity } from "../training/types";
 import type { GeneratedSupportWeekday } from "../training/supportAvailability";
 import type { FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "./types";
+import { compactFuelCopy } from "./fuelCopy";
+import { plainIntensityLabel, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
 export type VisualTone = "blue" | "green" | "orange" | "purple" | "gold" | "red" | "muted";
 
@@ -376,11 +378,11 @@ function bodyMassTrendFromFuel(fuel: FuelViewModel | undefined, recentLogs?: Rec
   const last7 = history.slice(-7);
   if (last7.length === 0) {
     return {
-      currentLabel: recentLogs?.bodyMassToday.loggedToday ? recentLogs.bodyMassToday.statusLabel : "No body mass log",
+      currentLabel: recentLogs?.bodyMassToday.loggedToday ? recentLogs.bodyMassToday.statusLabel : "No body weight log",
       deltaLabel: "Trend unknown",
       tone: "orange",
       points: [],
-      emptyLabel: fuel?.bodyMassTrajectory.missingDataCopy ?? "Missing body-mass logs stay unknown."
+      emptyLabel: fuel?.bodyMassTrajectory.missingDataCopy ?? "Missing body weight logs stay unknown."
     };
   }
   const first = last7[0];
@@ -390,7 +392,7 @@ function bodyMassTrendFromFuel(fuel: FuelViewModel | undefined, recentLogs?: Rec
     currentLabel: last ? `${last.kg.toFixed(1)} kg` : "Unknown",
     deltaLabel: `${delta >= 0 ? "Up" : "Down"} ${Math.abs(delta).toFixed(1)} kg vs 7 days`,
     tone: Math.abs(delta) < 0.6 ? "green" : "orange",
-    emptyLabel: fuel?.bodyMassTrajectory.missingDataCopy ?? "Missing body-mass logs stay unknown.",
+    emptyLabel: fuel?.bodyMassTrajectory.missingDataCopy ?? "Missing body weight logs stay unknown.",
     points: last7.map((item) => ({ label: shortDateLabel(item.date), value: item.kg, valueLabel: `${item.kg.toFixed(1)} kg` }))
   };
 }
@@ -440,7 +442,7 @@ function decisionVisual(today: TodayViewModel, readiness: ReadinessDashboardVisu
     score,
     tone: today.riskSummary.length > 0 ? "red" : intensity === "hard" ? "orange" : "blue",
     tags: [
-      { label: "Intensity", value: intensity.replace(/_/g, " "), ratio: intensityRatio(intensity), tone: toneForIntensity(intensity) },
+      { label: "Intensity", value: plainIntensityLabel(intensity), ratio: intensityRatio(intensity), tone: toneForIntensity(intensity) },
       { label: "Readiness to load", value: readiness.statusLabel, ratio: readiness.score === null ? 0.28 : readiness.score / 100, tone: readiness.tone },
       { label: "Risk", value: today.riskSummary.length > 0 ? "High" : "Low", ratio: riskRatio, tone: today.riskSummary.length > 0 ? "red" : "green" }
     ]
@@ -454,7 +456,7 @@ function scheduleFromPlan(plan: PlanViewModel | undefined, train: TrainViewModel
     items.push({ label: "Fixed", title: day.protectedAnchors.split(",")[0] ?? "Boxing", subtitle: "Boxing you added", tone: "gold" });
   }
   for (const session of train?.todayGeneratedSessions ?? []) {
-    items.push({ label: `${session.durationMinutes} min`, title: session.title, subtitle: session.sessionTypeLabel ?? "Support workout", tone: toneForIntensity(session.intensity) });
+    items.push({ label: `${session.durationMinutes} min`, title: plainWorkoutTitle(session.title, session.family), subtitle: session.sessionTypeLabel ?? "Support workout", tone: toneForIntensity(session.intensity) });
   }
   if (items.length === 0 && day) {
     items.push({ label: dayLabelFromPlan(day.label, day.date), title: day.compactSummary, subtitle: day.compactMetric, tone: toneForDay(day) });
@@ -559,7 +561,7 @@ function rangeFromFuel(fuel: FuelViewModel): FuelDashboardVisual["bodyMassRange"
     target,
     currentLabel: current === null ? "Current unknown" : `${current.toFixed(1)} kg`,
     targetLabel: target === null ? "Target context unknown" : `${target.toFixed(1)} kg target`,
-    title: campActive ? "Weight-class readiness" : "Body mass trend"
+    title: campActive ? "Weight-class readiness" : "Body weight trend"
   };
 }
 
@@ -572,7 +574,7 @@ function recommendationFromFuel(fuel: FuelViewModel, fuelRows: readonly Progress
     return { label: "Log meal", tone: "orange", body: "Log food you have. Fuel advice stays cautious until intake is known." };
   }
   if (hydration && hydration.ratio < 0.55) {
-    return { label: "Hydrate", tone: "blue", body: fuel.commandCenter.hydrationAction };
+    return { label: "Hydrate", tone: "blue", body: compactFuelCopy(fuel.commandCenter.hydrationAction) };
   }
   const carbRelevantDemand = ["strength", "power", "hard_conditioning", "long_zone2", "protected_sparring_or_hard_anchor", "mixed_high_day"].includes(fuel.trainingDemandHandoff.todayTrainingDemandTier);
   if (carbs && carbs.ratio < 0.7 && carbRelevantDemand) {
@@ -581,7 +583,7 @@ function recommendationFromFuel(fuel: FuelViewModel, fuelRows: readonly Progress
   if (protein && protein.ratio >= 0.85) {
     return { label: "Protein target close", tone: "purple", body: "Protein is close enough to support recovery." };
   }
-  return { label: "Fuel looks good", tone: "green", body: fuel.commandCenter.primaryFuelAction };
+  return { label: "Fuel looks good", tone: "green", body: compactFuelCopy(fuel.commandCenter.primaryFuelAction) };
 }
 
 export function buildFuelDashboardVisual(fuel: FuelViewModel, recentLogs: RecentLogsViewModel): FuelDashboardVisual {
@@ -636,7 +638,7 @@ export function buildWorkoutSectionBreakdown(session: DetailedTrainingSession): 
   const minutes = session.sections.map((section) => sectionMinutes(section, fallback));
   const total = Math.max(1, minutes.reduce((sum, value) => sum + value, 0));
   return session.sections.map((section, index) => ({
-    label: section.name,
+    label: plainSectionName(section.name),
     value: minutes[index] ?? fallback,
     valueLabel: `${minutes[index] ?? fallback} min`,
     percent: Math.round(((minutes[index] ?? fallback) / total) * 100),
@@ -658,7 +660,7 @@ function intensitySplit(intensity: GeneratedSessionIntensity): readonly [number,
 }
 
 function checkpointRows(session: DetailedTrainingSession): readonly ModifierVisual[] {
-  const cues = [...(session.sessionQualityCheckpoints ?? []), ...(session.athleteQualityCues ?? []), ...(session.selfCheckCues ?? [])].slice(0, 4);
+  const cues = [...(session.sessionQualityCheckpoints ?? []), ...(session.athleteQualityCues ?? []), ...(session.selfCheckCues ?? [])].map(plainTrainingCopy).slice(0, 4);
   return (cues.length > 0 ? cues : ["Stay smooth", "Keep shoulders relaxed", "Finish with control"]).map((cue, index) => ({
     label: cue,
     value: "Check",
@@ -696,7 +698,7 @@ export function buildWorkoutPreviewVisual(session: DetailedTrainingSession, trai
   ];
   const flow = sections.map((section, index) => ({
     label: `${index + 1}`,
-    title: section.label,
+      title: plainSectionName(section.label),
     subtitle: section.valueLabel,
     tone: section.tone
   }));

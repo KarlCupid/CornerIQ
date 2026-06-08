@@ -30,7 +30,7 @@ function stepWhy(stepIndex: number): string {
     case 0:
       return "Required: boxing status, level, and training age help the engine avoid broad combat-sport defaults.";
     case 1:
-      return "Required: body mass, walk-around weight, and height anchor weight-class safety without assuming missing data is safe.";
+      return "Required: body weight, walk-around weight, and height anchor weight-class safety without treating missing data as safe.";
     case 2:
       return "Required: equipment and availability can be simple. none/bodyweight is valid if that is the setup.";
     case 3:

@@ -4,6 +4,15 @@ import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DetailedTrainingSession, ExercisePrescription, ExerciseSubstitution } from "../../../engine/core/types";
 import { buildWorkoutPlayerExerciseResults } from "../../../engine/presentation/workoutPlayerResults";
+import {
+  plainFuelDemandLabel,
+  plainIntensityLabel,
+  plainMovementWhy,
+  plainSectionIntent,
+  plainSectionName,
+  plainTrainingCopy,
+  plainWorkoutTitle
+} from "../../../engine/presentation/trainingCopy";
 import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
 import { LuminousProgressBar } from "../../../design/components/LuminousScreen";
 import { colors, radii, spacing } from "../../../design/theme";
@@ -93,8 +102,8 @@ function exerciseTargetText(exercise: ExercisePrescription, setIndex: number): r
   return [
     exercise.rpeTarget ?? set?.rpeTarget ? `RPE ${exercise.rpeTarget ?? set?.rpeTarget}` : null,
     exercise.rirTarget ?? set?.rirTarget ? `RIR ${exercise.rirTarget ?? set?.rirTarget}` : null,
-    exercise.tempo ?? set?.tempo ? `Tempo ${exercise.tempo ?? set?.tempo}` : null,
-    exercise.restText ? `Rest ${exercise.restText}` : null
+    exercise.tempo ?? set?.tempo ? `Tempo ${plainTrainingCopy(exercise.tempo ?? set?.tempo ?? "")}` : null,
+    exercise.restText ? `Rest ${plainTrainingCopy(exercise.restText)}` : null
   ].filter((item): item is string => item !== null);
 }
 
@@ -265,9 +274,9 @@ function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | 
 function sectionPreviewSubtitle(section: DetailedTrainingSession["sections"][number]): string {
   const firstExercise = section.exercises[0];
   if (!firstExercise) {
-    return section.intent;
+    return plainSectionIntent(section.intent);
   }
-  return `${exerciseDoseText(firstExercise, 0)} - ${firstExercise.name}`;
+  return `${exerciseDoseText(firstExercise, 0)} - ${plainWorkoutTitle(firstExercise.name)}`;
 }
 
 function SessionFlowRow({
@@ -311,7 +320,7 @@ function SessionFlowRow({
         <Text style={{ color: colors.blueIQ, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
       </View>
       <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-        <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{section.name}</Text>
+        <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{plainSectionName(section.name)}</Text>
         <Text style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>{sectionPreviewSubtitle(section)}</Text>
       </View>
       <Ionicons color={colors.mutedText} name="chevron-forward" size={18} />
@@ -438,8 +447,8 @@ function SafetyStack({ exercise, session }: { exercise: ExercisePrescription; se
       testID="workout-player-safety-notes"
     >
       <Text style={screenStyles.fieldLabel}>Stop / safety</Text>
-      {stopConditions.map((condition, index) => <Text key={`player-stop:${index}`} style={screenStyles.subtle}>Stop: {condition}</Text>)}
-      {safetyNotes.map((note, index) => <Text key={`player-safety:${index}`} style={screenStyles.subtle}>Safety: {note}</Text>)}
+      {stopConditions.slice(0, 3).map((condition, index) => <Text key={`player-stop:${index}`} style={screenStyles.subtle}>Stop: {plainTrainingCopy(condition)}</Text>)}
+      {safetyNotes.slice(0, 2).map((note, index) => <Text key={`player-safety:${index}`} style={screenStyles.subtle}>Safety: {plainTrainingCopy(note)}</Text>)}
     </View>
   );
 }
@@ -505,9 +514,9 @@ function SubstitutionChooser({
     return null;
   }
   return (
-    <CollapsedDetailDisclosure framed={false} title="Swap exercise" summary={selected ? `Using ${selected.name}.` : "Choose a listed safe substitution if equipment or pain requires it."} testID="workout-player-substitutions">
+    <CollapsedDetailDisclosure framed={false} title="Swap exercise" summary={selected ? `Using ${plainWorkoutTitle(selected.name)}.` : "Use a listed swap if equipment or pain requires it."} testID="workout-player-substitutions">
       <View style={{ gap: spacing.sm }}>
-        {selected ? <PlayerButton label={`Use original ${exercise.name}`} onPress={() => onChoose(undefined)} /> : null}
+        {selected ? <PlayerButton label={`Use original ${plainWorkoutTitle(exercise.name)}`} onPress={() => onChoose(undefined)} /> : null}
         {exercise.substitutions.map((substitution) => (
           <Pressable
             accessibilityRole="button"
@@ -523,11 +532,11 @@ function SubstitutionChooser({
               padding: spacing.md
             }}
           >
-            <Text style={screenStyles.callout}>{substitution.name}</Text>
-            <Text style={screenStyles.subtle}>Reason: {substitution.reason}</Text>
+            <Text style={screenStyles.callout}>{plainWorkoutTitle(substitution.name)}</Text>
+            <Text style={screenStyles.subtle}>Reason: {plainTrainingCopy(substitution.reason)}</Text>
             <Text style={screenStyles.subtle}>Equipment: {substitution.equipmentNeeded.length > 0 ? substitution.equipmentNeeded.join(", ") : "none"}</Text>
-            <Text style={screenStyles.subtle}>Load: {substitution.loadGuidance}</Text>
-            {substitution.coachingNotes.map((note, index) => <Text key={`sub-note:${substitution.exerciseId}:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
+            <Text style={screenStyles.subtle}>Load: {plainTrainingCopy(substitution.loadGuidance)}</Text>
+            {substitution.coachingNotes.slice(0, 2).map((note, index) => <Text key={`sub-note:${substitution.exerciseId}:${index}`} style={screenStyles.subtle}>Cue: {plainTrainingCopy(note)}</Text>)}
           </Pressable>
         ))}
       </View>
@@ -625,9 +634,9 @@ export function WorkoutPlayer({
   const setCount = prescribedSetCount(currentExercise);
   const completedSets = completedSetMap[currentExercise.exerciseId] ?? [];
   const selectedSubstitution = substitutionMap[currentExercise.exerciseId];
-  const displayName = selectedSubstitution?.name ?? currentExercise.name;
-  const displayLoad = selectedSubstitution?.loadGuidance ?? currentExercise.loadGuidance;
-  const displayNotes = selectedSubstitution?.coachingNotes ?? currentExercise.coachingNotes;
+  const displayName = plainWorkoutTitle(selectedSubstitution?.name ?? currentExercise.name);
+  const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentExercise.loadGuidance);
+  const displayNotes = (selectedSubstitution?.coachingNotes ?? currentExercise.coachingNotes).map(plainTrainingCopy);
   const progress = steps.length > 0 ? Math.max(0, currentStepIndex) / steps.length : 0;
   const nextStep = currentStepIndex >= 0 ? steps[currentStepIndex + 1] : undefined;
   const restSeconds = parseSecondsFromText(currentExercise.restText);
@@ -644,7 +653,7 @@ export function WorkoutPlayer({
   const partialExerciseCount = playerResults.filter((result) => result.resultStatus === "partial").length;
   const skippedExerciseCount = playerResults.filter((result) => result.resultStatus === "skipped").length;
   const painFlagCount = playerResults.filter((result) => result.painFlag).length;
-  const fuelLabel = session.fuelingGate ? "Fuel check" : session.fuelDemand === "high" ? "High fuel" : "Fuel okay";
+  const fuelLabel = session.fuelingGate ? "Fuel check" : plainFuelDemandLabel(session.fuelDemand);
   const coachNote = session.sessionQualityCheckpoints?.[0] ?? session.athleteQualityCues?.[0] ?? session.selfCheckCues?.[0] ?? "Keep this smooth. Finish feeling sharper, not cooked.";
   const firstPreviewSection = session.sections[0];
   const firstPreviewExercise = firstPreviewSection?.exercises[0];
@@ -656,13 +665,13 @@ export function WorkoutPlayer({
         <GlassPanel testID="workout-player-preview">
           <View style={{ alignItems: "center", gap: spacing.md }}>
             <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>DO THIS NOW</Text>
-            <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{session.title}</Text>
+            <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{plainWorkoutTitle(session.title, session.family)}</Text>
             <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{previewStartLine}</Text>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
             <PreviewPill label={`${session.durationMinutes} min`} />
-            <PreviewPill label={session.intensity.replace(/_/g, " ")} tone="green" />
+            <PreviewPill label={plainIntensityLabel(session.intensity)} tone="green" />
             <PreviewPill label={fuelLabel} tone={session.fuelDemand === "high" ? "orange" : "green"} />
           </View>
 
@@ -687,7 +696,7 @@ export function WorkoutPlayer({
         <CollapsedDetailDisclosure title="Plan details" summary={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}. Open only if you want the why, coach cue, or section order before starting.`} testID="workout-player-preview-detail">
           <View style={{ gap: spacing.sm }}>
             <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Why today</Text>
-            <Text style={screenStyles.subtle}>{session.whyThisMattersForBoxing}</Text>
+            <Text style={screenStyles.subtle}>{plainTrainingCopy(session.whyThisMattersForBoxing)}</Text>
           </View>
           <View style={{ gap: spacing.sm }}>
             <Text style={{ color: colors.gold, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Coach note</Text>
@@ -878,7 +887,7 @@ export function WorkoutPlayer({
         <GlassPanel testID="workout-player-finish-sheet">
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>Finish workout</Text>
-            <Text style={screenStyles.heroTitle}>{session.title}</Text>
+            <Text style={screenStyles.heroTitle}>{plainWorkoutTitle(session.title, session.family)}</Text>
             <Text style={screenStyles.body}>Review what will be saved before this workout affects training history.</Text>
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -910,7 +919,7 @@ export function WorkoutPlayer({
   const bigTimerSeconds = timer.kind !== null ? timer.remainingSeconds : workSeconds ?? remainingSessionSeconds;
   const bigTimerLabel = timer.kind !== null ? timer.label.toUpperCase() : workSeconds !== null ? "BLOCK TIMER" : "REMAINING";
   const liveProgress = steps.length > 0 ? Math.min(1, (Math.max(0, currentStepIndex) + 1) / steps.length) : progress;
-  const liveCues = displayNotes.length > 0 ? displayNotes : session.selfCheckCues ?? [];
+  const liveCues = displayNotes.length > 0 ? displayNotes : (session.selfCheckCues ?? []).map(plainTrainingCopy);
   const primaryCue = liveCues[0] ?? "Keep the shoulders loose and the breath under control.";
 
   return (
@@ -928,7 +937,7 @@ export function WorkoutPlayer({
         <View style={{ alignItems: "center", gap: spacing.xs }}>
           <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>DO THIS NOW</Text>
           <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 39, textAlign: "center" }}>{displayName}</Text>
-          {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {currentExercise.name}</Text> : null}
+          {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
           <Text style={{ color: colors.wrap, fontSize: 18, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>{exerciseDoseText(currentExercise, activeSetIndex)}</Text>
         </View>
 
@@ -960,7 +969,7 @@ export function WorkoutPlayer({
       <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
         <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, lineHeight: 15 }}>NEXT</Text>
         <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>
-          {nextStep ? `${nextStep.exercise.name}, set ${nextStep.setIndex + 1}` : "Finish summary"}
+          {nextStep ? `${plainWorkoutTitle(nextStep.exercise.name)}, set ${nextStep.setIndex + 1}` : "Finish summary"}
         </Text>
       </View>
 
@@ -978,7 +987,7 @@ export function WorkoutPlayer({
         </View>
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.fieldLabel}>Section purpose</Text>
-          <Text style={screenStyles.body}>{currentSection.intent}</Text>
+          <Text style={screenStyles.body}>{plainSectionIntent(currentSection.intent)}</Text>
         </View>
         <SafetyStack exercise={currentExercise} session={session} />
         <SubstitutionChooser
@@ -993,7 +1002,7 @@ export function WorkoutPlayer({
           {displayNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
         </CollapsedDetailDisclosure>
         <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
-          <Text style={screenStyles.body}>{currentExercise.boxingTransfer}</Text>
+          <Text style={screenStyles.body}>{plainMovementWhy(currentExercise.boxingTransfer)}</Text>
         </CollapsedDetailDisclosure>
         <TimerCard
           durationSeconds={restSeconds}
@@ -1037,13 +1046,13 @@ export function WorkoutPlayer({
 
       <CollapsedDetailDisclosure title="Session prep" summary="Checklist, self-check cues, quality checkpoints, and add-ons stay available while you train." testID="workout-player-session-prep">
         <View style={{ gap: spacing.xs }}>
-          {(session.preSessionChecklist ?? []).map((item, index) => <Text key={`pre-session:${index}`} style={screenStyles.subtle}>Before: {item}</Text>)}
-          {(session.selfCheckCues ?? []).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Self-check: {item}</Text>)}
-          {(session.sessionQualityCheckpoints ?? []).map((item, index) => <Text key={`quality:${index}`} style={screenStyles.subtle}>Quality: {item}</Text>)}
-          {(session.addOnBlocks ?? []).map((block) => (
-            <Text key={block.id} style={screenStyles.subtle}>Add-on: {block.label} ({block.durationMinutes} min) - {block.athleteFacingPurpose}</Text>
+          {(session.preSessionChecklist ?? []).slice(0, 3).map((item, index) => <Text key={`pre-session:${index}`} style={screenStyles.subtle}>Before: {plainTrainingCopy(item)}</Text>)}
+          {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Self-check: {plainTrainingCopy(item)}</Text>)}
+          {(session.sessionQualityCheckpoints ?? []).slice(0, 3).map((item, index) => <Text key={`quality:${index}`} style={screenStyles.subtle}>Quality: {plainTrainingCopy(item)}</Text>)}
+          {(session.addOnBlocks ?? []).slice(0, 3).map((block) => (
+            <Text key={block.id} style={screenStyles.subtle}>Add-on: {plainWorkoutTitle(block.label)} ({block.durationMinutes} min) - {plainTrainingCopy(block.athleteFacingPurpose)}</Text>
           ))}
-          {session.fuelAfter ? <Text style={screenStyles.subtle}>After: {session.fuelAfter}</Text> : null}
+          {session.fuelAfter ? <Text style={screenStyles.subtle}>After: {plainTrainingCopy(session.fuelAfter)}</Text> : null}
         </View>
       </CollapsedDetailDisclosure>
     </WorkoutScreenFrame>

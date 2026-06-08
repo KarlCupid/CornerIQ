@@ -136,7 +136,7 @@ const todayViewModel: TodayViewModel = {
   },
   whatChanged: "Low confidence because several inputs are missing.",
   primaryAction: "Complete today's support workout.",
-  firstAppAction: "Log readiness or body mass if you have it.",
+  firstAppAction: "Log readiness or body weight if you have it.",
   firstTrainingAction: "Complete today's support workout.",
   decisionStack: [
     {
@@ -152,10 +152,10 @@ const todayViewModel: TodayViewModel = {
   bodyMassStatus: "No trend yet.",
   cycleContext: null,
   readinessContext: "Manual check-in missing.",
-  riskSummary: ["Missing body mass is unknown, not safe."],
+  riskSummary: ["Missing body weight is unknown, not safe."],
   confidenceLabel: "low",
   why: "The engine is waiting for fresh manual inputs.",
-  quickLogs: ["Body mass", "Readiness", "Water"]
+  quickLogs: ["Body weight", "Readiness", "Water"]
 };
 
 const fuelDecisionStack = [
@@ -192,17 +192,17 @@ const fuelViewModel: FuelViewModel = {
     purpose: "Use Fuel to cover today's boxing work without weight-class pressure.",
     primaryAction: "Log food or water if you have it. Fuel the boxing work first.",
     why: "Use familiar carbs around boxing practice.",
-    optional: "Targets, body mass, and review history can wait unless a safety note is active."
+    optional: "Targets, body weight, and review history can wait unless a safety note is active."
   },
   commandCenter: fuelCommandCenter,
   weightClassStatus: {
     status: "no_active_weight_target",
     latestBodyMassKg: null,
-    trendSummary: "Trend unknown until a current body-mass log exists.",
+    trendSummary: "Trend unknown until a current body weight log exists.",
     targetSummary: "No active weight-class target today.",
     projectedReadiness: "Readiness supports normal boxing fuel priorities.",
     explanation: "No fight or tournament weight-class target is active today.",
-    nextAction: "Fuel training quality and keep manual body-mass logging optional.",
+    nextAction: "Fuel training quality and keep manual body weight logging optional.",
     safetyFlags: []
   },
   fightWeekFuelPlan: {
@@ -216,7 +216,7 @@ const fuelViewModel: FuelViewModel = {
     reviewReasons: [],
     safeActions: ["Protect calories."],
     unsafeActionsHidden: true,
-    explanation: "Fuel plan separates body-composition trajectory from fight-week gut comfort."
+    explanation: "Fuel plan separates weight trend from fight-week gut comfort."
   },
   rehydrationChecklist: {
     status: "not_applicable",
@@ -266,7 +266,7 @@ const fuelViewModel: FuelViewModel = {
     carbPriorityToday: "Carbs should match normal meals and the planned boxing work.",
     proteinPriorityToday: "Protein stays steady to support strength and power work.",
     hydrationPriorityToday: "Keep fluids and sodium consistent.",
-    carbohydrateEmphasisBySessionType: ["2026-05-19: Support uses steady carbohydrate and fluid emphasis."],
+    carbohydrateEmphasisBySessionType: ["2026-05-19: Support uses steady carbs and fluid emphasis."],
     missingFoodLogAdvisory: null,
     underFuelingWarning: null,
     deficitPressureBlocked: false,
@@ -342,7 +342,7 @@ const fuelViewModel: FuelViewModel = {
         waterLiters: 2.5,
         electrolyteSummary: "No electrolyte log.",
         confidence: "low",
-        notes: ["High fuel-demand session day; low food-log confidence should be reviewed before interpreting intake."]
+        notes: ["High-fuel session day; low food-log confidence should be reviewed before interpreting intake."]
       }
     ],
     sessionFuelLink: [
@@ -350,7 +350,7 @@ const fuelViewModel: FuelViewModel = {
         date: fixtureAsOfDate,
         fuelDemand: "high",
         foodLogConfidence: "low",
-        summary: "2026-05-19: high fuel-demand training with low food-log confidence. Interpret fuel history cautiously."
+        summary: "2026-05-19: high-fuel training with low food-log confidence. Interpret fuel history cautiously."
       }
     ],
     fightWeekMarkers: [],
@@ -360,21 +360,21 @@ const fuelViewModel: FuelViewModel = {
   },
   bodyMassTrajectory: {
     latestWeight: "Latest: unknown",
-    logCount7Day: "0 body-mass log(s) in the last 7 days.",
-    trend: "Trend unknown until more body-mass logs exist.",
+    logCount7Day: "0 body weight log(s) in the last 7 days.",
+    trend: "Trend unknown until more body weight logs exist.",
     target: "No active weight-class target today.",
     daysToWeighIn: "Weigh-in timing unknown.",
     status: "no active weight target",
     cycleNoiseNote: "Scale-noise risk unknown.",
-    nextSafeAction: "Log body mass manually if it feels safe and useful.",
+    nextSafeAction: "Log body weight manually if it feels safe and useful.",
     missingDataCopy: "Missing logs stay uncertain. CornerIQ does not assume missing scale data is safe.",
     last14Days: [],
-    trendConfidence: "Trend confidence: unknown. Missing four recent body-mass logs.",
+    trendConfidence: "Trend confidence: unknown. Missing four recent body weight logs.",
     weighInCountdown: "No weigh-in countdown is active.",
-    targetGapKg: "Target gap unknown until current body mass and fight target are both known.",
+    targetGapKg: "Target gap unknown until current body weight and fight target are both known.",
     cycleNoiseWindow: "Cycle scale-noise window is not elevated today.",
     riskExplanation: "No active weight-class target today.",
-    nextSafeActions: ["Add a manual body-mass log if it feels safe and useful.", "Keep missing scale data marked unknown."],
+    nextSafeActions: ["Add a manual body weight log if it feels safe and useful.", "Keep missing scale data marked unknown."],
     reviewActionVisible: false
   },
   nutritionReviewHistory: {
@@ -386,8 +386,8 @@ const fuelViewModel: FuelViewModel = {
     historyEvents: [],
     noHistoryCopy: "No review events are loaded yet. Active safety stops still remain active.",
     safetyCopy: "You cannot clear nutrition safety stops yourself.",
-    qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Seek qualified support outside the app when a safety stop is active.",
-    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app."
+    qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
+    urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now."
   },
   bodyMassSummary: "Trend unknown",
   cycleNote: null,
@@ -686,7 +686,7 @@ const planViewModel: PlanViewModel = {
         generatedSupport: "Small strength support progression; no numeric load jump inferred.",
         compactSummary: "Small strength support progression; no numeric load jump inferred.",
         compactTag: "Support",
-        compactMetric: "Moderate fuel demand",
+        compactMetric: "Moderate fuel",
         marker: "Support",
         fuelDemand: "moderate",
         explanation: "Progression stays small, boxing-specific, and conditional."
@@ -842,7 +842,7 @@ const profileViewModel: ProfileViewModel = {
 };
 
 const recentLogsViewModel: RecentLogsViewModel = {
-  today: ["Last body mass: 66.4 kg on 2026-05-19."],
+  today: ["Last body weight: 66.4 kg on 2026-05-19."],
   fuel: ["2026-05-19: 2200 kcal, 130g protein, 260g carbs."],
   training: ["2026-05-19: technical session for 45 min."],
   cycle: ["No cycle log yet.", "Cycle support is not fertility tracking."],
@@ -856,9 +856,9 @@ const recentLogsViewModel: RecentLogsViewModel = {
   },
   bodyMassToday: {
     loggedToday: true,
-    actionLabel: "Update body mass",
+    actionLabel: "Update body weight",
     statusLabel: "Logged today",
-    summary: "Today's body mass logged: 66.4 kg.",
+    summary: "Today's body weight logged: 66.4 kg.",
     why: "Daily scale context improves trend confidence, but one value never becomes pressure to chase weight."
   },
   hydrationToday: {
@@ -877,7 +877,7 @@ const recentLogsViewModel: RecentLogsViewModel = {
     summary: "1 food log today. 2200 kcal logged so far.",
     addEntryCopy: "Use this for one meal/snack or a day total. Multiple entries today add up."
   },
-  bodyMassTrendSummary: "Body mass trend unknown until 4 logs.",
+  bodyMassTrendSummary: "Body weight trend unknown until 4 logs.",
   readinessLastCheckSummary: "Last readiness 2026-05-19: energy 4/5.",
   foodLogCountToday: "1 food log today.",
   cycleLastLogSummary: "No cycle log yet.",
@@ -1410,7 +1410,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("READINESS SCORE");
     expect(output).toContain("WEEKLY TRAINING LOAD");
     expect(output).toContain("FUEL STATUS");
-    expect(output).toContain("BODY MASS TREND");
+    expect(output).toContain("BODY WEIGHT TREND");
     expect(output).toContain("TODAY'S TRAINING DECISION");
     expect(output).toContain("TODAY'S SCHEDULE");
     expect(output).toContain("MANUAL INPUTS");
@@ -1424,7 +1424,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Missing logs lower confidence; they do not remove planned training.");
     expect(output).not.toContain("today-quick-check-section");
     expect(output).not.toContain("Sleep hours");
-    expect(output).not.toContain("Body mass (kg)");
+    expect(output).not.toContain("Body weight (kg)");
     expect(output).not.toContain("Water liters");
     expect(output).not.toContain("Complete the planned support workout");
     expect(output.indexOf("READINESS SCORE")).toBeLessThan(output.indexOf("MANUAL INPUTS"));
@@ -1458,8 +1458,10 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithText(renderer, "Quick check-in"));
     });
-    expect(JSON.stringify(renderer.toJSON())).toContain("today-quick-check-section");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Quick check");
+    const quickCheckOutput = JSON.stringify(renderer.toJSON());
+    expect(quickCheckOutput).toContain("today-quick-check-section");
+    expect(quickCheckOutput).toContain("Quick check");
+    expect(quickCheckOutput.indexOf("today-quick-check-section")).toBeLessThan(quickCheckOutput.indexOf("today-visual-dashboard"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Open workout"));
@@ -1474,7 +1476,7 @@ describe("minimal app screens", () => {
     expect(markFoodNotTrackingToday).not.toHaveBeenCalled();
   });
 
-  it("TodayScreen routes log readiness to the quick-check section", async () => {
+  it("TodayScreen routes top check-in to an in-place quick-check wizard", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const renderer = render(
       React.createElement(TodayScreen, {
@@ -1495,6 +1497,52 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("today-quick-check-section");
     expect(output).toContain("Readiness first");
+    expect(output.indexOf("today-quick-check-section")).toBeLessThan(output.indexOf("today-visual-dashboard"));
+  });
+
+  it("TodayScreen opens readiness and body-weight inputs inside the card that launched them", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const missingReadinessLogs: RecentLogsViewModel = {
+      ...recentLogsViewModel,
+      readinessToday: {
+        loggedToday: false,
+        actionLabel: "Log readiness",
+        statusLabel: "Not logged today",
+        summary: "No readiness check-in logged today.",
+        why: "Readiness can change training safety, so missing data stays unknown."
+      }
+    };
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: todayViewModel,
+        recentLogs: missingReadinessLogs,
+        cycleContext: null,
+        quickLogs: quickLogActions,
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: null
+      })
+    );
+    const logReadinessButtons = (renderer.root.findAllByType("Pressable") as TestInstance[]).filter((item) =>
+      JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)).includes("Log readiness")
+    );
+    await act(async () => {
+      await press(logReadinessButtons[logReadinessButtons.length - 1]);
+    });
+    const readinessOutput = JSON.stringify(renderer.toJSON());
+    expect(readinessOutput).toContain("Readiness first");
+    expect(readinessOutput.indexOf("READINESS SCORE")).toBeLessThan(readinessOutput.indexOf("today-quick-check-section"));
+    expect(readinessOutput.indexOf("today-quick-check-section")).toBeLessThan(readinessOutput.indexOf("WEEKLY TRAINING LOAD"));
+
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Open trend body weight input"));
+    });
+    const bodyMassOutput = JSON.stringify(renderer.toJSON());
+    expect(bodyMassOutput).toContain("Weight trend first");
+    expect(bodyMassOutput.indexOf("BODY WEIGHT TREND")).toBeLessThan(bodyMassOutput.indexOf("today-quick-check-section"));
+    expect(bodyMassOutput.indexOf("today-quick-check-section")).toBeLessThan(bodyMassOutput.indexOf("TODAY'S TRAINING DECISION"));
   });
 
   it("TodayScreen keeps risk, why, and no-shame missing-log copy visible", async () => {
@@ -1528,7 +1576,7 @@ describe("minimal app screens", () => {
   it("TodayScreen renders repeated safety copy without duplicate React keys", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const repeatedRisk = "Rapid body-mass loss raises under-fueling risk.";
+    const repeatedRisk = "Rapid body weight loss raises under-fueling risk.";
     let duplicateKeyWarning = false;
     try {
       render(
@@ -1614,7 +1662,7 @@ describe("minimal app screens", () => {
     });
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("fuel-log-action-section");
-    expect(output).toContain("MACRO SUMMARY");
+    expect(output).toContain("FOOD TARGETS");
   });
 
   it("AppTabs opens the workout player as a confined preview and live screen", async () => {
@@ -1673,11 +1721,11 @@ describe("minimal app screens", () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("MACRO SUMMARY");
+    expect(output).toContain("FOOD TARGETS");
     expect(output).toContain("Hydration");
     expect(output).toContain("Sodium");
     expect(output).toContain("MEAL DISTRIBUTION");
-    expect(output).toContain("BODY MASS AND FUELING TREND");
+    expect(output).toContain("BODY WEIGHT AND FUELING TREND");
     expect(output).toContain("RECOVERY SUPPORT");
     expect(output).toContain("TODAY'S RECOMMENDATION");
     expect(output).toContain("Log meal");
@@ -1689,7 +1737,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Protein stays steady");
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output.indexOf("MACRO SUMMARY")).toBeLessThan(output.indexOf("TODAY'S RECOMMENDATION"));
+    expect(output.indexOf("FOOD TARGETS")).toBeLessThan(output.indexOf("TODAY'S RECOMMENDATION"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Log meal"));
@@ -1701,7 +1749,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Still logging today");
     expect(output).toContain("I'm done logging today");
     expect(output).toContain("I ate but I'm not tracking today");
-    expect(output).toContain("Logged so far");
+    expect(output).toContain("Logged:");
   });
 
   it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
@@ -1724,7 +1772,7 @@ describe("minimal app screens", () => {
         ...fuelViewModel.tournamentFuelPlan,
         status: "active",
         stayNearWeightStrategy: "Stay near weight between bouts.",
-        dailyWeighInPriorities: ["Morning body mass context"],
+        dailyWeighInPriorities: ["Morning weight trend"],
         betweenBoutPriorities: ["Predictable carbs."],
         explanation: "Tournament mode is active."
       },
@@ -1733,8 +1781,8 @@ describe("minimal app screens", () => {
     };
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("MACRO SUMMARY");
-    expect(output).toContain("BODY MASS AND FUELING TREND");
+    expect(output).toContain("FOOD TARGETS");
+    expect(output).toContain("BODY WEIGHT AND FUELING TREND");
     expect(output).toContain("TODAY'S RECOMMENDATION");
     expect(output).not.toContain("Actual vs target today");
     expect(output).not.toContain("Fight-week fuel");
@@ -1763,14 +1811,14 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("Safety stop");
     expect(output).toContain("You cannot clear nutrition safety stops yourself.");
-    expect(output.indexOf("MACRO SUMMARY")).toBeLessThan(output.indexOf("Safety stop"));
+    expect(output.indexOf("FOOD TARGETS")).toBeLessThan(output.indexOf("Safety stop"));
     expect(output).toContain("Safety stop");
     expect(output).not.toContain("Request safety review");
     expect(output).toContain("Review required before this plan can continue");
     expect(output).not.toContain("Request safety review");
     expect(output).toContain("You cannot clear nutrition safety stops yourself.");
     expect(output).toContain("CornerIQ cannot clear safety stops in the app.");
-    expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app.");
+    expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now.");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
   });
 
@@ -1908,8 +1956,8 @@ describe("minimal app screens", () => {
           ],
           noHistoryCopy: "No review events are loaded yet.",
           safetyCopy: "You cannot clear nutrition safety stops yourself.",
-          qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Seek qualified support outside the app when a safety stop is active.",
-          urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and seek qualified support outside the app."
+          qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
+          urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now."
         }
       })
     );
@@ -1928,7 +1976,7 @@ describe("minimal app screens", () => {
     const { FuelHistoryPanel } = await import("../../app/screens/fuel/FuelHistoryPanel");
     const output = JSON.stringify(render(React.createElement(FuelHistoryPanel, { history: fuelViewModel.fuelHistory })).toJSON());
 
-    expect(output).toContain("Fuel history detail");
+    expect(output).toContain("Fuel history");
     expect(output).toContain("Last 7 days");
     expect(output).toContain("2026-05-19: 1200 kcal");
     expect(output).toContain("not as failure");
@@ -1949,9 +1997,9 @@ describe("minimal app screens", () => {
     };
     const output = JSON.stringify(render(React.createElement(BodyMassTrajectoryPanel, { trajectory })).toJSON());
 
-    expect(output).toContain("Body-mass trajectory detail");
+    expect(output).toContain("Body weight trend");
     expect(output).toContain("7.0 kg from target context");
-    expect(output).toContain("Review action is visible");
+    expect(output).toContain("Review is needed because safety blocks weight pressure.");
     expect(output).toContain("2026-05-19");
     expect(output).toContain("74.0");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|water cut|make weight at all costs/i);
@@ -1974,8 +2022,8 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
     const output = JSON.stringify(renderer.toJSON());
 
-    expect(output).toContain("MACRO SUMMARY");
-    expect(output).toContain("BODY MASS AND FUELING TREND");
+    expect(output).toContain("FOOD TARGETS");
+    expect(output).toContain("BODY WEIGHT AND FUELING TREND");
     expect(output).toContain("TODAY'S RECOMMENDATION");
     expect(output).toContain("RECOVERY SUPPORT");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
@@ -1987,9 +2035,9 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
     const output = JSON.stringify(renderer.toJSON());
 
-    expect(output).toContain("MACRO SUMMARY");
+    expect(output).toContain("FOOD TARGETS");
     expect(output).toContain("MEAL DISTRIBUTION");
-    expect(output).toContain("BODY MASS AND FUELING TREND");
+    expect(output).toContain("BODY WEIGHT AND FUELING TREND");
     expect(output).toContain("TODAY'S RECOMMENDATION");
     expect(output).not.toMatch(/make weight at all costs|extreme dehydration/i);
   });
@@ -2138,9 +2186,9 @@ describe("minimal app screens", () => {
     const tournamentOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: tournament.viewModels.train })).toJSON());
     const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
 
-    expect(taperOutput).toContain("Taper speed touch");
-    expect(taperOutput).toContain("Taper day");
-    expect(tournamentOutput).toContain("Tournament conservation");
+    expect(taperOutput).toContain("Fight-week sharpness");
+    expect(taperOutput).toContain("fight-week day");
+    expect(tournamentOutput).toContain("tournament conservation day");
     expect(redOutput).toContain("Safety stops");
   });
 
@@ -2171,8 +2219,8 @@ describe("minimal app screens", () => {
     expect(safetyOutput).toContain("Result statuses");
     await switchSection(renderer, "Show workout plan");
     const planDetailOutput = JSON.stringify(renderer.toJSON());
-    expect(planDetailOutput).toContain("Session plan");
-    expect(planDetailOutput).toContain("Quality checkpoints");
+    expect(planDetailOutput).toContain("Warm-up");
+    expect(planDetailOutput).toContain("Why:");
     expect(JSON.stringify(renderer.toJSON())).toContain("Current week:");
   });
 
@@ -2468,8 +2516,8 @@ describe("minimal app screens", () => {
       throw new Error("missing detailed exercise");
     }
     const output = JSON.stringify(render(React.createElement(ExercisePrescriptionCard, { exercise, sectionName: section.name })).toJSON());
-    expect(output).toContain("Boxing transfer");
-    expect(output).toContain("Substitutions");
+    expect(output).toContain("Why:");
+    expect(output).toContain("Swaps if needed");
     expect(output).toContain("Stop:");
   });
 
@@ -3285,7 +3333,7 @@ describe("minimal app screens", () => {
             inputHash: null,
             outputHash: "output_hash",
             generatedSupportPlacementReasons: [],
-            blockedGenerationReasons: ["True fueling safety risk capped generated support count."],
+            blockedGenerationReasons: ["Fuel safety capped support workout count."],
             fuelRiskClassification: "severe_fueling_risk",
             reducedBy: ["nutrition"]
           }
@@ -3293,9 +3341,9 @@ describe("minimal app screens", () => {
       })
     );
 
-    expect(JSON.stringify(renderer.toJSON())).not.toContain("True fueling safety risk capped generated support count.");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Fuel safety capped support workout count.");
     await switchSection(renderer, "Plan details");
-    expect(JSON.stringify(renderer.toJSON())).toContain("True fueling safety risk capped generated support count.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Fuel safety capped support workout count.");
   });
 
   it("PlanScreen shows materialized generated session count and summaries", async () => {
@@ -3689,7 +3737,7 @@ describe("minimal app screens", () => {
     const fuelRenderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     const fuelButtons = pressableLabels(fuelRenderer);
     expect(fuelButtons.filter((label) => label.includes("Show "))).toHaveLength(0);
-    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("MACRO SUMMARY");
+    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("FOOD TARGETS");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Log meal");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Add water");
 
@@ -3830,8 +3878,8 @@ describe("minimal app screens", () => {
     expect(boxerOutput).toContain("Championship-distance pro context.");
 
     const bodyMassOutput = JSON.stringify(render(React.createElement(BodyMassStep, stepProps)).toJSON());
-    expect(bodyMassOutput).toContain("Current body mass (kg)");
-    expect(bodyMassOutput).toContain("Typical walk-around body mass (kg)");
+    expect(bodyMassOutput).toContain("Current body weight (kg)");
+    expect(bodyMassOutput).toContain("Typical walk-around body weight (kg)");
     expect(bodyMassOutput).toContain("Example: 82");
     expect(bodyMassOutput).toContain("Setup entry stays kg/cm");
 
@@ -3995,7 +4043,7 @@ describe("minimal app screens", () => {
     };
 
     const busyBodyMass = render(React.createElement(BodyMassLogCard, { actions, busy: true }));
-    const busyButton = pressableWithText(busyBodyMass, "Saving body mass...");
+    const busyButton = pressableWithText(busyBodyMass, "Saving body weight...");
     expect(busyButton?.props.disabled).toBe(true);
     const output = JSON.stringify(busyBodyMass.toJSON()).toLowerCase();
     expect(output).toContain("log enough for today");
@@ -4058,7 +4106,7 @@ describe("minimal app screens", () => {
     expect(trainingPayload).not.toHaveProperty("rounds");
   });
 
-  it("onboarding blocks invalid body mass before Next", async () => {
+  it("onboarding blocks invalid body weight before Next", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const onComplete = vi.fn();
     const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn() }));
@@ -4067,14 +4115,14 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Next"));
     });
     act(() => {
-      changeInput(renderer, "Current body mass kg", "not a number");
+      changeInput(renderer, "Current body weight kg", "not a number");
     });
     await act(async () => {
       await press(pressableWithText(renderer, "Next"));
     });
 
     expect(onComplete).not.toHaveBeenCalled();
-    expect(JSON.stringify(renderer.toJSON())).toContain("Current body mass is required.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Current body weight is required.");
   });
 
   it("onboarding numeric steps do not write NaN into draft state", async () => {
@@ -4087,7 +4135,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(BodyMassStep, { draft, setStepError, updateDraft }));
 
     act(() => {
-      changeInput(renderer, "Current body mass kg", "abc");
+      changeInput(renderer, "Current body weight kg", "abc");
       changeInput(renderer, "Height cm", "abc");
       changeInput(renderer, "Typical walk-around kg", "abc");
     });
@@ -4102,7 +4150,7 @@ describe("minimal app screens", () => {
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
     draft.bodyMass.currentBodyMassKg = Number.NaN;
 
-    expect(validateOnboardingDraftForFinish(draft)).toContain("Current body mass");
+    expect(validateOnboardingDraftForFinish(draft)).toContain("Current body weight");
   });
 
   it("cycle context card handles enabled, disabled, contraception, high symptoms, and scale notes", async () => {

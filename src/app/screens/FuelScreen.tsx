@@ -15,6 +15,7 @@ import {
 } from "../../design/components/PerformanceVisuals";
 import { colors, spacing } from "../../design/theme";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { compactFuelCopy, plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
@@ -33,16 +34,6 @@ export interface FuelScreenProps {
 }
 
 export type FuelFocusIntent = "action" | "log_food" | "log_hydration" | "safety_review";
-
-function plainFuelCopy(value: string): string {
-  return value
-    .replace(new RegExp("target " + "confidence", "gi"), "how sure we are")
-    .replace(new RegExp("pro" + "visional", "gi"), "rough guide")
-    .replace(new RegExp("under-" + "fueling evidence", "gi"), "too little food for the work")
-    .replace(new RegExp("under-" + "fueling", "gi"), "too little food")
-    .replace(new RegExp("body-" + "mass context", "gi"), "weight trend")
-    .replace(new RegExp("hard " + "stop", "gi"), "safety stop");
-}
 
 function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple" | "gold" | "red" {
   return tone === "muted" ? "blue" : tone;
@@ -65,9 +56,9 @@ function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quic
       <View style={{ gap: spacing.md }} testID="fuel-food-status-card">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>{viewModel.completionControls.statusTitle}</Text>
-          <Text style={screenStyles.callout}>{viewModel.foodLogStatus.status.replaceAll("_", " ")}</Text>
-          <Text style={screenStyles.body}>{viewModel.foodLogStatus.athleteFacingSummary}</Text>
-          <Text style={screenStyles.subtle}>Logged so far: {viewModel.foodLogStatus.totalCaloriesLogged} kcal / {viewModel.calorieSummary}.</Text>
+          <Text style={screenStyles.callout}>{plainFuelCopy(viewModel.foodLogStatus.status.replaceAll("_", " "))}</Text>
+          <Text style={screenStyles.body}>{plainFuelCopy(viewModel.foodLogStatus.athleteFacingSummary)}</Text>
+          <Text style={screenStyles.subtle}>Logged: {viewModel.foodLogStatus.totalCaloriesLogged} kcal. Guide: {plainFuelCopy(viewModel.calorieSummary)}.</Text>
           <Text style={screenStyles.subtle}>Too little food for the work is only considered after you say the day is done.</Text>
         </View>
         <View style={{ gap: spacing.xs }}>
@@ -127,8 +118,8 @@ function FuelRiskCard({ message, viewModel }: { message: string | null; viewMode
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Risks and why</Text>
-        {viewModel.riskSummary.length > 0 ? viewModel.riskSummary.map((risk, index) => <Text key={`fuel-risk:${index}`} style={screenStyles.body}>{risk}</Text>) : <Text style={screenStyles.body}>No active fuel risk.</Text>}
-        <Text style={screenStyles.subtle}>{viewModel.why}</Text>
+        {viewModel.riskSummary.length > 0 ? viewModel.riskSummary.map((risk, index) => <Text key={`fuel-risk:${index}`} style={screenStyles.body}>{plainFuelCopy(risk)}</Text>) : <Text style={screenStyles.body}>No active fuel risk.</Text>}
+        <Text style={screenStyles.subtle}>{plainFuelCopy(viewModel.why)}</Text>
         {message ? <Text style={screenStyles.subtle}>{message}</Text> : null}
       </View>
     </EngineCard>
@@ -149,7 +140,7 @@ function FuelSafetyReviewSection({
       <View style={{ gap: spacing.lg }} testID="fuel-reviews-section">
         <View style={{ gap: spacing.xs }}>
           <Text style={[screenStyles.sectionTitle, { color: colors.redCorner }]}>Safety stop</Text>
-          <Text style={screenStyles.body}>Safety is active. Keep regular food and fluids steady, and use qualified support outside the app.</Text>
+          <Text style={screenStyles.body}>Safety is active. Keep regular food and fluids steady, and use medical or nutrition support outside the app.</Text>
         </View>
       <NutritionSafetyReviewCard
         activeReviews={viewModel.activeNutritionSafetyReviews}
@@ -174,7 +165,7 @@ function FuelVisualDashboard({
 }) {
   return (
     <View style={{ gap: spacing.md }} testID="fuel-visual-dashboard">
-      <DashboardCard testID="fuel-macro-summary" title="Macro summary">
+      <DashboardCard testID="fuel-macro-summary" title="Food targets">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
           {dashboard.macros.map((item) => <MacroRing item={item} key={`fuel-macro-ring:${item.label}`} />)}
         </View>
@@ -203,9 +194,9 @@ function FuelVisualDashboard({
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         <View style={{ flexBasis: 280, flexGrow: 1 }}>
-          <DashboardCard title="Body mass and fueling trend">
+          <DashboardCard title="Body weight and fueling trend">
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.subtle}>Body mass</Text>
+              <Text style={screenStyles.subtle}>Body weight</Text>
               <TrendLineChart accent="blue" points={dashboard.trend.bodyMass} width={230} />
               <Text style={screenStyles.subtle}>Carbs</Text>
               <TrendLineChart accent="orange" points={dashboard.trend.carbs} width={230} />
@@ -238,7 +229,7 @@ function FuelVisualDashboard({
       </DashboardCard>
 
       <DashboardCard headerRight={<DashboardPill label={dashboard.recommendation.label} tone={dashboard.recommendation.tone} />} title="Today's recommendation">
-        <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{dashboard.recommendation.body}</Text>
+        <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{compactFuelCopy(dashboard.recommendation.body)}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable accessibilityLabel="Open food logger from recommendation" accessibilityRole="button" onPress={onLogMeal} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
             <Text style={screenStyles.buttonText}>Log meal</Text>
@@ -302,7 +293,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
       <ScreenHeader eyebrow="Today" title="Fuel" />
       <PrimaryTaskCard
         accent={accentForTone(dashboard.recommendation.tone)}
-        primaryAction={dashboard.recommendation.body}
+        primaryAction={compactFuelCopy(dashboard.recommendation.body)}
         primaryButton={primaryFuelButton}
         purpose="Log only what you know. Missing food stays unknown, not unsafe by itself."
         secondaryActions={secondaryFuelActions}
@@ -344,7 +335,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         <EngineCard>
           <View style={{ gap: spacing.sm }}>
             <Text style={screenStyles.sectionTitle}>{viewModel.underFuelingRisk.title}</Text>
-            <Text style={screenStyles.body}>{viewModel.underFuelingRisk.summary}</Text>
+            <Text style={screenStyles.body}>{plainFuelCopy(viewModel.underFuelingRisk.summary)}</Text>
             {viewModel.underFuelingRisk.actions.map((item, index) => <Text key={`fuel-under-risk:${index}`} style={screenStyles.subtle}>{plainFuelCopy(item)}</Text>)}
           </View>
         </EngineCard>

@@ -345,7 +345,7 @@ export function TrendLineChart({
   height = 96,
   points,
   testID,
-  width = 250
+  width = 280
 }: {
   accent?: VisualTone | undefined;
   height?: number | undefined;
@@ -353,9 +353,24 @@ export function TrendLineChart({
   testID?: string | undefined;
   width?: number | undefined;
 }) {
+  const [layoutWidth, setLayoutWidth] = React.useState(width);
+  const chartWidth = Math.max(160, layoutWidth || width);
+  const padX = 10;
+  const padY = 8;
+  const plotWidth = Math.max(1, chartWidth - padX * 2);
+  const plotHeight = Math.max(1, height - padY * 2);
   if (points.length === 0) {
     return (
-      <View style={{ alignItems: "center", borderColor: colors.line, borderRadius: radii.tile, borderWidth: 1, minHeight: height, justifyContent: "center" }} testID={testID}>
+      <View
+        onLayout={(event) => {
+          const nextWidth = event.nativeEvent.layout.width;
+          if (nextWidth > 0) {
+            setLayoutWidth(nextWidth);
+          }
+        }}
+        style={{ alignItems: "center", alignSelf: "stretch", borderColor: colors.line, borderRadius: radii.tile, borderWidth: 1, minHeight: height, justifyContent: "center", width: "100%" }}
+        testID={testID}
+      >
         <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Trend unknown</Text>
       </View>
     );
@@ -363,10 +378,22 @@ export function TrendLineChart({
   const values = points.map((point) => point.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const dots = points.map((point, index) => linePoint(point, min, max, index, points.length, width, height));
+  const dots = points.map((point, index) => {
+    const dot = linePoint(point, min, max, index, points.length, plotWidth, plotHeight);
+    return { x: dot.x + padX, y: dot.y + padY };
+  });
   return (
-    <View style={{ gap: spacing.xs }} testID={testID}>
-      <View style={{ height: height + 12, maxWidth: "100%", overflow: "hidden", position: "relative", width }}>
+    <View
+      onLayout={(event) => {
+        const nextWidth = event.nativeEvent.layout.width;
+        if (nextWidth > 0) {
+          setLayoutWidth(nextWidth);
+        }
+      }}
+      style={{ alignSelf: "stretch", gap: spacing.xs, width: "100%" }}
+      testID={testID}
+    >
+      <View style={{ height: height + padY * 2, overflow: "hidden", position: "relative", width: "100%" }}>
         {dots.slice(1).map((dot, index) => {
           const previous = dots[index];
           if (!previous) {
@@ -395,9 +422,9 @@ export function TrendLineChart({
         })}
         {dots.map((dot, index) => (
           <View
-            key={`trend-dot:${index}`}
-            style={{
-              backgroundColor: colors.cornerBlack,
+              key={`trend-dot:${index}`}
+              style={{
+                backgroundColor: colors.cornerBlack,
               borderColor: colorForTone(accent),
               borderRadius: radii.pill,
               borderWidth: 3,
@@ -410,9 +437,9 @@ export function TrendLineChart({
           />
         ))}
       </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", maxWidth: "100%", width }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
         {points.map((point, index) => (
-          <Text key={`trend-label:${index}`} numberOfLines={1} style={{ color: colors.mutedText, fontSize: 10, fontWeight: "800", lineHeight: 14 }}>
+          <Text key={`trend-label:${index}`} numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, minWidth: 0, textAlign: "center" }}>
             {point.label}
           </Text>
         ))}

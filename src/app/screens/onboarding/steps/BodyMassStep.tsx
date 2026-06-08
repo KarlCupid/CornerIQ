@@ -17,10 +17,10 @@ function bodyMassTextError(input: { currentMassText: string; heightText: string;
     return "Height is required.";
   }
   if (positiveNumber(input.currentMassText) === null) {
-    return "Current body mass is required.";
+    return "Current body weight is required.";
   }
   if (positiveNumber(input.walkAroundText) === null) {
-    return "Walk-around body mass is required.";
+    return "Walk-around body weight is required.";
   }
   return null;
 }
@@ -39,25 +39,25 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={screenStyles.sectionTitle}>Body mass</Text>
+      <Text style={screenStyles.sectionTitle}>Body weight</Text>
       <Text style={screenStyles.subtle}>Required. These values keep weight-class decisions conservative; missing or invalid data stays unknown, not safe.</Text>
       <LabeledTextInput
         example="82"
         helper="Your current scale value. Enter kilograms during setup."
         keyboardType="decimal-pad"
-        label="Current body mass (kg)"
+        label="Current body weight (kg)"
         onChangeText={(value) => {
           setCurrentMassText(value);
           applyBodyMassUpdate("currentBodyMassKg", value, { currentMassText: value, heightText, walkAroundText });
         }}
-        placeholder="Current body mass kg"
+        placeholder="Current body weight kg"
         value={currentMassText}
       />
       <LabeledTextInput
         example="84"
         helper="Your normal training weight when not trying to make a class. This is not a target."
         keyboardType="decimal-pad"
-        label="Typical walk-around body mass (kg)"
+        label="Typical walk-around body weight (kg)"
         onChangeText={(value) => {
           setWalkAroundText(value);
           applyBodyMassUpdate("typicalWalkAroundWeightKg", value, { currentMassText, heightText, walkAroundText: value });

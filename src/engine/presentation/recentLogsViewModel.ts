@@ -39,8 +39,8 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
 
   const bodyMassTrendSummary =
     state.bodyMass.trend.logCount7Day < 4
-      ? "Body mass trend unknown until 4 logs."
-      : `7-day body mass ${state.bodyMass.trend.rolling7DayKg?.toFixed(1) ?? "unknown"} kg.`;
+      ? "Body weight trend unknown until 4 logs."
+      : `7-day body weight ${state.bodyMass.trend.rolling7DayKg?.toFixed(1) ?? "unknown"} kg.`;
   const readinessLastCheckSummary = lastReadiness ? `Last readiness ${lastReadiness.date}: energy ${lastReadiness.energy1To5 ?? "unknown"}/5.` : "No readiness check-in yet.";
   const foodLogCountToday =
     todayFoodCount === 0
@@ -50,7 +50,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
   const trainingRecentSummary = lastCompleted
     ? `Last completed session ${lastCompleted.date}: ${lastCompleted.type.replace(/_/g, " ")}.`
     : lastAnchor
-      ? `Last planned anchor ${lastAnchor.date}: ${lastAnchor.type.replace(/_/g, " ")}.`
+      ? `Last fixed session ${lastAnchor.date}: ${lastAnchor.type.replace(/_/g, " ")}.`
       : "No training log yet.";
   const readinessToday = todayReadiness
     ? {
@@ -70,16 +70,16 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
   const bodyMassToday = todayBodyMass
     ? {
         loggedToday: true,
-        actionLabel: "Update body mass",
+        actionLabel: "Update body weight",
         statusLabel: "Logged today",
-        summary: `Today's body mass logged: ${todayBodyMass.bodyMassKg} kg.`,
+        summary: `Today's body weight logged: ${todayBodyMass.bodyMassKg} kg.`,
         why: "Daily scale context improves trend confidence, but one value never becomes pressure to chase weight."
       }
     : {
         loggedToday: false,
-        actionLabel: "Log body mass",
+        actionLabel: "Log body weight",
         statusLabel: "Missing today",
-        summary: "Body mass log due if it is safe and useful. Missing scale data stays unknown, not safe.",
+        summary: "Body weight log due if it is safe and useful. Missing scale data stays unknown, not safe.",
         why: "A true manual scale entry helps trend confidence without requiring a wearable or forcing a target."
       };
   const hydrationToday = {
@@ -104,12 +104,12 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
     actionLabel: "Add food entry",
     statusLabel: foodStatus.replaceAll("_", " "),
     summary: todayFoodCount > 0 ? `${todayFoodCount} food entr${todayFoodCount === 1 ? "y" : "ies"}; ${todayCalories} kcal logged so far. ${state.nutrition.dailyFoodLogSummary.athleteFacingSummary}` : state.nutrition.dailyFoodLogSummary.athleteFacingSummary,
-    addEntryCopy: "Use this for one meal/snack or a day total. Multiple entries today add up."
+    addEntryCopy: "Use this for one meal/snack or a day total. Each entry must match its protein/carbs/fat calorie estimate."
   };
 
   return {
     today: [
-      lastBodyMass ? `Last body mass: ${lastBodyMass.bodyMassKg} kg on ${lastBodyMass.date}.` : "No body mass log yet.",
+      lastBodyMass ? `Last body weight: ${lastBodyMass.bodyMassKg} kg on ${lastBodyMass.date}.` : "No body weight log yet.",
       readinessLastCheckSummary,
       hydrationToday.totalLabel,
       trainingRecentSummary

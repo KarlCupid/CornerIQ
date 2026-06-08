@@ -10,7 +10,7 @@ export function NeedsProfileState({ busy, onCreateDemoProfile }: NeedsProfileSta
   return (
     <StartupState
       title="Create demo boxer profile"
-      message="No athlete profile exists for this account yet. This creates a safe starter boxer profile with manual readiness, water, body mass, and one protected technical session."
+      message="No athlete profile exists for this account yet. This creates a safe starter boxer profile with manual readiness, water, body weight, and one fixed technical session."
       actionLabel={busy ? "Working..." : "Create demo boxer profile"}
       onAction={onCreateDemoProfile}
     />

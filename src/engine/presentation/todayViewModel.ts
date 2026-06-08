@@ -1,5 +1,7 @@
 import type { PerformanceState, TodayViewModel } from "../core/types";
 import { riskSummary } from "./explanationCopy";
+import { plainFuelCopy } from "./fuelCopy";
+import { plainTrainingCopy } from "./trainingCopy";
 
 export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   const hasSparring = state.training.protectedAnchors.some((anchor) => anchor.date === state.asOfDate && anchor.type === "sparring");
@@ -8,8 +10,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   const cycleRelevant = state.cycle.trackingEnabled || state.athlete.cycleTrackingPreference === "undecided";
   const firstAppAction =
     state.safety.hardStops.length > 0
-      ? "Review the safety note, then log readiness or body mass if you have it."
-      : "Log readiness or body mass if you have it.";
+      ? "Review the safety note, then log readiness or body weight if you have it."
+      : "Log readiness or body weight if you have it.";
   const firstTrainingAction =
     state.safety.hardStops.length > 0
       ? "Pause hard training and resolve safety first."
@@ -20,27 +22,27 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     {
       label: "Primary action",
       summary: firstTrainingAction,
-      why: state.safety.hardStops[0]?.explanation ?? state.training.explanation,
+      why: plainTrainingCopy(state.safety.hardStops[0]?.explanation ?? state.training.explanation),
       severity: state.safety.hardStops.length > 0 ? safetySeverity : "info",
       confidence: state.confidence.level
     },
     {
       label: "Training",
-      summary: hasSparring ? "Boxing you added stays fixed." : state.training.explanation,
+      summary: hasSparring ? "Boxing you added stays fixed." : plainTrainingCopy(state.training.explanation),
       why: "Boxing sessions you added are placed before support workouts.",
       severity: state.training.protectedAnchors.length > 0 ? "info" : "caution",
       confidence: state.training.confidence.level
     },
     {
       label: "Fuel",
-      summary: state.nutrition.sessionFueling[0] ?? "Fuel boxing practice.",
-      why: state.nutrition.explanation,
+      summary: plainFuelCopy(state.nutrition.sessionFueling[0] ?? "Fuel boxing practice."),
+      why: plainFuelCopy(state.nutrition.explanation),
       severity: state.nutrition.riskFlags.length > 0 ? "caution" : "info",
       confidence: state.nutrition.confidence.level
     },
     {
-      label: "Body mass",
-      summary: state.bodyMass.trend.logCount7Day < 4 ? "Trend unknown until 4 logs." : state.bodyMass.feasibility.explanation,
+      label: "Body weight",
+      summary: state.bodyMass.trend.logCount7Day < 4 ? "Trend unknown until 4 logs." : plainFuelCopy(state.bodyMass.feasibility.explanation),
       why: state.bodyMass.trend.logCount7Day < 4 ? "Missing logs make the plan less certain." : state.bodyMass.scaleNoise.explanation,
       severity: state.bodyMass.trend.logCount7Day < 4 ? "caution" : "info",
       confidence: state.bodyMass.confidence.level
@@ -84,10 +86,12 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     mission: {
       title: "Today dashboard",
       purpose: "Use Today as the command center for readiness, fuel, training decision, and manual inputs.",
-      primaryAction: state.training.dailyOperatingMode.primaryAction,
+      primaryAction: plainTrainingCopy(state.training.dailyOperatingMode.primaryAction),
       why:
-        state.safety.hardStops[0]?.explanation ??
-        (hasSparring ? "Boxing you added owns the day, so support work stays secondary." : state.training.explanation),
+        plainTrainingCopy(
+          state.safety.hardStops[0]?.explanation ??
+            (hasSparring ? "Boxing you added owns the day, so support work stays secondary." : state.training.explanation)
+        ),
       optional: "Food, water, pain, and cycle notes add context. Workout-only use still gets useful training."
     },
     whatChanged:
@@ -99,18 +103,18 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
             ? "Scheduled sparring moved support work down."
             : "CornerIQ built today's workout from current logs.",
     primaryAction:
-      state.safety.hardStops.length > 0 ? "Pause hard training and weight-cut guidance." : firstTrainingAction,
+      state.safety.hardStops.length > 0 ? "Pause hard training and weight-pressure guidance." : firstTrainingAction,
     firstAppAction,
     firstTrainingAction,
     decisionStack,
-    trainingPriority: state.training.explanation,
-    fuelPriority: state.nutrition.sessionFueling[0] ?? "Fuel boxing practice.",
-    bodyMassStatus: state.bodyMass.feasibility.explanation,
+    trainingPriority: plainTrainingCopy(state.training.explanation),
+    fuelPriority: plainFuelCopy(state.nutrition.sessionFueling[0] ?? "Fuel boxing practice."),
+    bodyMassStatus: plainFuelCopy(state.bodyMass.feasibility.explanation),
     cycleContext: state.cycle.trackingEnabled && state.cycle.symptomBurden !== "none" ? state.cycle.trainingAdjustment : null,
     readinessContext: state.readiness.explanation,
-    riskSummary: riskSummary(state.safety.riskFlags),
+    riskSummary: riskSummary(state.safety.riskFlags).map(plainFuelCopy),
     confidenceLabel: state.confidence.level,
     why: state.decisionTrace.at(-1)?.rationale ?? "CornerIQ resolved today from current athlete state.",
-    quickLogs: ["Readiness", "Body mass", "Food", "Water", "Training RPE", state.cycle.trackingEnabled ? "Cycle symptoms" : "Pain note"].filter(Boolean)
+    quickLogs: ["Readiness", "Body weight", "Food", "Water", "Training RPE", state.cycle.trackingEnabled ? "Cycle symptoms" : "Pain note"].filter(Boolean)
   };
 }

@@ -21,7 +21,9 @@ interface LogCardProps {
 }
 
 interface QuickLogCardProps extends LogCardProps {
+  forceOpen?: boolean | undefined;
   actions: QuickLogActions;
+  framed?: boolean | undefined;
 }
 
 type DailyLogStatus = RecentLogsViewModel["readinessToday"];
@@ -46,24 +48,31 @@ function QuickLogHelp() {
 function DailyLogFrame({
   busy,
   children,
+  forceOpen = false,
+  framed = true,
   status,
   title
 }: React.PropsWithChildren<{
   busy: boolean;
+  forceOpen?: boolean | undefined;
+  framed?: boolean | undefined;
   status?: DailyLogStatus | undefined;
   title: string;
 }>) {
-  const [open, setOpen] = useState(() => !(status?.loggedToday ?? false));
+  const [open, setOpen] = useState(() => forceOpen || !(status?.loggedToday ?? false));
 
   React.useEffect(() => {
+    if (forceOpen) {
+      setOpen(true);
+      return;
+    }
     if (status?.loggedToday) {
       setOpen(false);
     }
-  }, [status?.loggedToday, status?.summary]);
+  }, [forceOpen, status?.loggedToday, status?.summary]);
 
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
+  const content = (
+    <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>{title}</Text>
         {status ? (
           <View style={{ gap: spacing.xs }}>
@@ -80,9 +89,15 @@ function DailyLogFrame({
           </Pressable>
         ) : null}
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
-      </View>
-    </EngineCard>
+    </View>
   );
+
+  return framed ? <EngineCard>{content}</EngineCard> : content;
+}
+
+function FrameOrPlain({ children, framed = true }: React.PropsWithChildren<{ framed?: boolean | undefined }>) {
+  const content = <View style={{ gap: spacing.sm }}>{children}</View>;
+  return framed ? <EngineCard>{content}</EngineCard> : content;
 }
 
 function InputLabel({ children }: { children: React.ReactNode }) {
@@ -176,39 +191,76 @@ function intensityFromSessionRpe(rpe: number): SessionIntensity {
   return "max";
 }
 
-export function BodyMassLogCard({ actions, busy, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
+function previewNumber(value: string): number | null {
+  if (!value.trim()) {
+    return null;
+  }
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function foodEnergyPreview(
+  input: { calories: string; protein: string; carbs: string; fat: string },
+  validateFoodEnergy: QuickLogActions["validateFoodEnergy"]
+): { message: string; valid: boolean } | null {
+  const parsed = {
+    calories: previewNumber(input.calories),
+    proteinGrams: previewNumber(input.protein),
+    carbohydrateGrams: previewNumber(input.carbs),
+    fatGrams: previewNumber(input.fat)
+  };
+  const values = [parsed.calories, parsed.proteinGrams, parsed.carbohydrateGrams, parsed.fatGrams];
+  if (values.every((value) => value === null)) {
+    return null;
+  }
+  if (values.some((value) => value === null)) {
+    return { message: "Enter calories, protein, carbs, and fat to check the macro estimate.", valid: true };
+  }
+  if (!validateFoodEnergy) {
+    return null;
+  }
+  const validation = validateFoodEnergy({
+    calories: parsed.calories ?? 0,
+    proteinGrams: parsed.proteinGrams ?? 0,
+    carbohydrateGrams: parsed.carbohydrateGrams ?? 0,
+    fatGrams: parsed.fatGrams ?? 0
+  });
+  return { message: validation.athleteFacingMessage, valid: validation.valid };
+}
+
+export function BodyMassLogCard({ actions, busy, forceOpen, framed, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
   const [bodyMassKg, setBodyMassKg] = useState("");
-  const { message: error, runWithMessage } = useFormMessage("Body mass log failed.");
+  const { message: error, runWithMessage } = useFormMessage("Body weight log failed.");
   const [success, setSuccess] = useState<string | null>(null);
   return (
-    <DailyLogFrame busy={busy} status={status} title="Body mass">
+    <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title="Body weight">
         <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
-        <InputLabel>Body mass (kg)</InputLabel>
+        <InputLabel>Body weight (kg)</InputLabel>
         <TextInput keyboardType="decimal-pad" onChangeText={setBodyMassKg} placeholder="kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={bodyMassKg} />
         <Pressable
-          accessibilityLabel={busy ? "Saving body mass log" : status?.loggedToday ? "Update body mass" : "Log body mass"}
+          accessibilityLabel={busy ? "Saving body weight log" : status?.loggedToday ? "Update body weight" : "Log body weight"}
           accessibilityRole="button"
           accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={() =>
             runWithMessage(async () => {
               setSuccess(null);
-              await actions.logBodyMass({ bodyMassKg: parseRequiredPositiveNumber(bodyMassKg, "Body mass", { example: "66.4" }) });
+              await actions.logBodyMass({ bodyMassKg: parseRequiredPositiveNumber(bodyMassKg, "Body weight", { example: "66.4" }) });
               setBodyMassKg("");
-              setSuccess("Body mass saved. Trend confidence has fresher scale context; readiness can still be unknown.");
+              setSuccess("Body weight saved. Trend confidence has fresher scale context; readiness can still be unknown.");
             })
           }
           style={screenStyles.button}
         >
-          <Text style={screenStyles.buttonText}>{busy ? "Saving body mass..." : status?.loggedToday ? "Update body mass" : "Log body mass"}</Text>
+          <Text style={screenStyles.buttonText}>{busy ? "Saving body weight..." : status?.loggedToday ? "Update body weight" : "Log body weight"}</Text>
         </Pressable>
     </DailyLogFrame>
   );
 }
 
-export function ReadinessCheckInCard({ actions, busy, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
+export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
   const [sleepHours, setSleepHours] = useState("");
   const [sleepQuality, setSleepQuality] = useState("");
   const [energy, setEnergy] = useState("");
@@ -238,7 +290,7 @@ export function ReadinessCheckInCard({ actions, busy, status }: QuickLogCardProp
   };
 
   return (
-    <DailyLogFrame busy={busy} status={status} title={status?.loggedToday ? "Readiness summary" : "Readiness check due"}>
+    <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title={status?.loggedToday ? "Readiness summary" : "Readiness check due"}>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <InputLabel>Sleep hours</InputLabel>
@@ -309,7 +361,7 @@ export function ReadinessCheckInCard({ actions, busy, status }: QuickLogCardProp
   );
 }
 
-export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
+export function HydrationLogCard({ actions, busy, framed, status }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
   const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
@@ -317,8 +369,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
   const [success, setSuccess] = useState<string | null>(null);
   const actionLabel = (status?.actionLabel ?? "Add water").replace(/log\s+water/i, "Add water");
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
+    <FrameOrPlain framed={framed}>
         <Text style={screenStyles.sectionTitle}>Add water</Text>
         <Text style={screenStyles.callout}>{status?.totalLabel ?? "Today's hydration total: add water when you have a true amount."}</Text>
         <Text style={screenStyles.subtle}>{status?.addToTodayCopy ?? "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."}</Text>
@@ -362,8 +413,7 @@ export function HydrationLogCard({ actions, busy, status }: QuickLogCardProps & 
             <Text style={screenStyles.quietButtonText}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
           </Pressable>
         </View>
-      </View>
-    </EngineCard>
+    </FrameOrPlain>
   );
 }
 
@@ -445,12 +495,14 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
   const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Food log failed.");
   const [success, setSuccess] = useState<string | null>(null);
+  const macroPreview = foodEnergyPreview({ calories, protein, carbs, fat }, actions.validateFoodEnergy);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Log food</Text>
         <Text style={screenStyles.body}>Add a meal, snack, or day total.</Text>
-        <Text style={screenStyles.subtle}>Status: {status?.statusLabel ?? "Entries add up"}. {status?.summary ?? status?.addEntryCopy ?? "Add to today; this does not replace existing food entries."}</Text>
+        <Text style={screenStyles.subtle}>Status: {status?.statusLabel ?? "Macro check"}. {status?.summary ?? status?.addEntryCopy ?? "Add to today; this does not replace existing food entries."}</Text>
+        {macroPreview ? <Text style={macroPreview.valid ? screenStyles.subtle : [screenStyles.subtle, { color: colors.redCorner }]}>{macroPreview.message}</Text> : null}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -480,6 +532,10 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
                   carbohydrateGrams: parseRequiredNonNegativeNumber(carbs, "Carbs"),
                   fatGrams: parseRequiredNonNegativeNumber(fat, "Fat")
                 };
+                const validation = actions.validateFoodEnergy?.(payload);
+                if (validation && !validation.valid) {
+                  throw new Error(validation.athleteFacingMessage);
+                }
                 const fiberGrams = parseOptionalNonNegativeNumber(fiber, "Fiber");
                 const sodiumMg = parseOptionalNonNegativeNumber(sodium, "Sodium");
                 await actions.logFood({
