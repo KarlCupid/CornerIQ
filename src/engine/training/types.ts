@@ -343,6 +343,40 @@ export interface WorkoutSection {
   exercises: readonly ExercisePrescription[];
 }
 
+export interface WorkoutWalkthroughItem {
+  exerciseId: string;
+  title: string;
+  dose: string;
+  instruction: string;
+  rest: string;
+  cue: string;
+}
+
+export interface WorkoutWalkthroughStep {
+  id: string;
+  label: string;
+  title: string;
+  durationMinutes: number;
+  instruction: string;
+  items: readonly WorkoutWalkthroughItem[];
+  checkpoint: string;
+}
+
+export interface WorkoutRoundPlan {
+  format: string;
+  instructions: readonly string[];
+}
+
+export interface WorkoutWalkthrough {
+  title: string;
+  summary: string;
+  beforeYouStart: readonly string[];
+  roundPlan: WorkoutRoundPlan | null;
+  steps: readonly WorkoutWalkthroughStep[];
+  finish: string;
+  safety: readonly string[];
+}
+
 export interface DetailedTrainingSession {
   generatedSessionId: string;
   date: ISODateString;
@@ -351,6 +385,7 @@ export interface DetailedTrainingSession {
   durationMinutes: number;
   intensity: GeneratedSessionIntensity;
   sections: readonly WorkoutSection[];
+  walkthrough: WorkoutWalkthrough;
   fuelDemand: "low" | "moderate" | "high";
   readinessModifications: readonly string[];
   cycleModifications: readonly string[];

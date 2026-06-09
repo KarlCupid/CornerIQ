@@ -18,6 +18,7 @@ import {
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
+import { WorkoutWalkthroughCard } from "./WorkoutWalkthroughCard";
 
 type WorkoutFollowUpState = "completed" | "skipped" | "review";
 
@@ -165,19 +166,6 @@ function SessionMeta({ label }: { label: string }) {
   );
 }
 
-function workoutPlanSummary(session: DetailedTrainingSession): string {
-  const sectionCount = session.sections.length;
-  const exerciseCount = session.sections.reduce((total, section) => total + section.exercises.length, 0);
-  const firstSection = session.sections[0];
-  const firstExercise = firstSection?.exercises[0];
-  const sectionLabel = `${sectionCount} section${sectionCount === 1 ? "" : "s"}`;
-  const exerciseLabel = `${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"}`;
-  if (!firstSection || !firstExercise) {
-    return `${exerciseLabel} across ${sectionLabel}.`;
-  }
-  return `${exerciseLabel} across ${sectionLabel}. Starts with ${plainSectionName(firstSection.name)}: ${plainWorkoutTitle(firstExercise.name)}.`;
-}
-
 function WorkoutSectionCard({
   index,
   section
@@ -254,14 +242,14 @@ function WorkoutSectionCard({
 function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
   return (
     <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
-      <Text style={screenStyles.sectionTitle}>Workout plan</Text>
-      <Text style={screenStyles.body}>{workoutPlanSummary(session)}</Text>
+      <WorkoutWalkthroughCard session={session} />
       {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
           {session.sessionQualityCheckpoints.slice(0, 3).map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{plainTrainingCopy(item)}</Text>)}
         </View>
       ) : null}
+      <Text style={screenStyles.sectionTitle}>Exercise details</Text>
       {session.sections.map((section, index) => (
         <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
       ))}
@@ -395,7 +383,7 @@ export function WorkoutDetailPanel({
             <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
             <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
           </View>
-          <Text style={screenStyles.body}>{workoutPlanSummary(session)}</Text>
+          <Text style={screenStyles.body}>{plainTrainingCopy(session.walkthrough.summary)}</Text>
           {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
           {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
           {followUpState ? (
@@ -429,8 +417,8 @@ export function WorkoutDetailPanel({
             </Pressable>
           ) : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityLabel={planOpen ? "Hide workout plan" : "Show workout plan"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
-              <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide workout plan" : "Show workout plan"}</Text>
+            <Pressable accessibilityLabel={planOpen ? "Hide workout walkthrough" : "Show workout walkthrough"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
+              <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide walkthrough" : "Show walkthrough"}</Text>
             </Pressable>
             {!previewOnlyReason ? (
               <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>

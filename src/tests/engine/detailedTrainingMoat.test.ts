@@ -195,10 +195,15 @@ describe("detailed training session engine", () => {
         equipmentMode: "none"
       })
     });
-    const text = `${exercisePrescriptionText(detail)} ${detail.roundStructure ?? ""} ${(detail.athleteQualityCues ?? []).join(" ")} ${(detail.sessionQualityCheckpoints ?? []).join(" ")} ${(detail.selfCheckCues ?? []).join(" ")} ${detail.filmCue ?? ""}`.toLowerCase();
+    const walkthroughText = `${detail.walkthrough.summary} ${detail.walkthrough.roundPlan?.format ?? ""} ${detail.walkthrough.roundPlan?.instructions.join(" ") ?? ""} ${detail.walkthrough.steps.flatMap((step) => [step.instruction, step.checkpoint, ...step.items.flatMap((item) => [item.dose, item.instruction, item.rest, item.cue])]).join(" ")}`;
+    const text = `${exercisePrescriptionText(detail)} ${detail.roundStructure ?? ""} ${(detail.athleteQualityCues ?? []).join(" ")} ${(detail.sessionQualityCheckpoints ?? []).join(" ")} ${(detail.selfCheckCues ?? []).join(" ")} ${detail.filmCue ?? ""} ${walkthroughText}`.toLowerCase();
 
     expect(detail.boxingSkillTheme).toContain("jab");
     expect(detail.roundStructure).toContain("round");
+    expect(detail.walkthrough.summary).toContain("Follow the blocks in order");
+    expect(detail.walkthrough.roundPlan?.format).toContain("5 rounds: work 3 min each");
+    expect(detail.walkthrough.roundPlan?.instructions.join(" ")).toContain("Start each round in stance");
+    expect(detail.walkthrough.steps[0]?.items[0]?.dose).toMatch(/set|sec|rep/i);
     expect(text).toContain("jab");
     expect(text).toContain("quality");
     expect(text).toContain("film");
@@ -303,7 +308,7 @@ describe("detailed training session engine", () => {
   it("detailed exercise prescriptions contain no generated partner-impact prescription", () => {
     const details = [detailForFixture(pro_4_round_build_strength), detailForFixture(no_wearable_manual_only), detailForFixture(pro_12_round_taper)];
     for (const detail of details) {
-      const topLevelDetailText = `${detail.whyThisMattersForBoxing} ${detail.safetyNotes.join(" ")} ${detail.stopConditions.join(" ")}`.toLowerCase();
+      const topLevelDetailText = `${detail.whyThisMattersForBoxing} ${detail.safetyNotes.join(" ")} ${detail.stopConditions.join(" ")} ${detail.walkthrough.summary} ${detail.walkthrough.roundPlan?.format ?? ""} ${(detail.walkthrough.roundPlan?.instructions ?? []).join(" ")} ${detail.walkthrough.steps.flatMap((step) => [step.instruction, step.checkpoint, ...step.items.flatMap((item) => [item.title, item.dose, item.instruction, item.rest, item.cue])]).join(" ")}`.toLowerCase();
 
       expect(exercisePrescriptionText(detail).toLowerCase()).not.toMatch(/sparring|contact|partner-impact|clinch|collision/);
       expect(topLevelDetailText).not.toMatch(/sparring|contact|partner-impact|clinch|collision/);

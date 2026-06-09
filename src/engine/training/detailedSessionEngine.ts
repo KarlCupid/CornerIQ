@@ -8,11 +8,12 @@ import type {
   PhaseState,
   ProtectedWorkout,
   ReadinessState,
+  WorkoutRoundPlan,
   WorkoutSection
 } from "../core/types";
 import { prescribeExercise } from "./substitutionEngine";
 import { findWorkoutTemplateByTitle, sectionDurationPlan, selectWorkoutTemplate, type WorkoutTemplate, type WorkoutTemplateSection } from "./workoutTemplateCatalog";
-import { plainGeneratedSessionFamilyWhy, plainSectionIntent, plainSectionName, plainWorkoutTitle } from "../presentation/trainingCopy";
+import { plainGeneratedSessionFamilyWhy, plainSectionIntent, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "../presentation/trainingCopy";
 
 export interface BuildDetailedTrainingSessionInput {
   generatedSession: GeneratedTrainingSession;
@@ -178,6 +179,162 @@ function filmCueForFamily(family: GeneratedSessionFamily, roundStructure?: strin
   return "Use one self-review note only if it helps the next boxing session.";
 }
 
+function countLabel(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function timeLabel(value: string): string {
+  const cleaned = value.trim().replace(/\bsecs?\b/gi, "sec").replace(/\bmins?\b/gi, "min");
+  const clock = cleaned.match(/^(\d{1,2}):([0-5]\d)$/);
+  if (!clock?.[1] || !clock[2]) {
+    return cleaned;
+  }
+  const minutes = Number(clock[1]);
+  const seconds = Number(clock[2]);
+  return seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function exerciseDose(exercise: ExercisePrescription): string {
+  const firstSet = exercise.sets[0];
+  const setCount = Math.max(1, exercise.sets.length);
+  const dose = [
+    countLabel(setCount, "set"),
+    exercise.repsText ?? firstSet?.repsText,
+    exercise.durationText ?? firstSet?.durationText,
+    exercise.rpeTarget ?? firstSet?.rpeTarget ? `RPE ${exercise.rpeTarget ?? firstSet?.rpeTarget}` : undefined,
+    exercise.rirTarget ?? firstSet?.rirTarget ? `RIR ${exercise.rirTarget ?? firstSet?.rirTarget}` : undefined
+  ].filter((item): item is string => Boolean(item));
+  return dose.join(", ");
+}
+
+function exerciseInstruction(exercise: ExercisePrescription): string {
+  const load = plainTrainingCopy(exercise.loadGuidance);
+  const tempo = exercise.tempo ? ` Tempo: ${plainTrainingCopy(exercise.tempo)}.` : "";
+  return `${load}${tempo}`;
+}
+
+function walkthroughItem(exercise: ExercisePrescription) {
+  return {
+    exerciseId: exercise.exerciseId,
+    title: plainWorkoutTitle(exercise.name),
+    dose: exerciseDose(exercise),
+    instruction: exerciseInstruction(exercise),
+    rest: plainTrainingCopy(exercise.restText),
+    cue: plainTrainingCopy(exercise.coachingNotes[0] ?? exercise.boxingTransfer)
+  };
+}
+
+function sectionInstruction(sectionItem: WorkoutSection): string {
+  const intent = plainSectionIntent(sectionItem.intent);
+  const exerciseCount = sectionItem.exercises.length;
+  const base = `${sectionItem.durationMinutes} min. ${intent}`;
+  if (exerciseCount <= 1) {
+    return `${base} Complete the listed work, then move on.`;
+  }
+  return `${base} Work top to bottom before repeating anything.`;
+}
+
+function checkpointForSection(sectionItem: WorkoutSection): string {
+  const firstExercise = sectionItem.exercises[0];
+  if (!firstExercise) {
+    return "Move on when breathing and posture are under control.";
+  }
+  const cue = firstExercise.coachingNotes[0] ?? firstExercise.boxingTransfer;
+  return `Move on when this is still true: ${plainTrainingCopy(cue)}`;
+}
+
+function parseRoundPlan(roundStructure: string | undefined, family: GeneratedSessionFamily, technicalEmphasis: readonly string[]): WorkoutRoundPlan | null {
+  if (!roundStructure) {
+    return null;
+  }
+  const raw = plainTrainingCopy(roundStructure);
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  const match = normalized.match(/^(?:Optional\s+)?(\d+(?:-\d+)?)\s*x\s*(.+)$/i);
+  const isRoundFamily = family.startsWith("boxing_") || family === "round_based_conditioning" || family === "agility_reactive_footwork" || family === "reaction_rhythm";
+  const defaultInstructions = isRoundFamily
+    ? [
+        "Start each round in stance. Pick one constraint and keep it for the whole round.",
+        "Use the rest to breathe down, loosen shoulders, and check stance before the next round.",
+        "Shorten or end the next round if the cue breaks twice."
+      ]
+    : [
+        "Use the work interval for clean movement only.",
+        "Rest until breathing and posture are back under control.",
+        "End the interval work if speed, gait, or coordination changes."
+      ];
+
+  if (!match?.[1] || !match[2]) {
+    return {
+      format: normalized,
+      instructions: technicalEmphasis.length > 0 ? [`Main constraints: ${technicalEmphasis.map(plainTrainingCopy).join(", ")}.`, ...defaultInstructions] : defaultInstructions
+    };
+  }
+
+  const count = match[1];
+  const detail = match[2];
+  const restMatch = detail.match(/(?:,\s*|;\s*| with\s+)(\d+(?::[0-5]\d)?(?:\s*-\s*\d+(?::[0-5]\d)?)?|\d+\s*(?:sec|seconds?|min|minutes?))\s*(?:full\s*)?(?:rest|reset)/i);
+  const workPart = restMatch?.index === undefined ? detail : detail.slice(0, restMatch.index).trim();
+  const workMatch = workPart.match(/^(\d+(?::[0-5]\d)?(?:\s*-\s*\d+(?::[0-5]\d)?)?|\d+\s*(?:sec|seconds?|min|minutes?))\s*(.*)$/i);
+  const work = workMatch?.[1] ? timeLabel(workMatch[1]) : workPart;
+  const focus = workMatch?.[2]
+    ? workMatch[2].replace(/\brounds?\b/gi, "").replace(/\bbouts?\b/gi, "").trim()
+    : "";
+  const rest = restMatch?.[1] ? timeLabel(restMatch[1]) : null;
+  const focusText = focus ? ` for ${focus}` : "";
+  const format = `${count} rounds: work ${work} each${focusText}.${rest ? ` Rest ${rest} between rounds.` : ""}`;
+
+  return {
+    format,
+    instructions: technicalEmphasis.length > 0 ? [`Main constraints: ${technicalEmphasis.map(plainTrainingCopy).join(", ")}.`, ...defaultInstructions] : defaultInstructions
+  };
+}
+
+function buildWorkoutWalkthrough(input: {
+  title: string;
+  family: GeneratedSessionFamily;
+  durationMinutes: number;
+  sections: readonly WorkoutSection[];
+  roundStructure?: string | undefined;
+  technicalEmphasis?: readonly string[] | undefined;
+  preSessionChecklist?: readonly string[] | undefined;
+  downshiftIf?: readonly string[] | undefined;
+  fuelBefore?: string | undefined;
+  stopConditions: readonly string[];
+}) {
+  const sectionCount = input.sections.length;
+  const exerciseCount = input.sections.reduce((total, sectionItem) => total + sectionItem.exercises.length, 0);
+  const firstSection = input.sections[0];
+  const firstExercise = firstSection?.exercises[0];
+  const roundPlan = parseRoundPlan(input.roundStructure, input.family, input.technicalEmphasis ?? []);
+  const beforeYouStart = [
+    ...(input.preSessionChecklist ?? []).map(plainTrainingCopy),
+    input.fuelBefore ? plainTrainingCopy(input.fuelBefore) : undefined,
+    "Have water nearby and leave enough space to move in stance.",
+    firstSection && firstExercise ? `Start with ${plainSectionName(firstSection.name)}: ${plainWorkoutTitle(firstExercise.name)}.` : "Start with the first listed block."
+  ].filter((item): item is string => Boolean(item));
+
+  return {
+    title: "Workout walkthrough",
+    summary: `${plainWorkoutTitle(input.title, input.family)} is ${input.durationMinutes} min: ${countLabel(sectionCount, "block")}, ${countLabel(exerciseCount, "exercise")}. Follow the blocks in order and keep the quality cue clean before adding effort.`,
+    beforeYouStart: [...new Set(beforeYouStart)].slice(0, 4),
+    roundPlan,
+    steps: input.sections.map((sectionItem, index) => ({
+      id: `step:${index}:${sectionItem.name}`,
+      label: `Block ${index + 1}`,
+      title: plainSectionName(sectionItem.name),
+      durationMinutes: sectionItem.durationMinutes,
+      instruction: sectionInstruction(sectionItem),
+      items: sectionItem.exercises.map(walkthroughItem),
+      checkpoint: checkpointForSection(sectionItem)
+    })),
+    finish: "Finish with breathing down, one note on what stayed clean, and no extra volume.",
+    safety: [
+      ...(input.downshiftIf ?? []).map(plainTrainingCopy),
+      ...input.stopConditions.map(plainTrainingCopy)
+    ].slice(0, 4)
+  };
+}
+
 export function buildDetailedTrainingSession(input: BuildDetailedTrainingSessionInput): DetailedTrainingSession {
   const family = familyOverride(input);
   const hardAnchor = hasHardBoxingAnchor(input.protectedWorkouts, input.generatedSession.date);
@@ -219,26 +376,44 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     ...templateItem.safetyNotes,
     ...sections.flatMap((workoutSection) => workoutSection.exercises.flatMap((exercise) => exercise.safetyNotes))
   ]);
+  const title = family === "recovery_reset" ? "Recovery reset" : plainWorkoutTitle(templateItem.title, family);
+  const roundStructure = input.generatedSession.roundStructure ?? templateItem.roundStructure;
+  const technicalEmphasis = input.generatedSession.technicalEmphasis ?? templateItem.technicalEmphasis;
+  const stopConditions = [...allStopConditions, "Stop if dizziness, fainting, chest pain, or unusual pain appears."];
+  const safetyNotes = [...allSafetyNotes, "Live exchange work is out of scope; avoid aggressive neck loading or fatigue-chasing finishers."];
+  const walkthrough = buildWorkoutWalkthrough({
+    title,
+    family,
+    durationMinutes,
+    sections,
+    roundStructure,
+    technicalEmphasis,
+    preSessionChecklist: input.generatedSession.preSessionChecklist,
+    downshiftIf: input.generatedSession.downshiftIf,
+    fuelBefore: input.generatedSession.fuelBefore,
+    stopConditions
+  });
 
   return {
     generatedSessionId: input.generatedSession.id,
     date: input.generatedSession.date,
     family,
-    title: family === "recovery_reset" ? "Recovery reset" : plainWorkoutTitle(templateItem.title, family),
+    title,
     durationMinutes,
     intensity: family === "recovery_reset" ? "recovery" : hardAnchor || input.phase?.phase === "tournament" ? "easy" : input.phase?.phase === "fight_week" ? "easy" : input.generatedSession.intensity,
     sections,
+    walkthrough,
     fuelDemand: input.generatedSession.fuelDemand,
     readinessModifications,
     cycleModifications,
     whyThisMattersForBoxing: whyForFamily(family),
-    stopConditions: [...allStopConditions, "Stop if dizziness, fainting, chest pain, or unusual pain appears."],
-    safetyNotes: [...allSafetyNotes, "Live exchange work is out of scope; avoid aggressive neck loading or fatigue-chasing finishers."],
+    stopConditions,
+    safetyNotes,
     noGeneratedSparring: true,
     boxingSkillTheme: input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme,
     tacticalTheme: input.generatedSession.tacticalTheme ?? templateItem.tacticalTheme,
-    technicalEmphasis: input.generatedSession.technicalEmphasis ?? templateItem.technicalEmphasis,
-    roundStructure: input.generatedSession.roundStructure ?? templateItem.roundStructure,
+    technicalEmphasis,
+    roundStructure,
     skillLevel: input.generatedSession.skillLevel,
     equipmentMode: input.generatedSession.equipmentMode ?? templateItem.equipmentMode,
     addOnBlocks: input.generatedSession.addOnBlocks ?? templateItem.addOnBlocks,
@@ -246,7 +421,7 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     athleteQualityCues: athleteQualityCuesForFamily(family, input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme),
     sessionQualityCheckpoints: sessionQualityCheckpointsForFamily(family, input.generatedSession.boxingSkillTheme ?? templateItem.boxingSkillTheme),
     selfCheckCues: selfCheckCuesForFamily(family),
-    filmCue: filmCueForFamily(family, input.generatedSession.roundStructure ?? templateItem.roundStructure),
+    filmCue: filmCueForFamily(family, roundStructure),
     nextSessionNote: "Keep the cleanest cue from today and simplify the next exposure before adding volume.",
     readinessGate: input.generatedSession.readinessGate,
     fuelingGate: input.generatedSession.fuelingGate,

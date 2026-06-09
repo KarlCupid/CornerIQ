@@ -19,6 +19,7 @@ import { glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { screenStyles } from "../screenStyles";
+import { WorkoutWalkthroughCard } from "./WorkoutWalkthroughCard";
 
 export type WorkoutPlayerStatus = "not_started" | "active" | "paused" | "finishing" | "completed" | "skipped";
 
@@ -265,63 +266,6 @@ function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | 
     >
       <Text style={{ color: tone === "orange" ? colors.canvas : toneColor, fontSize: 12, fontWeight: "900", lineHeight: 17 }}>{label}</Text>
     </View>
-  );
-}
-
-function sectionPreviewSubtitle(section: DetailedTrainingSession["sections"][number]): string {
-  const firstExercise = section.exercises[0];
-  if (!firstExercise) {
-    return plainSectionIntent(section.intent);
-  }
-  return `${exerciseDoseText(firstExercise, 0)} - ${plainWorkoutTitle(firstExercise.name)}`;
-}
-
-function SessionFlowRow({
-  index,
-  onPress,
-  section
-}: {
-  index: number;
-  onPress: () => void;
-  section: DetailedTrainingSession["sections"][number];
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={{
-        alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.065)",
-        borderColor: colors.line,
-        borderRadius: 18,
-        borderWidth: 1,
-        flexDirection: "row",
-        gap: spacing.md,
-        minHeight: 64,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm
-      }}
-    >
-      <View
-        style={{
-          alignItems: "center",
-          backgroundColor: "rgba(39, 206, 241, 0.13)",
-          borderColor: "rgba(39, 206, 241, 0.52)",
-          borderRadius: 16,
-          borderWidth: 1,
-          height: 42,
-          justifyContent: "center",
-          width: 42
-        }}
-      >
-        <Text style={{ color: colors.blueIQ, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
-      </View>
-      <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-        <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{plainSectionName(section.name)}</Text>
-        <Text style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>{sectionPreviewSubtitle(section)}</Text>
-      </View>
-      <Ionicons color={colors.mutedText} name="chevron-forward" size={18} />
-    </Pressable>
   );
 }
 
@@ -651,10 +595,17 @@ export function WorkoutPlayer({
   const skippedExerciseCount = playerResults.filter((result) => result.resultStatus === "skipped").length;
   const painFlagCount = playerResults.filter((result) => result.painFlag).length;
   const fuelLabel = session.fuelingGate ? "Fuel check" : plainFuelDemandLabel(session.fuelDemand);
-  const coachNote = session.sessionQualityCheckpoints?.[0] ?? session.athleteQualityCues?.[0] ?? session.selfCheckCues?.[0] ?? "Keep this smooth. Finish feeling sharper, not cooked.";
+  const coachNote =
+    session.walkthrough.roundPlan?.instructions[0] ??
+    session.walkthrough.steps[0]?.checkpoint ??
+    session.sessionQualityCheckpoints?.[0] ??
+    "Keep this smooth. Finish feeling sharper, not cooked.";
   const firstPreviewSection = session.sections[0];
   const firstPreviewExercise = firstPreviewSection?.exercises[0];
-  const previewStartLine = firstPreviewExercise && firstPreviewSection ? `Start with ${firstPreviewSection.name}: ${firstPreviewExercise.name}.` : "Start when you are ready.";
+  const previewStartLine =
+    firstPreviewSection && firstPreviewExercise
+      ? `Start with ${plainSectionName(firstPreviewSection.name)}: ${plainWorkoutTitle(firstPreviewExercise.name)}.`
+      : session.walkthrough.beforeYouStart[0] ?? "Start when you are ready.";
 
   if (status === "not_started") {
     return (
@@ -663,7 +614,7 @@ export function WorkoutPlayer({
           <View style={{ alignItems: "center", gap: spacing.md }}>
             <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>DO THIS NOW</Text>
             <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{plainWorkoutTitle(session.title, session.family)}</Text>
-            <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{previewStartLine}</Text>
+            <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{plainTrainingCopy(previewStartLine)}</Text>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
@@ -683,35 +634,26 @@ export function WorkoutPlayer({
             }}
           >
             <Text style={{ color: colors.readyGreen, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Your job</Text>
-            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>Tap Start workout. Move smoothly. Stop if pain or a safety note shows up.</Text>
+            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{plainTrainingCopy(coachNote)}</Text>
           </View>
 
           <PlayerButton disabled={busy} label="Start workout" onPress={() => setStatus("active")} tone="primary" />
           <PlayerButton label="Back to Train" onPress={onClose} />
         </GlassPanel>
 
-        <CollapsedDetailDisclosure title="Plan details" summary={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}. Open only if you want the why, coach cue, or section order before starting.`} testID="workout-player-preview-detail">
+        <CollapsedDetailDisclosure title="Workout walkthrough" summary="Open for the full block order, round plan, exercise dose, cue, rest, and stop rules." testID="workout-player-preview-detail">
           <View style={{ gap: spacing.sm }}>
             <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Why today</Text>
             <Text style={screenStyles.subtle}>{plainTrainingCopy(session.whyThisMattersForBoxing)}</Text>
           </View>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={{ color: colors.gold, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Coach note</Text>
-            <Text style={screenStyles.subtle}>{coachNote}</Text>
-          </View>
-          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>Session flow</Text>
-          {session.sections.map((section, index) => (
-            <SessionFlowRow
-              index={index}
-              key={`preview-section:${section.name}:${index}`}
-              onPress={() => {
+          <WorkoutWalkthroughCard
+            session={session}
+            onStepPress={(_step, index) => {
                 setActiveSectionIndex(index);
                 setActiveExerciseIndex(0);
                 setActiveSetIndex(0);
-              }}
-              section={section}
-            />
-          ))}
+            }}
+          />
         </CollapsedDetailDisclosure>
       </WorkoutScreenFrame>
     );

@@ -310,9 +310,9 @@ export function TrainScreen({
     ...(primarySession
       ? [{
           disabled: busy,
-          label: "Show workout plan",
+          label: "Show walkthrough",
           onPress: () => setPlanOpenRequestKey((value) => value + 1),
-          summary: "Exercises"
+          summary: "Steps"
         }]
       : [])
   ];
