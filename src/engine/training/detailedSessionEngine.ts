@@ -14,6 +14,7 @@ import type {
 import { buildGuidedWorkoutSections, guidedProfileForExercise } from "./guidedExerciseCatalog";
 import { prescribeExercise } from "./substitutionEngine";
 import { findWorkoutTemplateByTitle, sectionDurationPlan, selectWorkoutTemplate, type WorkoutTemplate, type WorkoutTemplateSection } from "./workoutTemplateCatalog";
+import { resolveWorkoutRecipe } from "./workoutRecipeCatalog";
 import { plainGeneratedSessionFamilyWhy, plainSectionIntent, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "../presentation/trainingCopy";
 
 export interface BuildDetailedTrainingSessionInput {
@@ -422,8 +423,20 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
   const technicalEmphasis = input.generatedSession.technicalEmphasis ?? templateItem.technicalEmphasis;
   const stopConditions = [...allStopConditions, "Stop if dizziness, fainting, chest pain, or unusual pain appears."];
   const safetyNotes = [...allSafetyNotes, "Live exchange work is out of scope; avoid aggressive neck loading or fatigue-chasing finishers."];
-  const walkthrough = buildWorkoutWalkthrough({
+  const recipe = resolveWorkoutRecipe({
+    family,
     title,
+    durationMinutes,
+    sections,
+    safetyStops: stopConditions,
+    skillLevel: input.generatedSession.skillLevel,
+    templateId: templateItem.templateId,
+    templateTitle: templateItem.title,
+    equipmentMode: input.generatedSession.equipmentMode ?? templateItem.equipmentMode
+  });
+  const displayTitle = recipe.title;
+  const walkthrough = buildWorkoutWalkthrough({
+    title: displayTitle,
     family,
     durationMinutes,
     sections,
@@ -439,11 +452,12 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     generatedSessionId: input.generatedSession.id,
     date: input.generatedSession.date,
     family,
-    title,
+    title: displayTitle,
     durationMinutes,
     intensity: family === "recovery_reset" ? "recovery" : hardAnchor || input.phase?.phase === "tournament" ? "easy" : input.phase?.phase === "fight_week" ? "easy" : input.generatedSession.intensity,
     sections,
     guidedSections,
+    recipe,
     walkthrough,
     fuelDemand: input.generatedSession.fuelDemand,
     readinessModifications,

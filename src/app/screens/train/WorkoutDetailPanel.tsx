@@ -12,10 +12,10 @@ import {
   plainIntensityLabel,
   plainSectionIntent,
   plainSectionName,
-  plainTrainingCopy,
-  plainWorkoutTitle
+  plainTrainingCopy
 } from "../../../engine/presentation/trainingCopy";
 import { buildWorkoutPlayerTimeline } from "../../../engine/presentation/workoutPlayerTimeline";
+import { recipeEquipmentLabel, recipeFlowLines, recipeQuickLogContext, recipeTitle, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
@@ -170,7 +170,7 @@ function SessionMeta({ label }: { label: string }) {
 function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
   return (
     <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
-      <WorkoutExerciseDetails session={session} />
+      <WorkoutExerciseDetails session={session} title={session.recipe ? "Workout recipe" : "Exercise details"} />
     </View>
   );
 }
@@ -185,19 +185,11 @@ function formatGuidedDuration(totalSeconds: number): string {
 }
 
 function compactFlowLines(session: DetailedTrainingSession): readonly string[] {
-  return session.walkthrough.steps.map((step, index) => {
-    const itemTitles = step.items.slice(0, 4).map((item) => plainWorkoutTitle(item.title)).join(", ");
-    return `${index + 1}. ${step.title}${itemTitles ? ` - ${itemTitles}` : ""}`;
-  });
+  return recipeFlowLines(session);
 }
 
 function quickLogMainJob(session: DetailedTrainingSession): string {
-  return plainTrainingCopy(
-    session.walkthrough.roundPlan?.instructions[0] ??
-      session.sessionQualityCheckpoints?.[0] ??
-      session.walkthrough.steps.find((step) => step.items.length > 0)?.items[0]?.cue ??
-      session.whyThisMattersForBoxing
-  );
+  return recipeQuickLogContext(session).mainJob;
 }
 
 export function WorkoutDetailPanel({
@@ -302,6 +294,8 @@ export function WorkoutDetailPanel({
   const guidedDurationLabel = formatGuidedDuration(guidedTimeline.totalSeconds || session.durationMinutes * 60);
   const flowLines = compactFlowLines(session);
   const mainJob = quickLogMainJob(session);
+  const quickLogContext = recipeQuickLogContext(session);
+  const planToggleLabel = session.recipe ? "workout recipe" : "exercise details";
 
   return (
     <View style={{ gap: spacing.lg }}>
@@ -312,17 +306,18 @@ export function WorkoutDetailPanel({
       >
         <View style={{ gap: spacing.sm }}>
           <Text style={screenStyles.fieldLabel}>Support workout</Text>
-          <Text style={[screenStyles.callout, { fontSize: 20, fontWeight: "800", lineHeight: 26 }]}>{plainWorkoutTitle(session.title, session.family)}</Text>
+          <Text style={[screenStyles.callout, { fontSize: 20, fontWeight: "800", lineHeight: 26 }]}>{recipeTitle(session)}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
             <SessionMeta label={guidedDurationLabel} />
+            <SessionMeta label={recipeEquipmentLabel(session.recipe)} />
             <SessionMeta label={plainGeneratedSessionFamilyLabel(session.family)} />
             <SessionMeta label={plainIntensityLabel(session.intensity)} />
             <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
-            <SessionMeta label={`${session.sections.length} block${session.sections.length === 1 ? "" : "s"}`} />
+            <SessionMeta label={`${guidedTimeline.blockCount} block${guidedTimeline.blockCount === 1 ? "" : "s"}`} />
           </View>
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>WHY</Text>
-            <Text style={screenStyles.body}>{plainTrainingCopy(session.whyThisMattersForBoxing)}</Text>
+            <Text style={screenStyles.body}>{recipeWhy(session)}</Text>
           </View>
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>FLOW</Text>
@@ -361,8 +356,8 @@ export function WorkoutDetailPanel({
             </Pressable>
           ) : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityLabel={planOpen ? "Hide exercise details" : "Show exercise details"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
-              <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide exercise details" : "Show exercise details"}</Text>
+            <Pressable accessibilityLabel={planOpen ? `Hide ${planToggleLabel}` : `Show ${planToggleLabel}`} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
+              <Text style={screenStyles.quietButtonText}>{planOpen ? `Hide ${planToggleLabel}` : `Show ${planToggleLabel}`}</Text>
             </Pressable>
             {!previewOnlyReason ? (
               <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
@@ -377,9 +372,9 @@ export function WorkoutDetailPanel({
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.sectionTitle}>Quick log</Text>
             <Text style={screenStyles.body}>Mark workout done without follow-along when time is tight.</Text>
-            <Text style={screenStyles.subtle}>What you were supposed to do: {flowLines.map((line) => line.replace(/^\d+\.\s*/, "")).join("; ")}.</Text>
+            <Text style={screenStyles.subtle}>What you were supposed to do: {quickLogContext.whatToDo}</Text>
             <Text style={screenStyles.subtle}>Main job: {mainJob}</Text>
-            <Text style={screenStyles.subtle}>Session RPE is enough if you are short on time.</Text>
+            <Text style={screenStyles.subtle}>Log only what matters: {quickLogContext.logPrompt}</Text>
           </View>
           <TextInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
           <TextInput onChangeText={setPainNotes} placeholder="Pain note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />

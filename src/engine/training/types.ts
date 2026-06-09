@@ -392,6 +392,53 @@ export interface WorkoutSection {
 
 export type WorkoutBlockAccent = "blue" | "green" | "gold" | "orange" | "purple" | "red";
 
+export type WorkoutRecipeLevel = "novice" | "intermediate" | "advanced";
+export type WorkoutRecipeBlockType = "warmup" | "boxing_rounds" | "strength" | "conditioning" | "cooldown" | "recovery" | "mobility" | "support";
+export type WorkoutRecipeStepType = "movement" | "round" | "rest" | "transition" | "cooldown" | "set";
+
+export interface WorkoutRecipeQuickLog {
+  whatToDo: string;
+  mainJob: string;
+  logPrompt: string;
+}
+
+export interface WorkoutRecipeStep {
+  stepId: string;
+  type: WorkoutRecipeStepType;
+  title: string;
+  durationSeconds: number;
+  doThis: string;
+  coachCue: string;
+  microCues?: readonly string[] | undefined;
+  safetyStop?: string | undefined;
+  autoAdvance: boolean;
+  audioCueKey?: string | undefined;
+  exerciseId?: string | undefined;
+}
+
+export interface WorkoutRecipeBlock {
+  blockId: string;
+  title: string;
+  type: WorkoutRecipeBlockType;
+  accent: WorkoutBlockAccent;
+  why: string;
+  steps: readonly WorkoutRecipeStep[];
+}
+
+export interface WorkoutRecipe {
+  recipeId: string;
+  title: string;
+  family: GeneratedSessionFamily;
+  level?: WorkoutRecipeLevel | undefined;
+  totalDurationSeconds: number;
+  why: string;
+  equipment: readonly string[];
+  blocks: readonly WorkoutRecipeBlock[];
+  safetyStops: readonly string[];
+  previewFlow?: readonly string[] | undefined;
+  quickLog?: WorkoutRecipeQuickLog | undefined;
+}
+
 export interface GuidedWorkoutSection {
   id: string;
   name: string;
@@ -443,6 +490,7 @@ export interface DetailedTrainingSession {
   intensity: GeneratedSessionIntensity;
   sections: readonly WorkoutSection[];
   guidedSections?: readonly GuidedWorkoutSection[] | undefined;
+  recipe?: WorkoutRecipe | undefined;
   walkthrough: WorkoutWalkthrough;
   fuelDemand: "low" | "moderate" | "high";
   readinessModifications: readonly string[];

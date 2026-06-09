@@ -16,7 +16,7 @@ function detailedFixture(): DetailedTrainingSession {
 
 describe("workout player timeline", () => {
   it("allocates each section timer across every movement in that section", () => {
-    const detail = detailedFixture();
+    const detail = { ...detailedFixture(), recipe: undefined };
     const timeline = buildWorkoutPlayerTimeline(detail);
     const warmupIndex = detail.sections.findIndex((section) => /warm|prep/i.test(section.name));
     const warmup = detail.sections[warmupIndex];
@@ -38,7 +38,7 @@ describe("workout player timeline", () => {
   });
 
   it("formats jab-focused shadowboxing as colored timed blocks with micro-cues", () => {
-    const detail = detailedFixture();
+    const detail = { ...detailedFixture(), recipe: undefined };
     const sourceSection = detail.sections[0];
     if (!sourceSection) {
       throw new Error("fixture did not include a source section");
@@ -48,6 +48,7 @@ describe("workout player timeline", () => {
     const cooldown = catalogToPrescription(findCatalogExercise("recovery_breathing_mobility"));
     const session: DetailedTrainingSession = {
       ...detail,
+      recipe: undefined,
       title: "Jab-Focused Shadowboxing",
       durationMinutes: 15,
       guidedSections: undefined,
@@ -87,7 +88,7 @@ describe("workout player timeline", () => {
   });
 
   it("expands repeated timed movement prescriptions into individual timer steps", () => {
-    const detail = detailedFixture();
+    const detail = { ...detailedFixture(), recipe: undefined };
     const sourceSection = detail.sections[0];
     const sourceExercise = sourceSection?.exercises[0];
     if (!sourceSection || !sourceExercise) {
@@ -103,6 +104,7 @@ describe("workout player timeline", () => {
     };
     const session: DetailedTrainingSession = {
       ...detail,
+      recipe: undefined,
       durationMinutes: 6,
       guidedSections: undefined,
       sections: [{ ...sourceSection, durationMinutes: 6, guidedSteps: undefined, exercises: [repeatedExercise] }]
@@ -120,7 +122,7 @@ describe("workout player timeline", () => {
   });
 
   it("breaks stance and guard reset into named boxer-facing timer segments", () => {
-    const detail = detailedFixture();
+    const detail = { ...detailedFixture(), recipe: undefined };
     const sourceSection = detail.sections[0];
     if (!sourceSection) {
       throw new Error("fixture did not include a source section");
@@ -128,6 +130,7 @@ describe("workout player timeline", () => {
     const stanceReset = catalogToPrescription(findCatalogExercise("stance_guard_reset"));
     const session: DetailedTrainingSession = {
       ...detail,
+      recipe: undefined,
       durationMinutes: 4,
       guidedSections: undefined,
       sections: [{ ...sourceSection, durationMinutes: 4, guidedSteps: undefined, exercises: [stanceReset] }]
@@ -151,7 +154,7 @@ describe("workout player timeline", () => {
   });
 
   it("turns technical boxing timers into distinct round goals", () => {
-    const detail = detailedFixture();
+    const detail = { ...detailedFixture(), recipe: undefined };
     const sourceSection = detail.sections[0];
     if (!sourceSection) {
       throw new Error("fixture did not include a source section");
@@ -159,6 +162,7 @@ describe("workout player timeline", () => {
     const shadowboxing = catalogToPrescription(findCatalogExercise("shadowboxing_technical_rounds"));
     const session: DetailedTrainingSession = {
       ...detail,
+      recipe: undefined,
       durationMinutes: 8,
       guidedSections: undefined,
       sections: [{ ...sourceSection, durationMinutes: 8, guidedSteps: undefined, exercises: [shadowboxing] }]
@@ -182,7 +186,7 @@ describe("workout player timeline", () => {
   });
 
   it("marks setup and self-paced strength as tap-to-advance while rest and timed boxing can auto-advance", () => {
-    const detail = detailedFixture();
+    const detail = { ...detailedFixture(), recipe: undefined };
     const sourceSection = detail.sections[0];
     if (!sourceSection) {
       throw new Error("fixture did not include a source section");
@@ -191,6 +195,7 @@ describe("workout player timeline", () => {
     const stanceReset = catalogToPrescription(findCatalogExercise("stance_guard_reset"));
     const session: DetailedTrainingSession = {
       ...detail,
+      recipe: undefined,
       durationMinutes: 10,
       guidedSections: undefined,
       sections: [{ ...sourceSection, durationMinutes: 10, guidedSteps: undefined, exercises: [goblet, stanceReset] }]
@@ -213,8 +218,9 @@ describe("workout player timeline", () => {
     const timeline = buildWorkoutPlayerTimeline(detail);
     const allStepText = timeline.steps.map((step) => `${step.title} ${step.instruction} ${step.intent} ${step.cue}`).join(" ");
 
+    expect(detail.recipe).toBeTruthy();
     expect(detail.guidedSections?.length).toBeGreaterThan(0);
-    expect(timeline.steps.every((step) => step.guidedStepId.startsWith("guided:"))).toBe(true);
+    expect(timeline.steps.every((step) => step.guidedStepId.startsWith("recipe:"))).toBe(true);
     expect(timeline.steps.every((step) => step.instruction.length > 20 && step.intent.length > 20 && step.cue.length > 8)).toBe(true);
     expect(allStepText).not.toMatch(/\b(base shape|primary action|quality round|clean repeat|guard return rounds|shadowboxing rounds|defense round|rhythm round|technical round|execute cleanly|focus on quality|reset shape)\b/i);
     expect(timeline.steps.filter((step) => step.kind === "work").every((step) => step.safetyStop)).toBe(true);

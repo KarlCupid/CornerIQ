@@ -1048,6 +1048,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
   };
   return {
     ...detail,
+    recipe: undefined,
     title: "Player test workout",
     durationMinutes: 18,
     guidedSections: undefined,
@@ -1085,6 +1086,7 @@ function boxingRoundPlayerTestSession(): DetailedTrainingSession {
   }
   return {
     ...detail,
+    recipe: undefined,
     title: "Boxing round player test",
     durationMinutes: 12,
     guidedSections: undefined,
@@ -2125,7 +2127,7 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("train-workout-section");
     expect(output).toContain("Quick log");
-    expect(output).toContain("Show exercise details");
+    expect(output).toContain("Show workout recipe");
     expect(output).toContain("Show why / safety");
     expect(output).toContain("NEXT 7 DAYS");
     expect(output).toContain("MANUAL BOXING LOG");
@@ -2258,14 +2260,14 @@ describe("minimal app screens", () => {
     expect(closedOutput).not.toContain("Recent training");
     expect(closedOutput).not.toContain("Session plan");
     expect(closedOutput).not.toContain("Quality checkpoints");
-    expect(closedOutput).toContain("Show exercise details");
+    expect(closedOutput).toContain("Show workout recipe");
     expect(closedOutput).toContain("Show why / safety");
     await act(async () => {
       await press(pressableWithText(renderer, "Quick log"));
     });
     const openOutput = JSON.stringify(renderer.toJSON());
     expect(openOutput).toContain("Mark workout done");
-    expect(openOutput).toContain("Session RPE is enough if you are short on time.");
+    expect(openOutput).toContain("Log only what matters");
     expect(openOutput).not.toContain("Save skip reason");
     expect(openOutput).toContain("Blank rows save as not logged");
     await act(async () => {
@@ -2274,15 +2276,15 @@ describe("minimal app screens", () => {
     const safetyOutput = JSON.stringify(renderer.toJSON());
     expect(safetyOutput).toContain("Pain notes help CornerIQ avoid automatic progression.");
     expect(safetyOutput).toContain("Result statuses");
-    await switchSection(renderer, "Show exercise details");
+    await switchSection(renderer, "Show workout recipe");
     const planDetailOutput = JSON.stringify(renderer.toJSON());
-    expect(planDetailOutput).toContain("Exercise details");
-    expect(planDetailOutput).toContain("Warm-up");
-    expect(planDetailOutput).toContain("DO");
-    expect(planDetailOutput).toContain("HOW");
-    expect(planDetailOutput).toContain("REST");
-    expect(planDetailOutput).toContain("Cue:");
-    expect(planDetailOutput).toContain("BOXING TRANSFER");
+    expect(planDetailOutput).toContain("Workout recipe");
+    expect(planDetailOutput).toContain("Shoulder Support");
+    expect(planDetailOutput).toContain("TIMER");
+    expect(planDetailOutput).toContain("DO THIS");
+    expect(planDetailOutput).toContain("COACH CUE");
+    expect(planDetailOutput).toContain("Show Secondary exercise details");
+    expect(planDetailOutput).not.toContain("BOXING TRANSFER");
     expect(planDetailOutput).not.toContain("Workout walkthrough");
     expect(planDetailOutput).not.toContain("Before you start");
     expect(planDetailOutput).not.toContain("Quality checkpoints");
@@ -2672,6 +2674,7 @@ describe("minimal app screens", () => {
     const quickLogOutput = JSON.stringify(renderer.toJSON());
     expect(quickLogOutput).toContain("What you were supposed to do:");
     expect(quickLogOutput).toContain("Main job:");
+    expect(quickLogOutput).toContain("Log only what matters:");
     expect(JSON.stringify(renderer.toJSON()).toLowerCase()).not.toMatch(/\b(contact|sparring)\b/);
     await act(async () => {
       await press(pressableWithText(renderer, "Mark workout done"));

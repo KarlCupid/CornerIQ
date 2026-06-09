@@ -109,6 +109,9 @@ const TITLE_REPLACEMENTS: readonly [RegExp, string][] = [
   [/\bposterior-chain\b/gi, "hips and hamstrings"],
   [/\btransfer\b/gi, "carryover"],
   [/\bquality-capped\b/gi, "clean"],
+  [/\brestore range\b/gi, "use easy range"],
+  [/\bactivate trunk\b/gi, "brace lightly and breathe out"],
+  [/\bprep shoulders\b/gi, "make slow shoulder circles"],
   [/\bmovement[-\s]prep\b/gi, "warm-up"],
   [/\breadiness gate\b/gi, "body check"],
   [/\bT-spine\b/gi, "upper back"],
@@ -132,6 +135,9 @@ const COPY_REPLACEMENTS: readonly [RegExp, string][] = [
   [/\bbody-mass\b/gi, "body weight"],
   [/\bbody mass\b/gi, "body weight"],
   [/\bquality-capped\b/gi, "clean"],
+  [/\brestore range\b/gi, "use easy range"],
+  [/\bactivate trunk\b/gi, "brace lightly and breathe out"],
+  [/\bprep shoulders\b/gi, "make slow shoulder circles"],
   [/\bopponent dependency\b/gi, "needing a partner"],
   [/\btechnical constraint\b/gi, "skill focus"],
   [/\btechnical constraints\b/gi, "skill focuses"],
@@ -150,7 +156,8 @@ function collapseWhitespace(value: string): string {
 }
 
 function applyReplacements(value: string, replacements: readonly [RegExp, string][]): string {
-  return collapseWhitespace(replacements.reduce((current, [pattern, replacement]) => current.replace(pattern, replacement), value));
+  const readable = value.replace(/_/g, " ");
+  return collapseWhitespace(replacements.reduce((current, [pattern, replacement]) => current.replace(pattern, replacement), readable));
 }
 
 function isGeneratedSessionFamily(value: string): value is GeneratedSessionFamily {

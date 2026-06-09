@@ -14,6 +14,7 @@ import {
   plainTrainingCopy,
   plainWorkoutTitle
 } from "../../../engine/presentation/trainingCopy";
+import { recipeEquipmentLabel, recipeFlowLines, recipeQuickLogContext, recipeTitle, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
 import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
 import { accentColor, accentWash, LuminousProgressBar, type LuminousAccent } from "../../../design/components/LuminousScreen";
 import { glassStyles } from "../../../design/glass";
@@ -516,7 +517,7 @@ export function WorkoutPlayer({
 
   const steps = timeline.steps;
   const currentTimelineStep = steps[clampIndex(activeStepIndex, steps.length - 1)];
-  const currentSection = currentTimelineStep ? session.sections[currentTimelineStep.sectionIndex] : undefined;
+  const currentSection = currentTimelineStep ? session.sections[currentTimelineStep.sectionIndex] ?? session.sections[0] : undefined;
   const currentExercise =
     currentSection?.exercises.find((exercise) => exercise.exerciseId === currentTimelineStep?.exerciseId) ??
     currentSection?.exercises[currentTimelineStep?.exerciseIndex ?? 0];
@@ -561,23 +562,26 @@ export function WorkoutPlayer({
   const skippedExerciseCount = playerResults.filter((result) => result.resultStatus === "skipped").length;
   const painFlagCount = playerResults.filter((result) => result.painFlag).length;
   const fuelLabel = session.fuelingGate ? "Fuel check" : plainFuelDemandLabel(session.fuelDemand);
+  const recipeContext = recipeQuickLogContext(session);
   const coachNote =
-    session.walkthrough.roundPlan?.instructions[0] ??
-    session.walkthrough.steps[0]?.checkpoint ??
-    session.sessionQualityCheckpoints?.[0] ??
+    recipeContext.mainJob ||
+    session.walkthrough.roundPlan?.instructions[0] ||
+    session.walkthrough.steps[0]?.checkpoint ||
+    session.sessionQualityCheckpoints?.[0] ||
     "Keep this smooth. Finish feeling sharper, not cooked.";
+  const firstRecipeBlock = session.recipe?.blocks[0];
+  const firstRecipeStep = firstRecipeBlock?.steps[0];
   const firstPreviewSection = session.sections[0];
   const firstPreviewExercise = firstPreviewSection?.exercises[0];
   const previewStartLine =
-    firstPreviewSection && firstPreviewExercise
+    firstRecipeBlock && firstRecipeStep
+      ? `Start with ${firstRecipeBlock.title}: ${firstRecipeStep.title}.`
+      : firstPreviewSection && firstPreviewExercise
       ? `Start with ${plainSectionName(firstPreviewSection.name)}: ${plainWorkoutTitle(firstPreviewExercise.name)}.`
       : session.walkthrough.beforeYouStart[0] ?? "Start when you are ready.";
   const guidedDurationLabel = formatWorkoutLength(timeline.totalSeconds || session.durationMinutes * 60);
-  const previewFlowLines = session.walkthrough.steps.map((step, index) => {
-    const itemTitles = step.items.slice(0, 4).map((item) => plainWorkoutTitle(item.title)).join(", ");
-    return `${index + 1}. ${step.title}${itemTitles ? ` - ${itemTitles}` : ""}`;
-  });
-  const previewWhy = plainTrainingCopy(session.whyThisMattersForBoxing);
+  const previewFlowLines = recipeFlowLines(session);
+  const previewWhy = recipeWhy(session);
 
   if (status === "not_started") {
     return (
@@ -585,13 +589,14 @@ export function WorkoutPlayer({
         <GlassPanel testID="workout-player-preview">
           <View style={{ alignItems: "center", gap: spacing.md }}>
             <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>WORKOUT PREVIEW</Text>
-            <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{plainWorkoutTitle(session.title, session.family)}</Text>
+            <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{recipeTitle(session)}</Text>
             <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{plainTrainingCopy(previewStartLine)}</Text>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
             <PreviewPill label={guidedDurationLabel} />
-            <PreviewPill label={`${session.sections.length} block${session.sections.length === 1 ? "" : "s"}`} tone="quiet" />
+            <PreviewPill label={`${timeline.blockCount} block${timeline.blockCount === 1 ? "" : "s"}`} tone="quiet" />
+            <PreviewPill label={recipeEquipmentLabel(session.recipe)} tone="quiet" />
             <PreviewPill label={plainIntensityLabel(session.intensity)} tone="green" />
             <PreviewPill label={fuelLabel} tone={session.fuelDemand === "high" ? "orange" : "green"} />
           </View>
@@ -820,7 +825,7 @@ export function WorkoutPlayer({
         <GlassPanel testID="workout-player-finish-sheet">
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>Finish workout</Text>
-            <Text style={screenStyles.heroTitle}>{plainWorkoutTitle(session.title, session.family)}</Text>
+            <Text style={screenStyles.heroTitle}>{recipeTitle(session)}</Text>
             <Text style={screenStyles.body}>Review what will be saved before this workout affects training history.</Text>
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -870,7 +875,7 @@ export function WorkoutPlayer({
     <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
       <View style={{ gap: spacing.sm }} testID="workout-player-progress">
         <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {currentTimelineStep.sectionIndex + 1} of {session.sections.length}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount}</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }} testID="workout-player-time-left">{formatTimer(remainingSessionSeconds)} left</Text>
         </View>
         <LuminousProgressBar accent={blockAccent} progress={liveProgress} />
@@ -889,7 +894,7 @@ export function WorkoutPlayer({
               paddingVertical: spacing.xs
             }}
           >
-            <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Block {currentTimelineStep.sectionIndex + 1} - {currentTimelineStep.sectionName}</Text>
+            <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount} - {currentTimelineStep.sectionName}</Text>
           </View>
           <Text style={{ color: stepTone, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>{stepKind.toUpperCase()}</Text>
           <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 39, textAlign: "center" }}>{displayName}</Text>

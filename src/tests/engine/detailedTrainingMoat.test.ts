@@ -13,6 +13,8 @@ import type {
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { exerciseCatalog } from "../../engine/training/exerciseCatalog";
 import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
+import { GENERATED_SESSION_FAMILIES } from "../../engine/training/workoutTemplateCatalog";
+import { buildWorkoutPlayerTimeline } from "../../engine/presentation/workoutPlayerTimeline";
 import { buildTrainingAnalytics } from "../../engine/training/trainingAnalytics";
 import { recommendTrainingProgression } from "../../engine/training/progressionEngine";
 import { summarizeFoodLogs } from "../../engine/nutrition/foodLogSummary";
@@ -48,6 +50,34 @@ function exercisePrescriptionText(detail: DetailedTrainingSession): string {
       ])
     )
     .join(" ");
+}
+
+function recipeUserFacingText(detail: DetailedTrainingSession): string {
+  const recipe = detail.recipe;
+  if (!recipe) {
+    return "";
+  }
+  return [
+    recipe.title,
+    recipe.why,
+    ...recipe.equipment,
+    ...(recipe.previewFlow ?? []),
+    recipe.quickLog?.whatToDo ?? "",
+    recipe.quickLog?.mainJob ?? "",
+    recipe.quickLog?.logPrompt ?? "",
+    ...recipe.safetyStops,
+    ...recipe.blocks.flatMap((block) => [
+      block.title,
+      block.why,
+      ...block.steps.flatMap((step) => [
+        step.title,
+        step.doThis,
+        step.coachCue,
+        step.safetyStop ?? "",
+        ...(step.microCues ?? [])
+      ])
+    ])
+  ].join(" ");
 }
 
 const greenReadiness: ReadinessState = {
@@ -149,6 +179,60 @@ describe("exercise catalog safety", () => {
 });
 
 describe("detailed training session engine", () => {
+  it("attaches a v2 recipe to every generated family without banned athlete-facing copy", () => {
+    const bannedRecipeCopy = /\b(readiness gate|movement prep|durability|T-spine|quality-capped|technical constraint|open hips|skill acquisition block|secondary support block|restore range|activate trunk|prep shoulders)\b/i;
+    const safetyBannedCopy = /\b(sparring|contact|partner drill|sauna|sweat\s*suit|sweatsuit|weight\s*cut|coach review dependency)\b/i;
+
+    for (const family of GENERATED_SESSION_FAMILIES) {
+      const detail = buildFamilyDetail(family);
+      const text = recipeUserFacingText(detail);
+
+      expect(detail.recipe, family).toBeTruthy();
+      expect(detail.recipe?.blocks.length, family).toBeGreaterThan(0);
+      expect(detail.recipe?.blocks.every((block) => block.steps.length > 0), family).toBe(true);
+      expect(text, family).not.toMatch(bannedRecipeCopy);
+      expect(text, family).not.toMatch(safetyBannedCopy);
+    }
+  });
+
+  it("builds the flagship jab-focused recipe as colored timed blocks", () => {
+    const detail = buildFamilyDetail("boxing_technical_shadowboxing", pro_4_round_build_strength, {
+      generatedSession: generatedSession("boxing_technical_shadowboxing", {
+        title: "Shadowboxing technical rounds",
+        durationMinutes: 24,
+        intensity: "moderate",
+        templateId: "boxing_shadowboxing_jab_entry_rounds",
+        equipmentMode: "none"
+      })
+    });
+    const recipe = detail.recipe;
+    const timeline = buildWorkoutPlayerTimeline(detail);
+
+    expect(recipe?.title).toBe("Jab-Focused Shadowboxing");
+    expect(recipe?.blocks.map((block) => `${block.title}:${block.accent}`)).toEqual(["Warm-up:blue", "Boxing rounds:red", "Cooldown:green"]);
+    expect(recipe?.blocks[0]?.steps.slice(0, 6).map((step) => `${step.title} - ${step.durationSeconds}`)).toEqual([
+      "Shoulder circles forward - 15",
+      "Shoulder circles backward - 15",
+      "Punch and twist - 15",
+      "Scoops left - 15",
+      "Scoops right - 15",
+      "Hip hinges - 15"
+    ]);
+    expect(recipe?.blocks[1]?.steps.map((step) => `${step.title} - ${step.durationSeconds}`)).toEqual([
+      "Round 1: Low and slow shadow - 120",
+      "Rest 1 - 60",
+      "Round 2: Sharp jab focused round - 120",
+      "Rest 2 - 60",
+      "Round 3: Jab entry and exit - 120",
+      "Rest 3 - 60",
+      "Round 4: Best clean jab round - 120"
+    ]);
+    expect(timeline.steps.find((step) => step.title === "Round 2: Sharp jab focused round")?.microCues).toContain("Make sure hands are coming back.");
+    expect(timeline.steps.filter((step) => step.kind === "rest").every((step) => step.autoAdvance)).toBe(true);
+    expect(timeline.steps.find((step) => step.title === "Set 1: Goblet squat to box")).toBeUndefined();
+    expect(recipeUserFacingText(detail)).not.toMatch(/readiness gate|movement prep|durability|T-spine|quality-capped|technical constraint|open hips/i);
+  });
+
   it("builds detailed sessions for expanded families", () => {
     const families: readonly GeneratedSessionFamily[] = [
       "strength_lower",
