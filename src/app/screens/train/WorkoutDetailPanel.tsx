@@ -15,6 +15,7 @@ import {
   plainTrainingCopy,
   plainWorkoutTitle
 } from "../../../engine/presentation/trainingCopy";
+import { buildWorkoutPlayerTimeline } from "../../../engine/presentation/workoutPlayerTimeline";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
@@ -174,6 +175,31 @@ function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
   );
 }
 
+function formatGuidedDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) {
+    return `${totalSeconds} sec`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function compactFlowLines(session: DetailedTrainingSession): readonly string[] {
+  return session.walkthrough.steps.map((step, index) => {
+    const itemTitles = step.items.slice(0, 4).map((item) => plainWorkoutTitle(item.title)).join(", ");
+    return `${index + 1}. ${step.title}${itemTitles ? ` - ${itemTitles}` : ""}`;
+  });
+}
+
+function quickLogMainJob(session: DetailedTrainingSession): string {
+  return plainTrainingCopy(
+    session.walkthrough.roundPlan?.instructions[0] ??
+      session.sessionQualityCheckpoints?.[0] ??
+      session.walkthrough.steps.find((step) => step.items.length > 0)?.items[0]?.cue ??
+      session.whyThisMattersForBoxing
+  );
+}
+
 export function WorkoutDetailPanel({
   busy,
   completionActions,
@@ -272,6 +298,10 @@ export function WorkoutDetailPanel({
         ? "Skipped. Plan remains conservative."
         : "Done. Fuel check optional.";
   const startBlockedReason = previewOnlyReason ?? startWorkoutDisabledReason;
+  const guidedTimeline = React.useMemo(() => buildWorkoutPlayerTimeline(session), [session]);
+  const guidedDurationLabel = formatGuidedDuration(guidedTimeline.totalSeconds || session.durationMinutes * 60);
+  const flowLines = compactFlowLines(session);
+  const mainJob = quickLogMainJob(session);
 
   return (
     <View style={{ gap: spacing.lg }}>
@@ -284,13 +314,20 @@ export function WorkoutDetailPanel({
           <Text style={screenStyles.fieldLabel}>Support workout</Text>
           <Text style={[screenStyles.callout, { fontSize: 20, fontWeight: "800", lineHeight: 26 }]}>{plainWorkoutTitle(session.title, session.family)}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-            <SessionMeta label={`${session.durationMinutes} min`} />
+            <SessionMeta label={guidedDurationLabel} />
             <SessionMeta label={plainGeneratedSessionFamilyLabel(session.family)} />
             <SessionMeta label={plainIntensityLabel(session.intensity)} />
             <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
-            <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
+            <SessionMeta label={`${session.sections.length} block${session.sections.length === 1 ? "" : "s"}`} />
           </View>
-          <Text style={screenStyles.body}>{plainTrainingCopy(session.walkthrough.summary)}</Text>
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.fieldLabel}>WHY</Text>
+            <Text style={screenStyles.body}>{plainTrainingCopy(session.whyThisMattersForBoxing)}</Text>
+          </View>
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.fieldLabel}>FLOW</Text>
+            {flowLines.map((line) => <Text key={`detail-flow:${line}`} style={screenStyles.subtle}>{line}</Text>)}
+          </View>
           {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
           {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
           {followUpState ? (
@@ -340,6 +377,8 @@ export function WorkoutDetailPanel({
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.sectionTitle}>Quick log</Text>
             <Text style={screenStyles.body}>Mark workout done without follow-along when time is tight.</Text>
+            <Text style={screenStyles.subtle}>What you were supposed to do: {flowLines.map((line) => line.replace(/^\d+\.\s*/, "")).join("; ")}.</Text>
+            <Text style={screenStyles.subtle}>Main job: {mainJob}</Text>
             <Text style={screenStyles.subtle}>Session RPE is enough if you are short on time.</Text>
           </View>
           <TextInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />

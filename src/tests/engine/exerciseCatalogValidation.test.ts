@@ -148,7 +148,9 @@ describe("exercise catalog validation", () => {
       const profile = guidedProfileForSource(exercise);
       const workText = profile.work.map((step) => `${step.title} ${step.beginnerInstruction} ${step.intent} ${step.cue} ${step.commonMistake ?? ""} ${step.safetyStop ?? ""}`).join(" ");
 
-      expect(profile.setup.length, exerciseId).toBeGreaterThan(0);
+      if (exercise.category !== "warm_up" && exercise.category !== "recovery" && exercise.category !== "mobility") {
+        expect(profile.setup.length, exerciseId).toBeGreaterThan(0);
+      }
       expect(profile.work.length, exerciseId).toBeGreaterThan(0);
       expect(profile.commonMistakes.length, exerciseId).toBeGreaterThan(0);
       expect(profile.safetyStops.length, exerciseId).toBeGreaterThan(0);
@@ -167,7 +169,8 @@ describe("exercise catalog validation", () => {
         return true;
       }
       const profile = guidedProfileForSource(exercise);
-      return profile.setup.length === 0 || profile.work.length === 0 || profile.work.some((step) => !step.beginnerInstruction || !step.intent || !step.cue || (!step.durationSeconds && !step.repsText));
+      const setupRequired = exercise.category !== "warm_up" && exercise.category !== "recovery" && exercise.category !== "mobility";
+      return (setupRequired && profile.setup.length === 0) || profile.work.length === 0 || profile.work.some((step) => !step.beginnerInstruction || !step.intent || !step.cue || (!step.durationSeconds && !step.repsText));
     });
 
     expect(missingGuidance).toEqual([]);

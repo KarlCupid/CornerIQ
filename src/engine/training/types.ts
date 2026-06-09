@@ -329,6 +329,7 @@ export interface GuidedWorkoutStep {
   beginnerInstruction: string;
   intent: string;
   cue: string;
+  microCues?: readonly string[] | undefined;
   durationSeconds?: number | undefined;
   repsText?: string | undefined;
   loadGuidance?: string | undefined;
@@ -388,6 +389,8 @@ export interface WorkoutSection {
   exercises: readonly ExercisePrescription[];
   guidedSteps?: readonly GuidedWorkoutStep[] | undefined;
 }
+
+export type WorkoutBlockAccent = "blue" | "green" | "gold" | "orange" | "purple" | "red";
 
 export interface GuidedWorkoutSection {
   id: string;

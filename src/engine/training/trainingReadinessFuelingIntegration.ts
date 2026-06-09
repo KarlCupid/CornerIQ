@@ -187,9 +187,9 @@ function strongestImpact(impacts: readonly TrainingGenerationImpact[]): Training
 function warmupGateFor(status: TrainingExecutionReadinessStatus): string {
   switch (status) {
     case "unknown":
-      return "No readiness check-in yet. Start with movement prep. If dizziness, unusual pain, chest pain, coordination drop, or abnormal fatigue appears, stop or downshift.";
+      return "No readiness check-in yet. Start with the warm-up. If dizziness, unusual pain, chest pain, coordination drop, or abnormal fatigue appears, stop or downshift.";
     case "green":
-      return "Readiness supports the planned session. Still use the normal movement-prep gate before intensity rises.";
+      return "Readiness supports the planned session. Still use the normal warm-up check before intensity rises.";
     case "amber":
       return "Amber readiness: use a longer warm-up, keep quality high, cap effort before strain, and downshift if symptoms appear.";
     case "red_non_hard_stop":

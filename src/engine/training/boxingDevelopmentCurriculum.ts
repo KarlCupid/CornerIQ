@@ -103,7 +103,7 @@ export const boxingDevelopmentCurriculum: readonly BoxingDevelopmentCurriculumTh
     qualityCheckpoints: ["Lead hand returns home after every entry.", "Exit happens before adding another combination.", "Shoulders stay relaxed enough to repeat the round."],
     progressionRules: ["Add feint entry or body-line variation after clean jab and exit rounds."],
     regressionRules: ["Simplify to single and double jab if rhythm changes pull the guard open."],
-    safetyBoundaries: ["Keep the skill quality-capped.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
+    safetyBoundaries: ["Keep the skill clean.", "Generated work stays solo, bag-based, line-based, mirror-based, equipment-based, or bodyweight-based."],
     noGeneratedSparring: true
   }),
   theme({

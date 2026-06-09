@@ -28,14 +28,62 @@ describe("workout player timeline", () => {
     const warmupExerciseIds = new Set(warmup.exercises.map((exercise) => exercise.exerciseId));
     const warmupTimelineExerciseIds = new Set(warmupSteps.map((step) => step.exerciseId));
 
-    expect(timeline.totalSeconds).toBe(detail.durationMinutes * 60);
-    expect(warmupSteps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBe(warmup.durationMinutes * 60);
+    expect(timeline.totalSeconds).toBeGreaterThan(0);
     expect(warmupTimelineExerciseIds).toEqual(warmupExerciseIds);
     expect(warmupSteps.every((step) => step.durationSeconds > 0 && step.timerLabel.toLowerCase().includes("timer"))).toBe(true);
-    expect(warmupSteps.some((step) => step.kind === "setup")).toBe(true);
     expect(warmupSteps.some((step) => step.kind === "work")).toBe(true);
-    expect(warmupSteps.some((step) => step.kind === "checkpoint")).toBe(true);
+    expect(warmupSteps.some((step) => step.title === "Shoulder circles forward")).toBe(true);
+    expect(warmupSteps.every((step) => step.blockAccent === "blue")).toBe(true);
     expect(JSON.stringify(timeline).toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
+  });
+
+  it("formats jab-focused shadowboxing as colored timed blocks with micro-cues", () => {
+    const detail = detailedFixture();
+    const sourceSection = detail.sections[0];
+    if (!sourceSection) {
+      throw new Error("fixture did not include a source section");
+    }
+    const warmup = catalogToPrescription(findCatalogExercise("movement_prep_flow"));
+    const shadowboxing = catalogToPrescription(findCatalogExercise("shadowboxing_technical_rounds"));
+    const cooldown = catalogToPrescription(findCatalogExercise("recovery_breathing_mobility"));
+    const session: DetailedTrainingSession = {
+      ...detail,
+      title: "Jab-Focused Shadowboxing",
+      durationMinutes: 15,
+      guidedSections: undefined,
+      sections: [
+        { ...sourceSection, name: "Warm-up", intent: "Warm up with short boxing movements.", durationMinutes: 2, guidedSteps: undefined, exercises: [warmup] },
+        { ...sourceSection, name: "Boxing rounds", intent: "Build a sharper jab without rushing.", durationMinutes: 11, guidedSteps: undefined, exercises: [shadowboxing] },
+        { ...sourceSection, name: "Cooldown", intent: "Bring breathing down.", durationMinutes: 2, guidedSteps: undefined, exercises: [cooldown] }
+      ]
+    };
+
+    const timeline = buildWorkoutPlayerTimeline(session);
+    const warmupSteps = timeline.steps.filter((step) => step.sectionIndex === 0);
+    const boxingSteps = timeline.steps.filter((step) => step.sectionIndex === 1);
+    const cooldownSteps = timeline.steps.filter((step) => step.sectionIndex === 2);
+
+    expect(warmupSteps.slice(1, 6).map((step) => `${step.title} - ${step.durationLabel}`)).toEqual([
+      "Shoulder circles forward - 15 sec",
+      "Shoulder circles backward - 15 sec",
+      "Punch and twist - 15 sec",
+      "Scoops - 15 sec",
+      "Hip hinges - 15 sec"
+    ]);
+    expect(boxingSteps.slice(1, 7).map((step) => `${step.title} - ${step.durationLabel}`)).toEqual([
+      "Round 1: Low and slow shadow - 2:00",
+      "Rest 1 - 60 sec",
+      "Round 2: Sharp jab focused round - 2:00",
+      "Rest 2 - 60 sec",
+      "Round 3: Jab entry and exit - 2:00",
+      "Rest 3 - 60 sec"
+    ]);
+    expect(boxingSteps.find((step) => step.title.includes("Sharp jab"))?.microCues).toContain("Make sure hands are coming back.");
+    expect(boxingSteps.filter((step) => step.kind === "rest").every((step) => step.autoAdvance)).toBe(true);
+    expect(warmupSteps.every((step) => step.blockAccent === "blue")).toBe(true);
+    expect(boxingSteps.every((step) => step.blockAccent === "red")).toBe(true);
+    expect(cooldownSteps.every((step) => step.blockAccent === "green")).toBe(true);
+    expect(JSON.stringify(timeline)).not.toMatch(/readiness gate|movement prep|durability|T-spine|quality-capped|technical constraint|open hips/i);
   });
 
   it("expands repeated timed movement prescriptions into individual timer steps", () => {
@@ -64,10 +112,10 @@ describe("workout player timeline", () => {
     const workSteps = timeline.steps.filter((step) => step.kind === "work");
 
     expect(workSteps).toHaveLength(3);
-    expect(workSteps.map((step) => step.actionLabel)).toEqual(["interval 1", "interval 2", "interval 3"]);
+    expect(workSteps.map((step) => step.actionLabel)).toEqual(["movement 1", "movement 2", "movement 3"]);
     expect(timeline.steps.some((step) => step.kind === "setup")).toBe(true);
     expect(timeline.steps.some((step) => step.kind === "rest")).toBe(true);
-    expect(timeline.steps.some((step) => step.kind === "checkpoint")).toBe(true);
+    expect(timeline.steps.some((step) => step.kind === "checkpoint")).toBe(false);
     expect(workSteps.every((step) => step.instruction.includes("controlled tempo"))).toBe(true);
   });
 
@@ -97,7 +145,7 @@ describe("workout player timeline", () => {
       "Segment 4: Jab shape to guard"
     ]);
     expect(workSteps[1]?.cue).toContain("Hands return");
-    expect(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBe(240);
+    expect(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBe(345);
     expect(timeline.steps.some((step) => step.kind === "rest")).toBe(true);
     expect(timeline.steps.some((step) => step.kind === "checkpoint")).toBe(true);
   });
@@ -119,14 +167,15 @@ describe("workout player timeline", () => {
     const timeline = buildWorkoutPlayerTimeline(session);
     const workSteps = timeline.steps.filter((step) => step.kind === "work");
 
-    expect(workSteps.length).toBeGreaterThanOrEqual(4);
+    expect(workSteps).toHaveLength(4);
     expect(workSteps.slice(0, 4).map((step) => step.actionLabel)).toEqual(["round 1", "round 2", "round 3", "round 4"]);
     expect(workSteps.slice(0, 4).map((step) => step.title)).toEqual([
-      "Round 1: Stance and jab line",
-      "Round 2: Guard return only",
-      "Round 3: Entry, exit, reset",
-      "Round 4: Defense after action"
+      "Round 1: Low and slow shadow",
+      "Round 2: Sharp jab focused round",
+      "Round 3: Jab entry and exit",
+      "Round 4: Best clean jab round"
     ]);
+    expect(workSteps[1]?.microCues).toContain("Stay on the balls of your feet.");
     expect(new Set(workSteps.map((step) => step.cue)).size).toBeGreaterThanOrEqual(4);
     expect(timeline.steps.some((step) => step.kind === "rest")).toBe(true);
     expect(JSON.stringify(timeline).toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);

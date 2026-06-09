@@ -36,7 +36,7 @@ export function addOnBlock(input: GeneratedSessionAddOnBlockInput): GeneratedSes
 export const ADD_ON_BLOCK_LIBRARY = {
   required_movement_prep_8: addOnBlock({
     id: "required_movement_prep_8",
-    label: "Movement prep",
+    label: "Warm-up",
     durationMinutes: 8,
     intent: "Prepare hips, ankles, trunk, shoulders, and stance shape before meaningful work.",
     cues: ["Easy range", "Stance-width reset", "Guard relaxed", "Breathe through transitions"],
@@ -157,7 +157,7 @@ export const ADD_ON_BLOCK_LIBRARY = {
   }),
   movement_prep_required_10: addOnBlock({
     id: "movement_prep_required_10",
-    label: "Required movement prep",
+    label: "Required warm-up",
     durationMinutes: 10,
     intent: "Prepare stance, hips, ankles, trunk, and shoulders before high-stimulus work.",
     cues: ["Stance-width reset", "Hips and ankles easy", "Ribs stacked", "Guard relaxed"],

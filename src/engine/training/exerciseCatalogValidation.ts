@@ -22,6 +22,7 @@ const vagueTitlePatterns = [
   /\bfocus on quality\b/i,
   /\breset shape\b/i
 ];
+const setupOptionalCategories = new Set<CatalogExercise["category"]>(["mobility", "recovery", "warm_up"]);
 
 function exerciseText(exercise: CatalogExercise): string {
   const profile = guidedProfileForSource(exercise);
@@ -60,6 +61,7 @@ function guidedStepTextParts(step: GuidedWorkoutStep): readonly string[] {
     step.beginnerInstruction,
     step.intent,
     step.cue,
+    ...(step.microCues ?? []),
     step.repsText ?? "",
     step.loadGuidance ?? "",
     step.commonMistake ?? "",
@@ -102,7 +104,7 @@ function validateGuidedProfile(exercise: CatalogExercise, errors: string[]): voi
   if (exercise.noviceEligible && !profile.beginnerEligible) {
     errors.push(`${exercise.exerciseId} is novice eligible but guided profile is not beginner eligible.`);
   }
-  if (profile.setup.length === 0 || profile.work.length === 0) {
+  if ((!setupOptionalCategories.has(exercise.category) && profile.setup.length === 0) || profile.work.length === 0) {
     errors.push(`${exercise.exerciseId} guided profile must include setup and work steps.`);
   }
   if (profile.commonMistakes.length === 0 || profile.commonMistakes.some((mistake) => !mistake.trim())) {

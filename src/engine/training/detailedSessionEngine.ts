@@ -254,10 +254,10 @@ function sectionInstruction(sectionItem: WorkoutSection): string {
   const guidedStepCount = sectionItem.guidedSteps?.length ?? 0;
   const base = `${sectionItem.durationMinutes} min. ${intent}`;
   if (guidedStepCount > 0) {
-    return `${base} Follow ${guidedStepCount} guided steps in order: set up, work, reset, and check quality before moving on.`;
+    return `${base} Follow ${guidedStepCount} timed steps in order.`;
   }
   if (exerciseCount <= 1) {
-    return `${base} Complete the listed work, then move on.`;
+    return `${base} Complete the listed work, then go to the next block.`;
   }
   return `${base} Work top to bottom before repeating anything.`;
 }
@@ -269,10 +269,10 @@ function checkpointForSection(sectionItem: WorkoutSection): string {
   }
   const firstExercise = sectionItem.exercises[0];
   if (!firstExercise) {
-    return "Move on when breathing and posture are under control.";
+    return "Keep breathing and posture under control before the next block.";
   }
   const cue = firstExercise.coachingNotes[0] ?? firstExercise.boxingTransfer;
-  return `Move on when this is still true: ${plainTrainingCopy(cue)}`;
+  return `Keep this true before the next block: ${plainTrainingCopy(cue)}`;
 }
 
 function parseRoundPlan(roundStructure: string | undefined, family: GeneratedSessionFamily, technicalEmphasis: readonly string[]): WorkoutRoundPlan | null {
@@ -334,7 +334,6 @@ function buildWorkoutWalkthrough(input: {
   stopConditions: readonly string[];
 }) {
   const sectionCount = input.sections.length;
-  const exerciseCount = input.sections.reduce((total, sectionItem) => total + sectionItem.exercises.length, 0);
   const firstSection = input.sections[0];
   const firstExercise = firstSection?.exercises[0];
   const roundPlan = parseRoundPlan(input.roundStructure, input.family, input.technicalEmphasis ?? []);
@@ -352,7 +351,7 @@ function buildWorkoutWalkthrough(input: {
 
   return {
     title: "Workout walkthrough",
-    summary: `${plainWorkoutTitle(input.title, input.family)} is ${input.durationMinutes} min: ${countLabel(sectionCount, "block")}, ${countLabel(exerciseCount, "exercise")}. Follow the blocks in order and keep the quality cue clean before adding effort.`,
+    summary: `${plainWorkoutTitle(input.title, input.family)} is ${input.durationMinutes} min across ${countLabel(sectionCount, "block")}. Follow the blocks in order and keep the main cue clean before adding effort.`,
     beforeYouStart: [...new Set(beforeYouStart)].slice(0, 4),
     roundPlan,
     steps: input.sections.map((sectionItem, index) => ({

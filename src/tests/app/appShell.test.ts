@@ -981,6 +981,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
     ...firstBase,
     exerciseId: "player_tempo_squat",
     name: "Tempo squat",
+    category: "main_strength",
     repsText: "8 reps",
     durationText: undefined,
     loadGuidance: "Use bodyweight or a light load you can control.",
@@ -1011,6 +1012,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
     ...secondBase,
     exerciseId: "player_timed_carry",
     name: "Timed carry",
+    category: "secondary_strength",
     repsText: undefined,
     durationText: "30 sec",
     loadGuidance: "Carry a light object close to the body.",
@@ -1029,6 +1031,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
     ...thirdBase,
     exerciseId: "player_dead_bug",
     name: "Dead bug reach",
+    category: "secondary_strength",
     repsText: "6 each side",
     durationText: undefined,
     loadGuidance: "Bodyweight only.",
@@ -1749,9 +1752,10 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("WORKOUT PREVIEW");
     expect(output).toContain("workout-player-preview");
-    expect(output).toContain("DO THIS NOW");
-    expect(output).toContain("Your job");
-    expect(output).toContain("Show Exercise details");
+    expect(output).toContain("WHY");
+    expect(output).toContain("FLOW");
+    expect(output).toContain("DO THIS");
+    expect(output).toContain("Show Workout recipe");
     expect(output).not.toContain("Session flow");
     expect(output).not.toContain("Coach note");
     expect(output).not.toContain("LIVE PLAYER");
@@ -1762,7 +1766,7 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("LIVE PLAYER");
-    expect(output).toContain("SETUP");
+    expect(output).toContain("WORK");
     expect(output).toContain("workout-player-big-timer");
     expect(output).toContain("Show More workout detail");
     await act(async () => {
@@ -2358,17 +2362,22 @@ describe("minimal app screens", () => {
       let output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("WORKOUT PREVIEW");
       expect(output).toContain("Player test workout");
-      expect(output).toContain("DO THIS NOW");
+      expect(output).toContain("WHY");
+      expect(output).toContain("FLOW");
+      expect(output).toContain("DO THIS");
       expect(output).toContain("Start with Strength primer");
-      expect(output).toContain("Show Exercise details");
+      expect(output).toContain("Show Workout recipe");
       expect(output).not.toContain("Session flow");
       expect(output).not.toContain("Coach note");
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Show Exercise details"));
+        await press(pressableWithText(renderer, "Show Workout recipe"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Exercise details");
+      expect(output).toContain("TIMER");
+      expect(output).toContain("DO THIS");
+      expect(output).toContain("COACH CUE");
+      expect(output).toContain("Exercise prescriptions");
       expect(output).toContain("DO");
       expect(output).toContain("HOW");
       expect(output).toContain("REST");
@@ -2383,7 +2392,9 @@ describe("minimal app screens", () => {
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("LIVE PLAYER");
       expect(output).toContain("SETUP");
-      expect(output).toContain("INSTRUCTION");
+      expect(output).toContain("DO THIS");
+      expect(output).toContain("WHY");
+      expect(output).toContain("COACH CUE");
       expect(output).toContain("STOP IF");
       expect(output).toContain("Tempo squat");
       expect(output).toContain("Ready");
@@ -2395,6 +2406,21 @@ describe("minimal app screens", () => {
         vi.advanceTimersByTime(3000);
       });
       expect(JSON.stringify(renderer.toJSON())).toContain("Ready");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Ready"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("WORK");
+      expect(output).toContain("Done set 1");
+      expect(output).toContain("Back");
+
+      await act(async () => {
+        await press(pressableWithExactText(renderer, "Back"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("SETUP");
+      expect(output).toContain("Ready");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Ready"));
@@ -2509,8 +2535,10 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Ready"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Round 1: Stance and jab line");
-      expect(output).toContain("Round 1 of 6: Technical shadowboxing rounds");
+      expect(output).toContain("Round 1: Low and slow shadow");
+      expect(output).toContain("Round 1 of 4: Jab-Focused Shadowboxing");
+      expect(output).toContain("MICRO-CUE");
+      expect(output).toContain("Feel your feet.");
       expect(output).toContain("Done round 1");
       expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
     } finally {
@@ -2641,6 +2669,9 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithText(renderer, "Quick log"));
     });
+    const quickLogOutput = JSON.stringify(renderer.toJSON());
+    expect(quickLogOutput).toContain("What you were supposed to do:");
+    expect(quickLogOutput).toContain("Main job:");
     expect(JSON.stringify(renderer.toJSON()).toLowerCase()).not.toMatch(/\b(contact|sparring)\b/);
     await act(async () => {
       await press(pressableWithText(renderer, "Mark workout done"));

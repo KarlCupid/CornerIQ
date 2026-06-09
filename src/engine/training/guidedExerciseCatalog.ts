@@ -305,6 +305,7 @@ function stepFromDraft(source: GuidedExerciseSource, draft: GuidedStepDraft, ind
     beginnerInstruction: sentence(clean(draft.beginnerInstruction, source.loadGuidance)),
     intent: sentence(clean(draft.intent, source.boxingTransfer)),
     cue: sentence(clean(draft.cue, source.coachingNotes[0] ?? source.boxingTransfer)),
+    ...(draft.microCues && draft.microCues.length > 0 ? { microCues: draft.microCues.map(sentence) } : {}),
     ...(draft.durationSeconds === undefined ? {} : { durationSeconds: draft.durationSeconds }),
     ...(draft.repsText ? { repsText: draft.repsText } : {}),
     ...(draft.loadGuidance ? { loadGuidance: draft.loadGuidance } : {}),
@@ -432,6 +433,7 @@ function roundStep(title: string, beginnerInstruction: string, cue: string, extr
     cue,
     durationSeconds: extra?.durationSeconds,
     restAfterSeconds: extra?.restAfterSeconds,
+    ...(extra?.microCues ? { microCues: extra.microCues } : {}),
     repsText: extra?.repsText,
     loadGuidance: extra?.loadGuidance,
     commonMistake: extra?.commonMistake ?? "Adding extra punches, speed, or pivots after the round goal gets messy.",
@@ -445,16 +447,34 @@ function roundStep(title: string, beginnerInstruction: string, cue: string, extr
 const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = {
   movement_prep_flow: {
     timerBehavior: "continuous",
-    beginnerName: "Boxer movement prep",
-    oneLineGoal: "Warm the hips, trunk, shoulders, and stance without getting tired.",
+    beginnerName: "Warm-up",
+    oneLineGoal: "Warm up with short boxing movements before the main work.",
+    setup: [],
     work: [
-      roundStep("Breathing and scan", "Stand tall. Take two slow breaths. Notice pain, dizziness, or tight areas before moving.", "Start calm.", { durationSeconds: 45, restAfterSeconds: 0, commonMistake: "Skipping the body check before the warm-up.", successCheck: "You know whether anything feels off before loading movement." }),
-      roundStep("Hip and ankle circles", "Move hips and ankles through easy circles. Keep the range pain-free and slow.", "Easy range only.", { durationSeconds: 75, restAfterSeconds: 0, commonMistake: "Forcing the deepest range instead of warming up.", successCheck: "Hips and ankles move easier without pain rising." }),
-      roundStep("Trunk and shoulder reach", "Reach one arm, rotate gently through the upper back, then switch sides.", "Ribs stay stacked over hips.", { durationSeconds: 75, restAfterSeconds: 0, commonMistake: "Twisting from the low back or shrugging the neck.", successCheck: "Shoulders feel loose and the neck stays relaxed." }),
-      roundStep("Light stance bounce", "Step into boxing stance. Bounce lightly. Bring hands back to cheek height after each small step.", "Warm, not tired.", { durationSeconds: 60, restAfterSeconds: 0, commonMistake: "Turning the warm-up into conditioning.", successCheck: "You feel warmer and still fresh." })
+      roundStep("Body check", "Stand tall. Take two slow breaths. Notice pain, dizziness, or anything that feels off before you move.", "Start calm.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Skipping the body check before the warm-up.", successCheck: "You know whether anything feels off before the first movement." }),
+      roundStep("Shoulder circles forward", "Make slow circles with both shoulders. Start small, then gradually make the circles bigger.", "Relax your neck.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Shrugging the shoulders up toward the ears.", successCheck: "Shoulders move smoothly and the neck stays relaxed." }),
+      roundStep("Shoulder circles backward", "Reverse the shoulder circles. Keep the motion slow and smooth.", "Keep your jaw loose.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Rushing the circles or holding the breath.", successCheck: "The circles stay easy and pain-free." }),
+      roundStep("Punch and twist", "Stand tall. Punch one arm across your body while gently rotating your upper back. Switch sides each punch.", "Rotate smooth. Do not force it.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Forcing the twist or letting the neck tense.", successCheck: "The twist stays smooth and easy." }),
+      roundStep("Scoops", "Reach both hands down and forward like you are scooping air, then stand tall and reset.", "Move easy. Breathe out.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Diving too low or rounding hard through the back.", successCheck: "You can stand tall after each scoop." }),
+      roundStep("Hip hinges", "Feet under hips. Push your hips back, keep your back long, then stand tall.", "Hips back. Chest proud.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Squatting down instead of pushing the hips back.", successCheck: "You feel hamstrings lightly without back pain." }),
+      roundStep("Stance bounce", "Step into stance. Bounce lightly and keep both hands near your cheeks.", "Light feet. Hands home.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Turning the bounce into conditioning.", successCheck: "You feel warmer and still fresh." }),
+      roundStep("Step and guard reset", "Take one small step, bring your feet back under you, and return both hands near your cheeks.", "Step, reset, hands home.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Taking a step so big your stance cannot recover.", successCheck: "Feet and hands reset after every step." })
     ],
     commonMistakes: ["Forcing range.", "Turning the warm-up into a workout."],
     safetyStops: ["Stop if joint pain, dizziness, or unusual symptoms increase."]
+  },
+  recovery_breathing_mobility: {
+    timerBehavior: "continuous",
+    beginnerName: "Cooldown",
+    oneLineGoal: "Bring breathing down and leave the session clean.",
+    setup: [],
+    work: [
+      roundStep("Breathing reset", "Stand or sit tall. Take slow breaths and let your shoulders drop.", "Long exhale.", { durationSeconds: 30, restAfterSeconds: 0, commonMistake: "Adding extra work instead of cooling down.", successCheck: "Breathing starts to settle." }),
+      roundStep("Shakeout", "Shake out your hands, arms, shoulders, and legs. Keep it loose.", "Let tension go.", { durationSeconds: 30, restAfterSeconds: 0, commonMistake: "Tensing the shoulders during the shakeout.", successCheck: "Neck and shoulders feel easier." }),
+      roundStep("Easy range", "Move through any easy range that feels good: shoulders, hips, ankles, or stance. Stay pain-free.", "Easy range only.", { durationSeconds: 30, restAfterSeconds: 0, commonMistake: "Forcing a stretch after the work is done.", successCheck: "You finish calmer than you started." })
+    ],
+    commonMistakes: ["Adding extra work.", "Forcing a stretch."],
+    safetyStops: ["Stop if symptoms rise during the cooldown."]
   },
   goblet_squat_to_box: {
     timerBehavior: "self_paced_sets",
@@ -656,15 +676,13 @@ const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = 
   },
   shadowboxing_technical_rounds: {
     timerBehavior: "rounds",
-    beginnerName: "Technical shadowboxing rounds",
-    oneLineGoal: "Run solo boxing rounds with one simple constraint at a time.",
+    beginnerName: "Jab-Focused Shadowboxing",
+    oneLineGoal: "Build a sharper jab without rushing.",
     work: [
-      roundStep("Stance and jab line", "Use the jab to find an imagined center line, then reset before the next entry.", "Jab, guard, stance, breathe.", { durationSeconds: 120, restAfterSeconds: 60 }),
-      roundStep("Guard return only", "Use any light action you know, but count the round by guard returns.", "Every action finishes with hands home.", { durationSeconds: 120, restAfterSeconds: 60 }),
-      roundStep("Entry, exit, reset", "Enter once, exit once, and recover stance before adding anything.", "Do less, reset more.", { durationSeconds: 120, restAfterSeconds: 60 }),
-      roundStep("Defense after action", "After one offense shape, add one small slip, roll, pivot, or step-out.", "Defense is compact and stance-led.", { durationSeconds: 120, restAfterSeconds: 60 }),
-      roundStep("Rhythm change", "Change speed once, then return to relaxed breathing and clean shape.", "One rhythm change is enough.", { durationSeconds: 120, restAfterSeconds: 60 }),
-      roundStep("Best reset round", "Use only the pattern that kept your feet, hands, and breathing organized.", "End with the best reset, not the hardest one.", { durationSeconds: 120, restAfterSeconds: 0 })
+      roundStep("Low and slow shadow", "Shadowbox at low intensity. Move slowly enough to feel your feet, hips, shoulders, and guard.", "Get into your body first. No rush.", { durationSeconds: 120, restAfterSeconds: 60, microCues: ["Feel your feet.", "Hands come back.", "Stay loose."] }),
+      roundStep("Sharp jab focused round", "Build the round around the jab. Touch the jab, bring it back to your cheek, and reset your feet before throwing again.", "The jab is not finished until your hand is home.", { durationSeconds: 120, restAfterSeconds: 60, microCues: ["Make sure hands are coming back.", "Stay on the balls of your feet.", "Do not let your hips come up."] }),
+      roundStep("Jab entry and exit", "Step in behind the jab, then step out after it. Do not add extra punches if your feet get messy.", "In clean. Out clean.", { durationSeconds: 120, restAfterSeconds: 60, microCues: ["Step in balanced.", "Exit before adding more.", "Guard home first."] }),
+      roundStep("Best clean jab round", "Use the jab version that felt cleanest. Keep the hand coming home and the feet under you.", "Best round, not hardest round.", { durationSeconds: 120, restAfterSeconds: 0, microCues: ["Clean beats hard.", "Hands home.", "Finish sharp."] })
     ]
   },
   defense_after_combo_round: {
@@ -813,15 +831,16 @@ function cloneStepForWorkout(step: GuidedWorkoutStep, input: { sectionIndex: num
   };
 }
 
-function restStepAfter(workStep: GuidedWorkoutStep, input: { restSecondsValue: number; exerciseId: string; sectionIndex: number; exerciseIndex: number; localIndex: number }): GuidedWorkoutStep {
+function restStepAfter(workStep: GuidedWorkoutStep, input: { restSecondsValue: number; exerciseId: string; sectionIndex: number; exerciseIndex: number; localIndex: number; restIndex: number }): GuidedWorkoutStep {
   return {
     id: `guided:${input.sectionIndex}:${input.exerciseIndex}:${input.exerciseId}:${input.localIndex}:rest-after-${slug(workStep.id)}`,
     kind: "rest",
-    title: "Rest and reset",
+    title: `Rest ${input.restIndex + 1}`,
     beginnerInstruction: "Stop the work, breathe through the nose or relaxed mouth, shake out tension, and set up the next step.",
     intent: "Let breathing, posture, and coordination recover before the next work step.",
     cue: "Relax jaw and shoulders, then reset stance or position.",
     durationSeconds: input.restSecondsValue,
+    restAfterSeconds: input.restSecondsValue,
     successCheck: "You can start the next step with clean posture and calm breathing.",
     safetyStop: workStep.safetyStop,
     regression: workStep.regression
@@ -860,12 +879,15 @@ export function buildGuidedStepsForExercise(exercise: ExercisePrescription, inpu
     localIndex += 1;
     const shouldRest = work.restAfterSeconds && work.restAfterSeconds > 0 && workIndex < profile.work.length - 1;
     if (shouldRest) {
-      steps.push(restStepAfter(work, { ...input, exerciseId: exercise.exerciseId, localIndex, restSecondsValue: work.restAfterSeconds ?? DEFAULT_REST_SECONDS }));
+      steps.push(restStepAfter(work, { ...input, exerciseId: exercise.exerciseId, localIndex, restIndex: workIndex, restSecondsValue: work.restAfterSeconds ?? DEFAULT_REST_SECONDS }));
       localIndex += 1;
     }
   });
-  steps.push(checkpointStepForExercise(exercise, profile, { ...input, localIndex }));
-  localIndex += 1;
+  const shouldAddCheckpoint = exercise.category !== "warm_up" && exercise.category !== "recovery" && exercise.category !== "mobility";
+  if (shouldAddCheckpoint) {
+    steps.push(checkpointStepForExercise(exercise, profile, { ...input, localIndex }));
+    localIndex += 1;
+  }
   for (const cooldown of profile.cooldown ?? []) {
     steps.push(cloneStepForWorkout(cooldown, { ...input, exerciseId: exercise.exerciseId, localIndex }));
     localIndex += 1;

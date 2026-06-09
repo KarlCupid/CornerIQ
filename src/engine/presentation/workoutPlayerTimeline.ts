@@ -1,4 +1,4 @@
-import type { DetailedTrainingSession, ExercisePrescription, GuidedWorkoutStep, WorkoutSection } from "../core/types";
+import type { DetailedTrainingSession, ExercisePrescription, GuidedWorkoutStep, WorkoutBlockAccent, WorkoutSection } from "../core/types";
 import { buildGuidedStepsForExercise, buildGuidedWorkoutSections, guidedProfileForExercise, parseGuidedTimerSeconds } from "../training/guidedExerciseCatalog";
 import { plainSectionIntent, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
@@ -6,6 +6,7 @@ export interface WorkoutPlayerTimelineStep {
   actionLabel: string;
   autoAdvance: boolean;
   audioCueKey?: string | undefined;
+  blockAccent: WorkoutBlockAccent;
   commonMistake?: string | undefined;
   cue: string;
   demoAssetKey?: string | undefined;
@@ -20,6 +21,7 @@ export interface WorkoutPlayerTimelineStep {
   intent: string;
   kind: GuidedWorkoutStep["kind"];
   loadGuidance?: string | undefined;
+  microCues?: readonly string[] | undefined;
   regression?: string | undefined;
   repsText?: string | undefined;
   rest: string;
@@ -63,12 +65,12 @@ export function parseWorkoutTimerSeconds(text: string | undefined): number | nul
 }
 
 function formatDurationLabel(totalSeconds: number): string {
-  if (totalSeconds < 60) {
+  if (totalSeconds <= 60) {
     return `${totalSeconds} sec`;
   }
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function sentenceCase(value: string): string {
@@ -167,6 +169,10 @@ function defaultSeedSeconds(step: GuidedWorkoutStep, exercise: ExercisePrescript
   }
 }
 
+function hasExplicitTimer(step: GuidedWorkoutStep): boolean {
+  return Boolean(step.durationSeconds && step.durationSeconds > 0);
+}
+
 function completionCountByExercise(entries: readonly { exercise: ExercisePrescription; step: GuidedWorkoutStep }[]): Readonly<Record<string, number>> {
   const counts: Record<string, number> = {};
   for (const entry of entries) {
@@ -177,7 +183,13 @@ function completionCountByExercise(entries: readonly { exercise: ExercisePrescri
   return counts;
 }
 
-function actionNoun(exercise: ExercisePrescription): "round" | "segment" | "set" | "interval" | "block" {
+function actionNoun(exercise: ExercisePrescription): "cooldown" | "movement" | "round" | "segment" | "set" | "interval" | "block" {
+  if (exercise.category === "warm_up") {
+    return "movement";
+  }
+  if (exercise.category === "recovery") {
+    return "cooldown";
+  }
   switch (guidedProfileForExercise(exercise).timerBehavior) {
     case "rounds":
       return "round";
@@ -214,6 +226,9 @@ function actionLabel(entry: Pick<GuidedStepEntry, "exercise" | "setIndex" | "ste
 function playerStepTitle(step: GuidedWorkoutStep, label: string): string {
   const title = plainWorkoutTitle(step.title);
   if (step.kind !== "work") {
+    return title;
+  }
+  if (label.startsWith("movement") || label.startsWith("cooldown")) {
     return title;
   }
   const lower = title.toLowerCase();
@@ -261,6 +276,30 @@ function autoAdvance(entry: GuidedStepEntry): boolean {
   return false;
 }
 
+function blockAccentForSection(section: WorkoutSection): WorkoutBlockAccent {
+  const categories = new Set(section.exercises.map((exercise) => exercise.category));
+  const searchable = `${section.name} ${section.intent} ${section.exercises.map((exercise) => `${exercise.name} ${exercise.exerciseId}`).join(" ")}`.toLowerCase();
+  if (/\b(warm|prep|body check)\b/.test(searchable) || categories.has("warm_up")) {
+    return "blue";
+  }
+  if (/\b(cooldown|cool down|recovery|reset|breathing)\b/.test(searchable) || categories.has("recovery")) {
+    return "green";
+  }
+  if (/\b(mobility|range)\b/.test(searchable) || categories.has("mobility")) {
+    return "purple";
+  }
+  if (/\b(boxing|round|jab|shadow|skill|technical|guard|stance)\b/.test(searchable) || categories.has("boxing_skill") || categories.has("technical") || categories.has("agility")) {
+    return "red";
+  }
+  if (/\b(conditioning|roadwork|sprint|interval)\b/.test(searchable) || categories.has("conditioning") || categories.has("roadwork")) {
+    return "red";
+  }
+  if (/\b(strength|support|power)\b/.test(searchable) || categories.has("main_strength") || categories.has("secondary_strength") || categories.has("power") || categories.has("durability")) {
+    return "orange";
+  }
+  return "blue";
+}
+
 function buildEntriesForSection(session: DetailedTrainingSession, section: WorkoutSection, sectionIndex: number): readonly GuidedStepEntry[] {
   const sectionDurationSeconds = Math.max(1, section.durationMinutes * 60);
   const guidedSteps = guidedStepsForSection(session, section, sectionIndex);
@@ -303,7 +342,11 @@ export function buildWorkoutPlayerTimeline(session: DetailedTrainingSession): Wo
       ...entry,
       sectionDurationSeconds
     }));
-    const durations = allocateDurations(sectionDurationSeconds, entries.map((entry) => entry.seedSeconds));
+    const durations = entries.length > 0 && entries.every((entry) => hasExplicitTimer(entry.step))
+      ? entries.map((entry) => entry.seedSeconds)
+      : allocateDurations(sectionDurationSeconds, entries.map((entry) => entry.seedSeconds));
+    const effectiveSectionDurationSeconds = durations.reduce((sum, value) => sum + value, 0);
+    const blockAccent = blockAccentForSection(section);
 
     return entries.map((entry, entryIndex): WorkoutPlayerTimelineStep => {
       const durationSeconds = durations[entryIndex] ?? MIN_TIMED_STEP_SECONDS;
@@ -313,6 +356,7 @@ export function buildWorkoutPlayerTimeline(session: DetailedTrainingSession): Wo
         actionLabel: currentActionLabel,
         autoAdvance: autoAdvance(entry),
         ...(entry.step.audioCueKey ? { audioCueKey: entry.step.audioCueKey } : {}),
+        blockAccent,
         ...(entry.step.commonMistake ? { commonMistake: plainTrainingCopy(entry.step.commonMistake) } : {}),
         cue: plainTrainingCopy(entry.step.cue),
         ...(entry.step.demoAssetKey ? { demoAssetKey: entry.step.demoAssetKey } : {}),
@@ -327,12 +371,13 @@ export function buildWorkoutPlayerTimeline(session: DetailedTrainingSession): Wo
         intent: plainTrainingCopy(entry.step.intent),
         kind: entry.step.kind,
         ...(entry.step.loadGuidance ? { loadGuidance: plainTrainingCopy(entry.step.loadGuidance) } : {}),
+        ...(entry.step.microCues && entry.step.microCues.length > 0 ? { microCues: entry.step.microCues.map(plainTrainingCopy) } : {}),
         ...(entry.step.regression ? { regression: plainTrainingCopy(entry.step.regression) } : {}),
         ...(entry.step.repsText ? { repsText: plainTrainingCopy(entry.step.repsText) } : {}),
         rest: restText(entry.step, entry.exercise),
         ...(entry.step.restAfterSeconds === undefined ? {} : { restAfterSeconds: entry.step.restAfterSeconds }),
         ...(entry.step.safetyStop ? { safetyStop: plainTrainingCopy(entry.step.safetyStop) } : {}),
-        sectionDurationSeconds: entry.sectionDurationSeconds,
+        sectionDurationSeconds: effectiveSectionDurationSeconds,
         sectionIndex,
         sectionIntent: plainSectionIntent(section.intent),
         sectionName: plainSectionName(section.name),

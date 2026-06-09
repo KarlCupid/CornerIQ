@@ -221,12 +221,12 @@ function boxingTemplate(input: BoxingTemplateInput): WorkoutTemplate {
     sessionPriority: input.sessionPriority,
     ...(input.addOnBlocks ? { addOnBlocks: input.addOnBlocks } : {}),
     sections: [
-      section("warmup", "Readiness gate and movement prep", "Check symptoms, set stance, and prepare guard, hips, ankles, trunk, and shoulders.", ["movement_prep_flow", "stance_guard_reset"]),
-      section("main", "Skill acquisition block", input.intent, input.mainExerciseIds),
+      section("warmup", "Warm-up", "Check how you feel, then warm up with short boxing movements.", ["movement_prep_flow"]),
+      section("main", "Boxing rounds", input.intent, input.mainExerciseIds),
       ...(input.supportExerciseIds && input.supportExerciseIds.length > 0
-        ? [section("support", "Secondary support block", "Add the smallest useful support layer while technical quality stays clear.", input.supportExerciseIds)]
+        ? [section("support", "Support", "Add the smallest useful support layer while form stays clean.", input.supportExerciseIds)]
         : []),
-      section("cooldown", "Cooldown and self-check", "Downshift breathing and capture one athlete cue or optional film note from the session.", ["recovery_breathing_mobility"])
+      section("cooldown", "Cooldown", "Bring breathing down and keep one simple note from the session.", ["recovery_breathing_mobility"])
     ],
     protects: input.protects,
     noviceEligible: input.noviceEligible,
@@ -246,20 +246,18 @@ const boxingDevelopmentTemplates: readonly WorkoutTemplate[] = [
   boxingTemplate({
     templateId: "boxing_shadowboxing_jab_entry_rounds",
     family: "boxing_technical_shadowboxing",
-    title: "Shadowboxing technical rounds",
-    intent: "Build stance, guard, jab entry, exit, and defensive reset through quality-capped solo rounds.",
-    defaultDurationMinutes: 55,
+    title: "Jab-Focused Shadowboxing",
+    intent: "Build a sharper jab without rushing. Stay smooth first, then add snap only when feet and guard stay clean.",
+    defaultDurationMinutes: 15,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
-    boxingSkillTheme: "Build jab entries from stance and guard",
-    tacticalTheme: "Win center-line position, then exit on an angle",
-    technicalEmphasis: ["stance and guard return", "double-jab entry", "pivot exit", "defensive reset"],
-    roundStructure: "5 x 3:00 technical shadowboxing rounds, 1:00 rest",
+    boxingSkillTheme: "Jab-focused shadowboxing",
+    tacticalTheme: "Jab comes home, feet reset, and speed waits for clean shape",
+    technicalEmphasis: ["low and slow shadow", "sharp jab round", "jab entry and exit", "best clean jab round"],
+    roundStructure: "4 x 2:00 jab-focused shadowboxing rounds, 1:00 rest",
     equipmentMode: "none",
     sessionPriority: "primary",
-    mainExerciseIds: ["jab_line_mechanics", "double_jab_exit", "shadowboxing_technical_rounds"],
-    supportExerciseIds: ["slip_line_entry", "roll_pivot_reset", "serratus_wall_slide"],
-    addOnBlocks: [addOnBlockFromLibrary("recommended_shoulder_guard_durability_10")],
+    mainExerciseIds: ["shadowboxing_technical_rounds"],
     protects: ["jab mechanics", "guard return", "technical freshness"],
     noviceEligible: true,
     equipmentTags: ["no_equipment", "minimal"],
@@ -781,7 +779,7 @@ const phaseDoseWorkoutTemplates: readonly WorkoutTemplate[] = [
     defaultIntensity: "moderate",
     defaultFuelDemand: "high",
     sections: [
-      section("warmup", "Warm-up", "Open hips, trunk, and shoulders before transfer work.", ["movement_prep_flow"]),
+      section("warmup", "Warm-up", "Move hips, trunk, and shoulders before transfer work.", ["movement_prep_flow"]),
       section("main", "Whole-body strength", "Use a hinge or squat pattern with clean reps only.", ["hip_hinge_rdl", "goblet_squat_to_box"]),
       section("support", "Rotational trunk", "Hold transfer positions without breath-holding.", ["pallof_press", "dead_bug_anti_extension"]),
       section("accessory", "Upper back and stance", "Balance force work with row and stance capacity.", ["band_row", "split_squat_iso"]),
@@ -959,7 +957,7 @@ const phaseDoseWorkoutTemplates: readonly WorkoutTemplate[] = [
     templateId: "round_conditioning_skill_constraints",
     family: "round_based_conditioning",
     title: "Conditioning with skill constraints",
-    intent: "Use boxing-length rounds with one technical constraint per round and a strict quality ceiling.",
+    intent: "Use boxing-length rounds with one clear skill focus per round and a strict quality ceiling.",
     defaultDurationMinutes: 55,
     defaultIntensity: "hard",
     defaultFuelDemand: "high",
@@ -982,7 +980,7 @@ const phaseDoseWorkoutTemplates: readonly WorkoutTemplate[] = [
     templateId: "boxing_shadowboxing_advanced_tactical_rounds",
     family: "boxing_technical_shadowboxing",
     title: "Advanced tactical shadow rounds",
-    intent: "Layer lead-hand entries, rhythm breaks, defense, and exits across quality-capped tactical rounds.",
+    intent: "Layer lead-hand entries, rhythm breaks, defense, and exits across clean tactical rounds.",
     defaultDurationMinutes: 60,
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
@@ -1434,7 +1432,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
-      section("warmup", "Warm-up", "Open hips, ankles, and trunk before lower-body loading.", ["movement_prep_flow"]),
+      section("warmup", "Warm-up", "Move hips, ankles, and trunk before lower-body loading.", ["movement_prep_flow"]),
       section("main", "Main strength", "Hinge strength with clean reps and no grind.", ["hip_hinge_rdl"]),
       section("accessory", "Stance accessory", "Single-leg control and ankle capacity for stance resets.", ["rear_foot_elevated_split_squat", "calf_ankle_capacity"]),
       section("cooldown", "Cooldown", "Restore hips and breathing after loading.", ["mobility_reset_flow"])
@@ -1523,7 +1521,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     defaultIntensity: "moderate",
     defaultFuelDemand: "moderate",
     sections: [
-      section("warmup", "Warm-up", "Open hips, trunk, and shoulders before loading.", ["movement_prep_flow"]),
+      section("warmup", "Warm-up", "Move hips, trunk, and shoulders before loading.", ["movement_prep_flow"]),
       section("main", "Main strength", "Low-rep whole-body force work with clean reps only.", ["trap_bar_deadlift"]),
       section("accessory", "Secondary strength", "Build stance durability without a fatigue finisher.", ["split_squat_iso", "one_arm_row"]),
       section("support", "Trunk support", "Keep punch-transfer positions resilient.", ["pallof_press"]),
@@ -1546,7 +1544,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
-      section("warmup", "Warm-up", "Open hips, trunk, and shoulders before loading.", ["movement_prep_flow"]),
+      section("warmup", "Warm-up", "Move hips, trunk, and shoulders before loading.", ["movement_prep_flow"]),
       section("main", "Main strength", "Use a simple squat pattern with clean reps.", ["goblet_squat_to_box"]),
       section("accessory", "Secondary strength", "Add stance and upper-back control without novelty.", ["split_squat_iso", "band_row"]),
       section("support", "Shoulder and trunk support", "Keep the guard and trunk positions resilient.", ["push_up_plus", "dead_bug_anti_extension"]),
@@ -1999,7 +1997,7 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
     defaultIntensity: "easy",
     defaultFuelDemand: "low",
     sections: [
-      section("warmup", "Warm-up", "Open hips and ribs without fatigue.", ["movement_prep_flow"]),
+      section("warmup", "Warm-up", "Move hips and ribs without fatigue.", ["movement_prep_flow"]),
       section("main", "Anti-rotation", "Use easy anti-rotation and anti-extension control.", ["pallof_press", "dead_bug_anti_extension"]),
       section("cooldown", "Reset", "Leave the trunk calmer, not exhausted.", ["recovery_breathing_mobility"])
     ],

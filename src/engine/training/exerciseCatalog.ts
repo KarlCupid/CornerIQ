@@ -34,7 +34,7 @@ const bodyweightSubstitution: ExerciseSubstitution = {
 export const exerciseCatalog: readonly CatalogExercise[] = [
   {
     exerciseId: "movement_prep_flow",
-    name: "Boxer movement-prep flow",
+    name: "Boxer warm-up flow",
     category: "warm_up",
     families: [
       "strength_lower",
@@ -63,8 +63,8 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
     durationText: "5-7 min",
     loadGuidance: "Easy range of motion; breathe through each transition.",
     restText: "Move continuously at easy effort.",
-    coachingNotes: ["Open hips and T-spine", "Keep shoulders relaxed", "Finish feeling warmer, not tired"],
-    boxingTransfer: "Prepares stance positions, shoulder rhythm, and trunk rotation before boxing-specific work.",
+    coachingNotes: ["Move hips slowly", "Keep shoulders relaxed", "Finish feeling warmer, not tired"],
+    boxingTransfer: "Warms stance positions, shoulder rhythm, and upper-back rotation before boxing-specific work.",
     substitutions: [
       {
         exerciseId: "walk_lunge_arm_sweep",
@@ -388,7 +388,7 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
     durationText: "8-15 min",
     loadGuidance: "Easy nasal or relaxed breathing; pain-free range only.",
     restText: "As needed.",
-    coachingNotes: ["Long exhale", "Easy hips and T-spine", "Leave fresher than you started"],
+    coachingNotes: ["Long exhale", "Easy hips and upper back", "Leave fresher than you started"],
     boxingTransfer: "Restores positions and downshifts stress so the next boxing session has better quality.",
     substitutions: [
       {
@@ -900,7 +900,7 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
     loadGuidance: "Pain-free range with easy breathing.",
     rpeTarget: 3,
     restText: "As needed.",
-    coachingNotes: ["Hips, ankles, T-spine", "No forced end range", "Leave looser"],
+    coachingNotes: ["Hips, ankles, upper back", "No forced end range", "Leave looser"],
     boxingTransfer: "Restores stance positions and rotation without adding fatigue.",
     substitutions: [bodyweightSubstitution],
     safetyNotes: ["Mobility is not a hidden workout."],
@@ -1596,7 +1596,7 @@ export const exerciseCatalog: readonly CatalogExercise[] = [
     coachingNotes: ["One quality cue only", "Guard returns before the next action", "Downshift round length if quality breaks twice"],
     boxingTransfer: "Sets the quality gate that keeps solo boxing work skill-led instead of volume-led.",
     substitutions: [bodyweightSubstitution],
-    safetyNotes: ["This is a readiness gate, not extra volume."],
+    safetyNotes: ["This is a body check, not extra volume."],
     stopConditions: ["Stop or simplify if pain, dizziness, balance loss, or repeated technical breakdown appears."]
   },
   {

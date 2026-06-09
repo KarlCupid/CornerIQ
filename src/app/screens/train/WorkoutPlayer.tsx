@@ -15,7 +15,7 @@ import {
   plainWorkoutTitle
 } from "../../../engine/presentation/trainingCopy";
 import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
-import { LuminousProgressBar } from "../../../design/components/LuminousScreen";
+import { accentColor, accentWash, LuminousProgressBar, type LuminousAccent } from "../../../design/components/LuminousScreen";
 import { glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
@@ -45,6 +45,15 @@ function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function formatWorkoutLength(totalSeconds: number): string {
+  if (totalSeconds < 60) {
+    return `${totalSeconds} sec`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function sentenceCase(value: string): string {
@@ -257,14 +266,15 @@ function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | 
   );
 }
 
-function TimerOrb({ label, seconds }: { label: string; seconds: number }) {
+function TimerOrb({ accent, label, seconds }: { accent: LuminousAccent; label: string; seconds: number }) {
+  const color = accentColor[accent];
   return (
     <View
       style={{
         alignItems: "center",
         alignSelf: "center",
         backgroundColor: colors.cornerBlack,
-        borderColor: colors.blueIQ,
+        borderColor: color,
         borderRadius: 128,
         borderWidth: 14,
         height: 256,
@@ -274,7 +284,7 @@ function TimerOrb({ label, seconds }: { label: string; seconds: number }) {
       testID="workout-player-big-timer"
     >
       <Text style={{ color: colors.canvas, fontSize: 50, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 58 }}>{formatTimer(seconds)}</Text>
-      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", letterSpacing: 1.6, lineHeight: 16 }}>{label}</Text>
+      <Text style={{ color, fontSize: 12, fontWeight: "900", letterSpacing: 1.6, lineHeight: 16 }}>{label}</Text>
     </View>
   );
 }
@@ -562,19 +572,26 @@ export function WorkoutPlayer({
     firstPreviewSection && firstPreviewExercise
       ? `Start with ${plainSectionName(firstPreviewSection.name)}: ${plainWorkoutTitle(firstPreviewExercise.name)}.`
       : session.walkthrough.beforeYouStart[0] ?? "Start when you are ready.";
+  const guidedDurationLabel = formatWorkoutLength(timeline.totalSeconds || session.durationMinutes * 60);
+  const previewFlowLines = session.walkthrough.steps.map((step, index) => {
+    const itemTitles = step.items.slice(0, 4).map((item) => plainWorkoutTitle(item.title)).join(", ");
+    return `${index + 1}. ${step.title}${itemTitles ? ` - ${itemTitles}` : ""}`;
+  });
+  const previewWhy = plainTrainingCopy(session.whyThisMattersForBoxing);
 
   if (status === "not_started") {
     return (
       <WorkoutScreenFrame mode="WORKOUT PREVIEW" onClose={onClose}>
         <GlassPanel testID="workout-player-preview">
           <View style={{ alignItems: "center", gap: spacing.md }}>
-            <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>DO THIS NOW</Text>
+            <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>WORKOUT PREVIEW</Text>
             <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{plainWorkoutTitle(session.title, session.family)}</Text>
             <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{plainTrainingCopy(previewStartLine)}</Text>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
-            <PreviewPill label={`${session.durationMinutes} min`} />
+            <PreviewPill label={guidedDurationLabel} />
+            <PreviewPill label={`${session.sections.length} block${session.sections.length === 1 ? "" : "s"}`} tone="quiet" />
             <PreviewPill label={plainIntensityLabel(session.intensity)} tone="green" />
             <PreviewPill label={fuelLabel} tone={session.fuelDemand === "high" ? "orange" : "green"} />
           </View>
@@ -589,7 +606,35 @@ export function WorkoutPlayer({
               padding: spacing.md
             }}
           >
-            <Text style={{ color: colors.readyGreen, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Your job</Text>
+            <Text style={{ color: colors.readyGreen, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>WHY</Text>
+            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{previewWhy}</Text>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.055)",
+              borderColor: colors.line,
+              borderRadius: 18,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+          >
+            <Text style={{ color: colors.blueIQ, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>FLOW</Text>
+            {previewFlowLines.map((line) => <Text key={`preview-flow:${line}`} style={{ color: colors.wrap, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{line}</Text>)}
+          </View>
+
+          <View
+            style={{
+              backgroundColor: "rgba(56, 226, 138, 0.1)",
+              borderColor: "rgba(56, 226, 138, 0.3)",
+              borderRadius: 18,
+              borderWidth: 1,
+              gap: spacing.sm,
+              padding: spacing.md
+            }}
+          >
+            <Text style={{ color: colors.readyGreen, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>DO THIS</Text>
             <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{plainTrainingCopy(coachNote)}</Text>
           </View>
 
@@ -605,7 +650,7 @@ export function WorkoutPlayer({
           <PlayerButton label="Back to Train" onPress={onClose} />
         </GlassPanel>
 
-        <CollapsedDetailDisclosure title="Exercise details" summary="Dose, cues, rest, swaps, and stop rules." testID="workout-player-preview-detail">
+        <CollapsedDetailDisclosure title="Workout recipe" summary="Blocks, timed steps, cues, swaps, and stop rules." testID="workout-player-preview-detail">
           <WorkoutExerciseDetails session={session} title={null} />
         </CollapsedDetailDisclosure>
       </WorkoutScreenFrame>
@@ -810,8 +855,16 @@ export function WorkoutPlayer({
   const liveProgress = timeline.totalSeconds > 0 ? Math.min(1, Math.max(0, (timeline.totalSeconds - remainingSessionSeconds) / timeline.totalSeconds)) : progress;
   const liveCues = [currentTimelineStep.cue, ...displayNotes, ...(session.selfCheckCues ?? []).map(plainTrainingCopy)];
   const primaryCue = currentTimelineStep.cue || liveCues[0] || "Keep shoulders loose and breathe calmly.";
+  const blockAccent = currentTimelineStep.blockAccent as LuminousAccent;
+  const blockColor = accentColor[blockAccent];
+  const blockWash = accentWash[blockAccent];
+  const activeMicroCue =
+    currentTimelineStep.microCues && currentTimelineStep.microCues.length > 0
+      ? currentTimelineStep.microCues[Math.floor((currentTimelineStep.durationSeconds - stepRemainingSeconds) / 30) % currentTimelineStep.microCues.length]
+      : undefined;
   const stepKind = stepKindTitle(currentTimelineStep.kind);
-  const stepTone = currentTimelineStep.kind === "rest" || currentTimelineStep.kind === "cooldown" ? colors.readyGreen : currentTimelineStep.kind === "setup" || currentTimelineStep.kind === "transition" ? colors.amberCaution : colors.blueIQ;
+  const stepTone = blockColor;
+  const nextStepLabel = nextStep ? `${nextStep.title} - ${nextStep.durationLabel}` : "Finish summary";
 
   return (
     <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
@@ -820,30 +873,57 @@ export function WorkoutPlayer({
           <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {currentTimelineStep.sectionIndex + 1} of {session.sections.length}</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }} testID="workout-player-time-left">{formatTimer(remainingSessionSeconds)} left</Text>
         </View>
-        <LuminousProgressBar accent="blue" progress={liveProgress} />
+        <LuminousProgressBar accent={blockAccent} progress={liveProgress} />
       </View>
 
       <GlassPanel testID="workout-player-current-block">
         <View testID="workout-player-current-step" />
         <View style={{ alignItems: "center", gap: spacing.xs }}>
+          <View
+            style={{
+              backgroundColor: blockWash,
+              borderColor: `${blockColor}73`,
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs
+            }}
+          >
+            <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Block {currentTimelineStep.sectionIndex + 1} - {currentTimelineStep.sectionName}</Text>
+          </View>
           <Text style={{ color: stepTone, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>{stepKind.toUpperCase()}</Text>
           <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 39, textAlign: "center" }}>{displayName}</Text>
           {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
           <Text style={{ color: colors.wrap, fontSize: 18, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>{currentTimelineStep.dose}</Text>
         </View>
 
+        <TimerOrb accent={blockAccent} label={bigTimerLabel} seconds={bigTimerSeconds} />
+
         <View
           style={{
-            backgroundColor: "rgba(39, 206, 241, 0.1)",
-            borderColor: "rgba(39, 206, 241, 0.34)",
+            backgroundColor: blockWash,
+            borderColor: `${blockColor}66`,
             borderRadius: 18,
             borderWidth: 1,
             gap: spacing.xs,
             padding: spacing.md
           }}
         >
-          <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>INSTRUCTION</Text>
+          <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>DO THIS</Text>
           <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "800", lineHeight: 22 }}>{currentTimelineStep.instruction}</Text>
+        </View>
+
+        <View
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.055)",
+            borderColor: colors.line,
+            borderRadius: 18,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+        >
+          <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>WHY</Text>
           <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>{currentTimelineStep.intent}</Text>
         </View>
 
@@ -857,9 +937,26 @@ export function WorkoutPlayer({
             padding: spacing.md
           }}
         >
-          <Text style={{ color: colors.readyGreen, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>ONE CUE</Text>
+          <Text style={{ color: colors.readyGreen, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>COACH CUE</Text>
           <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{primaryCue}</Text>
         </View>
+
+        {activeMicroCue ? (
+          <View
+            style={{
+              backgroundColor: "rgba(255, 216, 97, 0.11)",
+              borderColor: "rgba(255, 216, 97, 0.34)",
+              borderRadius: 18,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+            testID="workout-player-micro-cue"
+          >
+            <Text style={{ color: colors.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>MICRO-CUE</Text>
+            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{activeMicroCue}</Text>
+          </View>
+        ) : null}
 
         {currentTimelineStep.safetyStop ? (
           <View
@@ -876,13 +973,12 @@ export function WorkoutPlayer({
             <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{currentTimelineStep.safetyStop}</Text>
           </View>
         ) : null}
-
-        <TimerOrb label={bigTimerLabel} seconds={bigTimerSeconds} />
       </GlassPanel>
 
       <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" />
 
       <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
+        <LiveControlButton disabled={currentStepIndex <= 0} icon="chevron-back" label="Back" onPress={moveBack} />
         <LiveControlButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
         <LiveControlButton
           icon="refresh"
@@ -892,14 +988,15 @@ export function WorkoutPlayer({
             setStatus("active");
           }}
         />
-        <LiveControlButton disabled={busy} icon="play-forward" label="Skip" onPress={skipSet} />
+        <LiveControlButton disabled={busy} icon="play-skip-forward" label="Skip" onPress={skipSet} />
+        <LiveControlButton disabled={busy} icon="play-forward" label="Next" onPress={moveNext} />
         <LiveControlButton disabled={busy} icon="alert-circle" label={painFlagMap[activeExerciseId] ? "Flagged" : "Pain"} onPress={togglePainFlag} />
       </View>
 
       <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
         <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, lineHeight: 15 }}>NEXT</Text>
         <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>
-          {nextStep ? `${nextStep.title}, ${nextStep.actionLabel}` : "Finish summary"}
+          {nextStepLabel}
         </Text>
       </View>
 
@@ -943,6 +1040,7 @@ export function WorkoutPlayer({
           <Text style={screenStyles.fieldLabel}>Guided check</Text>
           {currentTimelineStep.successCheck ? <Text style={screenStyles.subtle}>Success: {currentTimelineStep.successCheck}</Text> : null}
           {currentTimelineStep.commonMistake ? <Text style={screenStyles.subtle}>Avoid: {currentTimelineStep.commonMistake}</Text> : null}
+          {currentTimelineStep.microCues?.length ? <Text style={screenStyles.subtle}>Coach reminders: {currentTimelineStep.microCues.join(" ")}</Text> : null}
           {currentTimelineStep.regression ? <Text style={screenStyles.subtle}>Easier: {currentTimelineStep.regression}</Text> : null}
           {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {currentTimelineStep.safetyStop}</Text> : null}
         </View>

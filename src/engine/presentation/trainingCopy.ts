@@ -21,7 +21,7 @@ const FAMILY_LABELS: Record<GeneratedSessionFamily, string> = {
   boxing_round_skill_circuit: "Boxing skill rounds",
   agility_reactive_footwork: "Reactive footwork",
   mobility_recovery_flow: "Mobility recovery",
-  movement_quality_prep: "Movement prep",
+  movement_quality_prep: "Warm-up",
   footwork_agility: "Footwork",
   reaction_rhythm: "Reaction and rhythm",
   trunk_durability: "Core support",
@@ -54,7 +54,7 @@ const FAMILY_WHY: Record<GeneratedSessionFamily, string> = {
   boxing_round_skill_circuit: "Keep one skill clear through boxing-length rounds.",
   agility_reactive_footwork: "React, brake, and reset without turning it into fatigue.",
   mobility_recovery_flow: "Restore boxing positions and leave fresher.",
-  movement_quality_prep: "Prepare hips, trunk, shoulders, stance, and guard.",
+  movement_quality_prep: "Warm up hips, shoulders, stance, and guard.",
   footwork_agility: "Keep feet quick, quiet, and under control.",
   reaction_rhythm: "Keep timing awake with short, low-stress cues.",
   trunk_durability: "Support pivots, defense, and punch transfer.",
@@ -109,6 +109,10 @@ const TITLE_REPLACEMENTS: readonly [RegExp, string][] = [
   [/\bposterior-chain\b/gi, "hips and hamstrings"],
   [/\btransfer\b/gi, "carryover"],
   [/\bquality-capped\b/gi, "clean"],
+  [/\bmovement[-\s]prep\b/gi, "warm-up"],
+  [/\breadiness gate\b/gi, "body check"],
+  [/\bT-spine\b/gi, "upper back"],
+  [/\bopen hips\b/gi, "move hips"],
   [/\bfatigue chasing\b/gi, "chasing fatigue"],
   [/\bfuel-demand\b/gi, "fuel need"]
 ];
@@ -131,6 +135,10 @@ const COPY_REPLACEMENTS: readonly [RegExp, string][] = [
   [/\bopponent dependency\b/gi, "needing a partner"],
   [/\btechnical constraint\b/gi, "skill focus"],
   [/\btechnical constraints\b/gi, "skill focuses"],
+  [/\bmovement[-\s]prep\b/gi, "warm-up"],
+  [/\breadiness gate\b/gi, "body check"],
+  [/\bT-spine\b/gi, "upper back"],
+  [/\bopen hips\b/gi, "move hips"],
   [/\boutput chasing\b/gi, "chasing output"],
   [/\bhigh stimulus\b/gi, "hard"],
   [/\bexecution\b/gi, "workout"],
@@ -214,6 +222,7 @@ export function plainTrainingCopy(value: string): string {
 export function plainSectionName(name: string): string {
   return applyReplacements(name, TITLE_REPLACEMENTS)
     .replace(/^Skill acquisition block$/i, "Skill work")
+    .replace(/^Readiness gate and movement prep$/i, "Warm-up")
     .replace(/^Secondary support block$/i, "Small support block")
     .replace(/^Required cooldown$/i, "Cooldown")
     .replace(/^Required reset$/i, "Reset");
