@@ -19,6 +19,7 @@ import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { catalogToPrescription, findCatalogExercise } from "../../engine/training/exerciseCatalog";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { migrateOnboardingDraft, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 
@@ -1042,6 +1043,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
   return {
     ...detail,
     title: "Player test workout",
+    durationMinutes: 18,
     stopConditions: ["Stop if dizziness or unusual symptoms appear."],
     safetyNotes: ["Keep support work controlled."],
     preSessionChecklist: ["Shoes tied and water nearby."],
@@ -1060,6 +1062,32 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
         intent: "Finish with trunk control.",
         durationMinutes: 6,
         exercises: [thirdExercise]
+      }
+    ]
+  };
+}
+
+function boxingRoundPlayerTestSession(): DetailedTrainingSession {
+  const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+  const detail = state.viewModels.train.detailedTodaySessions[0]?.detail;
+  const sourceSection = detail?.sections[0];
+  if (!detail || !sourceSection) {
+    throw new Error("missing detailed workout fixture");
+  }
+  return {
+    ...detail,
+    title: "Boxing round player test",
+    durationMinutes: 12,
+    sections: [
+      {
+        ...sourceSection,
+        name: "Boxing round structure",
+        intent: "Run stance, guard, and technical rounds with clear timer goals.",
+        durationMinutes: 12,
+        exercises: [
+          catalogToPrescription(findCatalogExercise("stance_guard_reset")),
+          catalogToPrescription(findCatalogExercise("shadowboxing_technical_rounds"))
+        ]
       }
     ]
   };
@@ -2359,7 +2387,7 @@ describe("minimal app screens", () => {
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Set 1 of 2");
       expect(output).toContain("8 reps");
-      expect(output).toContain("Use bodyweight or a light load");
+      expect(output).toContain("Light and smooth");
       expect(output).toContain("RPE 6");
       expect(output).toContain("RIR 2");
       expect(output).toContain("Tempo 3-1-1");
@@ -2367,8 +2395,8 @@ describe("minimal app screens", () => {
       expect(output).toContain("Stop / safety");
       expect(output).toContain("Stop if sharp knee pain appears.");
       expect(output).toContain("NEXT");
-      expect(output).toContain("Rest timer");
-      expect(output).toContain("0:45");
+      expect(output).toContain("Current timer");
+      expect(output).toContain("18:00");
       expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
 
       await switchSection(renderer, "Show Swap exercise");
@@ -2383,23 +2411,73 @@ describe("minimal app screens", () => {
       expect(output).toContain("Swapped from");
       expect(output).toContain("Tempo squat");
 
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("17:59");
       await act(async () => {
-        await press(pressableWithText(renderer, "Start timer"));
+        await press(pressableWithText(renderer, "Pause"));
+      });
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("17:59");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Resume"));
       });
       act(() => {
         vi.advanceTimersByTime(1000);
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("0:44");
+      expect(JSON.stringify(renderer.toJSON())).toContain("17:58");
       await act(async () => {
-        await press(pressableWithText(renderer, "Pause timer"));
+        await press(pressableWithText(renderer, "Restart"));
       });
+      expect(JSON.stringify(renderer.toJSON())).toContain("18:00");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("WorkoutPlayer renders structured boxing segments and round goals", async () => {
+    vi.useFakeTimers();
+    try {
+      const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
+      const renderer = render(
+        React.createElement(WorkoutPlayer, {
+          busy: false,
+          completionActions: { complete: vi.fn(), skip: vi.fn() },
+          onClose: vi.fn(),
+          onDiscard: vi.fn(),
+          session: boxingRoundPlayerTestSession()
+        })
+      );
+
       await act(async () => {
-        await press(pressableWithText(renderer, "Reset timer"));
+        await press(pressableWithText(renderer, "Start workout"));
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("0:45");
+      let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Segment 1: Stance base");
+      expect(output).toContain("Segment 1 of 4: Stance and guard reset");
+      expect(output).toContain("Done segment 1");
+
       await act(async () => {
-        await press(pressableWithText(renderer, "Pause"));
+        await press(pressableWithText(renderer, "Show More workout detail"));
       });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Segment 1 of 4");
+      expect(output).toContain("Find stance width, soft knees, chin tucked, and quiet shoulders.");
+
+      for (let index = 0; index < 4; index += 1) {
+        await act(async () => {
+          await press(pressableWithText(renderer, "Done segment"));
+        });
+      }
+
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Round 1: Stance and jab line");
+      expect(output).toContain("Round 1 of 4: Technical shadowboxing rounds");
+      expect(output).toContain("Done round 1");
+      expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
     } finally {
       vi.useRealTimers();
     }
@@ -2428,7 +2506,7 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Done set"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Skip set"));
+        await press(pressableWithText(renderer, "Skip"));
       });
       expect(JSON.stringify(renderer.toJSON())).toContain("Timed carry");
 
@@ -2483,6 +2561,14 @@ describe("minimal app screens", () => {
     expect(results.find((result) => result.exerciseId === first.exerciseId)).toEqual(expect.objectContaining({ completedSets: 2, resultStatus: "completed", notes: expect.stringContaining("Substitution used: Chair squat") }));
     expect(results.find((result) => result.exerciseId === second.exerciseId)).toEqual(expect.objectContaining({ completedSets: 0, resultStatus: "skipped" }));
     expect(results.find((result) => result.exerciseId === third.exerciseId)).toEqual(expect.objectContaining({ completedSets: 0, painFlag: true, resultStatus: "partial" }));
+
+    const repeatedTimerResults = buildWorkoutPlayerExerciseResults(session, {
+      completedSetsByExerciseId: { [first.exerciseId]: 2 },
+      painFlagExerciseIds: [],
+      prescribedSetsByExerciseId: { [first.exerciseId]: 3 },
+      skippedExerciseIds: []
+    });
+    expect(repeatedTimerResults.find((result) => result.exerciseId === first.exerciseId)).toEqual(expect.objectContaining({ completedSets: 2, resultStatus: "partial" }));
 
     const untouched = buildWorkoutPlayerExerciseResults(session, {
       completedSetsByExerciseId: { [first.exerciseId]: 2 },

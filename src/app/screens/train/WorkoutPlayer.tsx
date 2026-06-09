@@ -3,6 +3,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DetailedTrainingSession, ExercisePrescription, ExerciseSubstitution } from "../../../engine/core/types";
+import { buildWorkoutPlayerTimeline } from "../../../engine/presentation/workoutPlayerTimeline";
 import { buildWorkoutPlayerExerciseResults } from "../../../engine/presentation/workoutPlayerResults";
 import {
   plainFuelDemandLabel,
@@ -34,49 +35,6 @@ interface WorkoutPlayerProps {
   session: DetailedTrainingSession;
 }
 
-type TimerKind = "rest" | "work";
-
-interface TimerState {
-  durationSeconds: number;
-  kind: TimerKind | null;
-  label: string;
-  remainingSeconds: number;
-  running: boolean;
-  sourceText: string;
-}
-
-const emptyTimer: TimerState = {
-  durationSeconds: 0,
-  kind: null,
-  label: "",
-  remainingSeconds: 0,
-  running: false,
-  sourceText: ""
-};
-
-function parseSecondsFromText(text: string | undefined): number | null {
-  if (!text) {
-    return null;
-  }
-  const lower = text.toLowerCase();
-  const clock = lower.match(/\b(\d{1,2}):([0-5]\d)\b/);
-  if (clock?.[1] && clock[2]) {
-    return Number(clock[1]) * 60 + Number(clock[2]);
-  }
-  const range = lower.match(/\b(\d+(?:\.\d+)?)\s*-\s*\d+(?:\.\d+)?\s*(seconds?|secs?|s|minutes?|mins?|m)\b/);
-  const single = lower.match(/\b(\d+(?:\.\d+)?)\s*(seconds?|secs?|s|minutes?|mins?|m)\b/);
-  const match = range ?? single;
-  if (!match?.[1] || !match[2]) {
-    return null;
-  }
-  const amount = Number(match[1]);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return null;
-  }
-  const unit = match[2];
-  return Math.round(unit.startsWith("m") ? amount * 60 : amount);
-}
-
 function formatTimer(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -89,14 +47,8 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
-function prescribedSetCount(exercise: ExercisePrescription): number {
-  return Math.max(1, exercise.sets.length);
-}
-
-function exerciseDoseText(exercise: ExercisePrescription, setIndex: number): string {
-  const set = exercise.sets[setIndex] ?? exercise.sets[0];
-  const dose = [exercise.repsText ?? set?.repsText, exercise.durationText ?? set?.durationText].filter(Boolean);
-  return dose.length > 0 ? dose.join(" / ") : "Follow the prescription";
+function sentenceCase(value: string): string {
+  return value.length === 0 ? value : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 }
 
 function exerciseTargetText(exercise: ExercisePrescription, setIndex: number): readonly string[] {
@@ -394,54 +346,6 @@ function SafetyStack({ exercise, session }: { exercise: ExercisePrescription; se
   );
 }
 
-function TimerCard({
-  durationSeconds,
-  onPause,
-  onReset,
-  onStart,
-  timer,
-  title
-}: {
-  durationSeconds: number | null;
-  onPause: () => void;
-  onReset: () => void;
-  onStart: () => void;
-  timer: TimerState;
-  title: string;
-}) {
-  if (durationSeconds === null) {
-    return null;
-  }
-  const active = timer.durationSeconds === durationSeconds && timer.kind !== null;
-  return (
-    <View
-      style={{
-        backgroundColor: "rgba(39, 206, 241, 0.11)",
-        borderColor: "rgba(39, 206, 241, 0.38)",
-        borderRadius: 18,
-        borderWidth: 1,
-        gap: spacing.sm,
-        padding: spacing.md
-      }}
-      testID="workout-player-timer-card"
-    >
-      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={screenStyles.fieldLabel}>{title}</Text>
-          <Text style={{ color: colors.canvas, fontSize: 30, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 36 }}>
-            {formatTimer(active ? timer.remainingSeconds : durationSeconds)}
-          </Text>
-          <Text style={screenStyles.subtle}>{active ? timer.sourceText : "Timer is optional; guidance still works as text."}</Text>
-        </View>
-      </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        <PlayerButton label={active && timer.running ? "Pause timer" : "Start timer"} onPress={active && timer.running ? onPause : onStart} />
-        <PlayerButton label="Reset timer" onPress={onReset} />
-      </View>
-    </View>
-  );
-}
-
 function SubstitutionChooser({
   exercise,
   onChoose,
@@ -495,10 +399,11 @@ export function WorkoutPlayer({
   onStatusChange,
   session
 }: WorkoutPlayerProps) {
+  const timeline = React.useMemo(() => buildWorkoutPlayerTimeline(session), [session]);
+  const firstStepSeconds = timeline.steps[0]?.durationSeconds ?? 0;
   const [status, setStatus] = React.useState<WorkoutPlayerStatus>("not_started");
-  const [activeSectionIndex, setActiveSectionIndex] = React.useState(0);
-  const [activeExerciseIndex, setActiveExerciseIndex] = React.useState(0);
-  const [activeSetIndex, setActiveSetIndex] = React.useState(0);
+  const [activeStepIndex, setActiveStepIndex] = React.useState(0);
+  const [stepRemainingSeconds, setStepRemainingSeconds] = React.useState(firstStepSeconds);
   const [completedSetMap, setCompletedSetMap] = React.useState<Record<string, readonly number[]>>({});
   const [skippedExerciseMap, setSkippedExerciseMap] = React.useState<Record<string, true>>({});
   const [painFlagMap, setPainFlagMap] = React.useState<Record<string, true>>({});
@@ -507,59 +412,63 @@ export function WorkoutPlayer({
   const [sessionRpe, setSessionRpe] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
-  const [timer, setTimer] = React.useState<TimerState>(emptyTimer);
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
+
+  React.useEffect(() => {
+    setStatus("not_started");
+    setActiveStepIndex(0);
+    setStepRemainingSeconds(firstStepSeconds);
+    setCompletedSetMap({});
+    setSkippedExerciseMap({});
+    setPainFlagMap({});
+    setTouchedExerciseMap({});
+    setSubstitutionMap({});
+    setSessionRpe("");
+    setNotes("");
+    setElapsedSeconds(0);
+    setLocalError(null);
+    setDiscardConfirm(false);
+    setSkipConfirm(false);
+  }, [firstStepSeconds, session.generatedSessionId]);
 
   React.useEffect(() => {
     onStatusChange?.(status);
   }, [onStatusChange, status]);
 
   React.useEffect(() => {
-    if (status !== "active") {
-      return undefined;
-    }
-    const interval = setInterval(() => setElapsedSeconds((value) => value + 1), 1000);
-    return () => clearInterval(interval);
-  }, [status]);
+    setStepRemainingSeconds(timeline.steps[activeStepIndex]?.durationSeconds ?? 0);
+  }, [activeStepIndex, timeline.steps]);
 
   React.useEffect(() => {
-    if (!timer.running || timer.remainingSeconds <= 0) {
+    if (status !== "active" || stepRemainingSeconds <= 0) {
       return undefined;
     }
     const interval = setInterval(() => {
-      setTimer((current) => {
-        if (!current.running) {
-          return current;
-        }
-        const next = Math.max(0, current.remainingSeconds - 1);
-        return { ...current, remainingSeconds: next, running: next > 0 };
-      });
+      setElapsedSeconds((value) => value + 1);
+      setStepRemainingSeconds((value) => Math.max(0, value - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [timer.remainingSeconds, timer.running]);
+  }, [status, stepRemainingSeconds]);
 
-  const steps = React.useMemo(
-    () =>
-      session.sections.flatMap((section, sectionIndex) =>
-        section.exercises.flatMap((exercise, exerciseIndex) =>
-          Array.from({ length: prescribedSetCount(exercise) }).map((_, setIndex) => ({
-            exercise,
-            exerciseIndex,
-            section,
-            sectionIndex,
-            setIndex
-          }))
-        )
-      ),
-    [session]
-  );
+  React.useEffect(() => {
+    if (status !== "active" || stepRemainingSeconds > 0) {
+      return;
+    }
+    if (activeStepIndex < timeline.steps.length - 1) {
+      setActiveStepIndex(activeStepIndex + 1);
+      return;
+    }
+    setStatus("finishing");
+  }, [activeStepIndex, status, stepRemainingSeconds, timeline.steps.length]);
 
-  const currentSection = session.sections[clampIndex(activeSectionIndex, session.sections.length - 1)];
-  const currentExercise = currentSection?.exercises[clampIndex(activeExerciseIndex, (currentSection?.exercises.length ?? 1) - 1)];
+  const steps = timeline.steps;
+  const currentTimelineStep = steps[clampIndex(activeStepIndex, steps.length - 1)];
+  const currentSection = currentTimelineStep ? session.sections[currentTimelineStep.sectionIndex] : undefined;
+  const currentExercise = currentSection?.exercises[currentTimelineStep?.exerciseIndex ?? 0];
 
-  if (!currentSection || !currentExercise || steps.length === 0) {
+  if (!currentTimelineStep || !currentSection || !currentExercise || steps.length === 0) {
     return (
       <WorkoutScreenFrame mode="WORKOUT PREVIEW" onClose={onClose}>
         <GlassPanel>
@@ -571,21 +480,22 @@ export function WorkoutPlayer({
     );
   }
 
-  const currentStepIndex = steps.findIndex((step) => step.sectionIndex === activeSectionIndex && step.exerciseIndex === activeExerciseIndex && step.setIndex === activeSetIndex);
-  const setCount = prescribedSetCount(currentExercise);
+  const currentStepIndex = activeStepIndex;
+  const activeSetIndex = currentTimelineStep.setIndex;
+  const setCount = currentTimelineStep.totalExerciseSets;
   const completedSets = completedSetMap[currentExercise.exerciseId] ?? [];
   const selectedSubstitution = substitutionMap[currentExercise.exerciseId];
-  const displayName = plainWorkoutTitle(selectedSubstitution?.name ?? currentExercise.name);
-  const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentExercise.loadGuidance);
+  const displayName = selectedSubstitution ? plainWorkoutTitle(selectedSubstitution.name) : currentTimelineStep.title;
+  const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentTimelineStep.instruction ?? currentExercise.loadGuidance);
   const displayNotes = (selectedSubstitution?.coachingNotes ?? currentExercise.coachingNotes).map(plainTrainingCopy);
   const progress = steps.length > 0 ? Math.max(0, currentStepIndex) / steps.length : 0;
   const nextStep = currentStepIndex >= 0 ? steps[currentStepIndex + 1] : undefined;
-  const restSeconds = parseSecondsFromText(currentExercise.restText);
-  const workSeconds = parseSecondsFromText(currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText);
   const completedCountByExerciseId = Object.fromEntries(Object.entries(completedSetMap).map(([exerciseId, sets]) => [exerciseId, sets.length]));
+  const prescribedSetsByExerciseId = Object.fromEntries(steps.map((step) => [step.exerciseId, step.totalExerciseSets]));
   const playerResults = buildWorkoutPlayerExerciseResults(session, {
     completedSetsByExerciseId: completedCountByExerciseId,
     painFlagExerciseIds: Object.keys(painFlagMap),
+    prescribedSetsByExerciseId,
     skippedExerciseIds: Object.keys(skippedExerciseMap),
     substitutionByExerciseId: substitutionMap,
     touchedExerciseIds: Object.keys(touchedExerciseMap)
@@ -637,7 +547,15 @@ export function WorkoutPlayer({
             <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{plainTrainingCopy(coachNote)}</Text>
           </View>
 
-          <PlayerButton disabled={busy} label="Start workout" onPress={() => setStatus("active")} tone="primary" />
+          <PlayerButton
+            disabled={busy}
+            label="Start workout"
+            onPress={() => {
+              setStepRemainingSeconds(currentTimelineStep.durationSeconds);
+              setStatus("active");
+            }}
+            tone="primary"
+          />
           <PlayerButton label="Back to Train" onPress={onClose} />
         </GlassPanel>
 
@@ -652,36 +570,13 @@ export function WorkoutPlayer({
     setTouchedExerciseMap((current) => ({ ...current, [exerciseId]: true }));
   };
 
-  const startTimer = (kind: TimerKind, seconds: number, sourceText: string) => {
-    setTimer({
-      durationSeconds: seconds,
-      kind,
-      label: kind === "rest" ? "Rest timer" : "Timed block",
-      remainingSeconds: seconds,
-      running: true,
-      sourceText
-    });
-  };
-
-  const resetTimer = (kind: TimerKind, seconds: number, sourceText: string) => {
-    setTimer({
-      durationSeconds: seconds,
-      kind,
-      label: kind === "rest" ? "Rest timer" : "Timed block",
-      remainingSeconds: seconds,
-      running: false,
-      sourceText
-    });
-  };
-
   const moveToStep = (stepIndex: number) => {
     const step = steps[clampIndex(stepIndex, steps.length - 1)];
     if (!step) {
       return;
     }
-    setActiveSectionIndex(step.sectionIndex);
-    setActiveExerciseIndex(step.exerciseIndex);
-    setActiveSetIndex(step.setIndex);
+    setActiveStepIndex(clampIndex(stepIndex, steps.length - 1));
+    setStepRemainingSeconds(step.durationSeconds);
   };
 
   const moveNext = () => {
@@ -718,9 +613,6 @@ export function WorkoutPlayer({
             [currentExercise.exerciseId]: [...currentSets, activeSetIndex].sort((left, right) => left - right)
           };
     });
-    if (activeSetIndex < setCount - 1 && restSeconds !== null) {
-      startTimer("rest", restSeconds, currentExercise.restText);
-    }
     moveNext();
   };
 
@@ -732,7 +624,7 @@ export function WorkoutPlayer({
   const skipExercise = () => {
     touchExercise();
     setSkippedExerciseMap((current) => ({ ...current, [currentExercise.exerciseId]: true }));
-    const next = steps.findIndex((step) => step.sectionIndex > activeSectionIndex || (step.sectionIndex === activeSectionIndex && step.exerciseIndex > activeExerciseIndex));
+    const next = steps.findIndex((step, index) => index > activeStepIndex && step.exerciseId !== currentExercise.exerciseId);
     if (next >= 0) {
       moveToStep(next);
       return;
@@ -843,19 +735,20 @@ export function WorkoutPlayer({
     );
   }
 
-  const remainingSessionSeconds = Math.max(0, session.durationMinutes * 60 - elapsedSeconds);
-  const bigTimerSeconds = timer.kind !== null ? timer.remainingSeconds : workSeconds ?? remainingSessionSeconds;
-  const bigTimerLabel = timer.kind !== null ? timer.label.toUpperCase() : workSeconds !== null ? "BLOCK TIMER" : "REMAINING";
-  const liveProgress = steps.length > 0 ? Math.min(1, (Math.max(0, currentStepIndex) + 1) / steps.length) : progress;
-  const liveCues = displayNotes.length > 0 ? displayNotes : (session.selfCheckCues ?? []).map(plainTrainingCopy);
+  const futureStepSeconds = steps.slice(currentStepIndex + 1).reduce((sum, step) => sum + step.durationSeconds, 0);
+  const remainingSessionSeconds = Math.max(0, stepRemainingSeconds + futureStepSeconds);
+  const bigTimerSeconds = stepRemainingSeconds;
+  const bigTimerLabel = currentTimelineStep.timerLabel.toUpperCase();
+  const liveProgress = timeline.totalSeconds > 0 ? Math.min(1, Math.max(0, (timeline.totalSeconds - remainingSessionSeconds) / timeline.totalSeconds)) : progress;
+  const liveCues = displayNotes.length > 0 ? displayNotes : [currentTimelineStep.cue, ...(session.selfCheckCues ?? []).map(plainTrainingCopy)];
   const primaryCue = liveCues[0] ?? "Keep the shoulders loose and the breath under control.";
 
   return (
     <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
       <View style={{ gap: spacing.sm }} testID="workout-player-progress">
         <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {activeSectionIndex + 1} of {session.sections.length}</Text>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }}>{formatTimer(remainingSessionSeconds)} left</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {currentTimelineStep.sectionIndex + 1} of {session.sections.length}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }} testID="workout-player-time-left">{formatTimer(remainingSessionSeconds)} left</Text>
         </View>
         <LuminousProgressBar accent="blue" progress={liveProgress} />
       </View>
@@ -866,7 +759,7 @@ export function WorkoutPlayer({
           <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>DO THIS NOW</Text>
           <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 39, textAlign: "center" }}>{displayName}</Text>
           {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
-          <Text style={{ color: colors.wrap, fontSize: 18, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>{exerciseDoseText(currentExercise, activeSetIndex)}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 18, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>{currentTimelineStep.dose}</Text>
         </View>
 
         <View
@@ -886,18 +779,26 @@ export function WorkoutPlayer({
         <TimerOrb label={bigTimerLabel} seconds={bigTimerSeconds} />
       </GlassPanel>
 
-      <PlayerButton disabled={busy || status === "paused"} label={`Done set ${activeSetIndex + 1}`} onPress={markDone} tone="primary" />
+      <PlayerButton disabled={busy || status === "paused"} label={`Done ${currentTimelineStep.actionLabel}`} onPress={markDone} tone="primary" />
 
-      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center" }}>
+      <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
         <LiveControlButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
+        <LiveControlButton
+          icon="refresh"
+          label="Restart"
+          onPress={() => {
+            setStepRemainingSeconds(currentTimelineStep.durationSeconds);
+            setStatus("active");
+          }}
+        />
+        <LiveControlButton disabled={busy} icon="play-forward" label="Skip" onPress={skipSet} />
         <LiveControlButton disabled={busy} icon="alert-circle" label={painFlagMap[currentExercise.exerciseId] ? "Flagged" : "Pain"} onPress={togglePainFlag} />
-        <LiveControlButton disabled={busy} icon="play-forward" label="Skip set" onPress={skipSet} />
       </View>
 
       <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
         <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, lineHeight: 15 }}>NEXT</Text>
         <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>
-          {nextStep ? `${plainWorkoutTitle(nextStep.exercise.name)}, set ${nextStep.setIndex + 1}` : "Finish summary"}
+          {nextStep ? `${nextStep.title}, ${nextStep.actionLabel}` : "Finish summary"}
         </Text>
       </View>
 
@@ -905,9 +806,26 @@ export function WorkoutPlayer({
         <View style={{ gap: spacing.sm }}>
           <SetTracker activeSetIndex={activeSetIndex} completedSetIndices={completedSets} setCount={setCount} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-            <DetailPill label={`Set ${activeSetIndex + 1} of ${setCount}`} />
+            <DetailPill label={currentTimelineStep.actionLabel === "movement" ? "Movement" : `${sentenceCase(currentTimelineStep.actionLabel)} of ${setCount}`} />
+            <DetailPill label={`Timer ${currentTimelineStep.durationLabel}`} />
             {exerciseTargetText(currentExercise, activeSetIndex).map((target) => <DetailPill key={`target:${target}`} label={target} />)}
           </View>
+        </View>
+        <View
+          style={{
+            backgroundColor: "rgba(39, 206, 241, 0.11)",
+            borderColor: "rgba(39, 206, 241, 0.38)",
+            borderRadius: 18,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+          testID="workout-player-timer-card"
+        >
+          <Text style={screenStyles.fieldLabel}>Current timer</Text>
+          <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34 }}>{formatTimer(stepRemainingSeconds)}</Text>
+          <Text style={screenStyles.subtle}>{currentTimelineStep.sectionName}: {currentTimelineStep.durationLabel} for {currentTimelineStep.title}.</Text>
+          <Text style={screenStyles.subtle}>Rest after: {currentTimelineStep.rest}</Text>
         </View>
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.fieldLabel}>Load guidance</Text>
@@ -932,37 +850,6 @@ export function WorkoutPlayer({
         <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
           <Text style={screenStyles.body}>{plainMovementWhy(currentExercise.boxingTransfer)}</Text>
         </CollapsedDetailDisclosure>
-        <TimerCard
-          durationSeconds={restSeconds}
-          onPause={() => setTimer((current) => ({ ...current, running: false }))}
-          onReset={() => restSeconds === null ? setTimer(emptyTimer) : resetTimer("rest", restSeconds, currentExercise.restText)}
-          onStart={() => restSeconds === null ? undefined : startTimer("rest", restSeconds, currentExercise.restText)}
-          timer={timer}
-          title="Rest timer"
-        />
-        {workSeconds !== null ? (
-          <TimerCard
-            durationSeconds={workSeconds}
-            onPause={() => setTimer((current) => ({ ...current, running: false }))}
-            onReset={() => resetTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block")}
-            onStart={() => startTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block")}
-            timer={timer}
-            title="Timed block"
-          />
-        ) : null}
-        <LiveControlButton
-          icon="refresh"
-          label="Reset timer"
-          onPress={() => {
-            if (timer.kind === "rest" && restSeconds !== null) {
-              resetTimer("rest", restSeconds, currentExercise.restText);
-              return;
-            }
-            if (timer.kind === "work" && workSeconds !== null) {
-              resetTimer("work", workSeconds, currentExercise.durationText ?? currentExercise.sets[activeSetIndex]?.durationText ?? "Timed block");
-            }
-          }}
-        />
         {painFlagMap[currentExercise.exerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <PlayerButton label="Back" onPress={moveBack} />

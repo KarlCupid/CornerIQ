@@ -3,6 +3,7 @@ import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseSubstitution
 export interface WorkoutPlayerExerciseResultState {
   completedSetsByExerciseId: Readonly<Record<string, number>>;
   painFlagExerciseIds: readonly string[];
+  prescribedSetsByExerciseId?: Readonly<Record<string, number>> | undefined;
   skippedExerciseIds: readonly string[];
   substitutionByExerciseId?: Readonly<Record<string, ExerciseSubstitution | undefined>> | undefined;
   touchedExerciseIds?: readonly string[] | undefined;
@@ -29,7 +30,7 @@ export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSessi
   return session.sections.flatMap((section) =>
     section.exercises.map((exercise) => {
       const completedSets = Math.max(0, state.completedSetsByExerciseId[exercise.exerciseId] ?? 0);
-      const setCount = prescribedSetCount(exercise);
+      const setCount = Math.max(1, state.prescribedSetsByExerciseId?.[exercise.exerciseId] ?? prescribedSetCount(exercise));
       const skippedExercise = skipped.has(exercise.exerciseId);
       const painFlag = painFlags.has(exercise.exerciseId);
       const touchedExercise = touched.has(exercise.exerciseId) || completedSets > 0 || skippedExercise || painFlag;
