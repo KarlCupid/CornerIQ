@@ -1307,25 +1307,72 @@ function createUserDataClient() {
 describe("minimal app screens", () => {
   it("AuthScreen renders", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
-    expect(() => render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp: vi.fn() }))).not.toThrow();
+    const output = JSON.stringify(render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp: vi.fn() })).toJSON());
+
+    expect(output).toContain("CornerIQ");
+    expect(output).toContain("Welcome back");
+    expect(output).toContain("Sign in to load your boxer prep state.");
+    expect(output).toContain("you@example.com");
+    expect(output).toContain("Password");
+    expect(output).toContain("Sign in");
+    expect(output).toContain("Forgot password?");
+    expect(output).toContain("New here? Create account");
+    expect(output).toContain("Readiness");
+    expect(output).toContain("Training");
+    expect(output).toContain("Fuel");
   });
 
   it("AuthScreen validates empty credentials before calling auth actions", async () => {
     const { AuthScreen } = await import("../../app/screens/AuthScreen");
     const onSignIn = vi.fn();
     const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn, onSignUp: vi.fn() }));
-    const signInButton = renderer.root.findAllByType("Pressable")[0];
-    const onPress = signInButton?.props.onPress;
-    if (typeof onPress !== "function") {
-      throw new Error("Sign-in button did not render with an onPress handler.");
-    }
 
-    await act(async () => {
-      await onPress();
-    });
+    await switchSection(renderer, "Sign in");
 
     expect(onSignIn).not.toHaveBeenCalled();
     expect(JSON.stringify(renderer.toJSON())).toContain("Email and password are required.");
+  });
+
+  it("AuthScreen submits sign-in credentials through the existing callback", async () => {
+    const { AuthScreen } = await import("../../app/screens/AuthScreen");
+    const onSignIn = vi.fn();
+    const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn, onSignUp: vi.fn() }));
+
+    act(() => {
+      changeInput(renderer, "you@example.com", " boxer@example.com ");
+      changeInput(renderer, "Password", "secret-pass");
+    });
+
+    await switchSection(renderer, "Sign in");
+
+    expect(onSignIn).toHaveBeenCalledWith("boxer@example.com", "secret-pass");
+  });
+
+  it("AuthScreen renders the create-account flow and keeps sign-up behavior", async () => {
+    const { AuthScreen } = await import("../../app/screens/AuthScreen");
+    const onSignUp = vi.fn();
+    const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp }));
+
+    await switchSection(renderer, "New here? Create account");
+    const output = JSON.stringify(renderer.toJSON());
+
+    expect(output).toContain("Create your account");
+    expect(output).toContain("Start building your boxer prep state.");
+    expect(output).toContain("Account");
+    expect(output).toContain("Confirm email");
+    expect(output).toContain("Build profile");
+    expect(output).toContain("Create account");
+    expect(output).toContain("After sign-up, check your email to confirm before signing in.");
+    expect(output).toContain("Already have an account? Sign in.");
+    expect(output).toContain("CornerIQ keeps training, readiness, and fuel context connected.");
+
+    act(() => {
+      changeInput(renderer, "you@example.com", "new@example.com");
+      changeInput(renderer, "Password", "new-secret");
+    });
+    await switchSection(renderer, "Create account");
+
+    expect(onSignUp).toHaveBeenCalledWith("new@example.com", "new-secret");
   });
 
   it("AuthScreen separates info messages from errors", async () => {
@@ -1343,9 +1390,42 @@ describe("minimal app screens", () => {
     const onRequestPasswordReset = vi.fn();
     const renderer = render(React.createElement(AuthScreen, { loading: false, error: null, message: null, onRequestPasswordReset, onSignIn: vi.fn(), onSignUp: vi.fn() }));
 
-    await switchSection(renderer, "Forgot password? Request reset.");
+    await switchSection(renderer, "Forgot password?");
     expect(JSON.stringify(renderer.toJSON())).toContain("Send reset email");
-    expect(JSON.stringify(renderer.toJSON())).not.toContain("Enter the password");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Reset password");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Back to sign in");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Request a Supabase password reset email");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Use the password for your existing account.");
+
+    act(() => {
+      changeInput(renderer, "you@example.com", "reset@example.com");
+    });
+    await switchSection(renderer, "Send reset email");
+
+    expect(onRequestPasswordReset).toHaveBeenCalledWith("reset@example.com");
+  });
+
+  it("AuthScreen shows working state while loading", async () => {
+    const { AuthScreen } = await import("../../app/screens/AuthScreen");
+    const renderer = render(React.createElement(AuthScreen, { loading: true, error: null, message: null, onRequestPasswordReset: vi.fn(), onSignIn: vi.fn(), onSignUp: vi.fn() }));
+    const primaryButton = pressableWithText(renderer, "Working...");
+
+    expect(JSON.stringify(renderer.toJSON())).toContain("Working...");
+    expect(primaryButton?.props.disabled).toBe(true);
+  });
+
+  it("StartupState renders the CornerIQ loading system", async () => {
+    const { StartupState } = await import("../../app/components/StartupState");
+    const output = JSON.stringify(render(React.createElement(StartupState, { title: "CornerIQ", message: "Loading today's boxer decision, training context, and fuel safety state." })).toJSON());
+
+    expect(output).toContain("CornerIQ");
+    expect(output).toContain("Preparing your corner");
+    expect(output).toContain("Loading today's boxer decision, training context, and fuel safety state.");
+    expect(output).toContain("Readiness check");
+    expect(output).toContain("Training context");
+    expect(output).toContain("Fuel safety");
+    expect(output).toContain("Today's plan");
+    expect(output).toContain("Manual inputs are enough. Wearables are optional.");
   });
 
   it("reusable UI primitives render copy and handle local interactions", async () => {
