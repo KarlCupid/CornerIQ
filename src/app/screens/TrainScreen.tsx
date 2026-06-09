@@ -409,7 +409,6 @@ export function TrainScreen({
             quickLogOpenRequestKey={quickLogOpenRequestKey}
             session={primarySession}
             startWorkoutDisabledReason={previewOnlyWeeklySession ? undefined : startWorkoutBlockedReason(viewModel, primarySession)}
-            trainViewModel={viewModel}
           />
         </View>
       ) : viewModel.sessionCards.length > 0 || viewModel.todayGeneratedSessions.length > 0 || viewModel.nextGeneratedSession ? (

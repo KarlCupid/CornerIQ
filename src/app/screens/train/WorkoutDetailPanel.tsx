@@ -1,26 +1,15 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality, TrainViewModel } from "../../../engine/core/types";
+import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
-import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
-import {
-  DashboardCard,
-  DashboardPill,
-  DonutBreakdown,
-  MiniBarChart,
-  ModifierRow,
-  SemiGauge,
-  TimelineStrip
-} from "../../../design/components/PerformanceVisuals";
+import { PostActionNextStep } from "../../../design/components/FastTask";
+import { DashboardCard, DashboardPill } from "../../../design/components/PerformanceVisuals";
 import { glassStyles } from "../../../design/glass";
 import { colors, spacing } from "../../../design/theme";
-import { buildWorkoutPreviewVisual, type WorkoutPreviewVisual } from "../../../engine/presentation/dashboardVisualData";
 import {
-  plainExerciseCategoryLabel,
   plainGeneratedSessionFamilyLabel,
   plainFuelDemandLabel,
   plainIntensityLabel,
-  plainMovementWhy,
   plainSectionIntent,
   plainSectionName,
   plainTrainingCopy,
@@ -159,14 +148,6 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
   );
 }
 
-function exercisePrescriptionParts(exercise: DetailedTrainingSession["sections"][number]["exercises"][number]): readonly string[] {
-  const firstSet = exercise.sets[0];
-  const setCount = exercise.sets.length > 1 ? `${exercise.sets.length} sets` : undefined;
-  const dose = exercise.repsText ?? exercise.durationText ?? firstSet?.repsText ?? firstSet?.durationText;
-  const rpe = exercise.rpeTarget ?? firstSet?.rpeTarget;
-  return [setCount, dose, rpe ? `RPE ${rpe}` : null, `rest ${plainTrainingCopy(exercise.restText)}`].filter(Boolean) as string[];
-}
-
 function SessionMeta({ label }: { label: string }) {
   return (
     <View
@@ -184,69 +165,17 @@ function SessionMeta({ label }: { label: string }) {
   );
 }
 
-function WorkoutPreviewDashboard({
-  preview,
-  session
-}: {
-  preview: WorkoutPreviewVisual;
-  session: DetailedTrainingSession;
-}) {
-  const totalMinutes = preview.sections.reduce((total, item) => total + item.value, 0);
-  const highIntensity = preview.intensity.find((item) => item.label === "High")?.percent ?? 0;
-  return (
-    <View style={{ gap: spacing.md }}>
-      <DashboardCard
-        headerRight={<DashboardPill label={`${session.durationMinutes} min`} tone="blue" />}
-        testID="workout-preview-session-overview"
-        title="Session overview"
-      >
-        <DonutBreakdown items={preview.sections} label={`${totalMinutes}`} size={136} />
-      </DashboardCard>
-
-      <DashboardCard testID="workout-preview-session-flow" title="Session flow">
-        <TimelineStrip items={preview.flow} />
-      </DashboardCard>
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <View style={{ flexBasis: 260, flexGrow: 1 }}>
-          <DashboardCard headerRight={<DashboardPill label={`${highIntensity}% high`} tone={highIntensity > 35 ? "orange" : "green"} />} title="Target intensity">
-            <View style={{ alignItems: "center", gap: spacing.sm }}>
-              <SemiGauge label={plainIntensityLabel(session.intensity)} score={session.intensity === "hard" ? 78 : session.intensity === "moderate" ? 64 : 38} tone={session.intensity === "hard" ? "orange" : "blue"} />
-              {preview.intensity.map((item) => <ModifierRow item={{ label: item.label, ratio: item.percent / 100, tone: item.tone, value: item.valueLabel }} key={`intensity:${item.label}`} />)}
-            </View>
-          </DashboardCard>
-        </View>
-        <View style={{ flexBasis: 260, flexGrow: 1 }}>
-          <DashboardCard title="Readiness modifiers">
-            <View style={{ gap: spacing.xs }}>
-              {preview.modifiers.map((item) => <ModifierRow item={item} key={`modifier:${item.label}`} />)}
-            </View>
-          </DashboardCard>
-        </View>
-      </View>
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <View style={{ flexBasis: 260, flexGrow: 1 }}>
-          <DashboardCard title="Quality checks">
-            <View style={{ gap: spacing.xs }}>
-              {preview.checkpoints.map((item) => <ModifierRow item={item} key={`checkpoint:${item.label}`} />)}
-            </View>
-          </DashboardCard>
-        </View>
-        <View style={{ flexBasis: 260, flexGrow: 1 }}>
-          <DashboardCard title="Why this matters for boxing">
-            <View style={{ gap: spacing.xs }}>
-              {preview.benefits.map((item) => <ModifierRow item={item} key={`benefit:${item.label}`} />)}
-            </View>
-          </DashboardCard>
-        </View>
-      </View>
-
-      <DashboardCard headerRight={<DashboardPill label={preview.tomorrowRisk.value} tone={preview.tomorrowRisk.tone} />} title="Next 7 days">
-        <MiniBarChart bars={preview.next7Days} height={94} referenceLabel="Projected load" />
-      </DashboardCard>
-    </View>
-  );
+function workoutPlanSummary(session: DetailedTrainingSession): string {
+  const sectionCount = session.sections.length;
+  const exerciseCount = session.sections.reduce((total, section) => total + section.exercises.length, 0);
+  const firstSection = session.sections[0];
+  const firstExercise = firstSection?.exercises[0];
+  const sectionLabel = `${sectionCount} section${sectionCount === 1 ? "" : "s"}`;
+  const exerciseLabel = `${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"}`;
+  if (!firstSection || !firstExercise) {
+    return `${exerciseLabel} across ${sectionLabel}.`;
+  }
+  return `${exerciseLabel} across ${sectionLabel}. Starts with ${plainSectionName(firstSection.name)}: ${plainWorkoutTitle(firstExercise.name)}.`;
 }
 
 function WorkoutSectionCard({
@@ -286,39 +215,66 @@ function WorkoutSectionCard({
         </View>
       </View>
       <View style={{ gap: spacing.sm }}>
-        {section.exercises.map((exercise) => {
-          const parts = exercisePrescriptionParts(exercise);
-          return (
-            <View
-              key={exercise.exerciseId}
-              style={{
-                borderTopColor: colors.line,
-                borderTopWidth: 1,
-                gap: spacing.xs,
-                paddingTop: spacing.sm
-              }}
-            >
-              <View style={{ flexDirection: "row", gap: spacing.sm }}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "700", lineHeight: 22 }}>{plainWorkoutTitle(exercise.name)}</Text>
-                  <Text style={screenStyles.subtle}>{plainExerciseCategoryLabel(exercise.category)}</Text>
-                </View>
+        {section.exercises.map((exercise, exerciseIndex) => (
+          <View
+            key={exercise.exerciseId}
+            style={{
+              borderTopColor: colors.line,
+              borderTopWidth: 1,
+              gap: spacing.sm,
+              paddingTop: spacing.sm
+            }}
+          >
+            <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.sm }}>
+              <View
+                style={{
+                  alignItems: "center",
+                  backgroundColor: colors.panelRaised,
+                  borderColor: colors.line,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  height: 32,
+                  justifyContent: "center",
+                  width: 32
+                }}
+              >
+                <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{exerciseIndex + 1}</Text>
               </View>
-              {parts.length > 0 ? (
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-                  {parts.map((part, partIndex) => (
-                    <View key={`exercise-part:${partIndex}`} style={[screenStyles.chip, { minHeight: 32, paddingHorizontal: spacing.sm, paddingVertical: 4 }]}>
-                      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{part}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-              <Text style={screenStyles.subtle}>Load: {plainTrainingCopy(exercise.loadGuidance)}</Text>
-              <Text style={screenStyles.subtle}>Why: {plainMovementWhy(exercise.boxingTransfer)}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <ExercisePrescriptionCard exercise={exercise} sectionName={plainSectionName(section.name)} />
+              </View>
             </View>
-          );
-        })}
+          </View>
+        ))}
       </View>
+    </View>
+  );
+}
+
+function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
+  return (
+    <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
+      <Text style={screenStyles.sectionTitle}>Workout plan</Text>
+      <Text style={screenStyles.body}>{workoutPlanSummary(session)}</Text>
+      {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
+          {session.sessionQualityCheckpoints.slice(0, 3).map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{plainTrainingCopy(item)}</Text>)}
+        </View>
+      ) : null}
+      {session.sections.map((section, index) => (
+        <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
+      ))}
+      {session.addOnBlocks && session.addOnBlocks.length > 0 ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.fieldLabel}>Add-ons</Text>
+          {session.addOnBlocks.map((block) => (
+            <Text key={block.id} style={screenStyles.subtle}>
+              {block.priority}: {plainWorkoutTitle(block.label)} ({block.durationMinutes} min) - {plainTrainingCopy(block.athleteFacingPurpose)}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -333,8 +289,7 @@ export function WorkoutDetailPanel({
   previewOnlyReason,
   quickLogOpenRequestKey = 0,
   startWorkoutDisabledReason,
-  session,
-  trainViewModel
+  session
 }: {
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
@@ -346,7 +301,6 @@ export function WorkoutDetailPanel({
   quickLogOpenRequestKey?: number | undefined;
   startWorkoutDisabledReason?: string | undefined;
   session: DetailedTrainingSession;
-  trainViewModel?: TrainViewModel | undefined;
 }) {
   const [resultOpen, setResultOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
@@ -422,7 +376,6 @@ export function WorkoutDetailPanel({
       : followUpState === "skipped"
         ? "Skipped. Plan remains conservative."
         : "Done. Fuel check optional.";
-  const preview = buildWorkoutPreviewVisual(session, trainViewModel);
   const startBlockedReason = previewOnlyReason ?? startWorkoutDisabledReason;
 
   return (
@@ -442,9 +395,7 @@ export function WorkoutDetailPanel({
             <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
             <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
           </View>
-          <CollapsedDetailDisclosure framed={false} summary="Charts are optional. Start, quick log, and workout plan are the main controls." title="workout preview">
-            <WorkoutPreviewDashboard preview={preview} session={session} />
-          </CollapsedDetailDisclosure>
+          <Text style={screenStyles.body}>{workoutPlanSummary(session)}</Text>
           {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
           {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
           {followUpState ? (
@@ -555,30 +506,7 @@ export function WorkoutDetailPanel({
           </View>
         </View>
       ) : null}
-      {planOpen ? (
-        <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
-            <Text style={screenStyles.sectionTitle}>Workout plan</Text>
-          {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
-              {session.sessionQualityCheckpoints.slice(0, 3).map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{plainTrainingCopy(item)}</Text>)}
-            </View>
-          ) : null}
-          {session.sections.map((section, index) => (
-            <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
-          ))}
-          {session.addOnBlocks && session.addOnBlocks.length > 0 ? (
-            <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>Add-ons</Text>
-              {session.addOnBlocks.map((block) => (
-                <Text key={block.id} style={screenStyles.subtle}>
-                {block.priority}: {plainWorkoutTitle(block.label)} ({block.durationMinutes} min) - {plainTrainingCopy(block.athleteFacingPurpose)}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      ) : null}
+      {planOpen ? <WorkoutPlanDetails session={session} /> : null}
       <View style={{ gap: spacing.sm }}>
         <Pressable accessibilityLabel={whyOpen ? "Hide why and safety" : "Show why and safety"} accessibilityRole="button" accessibilityState={{ selected: whyOpen }} onPress={() => setWhyOpen((value) => !value)} style={screenStyles.quietButton}>
           <Text style={screenStyles.quietButtonText}>{whyOpen ? "Hide why / safety" : "Show why / safety"}</Text>

@@ -5,11 +5,16 @@ import { plainExerciseCategoryLabel, plainMovementWhy, plainTrainingCopy, plainW
 import { spacing } from "../../../design/theme";
 import { screenStyles } from "../screenStyles";
 
+function setCountLabel(count: number): string {
+  return `${count} set${count === 1 ? "" : "s"}`;
+}
+
 export function ExercisePrescriptionCard({ exercise, sectionName }: { exercise: ExercisePrescription; sectionName: string }) {
   return (
     <View style={{ gap: spacing.xs }}>
       <Text style={screenStyles.callout}>{plainWorkoutTitle(exercise.name)}</Text>
       <Text style={screenStyles.subtle}>{sectionName} - {plainExerciseCategoryLabel(exercise.category)}</Text>
+      {exercise.sets.length > 0 ? <Text style={screenStyles.body}>Sets: {setCountLabel(exercise.sets.length)}</Text> : null}
       {exercise.repsText ? <Text style={screenStyles.body}>Reps: {exercise.repsText}</Text> : null}
       {exercise.durationText ? <Text style={screenStyles.body}>Duration: {exercise.durationText}</Text> : null}
       <Text style={screenStyles.body}>Load: {plainTrainingCopy(exercise.loadGuidance)}</Text>

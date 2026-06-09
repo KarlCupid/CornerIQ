@@ -2237,7 +2237,13 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Show workout plan");
     const planDetailOutput = JSON.stringify(renderer.toJSON());
     expect(planDetailOutput).toContain("Warm-up");
+    expect(planDetailOutput).toContain("Sets:");
+    expect(planDetailOutput).toContain("Load:");
+    expect(planDetailOutput).toContain("Rest:");
+    expect(planDetailOutput).toContain("Cue:");
     expect(planDetailOutput).toContain("Why:");
+    expect(planDetailOutput).not.toContain("Session overview");
+    expect(planDetailOutput).not.toContain("Target intensity");
     expect(JSON.stringify(renderer.toJSON())).toContain("Current week:");
   });
 
