@@ -77,6 +77,42 @@ function parseSessionRpe(value: string): number | undefined {
   return parsed;
 }
 
+function stepKindTitle(kind: string): string {
+  switch (kind) {
+    case "setup":
+      return "Setup";
+    case "work":
+      return "Work";
+    case "rest":
+      return "Rest";
+    case "transition":
+      return "Transition";
+    case "checkpoint":
+      return "Check";
+    case "cooldown":
+      return "Cooldown";
+    default:
+      return "Step";
+  }
+}
+
+function doneButtonLabel(step: ReturnType<typeof buildWorkoutPlayerTimeline>["steps"][number]): string {
+  switch (step.kind) {
+    case "setup":
+      return "Ready";
+    case "work":
+      return `Done ${step.actionLabel}`;
+    case "rest":
+      return "Skip rest";
+    case "transition":
+      return "Continue";
+    case "checkpoint":
+      return "Check done";
+    case "cooldown":
+      return "Finish step";
+  }
+}
+
 function PlayerButton({
   disabled = false,
   label,
@@ -405,6 +441,7 @@ export function WorkoutPlayer({
   const [activeStepIndex, setActiveStepIndex] = React.useState(0);
   const [stepRemainingSeconds, setStepRemainingSeconds] = React.useState(firstStepSeconds);
   const [completedSetMap, setCompletedSetMap] = React.useState<Record<string, readonly number[]>>({});
+  const [skippedWorkStepMap, setSkippedWorkStepMap] = React.useState<Record<string, readonly number[]>>({});
   const [skippedExerciseMap, setSkippedExerciseMap] = React.useState<Record<string, true>>({});
   const [painFlagMap, setPainFlagMap] = React.useState<Record<string, true>>({});
   const [touchedExerciseMap, setTouchedExerciseMap] = React.useState<Record<string, true>>({});
@@ -415,12 +452,15 @@ export function WorkoutPlayer({
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
+  const activeStepIndexRef = React.useRef(activeStepIndex);
+  activeStepIndexRef.current = activeStepIndex;
 
   React.useEffect(() => {
     setStatus("not_started");
     setActiveStepIndex(0);
     setStepRemainingSeconds(firstStepSeconds);
     setCompletedSetMap({});
+    setSkippedWorkStepMap({});
     setSkippedExerciseMap({});
     setPainFlagMap({});
     setTouchedExerciseMap({});
@@ -453,7 +493,8 @@ export function WorkoutPlayer({
   }, [status, stepRemainingSeconds]);
 
   React.useEffect(() => {
-    if (status !== "active" || stepRemainingSeconds > 0) {
+    const activeStep = timeline.steps[activeStepIndex];
+    if (status !== "active" || stepRemainingSeconds > 0 || !activeStep?.autoAdvance) {
       return;
     }
     if (activeStepIndex < timeline.steps.length - 1) {
@@ -461,12 +502,14 @@ export function WorkoutPlayer({
       return;
     }
     setStatus("finishing");
-  }, [activeStepIndex, status, stepRemainingSeconds, timeline.steps.length]);
+  }, [activeStepIndex, status, stepRemainingSeconds, timeline.steps]);
 
   const steps = timeline.steps;
   const currentTimelineStep = steps[clampIndex(activeStepIndex, steps.length - 1)];
   const currentSection = currentTimelineStep ? session.sections[currentTimelineStep.sectionIndex] : undefined;
-  const currentExercise = currentSection?.exercises[currentTimelineStep?.exerciseIndex ?? 0];
+  const currentExercise =
+    currentSection?.exercises.find((exercise) => exercise.exerciseId === currentTimelineStep?.exerciseId) ??
+    currentSection?.exercises[currentTimelineStep?.exerciseIndex ?? 0];
 
   if (!currentTimelineStep || !currentSection || !currentExercise || steps.length === 0) {
     return (
@@ -482,20 +525,23 @@ export function WorkoutPlayer({
 
   const currentStepIndex = activeStepIndex;
   const activeSetIndex = currentTimelineStep.setIndex;
+  const activeExerciseId = currentTimelineStep.exerciseId;
   const setCount = currentTimelineStep.totalExerciseSets;
-  const completedSets = completedSetMap[currentExercise.exerciseId] ?? [];
-  const selectedSubstitution = substitutionMap[currentExercise.exerciseId];
+  const completedSets = completedSetMap[activeExerciseId] ?? [];
+  const selectedSubstitution = substitutionMap[activeExerciseId];
   const displayName = selectedSubstitution ? plainWorkoutTitle(selectedSubstitution.name) : currentTimelineStep.title;
-  const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentTimelineStep.instruction ?? currentExercise.loadGuidance);
+  const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentTimelineStep.loadGuidance ?? currentTimelineStep.instruction ?? currentExercise.loadGuidance);
   const displayNotes = (selectedSubstitution?.coachingNotes ?? currentExercise.coachingNotes).map(plainTrainingCopy);
   const progress = steps.length > 0 ? Math.max(0, currentStepIndex) / steps.length : 0;
   const nextStep = currentStepIndex >= 0 ? steps[currentStepIndex + 1] : undefined;
   const completedCountByExerciseId = Object.fromEntries(Object.entries(completedSetMap).map(([exerciseId, sets]) => [exerciseId, sets.length]));
+  const skippedCountByExerciseId = Object.fromEntries(Object.entries(skippedWorkStepMap).map(([exerciseId, sets]) => [exerciseId, sets.length]));
   const prescribedSetsByExerciseId = Object.fromEntries(steps.map((step) => [step.exerciseId, step.totalExerciseSets]));
   const playerResults = buildWorkoutPlayerExerciseResults(session, {
     completedSetsByExerciseId: completedCountByExerciseId,
     painFlagExerciseIds: Object.keys(painFlagMap),
     prescribedSetsByExerciseId,
+    skippedSetsByExerciseId: skippedCountByExerciseId,
     skippedExerciseIds: Object.keys(skippedExerciseMap),
     substitutionByExerciseId: substitutionMap,
     touchedExerciseIds: Object.keys(touchedExerciseMap)
@@ -566,7 +612,7 @@ export function WorkoutPlayer({
     );
   }
 
-  const touchExercise = (exerciseId = currentExercise.exerciseId) => {
+  const touchExercise = (exerciseId = activeExerciseId) => {
     setTouchedExerciseMap((current) => ({ ...current, [exerciseId]: true }));
   };
 
@@ -601,30 +647,52 @@ export function WorkoutPlayer({
     touchExercise();
     setSkippedExerciseMap((current) => {
       const next = { ...current };
-      delete next[currentExercise.exerciseId];
+      delete next[activeExerciseId];
       return next;
     });
-    setCompletedSetMap((current) => {
-      const currentSets = current[currentExercise.exerciseId] ?? [];
-      return currentSets.includes(activeSetIndex)
-        ? current
-        : {
-            ...current,
-            [currentExercise.exerciseId]: [...currentSets, activeSetIndex].sort((left, right) => left - right)
-          };
-    });
+    if (currentTimelineStep.tracksCompletion) {
+      setSkippedWorkStepMap((current) => {
+        const currentSets = current[activeExerciseId] ?? [];
+        return {
+          ...current,
+          [activeExerciseId]: currentSets.filter((index) => index !== activeSetIndex)
+        };
+      });
+      setCompletedSetMap((current) => {
+        const currentSets = current[activeExerciseId] ?? [];
+        return currentSets.includes(activeSetIndex)
+          ? current
+          : {
+              ...current,
+              [activeExerciseId]: [...currentSets, activeSetIndex].sort((left, right) => left - right)
+            };
+      });
+    }
     moveNext();
   };
 
   const skipSet = () => {
     touchExercise();
+    if (currentTimelineStep.tracksCompletion) {
+      setSkippedWorkStepMap((current) => {
+        const currentSets = current[activeExerciseId] ?? [];
+        return currentSets.includes(activeSetIndex)
+          ? current
+          : {
+              ...current,
+              [activeExerciseId]: [...currentSets, activeSetIndex].sort((left, right) => left - right)
+            };
+      });
+    }
     moveNext();
   };
 
   const skipExercise = () => {
-    touchExercise();
-    setSkippedExerciseMap((current) => ({ ...current, [currentExercise.exerciseId]: true }));
-    const next = steps.findIndex((step, index) => index > activeStepIndex && step.exerciseId !== currentExercise.exerciseId);
+    const liveStepIndex = activeStepIndexRef.current;
+    const liveExerciseId = steps[liveStepIndex]?.exerciseId ?? activeExerciseId;
+    touchExercise(liveExerciseId);
+    setSkippedExerciseMap((current) => ({ ...current, [liveExerciseId]: true }));
+    const next = steps.findIndex((step, index) => index > liveStepIndex && step.exerciseId !== liveExerciseId);
     if (next >= 0) {
       moveToStep(next);
       return;
@@ -636,10 +704,10 @@ export function WorkoutPlayer({
     touchExercise();
     setPainFlagMap((current) => {
       const next = { ...current };
-      if (next[currentExercise.exerciseId]) {
-        delete next[currentExercise.exerciseId];
+      if (next[activeExerciseId]) {
+        delete next[activeExerciseId];
       } else {
-        next[currentExercise.exerciseId] = true;
+        next[activeExerciseId] = true;
       }
       return next;
     });
@@ -740,8 +808,10 @@ export function WorkoutPlayer({
   const bigTimerSeconds = stepRemainingSeconds;
   const bigTimerLabel = currentTimelineStep.timerLabel.toUpperCase();
   const liveProgress = timeline.totalSeconds > 0 ? Math.min(1, Math.max(0, (timeline.totalSeconds - remainingSessionSeconds) / timeline.totalSeconds)) : progress;
-  const liveCues = displayNotes.length > 0 ? displayNotes : [currentTimelineStep.cue, ...(session.selfCheckCues ?? []).map(plainTrainingCopy)];
-  const primaryCue = liveCues[0] ?? "Keep the shoulders loose and the breath under control.";
+  const liveCues = [currentTimelineStep.cue, ...displayNotes, ...(session.selfCheckCues ?? []).map(plainTrainingCopy)];
+  const primaryCue = currentTimelineStep.cue || liveCues[0] || "Keep shoulders loose and breathe calmly.";
+  const stepKind = stepKindTitle(currentTimelineStep.kind);
+  const stepTone = currentTimelineStep.kind === "rest" || currentTimelineStep.kind === "cooldown" ? colors.readyGreen : currentTimelineStep.kind === "setup" || currentTimelineStep.kind === "transition" ? colors.amberCaution : colors.blueIQ;
 
   return (
     <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
@@ -756,10 +826,25 @@ export function WorkoutPlayer({
       <GlassPanel testID="workout-player-current-block">
         <View testID="workout-player-current-step" />
         <View style={{ alignItems: "center", gap: spacing.xs }}>
-          <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>DO THIS NOW</Text>
+          <Text style={{ color: stepTone, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>{stepKind.toUpperCase()}</Text>
           <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 39, textAlign: "center" }}>{displayName}</Text>
           {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
           <Text style={{ color: colors.wrap, fontSize: 18, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>{currentTimelineStep.dose}</Text>
+        </View>
+
+        <View
+          style={{
+            backgroundColor: "rgba(39, 206, 241, 0.1)",
+            borderColor: "rgba(39, 206, 241, 0.34)",
+            borderRadius: 18,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+        >
+          <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>INSTRUCTION</Text>
+          <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "800", lineHeight: 22 }}>{currentTimelineStep.instruction}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>{currentTimelineStep.intent}</Text>
         </View>
 
         <View
@@ -776,10 +861,26 @@ export function WorkoutPlayer({
           <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{primaryCue}</Text>
         </View>
 
+        {currentTimelineStep.safetyStop ? (
+          <View
+            style={{
+              backgroundColor: "rgba(255, 82, 101, 0.1)",
+              borderColor: "rgba(255, 82, 101, 0.34)",
+              borderRadius: 18,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+          >
+            <Text style={{ color: colors.amberCaution, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>STOP IF</Text>
+            <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{currentTimelineStep.safetyStop}</Text>
+          </View>
+        ) : null}
+
         <TimerOrb label={bigTimerLabel} seconds={bigTimerSeconds} />
       </GlassPanel>
 
-      <PlayerButton disabled={busy || status === "paused"} label={`Done ${currentTimelineStep.actionLabel}`} onPress={markDone} tone="primary" />
+      <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" />
 
       <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
         <LiveControlButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
@@ -792,7 +893,7 @@ export function WorkoutPlayer({
           }}
         />
         <LiveControlButton disabled={busy} icon="play-forward" label="Skip" onPress={skipSet} />
-        <LiveControlButton disabled={busy} icon="alert-circle" label={painFlagMap[currentExercise.exerciseId] ? "Flagged" : "Pain"} onPress={togglePainFlag} />
+        <LiveControlButton disabled={busy} icon="alert-circle" label={painFlagMap[activeExerciseId] ? "Flagged" : "Pain"} onPress={togglePainFlag} />
       </View>
 
       <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
@@ -826,6 +927,24 @@ export function WorkoutPlayer({
           <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34 }}>{formatTimer(stepRemainingSeconds)}</Text>
           <Text style={screenStyles.subtle}>{currentTimelineStep.sectionName}: {currentTimelineStep.durationLabel} for {currentTimelineStep.title}.</Text>
           <Text style={screenStyles.subtle}>Rest after: {currentTimelineStep.rest}</Text>
+          <Text style={screenStyles.subtle}>Timer mode: {stepKind}. {currentTimelineStep.autoAdvance ? "This timed step can advance when the timer ends." : "This step waits for your tap."}</Text>
+        </View>
+        <View
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.055)",
+            borderColor: colors.line,
+            borderRadius: 18,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+          testID="workout-player-guided-copy"
+        >
+          <Text style={screenStyles.fieldLabel}>Guided check</Text>
+          {currentTimelineStep.successCheck ? <Text style={screenStyles.subtle}>Success: {currentTimelineStep.successCheck}</Text> : null}
+          {currentTimelineStep.commonMistake ? <Text style={screenStyles.subtle}>Avoid: {currentTimelineStep.commonMistake}</Text> : null}
+          {currentTimelineStep.regression ? <Text style={screenStyles.subtle}>Easier: {currentTimelineStep.regression}</Text> : null}
+          {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {currentTimelineStep.safetyStop}</Text> : null}
         </View>
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.fieldLabel}>Load guidance</Text>
@@ -840,7 +959,7 @@ export function WorkoutPlayer({
           exercise={currentExercise}
           onChoose={(substitution) => {
             touchExercise();
-            setSubstitutionMap((current) => ({ ...current, [currentExercise.exerciseId]: substitution }));
+            setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
           }}
           selected={selectedSubstitution}
         />
@@ -850,7 +969,7 @@ export function WorkoutPlayer({
         <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
           <Text style={screenStyles.body}>{plainMovementWhy(currentExercise.boxingTransfer)}</Text>
         </CollapsedDetailDisclosure>
-        {painFlagMap[currentExercise.exerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
+        {painFlagMap[activeExerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <PlayerButton label="Back" onPress={moveBack} />
           <PlayerButton label="Next" onPress={moveNext} />

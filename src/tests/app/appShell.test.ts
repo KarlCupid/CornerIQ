@@ -974,8 +974,11 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
   if (!detail || !sourceSection || !first || !second || !third) {
     throw new Error("missing detailed workout fixture");
   }
+  const { guidedProfile: _firstGuidedProfile, ...firstBase } = first;
+  const { guidedProfile: _secondGuidedProfile, ...secondBase } = second;
+  const { guidedProfile: _thirdGuidedProfile, ...thirdBase } = third;
   const firstExercise: ExercisePrescription = {
-    ...first,
+    ...firstBase,
     exerciseId: "player_tempo_squat",
     name: "Tempo squat",
     repsText: "8 reps",
@@ -1005,7 +1008,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
     stopConditions: ["Stop if sharp knee pain appears."]
   };
   const secondExercise: ExercisePrescription = {
-    ...second,
+    ...secondBase,
     exerciseId: "player_timed_carry",
     name: "Timed carry",
     repsText: undefined,
@@ -1023,7 +1026,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
     stopConditions: ["Stop if pain changes your gait."]
   };
   const thirdExercise: ExercisePrescription = {
-    ...third,
+    ...thirdBase,
     exerciseId: "player_dead_bug",
     name: "Dead bug reach",
     repsText: "6 each side",
@@ -1044,6 +1047,7 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
     ...detail,
     title: "Player test workout",
     durationMinutes: 18,
+    guidedSections: undefined,
     stopConditions: ["Stop if dizziness or unusual symptoms appear."],
     safetyNotes: ["Keep support work controlled."],
     preSessionChecklist: ["Shoes tied and water nearby."],
@@ -1055,12 +1059,14 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
         name: "Strength primer",
         intent: "Build smooth support strength for boxing.",
         durationMinutes: 12,
+        guidedSteps: undefined,
         exercises: [firstExercise, secondExercise]
       },
       {
         name: "Durability close",
         intent: "Finish with trunk control.",
         durationMinutes: 6,
+        guidedSteps: undefined,
         exercises: [thirdExercise]
       }
     ]
@@ -1078,12 +1084,14 @@ function boxingRoundPlayerTestSession(): DetailedTrainingSession {
     ...detail,
     title: "Boxing round player test",
     durationMinutes: 12,
+    guidedSections: undefined,
     sections: [
       {
         ...sourceSection,
         name: "Boxing round structure",
         intent: "Run stance, guard, and technical rounds with clear timer goals.",
         durationMinutes: 12,
+        guidedSteps: undefined,
         exercises: [
           catalogToPrescription(findCatalogExercise("stance_guard_reset")),
           catalogToPrescription(findCatalogExercise("shadowboxing_technical_rounds"))
@@ -1754,7 +1762,7 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("LIVE PLAYER");
-    expect(output).toContain("DO THIS NOW");
+    expect(output).toContain("SETUP");
     expect(output).toContain("workout-player-big-timer");
     expect(output).toContain("Show More workout detail");
     await act(async () => {
@@ -2374,12 +2382,26 @@ describe("minimal app screens", () => {
       });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("LIVE PLAYER");
-      expect(output).toContain("DO THIS NOW");
+      expect(output).toContain("SETUP");
+      expect(output).toContain("INSTRUCTION");
+      expect(output).toContain("STOP IF");
       expect(output).toContain("Tempo squat");
-      expect(output).toContain("Done set");
+      expect(output).toContain("Ready");
       expect(output).toContain("Show More workout detail");
       expect(output).not.toContain("Load guidance");
-      expect(output).not.toContain("Stop / safety");
+      expect(output).toContain("Stop if sharp knee pain appears.");
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(JSON.stringify(renderer.toJSON())).toContain("Ready");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Ready"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("WORK");
+      expect(output).toContain("Done set 1");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Show More workout detail"));
@@ -2396,7 +2418,8 @@ describe("minimal app screens", () => {
       expect(output).toContain("Stop if sharp knee pain appears.");
       expect(output).toContain("NEXT");
       expect(output).toContain("Current timer");
-      expect(output).toContain("18:00");
+      expect(output).toContain("Guided check");
+      expect(output).toContain("This step waits for your tap.");
       expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
 
       await switchSection(renderer, "Show Swap exercise");
@@ -2414,25 +2437,27 @@ describe("minimal app screens", () => {
       act(() => {
         vi.advanceTimersByTime(1000);
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("17:59");
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Done set 1");
       await act(async () => {
         await press(pressableWithText(renderer, "Pause"));
       });
+      const pausedOutput = JSON.stringify(renderer.toJSON());
       act(() => {
         vi.advanceTimersByTime(3000);
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("17:59");
+      expect(JSON.stringify(renderer.toJSON())).toBe(pausedOutput);
       await act(async () => {
         await press(pressableWithText(renderer, "Resume"));
       });
       act(() => {
         vi.advanceTimersByTime(1000);
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("17:58");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Done set 1");
       await act(async () => {
         await press(pressableWithText(renderer, "Restart"));
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("18:00");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Done set 1");
     } finally {
       vi.useRealTimers();
     }
@@ -2456,6 +2481,13 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("SETUP");
+      expect(output).toContain("Ready");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Ready"));
+      });
+      output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Segment 1: Stance base");
       expect(output).toContain("Segment 1 of 4: Stance and guard reset");
       expect(output).toContain("Done segment 1");
@@ -2465,17 +2497,20 @@ describe("minimal app screens", () => {
       });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Segment 1 of 4");
-      expect(output).toContain("Find stance width, soft knees, chin tucked, and quiet shoulders.");
+      expect(output).toContain("Stand in boxing stance with soft knees, chin tucked, and quiet shoulders.");
 
-      for (let index = 0; index < 4; index += 1) {
-        await act(async () => {
-          await press(pressableWithText(renderer, "Done segment"));
-        });
-      }
+      await act(async () => {
+        await press(pressableWithExactText(renderer, "Skip exercise"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Set up Technical shadowboxing");
 
+      await act(async () => {
+        await press(pressableWithText(renderer, "Ready"));
+      });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Round 1: Stance and jab line");
-      expect(output).toContain("Round 1 of 4: Technical shadowboxing rounds");
+      expect(output).toContain("Round 1 of 6: Technical shadowboxing rounds");
       expect(output).toContain("Done round 1");
       expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
     } finally {
@@ -2503,23 +2538,34 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Done set"));
+        await press(pressableWithText(renderer, "Ready"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Done set 1"));
+      });
+      for (let guard = 0; guard < 4 && !JSON.stringify(renderer.toJSON()).includes('"children":["Set up Timed carry"]'); guard += 1) {
+        await act(async () => {
+          await press(pressableWithText(renderer, "Skip"));
+        });
+      }
+      expect(JSON.stringify(renderer.toJSON())).toContain('"children":["Set up Timed carry"]');
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Ready"));
       });
       await act(async () => {
         await press(pressableWithText(renderer, "Skip"));
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("Timed carry");
-
       await act(async () => {
-        await press(pressableWithText(renderer, "Show More workout detail"));
-      });
-      await act(async () => {
-        await press(pressableWithText(renderer, "Skip exercise"));
+        await press(pressableWithText(renderer, "Skip"));
       });
       expect(JSON.stringify(renderer.toJSON())).toContain("Dead bug reach");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Pain"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Show More workout detail"));
       });
       await act(async () => {
         await press(pressableWithText(renderer, "Finish workout"));
@@ -2554,6 +2600,7 @@ describe("minimal app screens", () => {
     const results = buildWorkoutPlayerExerciseResults(session, {
       completedSetsByExerciseId: { [first.exerciseId]: 2 },
       painFlagExerciseIds: [third.exerciseId],
+      prescribedSetsByExerciseId: { [first.exerciseId]: 2, [second.exerciseId]: 1, [third.exerciseId]: 1 },
       skippedExerciseIds: [second.exerciseId],
       substitutionByExerciseId: { [first.exerciseId]: first.substitutions[0] },
       touchedExerciseIds: [third.exerciseId]
@@ -2573,6 +2620,7 @@ describe("minimal app screens", () => {
     const untouched = buildWorkoutPlayerExerciseResults(session, {
       completedSetsByExerciseId: { [first.exerciseId]: 2 },
       painFlagExerciseIds: [],
+      prescribedSetsByExerciseId: { [first.exerciseId]: 2, [second.exerciseId]: 1, [third.exerciseId]: 1 },
       skippedExerciseIds: []
     });
     expect(untouched.find((result) => result.exerciseId === second.exerciseId)).toEqual(expect.objectContaining({ resultStatus: "prescribed_only" }));

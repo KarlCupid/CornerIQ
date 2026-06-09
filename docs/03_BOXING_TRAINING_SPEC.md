@@ -99,6 +99,29 @@ The weekly plan tracks:
 - High cycle symptom burden trims optional volume/intensity.
 - Missed sessions trigger repeat/regress before novelty.
 
+## Guided Workout Player Contract
+
+Generated support workouts must be executable in the player without screen-owned interpretation.
+
+Each player-eligible exercise needs a guided profile with:
+
+- beginner name
+- setup step
+- work step or set/round sequence
+- rest or transition behavior when appropriate
+- checkpoint or success check
+- clear instruction
+- intent
+- concrete cue
+- common mistake
+- regression
+- safety stop
+- optional demo/audio keys without requiring assets
+
+Generated player timelines use guided profiles first. Setup, rest, transition, checkpoint, and cooldown steps are real timeline steps. Only work steps count toward exercise completion. Self-paced strength steps wait for athlete action; rest and timed boxing steps can advance from their timers.
+
+Generated boxing skill work stays solo, non-contact, and beginner-readable. Broad titles such as "base shape", "primary action", "quality round", "clean repeat", "defense round", or "rhythm round" are not valid player steps unless replaced with concrete body instructions.
+
 ## Strength Session Template
 
 Each strength session includes:

@@ -11,6 +11,7 @@ import type {
   WorkoutRoundPlan,
   WorkoutSection
 } from "../core/types";
+import { buildGuidedWorkoutSections, guidedProfileForExercise } from "./guidedExerciseCatalog";
 import { prescribeExercise } from "./substitutionEngine";
 import { findWorkoutTemplateByTitle, sectionDurationPlan, selectWorkoutTemplate, type WorkoutTemplate, type WorkoutTemplateSection } from "./workoutTemplateCatalog";
 import { plainGeneratedSessionFamilyWhy, plainSectionIntent, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "../presentation/trainingCopy";
@@ -195,6 +196,10 @@ function timeLabel(value: string): string {
 }
 
 function exerciseDose(exercise: ExercisePrescription): string {
+  const firstGuidedWork = guidedProfileForExercise(exercise).work[0];
+  if (firstGuidedWork?.repsText) {
+    return firstGuidedWork.repsText;
+  }
   const firstSet = exercise.sets[0];
   const setCount = Math.max(1, exercise.sets.length);
   const dose = [
@@ -208,26 +213,49 @@ function exerciseDose(exercise: ExercisePrescription): string {
 }
 
 function exerciseInstruction(exercise: ExercisePrescription): string {
+  const firstGuidedWork = guidedProfileForExercise(exercise).work[0];
+  if (firstGuidedWork?.beginnerInstruction) {
+    return firstGuidedWork.beginnerInstruction;
+  }
   const load = plainTrainingCopy(exercise.loadGuidance);
   const tempo = exercise.tempo ? ` Tempo: ${plainTrainingCopy(exercise.tempo)}.` : "";
   return `${load}${tempo}`;
 }
 
+function secondsLabel(seconds: number | undefined): string | null {
+  if (!seconds || seconds <= 0) {
+    return null;
+  }
+  if (seconds < 60) {
+    return `${seconds} sec`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder === 0 ? `${minutes} min` : `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
 function walkthroughItem(exercise: ExercisePrescription) {
+  const profile = guidedProfileForExercise(exercise);
+  const firstWork = profile.work[0];
+  const rest = secondsLabel(firstWork?.restAfterSeconds);
   return {
     exerciseId: exercise.exerciseId,
-    title: plainWorkoutTitle(exercise.name),
+    title: plainWorkoutTitle(profile.beginnerName),
     dose: exerciseDose(exercise),
     instruction: exerciseInstruction(exercise),
-    rest: plainTrainingCopy(exercise.restText),
-    cue: plainTrainingCopy(exercise.coachingNotes[0] ?? exercise.boxingTransfer)
+    rest: rest ? `${rest} reset after work steps.` : plainTrainingCopy(exercise.restText),
+    cue: plainTrainingCopy(firstWork?.cue ?? exercise.coachingNotes[0] ?? exercise.boxingTransfer)
   };
 }
 
 function sectionInstruction(sectionItem: WorkoutSection): string {
   const intent = plainSectionIntent(sectionItem.intent);
   const exerciseCount = sectionItem.exercises.length;
+  const guidedStepCount = sectionItem.guidedSteps?.length ?? 0;
   const base = `${sectionItem.durationMinutes} min. ${intent}`;
+  if (guidedStepCount > 0) {
+    return `${base} Follow ${guidedStepCount} guided steps in order: set up, work, reset, and check quality before moving on.`;
+  }
   if (exerciseCount <= 1) {
     return `${base} Complete the listed work, then move on.`;
   }
@@ -235,6 +263,10 @@ function sectionInstruction(sectionItem: WorkoutSection): string {
 }
 
 function checkpointForSection(sectionItem: WorkoutSection): string {
+  const guidedCheckpoint = sectionItem.guidedSteps?.find((step) => step.kind === "checkpoint");
+  if (guidedCheckpoint?.successCheck) {
+    return guidedCheckpoint.successCheck;
+  }
   const firstExercise = sectionItem.exercises[0];
   if (!firstExercise) {
     return "Move on when breathing and posture are under control.";
@@ -306,11 +338,16 @@ function buildWorkoutWalkthrough(input: {
   const firstSection = input.sections[0];
   const firstExercise = firstSection?.exercises[0];
   const roundPlan = parseRoundPlan(input.roundStructure, input.family, input.technicalEmphasis ?? []);
+  const firstGuidedStep = firstSection?.guidedSteps?.[0];
   const beforeYouStart = [
     ...(input.preSessionChecklist ?? []).map(plainTrainingCopy),
     input.fuelBefore ? plainTrainingCopy(input.fuelBefore) : undefined,
     "Have water nearby and leave enough space to move in stance.",
-    firstSection && firstExercise ? `Start with ${plainSectionName(firstSection.name)}: ${plainWorkoutTitle(firstExercise.name)}.` : "Start with the first listed block."
+    firstGuidedStep
+      ? `Start with ${plainSectionName(firstSection?.name ?? "first block")}: ${plainWorkoutTitle(firstGuidedStep.title)}.`
+      : firstSection && firstExercise
+        ? `Start with ${plainSectionName(firstSection.name)}: ${plainWorkoutTitle(firstExercise.name)}.`
+        : "Start with the first listed block."
   ].filter((item): item is string => Boolean(item));
 
   return {
@@ -351,7 +388,12 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
             : input.cycle.symptomBurden === "high"
               ? Math.min(input.generatedSession.durationMinutes, 35)
               : input.generatedSession.durationMinutes;
-  const sections = sectionsFromTemplate(input, templateItem, durationMinutes);
+  const rawSections = sectionsFromTemplate(input, templateItem, durationMinutes);
+  const guidedSections = buildGuidedWorkoutSections(rawSections);
+  const sections = rawSections.map((workoutSection, index) => ({
+    ...workoutSection,
+    guidedSteps: guidedSections[index]?.steps ?? []
+  }));
   const readinessModifications = [
     ...input.generatedSession.modifications,
     ...(input.generatedSession.executionReadinessStatus === "red_hard_stop" ? ["Safety symptoms changed this to recovery."] : []),
@@ -402,6 +444,7 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
     durationMinutes,
     intensity: family === "recovery_reset" ? "recovery" : hardAnchor || input.phase?.phase === "tournament" ? "easy" : input.phase?.phase === "fight_week" ? "easy" : input.generatedSession.intensity,
     sections,
+    guidedSections,
     walkthrough,
     fuelDemand: input.generatedSession.fuelDemand,
     readinessModifications,

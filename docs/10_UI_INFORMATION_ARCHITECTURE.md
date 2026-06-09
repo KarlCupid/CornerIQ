@@ -67,6 +67,21 @@ First:
 - readiness/cycle/safety modifications
 - completion CTA
 
+Workout player:
+
+- workout title and section name
+- step progress
+- setup/work/rest/transition/checkpoint state
+- large timer
+- exact beginner instruction
+- one cue
+- one-line intent
+- visible stop rule when present
+- next-up card
+- pause, restart, skip, pain, and finish controls
+- swap options when an exercise offers them
+- finish summary and result logging
+
 No generated sparring appears.
 
 ## Plan

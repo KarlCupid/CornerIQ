@@ -312,6 +312,50 @@ export interface ExerciseSubstitution {
   coachingNotes: readonly string[];
 }
 
+export type GuidedStepKind =
+  | "setup"
+  | "work"
+  | "rest"
+  | "transition"
+  | "checkpoint"
+  | "cooldown";
+
+export type GuidedTimerBehavior = "continuous" | "work_rest" | "self_paced_sets" | "rounds" | "distance";
+
+export interface GuidedWorkoutStep {
+  id: string;
+  kind: GuidedStepKind;
+  title: string;
+  beginnerInstruction: string;
+  intent: string;
+  cue: string;
+  durationSeconds?: number | undefined;
+  repsText?: string | undefined;
+  loadGuidance?: string | undefined;
+  restAfterSeconds?: number | undefined;
+  commonMistake?: string | undefined;
+  successCheck?: string | undefined;
+  safetyStop?: string | undefined;
+  regression?: string | undefined;
+  progression?: string | undefined;
+  demoAssetKey?: string | undefined;
+  thumbnailAssetKey?: string | undefined;
+  audioCueKey?: string | undefined;
+}
+
+export interface GuidedExerciseProfile {
+  exerciseId: string;
+  beginnerName: string;
+  oneLineGoal: string;
+  setup: readonly GuidedWorkoutStep[];
+  work: readonly GuidedWorkoutStep[];
+  cooldown?: readonly GuidedWorkoutStep[] | undefined;
+  commonMistakes: readonly string[];
+  safetyStops: readonly string[];
+  timerBehavior: GuidedTimerBehavior;
+  beginnerEligible: boolean;
+}
+
 export interface ExercisePrescription {
   exerciseId: string;
   name: string;
@@ -329,6 +373,7 @@ export interface ExercisePrescription {
   substitutions: readonly ExerciseSubstitution[];
   safetyNotes: readonly string[];
   stopConditions: readonly string[];
+  guidedProfile?: GuidedExerciseProfile | undefined;
 }
 
 export type ExerciseResultStatus = "prescribed_only" | "completed" | "partial" | "skipped";
@@ -341,6 +386,15 @@ export interface WorkoutSection {
   intent: string;
   durationMinutes: number;
   exercises: readonly ExercisePrescription[];
+  guidedSteps?: readonly GuidedWorkoutStep[] | undefined;
+}
+
+export interface GuidedWorkoutSection {
+  id: string;
+  name: string;
+  intent: string;
+  durationMinutes: number;
+  steps: readonly GuidedWorkoutStep[];
 }
 
 export interface WorkoutWalkthroughItem {
@@ -385,6 +439,7 @@ export interface DetailedTrainingSession {
   durationMinutes: number;
   intensity: GeneratedSessionIntensity;
   sections: readonly WorkoutSection[];
+  guidedSections?: readonly GuidedWorkoutSection[] | undefined;
   walkthrough: WorkoutWalkthrough;
   fuelDemand: "low" | "moderate" | "high";
   readinessModifications: readonly string[];

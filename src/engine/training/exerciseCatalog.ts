@@ -1,4 +1,5 @@
 import type { ExerciseCategory, ExercisePrescription, ExerciseSubstitution, GeneratedSessionFamily } from "./types";
+import { guidedProfileForSource } from "./guidedExerciseCatalog";
 
 export interface CatalogExercise {
   exerciseId: string;
@@ -2283,7 +2284,8 @@ export function catalogToPrescription(item: CatalogExercise): ExercisePrescripti
     boxingTransfer: item.boxingTransfer,
     substitutions: item.substitutions,
     safetyNotes: item.safetyNotes,
-    stopConditions: item.stopConditions
+    stopConditions: item.stopConditions,
+    guidedProfile: guidedProfileForSource(item)
   };
 }
 

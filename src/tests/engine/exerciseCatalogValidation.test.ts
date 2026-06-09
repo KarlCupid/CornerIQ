@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { exerciseCatalog } from "../../engine/training/exerciseCatalog";
+import { guidedProfileForSource } from "../../engine/training/guidedExerciseCatalog";
 import { validateExerciseCatalog } from "../../engine/training/exerciseCatalogValidation";
+import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
 
 const requiredExerciseIds = [
   "stance_guard_reset",
@@ -97,6 +99,30 @@ const requiredExerciseIds = [
   "trap_posture_breathing_carry"
 ] as const;
 
+const launchCriticalGuidedExerciseIds = [
+  "movement_prep_flow",
+  "stance_guard_reset",
+  "guard_return_timer",
+  "shadowboxing_technical_rounds",
+  "defense_after_combo_round",
+  "rhythm_change_round",
+  "bag_angle_reset_round",
+  "bag_rhythm_change_round",
+  "bag_jab_control_round",
+  "bag_combo_exit_round",
+  "bag_defense_after_combo",
+  "goblet_squat_to_box",
+  "split_squat_iso",
+  "push_up_plus",
+  "band_row",
+  "pallof_press",
+  "dead_bug_anti_extension",
+  "tempo_roadwork",
+  "bike_rower_zone2",
+  "low_amplitude_pogo",
+  "med_ball_rotational_throw"
+] as const;
+
 describe("exercise catalog validation", () => {
   it("passes the production catalog", () => {
     const result = validateExerciseCatalog(exerciseCatalog);
@@ -109,6 +135,42 @@ describe("exercise catalog validation", () => {
     const exerciseIds = new Set(exerciseCatalog.map((exercise) => exercise.exerciseId));
 
     expect(requiredExerciseIds.filter((exerciseId) => !exerciseIds.has(exerciseId))).toEqual([]);
+  });
+
+  it("has player-ready guided profiles for every launch-critical exercise", () => {
+    const byId = new Map(exerciseCatalog.map((exercise) => [exercise.exerciseId, exercise]));
+
+    for (const exerciseId of launchCriticalGuidedExerciseIds) {
+      const exercise = byId.get(exerciseId);
+      if (!exercise) {
+        throw new Error(`Missing launch exercise ${exerciseId}`);
+      }
+      const profile = guidedProfileForSource(exercise);
+      const workText = profile.work.map((step) => `${step.title} ${step.beginnerInstruction} ${step.intent} ${step.cue} ${step.commonMistake ?? ""} ${step.safetyStop ?? ""}`).join(" ");
+
+      expect(profile.setup.length, exerciseId).toBeGreaterThan(0);
+      expect(profile.work.length, exerciseId).toBeGreaterThan(0);
+      expect(profile.commonMistakes.length, exerciseId).toBeGreaterThan(0);
+      expect(profile.safetyStops.length, exerciseId).toBeGreaterThan(0);
+      expect(profile.work.every((step) => step.safetyStop && step.successCheck && step.commonMistake), exerciseId).toBe(true);
+      expect(workText, exerciseId).not.toMatch(/\b(base shape|primary action|quality round|clean repeat|guard return rounds|shadowboxing rounds|defense round|rhythm round|technical round|execute cleanly|focus on quality|reset shape)\b/i);
+    }
+  });
+
+  it("gives every generated template exercise a guided player profile", () => {
+    const byId = new Map(exerciseCatalog.map((exercise) => [exercise.exerciseId, exercise]));
+    const templateExerciseIds = Array.from(new Set(workoutTemplateCatalog.flatMap((template) => template.sections.flatMap((section) => section.exerciseIds))));
+
+    const missingGuidance = templateExerciseIds.filter((exerciseId) => {
+      const exercise = byId.get(exerciseId);
+      if (!exercise) {
+        return true;
+      }
+      const profile = guidedProfileForSource(exercise);
+      return profile.setup.length === 0 || profile.work.length === 0 || profile.work.some((step) => !step.beginnerInstruction || !step.intent || !step.cue || (!step.durationSeconds && !step.repsText));
+    });
+
+    expect(missingGuidance).toEqual([]);
   });
 
   it("fails intentionally malformed catalog fixtures", () => {

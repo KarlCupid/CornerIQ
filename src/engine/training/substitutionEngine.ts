@@ -1,5 +1,6 @@
 import type { ExercisePrescription, ExerciseSubstitution } from "./types";
 import { catalogToPrescription, findCatalogExercise, type CatalogExercise } from "./exerciseCatalog";
+import { guidedProfileForSource } from "./guidedExerciseCatalog";
 
 function normalizedEquipment(equipmentAccess: readonly string[]): Set<string> {
   return new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
@@ -31,7 +32,14 @@ function substitutedPrescription(item: CatalogExercise, substitution: ExerciseSu
     loadGuidance: substitution.loadGuidance,
     coachingNotes: substitution.coachingNotes,
     substitutions: [baseToSubstitution(item), ...item.substitutions.filter((candidate) => candidate.exerciseId !== substitution.exerciseId)],
-    safetyNotes: [...base.safetyNotes, `Substitution reason: ${substitution.reason}.`]
+    safetyNotes: [...base.safetyNotes, `Substitution reason: ${substitution.reason}.`],
+    guidedProfile: guidedProfileForSource({
+      ...item,
+      exerciseId: substitution.exerciseId,
+      name: substitution.name,
+      loadGuidance: substitution.loadGuidance,
+      coachingNotes: substitution.coachingNotes
+    })
   };
 }
 
