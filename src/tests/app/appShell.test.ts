@@ -1715,7 +1715,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("workout-player-preview");
     expect(output).toContain("DO THIS NOW");
     expect(output).toContain("Your job");
-    expect(output).toContain("Show Workout walkthrough");
+    expect(output).toContain("Show Exercise details");
     expect(output).not.toContain("Session flow");
     expect(output).not.toContain("Coach note");
     expect(output).not.toContain("LIVE PLAYER");
@@ -2085,7 +2085,7 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("train-workout-section");
     expect(output).toContain("Quick log");
-    expect(output).toContain("Show walkthrough");
+    expect(output).toContain("Show exercise details");
     expect(output).toContain("Show why / safety");
     expect(output).toContain("NEXT 7 DAYS");
     expect(output).toContain("MANUAL BOXING LOG");
@@ -2218,7 +2218,7 @@ describe("minimal app screens", () => {
     expect(closedOutput).not.toContain("Recent training");
     expect(closedOutput).not.toContain("Session plan");
     expect(closedOutput).not.toContain("Quality checkpoints");
-    expect(closedOutput).toContain("Show walkthrough");
+    expect(closedOutput).toContain("Show exercise details");
     expect(closedOutput).toContain("Show why / safety");
     await act(async () => {
       await press(pressableWithText(renderer, "Quick log"));
@@ -2234,10 +2234,8 @@ describe("minimal app screens", () => {
     const safetyOutput = JSON.stringify(renderer.toJSON());
     expect(safetyOutput).toContain("Pain notes help CornerIQ avoid automatic progression.");
     expect(safetyOutput).toContain("Result statuses");
-    await switchSection(renderer, "Show walkthrough");
+    await switchSection(renderer, "Show exercise details");
     const planDetailOutput = JSON.stringify(renderer.toJSON());
-    expect(planDetailOutput).toContain("Workout walkthrough");
-    expect(planDetailOutput).toContain("Before you start");
     expect(planDetailOutput).toContain("Exercise details");
     expect(planDetailOutput).toContain("Warm-up");
     expect(planDetailOutput).toContain("DO");
@@ -2245,6 +2243,10 @@ describe("minimal app screens", () => {
     expect(planDetailOutput).toContain("REST");
     expect(planDetailOutput).toContain("Cue:");
     expect(planDetailOutput).toContain("BOXING TRANSFER");
+    expect(planDetailOutput).not.toContain("Workout walkthrough");
+    expect(planDetailOutput).not.toContain("Before you start");
+    expect(planDetailOutput).not.toContain("Quality checkpoints");
+    expect(planDetailOutput).not.toContain("Add-ons");
     expect(planDetailOutput).not.toContain("Session overview");
     expect(planDetailOutput).not.toContain("Target intensity");
     expect(JSON.stringify(renderer.toJSON())).toContain("Current week:");
@@ -2322,18 +2324,22 @@ describe("minimal app screens", () => {
       expect(output).toContain("Player test workout");
       expect(output).toContain("DO THIS NOW");
       expect(output).toContain("Start with Strength primer");
-      expect(output).toContain("Show Workout walkthrough");
+      expect(output).toContain("Show Exercise details");
       expect(output).not.toContain("Session flow");
       expect(output).not.toContain("Coach note");
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Show Workout walkthrough"));
+        await press(pressableWithText(renderer, "Show Exercise details"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Workout walkthrough");
-      expect(output).toContain("Before you start");
-      expect(output).toContain("Do:");
-      expect(output).toContain("CHECKPOINT");
+      expect(output).toContain("Exercise details");
+      expect(output).toContain("DO");
+      expect(output).toContain("HOW");
+      expect(output).toContain("REST");
+      expect(output).toContain("BOXING TRANSFER");
+      expect(output).not.toContain("Workout walkthrough");
+      expect(output).not.toContain("Before you start");
+      expect(output).not.toContain("CHECKPOINT");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Start workout"));

@@ -19,7 +19,7 @@ import { glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { screenStyles } from "../screenStyles";
-import { WorkoutWalkthroughCard } from "./WorkoutWalkthroughCard";
+import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 
 export type WorkoutPlayerStatus = "not_started" | "active" | "paused" | "finishing" | "completed" | "skipped";
 
@@ -641,19 +641,8 @@ export function WorkoutPlayer({
           <PlayerButton label="Back to Train" onPress={onClose} />
         </GlassPanel>
 
-        <CollapsedDetailDisclosure title="Workout walkthrough" summary="Open for the full block order, round plan, exercise dose, cue, rest, and stop rules." testID="workout-player-preview-detail">
-          <View style={{ gap: spacing.sm }}>
-            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Why today</Text>
-            <Text style={screenStyles.subtle}>{plainTrainingCopy(session.whyThisMattersForBoxing)}</Text>
-          </View>
-          <WorkoutWalkthroughCard
-            session={session}
-            onStepPress={(_step, index) => {
-                setActiveSectionIndex(index);
-                setActiveExerciseIndex(0);
-                setActiveSetIndex(0);
-            }}
-          />
+        <CollapsedDetailDisclosure title="Exercise details" summary="Dose, cues, rest, swaps, and stop rules." testID="workout-player-preview-detail">
+          <WorkoutExerciseDetails session={session} title={null} />
         </CollapsedDetailDisclosure>
       </WorkoutScreenFrame>
     );

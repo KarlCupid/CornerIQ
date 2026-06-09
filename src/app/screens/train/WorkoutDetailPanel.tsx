@@ -18,7 +18,7 @@ import {
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
-import { WorkoutWalkthroughCard } from "./WorkoutWalkthroughCard";
+import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 
 type WorkoutFollowUpState = "completed" | "skipped" | "review";
 
@@ -166,103 +166,10 @@ function SessionMeta({ label }: { label: string }) {
   );
 }
 
-function WorkoutSectionCard({
-  index,
-  section
-}: {
-  index: number;
-  section: DetailedTrainingSession["sections"][number];
-}) {
-  return (
-    <View
-      style={{
-        ...glassStyles.card,
-        borderRadius: 20,
-        gap: spacing.md,
-        padding: spacing.md
-      }}
-    >
-      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: "rgba(39, 206, 241, 0.12)",
-            borderColor: "rgba(39, 206, 241, 0.36)",
-            borderRadius: 14,
-            borderWidth: 1,
-            height: 40,
-            justifyContent: "center",
-            width: 40
-          }}
-        >
-          <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{String(index + 1).padStart(2, "0")}</Text>
-        </View>
-        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>{plainSectionName(section.name)}</Text>
-          <Text style={screenStyles.subtle}>{plainSectionIntent(section.intent)}</Text>
-        </View>
-      </View>
-      <View style={{ gap: spacing.sm }}>
-        {section.exercises.map((exercise, exerciseIndex) => (
-          <View
-            key={exercise.exerciseId}
-            style={{
-              borderTopColor: colors.line,
-              borderTopWidth: 1,
-              gap: spacing.sm,
-              paddingTop: spacing.sm
-            }}
-          >
-            <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.sm }}>
-              <View
-                style={{
-                  alignItems: "center",
-                  backgroundColor: colors.panelRaised,
-                  borderColor: colors.line,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  height: 32,
-                  justifyContent: "center",
-                  width: 32
-                }}
-              >
-                <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{exerciseIndex + 1}</Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <ExercisePrescriptionCard exercise={exercise} sectionName={plainSectionName(section.name)} />
-              </View>
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
   return (
     <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
-      <WorkoutWalkthroughCard session={session} />
-      {session.sessionQualityCheckpoints && session.sessionQualityCheckpoints.length > 0 ? (
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>Quality checkpoints</Text>
-          {session.sessionQualityCheckpoints.slice(0, 3).map((item, index) => <Text key={`quality-checkpoint:${index}`} style={screenStyles.subtle}>{plainTrainingCopy(item)}</Text>)}
-        </View>
-      ) : null}
-      <Text style={screenStyles.sectionTitle}>Exercise details</Text>
-      {session.sections.map((section, index) => (
-        <WorkoutSectionCard index={index} key={`workout-section:${index}`} section={section} />
-      ))}
-      {session.addOnBlocks && session.addOnBlocks.length > 0 ? (
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>Add-ons</Text>
-          {session.addOnBlocks.map((block) => (
-            <Text key={block.id} style={screenStyles.subtle}>
-              {block.priority}: {plainWorkoutTitle(block.label)} ({block.durationMinutes} min) - {plainTrainingCopy(block.athleteFacingPurpose)}
-            </Text>
-          ))}
-        </View>
-      ) : null}
+      <WorkoutExerciseDetails session={session} />
     </View>
   );
 }
@@ -417,8 +324,8 @@ export function WorkoutDetailPanel({
             </Pressable>
           ) : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityLabel={planOpen ? "Hide workout walkthrough" : "Show workout walkthrough"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
-              <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide walkthrough" : "Show walkthrough"}</Text>
+            <Pressable accessibilityLabel={planOpen ? "Hide exercise details" : "Show exercise details"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
+              <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide exercise details" : "Show exercise details"}</Text>
             </Pressable>
             {!previewOnlyReason ? (
               <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
