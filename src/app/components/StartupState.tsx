@@ -1,8 +1,10 @@
 import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ImageBackground, Pressable, ScrollView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { AuthBackdrop, CornerIQBrandMark, CornerLineGlyph } from "./AuthBrandMark";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import loadingCornerBackground from "../../../assets/backgrounds/loading-corner-orb.png";
+import { CornerIQWordmark } from "./CornerIQWordmark";
 import { glassStyles } from "../../design/glass";
 import { colors, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
@@ -12,69 +14,6 @@ export interface StartupStateProps {
   message: string;
   onAction?: () => void;
   title: string;
-}
-
-function LoadingOrb() {
-  const size = 176;
-  return (
-    <View style={{ alignItems: "center", height: 236, justifyContent: "center", width: "100%" }}>
-      <View style={{ backgroundColor: "rgba(39, 206, 241, 0.25)", height: 1, left: 0, position: "absolute", right: 0, top: 118 }} />
-      <View style={{ backgroundColor: "rgba(39, 206, 241, 0.25)", bottom: 18, left: "50%", position: "absolute", top: 18, width: 1 }} />
-      <View style={{ borderColor: "rgba(39, 206, 241, 0.09)", borderRadius: 138, borderWidth: 1, height: 276, position: "absolute", width: 276 }} />
-      <View style={{ borderColor: "rgba(39, 206, 241, 0.13)", borderRadius: 112, borderWidth: 1, height: 224, position: "absolute", width: 224 }} />
-      <View
-        style={{
-          alignItems: "center",
-          backgroundColor: "rgba(3, 10, 23, 0.88)",
-          borderColor: "rgba(39, 206, 241, 0.72)",
-          borderRadius: size / 2,
-          borderWidth: 1,
-          height: size,
-          justifyContent: "center",
-          width: size
-        }}
-      >
-        <View
-          style={{
-            borderColor: "rgba(39, 206, 241, 0.42)",
-            borderRadius: size / 2 - 16,
-            borderWidth: 8,
-            height: size - 28,
-            position: "absolute",
-            width: size - 28
-          }}
-        />
-        <View
-          style={{
-            borderBottomColor: "transparent",
-            borderColor: colors.blueIQ,
-            borderLeftColor: "transparent",
-            borderRadius: size / 2 - 18,
-            borderWidth: 9,
-            height: size - 36,
-            position: "absolute",
-            transform: [{ rotate: "18deg" }],
-            width: size - 36
-          }}
-        />
-        <View
-          style={{
-            borderBottomColor: "transparent",
-            borderColor: "rgba(39, 206, 241, 0.76)",
-            borderLeftColor: "transparent",
-            borderRadius: size / 2 - 38,
-            borderRightColor: "transparent",
-            borderWidth: 3,
-            height: size - 78,
-            position: "absolute",
-            transform: [{ rotate: "228deg" }],
-            width: size - 78
-          }}
-        />
-        <CornerLineGlyph size={58} />
-      </View>
-    </View>
-  );
 }
 
 function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
@@ -100,16 +39,17 @@ function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
     return (
       <View
         style={{
-          borderBottomColor: "rgba(39, 206, 241, 0.22)",
+          alignItems: "center",
           borderColor: colors.blueIQ,
           borderRadius: 19,
-          borderRightColor: "rgba(39, 206, 241, 0.22)",
-          borderWidth: 3,
+          borderWidth: 2,
           height: 38,
-          transform: [{ rotate: "-18deg" }],
+          justifyContent: "center",
           width: 38
         }}
-      />
+      >
+        <View style={{ backgroundColor: colors.blueIQ, borderRadius: 6, height: 12, width: 12 }} />
+      </View>
     );
   }
 
@@ -125,12 +65,12 @@ function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
         width: 38
       }}
     >
-      <Text style={{ color: "rgba(183, 196, 217, 0.84)", fontSize: 14, fontWeight: "900", lineHeight: 18 }}>...</Text>
+      <View style={{ backgroundColor: "rgba(183, 196, 217, 0.62)", borderRadius: 5, height: 10, width: 10 }} />
     </View>
   );
 }
 
-function StartupChecklist() {
+function StartupStatusRows() {
   const rows = [
     { label: "Readiness check", state: "done" as const },
     { label: "Training context", state: "active" as const },
@@ -149,7 +89,6 @@ function StartupChecklist() {
         width: "100%"
       }}
     >
-      <View style={{ backgroundColor: colors.blueIQ, height: 98, left: 0, position: "absolute", top: 92, width: 1 }} />
       {rows.map((row, index) => {
         const pending = row.state === "pending";
         return (
@@ -180,27 +119,44 @@ function ManualInputsFooter() {
 }
 
 export function StartupState({ title, message, actionLabel, onAction }: StartupStateProps) {
+  const insets = useSafeAreaInsets();
   const isCornerStartup = title === "CornerIQ";
   const heading = isCornerStartup ? "Preparing your corner" : title;
+  const bodyCopy = message || "Loading today's boxer decision, training context, and fuel safety state.";
 
   return (
-    <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }} testID="startup-state">
+    <ImageBackground
+      resizeMode="cover"
+      source={loadingCornerBackground}
+      style={{ backgroundColor: colors.cornerBlack, flex: 1 }}
+      testID="startup-state"
+    >
       <StatusBar style="light" />
-      <AuthBackdrop variant="loading" />
+      <View
+        pointerEvents="none"
+        style={{
+          backgroundColor: "rgba(2, 6, 17, 0.28)",
+          bottom: 0,
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: 0
+        }}
+      />
       <ScrollView
         contentContainerStyle={{
           alignItems: "center",
           flexGrow: 1,
-          justifyContent: "center",
-          paddingBottom: spacing.xxl,
+          justifyContent: "flex-start",
+          paddingBottom: Math.max(insets.bottom + spacing.xxl, spacing.xxl),
           paddingHorizontal: spacing.lg,
-          paddingTop: spacing.xxl
+          paddingTop: Math.max(insets.top + spacing.xl, spacing.xxl)
         }}
         style={{ flex: 1 }}
       >
         <View style={{ alignItems: "center", gap: spacing.lg, maxWidth: 520, width: "100%" }}>
-          <CornerIQBrandMark compact />
-          {isCornerStartup ? <LoadingOrb /> : null}
+          <CornerIQWordmark compact />
+          {isCornerStartup ? <View style={{ height: 166, width: "100%" }} /> : null}
           <View style={{ alignItems: "center", gap: spacing.sm, width: "100%" }}>
             <Text
               style={{
@@ -222,10 +178,10 @@ export function StartupState({ title, message, actionLabel, onAction }: StartupS
                 textAlign: "center"
               }}
             >
-              {message}
+              {bodyCopy}
             </Text>
           </View>
-          {isCornerStartup ? <StartupChecklist /> : null}
+          {isCornerStartup ? <StartupStatusRows /> : null}
           {actionLabel && onAction ? (
             <Pressable
               accessibilityRole="button"
@@ -251,6 +207,6 @@ export function StartupState({ title, message, actionLabel, onAction }: StartupS
           {isCornerStartup ? <ManualInputsFooter /> : null}
         </View>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 }

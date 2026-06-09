@@ -56,6 +56,7 @@ vi.mock("react-native", () => {
       React.createElement(name, props, children);
   return {
     ActivityIndicator: component("ActivityIndicator"),
+    ImageBackground: component("ImageBackground"),
     KeyboardAvoidingView: component("KeyboardAvoidingView"),
     Modal: component("Modal"),
     Platform: { OS: "ios" },
@@ -1393,8 +1394,10 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Forgot password?");
     expect(JSON.stringify(renderer.toJSON())).toContain("Send reset email");
     expect(JSON.stringify(renderer.toJSON())).toContain("Reset password");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Enter your email and we'll send a reset link if the account exists.");
     expect(JSON.stringify(renderer.toJSON())).toContain("Back to sign in");
     expect(JSON.stringify(renderer.toJSON())).not.toContain("Request a Supabase password reset email");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Supabase");
     expect(JSON.stringify(renderer.toJSON())).not.toContain("Use the password for your existing account.");
 
     act(() => {
@@ -1403,6 +1406,9 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "Send reset email");
 
     expect(onRequestPasswordReset).toHaveBeenCalledWith("reset@example.com");
+
+    await switchSection(renderer, "Back to sign in");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Welcome back");
   });
 
   it("AuthScreen shows working state while loading", async () => {

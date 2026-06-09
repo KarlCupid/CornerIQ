@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { AuthShell } from "../components/AuthShell";
+import { AuthBackgroundShell } from "../components/AuthBackgroundShell";
 import { glassStyles } from "../../design/glass";
 import { colors, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
@@ -20,7 +20,7 @@ type AuthMode = "sign_in" | "sign_up" | "recovery";
 const authModeCopy: Record<AuthMode, { heading: string; subheading: string }> = {
   recovery: {
     heading: "Reset password",
-    subheading: "Enter your email and we'll send the reset link if the account exists."
+    subheading: "Enter your email and we'll send a reset link if the account exists."
   },
   sign_in: {
     heading: "Welcome back",
@@ -457,7 +457,7 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
   const primaryAction = recovering ? submitRecovery : () => void submit(signingUp ? onSignUp : onSignIn);
 
   return (
-    <AuthShell
+    <AuthBackgroundShell
       footer={
         signingUp ? (
           <SignUpFooter />
@@ -494,6 +494,6 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
       {signingUp ? (
         <LinkButton disabled={loading} label="Already have an account? Sign in." onPress={() => switchMode("sign_in")} />
       ) : null}
-    </AuthShell>
+    </AuthBackgroundShell>
   );
 }
