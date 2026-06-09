@@ -1,10 +1,12 @@
 import React from "react";
 import { Text, View } from "react-native";
-import { colors, radii, spacing } from "../theme";
+import { glassStyles } from "../glass";
+import { colors, spacing } from "../theme";
 import { typography } from "../typography";
-import type { LuminousAccent } from "./LuminousScreen";
+import { accentColor, type LuminousAccent } from "./LuminousScreen";
 
 export function TopActionCard({
+  accent = "blue",
   optional,
   primaryAction,
   purpose,
@@ -23,19 +25,15 @@ export function TopActionCard({
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.075)",
-        borderColor: "rgba(255, 255, 255, 0.12)",
-        borderRadius: radii.card,
-        borderWidth: 1,
+        ...glassStyles.card,
         gap: spacing.sm,
         padding: spacing.lg
       }}
       testID={testID}
     >
-      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{title}</Text>
+      <Text style={{ color: accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{title}</Text>
       <View style={{ flexDirection: "row", gap: spacing.md }}>
         <View style={{ flex: 1, gap: spacing.sm, minWidth: 0 }}>
-          <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>Do now</Text>
           <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 17, fontWeight: "700", lineHeight: 23 }}>{primaryAction}</Text>
           <Text style={{ ...typography.body, color: colors.wrap }}>{purpose}</Text>
         </View>

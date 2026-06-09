@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { PropsWithChildren } from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "./EngineCard";
+import { glassStyles } from "../glass";
 import { colors, spacing } from "../theme";
 import { typography } from "../typography";
 
@@ -71,11 +72,8 @@ export function ActionCard({
             accessibilityRole="button"
             onPress={() => setDetailsOpen((value) => !value)}
             style={{
+              ...glassStyles.control,
               alignItems: "center",
-              backgroundColor: "rgba(255, 255, 255, 0.07)",
-              borderColor: colors.line,
-              borderRadius: 20,
-              borderWidth: 1,
               justifyContent: "center",
               minHeight: 44,
               paddingHorizontal: spacing.md,
@@ -94,9 +92,8 @@ export function ActionCard({
             disabled={disabled}
             onPress={onAction}
             style={{
+              ...glassStyles.primaryControl,
               alignItems: "center",
-              backgroundColor: colors.blueIQ,
-              borderRadius: 20,
               justifyContent: "center",
               minHeight: 48,
               paddingHorizontal: spacing.lg,

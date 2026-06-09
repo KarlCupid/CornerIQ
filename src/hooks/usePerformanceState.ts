@@ -87,7 +87,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       repositories
     });
     let final = next;
-    let nextMessage = next.status === "ready" ? next.persistenceWarning ?? null : null;
+    let nextMessage: string | null = null;
     if (next.status === "ready") {
       const auto = await runAutoRollForward(next.state);
       if (auto.status === "materialized" && auto.shouldRefreshState) {

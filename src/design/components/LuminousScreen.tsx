@@ -2,10 +2,11 @@ import React from "react";
 import type { PropsWithChildren } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { glassStyles } from "../glass";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
 
-const DOCKED_TAB_BAR_HEIGHT = 64;
+const TAB_SCREEN_BOTTOM_PADDING = spacing.xl;
 
 const luminousStyles = {
   content: {
@@ -18,9 +19,7 @@ const luminousStyles = {
   },
   headerPill: {
     alignSelf: "flex-start" as const,
-    backgroundColor: "rgba(255, 255, 255, 0.07)",
-    borderColor: colors.line,
-    borderWidth: 1,
+    ...glassStyles.control,
     borderRadius: radii.pill,
     justifyContent: "center" as const,
     minHeight: 28,
@@ -78,7 +77,7 @@ export function LuminousScreen({
   const insets = useSafeAreaInsets();
   const bottomPadding =
     bottomInset === "tabs"
-      ? DOCKED_TAB_BAR_HEIGHT + insets.bottom + spacing.xl
+      ? Math.max(insets.bottom, spacing.md) + TAB_SCREEN_BOTTOM_PADDING
       : Math.max(insets.bottom, spacing.lg) + spacing.lg;
 
   return (
@@ -121,8 +120,8 @@ export function AccentPill({
         alignSelf: "flex-start",
         backgroundColor: accentWash[accent],
         borderColor: `${accentColor[accent]}55`,
-        borderWidth: 1,
         borderRadius: radii.pill,
+        borderWidth: 1,
         minHeight: 30,
         justifyContent: "center",
         paddingHorizontal: spacing.lg,
@@ -182,10 +181,8 @@ export function MetricTile({
     <View
       accessibilityLabel={`${label}: ${value}${meta ? `. ${meta}` : ""}`}
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.07)",
-        borderColor: "rgba(255, 255, 255, 0.11)",
+        ...glassStyles.tile,
         borderRadius: 20,
-        borderWidth: 1,
         flexBasis: "47%",
         flexGrow: 1,
         flexShrink: 1,

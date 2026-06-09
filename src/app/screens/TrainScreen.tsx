@@ -8,6 +8,7 @@ import { CompactStatusStrip, PrimaryTaskCard, type FastTaskAction } from "../../
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { DashboardCard, DashboardPill, MiniBarChart, TimelineStrip } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
+import { glassStyles } from "../../design/glass";
 import { colors, spacing } from "../../design/theme";
 import type { BarVisual, TimelineVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
@@ -130,10 +131,34 @@ function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
     <DashboardCard headerRight={<DashboardPill label={roleLabel} tone={viewModel.riskSummary.length > 0 ? "red" : "blue"} />} testID="train-overview-card" title="Training overview">
       <Text style={screenStyles.body}>{plainTrainCopy(viewModel.todaySummary)}</Text>
       <Text style={screenStyles.callout}>{plainTrainCopy(viewModel.todayRole.summary)}</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <View
+          style={{
+            ...glassStyles.tile,
+            flexBasis: 180,
+            flexGrow: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+        >
+          <Text style={{ color: colors.amberCaution, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Fuel check:</Text>
+          <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.preSessionFuelHint)}</Text>
+        </View>
+        <View
+          style={{
+            ...glassStyles.tile,
+            flexBasis: 180,
+            flexGrow: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+        >
+          <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Hydration:</Text>
+          <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.hydrationHint)}</Text>
+        </View>
+      </View>
       <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.todayRole.explanation)}</Text>
       <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.blockExplanation)}</Text>
-      <Text style={screenStyles.subtle}>Fuel check: {plainTrainCopy(viewModel.preSessionFuelHint)}</Text>
-      <Text style={screenStyles.subtle}>Hydration: {plainTrainCopy(viewModel.hydrationHint)}</Text>
     </DashboardCard>
   );
 }

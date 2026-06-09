@@ -15,6 +15,7 @@ import {
 } from "../../../engine/presentation/trainingCopy";
 import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
 import { LuminousProgressBar } from "../../../design/components/LuminousScreen";
+import { glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { screenStyles } from "../screenStyles";
@@ -143,12 +144,12 @@ function PlayerButton({
       disabled={disabled}
       onPress={onPress}
       style={{
+        ...(primary ? glassStyles.primaryControl : glassStyles.control),
         alignItems: "center",
         alignSelf: "stretch",
-        backgroundColor: primary ? colors.blueIQ : warning ? "rgba(255, 148, 72, 0.14)" : "rgba(255, 255, 255, 0.07)",
+        backgroundColor: primary ? "rgba(39, 206, 241, 0.86)" : warning ? "rgba(255, 148, 72, 0.14)" : "rgba(255, 255, 255, 0.095)",
         borderColor: primary ? colors.blueIQ : warning ? "rgba(255, 148, 72, 0.42)" : colors.line,
         borderRadius: 20,
-        borderWidth: primary ? 0 : 1,
         justifyContent: "center",
         minHeight: primary ? 56 : 48,
         minWidth: primary ? 180 : 128,
@@ -174,10 +175,8 @@ function GlassPanel({ children, testID }: { children: React.ReactNode; testID?: 
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.085)",
-        borderColor: "rgba(255, 255, 255, 0.15)",
+        ...glassStyles.card,
         borderRadius: 28,
-        borderWidth: 1,
         gap: spacing.md,
         padding: spacing.lg
       }}
@@ -203,11 +202,9 @@ function ScreenIconButton({
       accessibilityRole="button"
       onPress={onPress}
       style={{
+        ...glassStyles.control,
         alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.07)",
-        borderColor: colors.line,
         borderRadius: 16,
-        borderWidth: 1,
         height: 40,
         justifyContent: "center",
         width: 40
@@ -257,10 +254,10 @@ function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | 
   return (
     <View
       style={{
-        backgroundColor: tone === "quiet" ? "rgba(255, 255, 255, 0.07)" : `${toneColor}1F`,
+        ...(tone === "quiet" ? glassStyles.control : {}),
+        backgroundColor: tone === "quiet" ? "rgba(255, 255, 255, 0.095)" : `${toneColor}1F`,
         borderColor: tone === "quiet" ? colors.line : `${toneColor}73`,
         borderRadius: radii.pill,
-        borderWidth: 1,
         minHeight: 34,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.xs
@@ -370,11 +367,11 @@ function LiveControlButton({
       disabled={disabled}
       onPress={onPress}
       style={{
+        ...(primary ? glassStyles.primaryControl : glassStyles.control),
         alignItems: "center",
-        backgroundColor: primary ? colors.blueIQ : "rgba(255, 255, 255, 0.075)",
+        backgroundColor: primary ? "rgba(39, 206, 241, 0.86)" : "rgba(255, 255, 255, 0.095)",
         borderColor: primary ? colors.blueIQ : colors.line,
         borderRadius: 20,
-        borderWidth: primary ? 0 : 1,
         gap: spacing.xs,
         justifyContent: "center",
         minHeight: 58,

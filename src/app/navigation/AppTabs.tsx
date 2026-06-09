@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, DetailedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
+import { alphaHex, glassStyles } from "../../design/glass";
 import { colors } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen, type FuelFocusIntent } from "../screens/FuelScreen";
@@ -137,7 +138,9 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               <View
                 style={{
                   alignItems: "center",
-                  backgroundColor: focused ? "rgba(255, 255, 255, 0.055)" : "transparent",
+                  backgroundColor: focused ? alphaHex(tabAccents[route.name], "26") : "transparent",
+                  borderColor: focused ? alphaHex(tabAccents[route.name], "3D") : "transparent",
+                  borderWidth: 1,
                   borderRadius: 18,
                   height: 36,
                   justifyContent: "center",
@@ -166,24 +169,16 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               marginTop: 0
             },
             tabBarStyle: {
-              backgroundColor: "rgba(8, 13, 24, 0.94)",
+              ...glassStyles.tabBar,
               borderBottomLeftRadius: 0,
               borderBottomRightRadius: 0,
               borderBottomWidth: 0,
               borderLeftWidth: 0,
               borderRightWidth: 0,
-              borderTopColor: "rgba(255, 255, 255, 0.12)",
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              borderTopWidth: 1,
-              bottom: 0,
-              height: 64 + insets.bottom,
-              left: 0,
+              height: 70 + insets.bottom,
               overflow: "hidden",
               paddingBottom: Math.max(insets.bottom, 4),
               paddingTop: 8,
-              position: "absolute",
-              right: 0
             }
           })}
       >

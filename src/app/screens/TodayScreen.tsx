@@ -18,6 +18,7 @@ import {
   WeeklyLoadBars
 } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
+import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
 import { buildTodayDashboardVisual, type TodayDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -144,10 +145,8 @@ function TodayQuickCheckSection({
   return (
     <View
       style={{
-        borderColor: "rgba(255, 255, 255, 0.12)",
-        borderTopWidth: 1,
         gap: spacing.md,
-        paddingTop: spacing.md
+        paddingTop: 0
       }}
     >
       {content}
@@ -169,16 +168,20 @@ function TodayQuickCheckModal({
   recentLogs: RecentLogsViewModel;
 }) {
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
   if (!quickCheck) {
     return null;
   }
 
-  const maxPanelHeight = Math.max(340, Math.min(height - insets.top - insets.bottom - spacing.xxl, 720));
-  const includeOtherLogs = quickCheck.placement === "top" || quickCheck.placement === "manual";
+  const compact = width < 520;
+  const maxPanelHeight = Math.max(
+    320,
+    Math.min(height * (compact ? 0.72 : 0.84), compact ? 560 : 720)
+  );
+  const includeOtherLogs = !compact && (quickCheck.placement === "top" || quickCheck.placement === "manual");
   const modalShadowStyle: ViewStyle =
     Platform.OS === "web"
-      ? ({ boxShadow: "0 16px 28px rgba(0, 0, 0, 0.36)" } as ViewStyle)
+      ? ({ boxShadow: "0 22px 52px rgba(0, 0, 0, 0.42)" } as ViewStyle)
       : {
           elevation: 12,
           shadowColor: "#000000",
@@ -200,8 +203,8 @@ function TodayQuickCheckModal({
         style={{
           alignItems: "center",
           flex: 1,
-          justifyContent: "center",
-          paddingBottom: Math.max(insets.bottom, spacing.lg),
+          justifyContent: compact ? "flex-end" : "center",
+          paddingBottom: Math.max(insets.bottom + spacing.md, spacing.lg),
           paddingHorizontal: spacing.lg,
           paddingTop: Math.max(insets.top, spacing.lg)
         }}
@@ -211,7 +214,7 @@ function TodayQuickCheckModal({
           importantForAccessibility="no-hide-descendants"
           onPress={onClose}
           style={{
-            backgroundColor: "rgba(3, 6, 15, 0.74)",
+            backgroundColor: "rgba(3, 6, 15, 0.88)",
             bottom: 0,
             left: 0,
             position: "absolute",
@@ -224,13 +227,14 @@ function TodayQuickCheckModal({
           accessibilityViewIsModal
           style={[
             {
-              backgroundColor: colors.panelDeep,
-              borderColor: colors.lineStrong,
-              borderRadius: radii.card,
-              borderWidth: 1,
+              ...glassStyles.cardDeep,
+              backgroundColor: "rgba(12, 18, 35, 0.98)",
+              borderColor: "rgba(255, 255, 255, 0.22)",
+              borderRadius: compact ? 28 : radii.card,
               maxHeight: maxPanelHeight,
               maxWidth: 640,
-              padding: spacing.lg,
+              overflow: "hidden",
+              padding: compact ? spacing.md : spacing.lg,
               width: "100%"
             },
             modalShadowStyle
@@ -238,7 +242,7 @@ function TodayQuickCheckModal({
           testID="today-quick-check-modal"
         >
           <ScrollView
-            contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.xs }}
+            contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.sm }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >

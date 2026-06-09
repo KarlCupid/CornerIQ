@@ -3662,9 +3662,9 @@ describe("minimal app screens", () => {
     expect(output).toContain("Cycle data is optional");
     await switchSection(renderer, "Safety");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Training history");
+    expect(output).toContain("TRAINING HISTORY");
     expect(output).toContain("Current block week");
-    expect(output).toContain("Fuel safety history");
+    expect(output).toContain("FUEL SAFETY HISTORY");
     expect(output).toContain("cannot clear safety stops");
     expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback/i);
   });
@@ -4506,6 +4506,35 @@ describe("minimal app screens", () => {
 
     expect(repositories.athlete.upsertProfile).toHaveBeenCalled();
     expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it("usePerformanceState keeps passive persistence warnings out of global app notes", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    repositories.engineRun.upsertRun = vi.fn(async () => {
+      throw new Error("remote insert failed");
+    }) as AthleteJourneyRepositories["engineRun"]["upsertRun"];
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(snapshot.current?.result?.status).toBe("ready");
+    if (snapshot.current?.result?.status === "ready") {
+      expect(snapshot.current.result.persistenceWarning).toContain("remote insert failed");
+    }
+    expect(snapshot.current?.message).toBeNull();
   });
 
   it("usePerformanceState acknowledges nutrition safety reviews and refreshes state", async () => {

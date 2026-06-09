@@ -1,6 +1,7 @@
 import React from "react";
 import type { PropsWithChildren } from "react";
 import { Pressable, Text, View } from "react-native";
+import { glassStyles } from "../glass";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
 import { EngineCard } from "./EngineCard";
@@ -29,6 +30,13 @@ function ActionButton({
   action: FastTaskAction;
   primary?: boolean | undefined;
 }) {
+  const disabledPrimary = primary && action.disabled;
+  const surfaceStyle = disabledPrimary
+    ? glassStyles.disabledPrimaryControl
+    : primary
+      ? glassStyles.primaryControl
+      : glassStyles.control;
+  const textColor = disabledPrimary ? colors.mutedText : primary ? colors.cornerBlack : colors.canvas;
   return (
     <Pressable
       accessibilityLabel={action.accessibilityLabel ?? action.label}
@@ -37,26 +45,24 @@ function ActionButton({
       disabled={action.disabled}
       onPress={action.onPress}
       style={{
+        ...surfaceStyle,
         alignItems: "center",
-        backgroundColor: primary ? colors.blueIQ : "rgba(255, 255, 255, 0.07)",
-        borderColor: primary ? colors.blueIQ : colors.line,
         borderRadius: 20,
-        borderWidth: primary ? 0 : 1,
         flexBasis: primary ? 220 : 148,
         flexGrow: 1,
         justifyContent: "center",
         minHeight: 48,
-        opacity: action.disabled ? 0.55 : 1,
+        opacity: action.disabled && !primary ? 0.62 : 1,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm
       }}
       testID={action.testID}
     >
-      <Text style={{ color: primary ? colors.cornerBlack : colors.canvas, fontSize: 15, fontWeight: "800", lineHeight: 20 }}>
+      <Text style={{ color: textColor, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
         {action.label}
       </Text>
       {action.summary ? (
-        <Text style={{ color: primary ? colors.cornerBlack : colors.mutedText, fontSize: 12, fontWeight: "600", lineHeight: 16, textAlign: "center" }}>
+        <Text style={{ color: primary && !disabledPrimary ? colors.cornerBlack : colors.mutedText, fontSize: 12, fontWeight: "600", lineHeight: 16, textAlign: "center" }}>
           {action.summary}
         </Text>
       ) : null}
@@ -169,11 +175,9 @@ export function QuickActionRow({
             key={`quick-action:${action.label}`}
             onPress={action.onPress}
             style={{
+              ...glassStyles.control,
               alignItems: "center",
-              backgroundColor: "rgba(255, 255, 255, 0.065)",
-              borderColor: colors.line,
               borderRadius: radii.pill,
-              borderWidth: 1,
               flexBasis: 104,
               flexGrow: 1,
               justifyContent: "center",
@@ -224,11 +228,9 @@ export function CollapsedDetailDisclosure({
           accessibilityState={{ expanded: open }}
           onPress={() => setOpen((value) => !value)}
           style={{
+            ...glassStyles.control,
             alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.07)",
-            borderColor: colors.line,
             borderRadius: 20,
-            borderWidth: 1,
             justifyContent: "center",
             minHeight: 44,
             paddingHorizontal: spacing.md,

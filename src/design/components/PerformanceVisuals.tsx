@@ -1,5 +1,6 @@
 import React from "react";
 import { Text, View } from "react-native";
+import { glassStyles } from "../glass";
 import { colors, radii, spacing } from "../theme";
 import type { BarVisual, BreakdownVisual, ModifierVisual, ProgressVisual, TimelineVisual, TrendPoint, VisualTone } from "../../engine/presentation/dashboardVisualData";
 
@@ -49,10 +50,7 @@ export function DashboardCard({
   return (
     <View
       style={{
-        backgroundColor: "rgba(10, 16, 31, 0.92)",
-        borderColor: "rgba(255, 255, 255, 0.14)",
-        borderRadius: radii.card,
-        borderWidth: 1,
+        ...glassStyles.cardDeep,
         gap: spacing.md,
         overflow: "hidden",
         padding: spacing.lg
@@ -261,10 +259,7 @@ export function VisualMetricTile({ item }: { item: ModifierVisual }) {
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(255, 255, 255, 0.12)",
-        borderRadius: radii.tile,
-        borderWidth: 1,
+        ...glassStyles.tile,
         flexBasis: 116,
         flexGrow: 1,
         gap: spacing.xs,
@@ -333,13 +328,6 @@ export function WeeklyLoadBars(props: { bars: readonly BarVisual[]; testID?: str
   return <MiniBarChart bars={props.bars} height={120} testID={props.testID} />;
 }
 
-function linePoint(point: TrendPoint, min: number, max: number, index: number, count: number, width: number, height: number) {
-  const x = count <= 1 ? width / 2 : (index / (count - 1)) * width;
-  const spread = Math.max(0.01, max - min);
-  const y = height - ((point.value - min) / spread) * height;
-  return { x, y };
-}
-
 export function TrendLineChart({
   accent = "blue",
   height = 96,
@@ -354,11 +342,8 @@ export function TrendLineChart({
   width?: number | undefined;
 }) {
   const [layoutWidth, setLayoutWidth] = React.useState(width);
-  const chartWidth = Math.max(160, layoutWidth || width);
-  const padX = 10;
-  const padY = 8;
-  const plotWidth = Math.max(1, chartWidth - padX * 2);
-  const plotHeight = Math.max(1, height - padY * 2);
+  const chartWidth = Math.max(180, layoutWidth || width);
+  const plotHeight = Math.max(56, height);
   if (points.length === 0) {
     return (
       <View
@@ -368,7 +353,7 @@ export function TrendLineChart({
             setLayoutWidth(nextWidth);
           }
         }}
-        style={{ alignItems: "center", alignSelf: "stretch", borderColor: colors.line, borderRadius: radii.tile, borderWidth: 1, minHeight: height, justifyContent: "center", width: "100%" }}
+        style={{ ...glassStyles.tile, alignItems: "center", alignSelf: "stretch", minHeight: height, justifyContent: "center", width: "100%" }}
         testID={testID}
       >
         <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Trend unknown</Text>
@@ -378,10 +363,10 @@ export function TrendLineChart({
   const values = points.map((point) => point.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const dots = points.map((point, index) => {
-    const dot = linePoint(point, min, max, index, points.length, plotWidth, plotHeight);
-    return { x: dot.x + padX, y: dot.y + padY };
-  });
+  const spread = Math.max(0.01, max - min);
+  const flatTrend = points.length === 1 || min === max;
+  const ratios = points.map((point) => (flatTrend ? 0.5 : clamp01((point.value - min) / spread)));
+  const accentColor = colorForTone(accent);
   return (
     <View
       onLayout={(event) => {
@@ -393,53 +378,82 @@ export function TrendLineChart({
       style={{ alignSelf: "stretch", gap: spacing.xs, width: "100%" }}
       testID={testID}
     >
-      <View style={{ height: height + padY * 2, overflow: "hidden", position: "relative", width: "100%" }}>
-        {dots.slice(1).map((dot, index) => {
-          const previous = dots[index];
-          if (!previous) {
-            return null;
-          }
-          const dx = dot.x - previous.x;
-          const dy = dot.y - previous.y;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          const angle = Math.atan2(dy, dx);
-          return (
-            <View
-              key={`trend-line:${index}`}
-              style={{
-                backgroundColor: colorForTone(accent),
-                borderRadius: radii.pill,
-                height: 3,
-                left: previous.x + dx / 2 - length / 2,
-                opacity: 0.85,
-                position: "absolute",
-                top: previous.y + dy / 2 + 6,
-                transform: [{ rotate: `${angle}rad` }],
-                width: length
-              }}
-            />
-          );
-        })}
-        {dots.map((dot, index) => (
+      <View
+        style={{
+          ...glassStyles.tile,
+          height: plotHeight,
+          overflow: "hidden",
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.sm,
+          position: "relative",
+          width: chartWidth
+        }}
+      >
+        <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", height: 1, left: spacing.sm, position: "absolute", right: spacing.sm, top: "50%" }} />
+        <View style={{ alignItems: "stretch", flexDirection: "row", gap: spacing.xs, height: "100%" }}>
+          {points.map((point, index) => {
+            const ratio = ratios[index] ?? 0.5;
+            return (
+              <View
+                key={`trend-column:${point.label}:${index}`}
+                style={{ alignItems: "center", flex: 1, justifyContent: "flex-end", minWidth: 14, position: "relative" }}
+              >
+                {flatTrend ? null : (
+                  <>
+                    <View style={{ backgroundColor: toneWash[accent], borderRadius: radii.pill, height: "100%", opacity: 0.52, width: 8 }} />
+                    <View
+                      style={{
+                        backgroundColor: accentColor,
+                        borderRadius: radii.pill,
+                        bottom: 0,
+                        height: `${Math.max(8, ratio * 100)}%`,
+                        opacity: 0.9,
+                        position: "absolute",
+                        width: 8
+                      }}
+                    />
+                  </>
+                )}
+                <View
+                  style={{
+                    backgroundColor: colors.cornerBlack,
+                    borderColor: accentColor,
+                    borderRadius: radii.pill,
+                    borderWidth: 3,
+                    bottom: `${ratio * 100}%`,
+                    height: 14,
+                    marginBottom: -7,
+                    position: "absolute",
+                    width: 14
+                  }}
+                />
+              </View>
+            );
+          })}
+        </View>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between", left: spacing.sm, position: "absolute", right: spacing.sm, top: spacing.xs }}>
           <View
-              key={`trend-dot:${index}`}
-              style={{
-                backgroundColor: colors.cornerBlack,
-              borderColor: colorForTone(accent),
+            style={{
+              backgroundColor: `${accentColor}22`,
+              borderColor: `${accentColor}55`,
               borderRadius: radii.pill,
-              borderWidth: 3,
-              height: 14,
-              left: dot.x - 7,
-              position: "absolute",
-              top: dot.y,
-              width: 14
+              borderWidth: 1,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 2
             }}
-          />
-        ))}
+          >
+            <Text numberOfLines={1} style={{ color: accentColor, fontSize: 10, fontWeight: "900", lineHeight: 14 }}>
+              {min === max ? `${Math.round(max)}` : `${Math.round(min)}-${Math.round(max)}`}
+            </Text>
+          </View>
+          <Text numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "right" }}>
+            {points.length} logs
+          </Text>
+        </View>
       </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", width: chartWidth }}>
         {points.map((point, index) => (
-          <Text key={`trend-label:${index}`} numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, minWidth: 0, textAlign: "center" }}>
+          <Text key={`trend-label:${point.label}:${index}`} numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, minWidth: 0, textAlign: "center" }}>
             {point.label}
           </Text>
         ))}
@@ -517,10 +531,9 @@ export function TimelineStrip({ items, testID }: { items: readonly TimelineVisua
         <View
           key={`timeline:${item.label}:${index}`}
           style={{
+            ...glassStyles.tile,
             backgroundColor: toneWash[item.tone],
             borderColor: `${colorForTone(item.tone)}66`,
-            borderRadius: radii.tile,
-            borderWidth: 1,
             flexBasis: 148,
             flexGrow: 1,
             gap: spacing.xs,
@@ -612,10 +625,9 @@ export function BlockOverviewDots({
         <View
           key={`block-week:${week.label}:${week.subtitle}`}
           style={{
-            backgroundColor: week.active ? "rgba(39, 206, 241, 0.12)" : "rgba(255, 255, 255, 0.055)",
+            ...glassStyles.tile,
+            backgroundColor: week.active ? "rgba(39, 206, 241, 0.12)" : "rgba(255, 255, 255, 0.066)",
             borderColor: week.active ? "rgba(39, 206, 241, 0.8)" : colors.line,
-            borderRadius: radii.tile,
-            borderWidth: 1,
             flexBasis: 130,
             flexGrow: 1,
             gap: spacing.sm,

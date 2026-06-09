@@ -65,4 +65,20 @@ describe("fatigue-first UI copy density static checks", () => {
       expect(source, `missing ${label}`).toContain(label);
     }
   });
+
+  it("keeps the bottom tab bar from overlaying scroll content", () => {
+    const source = readFileSync("src/app/navigation/AppTabs.tsx", "utf8");
+    expect(source).not.toMatch(/tabBarStyle:\s*{[^}]*position:\s*"absolute"/s);
+    expect(source).not.toMatch(/tabBarStyle:\s*{[^}]*bottom:\s*0/s);
+  });
+
+  it("keeps targeted polish regressions out of Plan and Train", () => {
+    const planSource = readFileSync("src/app/screens/PlanScreen.tsx", "utf8");
+    const workoutSource = readFileSync("src/app/screens/train/WorkoutDetailPanel.tsx", "utf8");
+
+    expect(planSource).not.toContain("Risk and spacing");
+    expect(planSource).not.toContain("plan-risk");
+    expect(workoutSource).toContain("train-workout-preview-card");
+    expect(workoutSource).not.toContain("screenStyles.heroTitle");
+  });
 });

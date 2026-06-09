@@ -297,14 +297,14 @@ async function exerciseTodayQuickLogSaves(page: Page) {
     await page.getByTestId("today-manual-actions").getByRole("button", { name: "Quick check-in" }).click();
   }
 
-  const updateBodyMass = page.getByRole("button", { name: "Update body mass" });
+  const updateBodyMass = page.getByRole("button", { name: "Update body weight" });
   if (await updateBodyMass.count()) {
     await updateBodyMass.first().click();
   }
   await page.getByPlaceholder("kg").fill("82.1");
-  await page.getByRole("button", { name: /Log body mass|Update body mass/ }).last().click();
-  await expectVisibleText(page, "Body mass saved. Trend confidence has fresher scale context; readiness can still be unknown.");
-  await expectVisibleText(page, "Body mass log captured in local E2E mode only.");
+  await page.getByRole("button", { name: /Log body weight|Update body weight/ }).last().click();
+  await expectVisibleText(page, "Body weight saved. Trend confidence has fresher scale context; readiness can still be unknown.");
+  await expectVisibleText(page, "Body weight log captured in local E2E mode only.");
 
   const updateReadiness = page.getByRole("button", { name: "Update readiness" });
   if ((await page.getByPlaceholder("Sleep hours").count()) === 0 && await updateReadiness.count()) {
@@ -461,11 +461,11 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("MACRO SUMMARY");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("FOOD TARGETS");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("HYDRATION");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("SODIUM");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("MEAL DISTRIBUTION");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("BODY MASS AND FUELING TREND");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("BODY WEIGHT AND FUELING TREND");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("RECOVERY SUPPORT");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("TODAY'S RECOMMENDATION");
   await expect(page.getByRole("button", { name: "Show Food guide" })).toHaveCount(0);
@@ -482,11 +482,11 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Add a meal, snack, or day total.");
   await expectVisibleText(page, "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.");
   await expect(page.getByRole("button", { name: "Log food" })).toBeVisible();
-  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Food log status");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Food log");
   await expect(page.getByTestId("fuel-food-status-card")).toContainText("Too little food for the work is only considered after you say the day is done.");
-  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Still logging today");
-  await expect(page.getByTestId("fuel-food-status-card")).toContainText("I'm done logging today");
-  await expect(page.getByTestId("fuel-food-status-card")).toContainText("I ate but I'm not tracking today");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Still logging");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Done logging");
+  await expect(page.getByTestId("fuel-food-status-card")).toContainText("Not tracking");
   await expect(page.getByPlaceholder("Fiber g optional")).toHaveCount(0);
   await expect(page.getByPlaceholder("Sodium mg optional")).toHaveCount(0);
 
@@ -556,7 +556,7 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
     await page.getByRole("button", { name: "Show why and safety" }).first().click();
     await expect(page.getByTestId("train-workout-section")).toContainText(/Pain notes help CornerIQ avoid automatic progression/i);
     await page.getByRole("button", { name: "Show workout plan" }).first().click();
-    await expect(page.getByTestId("train-workout-section")).toContainText("Session plan");
+    await expect(page.getByTestId("train-workout-section")).toContainText("Workout plan");
   } else {
     await expectVisibleText(page, "No support workout today");
   }
@@ -726,18 +726,18 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await capture(page, testInfo, "Onboarding boxing basics", "02-onboarding-boxing-basics.png");
   await goNext(page);
 
-  await expectVisibleText(page, "Body mass");
+  await expectVisibleText(page, "Body weight");
   await expectVisibleText(page, /missing or invalid data stays unknown, not safe/i);
-  await expectVisibleText(page, "Current body mass (kg)");
+  await expectVisibleText(page, "Current body weight (kg)");
   await expectVisibleText(page, /Your current scale value\. Enter kilograms during setup\./);
   await expectVisibleText(page, /Example: 82/);
-  await expectVisibleText(page, "Typical walk-around body mass (kg)");
+  await expectVisibleText(page, "Typical walk-around body weight (kg)");
   await expectVisibleText(page, /Your normal training weight when not trying to make a class\. This is not a target\./);
   await expectVisibleText(page, /Example: 84/);
   await expectVisibleText(page, "Height (cm)");
   await expectVisibleText(page, /Example: 178/);
-  await page.getByLabel("Current body mass (kg)").fill("82");
-  await page.getByLabel("Typical walk-around body mass (kg)").fill("84");
+  await page.getByLabel("Current body weight (kg)").fill("82");
+  await page.getByLabel("Typical walk-around body weight (kg)").fill("84");
   await page.getByLabel("Height (cm)").fill("178");
   await capture(page, testInfo, "Onboarding body mass", "03-onboarding-body-mass.png");
   await goNext(page);

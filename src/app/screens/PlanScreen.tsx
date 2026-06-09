@@ -14,6 +14,7 @@ import {
   TimelineStrip
 } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
+import { glassStyles } from "../../design/glass";
 import { spacing } from "../../design/theme";
 import { buildPlanDashboardVisual, type PlanDashboardVisual } from "../../engine/presentation/dashboardVisualData";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
@@ -433,10 +434,7 @@ function PlanVisualDashboard({
             <View
               key={`plan-structure:${day.day}`}
               style={{
-                backgroundColor: "rgba(255, 255, 255, 0.055)",
-                borderColor: "rgba(255, 255, 255, 0.12)",
-                borderRadius: 14,
-                borderWidth: 1,
+                ...glassStyles.tile,
                 flex: 1,
                 gap: spacing.xs,
                 justifyContent: "space-between",
@@ -483,13 +481,6 @@ function PlanVisualDashboard({
           <DashboardCard title="Progressive overload">
             <View style={{ gap: spacing.xs }}>
               {dashboard.overload.map((item) => <ModifierRow item={item} key={`plan-overload:${item.label}`} />)}
-            </View>
-          </DashboardCard>
-        </View>
-        <View style={{ flexBasis: 280, flexGrow: 1 }}>
-          <DashboardCard title="Risk and spacing">
-            <View style={{ gap: spacing.xs }}>
-              {dashboard.risk.map((item) => <ModifierRow item={item} key={`plan-risk:${item.label}`} />)}
             </View>
           </DashboardCard>
         </View>

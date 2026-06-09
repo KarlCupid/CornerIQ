@@ -12,6 +12,7 @@ import {
   SemiGauge,
   TimelineStrip
 } from "../../../design/components/PerformanceVisuals";
+import { glassStyles } from "../../../design/glass";
 import { colors, spacing } from "../../../design/theme";
 import { buildWorkoutPreviewVisual, type WorkoutPreviewVisual } from "../../../engine/presentation/dashboardVisualData";
 import {
@@ -170,10 +171,8 @@ function SessionMeta({ label }: { label: string }) {
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.06)",
-        borderColor: colors.line,
+        ...glassStyles.control,
         borderRadius: 16,
-        borderWidth: 1,
         minHeight: 34,
         justifyContent: "center",
         paddingHorizontal: spacing.md,
@@ -260,10 +259,8 @@ function WorkoutSectionCard({
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: colors.line,
+        ...glassStyles.card,
         borderRadius: 20,
-        borderWidth: 1,
         gap: spacing.md,
         padding: spacing.md
       }}
@@ -430,63 +427,68 @@ export function WorkoutDetailPanel({
 
   return (
     <View style={{ gap: spacing.lg }}>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.fieldLabel}>Support workout</Text>
-        <Text style={screenStyles.heroTitle}>Workout preview</Text>
-        <Text style={screenStyles.callout}>{plainWorkoutTitle(session.title, session.family)}</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-          <SessionMeta label={`${session.durationMinutes} min`} />
-          <SessionMeta label={plainGeneratedSessionFamilyLabel(session.family)} />
-          <SessionMeta label={plainIntensityLabel(session.intensity)} />
-          <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
-          <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
-        </View>
-        <CollapsedDetailDisclosure framed={false} summary="Charts are optional. Start, quick log, and workout plan are the main controls." title="workout preview">
-          <WorkoutPreviewDashboard preview={preview} session={session} />
-        </CollapsedDetailDisclosure>
-        {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
-        {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
-        {followUpState ? (
-          <PostActionNextStep
-            actions={
-              followUpState === "completed" && onOpenFuel
-                ? [{ disabled: busy, label: "Open Fuel", onPress: onOpenFuel }]
-                : []
-            }
-            body={followUpCopy}
-            framed={false}
-            testID="workout-next-action-card"
-          />
-        ) : null}
-        {onStartWorkout || previewOnlyReason ? (
-          <Pressable
-            accessibilityLabel="Start workout"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy || Boolean(startBlockedReason) }}
-            disabled={busy || Boolean(startBlockedReason)}
-            onPress={onStartWorkout}
-            style={[screenStyles.button, startBlockedReason ? { backgroundColor: "rgba(255, 255, 255, 0.12)" } : null]}
-          >
-            <Text style={screenStyles.buttonText}>{previewOnlyReason ? "Preview only" : startBlockedReason ? "Start blocked" : "Start workout"}</Text>
-          </Pressable>
-        ) : null}
-        {startBlockedReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startBlockedReason}</Text> : null}
-        {!previewOnlyReason ? (
-          <Pressable accessibilityLabel={resultOpen ? "Hide quick log" : "Quick log"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>{resultOpen ? "Hide quick log" : "Quick log"}</Text>
-          </Pressable>
-        ) : null}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <Pressable accessibilityLabel={planOpen ? "Hide workout plan" : "Show workout plan"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide workout plan" : "Show workout plan"}</Text>
-          </Pressable>
-          {!previewOnlyReason ? (
-            <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
-              <Text style={screenStyles.quietButtonText}>Skip</Text>
+      <DashboardCard
+        headerRight={<DashboardPill label={`${session.durationMinutes} min`} tone={session.intensity === "hard" ? "orange" : "blue"} />}
+        testID="train-workout-preview-card"
+        title="Workout preview"
+      >
+        <View style={{ gap: spacing.sm }}>
+          <Text style={screenStyles.fieldLabel}>Support workout</Text>
+          <Text style={[screenStyles.callout, { fontSize: 20, fontWeight: "800", lineHeight: 26 }]}>{plainWorkoutTitle(session.title, session.family)}</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+            <SessionMeta label={`${session.durationMinutes} min`} />
+            <SessionMeta label={plainGeneratedSessionFamilyLabel(session.family)} />
+            <SessionMeta label={plainIntensityLabel(session.intensity)} />
+            <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
+            <SessionMeta label={`${session.sections.length} section${session.sections.length === 1 ? "" : "s"}`} />
+          </View>
+          <CollapsedDetailDisclosure framed={false} summary="Charts are optional. Start, quick log, and workout plan are the main controls." title="workout preview">
+            <WorkoutPreviewDashboard preview={preview} session={session} />
+          </CollapsedDetailDisclosure>
+          {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
+          {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
+          {followUpState ? (
+            <PostActionNextStep
+              actions={
+                followUpState === "completed" && onOpenFuel
+                  ? [{ disabled: busy, label: "Open Fuel", onPress: onOpenFuel }]
+                  : []
+              }
+              body={followUpCopy}
+              framed={false}
+              testID="workout-next-action-card"
+            />
+          ) : null}
+          {onStartWorkout || previewOnlyReason ? (
+            <Pressable
+              accessibilityLabel="Start workout"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy || Boolean(startBlockedReason) }}
+              disabled={busy || Boolean(startBlockedReason)}
+              onPress={onStartWorkout}
+              style={[screenStyles.button, startBlockedReason ? glassStyles.disabledPrimaryControl : null]}
+            >
+              <Text style={[screenStyles.buttonText, startBlockedReason ? { color: colors.mutedText } : null]}>{previewOnlyReason ? "Preview only" : startBlockedReason ? "Start blocked" : "Start workout"}</Text>
             </Pressable>
           ) : null}
+          {startBlockedReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startBlockedReason}</Text> : null}
+          {!previewOnlyReason ? (
+            <Pressable accessibilityLabel={resultOpen ? "Hide quick log" : "Quick log"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.quietButton}>
+              <Text style={screenStyles.quietButtonText}>{resultOpen ? "Hide quick log" : "Quick log"}</Text>
+            </Pressable>
+          ) : null}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            <Pressable accessibilityLabel={planOpen ? "Hide workout plan" : "Show workout plan"} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
+              <Text style={screenStyles.quietButtonText}>{planOpen ? "Hide workout plan" : "Show workout plan"}</Text>
+            </Pressable>
+            {!previewOnlyReason ? (
+              <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
+                <Text style={screenStyles.quietButtonText}>Skip</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
-      </View>
+      </DashboardCard>
       {resultOpen && !previewOnlyReason ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>

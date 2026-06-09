@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
+import { glassStyles } from "../glass";
 import { colors, radii, spacing } from "../theme";
 
 export interface SectionTabItem<T extends string> {
@@ -46,11 +47,11 @@ export function SectionTabs<T extends string>({
               key={item.key}
               onPress={() => onChange(item.key)}
               style={{
+                ...glassStyles.control,
                 alignItems: "center",
                 backgroundColor: selected ? "rgba(39, 206, 241, 0.16)" : "rgba(255, 255, 255, 0.055)",
                 borderColor: selected ? "rgba(39, 206, 241, 0.42)" : "rgba(255, 255, 255, 0.10)",
                 borderRadius: radii.pill,
-                borderWidth: 1,
                 justifyContent: "center",
                 minHeight: 44,
                 minWidth: compact ? 74 : 92,

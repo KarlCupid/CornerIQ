@@ -1,4 +1,5 @@
 import type { TextStyle, ViewStyle } from "react-native";
+import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 
@@ -54,9 +55,7 @@ export const screenStyles = {
   } satisfies TextStyle,
   headerPill: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.07)",
-    borderColor: colors.line,
-    borderWidth: 1,
+    ...glassStyles.control,
     borderRadius: radii.pill,
     minHeight: 28,
     justifyContent: "center",
@@ -114,11 +113,8 @@ export const screenStyles = {
     fontWeight: "700"
   } satisfies TextStyle,
   input: {
+    ...glassStyles.input,
     minHeight: 48,
-    backgroundColor: "rgba(255, 255, 255, 0.07)",
-    borderColor: colors.line,
-    borderRadius: 18,
-    borderWidth: 1,
     color: colors.canvas,
     fontSize: 16,
     fontWeight: "500",
@@ -127,20 +123,16 @@ export const screenStyles = {
     paddingVertical: spacing.sm
   } satisfies TextStyle,
   button: {
+    ...glassStyles.primaryControl,
     alignItems: "center",
-    backgroundColor: colors.blueIQ,
-    borderRadius: 20,
     justifyContent: "center",
     minHeight: 48,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm
   } satisfies ViewStyle,
   quietButton: {
+    ...glassStyles.control,
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.07)",
-    borderColor: colors.line,
-    borderRadius: 20,
-    borderWidth: 1,
     justifyContent: "center",
     minHeight: 44,
     paddingHorizontal: spacing.md,
@@ -149,19 +141,21 @@ export const screenStyles = {
   buttonText: {
     color: colors.cornerBlack,
     fontSize: 15,
-    fontWeight: "700"
+    fontWeight: "800",
+    lineHeight: 20,
+    textAlign: "center"
   } satisfies TextStyle,
   quietButtonText: {
     color: colors.canvas,
     fontSize: 15,
-    fontWeight: "600"
+    fontWeight: "700",
+    lineHeight: 20,
+    textAlign: "center"
   } satisfies TextStyle,
   chip: {
+    ...glassStyles.control,
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.055)",
-    borderColor: colors.line,
     borderRadius: 18,
-    borderWidth: 1,
     justifyContent: "center",
     minHeight: 40,
     paddingHorizontal: spacing.md,
