@@ -2393,16 +2393,16 @@ describe("minimal app screens", () => {
       });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("LIVE PLAYER");
-      expect(output).toContain("SETUP");
+      expect(output).toContain("Setup");
       expect(output).toContain("DO THIS");
-      expect(output).toContain("WHY");
       expect(output).toContain("COACH CUE");
-      expect(output).toContain("STOP IF");
       expect(output).toContain("Tempo squat");
       expect(output).toContain("Ready");
       expect(output).toContain("Show More workout detail");
       expect(output).not.toContain("Load guidance");
-      expect(output).toContain("Stop if sharp knee pain appears.");
+      expect(output).not.toContain("WHY");
+      expect(output).not.toContain("STOP IF");
+      expect(output).not.toContain("Stop if sharp knee pain appears.");
 
       act(() => {
         vi.advanceTimersByTime(3000);
@@ -2413,7 +2413,7 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Ready"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("WORK");
+      expect(output).toContain("Work");
       expect(output).toContain("Done set 1");
       expect(output).toContain("Back");
 
@@ -2421,14 +2421,14 @@ describe("minimal app screens", () => {
         await press(pressableWithExactText(renderer, "Back"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("SETUP");
+      expect(output).toContain("Setup");
       expect(output).toContain("Ready");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Ready"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("WORK");
+      expect(output).toContain("Work");
       expect(output).toContain("Done set 1");
 
       await act(async () => {
@@ -2442,6 +2442,8 @@ describe("minimal app screens", () => {
       expect(output).toContain("RIR 2");
       expect(output).toContain("Tempo 3-1-1");
       expect(output).toContain("Rest 45 sec");
+      expect(output).toContain("Why this block");
+      expect(output).toContain("Full instruction");
       expect(output).toContain("Stop / safety");
       expect(output).toContain("Stop if sharp knee pain appears.");
       expect(output).toContain("NEXT");
@@ -2482,10 +2484,6 @@ describe("minimal app screens", () => {
         vi.advanceTimersByTime(1000);
       });
       expect(JSON.stringify(renderer.toJSON())).toContain("Done set 1");
-      await act(async () => {
-        await press(pressableWithText(renderer, "Restart"));
-      });
-      expect(JSON.stringify(renderer.toJSON())).toContain("Done set 1");
     } finally {
       vi.useRealTimers();
     }
@@ -2509,7 +2507,7 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       let output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("SETUP");
+      expect(output).toContain("Setup");
       expect(output).toContain("Ready");
 
       await act(async () => {
@@ -2518,7 +2516,8 @@ describe("minimal app screens", () => {
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Segment 1: Stance base");
       expect(output).toContain("Segment 1 of 4: Stance and guard reset");
-      expect(output).toContain("Done segment 1");
+      expect(output).toContain("COACH CUE");
+      expect(output).not.toContain("Done segment 1");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Show More workout detail"));
@@ -2539,9 +2538,10 @@ describe("minimal app screens", () => {
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Round 1: Low and slow shadow");
       expect(output).toContain("Round 1 of 4: Jab-Focused Shadowboxing");
-      expect(output).toContain("MICRO-CUE");
+      expect(output).toContain("COACH CUE");
+      expect(output).not.toContain("MICRO-CUE");
       expect(output).toContain("Feel your feet.");
-      expect(output).toContain("Done round 1");
+      expect(output).not.toContain("Done round 1");
       expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
     } finally {
       vi.useRealTimers();
@@ -2573,9 +2573,10 @@ describe("minimal app screens", () => {
       await act(async () => {
         await press(pressableWithText(renderer, "Done set 1"));
       });
+      const advanceWithoutCompleting = () => pressableWithText(renderer, "Skip") ?? pressableWithText(renderer, "Next");
       for (let guard = 0; guard < 4 && !JSON.stringify(renderer.toJSON()).includes('"children":["Set up Timed carry"]'); guard += 1) {
         await act(async () => {
-          await press(pressableWithText(renderer, "Skip"));
+          await press(advanceWithoutCompleting());
         });
       }
       expect(JSON.stringify(renderer.toJSON())).toContain('"children":["Set up Timed carry"]');
@@ -2584,10 +2585,10 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Ready"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Skip"));
+        await press(advanceWithoutCompleting());
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Skip"));
+        await press(advanceWithoutCompleting());
       });
       expect(JSON.stringify(renderer.toJSON())).toContain("Dead bug reach");
 

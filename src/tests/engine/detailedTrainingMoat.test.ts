@@ -198,8 +198,8 @@ describe("detailed training session engine", () => {
   it("builds the flagship jab-focused recipe as colored timed blocks", () => {
     const detail = buildFamilyDetail("boxing_technical_shadowboxing", pro_4_round_build_strength, {
       generatedSession: generatedSession("boxing_technical_shadowboxing", {
-        title: "Shadowboxing technical rounds",
-        durationMinutes: 24,
+        title: "Jab-Focused Shadowboxing",
+        durationMinutes: 35,
         intensity: "moderate",
         templateId: "boxing_shadowboxing_jab_entry_rounds",
         equipmentMode: "none"
@@ -219,18 +219,74 @@ describe("detailed training session engine", () => {
       "Hip hinges - 15"
     ]);
     expect(recipe?.blocks[1]?.steps.map((step) => `${step.title} - ${step.durationSeconds}`)).toEqual([
-      "Round 1: Low and slow shadow - 120",
+      "Round 1: Low and slow shadow - 180",
       "Rest 1 - 60",
-      "Round 2: Sharp jab focused round - 120",
+      "Round 2: Jab shape and guard home - 180",
       "Rest 2 - 60",
-      "Round 3: Jab entry and exit - 120",
+      "Round 3: Sharp jab focused round - 180",
       "Rest 3 - 60",
-      "Round 4: Best clean jab round - 120"
+      "Round 4: Double jab rhythm - 180",
+      "Rest 4 - 60",
+      "Round 5: Jab entry and exit - 180",
+      "Rest 5 - 60",
+      "Round 6: Best clean jab round - 180"
     ]);
-    expect(timeline.steps.find((step) => step.title === "Round 2: Sharp jab focused round")?.microCues).toContain("Make sure hands are coming back.");
+    expect(recipe?.totalDurationSeconds).toBeGreaterThanOrEqual(32 * 60);
+    expect(timeline.totalSeconds).toBe(recipe?.totalDurationSeconds);
+    expect(timeline.steps.find((step) => step.title === "Round 3: Sharp jab focused round")?.microCues).toContain("Make sure hands are coming back.");
     expect(timeline.steps.filter((step) => step.kind === "rest").every((step) => step.autoAdvance)).toBe(true);
     expect(timeline.steps.find((step) => step.title === "Set 1: Goblet squat to box")).toBeUndefined();
     expect(recipeUserFacingText(detail)).not.toMatch(/readiness gate|movement prep|durability|T-spine|quality-capped|technical constraint|open hips/i);
+  });
+
+  it("keeps standard and serious boxing recipes in useful duration tiers", () => {
+    const standardScenarios: readonly { family: GeneratedSessionFamily; title: string; maxMinutes: number; minMinutes: number; equipmentMode?: "bag" | "line" | "mirror" | "none" | undefined }[] = [
+      { family: "boxing_technical_shadowboxing", title: "Jab-Focused Shadowboxing", minMinutes: 32, maxMinutes: 40, equipmentMode: "none" },
+      { family: "boxing_jab_entry_exit", title: "Jab entry and exit system", minMinutes: 32, maxMinutes: 40, equipmentMode: "none" },
+      { family: "boxing_defense_movement", title: "Defense movement day", minMinutes: 32, maxMinutes: 40, equipmentMode: "line" },
+      { family: "boxing_footwork_ringcraft", title: "Ringcraft and footwork day", minMinutes: 32, maxMinutes: 40, equipmentMode: "line" },
+      { family: "boxing_counter_timing", title: "Counter-timing solo day", minMinutes: 32, maxMinutes: 40, equipmentMode: "mirror" },
+      { family: "boxing_bag_skill", title: "Technical bag skill rounds", minMinutes: 35, maxMinutes: 45, equipmentMode: "bag" }
+    ];
+
+    for (const scenario of standardScenarios) {
+      const detail = buildFamilyDetail(scenario.family, pro_4_round_build_strength, {
+        generatedSession: generatedSession(scenario.family, {
+          durationMinutes: 35,
+          equipmentMode: scenario.equipmentMode,
+          intensity: "moderate",
+          title: scenario.title
+        })
+      });
+      const recipe = detail.recipe;
+      const timeline = buildWorkoutPlayerTimeline(detail);
+      const rounds = recipe?.blocks.find((block) => block.type === "boxing_rounds")?.steps.filter((step) => step.type === "round") ?? [];
+      const stepTotal = recipe?.blocks.flatMap((block) => block.steps).reduce((sum, step) => sum + step.durationSeconds, 0);
+
+      expect(recipe?.totalDurationSeconds, scenario.title).toBe(stepTotal);
+      expect(timeline.totalSeconds, scenario.title).toBe(recipe?.totalDurationSeconds);
+      expect(recipe?.totalDurationSeconds, scenario.title).toBeGreaterThanOrEqual(scenario.minMinutes * 60);
+      expect(recipe?.totalDurationSeconds, scenario.title).toBeLessThanOrEqual(scenario.maxMinutes * 60);
+      expect(rounds.length, scenario.title).toBeGreaterThanOrEqual(6);
+      expect(rounds.length === 4 && rounds.every((step) => step.durationSeconds === 120), scenario.title).toBe(false);
+    }
+
+    const serious = buildFamilyDetail("boxing_technical_shadowboxing", pro_4_round_build_strength, {
+      generatedSession: generatedSession("boxing_technical_shadowboxing", {
+        durationMinutes: 55,
+        equipmentMode: "none",
+        intensity: "moderate",
+        skillLevel: "advanced",
+        title: "Advanced tactical shadow rounds"
+      })
+    });
+    const seriousRecipe = serious.recipe;
+    const seriousRounds = seriousRecipe?.blocks.find((block) => block.type === "boxing_rounds")?.steps.filter((step) => step.type === "round") ?? [];
+
+    expect(seriousRecipe?.totalDurationSeconds).toBeGreaterThanOrEqual(42 * 60);
+    expect(seriousRecipe?.totalDurationSeconds).toBeLessThanOrEqual(55 * 60);
+    expect(seriousRounds).toHaveLength(8);
+    expect(seriousRounds.every((step) => step.durationSeconds === 180)).toBe(true);
   });
 
   it("builds detailed sessions for expanded families", () => {

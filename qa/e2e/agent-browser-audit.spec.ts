@@ -552,11 +552,12 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
       await expect(page.getByTestId("train-workout-section")).toContainText("Do not pull future support work forward from Plan.");
     }
     await expect(page.getByRole("button", { name: "Show why and safety" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show exercise details" }).first()).toBeVisible();
+    const exerciseDetailsButton = page.getByTestId("train-primary-task").getByRole("button", { name: /^Show exercise details$/ });
+    await expect(exerciseDetailsButton).toBeVisible();
     await page.getByRole("button", { name: "Show why and safety" }).first().click();
     await expect(page.getByTestId("train-workout-section")).toContainText(/Pain notes help CornerIQ avoid automatic progression/i);
-    await page.getByRole("button", { name: "Show exercise details" }).first().click();
-    await expect(page.getByTestId("train-workout-section")).toContainText("Exercise details");
+    await exerciseDetailsButton.click();
+    await expect(page.getByTestId("workout-plan-detail-section")).toContainText(/Workout recipe|Exercise details/);
   } else {
     await expectVisibleText(page, "No support workout today");
   }

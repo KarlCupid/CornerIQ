@@ -61,6 +61,12 @@ function sentenceCase(value: string): string {
   return value.length === 0 ? value : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 }
 
+function firstSentence(value: string): string {
+  const trimmed = value.trim();
+  const first = trimmed.match(/^(.+?[.!?])(?:\s|$)/)?.[1];
+  return first ?? trimmed;
+}
+
 function exerciseTargetText(exercise: ExercisePrescription, setIndex: number): readonly string[] {
   const set = exercise.sets[setIndex] ?? exercise.sets[0];
   return [
@@ -267,7 +273,7 @@ function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | 
   );
 }
 
-function TimerOrb({ accent, label, seconds }: { accent: LuminousAccent; label: string; seconds: number }) {
+function TimerOrb({ accent, seconds }: { accent: LuminousAccent; seconds: number }) {
   const color = accentColor[accent];
   return (
     <View
@@ -276,16 +282,15 @@ function TimerOrb({ accent, label, seconds }: { accent: LuminousAccent; label: s
         alignSelf: "center",
         backgroundColor: colors.cornerBlack,
         borderColor: color,
-        borderRadius: 128,
-        borderWidth: 14,
-        height: 256,
+        borderRadius: 144,
+        borderWidth: 12,
+        height: 288,
         justifyContent: "center",
-        width: 256
+        width: 288
       }}
       testID="workout-player-big-timer"
     >
-      <Text style={{ color: colors.canvas, fontSize: 50, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 58 }}>{formatTimer(seconds)}</Text>
-      <Text style={{ color, fontSize: 12, fontWeight: "900", letterSpacing: 1.6, lineHeight: 16 }}>{label}</Text>
+      <Text style={{ color: colors.canvas, fontSize: 66, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 74 }}>{formatTimer(seconds)}</Text>
     </View>
   );
 }
@@ -856,10 +861,8 @@ export function WorkoutPlayer({
   const futureStepSeconds = steps.slice(currentStepIndex + 1).reduce((sum, step) => sum + step.durationSeconds, 0);
   const remainingSessionSeconds = Math.max(0, stepRemainingSeconds + futureStepSeconds);
   const bigTimerSeconds = stepRemainingSeconds;
-  const bigTimerLabel = currentTimelineStep.timerLabel.toUpperCase();
   const liveProgress = timeline.totalSeconds > 0 ? Math.min(1, Math.max(0, (timeline.totalSeconds - remainingSessionSeconds) / timeline.totalSeconds)) : progress;
   const liveCues = [currentTimelineStep.cue, ...displayNotes, ...(session.selfCheckCues ?? []).map(plainTrainingCopy)];
-  const primaryCue = currentTimelineStep.cue || liveCues[0] || "Keep shoulders loose and breathe calmly.";
   const blockAccent = currentTimelineStep.blockAccent as LuminousAccent;
   const blockColor = accentColor[blockAccent];
   const blockWash = accentWash[blockAccent];
@@ -867,15 +870,23 @@ export function WorkoutPlayer({
     currentTimelineStep.microCues && currentTimelineStep.microCues.length > 0
       ? currentTimelineStep.microCues[Math.floor((currentTimelineStep.durationSeconds - stepRemainingSeconds) / 30) % currentTimelineStep.microCues.length]
       : undefined;
+  const primaryCue = activeMicroCue ?? currentTimelineStep.cue ?? liveCues[0] ?? "Keep shoulders loose and breathe calmly.";
   const stepKind = stepKindTitle(currentTimelineStep.kind);
   const stepTone = blockColor;
   const nextStepLabel = nextStep ? `${nextStep.title} - ${nextStep.durationLabel}` : "Finish summary";
+  const liveDoThis = firstSentence(currentTimelineStep.instruction);
+  const liveSafetyLine = painFlagMap[activeExerciseId] && currentTimelineStep.safetyStop
+    ? currentTimelineStep.safetyStop
+    : "Stop if pain, dizziness, or balance keeps breaking.";
+  const shouldShowPrimaryDone = !currentTimelineStep.autoAdvance;
+  const skipNextLabel = currentTimelineStep.tracksCompletion ? "Skip" : "Next";
+  const skipNextPress = currentTimelineStep.tracksCompletion ? skipSet : moveNext;
 
   return (
     <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
       <View style={{ gap: spacing.sm }} testID="workout-player-progress">
         <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount} - {currentTimelineStep.sectionName}</Text>
           <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }} testID="workout-player-time-left">{formatTimer(remainingSessionSeconds)} left</Text>
         </View>
         <LuminousProgressBar accent={blockAccent} progress={liveProgress} />
@@ -883,7 +894,14 @@ export function WorkoutPlayer({
 
       <GlassPanel testID="workout-player-current-block">
         <View testID="workout-player-current-step" />
-        <View style={{ alignItems: "center", gap: spacing.xs }}>
+        <View style={{ alignItems: "center", gap: spacing.sm }}>
+          <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 36, textAlign: "center" }}>{displayName}</Text>
+          {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
+        </View>
+
+        <TimerOrb accent={blockAccent} seconds={bigTimerSeconds} />
+
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
           <View
             style={{
               backgroundColor: blockWash,
@@ -894,115 +912,57 @@ export function WorkoutPlayer({
               paddingVertical: spacing.xs
             }}
           >
-            <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount} - {currentTimelineStep.sectionName}</Text>
+            <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{stepKind}</Text>
           </View>
-          <Text style={{ color: stepTone, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>{stepKind.toUpperCase()}</Text>
-          <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 39, textAlign: "center" }}>{displayName}</Text>
-          {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
-          <Text style={{ color: colors.wrap, fontSize: 18, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>{currentTimelineStep.dose}</Text>
+          <View
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.055)",
+              borderColor: colors.line,
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs
+            }}
+          >
+            <Text style={{ color: stepTone, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{currentTimelineStep.dose}</Text>
+          </View>
         </View>
 
-        <TimerOrb accent={blockAccent} label={bigTimerLabel} seconds={bigTimerSeconds} />
-
-        <View
-          style={{
-            backgroundColor: blockWash,
-            borderColor: `${blockColor}66`,
-            borderRadius: 18,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-        >
+        <View style={{ gap: spacing.sm }}>
           <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>DO THIS</Text>
-          <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "800", lineHeight: 22 }}>{currentTimelineStep.instruction}</Text>
+          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{liveDoThis}</Text>
         </View>
 
         <View
           style={{
-            backgroundColor: "rgba(255, 255, 255, 0.055)",
-            borderColor: colors.line,
+            backgroundColor: activeMicroCue ? "rgba(255, 216, 97, 0.11)" : "rgba(56, 226, 138, 0.1)",
+            borderColor: activeMicroCue ? "rgba(255, 216, 97, 0.34)" : "rgba(56, 226, 138, 0.3)",
             borderRadius: 18,
             borderWidth: 1,
             gap: spacing.xs,
             padding: spacing.md
           }}
+          testID="workout-player-coach-cue"
         >
-          <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>WHY</Text>
-          <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>{currentTimelineStep.intent}</Text>
+          <Text style={{ color: activeMicroCue ? colors.gold : colors.readyGreen, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>COACH CUE</Text>
+          <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "900", lineHeight: 22 }}>{primaryCue}</Text>
         </View>
 
-        <View
-          style={{
-            backgroundColor: "rgba(56, 226, 138, 0.1)",
-            borderColor: "rgba(56, 226, 138, 0.3)",
-            borderRadius: 18,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-        >
-          <Text style={{ color: colors.readyGreen, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>COACH CUE</Text>
-          <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{primaryCue}</Text>
-        </View>
-
-        {activeMicroCue ? (
-          <View
-            style={{
-              backgroundColor: "rgba(255, 216, 97, 0.11)",
-              borderColor: "rgba(255, 216, 97, 0.34)",
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-            testID="workout-player-micro-cue"
-          >
-            <Text style={{ color: colors.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>MICRO-CUE</Text>
-            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{activeMicroCue}</Text>
-          </View>
-        ) : null}
-
-        {currentTimelineStep.safetyStop ? (
-          <View
-            style={{
-              backgroundColor: "rgba(255, 82, 101, 0.1)",
-              borderColor: "rgba(255, 82, 101, 0.34)",
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-          >
-            <Text style={{ color: colors.amberCaution, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>STOP IF</Text>
-            <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{currentTimelineStep.safetyStop}</Text>
-          </View>
-        ) : null}
+        <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>{liveSafetyLine}</Text>
       </GlassPanel>
 
-      <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" />
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
+        <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, lineHeight: 15 }}>NEXT</Text>
+        <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{nextStepLabel}</Text>
+      </View>
+
+      {shouldShowPrimaryDone ? <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" /> : null}
 
       <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
         <LiveControlButton disabled={currentStepIndex <= 0} icon="chevron-back" label="Back" onPress={moveBack} />
         <LiveControlButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
-        <LiveControlButton
-          icon="refresh"
-          label="Restart"
-          onPress={() => {
-            setStepRemainingSeconds(currentTimelineStep.durationSeconds);
-            setStatus("active");
-          }}
-        />
-        <LiveControlButton disabled={busy} icon="play-skip-forward" label="Skip" onPress={skipSet} />
-        <LiveControlButton disabled={busy} icon="play-forward" label="Next" onPress={moveNext} />
+        <LiveControlButton disabled={busy} icon={currentTimelineStep.tracksCompletion ? "play-skip-forward" : "play-forward"} label={skipNextLabel} onPress={skipNextPress} />
         <LiveControlButton disabled={busy} icon="alert-circle" label={painFlagMap[activeExerciseId] ? "Flagged" : "Pain"} onPress={togglePainFlag} />
-      </View>
-
-      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
-        <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, lineHeight: 15 }}>NEXT</Text>
-        <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>
-          {nextStepLabel}
-        </Text>
       </View>
 
       <CollapsedDetailDisclosure title="More workout detail" summary="Open only if you need load, safety, swaps, timers, or navigation." testID="workout-player-more-detail">
@@ -1013,6 +973,35 @@ export function WorkoutPlayer({
             <DetailPill label={`Timer ${currentTimelineStep.durationLabel}`} />
             {exerciseTargetText(currentExercise, activeSetIndex).map((target) => <DetailPill key={`target:${target}`} label={target} />)}
           </View>
+        </View>
+        <View
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.055)",
+            borderColor: colors.line,
+            borderRadius: 18,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+          testID="workout-player-why-detail"
+        >
+          <Text style={screenStyles.fieldLabel}>Why this block</Text>
+          <Text style={screenStyles.body}>{currentTimelineStep.intent}</Text>
+        </View>
+        <View
+          style={{
+            backgroundColor: blockWash,
+            borderColor: `${blockColor}66`,
+            borderRadius: 18,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+          testID="workout-player-full-instruction"
+        >
+          <Text style={screenStyles.fieldLabel}>Full instruction</Text>
+          <Text style={screenStyles.body}>{currentTimelineStep.instruction}</Text>
+          {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop if: {currentTimelineStep.safetyStop}</Text> : null}
         </View>
         <View
           style={{
