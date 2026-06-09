@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Request, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Request, type TestInfo } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -38,6 +38,9 @@ const activeSurfaceTestIds = [
   "train-week-context",
   "train-manual-logger-section",
   "train-screen",
+  "workout-player",
+  "workout-player-big-timer",
+  "workout-player-control-dock",
   "plan-visual-dashboard",
   "plan-weekly-structure",
   "plan-load-balance",
@@ -282,8 +285,9 @@ async function localSignIn(page: Page) {
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-async function openLocalToday(page: Page) {
-  await page.goto("/");
+async function openLocalToday(page: Page, options: { scenario?: "due_workout_today" | undefined } = {}) {
+  const scenarioQuery = options.scenario ? `?corneriqE2EScenario=${options.scenario}` : "";
+  await page.goto(`/${scenarioQuery}`);
   await expect(page.getByTestId("local-e2e-banner")).toContainText("Local E2E mode");
   await expect(page.getByTestId("auth-screen")).toBeVisible();
   await localSignIn(page);
@@ -363,6 +367,60 @@ async function openTab(page: Page, tabName: "Fuel" | "Profile" | "Train" | "Plan
     return;
   }
   await page.getByText(tabName, { exact: true }).last().click();
+}
+
+async function clickFirstVisibleEnabled(locator: Locator) {
+  const count = await locator.count();
+  for (let index = 0; index < count; index += 1) {
+    const item = locator.nth(index);
+    if ((await item.isVisible().catch(() => false)) && (await item.isEnabled().catch(() => false))) {
+      try {
+        await item.click({ timeout: 3_000 });
+        return true;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return false;
+}
+
+async function clickStartWorkout(page: Page) {
+  return (
+    (await clickFirstVisibleEnabled(page.getByTestId("workout-player-preview").getByRole("button", { name: "Start workout" }))) ||
+    (await clickFirstVisibleEnabled(page.getByRole("button", { name: "Start workout" })))
+  );
+}
+
+async function openLiveWorkoutPlayer(page: Page) {
+  const livePlayer = page.getByTestId("workout-player");
+  if ((await livePlayer.count()) === 0) {
+    const todayOpenWorkout = page.getByTestId("today-manual-actions").getByRole("button", { name: "Open workout" });
+    if ((await todayOpenWorkout.count()) > 0 && (await todayOpenWorkout.first().isVisible().catch(() => false))) {
+      await todayOpenWorkout.first().click();
+    } else {
+      await openTab(page, "Train");
+    }
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if ((await livePlayer.count()) > 0 && (await page.getByText("LIVE WORKOUT", { exact: true }).count()) > 0) {
+      break;
+    }
+    if ((await page.getByTestId("train-screen").count()) > 0 || (await page.getByTestId("workout-player-preview").count()) > 0) {
+      const didStart = await clickStartWorkout(page);
+      expect(didStart).toBe(true);
+    }
+  }
+
+  await expect(page.getByText("LIVE WORKOUT", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("workout-player-big-timer")).toBeVisible();
+  await expect(page.getByTestId("workout-player-progress")).toBeVisible();
+  await expect(page.getByTestId("workout-player-do-this-card")).toContainText("DO THIS");
+  await expect(page.getByTestId("workout-player-coach-cue")).toContainText("COACH CUE");
+  await expect(page.getByTestId("workout-player-next-card")).toContainText("NEXT");
+  await expect(page.getByRole("button", { name: "Workout details" })).toBeVisible();
+  await expect(page.getByTestId("workout-player-control-dock")).toBeVisible();
 }
 
 async function openSection(page: Page, sectionName: string) {
@@ -931,6 +989,28 @@ test("mobile-size browser layout smoke reaches Today", async ({ browser }, testI
     await expect(page.getByTestId("today-visual-dashboard")).toBeVisible();
     await expectTodayDashboardSurface(page);
     await capture(page, testInfo, "Mobile Today smoke", "smoke-04-mobile-today-screen.png", { scopeTestId: "today-screen" });
+  } finally {
+    await context.close();
+  }
+});
+
+test("mobile-size live workout player visual smoke", async ({ browser }, testInfo) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true
+  });
+  const page = await context.newPage();
+
+  try {
+    await openLocalToday(page, { scenario: "due_workout_today" });
+    await openLiveWorkoutPlayer(page);
+    const livePlayerText = await visiblePageText(page, "workout-player");
+    expectNoGeneratedContactLanguage(livePlayerText);
+    expectNoUnsafeWeightCutLanguage(livePlayerText);
+    await capture(page, testInfo, "Mobile live workout player smoke", "smoke-06-mobile-live-workout-player.png", {
+      fullPage: false,
+      scopeTestId: "workout-player"
+    });
   } finally {
     await context.close();
   }

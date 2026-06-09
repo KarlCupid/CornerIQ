@@ -1760,17 +1760,17 @@ describe("minimal app screens", () => {
     expect(output).toContain("Show Workout recipe");
     expect(output).not.toContain("Session flow");
     expect(output).not.toContain("Coach note");
-    expect(output).not.toContain("LIVE PLAYER");
+    expect(output).not.toContain("LIVE WORKOUT");
 
     const startButtons = (renderer.root.findAllByType("Pressable") as TestInstance[]).filter((item) => JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)).includes("Start workout"));
     await act(async () => {
       await press(startButtons[startButtons.length - 1]);
     });
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("LIVE PLAYER");
+    expect(output).toContain("LIVE WORKOUT");
     expect(output).toContain("WORK");
     expect(output).toContain("workout-player-big-timer");
-    expect(output).toContain("Show More workout detail");
+    expect(output).toContain("Details");
     await act(async () => {
       await press(pressableWithText(renderer, "Pause"));
     });
@@ -2322,7 +2322,7 @@ describe("minimal app screens", () => {
     }
     let output = JSON.stringify(renderer.toJSON());
     expect(onStartWorkout).toHaveBeenCalledWith(startedSession);
-    expect(output).not.toContain("LIVE PLAYER");
+    expect(output).not.toContain("LIVE WORKOUT");
     expect(output).not.toContain("workout-player-current-step");
 
     await act(async () => {
@@ -2392,13 +2392,13 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("LIVE PLAYER");
+      expect(output).toContain("LIVE WORKOUT");
       expect(output).toContain("Setup");
       expect(output).toContain("DO THIS");
       expect(output).toContain("COACH CUE");
       expect(output).toContain("Tempo squat");
       expect(output).toContain("Ready");
-      expect(output).toContain("Show More workout detail");
+      expect(output).toContain("Details");
       expect(output).not.toContain("Load guidance");
       expect(output).not.toContain("WHY");
       expect(output).not.toContain("STOP IF");
@@ -2432,7 +2432,7 @@ describe("minimal app screens", () => {
       expect(output).toContain("Done set 1");
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Show More workout detail"));
+        await press(pressableWithExactText(renderer, "Details"));
       });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Set 1 of 2");
@@ -2514,13 +2514,14 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Ready"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Segment 1: Stance base");
+      expect(output).toContain("Segment 1");
+      expect(output).toContain("Stance base");
       expect(output).toContain("Segment 1 of 4: Stance and guard reset");
       expect(output).toContain("COACH CUE");
       expect(output).not.toContain("Done segment 1");
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Show More workout detail"));
+        await press(pressableWithExactText(renderer, "Details"));
       });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Segment 1 of 4");
@@ -2536,7 +2537,8 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Ready"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Round 1: Low and slow shadow");
+      expect(output).toContain("Round 1");
+      expect(output).toContain("Low and slow shadow");
       expect(output).toContain("Round 1 of 4: Jab-Focused Shadowboxing");
       expect(output).toContain("COACH CUE");
       expect(output).not.toContain("MICRO-CUE");
@@ -2596,7 +2598,7 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Pain"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Show More workout detail"));
+        await press(pressableWithExactText(renderer, "Details"));
       });
       await act(async () => {
         await press(pressableWithText(renderer, "Finish workout"));

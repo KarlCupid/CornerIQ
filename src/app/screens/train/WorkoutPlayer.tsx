@@ -67,6 +67,17 @@ function firstSentence(value: string): string {
   return first ?? trimmed;
 }
 
+function splitStepTitle(title: string): { heading: string; subheading?: string | undefined } {
+  const match = title.match(/^((?:Round|Segment|Set|Rest|Movement)\s+\d+):\s+(.+)$/i);
+  if (!match) {
+    return { heading: title };
+  }
+  return {
+    heading: match[1] ?? title,
+    subheading: match[2]
+  };
+}
+
 function exerciseTargetText(exercise: ExercisePrescription, setIndex: number): readonly string[] {
   const set = exercise.sets[setIndex] ?? exercise.sets[0];
   return [
@@ -222,26 +233,36 @@ function ScreenIconButton({
 
 function WorkoutScreenFrame({
   children,
+  footer,
   mode,
   onClose,
+  scrollResetKey,
   testID = "workout-player-screen"
 }: {
   children: React.ReactNode;
+  footer?: React.ReactNode | undefined;
   mode: string;
   onClose: () => void;
+  scrollResetKey?: string | number | undefined;
   testID?: string | undefined;
 }) {
   const insets = useSafeAreaInsets();
+  const scrollRef = React.useRef<ScrollView>(null);
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ animated: false, y: 0 });
+  }, [scrollResetKey]);
+
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }} testID={testID}>
       <ScrollView
         contentContainerStyle={{
-          gap: spacing.lg,
-          paddingBottom: Math.max(insets.bottom, spacing.xl) + spacing.xl,
+          gap: spacing.md,
+          paddingBottom: footer ? spacing.lg : Math.max(insets.bottom, spacing.xl) + spacing.xl,
           paddingHorizontal: spacing.lg,
-          paddingTop: Math.max(insets.top, spacing.lg) + spacing.lg
+          paddingTop: Math.max(insets.top, spacing.md) + spacing.md
         }}
-        style={{ flex: 1 }}
+        ref={scrollRef}
+        style={{ flex: 1, overflow: "hidden" }}
       >
         <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
           <ScreenIconButton accessibilityLabel="Close workout player" icon="chevron-back" onPress={onClose} />
@@ -250,6 +271,17 @@ function WorkoutScreenFrame({
         </View>
         {children}
       </ScrollView>
+      {footer ? (
+        <View
+          style={{
+            paddingBottom: Math.max(insets.bottom, spacing.md),
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.sm
+          }}
+        >
+          {footer}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -273,40 +305,193 @@ function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | 
   );
 }
 
-function TimerOrb({ accent, seconds }: { accent: LuminousAccent; seconds: number }) {
+function SegmentedTimerRing({
+  accent,
+  progress,
+  size
+}: {
+  accent: LuminousAccent;
+  progress: number;
+  size: number;
+}) {
   const color = accentColor[accent];
+  const segmentCount = 74;
+  const activeSegments = Math.max(1, Math.round(Math.max(0, Math.min(1, progress)) * segmentCount));
+  const radius = size / 2 - 9;
+  return (
+    <View pointerEvents="none" style={{ height: size, left: 0, position: "absolute", top: 0, width: size }}>
+      {Array.from({ length: segmentCount }).map((_, index) => {
+        const angle = -88 + (index * 348) / Math.max(1, segmentCount - 1);
+        const radians = (angle * Math.PI) / 180;
+        const active = index < activeSegments;
+        return (
+          <View
+            key={`timer-ring:${index}`}
+            style={{
+              backgroundColor: active ? color : "rgba(255, 255, 255, 0.13)",
+              borderRadius: radii.pill,
+              height: 16,
+              left: size / 2 + Math.cos(radians) * radius - 2.5,
+              opacity: active ? 1 : 0.5,
+              position: "absolute",
+              top: size / 2 + Math.sin(radians) * radius - 8,
+              transform: [{ rotate: `${angle + 90}deg` }],
+              width: 5
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function LiveTimerOrb({
+  accent,
+  label,
+  progress,
+  seconds
+}: {
+  accent: LuminousAccent;
+  label: string;
+  progress: number;
+  seconds: number;
+}) {
+  const color = accentColor[accent];
+  const wash = accentWash[accent];
+  const size = 258;
   return (
     <View
       style={{
         alignItems: "center",
         alignSelf: "center",
-        backgroundColor: colors.cornerBlack,
-        borderColor: color,
-        borderRadius: 144,
-        borderWidth: 12,
-        height: 288,
+        height: size,
         justifyContent: "center",
-        width: 288
+        position: "relative",
+        width: size
       }}
       testID="workout-player-big-timer"
     >
-      <Text style={{ color: colors.canvas, fontSize: 66, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 74 }}>{formatTimer(seconds)}</Text>
+      <View
+        style={{
+          backgroundColor: wash,
+          borderRadius: size / 2,
+          boxShadow: `0 0 38px ${color}55`,
+          height: size - 40,
+          position: "absolute",
+          width: size - 40
+        }}
+      />
+      <SegmentedTimerRing accent={accent} progress={progress} size={size} />
+      <View style={{ alignItems: "center", gap: spacing.sm }}>
+        <Text style={{ color: colors.canvas, fontSize: 70, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 78 }}>
+          {formatTimer(seconds)}
+        </Text>
+        <View
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.36)",
+            borderColor: `${color}77`,
+            borderRadius: radii.pill,
+            borderWidth: 1,
+            minHeight: 34,
+            justifyContent: "center",
+            paddingHorizontal: spacing.xl,
+            paddingVertical: spacing.xs
+          }}
+        >
+          <Text style={{ color, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{label}</Text>
+        </View>
+      </View>
     </View>
   );
 }
 
-function LiveControlButton({
+function BlockDots({ accent, activeIndex, count }: { accent: LuminousAccent; activeIndex: number; count: number }) {
+  const color = accentColor[accent];
+  return (
+    <View accessibilityLabel={`Block ${activeIndex + 1} of ${count}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "center" }}>
+      {Array.from({ length: count }).map((_, index) => (
+        <View
+          key={`block-dot:${index}`}
+          style={{
+            backgroundColor: index === activeIndex ? color : "rgba(255, 255, 255, 0.38)",
+            borderRadius: radii.pill,
+            height: index === activeIndex ? 11 : 10,
+            opacity: index === activeIndex ? 1 : 0.7,
+            width: index === activeIndex ? 11 : 10
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+function LiveInfoCard({
+  accent = "blue",
+  body,
+  icon,
+  label,
+  testID,
+  tone = "neutral"
+}: {
+  accent?: LuminousAccent | undefined;
+  body: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  testID?: string | undefined;
+  tone?: "neutral" | "accent" | "hot" | undefined;
+}) {
+  const color = accentColor[accent];
+  return (
+    <View
+      style={{
+        backgroundColor: tone === "hot" ? `${color}1F` : "rgba(255, 255, 255, 0.046)",
+        borderColor: tone === "neutral" ? "rgba(255, 255, 255, 0.16)" : `${color}7A`,
+        borderRadius: 16,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md
+      }}
+      testID={testID}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          borderColor: tone === "neutral" ? "rgba(255, 255, 255, 0.38)" : `${color}88`,
+          borderRadius: radii.pill,
+          borderWidth: 1,
+          height: 38,
+          justifyContent: "center",
+          width: 38
+        }}
+      >
+        <Ionicons color={tone === "neutral" ? colors.wrap : color} name={icon} size={22} />
+      </View>
+      <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+        <Text style={{ color: tone === "neutral" ? colors.wrap : color, fontSize: 12, fontWeight: "900", letterSpacing: 2.2, lineHeight: 16 }}>
+          {label}
+        </Text>
+        <Text style={{ color: colors.canvas, fontSize: 19, fontWeight: "800", lineHeight: 25 }}>
+          {body}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function LiveDockButton({
   disabled = false,
   icon,
   label,
   onPress,
-  primary = false
+  tone = "neutral"
 }: {
   disabled?: boolean | undefined;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
-  primary?: boolean | undefined;
+  tone?: "neutral" | "danger" | undefined;
 }) {
   return (
     <Pressable
@@ -315,22 +500,18 @@ function LiveControlButton({
       disabled={disabled}
       onPress={onPress}
       style={{
-        ...(primary ? glassStyles.primaryControl : glassStyles.control),
         alignItems: "center",
-        backgroundColor: primary ? "rgba(39, 206, 241, 0.86)" : "rgba(255, 255, 255, 0.095)",
-        borderColor: primary ? colors.blueIQ : colors.line,
-        borderRadius: 20,
+        flex: 1,
         gap: spacing.xs,
         justifyContent: "center",
-        minHeight: 58,
-        minWidth: primary ? 78 : 62,
-        opacity: disabled ? 0.55 : 1,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.sm
+        minHeight: 78,
+        opacity: disabled ? 0.42 : 1,
+        paddingHorizontal: spacing.xs,
+        paddingVertical: spacing.md
       }}
     >
-      <Ionicons color={primary ? colors.cornerBlack : colors.canvas} name={icon} size={primary ? 24 : 21} />
-      <Text style={{ color: primary ? colors.cornerBlack : colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 14 }}>{label}</Text>
+      <Ionicons color={tone === "danger" ? colors.redCorner : colors.canvas} name={icon} size={28} />
+      <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800", lineHeight: 17 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -466,6 +647,7 @@ export function WorkoutPlayer({
   const [notes, setNotes] = React.useState("");
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [localError, setLocalError] = React.useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
   const activeStepIndexRef = React.useRef(activeStepIndex);
@@ -485,6 +667,7 @@ export function WorkoutPlayer({
     setNotes("");
     setElapsedSeconds(0);
     setLocalError(null);
+    setDetailsOpen(false);
     setDiscardConfirm(false);
     setSkipConfirm(false);
   }, [firstStepSeconds, session.generatedSessionId]);
@@ -545,7 +728,6 @@ export function WorkoutPlayer({
   const setCount = currentTimelineStep.totalExerciseSets;
   const completedSets = completedSetMap[activeExerciseId] ?? [];
   const selectedSubstitution = substitutionMap[activeExerciseId];
-  const displayName = selectedSubstitution ? plainWorkoutTitle(selectedSubstitution.name) : currentTimelineStep.title;
   const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentTimelineStep.loadGuidance ?? currentTimelineStep.instruction ?? currentExercise.loadGuidance);
   const displayNotes = (selectedSubstitution?.coachingNotes ?? currentExercise.coachingNotes).map(plainTrainingCopy);
   const progress = steps.length > 0 ? Math.max(0, currentStepIndex) / steps.length : 0;
@@ -872,7 +1054,6 @@ export function WorkoutPlayer({
       : undefined;
   const primaryCue = activeMicroCue ?? currentTimelineStep.cue ?? liveCues[0] ?? "Keep shoulders loose and breathe calmly.";
   const stepKind = stepKindTitle(currentTimelineStep.kind);
-  const stepTone = blockColor;
   const nextStepLabel = nextStep ? `${nextStep.title} - ${nextStep.durationLabel}` : "Finish summary";
   const liveDoThis = firstSentence(currentTimelineStep.instruction);
   const liveSafetyLine = painFlagMap[activeExerciseId] && currentTimelineStep.safetyStop
@@ -881,194 +1062,184 @@ export function WorkoutPlayer({
   const shouldShowPrimaryDone = !currentTimelineStep.autoAdvance;
   const skipNextLabel = currentTimelineStep.tracksCompletion ? "Skip" : "Next";
   const skipNextPress = currentTimelineStep.tracksCompletion ? skipSet : moveNext;
+  const stepTitle = splitStepTitle(currentTimelineStep.title);
+  const timerProgress = currentTimelineStep.durationSeconds > 0 ? stepRemainingSeconds / currentTimelineStep.durationSeconds : 0;
+  const timerPillLabel = currentTimelineStep.actionLabel === "round" ? "Round" : currentTimelineStep.kind === "rest" ? "Rest" : stepKind;
+  const dockNextIcon: keyof typeof Ionicons.glyphMap = currentTimelineStep.tracksCompletion ? "play-skip-forward" : "play-forward";
+  const liveControlDock = (
+    <View
+      style={{
+        ...glassStyles.control,
+        borderColor: "rgba(255, 255, 255, 0.17)",
+        borderRadius: 30,
+        flexDirection: "row",
+        overflow: "hidden"
+      }}
+      testID="workout-player-control-dock"
+    >
+      <LiveDockButton disabled={currentStepIndex <= 0} icon="play-back" label="Back" onPress={moveBack} />
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
+      <LiveDockButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
+      <LiveDockButton disabled={busy} icon={dockNextIcon} label={skipNextLabel} onPress={skipNextPress} />
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
+      <LiveDockButton disabled={busy} icon={painFlagMap[activeExerciseId] ? "heart" : "heart-outline"} label="Pain" onPress={togglePainFlag} tone={painFlagMap[activeExerciseId] ? "danger" : "neutral"} />
+    </View>
+  );
 
   return (
-    <WorkoutScreenFrame mode="LIVE PLAYER" onClose={onClose} testID="workout-player">
-      <View style={{ gap: spacing.sm }} testID="workout-player-progress">
-        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 18 }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount} - {currentTimelineStep.sectionName}</Text>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 18 }} testID="workout-player-time-left">{formatTimer(remainingSessionSeconds)} left</Text>
-        </View>
-        <LuminousProgressBar accent={blockAccent} progress={liveProgress} />
+    <WorkoutScreenFrame footer={liveControlDock} mode="LIVE WORKOUT" onClose={onClose} scrollResetKey={status} testID="workout-player">
+      <View style={{ alignItems: "center", gap: spacing.xs }}>
+        <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 37, textAlign: "center" }}>{recipeTitle(session)}</Text>
+        {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
       </View>
 
-      <GlassPanel testID="workout-player-current-block">
-        <View testID="workout-player-current-step" />
-        <View style={{ alignItems: "center", gap: spacing.sm }}>
-          <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 36, textAlign: "center" }}>{displayName}</Text>
-          {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
+      <View style={{ gap: spacing.md }} testID="workout-player-progress">
+        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: colors.wrap, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount} - {currentTimelineStep.sectionName}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 18, fontVariant: ["tabular-nums"], fontWeight: "800", lineHeight: 24 }} testID="workout-player-time-left">{formatTimer(remainingSessionSeconds)} left</Text>
         </View>
+        <LuminousProgressBar accent={blockAccent} progress={liveProgress} />
+        <BlockDots accent={blockAccent} activeIndex={currentTimelineStep.sectionIndex} count={timeline.blockCount} />
+      </View>
 
-        <TimerOrb accent={blockAccent} seconds={bigTimerSeconds} />
+      <View style={{ alignItems: "center", gap: spacing.md }} testID="workout-player-current-block">
+        <View testID="workout-player-current-step" />
+        <LiveTimerOrb accent={blockAccent} label={timerPillLabel} progress={timerProgress} seconds={bigTimerSeconds} />
+        <View style={{ alignItems: "center", gap: spacing.xs }}>
+          <Text style={{ color: colors.canvas, fontSize: 30, fontWeight: "900", lineHeight: 36, textAlign: "center" }}>{stepTitle.heading}</Text>
+          {stepTitle.subheading ? <Text style={{ color: colors.wrap, fontSize: 21, fontWeight: "800", lineHeight: 27, textAlign: "center" }}>{stepTitle.subheading}</Text> : null}
+          <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{currentTimelineStep.dose}</Text>
+        </View>
+      </View>
 
-        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
-          <View
-            style={{
-              backgroundColor: blockWash,
-              borderColor: `${blockColor}73`,
-              borderRadius: radii.pill,
-              borderWidth: 1,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.xs
-            }}
-          >
-            <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{stepKind}</Text>
+      <View style={{ gap: spacing.sm }}>
+        <LiveInfoCard accent={blockAccent} body={liveDoThis} icon="locate-outline" label="DO THIS" testID="workout-player-do-this-card" />
+        <LiveInfoCard accent={blockAccent} body={primaryCue} icon="headset-outline" label="COACH CUE" testID="workout-player-coach-cue" tone="hot" />
+        <LiveInfoCard body={nextStepLabel} icon="chevron-forward" label="NEXT" testID="workout-player-next-card" />
+      </View>
+
+      <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{liveSafetyLine}</Text>
+
+      {shouldShowPrimaryDone ? <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" /> : null}
+
+      <Pressable
+        accessibilityLabel={detailsOpen ? "Hide workout details" : "Workout details"}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: detailsOpen }}
+        onPress={() => setDetailsOpen((value) => !value)}
+        style={{ alignItems: "center", flexDirection: "row", gap: spacing.xs, justifyContent: "center", minHeight: 44 }}
+      >
+        <Text style={{ color: blockColor, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{detailsOpen ? "Hide details" : "Details"}</Text>
+        <Ionicons color={blockColor} name={detailsOpen ? "chevron-down" : "chevron-forward"} size={17} />
+      </Pressable>
+
+      {detailsOpen ? (
+        <GlassPanel testID="workout-player-more-detail">
+          <View style={{ gap: spacing.sm }}>
+            <SetTracker activeSetIndex={activeSetIndex} completedSetIndices={completedSets} setCount={setCount} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+              <DetailPill label={currentTimelineStep.actionLabel === "movement" ? "Movement" : `${sentenceCase(currentTimelineStep.actionLabel)} of ${setCount}`} />
+              <DetailPill label={`Timer ${currentTimelineStep.durationLabel}`} />
+              {exerciseTargetText(currentExercise, activeSetIndex).map((target) => <DetailPill key={`target:${target}`} label={target} />)}
+            </View>
           </View>
           <View
             style={{
               backgroundColor: "rgba(255, 255, 255, 0.055)",
               borderColor: colors.line,
-              borderRadius: radii.pill,
+              borderRadius: 18,
               borderWidth: 1,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.xs
+              gap: spacing.xs,
+              padding: spacing.md
             }}
+            testID="workout-player-why-detail"
           >
-            <Text style={{ color: stepTone, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{currentTimelineStep.dose}</Text>
+            <Text style={screenStyles.fieldLabel}>Why this block</Text>
+            <Text style={screenStyles.body}>{currentTimelineStep.intent}</Text>
           </View>
-        </View>
-
-        <View style={{ gap: spacing.sm }}>
-          <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>DO THIS</Text>
-          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{liveDoThis}</Text>
-        </View>
-
-        <View
-          style={{
-            backgroundColor: activeMicroCue ? "rgba(255, 216, 97, 0.11)" : "rgba(56, 226, 138, 0.1)",
-            borderColor: activeMicroCue ? "rgba(255, 216, 97, 0.34)" : "rgba(56, 226, 138, 0.3)",
-            borderRadius: 18,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-          testID="workout-player-coach-cue"
-        >
-          <Text style={{ color: activeMicroCue ? colors.gold : colors.readyGreen, fontSize: 12, fontWeight: "900", letterSpacing: 1, lineHeight: 16 }}>COACH CUE</Text>
-          <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "900", lineHeight: 22 }}>{primaryCue}</Text>
-        </View>
-
-        <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>{liveSafetyLine}</Text>
-      </GlassPanel>
-
-      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.055)", borderColor: colors.line, borderRadius: 18, borderWidth: 1, gap: spacing.xs, padding: spacing.md }}>
-        <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, lineHeight: 15 }}>NEXT</Text>
-        <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{nextStepLabel}</Text>
-      </View>
-
-      {shouldShowPrimaryDone ? <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" /> : null}
-
-      <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
-        <LiveControlButton disabled={currentStepIndex <= 0} icon="chevron-back" label="Back" onPress={moveBack} />
-        <LiveControlButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
-        <LiveControlButton disabled={busy} icon={currentTimelineStep.tracksCompletion ? "play-skip-forward" : "play-forward"} label={skipNextLabel} onPress={skipNextPress} />
-        <LiveControlButton disabled={busy} icon="alert-circle" label={painFlagMap[activeExerciseId] ? "Flagged" : "Pain"} onPress={togglePainFlag} />
-      </View>
-
-      <CollapsedDetailDisclosure title="More workout detail" summary="Open only if you need load, safety, swaps, timers, or navigation." testID="workout-player-more-detail">
-        <View style={{ gap: spacing.sm }}>
-          <SetTracker activeSetIndex={activeSetIndex} completedSetIndices={completedSets} setCount={setCount} />
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-            <DetailPill label={currentTimelineStep.actionLabel === "movement" ? "Movement" : `${sentenceCase(currentTimelineStep.actionLabel)} of ${setCount}`} />
-            <DetailPill label={`Timer ${currentTimelineStep.durationLabel}`} />
-            {exerciseTargetText(currentExercise, activeSetIndex).map((target) => <DetailPill key={`target:${target}`} label={target} />)}
+          <View
+            style={{
+              backgroundColor: blockWash,
+              borderColor: `${blockColor}66`,
+              borderRadius: 18,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+            testID="workout-player-full-instruction"
+          >
+            <Text style={screenStyles.fieldLabel}>Full instruction</Text>
+            <Text style={screenStyles.body}>{currentTimelineStep.instruction}</Text>
+            {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop if: {currentTimelineStep.safetyStop}</Text> : null}
           </View>
-        </View>
-        <View
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.055)",
-            borderColor: colors.line,
-            borderRadius: 18,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-          testID="workout-player-why-detail"
-        >
-          <Text style={screenStyles.fieldLabel}>Why this block</Text>
-          <Text style={screenStyles.body}>{currentTimelineStep.intent}</Text>
-        </View>
-        <View
-          style={{
-            backgroundColor: blockWash,
-            borderColor: `${blockColor}66`,
-            borderRadius: 18,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-          testID="workout-player-full-instruction"
-        >
-          <Text style={screenStyles.fieldLabel}>Full instruction</Text>
-          <Text style={screenStyles.body}>{currentTimelineStep.instruction}</Text>
-          {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop if: {currentTimelineStep.safetyStop}</Text> : null}
-        </View>
-        <View
-          style={{
-            backgroundColor: "rgba(39, 206, 241, 0.11)",
-            borderColor: "rgba(39, 206, 241, 0.38)",
-            borderRadius: 18,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-          testID="workout-player-timer-card"
-        >
-          <Text style={screenStyles.fieldLabel}>Current timer</Text>
-          <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34 }}>{formatTimer(stepRemainingSeconds)}</Text>
-          <Text style={screenStyles.subtle}>{currentTimelineStep.sectionName}: {currentTimelineStep.durationLabel} for {currentTimelineStep.title}.</Text>
-          <Text style={screenStyles.subtle}>Rest after: {currentTimelineStep.rest}</Text>
-          <Text style={screenStyles.subtle}>Timer mode: {stepKind}. {currentTimelineStep.autoAdvance ? "This timed step can advance when the timer ends." : "This step waits for your tap."}</Text>
-        </View>
-        <View
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.055)",
-            borderColor: colors.line,
-            borderRadius: 18,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-          testID="workout-player-guided-copy"
-        >
-          <Text style={screenStyles.fieldLabel}>Guided check</Text>
-          {currentTimelineStep.successCheck ? <Text style={screenStyles.subtle}>Success: {currentTimelineStep.successCheck}</Text> : null}
-          {currentTimelineStep.commonMistake ? <Text style={screenStyles.subtle}>Avoid: {currentTimelineStep.commonMistake}</Text> : null}
-          {currentTimelineStep.microCues?.length ? <Text style={screenStyles.subtle}>Coach reminders: {currentTimelineStep.microCues.join(" ")}</Text> : null}
-          {currentTimelineStep.regression ? <Text style={screenStyles.subtle}>Easier: {currentTimelineStep.regression}</Text> : null}
-          {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {currentTimelineStep.safetyStop}</Text> : null}
-        </View>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>Load guidance</Text>
-          <Text style={screenStyles.body}>{displayLoad}</Text>
-        </View>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>Section purpose</Text>
-          <Text style={screenStyles.body}>{plainSectionIntent(currentSection.intent)}</Text>
-        </View>
-        <SafetyStack exercise={currentExercise} session={session} />
-        <SubstitutionChooser
-          exercise={currentExercise}
-          onChoose={(substitution) => {
-            touchExercise();
-            setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
-          }}
-          selected={selectedSubstitution}
-        />
-        <CollapsedDetailDisclosure framed={false} title="Coaching notes" summary={displayNotes[0] ?? "Cues are available when you need them."} testID="workout-player-coaching-notes">
-          {displayNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
-        </CollapsedDetailDisclosure>
-        <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
-          <Text style={screenStyles.body}>{plainMovementWhy(currentExercise.boxingTransfer)}</Text>
-        </CollapsedDetailDisclosure>
-        {painFlagMap[activeExerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <PlayerButton label="Back" onPress={moveBack} />
-          <PlayerButton label="Next" onPress={moveNext} />
-          <PlayerButton label="Skip exercise" onPress={skipExercise} tone="warning" />
-          <PlayerButton label="Finish workout" onPress={() => setStatus("finishing")} tone="primary" />
-        </View>
-      </CollapsedDetailDisclosure>
+          <View
+            style={{
+              backgroundColor: "rgba(39, 206, 241, 0.11)",
+              borderColor: "rgba(39, 206, 241, 0.38)",
+              borderRadius: 18,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+            testID="workout-player-timer-card"
+          >
+            <Text style={screenStyles.fieldLabel}>Current timer</Text>
+            <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34 }}>{formatTimer(stepRemainingSeconds)}</Text>
+            <Text style={screenStyles.subtle}>{currentTimelineStep.sectionName}: {currentTimelineStep.durationLabel} for {currentTimelineStep.title}.</Text>
+            <Text style={screenStyles.subtle}>Rest after: {currentTimelineStep.rest}</Text>
+            <Text style={screenStyles.subtle}>Timer mode: {stepKind}. {currentTimelineStep.autoAdvance ? "This timed step can advance when the timer ends." : "This step waits for your tap."}</Text>
+          </View>
+          <View
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.055)",
+              borderColor: colors.line,
+              borderRadius: 18,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+            testID="workout-player-guided-copy"
+          >
+            <Text style={screenStyles.fieldLabel}>Guided check</Text>
+            {currentTimelineStep.successCheck ? <Text style={screenStyles.subtle}>Success: {currentTimelineStep.successCheck}</Text> : null}
+            {currentTimelineStep.commonMistake ? <Text style={screenStyles.subtle}>Avoid: {currentTimelineStep.commonMistake}</Text> : null}
+            {currentTimelineStep.microCues?.length ? <Text style={screenStyles.subtle}>Coach reminders: {currentTimelineStep.microCues.join(" ")}</Text> : null}
+            {currentTimelineStep.regression ? <Text style={screenStyles.subtle}>Easier: {currentTimelineStep.regression}</Text> : null}
+            {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {currentTimelineStep.safetyStop}</Text> : null}
+          </View>
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.fieldLabel}>Load guidance</Text>
+            <Text style={screenStyles.body}>{displayLoad}</Text>
+          </View>
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.fieldLabel}>Section purpose</Text>
+            <Text style={screenStyles.body}>{plainSectionIntent(currentSection.intent)}</Text>
+          </View>
+          <SafetyStack exercise={currentExercise} session={session} />
+          <SubstitutionChooser
+            exercise={currentExercise}
+            onChoose={(substitution) => {
+              touchExercise();
+              setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
+            }}
+            selected={selectedSubstitution}
+          />
+          <CollapsedDetailDisclosure framed={false} title="Coaching notes" summary={displayNotes[0] ?? "Cues are available when you need them."} testID="workout-player-coaching-notes">
+            {displayNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
+          </CollapsedDetailDisclosure>
+          <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
+            <Text style={screenStyles.body}>{plainMovementWhy(currentExercise.boxingTransfer)}</Text>
+          </CollapsedDetailDisclosure>
+          {painFlagMap[activeExerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            <PlayerButton label="Back" onPress={moveBack} />
+            <PlayerButton label="Next" onPress={moveNext} />
+            <PlayerButton label="Skip exercise" onPress={skipExercise} tone="warning" />
+            <PlayerButton label="Finish workout" onPress={() => setStatus("finishing")} tone="primary" />
+          </View>
+        </GlassPanel>
+      ) : null}
 
       <CollapsedDetailDisclosure title="Session prep" summary="Checklist, self-check cues, quality checkpoints, and add-ons stay available while you train." testID="workout-player-session-prep">
         <View style={{ gap: spacing.xs }}>
