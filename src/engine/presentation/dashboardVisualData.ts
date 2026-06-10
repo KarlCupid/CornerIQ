@@ -87,6 +87,7 @@ export interface TodayDashboardVisual {
   bodyMass: BodyMassTrendVisual;
   decision: DecisionDashboardVisual;
   schedule: readonly TimelineVisual[];
+  topSummary: string;
   ctaLabel: string;
 }
 
@@ -424,6 +425,40 @@ function todayFuelRows(fuel: FuelViewModel | undefined): readonly ProgressVisual
   return [...macroRows, hydration, sodium];
 }
 
+function decisionSubtitle(intensity: string | undefined, hasRisk: boolean): string {
+  if (hasRisk) {
+    return "Safety changes the work before performance.";
+  }
+  if (intensity === "hard" || intensity === "max") {
+    return "Hard support today. Check readiness and fuel first.";
+  }
+  if (intensity === "recovery" || intensity === "easy") {
+    return "Low-friction support. Keep the quality easy.";
+  }
+  return `${plainIntensityLabel(intensity ?? "moderate")} support. Keep it sharp, not maximal.`;
+}
+
+function topSummaryForToday(input: {
+  hasWorkout: boolean;
+  lowFuel: boolean;
+  needsReadiness: boolean;
+  riskActive: boolean;
+}): string {
+  if (input.riskActive) {
+    return "Safety owns the day. Log what you know before pushing.";
+  }
+  if (input.lowFuel) {
+    return "Fuel is the cleanest next input. Training stays planned.";
+  }
+  if (input.needsReadiness) {
+    return "A quick readiness log sharpens today's training call.";
+  }
+  if (input.hasWorkout) {
+    return "The workout is ready. Use quick logs only if they help.";
+  }
+  return "Review the plan and adjust only what changed.";
+}
+
 function decisionVisual(today: TodayViewModel, readiness: ReadinessDashboardVisual, train: TrainViewModel | undefined): DecisionDashboardVisual {
   const riskRatio = today.riskSummary.length > 0 ? 0.25 : 0.82;
   const intensity = train?.sessionCards[0]?.intensity ?? "moderate";
@@ -438,7 +473,7 @@ function decisionVisual(today: TodayViewModel, readiness: ReadinessDashboardVisu
           : "Sharp but controlled";
   return {
     title,
-    subtitle: today.trainingPriority,
+    subtitle: decisionSubtitle(intensity, today.riskSummary.length > 0),
     score,
     tone: today.riskSummary.length > 0 ? "red" : intensity === "hard" ? "orange" : "blue",
     tags: [
@@ -484,6 +519,7 @@ export function buildTodayDashboardVisual(input: {
   const needsReadiness = readiness.score === null;
   const fuelRows = todayFuelRows(input.fuel);
   const lowFuel = fuelRows.some((item) => item.ratio < 0.45 && /carb|hydration/i.test(item.label));
+  const ctaLabel = hasWorkout ? "Open training" : lowFuel ? "Open Fuel" : needsReadiness ? "Log readiness" : "Adjust plan";
   return {
     readiness,
     weeklyLoad: barsFromPlan(input.plan, input.asOfDate),
@@ -493,7 +529,13 @@ export function buildTodayDashboardVisual(input: {
     bodyMass: bodyMassTrendFromFuel(input.fuel, input.recentLogs),
     decision: decisionVisual(input.today, readiness, input.train),
     schedule: scheduleFromPlan(input.plan, input.train, input.asOfDate),
-    ctaLabel: hasWorkout ? "Open training" : lowFuel ? "Open Fuel" : needsReadiness ? "Log readiness" : "Adjust plan"
+    topSummary: topSummaryForToday({
+      hasWorkout,
+      lowFuel,
+      needsReadiness,
+      riskActive: input.today.riskSummary.length > 0
+    }),
+    ctaLabel
   };
 }
 

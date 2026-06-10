@@ -37,29 +37,34 @@ function clamp01(value: number): number {
 
 export function DashboardCard({
   children,
+  density = "regular",
   footer,
   headerRight,
   testID,
-  title
+  title,
+  titleVariant = "loud"
 }: React.PropsWithChildren<{
+  density?: "compact" | "regular" | undefined;
   footer?: React.ReactNode;
   headerRight?: React.ReactNode;
   testID?: string | undefined;
   title: string;
+  titleVariant?: "loud" | "quiet" | undefined;
 }>) {
+  const quietTitle = titleVariant === "quiet";
   return (
     <View
       style={{
         ...glassStyles.cardDeep,
-        gap: spacing.md,
+        gap: density === "compact" ? spacing.sm : spacing.md,
         overflow: "hidden",
-        padding: spacing.lg
+        padding: density === "compact" ? spacing.md : spacing.lg
       }}
       testID={testID}
     >
       <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
-        <Text numberOfLines={2} style={{ color: colors.canvas, flex: 1, fontSize: 13, fontWeight: "900", letterSpacing: 0, lineHeight: 17 }}>
-          {title.toUpperCase()}
+        <Text numberOfLines={2} style={{ color: quietTitle ? colors.wrap : colors.canvas, flex: 1, fontSize: quietTitle ? 14 : 13, fontWeight: quietTitle ? "700" : "900", letterSpacing: 0, lineHeight: quietTitle ? 18 : 17 }}>
+          {quietTitle ? title : title.toUpperCase()}
         </Text>
         {headerRight}
       </View>
@@ -85,7 +90,7 @@ export function DashboardPill({ label, tone = "blue" }: { label: string; tone?: 
         paddingVertical: spacing.xs
       }}
     >
-      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>
@@ -255,25 +260,26 @@ export function ModifierRow({ item }: { item: ModifierVisual }) {
   );
 }
 
-export function VisualMetricTile({ item }: { item: ModifierVisual }) {
+export function VisualMetricTile({ item, variant = "loud" }: { item: ModifierVisual; variant?: "loud" | "quiet" | undefined }) {
+  const quiet = variant === "quiet";
   return (
     <View
       style={{
         ...glassStyles.tile,
-        flexBasis: 116,
+        flexBasis: quiet ? 128 : 116,
         flexGrow: 1,
         gap: spacing.xs,
-        minHeight: 86,
-        padding: spacing.md
+        minHeight: quiet ? 70 : 86,
+        padding: quiet ? spacing.sm : spacing.md
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>
-        {item.label.toUpperCase()}
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: quiet ? "700" : "900", lineHeight: 15 }}>
+        {quiet ? item.label : item.label.toUpperCase()}
       </Text>
-      <Text numberOfLines={1} style={{ color: colorForTone(item.tone), fontSize: 18, fontWeight: "900", lineHeight: 24 }}>
+      <Text numberOfLines={1} style={{ color: colorForTone(item.tone), fontSize: quiet ? 16 : 18, fontWeight: quiet ? "800" : "900", lineHeight: quiet ? 21 : 24 }}>
         {item.value}
       </Text>
-      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: radii.pill, height: 7, overflow: "hidden" }}>
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: radii.pill, height: quiet ? 5 : 7, overflow: "hidden" }}>
         <View style={{ backgroundColor: colorForTone(item.tone), height: "100%", width: `${Math.max(8, clamp01(item.ratio) * 100)}%` }} />
       </View>
     </View>

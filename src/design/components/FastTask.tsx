@@ -25,11 +25,14 @@ export interface FastTaskStatusItem {
 
 function ActionButton({
   action,
+  layout = "equal",
   primary = false
 }: {
   action: FastTaskAction;
+  layout?: "equal" | "primary-led" | undefined;
   primary?: boolean | undefined;
 }) {
+  const primaryLed = layout === "primary-led";
   const disabledPrimary = primary && action.disabled;
   const surfaceStyle = disabledPrimary
     ? glassStyles.disabledPrimaryControl
@@ -47,22 +50,22 @@ function ActionButton({
       style={{
         ...surfaceStyle,
         alignItems: "center",
-        borderRadius: 20,
-        flexBasis: primary ? 220 : 148,
-        flexGrow: 1,
+        borderRadius: primaryLed ? radii.control : 20,
+        flexBasis: primary ? (primaryLed ? 260 : 220) : (primaryLed ? 128 : 148),
+        flexGrow: primary ? (primaryLed ? 1.35 : 1) : (primaryLed ? 0.45 : 1),
         justifyContent: "center",
-        minHeight: 48,
+        minHeight: primary ? 50 : primaryLed ? 44 : 48,
         opacity: action.disabled && !primary ? 0.62 : 1,
         paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm
+        paddingVertical: primaryLed && !primary ? spacing.xs : spacing.sm
       }}
       testID={action.testID}
     >
-      <Text style={{ color: textColor, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: textColor, fontSize: primaryLed && !primary ? 14 : 15, fontWeight: primary ? "800" : primaryLed ? "700" : "800", lineHeight: primaryLed && !primary ? 18 : 20, textAlign: "center" }}>
         {action.label}
       </Text>
       {action.summary ? (
-        <Text style={{ color: primary && !disabledPrimary ? colors.cornerBlack : colors.mutedText, fontSize: 12, fontWeight: "600", lineHeight: 16, textAlign: "center" }}>
+        <Text style={{ color: primary && !disabledPrimary ? colors.cornerBlack : colors.mutedText, fontSize: primaryLed && !primary ? 11 : 12, fontWeight: "600", lineHeight: primaryLed && !primary ? 14 : 16, textAlign: "center" }}>
           {action.summary}
         </Text>
       ) : null}
@@ -76,10 +79,12 @@ export function PrimaryTaskCard({
   primaryAction,
   primaryButton,
   purpose,
+  actionLayout = "equal",
   secondaryActions = [],
   testID,
   title
 }: PropsWithChildren<{
+  actionLayout?: "equal" | "primary-led" | undefined;
   accent?: LuminousAccent | undefined;
   primaryAction: string;
   primaryButton?: FastTaskAction | undefined;
@@ -91,16 +96,16 @@ export function PrimaryTaskCard({
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID={testID}>
-        <View style={{ gap: spacing.xs }}>
+        <View style={{ gap: spacing.xs, maxWidth: 760 }}>
           <Text style={{ color: accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{title}</Text>
           <Text style={{ color: colors.canvas, fontSize: 20, fontWeight: "800", lineHeight: 26 }}>{primaryAction}</Text>
-          <Text style={{ ...typography.body, color: colors.wrap }}>{purpose}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "400", lineHeight: 21 }}>{purpose}</Text>
         </View>
         {children}
         {primaryButton || secondaryActions.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            {primaryButton ? <ActionButton action={primaryButton} primary /> : null}
-            {secondaryActions.map((action) => <ActionButton action={action} key={`fast-task-secondary:${action.label}`} />)}
+            {primaryButton ? <ActionButton action={primaryButton} layout={actionLayout} primary /> : null}
+            {secondaryActions.map((action) => <ActionButton action={action} key={`fast-task-secondary:${action.label}`} layout={actionLayout} />)}
           </View>
         ) : null}
       </View>
@@ -110,39 +115,56 @@ export function PrimaryTaskCard({
 
 export function CompactStatusStrip({
   items,
+  variant = "cards",
   testID
 }: {
   items: readonly FastTaskStatusItem[];
+  variant?: "cards" | "quiet" | undefined;
   testID?: string | undefined;
 }) {
+  const quiet = variant === "quiet";
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID={testID}>
-      {items.map((item) => {
+    <View
+      style={{
+        borderBottomColor: quiet ? "rgba(255, 255, 255, 0.09)" : "transparent",
+        borderBottomWidth: quiet ? 1 : 0,
+        borderTopColor: quiet ? "rgba(255, 255, 255, 0.09)" : "transparent",
+        borderTopWidth: quiet ? 1 : 0,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: quiet ? spacing.xs : spacing.sm,
+        paddingVertical: quiet ? spacing.xs : 0
+      }}
+      testID={testID}
+    >
+      {items.map((item, index) => {
         const accent = item.accent ?? "blue";
         return (
           <View
             accessibilityLabel={`${item.label}: ${item.value}${item.meta ? `. ${item.meta}` : ""}`}
             key={`fast-status:${item.label}`}
             style={{
-              backgroundColor: accentWash[accent],
-              borderColor: `${accentColor[accent]}55`,
-              borderRadius: radii.tile,
-              borderWidth: 1,
-              flexBasis: 112,
+              backgroundColor: quiet ? "transparent" : accentWash[accent],
+              borderColor: quiet ? "rgba(255, 255, 255, 0.09)" : `${accentColor[accent]}55`,
+              borderWidth: quiet ? 0 : 1,
+              borderLeftWidth: quiet && index > 0 ? 1 : 0,
+              borderRadius: quiet ? 0 : radii.tile,
+              flexBasis: quiet ? 94 : 112,
               flexGrow: 1,
-              gap: spacing.xs,
-              minHeight: 78,
-              padding: spacing.md
+              gap: quiet ? 1 : spacing.xs,
+              minHeight: quiet ? 48 : 78,
+              paddingHorizontal: quiet ? spacing.sm : spacing.md,
+              paddingVertical: quiet ? spacing.xs : spacing.md
             }}
           >
-            <Text numberOfLines={1} style={{ color: accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+            <Text numberOfLines={1} style={{ color: accentColor[accent], fontSize: quiet ? 11 : 12, fontWeight: quiet ? "700" : "800", lineHeight: quiet ? 15 : 16 }}>
               {item.label}
             </Text>
-            <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 16, fontWeight: "800", lineHeight: 21 }}>
+            <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: quiet ? 15 : 16, fontWeight: "800", lineHeight: quiet ? 19 : 21 }}>
               {item.value}
             </Text>
             {item.meta ? (
-              <Text numberOfLines={2} style={{ color: colors.mutedText, fontSize: 12, lineHeight: 16 }}>
+              <Text numberOfLines={quiet ? 1 : 2} style={{ color: colors.mutedText, fontSize: quiet ? 11 : 12, lineHeight: quiet ? 15 : 16 }}>
                 {item.meta}
               </Text>
             ) : null}

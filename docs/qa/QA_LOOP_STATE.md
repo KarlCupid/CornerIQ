@@ -8,13 +8,13 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | --- | --- |
 | Current QA phase | needs_human_review |
 | Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
-| Last QA run result | 2026-06-08 follow-up iOS glass UI fix/verification: Fuel body-weight/fueling trend graphics now render as stable glass baseline markers, Train overview/workout preview use shared glass dashboard framing, Plan Risk and Spacing was removed, Profile cards were aligned to the same style system, and passive engine persistence warnings are no longer promoted into global App Notes. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:beta`, and approved `cmd /c npm run qa:agent:audit` passed with 9 browser scenarios. The focused Vitest command failed in the Windows sandbox while loading `vitest.config.mjs` and passed on the approved rerun; the browser audit also had an earlier sandbox-only Expo startup/metadata failure and passed on approved local reruns. Browser plugin QA remains blocked by the Windows sandbox spawn setup refresh issue, so Playwright local audit artifacts are the current automated visual evidence. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
+| Last QA run result | 2026-06-09 scoped Today card/text fix and verification: the Today top task now uses a clear primary-led action row, a quiet stat rail instead of nested status cards, shorter engine-owned summary copy, compact dashboard cards, and title-case section headers. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed. Focused Vitest initially failed in the Windows sandbox while resolving `vitest.config.mjs` and passed on the approved rerun; `qa:agent:audit` initially failed in the sandbox with local Expo/Playwright connection and metadata-fetch errors and passed on approved reruns with 10 browser scenarios. Fresh screenshots/page text are under `qa-artifacts/browser-audit/current/`. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 3 human/AI review limitations remain explicitly tracked |
-| Next recommended action | If this UI polish is part of launch signoff, rerun `cmd /c npm run qa:agent:ci` to regenerate the full bundle with the latest follow-up screenshots, then send `qa-artifacts/corneriq-agent-qa-bundle.zip` and `qa-artifacts/reports/agent-ai-review-brief.md` for AI qualitative review. Schedule physical iPhone checks and live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
+| Next recommended action | Review the refreshed Today screenshots with a human boxer/designer, then apply the same calmer card/text standard to Fuel, Train, Plan, and Profile if accepted. Run `cmd /c npm run qa:agent:ci` if this UI polish is part of launch signoff, and schedule physical iPhone checks plus live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
 | Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -27,15 +27,15 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-08; package tree was up to date. |
-| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-08 directly and again inside `quality`. |
-| tests | automated_pass | `cmd /c npm test` passed on 2026-06-08 directly and again inside `quality`; 536 tests passed and 1 live-smoke test skipped. |
-| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-08 after removing an unused glass-token import. |
-| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-08 after the follow-up UI polish; 536 tests passed and 1 live-smoke test skipped. |
-| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-08 for the follow-up UI polish; previous production preflight evidence remains from the 2026-06-07 full CI pass. |
+| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-09; package tree was up to date. |
+| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-09 directly and again inside `quality`. |
+| tests | automated_pass | `cmd /c npm test` passed on 2026-06-09 directly and again inside `quality`; 554 tests passed and 1 live-smoke test skipped. |
+| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-09. |
+| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-09; 554 tests passed and 1 live-smoke test skipped. |
+| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-09 for the Today card/text fix. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. Targeted approved `cmd /c npm run qa:agent:audit` passed on 2026-06-08 after the follow-up Fuel/Train/Plan/Profile polish; the full bundle was not regenerated in that targeted pass. |
+| agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. Targeted approved `cmd /c npm run qa:agent:audit` passed on 2026-06-09 after the Today card/text fix with 10 browser scenarios; the full bundle was not regenerated in that targeted pass. |
 
 ### B. Auth and account
 
@@ -71,15 +71,15 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| first action obvious within 5 seconds | human_review_required | Automation checks the redesigned Today dashboard: readiness, weekly load, fuel status, training decision, manual inputs, and quick actions (`Quick check-in`, `Log food`, `Open workout`). Real boxer comprehension remains human-only. |
+| first action obvious within 5 seconds | human_review_required | Automation checks the redesigned Today dashboard: readiness, weekly load, fuel status, training decision, manual inputs, and quick actions (`Quick check-in`, `Log food`, `Open workout`). The 2026-06-09 fix makes the primary action a wide cyan button and keeps secondary actions quieter; real boxer comprehension remains human-only. |
 | primary action clarity | human_review_required | Automation checks Today dashboard actions and plan rationale without restoring the old mission/detail surfaces; real boxer comprehension remains human-only. |
 | why disclosure | automated_pass | Browser audit requires Today evidence. |
 | quick logs visible | automated_pass | Browser audit requires the first Today surface to stay at three quick actions, then opens `Quick check-in` to verify readiness, body weight, hydration, and manual form paths. The 2026-06-08 UI polish constrains the compact quick-check surface as a bottom sheet so old detail UI no longer stacks over the new dashboard. |
 | quick logs use 1-5 explanations where relevant | human_review_required | Text evidence is present; real boxer interpretation remains human-only. |
 | save success/feedback | automated_pass | Quick-log feedback smoke requires confidence/context messages for body mass, readiness, hydration, food, and training paths, including update states. |
 | missing data unknown/not safe | automated_pass | Deterministic scan required. |
-| not too dense for first-run user | human_review_required | Today now collapses logged readiness/body-mass inputs by default and keeps optional engine detail collapsed, but real boxer/phone review is still required. |
-| mobile viewport readability | human_review_required | Mobile viewport is automated and the 2026-06-08 screenshots show the glass tab rail no longer uses absolute overlay positioning; physical phone remains required. |
+| not too dense for first-run user | human_review_required | Today now uses compact dashboard cards, title-case card headers, quieter metric tiles, and a top stat rail instead of nested status tiles. The first mobile viewport still needs human boxer/phone review before clearing this gate. |
+| mobile viewport readability | human_review_required | Mobile viewport is automated and the 2026-06-09 screenshots show the top task plus the start of the readiness card are readable; the local-only E2E banner reduces available space in artifacts. Physical phone review remains required. |
 
 ### E. Fuel
 

@@ -340,18 +340,18 @@ async function expectVisibleText(page: Page, text: string | RegExp) {
 }
 
 async function expectTodayDashboardSurface(page: Page) {
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("READINESS SCORE");
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("WEEKLY TRAINING LOAD");
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("FUEL STATUS");
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("TODAY'S TRAINING DECISION");
-  await expect(page.getByTestId("today-manual-actions")).toContainText("MANUAL INPUTS");
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Readiness score");
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Weekly training load");
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Fuel status");
+  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Today's training decision");
+  await expect(page.getByTestId("today-manual-actions")).toContainText("Manual inputs");
   await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Quick check-in" })).toBeVisible();
   await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Log food" })).toBeVisible();
   await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Open workout" })).toBeVisible();
   await expect(page.getByTestId("today-manual-actions")).toContainText("Missing data stays unknown, not safe.");
   await expect(page.getByRole("button", { name: "Show More logs" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Show Why this plan?" })).toHaveCount(0);
-  await expect(page.getByTestId("today-readiness-gauge")).toContainText("READINESS SCORE");
+  await expect(page.getByTestId("today-readiness-gauge")).toContainText("Readiness score");
   await expect(page.getByTestId("today-readiness-gauge")).toContainText(/Logged|Checked|Log readiness/);
 }
 

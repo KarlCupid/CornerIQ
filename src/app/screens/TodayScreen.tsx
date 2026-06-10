@@ -283,19 +283,22 @@ function TodayDashboardSection({
   return (
     <View style={{ gap: spacing.md }} testID="today-visual-dashboard">
       <DashboardCard
+        density="compact"
         headerRight={<DashboardPill label={dashboard.readiness.statusLabel} tone={dashboard.readiness.tone} />}
         testID="today-readiness-gauge"
         title="Readiness score"
+        titleVariant="quiet"
       >
-        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.lg }}>
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
           <MetricRing
             label="Readiness score"
+            size={118}
             subLabel={dashboard.readiness.score === null ? "readiness" : "/100"}
             tone={dashboard.readiness.tone}
             value={dashboard.readiness.score}
           />
-          <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, minWidth: 220 }}>
-            {dashboard.readiness.metrics.map((item) => <VisualMetricTile item={item} key={`today-readiness-metric:${item.label}`} />)}
+          <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, minWidth: 216 }}>
+            {dashboard.readiness.metrics.map((item) => <VisualMetricTile item={item} key={`today-readiness-metric:${item.label}`} variant="quiet" />)}
           </View>
         </View>
         {dashboard.readiness.emptyActionLabel ? (
@@ -315,9 +318,11 @@ function TodayDashboardSection({
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         <View style={{ flexBasis: 280, flexGrow: 1 }}>
           <DashboardCard
+            density="compact"
             headerRight={<DashboardPill label={dashboard.loadStateLabel} tone={dashboard.loadStateLabel === "High" ? "red" : dashboard.loadStateLabel === "Watch" ? "orange" : "green"} />}
             testID="today-weekly-load-chart"
             title="Weekly training load"
+            titleVariant="quiet"
           >
             <Text style={screenStyles.subtle}>ACWR {dashboard.acwrLabel}</Text>
             <WeeklyLoadBars bars={dashboard.weeklyLoad} />
@@ -325,9 +330,11 @@ function TodayDashboardSection({
         </View>
         <View style={{ flexBasis: 280, flexGrow: 1 }}>
           <DashboardCard
+            density="compact"
             headerRight={onOpenFuel ? <DashboardPill label="Details" tone="blue" /> : null}
             testID="today-fuel-status-bars"
             title="Fuel status"
+            titleVariant="quiet"
           >
             <View style={{ gap: spacing.sm }}>
               {dashboard.fuel.map((item) => <ProgressMeter compact item={item} key={`today-fuel:${item.label}`} />)}
@@ -338,7 +345,7 @@ function TodayDashboardSection({
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         <View style={{ flexBasis: 280, flexGrow: 1 }}>
-          <DashboardCard testID="today-body-mass-trend-card" title="Body weight trend">
+          <DashboardCard density="compact" testID="today-body-mass-trend-card" title="Body weight trend" titleVariant="quiet">
             <View style={{ gap: spacing.sm }}>
               <View style={{ alignItems: "flex-end", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
                 <Text numberOfLines={1} style={{ color: colors.canvas, flexShrink: 1, fontSize: 28, fontWeight: "900", lineHeight: 34, minWidth: 0 }}>
@@ -385,9 +392,9 @@ function TodayDashboardSection({
           </DashboardCard>
         </View>
         <View style={{ flexBasis: 280, flexGrow: 1 }}>
-          <DashboardCard testID="today-training-decision-meter" title="Today's training decision">
+          <DashboardCard density="compact" testID="today-training-decision-meter" title="Today's training decision" titleVariant="quiet">
             <View style={{ gap: spacing.sm }}>
-              <Text style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>{dashboard.decision.title}</Text>
+              <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "800", lineHeight: 27 }}>{dashboard.decision.title}</Text>
               <Text numberOfLines={2} style={screenStyles.subtle}>{dashboard.decision.subtitle}</Text>
               <View style={{ alignItems: "center" }}>
                 <SemiGauge label={dashboard.decision.title} score={dashboard.decision.score} tone={dashboard.decision.tone} />
@@ -400,11 +407,11 @@ function TodayDashboardSection({
         </View>
       </View>
 
-      <DashboardCard title="Today's schedule">
+      <DashboardCard density="compact" title="Today's schedule" titleVariant="quiet">
         <TimelineStrip items={dashboard.schedule} />
       </DashboardCard>
 
-      <DashboardCard testID="today-manual-actions" title="Manual inputs">
+      <DashboardCard density="compact" testID="today-manual-actions" title="Manual inputs" titleVariant="quiet">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable
             accessibilityLabel="Quick check-in"
@@ -561,9 +568,10 @@ export function TodayScreen({
         <ScreenHeader eyebrow="Daily mission" title="Today" />
         <PrimaryTaskCard
           accent={accentForTone(dashboard.decision.tone)}
+          actionLayout="primary-led"
           primaryAction={plainTodayCopy(dashboard.decision.title)}
           primaryButton={primaryButton}
-          purpose={plainTodayCopy(dashboard.decision.subtitle)}
+          purpose={plainTodayCopy(dashboard.topSummary)}
           secondaryActions={secondaryActions}
           testID="today-primary-task"
           title="Do now"
@@ -585,10 +593,11 @@ export function TodayScreen({
               {
                 accent: accentForTone(dashboard.fuel[0]?.tone ?? "muted"),
                 label: "Fuel",
-                meta: "Food stays optional",
+                meta: "Optional",
                 value: dashboard.fuel.length > 0 ? dashboard.fuel[0]?.valueLabel ?? "Unknown" : "Unknown"
               }
             ]}
+            variant="quiet"
           />
         </PrimaryTaskCard>
         <TodayDashboardSection

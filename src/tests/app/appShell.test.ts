@@ -1539,13 +1539,13 @@ describe("minimal app screens", () => {
       })
     ).toJSON();
     const output = JSON.stringify(tree);
-    expect(output).toContain("READINESS SCORE");
-    expect(output).toContain("WEEKLY TRAINING LOAD");
-    expect(output).toContain("FUEL STATUS");
-    expect(output).toContain("BODY WEIGHT TREND");
-    expect(output).toContain("TODAY'S TRAINING DECISION");
-    expect(output).toContain("TODAY'S SCHEDULE");
-    expect(output).toContain("MANUAL INPUTS");
+    expect(output).toContain("Readiness score");
+    expect(output).toContain("Weekly training load");
+    expect(output).toContain("Fuel status");
+    expect(output).toContain("Body weight trend");
+    expect(output).toContain("Today's training decision");
+    expect(output).toContain("Today's schedule");
+    expect(output).toContain("Manual inputs");
     expect(output).toContain("Quick check-in");
     expect(output).toContain("Log food");
     expect(output).toContain("Open workout");
@@ -1559,7 +1559,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Body weight (kg)");
     expect(output).not.toContain("Water liters");
     expect(output).not.toContain("Complete the planned support workout");
-    expect(output.indexOf("READINESS SCORE")).toBeLessThan(output.indexOf("MANUAL INPUTS"));
+    expect(output.indexOf("Readiness score")).toBeLessThan(output.indexOf("Manual inputs"));
   });
 
   it("TodayScreen handles every quick action and opens quick-check controls", async () => {
@@ -1713,7 +1713,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Missing or risky logs are unknown, not permission to push.");
     expect(output).not.toContain("That lowers confidence because the engine has less context");
     expect(output).toContain("Existing plan stays visible");
-    expect(output.indexOf("READINESS SCORE")).toBeLessThan(output.indexOf("Safety stop"));
+    expect(output.indexOf("Readiness score")).toBeLessThan(output.indexOf("Safety stop"));
     expect(output).not.toContain("Show Why this plan?");
   });
 
