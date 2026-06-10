@@ -7,7 +7,7 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, DetailedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
 import { alphaHex, glassStyles } from "../../design/glass";
-import { colors } from "../../design/theme";
+import { colors, spacing } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen, type FuelFocusIntent } from "../screens/FuelScreen";
 import { PlanScreen } from "../screens/PlanScreen";
@@ -25,13 +25,8 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const tabAccents: Record<keyof RootTabParamList, string> = {
-  Fuel: colors.amberCaution,
-  Plan: colors.readyGreen,
-  Profile: colors.wrap,
-  Today: colors.blueIQ,
-  Train: colors.powerPurple
-};
+const activeTabColor = colors.blueIQ;
+const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
 
 const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
   Fuel: "restaurant-outline",
@@ -132,53 +127,56 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
-            tabBarActiveTintColor: tabAccents[route.name],
-            tabBarInactiveTintColor: colors.mutedText,
+            tabBarActiveTintColor: colors.canvas,
+            tabBarInactiveTintColor: inactiveTabColor,
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={{
                   alignItems: "center",
-                  backgroundColor: focused ? alphaHex(tabAccents[route.name], "26") : "transparent",
-                  borderColor: focused ? alphaHex(tabAccents[route.name], "3D") : "transparent",
+                  backgroundColor: focused ? alphaHex(activeTabColor, "20") : "transparent",
+                  borderColor: focused ? alphaHex(activeTabColor, "42") : "transparent",
                   borderWidth: 1,
-                  borderRadius: 18,
-                  height: 36,
+                  borderRadius: 14,
+                  height: 28,
                   justifyContent: "center",
-                  transform: [{ translateY: 2 }],
-                  width: 36
+                  width: 28
                 }}
               >
-                <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={20} />
+                <Ionicons color={focused ? activeTabColor : color} name={tabIcons[route.name]} size={18} />
               </View>
             ),
+            tabBarLabelPosition: "below-icon",
             tabBarIconStyle: {
-              marginBottom: -2,
-              marginTop: 4
+              marginBottom: 0,
+              marginTop: 0
             },
             tabBarItemStyle: {
-              height: 56,
+              height: 50,
               justifyContent: "center",
               paddingBottom: 0,
-              paddingTop: 4
+              paddingTop: 0
             },
             tabBarLabelStyle: {
               fontSize: 11,
-              fontWeight: "600",
+              fontWeight: "700",
               lineHeight: 14,
-              marginBottom: 2,
-              marginTop: 0
+              marginBottom: 0,
+              marginTop: 1
             },
             tabBarStyle: {
               ...glassStyles.tabBar,
+              backgroundColor: "rgba(8, 14, 28, 0.97)",
+              borderColor: "rgba(255, 255, 255, 0.12)",
               borderBottomLeftRadius: 0,
               borderBottomRightRadius: 0,
               borderBottomWidth: 0,
               borderLeftWidth: 0,
               borderRightWidth: 0,
-              height: 70 + insets.bottom,
+              boxShadow: "0 -10px 26px rgba(0, 0, 0, 0.24)",
+              height: 60 + insets.bottom,
               overflow: "hidden",
-              paddingBottom: Math.max(insets.bottom, 4),
-              paddingTop: 8,
+              paddingBottom: Math.max(insets.bottom, spacing.xs),
+              paddingTop: spacing.xs,
             }
           })}
       >

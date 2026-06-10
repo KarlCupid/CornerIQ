@@ -8,13 +8,13 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | --- | --- |
 | Current QA phase | needs_human_review |
 | Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
-| Last QA run result | 2026-06-10 remaining-screen card/text rollout and verification: Fuel, Train, Plan, and Profile now share the Today card language with compact dashboard cards, title-case quiet headers, primary-led top actions, calmer status rails, and Profile settings groups moved onto the shared dashboard card primitive. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed; tests reported 554 passed and 1 live-smoke test skipped. Focused Vitest initially failed in the Windows sandbox while resolving `vitest.config.mjs` and passed on the approved rerun; `qa:agent:audit` initially failed in the sandbox with local Expo/Playwright connection and metadata-fetch errors, then the approved rerun exposed one stale Train label assertion that was patched, and the final approved rerun passed 10/10 browser scenarios. Fresh screenshots/page text are under `qa-artifacts/browser-audit/current/`. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
+| Last QA run result | 2026-06-10 bottom navigation/tab tuning and verification: the app shell tabs now use below-icon labels across viewport sizes, a tighter 60px dark bar, a smaller centered active marker, one CornerIQ cyan active treatment, and softer inactive blue-gray colouring. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed; tests reported 554 passed and 1 live-smoke test skipped. Focused Vitest initially failed in the Windows sandbox while resolving `vitest.config.mjs` and passed on the approved rerun; `qa:agent:audit` initially failed in the sandbox with local Expo/Playwright connection and metadata-fetch errors, then the first approved rerun caught a fixed-width tab experiment that intercepted the Fuel tab click. That approach was removed, and the final approved `qa:agent:audit` passed 10/10 browser scenarios. Fresh screenshots/page text are under `qa-artifacts/browser-audit/current/`, with the nav comparison sheet at `qa-artifacts/browser-audit/current/screenshots/design-nav-tabs-contact-sheet.png`. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 3 human/AI review limitations remain explicitly tracked |
-| Next recommended action | Review the refreshed Today, Fuel, Train, Plan, and Profile screenshots with a human boxer/designer. Run `cmd /c npm run qa:agent:ci` if this UI polish is part of launch signoff, and schedule physical iPhone checks plus live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
+| Next recommended action | Review the refreshed bottom navigation and the Today, Fuel, Train, Plan, and Profile screenshots with a human boxer/designer on a physical phone. Run `cmd /c npm run qa:agent:ci` if this UI polish is part of launch signoff, and schedule live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
 | Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -32,10 +32,10 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | tests | automated_pass | `cmd /c npm test` passed on 2026-06-10 directly and again inside `quality`; 554 tests passed and 1 live-smoke test skipped. |
 | lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-10. |
 | quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-10; 554 tests passed and 1 live-smoke test skipped. |
-| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-10 for the remaining-screen card/text rollout. |
+| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-10 for the bottom navigation/tab tuning. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. Targeted approved `cmd /c npm run qa:agent:audit` passed on 2026-06-10 after the remaining-screen card/text rollout with 10 browser scenarios; the full bundle was not regenerated in that targeted pass. |
+| agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. Targeted approved `cmd /c npm run qa:agent:audit` passed on 2026-06-10 after the bottom navigation/tab tuning with 10 browser scenarios; the first approved audit caught and prevented a fixed-width tab click regression, and the full bundle was not regenerated in that targeted pass. |
 
 ### B. Auth and account
 
@@ -79,7 +79,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | save success/feedback | automated_pass | Quick-log feedback smoke requires confidence/context messages for body mass, readiness, hydration, food, and training paths, including update states. |
 | missing data unknown/not safe | automated_pass | Deterministic scan required. |
 | not too dense for first-run user | human_review_required | Today now uses compact dashboard cards, title-case card headers, quieter metric tiles, and a top stat rail instead of nested status tiles. The first mobile viewport still needs human boxer/phone review before clearing this gate. |
-| mobile viewport readability | human_review_required | Mobile viewport is automated and the 2026-06-09 screenshots show the top task plus the start of the readiness card are readable; the local-only E2E banner reduces available space in artifacts. Physical phone review remains required. |
+| mobile viewport readability | human_review_required | Mobile viewport is automated and the 2026-06-10 screenshots show the bottom nav using below-icon labels, a tighter bar, a smaller active marker, and calmer inactive tab colour; the local-only E2E banner and dev overlay reduce available space in artifacts. Physical phone review remains required. |
 
 ### E. Fuel
 
@@ -214,7 +214,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | touch behavior | human_review_required | Physical device required. |
 | keyboard behavior | human_review_required | Physical device required. |
 | scrolling | human_review_required | Physical device required. |
-| safe area | human_review_required | Physical device required. |
+| safe area | human_review_required | Physical device required, especially for final bottom-navigation inset and thumb-reach confirmation. |
 | layout density | human_review_required | Physical device and human review required. |
 | Expo Go/EAS limitation documented | human_review_required | Release-owner confirmation required. |
 | human_review_required until physically checked | human_review_required | Do not mark complete from Playwright. |
