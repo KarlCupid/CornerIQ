@@ -25,8 +25,15 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const activeTabColor = colors.blueIQ;
 const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
+
+const tabAccents: Record<keyof RootTabParamList, string> = {
+  Fuel: colors.amberCaution,
+  Plan: colors.readyGreen,
+  Profile: colors.wrap,
+  Today: colors.blueIQ,
+  Train: colors.powerPurple
+};
 
 const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
   Fuel: "restaurant-outline",
@@ -127,14 +134,14 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
-            tabBarActiveTintColor: colors.canvas,
+            tabBarActiveTintColor: tabAccents[route.name],
             tabBarInactiveTintColor: inactiveTabColor,
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={{
                   alignItems: "center",
-                  backgroundColor: focused ? alphaHex(activeTabColor, "20") : "transparent",
-                  borderColor: focused ? alphaHex(activeTabColor, "42") : "transparent",
+                  backgroundColor: focused ? alphaHex(tabAccents[route.name], "20") : "transparent",
+                  borderColor: focused ? alphaHex(tabAccents[route.name], "42") : "transparent",
                   borderWidth: 1,
                   borderRadius: 14,
                   height: 28,
@@ -142,7 +149,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
                   width: 28
                 }}
               >
-                <Ionicons color={focused ? activeTabColor : color} name={tabIcons[route.name]} size={18} />
+                <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={18} />
               </View>
             ),
             tabBarLabelPosition: "below-icon",
