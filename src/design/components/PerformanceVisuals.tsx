@@ -37,12 +37,12 @@ function clamp01(value: number): number {
 
 export function DashboardCard({
   children,
-  density = "regular",
+  density = "compact",
   footer,
   headerRight,
   testID,
   title,
-  titleVariant = "loud"
+  titleVariant = "quiet"
 }: React.PropsWithChildren<{
   density?: "compact" | "regular" | undefined;
   footer?: React.ReactNode;

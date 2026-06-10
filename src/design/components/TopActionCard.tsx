@@ -26,26 +26,30 @@ export function TopActionCard({
     <View
       style={{
         ...glassStyles.card,
-        gap: spacing.sm,
+        gap: spacing.md,
         padding: spacing.lg
       }}
       testID={testID}
     >
-      <Text style={{ color: accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{title}</Text>
-      <View style={{ flexDirection: "row", gap: spacing.md }}>
-        <View style={{ flex: 1, gap: spacing.sm, minWidth: 0 }}>
-          <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 17, fontWeight: "700", lineHeight: 23 }}>{primaryAction}</Text>
-          <Text style={{ ...typography.body, color: colors.wrap }}>{purpose}</Text>
+      <View style={{ gap: spacing.xs, maxWidth: 760 }}>
+        <Text style={{ color: accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{title}</Text>
+        <View style={{ flexDirection: "row", gap: spacing.md }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: colors.canvas, flexShrink: 1, fontSize: 20, fontWeight: "800", lineHeight: 26 }}>{primaryAction}</Text>
+            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "400", lineHeight: 21 }}>{purpose}</Text>
+          </View>
         </View>
       </View>
-      <Text style={{ ...typography.subtle, color: colors.wrap }}>
-        <Text style={{ color: colors.canvas, fontWeight: "700" }}>Why: </Text>
-        {why}
-      </Text>
-      <Text style={{ ...typography.subtle, color: colors.wrap }}>
-        <Text style={{ color: colors.canvas, fontWeight: "700" }}>Optional: </Text>
-        {optional}
-      </Text>
+      <View style={{ borderBottomColor: "rgba(255, 255, 255, 0.09)", borderBottomWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.09)", borderTopWidth: 1, gap: spacing.xs, paddingVertical: spacing.sm }}>
+        <Text style={{ ...typography.subtle, color: colors.wrap }}>
+          <Text style={{ color: colors.canvas, fontWeight: "700" }}>Why: </Text>
+          {why}
+        </Text>
+        <Text style={{ ...typography.subtle, color: colors.wrap }}>
+          <Text style={{ color: colors.canvas, fontWeight: "700" }}>Optional: </Text>
+          {optional}
+        </Text>
+      </View>
     </View>
   );
 }

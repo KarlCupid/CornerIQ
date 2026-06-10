@@ -293,6 +293,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
       <ScreenHeader eyebrow="Today" title="Fuel" />
       <PrimaryTaskCard
         accent={accentForTone(dashboard.recommendation.tone)}
+        actionLayout="primary-led"
         primaryAction={compactFuelCopy(dashboard.recommendation.body)}
         primaryButton={primaryFuelButton}
         purpose="Log only what you know. Missing food stays unknown, not unsafe by itself."
@@ -315,6 +316,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
               value: dashboard.hydration.valueLabel
             }
           ]}
+          variant="quiet"
         />
       </PrimaryTaskCard>
       {showLogSection ? logSection : null}

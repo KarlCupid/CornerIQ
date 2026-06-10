@@ -4,12 +4,12 @@ import type { CycleViewModel, ProfileViewModel, RecentLogsViewModel } from "../.
 import type { ISODateString } from "../../engine/core/types";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EmptyState } from "../../design/components/EmptyState";
+import { CompactStatusStrip } from "../../design/components/FastTask";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { DashboardCard, DashboardPill } from "../../design/components/PerformanceVisuals";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
-import { glassStyles } from "../../design/glass";
-import { colors, spacing } from "../../design/theme";
+import { spacing } from "../../design/theme";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
 import { CycleContextCard } from "./cycle/CycleContextCard";
@@ -24,44 +24,6 @@ const profileSections: readonly SectionTabItem<ProfileSection>[] = [
   { key: "data", label: "Data" },
   { key: "safety", label: "Safety" }
 ];
-
-function ProfileStatusTile({
-  label,
-  tone = "blue",
-  value
-}: {
-  label: string;
-  tone?: "blue" | "green" | "orange" | "purple" | undefined;
-  value: string;
-}) {
-  const toneColor =
-    tone === "green"
-      ? colors.readyGreen
-      : tone === "orange"
-        ? colors.amberCaution
-        : tone === "purple"
-          ? colors.powerPurple
-          : colors.blueIQ;
-  return (
-    <View
-      style={{
-        ...glassStyles.tile,
-        flexBasis: 150,
-        flexGrow: 1,
-        gap: spacing.xs,
-        minHeight: 76,
-        padding: spacing.md
-      }}
-    >
-      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
-        {label}
-      </Text>
-      <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: 16, fontWeight: "800", lineHeight: 21 }}>
-        {value}
-      </Text>
-    </View>
-  );
-}
 
 export interface ProfileScreenProps {
   asOfDate: ISODateString;
@@ -118,11 +80,29 @@ export function ProfileScreen({
           <DashboardCard headerRight={<DashboardPill label="Manual-first" tone="blue" />} title="Athlete profile">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{viewModel.summary}</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                <ProfileStatusTile label="Wearable" tone={wearableStatus === "manual only" ? "green" : "blue"} value={wearableStatus} />
-                <ProfileStatusTile label="Cycle tracking" tone={cycleTrackingStatus === "enabled" ? "purple" : "orange"} value={cycleTrackingStatus} />
-                <ProfileStatusTile label="Units" value={preferredUnits} />
-              </View>
+              <CompactStatusStrip
+                items={[
+                  {
+                    accent: wearableStatus === "manual only" ? "green" : "blue",
+                    label: "Wearable",
+                    meta: "Input mode",
+                    value: wearableStatus
+                  },
+                  {
+                    accent: cycleTrackingStatus === "enabled" ? "purple" : "orange",
+                    label: "Cycle",
+                    meta: "Private",
+                    value: cycleTrackingStatus
+                  },
+                  {
+                    accent: "blue",
+                    label: "Units",
+                    meta: "Display",
+                    value: preferredUnits
+                  }
+                ]}
+                variant="quiet"
+              />
             </View>
           </DashboardCard>
           <DashboardCard headerRight={<DashboardPill label="Private" tone="purple" />} title="Privacy">

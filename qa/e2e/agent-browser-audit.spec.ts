@@ -519,13 +519,13 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("FOOD TARGETS");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("HYDRATION");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("SODIUM");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("MEAL DISTRIBUTION");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("BODY WEIGHT AND FUELING TREND");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("RECOVERY SUPPORT");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("TODAY'S RECOMMENDATION");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Food targets");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Hydration");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Sodium");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Meal distribution");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Body weight and fueling trend");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Recovery support");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Today's recommendation");
   await expect(page.getByRole("button", { name: "Show Food guide" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Show More fuel info" })).toHaveCount(0);
   await expect(page.getByTestId("fuel-food-status-card")).toHaveCount(0);
@@ -594,14 +594,14 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
 async function auditTrain(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Train");
-  await expectVisibleText(page, "TRAINING OVERVIEW");
-  await expect(page.getByTestId("train-overview-card")).toContainText(/Fuel check:/i);
-  await expect(page.getByTestId("train-overview-card")).toContainText(/Hydration:/i);
+  await expectVisibleText(page, "Training overview");
+  await expect(page.getByTestId("train-overview-card")).toContainText(/Fuel check/i);
+  await expect(page.getByTestId("train-overview-card")).toContainText(/Hydration/i);
   await expect(page.getByTestId("train-execution-overlay-card")).toHaveCount(0);
   const workoutCount = await page.getByTestId("train-workout-section").count();
   let generatedQuickLogAvailable = false;
   if (workoutCount > 0) {
-    await expectVisibleText(page, "WORKOUT PREVIEW");
+    await expectVisibleText(page, "Workout preview");
     await expect(page.getByRole("button", { name: "Start workout" }).first()).toBeVisible();
     generatedQuickLogAvailable = await page.getByRole("button", { name: "Quick log" }).first().count() > 0;
     if (generatedQuickLogAvailable) {
@@ -622,7 +622,7 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   expectNoGeneratedContactLanguage(await visiblePageText(page, "train-screen"));
   await capture(page, testInfo, "Train screen", "16-train-screen.png", { scopeTestId: "train-screen" });
 
-  await expectVisibleText(page, "MANUAL BOXING LOG");
+  await expectVisibleText(page, "Manual boxing log");
   await expectVisibleText(page, "Use this for boxing class, roadwork, boxing sessions you already do, or strength work not created by CornerIQ.");
   await expectVisibleText(page, "Free-text load notes are never treated as exact load progression.");
   await expect(page.getByRole("button", { name: "Show manual log" })).toBeVisible();
@@ -661,7 +661,7 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
     await capture(page, testInfo, "Train Workout no-detail", "17-train-workout-no-detail.png", { scopeTestId: "train-workout-section" });
   }
 
-  await expect(page.getByTestId("train-week-context")).toContainText("NEXT 7 DAYS");
+  await expect(page.getByTestId("train-week-context")).toContainText("Next 7 days");
   await expect(page.getByTestId("train-week-context")).toContainText("Current week:");
   await capture(page, testInfo, "Train week context", "19-train-week-context.png", { scopeTestId: "train-week-context" });
   await expectVisibleText(page, "Free-text load notes are never treated as exact load progression.");
@@ -672,12 +672,12 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await openTab(page, "Plan");
   await expectVisibleText(page, "Plan");
   await expectVisibleText(page, "Build phase");
-  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("WEEKLY STRUCTURE");
-  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("WEEKLY LOAD BALANCE");
-  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("ENERGY SYSTEMS MIX");
-  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("ANCHORED SESSIONS");
-  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("BLOCK OVERVIEW");
-  await expect(page.getByTestId("plan-action-card")).toContainText("PLAN ACTIONS");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Weekly structure");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Weekly load balance");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Energy systems mix");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Anchored sessions");
+  await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Block overview");
+  await expect(page.getByTestId("plan-action-card")).toContainText("Plan actions");
   await expectVisibleText(page, /Preview next week/i);
   await expectVisibleText(page, "Change goal or schedule");
   await expect(page.getByRole("button", { name: "Plan details" })).toBeVisible();

@@ -8,7 +8,6 @@ import { CompactStatusStrip, PrimaryTaskCard, type FastTaskAction } from "../../
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { DashboardCard, DashboardPill, MiniBarChart, TimelineStrip } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
-import { glassStyles } from "../../design/glass";
 import { colors, spacing } from "../../design/theme";
 import type { BarVisual, TimelineVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
@@ -131,29 +130,40 @@ function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
     <DashboardCard headerRight={<DashboardPill label={roleLabel} tone={viewModel.riskSummary.length > 0 ? "red" : "blue"} />} testID="train-overview-card" title="Training overview">
       <Text style={screenStyles.body}>{plainTrainCopy(viewModel.todaySummary)}</Text>
       <Text style={screenStyles.callout}>{plainTrainCopy(viewModel.todayRole.summary)}</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+      <View
+        style={{
+          borderBottomColor: "rgba(255, 255, 255, 0.1)",
+          borderBottomWidth: 1,
+          borderTopColor: "rgba(255, 255, 255, 0.1)",
+          borderTopWidth: 1,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: spacing.xs,
+          paddingVertical: spacing.xs
+        }}
+      >
         <View
           style={{
-            ...glassStyles.tile,
             flexBasis: 180,
             flexGrow: 1,
-            gap: spacing.xs,
-            padding: spacing.md
+            gap: 2,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs
           }}
         >
-          <Text style={{ color: colors.amberCaution, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Fuel check:</Text>
+          <Text style={{ color: colors.amberCaution, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>Fuel check</Text>
           <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.preSessionFuelHint)}</Text>
         </View>
         <View
           style={{
-            ...glassStyles.tile,
             flexBasis: 180,
             flexGrow: 1,
-            gap: spacing.xs,
-            padding: spacing.md
+            gap: 2,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs
           }}
         >
-          <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Hydration:</Text>
+          <Text style={{ color: colors.blueIQ, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>Hydration</Text>
           <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.hydrationHint)}</Text>
         </View>
       </View>
@@ -323,6 +333,7 @@ export function TrainScreen({
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <PrimaryTaskCard
         accent={accentForTone(primarySessionTone)}
+        actionLayout="primary-led"
         primaryAction={topPrimaryAction}
         primaryButton={topPrimaryButton}
         purpose={topPurpose}
@@ -351,6 +362,7 @@ export function TrainScreen({
               value: `${viewModel.supportGenerationSummary.actualGeneratedSupportCount}/${viewModel.supportGenerationSummary.targetGeneratedSupportCount}`
             }
           ]}
+          variant="quiet"
         />
       </PrimaryTaskCard>
       {viewModel.riskSummary.length > 0 ? (
