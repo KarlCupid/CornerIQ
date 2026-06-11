@@ -519,13 +519,14 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Food targets");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Hydration");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Sodium");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Meal distribution");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Body weight and fueling trend");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Recovery support");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Today's recommendation");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Today's guide");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Protein");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Carbs");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Fat");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Water");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Show fuel detail");
+  await expect(page.getByTestId("fuel-visual-dashboard")).not.toContainText("Meal distribution");
+  await expect(page.getByTestId("fuel-visual-dashboard")).not.toContainText("Today's recommendation");
   await expect(page.getByRole("button", { name: "Show Food guide" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Show More fuel info" })).toHaveCount(0);
   await expect(page.getByTestId("fuel-food-status-card")).toHaveCount(0);
@@ -534,6 +535,15 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Add water");
   expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-visual-dashboard"));
   await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-screen" });
+
+  await page.getByRole("button", { name: "Show fuel detail" }).click();
+  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Food progress");
+  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Hydration");
+  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Sodium");
+  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Meal distribution");
+  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Body weight and fueling trend");
+  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Recovery support");
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-detail-dashboard"));
 
   await page.getByRole("button", { name: "Log meal" }).click();
   await expect(page.getByTestId("fuel-log-action-section")).toBeVisible();
@@ -577,12 +587,12 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Training history");
   await expectVisibleText(page, "Fuel safety history");
   await expectVisibleText(page, /Nutrition review history is available in Fuel > Reviews/i);
-  await expectVisibleText(page, /CornerIQ cannot clear safety stops in the app/i);
-  await expectVisibleText(page, /athletes cannot clear nutrition safety stops themselves/i);
+  await expectVisibleText(page, /CornerIQ cannot resolve safety stops in the app/i);
+  await expectVisibleText(page, /athletes cannot resolve nutrition safety stops themselves/i);
   await expect(page.getByRole("button", { name: "Show saved history detail" })).toBeVisible();
   await page.getByRole("button", { name: "Show saved history detail" }).click();
   await expectVisibleText(page, "Saved history detail");
-  await expectVisibleText(page, /does not clear safety stops or expose private server controls/i);
+  await expectVisibleText(page, /does not resolve safety stops or expose private server controls/i);
   const output = await visiblePageText(page, "profile-safety-section");
   expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback|report this issue/i);
   expect(output).not.toMatch(/reviewer-clear|clear as reviewer|coach-only/i);
@@ -694,10 +704,16 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   expectNoCoachOrReviewerControls(firstViewText);
   await capture(page, testInfo, "Plan screen", "20-plan-screen.png", { scopeTestId: "plan-screen" });
   await page.getByRole("button", { name: "Plan details" }).click();
-  await expect(page.getByTestId("plan-details-workspace")).toContainText("This week details");
-  await expect(page.getByTestId("plan-details-workspace")).toContainText("Review notes");
-  await expect(page.getByTestId("plan-details-workspace")).toContainText("Block history");
-  await expect(page.getByTestId("plan-details-workspace")).toContainText("Plan details");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("Why this week looks this way");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("This week");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("Plan changes");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("Technical details");
+  await page.getByTestId("plan-details-this-week").getByRole("button", { name: /This week/ }).click();
+  await expect(page.getByTestId("plan-details-this-week")).toContainText("Boxing:");
+  await expect(page.getByTestId("plan-details-this-week")).toContainText("Support workouts:");
+  await page.getByTestId("plan-details-technical").getByRole("button", { name: /Technical details/ }).click();
+  await expect(page.getByTestId("plan-details-technical")).toContainText("Review notes");
+  await expect(page.getByTestId("plan-details-technical")).toContainText("Block history");
   await expectVisibleText(page, "Current week:");
   await expectVisibleText(page, "Dates:");
   await expectVisibleText(page, "Titles:");
@@ -745,14 +761,18 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
 function expectErrorRecoverySource() {
   const boundaryPath = path.join(process.cwd(), "src", "app", "components", "AppErrorBoundary.tsx");
   const statePath = path.join(process.cwd(), "src", "app", "components", "AppErrorState.tsx");
+  const supportPath = path.join(process.cwd(), "src", "app", "supportCopy.ts");
   expect(existsSync(boundaryPath)).toBe(true);
   expect(existsSync(statePath)).toBe(true);
+  expect(existsSync(supportPath)).toBe(true);
 
   const boundary = readFileSync(boundaryPath, "utf8");
   const state = readFileSync(statePath, "utf8");
+  const support = readFileSync(supportPath, "utf8");
   expect(boundary).toContain("buildAppErrorSummary");
   expect(boundary).toContain("redactSensitiveText");
-  expect(boundary).toContain("contact support outside the app");
+  expect(boundary).toContain("SUPPORT_OUTSIDE_APP_COPY");
+  expect(support).toContain("contact support outside the app");
   expect(boundary).toContain("Your data is still protected.");
   expect(state).toContain("Details are available in the development logs.");
   expect(boundary).not.toMatch(/report this issue|submit|feedback/i);

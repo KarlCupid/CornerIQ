@@ -37,6 +37,9 @@ describe("dashboardVisualData", () => {
     expect(today.fuel.some((item) => item.label === "Protein")).toBe(true);
     expect(today.schedule.length).toBeGreaterThan(0);
     expect(fuel.macros.map((item) => item.label)).toEqual(expect.arrayContaining(["Protein", "Carbs", "Fat"]));
+    expect(fuel.todayGuide.map((item) => item.label)).toEqual(["Protein", "Carbs", "Fat", "Water"]);
+    expect(fuel.detailSummary).toMatch(/Open/);
+    expect(fuel.detailDefaultOpen).toBe(false);
     expect(fuel.meals).toHaveLength(5);
     expect(plan.weeklyStructure).toHaveLength(7);
     expect(plan.loadBalance).toHaveLength(7);

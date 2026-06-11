@@ -78,6 +78,13 @@ export interface BodyMassTrendVisual {
   emptyLabel: string;
 }
 
+export interface TargetGuideVisual {
+  label: string;
+  valueLabel: string;
+  helperLabel: string;
+  tone: VisualTone;
+}
+
 export interface TodayDashboardVisual {
   readiness: ReadinessDashboardVisual;
   weeklyLoad: readonly BarVisual[];
@@ -96,10 +103,13 @@ export type TodayPrimaryActionKind = "log_food" | "log_readiness" | "open_plan" 
 
 export interface FuelDashboardVisual {
   macros: readonly ProgressVisual[];
+  todayGuide: readonly TargetGuideVisual[];
   hydration: ProgressVisual;
   sodium: ProgressVisual;
   meals: readonly BarVisual[];
   mealReferenceLabel: string;
+  detailSummary: string;
+  detailDefaultOpen: boolean;
   trend: {
     bodyMass: readonly TrendPoint[];
     carbs: readonly TrendPoint[];
@@ -561,6 +571,19 @@ function macroRows(fuel: FuelViewModel): readonly ProgressVisual[] {
     });
 }
 
+function targetValue(fuel: FuelViewModel, label: RegExp, fallback: string): string {
+  return fuel.macroTargets.targets.find((item) => label.test(item.label))?.value ?? fallback;
+}
+
+function fuelTodayGuide(fuel: FuelViewModel): readonly TargetGuideVisual[] {
+  return [
+    { label: "Protein", valueLabel: targetValue(fuel, /protein/i, "Unknown"), helperLabel: "Recovery", tone: "purple" },
+    { label: "Carbs", valueLabel: targetValue(fuel, /carb/i, "Unknown"), helperLabel: "Training fuel", tone: "orange" },
+    { label: "Fat", valueLabel: targetValue(fuel, /^fat$/i, "Unknown"), helperLabel: "Daily guide", tone: "gold" },
+    { label: "Water", valueLabel: targetValue(fuel, /water/i, fuel.hydrationSummary.split(".")[0] ?? "Unknown"), helperLabel: "Fluids", tone: "blue" }
+  ];
+}
+
 function mealDistribution(fuel: FuelViewModel): readonly BarVisual[] {
   const today = fuel.fuelHistory.groupedDays[0];
   const total = today?.carbs ?? today?.calories ?? 0;
@@ -633,6 +656,33 @@ function recommendationFromFuel(fuel: FuelViewModel, fuelRows: readonly Progress
   return { label: "Fuel looks good", tone: "green", body: compactFuelCopy(fuel.commandCenter.primaryFuelAction) };
 }
 
+function fuelDetailSummary(fuel: FuelViewModel): string {
+  const hasFoodLog = fuel.foodLogStatus.entryCount > 0 || fuel.foodLogStatus.totalCaloriesLogged > 0;
+  const hasWeightClassContext = fuel.weightClassStatus.status !== "no_active_weight_target" && fuel.weightClassStatus.status !== "unknown";
+  if (fuel.nutritionSafetyReview.required || fuel.activeNutritionSafetyReviews.length > 0 || fuel.nutritionReviewHistory.activeReviewCount > 0) {
+    return "Safety details stay available below; use the detail view only if you want the numbers behind the call.";
+  }
+  if (hasWeightClassContext || fuel.fightWeekFuel || fuel.tournamentFuel || fuel.rehydrationPlan) {
+    return "Open for trend, sodium, and weight-class context when those details matter.";
+  }
+  if (hasFoodLog) {
+    return "Open for meal distribution, trends, sodium, and recovery context.";
+  }
+  return "Open only when you want targets, trends, sodium, or recovery detail.";
+}
+
+function fuelDetailDefaultOpen(fuel: FuelViewModel): boolean {
+  return Boolean(
+    fuel.nutritionSafetyReview.required ||
+    fuel.activeNutritionSafetyReviews.length > 0 ||
+    fuel.nutritionReviewHistory.activeReviewCount > 0 ||
+    fuel.fightWeekFuel ||
+    fuel.tournamentFuel ||
+    fuel.rehydrationPlan ||
+    fuel.underFuelingRisk
+  );
+}
+
 export function buildFuelDashboardVisual(fuel: FuelViewModel, recentLogs: RecentLogsViewModel): FuelDashboardVisual {
   const macros = macroRows(fuel);
   const today = fuel.fuelHistory.groupedDays[0];
@@ -656,10 +706,13 @@ export function buildFuelDashboardVisual(fuel: FuelViewModel, recentLogs: Recent
   const fuelRows = [...macros, hydration, sodium];
   return {
     macros,
+    todayGuide: fuelTodayGuide(fuel),
     hydration,
     sodium,
     meals: mealDistribution(fuel),
     mealReferenceLabel: today && today.carbs > 0 ? "Estimated from today's logged total" : "Log meals for distribution",
+    detailSummary: fuelDetailSummary(fuel),
+    detailDefaultOpen: fuelDetailDefaultOpen(fuel),
     trend: trendFromFuel(fuel),
     bodyMass: bodyMassTrendFromFuel(fuel, recentLogs),
     bodyMassRange: rangeFromFuel(fuel),
