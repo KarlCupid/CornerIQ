@@ -836,6 +836,58 @@ const profileViewModel: ProfileViewModel = {
     optional: "Safety history and export/delete can wait until you need them."
   },
   summary: "Amateur novice boxer.",
+  identity: {
+    title: "Amateur Novice boxer",
+    subtitle: "Amateur - Build",
+    phaseLabel: "Build",
+    objectiveLabel: "Build Strength",
+    fightContextLabel: "No active bout",
+    stanceLabel: "Stance unknown",
+    bodyMassLabel: "66.4 kg",
+    trainingAgeLabel: "2 training years"
+  },
+  commandCenter: {
+    score: 82,
+    scoreLabel: "82",
+    statusLabel: "Manual-first profile tuned",
+    summary: "Manual inputs and saved records are aligned enough for profile maintenance.",
+    tone: "blue",
+    metrics: [
+      { label: "Profile known", value: "7/7", meta: "Basics are present", ratio: 1, tone: "green" },
+      { label: "Input confidence", value: "High", meta: "Current inputs agree", ratio: 0.82, tone: "blue" },
+      { label: "Manual lane", value: "Manual complete", meta: "Wearables add confidence only when fresh and consistent", ratio: 0.74, tone: "green" },
+      { label: "Safety visibility", value: "No active stops", meta: "Visibility, not clearance", ratio: 0.78, tone: "green" }
+    ]
+  },
+  dataConstellation: [
+    { label: "Readiness", value: "Green", detail: "Readiness is logged.", ratio: 0.78, tone: "green" },
+    { label: "Body mass", value: "4/7 recent logs", detail: "Trend is known enough for context.", ratio: 0.72, tone: "blue" },
+    { label: "Fuel", value: "Complete estimated", detail: "Fuel log is complete enough for today.", ratio: 0.84, tone: "green" },
+    { label: "Wearable", value: "Manual only", detail: "No wearable needed for this app.", ratio: 0.72, tone: "green" },
+    { label: "Cycle", value: "Undecided", detail: "Cycle support is optional, private, and off until chosen.", ratio: 0.38, tone: "orange" },
+    { label: "Training trace", value: "Week 2", detail: "Training stays tied to boxing commitments.", ratio: 0.8, tone: "purple" }
+  ],
+  intelligenceLayers: [
+    { label: "Readiness to load", value: "Green", meta: "Sleep, mood", ratio: 0.78, tone: "green" },
+    { label: "Weight context", value: "On track", meta: "Trend known", ratio: 0.72, tone: "blue" },
+    { label: "Fuel coverage", value: "84%", meta: "Food target comparison is allowed", ratio: 0.84, tone: "green" },
+    { label: "Decision trace", value: "4 steps", meta: "Latest decision is available.", ratio: 0.82, tone: "purple" },
+    { label: "Safety review", value: "No active stops", meta: "Athlete controls cannot clear safety stops", ratio: 0.78, tone: "green" }
+  ],
+  privacyMatrix: [
+    { label: "Cycle vault", value: "Undecided", detail: "Cycle support stays optional, private, and symptom-aware.", ratio: 0.38, tone: "orange" },
+    { label: "Device lane", value: "Manual-first", detail: "Manual input remains complete.", ratio: 0.72, tone: "green" },
+    { label: "Export control", value: "Preview first", detail: "App data export is previewed before destructive controls are shown.", ratio: 0.76, tone: "blue" },
+    { label: "Support path", value: "Outside app", detail: "Account and urgent support stay outside this client.", ratio: 0.68, tone: "gold" },
+    { label: "Review boundary", value: "No self-clear", detail: "Profile can show safety history, but athlete controls cannot resolve safety stops.", ratio: 0.72, tone: "green" }
+  ],
+  safetyLedger: [
+    { label: "Now", title: "No active safety stops", subtitle: "No active safety stops.", tone: "green" },
+    { label: "Fuel", title: "No active nutrition stop", subtitle: "No nutrition hard stop is active.", tone: "green" },
+    { label: "Mass", title: "On track", subtitle: "Body mass context is available.", tone: "blue" },
+    { label: "Block", title: "Week 2", subtitle: "Week 1 summarized: Week summary persisted.", tone: "purple" },
+    { label: "Trace", title: "4 decisions", subtitle: "Decision trail is available.", tone: "gold" }
+  ],
   trainingAuditSummary: {
     activeBlockHistoryCount: 1,
     latestEventSummary: "Week 1 summarized: Week summary persisted.",
@@ -3967,6 +4019,9 @@ describe("minimal app screens", () => {
       })
     );
     let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Manual-first profile tuned");
+    expect(output).toContain("Signal constellation");
+    expect(output).toContain("Corner intelligence layers");
     expect(output).toContain("Profile action");
     expect(output).toContain("Use Profile for boxer settings");
     expect(output).toContain("rare maintenance, not daily workflow");
@@ -3975,6 +4030,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Cycle data is optional");
     await switchSection(renderer, "Safety");
     output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Safety ledger");
     expect(output).toContain("Training history");
     expect(output).toContain("Current block week");
     expect(output).toContain("Fuel safety history");

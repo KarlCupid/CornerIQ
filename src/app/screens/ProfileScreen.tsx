@@ -14,6 +14,7 @@ import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
 import { SUPPORT_OUTSIDE_APP_COPY, URGENT_SUPPORT_COPY } from "../supportCopy";
 import { CycleContextCard } from "./cycle/CycleContextCard";
+import { ProfileCommandCenter, ProfileDataConstellation, ProfileIntelligenceLayers, ProfilePrivacyMatrix, ProfileSafetyLedger, ProfileSystemNote } from "./profile/ProfileCommandCenter";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
 
@@ -44,6 +45,7 @@ export interface ProfileScreenProps {
 }
 
 export function ProfileScreen({
+  asOfDate,
   busy,
   cycleTrackingStatus,
   equipmentAccess,
@@ -66,6 +68,7 @@ export function ProfileScreen({
   return (
     <LuminousScreen testID="profile-screen">
       <ScreenHeader eyebrow="Private" title={viewModel.title} />
+      <ProfileCommandCenter asOfDate={asOfDate} viewModel={viewModel} />
       <TopActionCard
         accent="blue"
         optional={viewModel.topAction.optional}
@@ -78,6 +81,8 @@ export function ProfileScreen({
       <SectionTabs items={profileSections} value={section} onChange={setSection} />
       {section === "athlete" ? (
         <View style={{ gap: spacing.lg }} testID="profile-athlete-section">
+          <ProfileDataConstellation signals={viewModel.dataConstellation} />
+          <ProfileIntelligenceLayers layers={viewModel.intelligenceLayers} />
           <DashboardCard headerRight={<DashboardPill label="Manual-first" tone="blue" />} title="Athlete profile">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{viewModel.summary}</Text>
@@ -106,13 +111,15 @@ export function ProfileScreen({
               />
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="Private" tone="purple" />} title="Privacy">
+          <ProfilePrivacyMatrix items={viewModel.privacyMatrix} />
+          <DashboardCard headerRight={<DashboardPill label="Private" tone="purple" />} title="Privacy notes">
             <View style={{ gap: spacing.sm }}>
               {viewModel.privacyNotes.map((note, index) => <Text key={`profile-privacy:${index}`} style={screenStyles.body}>{note}</Text>)}
               <Text style={screenStyles.subtle}>Cycle data is optional, private, and used only to adjust confidence and symptom-aware context.</Text>
             </View>
           </DashboardCard>
           <CycleContextCard cycleContext={cycleContext} minimal trackingStatus={cycleTrackingStatus} />
+          <ProfileSystemNote />
         </View>
       ) : null}
       {section === "settings" ? (
@@ -181,6 +188,7 @@ export function ProfileScreen({
       ) : null}
       {section === "safety" ? (
         <View style={{ gap: spacing.lg }} testID="profile-safety-section">
+          <ProfileSafetyLedger items={viewModel.safetyLedger} />
           <DashboardCard headerRight={<DashboardPill label="Traceability" tone="blue" />} title="Training history">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Current block week {viewModel.trainingAuditSummary.currentWeekIndex}</Text>

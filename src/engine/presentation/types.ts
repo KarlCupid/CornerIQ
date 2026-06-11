@@ -817,10 +817,61 @@ export interface CycleViewModel {
   uncertaintyCopy: string;
 }
 
+export type ProfileVisualTone = "blue" | "green" | "orange" | "purple" | "gold" | "red" | "muted";
+
+export interface ProfileIdentityViewModel {
+  title: string;
+  subtitle: string;
+  phaseLabel: string;
+  objectiveLabel: string;
+  fightContextLabel: string;
+  stanceLabel: string;
+  bodyMassLabel: string;
+  trainingAgeLabel: string;
+}
+
+export interface ProfileMetricViewModel {
+  label: string;
+  value: string;
+  meta: string;
+  ratio: number;
+  tone: ProfileVisualTone;
+}
+
+export interface ProfileSignalViewModel {
+  label: string;
+  value: string;
+  detail: string;
+  ratio: number;
+  tone: ProfileVisualTone;
+}
+
+export interface ProfileLedgerItemViewModel {
+  label: string;
+  title: string;
+  subtitle: string;
+  tone: ProfileVisualTone;
+}
+
+export interface ProfileCommandCenterViewModel {
+  score: number | null;
+  scoreLabel: string;
+  statusLabel: string;
+  summary: string;
+  tone: ProfileVisualTone;
+  metrics: readonly ProfileMetricViewModel[];
+}
+
 export interface ProfileViewModel {
   title: string;
   topAction: TopActionViewModel;
   summary: string;
+  identity: ProfileIdentityViewModel;
+  commandCenter: ProfileCommandCenterViewModel;
+  dataConstellation: readonly ProfileSignalViewModel[];
+  intelligenceLayers: readonly ProfileMetricViewModel[];
+  privacyMatrix: readonly ProfileSignalViewModel[];
+  safetyLedger: readonly ProfileLedgerItemViewModel[];
   trainingAuditSummary: TrainingBlockHistoryViewModel;
   privacyNotes: readonly string[];
 }
