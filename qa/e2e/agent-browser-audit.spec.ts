@@ -519,11 +519,14 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Today's guide");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("FUEL BOARD");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Food progress");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Context");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Protein");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Carbs");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Fat");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Water");
+  await expect(page.getByTestId("fuel-macro-summary")).toContainText("Target");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Show fuel detail");
   await expect(page.getByTestId("fuel-visual-dashboard")).not.toContainText("Meal distribution");
   await expect(page.getByTestId("fuel-visual-dashboard")).not.toContainText("Today's recommendation");
@@ -537,7 +540,6 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-screen" });
 
   await page.getByRole("button", { name: "Show fuel detail" }).click();
-  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Food progress");
   await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Hydration");
   await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Sodium");
   await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Meal distribution");

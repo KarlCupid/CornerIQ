@@ -1806,7 +1806,7 @@ describe("minimal app screens", () => {
     });
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("fuel-log-action-section");
-    expect(output).toContain("Today's guide");
+    expect(output).toContain("Food progress");
   });
 
   it("AppTabs opens the workout player as a confined preview and live screen", async () => {
@@ -1866,7 +1866,9 @@ describe("minimal app screens", () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Today's guide");
+    expect(output).toContain("Food progress");
+    expect(output).toContain("FUEL BOARD");
+    expect(output).toContain("Context");
     expect(output).toContain("Protein");
     expect(output).toContain("Carbs");
     expect(output).toContain("Fat");
@@ -1877,7 +1879,6 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Fuel action");
     expect(output).not.toContain("Show Food guide");
     expect(output).not.toContain("Show More fuel info");
-    expect(output).not.toContain("Food progress");
     expect(output).not.toContain("Meal distribution");
     expect(output).not.toContain("Body weight and fueling trend");
     expect(output).not.toContain("Recovery support");
@@ -1886,7 +1887,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Protein stays steady");
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output.indexOf("Do now")).toBeLessThan(output.indexOf("Today's guide"));
+    expect(output.indexOf("Do now")).toBeLessThan(output.indexOf("Food progress"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Show fuel detail"));
@@ -1917,7 +1918,7 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output).toContain("Today's guide");
+    expect(output).toContain("Food progress");
   });
 
   it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
@@ -1949,7 +1950,6 @@ describe("minimal app screens", () => {
     };
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Today's guide");
     expect(output).toContain("Food progress");
     expect(output).toContain("Body weight and fueling trend");
     expect(output).not.toContain("Today's recommendation");
@@ -1980,7 +1980,7 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("Safety stop");
     expect(output).toContain("You cannot resolve nutrition safety stops yourself.");
-    expect(output.indexOf("Safety stop")).toBeLessThan(output.indexOf("Today's guide"));
+    expect(output.indexOf("Safety stop")).toBeLessThan(output.indexOf("Food progress"));
     expect(output).toContain("Safety stop");
     expect(output).not.toContain("Request safety review");
     expect(output).toContain("Outside support is required before this plan can continue");
@@ -2191,7 +2191,6 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
     const output = JSON.stringify(renderer.toJSON());
 
-    expect(output).toContain("Today's guide");
     expect(output).toContain("Food progress");
     expect(output).toContain("Body weight and fueling trend");
     expect(output).toContain("Recovery support");
@@ -2205,7 +2204,6 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
     const output = JSON.stringify(renderer.toJSON());
 
-    expect(output).toContain("Today's guide");
     expect(output).toContain("Food progress");
     expect(output).toContain("Meal distribution");
     expect(output).toContain("Body weight and fueling trend");
@@ -4071,7 +4069,7 @@ describe("minimal app screens", () => {
     const fuelShowButtons = fuelButtons.filter((label) => label.includes("Show "));
     expect(fuelShowButtons).toHaveLength(1);
     expect(fuelShowButtons[0]).toContain("Show fuel detail");
-    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Today's guide");
+    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Food progress");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Log meal");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Add water");
 

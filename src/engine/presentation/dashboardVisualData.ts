@@ -104,6 +104,7 @@ export type TodayPrimaryActionKind = "log_food" | "log_readiness" | "open_plan" 
 export interface FuelDashboardVisual {
   macros: readonly ProgressVisual[];
   todayGuide: readonly TargetGuideVisual[];
+  quickContext: readonly ModifierVisual[];
   hydration: ProgressVisual;
   sodium: ProgressVisual;
   meals: readonly BarVisual[];
@@ -584,6 +585,31 @@ function fuelTodayGuide(fuel: FuelViewModel): readonly TargetGuideVisual[] {
   ];
 }
 
+function fuelQuickContext(fuel: FuelViewModel, hydration: ProgressVisual, sodium: ProgressVisual): readonly ModifierVisual[] {
+  const foodEntries = fuel.foodLogStatus.entryCount;
+  const foodRatio = Number.isFinite(fuel.foodLogStatus.coverageScore) ? fuel.foodLogStatus.coverageScore : foodEntries > 0 ? 0.55 : 0.18;
+  return [
+    {
+      label: "Food log",
+      value: foodEntries > 0 ? `${foodEntries} ${foodEntries === 1 ? "entry" : "entries"}` : "Unknown",
+      ratio: clamp01(foodRatio),
+      tone: foodEntries > 0 ? "blue" : "orange"
+    },
+    {
+      label: "Water",
+      value: hydration.valueLabel,
+      ratio: hydration.ratio,
+      tone: hydration.tone
+    },
+    {
+      label: "Sodium",
+      value: sodium.valueLabel,
+      ratio: sodium.ratio,
+      tone: sodium.tone
+    }
+  ];
+}
+
 function mealDistribution(fuel: FuelViewModel): readonly BarVisual[] {
   const today = fuel.fuelHistory.groupedDays[0];
   const total = today?.carbs ?? today?.calories ?? 0;
@@ -707,6 +733,7 @@ export function buildFuelDashboardVisual(fuel: FuelViewModel, recentLogs: Recent
   return {
     macros,
     todayGuide: fuelTodayGuide(fuel),
+    quickContext: fuelQuickContext(fuel, hydration, sodium),
     hydration,
     sodium,
     meals: mealDistribution(fuel),

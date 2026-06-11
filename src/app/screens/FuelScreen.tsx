@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
-import { CompactStatusStrip, PrimaryTaskCard, type FastTaskAction } from "../../design/components/FastTask";
+import { PrimaryTaskCard, type FastTaskAction } from "../../design/components/FastTask";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import {
   DashboardCard,
@@ -12,8 +12,8 @@ import {
   RangeGauge,
   TrendLineChart
 } from "../../design/components/PerformanceVisuals";
-import { colors, spacing } from "../../design/theme";
-import { buildFuelDashboardVisual, type FuelDashboardVisual, type TargetGuideVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { colors, radii, spacing } from "../../design/theme";
+import { buildFuelDashboardVisual, type FuelDashboardVisual, type ModifierVisual, type ProgressVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { compactFuelCopy, plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
@@ -56,6 +56,11 @@ function colorForTone(tone: VisualTone): string {
     default:
       return colors.mutedText;
   }
+}
+
+function progressWidth(ratio: number): `${number}%` {
+  const clamped = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+  return `${Math.max(5, clamped * 100)}%` as `${number}%`;
 }
 
 function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quickLogs: QuickLogActions; viewModel: FuelViewModel }) {
@@ -186,33 +191,132 @@ function FuelSafetyReviewSection({
   );
 }
 
-function TargetGuideTile({ item }: { item: TargetGuideVisual }) {
+function helperForProgress(item: ProgressVisual, dashboard: FuelDashboardVisual): string {
+  const guide = dashboard.todayGuide.find((target) =>
+    target.label === item.label || (/hydration/i.test(item.label) && target.label === "Water")
+  );
+  return guide?.helperLabel ?? item.stateLabel ?? "Today";
+}
+
+function FuelProgressTile({ helper, item }: { helper: string; item: ProgressVisual }) {
   const toneColor = colorForTone(item.tone);
   return (
     <View
       style={{
-        backgroundColor: `${toneColor}14`,
-        borderColor: `${toneColor}55`,
-        borderRadius: 8,
+        backgroundColor: `${toneColor}12`,
+        borderColor: `${toneColor}5C`,
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexBasis: 156,
+        flexGrow: 1,
+        gap: spacing.sm,
+        minHeight: 118,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md
+      }}
+    >
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
+        <Text numberOfLines={1} style={{ color: toneColor, flex: 1, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+          {item.label}
+        </Text>
+        {item.stateLabel ? (
+          <View style={{ backgroundColor: `${toneColor}1F`, borderColor: `${toneColor}66`, borderRadius: radii.pill, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
+            <Text numberOfLines={1} style={{ color: toneColor, fontSize: 10, fontWeight: "900", lineHeight: 14 }}>
+              {item.stateLabel}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={{ gap: 2 }}>
+        <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 22, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 27 }}>
+          {item.valueLabel}
+        </Text>
+        <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+          Target {item.targetLabel}
+        </Text>
+      </View>
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: radii.pill, height: 8, overflow: "hidden" }}>
+        <View style={{ backgroundColor: toneColor, borderRadius: radii.pill, height: "100%", width: progressWidth(item.ratio) }} />
+      </View>
+      <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
+        {helper}
+      </Text>
+    </View>
+  );
+}
+
+function FuelContextTile({ item }: { item: ModifierVisual }) {
+  const toneColor = colorForTone(item.tone);
+  const filled = Math.round(Math.max(0, Math.min(1, item.ratio)) * 4);
+  return (
+    <View
+      style={{
+        backgroundColor: "rgba(255, 255, 255, 0.06)",
+        borderColor: "rgba(255, 255, 255, 0.13)",
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
         borderWidth: 1,
         flexBasis: 132,
         flexGrow: 1,
         gap: spacing.xs,
-        minHeight: 78,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm
+        minHeight: 76,
+        padding: spacing.md
       }}
     >
-      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
         {item.label}
       </Text>
-      <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 20, fontWeight: "900", lineHeight: 25 }}>
-        {item.valueLabel}
+      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 17, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 22 }}>
+        {item.value}
       </Text>
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>
-        {item.helperLabel}
-      </Text>
+      <View style={{ flexDirection: "row", gap: 4 }}>
+        {Array.from({ length: 4 }).map((_, index) => (
+          <View
+            key={`fuel-context-dot:${item.label}:${index}`}
+            style={{
+              backgroundColor: index < filled ? toneColor : "rgba(255, 255, 255, 0.14)",
+              borderRadius: radii.pill,
+              flex: 1,
+              height: 5
+            }}
+          />
+        ))}
+      </View>
     </View>
+  );
+}
+
+function FuelBoardCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
+  const progressItems: readonly ProgressVisual[] = [
+    ...dashboard.macros,
+    { ...dashboard.hydration, label: "Water" }
+  ];
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-macro-summary">
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: colors.amberCaution, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+              FUEL BOARD
+            </Text>
+            <Text style={screenStyles.sectionTitle}>Food progress</Text>
+          </View>
+          <DashboardPill label={dashboard.recommendation.label} tone={dashboard.recommendation.tone} />
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {progressItems.map((item) => (
+            <FuelProgressTile helper={helperForProgress(item, dashboard)} item={item} key={`fuel-progress-tile:${item.label}`} />
+          ))}
+        </View>
+        <View style={{ borderTopColor: "rgba(255, 255, 255, 0.11)", borderTopWidth: 1, gap: spacing.sm, paddingTop: spacing.md }}>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Context</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            {dashboard.quickContext.map((item) => <FuelContextTile item={item} key={`fuel-context:${item.label}`} />)}
+          </View>
+        </View>
+      </View>
+    </EngineCard>
   );
 }
 
@@ -227,16 +331,19 @@ function FuelDetailToggle({
 }) {
   return (
     <EngineCard>
-      <View style={{ gap: spacing.sm }}>
+      <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ flexBasis: 240, flexGrow: 1, gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>More context</Text>
+          <Text style={screenStyles.subtle}>{summary}</Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded: detailOpen }}
           onPress={onToggle}
-          style={[screenStyles.quietButton, { minHeight: 44, paddingHorizontal: spacing.md }]}
+          style={[screenStyles.quietButton, { flexBasis: 156, flexGrow: 0, minHeight: 44, paddingHorizontal: spacing.md }]}
         >
           <Text style={screenStyles.quietButtonText}>{detailOpen ? "Hide fuel detail" : "Show fuel detail"}</Text>
         </Pressable>
-        <Text style={screenStyles.subtle}>{summary}</Text>
       </View>
     </EngineCard>
   );
@@ -245,12 +352,6 @@ function FuelDetailToggle({
 function FuelDetailDashboard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   return (
     <View style={{ gap: spacing.md }} testID="fuel-detail-dashboard">
-      <DashboardCard testID="fuel-macro-summary" title="Food progress">
-        <View style={{ gap: spacing.sm }}>
-          {dashboard.macros.map((item) => <ProgressMeter compact item={item} key={`fuel-macro-progress:${item.label}`} />)}
-        </View>
-      </DashboardCard>
-
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         <View style={{ flexBasis: 240, flexGrow: 1 }}>
           <DashboardCard headerRight={<DashboardPill label={dashboard.hydration.stateLabel ?? "Today"} tone={dashboard.hydration.tone} />} title="Hydration">
@@ -322,12 +423,7 @@ function FuelVisualDashboard({
 }) {
   return (
     <View style={{ gap: spacing.md }} testID="fuel-visual-dashboard">
-      <DashboardCard testID="fuel-today-guide" title="Today's guide">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {dashboard.todayGuide.map((item) => <TargetGuideTile item={item} key={`fuel-guide:${item.label}`} />)}
-        </View>
-      </DashboardCard>
-
+      <FuelBoardCard dashboard={dashboard} />
       <FuelDetailToggle detailOpen={detailOpen} onToggle={onToggleDetail} summary={dashboard.detailSummary} />
       {detailOpen ? <FuelDetailDashboard dashboard={dashboard} /> : null}
     </View>
@@ -402,23 +498,6 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         testID="fuel-primary-task"
         title="Do now"
       >
-        <CompactStatusStrip
-          items={[
-            ...dashboard.macros.slice(0, 3).map((item) => ({
-              accent: accentForTone(item.tone),
-              label: item.label,
-              meta: item.targetLabel,
-              value: item.valueLabel
-            })),
-            {
-              accent: accentForTone(dashboard.hydration.tone),
-              label: "Water",
-              meta: dashboard.hydration.targetLabel,
-              value: dashboard.hydration.valueLabel
-            }
-          ]}
-          variant="quiet"
-        />
       </PrimaryTaskCard>
       {safetyReviewActive ? (
         <FuelSafetyReviewSection
