@@ -519,9 +519,8 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("FUEL BOARD");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Food progress");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Context");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Today's fuel");
+  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Status");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Protein");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Carbs");
   await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Fat");
@@ -588,13 +587,12 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Show Safety section" }).click();
   await expectVisibleText(page, "Training history");
   await expectVisibleText(page, "Fuel safety history");
-  await expectVisibleText(page, /Nutrition review history is available in Fuel > Reviews/i);
-  await expectVisibleText(page, /CornerIQ cannot resolve safety stops in the app/i);
-  await expectVisibleText(page, /athletes cannot resolve nutrition safety stops themselves/i);
+  await expectVisibleText(page, /Nutrition review history appears in Fuel when active or recently saved/i);
+  await expectVisibleText(page, /Safety stops require medical or nutrition support outside the app/i);
   await expect(page.getByRole("button", { name: "Show saved history detail" })).toBeVisible();
   await page.getByRole("button", { name: "Show saved history detail" }).click();
   await expectVisibleText(page, "Saved history detail");
-  await expectVisibleText(page, /does not resolve safety stops or expose private server controls/i);
+  await expectVisibleText(page, /History explains app state; it never clears safety stops/i);
   const output = await visiblePageText(page, "profile-safety-section");
   expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback|report this issue/i);
   expect(output).not.toMatch(/reviewer-clear|clear as reviewer|coach-only/i);
@@ -635,8 +633,8 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await capture(page, testInfo, "Train screen", "16-train-screen.png", { scopeTestId: "train-screen" });
 
   await expectVisibleText(page, "Manual boxing log");
-  await expectVisibleText(page, "Use this for boxing class, roadwork, boxing sessions you already do, or strength work not created by CornerIQ.");
-  await expectVisibleText(page, "Free-text load notes are never treated as exact load progression.");
+  await expectVisibleText(page, "Log boxing class, roadwork, or outside strength work.");
+  await expectVisibleText(page, "Free-text notes stay advisory.");
   await expect(page.getByRole("button", { name: "Show manual log" })).toBeVisible();
   await expect(page.getByPlaceholder("Session RPE 1-10", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Show manual log" }).click();
@@ -676,7 +674,7 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("train-week-context")).toContainText("Next 7 days");
   await expect(page.getByTestId("train-week-context")).toContainText("Current week:");
   await capture(page, testInfo, "Train week context", "19-train-week-context.png", { scopeTestId: "train-week-context" });
-  await expectVisibleText(page, "Free-text load notes are never treated as exact load progression.");
+  await expectVisibleText(page, "Free-text notes stay advisory.");
 }
 
 async function auditPlan(page: Page, testInfo: TestInfo) {
@@ -689,7 +687,7 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Energy systems mix");
   await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Anchored sessions");
   await expect(page.getByTestId("plan-visual-dashboard")).toContainText("Block overview");
-  await expect(page.getByTestId("plan-action-card")).toContainText("Plan actions");
+  await expect(page.getByTestId("plan-action-card")).toContainText("This week");
   await expectVisibleText(page, /Preview next week/i);
   await expectVisibleText(page, "Change goal or schedule");
   await expect(page.getByRole("button", { name: "Plan details" })).toBeVisible();
@@ -709,19 +707,20 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-details-workspace")).toContainText("Why this week looks this way");
   await expect(page.getByTestId("plan-details-workspace")).toContainText("This week");
   await expect(page.getByTestId("plan-details-workspace")).toContainText("Plan changes");
-  await expect(page.getByTestId("plan-details-workspace")).toContainText("Technical details");
+  await expect(page.getByTestId("plan-details-workspace")).toContainText("Diagnostics");
   await page.getByTestId("plan-details-this-week").getByRole("button", { name: /This week/ }).click();
   await expect(page.getByTestId("plan-details-this-week")).toContainText("Boxing:");
   await expect(page.getByTestId("plan-details-this-week")).toContainText("Support workouts:");
-  await page.getByTestId("plan-details-technical").getByRole("button", { name: /Technical details/ }).click();
+  await page.getByTestId("plan-details-technical").getByRole("button", { name: /Diagnostics/ }).click();
   await expect(page.getByTestId("plan-details-technical")).toContainText("Review notes");
   await expect(page.getByTestId("plan-details-technical")).toContainText("Block history");
-  await expectVisibleText(page, "Current week:");
-  await expectVisibleText(page, "Dates:");
-  await expectVisibleText(page, "Titles:");
-  await expectVisibleText(page, "Families:");
-  await expectVisibleText(page, "Required add-ons:");
-  await expectVisibleText(page, "Quality checkpoints:");
+  await expect(page.getByTestId("plan-details-technical")).toContainText("Plan diagnostics");
+  await expect(page.getByTestId("plan-details-technical")).toContainText("Support:");
+  await expect(page.getByTestId("plan-details-technical")).toContainText("Days:");
+  await expect(page.getByTestId("plan-details-technical")).toContainText(/Readiness .*nutrition .*hydration/i);
+  await expect(page.getByTestId("plan-details-technical")).not.toContainText("Input hash:");
+  await expect(page.getByTestId("plan-details-technical")).not.toContainText("Required add-ons:");
+  await expect(page.getByTestId("plan-details-technical")).not.toContainText("Quality checkpoints:");
   expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-screen"));
   await capture(page, testInfo, "Plan details screen", "21-plan-details-screen.png", { scopeTestId: "plan-screen" });
 }
@@ -731,7 +730,7 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await openTab(page, "Profile");
   await openSection(page, "Data");
   await expectVisibleText(page, "Data controls");
-  await expectVisibleText(page, "Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.");
+  await expectVisibleText(page, "Preview your app data before export or delete. Delete requires DELETE.");
   await expectVisibleText(page, /Delete app data removes user-owned app rows only/);
   await expectVisibleText(page, /Auth identity deletion requires a trusted server-side function/);
   await expect(page.getByRole("button", { name: "Delete app data" })).toHaveCount(0);
@@ -789,15 +788,15 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
 
   await expectVisibleText(page, "Boxing identity");
   await expectVisibleText(page, "Boxing status");
-  await expectVisibleText(page, /Choose the boxing lane that fits how you currently compete or plan to compete\./);
+  await expectVisibleText(page, /Choose your current lane\./);
   await expectVisibleText(page, "Current boxing level");
-  await expectVisibleText(page, /Pick the closest current level\. This helps the engine avoid generic fitness defaults\./);
+  await expectVisibleText(page, /Pick the closest current level\./);
   await expectVisibleText(page, "Training for boxing, not competing yet.");
   await expectVisibleText(page, "Early amateur; limited sanctioned bouts.");
   await expectVisibleText(page, "Active amateur with multiple bouts.");
   await expectVisibleText(page, "Championship-distance pro context.");
   await expectVisibleText(page, "Training age");
-  await expectVisibleText(page, /Years of boxing training\. Choose the closest option; this affects support-work conservatism\./);
+  await expectVisibleText(page, /Choose the closest option\./);
   await expectVisibleText(page, /Example: Use 0 if brand new\./);
   await expectVisibleText(page, "Stance");
   await page.getByRole("button", { name: "Amateur boxer" }).click();
@@ -808,12 +807,12 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await goNext(page);
 
   await expectVisibleText(page, "Body weight");
-  await expectVisibleText(page, /missing or invalid data stays unknown, not safe/i);
+  await expectVisibleText(page, /Body data anchors safety\. Missing values stay unknown\./i);
   await expectVisibleText(page, "Current body weight (kg)");
-  await expectVisibleText(page, /Your current scale value\. Enter kilograms during setup\./);
+  await expectVisibleText(page, /Current scale value\./);
   await expectVisibleText(page, /Example: 82/);
   await expectVisibleText(page, "Typical walk-around body weight (kg)");
-  await expectVisibleText(page, /Your normal training weight when not trying to make a class\. This is not a target\./);
+  await expectVisibleText(page, /Normal training weight, not a target\./);
   await expectVisibleText(page, /Example: 84/);
   await expectVisibleText(page, "Height (cm)");
   await expectVisibleText(page, /Example: 178/);
@@ -826,11 +825,11 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Training access");
   await expectVisibleText(page, /Manual schedule input is enough/);
   await expectVisibleText(page, "Equipment access");
-  await expectVisibleText(page, /These are presets, not magic engine strings you need to memorize\./);
+  await expectVisibleText(page, /Pick what you can reliably access\./);
   await expectVisibleText(page, "Optional equipment notes");
-  await expectVisibleText(page, /Add anything not covered above, separated by commas\./);
+  await expectVisibleText(page, /Optional comma-separated notes\./);
   await expectVisibleText(page, "Training availability");
-  await expectVisibleText(page, /Pick the days you can usually train\. This helps CornerIQ place support workouts around boxing\./);
+  await expectVisibleText(page, /Pick your usual training days\./);
   for (const weekday of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]) {
     await expectVisibleText(page, weekday);
   }
@@ -848,16 +847,15 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await goNext(page);
 
   await expectVisibleText(page, "Fixed boxing schedule");
-  await expectVisibleText(page, /Add recurring weekly boxing commitments/);
-  await expectVisibleText(page, /CornerIQ only adds support workouts around these; it does not create sparring or contact\./);
-  await expectVisibleText(page, /Example: Tuesday evening pads, 60 min, RPE 6\./);
-  await expectVisibleText(page, /Example: Thursday sparring you already have, 90 min, RPE 8\./);
+  await expectVisibleText(page, /Add boxing commitments, travel, or recovery days\./);
+  await expectVisibleText(page, /CornerIQ only adds support work around them\./);
+  await expectVisibleText(page, /Example: Tuesday pads, 60 min, RPE 6\./);
   await expectVisibleText(page, "Fixed schedule");
   await expect(page.getByRole("button", { name: "I have fixed boxing sessions" })).toBeVisible();
   await page.getByRole("button", { name: "I have fixed boxing sessions" }).click();
   await expectVisibleText(page, "Day of week");
-  await expectVisibleText(page, /Choose the day this usually repeats each week\./);
-  await expectVisibleText(page, /RPE = how hard this session usually feels\. 1 = very easy, 10 = all-out\./);
+  await expectVisibleText(page, /Usual repeating day\./);
+  await expectVisibleText(page, /1 = very easy, 10 = all-out\./);
   await expect(page.getByLabel(/exact date/i)).toHaveCount(0);
   await expect(page.getByPlaceholder(/date/i)).toHaveCount(0);
   await page.getByRole("button", { name: "Tuesday" }).click();
@@ -876,33 +874,33 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await goNext(page);
 
   await expectVisibleText(page, "Cycle support");
-  await expectVisibleText(page, /Optional and private\./);
+  await expectVisibleText(page, /Optional, private, symptom-aware/);
   await expectVisibleText(page, /not fertility tracking\./);
-  await expectVisibleText(page, /You can enable, skip, or decide later\./);
+  await expectVisibleText(page, /Enable, skip, or decide later\./);
   await page.getByRole("button", { name: "Do not use cycle context" }).click();
   await capture(page, testInfo, "Onboarding cycle", "06-onboarding-cycle.png");
   await goNext(page);
 
   await expectVisibleText(page, "Wearable preference");
-  await expectVisibleText(page, /Manual-only is a complete setup\./);
-  await expectVisibleText(page, /Wearables can increase confidence later when data is fresh and consistent\./);
-  await expectVisibleText(page, /Manual input remains first-class either way\./);
+  await expectVisibleText(page, /Manual-only is complete\./);
+  await expectVisibleText(page, /Fresh wearables can increase confidence later\./);
+  await expectVisibleText(page, /Manual input remains first-class\./);
   await page.getByRole("button", { name: "Manual only" }).click();
   await capture(page, testInfo, "Onboarding wearable", "07-onboarding-wearable.png");
   await goNext(page);
 
   await expectVisibleText(page, "Safety screening");
-  await expectVisibleText(page, /Missing safety data is unknown, not safe\./);
+  await expectVisibleText(page, /Missing safety data stays unknown\./);
   await expectVisibleText(page, "Age");
-  await expectVisibleText(page, /Used for youth and masters safety rules\./);
+  await expectVisibleText(page, /Used for age-based safety rules\./);
   await expectVisibleText(page, "Sex at birth");
   await page.getByLabel("Age").fill("27");
   await page.getByRole("button", { name: "male", exact: true }).click();
-  await expectVisibleText(page, /Pregnancy-specific choices are hidden for male sex-at-birth selection\./);
+  await expectVisibleText(page, /Pregnancy choices are hidden for this selection\./);
   await expect(page.getByRole("button", { name: "confirmed", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "possible", exact: true })).toHaveCount(0);
   await expectVisibleText(page, "Medical safety restrictions");
-  await expectVisibleText(page, /Only add safety restrictions that should make the engine more conservative\./);
+  await expectVisibleText(page, /Add only restrictions that should make training more conservative\./);
   await expectVisibleText(page, "Clinician told me to avoid dehydration or weight cuts");
   await expectVisibleText(page, "Recent concussion or head injury concern");
   await expect(page.getByText(/medications/i)).toHaveCount(0);
@@ -913,10 +911,8 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Goal phase");
   await expectVisibleText(page, /Choose the planning context for Today and Plan\./);
   await expectVisibleText(page, "Current goal");
-  await expectVisibleText(page, /Build phase: build boxing-specific capacity around fixed boxing work\./);
-  await expectVisibleText(page, /Maintenance\/recovery: keep consistency and safety ahead of performance pressure\./);
-  await expectVisibleText(page, /Fight known: add bout date, weigh-in timing, and contracted weight so the engine can avoid unsafe assumptions\./);
-  await expectVisibleText(page, /Tournament known: add tournament dates so daily weigh-in and bout-day context stay explicit\./);
+  await expectVisibleText(page, /Pick the closest current situation\./);
+  await expectVisibleText(page, /Fight and tournament details can stay tentative until confirmed\./);
   await page.getByRole("button", { name: "Build phase" }).click();
   await capture(page, testInfo, "Onboarding goal", "09-onboarding-goal.png");
 

@@ -9,8 +9,8 @@ export function WearablePreferenceStep({ draft, updateDraft }: OnboardingStepPro
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Wearable preference</Text>
-      <Text style={screenStyles.subtle}>Required choice. Manual-only is a complete setup. Wearables can increase confidence later when data is fresh and consistent.</Text>
-      <FieldGroup helper="Pick how you want CornerIQ to treat wearable data. Manual input remains first-class either way." label="Wearable setup">
+      <Text style={screenStyles.subtle}>Manual-only is complete. Fresh wearables can increase confidence later.</Text>
+      <FieldGroup helper="Manual input remains first-class." label="Wearable setup">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={draft.wearablePreference.preference === "manual_only"} label="Manual only" onPress={() => updateDraft((current) => ({ ...current, wearablePreference: { preference: "manual_only" } }))} />
           <ChipButton active={draft.wearablePreference.preference === "wearable_connected"} label="Connect later" onPress={() => updateDraft((current) => ({ ...current, wearablePreference: { preference: "wearable_connected" } }))} />

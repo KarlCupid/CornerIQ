@@ -86,7 +86,7 @@ function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quic
           <Text style={screenStyles.subtle}>Too little food for the work is only considered after you say the day is done.</Text>
         </View>
         <View style={{ gap: spacing.xs }}>
-          {viewModel.completionControls.helperCopy.map((item, index) => <Text key={`fuel-completion-helper:${index}`} style={screenStyles.subtle}>{plainFuelCopy(item)}</Text>)}
+          {viewModel.completionControls.helperCopy.slice(0, 2).map((item, index) => <Text key={`fuel-completion-helper:${index}`} style={screenStyles.subtle}>{plainFuelCopy(item)}</Text>)}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {viewModel.completionControls.actions.map((action) => (
@@ -137,7 +137,7 @@ function FuelLogActionSection({
         <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={screenStyles.sectionTitle}>{primaryLog === "water" ? "Add water" : "Log food"}</Text>
-            <Text style={screenStyles.subtle}>Use this logger, then return to the overview. Quick logging stays available any time.</Text>
+            <Text style={screenStyles.subtle}>Log what you know, then return to overview.</Text>
           </View>
           <Pressable accessibilityLabel="Back to Fuel overview" accessibilityRole="button" onPress={onClose} style={[screenStyles.quietButton, { minHeight: 44, minWidth: 92, paddingHorizontal: spacing.md }]}>
             <Text style={screenStyles.quietButtonText}>Back to overview</Text>
@@ -154,7 +154,7 @@ function FuelRiskCard({ message, viewModel }: { message: string | null; viewMode
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Risks and why</Text>
+        <Text style={screenStyles.sectionTitle}>Fuel safety</Text>
         {viewModel.riskSummary.length > 0 ? viewModel.riskSummary.map((risk, index) => <Text key={`fuel-risk:${index}`} style={screenStyles.body}>{plainFuelCopy(risk)}</Text>) : <Text style={screenStyles.body}>No active fuel risk.</Text>}
         <Text style={screenStyles.subtle}>{plainFuelCopy(viewModel.why)}</Text>
         {message ? <Text style={screenStyles.subtle}>{message}</Text> : null}
@@ -348,10 +348,7 @@ function FuelBoardCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
       <View style={{ gap: spacing.md }} testID="fuel-macro-summary">
         <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: colors.amberCaution, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
-              FUEL BOARD
-            </Text>
-            <Text style={screenStyles.sectionTitle}>Food progress</Text>
+            <Text style={screenStyles.sectionTitle}>Today's fuel</Text>
           </View>
           <DashboardPill label={dashboard.recommendation.label} tone={dashboard.recommendation.tone} />
         </View>
@@ -361,7 +358,7 @@ function FuelBoardCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
           ))}
         </View>
         <View style={{ borderTopColor: "rgba(255, 255, 255, 0.11)", borderTopWidth: 1, gap: spacing.sm, paddingTop: spacing.md }}>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Context</Text>
+          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Status</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             {dashboard.quickContext.map((item) => <FuelContextTile item={item} key={`fuel-context:${item.label}`} />)}
           </View>
@@ -384,7 +381,7 @@ function FuelDetailToggle({
     <EngineCard>
       <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
         <View style={{ flexBasis: 240, flexGrow: 1, gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>More context</Text>
+          <Text style={screenStyles.sectionTitle}>Details</Text>
           <Text style={screenStyles.subtle}>{summary}</Text>
         </View>
         <Pressable
@@ -544,7 +541,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         actionLayout="primary-led"
         primaryAction={compactFuelCopy(dashboard.recommendation.body)}
         primaryButton={primaryFuelButton}
-        purpose="Log only what you know. Missing food stays unknown, not unsafe by itself."
+        purpose="Missing food stays unknown until you log it."
         secondaryActions={secondaryFuelActions}
         testID="fuel-primary-task"
         title="Do now"

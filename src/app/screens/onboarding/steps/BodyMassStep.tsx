@@ -40,10 +40,10 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Body weight</Text>
-      <Text style={screenStyles.subtle}>Required. These values keep weight-class decisions conservative; missing or invalid data stays unknown, not safe.</Text>
+      <Text style={screenStyles.subtle}>Used for conservative weight-class safety.</Text>
       <LabeledTextInput
         example="82"
-        helper="Your current scale value. Enter kilograms during setup."
+        helper="Current scale value."
         keyboardType="decimal-pad"
         label="Current body weight (kg)"
         onChangeText={(value) => {
@@ -55,7 +55,7 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
       />
       <LabeledTextInput
         example="84"
-        helper="Your normal training weight when not trying to make a class. This is not a target."
+        helper="Normal training weight, not a target."
         keyboardType="decimal-pad"
         label="Typical walk-around body weight (kg)"
         onChangeText={(value) => {
@@ -67,7 +67,7 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
       />
       <LabeledTextInput
         example="178"
-        helper="Used only as basic profile context for safety checks."
+        helper="Basic safety context."
         keyboardType="decimal-pad"
         label="Height (cm)"
         onChangeText={(value) => {
@@ -77,7 +77,7 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
         placeholder="Height cm"
         value={heightText}
       />
-      <FieldGroup helper="Setup entry stays kg/cm for now. This choice saves the display preference for later screens." label="Preferred display units">
+      <FieldGroup helper="Setup entry stays kg/cm; this saves display preference." label="Preferred display units">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["metric", "imperial"] as const).map((option) => (
             <Pressable

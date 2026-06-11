@@ -1858,7 +1858,7 @@ describe("minimal app screens", () => {
     });
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("fuel-log-action-section");
-    expect(output).toContain("Food progress");
+    expect(output).toContain("Today's fuel");
   });
 
   it("AppTabs opens the workout player as a confined preview and live screen", async () => {
@@ -1918,9 +1918,8 @@ describe("minimal app screens", () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Food progress");
-    expect(output).toContain("FUEL BOARD");
-    expect(output).toContain("Context");
+    expect(output).toContain("Today's fuel");
+    expect(output).toContain("Status");
     expect(output).toContain("Protein");
     expect(output).toContain("Carbs");
     expect(output).toContain("Fat");
@@ -1941,13 +1940,13 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Protein stays steady");
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output.indexOf("Do now")).toBeLessThan(output.indexOf("Food progress"));
+    expect(output.indexOf("Do now")).toBeLessThan(output.indexOf("Today's fuel"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Show fuel detail"));
     });
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Food progress");
+    expect(output).toContain("Today's fuel");
     expect(output).toContain("Hydration");
     expect(output).toContain("Sodium");
     expect(output).toContain("Meal distribution");
@@ -1972,7 +1971,7 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output).toContain("Food progress");
+    expect(output).toContain("Today's fuel");
   });
 
   it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
@@ -2004,7 +2003,7 @@ describe("minimal app screens", () => {
     };
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Food progress");
+    expect(output).toContain("Today's fuel");
     expect(output).toContain("Body weight and fueling trend");
     expect(output).not.toContain("Today's recommendation");
     expect(output).not.toContain("Actual vs target today");
@@ -2034,7 +2033,7 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("Safety stop");
     expect(output).toContain("You cannot resolve nutrition safety stops yourself.");
-    expect(output.indexOf("Safety stop")).toBeLessThan(output.indexOf("Food progress"));
+    expect(output.indexOf("Safety stop")).toBeLessThan(output.indexOf("Today's fuel"));
     expect(output).toContain("Safety stop");
     expect(output).not.toContain("Request safety review");
     expect(output).toContain("Outside support is required before this plan can continue");
@@ -2245,7 +2244,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
     const output = JSON.stringify(renderer.toJSON());
 
-    expect(output).toContain("Food progress");
+    expect(output).toContain("Today's fuel");
     expect(output).toContain("Body weight and fueling trend");
     expect(output).toContain("Recovery support");
     expect(output).not.toContain("Today's recommendation");
@@ -2258,7 +2257,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
     const output = JSON.stringify(renderer.toJSON());
 
-    expect(output).toContain("Food progress");
+    expect(output).toContain("Today's fuel");
     expect(output).toContain("Meal distribution");
     expect(output).toContain("Body weight and fueling trend");
     expect(output).not.toContain("Today's recommendation");
@@ -2275,7 +2274,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Strength support");
     expect(output).toContain("35");
     expect(output).toContain("moderate");
-    expect(output).toContain("Detailed player is unavailable");
+    expect(output).toContain("If you complete it outside the player");
     expect(output).toContain("Next 7 days");
     expect(output).toContain("Manual boxing log");
     expect(output).not.toContain("Training action");
@@ -2361,7 +2360,7 @@ describe("minimal app screens", () => {
       })
     );
     const planOutput = JSON.stringify(planRenderer.toJSON());
-    expect(planOutput).toContain("Plan actions");
+    expect(planOutput).toContain("This week");
   });
 
   it("generated session merging avoids duplicate persisted support", () => {
@@ -2412,7 +2411,7 @@ describe("minimal app screens", () => {
     expect(taperOutput).toContain("Fight-week sharpness");
     expect(taperOutput).toContain("fight-week day");
     expect(tournamentOutput).toContain("tournament conservation day");
-    expect(redOutput).toContain("Safety stops");
+    expect(redOutput).toContain("Training safety check");
   });
 
   it("TrainScreen puts primary detail before history and opens completion controls", async () => {
@@ -2911,7 +2910,7 @@ describe("minimal app screens", () => {
     expect(warningOutput).toContain("Why this week looks this way");
     expect(warningOutput).toContain("Missing readiness lowers confidence.");
     expect(warningOutput).not.toContain("Input hash:");
-    await switchSection(warningRenderer, "Technical details");
+    await switchSection(warningRenderer, "Diagnostics");
     warningOutput = JSON.stringify(warningRenderer.toJSON());
     expect(warningOutput).toContain("Review notes");
     expect(warningOutput).toContain("No support workout detail was produced for this plan.");
@@ -2929,7 +2928,7 @@ describe("minimal app screens", () => {
           })
         ).toJSON()
       )
-    ).toContain("Plan actions");
+    ).toContain("This week");
   });
 
   it("PlanScreen renders weekly block structure and seven day plans", async () => {
@@ -2955,7 +2954,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Energy systems mix");
     expect(output).toContain("Anchored sessions");
     expect(output).toContain("Block overview");
-    expect(output).toContain("Plan actions");
+    expect(output).toContain("This week");
     expect(output).toContain("Preview next week");
     expect(output).toContain("Change goal or schedule");
     expect(output).toContain("Edit fixed schedule");
@@ -3063,10 +3062,10 @@ describe("minimal app screens", () => {
     }
     expect(trainOutput).toContain("Current week:");
     expect(trainOutput).toContain(String(audit.targetGeneratedSupportCount));
-    await switchSection(planRenderer, "Technical details");
+    await switchSection(planRenderer, "Diagnostics");
     planOutput = JSON.stringify(planRenderer.toJSON());
-    expect(planOutput).toContain("Input hash:");
-    expect(planOutput).toContain("Selected support days:");
+    expect(planOutput).toContain("Plan diagnostics");
+    expect(planOutput).toContain("Days:");
   });
 
   it("Plan next-week preview uses progression context without mutating current week", async () => {
@@ -4036,7 +4035,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Training history");
     expect(output).toContain("Current block week");
     expect(output).toContain("Fuel safety history");
-    expect(output).toContain("cannot resolve safety stops");
+    expect(output).toContain("Safety stops require");
     expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback/i);
   });
 
@@ -4127,7 +4126,7 @@ describe("minimal app screens", () => {
     const fuelShowButtons = fuelButtons.filter((label) => label.includes("Show "));
     expect(fuelShowButtons).toHaveLength(1);
     expect(fuelShowButtons[0]).toContain("Show fuel detail");
-    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Food progress");
+    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Today's fuel");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Log meal");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Add water");
 
@@ -4148,7 +4147,7 @@ describe("minimal app screens", () => {
       })
     );
     expect(expandedDisclosureLabels(planRenderer)).toHaveLength(0);
-    expect(JSON.stringify(planRenderer.toJSON())).toContain("Plan actions");
+    expect(JSON.stringify(planRenderer.toJSON())).toContain("This week");
     expect(JSON.stringify(planRenderer.toJSON())).toContain("Plan details");
 
     const profileRenderer = render(
@@ -4244,7 +4243,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Training age");
     expect(output).toContain("Training for boxing, not competing yet.");
     expect(output).toContain("Early amateur; limited sanctioned bouts.");
-    expect(output).toContain("Years of boxing training");
+    expect(output).toContain("Choose the closest option");
     expect(output).not.toContain("Development shortcut: create safe demo boxer");
     expect(e2eOutput).toContain("Development shortcut: create safe demo boxer");
   });
@@ -4271,12 +4270,12 @@ describe("minimal app screens", () => {
     expect(bodyMassOutput).toContain("Current body weight (kg)");
     expect(bodyMassOutput).toContain("Typical walk-around body weight (kg)");
     expect(bodyMassOutput).toContain("Example: 82");
-    expect(bodyMassOutput).toContain("Setup entry stays kg/cm");
+    expect(bodyMassOutput).toContain("Setup entry stays kg/cm; this saves display preference.");
 
     const accessOutput = JSON.stringify(render(React.createElement(TrainingAccessStep, stepProps)).toJSON());
     expect(accessOutput).toContain("Equipment access");
     expect(accessOutput).toContain("Bodyweight only");
-    expect(accessOutput).toContain("Pick the days you can usually train. This helps CornerIQ place support workouts around boxing.");
+    expect(accessOutput).toContain("Pick your usual training days.");
     for (const weekday of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]) {
       expect(accessOutput).toContain(weekday);
     }
@@ -4285,7 +4284,7 @@ describe("minimal app screens", () => {
     expect(accessOutput).toContain("Optional availability notes");
 
     const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
-    expect(protectedOutput).toContain("recurring weekly boxing commitments");
+    expect(protectedOutput).toContain("Add boxing commitments, travel, or recovery days.");
     expect(protectedOutput).toContain("No fixed sessions right now");
     expect(protectedOutput).toContain("CornerIQ will place support workouts from your availability.");
     expect(protectedOutput).not.toContain("Every Wednesday");
@@ -4326,7 +4325,7 @@ describe("minimal app screens", () => {
     }
     const renderer = render(React.createElement(Probe));
     expect(JSON.stringify(renderer.toJSON())).toContain("Pregnancy safety context");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Only add safety restrictions that should make the engine more conservative.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Add only restrictions that should make training more conservative.");
     expect(JSON.stringify(renderer.toJSON())).toContain("Clinician told me to avoid dehydration or weight cuts");
     expect(JSON.stringify(renderer.toJSON())).toContain("Recent concussion or head injury concern");
     expect(JSON.stringify(renderer.toJSON())).not.toContain("Medications");
@@ -4336,7 +4335,7 @@ describe("minimal app screens", () => {
     });
 
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Pregnancy-specific choices are hidden");
+    expect(output).toContain("Pregnancy choices are hidden");
     expect(output).not.toContain("confirmed");
     expect(output).not.toContain("possible");
     expect(output).not.toContain("Medications");

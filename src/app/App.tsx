@@ -16,7 +16,7 @@ import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "..
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion, type WorkoutCompletionActions } from "../hooks/useWorkoutCompletion";
 import type { CycleSymptom, ISODateString, PerformanceState, ProtectedWorkout, RecurringProtectedWorkoutAnchor } from "../engine/core/types";
-import { isLocalE2EMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
+import { isLocalE2EMode, isPromoCaptureMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
 import { getPublicRuntimeConfig } from "../services/config/runtimeConfig";
 import { buildLocalE2EPerformanceState, localE2EDefaultAsOfDateForScenario, normalizeLocalE2EScenario, type LocalE2EScenario } from "../services/e2e/localE2EState";
 import { recurringAnchorFromDraft, workoutFromDraft } from "../services/supabase/onboardingService";
@@ -145,22 +145,34 @@ function readLocalE2EConfig(): LocalE2EConfig {
   };
 }
 
-function LocalE2EFrame({ asOfDate, children, scenario }: { asOfDate: ISODateString; children: React.ReactNode; scenario: LocalE2EScenario }) {
+function LocalE2EFrame({
+  asOfDate,
+  children,
+  promoCapture,
+  scenario
+}: {
+  asOfDate: ISODateString;
+  children: React.ReactNode;
+  promoCapture: boolean;
+  scenario: LocalE2EScenario;
+}) {
   return (
     <View style={{ flex: 1 }} testID="local-e2e-app">
-      <View
-        accessibilityLabel="Local E2E mode banner"
-        style={{
-          backgroundColor: colors.amberCaution,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm
-        }}
-        testID="local-e2e-banner"
-      >
-        <Text style={{ color: colors.canvas, fontWeight: "700" }}>
-          Local E2E mode: no Supabase connection, demo data only. Scenario: {scenario}. Date: {asOfDate}. Disable {LOCAL_E2E_MODE_ENV} for normal app use.
-        </Text>
-      </View>
+      {promoCapture ? null : (
+        <View
+          accessibilityLabel="Local E2E mode banner"
+          style={{
+            backgroundColor: colors.amberCaution,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm
+          }}
+          testID="local-e2e-banner"
+        >
+          <Text style={{ color: colors.canvas, fontWeight: "700" }}>
+            Local E2E mode: no Supabase connection, demo data only. Scenario: {scenario}. Date: {asOfDate}. Disable {LOCAL_E2E_MODE_ENV} for normal app use.
+          </Text>
+        </View>
+      )}
       {children}
     </View>
   );
@@ -190,6 +202,7 @@ function LocalE2EApp() {
   const localConfig = useMemo(readLocalE2EConfig, []);
   const localAsOfDate = localConfig.asOfDate;
   const localScenario = localConfig.scenario;
+  const promoCapture = isPromoCaptureMode();
   const [signedIn, setSignedIn] = useState(false);
   const [todayState, setTodayState] = useState<PerformanceState | null>(null);
   const [localProtectedWorkouts, setLocalProtectedWorkouts] = useState<ProtectedWorkout[]>([]);
@@ -344,11 +357,11 @@ function LocalE2EApp() {
 
   if (!signedIn) {
     return (
-      <LocalE2EFrame asOfDate={localAsOfDate} scenario={localScenario}>
+      <LocalE2EFrame asOfDate={localAsOfDate} promoCapture={promoCapture} scenario={localScenario}>
         <AuthScreen
           error={null}
           loading={false}
-          message="Local E2E sign-in accepts any non-empty email and password."
+          message={promoCapture ? null : "Local E2E sign-in accepts any non-empty email and password."}
           onRequestPasswordReset={async () => {
             setMessage("Local E2E password reset stayed local. No Supabase email was sent.");
           }}
@@ -367,12 +380,12 @@ function LocalE2EApp() {
 
   if (!todayState) {
     return (
-      <LocalE2EFrame asOfDate={localAsOfDate} scenario={localScenario}>
+      <LocalE2EFrame asOfDate={localAsOfDate} promoCapture={promoCapture} scenario={localScenario}>
         <OnboardingScreen
           asOfDate={localAsOfDate}
           busy={false}
-          demoShortcutEnabled
-          message={message}
+          demoShortcutEnabled={!promoCapture}
+          message={promoCapture ? null : message}
           onComplete={async () => {
             await loadToday();
             return { status: "saved" };
@@ -386,13 +399,13 @@ function LocalE2EApp() {
   }
 
   return (
-    <LocalE2EFrame asOfDate={localAsOfDate} scenario={localScenario}>
+    <LocalE2EFrame asOfDate={localAsOfDate} promoCapture={promoCapture} scenario={localScenario}>
       <AppTabs
         asOfDate={localAsOfDate}
         busy={false}
         cycleSymptomOptions={cycleSymptomOptions}
         generationStatus="idle"
-        message={message}
+        message={promoCapture ? null : message}
         onAcknowledgeNutritionSafetyReview={async () => {
           setMessage("Local E2E nutrition review acknowledgement stayed local. No Supabase call was made.");
         }}

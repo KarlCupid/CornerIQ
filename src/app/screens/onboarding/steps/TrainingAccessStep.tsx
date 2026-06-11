@@ -64,8 +64,8 @@ export function TrainingAccessStep({ draft, updateDraft }: OnboardingStepProps) 
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Training access</Text>
-      <Text style={screenStyles.subtle}>Required. Manual schedule input is enough. Use none/bodyweight if you train without equipment; wearables are never required.</Text>
-      <FieldGroup helper="Pick everything you can reliably access. These are presets, not magic engine strings you need to memorize." label="Equipment access">
+      <Text style={screenStyles.subtle}>Manual schedule input is enough. Wearables are never required.</Text>
+      <FieldGroup helper="Pick what you can reliably access." label="Equipment access">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {equipmentOptions.map((option) => (
             <ChipButton
@@ -78,7 +78,7 @@ export function TrainingAccessStep({ draft, updateDraft }: OnboardingStepProps) 
         </View>
       </FieldGroup>
       <LabeledTextInput
-        helper="Optional. Add anything not covered above, separated by commas."
+        helper="Optional comma-separated notes."
         label="Optional equipment notes"
         onChangeText={(value) => {
           setCustomEquipment(value);
@@ -87,7 +87,7 @@ export function TrainingAccessStep({ draft, updateDraft }: OnboardingStepProps) 
         placeholder="Equipment notes optional"
         value={customEquipment}
       />
-      <FieldGroup helper="Pick the days you can usually train. This helps CornerIQ place support workouts around boxing." label="Training availability">
+      <FieldGroup helper="Pick your usual training days." label="Training availability">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {availabilityOptions.map((option) => (
             <ChipButton
@@ -100,7 +100,7 @@ export function TrainingAccessStep({ draft, updateDraft }: OnboardingStepProps) 
         </View>
       </FieldGroup>
       <LabeledTextInput
-        helper="Optional. Use this for constraints like school, work travel, or a gym closing time."
+        helper="Optional constraints."
         label="Optional availability notes"
         onChangeText={(value) => {
           setCustomAvailability(value);

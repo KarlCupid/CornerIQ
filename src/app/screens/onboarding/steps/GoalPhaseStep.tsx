@@ -80,8 +80,8 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Goal phase</Text>
-      <Text style={screenStyles.subtle}>Choose the planning context for Today and Plan. Finishing setup creates your boxer profile, saves today's body weight log, and respects any weekly boxing sessions you entered.</Text>
-      <FieldGroup helper="Pick the closest current situation. You can keep fight details tentative." label="Current goal">
+      <Text style={screenStyles.subtle}>Choose the planning context for Today and Plan.</Text>
+      <FieldGroup helper="Pick the closest current situation." label="Current goal">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={phaseOf(draft) === "build"} label="Build phase" onPress={setBuild} />
           <ChipButton active={phaseOf(draft) === "maintenance_recovery"} label="Maintenance/recovery" onPress={setRecovery} />
@@ -89,15 +89,12 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
           <ChipButton active={phaseOf(draft) === "tournament_known"} label="Tournament known" onPress={setTournament} />
         </View>
       </FieldGroup>
-      <Text style={screenStyles.subtle}>Build phase: build boxing-specific capacity around fixed boxing work.</Text>
-      <Text style={screenStyles.subtle}>Maintenance/recovery: keep consistency and safety ahead of performance pressure.</Text>
-      <Text style={screenStyles.subtle}>Fight known: add bout date, weigh-in timing, and contracted weight so the engine can avoid unsafe assumptions.</Text>
-      <Text style={screenStyles.subtle}>Tournament known: add tournament dates so daily weigh-in and bout-day context stay explicit.</Text>
+      <Text style={screenStyles.subtle}>Fight and tournament details can stay tentative until confirmed.</Text>
       {draft.goal.phase === "fight_known" ? (
         <View style={{ gap: spacing.md }}>
           <LabeledTextInput
             example="2026-06-20"
-            helper="The scheduled or tentative bout date in YYYY-MM-DD format."
+            helper="YYYY-MM-DD."
             label="Bout date"
             onChangeText={(value) => {
               setBoutDate(value);
@@ -107,7 +104,7 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
             placeholder="Bout date YYYY-MM-DD"
             value={boutDate}
           />
-          <FieldGroup helper="Choose unknown if you do not know yet. Unknown timing blocks weight-cut decisions until confirmed." label="Weigh-in timing">
+          <FieldGroup helper="Unknown blocks weight-cut decisions." label="Weigh-in timing">
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {(["unknown", "same_day", "day_before", "multi_day_tournament"] as const).map((option) => (
                 <ChipButton
@@ -125,7 +122,7 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
           </FieldGroup>
           <LabeledTextInput
             example="67"
-            helper="The contracted class or agreed limit in kg. This is context, not pressure to chase a number."
+            helper="Context, not pressure."
             keyboardType="decimal-pad"
             label="Contracted weight (kg)"
             onChangeText={(value) => {
@@ -158,7 +155,7 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
         <View style={{ gap: spacing.md }}>
           <LabeledTextInput
             example="2026-07-10"
-            helper="First tournament day in YYYY-MM-DD format."
+            helper="YYYY-MM-DD."
             label="Tournament start date"
             onChangeText={(value) => {
               setTournamentStartDate(value);
@@ -172,7 +169,7 @@ export function GoalPhaseStep({ draft, setStepError, updateDraft }: OnboardingSt
           />
           <LabeledTextInput
             example="2026-07-12"
-            helper="Last tournament day in YYYY-MM-DD format."
+            helper="YYYY-MM-DD."
             label="Tournament end date"
             onChangeText={(value) => {
               setTournamentEndDate(value);

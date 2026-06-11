@@ -145,7 +145,7 @@ export function ProfileScreen({
         <View style={{ gap: spacing.lg }} testID="profile-data-section">
           <DashboardCard headerRight={<DashboardPill label="Preview first" tone="blue" />} title="Export">
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.body}>Export preview groups user-owned app data before deletion. Delete requires the exact word DELETE.</Text>
+              <Text style={screenStyles.body}>Preview your app data before export or delete. Delete requires DELETE.</Text>
               <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Preview export</Text>
               </Pressable>
@@ -163,7 +163,7 @@ export function ProfileScreen({
           <DashboardCard headerRight={<DashboardPill label="DELETE gated" tone="orange" />} title="Account and app data">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function."}</Text>
-              <Text style={screenStyles.subtle}>Export first is recommended before any destructive data action.</Text>
+              <Text style={screenStyles.subtle}>Export first before any destructive action.</Text>
             </View>
           </DashboardCard>
           <DashboardCard headerRight={<DashboardPill label="Outside app" tone="blue" />} title="Support path">
@@ -172,7 +172,7 @@ export function ProfileScreen({
               <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>
             </View>
           </DashboardCard>
-          <DisclosureCard title="Danger Zone" summary="Delete controls are hidden until opened. Export first is recommended.">
+          <DisclosureCard title="Danger Zone" summary="Delete controls stay hidden. Export first.">
             <View style={{ gap: spacing.sm }} testID="profile-danger-zone">
               <Text style={screenStyles.sectionTitle}>Delete app data</Text>
               <Text style={screenStyles.body}>Deletes user-owned app rows only. It does not delete auth identity.</Text>
@@ -206,8 +206,8 @@ export function ProfileScreen({
           {historyDetailOpen ? (
             <DashboardCard title="Saved history detail">
               <View style={{ gap: spacing.sm }} testID="profile-safety-history-detail">
-                <Text style={screenStyles.body}>What happened: recent profile and journey events are summarized below when available.</Text>
-                <Text style={screenStyles.subtle}>Why it matters: saved history explains app state; it does not resolve safety stops or expose private server controls.</Text>
+                <Text style={screenStyles.body}>Recent profile and journey events appear here when available.</Text>
+                <Text style={screenStyles.subtle}>History explains app state; it never clears safety stops.</Text>
                 {recentLogs.profile.length > 0 ? recentLogs.profile.map((item, index) => <Text key={`profile-history-detail:${index}`} style={screenStyles.subtle}>{item}</Text>) : <Text style={screenStyles.subtle}>No profile or journey history detail is loaded yet.</Text>}
                 <Text style={screenStyles.subtle}>Training block week {viewModel.trainingAuditSummary.currentWeekIndex}; saved week summaries {viewModel.trainingAuditSummary.activeBlockHistoryCount}.</Text>
                 {viewModel.trainingAuditSummary.latestEventSummary ? <Text style={screenStyles.subtle}>{viewModel.trainingAuditSummary.latestEventSummary}</Text> : null}
@@ -216,8 +216,8 @@ export function ProfileScreen({
           ) : null}
           <DashboardCard headerRight={<DashboardPill label="Read-only" tone="orange" />} title="Fuel safety history">
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.body}>Nutrition review history is available in Fuel &gt; Reviews when active or recently saved.</Text>
-              <Text style={screenStyles.subtle}>CornerIQ cannot resolve safety stops in the app. Use medical or nutrition support outside the app when a safety stop is active. Athletes cannot resolve nutrition safety stops themselves.</Text>
+              <Text style={screenStyles.body}>Nutrition review history appears in Fuel when active or recently saved.</Text>
+              <Text style={screenStyles.subtle}>Safety stops require medical or nutrition support outside the app.</Text>
             </View>
           </DashboardCard>
           <DashboardCard headerRight={<DashboardPill label="Outside app" tone="blue" />} title="Support path">
@@ -233,7 +233,7 @@ export function ProfileScreen({
               </View>
             </DashboardCard>
           ) : (
-            <EmptyState title="No safety history yet" message="Onboarding, logs, or engine-owned persistence events are missing from journey history. This matters for traceability, not safety clearance. Keep using manual logs; events appear after real saves." />
+            <EmptyState title="No safety history yet" message="Events appear after real saves. Manual logs still work." />
           )}
         </View>
       ) : null}

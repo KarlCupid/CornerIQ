@@ -122,12 +122,10 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
       <Text style={screenStyles.subtle}>
-        Add recurring weekly boxing commitments, sparring you already have, travel, or recovery days. CornerIQ only adds support workouts around these; it does not create sparring or contact.
+        Add boxing commitments, travel, or recovery days. CornerIQ only adds support work around them.
       </Text>
-      <Text style={screenStyles.exampleText}>Example: Tuesday evening pads, 60 min, RPE 6.</Text>
-      <Text style={screenStyles.exampleText}>Example: Thursday sparring you already have, 90 min, RPE 8.</Text>
-      <Text style={screenStyles.exampleText}>Example: Sunday recovery, 30 min, RPE 2.</Text>
-      <FieldGroup helper="Boxing sessions you add are fixed commitments. Leave this empty when you do not have any." label="Fixed schedule">
+      <Text style={screenStyles.exampleText}>Example: Tuesday pads, 60 min, RPE 6.</Text>
+      <FieldGroup helper="Leave empty if you do not have fixed sessions." label="Fixed schedule">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={fixedScheduleChoice === "has_anchors"} label="I have fixed boxing sessions" onPress={chooseHasAnchors} />
           <ChipButton active={fixedScheduleChoice === "no_anchors"} label="No fixed sessions right now" onPress={chooseNoAnchors} />
@@ -144,21 +142,21 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
               Every {weekdayLabel(workout.weekday)} - {humanType(workout.type)} - {workout.durationMinutes} min - {rpeSummary(workout)}
             </Text>
           ))}
-          <FieldGroup helper="Choose the day this usually repeats each week." label="Day of week">
+          <FieldGroup helper="Usual repeating day." label="Day of week">
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {weekdays.map((option) => (
                 <ChipButton active={weekday === option.value} key={`weekday:${option.value}`} label={option.label} onPress={() => setWeekday(option.value)} />
               ))}
             </View>
           </FieldGroup>
-          <FieldGroup helper="Optional. Use a broad time of day if exact clock time is not helpful." label="Time of day">
+          <FieldGroup helper="Optional broad time." label="Time of day">
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {timeOfDayOptions.map((option) => (
                 <ChipButton active={timeOfDay === option} key={option} label={option} onPress={() => setTimeOfDay(option)} />
               ))}
             </View>
           </FieldGroup>
-          <FieldGroup helper="What kind of commitment is already on your calendar?" label="Session type">
+          <FieldGroup helper="What is already on your calendar?" label="Session type">
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {anchorTypes.map((option) => (
                 <ChipButton active={type === option.value} key={option.value} label={option.label} onPress={() => setType(option.value)} />
@@ -167,14 +165,14 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
           </FieldGroup>
           <LabeledTextInput
             example="60"
-            helper="Minutes CornerIQ should respect before adding support workouts around it."
+            helper="Minutes to protect."
             keyboardType="number-pad"
             label="Duration (minutes)"
             onChangeText={setDurationMinutes}
             placeholder="Duration minutes"
             value={durationMinutes}
           />
-          <FieldGroup helper="RPE = how hard this session usually feels. 1 = very easy, 10 = all-out." label="RPE">
+          <FieldGroup helper="1 = very easy, 10 = all-out." label="RPE">
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {rpeOptions.map((option) => (
                 <ChipButton active={rpe === option} key={option} label={`${option}`} onPress={() => setRpe(option)} />

@@ -41,12 +41,12 @@ export function TopActionCard({
         </View>
       </View>
       <View style={{ borderBottomColor: "rgba(255, 255, 255, 0.09)", borderBottomWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.09)", borderTopWidth: 1, gap: spacing.xs, paddingVertical: spacing.sm }}>
-        <Text style={{ ...typography.subtle, color: colors.wrap }}>
+        <Text numberOfLines={2} style={{ ...typography.subtle, color: colors.wrap }}>
           <Text style={{ color: colors.canvas, fontWeight: "700" }}>Why: </Text>
           {why}
         </Text>
-        <Text style={{ ...typography.subtle, color: colors.wrap }}>
-          <Text style={{ color: colors.canvas, fontWeight: "700" }}>Optional: </Text>
+        <Text numberOfLines={2} style={{ ...typography.subtle, color: colors.wrap }}>
+          <Text style={{ color: colors.canvas, fontWeight: "700" }}>Later: </Text>
           {optional}
         </Text>
       </View>

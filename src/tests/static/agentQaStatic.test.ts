@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isLocalE2EMode, LOCAL_E2E_MODE_ENV } from "../../services/config/e2eRuntimeConfig";
+import { isLocalE2EMode, isPromoCaptureMode, LOCAL_E2E_MODE_ENV, PROMO_CAPTURE_MODE_ENV } from "../../services/config/e2eRuntimeConfig";
 
 function readSource(path: string): string {
   return readFileSync(path, "utf8");
@@ -14,6 +14,10 @@ describe("agent browser QA static checks", () => {
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1" })).toBe(true);
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", NODE_ENV: "production" })).toBe(false);
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PRODUCTION: "1" })).toBe(false);
+    expect(PROMO_CAPTURE_MODE_ENV).toBe("EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE");
+    expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1" })).toBe(false);
+    expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1" })).toBe(true);
+    expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1", NODE_ENV: "production" })).toBe(false);
   });
 
   it("defines agent QA scripts, docs, and Playwright scenario", () => {
@@ -104,7 +108,7 @@ describe("agent browser QA static checks", () => {
     expect(scenario).toContain("Monday");
     expect(scenario).toContain("Wednesday");
     expect(scenario).toContain("Friday");
-    expect(scenario).toContain("RPE = how hard this session usually feels");
+    expect(scenario).toContain("1 = very easy, 10 = all-out");
     expect(scenario).toContain("Medical safety restrictions");
     expect(scenario).toContain("medications");
   });

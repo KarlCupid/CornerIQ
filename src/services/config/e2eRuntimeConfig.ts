@@ -1,4 +1,5 @@
 export const LOCAL_E2E_MODE_ENV = "EXPO_PUBLIC_CORNERIQ_E2E_LOCAL";
+export const PROMO_CAPTURE_MODE_ENV = "EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE";
 
 type RuntimeEnv = Record<string, string | undefined>;
 
@@ -9,6 +10,10 @@ function readRuntimeEnv(): RuntimeEnv {
 
 export function isLocalE2EMode(env: RuntimeEnv = readRuntimeEnv()): boolean {
   return env[LOCAL_E2E_MODE_ENV] === "1" && isNonProductionRuntime(env);
+}
+
+export function isPromoCaptureMode(env: RuntimeEnv = readRuntimeEnv()): boolean {
+  return env[PROMO_CAPTURE_MODE_ENV] === "1" && isLocalE2EMode(env);
 }
 
 export function isNonProductionRuntime(env: RuntimeEnv = readRuntimeEnv()): boolean {

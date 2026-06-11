@@ -58,6 +58,12 @@ function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple"
   return tone === "muted" ? "blue" : tone;
 }
 
+function firstSentence(value: string): string {
+  const copy = plainTrainCopy(value).trim();
+  const match = copy.match(/^.+?[.!?](?:\s|$)/);
+  return (match?.[0] ?? copy).trim();
+}
+
 function currentWeekBars(viewModel: TrainViewModel): readonly BarVisual[] {
   const maxMinutes = Math.max(1, ...viewModel.weeklyWorkoutCards.map((session) => session.durationMinutes));
   return viewModel.weeklyWorkoutCards.slice(0, 7).map((session) => ({
@@ -129,7 +135,7 @@ function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
   const roleLabel = plainTrainCopy(viewModel.todayRole.status.replace(/_/g, " "));
   return (
     <DashboardCard headerRight={<DashboardPill label={roleLabel} tone={viewModel.riskSummary.length > 0 ? "red" : "blue"} />} testID="train-overview-card" title="Training overview">
-      <Text style={screenStyles.body}>{plainTrainCopy(viewModel.todaySummary)}</Text>
+      <Text style={screenStyles.body}>{firstSentence(viewModel.todaySummary)}</Text>
       <Text style={screenStyles.callout}>{plainTrainCopy(viewModel.todayRole.summary)}</Text>
       <View
         style={{
@@ -168,8 +174,8 @@ function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
           <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.hydrationHint)}</Text>
         </View>
       </View>
-      <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.todayRole.explanation)}</Text>
-      <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.blockExplanation)}</Text>
+      <Text style={screenStyles.subtle}>{firstSentence(viewModel.todayRole.explanation)}</Text>
+      <Text style={screenStyles.subtle}>{firstSentence(viewModel.blockExplanation)}</Text>
     </DashboardCard>
   );
 }
@@ -196,7 +202,7 @@ function WorkoutSummaryCard({ viewModel }: { viewModel: TrainViewModel }) {
           {card.modifications.slice(0, 3).map((item, index) => <Text key={`train-summary-mod:${index}`} style={screenStyles.subtle}>{plainTrainCopy(item)}</Text>)}
         </View>
       ) : null}
-      <Text style={screenStyles.subtle}>Detailed player is unavailable for this session, so log the real workout manually if you complete it.</Text>
+      <Text style={screenStyles.subtle}>If you complete it outside the player, log the real workout manually.</Text>
     </DashboardCard>
   );
 }
@@ -206,8 +212,8 @@ function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quick
   return (
     <View style={{ gap: spacing.md }} testID="train-manual-logger-section">
       <DashboardCard title="Manual boxing log">
-        <Text style={screenStyles.body}>Use this for boxing class, roadwork, boxing sessions you already do, or strength work not created by CornerIQ.</Text>
-        <Text style={screenStyles.subtle}>Free-text load notes are never treated as exact load progression.</Text>
+        <Text style={screenStyles.body}>Log boxing class, roadwork, or outside strength work.</Text>
+        <Text style={screenStyles.subtle}>Free-text notes stay advisory.</Text>
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
           <Text style={screenStyles.quietButtonText}>{open ? "Hide manual log" : "Show manual log"}</Text>
         </Pressable>
@@ -292,8 +298,8 @@ export function TrainScreen({
   };
   const topPrimaryAction =
     primarySession
-      ? previewOnlyWeeklySession
-        ? "Preview the next support workout. Do not pull it forward."
+          ? previewOnlyWeeklySession
+        ? "Preview next support workout. Do not pull forward."
         : plainWorkoutTitle(primarySession.title, primarySession.family)
       : "Log the boxing work you actually did.";
   const topPurpose =

@@ -83,7 +83,7 @@ export function ProfileSettingsScreen({
           <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text>
         </DashboardCard>
       ) : null}
-      <SettingsGroup title="Cycle support" subtitle="Optional, private, and symptom-aware.">
+      <SettingsGroup title="Cycle support" subtitle="Optional and symptom-aware.">
         {cycleTrackingPreference === "enabled" && cyclePreference === "disabled" ? <Text style={screenStyles.subtle}>This hides cycle context but does not delete prior logs.</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <OptionButton active={cyclePreference === "enabled"} busy={busy} label="On" onPress={() => setCyclePreference("enabled")} />
@@ -91,20 +91,20 @@ export function ProfileSettingsScreen({
           <OptionButton active={cyclePreference === "undecided"} busy={busy} label="Not sure" onPress={() => setCyclePreference("undecided")} />
         </View>
       </SettingsGroup>
-      <SettingsGroup title="Wearables" subtitle="Manual input remains complete without a device.">
+      <SettingsGroup title="Wearables" subtitle="Manual input is complete.">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <OptionButton active={wearable === "manual_only"} busy={busy} label="Manual only" onPress={() => setWearable("manual_only")} />
           <OptionButton active={wearable === "wearable_connected"} busy={busy} label="Connect later" onPress={() => setWearable("wearable_connected")} />
           <OptionButton active={wearable === "undecided"} busy={busy} label="Not sure" onPress={() => setWearable("undecided")} />
         </View>
       </SettingsGroup>
-      <SettingsGroup title="Units" subtitle="CornerIQ stores kg internally for safety calculations.">
+      <SettingsGroup title="Units" subtitle="Display preference. Safety math stays kg.">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <OptionButton active={units === "metric"} busy={busy} label="Metric" onPress={() => setUnits("metric")} />
           <OptionButton active={units === "imperial"} busy={busy} label="Imperial" onPress={() => setUnits("imperial")} />
         </View>
       </SettingsGroup>
-      <SettingsGroup title="Equipment" subtitle="Shown as friendly access chips; editing stays compact.">
+      <SettingsGroup title="Equipment" subtitle="Current access list.">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {equipmentItems.length > 0 ? equipmentItems.map((item, index) => (
             <View key={`equipment:${index}`} style={screenStyles.chip}>
@@ -119,7 +119,7 @@ export function ProfileSettingsScreen({
         </Pressable>
         {equipmentOpen ? <TextInput onChangeText={setEquipment} placeholder="Equipment, comma-separated" placeholderTextColor={colors.wrap} style={screenStyles.input} value={equipment} /> : null}
       </SettingsGroup>
-      <SettingsGroup title="Planning" subtitle="Fixed boxing schedule now lives in Plan.">
+      <SettingsGroup title="Planning" subtitle="Fixed boxing schedule lives in Plan.">
         <Text style={screenStyles.body}>Use Plan to add, edit, or remove boxing commitments.</Text>
         <Pressable accessibilityRole="button" disabled={busy} onPress={onOpenPlan ?? (() => undefined)} style={screenStyles.quietButton}>
           <Text style={screenStyles.quietButtonText}>Open Plan</Text>

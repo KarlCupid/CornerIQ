@@ -28,21 +28,21 @@ export interface OnboardingScreenProps {
 function stepWhy(stepIndex: number): string {
   switch (stepIndex) {
     case 0:
-      return "Required: boxing status, level, and training age help the engine avoid broad combat-sport defaults.";
+      return "Boxing status, level, and ring age keep training boxing-specific.";
     case 1:
-      return "Required: body weight, walk-around weight, and height anchor weight-class safety without treating missing data as safe.";
+      return "Body data anchors safety. Missing values stay unknown.";
     case 2:
-      return "Required: equipment and availability can be simple. none/bodyweight is valid if that is the setup.";
+      return "Equipment and availability can be simple. Bodyweight-only is valid.";
     case 3:
-      return "Optional but recommended: boxing sessions you add tell CornerIQ what work must stay first.";
+      return "Add fixed boxing sessions so support work stays second.";
     case 4:
-      return "Required choice, optional tracking: cycle support is private, symptom-aware, and not fertility tracking.";
+      return "Cycle support is optional, private, and symptom-aware.";
     case 5:
-      return "Required choice: manual-only is complete. Wearables only raise confidence when fresh and consistent.";
+      return "Manual-only is complete. Fresh wearables only raise confidence.";
     case 6:
-      return "Required: safety screening blocks unsafe weight pressure and flags outside-support needs.";
+      return "Safety screening blocks unsafe weight pressure.";
     default:
-      return "Required: choose build, fight, tournament, or recovery so Today and Plan can explain their priorities.";
+      return "Choose the phase Today and Plan should prioritize.";
   }
 }
 
@@ -82,6 +82,7 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
         return <GoalPhaseStep {...stepProps} />;
     }
   })();
+  const showStorageStatus = /resume setup|unavailable/i.test(onboarding.storageStatus);
 
   return (
     <LuminousScreen bottomInset="none" testID="onboarding-screen">
@@ -102,7 +103,7 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
             Step {onboarding.stepIndex + 1} of {onboarding.stepTotal}: {onboarding.stepLabel}
           </Text>
           <Text style={screenStyles.subtle}>{stepWhy(onboarding.stepIndex)}</Text>
-          <Text style={screenStyles.subtle}>{onboarding.storageStatus}</Text>
+          {showStorageStatus ? <Text style={screenStyles.subtle}>{onboarding.storageStatus}</Text> : null}
           {message ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{message}</Text> : null}
           {onboarding.stepError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{onboarding.stepError}</Text> : null}
           {step}

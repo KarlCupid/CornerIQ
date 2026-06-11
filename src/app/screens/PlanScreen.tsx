@@ -204,8 +204,8 @@ function GeneratedSupportSummaryCard({
           <Text style={screenStyles.sectionTitle}>Support workouts</Text>
           <Text style={screenStyles.callout}>{compactCount(viewModel.generatedSupportSessionCount, "support workout")}</Text>
           <Text style={screenStyles.body}>{plainPlanCopy(viewModel.athleteFacingWeekSummary)}</Text>
-          <Text style={screenStyles.body}>Support workout days: {viewModel.scheduleAvailabilitySummary}</Text>
-          <Text style={screenStyles.body}>{plainPlanCopy(viewModel.supportWorkReason ?? "CornerIQ adds support workouts around your boxing sessions, readiness, and safety.")}</Text>
+          <Text style={screenStyles.subtle}>Days: {viewModel.scheduleAvailabilitySummary}</Text>
+          <Text style={screenStyles.subtle}>{plainPlanCopy(viewModel.supportWorkReason ?? "Support work sits around boxing, readiness, and safety.")}</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (
@@ -284,82 +284,41 @@ function PlanAdjustmentsContent({
 
 function PlanAuditDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
   const audit = viewModel.generationAudit;
+  const planNotes = audit
+    ? [
+        ...(audit.blockedGenerationReasons ?? []).slice(0, 2),
+        ...(audit.whyHardDaysWereReduced ?? []).slice(0, 1),
+        ...(audit.whyVolumeWasReduced ?? []).slice(0, 1)
+      ]
+    : [];
   return (
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Technical details</Text>
-        {audit ? (
-          <>
-            <Text style={screenStyles.body}>
-              Current week: {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount} support workout{audit.actualGeneratedSupportCount === 1 ? "" : "s"}.
-            </Text>
-            <Text style={screenStyles.subtle}>Dates: {audit.generatedSessionDates.length > 0 ? audit.generatedSessionDates.join(", ") : "None"}</Text>
-            <Text style={screenStyles.subtle}>Titles: {audit.generatedSessionTitles.length > 0 ? audit.generatedSessionTitles.join(", ") : "None"}</Text>
-            <Text style={screenStyles.subtle}>Families: {audit.generatedSessionFamilies.length > 0 ? audit.generatedSessionFamilies.join(", ") : "None"}</Text>
-            {typeof audit.targetRequiredAddOnBlocks === "number" ? (
-              <Text style={screenStyles.subtle}>
-                Required add-ons: {audit.actualRequiredAddOnBlocks ?? 0}/{audit.targetRequiredAddOnBlocks}; recommended: {audit.actualRecommendedAddOnBlocks ?? 0}/{audit.targetRecommendedAddOnBlocks ?? 0}.
-              </Text>
-            ) : null}
-            {typeof audit.targetAthleteQualityCheckpoints === "number" ? (
-              <Text style={screenStyles.subtle}>Quality checkpoints: {audit.actualAthleteQualityCheckpoints ?? 0}/{audit.targetAthleteQualityCheckpoints}.</Text>
-            ) : null}
-            {audit.athleteFacingThemePurpose ? <Text style={screenStyles.subtle}>{audit.athleteFacingThemePurpose}</Text> : null}
-            {typeof audit.targetHardDayCount === "number" ? (
-              <Text style={screenStyles.subtle}>
-                Target hard days: {audit.targetHardDayCount}, actual: {audit.actualHardDayCount ?? 0}
-                {typeof audit.protectedHardDayCount === "number" ? ` (${audit.protectedHardDayCount} boxing, ${audit.generatedHardDayCount ?? 0} support)` : ""}.
-              </Text>
-            ) : null}
-            {typeof audit.targetWeeklyGeneratedMinutes === "number" ? (
-              <Text style={screenStyles.subtle}>Support weekly minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes} target.</Text>
-            ) : null}
-            {audit.baselinePrescriptionTargets ? (
-              <Text style={screenStyles.subtle}>
-                Baseline plan: {audit.baselinePrescriptionTargets.targetGeneratedSupportCount} sessions, {audit.baselinePrescriptionTargets.targetHardDayCount} hard days, {audit.baselinePrescriptionTargets.targetWeeklyGeneratedMinutes} support minutes.
-              </Text>
-            ) : null}
-            {audit.plannedVsFinalTrainingDelta ? (
-              <Text style={screenStyles.subtle}>
-                Final change: {audit.plannedVsFinalTrainingDelta.actualGeneratedSupportCount}/{audit.plannedVsFinalTrainingDelta.targetGeneratedSupportCount} support workouts, {audit.plannedVsFinalTrainingDelta.actualHardDayCount}/{audit.plannedVsFinalTrainingDelta.targetHardDayCount} hard days.
-              </Text>
-            ) : null}
+    <View style={{ gap: spacing.sm }}>
+      <Text style={screenStyles.sectionTitle}>Plan diagnostics</Text>
+      {audit ? (
+        <>
+          <Text style={screenStyles.body}>
+            Support: {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount} workout{audit.targetGeneratedSupportCount === 1 ? "" : "s"} this week.
+          </Text>
+          <Text style={screenStyles.subtle}>Days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None selected"}</Text>
+          {typeof audit.targetHardDayCount === "number" ? (
             <Text style={screenStyles.subtle}>
-              Readiness impact: {audit.readinessGenerationImpact ?? "unknown"}; nutrition impact: {audit.nutritionGenerationImpact ?? "unknown"}; hydration impact: {audit.hydrationGenerationImpact ?? "unknown"}.
+              Hard days: {audit.actualHardDayCount ?? 0}/{audit.targetHardDayCount}
+              {typeof audit.protectedHardDayCount === "number" ? ` (${audit.protectedHardDayCount} boxing, ${audit.generatedHardDayCount ?? 0} support)` : ""}.
             </Text>
-            {audit.missingLogsAffectedExecutionOnly ? <Text style={screenStyles.subtle}>Missing logs affected how-to notes only; the planned workout stayed available.</Text> : null}
-            {(audit.executionAdjustmentsApplied ?? []).slice(0, 3).map((adjustment, index) => (
-              <Text key={`execution-adjustment:${index}`} style={screenStyles.subtle}>Execution: {plainPlanCopy(adjustment)}</Text>
-            ))}
-            {(audit.evidenceBasedOverridesApplied ?? []).slice(0, 3).map((override, index) => (
-              <Text key={`evidence-override:${index}`} style={screenStyles.subtle}>Override: {plainPlanCopy(override)}</Text>
-            ))}
-            {(audit.unmetPrescriptionTargets ?? []).map((target, index) => <Text key={`unmet-prescription:${index}`} style={screenStyles.subtle}>Target note: {plainPlanCopy(target)}</Text>)}
-            {(audit.blockedGenerationReasons ?? []).map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {plainPlanCopy(reason)}</Text>)}
-            {(audit.whyHardDaysWereReduced ?? []).map((reason, index) => <Text key={`hard-day-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {plainPlanCopy(reason)}</Text>)}
-            {(audit.whyVolumeWasReduced ?? []).map((reason, index) => <Text key={`volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {plainPlanCopy(reason)}</Text>)}
-            <Text style={screenStyles.subtle}>Selected support days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None"}</Text>
-            <Text style={screenStyles.subtle}>Dose: {audit.selectedTrainingDose ?? "unknown"}; available days: {audit.candidateAllowedDays}; over-60 sessions: {audit.sessionsOver60Minutes ?? 0}.</Text>
-            {audit.targetSessionCountReason ? <Text style={screenStyles.subtle}>Target reason: {plainPlanCopy(audit.targetSessionCountReason)}</Text> : null}
-            {(audit.unusedAvailableDays ?? []).length > 0 ? <Text style={screenStyles.subtle}>Unused available days: {(audit.unusedAvailableDays ?? []).join(", ")}</Text> : null}
-            {(audit.repairActionsApplied ?? []).map((repair, index) => <Text key={`repair-action:${index}`} style={screenStyles.subtle}>Repair action: {plainPlanCopy(repair)}</Text>)}
-            {(audit.whyOnlyFourSessionsIfSixDaysAvailable ?? []).map((reason, index) => <Text key={`four-session-reason:${index}`} style={screenStyles.subtle}>Four-session note: {plainPlanCopy(reason)}</Text>)}
-            {(audit.whyOnlyTwoHardDaysIfTargetWasThree ?? []).map((reason, index) => <Text key={`two-hard-reason:${index}`} style={screenStyles.subtle}>Hard-day shortfall note: {plainPlanCopy(reason)}</Text>)}
-            {(audit.whyAllSessionsUnder60IfSeriousOrHigh ?? []).map((reason, index) => <Text key={`under-sixty-reason:${index}`} style={screenStyles.subtle}>Duration note: {plainPlanCopy(reason)}</Text>)}
-            <Text style={screenStyles.subtle}>Saved support considered: {audit.persistedGeneratedSessionsConsidered.length}; ignored: {audit.persistedGeneratedSessionsIgnored.length}</Text>
-            {audit.persistedGeneratedSessionsIgnored.slice(0, 3).map((session) => (
-              <Text key={`ignored-generated-session:${session.id}`} style={screenStyles.subtle}>
-                Ignored saved support: {session.title} - {plainPlanCopy(session.reason)}
-              </Text>
-            ))}
-            <Text style={screenStyles.subtle}>Input hash: {audit.inputHash ?? "not stored"}; output hash: {audit.outputHash}.</Text>
-            <Text style={screenStyles.subtle}>
-              As of {audit.asOfDate}, starts {audit.planStartDate}, support workouts {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount}.
-            </Text>
-          </>
-        ) : (
-          <Text style={screenStyles.subtle}>No support workout detail was produced for this plan.</Text>
-        )}
-      </View>
+          ) : null}
+          {typeof audit.targetWeeklyGeneratedMinutes === "number" ? (
+            <Text style={screenStyles.subtle}>Support minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes}.</Text>
+          ) : null}
+          <Text style={screenStyles.subtle}>
+            Readiness {audit.readinessGenerationImpact ?? "unknown"}; nutrition {audit.nutritionGenerationImpact ?? "unknown"}; hydration {audit.hydrationGenerationImpact ?? "unknown"}.
+          </Text>
+          {audit.missingLogsAffectedExecutionOnly ? <Text style={screenStyles.subtle}>Missing logs affected how-to notes only; the workout stayed available.</Text> : null}
+          {planNotes.map((note, index) => <Text key={`plan-diagnostic-note:${index}`} style={screenStyles.subtle}>Note: {plainPlanCopy(note)}</Text>)}
+        </>
+      ) : (
+        <Text style={screenStyles.subtle}>No support workout detail was produced for this plan.</Text>
+      )}
+    </View>
   );
 }
 
@@ -405,7 +364,7 @@ function PlanDetailsWorkspace({
         <PlanDisclosure summary={viewModel.adjustmentSummary} testID="plan-details-plan-changes" title="Plan changes">
           <PlanAdjustmentsContent adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />
         </PlanDisclosure>
-        <PlanDisclosure summary="Hashes, saved-session diagnostics, repair actions, and block history." testID="plan-details-technical" title="Technical details">
+        <PlanDisclosure summary="Plan diagnostics and saved block history." testID="plan-details-technical" title="Diagnostics">
           <PlanReviewNotesContent viewModel={viewModel} />
           <View style={{ gap: spacing.sm }}>
             <Text style={screenStyles.sectionTitle}>Block history</Text>
@@ -558,7 +517,7 @@ function PlanActionCard({
     <DashboardCard
       headerRight={<DashboardPill label={`${viewModel.modeLabel} - Week ${viewModel.weekIndex}`} tone="blue" />}
       testID="plan-action-card"
-      title="Plan actions"
+      title="This week"
     >
       <Text style={screenStyles.body}>{plainPlanCopy(viewModel.athleteFacingWeekSummary)}</Text>
       {viewModel.fightOrTournamentNote ? <Text style={screenStyles.subtle}>{plainPlanCopy(viewModel.fightOrTournamentNote)}</Text> : null}

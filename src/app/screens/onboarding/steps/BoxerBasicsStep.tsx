@@ -49,14 +49,14 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Boxing identity</Text>
-      <Text style={screenStyles.subtle}>Required. This keeps CornerIQ boxer-first across amateur and pro contexts.</Text>
-      <FieldGroup helper="Choose the boxing lane that fits how you currently compete or plan to compete." label="Boxing status">
+      <Text style={screenStyles.subtle}>Boxer-first across amateur and pro contexts.</Text>
+      <FieldGroup helper="Choose your current lane." label="Boxing status">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <ChipButton active={draft.boxing.amateurOrPro === "amateur"} label="Amateur boxer" onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: "amateur" } }))} />
           <ChipButton active={draft.boxing.amateurOrPro === "pro"} label="Professional boxer" onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: "pro" } }))} />
         </View>
       </FieldGroup>
-      <FieldGroup helper="Pick the closest current level. This helps the engine avoid generic fitness defaults." label="Current boxing level">
+      <FieldGroup helper="Pick the closest current level." label="Current boxing level">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {boxingLevels.map((option) => (
             <ChipButton
@@ -69,7 +69,7 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
           ))}
         </View>
       </FieldGroup>
-      <FieldGroup example="Use 0 if brand new." helper="Years of boxing training. Choose the closest option; this affects support-work conservatism." label="Training age">
+      <FieldGroup example="Use 0 if brand new." helper="Choose the closest option." label="Training age">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {trainingAgeOptions.map((option) => (
             <ChipButton
@@ -81,7 +81,7 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
           ))}
         </View>
       </FieldGroup>
-      <FieldGroup helper="Optional. Unknown is fine if stance is not settled yet." label="Stance">
+      <FieldGroup helper="Optional. Unknown is fine." label="Stance">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["orthodox", "southpaw", "switch", "unknown"] as const).map((option) => (
             <ChipButton active={draft.boxing.stance === option} key={option} label={option === "unknown" ? "Not sure yet" : option} onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, stance: option } }))} />
