@@ -19,6 +19,7 @@ import {
   updateProfileSettings,
   type BuildGoalDraft,
   type FightSetupDraft,
+  type OnboardingCompletionResult,
   type OnboardingDraft,
   type ProfileSettingsDraft,
   type ProtectedWorkoutDraft,
@@ -40,7 +41,7 @@ export interface UsePerformanceStateInput {
 export interface PerformanceStateHook {
   asOfDate: ISODateString;
   acknowledgeNutritionSafetyReview: (reviewId: string) => Promise<void>;
-  completeOnboarding: (draft: OnboardingDraft) => Promise<void>;
+  completeOnboarding: (draft: OnboardingDraft) => Promise<OnboardingCompletionResult>;
   createDemoProfile: () => Promise<void>;
   loading: boolean;
   generationStatus: EngineGenerationStatus;
@@ -129,17 +130,20 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   }, [asOfDate, refresh, repositories, userId]);
 
   const finishOnboarding = useCallback(
-    async (draft: OnboardingDraft) => {
+    async (draft: OnboardingDraft): Promise<OnboardingCompletionResult> => {
       setLoading(true);
       setMessage(null);
       try {
         await completeOnboarding({ userId, asOfDate, draft, repositories });
         await refresh();
         setMessage("Boxer setup saved.");
+        return { status: "saved" };
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Onboarding failed.");
+        const failureMessage = error instanceof Error ? error.message : "Onboarding failed.";
+        setMessage(failureMessage);
         setLoading(false);
         setGenerationStatus("idle");
+        return { status: "failed", message: failureMessage };
       }
     },
     [asOfDate, refresh, repositories, userId]

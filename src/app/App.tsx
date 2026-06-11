@@ -373,7 +373,10 @@ function LocalE2EApp() {
           busy={false}
           demoShortcutEnabled
           message={message}
-          onComplete={async () => loadToday()}
+          onComplete={async () => {
+            await loadToday();
+            return { status: "saved" };
+          }}
           onCreateDemoProfile={() => {
             void loadToday();
           }}

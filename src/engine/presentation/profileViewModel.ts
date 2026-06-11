@@ -225,7 +225,7 @@ function buildCommandCenter(state: PerformanceState, completeness: ReturnType<ty
         label: "Safety visibility",
         value:
           hardStopCount > 0
-            ? plural(hardStopCount, "hard stop")
+            ? plural(hardStopCount, "safety stop")
             : activeRiskCount > 0
               ? plural(activeRiskCount, "active flag")
               : "No active stops",
@@ -374,7 +374,7 @@ function buildSafetyLedger(state: PerformanceState): readonly ProfileLedgerItemV
   return [
     {
       label: "Now",
-      title: state.safety.hardStops.length > 0 ? plural(state.safety.hardStops.length, "hard stop") : "No active safety stops",
+      title: state.safety.hardStops.length > 0 ? plural(state.safety.hardStops.length, "safety stop") : "No active safety stops",
       subtitle: plainFuelCopy(state.safety.explanation),
       tone: safetyTone(state)
     },

@@ -5,7 +5,7 @@ import { LuminousProgressBar, LuminousScreen, ScreenHeader } from "../../../desi
 import { colors, spacing } from "../../../design/theme";
 import type { ISODateString } from "../../../engine/core/types";
 import { useOnboardingDraft } from "../../../hooks/useOnboardingDraft";
-import type { OnboardingDraft } from "../../../services/supabase/onboardingService";
+import type { OnboardingCompletionResult, OnboardingDraft } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
 import { BodyMassStep } from "./steps/BodyMassStep";
 import { BoxerBasicsStep } from "./steps/BoxerBasicsStep";
@@ -21,7 +21,7 @@ export interface OnboardingScreenProps {
   busy: boolean;
   demoShortcutEnabled?: boolean | undefined;
   message: string | null;
-  onComplete: (draft: OnboardingDraft) => Promise<void>;
+  onComplete: (draft: OnboardingDraft) => Promise<OnboardingCompletionResult>;
   onCreateDemoProfile: () => void;
 }
 
@@ -119,8 +119,20 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
                 accessibilityLabel="Finish boxer setup"
                 disabled={busy}
                 onPress={() => {
-                  if (!onboarding.validateCurrentStep()) {
-                    void onComplete(onboarding.draft).then(onboarding.clearDraft);
+                  const error = onboarding.validateCurrentStep();
+                  if (!error) {
+                    void (async () => {
+                      try {
+                        const result = await onComplete(onboarding.draft);
+                        if (result.status === "saved") {
+                          await onboarding.clearDraft();
+                          return;
+                        }
+                        onboarding.setStepError(result.message);
+                      } catch (failure) {
+                        onboarding.setStepError(failure instanceof Error ? failure.message : "Onboarding failed.");
+                      }
+                    })();
                   }
                 }}
                 style={screenStyles.button}

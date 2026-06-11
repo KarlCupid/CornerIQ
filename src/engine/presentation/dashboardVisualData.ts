@@ -473,6 +473,27 @@ function topSummaryForToday(input: {
   return "Review the plan and adjust only what changed.";
 }
 
+function primaryTodayCta(input: {
+  hasWorkout: boolean;
+  lowFuel: boolean;
+  needsReadiness: boolean;
+  riskActive: boolean;
+}): { ctaAction: TodayPrimaryActionKind; ctaLabel: string } {
+  if (input.riskActive) {
+    return { ctaAction: "open_fuel_safety", ctaLabel: "Review safety" };
+  }
+  if (input.hasWorkout) {
+    return { ctaAction: "open_workout", ctaLabel: "Open training" };
+  }
+  if (input.lowFuel) {
+    return { ctaAction: "log_food", ctaLabel: "Open Fuel" };
+  }
+  if (input.needsReadiness) {
+    return { ctaAction: "log_readiness", ctaLabel: "Log readiness" };
+  }
+  return { ctaAction: "open_plan", ctaLabel: "Adjust plan" };
+}
+
 function decisionVisual(today: TodayViewModel, readiness: ReadinessDashboardVisual, train: TrainViewModel | undefined): DecisionDashboardVisual {
   const riskRatio = today.riskSummary.length > 0 ? 0.25 : 0.82;
   const intensity = train?.sessionCards[0]?.intensity ?? "moderate";
@@ -533,8 +554,8 @@ export function buildTodayDashboardVisual(input: {
   const needsReadiness = readiness.score === null;
   const fuelRows = todayFuelRows(input.fuel);
   const lowFuel = fuelRows.some((item) => item.ratio < 0.45 && /carb|hydration/i.test(item.label));
-  const ctaAction: TodayPrimaryActionKind = hasWorkout ? "open_workout" : lowFuel ? "log_food" : needsReadiness ? "log_readiness" : "open_plan";
-  const ctaLabel = hasWorkout ? "Open training" : lowFuel ? "Open Fuel" : needsReadiness ? "Log readiness" : "Adjust plan";
+  const riskActive = input.today.riskSummary.length > 0;
+  const cta = primaryTodayCta({ hasWorkout, lowFuel, needsReadiness, riskActive });
   return {
     readiness,
     weeklyLoad: barsFromPlan(input.plan, input.asOfDate),
@@ -548,10 +569,10 @@ export function buildTodayDashboardVisual(input: {
       hasWorkout,
       lowFuel,
       needsReadiness,
-      riskActive: input.today.riskSummary.length > 0
+      riskActive
     }),
-    ctaLabel,
-    ctaAction
+    ctaLabel: cta.ctaLabel,
+    ctaAction: cta.ctaAction
   };
 }
 

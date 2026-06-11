@@ -33,6 +33,10 @@ const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", 
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 
+export type OnboardingCompletionResult =
+  | { status: "saved" }
+  | { status: "failed"; message: string };
+
 export const ProtectedWorkoutDraftSchema = z.object({
   id: z.string().min(1).optional(),
   type: ProtectedWorkoutTypeSchema,

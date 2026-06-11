@@ -189,7 +189,7 @@ export async function requestNutritionSafetyReview(input: {
       eventId: event.id,
       journeyEventId: journeyEvent.id,
       hardStopRemains: persisted.review.hardStop,
-      message: "Review need logged. Hard stops remain active until a future explicit review workflow clears them."
+      message: "Review need logged. Safety stops remain active until a future explicit review workflow clears them."
     };
   } catch (error) {
     return {

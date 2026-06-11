@@ -11,7 +11,7 @@ const requiredReview: NutritionSafetyReview = {
   reasons: ["Same-day acute loss is blocked."],
   blockingFlags: ["acute_protocol_blocked"],
   suggestedNextSteps: ["Pause weight-class pressure."],
-  professionalReviewCopy: "Outside support is required before this plan can continue. The app will not let an athlete resolve a hard stop alone."
+  professionalReviewCopy: "Outside support is required before this plan can continue. The app will not let an athlete resolve a safety stop alone."
 };
 
 function persistedReview(overrides: Partial<PersistedNutritionSafetyReview> = {}): PersistedNutritionSafetyReview {
@@ -86,6 +86,7 @@ describe("requestNutritionSafetyReview", () => {
       journeyEventId: "journey_event_1",
       hardStopRemains: true
     });
+    expect(result.message).toContain("Safety stops remain active");
     expect(repo.nutritionSafetyReview.upsertNutritionSafetyReview).toHaveBeenCalledWith(
       expect.objectContaining({
         reviewType: "weight_class",

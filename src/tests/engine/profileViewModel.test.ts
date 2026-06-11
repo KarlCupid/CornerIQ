@@ -35,7 +35,7 @@ describe("profile view model", () => {
 
     expect(profile.commandCenter.statusLabel).toBe("Safety hold visible");
     expect(profile.commandCenter.score ?? 100).toBeLessThanOrEqual(48);
-    expect(profile.safetyLedger[0]?.title).toMatch(/hard stop/i);
+    expect(profile.safetyLedger[0]?.title).toMatch(/safety stop/i);
     expect(profile.safetyLedger.find((item) => item.label === "Fuel")?.subtitle).toContain("app will not let an athlete resolve");
     expect(profile.intelligenceLayers.find((item) => item.label === "Safety review")?.meta).toContain("cannot clear");
   });

@@ -47,6 +47,25 @@ describe("dashboardVisualData", () => {
     expect(plan.anchors.length).toBeGreaterThan(0);
   });
 
+  it("makes active safety own the Today CTA before opening a workout", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const today = buildTodayDashboardVisual({
+      asOfDate: fixtureAsOfDate,
+      fuel: state.viewModels.fuel,
+      plan: state.viewModels.plan,
+      recentLogs: state.viewModels.recentLogs,
+      today: {
+        ...state.viewModels.today,
+        riskSummary: ["Safety review is active."]
+      },
+      train: state.viewModels.train
+    });
+
+    expect(state.viewModels.train.todayGeneratedSessions.length).toBeGreaterThan(0);
+    expect(today.ctaAction).toBe("open_fuel_safety");
+    expect(today.ctaLabel).toBe("Review safety");
+  });
+
   it("derives workout section duration proportions from real session sections", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const session = state.viewModels.train.detailedTodaySessions.find((item) => item.detail)?.detail;

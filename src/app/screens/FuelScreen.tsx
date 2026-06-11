@@ -287,6 +287,57 @@ function FuelContextTile({ item }: { item: ModifierVisual }) {
   );
 }
 
+function FuelDoNowSummary({ dashboard }: { dashboard: FuelDashboardVisual }) {
+  const items = [
+    ...dashboard.macros.filter((item) => /protein|carb/i.test(item.label)).slice(0, 2),
+    { ...dashboard.hydration, label: "Water" }
+  ];
+  const foodStatus = dashboard.quickContext.find((item) => item.label === "Food log");
+  return (
+    <View
+      style={{
+        backgroundColor: "rgba(255, 255, 255, 0.06)",
+        borderColor: "rgba(255, 255, 255, 0.12)",
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        gap: spacing.sm,
+        padding: spacing.md
+      }}
+      testID="fuel-do-now-summary"
+    >
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        {items.map((item) => (
+          <View key={`fuel-do-now:${item.label}`} style={{ flexBasis: 84, flexGrow: 1, gap: 2, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
+              {item.label}
+            </Text>
+            <Text numberOfLines={1} style={{ color: colorForTone(item.tone), fontSize: 16, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 20 }}>
+              {item.valueLabel}
+            </Text>
+            <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>
+              {item.stateLabel ?? "Today"}
+            </Text>
+          </View>
+        ))}
+        {foodStatus ? (
+          <View style={{ flexBasis: 104, flexGrow: 1, gap: 2, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
+              Food status
+            </Text>
+            <Text numberOfLines={1} style={{ color: colorForTone(foodStatus.tone), fontSize: 16, fontWeight: "900", lineHeight: 20 }}>
+              {foodStatus.value}
+            </Text>
+            <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>
+              {foodStatus.ratio >= 0.65 ? "Enough context" : "Optional log"}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 function FuelBoardCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   const progressItems: readonly ProgressVisual[] = [
     ...dashboard.macros,
@@ -498,6 +549,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         testID="fuel-primary-task"
         title="Do now"
       >
+        <FuelDoNowSummary dashboard={dashboard} />
       </PrimaryTaskCard>
       {safetyReviewActive ? (
         <FuelSafetyReviewSection

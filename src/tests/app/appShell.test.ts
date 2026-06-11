@@ -883,7 +883,7 @@ const profileViewModel: ProfileViewModel = {
   ],
   safetyLedger: [
     { label: "Now", title: "No active safety stops", subtitle: "No active safety stops.", tone: "green" },
-    { label: "Fuel", title: "No active nutrition stop", subtitle: "No nutrition hard stop is active.", tone: "green" },
+    { label: "Fuel", title: "No active nutrition stop", subtitle: "No nutrition safety stop is active.", tone: "green" },
     { label: "Mass", title: "On track", subtitle: "Body mass context is available.", tone: "blue" },
     { label: "Block", title: "Week 2", subtitle: "Week 1 summarized: Week summary persisted.", tone: "purple" },
     { label: "Trace", title: "4 decisions", subtitle: "Decision trail is available.", tone: "gold" }
@@ -1925,6 +1925,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Carbs");
     expect(output).toContain("Fat");
     expect(output).toContain("Water");
+    expect(output).toContain("fuel-do-now-summary");
+    expect(output).toContain("Food status");
     expect(output).toContain("Show fuel detail");
     expect(output).toContain("Log meal");
     expect(output).toContain("Add water");
@@ -4541,6 +4543,24 @@ describe("minimal app screens", () => {
     expect(validateOnboardingDraftForFinish(draft)).toContain("Current body weight");
   });
 
+  it("onboarding keeps the draft on an explicit save failure result", async () => {
+    const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
+    const onComplete = vi.fn(async () => ({ status: "failed" as const, message: "Profile save failed." }));
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn() }));
+
+    for (let step = 0; step < 7; step += 1) {
+      await act(async () => {
+        await press(pressableWithText(renderer, "Next"));
+      });
+    }
+    await act(async () => {
+      await press(pressableWithText(renderer, "Finish setup"));
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(renderer.toJSON())).toContain("Profile save failed.");
+  });
+
   it("cycle context card handles enabled, disabled, contraception, high symptoms, and scale notes", async () => {
     const { CycleContextCard } = await import("../../app/screens/cycle/CycleContextCard");
     const enabled = {
@@ -4851,6 +4871,40 @@ describe("minimal app screens", () => {
     await expect(refreshWith("ready")).resolves.toBe("ready");
     await expect(refreshWith("needs_profile")).resolves.toBe("needs_profile");
     await expect(refreshWith("error")).resolves.toBe("error");
+  });
+
+  it("usePerformanceState returns an explicit onboarding failure result", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("needs_profile");
+    repositories.athlete.upsertProfile = vi.fn(async () => {
+      throw new Error("profile save failed");
+    }) as AthleteJourneyRepositories["athlete"]["upsertProfile"];
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    const draft = {
+      ...createDefaultOnboardingDraft(fixtureAsOfDate),
+      protectedScheduleChoice: "no_anchors" as const,
+      protectedSchedule: [],
+      recurringProtectedSchedule: []
+    };
+    let result: Awaited<ReturnType<PerformanceStateHook["completeOnboarding"]>> | undefined;
+    await act(async () => {
+      result = await snapshot.current?.completeOnboarding(draft);
+    });
+
+    expect(result).toEqual({ status: "failed", message: "profile save failed" });
+    expect(snapshot.current?.message).toBe("profile save failed");
+    expect(repositories.journey.appendEvent).not.toHaveBeenCalledWith("user_1", "OnboardingCompleted", expect.anything());
   });
 
   it("usePerformanceState refreshes engine state after profile settings update", async () => {
