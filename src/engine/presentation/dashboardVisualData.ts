@@ -89,7 +89,10 @@ export interface TodayDashboardVisual {
   schedule: readonly TimelineVisual[];
   topSummary: string;
   ctaLabel: string;
+  ctaAction: TodayPrimaryActionKind;
 }
+
+export type TodayPrimaryActionKind = "log_food" | "log_readiness" | "open_plan" | "open_train" | "open_workout" | "open_fuel_safety";
 
 export interface FuelDashboardVisual {
   macros: readonly ProgressVisual[];
@@ -519,6 +522,7 @@ export function buildTodayDashboardVisual(input: {
   const needsReadiness = readiness.score === null;
   const fuelRows = todayFuelRows(input.fuel);
   const lowFuel = fuelRows.some((item) => item.ratio < 0.45 && /carb|hydration/i.test(item.label));
+  const ctaAction: TodayPrimaryActionKind = hasWorkout ? "open_workout" : lowFuel ? "log_food" : needsReadiness ? "log_readiness" : "open_plan";
   const ctaLabel = hasWorkout ? "Open training" : lowFuel ? "Open Fuel" : needsReadiness ? "Log readiness" : "Adjust plan";
   return {
     readiness,
@@ -535,7 +539,8 @@ export function buildTodayDashboardVisual(input: {
       needsReadiness,
       riskActive: input.today.riskSummary.length > 0
     }),
-    ctaLabel
+    ctaLabel,
+    ctaAction
   };
 }
 

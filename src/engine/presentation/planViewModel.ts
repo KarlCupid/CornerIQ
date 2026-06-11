@@ -313,8 +313,8 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
     persistedStatus,
     persistedStatusLabel:
       persistedStatus === "not_persisted"
-        ? "Preview persistence pending."
-        : `Persisted preview ${persisted?.previewId ?? "unknown"} (${persistedStatus.replaceAll("_", " ")}).${
+        ? "Preview save pending."
+        : `Saved preview ${persisted?.previewId ?? "unknown"} (${persistedStatus.replaceAll("_", " ")}).${
             persistedStatus === "materialized" ? ` Support workouts: ${materializedGeneratedSessions.length}.` : ""
           }`,
     generatedSessionCount: materializedGeneratedSessions.length,
@@ -323,7 +323,7 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
     canAccept: persistedStatus === "preview",
     showMaterializeAction: Boolean(persisted?.previewId && state.asOfDate >= preview.nextWeekStartDate && persistedStatus === "accepted"),
     requiresReview,
-    actionCopy: requiresReview ? "Review required before saving next week." : "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
+    actionCopy: requiresReview ? "A safety stop must be resolved before saving next week." : "Accepting stores this preview as the plan direction. It does not bypass safety or create hard work early.",
     explanation: plainTrainingCopy(preview.explanation),
     safetyNotes: preview.safetyNotes.map(plainTrainingCopy),
     dayPlanPreview: preview.nextWeekDayPlanPreview.map((day) => ({
@@ -409,8 +409,8 @@ function rollForwardStatus(
     if (preview.requiresReview) {
       return {
         rollForwardStatus: "blocked",
-        rollForwardMessage: "Review required before next week can start.",
-        rollForwardRiskLabel: "Review required",
+        rollForwardMessage: "A safety stop must be resolved before next week can start.",
+        rollForwardRiskLabel: "Safety hold",
         rollForwardRiskTone: "caution"
       };
     }
@@ -440,8 +440,8 @@ function rollForwardStatus(
   if (preview.requiresReview) {
     return {
       rollForwardStatus: "blocked",
-      rollForwardMessage: "Review required before next week can start.",
-      rollForwardRiskLabel: "Review required",
+      rollForwardMessage: "A safety stop must be resolved before next week can start.",
+      rollForwardRiskLabel: "Safety hold",
       rollForwardRiskTone: "caution"
     };
   }
@@ -532,8 +532,8 @@ function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextW
       .map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`);
     return {
       weekIndex,
-      summary: summary ? summary.summary : "No persisted week summary for this week.",
-      decision: decision ? `${decision.decision.replaceAll("_", " ")} - ${decision.reason}` : "No persisted progression decision for this week.",
+      summary: summary ? summary.summary : "No saved week summary for this week.",
+      decision: decision ? `${decision.decision.replaceAll("_", " ")} - ${decision.reason}` : "No saved progression decision for this week.",
       nextWeekPreviewStatus:
         nextWeekPreview.weekIndex === weekIndex
           ? `${nextWeekPreview.persistedStatusLabel} ${nextWeekPreview.actionCopy}`
@@ -553,7 +553,7 @@ function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextW
     whatChangedAndWhy: [
       state.training.latestProgressionDecision
         ? `Latest decision: ${state.training.latestProgressionDecision.decision.replaceAll("_", " ")} because ${state.training.latestProgressionDecision.reason}`
-        : "No persisted progression decision yet; next week stays conservative.",
+        : "No saved progression decision yet; next week stays conservative.",
       nextWeekPreview.explanation
     ],
     groupedWeeks,

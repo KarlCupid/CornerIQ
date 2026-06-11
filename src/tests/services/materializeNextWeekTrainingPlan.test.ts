@@ -199,7 +199,7 @@ describe("materializeNextWeekTrainingPlan service", () => {
     });
 
     expect(result.status).toBe("rejected");
-    expect(result.explanation).toContain("Review is required");
+    expect(result.explanation).toContain("safety hold");
     expect(repositories.trainingBlock.upsertTrainingMicrocycle).not.toHaveBeenCalled();
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });
@@ -239,7 +239,7 @@ describe("materializeNextWeekTrainingPlan service", () => {
     });
 
     expect(result.status).toBe("rejected");
-    expect(result.explanation).toContain("Hard-stop safety");
+    expect(result.explanation).toContain("Safety stop");
     expect(repositories.trainingBlock.upsertTrainingMicrocycle).not.toHaveBeenCalled();
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });

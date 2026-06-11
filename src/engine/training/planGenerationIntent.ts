@@ -30,6 +30,11 @@ function isoDateValue(value: unknown): ISODateString | null {
   return text && /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
 }
 
+function dateFromDateTimeValue(value: unknown): ISODateString | null {
+  const text = stringValue(value);
+  return text ? isoDateValue(text.slice(0, 10)) : null;
+}
+
 function actionFromPayload(payload: Record<string, unknown>, intentPayload: Record<string, unknown> | null): PlanGenerationAction | null {
   const action = stringValue(intentPayload?.action) ?? stringValue(payload.planAction);
   if (action === "start_new_plan" || action === "amend_current_plan") {
@@ -159,6 +164,12 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
     stringValue(payload.planRevisionId) ??
     `plan:${stableHash({ eventId: event.id, payload, requestedAt, asOfDate })}`;
   const seed = stringValue(intentPayload?.seed) ?? stringValue(payload.seed) ?? id;
+  const planStartDate =
+    isoDateValue(intentPayload?.planStartDate) ??
+    isoDateValue(payload.planStartDate) ??
+    dateFromDateTimeValue(event.occurredAt) ??
+    journey.activeTrainingBlock?.startDate ??
+    asOfDate;
 
   return {
     id,
@@ -168,7 +179,7 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
     primaryFocus: primaryFocusFromPayload(payload, intentPayload),
     trainingDose,
     selectedSupportDays,
-    planStartDate: isoDateValue(intentPayload?.planStartDate) ?? isoDateValue(payload.planStartDate) ?? asOfDate,
+    planStartDate,
     requestedAt,
     seed,
     source: "plan_wizard",

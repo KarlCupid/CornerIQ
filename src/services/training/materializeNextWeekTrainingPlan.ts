@@ -79,8 +79,8 @@ function rejected(explanation: string, previewId: string | undefined, warnings: 
 function serviceError(error: unknown): MaterializeNextWeekTrainingPlanResult {
   return {
     status: "error",
-    explanation: error instanceof Error ? error.message : "Next-week materialization failed.",
-    warnings: ["No programming projection was materialized."]
+    explanation: error instanceof Error ? error.message : "Next-week save failed.",
+    warnings: ["No programming projection was saved."]
   };
 }
 
@@ -97,7 +97,7 @@ function attachGeneratedSessions(input: {
       fuelDemand: generatedSessions.some((session) => session.fuelDemand === "high") ? "high" : dayPlan.fuelDemand,
       explanation:
         generatedSessions.length > 0
-          ? `${dayPlan.explanation} ${generatedSessions.length} generated support session(s) were safely materialized for this future date.`
+          ? `${dayPlan.explanation} ${generatedSessions.length} support workout(s) were safely saved for this future date.`
           : dayPlan.explanation
     };
   });
@@ -112,7 +112,7 @@ function attachGeneratedSessions(input: {
         .map((dayPlan) => dayPlan.date),
       notes: [
         ...input.microcycle.notes.filter((note) => !note.includes("no future generated session objects")),
-        `${input.sessions.length} generated support session(s) materialized from the accepted preview.`
+        `${input.sessions.length} support workout(s) saved from the accepted preview.`
       ]
     }
   };
@@ -168,7 +168,7 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
     const userId = assertUserId(input.userId, "materializeNextWeekTrainingPlan");
     const trainingBlockId = activeTrainingBlockId(input.current);
     if (!trainingBlockId) {
-      return rejected("Active training block must be persisted before next-week preview actions.", input.previewId);
+      return rejected("Active training block must be saved before next-week preview actions.", input.previewId);
     }
 
     const preview = await resolvePreview({
@@ -178,13 +178,13 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       previewId: input.previewId
     });
     if (!preview) {
-      return rejected("No persisted next-week preview was found for the active block.", input.previewId);
+      return rejected("No saved next-week preview was found for the active block.", input.previewId);
     }
     if (preview.userId !== userId || preview.trainingBlockId !== trainingBlockId) {
-      return rejected("Persisted preview does not belong to this athlete and active block.", preview.id);
+      return rejected("Saved preview does not belong to this athlete and active block.", preview.id);
     }
     if (preview.status === "superseded" || preview.status === "rejected") {
-      return rejected(`Persisted preview is ${preview.status} and cannot be accepted or materialized.`, preview.id);
+      return rejected(`Saved preview is ${preview.status} and cannot be accepted or saved as next week.`, preview.id);
     }
 
     if (input.mode === "preview_only") {
@@ -198,7 +198,7 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
 
     if (input.mode === "accept_preview") {
       if (preview.status === "materialized") {
-        return rejected("Next-week preview is already materialized.", preview.id);
+        return rejected("Next-week preview is already saved as the active week.", preview.id);
       }
       const accepted = await input.repositories.trainingNextWeekPreview.markPreviewAccepted(userId, preview.id);
       const eventId = await appendTimelineEvent({
@@ -210,7 +210,7 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
           blockId: trainingBlockId,
           eventType: "next_week_preview_accepted",
           title: "Next-week preview accepted",
-          summary: "Athlete accepted the persisted next-week preview as plan direction. Safety still gates materialization.",
+          summary: "Athlete accepted the saved next-week preview as plan direction. Safety still gates the future save.",
           preview: accepted,
           auditMetadata: input.auditMetadata
         })
@@ -227,30 +227,30 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
         explanation: "Next-week preview accepted as plan direction. It does not bypass safety or create hard work early.",
         previewId: accepted.id,
         timelineEventId: eventId,
-        warnings: accepted.volumeStrategy === "hold_for_review" ? ["Review required before materializing."] : []
+        warnings: accepted.volumeStrategy === "hold_for_review" ? ["A safety hold must be resolved before saving next week."] : []
       };
     }
 
     if (preview.status === "materialized") {
       return {
         status: "materialized",
-        explanation: "Next-week preview is already materialized.",
+        explanation: "Next-week preview is already saved as the active week.",
         previewId: preview.id,
         generatedSessionIds: [],
         warnings: []
       };
     }
     if (preview.status !== "accepted") {
-      return rejected("Next-week preview must be accepted before it can be materialized.", preview.id, ["No future sessions were created."]);
+      return rejected("Next-week preview must be accepted before it can be saved as the active week.", preview.id, ["No future sessions were created."]);
     }
     if (input.asOfDate < preview.weekStartDate && !input.allowBoundaryOverride) {
-      return rejected("Next-week preview is not at the week boundary yet; no future day plans were materialized.", preview.id, ["Current week was not mutated."]);
+      return rejected("Next-week preview is not at the week boundary yet; no future day plans were saved.", preview.id, ["Current week was not changed."]);
     }
     if (activeHardStop(input.current)) {
-      return rejected("Hard-stop safety is active, so next-week materialization is blocked.", preview.id, ["No future hard work was materialized."]);
+      return rejected("Safety stop is active, so saving next week is blocked.", preview.id, ["No future hard work was saved."]);
     }
     if (preview.volumeStrategy === "hold_for_review" && !input.reviewApproved) {
-      return rejected("Review is required before a hold-for-review preview can be materialized.", preview.id, ["No hard work was materialized."]);
+      return rejected("A safety hold must be resolved before this preview can be saved as next week.", preview.id, ["No hard work was saved."]);
     }
 
     const projection = nextWeekPreviewToMicrocycle({
@@ -314,8 +314,8 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
         asOfDate: input.asOfDate,
         blockId: trainingBlockId,
         eventType: "next_week_materialized",
-        title: "Next week materialized",
-        summary: `Accepted preview was materialized into next-week microcycle, day-plan projections, and ${generatedSessions.length} generated support session(s).`,
+        title: "Next week saved",
+        summary: `Accepted preview was saved into next-week microcycle, day-plan projections, and ${generatedSessions.length} support workout(s).`,
         preview: materialized,
         generatedSessionCount: generatedSessions.length,
         generatedSessionIds,
@@ -339,7 +339,7 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
 
     return {
       status: "materialized",
-      explanation: "Accepted next-week preview was materialized into persisted next-week day-plan projections.",
+      explanation: "Accepted next-week preview was saved into next-week day-plan projections.",
       previewId: materialized.id,
       materializedMicrocycleId: microcycle.id,
       materializedDayPlanIds: dayPlans.ids,
@@ -347,8 +347,8 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       timelineEventId: eventId,
       warnings:
         generatedSessions.length > 0
-          ? ["Generated support sessions are persisted for their future dates only.", ...journeyWarnings]
-          : ["No generated sessions were created; preview remained conservative.", ...journeyWarnings]
+          ? ["Support workouts are saved for their future dates only.", ...journeyWarnings]
+          : ["No support workouts were created; preview remained conservative.", ...journeyWarnings]
     };
   } catch (error) {
     return serviceError(error);

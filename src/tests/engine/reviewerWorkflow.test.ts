@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { canTransitionNutritionSafetyReview, reviewerWorkflowScope } from "../../engine/nutrition/reviewerWorkflow";
 
 describe("nutrition reviewer workflow policy", () => {
-  it("allows athlete acknowledgement but not athlete clear", () => {
+  it("allows athlete acknowledgement but not athlete resolution", () => {
     expect(
       canTransitionNutritionSafetyReview({
         currentStatus: "requested",
@@ -17,7 +17,7 @@ describe("nutrition reviewer workflow policy", () => {
         targetStatus: "cleared_by_reviewer",
         actor: { actorType: "athlete", actorUserId: "user_1", reviewerRole: null, trustedServerSide: false }
       })
-    ).toMatchObject({ allowed: false, auditEventType: null, reason: expect.stringContaining("Athlete clients cannot clear") });
+    ).toMatchObject({ allowed: false, auditEventType: null, reason: expect.stringContaining("Athlete clients cannot resolve") });
   });
 
   it("requires trusted server-side reviewer identity for reviewer clear or not-cleared decisions", () => {

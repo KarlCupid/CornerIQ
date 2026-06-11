@@ -149,7 +149,8 @@ describe("beta safety static scans", () => {
     }
 
     const errorBoundary = readFileSync("src/app/components/AppErrorBoundary.tsx", "utf8");
-    expect(errorBoundary).toContain("contact support outside the app");
+    const supportCopy = readFileSync("src/app/supportCopy.ts", "utf8");
+    expect(`${errorBoundary}\n${supportCopy}`).toContain("contact support outside the app");
     expect(errorBoundary).not.toMatch(/submit|report this issue|feedback/i);
   });
 });

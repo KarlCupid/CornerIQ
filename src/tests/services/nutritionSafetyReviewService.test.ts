@@ -11,7 +11,7 @@ const requiredReview: NutritionSafetyReview = {
   reasons: ["Same-day acute loss is blocked."],
   blockingFlags: ["acute_protocol_blocked"],
   suggestedNextSteps: ["Pause weight-class pressure."],
-  professionalReviewCopy: "Review required before this plan can continue. The app will not let an athlete self-clear a hard stop."
+  professionalReviewCopy: "Outside support is required before this plan can continue. The app will not let an athlete resolve a hard stop alone."
 };
 
 function persistedReview(overrides: Partial<PersistedNutritionSafetyReview> = {}): PersistedNutritionSafetyReview {
@@ -126,7 +126,7 @@ describe("requestNutritionSafetyReview", () => {
         reasons: [],
         blockingFlags: [],
         suggestedNextSteps: [],
-        professionalReviewCopy: "No professional review gate is active for today."
+        professionalReviewCopy: "No outside-support safety stop is active for today."
       },
       engineVersion: "0.2.0",
       inputHash: "input_hash",

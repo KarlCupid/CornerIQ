@@ -104,7 +104,7 @@ export async function autoRollForwardTrainingPlan(input: AutoRollForwardTraining
     if (!trainingBlockId) {
       return result({
         status: "not_needed",
-        explanation: "No persisted active training block is available for automatic roll-forward.",
+        explanation: "No saved active training block is available for automatic roll-forward.",
         warnings: []
       });
     }
@@ -123,14 +123,14 @@ export async function autoRollForwardTrainingPlan(input: AutoRollForwardTraining
       if (unaccepted) {
         return result({
           status: "not_needed",
-          explanation: "Preview is available but not accepted. Review before materializing.",
+          explanation: "Preview is available but not accepted. Review before saving it as next week.",
           previewId: unaccepted.id,
-          warnings: ["Automatic roll-forward only materializes accepted previews."]
+          warnings: ["Automatic roll-forward only saves accepted previews."]
         });
       }
       return result({
         status: "not_needed",
-        explanation: "No accepted next-week preview is ready for automatic materialization.",
+        explanation: "No accepted next-week preview is ready for automatic saving.",
         warnings: []
       });
     }
@@ -140,7 +140,7 @@ export async function autoRollForwardTrainingPlan(input: AutoRollForwardTraining
         status: "blocked",
         explanation: "Accepted preview does not belong to this athlete and active block.",
         previewId: candidate.id,
-        warnings: ["No programming projection was materialized."]
+        warnings: ["No programming projection was saved."]
       });
     }
 
@@ -167,16 +167,16 @@ export async function autoRollForwardTrainingPlan(input: AutoRollForwardTraining
         status: "blocked",
         explanation: "Accepted preview week has already passed, so automatic roll-forward will not mutate a previous week.",
         previewId: candidate.id,
-        warnings: ["Review the current plan before materializing any stale preview."]
+        warnings: ["Review the current plan before saving any stale preview."]
       });
     }
 
     if (activeHardStop(input.current)) {
       return result({
         status: "blocked",
-        explanation: "Hard-stop safety is active, so automatic roll-forward is blocked.",
+        explanation: "A safety stop is active, so automatic roll-forward is blocked.",
         previewId: candidate.id,
-        warnings: ["No future hard work was materialized."]
+        warnings: ["No future hard work was saved."]
       });
     }
 
@@ -184,7 +184,7 @@ export async function autoRollForwardTrainingPlan(input: AutoRollForwardTraining
     if (candidate.volumeStrategy === "hold_for_review" && !hasReviewApproval) {
       return result({
         status: "blocked",
-        explanation: "Review required before materialization.",
+        explanation: "A safety hold must be resolved before automatic saving.",
         previewId: candidate.id,
         warnings: ["Hold-for-review previews remain blocked until explicitly approved."]
       });
@@ -210,7 +210,7 @@ export async function autoRollForwardTrainingPlan(input: AutoRollForwardTraining
     if (materialized.status === "materialized") {
       return {
         status: "materialized",
-        explanation: "Next week was materialized from your accepted preview.",
+        explanation: "Next week was saved from your accepted preview.",
         previewId: materialized.previewId,
         generatedSessionIds: materialized.generatedSessionIds,
         materializedDayPlanIds: materialized.materializedDayPlanIds,

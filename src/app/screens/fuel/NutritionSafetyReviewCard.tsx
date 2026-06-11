@@ -46,7 +46,7 @@ export function NutritionSafetyReviewCard({
         <Text style={screenStyles.callout}>{plainFuelCopy(review.professionalReviewCopy)}</Text>
         {activeReview ? <Text style={screenStyles.body}>Review {activeReview.id}: {statusLabel(activeReview.status)}.</Text> : null}
         {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Safety stop remains active.</Text> : null}
-        <Text style={screenStyles.subtle}>This cannot be cleared in the app. Use medical or nutrition support outside the app.</Text>
+        <Text style={screenStyles.subtle}>This cannot be resolved in the app. Use medical or nutrition support outside the app.</Text>
         <Text style={screenStyles.subtle}>For urgent symptoms or unsafe weight concerns, stop and get support now.</Text>
         <Lines items={reasons.length > 0 ? reasons.slice(0, 3) : ["Safety stop is active."]} />
         {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Safety flags</Text> : null}

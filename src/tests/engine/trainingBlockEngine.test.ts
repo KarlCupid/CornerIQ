@@ -11,6 +11,7 @@ import type {
   ProtectedWorkout,
   ReadinessCheckIn,
   RecurringProtectedWorkoutAnchor,
+  TrainingBlock,
   WaterLog
 } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
@@ -1037,6 +1038,93 @@ describe("training block and microcycle engine", () => {
     expect(state.viewModels.train.supportGenerationSummary.currentWeekGeneratedSessionTitles).toEqual(state.viewModels.train.weeklyWorkoutCards.map((session) => session.title));
     expect(state.viewModels.train.todaySummary).toContain("Upcoming this week");
     expect(state.viewModels.train.weeklyWorkoutCards).toHaveLength(2);
+  });
+
+  it("infers legacy plan wizard start dates from the event date instead of the current real date", () => {
+    const legacyPlanEvent: JourneyEvent = {
+      id: "legacy_plan_without_start",
+      type: "BuildPhaseStarted",
+      occurredAt: "2026-05-19T09:00:00.000Z",
+      payload: {
+        primaryFocus: "strength",
+        source: "plan_wizard_new_plan",
+        scheduleAvailability: ["tuesday", "thursday", "saturday"],
+        trainingDose: "standard"
+      }
+    };
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "thursday", "saturday"]
+        },
+        journeyEvents: [legacyPlanEvent],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: "2026-05-20"
+    });
+
+    expect(state.training.planGenerationIntent?.planStartDate).toBe("2026-05-19");
+    expect(state.training.supportGenerationAudit.planStartDate).toBe("2026-05-19");
+    expect(state.training.currentMicrocycle.weekStartDate).toBe("2026-05-19");
+    expect(state.training.dayPlans.map((day) => day.date).slice(0, 2)).toEqual(["2026-05-19", "2026-05-20"]);
+  });
+
+  it("advances a persisted active plan to the current block week instead of replaying week one", () => {
+    const planEvent = planWizardBuildEvent({
+      focus: "balanced",
+      id: "plan_week_two_anchor",
+      planStartDate: "2026-05-19",
+      selectedSupportDays: ["tuesday", "thursday", "saturday"],
+      trainingDose: "standard"
+    });
+    const firstWeek = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "thursday", "saturday"]
+        },
+        journeyEvents: [planEvent],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const activeTrainingBlock: TrainingBlock = {
+      ...firstWeek.training.activeBlock,
+      id: "training_block_week_two",
+      startDate: "2026-05-19",
+      endDate: "2026-06-15"
+    };
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "thursday", "saturday"]
+        },
+        currentTrainingBlock: activeTrainingBlock.id,
+        activeTrainingBlock,
+        journeyEvents: [planEvent],
+        trainingHistory: firstWeek.training.generatedSessions.map((session) => ({ ...session, trainingBlockId: activeTrainingBlock.id })),
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: "2026-05-26"
+    });
+
+    expect(state.training.currentMicrocycle.weekStartDate).toBe("2026-05-26");
+    expect(state.training.currentMicrocycle.weekEndDate).toBe("2026-06-01");
+    expect(state.training.supportGenerationAudit.planStartDate).toBe("2026-05-26");
+    expect(state.training.supportGenerationAudit.weekIndex).toBe(2);
+    expect(state.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(state.training.generatedSessions.every((session) => session.date >= "2026-05-26")).toBe(true);
+    expect(state.training.generatedSessions.every((session) => session.weekIndex === 2)).toBe(true);
   });
 
   it("keeps generated support availability separate from weekly recurring anchors", () => {

@@ -86,11 +86,13 @@ function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quic
 
 function FuelLogActionSection({
   busy,
+  onClose,
   primaryLog,
   quickLogs,
   recentLogs
 }: {
   busy: boolean;
+  onClose: () => void;
   primaryLog: "food" | "water";
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
@@ -107,6 +109,17 @@ function FuelLogActionSection({
   );
   return (
     <View style={{ gap: spacing.lg }} testID="fuel-log-action-section">
+      <EngineCard>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={screenStyles.sectionTitle}>{primaryLog === "water" ? "Add water" : "Log food"}</Text>
+            <Text style={screenStyles.subtle}>Use this logger, then return to the overview. Quick logging stays available any time.</Text>
+          </View>
+          <Pressable accessibilityLabel="Back to Fuel overview" accessibilityRole="button" onPress={onClose} style={[screenStyles.quietButton, { minHeight: 44, minWidth: 92, paddingHorizontal: spacing.md }]}>
+            <Text style={screenStyles.quietButtonText}>Back to overview</Text>
+          </Pressable>
+        </View>
+      </EngineCard>
       {primaryCard}
       {secondaryCard}
     </View>
@@ -259,9 +272,13 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
       : appliedFocusIntent === "log_food" || focusIntent === "log_food" || recentLogs.foodToday.entryCount === 0 || recentLogs.hydrationToday.loggedToday
         ? "food"
         : "water";
-  const logSection = <FuelLogActionSection busy={busy} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />;
+  const closeLogSection = () => {
+    setAppliedFocusIntent(null);
+    onFocusIntentApplied?.();
+  };
+  const logSection = <FuelLogActionSection busy={busy} onClose={closeLogSection} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />;
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
-  const showLogSection = appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration" || focusIntent === "log_food" || focusIntent === "log_hydration";
+  const showLogSection = appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration";
   const primaryFuelButton: FastTaskAction = primaryLog === "water"
     ? {
         disabled: busy,

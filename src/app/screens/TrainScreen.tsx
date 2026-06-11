@@ -112,6 +112,7 @@ function WorkoutInProgressCard({
     <DashboardCard testID="train-workout-in-progress-card" title="Workout in progress">
       <Text style={screenStyles.body}>{sessionTitle}</Text>
       <Text style={screenStyles.subtle}>Status: {status.replace(/_/g, " ")}.</Text>
+      <Text style={screenStyles.subtle}>Resume is available while this app session stays alive. If the app reloads or you discard, follow-along progress may be lost.</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         <Pressable accessibilityRole="button" onPress={onResume} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
           <Text style={screenStyles.buttonText}>Resume workout</Text>

@@ -29,12 +29,12 @@ export function NutritionReviewHistoryPanel({ history }: { history: NutritionRev
                 {review.reviewId}: {statusLabel(review.status)} {review.hardStop ? "- safety stop remains active" : ""}
               </Text>
               <Text style={screenStyles.subtle}>
-                Type: {statusLabel(review.reviewType)}. Severity: {review.severity}. Athlete clear: no.
+                Type: {statusLabel(review.reviewType)}. Severity: {review.severity}. Athlete resolve in app: no.
               </Text>
               {review.reasons.slice(0, 3).map((reason, reasonIndex) => <Text key={`review-reason:${reasonIndex}`} style={screenStyles.subtle}>Reason: {plainFuelCopy(reason)}</Text>)}
               {review.blockingFlags.slice(0, 3).map((flag, flagIndex) => <Text key={`review-flag:${flagIndex}`} style={screenStyles.subtle}>Safety flag: {statusLabel(flag)}</Text>)}
               {review.suggestedNextSteps.slice(0, 3).map((step, stepIndex) => <Text key={`review-step:${stepIndex}`} style={screenStyles.subtle}>Next: {plainFuelCopy(step)}</Text>)}
-              <Text style={screenStyles.subtle}>This does not clear the plan.</Text>
+              <Text style={screenStyles.subtle}>This does not resolve the plan.</Text>
             </View>
           ))
         ) : (

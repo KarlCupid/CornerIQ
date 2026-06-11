@@ -508,7 +508,7 @@ describe("resolveAndPersistPerformanceState", () => {
     if (result.status === "ready") {
       expect(result.state.nutrition.nutritionSafetyReview.required).toBe(true);
       expect(result.state.viewModels.fuel.activeNutritionSafetyReviews[0]?.status).toBe("acknowledged_by_athlete");
-      expect(result.state.viewModels.fuel.nutritionSafetyReview.professionalReviewCopy).toContain("will not let an athlete self-clear");
+      expect(result.state.viewModels.fuel.nutritionSafetyReview.professionalReviewCopy).toContain("will not let an athlete resolve");
     }
   });
 

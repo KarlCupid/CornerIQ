@@ -8,13 +8,13 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | --- | --- |
 | Current QA phase | needs_human_review |
 | Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
-| Last QA run result | 2026-06-10 bottom navigation/tab tuning and verification: the app shell tabs now use below-icon labels across viewport sizes, a tighter 60px dark bar, a smaller centered active marker, restored tab-specific semantic accents, and softer inactive blue-gray colouring. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed; tests reported 554 passed and 1 live-smoke test skipped. Focused Vitest initially failed in the Windows sandbox while resolving `vitest.config.mjs` and passed on the approved rerun; `qa:agent:audit` initially failed in the sandbox with local Expo/Playwright connection and metadata-fetch errors, then the approved rerun passed 10/10 browser scenarios. The current contact sheet was regenerated with `cmd /c npm run qa:agent:contact-sheet` at `qa-artifacts/reports/agent-browser-audit-contact-sheet.html`. Fresh screenshots/page text are under `qa-artifacts/browser-audit/current/`. Live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
+| Last QA run result | 2026-06-10 release-blocker hardening verification: workout-player no-op options were removed, onboarding draft persistence now uses AsyncStorage on native with test/web fallback only, Plan Details is athlete-readable before collapsed technical details, outside-app support copy was added, workout resume limitations are explicit, Today routing uses an action enum, and Fuel logging can return to overview. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed; tests reported 556 passed and 1 live-smoke test skipped. Installing `@react-native-async-storage/async-storage` first failed under Windows sandbox/package-cache restrictions and passed on the approved rerun. Focused Vitest first failed under the Windows sandbox while resolving `vitest.config.mjs` and passed on approved reruns. Agent browser CI was not rerun in this pass, so live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 3 human/AI review limitations remain explicitly tracked |
-| Next recommended action | Review the refreshed bottom navigation and the Today, Fuel, Train, Plan, and Profile screenshots with a human boxer/designer on a physical phone. Run `cmd /c npm run qa:agent:ci` if this UI polish is part of launch signoff, and schedule live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
+| Next recommended action | Run `cmd /c npm run qa:agent:ci` to refresh browser evidence for the release-blocker polish, then review Today, Fuel, Train, Plan, Profile, onboarding persistence expectations, and workout resume copy with a human boxer/designer on a physical phone. Schedule live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
 | Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -27,12 +27,12 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-10; package tree was up to date. |
+| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-10 after adding `@react-native-async-storage/async-storage`. The dependency install initially hit Windows sandbox/package-cache restrictions and passed on the approved rerun. |
 | typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-10 directly and again inside `quality`. |
-| tests | automated_pass | `cmd /c npm test` passed on 2026-06-10 directly and again inside `quality`; 554 tests passed and 1 live-smoke test skipped. |
+| tests | automated_pass | `cmd /c npm test` passed on 2026-06-10 directly and again inside `quality`; 556 tests passed and 1 live-smoke test skipped. |
 | lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-10. |
-| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-10; 554 tests passed and 1 live-smoke test skipped. |
-| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-10 for the bottom navigation/tab tuning. |
+| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-10; 556 tests passed and 1 live-smoke test skipped. |
+| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-10 for the release-blocker hardening pass. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
 | agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. Targeted approved `cmd /c npm run qa:agent:audit` passed on 2026-06-10 after the bottom navigation/tab tuning with 10 browser scenarios; a previous same-day audit caught and prevented a fixed-width tab click regression, and the full bundle was not regenerated in that targeted pass. |
@@ -65,6 +65,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no medication collection | automated_pass | Playwright first-time onboarding. |
 | goal phase clarity | automated_pass | Playwright first-time onboarding. |
 | finish setup | automated_pass | Playwright first-time onboarding. |
+| onboarding draft persistence | automated_pass | Native draft storage now resolves through AsyncStorage and is cleared after successful completion; memory fallback is limited to test, web, and local E2E paths. |
 | no user guessing about internal engine terms | human_review_required | Local text checks pass; real boxer comprehension remains human-only. |
 
 ### D. Today
@@ -73,6 +74,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | --- | --- | --- |
 | first action obvious within 5 seconds | human_review_required | Automation checks the redesigned Today dashboard: readiness, weekly load, fuel status, training decision, manual inputs, and quick actions (`Quick check-in`, `Log food`, `Open workout`). The 2026-06-09 fix makes the primary action a wide cyan button and keeps secondary actions quieter; real boxer comprehension remains human-only. |
 | primary action clarity | human_review_required | Automation checks Today dashboard actions and plan rationale without restoring the old mission/detail surfaces; real boxer comprehension remains human-only. |
+| primary action routing | automated_pass | Today receives an explicit `ctaAction` enum from the presentation view model; visible labels no longer drive routing behavior. |
 | why disclosure | automated_pass | Browser audit requires Today evidence. |
 | quick logs visible | automated_pass | Browser audit requires the first Today surface to stay at three quick actions, then opens `Quick check-in` to verify readiness, body weight, hydration, and manual form paths. The 2026-06-08 UI polish constrains the compact quick-check surface as a bottom sheet so old detail UI no longer stacks over the new dashboard. |
 | quick logs use 1-5 explanations where relevant | human_review_required | Text evidence is present; real boxer interpretation remains human-only. |
@@ -92,6 +94,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit checks meal/snack/day-total add-up copy. |
 | hydration copy safe | automated_pass | Fuel and Today audit check `Add water`/hydration copy after opening the manual log path, without pretending to set a daily total. |
+| logger focus reset | automated_pass | Today-to-Fuel `Log food` and `Add water` intents open the logger, and the logger has a visible return-to-overview action so Fuel does not stay stuck in logging mode. |
 | missing food logs unknown/lower confidence | automated_pass | Missing-food copy is shortened to "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback." Missing food affects execution guidance and confidence, not baseline training generation. |
 | nutrition review/hard-stop/self-clear copy safe | automated_pass | Safety review copy says users cannot self-clear hard stops; athlete UI is read-only for reviewer decisions, and reviewer clear requires trusted server-side identity and audit. Agent audit passed. |
 | body mass copy safe | automated_pass | Fuel audit. |
@@ -106,6 +109,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
 | no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
 | fast workout completion path | automated_pass | Train audit checks "Open workout" and "Log result" before optional exercise details. |
+| workout-player controls and resume expectation | automated_pass | The full-screen player no longer exposes a dead options button, and Train/player copy states that active follow-along resume is app-session scoped while discard/reload can lose progress. |
 | session RPE flow | automated_pass | Train audit checks protected logging RPE mapping plus generated workout completion RPE 1-10. |
 | one exercise row completion | automated_pass | Train audit checks optional row inputs stay behind the secondary exercise-details disclosure. |
 | Progress visible | automated_pass | Train audit checks the default Progress section is compact with latest workout/key change only, and dense rows stay behind "Show details". |
@@ -128,6 +132,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no drag/drop expectation | accepted_launch_limitation | Drag/drop calendar is deferred. |
 | adjustment result/rejection copy understandable | human_review_required | Plan audit exercises controls; real boxer interpretation remains human-only. |
 | roll-forward/next-week materialization explanation | human_review_required | Next Week audit exercises controls where available; review-required copy avoids hard-stop labeling unless safety is actually blocking. |
+| Plan Details density | automated_pass | Plan Details now leads with athlete-facing rationale, then collapses This Week, Plan Changes, and Technical Details; hashes, saved-session diagnostics, repair actions, deltas, and generation diagnostics are hidden behind the technical disclosure. |
 
 ### H. Profile
 
@@ -137,6 +142,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | settings section | automated_pass | Profile tab/sign-out audit required. The 2026-06-10 rollout moved Profile settings groups onto the shared compact `DashboardCard` primitive for consistent card density and title treatment. |
 | data section | automated_pass | New data controls audit. |
 | safety section | automated_pass | Profile Safety audit. |
+| outside-app support path | automated_pass | Profile Data/Safety now direct account, export/delete, app access, and app-state issues to the private-release support path outside the app without collecting free-form health details. |
 | sign out | automated_pass | Profile Settings smoke required. |
 | launch notice removed | automated_pass | Profile Safety audit verifies removed runtime notice/panel text does not appear. |
 | runtime-readiness panel removed | automated_pass | Profile Safety audit verifies removed runtime-readiness panel text does not appear. |
@@ -152,6 +158,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | app error boundary | automated_pass | Static docs/tests and source inspection. |
+| app-level support path | automated_pass | App error states now include the outside-app support path and conservative urgent-symptom guidance without requesting emergency medical information in-app. |
 | passive persistence warnings | automated_pass | `usePerformanceState` no longer promotes background engine projection persistence warnings into global App Notes; focused hook regression passed on 2026-06-08. Explicit save/log/action failures still surface through their existing error paths. |
 | signed-in sanitized issue report | automated_pass | Static docs/tests and source inspection. |
 | signed-out retry only | automated_pass | Static docs/tests and source inspection. |

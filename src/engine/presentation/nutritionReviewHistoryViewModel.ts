@@ -57,13 +57,13 @@ function eventSummary(event: NutritionSafetyReviewEvent): string {
     return `${event.eventType.replaceAll("_", " ")} by ${event.actorType}: ${summary}`;
   }
   if (event.eventType === "acknowledged" || event.eventType === "acknowledged_by_athlete") {
-    return "Acknowledged by athlete. This does not clear the plan.";
+    return "Acknowledged by athlete. This does not resolve the plan.";
   }
   if (event.eventType === "reviewer_reviewing" || event.eventType === "reviewer_assigned" || event.eventType === "reviewer_note") {
     return "Qualified support event is recorded outside the athlete app controls.";
   }
   if (event.eventType === "cleared_by_reviewer" || event.eventType === "not_cleared") {
-    return "Qualified support status event is recorded. Athlete self-clear remains unavailable.";
+    return "Qualified support status event is recorded. Athlete in-app resolution remains unavailable.";
   }
   return `${event.eventType.replaceAll("_", " ")} by ${event.actorType}.`;
 }
@@ -130,8 +130,8 @@ export function buildNutritionReviewHistoryViewModel(input: {
         summary: eventSummary(event)
       })),
     noHistoryCopy: "No review events are loaded yet. Active safety stops still remain active.",
-    safetyCopy: "You cannot clear nutrition safety stops yourself.",
-    qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
+    safetyCopy: "You cannot resolve nutrition safety stops yourself.",
+    qualifiedSupportCopy: "CornerIQ cannot resolve safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
     urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now."
   };
 }

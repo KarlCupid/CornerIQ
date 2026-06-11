@@ -20,7 +20,20 @@ interface DraftStorage {
 }
 
 const memoryDraftStorage = new Map<string, string>();
-let asyncStoragePromise: Promise<{ storage: DraftStorage; type: "async" | "memory" }> | null = null;
+type DraftStorageResolution =
+  | { storage: DraftStorage; type: "async" | "memory" }
+  | { storage: null; type: "unavailable" };
+let asyncStoragePromise: Promise<DraftStorageResolution> | null = null;
+
+function runtimeEnv(): Record<string, string | undefined> {
+  const runtime = globalThis as { process?: { env?: Record<string, string | undefined> } };
+  return runtime.process?.env ?? {};
+}
+
+function memoryFallbackAllowed(): boolean {
+  const env = runtimeEnv();
+  return env.NODE_ENV === "test" || env.VITEST === "true" || env.EXPO_PUBLIC_CORNERIQ_E2E_LOCAL === "1" || env.EXPO_OS === "web";
+}
 
 function isDraftStorage(value: unknown): value is DraftStorage {
   if (value === null || typeof value !== "object") {
@@ -44,7 +57,7 @@ function memoryStorage(): DraftStorage {
   };
 }
 
-async function resolveDraftStorage(): Promise<{ storage: DraftStorage; type: "async" | "memory" }> {
+async function resolveDraftStorage(): Promise<DraftStorageResolution> {
   if (!asyncStoragePromise) {
     asyncStoragePromise = (async () => {
       try {
@@ -55,9 +68,9 @@ async function resolveDraftStorage(): Promise<{ storage: DraftStorage; type: "as
           return { storage, type: "async" as const };
         }
       } catch {
-        // AsyncStorage is optional in this MVP shell; the in-memory fallback still supports resume inside the current app session.
+        // Test, web, and local QA shells may not expose the native module.
       }
-      return { storage: memoryStorage(), type: "memory" as const };
+      return memoryFallbackAllowed() ? { storage: memoryStorage(), type: "memory" as const } : { storage: null, type: "unavailable" as const };
     })();
   }
   return asyncStoragePromise;
@@ -185,11 +198,24 @@ export function migrateOnboardingDraft(draft: OnboardingDraft, asOfDate: ISODate
   };
 }
 
-async function saveDraftToStorage(asOfDate: ISODateString, draft: OnboardingDraft): Promise<"async" | "memory"> {
-  if (!OnboardingDraftSchema.safeParse(draft).success) {
-    return (await resolveDraftStorage()).type;
+function storageStatusFor(type: DraftStorageResolution["type"], loaded = false): string {
+  if (type === "async") {
+    return loaded ? "Resume setup: saved draft loaded from this device." : "Draft autosaves on this device.";
   }
+  if (type === "memory") {
+    return loaded ? "Resume setup: local test draft loaded for this app session." : "Draft autosaves for this test or web session only.";
+  }
+  return "Draft is not saved on this device because native draft storage is unavailable.";
+}
+
+async function saveDraftToStorage(asOfDate: ISODateString, draft: OnboardingDraft): Promise<DraftStorageResolution["type"]> {
   const resolved = await resolveDraftStorage();
+  if (!OnboardingDraftSchema.safeParse(draft).success) {
+    return resolved.type;
+  }
+  if (!resolved.storage) {
+    return resolved.type;
+  }
   await resolved.storage.setItem(storageKey(asOfDate), JSON.stringify(draft));
   return resolved.type;
 }
@@ -199,7 +225,7 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
   const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
   const [stepIndex, setStepIndex] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
-  const [storageStatus, setStorageStatus] = useState("Draft autosaves for this app session. Device persistence activates when AsyncStorage is available.");
+  const [storageStatus, setStorageStatus] = useState("Draft autosaves on this device when native storage is available.");
   const lastStepIndex = ONBOARDING_STEPS.length - 1;
 
   useEffect(() => {
@@ -209,16 +235,22 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
     setStepError(null);
     void (async () => {
       const resolved = await resolveDraftStorage();
+      if (!resolved.storage) {
+        if (active) {
+          setStorageStatus(storageStatusFor(resolved.type));
+        }
+        return;
+      }
       const rawDraft = await resolved.storage.getItem(storageKey(asOfDate));
       if (!active || !rawDraft) {
-        setStorageStatus(resolved.type === "async" ? "Draft autosaves on this device." : "Draft autosaves for this app session because AsyncStorage is not installed.");
+        setStorageStatus(storageStatusFor(resolved.type));
         return;
       }
       try {
         const parsed = OnboardingDraftSchema.safeParse(JSON.parse(rawDraft));
         if (parsed.success) {
           setDraft(migrateOnboardingDraft(parsed.data, asOfDate));
-          setStorageStatus(resolved.type === "async" ? "Resume setup: saved draft loaded from this device." : "Resume setup: saved draft loaded for this app session.");
+          setStorageStatus(storageStatusFor(resolved.type, true));
         }
       } catch {
         await resolved.storage.removeItem(storageKey(asOfDate));
@@ -235,7 +267,7 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
       setDraft((current) => {
         const next = updater(current);
         void saveDraftToStorage(asOfDate, next).then((type) => {
-          setStorageStatus(type === "async" ? "Draft autosaves on this device." : "Draft autosaves for this app session because AsyncStorage is not installed.");
+          setStorageStatus(storageStatusFor(type));
         });
         return next;
       });
@@ -269,7 +301,7 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
 
   const clearDraft = useCallback(async () => {
     const resolved = await resolveDraftStorage();
-    await resolved.storage.removeItem(storageKey(asOfDate));
+    await resolved.storage?.removeItem(storageKey(asOfDate));
   }, [asOfDate]);
 
   return {

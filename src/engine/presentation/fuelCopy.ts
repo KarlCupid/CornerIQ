@@ -19,8 +19,8 @@ const FUEL_REPLACEMENTS: readonly [RegExp, string][] = [
   [/\bmacros?\b/gi, "food targets"],
   [/\bcalories were not cut\b/gi, "calories stay steady"],
   [/\bweight-class pressure\b/gi, "weight pressure"],
-  [/\bqualified clinical review\b/gi, "qualified review"],
-  [/\bprofessional review\b/gi, "qualified review"]
+  [/\bqualified clinical review\b/gi, "qualified support"],
+  [/\bprofessional review\b/gi, "qualified support"]
 ];
 
 function collapseWhitespace(value: string): string {

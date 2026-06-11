@@ -421,7 +421,7 @@ export function resolveNutrition(input: {
     explanation:
       blocked
         ? activeReviewHardStop
-          ? "Nutrition target protects safety because a persisted review hard stop remains active."
+          ? "Nutrition target protects safety because a saved safety stop remains active."
           : "Nutrition target protects safety because a hard stop is active."
         : underFuelingBlocked
           ? "Nutrition target blocks deficit pressure because under-fueling risk is active."

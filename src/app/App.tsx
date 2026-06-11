@@ -315,10 +315,10 @@ function LocalE2EApp() {
           };
         },
         materializeNextWeek: async (previewId) => {
-          setMessage("Local E2E next-week materialization stayed local. No Supabase call was made.");
+          setMessage("Local E2E next-week save stayed local. No Supabase call was made.");
           return {
             status: "materialized",
-            explanation: "Local E2E next-week materialization was captured locally only.",
+            explanation: "Local E2E next-week save was captured locally only.",
             ...(previewId ? { previewId } : {}),
             warnings: []
           };

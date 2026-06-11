@@ -36,7 +36,7 @@ export function canTransitionNutritionSafetyReview(input: NutritionSafetyReviewT
       ? {
           allowed: true,
           auditEventType: "acknowledged_by_athlete",
-          reason: "Athlete may acknowledge a review request, but this never clears a hard stop."
+          reason: "Athlete may acknowledge a review request, but this never resolves a safety stop."
         }
       : {
           allowed: false,
@@ -77,7 +77,7 @@ export function canTransitionNutritionSafetyReview(input: NutritionSafetyReviewT
       : {
           allowed: false,
           auditEventType: null,
-          reason: "Athlete clients cannot clear or not-clear nutrition safety reviews."
+          reason: "Athlete clients cannot resolve or mark nutrition safety reviews not cleared."
         };
   }
 
@@ -103,5 +103,5 @@ export function canTransitionNutritionSafetyReview(input: NutritionSafetyReviewT
 }
 
 export function reviewerWorkflowScope(): string {
-  return "Nutrition reviewer decisions are centralized, audited, and unavailable to athlete self-clear paths.";
+  return "Nutrition reviewer decisions are centralized, audited, and unavailable to athlete in-app resolution paths.";
 }

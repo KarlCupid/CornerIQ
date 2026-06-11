@@ -20,7 +20,7 @@ import {
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
-import { buildTodayDashboardVisual, type TodayDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { buildTodayDashboardVisual, type TodayDashboardVisual, type TodayPrimaryActionKind, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
@@ -511,31 +511,39 @@ export function TodayScreen({
     today: viewModel,
     train: trainViewModel
   });
-  const runDashboardPrimaryAction = (quickCheckPlacement: TodayQuickCheckPlacement = "top") => {
-    if (/fuel/i.test(dashboard.ctaLabel)) {
+  const runTodayAction = (action: TodayPrimaryActionKind, quickCheckPlacement: TodayQuickCheckPlacement = "top") => {
+    if (action === "log_food") {
       (onOpenFuelLog ?? onOpenFuel)?.();
       return;
     }
-    if (/readiness/i.test(dashboard.ctaLabel)) {
+    if (action === "log_readiness") {
       openQuickCheck("readiness", quickCheckPlacement);
       return;
     }
-    if (/adjust/i.test(dashboard.ctaLabel)) {
-      (onOpenPlan ?? onOpenTrain)?.();
+    if (action === "open_plan") {
+      onOpenPlan?.();
+      return;
+    }
+    if (action === "open_train") {
+      onOpenTrain?.();
+      return;
+    }
+    if (action === "open_fuel_safety") {
+      (onOpenFuelSafety ?? onOpenFuel)?.();
       return;
     }
     (onOpenTrainWorkout ?? onOpenTrain)?.();
   };
   const primaryTaskLabel =
-    dashboard.ctaLabel === "Open Fuel"
+    dashboard.ctaAction === "log_food"
       ? "Log food"
-      : dashboard.ctaLabel === "Open training"
+      : dashboard.ctaAction === "open_workout"
         ? "Open workout"
         : dashboard.ctaLabel;
   const primaryButton: FastTaskAction = {
     disabled: busy,
     label: primaryTaskLabel,
-    onPress: () => runDashboardPrimaryAction("top"),
+    onPress: () => runTodayAction(dashboard.ctaAction, "top"),
     testID: "today-primary-task-action"
   };
   const secondaryActions: FastTaskAction[] = [
@@ -606,13 +614,13 @@ export function TodayScreen({
           onOpenFuel={onOpenFuelLog ?? onOpenFuel}
           onOpenTrainWorkout={onOpenTrainWorkout ?? onOpenTrain}
           onOpenQuickCheck={openQuickCheck}
-          onPrimaryAction={runDashboardPrimaryAction}
+          onPrimaryAction={(placement) => runTodayAction(dashboard.ctaAction, placement)}
         />
         {hasRisk ? (
           <RiskBanner title="Safety stop" message="Safety comes before the plan. Missing or risky logs are unknown, not permission to push." tone="critical">
             <View style={{ gap: spacing.sm }}>
               {viewModel.riskSummary.map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{plainTodayCopy(risk)}</Text>)}
-              <Pressable accessibilityLabel="Open safety in Fuel" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => (onOpenFuelSafety ?? onOpenFuel)?.()} style={screenStyles.quietButton}>
+              <Pressable accessibilityLabel="Open safety in Fuel" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => runTodayAction("open_fuel_safety")} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Open safety in Fuel</Text>
               </Pressable>
             </View>

@@ -40,7 +40,7 @@ function stepWhy(stepIndex: number): string {
     case 5:
       return "Required choice: manual-only is complete. Wearables only raise confidence when fresh and consistent.";
     case 6:
-      return "Required: safety screening blocks unsafe weight pressure and flags professional-review needs.";
+      return "Required: safety screening blocks unsafe weight pressure and flags outside-support needs.";
     default:
       return "Required: choose build, fight, tournament, or recovery so Today and Plan can explain their priorities.";
   }
@@ -120,7 +120,7 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
                 disabled={busy}
                 onPress={() => {
                   if (!onboarding.validateCurrentStep()) {
-                    void onComplete(onboarding.draft);
+                    void onComplete(onboarding.draft).then(onboarding.clearDraft);
                   }
                 }}
                 style={screenStyles.button}

@@ -12,6 +12,7 @@ import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
+import { SUPPORT_OUTSIDE_APP_COPY, URGENT_SUPPORT_COPY } from "../supportCopy";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
@@ -158,6 +159,12 @@ export function ProfileScreen({
               <Text style={screenStyles.subtle}>Export first is recommended before any destructive data action.</Text>
             </View>
           </DashboardCard>
+          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="blue" />} title="Support path">
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.body}>{SUPPORT_OUTSIDE_APP_COPY}</Text>
+              <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>
+            </View>
+          </DashboardCard>
           <DisclosureCard title="Danger Zone" summary="Delete controls are hidden until opened. Export first is recommended.">
             <View style={{ gap: spacing.sm }} testID="profile-danger-zone">
               <Text style={screenStyles.sectionTitle}>Delete app data</Text>
@@ -177,11 +184,11 @@ export function ProfileScreen({
           <DashboardCard headerRight={<DashboardPill label="Traceability" tone="blue" />} title="Training history">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Current block week {viewModel.trainingAuditSummary.currentWeekIndex}</Text>
-              <Text style={screenStyles.body}>Persisted week summaries: {viewModel.trainingAuditSummary.activeBlockHistoryCount}</Text>
+              <Text style={screenStyles.body}>Saved week summaries: {viewModel.trainingAuditSummary.activeBlockHistoryCount}</Text>
               {viewModel.trainingAuditSummary.latestEventSummary ? (
                 <Text style={screenStyles.subtle}>{viewModel.trainingAuditSummary.latestEventSummary}</Text>
               ) : (
-                <Text style={screenStyles.subtle}>No block timeline event has been persisted yet.</Text>
+                <Text style={screenStyles.subtle}>No block timeline event has been saved yet.</Text>
               )}
             </View>
           </DashboardCard>
@@ -192,17 +199,23 @@ export function ProfileScreen({
             <DashboardCard title="Saved history detail">
               <View style={{ gap: spacing.sm }} testID="profile-safety-history-detail">
                 <Text style={screenStyles.body}>What happened: recent profile and journey events are summarized below when available.</Text>
-                <Text style={screenStyles.subtle}>Why it matters: saved history explains app state; it does not clear safety stops or expose private server controls.</Text>
+                <Text style={screenStyles.subtle}>Why it matters: saved history explains app state; it does not resolve safety stops or expose private server controls.</Text>
                 {recentLogs.profile.length > 0 ? recentLogs.profile.map((item, index) => <Text key={`profile-history-detail:${index}`} style={screenStyles.subtle}>{item}</Text>) : <Text style={screenStyles.subtle}>No profile or journey history detail is loaded yet.</Text>}
-                <Text style={screenStyles.subtle}>Training block week {viewModel.trainingAuditSummary.currentWeekIndex}; persisted week summaries {viewModel.trainingAuditSummary.activeBlockHistoryCount}.</Text>
+                <Text style={screenStyles.subtle}>Training block week {viewModel.trainingAuditSummary.currentWeekIndex}; saved week summaries {viewModel.trainingAuditSummary.activeBlockHistoryCount}.</Text>
                 {viewModel.trainingAuditSummary.latestEventSummary ? <Text style={screenStyles.subtle}>{viewModel.trainingAuditSummary.latestEventSummary}</Text> : null}
               </View>
             </DashboardCard>
           ) : null}
           <DashboardCard headerRight={<DashboardPill label="Read-only" tone="orange" />} title="Fuel safety history">
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.body}>Nutrition review history is available in Fuel &gt; Reviews when active or recently persisted.</Text>
-              <Text style={screenStyles.subtle}>CornerIQ cannot clear safety stops in the app. Use medical or nutrition support outside the app when a safety stop is active. Athletes cannot clear nutrition safety stops themselves.</Text>
+              <Text style={screenStyles.body}>Nutrition review history is available in Fuel &gt; Reviews when active or recently saved.</Text>
+              <Text style={screenStyles.subtle}>CornerIQ cannot resolve safety stops in the app. Use medical or nutrition support outside the app when a safety stop is active. Athletes cannot resolve nutrition safety stops themselves.</Text>
+            </View>
+          </DashboardCard>
+          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="blue" />} title="Support path">
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.body}>{SUPPORT_OUTSIDE_APP_COPY}</Text>
+              <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>
             </View>
           </DashboardCard>
           {recentLogs.profile.length > 0 ? (

@@ -43,7 +43,7 @@ function event(overrides: Partial<NutritionSafetyReviewEvent> = {}): NutritionSa
 }
 
 describe("nutritionReviewHistoryViewModel", () => {
-  it("renders active hard-stop reviews and review events without a self-clear action", () => {
+  it("renders active hard-stop reviews and review events without an athlete resolution action", () => {
     const viewModel = buildNutritionReviewHistoryViewModel({
       activeReviews: [review()],
       reviewEvents: [event()],
@@ -52,7 +52,7 @@ describe("nutritionReviewHistoryViewModel", () => {
         reasons: ["Review required."],
         blockingFlags: ["acute_protocol_blocked"],
         suggestedNextSteps: ["Keep food and fluids steady."],
-        professionalReviewCopy: "Review required before this plan can continue."
+        professionalReviewCopy: "Outside support is required before this plan can continue."
       },
       asOfDate: fixtureAsOfDate
     });
@@ -65,7 +65,7 @@ describe("nutritionReviewHistoryViewModel", () => {
     expect(viewModel.historyEvents[0]?.summary).toContain("Engine requested review");
   });
 
-  it("keeps acknowledged reviews active and still says the athlete cannot self-clear", () => {
+  it("keeps acknowledged reviews active and still says the athlete cannot resolve them in app", () => {
     const viewModel = buildNutritionReviewHistoryViewModel({
       activeReviews: [review({ status: "acknowledged" })],
       reviewEvents: [event({ eventType: "acknowledged", actorType: "athlete", eventPayload: {} })],
@@ -81,8 +81,8 @@ describe("nutritionReviewHistoryViewModel", () => {
 
     expect(viewModel.activeReviews[0]?.status).toBe("acknowledged_by_athlete");
     expect(viewModel.activeReviews[0]?.canAcknowledge).toBe(false);
-    expect(viewModel.safetyCopy).toContain("cannot clear nutrition safety stops");
-    expect(viewModel.historyEvents[0]?.summary).toContain("does not clear the plan");
+    expect(viewModel.safetyCopy).toContain("cannot resolve nutrition safety stops");
+    expect(viewModel.historyEvents[0]?.summary).toContain("does not resolve the plan");
   });
 
   it("renders no-history and support copy without implying a review happened", () => {

@@ -34,7 +34,7 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={screenStyles.sectionTitle}>Block history detail</Text>
-      {hasNoHistory ? <Text style={screenStyles.body}>No history yet. Complete or skip real sessions and the engine will start building this audit trail.</Text> : null}
+      {hasNoHistory ? <Text style={screenStyles.body}>No history yet. Complete or skip real sessions and the engine will start building this technical trail.</Text> : null}
       <Text style={screenStyles.callout}>Current block</Text>
       <Text style={screenStyles.body}>{history.activeBlockSummary}</Text>
       <Text style={screenStyles.subtle}>{history.engineOwnedCopy}</Text>
@@ -64,16 +64,16 @@ export function TrainingBlockHistoryPanel({ history }: TrainingBlockHistoryPanel
         </View>
       ) : null}
       <Text style={screenStyles.callout}>Current week</Text>
-      {history.weekSummaries.length > 0 ? history.weekSummaries.map((summary, index) => <Text key={textKey("week-summary", index)} style={screenStyles.subtle}>{summary}</Text>) : <Text style={screenStyles.subtle}>No persisted week summaries yet.</Text>}
+      {history.weekSummaries.length > 0 ? history.weekSummaries.map((summary, index) => <Text key={textKey("week-summary", index)} style={screenStyles.subtle}>{summary}</Text>) : <Text style={screenStyles.subtle}>No saved week summaries yet.</Text>}
       <Text style={screenStyles.callout}>Decisions</Text>
-      {history.progressionDecisions.length > 0 ? history.progressionDecisions.map((decision, index) => <Text key={textKey("progression-decision", index)} style={screenStyles.subtle}>{decision}</Text>) : <Text style={screenStyles.subtle}>No persisted progression decisions yet.</Text>}
+      {history.progressionDecisions.length > 0 ? history.progressionDecisions.map((decision, index) => <Text key={textKey("progression-decision", index)} style={screenStyles.subtle}>{decision}</Text>) : <Text style={screenStyles.subtle}>No saved progression decisions yet.</Text>}
       <Text style={screenStyles.callout}>Next-week preview</Text>
       {history.latestNextWeekPreview ? (
         <>
           <Text style={screenStyles.subtle}>Week {history.latestNextWeekPreview.weekIndex}: {history.latestNextWeekPreview.volumeStrategy.replaceAll("_", " ")}.</Text>
           <Text style={screenStyles.subtle}>{history.latestNextWeekPreview.explanation}</Text>
         </>
-      ) : <Text style={screenStyles.subtle}>No persisted next-week preview yet.</Text>}
+      ) : <Text style={screenStyles.subtle}>No saved next-week preview yet.</Text>}
       <Text style={screenStyles.callout}>Saved status</Text>
       {history.latestNextWeekPreview ? (
         <Text style={screenStyles.subtle}>

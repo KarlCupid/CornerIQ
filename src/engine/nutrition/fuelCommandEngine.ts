@@ -139,7 +139,7 @@ function resolveNutritionSafetyReview(input: ResolveFuelCommandCenterInput): Nut
     ...input.acuteProtocolEligibility.blockReasons,
     ...input.acuteProtocolEligibility.reviewReasons,
     ...(input.bodyMass.feasibility.status === "unknown" && input.fight ? ["Current weight-class confidence is unknown; missing data is not treated as safe."] : []),
-    ...(input.bodyMass.feasibility.status === "needs_review" ? ["Weight-class target needs qualified review before acute support."] : [])
+    ...(input.bodyMass.feasibility.status === "needs_review" ? ["Weight-class target needs qualified support before acute support."] : [])
   ]);
   const required =
     blockingFlags.length > 0 ||
@@ -154,13 +154,13 @@ function resolveNutritionSafetyReview(input: ResolveFuelCommandCenterInput): Nut
     blockingFlags: unique([...blockingFlags, ...(activeReview?.hardStop ? activeReview.blockingFlags : [])]),
     suggestedNextSteps:
       blockingFlags.length > 0 || activeReview?.hardStop
-        ? ["Pause weight-class pressure.", "Keep regular meals and fluids steady.", "Use qualified review before this plan continues."]
+        ? ["Pause weight-class pressure.", "Keep regular meals and fluids steady.", "Use qualified support outside the app before this plan continues."]
         : required
           ? ["Keep fueling training.", "Collect missing logs if safe.", "Ask a qualified support person to review the plan."]
           : ["No safety review is required for the current fuel command."],
     professionalReviewCopy: required
-      ? "Review required before this plan can continue. The app will not let an athlete self-clear a hard stop."
-      : "No professional review gate is active for today.",
+      ? "Outside support is required before this plan can continue. The app will not let an athlete resolve a hard stop alone."
+      : "No outside-support safety stop is active for today.",
     activeReview
   };
 }
@@ -206,8 +206,8 @@ function weightStatusFrom(input: ResolveFuelCommandCenterInput): WeightClassStat
     behind: "Do not force an acute cut. Review the class, timeline, and training fuel before changing pressure.",
     ahead: "Protect calories and recovery; being below target is not a reason to keep pushing.",
     cycle_noisy: "Use the 7-day trend and keep calories, fluids, and sodium steady.",
-    unsafe: "Stop automatic weight-class pressure and move to qualified review.",
-    blocked: "Review required before weight-class pressure continues.",
+    unsafe: "Stop automatic weight-class pressure and move to qualified support.",
+    blocked: "Outside support is required before weight-class pressure continues.",
     needs_review: "Keep fueling training while the weight-class target is reviewed.",
     unknown: "Log current body mass if safe; missing data stays unknown."
   };
@@ -369,7 +369,7 @@ function primaryFuelAction(input: ResolveFuelCommandCenterInput, review: Nutriti
     return "Protect recovery fuel; deficit pressure is blocked today.";
   }
   if (review.blockingFlags.length > 0) {
-    return "Review required before weight-class pressure continues.";
+    return "Outside support is required before weight-class pressure continues.";
   }
   if (rehydration.status === "active") {
     return "Start staged refuel and rehydration with familiar foods and electrolytes.";

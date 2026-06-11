@@ -230,7 +230,7 @@ describe("autoRollForwardTrainingPlan", () => {
     });
 
     expect(result.status).toBe("blocked");
-    expect(result.explanation).toContain("Hard-stop safety");
+    expect(result.explanation).toContain("safety stop");
     expect(result.shouldRefreshState).toBe(false);
     expect(repositories.trainingBlock.upsertTrainingMicrocycle).not.toHaveBeenCalled();
   });
@@ -258,7 +258,7 @@ describe("autoRollForwardTrainingPlan", () => {
     });
 
     expect(result.status).toBe("blocked");
-    expect(result.explanation).toContain("Review required");
+    expect(result.explanation).toContain("safety hold");
     expect(result.shouldRefreshState).toBe(false);
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });

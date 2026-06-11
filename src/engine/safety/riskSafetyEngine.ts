@@ -71,7 +71,7 @@ export function resolveSafety(flags: readonly RiskFlag[]): SafetyState {
     blocksPlan,
     explanation:
       hardStops.length > 0
-        ? "Automatic planning is stopped until safety concerns are cleared."
+        ? "Automatic planning is stopped until safety concerns are resolved."
         : active.length > 0
           ? "Plan continues with safety restrictions."
           : "No active safety blocks."

@@ -1,5 +1,6 @@
 import React from "react";
 import { StartupState } from "./StartupState";
+import { SUPPORT_OUTSIDE_APP_COPY, URGENT_SUPPORT_COPY } from "../supportCopy";
 
 export interface AppErrorStateProps {
   cause?: string | undefined;
@@ -19,5 +20,6 @@ function safeCause(cause: string | undefined): string | null {
 
 export function AppErrorState({ cause, message, onRetry }: AppErrorStateProps) {
   const detail = safeCause(cause);
-  return <StartupState title="CornerIQ needs a retry" message={detail ? `${message} ${detail}` : message} actionLabel="Retry" onAction={onRetry} />;
+  const supportCopy = `${SUPPORT_OUTSIDE_APP_COPY} ${URGENT_SUPPORT_COPY}`;
+  return <StartupState title="CornerIQ needs a retry" message={detail ? `${message} ${detail} ${supportCopy}` : `${message} ${supportCopy}`} actionLabel="Retry" onAction={onRetry} />;
 }

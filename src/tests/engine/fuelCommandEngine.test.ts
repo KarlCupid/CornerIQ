@@ -168,8 +168,8 @@ describe("Fuel Command Center engine", () => {
     const state = resolvePerformanceState({ journey: menstruating_athlete_camp_heavy_symptoms, asOfDate: fixtureAsOfDate });
 
     expect(state.nutrition.nutritionSafetyReview.required).toBe(true);
-    expect(state.nutrition.commandCenter.safetyAction).toContain("Review required");
-    expect(state.nutrition.commandCenter.primaryFuelAction).toContain("Review required");
+    expect(state.nutrition.commandCenter.safetyAction).toContain("Outside support");
+    expect(state.nutrition.commandCenter.primaryFuelAction).toContain("Outside support");
   });
 
   it("cycle scale noise prevents calorie reduction", () => {
@@ -196,7 +196,7 @@ describe("Fuel Command Center engine", () => {
     });
 
     expect(state.readiness.color).toBe("red");
-    expect(state.nutrition.commandCenter.primaryFuelAction).toContain("Review required");
+    expect(state.nutrition.commandCenter.primaryFuelAction).toContain("Outside support");
     expect(state.nutrition.weightClassStatus.projectedReadiness).toContain("Red readiness with hard-stop symptoms");
   });
 

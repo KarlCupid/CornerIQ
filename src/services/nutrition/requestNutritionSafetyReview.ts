@@ -154,7 +154,7 @@ export async function requestNutritionSafetyReview(input: {
         status: "already_active",
         reviewId: persisted.review.id,
         hardStopRemains: persisted.review.hardStop,
-        message: "Safety state is already active. Hard stops remain active; CornerIQ cannot clear them in the app."
+        message: "Safety state is already active. Safety stops remain active; CornerIQ cannot resolve them in the app."
       };
     }
 
@@ -225,7 +225,7 @@ export async function acknowledgeNutritionSafetyReview(input: {
       reviewId: review.id,
       eventId: event.id,
       hardStopRemains: review.hardStop,
-      message: "Review acknowledged. This does not clear the plan or remove a hard stop."
+      message: "Review acknowledged. This does not resolve the plan or remove a safety stop."
     };
   } catch (error) {
     return {

@@ -267,7 +267,7 @@ function WorkoutScreenFrame({
         <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
           <ScreenIconButton accessibilityLabel="Close workout player" icon="chevron-back" onPress={onClose} />
           <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", letterSpacing: 1.4, lineHeight: 18 }}>{mode}</Text>
-          <ScreenIconButton accessibilityLabel="Workout options" icon="ellipsis-horizontal" onPress={() => undefined} />
+          <View style={{ width: 40 }} />
         </View>
         {children}
       </ScrollView>
@@ -840,6 +840,7 @@ export function WorkoutPlayer({
             tone="primary"
           />
           <PlayerButton label="Back to Train" onPress={onClose} />
+          <Text style={screenStyles.subtle}>After starting, closing the player keeps progress only while this app session stays alive. If the app reloads or you discard, follow-along progress may be lost.</Text>
         </GlassPanel>
 
         <CollapsedDetailDisclosure title="Workout recipe" summary="Blocks, timed steps, cues, swaps, and stop rules." testID="workout-player-preview-detail">
@@ -1119,7 +1120,8 @@ export function WorkoutPlayer({
         <LiveInfoCard body={nextStepLabel} icon="chevron-forward" label="NEXT" testID="workout-player-next-card" />
       </View>
 
-      <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{liveSafetyLine}</Text>
+          <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{liveSafetyLine}</Text>
+      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 17, textAlign: "center" }}>Close returns to Train; resume works while this app session stays alive. Discard loses progress.</Text>
 
       {shouldShowPrimaryDone ? <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" /> : null}
 

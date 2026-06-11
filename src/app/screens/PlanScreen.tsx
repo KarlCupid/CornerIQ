@@ -146,6 +146,39 @@ function DetailsToggle({
   );
 }
 
+function PlanDisclosure({
+  children,
+  startOpen = false,
+  summary,
+  testID,
+  title
+}: React.PropsWithChildren<{
+  startOpen?: boolean | undefined;
+  summary?: string | undefined;
+  testID?: string | undefined;
+  title: string;
+}>) {
+  const [open, setOpen] = React.useState(startOpen);
+  React.useEffect(() => {
+    setOpen(startOpen);
+  }, [startOpen]);
+  return (
+    <View style={{ gap: spacing.sm }} testID={testID}>
+      <Pressable
+        accessibilityLabel={open ? `Hide ${title}` : title}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={[screenStyles.quietButton, { alignItems: "flex-start" }]}
+      >
+        <Text style={screenStyles.quietButtonText}>{open ? `Hide ${title}` : title}</Text>
+        {summary ? <Text style={screenStyles.subtle}>{summary}</Text> : null}
+      </Pressable>
+      {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
+    </View>
+  );
+}
+
 function GeneratedSupportSummaryCard({
   busy,
   nextWeekActionsAvailable,
@@ -192,7 +225,7 @@ function GeneratedSupportSummaryCard({
         <DetailsToggle closedLabel="Preview next week" openLabel="Hide next week preview" startOpen={previewDetailsOpen}>
           <Text style={screenStyles.body}>{preview.goal}</Text>
           <Text style={screenStyles.subtle}>{viewModel.rollForwardMessage}</Text>
-          {preview.requiresReview ? <Text style={screenStyles.subtle}>Review required before this plan can start.</Text> : null}
+          {preview.requiresReview ? <Text style={screenStyles.subtle}>A safety stop must be resolved before this plan can start.</Text> : null}
           {preview.dayPlanPreview.map((day) => (
             <View key={`next-preview:${day.date}`} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>{day.date}</Text>
@@ -253,7 +286,7 @@ function PlanAuditDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
   const audit = viewModel.generationAudit;
   return (
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Plan details</Text>
+        <Text style={screenStyles.sectionTitle}>Technical details</Text>
         {audit ? (
           <>
             <Text style={screenStyles.body}>
@@ -287,7 +320,7 @@ function PlanAuditDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
             ) : null}
             {audit.plannedVsFinalTrainingDelta ? (
               <Text style={screenStyles.subtle}>
-                Final delta: {audit.plannedVsFinalTrainingDelta.actualGeneratedSupportCount}/{audit.plannedVsFinalTrainingDelta.targetGeneratedSupportCount} sessions, {audit.plannedVsFinalTrainingDelta.actualHardDayCount}/{audit.plannedVsFinalTrainingDelta.targetHardDayCount} hard days.
+                Final change: {audit.plannedVsFinalTrainingDelta.actualGeneratedSupportCount}/{audit.plannedVsFinalTrainingDelta.targetGeneratedSupportCount} support workouts, {audit.plannedVsFinalTrainingDelta.actualHardDayCount}/{audit.plannedVsFinalTrainingDelta.targetHardDayCount} hard days.
               </Text>
             ) : null}
             <Text style={screenStyles.subtle}>
@@ -295,29 +328,30 @@ function PlanAuditDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
             </Text>
             {audit.missingLogsAffectedExecutionOnly ? <Text style={screenStyles.subtle}>Missing logs affected how-to notes only; the planned workout stayed available.</Text> : null}
             {(audit.executionAdjustmentsApplied ?? []).slice(0, 3).map((adjustment, index) => (
-              <Text key={`execution-adjustment:${index}`} style={screenStyles.subtle}>Execution: {adjustment}</Text>
+              <Text key={`execution-adjustment:${index}`} style={screenStyles.subtle}>Execution: {plainPlanCopy(adjustment)}</Text>
             ))}
             {(audit.evidenceBasedOverridesApplied ?? []).slice(0, 3).map((override, index) => (
-              <Text key={`evidence-override:${index}`} style={screenStyles.subtle}>Override: {override}</Text>
+              <Text key={`evidence-override:${index}`} style={screenStyles.subtle}>Override: {plainPlanCopy(override)}</Text>
             ))}
-            {(audit.unmetPrescriptionTargets ?? []).map((target, index) => <Text key={`unmet-prescription:${index}`} style={screenStyles.subtle}>Prescription note: {target}</Text>)}
-            {(audit.blockedGenerationReasons ?? []).map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {reason}</Text>)}
-            {(audit.whyHardDaysWereReduced ?? []).map((reason, index) => <Text key={`hard-day-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {reason}</Text>)}
-            {(audit.whyVolumeWasReduced ?? []).map((reason, index) => <Text key={`volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {reason}</Text>)}
-            <Text style={screenStyles.subtle}>Selected days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None"}</Text>
-            <Text style={screenStyles.subtle}>Dose: {audit.selectedTrainingDose ?? "unknown"}; allowed days: {audit.candidateAllowedDays}; over-60 sessions: {audit.sessionsOver60Minutes ?? 0}.</Text>
-            {audit.targetSessionCountReason ? <Text style={screenStyles.subtle}>Target reason: {audit.targetSessionCountReason}</Text> : null}
+            {(audit.unmetPrescriptionTargets ?? []).map((target, index) => <Text key={`unmet-prescription:${index}`} style={screenStyles.subtle}>Target note: {plainPlanCopy(target)}</Text>)}
+            {(audit.blockedGenerationReasons ?? []).map((reason, index) => <Text key={`generation-reason:${index}`} style={screenStyles.subtle}>Plan note: {plainPlanCopy(reason)}</Text>)}
+            {(audit.whyHardDaysWereReduced ?? []).map((reason, index) => <Text key={`hard-day-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {plainPlanCopy(reason)}</Text>)}
+            {(audit.whyVolumeWasReduced ?? []).map((reason, index) => <Text key={`volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {plainPlanCopy(reason)}</Text>)}
+            <Text style={screenStyles.subtle}>Selected support days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None"}</Text>
+            <Text style={screenStyles.subtle}>Dose: {audit.selectedTrainingDose ?? "unknown"}; available days: {audit.candidateAllowedDays}; over-60 sessions: {audit.sessionsOver60Minutes ?? 0}.</Text>
+            {audit.targetSessionCountReason ? <Text style={screenStyles.subtle}>Target reason: {plainPlanCopy(audit.targetSessionCountReason)}</Text> : null}
             {(audit.unusedAvailableDays ?? []).length > 0 ? <Text style={screenStyles.subtle}>Unused available days: {(audit.unusedAvailableDays ?? []).join(", ")}</Text> : null}
-            {(audit.repairActionsApplied ?? []).map((repair, index) => <Text key={`repair-action:${index}`} style={screenStyles.subtle}>Repair: {repair}</Text>)}
-            {(audit.whyOnlyFourSessionsIfSixDaysAvailable ?? []).map((reason, index) => <Text key={`four-session-reason:${index}`} style={screenStyles.subtle}>Four-session note: {reason}</Text>)}
-            {(audit.whyOnlyTwoHardDaysIfTargetWasThree ?? []).map((reason, index) => <Text key={`two-hard-reason:${index}`} style={screenStyles.subtle}>Hard-day shortfall note: {reason}</Text>)}
-            {(audit.whyAllSessionsUnder60IfSeriousOrHigh ?? []).map((reason, index) => <Text key={`under-sixty-reason:${index}`} style={screenStyles.subtle}>Duration note: {reason}</Text>)}
-            <Text style={screenStyles.subtle}>Persisted considered: {audit.persistedGeneratedSessionsConsidered.length}; ignored: {audit.persistedGeneratedSessionsIgnored.length}</Text>
+            {(audit.repairActionsApplied ?? []).map((repair, index) => <Text key={`repair-action:${index}`} style={screenStyles.subtle}>Repair action: {plainPlanCopy(repair)}</Text>)}
+            {(audit.whyOnlyFourSessionsIfSixDaysAvailable ?? []).map((reason, index) => <Text key={`four-session-reason:${index}`} style={screenStyles.subtle}>Four-session note: {plainPlanCopy(reason)}</Text>)}
+            {(audit.whyOnlyTwoHardDaysIfTargetWasThree ?? []).map((reason, index) => <Text key={`two-hard-reason:${index}`} style={screenStyles.subtle}>Hard-day shortfall note: {plainPlanCopy(reason)}</Text>)}
+            {(audit.whyAllSessionsUnder60IfSeriousOrHigh ?? []).map((reason, index) => <Text key={`under-sixty-reason:${index}`} style={screenStyles.subtle}>Duration note: {plainPlanCopy(reason)}</Text>)}
+            <Text style={screenStyles.subtle}>Saved support considered: {audit.persistedGeneratedSessionsConsidered.length}; ignored: {audit.persistedGeneratedSessionsIgnored.length}</Text>
             {audit.persistedGeneratedSessionsIgnored.slice(0, 3).map((session) => (
               <Text key={`ignored-generated-session:${session.id}`} style={screenStyles.subtle}>
-                Ignored persisted: {session.title} - {session.reason}
+                Ignored saved support: {session.title} - {plainPlanCopy(session.reason)}
               </Text>
             ))}
+            <Text style={screenStyles.subtle}>Input hash: {audit.inputHash ?? "not stored"}; output hash: {audit.outputHash}.</Text>
             <Text style={screenStyles.subtle}>
               As of {audit.asOfDate}, starts {audit.planStartDate}, support workouts {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount}.
             </Text>
@@ -340,14 +374,24 @@ function PlanDetailsWorkspace({
   busy: boolean;
   viewModel: PlanViewModel;
 }) {
+  const audit = viewModel.generationAudit;
   return (
     <EngineCard>
       <View style={{ gap: spacing.lg }} testID="plan-details-workspace">
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>This week details</Text>
+        <View style={{ gap: spacing.sm }} testID="plan-details-why-this-week">
+          <Text style={screenStyles.sectionTitle}>Why this week looks this way</Text>
           <Text style={screenStyles.body}>{viewModel.hardDaySummary}</Text>
           <Text style={screenStyles.body}>{viewModel.recoveryDaySummary}</Text>
+          <Text style={screenStyles.body}>{plainPlanCopy(viewModel.protectedAnchorSummary)}</Text>
+          {viewModel.supportWorkReason ? <Text style={screenStyles.body}>{plainPlanCopy(viewModel.supportWorkReason)}</Text> : null}
           {viewModel.fightOrTournamentNote ? <Text style={screenStyles.body}>{viewModel.fightOrTournamentNote}</Text> : null}
+          {viewModel.warnings.length > 0 ? viewModel.warnings.map((warning, index) => <Text key={`plan-visible-warning:${index}`} style={screenStyles.subtle}>Review: {plainPlanCopy(warning)}</Text>) : <Text style={screenStyles.subtle}>No active plan warnings.</Text>}
+          {(audit?.whyHardDaysWereReduced ?? []).slice(0, 2).map((reason, index) => <Text key={`visible-hard-reduced:${index}`} style={screenStyles.subtle}>Hard work note: {plainPlanCopy(reason)}</Text>)}
+          {(audit?.whyVolumeWasReduced ?? []).slice(0, 2).map((reason, index) => <Text key={`visible-volume-reduced:${index}`} style={screenStyles.subtle}>Volume note: {plainPlanCopy(reason)}</Text>)}
+          {(audit?.generatedSupportPlacementReasons ?? []).slice(0, 3).map((reason, index) => <Text key={`visible-placement:${index}`} style={screenStyles.subtle}>Placement: {plainPlanCopy(reason)}</Text>)}
+          {(audit?.blockedGenerationReasons ?? []).slice(0, 2).map((reason, index) => <Text key={`visible-blocked-generation:${index}`} style={screenStyles.subtle}>Support note: {plainPlanCopy(reason)}</Text>)}
+        </View>
+        <PlanDisclosure summary={`${viewModel.generatedSupportSessionCount} support workout${viewModel.generatedSupportSessionCount === 1 ? "" : "s"} this week.`} testID="plan-details-this-week" title="This week">
           {viewModel.dayPlans.map((day) => (
             <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>{day.label}</Text>
@@ -357,14 +401,18 @@ function PlanDetailsWorkspace({
               {day.warningSummary ? <Text style={screenStyles.subtle}>Review: {day.warningSummary}</Text> : null}
             </View>
           ))}
-        </View>
-        <PlanReviewNotesContent viewModel={viewModel} />
-        <PlanAdjustmentsContent adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />
-        <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.sectionTitle}>Block history</Text>
-          <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
-        </View>
-        <PlanAuditDetailsContent viewModel={viewModel} />
+        </PlanDisclosure>
+        <PlanDisclosure summary={viewModel.adjustmentSummary} testID="plan-details-plan-changes" title="Plan changes">
+          <PlanAdjustmentsContent adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />
+        </PlanDisclosure>
+        <PlanDisclosure summary="Hashes, saved-session diagnostics, repair actions, and block history." testID="plan-details-technical" title="Technical details">
+          <PlanReviewNotesContent viewModel={viewModel} />
+          <View style={{ gap: spacing.sm }}>
+            <Text style={screenStyles.sectionTitle}>Block history</Text>
+            <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
+          </View>
+          <PlanAuditDetailsContent viewModel={viewModel} />
+        </PlanDisclosure>
       </View>
     </EngineCard>
   );

@@ -2,6 +2,7 @@ import React, { type ErrorInfo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { spacing } from "../../design/theme";
+import { SUPPORT_OUTSIDE_APP_COPY, URGENT_SUPPORT_COPY } from "../supportCopy";
 import { screenStyles } from "../screens/screenStyles";
 
 export interface AppErrorReportInput {
@@ -86,7 +87,8 @@ export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, App
         <View style={{ gap: spacing.sm }}>
           <Text accessibilityRole="header" style={screenStyles.title}>Something went wrong.</Text>
           <Text style={screenStyles.body}>Your data is still protected.</Text>
-          <Text style={screenStyles.subtle}>Retry the app shell. If it keeps happening, contact support outside the app and avoid sharing passwords, tokens, or health details.</Text>
+          <Text style={screenStyles.subtle}>Retry the app shell. {SUPPORT_OUTSIDE_APP_COPY}</Text>
+          <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>
         </View>
         <Pressable accessibilityLabel="Retry app" accessibilityRole="button" onPress={this.handleRetry} style={screenStyles.button}>
           <Text style={screenStyles.buttonText}>Retry</Text>

@@ -136,13 +136,13 @@ function activeWeekStartDate(input: {
   asOfDate: ISODateString;
   planGenerationIntent?: PlanGenerationIntent | undefined;
 }): ISODateString {
-  if (input.planGenerationIntent?.action === "start_new_plan") {
-    return input.planGenerationIntent.planStartDate;
-  }
   const existing = input.activeTrainingBlock;
   if (existing && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
     const elapsedDays = Math.max(0, daysBetween(existing.startDate, input.asOfDate));
     return addDays(existing.startDate, Math.floor(elapsedDays / 7) * 7);
+  }
+  if (input.planGenerationIntent?.action === "start_new_plan") {
+    return input.planGenerationIntent.planStartDate;
   }
   return input.planGenerationIntent?.planStartDate ?? input.asOfDate;
 }

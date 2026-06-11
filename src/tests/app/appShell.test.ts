@@ -248,7 +248,7 @@ const fuelViewModel: FuelViewModel = {
     reasons: [],
     blockingFlags: [],
     suggestedNextSteps: ["No safety stop is required for the current fuel command."],
-    professionalReviewCopy: "No professional review gate is active for today."
+    professionalReviewCopy: "No outside-support safety stop is active for today."
   },
   activeNutritionSafetyReviews: [],
   decisionStack: fuelDecisionStack,
@@ -388,8 +388,8 @@ const fuelViewModel: FuelViewModel = {
     activeReviews: [],
     historyEvents: [],
     noHistoryCopy: "No review events are loaded yet. Active safety stops still remain active.",
-    safetyCopy: "You cannot clear nutrition safety stops yourself.",
-    qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
+    safetyCopy: "You cannot resolve nutrition safety stops yourself.",
+    qualifiedSupportCopy: "CornerIQ cannot resolve safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
     urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now."
   },
   bodyMassSummary: "Trend unknown",
@@ -671,7 +671,7 @@ const planViewModel: PlanViewModel = {
     hardDayCap: 3,
     supportBias: "strength",
     persistedStatus: "preview",
-    persistedStatusLabel: "Persisted preview preview_1 (preview).",
+    persistedStatusLabel: "Saved preview preview_1 (preview).",
     generatedSessionCount: 0,
     generatedSessionPersistence: "preview_only",
     materializedGeneratedSessions: [],
@@ -1889,12 +1889,19 @@ describe("minimal app screens", () => {
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("fuel-log-action-section");
+    expect(output).toContain("Back to overview");
     expect(output).toContain("Food log status");
     expect(output).toContain("Too little food for the work is only considered");
     expect(output).toContain("Still logging today");
     expect(output).toContain("I'm done logging today");
     expect(output).toContain("I ate but I'm not tracking today");
     expect(output).toContain("Logged:");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Back to overview"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).not.toContain("fuel-log-action-section");
+    expect(output).toContain("Food targets");
   });
 
   it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
@@ -1955,14 +1962,14 @@ describe("minimal app screens", () => {
     const output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Safety stop");
-    expect(output).toContain("You cannot clear nutrition safety stops yourself.");
+    expect(output).toContain("You cannot resolve nutrition safety stops yourself.");
     expect(output.indexOf("Food targets")).toBeLessThan(output.indexOf("Safety stop"));
     expect(output).toContain("Safety stop");
     expect(output).not.toContain("Request safety review");
-    expect(output).toContain("Review required before this plan can continue");
+    expect(output).toContain("Outside support is required before this plan can continue");
     expect(output).not.toContain("Request safety review");
-    expect(output).toContain("You cannot clear nutrition safety stops yourself.");
-    expect(output).toContain("CornerIQ cannot clear safety stops in the app.");
+    expect(output).toContain("You cannot resolve nutrition safety stops yourself.");
+    expect(output).toContain("CornerIQ cannot resolve safety stops in the app.");
     expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now.");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
   });
@@ -1977,7 +1984,7 @@ describe("minimal app screens", () => {
         reasons: ["Qualified review is required."],
         blockingFlags: ["acute_protocol_blocked"],
         suggestedNextSteps: ["Keep regular meals and fluids steady."],
-        professionalReviewCopy: "Safety stop active before this plan can continue. The app will not let an athlete clear it alone.",
+        professionalReviewCopy: "Safety stop active before this plan can continue. The app will not let an athlete resolve it alone.",
         activeReview: {
           id: "review_1",
           userId: "user_1",
@@ -2096,12 +2103,12 @@ describe("minimal app screens", () => {
               eventType: "acknowledged",
               eventLabel: "acknowledged",
               actorType: "athlete",
-              summary: "Acknowledged by athlete. This does not clear the plan."
+              summary: "Acknowledged by athlete. This does not resolve the plan."
             }
           ],
           noHistoryCopy: "No review events are loaded yet.",
-          safetyCopy: "You cannot clear nutrition safety stops yourself.",
-          qualifiedSupportCopy: "CornerIQ cannot clear safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
+          safetyCopy: "You cannot resolve nutrition safety stops yourself.",
+          qualifiedSupportCopy: "CornerIQ cannot resolve safety stops in the app. Get medical or nutrition support outside the app when a safety stop is active.",
           urgentSupportCopy: "For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now."
         }
       })
@@ -2110,8 +2117,8 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("review_1");
     expect(output).toContain("safety stop remains active");
-    expect(output).toContain("You cannot clear nutrition safety stops yourself.");
-    expect(output).toContain("CornerIQ cannot clear safety stops in the app.");
+    expect(output).toContain("You cannot resolve nutrition safety stops yourself.");
+    expect(output).toContain("CornerIQ cannot resolve safety stops in the app.");
     expect(output).toContain("For urgent symptoms or unsafe weight concerns");
     expect(renderer.root.findAllByType("Pressable")).toHaveLength(0);
     expect(output).not.toMatch(/clear button|self-clear: yes/i);
@@ -2830,8 +2837,13 @@ describe("minimal app screens", () => {
     expect(warningOutput).not.toContain("Missing readiness lowers confidence.");
     await switchSection(warningRenderer, "Plan details");
     warningOutput = JSON.stringify(warningRenderer.toJSON());
-    expect(warningOutput).toContain("Review notes");
+    expect(warningOutput).toContain("Why this week looks this way");
     expect(warningOutput).toContain("Missing readiness lowers confidence.");
+    expect(warningOutput).not.toContain("Input hash:");
+    await switchSection(warningRenderer, "Technical details");
+    warningOutput = JSON.stringify(warningRenderer.toJSON());
+    expect(warningOutput).toContain("Review notes");
+    expect(warningOutput).toContain("No support workout detail was produced for this plan.");
     expect(
       JSON.stringify(
         render(
@@ -2962,7 +2974,12 @@ describe("minimal app screens", () => {
     }
     expect(primaryPlanOutput).not.toContain(audit.planRevisionId);
     await switchSection(planRenderer, "Plan details");
-    const planOutput = JSON.stringify(planRenderer.toJSON());
+    let planOutput = JSON.stringify(planRenderer.toJSON());
+    expect(planOutput).toContain("Why this week looks this way");
+    expect(planOutput).not.toContain("Input hash:");
+    expect(planOutput).not.toContain(audit.planRevisionId);
+    await switchSection(planRenderer, "This week");
+    planOutput = JSON.stringify(planRenderer.toJSON());
     const trainOutput = JSON.stringify(trainRenderer.toJSON());
     expect(audit.actualGeneratedSupportCount).toBe(state.viewModels.train.supportGenerationSummary.actualGeneratedSupportCount);
     expect(audit.generatedSessionDates).toEqual(state.viewModels.train.supportGenerationSummary.currentWeekGeneratedSessionDates);
@@ -2975,6 +2992,10 @@ describe("minimal app screens", () => {
     }
     expect(trainOutput).toContain("Current week:");
     expect(trainOutput).toContain(String(audit.targetGeneratedSupportCount));
+    await switchSection(planRenderer, "Technical details");
+    planOutput = JSON.stringify(planRenderer.toJSON());
+    expect(planOutput).toContain("Input hash:");
+    expect(planOutput).toContain("Selected support days:");
   });
 
   it("Plan next-week preview uses progression context without mutating current week", async () => {
@@ -3007,6 +3028,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("build strength - progress");
     expect(output).not.toContain("Persisted progression decision shaped this preview.");
     await switchSection(renderer, "Plan details");
+    await switchSection(renderer, "This week");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Boxing:");
     expect(state.viewModels.plan.dayPlans.map((day) => day.date)).toEqual(currentWeekDates);
@@ -3124,23 +3146,23 @@ describe("minimal app screens", () => {
         viewModel: {
           ...planViewModel,
           rollForwardStatus: "blocked",
-          rollForwardMessage: "Review required before next week can start.",
-          rollForwardRiskLabel: "Review required",
+          rollForwardMessage: "A safety stop must be resolved before next week can start.",
+          rollForwardRiskLabel: "Safety hold",
           rollForwardRiskTone: "caution",
           nextWeekPreview: {
             ...planViewModel.nextWeekPreview,
             volumeStrategy: "hold_for_review",
             showMaterializeAction: true,
             requiresReview: true,
-            actionCopy: "Review required before this plan can start."
+            actionCopy: "A safety stop must be resolved before this plan can start."
           }
         }
       })
     );
     await switchSection(renderer, "Preview next week");
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Review required before this plan can start.");
-    expect(output).toContain("Review required");
+    expect(output).toContain("A safety stop must be resolved before this plan can start.");
+    expect(output).not.toContain("Review required");
     expect(output).not.toContain("Safety stop");
     expect(pressableWithText(renderer, "Start next week plan")?.props.disabled).toBe(true);
   });
@@ -3652,11 +3674,11 @@ describe("minimal app screens", () => {
           acceptedPreviewStatus: "materialized",
           rollForwardStatus: "materialized",
           rollForwardMessage: "Next week plan is active.",
-          lastAutoRollForwardMessage: "Next week plan is active. Generated sessions: 1.",
+          lastAutoRollForwardMessage: "Next week plan is active. Support workouts: 1.",
           nextWeekPreview: {
             ...planViewModel.nextWeekPreview,
             persistedStatus: "materialized",
-            persistedStatusLabel: "Persisted preview preview_1 (materialized). Generated sessions: 1.",
+            persistedStatusLabel: "Saved preview preview_1 (materialized). Support workouts: 1.",
             generatedSessionCount: 1,
             generatedSessionPersistence: "persisted",
             materializedGeneratedSessions: [
@@ -3675,7 +3697,7 @@ describe("minimal app screens", () => {
             latestNextWeekPreview: {
               ...planViewModel.nextWeekPreview,
               persistedStatus: "materialized",
-              persistedStatusLabel: "Persisted preview preview_1 (materialized). Generated sessions: 1.",
+              persistedStatusLabel: "Saved preview preview_1 (materialized). Support workouts: 1.",
               generatedSessionCount: 1,
               generatedSessionPersistence: "persisted",
               materializedGeneratedSessions: []
@@ -3766,7 +3788,7 @@ describe("minimal app screens", () => {
                 weekIndex: 3,
                 summary: "Week summary persisted.",
                 decision: "progress - The week has structured completions.",
-                nextWeekPreviewStatus: "Persisted preview preview_1 (materialized).",
+                nextWeekPreviewStatus: "Saved preview preview_1 (materialized).",
                 materializedGeneratedSessionCount: 2,
                 adjustments: ["trusted note applied: Keep jab shoulder volume low."]
               }
@@ -3939,7 +3961,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Training history");
     expect(output).toContain("Current block week");
     expect(output).toContain("Fuel safety history");
-    expect(output).toContain("cannot clear safety stops");
+    expect(output).toContain("cannot resolve safety stops");
     expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback/i);
   });
 
@@ -4834,7 +4856,7 @@ describe("minimal app screens", () => {
 
     expect(repositories.nutritionSafetyReview?.acknowledgeNutritionSafetyReview).toHaveBeenCalledWith("user_1", "review_1");
     expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
-    expect(snapshot.current?.message).toContain("does not clear");
+    expect(snapshot.current?.message).toContain("does not resolve");
   });
 
   it("usePerformanceState auto-materializes due accepted previews and refreshes once", async () => {
@@ -4871,7 +4893,7 @@ describe("minimal app screens", () => {
 
     expect(repositories.trainingNextWeekPreview.markPreviewMaterialized).toHaveBeenCalledWith("user_1", "accepted_preview_1");
     expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
-    expect(snapshot.current?.message).toBe("Next week was materialized from your accepted preview.");
+    expect(snapshot.current?.message).toBe("Next week was saved from your accepted preview.");
   });
 
   it("usePerformanceState guards against repeated auto materialization for the same preview", async () => {
