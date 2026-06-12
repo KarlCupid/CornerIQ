@@ -1,9 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
+import { URL } from "node:url";
 
 const root = process.cwd();
 const failures = [];
+const warnings = [];
+const APPLE_SUBMISSION_MODE_ENV = "CORNERIQ_APPLE_SUBMISSION";
+const APPLE_SUBMISSION_READY_VALUE = "1";
 
 function pathFromRoot(path) {
   return join(root, path);
@@ -17,6 +21,10 @@ function requireFile(path) {
   if (!existsSync(pathFromRoot(path))) {
     failures.push(`Missing required file: ${path}`);
   }
+}
+
+function optionalFileExists(path) {
+  return existsSync(pathFromRoot(path));
 }
 
 function parseEnvExampleNames() {
@@ -62,7 +70,7 @@ function checkAppConfig() {
 
 function checkPublicEnvDeclarations() {
   const envExampleNames = parseEnvExampleNames();
-  for (const name of ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY"]) {
+  for (const name of ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY", "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL"]) {
     if (process.env[name] === undefined && !envExampleNames.has(name)) {
       failures.push(`Missing public env declaration: ${name}`);
     }
@@ -89,6 +97,49 @@ function checkSensitiveConfigMarkers() {
   }
 }
 
+function isPlaceholderPrivacyUrl(value) {
+  if (!value) {
+    return true;
+  }
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname === "example.com" || /placeholder/i.test(value);
+  } catch {
+    return true;
+  }
+}
+
+function addAppleSubmissionBlocker(message) {
+  const formatted = `APPLE_SUBMISSION_BLOCKED: ${message}`;
+  if (process.env[APPLE_SUBMISSION_MODE_ENV] === APPLE_SUBMISSION_READY_VALUE) {
+    failures.push(formatted);
+    return;
+  }
+  warnings.push(formatted);
+}
+
+function checkAppleSubmissionReadiness() {
+  const app = readJson("app.json");
+  const expo = app.expo ?? {};
+  const iconPath = typeof expo.icon === "string" ? expo.icon : "";
+  const splash = expo.splash && typeof expo.splash === "object" ? expo.splash : {};
+  const splashImagePath = typeof splash.image === "string" ? splash.image : "";
+  const privacyPolicyUrl = process.env.EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL ?? "";
+
+  if (!iconPath || !optionalFileExists(iconPath)) {
+    addAppleSubmissionBlocker("final app icon is not wired in app.json.");
+  }
+  if (!splashImagePath || !optionalFileExists(splashImagePath)) {
+    addAppleSubmissionBlocker("final splash image is not wired in app.json.");
+  }
+  if (isPlaceholderPrivacyUrl(privacyPolicyUrl)) {
+    addAppleSubmissionBlocker("set EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL to a real public policy URL.");
+  }
+  if (expo.ios?.supportsTablet === true && process.env.CORNERIQ_IPAD_VALIDATED !== "1") {
+    addAppleSubmissionBlocker("iPad support is enabled without CORNERIQ_IPAD_VALIDATED=1.");
+  }
+}
+
 for (const file of ["app.json", "eas.json", "docs/FEATURE_STATUS.md", "docs/KNOWN_GAPS.md", "docs/qa/README.md"]) {
   requireFile(file);
 }
@@ -98,6 +149,7 @@ checkEasProfiles();
 checkAppConfig();
 checkPublicEnvDeclarations();
 checkSensitiveConfigMarkers();
+checkAppleSubmissionReadiness();
 
 if (failures.length > 0) {
   console.error("Production preflight failed:");
@@ -108,5 +160,11 @@ if (failures.length > 0) {
 }
 
 console.log("Production preflight passed.");
-console.log("Checked public env declarations: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY.");
+console.log("Checked public env declarations: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL.");
 console.log("Checked package scripts, EAS profiles, app config, client config markers, and launch docs.");
+if (warnings.length > 0) {
+  console.log(`Apple submission checks are warnings unless ${APPLE_SUBMISSION_MODE_ENV}=1.`);
+  for (const warning of warnings) {
+    console.log(`- ${warning}`);
+  }
+}

@@ -166,8 +166,10 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
 
   const signOut = useCallback(async () => {
     if (auth) {
-      await auth.signOut();
+      const { error } = await auth.signOut();
+      setAuthError(error?.message ?? null);
     }
+    setSession(null);
   }, [auth]);
 
   return {

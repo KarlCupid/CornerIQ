@@ -1,0 +1,19 @@
+{
+  "name": "corneriq-promo-video",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:music": "node scripts/generate-music-bed.mjs",
+    "preview": "remotion studio src/index.jsx",
+    "render": "remotion render src/index.jsx CornerIQPromo out/corneriq-promo.mp4 --codec=h264 --pixel-format=yuv420p --overwrite",
+    "still": "remotion still src/index.jsx CornerIQPromo out/preview-frame.png --frame=150 --scale=0.25 --overwrite"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.475",
+    "@remotion/media": "^4.0.475",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "remotion": "^4.0.475"
+  }
+}

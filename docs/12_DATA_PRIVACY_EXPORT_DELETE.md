@@ -62,9 +62,11 @@ Include every user-owned table:
 
 Delete by `user_id` for all user-owned tables, using dependency-aware ordering: projection/result tables first, source/profile tables later, and `users_public` last. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
 
-Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, `generateUserOwnedDataExportBundle(userId, client, options)`, `generateUserOwnedDataExportBundleString(userId, client, options)`, and `deleteUserOwnedData(userId, client, confirmation)`. These helpers use the anon client under RLS and never delete from `auth.users`.
+Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, `generateUserOwnedDataExportBundle(userId, client, options)`, `generateUserOwnedDataExportBundleString(userId, client, options)`, `deleteUserOwnedData(userId, client, confirmation)`, and `deleteAccount(userId, client, confirmation)`. App-data helpers use the anon client under RLS and never delete from `auth.users`.
 
-Deletion requires the exact confirmation string `DELETE`. Production account deletion must later call a server-side Edge Function or other trusted backend path to delete `auth.users`; Expo/client code must not use a service role key.
+App-data deletion requires the exact confirmation string `DELETE`.
+
+Full account deletion requires the exact confirmation string `DELETE ACCOUNT`. The client calls the trusted `delete-account` Supabase Edge Function with the signed-in user's JWT. The function verifies the caller, deletes user-owned app rows, deletes only the caller's `auth.users` identity, returns typed JSON, and requires the app to sign the user out. Expo/client code must not use a service role key.
 
 ## Development/Test Full Reset
 
@@ -95,4 +97,4 @@ The script is `scripts/dev-reset-supabase.mjs`. It previews row counts first, de
 - Verify export bundle redacts secret-shaped keys and values.
 - Verify delete removes generated projections as well as source logs.
 - Verify no service role key is used from Expo or client runtime code.
-- Verify account deletion is double-confirmed in production UI and routed through a server-side function for `auth.users`.
+- Verify account deletion is double-confirmed in production UI, routed through `supabase/functions/delete-account`, deployed to the production project, and smoke-tested before Apple submission.

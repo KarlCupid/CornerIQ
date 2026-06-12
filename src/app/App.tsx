@@ -211,15 +211,21 @@ function LocalE2EApp() {
   const [dataMessage, setDataMessage] = useState<string | null>(null);
   const [dataPreviewLoaded, setDataPreviewLoaded] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [accountDeleteConfirmation, setAccountDeleteConfirmation] = useState("");
   const quickLogs = useLocalE2EQuickLogs(setMessage);
   const cycleSymptomOptions = useMemo<readonly CycleSymptom[]>(() => ["cramps", "low_energy", "poor_sleep"], []);
   const userDataControls = useMemo<UserDataControlsHook>(
     () => ({
+      accountDeleteConfirmation,
+      accountDeletionResultRows: [],
       accountDeletionCopy:
-        "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function and is unavailable in local E2E.",
+        "Delete app data removes user-owned app rows only. Delete account uses the trusted server-side account deletion function in normal signed-in mode. Local E2E never contacts Supabase.",
       bundleText: dataPreviewLoaded ? "{\n  \"metadata\": { \"schemaVersion\": \"corneriq.app_data_export.v1\" },\n  \"rowsByCategory\": {}\n}\n" : null,
       busy: false,
       deleteConfirmation,
+      deleteAccount: async () => {
+        setDataMessage("Local E2E account deletion is disabled. No Supabase call was made.");
+      },
       deleteData: async () => {
         setDataMessage("Local E2E data deletion is disabled. No Supabase call was made.");
       },
@@ -237,9 +243,10 @@ function LocalE2EApp() {
         setDataMessage("Local E2E export preview loaded. No Supabase call was made.");
       },
       previewRows: dataPreviewLoaded ? ["profile: 2", "logs: 3", "training: 4", "nutrition: 1", "cycle/wearable: 0", "projections/traces: 2"] : [],
+      setAccountDeleteConfirmation,
       setDeleteConfirmation
     }),
-    [dataMessage, dataPreviewLoaded, deleteConfirmation]
+    [accountDeleteConfirmation, dataMessage, dataPreviewLoaded, deleteConfirmation]
   );
   const workoutCompletion = useMemo<WorkoutCompletionActions>(
     () => ({

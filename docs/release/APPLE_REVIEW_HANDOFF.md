@@ -1,0 +1,125 @@
+# Apple Review Handoff
+
+Date: 2026-06-12
+
+Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers marked below. This file is a handoff checklist, not final App Store metadata.
+
+## Required Before Submission
+
+- Privacy Policy URL: APPLE_SUBMISSION_BLOCKED until `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` points to a real public policy URL. The in-app placeholder is `https://example.com/corneriq/privacy-policy` and must not ship to App Review.
+- Account deletion Edge Function: deploy `supabase/functions/delete-account` to the production Supabase project and smoke-test it with a real signed-in review account before submission.
+- App icon and splash: APPLE_SUBMISSION_BLOCKED until final icon/splash assets are added and wired in `app.json`, or the release owner documents accepted final assets.
+- Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy metadata.
+- Support URL: placeholder required in App Store Connect. Do not add a public support URL in the app in this pass.
+- Reviewer credentials: provide only in App Store Connect Review Notes. Do not commit credentials.
+
+## Reviewer Access
+
+1. Create a Supabase review account before submission.
+2. Confirm email if the production auth project requires email confirmation.
+3. Preload a safe adult boxer profile, or confirm onboarding remains available after login when no profile exists.
+4. Provide credentials only in App Store Connect Review Notes.
+5. Do not commit credentials, personal emails, or screenshots containing credentials.
+
+Suggested Review Notes:
+
+```text
+CornerIQ is account-gated. A review account has been created and confirmed.
+Username: [provide only in App Store Connect]
+Password: [provide only in App Store Connect]
+
+Profile > Data includes:
+- Export preview
+- Portable JSON export
+- Delete app data
+- Delete account, confirmed with DELETE ACCOUNT, which signs the user out after server-side account deletion
+
+The app is manual-first and does not require a wearable.
+```
+
+## Account Deletion Notes
+
+- In-app path: Profile > Data > Danger Zone > Delete account.
+- Confirmation phrase: `DELETE ACCOUNT`.
+- Client-side code calls `supabase.functions.invoke("delete-account")` with the signed-in user's JWT.
+- The Edge Function verifies the JWT, derives the caller user id from Supabase Auth, deletes user-owned app rows, deletes only that caller's Supabase Auth identity, and returns typed JSON.
+- No trusted key is exposed in Expo/client code.
+- On success, the app signs the user out.
+
+Deployment checklist:
+
+```powershell
+cmd /c npm exec supabase -- functions deploy delete-account
+```
+
+Required function environment:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Do not print or commit secret values.
+
+## Privacy Policy
+
+- In-app path: Profile > Data > Privacy Policy.
+- Central config: `src/services/config/runtimeConfig.ts`.
+- Public env name: `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL`.
+- Template: `docs/legal/PRIVACY_POLICY_TEMPLATE.md`.
+- APPLE_SUBMISSION_BLOCKED until the template is finalized, published, and the public URL is configured.
+
+The policy must cover account/auth data, email/auth identifier, athlete profile, body mass, height, age, sex at birth, pregnancy context, readiness and safety flags, nutrition/water/electrolyte logs, cycle data and symptoms, training plans, workout history, exercise results, wearable/manual preference, exports/deletions, retention/deletion, Supabase as a processor, and analytics status.
+
+## Age Rating And Minor Policy
+
+- MVP is 18+.
+- Under-18 users cannot complete onboarding.
+- Do not market CornerIQ to children or youth athletes.
+- Do not select the Kids category.
+- Youth/minor support remains deferred until guardian consent, privacy handling, and policy review are ready.
+
+## App Store Metadata Draft
+
+- App name: CornerIQ.
+- Subtitle suggestion: Boxing training and fuel planner.
+- Category suggestion: Health & Fitness.
+- Age rating notes: 18+ MVP; sensitive health/body/cycle/nutrition context; no Kids category.
+- Privacy Policy URL: required before submission; blocked until replaced.
+- Support URL: required in App Store Connect; placeholder pending release owner.
+- Account deletion instructions: Profile > Data > Danger Zone > Delete account > type `DELETE ACCOUNT`; successful deletion signs the user out.
+- Demo account/review notes: create and provide only in App Store Connect Review Notes.
+
+Do not claim:
+
+- Medical diagnosis, treatment, emergency support, or fertility prediction.
+- A diet plan, barcode scanner, meal planner, or food database.
+- Coach/team UI or reviewer-clear workflows.
+- Generated sparring, contact drills, or fight simulation.
+- Wearable requirement.
+- Persisted in-progress workout state across app reloads.
+- iPad support for MVP; `ios.supportsTablet` is false until validated.
+
+## Assets And Config
+
+- Current `app.json` has name, slug, scheme, version, portrait orientation, bundle id, Android package, EAS project id, and `ios.supportsTablet: false`.
+- Final app icon is not wired.
+- Final splash image is not wired.
+- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` must fail until the privacy URL and assets are ready.
+
+## Production E2E/Demo Mode Guard
+
+- Local QA mode uses `EXPO_PUBLIC_CORNERIQ_E2E_LOCAL=1`.
+- Production runtime disables local E2E mode when `NODE_ENV=production` or `EXPO_PUBLIC_CORNERIQ_PRODUCTION=1`.
+- Do not expose local E2E/demo shortcuts to public users.
+
+## Final Owner Checklist
+
+- [ ] Publish Privacy Policy.
+- [ ] Configure `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL`.
+- [ ] Add final icon and splash assets to `app.json`.
+- [ ] Deploy `delete-account` Edge Function.
+- [ ] Create and confirm review account.
+- [ ] Preload a safe adult boxer profile or verify onboarding from empty profile.
+- [ ] Capture screenshots.
+- [ ] Fill App Store Connect Support URL.
+- [ ] Put credentials only in App Store Connect Review Notes.
+- [ ] Run `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` and resolve blockers.

@@ -28,6 +28,8 @@ const TrainingDoseSchema = z.enum(["minimal", "standard", "serious", "high"]);
 const ProtectedScheduleChoiceSchema = z.enum(["has_anchors", "no_anchors"]);
 const PlanProtectedScheduleModeSchema = z.enum(["keep_existing", "replace_for_plan", "clear_for_plan"]);
 
+export const MVP_MINIMUM_AGE_YEARS = 18;
+export const MVP_MAXIMUM_AGE_YEARS = 80;
 export const BoxingLevelSchema = z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]);
 const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
@@ -134,7 +136,7 @@ export const OnboardingDraftSchema = z.object({
     preference: z.enum(["manual_only", "wearable_connected", "undecided"])
   }),
   safety: z.object({
-    ageYears: z.number().int().min(5).max(80),
+    ageYears: z.number().int().min(MVP_MINIMUM_AGE_YEARS).max(MVP_MAXIMUM_AGE_YEARS),
     sexAtBirth: z.enum(["female", "male", "intersex", "prefer_not_to_say"]).optional(),
     medicalFlags: z.array(z.string()),
     medications: z.array(z.string()),

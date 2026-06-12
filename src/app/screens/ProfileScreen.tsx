@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Linking, Pressable, Text, TextInput, View } from "react-native";
 import type { CycleViewModel, ProfileViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import type { ISODateString } from "../../engine/core/types";
 import { DisclosureCard } from "../../design/components/DisclosureCard";
@@ -11,6 +11,7 @@ import { SectionTabs, type SectionTabItem } from "../../design/components/Sectio
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
+import { getReleaseLinkConfig } from "../../services/config/runtimeConfig";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
 import { SUPPORT_OUTSIDE_APP_COPY, URGENT_SUPPORT_COPY } from "../supportCopy";
 import { CycleContextCard } from "./cycle/CycleContextCard";
@@ -63,8 +64,15 @@ export function ProfileScreen({
   const [fallbackDeleteConfirmation, setFallbackDeleteConfirmation] = React.useState("");
   const deleteConfirmation = userDataControls?.deleteConfirmation ?? fallbackDeleteConfirmation;
   const setDeleteConfirmation = userDataControls?.setDeleteConfirmation ?? setFallbackDeleteConfirmation;
+  const [fallbackAccountDeleteConfirmation, setFallbackAccountDeleteConfirmation] = React.useState("");
+  const accountDeleteConfirmation = userDataControls?.accountDeleteConfirmation ?? fallbackAccountDeleteConfirmation;
+  const setAccountDeleteConfirmation = userDataControls?.setAccountDeleteConfirmation ?? setFallbackAccountDeleteConfirmation;
   const [section, setSection] = React.useState<ProfileSection>("athlete");
   const [historyDetailOpen, setHistoryDetailOpen] = React.useState(false);
+  const releaseLinks = React.useMemo(() => getReleaseLinkConfig(), []);
+  const openPrivacyPolicy = React.useCallback(() => {
+    void Linking.openURL(releaseLinks.privacyPolicyUrl);
+  }, [releaseLinks.privacyPolicyUrl]);
   return (
     <LuminousScreen testID="profile-screen">
       <ScreenHeader eyebrow="Private" title={viewModel.title} />
@@ -160,9 +168,17 @@ export function ProfileScreen({
               {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
             </View>
           </DashboardCard>
+          <DashboardCard headerRight={<DashboardPill label="Required" tone="blue" />} title="Privacy Policy">
+            <View style={{ gap: spacing.sm }}>
+              <Text style={screenStyles.body}>Explains what CornerIQ stores, how training, fuel, body, cycle, safety, and account data are used, and how export/delete works.</Text>
+              <Pressable accessibilityLabel="Open Privacy Policy" accessibilityRole="link" onPress={openPrivacyPolicy} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>Open Privacy Policy</Text>
+              </Pressable>
+            </View>
+          </DashboardCard>
           <DashboardCard headerRight={<DashboardPill label="DELETE gated" tone="orange" />} title="Account and app data">
             <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function."}</Text>
+              <Text style={screenStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Delete account requires a signed-in server-side account deletion function."}</Text>
               <Text style={screenStyles.subtle}>Export first before any destructive action.</Text>
             </View>
           </DashboardCard>
@@ -181,7 +197,14 @@ export function ProfileScreen({
               <Pressable accessibilityLabel="Delete app data" accessibilityRole="button" accessibilityState={{ disabled: deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy }} disabled={deleteConfirmation !== "DELETE" || !userDataControls?.preview || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteData()} style={screenStyles.quietButton}>
                 <Text style={screenStyles.quietButtonText}>Delete app data</Text>
               </Pressable>
-              <Text style={screenStyles.subtle}>Auth identity deletion requires a trusted support path outside this client.</Text>
+              <Text style={screenStyles.sectionTitle}>Delete account</Text>
+              <Text style={screenStyles.body}>Deletes app data and the sign-in identity for this account through the server-side account deletion function.</Text>
+              <Text style={screenStyles.subtle}>This is irreversible and signs you out. Export first. Requires DELETE ACCOUNT.</Text>
+              <TextInput accessibilityLabel="Delete account confirmation" onChangeText={setAccountDeleteConfirmation} placeholder="Type DELETE ACCOUNT to enable" style={screenStyles.input} value={accountDeleteConfirmation} />
+              <Pressable accessibilityLabel="Delete account" accessibilityRole="button" accessibilityState={{ disabled: accountDeleteConfirmation !== "DELETE ACCOUNT" || busy || userDataControls?.busy }} disabled={accountDeleteConfirmation !== "DELETE ACCOUNT" || busy || userDataControls?.busy} onPress={() => void userDataControls?.deleteAccount()} style={screenStyles.quietButton}>
+                <Text style={screenStyles.quietButtonText}>Delete account</Text>
+              </Pressable>
+              {userDataControls?.accountDeletionResultRows.map((row, index) => <Text key={`profile-account-deletion-result:${index}`} style={screenStyles.subtle}>{row}</Text>)}
             </View>
           </DisclosureCard>
         </View>

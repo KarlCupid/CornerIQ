@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ISODateString } from "../engine/core/types";
-import { createDefaultOnboardingDraft, OnboardingDraftSchema, type OnboardingDraft } from "../services/supabase/onboardingService";
+import { createDefaultOnboardingDraft, MVP_MAXIMUM_AGE_YEARS, MVP_MINIMUM_AGE_YEARS, OnboardingDraftSchema, type OnboardingDraft } from "../services/supabase/onboardingService";
 
 export const ONBOARDING_STEPS = [
   "Boxer basics",
@@ -131,7 +131,12 @@ export function validateOnboardingStep(draft: OnboardingDraft, stepIndex: number
     return invalidRecurringAnchor ? "Weekly boxing sessions need a weekday and positive duration." : null;
   }
   if (stepIndex === 6) {
-    return Number.isInteger(draft.safety.ageYears) && draft.safety.ageYears >= 5 && draft.safety.ageYears <= 80 ? null : "Age is required for safety screening.";
+    if (!Number.isInteger(draft.safety.ageYears) || draft.safety.ageYears > MVP_MAXIMUM_AGE_YEARS) {
+      return "Age is required for safety screening.";
+    }
+    return draft.safety.ageYears >= MVP_MINIMUM_AGE_YEARS
+      ? null
+      : "CornerIQ MVP is for athletes 18 or older. Youth/minor support requires guardian and policy handling outside this release.";
   }
   if (stepIndex === 7) {
     if (draft.goal.phase === "fight_known") {

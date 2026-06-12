@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 import {
   deleteUserOwnedData,
+  deleteAccount,
   generateUserOwnedDataExportBundleString,
   groupUserOwnedPreviewCounts,
   previewUserOwnedDataExport,
@@ -9,10 +10,13 @@ import {
 } from "../services/supabase/userDataService";
 
 export interface UserDataControlsHook {
+  accountDeleteConfirmation: string;
+  accountDeletionResultRows: readonly string[];
   accountDeletionCopy: string;
   bundleText: string | null;
   busy: boolean;
   deleteConfirmation: string;
+  deleteAccount: () => Promise<void>;
   deleteData: () => Promise<void>;
   generateExportBundle: () => Promise<void>;
   message: string | null;
@@ -20,6 +24,7 @@ export interface UserDataControlsHook {
   previewExport: () => Promise<void>;
   portableExportRows: readonly string[];
   previewRows: readonly string[];
+  setAccountDeleteConfirmation: (value: string) => void;
   setDeleteConfirmation: (value: string) => void;
 }
 
@@ -30,9 +35,11 @@ export function useUserDataControls(input: {
 }): UserDataControlsHook {
   const [busy, setBusy] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [accountDeleteConfirmation, setAccountDeleteConfirmation] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [preview, setPreview] = useState<UserOwnedDataExportPreview | null>(null);
   const [bundleText, setBundleText] = useState<string | null>(null);
+  const [accountDeletionResultRows, setAccountDeletionResultRows] = useState<readonly string[]>([]);
 
   const previewExport = useCallback(async () => {
     setBusy(true);
@@ -82,6 +89,23 @@ export function useUserDataControls(input: {
     }
   }, [input.client, input.userId]);
 
+  const deleteAccountAction = useCallback(async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await deleteAccount(input.userId, input.client, accountDeleteConfirmation);
+      const deletedCount = Object.values(result.appDataDeletion).reduce((sum, row) => sum + (row.count ?? 0), 0);
+      setAccountDeletionResultRows([`Account deletion completed at ${result.deletedAt}.`, `Deleted app-data rows reported by server: ${deletedCount}.`, "Signing out of this device."]);
+      setAccountDeleteConfirmation("");
+      setMessage("Account deleted. Signing out.");
+      await input.onAfterDelete();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Account deletion failed.");
+    } finally {
+      setBusy(false);
+    }
+  }, [accountDeleteConfirmation, input]);
+
   const previewRows = useMemo(() => (preview ? Object.entries(groupUserOwnedPreviewCounts(preview)).map(([category, count]) => `${category}: ${count}`) : []), [preview]);
   const portableExportRows = useMemo(
     () =>
@@ -96,11 +120,14 @@ export function useUserDataControls(input: {
   );
 
   return {
+    accountDeleteConfirmation,
+    accountDeletionResultRows,
     accountDeletionCopy:
-      "Delete app data removes user-owned app rows only. Deleting the Supabase auth identity requires a trusted server-side function and is not claimed by this client.",
+      "Delete app data removes user-owned app rows only. Delete account removes app data and deletes the sign-in identity through CornerIQ's trusted server-side account deletion function. Account deletion signs you out.",
     bundleText,
     busy,
     deleteConfirmation,
+    deleteAccount: deleteAccountAction,
     deleteData,
     generateExportBundle,
     message,
@@ -108,6 +135,7 @@ export function useUserDataControls(input: {
     preview,
     previewExport,
     previewRows,
+    setAccountDeleteConfirmation,
     setDeleteConfirmation
   };
 }

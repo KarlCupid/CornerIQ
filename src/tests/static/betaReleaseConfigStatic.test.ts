@@ -57,12 +57,14 @@ describe("release config static checks", () => {
     expect(existsSync("scripts/production-preflight.mjs")).toBe(true);
     const secretUrl = "https://do-not-print.supabase.co";
     const secretAnon = "anon-value-that-must-not-print";
+    const secretPrivacyUrl = "https://privacy-do-not-print.corneriq.example/policy";
     const output = execFileSync(process.execPath, ["scripts/production-preflight.mjs"], {
       cwd: process.cwd(),
       encoding: "utf8",
       env: {
         ...process.env,
         EXPO_PUBLIC_SUPABASE_ANON_KEY: secretAnon,
+        EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL: secretPrivacyUrl,
         EXPO_PUBLIC_SUPABASE_URL: secretUrl
       }
     });
@@ -70,8 +72,10 @@ describe("release config static checks", () => {
     expect(output).toContain("Production preflight passed.");
     expect(output).toContain("EXPO_PUBLIC_SUPABASE_URL");
     expect(output).toContain("EXPO_PUBLIC_SUPABASE_ANON_KEY");
+    expect(output).toContain("EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL");
     expect(output).not.toContain(secretUrl);
     expect(output).not.toContain(secretAnon);
+    expect(output).not.toContain(secretPrivacyUrl);
   });
 
   it("documents public env names, no client role key, and release artifacts", () => {

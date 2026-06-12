@@ -1,5 +1,7 @@
 export const PUBLIC_SUPABASE_URL_ENV = "EXPO_PUBLIC_SUPABASE_URL";
 export const PUBLIC_SUPABASE_ANON_KEY_ENV = "EXPO_PUBLIC_SUPABASE_ANON_KEY";
+export const PUBLIC_PRIVACY_POLICY_URL_ENV = "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL";
+export const PLACEHOLDER_PRIVACY_POLICY_URL = "https://example.com/corneriq/privacy-policy";
 
 export type PublicRuntimeEnvName = typeof PUBLIC_SUPABASE_URL_ENV | typeof PUBLIC_SUPABASE_ANON_KEY_ENV;
 
@@ -9,6 +11,12 @@ export interface PublicRuntimeConfig {
   isPublicAnonKeyOnly: boolean;
   missingVariableNames: readonly PublicRuntimeEnvName[];
   noServiceRoleInClientWarning: string | null;
+}
+
+export interface ReleaseLinkConfig {
+  appleSubmissionBlockedReason: string | null;
+  privacyPolicyUrl: string;
+  privacyPolicyUrlIsPlaceholder: boolean;
 }
 
 type RuntimeEnv = Record<string, string | undefined>;
@@ -60,5 +68,26 @@ export function getPublicRuntimeConfig(env: RuntimeEnv = readRuntimeEnv()): Publ
     isPublicAnonKeyOnly,
     missingVariableNames,
     noServiceRoleInClientWarning
+  };
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+export function getReleaseLinkConfig(env: RuntimeEnv = readRuntimeEnv()): ReleaseLinkConfig {
+  const configuredPrivacyPolicyUrl = env[PUBLIC_PRIVACY_POLICY_URL_ENV]?.trim();
+  const privacyPolicyUrl = configuredPrivacyPolicyUrl && isHttpUrl(configuredPrivacyPolicyUrl) ? configuredPrivacyPolicyUrl : PLACEHOLDER_PRIVACY_POLICY_URL;
+  const privacyPolicyUrlIsPlaceholder = privacyPolicyUrl === PLACEHOLDER_PRIVACY_POLICY_URL || new URL(privacyPolicyUrl).hostname === "example.com";
+
+  return {
+    appleSubmissionBlockedReason: privacyPolicyUrlIsPlaceholder ? "APPLE_SUBMISSION_BLOCKED: replace the placeholder Privacy Policy URL before App Store submission." : null,
+    privacyPolicyUrl,
+    privacyPolicyUrlIsPlaceholder
   };
 }

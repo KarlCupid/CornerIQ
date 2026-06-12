@@ -732,11 +732,16 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Data controls");
   await expectVisibleText(page, "Preview your app data before export or delete. Delete requires DELETE.");
   await expectVisibleText(page, /Delete app data removes user-owned app rows only/);
-  await expectVisibleText(page, /Auth identity deletion requires a trusted server-side function/);
+  await expectVisibleText(page, /Delete account removes app data and deletes the sign-in identity/);
+  await expectVisibleText(page, "Privacy Policy");
+  await expectVisibleText(page, "Open Privacy Policy");
   await expect(page.getByRole("button", { name: "Delete app data" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete account" })).toHaveCount(0);
   await page.getByRole("button", { name: "Show Danger Zone" }).click();
   const deleteButton = page.getByRole("button", { name: "Delete app data" });
+  const deleteAccountButton = page.getByRole("button", { name: "Delete account" });
   await expect(deleteButton).toBeDisabled();
+  await expect(deleteAccountButton).toBeDisabled();
   await page.getByRole("button", { name: "Preview export" }).click();
   await expectVisibleText(page, "Local E2E export preview loaded. No Supabase call was made.");
   await expectVisibleText(page, "profile: 2");
@@ -744,7 +749,7 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expect(deleteButton).toBeDisabled();
   await page.getByLabel("Delete confirmation").fill("DELETE");
   await expect(deleteButton).toBeEnabled();
-  await expectVisibleText(page, "Auth identity deletion requires a trusted support path outside this client.");
+  await expectVisibleText(page, "This is irreversible and signs you out. Export first. Requires DELETE ACCOUNT.");
   await deleteButton.click();
   await expectVisibleText(page, "Local E2E data deletion is disabled. No Supabase call was made.");
   expectNoDisplayedSecretValues(await visiblePageText(page, "profile-data-section"));

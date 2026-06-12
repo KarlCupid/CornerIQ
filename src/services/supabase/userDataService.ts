@@ -49,6 +49,9 @@ export type UserOwnedDataExportPreview = Record<UserOwnedTable, number>;
 export type UserOwnedDataCategory = "profile" | "logs" | "training" | "nutrition" | "cycle/wearable" | "projections/traces";
 export type UserOwnedDataExportPreviewGrouped = Record<UserOwnedDataCategory, number>;
 export type UserOwnedDataExportRowsByCategory = Record<UserOwnedDataCategory, Partial<Record<UserOwnedTable, unknown[]>>>;
+export const ACCOUNT_DELETION_CONFIRMATION = "DELETE ACCOUNT";
+export const ACCOUNT_DELETION_FUNCTION_NAME = "delete-account";
+
 export interface UserOwnedDataExportBundle {
   metadata: {
     schemaVersion: "corneriq.app_data_export.v1";
@@ -73,6 +76,22 @@ export type UserOwnedDeleteResult = {
     status: "deleted";
   };
 };
+
+export interface AccountDeletionSuccessResponse {
+  appDataDeletion: UserOwnedDeleteResult;
+  deletedAt: string;
+  signOutRequired: true;
+  status: "deleted";
+  userId: string;
+}
+
+export interface AccountDeletionFailureResponse {
+  code: string;
+  message: string;
+  status: "failed";
+}
+
+export type AccountDeletionFunctionResponse = AccountDeletionSuccessResponse | AccountDeletionFailureResponse;
 
 export const USER_OWNED_TABLE_CATEGORIES: Record<UserOwnedTable, UserOwnedDataCategory> = {
   users_public: "profile",
@@ -251,4 +270,38 @@ export async function deleteUserOwnedData(userId: string, client: CornerSupabase
   }
 
   return result as UserOwnedDeleteResult;
+}
+
+function isAccountDeletionFunctionResponse(value: unknown): value is AccountDeletionFunctionResponse {
+  if (!isRecord(value) || typeof value.status !== "string") {
+    return false;
+  }
+  if (value.status === "failed") {
+    return typeof value.code === "string" && typeof value.message === "string";
+  }
+  return value.status === "deleted" && typeof value.userId === "string" && typeof value.deletedAt === "string" && value.signOutRequired === true && isRecord(value.appDataDeletion);
+}
+
+export async function deleteAccount(userId: string, client: CornerSupabaseClient, confirmation: string): Promise<AccountDeletionSuccessResponse> {
+  const safeUserId = assertUserId(userId, "userDataService.deleteAccount");
+  if (confirmation !== ACCOUNT_DELETION_CONFIRMATION) {
+    throw new Error(`userDataService.deleteAccount: explicit ${ACCOUNT_DELETION_CONFIRMATION} confirmation is required`);
+  }
+
+  const { data, error } = await client.functions.invoke<AccountDeletionFunctionResponse>(ACCOUNT_DELETION_FUNCTION_NAME, {
+    body: { confirmation }
+  });
+  if (error) {
+    throw new Error(error.message || "Account deletion request failed.");
+  }
+  if (!isAccountDeletionFunctionResponse(data)) {
+    throw new Error("Account deletion returned an unexpected response.");
+  }
+  if (data.status === "failed") {
+    throw new Error(data.message);
+  }
+  if (data.userId !== safeUserId) {
+    throw new Error("Account deletion response did not match the signed-in user.");
+  }
+  return data;
 }

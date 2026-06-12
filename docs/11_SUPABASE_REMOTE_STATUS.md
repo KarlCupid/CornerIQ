@@ -40,6 +40,7 @@ For each release candidate, record non-secret results in generated release evide
 - `cmd /c npm exec supabase -- migration list`.
 - `cmd /c npm exec supabase -- db push --dry-run`.
 - Whether `010_generated_sessions_training_block_scope.sql`, `011_reviewer_workflow_export_feedback_statuses.sql`, and `012_remove_beta_feedback_launch.sql` are applied remotely or still pending.
+- Whether the `delete-account` Edge Function is deployed and smoke-tested for full in-app account deletion.
 - Exact blocker if credentials or permissions are unavailable.
 
 Do not write that remote Supabase is up to date for migrations `010` through `012` unless generated evidence records a later successful apply/alignment result for the exact candidate SHA.
@@ -76,7 +77,7 @@ The regular suite still includes `src/tests/live/liveDbSmoke.test.ts`; it skips 
 ## Secrets
 
 - No service role key is used in Expo/client code.
-- The Edge Function references `SUPABASE_SERVICE_ROLE_KEY` only through function env.
+- Edge Functions reference `SUPABASE_SERVICE_ROLE_KEY` only through function env.
 - No smoke email or password value should be printed into docs.
 - No secret values should be written into tracked files.
 - `.env` remains ignored by git.

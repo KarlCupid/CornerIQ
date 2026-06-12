@@ -9,7 +9,9 @@ import { createHydrationRepository } from "../../services/supabase/hydrationRepo
 import { loadAthleteJourney } from "../../services/supabase/loadAthleteJourney";
 import { createReadinessRepository } from "../../services/supabase/readinessRepository";
 import {
+  ACCOUNT_DELETION_CONFIRMATION,
   deleteUserOwnedData,
+  deleteAccount,
   exportUserOwnedData,
   generateUserOwnedDataExportBundle,
   generateUserOwnedDataExportBundleString,
@@ -357,6 +359,16 @@ function createUserDataClient(rowsByTable: Partial<Record<(typeof USER_OWNED_TAB
     }
   };
   return { client: client as unknown as CornerSupabaseClient, deleted, selected };
+}
+
+function createAccountDeletionClient(response: unknown, error: { message: string } | null = null) {
+  const invoke = vi.fn(async () => ({ data: response, error }));
+  const client = {
+    functions: {
+      invoke
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, invoke };
 }
 
 describe("Supabase repositories", () => {
@@ -1182,6 +1194,37 @@ describe("Supabase repositories", () => {
     await expect(deleteUserOwnedData("user_1", client, "delete")).rejects.toThrow(/DELETE confirmation/);
     expect(selected).toHaveLength(0);
     expect(deleted).toHaveLength(0);
+  });
+
+  it("userDataService calls the trusted account deletion function and validates the caller", async () => {
+    const appDataDeletion = Object.fromEntries(USER_OWNED_TABLES.map((table) => [table, { count: 0, status: "deleted" }])) as Record<(typeof USER_OWNED_TABLES)[number], { count: number; status: "deleted" }>;
+    const { client, invoke } = createAccountDeletionClient({
+      appDataDeletion,
+      deletedAt: "2026-06-12T00:00:00.000Z",
+      signOutRequired: true,
+      status: "deleted",
+      userId: "user_1"
+    });
+
+    const result = await deleteAccount("user_1", client, ACCOUNT_DELETION_CONFIRMATION);
+
+    expect(result.status).toBe("deleted");
+    expect(invoke).toHaveBeenCalledWith("delete-account", { body: { confirmation: ACCOUNT_DELETION_CONFIRMATION } });
+    await expect(deleteAccount("user_1", client, "DELETE")).rejects.toThrow(/DELETE ACCOUNT/);
+  });
+
+  it("userDataService rejects unexpected account deletion responses", async () => {
+    const failed = createAccountDeletionClient({ status: "failed", code: "invalid_token", message: "Invalid token." });
+    const mismatched = createAccountDeletionClient({
+      appDataDeletion: {},
+      deletedAt: "2026-06-12T00:00:00.000Z",
+      signOutRequired: true,
+      status: "deleted",
+      userId: "user_2"
+    });
+
+    await expect(deleteAccount("user_1", failed.client, ACCOUNT_DELETION_CONFIRMATION)).rejects.toThrow(/Invalid token/);
+    await expect(deleteAccount("user_1", mismatched.client, ACCOUNT_DELETION_CONFIRMATION)).rejects.toThrow(/did not match/);
   });
 
   it("repository mapper files avoid explicit any", () => {

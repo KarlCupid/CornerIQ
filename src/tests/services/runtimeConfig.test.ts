@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPublicRuntimeConfig } from "../../services/config/runtimeConfig";
+import { getPublicRuntimeConfig, getReleaseLinkConfig, PUBLIC_PRIVACY_POLICY_URL_ENV } from "../../services/config/runtimeConfig";
 
 function unsignedJwtWithRole(role: string): string {
   const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
@@ -54,5 +54,16 @@ describe("runtimeConfig", () => {
 
     expect(config.isPublicAnonKeyOnly).toBe(false);
     expect(config.noServiceRoleInClientWarning).toContain("server-only role keys");
+  });
+
+  it("centralizes the privacy policy URL and marks placeholder submission blockers", () => {
+    const placeholder = getReleaseLinkConfig({});
+    const configured = getReleaseLinkConfig({ [PUBLIC_PRIVACY_POLICY_URL_ENV]: "https://corneriq.example/privacy" });
+
+    expect(placeholder.privacyPolicyUrlIsPlaceholder).toBe(true);
+    expect(placeholder.appleSubmissionBlockedReason).toContain("APPLE_SUBMISSION_BLOCKED");
+    expect(configured.privacyPolicyUrl).toBe("https://corneriq.example/privacy");
+    expect(configured.privacyPolicyUrlIsPlaceholder).toBe(false);
+    expect(configured.appleSubmissionBlockedReason).toBeNull();
   });
 });

@@ -263,7 +263,7 @@ describe("onboardingService", () => {
     expect(repositories.athlete.upsertProfile).not.toHaveBeenCalled();
   });
 
-  it("minor athlete fight setup blocks acute weight manipulation through engine safety", async () => {
+  it("MVP onboarding rejects under-18 profile setup before writes", async () => {
     const { repositories } = createOnboardingRepositories();
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
     draft.safety.ageYears = 16;
@@ -283,13 +283,8 @@ describe("onboardingService", () => {
       }
     };
 
-    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft, repositories });
-    const result = await resolveFromStore(repositories);
-
-    expect(result.status).toBe("ready");
-    if (result.status === "ready") {
-      expect(result.state.safety.riskFlags.some((flag) => flag.code === "minor_acute_cut_blocked")).toBe(true);
-    }
+    await expect(completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft, repositories })).rejects.toBeInstanceOf(RepositoryError);
+    expect(repositories.athlete.upsertProfile).not.toHaveBeenCalled();
   });
 
   it("standalone fight and tournament setup services write rows and events", async () => {

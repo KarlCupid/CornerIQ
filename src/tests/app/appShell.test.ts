@@ -4043,6 +4043,7 @@ describe("minimal app screens", () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     const previewExport = vi.fn(async () => undefined);
     const deleteData = vi.fn(async () => undefined);
+    const deleteAccount = vi.fn(async () => undefined);
     const generateExportBundle = vi.fn(async () => undefined);
     const renderer = render(
       React.createElement(ProfileScreen, {
@@ -4056,10 +4057,13 @@ describe("minimal app screens", () => {
         preferredUnits: "metric",
         recentLogs: recentLogsViewModel,
         userDataControls: {
-          accountDeletionCopy: "Delete app data removes user-owned app rows only. Auth identity deletion requires a trusted server-side function.",
+          accountDeleteConfirmation: "",
+          accountDeletionResultRows: [],
+          accountDeletionCopy: "Delete app data removes user-owned app rows only. Delete account removes app data and deletes the sign-in identity through CornerIQ's trusted server-side account deletion function.",
           bundleText: "{\n  \"metadata\": { \"schemaVersion\": \"corneriq.app_data_export.v1\" }\n}\n",
           busy: false,
           deleteConfirmation: "",
+          deleteAccount,
           deleteData,
           generateExportBundle,
           message: "Export preview loaded.",
@@ -4067,6 +4071,7 @@ describe("minimal app screens", () => {
           preview: null,
           previewExport,
           previewRows: ["training: 1"],
+          setAccountDeleteConfirmation: vi.fn(),
           setDeleteConfirmation: vi.fn()
         },
         viewModel: profileViewModel,
@@ -4085,11 +4090,16 @@ describe("minimal app screens", () => {
     });
     expect(generateExportBundle).toHaveBeenCalled();
     expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Privacy Policy");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Open Privacy Policy");
     expect(pressableWithText(renderer, "Delete app data")).toBeUndefined();
+    expect(pressableWithText(renderer, "Delete account")).toBeUndefined();
     expect(JSON.stringify(renderer.toJSON())).toContain("Show Danger Zone");
     await switchSection(renderer, "Show Danger Zone");
     const deleteButton = pressableWithText(renderer, "Delete app data");
+    const deleteAccountButton = pressableWithText(renderer, "Delete account");
     expect(deleteButton?.props.disabled).toBe(true);
+    expect(deleteAccountButton?.props.disabled).toBe(true);
   });
 
   it("fatigue-first screens keep collapsed sections and primary actions short", async () => {
@@ -4540,6 +4550,29 @@ describe("minimal app screens", () => {
     draft.bodyMass.currentBodyMassKg = Number.NaN;
 
     expect(validateOnboardingDraftForFinish(draft)).toContain("Current body weight");
+  });
+
+  it("onboarding MVP blocks under-18 setup before completion", async () => {
+    const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
+    const onComplete = vi.fn();
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn() }));
+
+    for (let step = 0; step < 6; step += 1) {
+      await act(async () => {
+        await press(pressableWithText(renderer, "Next"));
+      });
+    }
+    act(() => {
+      changeInput(renderer, "Age", "17");
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Next"));
+    });
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(output).toContain("CornerIQ MVP is for athletes 18 or older");
+    expect(output).not.toContain("Pregnancy safety context");
   });
 
   it("onboarding keeps the draft on an explicit save failure result", async () => {
