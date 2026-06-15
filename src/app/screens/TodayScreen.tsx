@@ -334,7 +334,6 @@ function TodayDashboardSection({
         <View style={{ flexBasis: 280, flexGrow: 1 }}>
           <DashboardCard
             density="compact"
-            headerRight={onOpenFuel ? <DashboardPill label="Details" tone="blue" /> : null}
             testID="today-fuel-status-bars"
             title="Fuel status"
             titleVariant="quiet"

@@ -25,7 +25,7 @@ describe("referencePanelViewModel", () => {
 
     expect(reference.readiness.statusLabel).toBe(dashboard.readiness.statusLabel);
     expect(reference.planRows.map((row) => row.title)).toEqual(dashboard.schedule.slice(0, 3).map((item) => item.title));
-    expect(reference.load.valueLabel).toBe(dashboard.loadStateLabel);
+    expect("load" in reference).toBe(false);
   });
 
   it("uses the real next generated session and dated next workouts on Train", () => {

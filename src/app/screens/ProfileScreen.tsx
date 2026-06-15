@@ -6,7 +6,7 @@ import { DisclosureCard } from "../../design/components/DisclosureCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { CompactStatusStrip } from "../../design/components/FastTask";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
-import { DashboardCard, DashboardPill } from "../../design/components/PerformanceVisuals";
+import { DashboardCard } from "../../design/components/PerformanceVisuals";
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
@@ -100,7 +100,7 @@ export function ProfileScreen({
         <View style={{ gap: spacing.lg }} testID="profile-athlete-section">
           <ProfileDataConstellation signals={viewModel.dataConstellation} />
           <ProfileIntelligenceLayers layers={viewModel.intelligenceLayers} />
-          <DashboardCard headerRight={<DashboardPill label="Manual-first" tone="muted" />} title="Athlete profile">
+          <DashboardCard title="Athlete profile">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{viewModel.summary}</Text>
               <CompactStatusStrip
@@ -129,7 +129,7 @@ export function ProfileScreen({
             </View>
           </DashboardCard>
           <ProfilePrivacyMatrix items={viewModel.privacyMatrix} />
-          <DashboardCard headerRight={<DashboardPill label="Private" tone="purple" />} title="Privacy notes">
+          <DashboardCard title="Privacy notes">
             <View style={{ gap: spacing.sm }}>
               {viewModel.privacyNotes.map((note, index) => <Text key={`profile-privacy:${index}`} style={screenStyles.body}>{note}</Text>)}
               <Text style={screenStyles.subtle}>Cycle data is optional, private, and used only to adjust confidence and symptom-aware context.</Text>
@@ -160,7 +160,7 @@ export function ProfileScreen({
       ) : null}
       {section === "data" ? (
         <View style={{ gap: spacing.lg }} testID="profile-data-section">
-          <DashboardCard headerRight={<DashboardPill label="Preview first" tone="muted" />} title="Export">
+          <DashboardCard title="Export">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Preview your app data before export or delete. Delete requires DELETE.</Text>
               <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
@@ -177,7 +177,7 @@ export function ProfileScreen({
               {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="Required" tone="muted" />} title="Privacy Policy">
+          <DashboardCard title="Privacy Policy">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Explains what CornerIQ stores, how training, fuel, body, cycle, safety, and account data are used, and how export/delete works.</Text>
               <Pressable accessibilityLabel="Open Privacy Policy" accessibilityRole="link" onPress={openPrivacyPolicy} style={screenStyles.quietButton}>
@@ -185,13 +185,13 @@ export function ProfileScreen({
               </Pressable>
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="DELETE gated" tone="orange" />} title="Account and app data">
+          <DashboardCard title="Account and app data">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Delete account requires a signed-in server-side account deletion function."}</Text>
               <Text style={screenStyles.subtle}>Export first before any destructive action.</Text>
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="muted" />} title="Support path">
+          <DashboardCard title="Support path">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{SUPPORT_OUTSIDE_APP_COPY}</Text>
               <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>
@@ -221,7 +221,7 @@ export function ProfileScreen({
       {section === "safety" ? (
         <View style={{ gap: spacing.lg }} testID="profile-safety-section">
           <ProfileSafetyLedger items={viewModel.safetyLedger} />
-          <DashboardCard headerRight={<DashboardPill label="Traceability" tone="muted" />} title="Training history">
+          <DashboardCard title="Training history">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Current block week {viewModel.trainingAuditSummary.currentWeekIndex}</Text>
               <Text style={screenStyles.body}>Saved week summaries: {viewModel.trainingAuditSummary.activeBlockHistoryCount}</Text>
@@ -246,13 +246,13 @@ export function ProfileScreen({
               </View>
             </DashboardCard>
           ) : null}
-          <DashboardCard headerRight={<DashboardPill label="Read-only" tone="orange" />} title="Fuel safety history">
+          <DashboardCard title="Fuel safety history">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Nutrition review history appears in Fuel when active or recently saved.</Text>
               <Text style={screenStyles.subtle}>Safety stops require medical or nutrition support outside the app.</Text>
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="muted" />} title="Support path">
+          <DashboardCard title="Support path">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{SUPPORT_OUTSIDE_APP_COPY}</Text>
               <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>

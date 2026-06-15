@@ -366,27 +366,6 @@ function MiniBars({ accent, bars }: { accent: keyof typeof referenceAccent; bars
   );
 }
 
-function Sparkline({ accent, bars }: { accent: keyof typeof referenceAccent; bars?: readonly ReferenceBarViewModel[] | undefined }) {
-  const color = referenceAccent[accent];
-  const values = bars && bars.length > 0 ? bars.map((bar) => bar.ratio) : [0.24, 0.4, 0.36, 0.52, 0.45, 0.66, 0.42, 0.74, 0.9, 0.68, 0.78, 0.58, 0.64];
-  return (
-    <View style={{ alignItems: "flex-end", flexDirection: "row", gap: 3, height: 44, width: 150 }}>
-      {values.map((height, index) => (
-        <View
-          key={`spark:${index}`}
-          style={{
-            backgroundColor: color,
-            borderRadius: 3,
-            height: `${Math.max(12, height * 100)}%`,
-            opacity: index > 8 ? 1 : 0.72,
-            width: 7
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 function DayStrip({ days }: { days: PlanReferencePanelViewModel["weekStrip"] }) {
   return (
     <ReferenceCard style={{ paddingHorizontal: spacing.sm, paddingVertical: spacing.sm }}>
@@ -481,16 +460,6 @@ export function TodayReferencePanel({
         </ReferenceCard>
       </View>
 
-      <ReferenceCard>
-        <SectionLabel accent="blue" title={model.load.title} />
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between", marginTop: spacing.xs }}>
-          <View style={{ gap: 2 }}>
-            <Text style={{ color: colors.canvas, fontSize: 25, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 31 }}>{model.load.valueLabel}</Text>
-            <Text style={{ color: referenceAccent.blue, fontSize: 11, fontWeight: "800", lineHeight: 14 }}>{model.load.meta}</Text>
-          </View>
-          <Sparkline accent="blue" bars={model.load.bars} />
-        </View>
-      </ReferenceCard>
     </View>
   );
 }

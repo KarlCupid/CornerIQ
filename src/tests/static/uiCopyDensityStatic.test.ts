@@ -66,10 +66,17 @@ describe("fatigue-first UI copy density static checks", () => {
     }
   });
 
-  it("keeps the bottom tab bar from overlaying scroll content", () => {
-    const source = readFileSync("src/app/navigation/AppTabs.tsx", "utf8");
-    expect(source).not.toMatch(/tabBarStyle:\s*{[^}]*position:\s*"absolute"/s);
-    expect(source).not.toMatch(/tabBarStyle:\s*{[^}]*bottom:\s*0/s);
+  it("keeps the floating bottom tab bar animated and clear of scroll content", () => {
+    const tabsSource = readFileSync("src/app/navigation/AppTabs.tsx", "utf8");
+    const screenSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");
+    const tabBarStyle = tabsSource.match(/tabBarStyle:\s*{[\s\S]*?\n\s{12}}/)?.[0] ?? "";
+    expect(tabsSource).toContain("function FloatingTabIcon");
+    expect(tabsSource).toContain("Animated.spring");
+    expect(tabsSource).toContain("tabBarShowLabel: false");
+    expect(tabsSource).toMatch(/tabBarStyle:\s*{[\s\S]*position:\s*"absolute"/);
+    expect(tabsSource).toContain("bottom: Math.max(insets.bottom, spacing.md)");
+    expect(tabBarStyle).not.toMatch(/bottom:\s*0/);
+    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 112;");
   });
 
   it("keeps the tab photo headers wired to real local assets and matching icons", () => {

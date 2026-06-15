@@ -85,20 +85,24 @@ export function DashboardPill({ label, tone = "blue" }: { label: string; tone?: 
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
+        alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.065)",
-        borderColor: `${toneColor}5F`,
-        borderLeftColor: toneColor,
-        borderLeftWidth: 3,
-        borderRadius: 10,
-        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.xs,
         justifyContent: "center",
         maxWidth: 180,
-        minHeight: 32,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.xs
+        minHeight: 24
       }}
     >
+      <View
+        style={{
+          backgroundColor: toneColor,
+          borderRadius: 4,
+          height: 8,
+          opacity: 0.92,
+          width: 8
+        }}
+      />
       <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
         {label}
       </Text>

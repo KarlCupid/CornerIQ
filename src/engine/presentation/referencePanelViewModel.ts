@@ -7,7 +7,6 @@ import type {
   TrainViewModel
 } from "./types";
 import type {
-  BarVisual,
   FuelDashboardVisual,
   ProgressVisual,
   TimelineVisual,
@@ -52,12 +51,6 @@ export interface TodayReferencePanelViewModel {
     summary: string;
   };
   planRows: readonly ReferenceRowViewModel[];
-  load: {
-    title: string;
-    valueLabel: string;
-    meta: string;
-    bars: readonly ReferenceBarViewModel[];
-  };
 }
 
 export interface TrainReferencePanelViewModel {
@@ -157,15 +150,6 @@ function dateParts(date: string): { day: string; short: string; weekday: string 
   };
 }
 
-function barsFromVisuals(bars: readonly BarVisual[], activeLabel?: string | undefined): readonly ReferenceBarViewModel[] {
-  return bars.slice(0, 8).map((bar) => ({
-    active: Boolean(activeLabel && bar.label === activeLabel) || Boolean(bar.markerLabel),
-    label: bar.label,
-    ratio: clamp01(bar.ratio),
-    tone: toneForReference(bar.tone)
-  }));
-}
-
 function percentFromProgress(item: ProgressVisual | undefined): number | null {
   if (!item) {
     return null;
@@ -260,13 +244,7 @@ export function buildTodayReferencePanelViewModel(input: {
       summary: input.dashboard.topSummary,
       title: input.dashboard.decision.title
     },
-    planRows: input.dashboard.schedule.slice(0, 3).map(labelForTodayPlanItem),
-    load: {
-      bars: barsFromVisuals(input.dashboard.weeklyLoad),
-      meta: input.dashboard.acwrLabel.startsWith("ACWR") ? input.dashboard.acwrLabel : `ACWR ${input.dashboard.acwrLabel}`,
-      title: "Training load",
-      valueLabel: input.dashboard.loadStateLabel
-    }
+    planRows: input.dashboard.schedule.slice(0, 3).map(labelForTodayPlanItem)
   };
 }
 

@@ -361,7 +361,7 @@ export function ProfileDataConstellation({ signals }: { signals: readonly Profil
 
 export function ProfileIntelligenceLayers({ layers }: { layers: readonly ProfileMetricViewModel[] }) {
   return (
-    <DashboardCard headerRight={<DashboardPill label="Decision trail" tone="purple" />} title="Corner intelligence layers">
+    <DashboardCard title="Corner intelligence layers">
       <View style={{ gap: spacing.md }}>
         {layers.map((layer, index) => {
           const color = toneColors[layer.tone];
@@ -392,7 +392,7 @@ export function ProfileIntelligenceLayers({ layers }: { layers: readonly Profile
 
 export function ProfilePrivacyMatrix({ items }: { items: readonly ProfileSignalViewModel[] }) {
   return (
-    <DashboardCard headerRight={<DashboardPill label="Private by default" tone="green" />} title="Privacy vault">
+    <DashboardCard title="Privacy vault">
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         {items.map((item) => {
           const color = toneColors[item.tone];
@@ -429,7 +429,7 @@ export function ProfilePrivacyMatrix({ items }: { items: readonly ProfileSignalV
 
 export function ProfileSafetyLedger({ items }: { items: readonly ProfileLedgerItemViewModel[] }) {
   return (
-    <DashboardCard headerRight={<DashboardPill label="Read-only" tone="orange" />} testID="profile-safety-ledger" title="Safety ledger">
+    <DashboardCard testID="profile-safety-ledger" title="Safety ledger">
       <View style={{ gap: spacing.md }}>
         {items.map((item, index) => {
           const color = toneColors[item.tone];

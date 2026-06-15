@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
+import { Animated, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, DetailedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
 import { alphaHex, glassStyles } from "../../design/glass";
@@ -27,6 +27,7 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
+const floatingTabBarHeight = 68;
 
 const tabAccents: Record<keyof RootTabParamList, string> = {
   Fuel: colors.amberCaution,
@@ -44,6 +45,14 @@ const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> =
   Train: "barbell-outline"
 };
 
+const activeTabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
+  Fuel: "flame",
+  Plan: "clipboard",
+  Profile: "person",
+  Today: "today",
+  Train: "barbell"
+};
+
 const tabChromeThemes: Record<keyof RootTabParamList, (typeof luminousScreenThemes)[keyof typeof luminousScreenThemes]> = {
   Fuel: luminousScreenThemes.orange,
   Plan: luminousScreenThemes.green,
@@ -51,6 +60,86 @@ const tabChromeThemes: Record<keyof RootTabParamList, (typeof luminousScreenThem
   Today: luminousScreenThemes.blue,
   Train: luminousScreenThemes.purple
 };
+
+function FloatingTabIcon({
+  color,
+  focused,
+  routeName
+}: {
+  color: string;
+  focused: boolean;
+  routeName: keyof RootTabParamList;
+}) {
+  const progress = React.useRef(new Animated.Value(focused ? 1 : 0)).current;
+  const accent = tabAccents[routeName];
+
+  React.useEffect(() => {
+    Animated.spring(progress, {
+      damping: 16,
+      mass: 0.9,
+      stiffness: 220,
+      toValue: focused ? 1 : 0,
+      useNativeDriver: true
+    }).start();
+  }, [focused, progress]);
+
+  const scale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.16]
+  });
+  const translateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -3]
+  });
+  const glowOpacity = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1]
+  });
+  const glowScale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.76, 1]
+  });
+
+  return (
+    <Animated.View
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        transform: [{ translateY }, { scale }]
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: focused ? alphaHex(accent, "1F") : "transparent",
+          borderColor: focused ? alphaHex(accent, "55") : "transparent",
+          borderRadius: 24,
+          borderWidth: 1,
+          height: 46,
+          justifyContent: "center",
+          overflow: "hidden",
+          width: 46
+        }}
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            backgroundColor: alphaHex(accent, "24"),
+            borderRadius: 22,
+            bottom: 5,
+            left: 5,
+            opacity: glowOpacity,
+            position: "absolute",
+            right: 5,
+            top: 5,
+            transform: [{ scale: glowScale }]
+          }}
+        />
+        <Ionicons color={focused ? accent : color} name={focused ? activeTabIcons[routeName] : tabIcons[routeName]} size={22} />
+      </View>
+    </Animated.View>
+  );
+}
 
 function playerStatusIsInProgress(status: WorkoutPlayerStatus): boolean {
   return status === "active" || status === "paused" || status === "finishing";
@@ -143,31 +232,21 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
+            tabBarAccessibilityLabel: route.name,
             tabBarActiveTintColor: tabAccents[route.name],
+            tabBarHideOnKeyboard: true,
             tabBarInactiveTintColor: inactiveTabColor,
             tabBarIcon: ({ color, focused }) => (
-              <View
-                style={{
-                  alignItems: "center",
-                  backgroundColor: focused ? alphaHex(tabAccents[route.name], "18") : "transparent",
-                  borderColor: focused ? alphaHex(tabAccents[route.name], "35") : "transparent",
-                  borderWidth: 1,
-                  borderRadius: 15,
-                  height: 30,
-                  justifyContent: "center",
-                  width: 30
-                }}
-              >
-                <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={18} />
-              </View>
+              <FloatingTabIcon color={color} focused={focused} routeName={route.name} />
             ),
+            tabBarShowLabel: false,
             tabBarLabelPosition: "below-icon",
             tabBarIconStyle: {
               marginBottom: 0,
               marginTop: 0
             },
             tabBarItemStyle: {
-              height: 50,
+              height: 54,
               justifyContent: "center",
               paddingBottom: 0,
               paddingTop: 0
@@ -183,20 +262,22 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               ...glassStyles.tabBar,
               backgroundColor: tabChromeThemes[route.name].cardDeep,
               borderColor: tabChromeThemes[route.name].cardBorder,
-              borderBottomLeftRadius: 18,
-              borderBottomRightRadius: 18,
+              borderBottomLeftRadius: 34,
+              borderBottomRightRadius: 34,
               borderBottomWidth: 1,
               borderLeftWidth: 1,
               borderRightWidth: 1,
-              borderTopLeftRadius: 18,
-              borderTopRightRadius: 18,
-              boxShadow: `0 -12px 30px rgba(0, 0, 0, 0.34), 0 0 20px ${tabChromeThemes[route.name].strongGlow}`,
-              height: 62 + insets.bottom,
-              marginBottom: spacing.sm,
-              marginHorizontal: spacing.lg,
+              borderTopLeftRadius: 34,
+              borderTopRightRadius: 34,
+              bottom: Math.max(insets.bottom, spacing.md),
+              boxShadow: `0 18px 42px rgba(0, 0, 0, 0.44), 0 0 24px ${tabChromeThemes[route.name].strongGlow}`,
+              height: floatingTabBarHeight,
+              left: spacing.lg,
               overflow: "hidden",
-              paddingBottom: Math.max(insets.bottom, spacing.xs),
-              paddingTop: spacing.sm,
+              paddingBottom: spacing.xs,
+              paddingTop: spacing.xs,
+              position: "absolute",
+              right: spacing.lg
             }
           })}
       >

@@ -10,7 +10,7 @@ import { typography } from "../typography";
 
 export { accentColor, accentWash, luminousScreenThemes, useLuminousScreenTheme, type LuminousAccent } from "../luminousTheme";
 
-const TAB_SCREEN_BOTTOM_PADDING = spacing.xl;
+const TAB_SCREEN_BOTTOM_PADDING = 112;
 
 const luminousStyles = {
   content: {
