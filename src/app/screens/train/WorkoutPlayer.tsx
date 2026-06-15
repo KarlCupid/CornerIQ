@@ -291,16 +291,18 @@ function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | 
   return (
     <View
       style={{
-        ...(tone === "quiet" ? glassStyles.control : {}),
-        backgroundColor: tone === "quiet" ? "rgba(255, 255, 255, 0.095)" : `${toneColor}1F`,
-        borderColor: tone === "quiet" ? colors.line : `${toneColor}73`,
-        borderRadius: radii.pill,
+        backgroundColor: "rgba(255, 255, 255, 0.065)",
+        borderColor: tone === "quiet" ? colors.line : `${toneColor}5F`,
+        borderLeftColor: toneColor,
+        borderLeftWidth: 3,
+        borderRadius: 10,
+        borderWidth: 1,
         minHeight: 34,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.xs
       }}
     >
-      <Text style={{ color: tone === "orange" ? colors.canvas : toneColor, fontSize: 12, fontWeight: "900", lineHeight: 17 }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: tone === "orange" ? colors.canvas : toneColor, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 17 }}>{label}</Text>
     </View>
   );
 }

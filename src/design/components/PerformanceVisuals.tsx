@@ -78,19 +78,23 @@ export function DashboardPill({ label, tone = "blue" }: { label: string; tone?: 
   const toneColor = colorForTone(tone);
   return (
     <View
+      accessibilityLabel={`Status: ${label}`}
       style={{
         alignSelf: "flex-start",
-        backgroundColor: toneWash[tone],
-        borderColor: `${toneColor}66`,
-        borderRadius: radii.pill,
+        backgroundColor: "rgba(255, 255, 255, 0.065)",
+        borderColor: `${toneColor}5F`,
+        borderLeftColor: toneColor,
+        borderLeftWidth: 3,
+        borderRadius: 10,
         borderWidth: 1,
-        minHeight: 28,
         justifyContent: "center",
+        maxWidth: 180,
+        minHeight: 32,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.xs
       }}
     >
-      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
         {label}
       </Text>
     </View>

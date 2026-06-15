@@ -17,21 +17,6 @@ const luminousStyles = {
     paddingHorizontal: spacing.lg,
     width: "100%" as const
   },
-  headerPill: {
-    alignSelf: "flex-start" as const,
-    ...glassStyles.control,
-    borderRadius: radii.pill,
-    justifyContent: "center" as const,
-    minHeight: 28,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs
-  },
-  headerPillText: {
-    color: colors.wrap,
-    fontSize: 12,
-    fontWeight: "700" as const,
-    lineHeight: 16
-  },
   screen: {
     backgroundColor: colors.cornerBlack,
     flex: 1
@@ -94,14 +79,9 @@ export function LuminousScreen({
   );
 }
 
-export function ScreenHeader({ eyebrow, title }: { eyebrow?: string | undefined; title: string }) {
+export function ScreenHeader({ title }: { eyebrow?: string | undefined; title: string }) {
   return (
-    <View style={{ gap: spacing.sm }}>
-      {eyebrow ? (
-        <View style={luminousStyles.headerPill}>
-          <Text style={luminousStyles.headerPillText}>{eyebrow}</Text>
-        </View>
-      ) : null}
+    <View style={{ gap: spacing.xs }}>
       <Text style={luminousStyles.title}>{title}</Text>
     </View>
   );
@@ -118,17 +98,19 @@ export function AccentPill({
     <View
       style={{
         alignSelf: "flex-start",
-        backgroundColor: accentWash[accent],
-        borderColor: `${accentColor[accent]}55`,
-        borderRadius: radii.pill,
+        backgroundColor: "rgba(255, 255, 255, 0.065)",
+        borderColor: `${accentColor[accent]}5F`,
+        borderLeftColor: accentColor[accent],
+        borderLeftWidth: 3,
+        borderRadius: 10,
         borderWidth: 1,
-        minHeight: 30,
+        minHeight: 32,
         justifyContent: "center",
-        paddingHorizontal: spacing.lg,
+        paddingHorizontal: spacing.md,
         paddingVertical: spacing.xs
       }}
     >
-      <Text style={{ color: accent === "gold" ? colors.gold : accentColor[accent], fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text style={{ color: accent === "gold" ? colors.gold : accentColor[accent], fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
         {label}
       </Text>
     </View>

@@ -27,7 +27,7 @@ export const glassStyles = {
     backgroundColor: "rgba(255, 255, 255, 0.095)",
     borderColor: "rgba(255, 255, 255, 0.18)",
     borderCurve: "continuous",
-    borderRadius: radii.pill,
+    borderRadius: radii.control,
     borderWidth: 1,
     boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
   } satisfies GlassViewStyle,

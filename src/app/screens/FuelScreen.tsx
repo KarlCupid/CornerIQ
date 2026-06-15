@@ -221,8 +221,22 @@ function FuelProgressTile({ helper, item }: { helper: string; item: ProgressVisu
           {item.label}
         </Text>
         {item.stateLabel ? (
-          <View style={{ backgroundColor: `${toneColor}1F`, borderColor: `${toneColor}66`, borderRadius: radii.pill, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
-            <Text numberOfLines={1} style={{ color: toneColor, fontSize: 10, fontWeight: "900", lineHeight: 14 }}>
+          <View
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.065)",
+              borderColor: `${toneColor}5F`,
+              borderLeftColor: toneColor,
+              borderLeftWidth: 3,
+              borderRadius: 8,
+              borderWidth: 1,
+              maxWidth: 104,
+              minHeight: 26,
+              justifyContent: "center",
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 2
+            }}
+          >
+            <Text numberOfLines={1} style={{ color: toneColor, fontSize: 10, fontWeight: "900", letterSpacing: 0, lineHeight: 14 }}>
               {item.stateLabel}
             </Text>
           </View>

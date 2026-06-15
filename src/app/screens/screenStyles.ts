@@ -1,6 +1,6 @@
 import type { TextStyle, ViewStyle } from "react-native";
 import { glassStyles } from "../../design/glass";
-import { colors, radii, spacing } from "../../design/theme";
+import { colors, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 
 export const screenStyles = {
@@ -55,17 +55,23 @@ export const screenStyles = {
   } satisfies TextStyle,
   headerPill: {
     alignSelf: "flex-start",
-    ...glassStyles.control,
-    borderRadius: radii.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.065)",
+    borderColor: "rgba(39, 206, 241, 0.38)",
+    borderCurve: "continuous",
+    borderLeftColor: colors.blueIQ,
+    borderLeftWidth: 3,
+    borderRadius: 10,
+    borderWidth: 1,
     minHeight: 28,
     justifyContent: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs
   } satisfies ViewStyle,
   headerPillText: {
-    color: colors.wrap,
+    color: colors.blueIQ,
     fontSize: 12,
     fontWeight: "700",
+    letterSpacing: 0,
     lineHeight: 16
   } satisfies TextStyle,
   cardShine: {
@@ -155,7 +161,7 @@ export const screenStyles = {
   chip: {
     ...glassStyles.control,
     alignItems: "center",
-    borderRadius: 18,
+    borderRadius: 12,
     justifyContent: "center",
     minHeight: 40,
     paddingHorizontal: spacing.md,
@@ -163,7 +169,7 @@ export const screenStyles = {
   } satisfies ViewStyle,
   chipSelected: {
     backgroundColor: "rgba(39, 206, 241, 0.13)",
-    borderColor: "rgba(39, 206, 241, 0.46)"
+    borderColor: "rgba(39, 206, 241, 0.58)"
   } satisfies ViewStyle,
   chipText: {
     color: colors.mutedText,
