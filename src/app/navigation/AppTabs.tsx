@@ -36,9 +36,9 @@ const tabAccents: Record<keyof RootTabParamList, string> = {
 };
 
 const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
-  Fuel: "restaurant-outline",
-  Plan: "calendar-outline",
-  Profile: "person-circle-outline",
+  Fuel: "flame-outline",
+  Plan: "clipboard-outline",
+  Profile: "person-outline",
   Today: "today-outline",
   Train: "barbell-outline"
 };

@@ -1,36 +1,49 @@
-# Product Design QA - Bottom Navigation/Tab Tuning
+# Product Design QA - Tab Photo Headers
 
-- source visual truth path: `qa-artifacts/browser-audit/current/screenshots/10-today-after-real-onboarding.png`
-- implementation screenshot paths: `qa-artifacts/browser-audit/current/screenshots/10-today-after-real-onboarding.png`, `qa-artifacts/browser-audit/current/screenshots/12-fuel-screen.png`, `qa-artifacts/browser-audit/current/screenshots/11-mobile-today-after-real-onboarding.png`, `qa-artifacts/browser-audit/current/screenshots/smoke-06-mobile-live-workout-player.png`
-- viewport: desktop `1280x900`; mobile Today and workout smoke captured at `390x844`
-- state: local E2E demo after onboarding on `2026-05-19`; mobile live-workout smoke uses the `due_workout_today` scenario on `2026-05-18`
-- full-view comparison evidence: `qa-artifacts/reports/agent-browser-audit-contact-sheet.html`
-- focused region comparison evidence: the full-view contact sheet was enough for the bottom navigation and workout dock because the acceptance target was tab size, placement, label position, active state, and colour treatment across screen widths.
+- source visual truth path: `C:/Users/karll/Downloads/ChatGPT Image Jun 14, 2026, 10_57_13 PM (2).png`
+- implementation screenshot path: `qa-artifacts/browser-audit/current/screenshots/00-focused-mobile-today-hero.png`
+- comparison evidence: `qa-artifacts/browser-audit/current/screenshots/design-qa-comparison.png`
+- page-text evidence: `qa-artifacts/browser-audit/current/page-text/00-focused-mobile-today-hero.txt`
+- viewport: mobile `390x844`
+- state: local E2E demo profile on Today, `2026-05-19`, no Supabase credentials
+- focused region comparison evidence: header and first content card are visible in the side-by-side comparison. A deeper focused crop was not needed because the requested work is the tab hero/header treatment, not the downstream dashboard data cards.
 
 ## Findings
 
 No actionable P0/P1/P2 findings remain.
 
-P3 follow-up only: the mobile Today screenshot still shows a local Expo/dev overlay in the lower-left corner. It is not in the app source and the browser audit confirms the tab bar remains clickable, but physical-phone review should still check safe-area feel, thumb reach, and whether any development overlay hides the launch build.
+The implementation uses the supplied visual language: dark photographic hero, tab-specific accent, framed icon, uppercase title treatment, short subtitle, and matching bottom-tab icons. The real app content below the header intentionally remains engine/view-model driven, so readiness values and action labels differ from the static mock.
+
+## Required Fidelity Surfaces
+
+- Fonts and typography: passed. The app uses the existing CornerIQ heavy display hierarchy with uppercase visual transform, 0 letter spacing, and tighter subtitle sizing. It is not an exact font clone of the mock, but the weight, hierarchy, and wrapping match the app's current system.
+- Spacing and layout rhythm: passed. The header keeps safe top spacing, rounded 20px photo framing, a 52px icon frame, and enough gap before the primary task card. The local E2E banner is test-only and not part of production UI.
+- Colors and visual tokens: passed. Today cyan, Train purple, Fuel amber, Plan green, and Profile neutral/blue-gray map to the supplied prompt and existing theme tokens.
+- Image quality and asset fidelity: passed. The five hero photos are real local PNG assets cropped from the supplied prompt image, with no CSS art or placeholder imagery.
+- Copy and content: passed. Header copy matches the supplied prompt; lower-screen copy remains app-specific safety/performance copy.
 
 ## Patches Made
 
-- Bottom tab labels are forced below icons across viewports, avoiding the desktop/tablet side-label drift.
-- The tab bar is shorter and tighter, with centered items, no fixed-width collapse, and a smaller active marker around the icon.
-- Active tabs now use tab-specific semantic accents again: Today cyan, Train purple, Fuel amber, Plan green, and Profile wrap-blue.
-- Inactive tabs use a softer blue-gray tint and the bar uses a calmer dark surface with a lighter top border.
-- A fixed-width tab experiment was caught by browser QA because it intercepted the Fuel tab click; that approach was removed before final verification.
-- `docs/qa/QA_LOOP_STATE.md` records the 2026-06-10 navigation verification pass and remaining human-review boundaries.
+- Added five local hero image assets under `assets/backgrounds/`.
+- Added `tabHeroHeaders` config for Today, Train, Fuel, Plan, and Profile.
+- Expanded `ScreenHeader` into a reusable photo hero while preserving the simple title-only path for onboarding and other non-tab screens.
+- Wired all five tab screens to the new hero config.
+- Updated Fuel, Plan, and Profile tab icons to match the supplied prompt direction.
+- Added a static guard that verifies hero assets and tab/header icons stay wired.
 
 ## Verification
 
 - `cmd /c npm install`: passed
 - `cmd /c npm run typecheck`: passed
-- `cmd /c npm test`: passed, 554 tests passed and 1 live-smoke test skipped
+- `cmd /c npm test`: passed, 569 passed and 1 live-smoke test skipped
 - `cmd /c npm run lint`: passed
-- `cmd /c npm run quality`: passed
-- `cmd /c npm run preflight:beta`: passed
-- `cmd /c npm run qa:agent:audit`: final approved rerun passed, 10/10 scenarios
-- `cmd /c npm run qa:agent:contact-sheet`: passed
+- `cmd /c npm run quality`: passed, 569 passed and 1 live-smoke test skipped
+- `cmd /c npm run preflight:beta`: passed with existing Apple submission warnings for final icon, splash, and privacy policy URL
+- `cmd /c npm run qa:agent:audit`: blocked by an existing onboarding-copy assertion before reaching Today: expected `Used for age-based safety rules.`
+- focused mobile capture: passed via `qa-artifacts/scripts/capture-focused-mobile-today.mjs`
+
+## Follow-up Polish
+
+- P3: The Today hero is intentionally darker and more compact than the phone mock because it sits inside the existing CornerIQ scroll surface and below the local E2E banner. A later full app redesign could make the photo full-bleed at the very top like the mock.
 
 final result: passed

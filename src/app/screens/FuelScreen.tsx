@@ -20,6 +20,7 @@ import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 export interface FuelScreenProps {
   busy: boolean;
@@ -549,7 +550,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
       }];
   return (
     <LuminousScreen testID="fuel-screen">
-      <ScreenHeader eyebrow="Today" title="Fuel" />
+      <ScreenHeader {...tabHeroHeaders.fuel} title="Fuel" />
       <PrimaryTaskCard
         accent={accentForTone(dashboard.recommendation.tone)}
         actionLayout="primary-led"

@@ -15,6 +15,7 @@ import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
+import { tabHeroHeaders } from "./tabHeroConfig";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 import { plainFuelDemandLabel, plainIntensityLabel, plainTrainingCopy as plainTrainCopy, plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
@@ -336,7 +337,7 @@ export function TrainScreen({
 
   return (
     <LuminousScreen testID="train-screen">
-      <ScreenHeader eyebrow="Today" title="Train" />
+      <ScreenHeader {...tabHeroHeaders.train} title="Train" />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <PrimaryTaskCard
         accent={accentForTone(primarySessionTone)}

@@ -72,6 +72,27 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(source).not.toMatch(/tabBarStyle:\s*{[^}]*bottom:\s*0/s);
   });
 
+  it("keeps the tab photo headers wired to real local assets and matching icons", () => {
+    const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
+    const tabsSource = readFileSync("src/app/navigation/AppTabs.tsx", "utf8");
+
+    for (const asset of [
+      "tab-today-hero.png",
+      "tab-train-hero.png",
+      "tab-fuel-hero.png",
+      "tab-plan-hero.png",
+      "tab-profile-hero.png"
+    ]) {
+      expect(heroSource).toContain(asset);
+      expect(statSync(`assets/backgrounds/${asset}`).isFile()).toBe(true);
+    }
+
+    for (const icon of ["today-outline", "barbell-outline", "flame-outline", "clipboard-outline", "person-outline"]) {
+      expect(heroSource).toContain(icon);
+      expect(tabsSource).toContain(icon);
+    }
+  });
+
   it("keeps targeted polish regressions out of Plan and Train", () => {
     const planSource = readFileSync("src/app/screens/PlanScreen.tsx", "utf8");
     const workoutSource = readFileSync("src/app/screens/train/WorkoutDetailPanel.tsx", "utf8");

@@ -18,6 +18,7 @@ import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileCommandCenter, ProfileDataConstellation, ProfileIntelligenceLayers, ProfilePrivacyMatrix, ProfileSafetyLedger, ProfileSystemNote } from "./profile/ProfileCommandCenter";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 type ProfileSection = "athlete" | "settings" | "data" | "safety";
 
@@ -75,7 +76,7 @@ export function ProfileScreen({
   }, [releaseLinks.privacyPolicyUrl]);
   return (
     <LuminousScreen testID="profile-screen">
-      <ScreenHeader eyebrow="Private" title={viewModel.title} />
+      <ScreenHeader {...tabHeroHeaders.profile} title={viewModel.title} />
       <ProfileCommandCenter asOfDate={asOfDate} viewModel={viewModel} />
       <TopActionCard
         accent="blue"

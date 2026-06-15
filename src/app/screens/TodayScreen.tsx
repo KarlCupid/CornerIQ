@@ -25,6 +25,7 @@ import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 export interface TodayScreenProps {
   asOfDate?: string | undefined;
@@ -573,7 +574,7 @@ export function TodayScreen({
   return (
     <>
       <LuminousScreen testID="today-screen">
-        <ScreenHeader eyebrow="Daily mission" title="Today" />
+        <ScreenHeader {...tabHeroHeaders.today} title="Today" />
         <PrimaryTaskCard
           accent={accentForTone(dashboard.decision.tone)}
           actionLayout="primary-led"

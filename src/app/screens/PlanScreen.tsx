@@ -25,6 +25,7 @@ import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 export interface PlanScreenProps {
   adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
@@ -652,7 +653,7 @@ export function PlanScreen({
 
   return (
     <LuminousScreen testID="plan-screen">
-      <ScreenHeader eyebrow="Current block" title="Plan" />
+      <ScreenHeader {...tabHeroHeaders.plan} title="Plan" />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={plainPlanCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>
           <View style={{ gap: spacing.xs }}>
