@@ -81,10 +81,12 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(tabsSource).toContain("height: floatingTabTouchTarget");
     expect(tabsSource).toMatch(/tabBarStyle:\s*{[\s\S]*position:\s*"absolute"/);
     expect(tabsSource).toContain("bottom: Math.max(insets.bottom, spacing.md)");
-    expect(tabBarStyle).toContain('left: "50%"');
-    expect(tabBarStyle).toContain("marginLeft: -(floatingTabBarWidth / 2)");
-    expect(tabBarStyle).toContain('right: "auto"');
-    expect(tabBarStyle).toContain("width: floatingTabBarWidth");
+    expect(tabsSource).toContain("const floatingTabBarSideInset = Math.max(spacing.sm, (windowWidth - floatingTabBarWidth) / 2);");
+    expect(tabBarStyle).toContain("end: floatingTabBarSideInset");
+    expect(tabBarStyle).toContain("start: floatingTabBarSideInset");
+    expect(tabBarStyle).not.toContain('left: "50%"');
+    expect(tabBarStyle).not.toContain("marginLeft");
+    expect(tabBarStyle).not.toContain('right: "auto"');
     expect(tabBarStyle).toContain("height: floatingTabBarHeight");
     expect(tabBarStyle).toContain("paddingBottom: 0");
     expect(tabBarStyle).toContain("paddingTop: 0");

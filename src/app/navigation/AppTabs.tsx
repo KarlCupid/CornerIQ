@@ -181,6 +181,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
     floatingTabBarMinWidth,
     Math.min(windowWidth - spacing.xxl * 2, floatingTabBarMaxWidth)
   );
+  const floatingTabBarSideInset = Math.max(spacing.sm, (windowWidth - floatingTabBarWidth) / 2);
   const [fuelFocusIntent, setFuelFocusIntent] = React.useState<FuelFocusIntent | undefined>();
   const [trainInitialSection, setTrainInitialSection] = React.useState<TrainSection | undefined>();
   const [playerInstanceKey, setPlayerInstanceKey] = React.useState(0);
@@ -285,16 +286,14 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               borderTopRightRadius: floatingTabBarRadius,
               bottom: Math.max(insets.bottom, spacing.md),
               boxShadow: `0 18px 42px rgba(0, 0, 0, 0.44), 0 0 24px ${tabChromeThemes[route.name].strongGlow}`,
+              end: floatingTabBarSideInset,
               height: floatingTabBarHeight,
-              left: "50%",
-              marginLeft: -(floatingTabBarWidth / 2),
               overflow: "visible",
               paddingBottom: 0,
               paddingHorizontal: spacing.xs,
               paddingTop: 0,
               position: "absolute",
-              right: "auto",
-              width: floatingTabBarWidth
+              start: floatingTabBarSideInset
             }
           })}
       >
