@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageBackground, Pressable, ScrollView, Text, View } from "react-native";
+import { Animated, ImageBackground, Pressable, ScrollView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,10 +16,72 @@ export interface StartupStateProps {
   title: string;
 }
 
+const startupStatusRows = ["Readiness check", "Training context", "Fuel safety", "Today's plan"] as const;
+type StartupStatusIconState = "active" | "done" | "pending";
+
+function startupStatusStateForFrame(index: number, frame: number): StartupStatusIconState {
+  if (frame > index) {
+    return "done";
+  }
+  return frame === index ? "active" : "pending";
+}
+
 function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
+  const pulse = React.useRef(new Animated.Value(0)).current;
+  const pop = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    pop.setValue(0.9);
+    Animated.spring(pop, {
+      damping: 12,
+      mass: 0.8,
+      stiffness: 220,
+      toValue: 1,
+      useNativeDriver: true
+    }).start();
+  }, [pop, state]);
+
+  React.useEffect(() => {
+    pulse.stopAnimation();
+    pulse.setValue(0);
+
+    if (state !== "active") {
+      return undefined;
+    }
+
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          duration: 340,
+          toValue: 1,
+          useNativeDriver: true
+        }),
+        Animated.timing(pulse, {
+          duration: 180,
+          toValue: 0,
+          useNativeDriver: true
+        })
+      ])
+    );
+    pulseAnimation.start();
+
+    return () => {
+      pulseAnimation.stop();
+    };
+  }, [pulse, state]);
+
+  const pulseOpacity = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.42, 0]
+  });
+  const pulseScale = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.76, 1.22]
+  });
+
   if (state === "done") {
     return (
-      <View
+      <Animated.View
         style={{
           alignItems: "center",
           borderColor: colors.readyGreen,
@@ -27,17 +89,18 @@ function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
           borderWidth: 2,
           height: 38,
           justifyContent: "center",
+          transform: [{ scale: pop }],
           width: 38
         }}
       >
         <Ionicons color={colors.readyGreen} name="checkmark" size={24} />
-      </View>
+      </Animated.View>
     );
   }
 
   if (state === "active") {
     return (
-      <View
+      <Animated.View
         style={{
           alignItems: "center",
           borderColor: colors.blueIQ,
@@ -45,16 +108,29 @@ function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
           borderWidth: 2,
           height: 38,
           justifyContent: "center",
+          transform: [{ scale: pop }],
           width: 38
         }}
       >
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            backgroundColor: "rgba(7, 157, 255, 0.32)",
+            borderRadius: 17,
+            height: 34,
+            opacity: pulseOpacity,
+            position: "absolute",
+            transform: [{ scale: pulseScale }],
+            width: 34
+          }}
+        />
         <View style={{ backgroundColor: colors.blueIQ, borderRadius: 6, height: 12, width: 12 }} />
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View
+    <Animated.View
       style={{
         alignItems: "center",
         borderColor: "rgba(139, 163, 198, 0.62)",
@@ -62,21 +138,28 @@ function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
         borderWidth: 2,
         height: 38,
         justifyContent: "center",
+        transform: [{ scale: pop }],
         width: 38
       }}
     >
       <View style={{ backgroundColor: "rgba(183, 196, 217, 0.62)", borderRadius: 5, height: 10, width: 10 }} />
-    </View>
+    </Animated.View>
   );
 }
 
 function StartupStatusRows() {
-  const rows = [
-    { label: "Readiness check", state: "done" as const },
-    { label: "Training context", state: "active" as const },
-    { label: "Fuel safety", state: "pending" as const },
-    { label: "Today's plan", state: "pending" as const }
-  ];
+  const [progressFrame, setProgressFrame] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setProgressFrame((frame) => (frame + 1) % (startupStatusRows.length + 1));
+    }, 430);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+
   return (
     <View
       style={{
@@ -89,17 +172,18 @@ function StartupStatusRows() {
         width: "100%"
       }}
     >
-      {rows.map((row, index) => {
-        const pending = row.state === "pending";
+      {startupStatusRows.map((label, index) => {
+        const state = startupStatusStateForFrame(index, progressFrame);
+        const pending = state === "pending";
         return (
-          <View key={row.label}>
+          <View key={label}>
             <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.lg, minHeight: 86, paddingVertical: spacing.md }}>
-              <StatusIcon state={row.state} />
+              <StatusIcon state={state} />
               <Text style={{ color: pending ? "rgba(183, 196, 217, 0.74)" : colors.canvas, flex: 1, fontSize: 18, fontWeight: "700", lineHeight: 25 }}>
-                {row.label}
+                {label}
               </Text>
             </View>
-            {index < rows.length - 1 ? <View style={{ backgroundColor: "rgba(217, 228, 244, 0.13)", height: 1, marginLeft: 54 }} /> : null}
+            {index < startupStatusRows.length - 1 ? <View style={{ backgroundColor: "rgba(217, 228, 244, 0.13)", height: 1, marginLeft: 54 }} /> : null}
           </View>
         );
       })}

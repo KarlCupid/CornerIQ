@@ -20,7 +20,7 @@ import { ProfileCommandCenter, ProfileDataConstellation, ProfileIntelligenceLaye
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { ProfileReferencePanel } from "./reference/TabReferencePanels";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders } from "./tabHeroConfig";
+import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
 
 type ProfileSection = "athlete" | "settings" | "data" | "safety";
 
@@ -78,7 +78,7 @@ export function ProfileScreen({
     void Linking.openURL(releaseLinks.privacyPolicyUrl);
   }, [releaseLinks.privacyPolicyUrl]);
   return (
-    <LuminousScreen accent="neutral" testID="profile-screen">
+    <LuminousScreen accent="neutral" backgroundImage={tabScreenBackgrounds.profile} testID="profile-screen">
       <ScreenHeader {...tabHeroHeaders.profile} />
       <ProfileReferencePanel
         model={referencePanel}

@@ -27,7 +27,7 @@ import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 import { TodayReferencePanel } from "./reference/TabReferencePanels";
-import { tabHeroHeaders } from "./tabHeroConfig";
+import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
 
 export interface TodayScreenProps {
   asOfDate?: string | undefined;
@@ -575,7 +575,7 @@ export function TodayScreen({
   ].filter((action) => action.label !== primaryButton.label);
   return (
     <>
-      <LuminousScreen accent="blue" testID="today-screen">
+      <LuminousScreen accent="blue" backgroundImage={tabScreenBackgrounds.today} testID="today-screen">
         <ScreenHeader {...tabHeroHeaders.today} />
         <TodayReferencePanel
           model={referencePanel}

@@ -25,6 +25,32 @@ const luminousStyles = {
     backgroundColor: colors.cornerBlack,
     flex: 1
   },
+  screenBackground: {
+    bottom: 0,
+    left: 0,
+    position: "absolute" as const,
+    right: 0,
+    top: 0
+  },
+  screenBackgroundScrim: {
+    backgroundColor: "rgba(1, 4, 10, 0.36)",
+    bottom: 0,
+    left: 0,
+    position: "absolute" as const,
+    right: 0,
+    top: 0
+  },
+  screenBackgroundBottomShade: {
+    backgroundColor: "rgba(0, 0, 0, 0.24)",
+    bottom: 0,
+    height: "64%" as const,
+    left: 0,
+    position: "absolute" as const,
+    right: 0
+  },
+  screenBackgroundImageLayer: {
+    flex: 1
+  },
   scrollFill: {
     flex: 1
   },
@@ -111,11 +137,13 @@ const luminousStyles = {
 
 export function LuminousScreen({
   accent = "blue",
+  backgroundImage,
   bottomInset = "tabs",
   children,
   testID
 }: PropsWithChildren<{
   accent?: LuminousAccent | undefined;
+  backgroundImage?: ImageSourcePropType | undefined;
   bottomInset?: "none" | "tabs" | undefined;
   testID: string;
 }>) {
@@ -129,10 +157,23 @@ export function LuminousScreen({
   return (
     <LuminousScreenThemeContext.Provider value={theme}>
       <View style={[luminousStyles.screen, { backgroundColor: theme.background }]}>
+        {backgroundImage ? (
+          <View pointerEvents="none" style={luminousStyles.screenBackground}>
+            <ImageBackground
+              importantForAccessibility="no-hide-descendants"
+              resizeMode="cover"
+              source={backgroundImage}
+              style={luminousStyles.screenBackgroundImageLayer}
+            >
+              <View style={luminousStyles.screenBackgroundScrim} />
+              <View style={luminousStyles.screenBackgroundBottomShade} />
+            </ImageBackground>
+          </View>
+        ) : null}
         <View pointerEvents="none" style={{ bottom: 0, left: 0, overflow: "hidden", position: "absolute", right: 0, top: 0 }}>
-          <View style={{ backgroundColor: theme.topWash, height: 330, left: 0, opacity: 0.82, position: "absolute", right: 0, top: 0 }} />
-          <View style={{ backgroundColor: theme.midWash, height: 420, left: 0, opacity: 0.58, position: "absolute", right: 0, top: 258 }} />
-          <View style={{ backgroundColor: theme.bottomWash, bottom: 0, height: "55%", left: 0, position: "absolute", right: 0 }} />
+          <View style={{ backgroundColor: theme.topWash, height: 330, left: 0, opacity: backgroundImage ? 0.24 : 0.82, position: "absolute", right: 0, top: 0 }} />
+          <View style={{ backgroundColor: theme.midWash, height: 420, left: 0, opacity: backgroundImage ? 0.18 : 0.58, position: "absolute", right: 0, top: 258 }} />
+          <View style={{ backgroundColor: theme.bottomWash, bottom: 0, height: "55%", left: 0, opacity: backgroundImage ? 0.24 : 1, position: "absolute", right: 0 }} />
           <View style={{ backgroundColor: theme.hairline, height: 1, left: spacing.lg, opacity: 0.42, position: "absolute", right: spacing.lg, top: 0 }} />
         </View>
         <ScrollView

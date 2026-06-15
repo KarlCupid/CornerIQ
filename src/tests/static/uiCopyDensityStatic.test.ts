@@ -72,9 +72,22 @@ describe("fatigue-first UI copy density static checks", () => {
     const tabBarStyle = tabsSource.match(/tabBarStyle:\s*{[\s\S]*?\n\s{12}}/)?.[0] ?? "";
     expect(tabsSource).toContain("function FloatingTabIcon");
     expect(tabsSource).toContain("Animated.spring");
+    expect(tabsSource).toContain("const floatingTabBarHeight = 60;");
+    expect(tabsSource).toContain("const floatingTabTouchTarget = 48;");
+    expect(tabsSource).toContain("const floatingTabPuckSize = 40;");
+    expect(tabsSource).toContain("const floatingTabBarMaxWidth = 336;");
+    expect(tabsSource).toContain("useWindowDimensions");
     expect(tabsSource).toContain("tabBarShowLabel: false");
+    expect(tabsSource).toContain("height: floatingTabTouchTarget");
     expect(tabsSource).toMatch(/tabBarStyle:\s*{[\s\S]*position:\s*"absolute"/);
     expect(tabsSource).toContain("bottom: Math.max(insets.bottom, spacing.md)");
+    expect(tabBarStyle).toContain('left: "50%"');
+    expect(tabBarStyle).toContain("marginLeft: -(floatingTabBarWidth / 2)");
+    expect(tabBarStyle).toContain('right: "auto"');
+    expect(tabBarStyle).toContain("width: floatingTabBarWidth");
+    expect(tabBarStyle).toContain("height: floatingTabBarHeight");
+    expect(tabBarStyle).toContain("paddingBottom: 0");
+    expect(tabBarStyle).toContain("paddingTop: 0");
     expect(tabBarStyle).not.toMatch(/bottom:\s*0/);
     expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 112;");
   });
@@ -97,6 +110,38 @@ describe("fatigue-first UI copy density static checks", () => {
     for (const icon of ["today-outline", "barbell-outline", "flame-outline", "clipboard-outline", "person-outline"]) {
       expect(heroSource).toContain(icon);
       expect(tabsSource).toContain(icon);
+    }
+  });
+
+  it("keeps the tab screen backgrounds wired to real local assets", () => {
+    const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
+    const screenShellSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");
+    const screenMappings: readonly [string, string][] = [
+      ["TodayScreen.tsx", "today"],
+      ["TrainScreen.tsx", "train"],
+      ["FuelScreen.tsx", "fuel"],
+      ["PlanScreen.tsx", "plan"],
+      ["ProfileScreen.tsx", "profile"]
+    ];
+
+    expect(heroSource).toContain("tabScreenBackgrounds");
+    expect(screenShellSource).toContain("backgroundImage?: ImageSourcePropType");
+    expect(screenShellSource).toContain("resizeMode=\"cover\"");
+
+    for (const asset of [
+      "screen-today-background.png",
+      "screen-train-background.png",
+      "screen-fuel-background.png",
+      "screen-plan-background.png",
+      "screen-profile-background.png"
+    ]) {
+      expect(heroSource).toContain(asset);
+      expect(statSync(`assets/backgrounds/${asset}`).isFile()).toBe(true);
+    }
+
+    for (const [fileName, key] of screenMappings) {
+      const screenSource = readFileSync(`src/app/screens/${fileName}`, "utf8");
+      expect(screenSource).toContain(`backgroundImage={tabScreenBackgrounds.${key}}`);
     }
   });
 

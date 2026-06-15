@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { StatusBar } from "expo-status-bar";
-import { Animated, View } from "react-native";
+import { Animated, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, DetailedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
 import { alphaHex, glassStyles } from "../../design/glass";
@@ -27,7 +27,13 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
-const floatingTabBarHeight = 68;
+const floatingTabBarHeight = 60;
+const floatingTabBarRadius = floatingTabBarHeight / 2;
+const floatingTabTouchTarget = 48;
+const floatingTabPuckSize = 40;
+const floatingTabIconSize = 20;
+const floatingTabBarMaxWidth = 336;
+const floatingTabBarMinWidth = floatingTabTouchTarget * 5 + spacing.md * 2;
 
 const tabAccents: Record<keyof RootTabParamList, string> = {
   Fuel: colors.amberCaution,
@@ -85,11 +91,7 @@ function FloatingTabIcon({
 
   const scale = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.16]
-  });
-  const translateY = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -3]
+    outputRange: [1, 1.08]
   });
   const glowOpacity = progress.interpolate({
     inputRange: [0, 1],
@@ -104,8 +106,10 @@ function FloatingTabIcon({
     <Animated.View
       style={{
         alignItems: "center",
+        height: floatingTabTouchTarget,
         justifyContent: "center",
-        transform: [{ translateY }, { scale }]
+        transform: [{ scale }],
+        width: floatingTabTouchTarget
       }}
     >
       <View
@@ -113,29 +117,29 @@ function FloatingTabIcon({
           alignItems: "center",
           backgroundColor: focused ? alphaHex(accent, "1F") : "transparent",
           borderColor: focused ? alphaHex(accent, "55") : "transparent",
-          borderRadius: 24,
+          borderRadius: floatingTabPuckSize / 2,
           borderWidth: 1,
-          height: 46,
+          height: floatingTabPuckSize,
           justifyContent: "center",
           overflow: "hidden",
-          width: 46
+          width: floatingTabPuckSize
         }}
       >
         <Animated.View
           pointerEvents="none"
           style={{
             backgroundColor: alphaHex(accent, "24"),
-            borderRadius: 22,
-            bottom: 5,
-            left: 5,
+            borderRadius: (floatingTabPuckSize - 8) / 2,
+            bottom: 4,
+            left: 4,
             opacity: glowOpacity,
             position: "absolute",
-            right: 5,
-            top: 5,
+            right: 4,
+            top: 4,
             transform: [{ scale: glowScale }]
           }}
         />
-        <Ionicons color={focused ? accent : color} name={focused ? activeTabIcons[routeName] : tabIcons[routeName]} size={22} />
+        <Ionicons color={focused ? accent : color} name={focused ? activeTabIcons[routeName] : tabIcons[routeName]} size={floatingTabIconSize} />
       </View>
     </Animated.View>
   );
@@ -172,6 +176,11 @@ export interface AppTabsProps {
 
 export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus = "idle", message, nextWeekPreviewActions, onAcknowledgeNutritionSafetyReview, onDeleteRecurringProtectedAnchor, onDeleteProtectedSession, onSaveBuildGoal, onSaveFightSetup, onSaveProtectedSession, onSaveRecurringProtectedAnchor, onSaveRecoveryGoal, onSaveTournamentSetup, onSignOut, onUpdateProfileSettings, quickLogs, state, trainingPlanAdjustments, userDataControls, workoutCompletion }: AppTabsProps) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const floatingTabBarWidth = Math.max(
+    floatingTabBarMinWidth,
+    Math.min(windowWidth - spacing.xxl * 2, floatingTabBarMaxWidth)
+  );
   const [fuelFocusIntent, setFuelFocusIntent] = React.useState<FuelFocusIntent | undefined>();
   const [trainInitialSection, setTrainInitialSection] = React.useState<TrainSection | undefined>();
   const [playerInstanceKey, setPlayerInstanceKey] = React.useState(0);
@@ -242,11 +251,16 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             tabBarShowLabel: false,
             tabBarLabelPosition: "below-icon",
             tabBarIconStyle: {
+              alignItems: "center",
+              height: floatingTabTouchTarget,
+              justifyContent: "center",
               marginBottom: 0,
-              marginTop: 0
+              marginTop: 0,
+              width: floatingTabTouchTarget
             },
             tabBarItemStyle: {
-              height: 54,
+              alignItems: "center",
+              height: floatingTabBarHeight,
               justifyContent: "center",
               paddingBottom: 0,
               paddingTop: 0
@@ -262,22 +276,25 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               ...glassStyles.tabBar,
               backgroundColor: tabChromeThemes[route.name].cardDeep,
               borderColor: tabChromeThemes[route.name].cardBorder,
-              borderBottomLeftRadius: 34,
-              borderBottomRightRadius: 34,
+              borderBottomLeftRadius: floatingTabBarRadius,
+              borderBottomRightRadius: floatingTabBarRadius,
               borderBottomWidth: 1,
               borderLeftWidth: 1,
               borderRightWidth: 1,
-              borderTopLeftRadius: 34,
-              borderTopRightRadius: 34,
+              borderTopLeftRadius: floatingTabBarRadius,
+              borderTopRightRadius: floatingTabBarRadius,
               bottom: Math.max(insets.bottom, spacing.md),
               boxShadow: `0 18px 42px rgba(0, 0, 0, 0.44), 0 0 24px ${tabChromeThemes[route.name].strongGlow}`,
               height: floatingTabBarHeight,
-              left: spacing.lg,
-              overflow: "hidden",
-              paddingBottom: spacing.xs,
-              paddingTop: spacing.xs,
+              left: "50%",
+              marginLeft: -(floatingTabBarWidth / 2),
+              overflow: "visible",
+              paddingBottom: 0,
+              paddingHorizontal: spacing.xs,
+              paddingTop: 0,
               position: "absolute",
-              right: spacing.lg
+              right: "auto",
+              width: floatingTabBarWidth
             }
           })}
       >

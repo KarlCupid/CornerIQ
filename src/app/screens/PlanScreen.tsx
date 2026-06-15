@@ -27,7 +27,7 @@ import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { PlanReferencePanel } from "./reference/TabReferencePanels";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders } from "./tabHeroConfig";
+import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
 
 export interface PlanScreenProps {
   adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
@@ -661,7 +661,7 @@ export function PlanScreen({
   const referencePanel = buildPlanReferencePanelViewModel(viewModel, asOfDate);
 
   return (
-    <LuminousScreen accent="green" testID="plan-screen">
+    <LuminousScreen accent="green" backgroundImage={tabScreenBackgrounds.plan} testID="plan-screen">
       <ScreenHeader {...tabHeroHeaders.plan} />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={plainPlanCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>

@@ -54,8 +54,38 @@ vi.mock("react-native", () => {
     (name: string) =>
     ({ children, ...props }: { children?: React.ReactNode }) =>
       React.createElement(name, props, children);
+  const animation = () => ({
+    start: (callback?: () => void) => callback?.(),
+    stop: () => undefined
+  });
   return {
     ActivityIndicator: component("ActivityIndicator"),
+    Animated: {
+      View: component("Animated.View"),
+      Value: class {
+        private value: number;
+
+        constructor(value: number) {
+          this.value = value;
+        }
+
+        interpolate() {
+          return this.value;
+        }
+
+        setValue(value: number) {
+          this.value = value;
+        }
+
+        stopAnimation(callback?: (value: number) => void) {
+          callback?.(this.value);
+        }
+      },
+      loop: animation,
+      sequence: animation,
+      spring: animation,
+      timing: animation
+    },
     ImageBackground: component("ImageBackground"),
     KeyboardAvoidingView: component("KeyboardAvoidingView"),
     Modal: component("Modal"),
@@ -1473,17 +1503,31 @@ describe("minimal app screens", () => {
   });
 
   it("StartupState renders the CornerIQ loading system", async () => {
+    vi.useFakeTimers();
     const { StartupState } = await import("../../app/components/StartupState");
-    const output = JSON.stringify(render(React.createElement(StartupState, { title: "CornerIQ", message: "Loading today's boxer decision, training context, and fuel safety state." })).toJSON());
+    let renderer: ReactTestRenderer | null = null;
 
-    expect(output).toContain("CornerIQ");
-    expect(output).toContain("Preparing your corner");
-    expect(output).toContain("Loading today's boxer decision, training context, and fuel safety state.");
-    expect(output).toContain("Readiness check");
-    expect(output).toContain("Training context");
-    expect(output).toContain("Fuel safety");
-    expect(output).toContain("Today's plan");
-    expect(output).toContain("Manual inputs are enough. Wearables are optional.");
+    try {
+      renderer = render(React.createElement(StartupState, { title: "CornerIQ", message: "Loading today's boxer decision, training context, and fuel safety state." }));
+      const output = JSON.stringify(renderer.toJSON());
+
+      expect(output).toContain("CornerIQ");
+      expect(output).toContain("Preparing your corner");
+      expect(output).toContain("Loading today's boxer decision, training context, and fuel safety state.");
+      expect(output).toContain("Readiness check");
+      expect(output).toContain("Training context");
+      expect(output).toContain("Fuel safety");
+      expect(output).toContain("Today's plan");
+      expect(output).toContain("Manual inputs are enough. Wearables are optional.");
+
+      act(() => {
+        vi.advanceTimersByTime(430);
+      });
+      expect(JSON.stringify(renderer.toJSON())).not.toBe(output);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
   });
 
   it("reusable UI primitives render copy and handle local interactions", async () => {

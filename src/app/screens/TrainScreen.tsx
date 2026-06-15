@@ -17,7 +17,7 @@ import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion"
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { TrainReferencePanel } from "./reference/TabReferencePanels";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders } from "./tabHeroConfig";
+import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 import { plainFuelDemandLabel, plainIntensityLabel, plainTrainingCopy as plainTrainCopy, plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
@@ -351,7 +351,7 @@ export function TrainScreen({
   };
 
   return (
-    <LuminousScreen accent="purple" testID="train-screen">
+    <LuminousScreen accent="purple" backgroundImage={tabScreenBackgrounds.train} testID="train-screen">
       <ScreenHeader {...tabHeroHeaders.train} />
       <TrainReferencePanel model={referencePanel} onOpenDetails={openReferenceDetails} onStartSession={startReferenceSession} />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />

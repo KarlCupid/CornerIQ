@@ -22,7 +22,7 @@ import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel"
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
 import { FuelReferencePanel } from "./reference/TabReferencePanels";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders } from "./tabHeroConfig";
+import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
 
 export interface FuelScreenProps {
   busy: boolean;
@@ -536,7 +536,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         summary: "Fast log"
       }];
   return (
-    <LuminousScreen accent="orange" testID="fuel-screen">
+    <LuminousScreen accent="orange" backgroundImage={tabScreenBackgrounds.fuel} testID="fuel-screen">
       <ScreenHeader {...tabHeroHeaders.fuel} />
       <FuelReferencePanel
         model={referencePanel}
