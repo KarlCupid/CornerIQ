@@ -25,6 +25,7 @@ import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
+import { TodayReferencePanel } from "./reference/TabReferencePanels";
 import { tabHeroHeaders } from "./tabHeroConfig";
 
 export interface TodayScreenProps {
@@ -575,6 +576,11 @@ export function TodayScreen({
     <>
       <LuminousScreen testID="today-screen">
         <ScreenHeader {...tabHeroHeaders.today} />
+        <TodayReferencePanel
+          onOpenPlan={onOpenPlan}
+          onOpenTrain={onOpenTrain}
+          onOpenTrainWorkout={onOpenTrainWorkout ?? onOpenTrain}
+        />
         <PrimaryTaskCard
           accent={accentForTone(dashboard.decision.tone)}
           actionLayout="primary-led"

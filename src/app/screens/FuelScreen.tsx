@@ -19,6 +19,7 @@ import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
+import { FuelReferencePanel } from "./reference/TabReferencePanels";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders } from "./tabHeroConfig";
 
@@ -551,6 +552,10 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
   return (
     <LuminousScreen testID="fuel-screen">
       <ScreenHeader {...tabHeroHeaders.fuel} />
+      <FuelReferencePanel
+        onAddWater={() => setAppliedFocusIntent("log_hydration")}
+        onLogMeal={() => setAppliedFocusIntent("log_food")}
+      />
       <PrimaryTaskCard
         accent={accentForTone(dashboard.recommendation.tone)}
         actionLayout="primary-led"

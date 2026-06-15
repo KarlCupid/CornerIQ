@@ -191,7 +191,7 @@ export function ScreenHeader({
       <ImageBackground
         accessibilityLabel={`${title} screen header`}
         imageStyle={luminousStyles.heroImage}
-        resizeMode={compact ? "stretch" : "cover"}
+        resizeMode="cover"
         source={heroImage}
         style={[luminousStyles.heroFrame, heroShadow, { minHeight: compact ? 232 : 260 }]}
       >

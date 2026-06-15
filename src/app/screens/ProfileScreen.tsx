@@ -17,6 +17,7 @@ import { SUPPORT_OUTSIDE_APP_COPY, URGENT_SUPPORT_COPY } from "../supportCopy";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileCommandCenter, ProfileDataConstellation, ProfileIntelligenceLayers, ProfilePrivacyMatrix, ProfileSafetyLedger, ProfileSystemNote } from "./profile/ProfileCommandCenter";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
+import { ProfileReferencePanel } from "./reference/TabReferencePanels";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders } from "./tabHeroConfig";
 
@@ -77,6 +78,12 @@ export function ProfileScreen({
   return (
     <LuminousScreen testID="profile-screen">
       <ScreenHeader {...tabHeroHeaders.profile} />
+      <ProfileReferencePanel
+        name={viewModel.identity.title}
+        onOpenAthlete={() => setSection("athlete")}
+        onOpenSettings={() => setSection("settings")}
+        subtitle={viewModel.identity.subtitle}
+      />
       <ProfileCommandCenter asOfDate={asOfDate} viewModel={viewModel} />
       <TopActionCard
         accent="blue"

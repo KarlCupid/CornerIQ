@@ -23,6 +23,7 @@ import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringP
 import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
 import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
+import { PlanReferencePanel } from "./reference/TabReferencePanels";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders } from "./tabHeroConfig";
@@ -663,6 +664,10 @@ export function PlanScreen({
       ) : null}
       {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={plainPlanCopy(viewModel.lastAutoRollForwardMessage)} tone="info" /> : null}
       {adjustmentMessage ? <RiskBanner title="Plan update" message={plainPlanCopy(adjustmentMessage)} tone="info" /> : null}
+      <PlanReferencePanel
+        onAdjustPlan={() => openWorkspace("goal_wizard")}
+        onOpenDetails={() => openWorkspace("plan_details")}
+      />
       <PlanActionCard busy={busy} onOpenWorkspace={openWorkspace} viewModel={viewModel} />
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
       <PlanVisualDashboard dashboard={dashboard} onAdjustPlan={() => openWorkspace("goal_wizard")} viewModel={viewModel} />

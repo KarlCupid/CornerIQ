@@ -14,6 +14,7 @@ import { clamp01 } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
+import { TrainReferencePanel } from "./reference/TabReferencePanels";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders } from "./tabHeroConfig";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
@@ -334,10 +335,21 @@ export function TrainScreen({
         }]
       : [])
   ];
+  const openReferenceDetails = () => {
+    setPlanOpenRequestKey((value) => value + 1);
+  };
+  const startReferenceSession = () => {
+    if (primarySession && !primarySessionBlockedReason && !previewOnlyWeeklySession) {
+      startWorkout(primarySession);
+      return;
+    }
+    openReferenceDetails();
+  };
 
   return (
     <LuminousScreen testID="train-screen">
       <ScreenHeader {...tabHeroHeaders.train} />
+      <TrainReferencePanel onOpenDetails={openReferenceDetails} onStartSession={startReferenceSession} />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <PrimaryTaskCard
         accent={accentForTone(primarySessionTone)}
