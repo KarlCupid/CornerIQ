@@ -3,6 +3,7 @@ import type { PropsWithChildren } from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "./EngineCard";
 import { glassStyles } from "../glass";
+import { accentWash, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, spacing } from "../theme";
 import { typography } from "../typography";
 
@@ -37,6 +38,7 @@ export function ActionCard({
   const hasStructuredSummary = Boolean(action || why || status || detailSummary);
   const hasCollapsibleDetails = hasStructuredSummary && Boolean(children);
   const [detailsOpen, setDetailsOpen] = useState(defaultDetailsOpen);
+  const theme = useLuminousScreenTheme();
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -45,7 +47,7 @@ export function ActionCard({
         {action ? (
           <View style={{ gap: spacing.xs }}>
             <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800" }}>Action</Text>
-            <Text style={{ color: colors.blueIQ, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{action}</Text>
+            <Text style={{ color: theme.accentColor, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{action}</Text>
           </View>
         ) : null}
         {why ? (
@@ -74,6 +76,8 @@ export function ActionCard({
             style={{
               ...glassStyles.control,
               alignItems: "center",
+              backgroundColor: theme.control,
+              borderColor: theme.controlBorder,
               justifyContent: "center",
               minHeight: 44,
               paddingHorizontal: spacing.md,
@@ -94,13 +98,16 @@ export function ActionCard({
             style={{
               ...glassStyles.primaryControl,
               alignItems: "center",
+              backgroundColor: disabled ? "rgba(255, 255, 255, 0.105)" : `${theme.accentColor}E6`,
+              borderColor: disabled ? "rgba(255, 255, 255, 0.17)" : `${theme.accentColor}99`,
+              boxShadow: disabled ? undefined : `0 10px 26px ${accentWash[theme.accent]}`,
               justifyContent: "center",
               minHeight: 48,
               paddingHorizontal: spacing.lg,
               paddingVertical: spacing.sm
             }}
           >
-            <Text style={{ color: colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>{actionLabel}</Text>
+            <Text style={{ color: disabled ? colors.mutedText : colors.cornerBlack, fontSize: 15, fontWeight: "800" }}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>

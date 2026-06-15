@@ -100,7 +100,7 @@ export function ProfileScreen({
         <View style={{ gap: spacing.lg }} testID="profile-athlete-section">
           <ProfileDataConstellation signals={viewModel.dataConstellation} />
           <ProfileIntelligenceLayers layers={viewModel.intelligenceLayers} />
-          <DashboardCard headerRight={<DashboardPill label="Manual-first" tone="blue" />} title="Athlete profile">
+          <DashboardCard headerRight={<DashboardPill label="Manual-first" tone="muted" />} title="Athlete profile">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{viewModel.summary}</Text>
               <CompactStatusStrip
@@ -160,7 +160,7 @@ export function ProfileScreen({
       ) : null}
       {section === "data" ? (
         <View style={{ gap: spacing.lg }} testID="profile-data-section">
-          <DashboardCard headerRight={<DashboardPill label="Preview first" tone="blue" />} title="Export">
+          <DashboardCard headerRight={<DashboardPill label="Preview first" tone="muted" />} title="Export">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Preview your app data before export or delete. Delete requires DELETE.</Text>
               <Pressable accessibilityLabel="Preview export" accessibilityRole="button" accessibilityState={{ disabled: busy || userDataControls?.busy }} disabled={busy || userDataControls?.busy} onPress={() => void userDataControls?.previewExport()} style={screenStyles.quietButton}>
@@ -177,7 +177,7 @@ export function ProfileScreen({
               {userDataControls?.message ? <Text style={screenStyles.subtle}>{userDataControls.message}</Text> : null}
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="Required" tone="blue" />} title="Privacy Policy">
+          <DashboardCard headerRight={<DashboardPill label="Required" tone="muted" />} title="Privacy Policy">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Explains what CornerIQ stores, how training, fuel, body, cycle, safety, and account data are used, and how export/delete works.</Text>
               <Pressable accessibilityLabel="Open Privacy Policy" accessibilityRole="link" onPress={openPrivacyPolicy} style={screenStyles.quietButton}>
@@ -191,7 +191,7 @@ export function ProfileScreen({
               <Text style={screenStyles.subtle}>Export first before any destructive action.</Text>
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="blue" />} title="Support path">
+          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="muted" />} title="Support path">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{SUPPORT_OUTSIDE_APP_COPY}</Text>
               <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>
@@ -221,7 +221,7 @@ export function ProfileScreen({
       {section === "safety" ? (
         <View style={{ gap: spacing.lg }} testID="profile-safety-section">
           <ProfileSafetyLedger items={viewModel.safetyLedger} />
-          <DashboardCard headerRight={<DashboardPill label="Traceability" tone="blue" />} title="Training history">
+          <DashboardCard headerRight={<DashboardPill label="Traceability" tone="muted" />} title="Training history">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>Current block week {viewModel.trainingAuditSummary.currentWeekIndex}</Text>
               <Text style={screenStyles.body}>Saved week summaries: {viewModel.trainingAuditSummary.activeBlockHistoryCount}</Text>
@@ -252,7 +252,7 @@ export function ProfileScreen({
               <Text style={screenStyles.subtle}>Safety stops require medical or nutrition support outside the app.</Text>
             </View>
           </DashboardCard>
-          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="blue" />} title="Support path">
+          <DashboardCard headerRight={<DashboardPill label="Outside app" tone="muted" />} title="Support path">
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.body}>{SUPPORT_OUTSIDE_APP_COPY}</Text>
               <Text style={screenStyles.subtle}>{URGENT_SUPPORT_COPY}</Text>

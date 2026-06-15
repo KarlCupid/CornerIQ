@@ -431,7 +431,7 @@ function FuelDetailDashboard({ dashboard }: { dashboard: FuelDashboardVisual }) 
       </View>
 
       <DashboardCard
-        headerRight={<DashboardPill label={dashboard.mealReferenceLabel} tone={dashboard.meals.some((item) => item.value > 0) ? "blue" : "orange"} />}
+        headerRight={<DashboardPill label={dashboard.mealReferenceLabel} tone="orange" />}
         testID="fuel-meal-distribution"
         title="Meal distribution"
       >

@@ -4,6 +4,7 @@ import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUn
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { PostActionNextStep } from "../../../design/components/FastTask";
 import { DashboardCard, DashboardPill } from "../../../design/components/PerformanceVisuals";
+import { useLuminousScreenTheme } from "../../../design/components/LuminousScreen";
 import { glassStyles } from "../../../design/glass";
 import { colors, spacing } from "../../../design/theme";
 import {
@@ -151,10 +152,13 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
 }
 
 function SessionMeta({ label }: { label: string }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View
       style={{
         ...glassStyles.control,
+        backgroundColor: theme.control,
+        borderColor: theme.controlBorder,
         borderRadius: 16,
         minHeight: 34,
         justifyContent: "center",
@@ -300,7 +304,7 @@ export function WorkoutDetailPanel({
   return (
     <View style={{ gap: spacing.lg }}>
       <DashboardCard
-        headerRight={<DashboardPill label={`${session.durationMinutes} min`} tone={session.intensity === "hard" ? "orange" : "blue"} />}
+        headerRight={<DashboardPill label={`${session.durationMinutes} min`} tone={session.intensity === "hard" ? "orange" : "purple"} />}
         testID="train-workout-preview-card"
         title="Workout preview"
       >

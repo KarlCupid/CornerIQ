@@ -2,7 +2,7 @@ import React from "react";
 import { Text, View } from "react-native";
 import type { DetailedTrainingSession } from "../../../engine/core/types";
 import { CollapsedDetailDisclosure } from "../../../design/components/FastTask";
-import { accentColor, accentWash } from "../../../design/components/LuminousScreen";
+import { accentColor, accentWash, useLuminousScreenTheme } from "../../../design/components/LuminousScreen";
 import { glassStyles } from "../../../design/glass";
 import { colors, spacing } from "../../../design/theme";
 import { plainSectionIntent, plainSectionName } from "../../../engine/presentation/trainingCopy";
@@ -19,6 +19,7 @@ function WorkoutSectionCard({
   section: DetailedTrainingSession["sections"][number];
   steps: ReturnType<typeof buildWorkoutPlayerTimeline>["steps"];
 }) {
+  const theme = useLuminousScreenTheme();
   const blockAccent = steps[0]?.blockAccent ?? "blue";
   const blockColor = accentColor[blockAccent];
   const blockWash = accentWash[blockAccent];
@@ -26,7 +27,10 @@ function WorkoutSectionCard({
     <View
       style={{
         ...glassStyles.card,
+        backgroundColor: theme.card,
+        borderColor: theme.cardBorder,
         borderRadius: 20,
+        boxShadow: `0 18px 40px rgba(0, 0, 0, 0.34), 0 0 18px ${theme.strongGlow}`,
         gap: spacing.md,
         padding: spacing.md
       }}
@@ -56,8 +60,8 @@ function WorkoutSectionCard({
           <View
             key={step.id}
             style={{
-              backgroundColor: "rgba(255, 255, 255, 0.055)",
-              borderColor: colors.line,
+              backgroundColor: theme.tile,
+              borderColor: theme.tileBorder,
               borderRadius: 16,
               borderWidth: 1,
               gap: spacing.xs,
@@ -81,7 +85,7 @@ function WorkoutSectionCard({
           <View
             key={exercise.exerciseId}
             style={{
-              borderTopColor: colors.line,
+              borderTopColor: theme.hairline,
               borderTopWidth: 1,
               gap: spacing.sm,
               paddingTop: spacing.sm
@@ -92,7 +96,7 @@ function WorkoutSectionCard({
                 style={{
                   alignItems: "center",
                   backgroundColor: colors.panelRaised,
-                  borderColor: colors.line,
+                  borderColor: theme.tileBorder,
                   borderRadius: 12,
                   borderWidth: 1,
                   height: 32,
@@ -122,6 +126,7 @@ function WorkoutRecipeBlockCard({
   session: DetailedTrainingSession;
   steps: ReturnType<typeof buildWorkoutPlayerTimeline>["steps"];
 }) {
+  const theme = useLuminousScreenTheme();
   const recipeBlock = session.recipe?.blocks[index];
   if (!recipeBlock) {
     return null;
@@ -133,7 +138,10 @@ function WorkoutRecipeBlockCard({
     <View
       style={{
         ...glassStyles.card,
+        backgroundColor: theme.card,
+        borderColor: theme.cardBorder,
         borderRadius: 20,
+        boxShadow: `0 18px 40px rgba(0, 0, 0, 0.34), 0 0 18px ${theme.strongGlow}`,
         gap: spacing.md,
         padding: spacing.md
       }}
@@ -163,8 +171,8 @@ function WorkoutRecipeBlockCard({
           <View
             key={step.id}
             style={{
-              backgroundColor: "rgba(255, 255, 255, 0.055)",
-              borderColor: colors.line,
+              backgroundColor: theme.tile,
+              borderColor: theme.tileBorder,
               borderRadius: 16,
               borderWidth: 1,
               gap: spacing.xs,
@@ -190,7 +198,7 @@ function WorkoutRecipeBlockCard({
               <View
                 key={exercise.exerciseId}
                 style={{
-                  borderTopColor: colors.line,
+                  borderTopColor: theme.hairline,
                   borderTopWidth: exerciseIndex === 0 ? 0 : 1,
                   gap: spacing.sm,
                   paddingTop: exerciseIndex === 0 ? 0 : spacing.sm

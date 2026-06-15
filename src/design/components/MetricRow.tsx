@@ -1,14 +1,16 @@
 import React from "react";
 import { Text, View } from "react-native";
+import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, spacing } from "../theme";
 
 export function MetricRow({ label, value }: { label: string; value: string }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View
       accessibilityLabel={`${label}: ${value}`}
       style={{
         alignItems: "flex-start",
-        borderBottomColor: colors.line,
+        borderBottomColor: theme.hairline,
         borderBottomWidth: 1,
         gap: spacing.xs,
         paddingVertical: spacing.sm

@@ -279,7 +279,7 @@ export function ProfileCommandCenter({
         <IdentityPanel identity={viewModel.identity} />
         <View style={{ alignItems: "center", gap: spacing.sm, minWidth: 188 }}>
           <OrbitRing command={viewModel.commandCenter} />
-          <DashboardPill label={`As of ${asOfDate}`} tone={viewModel.commandCenter.tone === "red" ? "red" : "blue"} />
+          <DashboardPill label={`As of ${asOfDate}`} tone={viewModel.commandCenter.tone === "red" ? "red" : "muted"} />
         </View>
       </View>
       <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "600", lineHeight: 21 }}>{viewModel.commandCenter.summary}</Text>

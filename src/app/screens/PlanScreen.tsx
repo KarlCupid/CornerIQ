@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
-import { accentColor, LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
+import { accentColor, LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import {
   BlockOverviewDots,
   DashboardCard,
@@ -432,19 +432,24 @@ function PlanVisualDashboard({
   onAdjustPlan: () => void;
   viewModel: PlanViewModel;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View style={{ gap: spacing.md }} testID="plan-visual-dashboard">
       <DashboardCard
-        headerRight={<DashboardPill label={`${viewModel.modeLabel} · Week ${viewModel.weekIndex}`} tone="blue" />}
+        headerRight={<DashboardPill label={`${viewModel.modeLabel} · Week ${viewModel.weekIndex}`} tone="green" />}
         testID="plan-weekly-structure"
         title="Weekly structure"
       >
         <View style={{ alignItems: "stretch", flexDirection: "row", gap: 5 }}>
-          {dashboard.weeklyStructure.map((day) => (
+          {dashboard.weeklyStructure.map((day) => {
+            const dayColor = day.tone === "muted" ? theme.accentColor : accentColor[day.tone];
+            return (
             <View
               key={`plan-structure:${day.day}`}
               style={{
                 ...glassStyles.tile,
+                backgroundColor: theme.tile,
+                borderColor: theme.tileBorder,
                 flex: 1,
                 gap: spacing.xs,
                 justifyContent: "space-between",
@@ -454,7 +459,7 @@ function PlanVisualDashboard({
                 paddingVertical: spacing.sm
               }}
             >
-              <Text numberOfLines={1} style={{ color: accentColor[day.tone === "muted" ? "blue" : day.tone], fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
+              <Text numberOfLines={1} style={{ color: dayColor, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
                 {day.day}
               </Text>
               <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={{ color: "white", fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
@@ -462,10 +467,11 @@ function PlanVisualDashboard({
               </Text>
               <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[screenStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>{day.subtitle}</Text>
               <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: 999, height: 7, overflow: "hidden" }}>
-                <View style={{ backgroundColor: accentColor[day.tone === "muted" ? "blue" : day.tone], height: "100%", width: `${Math.max(8, day.intensityRatio * 100)}%` }} />
+                <View style={{ backgroundColor: dayColor, height: "100%", width: `${Math.max(8, day.intensityRatio * 100)}%` }} />
               </View>
             </View>
-          ))}
+          );
+          })}
         </View>
       </DashboardCard>
 
@@ -518,7 +524,7 @@ function PlanActionCard({
 }) {
   return (
     <DashboardCard
-      headerRight={<DashboardPill label={`${viewModel.modeLabel} - Week ${viewModel.weekIndex}`} tone="blue" />}
+      headerRight={<DashboardPill label={`${viewModel.modeLabel} - Week ${viewModel.weekIndex}`} tone="green" />}
       testID="plan-action-card"
       title="This week"
     >

@@ -309,12 +309,13 @@ export function MiniBarChart({
   referenceLabel?: string | undefined;
   testID?: string | undefined;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View style={{ gap: spacing.sm }} testID={testID}>
       <View style={{ alignItems: "flex-end", flexDirection: "row", gap: spacing.sm, height }}>
         {bars.map((bar, index) => (
           <View key={`bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, gap: spacing.xs, height: "100%", justifyContent: "flex-end", minWidth: 22 }}>
-            {bar.markerLabel ? <DashboardPill label={bar.markerLabel} tone="blue" /> : null}
+            {bar.markerLabel ? <DashboardPill label={bar.markerLabel} tone={bar.tone === "muted" ? (theme.accent === "neutral" ? "muted" : theme.accent) : bar.tone} /> : null}
             <View
               style={{
                 backgroundColor: bar.faded ? "transparent" : colorForTone(bar.tone),
@@ -337,7 +338,7 @@ export function MiniBarChart({
           </Text>
         ))}
       </View>
-      {referenceLabel ? <Text style={{ color: colors.blueIQ, fontSize: 11, fontWeight: "800", lineHeight: 15, textAlign: "right" }}>{referenceLabel}</Text> : null}
+      {referenceLabel ? <Text style={{ color: theme.accentColor, fontSize: 11, fontWeight: "800", lineHeight: 15, textAlign: "right" }}>{referenceLabel}</Text> : null}
     </View>
   );
 }
@@ -592,6 +593,7 @@ export function RangeGauge({
   target: number | null;
   targetLabel: string;
 }) {
+  const theme = useLuminousScreenTheme();
   const lower = min ?? (current === null ? 0 : current - 2);
   const upper = max ?? (current === null ? 1 : current + 2);
   const spread = Math.max(0.1, upper - lower);
@@ -608,11 +610,11 @@ export function RangeGauge({
         <View style={{ backgroundColor: colors.amberCaution, height: "100%", left: "22%", opacity: 0.8, position: "absolute", width: "24%" }} />
         <View style={{ backgroundColor: colors.readyGreen, height: "100%", left: "46%", opacity: 0.82, position: "absolute", width: "54%" }} />
         {targetPosition === null ? null : <View style={{ backgroundColor: colors.canvas, height: "100%", left: `${targetPosition * 100}%`, position: "absolute", width: 2 }} />}
-        <View style={{ backgroundColor: colors.cornerBlack, borderColor: colors.blueIQ, borderRadius: radii.pill, borderWidth: 2, height: 18, left: `${currentPosition * 100}%`, marginLeft: -9, position: "absolute", top: 0, width: 18 }} />
+        <View style={{ backgroundColor: colors.cornerBlack, borderColor: theme.accentColor, borderRadius: radii.pill, borderWidth: 2, height: 18, left: `${currentPosition * 100}%`, marginLeft: -9, position: "absolute", top: 0, width: 18 }} />
       </View>
       <View style={{ flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
         <Text style={{ color: colors.readyGreen, flex: 1, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{currentLabel}</Text>
-        <Text style={{ color: colors.blueIQ, flex: 1, fontSize: 13, fontWeight: "900", lineHeight: 17, textAlign: "right" }}>{targetLabel}</Text>
+        <Text style={{ color: theme.accentColor, flex: 1, fontSize: 13, fontWeight: "900", lineHeight: 17, textAlign: "right" }}>{targetLabel}</Text>
       </View>
     </View>
   );

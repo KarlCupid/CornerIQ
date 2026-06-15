@@ -1,7 +1,8 @@
 import React from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { EngineCard } from "../../design/components/EngineCard";
-import { colors, spacing } from "../../design/theme";
+import { useLuminousScreenTheme } from "../../design/components/LuminousScreen";
+import { spacing } from "../../design/theme";
 import { screenStyles } from "../screens/screenStyles";
 
 export type EngineGenerationStatus =
@@ -47,6 +48,7 @@ const copyByStatus: Record<Exclude<EngineGenerationStatus, "idle">, { title: str
 };
 
 export function EngineGeneratingCard({ status }: { status: EngineGenerationStatus }) {
+  const theme = useLuminousScreenTheme();
   if (status === "idle") {
     return null;
   }
@@ -55,7 +57,7 @@ export function EngineGeneratingCard({ status }: { status: EngineGenerationStatu
     <EngineCard>
       <View accessibilityRole="alert" style={{ gap: spacing.sm }} testID="engine-generating-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }} testID={copy.testID}>
-          <ActivityIndicator color={colors.blueIQ} />
+          <ActivityIndicator color={theme.accentColor} />
           <Text style={screenStyles.sectionTitle}>{copy.title}</Text>
         </View>
         {copy.lines.map((line) => (

@@ -2,7 +2,7 @@ import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ImageBackground, Pressable, Text, View } from "react-native";
 import fuelHero from "../../../../assets/backgrounds/tab-fuel-hero.png";
-import { accentColor, accentWash, type LuminousAccent } from "../../../design/components/LuminousScreen";
+import { accentColor, accentWash, type LuminousAccent, useLuminousScreenTheme } from "../../../design/components/LuminousScreen";
 import { alphaHex, glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type {
@@ -31,8 +31,6 @@ const referenceAccent = {
 
 const cardBase = {
   ...glassStyles.cardDeep,
-  backgroundColor: "rgba(8, 13, 24, 0.88)",
-  borderColor: "rgba(255, 255, 255, 0.12)",
   borderRadius: 16,
   overflow: "hidden" as const,
   padding: spacing.md
@@ -69,8 +67,20 @@ function ReferenceCard({
   style?: object | undefined;
   testID?: string | undefined;
 }>) {
+  const theme = useLuminousScreenTheme();
   return (
-    <View style={[cardBase, style]} testID={testID}>
+    <View
+      style={[
+        cardBase,
+        {
+          backgroundColor: theme.cardDeep,
+          borderColor: theme.cardBorder,
+          boxShadow: `0 18px 42px rgba(0, 0, 0, 0.34), 0 0 22px ${theme.strongGlow}`
+        },
+        style
+      ]}
+      testID={testID}
+    >
       {children}
     </View>
   );
@@ -176,12 +186,13 @@ function MetaChip({
   label: string;
 }) {
   const color = referenceAccent[accent];
+  const theme = useLuminousScreenTheme();
   return (
     <View
       style={{
         alignItems: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: theme.tile,
+        borderColor: theme.tileBorder,
         borderRadius: 10,
         borderWidth: 1,
         flex: 1,
@@ -220,13 +231,14 @@ function ReferenceRow({
   title: string;
 }) {
   const color = referenceAccent[accent];
+  const theme = useLuminousScreenTheme();
   const activePlay = play || status === "current";
   const activeChecked = checked;
   const content = (
     <View
       style={{
         alignItems: "center",
-        borderBottomColor: "rgba(255, 255, 255, 0.08)",
+        borderBottomColor: theme.hairline,
         borderBottomWidth: 1,
         flexDirection: "row",
         gap: spacing.sm,
@@ -727,8 +739,9 @@ function PerformanceTile({
   value: string;
 }) {
   const color = referenceAccent[tone];
+  const theme = useLuminousScreenTheme();
   return (
-    <View style={{ ...glassStyles.tile, flex: 1, gap: 2, minHeight: 74, minWidth: 84, padding: spacing.sm }}>
+    <View style={{ ...glassStyles.tile, backgroundColor: theme.tile, borderColor: theme.tileBorder, flex: 1, gap: 2, minHeight: 74, minWidth: 84, padding: spacing.sm }}>
       <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
       <Text style={{ color: colors.canvas, fontSize: 21, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 26 }}>{value}</Text>
       <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13 }}>{delta}</Text>
@@ -747,8 +760,9 @@ function AchievementRow({
   meta: string;
   title: string;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
-    <View style={{ alignItems: "center", borderBottomColor: "rgba(255, 255, 255, 0.08)", borderBottomWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 49 }}>
+    <View style={{ alignItems: "center", borderBottomColor: theme.hairline, borderBottomWidth: 1, flexDirection: "row", gap: spacing.sm, minHeight: 49 }}>
       <IconBubble accent={accent} icon={icon} />
       <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{title}</Text>

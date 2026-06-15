@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "./EngineCard";
 import { glassStyles } from "../glass";
+import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, spacing } from "../theme";
 import { typography } from "../typography";
 
@@ -16,6 +17,7 @@ export function EmptyState({
   onAction?: (() => void) | undefined;
   title: string;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -30,6 +32,8 @@ export function EmptyState({
             style={{
               ...glassStyles.control,
               alignItems: "center",
+              backgroundColor: theme.control,
+              borderColor: theme.controlBorder,
               justifyContent: "center",
               minHeight: 44,
               paddingHorizontal: spacing.md,

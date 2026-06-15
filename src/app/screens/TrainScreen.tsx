@@ -138,7 +138,7 @@ function WorkoutInProgressCard({
 function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
   const roleLabel = plainTrainCopy(viewModel.todayRole.status.replace(/_/g, " "));
   return (
-    <DashboardCard headerRight={<DashboardPill label={roleLabel} tone={viewModel.riskSummary.length > 0 ? "red" : "blue"} />} testID="train-overview-card" title="Training overview">
+    <DashboardCard headerRight={<DashboardPill label={roleLabel} tone={viewModel.riskSummary.length > 0 ? "red" : "purple"} />} testID="train-overview-card" title="Training overview">
       <Text style={screenStyles.body}>{firstSentence(viewModel.todaySummary)}</Text>
       <Text style={screenStyles.callout}>{plainTrainCopy(viewModel.todayRole.summary)}</Text>
       <View
@@ -174,7 +174,7 @@ function TrainingOverviewCard({ viewModel }: { viewModel: TrainViewModel }) {
             paddingVertical: spacing.xs
           }}
         >
-          <Text style={{ color: colors.blueIQ, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>Hydration</Text>
+          <Text style={{ color: colors.powerPurple, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>Hydration</Text>
           <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.hydrationHint)}</Text>
         </View>
       </View>
@@ -231,7 +231,7 @@ function WeekContextCard({ viewModel }: { viewModel: TrainViewModel }) {
   const bars = currentWeekBars(viewModel);
   return (
     <DashboardCard
-      headerRight={<DashboardPill label={`${viewModel.supportGenerationSummary.actualGeneratedSupportCount}/${viewModel.supportGenerationSummary.targetGeneratedSupportCount} support`} tone="blue" />}
+      headerRight={<DashboardPill label={`${viewModel.supportGenerationSummary.actualGeneratedSupportCount}/${viewModel.supportGenerationSummary.targetGeneratedSupportCount} support`} tone="purple" />}
       testID="train-week-context"
       title="Next 7 days"
     >
