@@ -1,7 +1,7 @@
 import React from "react";
 import type { PropsWithChildren } from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ImageBackground, Platform, ScrollView, Text, View, type ImageSourcePropType, type ViewStyle } from "react-native";
+import { ImageBackground, Platform, ScrollView, Text, useWindowDimensions, View, type ImageSourcePropType, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { glassStyles } from "../glass";
 import { colors, radii, spacing } from "../theme";
@@ -12,7 +12,7 @@ const TAB_SCREEN_BOTTOM_PADDING = spacing.xl;
 const luminousStyles = {
   content: {
     alignSelf: "center" as const,
-    gap: spacing.lg,
+    gap: spacing.md,
     flexGrow: 1,
     maxWidth: 1120,
     paddingHorizontal: spacing.lg,
@@ -31,45 +31,52 @@ const luminousStyles = {
     maxWidth: 680
   },
   heroFrame: {
-    borderColor: "rgba(255, 255, 255, 0.13)",
+    borderColor: "rgba(255, 255, 255, 0.11)",
     borderCurve: "continuous" as const,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    minHeight: 176,
+    minHeight: 236,
     overflow: "hidden" as const
   },
   heroImage: {
-    borderRadius: 20
+    borderRadius: 24
   },
   heroOverlay: {
-    backgroundColor: "rgba(2, 5, 12, 0.34)",
+    backgroundColor: "rgba(2, 5, 12, 0.12)",
     bottom: 0,
     left: 0,
     position: "absolute" as const,
     right: 0,
     top: 0
   },
+  heroBaseShadow: {
+    backgroundColor: "rgba(0, 0, 0, 0.14)",
+    bottom: 0,
+    height: "58%" as const,
+    left: 0,
+    position: "absolute" as const,
+    right: 0
+  },
   heroContent: {
-    alignItems: "center" as const,
-    flexDirection: "row" as const,
-    gap: spacing.lg,
-    minHeight: 176,
+    gap: spacing.md,
+    justifyContent: "flex-end" as const,
+    minHeight: 236,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg
+    paddingBottom: spacing.xl,
+    paddingTop: 76
   },
   heroCopy: {
-    flex: 1,
     gap: spacing.xs,
+    maxWidth: 340,
     minWidth: 0
   },
   heroTitle: {
     color: colors.canvas,
-    fontSize: 32,
+    fontSize: 29,
     fontWeight: "900" as const,
     letterSpacing: 0,
-    lineHeight: 38,
-    maxWidth: 520,
-    textTransform: "uppercase" as const
+    lineHeight: 33,
+    maxWidth: 340
   },
   heroSubtitle: {
     color: colors.wrap,
@@ -77,7 +84,25 @@ const luminousStyles = {
     fontWeight: "500" as const,
     letterSpacing: 0,
     lineHeight: 21,
-    maxWidth: 520
+    maxWidth: 340
+  },
+  heroActionRow: {
+    flexDirection: "row" as const,
+    gap: spacing.sm,
+    position: "absolute" as const,
+    right: spacing.lg,
+    top: spacing.lg
+  },
+  heroActionGlyph: {
+    alignItems: "center" as const,
+    backgroundColor: "rgba(6, 10, 18, 0.52)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderCurve: "continuous" as const,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center" as const,
+    width: 36
   }
 };
 
@@ -121,7 +146,7 @@ export function LuminousScreen({
     <View style={luminousStyles.screen}>
       <ScrollView
         accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
-        contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.lg, spacing.xl) }]}
+        contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.sm, spacing.lg) }]}
         style={luminousStyles.scrollFill}
         testID={testID}
       >
@@ -148,10 +173,12 @@ export function ScreenHeader({
   subtitle,
   title
 }: ScreenHeaderProps) {
+  const { width } = useWindowDimensions();
+  const compact = width < 520;
   if (heroImage) {
     const heroShadow: ViewStyle =
       Platform.OS === "web"
-        ? ({ boxShadow: `0 22px 48px rgba(0, 0, 0, 0.36), 0 0 34px ${accentWash[accent]}` } as ViewStyle)
+        ? ({ boxShadow: `0 24px 54px rgba(0, 0, 0, 0.42), 0 0 32px ${accentWash[accent]}` } as ViewStyle)
         : {
             elevation: 10,
             shadowColor: accentColor[accent],
@@ -164,37 +191,32 @@ export function ScreenHeader({
       <ImageBackground
         accessibilityLabel={`${title} screen header`}
         imageStyle={luminousStyles.heroImage}
-        resizeMode="cover"
+        resizeMode={compact ? "stretch" : "cover"}
         source={heroImage}
-        style={[luminousStyles.heroFrame, heroShadow]}
+        style={[luminousStyles.heroFrame, heroShadow, { minHeight: compact ? 232 : 260 }]}
       >
         <View style={luminousStyles.heroOverlay} />
-        <View style={luminousStyles.heroContent}>
-          {icon ? (
-            <View
-              style={{
-                alignItems: "center",
-                backgroundColor: `${accentColor[accent]}18`,
-                borderColor: `${accentColor[accent]}66`,
-                borderRadius: 14,
-                borderWidth: 1,
-                height: 52,
-                justifyContent: "center",
-                width: 52
-              }}
-            >
-              <Ionicons color={accentColor[accent]} name={icon} size={25} />
-            </View>
-          ) : null}
+        <View style={luminousStyles.heroBaseShadow} />
+        <View pointerEvents="none" style={luminousStyles.heroActionRow}>
+          <View style={luminousStyles.heroActionGlyph}>
+            <Ionicons color={colors.canvas} name="notifications-outline" size={18} />
+          </View>
+          <View style={[luminousStyles.heroActionGlyph, { borderColor: `${accentColor[accent]}55` }]}>
+            <Ionicons color={colors.canvas} name={icon ?? "settings-outline"} size={18} />
+          </View>
+        </View>
+        <View style={[luminousStyles.heroContent, { minHeight: compact ? 232 : 260, paddingBottom: compact ? spacing.xl : spacing.xxl }]}>
           <View style={luminousStyles.heroCopy}>
-            <Text style={{ color: accentColor[accent], fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
-              {eyebrow}
-            </Text>
-            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={luminousStyles.heroTitle}>
+            {eyebrow ? (
+              <Text style={{ color: accentColor[accent], fontSize: 11, fontWeight: "900", letterSpacing: 0, lineHeight: 15, textTransform: "uppercase" }}>
+                {eyebrow}
+              </Text>
+            ) : null}
+            <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={[luminousStyles.heroTitle, { fontSize: compact ? 28 : 34, lineHeight: compact ? 32 : 39 }]}>
               {title}
             </Text>
             {subtitle ? <Text numberOfLines={2} style={luminousStyles.heroSubtitle}>{subtitle}</Text> : null}
-            <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 2, marginTop: spacing.sm, width: 44 }} />
+            <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 2, marginTop: spacing.md, width: 44 }} />
           </View>
         </View>
       </ImageBackground>

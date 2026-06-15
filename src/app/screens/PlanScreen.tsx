@@ -15,7 +15,7 @@ import {
 } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
-import { spacing } from "../../design/theme";
+import { colors, spacing } from "../../design/theme";
 import { buildPlanDashboardVisual, type PlanDashboardVisual } from "../../engine/presentation/dashboardVisualData";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
@@ -524,7 +524,7 @@ function PlanActionCard({
       {viewModel.fightOrTournamentNote ? <Text style={screenStyles.subtle}>{plainPlanCopy(viewModel.fightOrTournamentNote)}</Text> : null}
       <Text style={screenStyles.subtle}>{viewModel.warnings.length > 0 ? compactCount(viewModel.warnings.length, "review note") : "No active plan warnings."}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("goal_wizard")} style={[screenStyles.button, { flexBasis: 180, flexGrow: 1 }]}>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("goal_wizard")} style={[screenStyles.button, { backgroundColor: colors.readyGreen, borderColor: "rgba(56, 226, 138, 0.7)", flexBasis: 180, flexGrow: 1 }]}>
           <Text style={screenStyles.buttonText}>Change goal or schedule</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpenWorkspace("next_week_preview")} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
@@ -653,7 +653,7 @@ export function PlanScreen({
 
   return (
     <LuminousScreen testID="plan-screen">
-      <ScreenHeader {...tabHeroHeaders.plan} title="Plan" />
+      <ScreenHeader {...tabHeroHeaders.plan} />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={plainPlanCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>
           <View style={{ gap: spacing.xs }}>

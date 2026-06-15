@@ -337,7 +337,7 @@ export function TrainScreen({
 
   return (
     <LuminousScreen testID="train-screen">
-      <ScreenHeader {...tabHeroHeaders.train} title="Train" />
+      <ScreenHeader {...tabHeroHeaders.train} />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <PrimaryTaskCard
         accent={accentForTone(primarySessionTone)}
@@ -347,7 +347,7 @@ export function TrainScreen({
         purpose={topPurpose}
         secondaryActions={topSecondaryActions}
         testID="train-primary-task"
-        title="Do now"
+        title="Next session"
       >
         <CompactStatusStrip
           items={[

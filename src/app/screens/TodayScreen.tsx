@@ -574,7 +574,7 @@ export function TodayScreen({
   return (
     <>
       <LuminousScreen testID="today-screen">
-        <ScreenHeader {...tabHeroHeaders.today} title="Today" />
+        <ScreenHeader {...tabHeroHeaders.today} />
         <PrimaryTaskCard
           accent={accentForTone(dashboard.decision.tone)}
           actionLayout="primary-led"
@@ -583,7 +583,7 @@ export function TodayScreen({
           purpose={plainTodayCopy(dashboard.topSummary)}
           secondaryActions={secondaryActions}
           testID="today-primary-task"
-          title="Do now"
+          title="Daily readiness"
         >
           <CompactStatusStrip
             items={[

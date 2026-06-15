@@ -140,13 +140,13 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               <View
                 style={{
                   alignItems: "center",
-                  backgroundColor: focused ? alphaHex(tabAccents[route.name], "20") : "transparent",
-                  borderColor: focused ? alphaHex(tabAccents[route.name], "42") : "transparent",
+                  backgroundColor: focused ? alphaHex(tabAccents[route.name], "18") : "transparent",
+                  borderColor: focused ? alphaHex(tabAccents[route.name], "35") : "transparent",
                   borderWidth: 1,
-                  borderRadius: 14,
-                  height: 28,
+                  borderRadius: 15,
+                  height: 30,
                   justifyContent: "center",
-                  width: 28
+                  width: 30
                 }}
               >
                 <Ionicons color={focused ? tabAccents[route.name] : color} name={tabIcons[route.name]} size={18} />
@@ -172,18 +172,21 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             },
             tabBarStyle: {
               ...glassStyles.tabBar,
-              backgroundColor: "rgba(8, 14, 28, 0.97)",
-              borderColor: "rgba(255, 255, 255, 0.12)",
-              borderBottomLeftRadius: 0,
-              borderBottomRightRadius: 0,
-              borderBottomWidth: 0,
-              borderLeftWidth: 0,
-              borderRightWidth: 0,
-              boxShadow: "0 -10px 26px rgba(0, 0, 0, 0.24)",
-              height: 60 + insets.bottom,
+              backgroundColor: "rgba(5, 9, 18, 0.95)",
+              borderBottomLeftRadius: 18,
+              borderBottomRightRadius: 18,
+              borderBottomWidth: 1,
+              borderLeftWidth: 1,
+              borderRightWidth: 1,
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              boxShadow: "0 -12px 30px rgba(0, 0, 0, 0.34)",
+              height: 62 + insets.bottom,
+              marginBottom: spacing.sm,
+              marginHorizontal: spacing.lg,
               overflow: "hidden",
               paddingBottom: Math.max(insets.bottom, spacing.xs),
-              paddingTop: spacing.xs,
+              paddingTop: spacing.sm,
             }
           })}
       >

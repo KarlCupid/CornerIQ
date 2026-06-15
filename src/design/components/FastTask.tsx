@@ -24,20 +24,28 @@ export interface FastTaskStatusItem {
 }
 
 function ActionButton({
+  accent = "blue",
   action,
   layout = "equal",
   primary = false
 }: {
+  accent?: LuminousAccent | undefined;
   action: FastTaskAction;
   layout?: "equal" | "primary-led" | undefined;
   primary?: boolean | undefined;
 }) {
   const primaryLed = layout === "primary-led";
   const disabledPrimary = primary && action.disabled;
+  const primaryAccent = accentColor[accent];
   const surfaceStyle = disabledPrimary
     ? glassStyles.disabledPrimaryControl
     : primary
-      ? glassStyles.primaryControl
+      ? {
+          ...glassStyles.primaryControl,
+          backgroundColor: `${primaryAccent}E6`,
+          borderColor: `${primaryAccent}99`,
+          boxShadow: `0 10px 26px ${accentWash[accent]}`
+        }
       : glassStyles.control;
   const textColor = disabledPrimary ? colors.mutedText : primary ? colors.cornerBlack : colors.canvas;
   return (
@@ -104,8 +112,8 @@ export function PrimaryTaskCard({
         {children}
         {primaryButton || secondaryActions.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            {primaryButton ? <ActionButton action={primaryButton} layout={actionLayout} primary /> : null}
-            {secondaryActions.map((action) => <ActionButton action={action} key={`fast-task-secondary:${action.label}`} layout={actionLayout} />)}
+            {primaryButton ? <ActionButton accent={accent} action={primaryButton} layout={actionLayout} primary /> : null}
+            {secondaryActions.map((action) => <ActionButton accent={accent} action={action} key={`fast-task-secondary:${action.label}`} layout={actionLayout} />)}
           </View>
         ) : null}
       </View>

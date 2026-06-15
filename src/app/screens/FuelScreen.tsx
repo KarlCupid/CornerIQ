@@ -550,7 +550,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
       }];
   return (
     <LuminousScreen testID="fuel-screen">
-      <ScreenHeader {...tabHeroHeaders.fuel} title="Fuel" />
+      <ScreenHeader {...tabHeroHeaders.fuel} />
       <PrimaryTaskCard
         accent={accentForTone(dashboard.recommendation.tone)}
         actionLayout="primary-led"
@@ -559,7 +559,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         purpose="Missing food stays unknown until you log it."
         secondaryActions={secondaryFuelActions}
         testID="fuel-primary-task"
-        title="Do now"
+        title="Fuel target"
       >
         <FuelDoNowSummary dashboard={dashboard} />
       </PrimaryTaskCard>

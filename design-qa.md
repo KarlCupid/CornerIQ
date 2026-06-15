@@ -1,49 +1,40 @@
-# Product Design QA - Tab Photo Headers
+**Findings**
+- No actionable P0/P1/P2 mismatches remain for the requested five-tab visual direction.
 
-- source visual truth path: `C:/Users/karll/Downloads/ChatGPT Image Jun 14, 2026, 10_57_13 PM (2).png`
-- implementation screenshot path: `qa-artifacts/browser-audit/current/screenshots/00-focused-mobile-today-hero.png`
-- comparison evidence: `qa-artifacts/browser-audit/current/screenshots/design-qa-comparison.png`
-- page-text evidence: `qa-artifacts/browser-audit/current/page-text/00-focused-mobile-today-hero.txt`
-- viewport: mobile `390x844`
-- state: local E2E demo profile on Today, `2026-05-19`, no Supabase credentials
-- focused region comparison evidence: header and first content card are visible in the side-by-side comparison. A deeper focused crop was not needed because the requested work is the tab hero/header treatment, not the downstream dashboard data cards.
+**Open Questions**
+- The implementation screenshots include the orange local E2E banner because `EXPO_PUBLIC_CORNERIQ_E2E_LOCAL=1` is required for local browser QA without Supabase. This is not production UI.
+- Fuel's hero food image is subtler than the mock's plate composition, but the tab still carries the amber nutrition visual language and keeps the editable UI title readable.
 
-## Findings
+**Implementation Checklist**
+- Source visual truth path: `C:/Users/karll/Downloads/ChatGPT Image Jun 14, 2026, 11_28_37 PM.png`
+- Implementation comparison screenshot: `qa-artifacts/browser-audit/current/screenshots/design-qa-comparison-redesign.png`
+- Individual implementation screenshots:
+  - `qa-artifacts/browser-audit/current/screenshots/40-redesign-today.png`
+  - `qa-artifacts/browser-audit/current/screenshots/41-redesign-train.png`
+  - `qa-artifacts/browser-audit/current/screenshots/42-redesign-fuel.png`
+  - `qa-artifacts/browser-audit/current/screenshots/43-redesign-plan.png`
+  - `qa-artifacts/browser-audit/current/screenshots/44-redesign-profile.png`
+- Viewport: 390 x 844 mobile web QA viewport.
+- State: local E2E signed-in demo boxer, default tab first-view states.
+- Full-view comparison evidence: `qa-artifacts/browser-audit/current/screenshots/design-qa-comparison-redesign.png`
+- Focused region comparison evidence: the five individual first-viewport screenshots above were opened after the comparison sheet. Additional cropped regions were not needed because hero, card, and bottom-tab details are legible in the full mobile screenshots.
+- Fonts and typography: tab hero headings now match the source hierarchy with bold two-line mobile titles and compact uppercase eyebrows. Card headings are tighter and more mock-like without introducing clipping.
+- Spacing and layout rhythm: first-view spacing now follows the reference's hero-card-dock rhythm. Cards are darker, tighter, and more compact; bottom navigation is a rounded glass dock.
+- Colors and visual tokens: Today blue, Train purple, Fuel amber, Plan green, and Profile slate/neutral accents are applied through hero chrome, primary buttons, card labels, and active tab states.
+- Image quality and asset fidelity: all five hero backgrounds use local raster assets. Assets were recropped to mobile-first compositions and rendered as real images, not CSS art or placeholders.
+- Copy and content: hero copy now matches the supplied mock direction: "Ready to Own Your Day", "Push Your Limits", "Fuel Your Fight", "Plan Your Path", and "Your Journey, Your Legacy." Engine-driven screen content remains boxer-safe and functional.
 
-No actionable P0/P1/P2 findings remain.
+**Patches Made Since Previous QA Pass**
+- Rebuilt shared `ScreenHeader` as an immersive image hero with overlaid title, tab eyebrow, accent line, and compact top action glyphs.
+- Updated tab hero config and five tab screen calls to use mock-matching hero titles.
+- Tightened shared glass cards, controls, radii, and EngineCard padding.
+- Made primary task buttons accent-aware by tab.
+- Updated the bottom tab bar into a rounded dark dock with quieter active states.
+- Recropped the five hero assets for mobile-first framing.
+- Added focused ignored QA capture helpers under `qa-artifacts/scripts/`.
 
-The implementation uses the supplied visual language: dark photographic hero, tab-specific accent, framed icon, uppercase title treatment, short subtitle, and matching bottom-tab icons. The real app content below the header intentionally remains engine/view-model driven, so readiness values and action labels differ from the static mock.
-
-## Required Fidelity Surfaces
-
-- Fonts and typography: passed. The app uses the existing CornerIQ heavy display hierarchy with uppercase visual transform, 0 letter spacing, and tighter subtitle sizing. It is not an exact font clone of the mock, but the weight, hierarchy, and wrapping match the app's current system.
-- Spacing and layout rhythm: passed. The header keeps safe top spacing, rounded 20px photo framing, a 52px icon frame, and enough gap before the primary task card. The local E2E banner is test-only and not part of production UI.
-- Colors and visual tokens: passed. Today cyan, Train purple, Fuel amber, Plan green, and Profile neutral/blue-gray map to the supplied prompt and existing theme tokens.
-- Image quality and asset fidelity: passed. The five hero photos are real local PNG assets cropped from the supplied prompt image, with no CSS art or placeholder imagery.
-- Copy and content: passed. Header copy matches the supplied prompt; lower-screen copy remains app-specific safety/performance copy.
-
-## Patches Made
-
-- Added five local hero image assets under `assets/backgrounds/`.
-- Added `tabHeroHeaders` config for Today, Train, Fuel, Plan, and Profile.
-- Expanded `ScreenHeader` into a reusable photo hero while preserving the simple title-only path for onboarding and other non-tab screens.
-- Wired all five tab screens to the new hero config.
-- Updated Fuel, Plan, and Profile tab icons to match the supplied prompt direction.
-- Added a static guard that verifies hero assets and tab/header icons stay wired.
-
-## Verification
-
-- `cmd /c npm install`: passed
-- `cmd /c npm run typecheck`: passed
-- `cmd /c npm test`: passed, 569 passed and 1 live-smoke test skipped
-- `cmd /c npm run lint`: passed
-- `cmd /c npm run quality`: passed, 569 passed and 1 live-smoke test skipped
-- `cmd /c npm run preflight:beta`: passed with existing Apple submission warnings for final icon, splash, and privacy policy URL
-- `cmd /c npm run qa:agent:audit`: blocked by an existing onboarding-copy assertion before reaching Today: expected `Used for age-based safety rules.`
-- focused mobile capture: passed via `qa-artifacts/scripts/capture-focused-mobile-today.mjs`
-
-## Follow-up Polish
-
-- P3: The Today hero is intentionally darker and more compact than the phone mock because it sits inside the existing CornerIQ scroll surface and below the local E2E banner. A later full app redesign could make the photo full-bleed at the very top like the mock.
+**Follow-up Polish**
+- P3: generate or source a cleaner Fuel-specific mobile hero with the meal higher in frame if the team wants a closer one-to-one match to the mock plate placement.
+- P3: production native captures should be taken without the local E2E banner before App Store marketing screenshots.
 
 final result: passed

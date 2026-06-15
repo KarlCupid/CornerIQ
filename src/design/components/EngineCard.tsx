@@ -10,7 +10,7 @@ export function EngineCard({ children }: PropsWithChildren) {
       style={{
         ...glassStyles.card,
         gap: spacing.md,
-        padding: spacing.lg
+        padding: spacing.md
       }}
     >
       {children}

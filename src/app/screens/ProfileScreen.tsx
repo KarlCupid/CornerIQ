@@ -76,7 +76,7 @@ export function ProfileScreen({
   }, [releaseLinks.privacyPolicyUrl]);
   return (
     <LuminousScreen testID="profile-screen">
-      <ScreenHeader {...tabHeroHeaders.profile} title={viewModel.title} />
+      <ScreenHeader {...tabHeroHeaders.profile} />
       <ProfileCommandCenter asOfDate={asOfDate} viewModel={viewModel} />
       <TopActionCard
         accent="blue"

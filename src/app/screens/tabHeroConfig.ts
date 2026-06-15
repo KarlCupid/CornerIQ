@@ -5,42 +5,40 @@ import planHero from "../../../assets/backgrounds/tab-plan-hero.png";
 import profileHero from "../../../assets/backgrounds/tab-profile-hero.png";
 import type { ScreenHeaderProps } from "../../design/components/LuminousScreen";
 
-type TabHeroConfig = Omit<ScreenHeaderProps, "title">;
-
 export const tabHeroHeaders = {
   fuel: {
     accent: "orange",
-    eyebrow: "Nutrition",
+    eyebrow: "Fuel",
     heroImage: fuelHero,
     icon: "flame-outline",
-    subtitle: "Fuel your body. Fuel your goals."
+    title: "Fuel Your Fight"
   },
   plan: {
     accent: "green",
-    eyebrow: "Your plan",
+    eyebrow: "Plan",
     heroImage: planHero,
     icon: "clipboard-outline",
-    subtitle: "Map the work. Win the week."
+    title: "Plan Your Path"
   },
   profile: {
     accent: "neutral",
-    eyebrow: "Athlete",
+    eyebrow: "Profile",
     heroImage: profileHero,
     icon: "person-outline",
-    subtitle: "Your journey. Your corner."
+    title: "Your Journey, Your Legacy."
   },
   today: {
     accent: "blue",
-    eyebrow: "Daily mission",
+    eyebrow: "Today",
     heroImage: todayHero,
     icon: "today-outline",
-    subtitle: "Stay on track. One day at a time."
+    title: "Ready to Own Your Day"
   },
   train: {
     accent: "purple",
-    eyebrow: "Training",
+    eyebrow: "Train",
     heroImage: trainHero,
     icon: "barbell-outline",
-    subtitle: "Get better every session."
+    title: "Push Your Limits"
   }
-} satisfies Record<string, TabHeroConfig>;
+} satisfies Record<string, ScreenHeaderProps>;
