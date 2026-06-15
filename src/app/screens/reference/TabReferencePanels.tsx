@@ -5,16 +5,29 @@ import fuelHero from "../../../../assets/backgrounds/tab-fuel-hero.png";
 import { accentColor, accentWash, type LuminousAccent } from "../../../design/components/LuminousScreen";
 import { alphaHex, glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
+import type {
+  FuelReferencePanelViewModel,
+  PlanReferencePanelViewModel,
+  ProfileReferencePanelViewModel,
+  ReferenceRowViewModel,
+  ReferenceBarViewModel,
+  ReferenceTone,
+  TodayReferencePanelViewModel,
+  TrainReferencePanelViewModel
+} from "../../../engine/presentation/referencePanelViewModel";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const referenceAccent = {
   blue: accentColor.blue,
+  gold: colors.gold,
   green: accentColor.green,
+  muted: "#A9B9CF",
+  neutral: "#A9B9CF",
   orange: "#F7B23E",
   purple: accentColor.purple,
-  neutral: "#A9B9CF"
-} satisfies Record<"blue" | "green" | "orange" | "purple" | "neutral", string>;
+  red: colors.redCorner
+} satisfies Record<ReferenceTone, string>;
 
 const cardBase = {
   ...glassStyles.cardDeep,
@@ -93,19 +106,22 @@ function MiniRing({
   accent,
   label,
   size = 70,
-  value
+  value,
+  valueLabel
 }: {
   accent: keyof typeof referenceAccent;
   label: string;
   size?: number | undefined;
-  value: number;
+  value: number | null;
+  valueLabel?: string | undefined;
 }) {
   const color = referenceAccent[accent];
   const segmentCount = 28;
   const radius = size / 2 - 7;
-  const filled = Math.round((Math.max(0, Math.min(100, value)) / 100) * segmentCount);
+  const safeValue = value ?? 0;
+  const filled = Math.round((Math.max(0, Math.min(100, safeValue)) / 100) * segmentCount);
   return (
-    <View accessibilityLabel={`${label}: ${value} percent`} style={{ alignItems: "center", height: size, justifyContent: "center", width: size }}>
+    <View accessibilityLabel={`${label}: ${value === null ? "unknown" : `${value} percent`}`} style={{ alignItems: "center", height: size, justifyContent: "center", width: size }}>
       {Array.from({ length: segmentCount }).map((_, index) => {
         const angle = -90 + (360 * index) / segmentCount;
         const radians = (angle * Math.PI) / 180;
@@ -128,7 +144,7 @@ function MiniRing({
         );
       })}
       <Text style={{ color: colors.canvas, fontSize: 17, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 22 }}>
-        {value}%
+        {valueLabel ?? (value === null ? "Log" : `${value}%`)}
       </Text>
     </View>
   );
@@ -191,6 +207,7 @@ function ReferenceRow({
   meta,
   onPress,
   play = false,
+  status,
   title
 }: {
   accent: keyof typeof referenceAccent;
@@ -199,9 +216,12 @@ function ReferenceRow({
   meta: string;
   onPress?: (() => void) | undefined;
   play?: boolean | undefined;
+  status?: ReferenceRowViewModel["status"] | undefined;
   title: string;
 }) {
   const color = referenceAccent[accent];
+  const activePlay = play || status === "current";
+  const activeChecked = checked;
   const content = (
     <View
       style={{
@@ -226,8 +246,8 @@ function ReferenceRow({
       <View
         style={{
           alignItems: "center",
-          backgroundColor: checked ? color : "transparent",
-          borderColor: checked ? alphaHex(color, "AA") : "rgba(255, 255, 255, 0.42)",
+          backgroundColor: activeChecked ? color : "transparent",
+          borderColor: activeChecked ? alphaHex(color, "AA") : activePlay ? alphaHex(color, "AA") : "rgba(255, 255, 255, 0.42)",
           borderRadius: radii.pill,
           borderWidth: 1,
           height: 25,
@@ -235,7 +255,7 @@ function ReferenceRow({
           width: 25
         }}
       >
-        {checked ? <Ionicons color={colors.canvas} name="checkmark" size={16} /> : play ? <Ionicons color={colors.canvas} name="play" size={12} /> : null}
+        {activeChecked ? <Ionicons color={colors.canvas} name="checkmark" size={16} /> : activePlay ? <Ionicons color={colors.canvas} name="play" size={12} /> : null}
       </View>
     </View>
   );
@@ -251,6 +271,26 @@ function ReferenceRow({
   );
 }
 
+function iconForReferenceKind(kind: ReferenceRowViewModel["kind"]): IconName {
+  switch (kind) {
+    case "boxing":
+      return "body-outline";
+    case "fuel":
+      return "restaurant-outline";
+    case "profile":
+      return "person-outline";
+    case "recovery":
+      return "walk-outline";
+    case "settings":
+      return "settings-outline";
+    case "support":
+      return "barbell-outline";
+    case "schedule":
+    default:
+      return "calendar-outline";
+  }
+}
+
 function MacroBlock({
   label,
   percent,
@@ -260,6 +300,7 @@ function MacroBlock({
   percent: string;
   value: string;
 }) {
+  const percentValue = Number.parseInt(percent, 10);
   return (
     <View style={{ flex: 1, gap: 2, minWidth: 74 }}>
       <Text numberOfLines={1} style={{ color: referenceAccent.orange, fontSize: 10, fontWeight: "900", lineHeight: 13, textTransform: "uppercase" }}>
@@ -271,24 +312,31 @@ function MacroBlock({
       <Text style={{ color: colors.mutedText, fontSize: 10, fontWeight: "700", lineHeight: 13 }}>
         {percent}
       </Text>
-      <ProgressLine accent="orange" value={Number.parseInt(percent, 10) / 100} />
+      <ProgressLine accent="orange" value={Number.isFinite(percentValue) ? percentValue / 100 : 0} />
     </View>
   );
 }
 
-function MiniBars({ accent }: { accent: keyof typeof referenceAccent }) {
+function MiniBars({ accent, bars }: { accent: keyof typeof referenceAccent; bars?: readonly ReferenceBarViewModel[] | undefined }) {
   const color = referenceAccent[accent];
-  const bars = [0.34, 0.44, 0.52, 0.62, 0.76, 1, 0.64, 0.82];
+  const resolvedBars = bars && bars.length > 0
+    ? bars
+    : [0.34, 0.44, 0.52, 0.62, 0.76, 1, 0.64, 0.82].map((ratio, index) => ({
+        active: index === 5,
+        label: ["M", "T", "W", "T", "F", "S", "S", ""][index] ?? "",
+        ratio,
+        tone: accent
+      }));
   return (
     <View style={{ gap: spacing.xs }}>
       <View style={{ alignItems: "flex-end", flexDirection: "row", gap: spacing.sm, height: 70 }}>
-        {bars.map((height, index) => (
-          <View key={`mini-bar:${index}`} style={{ alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end" }}>
+        {resolvedBars.map((bar, index) => (
+          <View key={`mini-bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end" }}>
             <View
               style={{
-                backgroundColor: index === 5 ? color : alphaHex(color, "66"),
+                backgroundColor: bar.active ? referenceAccent[bar.tone] : alphaHex(referenceAccent[bar.tone] ?? color, "66"),
                 borderRadius: 4,
-                height: `${height * 100}%`,
+                height: `${Math.max(8, bar.ratio * 100)}%`,
                 width: "72%"
               }}
             />
@@ -296,9 +344,9 @@ function MiniBars({ accent }: { accent: keyof typeof referenceAccent }) {
         ))}
       </View>
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
-        {["M", "T", "W", "T", "F", "F", "S", "S"].map((label, index) => (
-          <Text key={`mini-bar-label:${index}`} style={{ color: index === 5 ? colors.canvas : colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 13, textAlign: "center" }}>
-            {label}
+        {resolvedBars.map((bar, index) => (
+          <Text key={`mini-bar-label:${bar.label}:${index}`} style={{ color: bar.active ? colors.canvas : colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 13, textAlign: "center" }}>
+            {bar.label}
           </Text>
         ))}
       </View>
@@ -306,9 +354,9 @@ function MiniBars({ accent }: { accent: keyof typeof referenceAccent }) {
   );
 }
 
-function Sparkline({ accent }: { accent: keyof typeof referenceAccent }) {
+function Sparkline({ accent, bars }: { accent: keyof typeof referenceAccent; bars?: readonly ReferenceBarViewModel[] | undefined }) {
   const color = referenceAccent[accent];
-  const values = [0.24, 0.4, 0.36, 0.52, 0.45, 0.66, 0.42, 0.74, 0.9, 0.68, 0.78, 0.58, 0.64];
+  const values = bars && bars.length > 0 ? bars.map((bar) => bar.ratio) : [0.24, 0.4, 0.36, 0.52, 0.45, 0.66, 0.42, 0.74, 0.9, 0.68, 0.78, 0.58, 0.64];
   return (
     <View style={{ alignItems: "flex-end", flexDirection: "row", gap: 3, height: 44, width: 150 }}>
       {values.map((height, index) => (
@@ -327,35 +375,27 @@ function Sparkline({ accent }: { accent: keyof typeof referenceAccent }) {
   );
 }
 
-function DayStrip() {
-  const days = [
-    ["M", "20"],
-    ["T", "21"],
-    ["W", "22"],
-    ["T", "23"],
-    ["F", "24"],
-    ["S", "25"],
-    ["S", "26"]
-  ] as const;
+function DayStrip({ days }: { days: PlanReferencePanelViewModel["weekStrip"] }) {
   return (
     <ReferenceCard style={{ paddingHorizontal: spacing.sm, paddingVertical: spacing.sm }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        {days.map(([label, date]) => {
-          const selected = date === "23";
+        {days.map((item, index) => {
+          const selected = item.selected;
+          const color = referenceAccent[item.tone];
           return (
-            <View key={`day:${label}:${date}`} style={{ alignItems: "center", gap: 3, minWidth: 34 }}>
-              <Text style={{ color: colors.wrap, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>{label}</Text>
+            <View key={`day:${item.label}:${item.day}:${index}`} style={{ alignItems: "center", gap: 3, minWidth: 34 }}>
+              <Text style={{ color: colors.wrap, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>{item.label}</Text>
               <View
                 style={{
                   alignItems: "center",
-                  backgroundColor: selected ? referenceAccent.green : "transparent",
+                  backgroundColor: selected ? color : "transparent",
                   borderRadius: radii.pill,
                   height: 22,
                   justifyContent: "center",
                   width: 22
                 }}
               >
-                <Text style={{ color: colors.canvas, fontSize: 11, fontWeight: "900", lineHeight: 14 }}>{date}</Text>
+                <Text style={{ color: colors.canvas, fontSize: 11, fontWeight: "900", lineHeight: 14 }}>{item.day}</Text>
               </View>
             </View>
           );
@@ -366,10 +406,12 @@ function DayStrip() {
 }
 
 export function TodayReferencePanel({
+  model,
   onOpenPlan,
   onOpenTrain,
   onOpenTrainWorkout
 }: {
+  model: TodayReferencePanelViewModel;
   onOpenPlan?: (() => void) | undefined;
   onOpenTrain?: (() => void) | undefined;
   onOpenTrainWorkout?: (() => void) | undefined;
@@ -380,16 +422,12 @@ export function TodayReferencePanel({
         <SectionLabel accent="blue" title="Daily readiness" />
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between", marginTop: spacing.sm }}>
           <View style={{ gap: spacing.xs, minWidth: 82 }}>
-            <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 33 }}>85%</Text>
-            <Text style={{ color: referenceAccent.blue, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>Very Ready</Text>
+            <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 33 }}>{model.readiness.scoreLabel}</Text>
+            <Text style={{ color: referenceAccent.blue, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{model.readiness.statusLabel}</Text>
           </View>
-          <MiniRing accent="blue" label="Daily readiness" size={74} value={85} />
+          <MiniRing accent="blue" label="Daily readiness" size={74} value={model.readiness.ringValue} valueLabel={model.readiness.ringValue === null ? "Log" : undefined} />
           <View style={{ gap: 4, minWidth: 84 }}>
-            {[
-              ["Sleep", "8.2h"],
-              ["HRV", "72ms"],
-              ["Energy", "High"]
-            ].map(([label, value]) => (
+            {model.readiness.metrics.map(({ label, value }) => (
               <View key={`today-ready:${label}`} style={{ flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
                 <Text style={{ color: colors.mutedText, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>{label}</Text>
                 <Text style={{ color: colors.canvas, fontSize: 11, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 15 }}>{value}</Text>
@@ -404,9 +442,9 @@ export function TodayReferencePanel({
           <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
             <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
               <SectionLabel accent="blue" title="Daily mission" />
-              <Text style={{ color: colors.canvas, fontSize: 17, fontWeight: "900", lineHeight: 22 }}>Technical Precision</Text>
+              <Text style={{ color: colors.canvas, fontSize: 17, fontWeight: "900", lineHeight: 22 }}>{model.mission.title}</Text>
               <Text numberOfLines={2} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 17 }}>
-                Focus on fundamentals and controlled power.
+                {model.mission.summary}
               </Text>
             </View>
             <Ionicons color={colors.wrap} name="chevron-forward" size={18} />
@@ -417,20 +455,28 @@ export function TodayReferencePanel({
       <View style={{ gap: spacing.sm }}>
         <SectionLabel accent="blue" title="Today's plan" />
         <ReferenceCard style={{ paddingTop: spacing.sm }}>
-          <ReferenceRow accent="blue" checked icon="body-outline" meta="3 rounds" onPress={onOpenTrainWorkout} title="Shadow Boxing" />
-          <ReferenceRow accent="blue" icon="barbell-outline" meta="5 rounds" onPress={onOpenTrainWorkout} title="Heavy Bag Power" />
-          <ReferenceRow accent="blue" icon="walk-outline" meta="20 min" onPress={onOpenPlan} title="Core and Mobility" />
+          {model.planRows.map((row) => (
+            <ReferenceRow
+              accent={row.tone === "neutral" || row.tone === "muted" ? "blue" : row.tone}
+              icon={iconForReferenceKind(row.kind)}
+              key={row.id}
+              meta={row.meta}
+              onPress={row.kind === "support" || row.kind === "boxing" ? onOpenTrainWorkout : onOpenPlan}
+              status={row.status}
+              title={row.title}
+            />
+          ))}
         </ReferenceCard>
       </View>
 
       <ReferenceCard>
-        <SectionLabel accent="blue" title="Calories burned" />
+        <SectionLabel accent="blue" title={model.load.title} />
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between", marginTop: spacing.xs }}>
           <View style={{ gap: 2 }}>
-            <Text style={{ color: colors.canvas, fontSize: 25, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 31 }}>612 <Text style={{ fontSize: 13 }}>kcal</Text></Text>
-            <Text style={{ color: referenceAccent.blue, fontSize: 11, fontWeight: "800", lineHeight: 14 }}>+12% vs yesterday</Text>
+            <Text style={{ color: colors.canvas, fontSize: 25, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 31 }}>{model.load.valueLabel}</Text>
+            <Text style={{ color: referenceAccent.blue, fontSize: 11, fontWeight: "800", lineHeight: 14 }}>{model.load.meta}</Text>
           </View>
-          <Sparkline accent="blue" />
+          <Sparkline accent="blue" bars={model.load.bars} />
         </View>
       </ReferenceCard>
     </View>
@@ -438,9 +484,11 @@ export function TodayReferencePanel({
 }
 
 export function TrainReferencePanel({
+  model,
   onOpenDetails,
   onStartSession
 }: {
+  model: TrainReferencePanelViewModel;
   onOpenDetails?: (() => void) | undefined;
   onStartSession?: (() => void) | undefined;
 }) {
@@ -448,9 +496,12 @@ export function TrainReferencePanel({
     <View style={{ gap: spacing.md }} testID="train-reference-panel">
       <ReferenceCard>
         <SectionLabel accent="purple" title="Next session" />
-        <Text style={{ color: colors.canvas, fontSize: 17, fontWeight: "900", lineHeight: 22, marginTop: spacing.xs }}>Heavy Bag Power</Text>
+        <Text style={{ color: colors.canvas, fontSize: 17, fontWeight: "900", lineHeight: 22, marginTop: spacing.xs }}>{model.nextSession.title}</Text>
+        <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16, marginTop: 2 }}>{model.nextSession.meta}</Text>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ disabled: model.nextSession.disabled }}
+          disabled={model.nextSession.disabled}
           onPress={onStartSession}
           style={{
             alignItems: "center",
@@ -467,65 +518,74 @@ export function TrainReferencePanel({
           }}
         >
           <Ionicons color={colors.canvas} name="play" size={15} />
-          <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>Start Session</Text>
+          <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{model.nextSession.buttonLabel}</Text>
         </Pressable>
         <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm }}>
-          <MetaChip accent="purple" icon="time-outline" label="60 min" />
-          <MetaChip accent="purple" icon="flame-outline" label="High intensity" />
+          {model.nextSession.chips.slice(0, 3).map((chip, index) => (
+            <MetaChip accent="purple" icon={index === 0 ? "calendar-outline" : index === 1 ? "time-outline" : "flame-outline"} key={`train-next-chip:${chip.label}`} label={chip.value} />
+          ))}
         </View>
       </ReferenceCard>
 
       <View style={{ gap: spacing.sm }}>
         <SectionLabel accent="purple" action="View all" title="Workouts" />
         <ReferenceCard style={{ paddingTop: spacing.sm }}>
-          <ReferenceRow accent="purple" checked icon="flask-outline" meta="40 min" onPress={onOpenDetails} title="Technical Drills" />
-          <ReferenceRow accent="purple" icon="footsteps-outline" meta="6 x 3 min" onPress={onOpenDetails} title="Footwork Rounds" />
-          <ReferenceRow accent="purple" icon="body-outline" meta="20 min" onPress={onOpenDetails} title="Conditioning" />
+          {model.workoutRows.map((row) => (
+            <ReferenceRow
+              accent={row.tone === "neutral" || row.tone === "muted" ? "purple" : row.tone}
+              icon={iconForReferenceKind(row.kind)}
+              key={row.id}
+              meta={row.meta}
+              onPress={onOpenDetails}
+              status={row.status}
+              title={row.title}
+            />
+          ))}
         </ReferenceCard>
       </View>
 
       <ReferenceCard>
         <SectionLabel accent="purple" title="Weekly training load" />
-        <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26, marginTop: spacing.xs }}>High</Text>
-        <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>+18% vs last week</Text>
-        <MiniBars accent="purple" />
+        <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26, marginTop: spacing.xs }}>{model.weeklyLoad.valueLabel}</Text>
+        <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{model.weeklyLoad.meta}</Text>
+        <MiniBars accent="purple" bars={model.weeklyLoad.bars} />
       </ReferenceCard>
     </View>
   );
 }
 
 export function FuelReferencePanel({
+  model,
   onAddWater,
   onLogMeal
 }: {
+  model: FuelReferencePanelViewModel;
   onAddWater?: (() => void) | undefined;
   onLogMeal?: (() => void) | undefined;
 }) {
   return (
     <View style={{ gap: spacing.md }} testID="fuel-reference-panel">
       <ReferenceCard>
-        <SectionLabel accent="orange" title="Calorie target" />
+            <SectionLabel accent="orange" title="Calorie target" />
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between", marginTop: spacing.xs }}>
           <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-            <Text style={{ color: colors.canvas, fontSize: 29, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 35 }}>2,450 <Text style={{ fontSize: 15 }}>kcal</Text></Text>
-            <Text style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>of 2,800 kcal</Text>
+            <Text style={{ color: colors.canvas, fontSize: 29, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 35 }}>{model.calorie.loggedLabel}</Text>
+            <Text style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>of {model.calorie.targetLabel}</Text>
           </View>
-          <MiniRing accent="orange" label="Calorie target" size={82} value={87} />
+          <MiniRing accent="orange" label="Calorie target" size={82} value={model.calorie.ringValue} />
         </View>
         <View style={{ borderTopColor: "rgba(255, 255, 255, 0.1)", borderTopWidth: 1, flexDirection: "row", gap: spacing.md, marginTop: spacing.md, paddingTop: spacing.sm }}>
-          <MacroBlock label="Protein" percent="40%" value="175g" />
-          <MacroBlock label="Carbs" percent="40%" value="275g" />
-          <MacroBlock label="Fats" percent="20%" value="75g" />
+          {model.macros.map((macro) => <MacroBlock key={`fuel-macro:${macro.label}`} label={macro.label} percent={macro.percentLabel} value={macro.value} />)}
         </View>
       </ReferenceCard>
 
       <ReferenceCard>
         <SectionLabel accent="orange" title="Hydration" />
-        <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34, marginTop: spacing.xs }}>2.3 L</Text>
-        <Text style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>of 3.0 L goal</Text>
+        <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34, marginTop: spacing.xs }}>{model.hydration.loggedLabel}</Text>
+        <Text style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>of {model.hydration.targetLabel}</Text>
         <View style={{ alignItems: "center", flexDirection: "row", gap: 8, marginTop: spacing.sm }}>
           {Array.from({ length: 8 }).map((_, index) => (
-            <Ionicons key={`water:${index}`} color={index < 6 ? referenceAccent.orange : "rgba(247, 178, 62, 0.48)"} name={index < 7 ? "water" : "water-outline"} size={20} />
+            <Ionicons key={`water:${index}`} color={index < Math.round(model.hydration.ratio * 8) ? referenceAccent.orange : "rgba(247, 178, 62, 0.48)"} name={index < Math.round(model.hydration.ratio * 8) ? "water" : "water-outline"} size={20} />
           ))}
           <Pressable
             accessibilityRole="button"
@@ -554,12 +614,12 @@ export function FuelReferencePanel({
             <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
               <ImageBackground imageStyle={{ borderRadius: 12 }} resizeMode="cover" source={fuelHero} style={{ borderRadius: 12, height: 58, overflow: "hidden", width: 66 }} />
               <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-                <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>Lunch</Text>
-                <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>Grilled Chicken Bowl</Text>
-                <Text style={{ color: colors.mutedText, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>620 kcal</Text>
+                <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{model.meal.title}</Text>
+                <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{model.meal.summary}</Text>
+                <Text style={{ color: colors.mutedText, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>{model.meal.meta}</Text>
               </View>
               <View style={{ alignItems: "center", backgroundColor: referenceAccent.orange, borderRadius: radii.pill, height: 26, justifyContent: "center", width: 26 }}>
-                <Ionicons color={colors.cornerBlack} name="checkmark" size={16} />
+                <Ionicons color={colors.cornerBlack} name={model.meal.logged ? "checkmark" : "add"} size={16} />
               </View>
             </View>
           </ReferenceCard>
@@ -570,20 +630,20 @@ export function FuelReferencePanel({
 }
 
 export function PlanReferencePanel({
-  onAdjustPlan,
-  onOpenDetails
+  model,
+  onAdjustPlan
 }: {
+  model: PlanReferencePanelViewModel;
   onAdjustPlan?: (() => void) | undefined;
-  onOpenDetails?: (() => void) | undefined;
 }) {
   return (
     <View style={{ gap: spacing.md }} testID="plan-reference-panel">
-      <DayStrip />
+      <DayStrip days={model.weekStrip} />
       <ReferenceCard>
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <SectionLabel accent="green" title="This week" />
-            <Text style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 27 }}>Week 21</Text>
+            <Text style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 27 }}>{model.week.title}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -597,22 +657,21 @@ export function PlanReferencePanel({
               paddingVertical: 5
             }}
           >
-            <Text style={{ color: referenceAccent.green, fontSize: 12, fontWeight: "900", lineHeight: 15 }}>On Track</Text>
+            <Text style={{ color: referenceAccent.green, fontSize: 12, fontWeight: "900", lineHeight: 15 }}>{model.week.statusLabel}</Text>
           </Pressable>
         </View>
         <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
-          <ProgressLine accent="green" value={0.7} />
-          <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>4 of 6 sessions completed</Text>
+          <ProgressLine accent="green" value={model.week.progress} />
+          <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{model.week.summary}</Text>
         </View>
         <View style={{ marginTop: spacing.sm }}>
-          {([
-            ["MON", "20", "Technical Drills", "45 min", true, false],
-            ["TUE", "21", "Strength Training", "60 min", true, false],
-            ["WED", "22", "Footwork Rounds", "6 x 3 min", true, false],
-            ["THU", "23", "Conditioning", "30 min", false, true],
-            ["FRI", "24", "Rest and Mobility", "20 min", false, false]
-          ] as const).map(([day, date, title, meta, checked, play]) => (
-            <Pressable accessibilityRole="button" key={`plan-row:${day}`} onPress={onOpenDetails}>
+          {model.dayRows.map((row) => {
+            const [dateLabel = "", meta = row.meta] = row.meta.split(" - ");
+            const weekday = dateLabel.split(",")[0] ?? "";
+            const dayNumber = row.id.slice(-2);
+            const color = referenceAccent[row.tone === "neutral" || row.tone === "muted" ? "green" : row.tone];
+            return (
+            <View key={`plan-row:${row.id}`}>
               <View
                 style={{
                   alignItems: "center",
@@ -625,18 +684,18 @@ export function PlanReferencePanel({
                 }}
               >
                 <View style={{ width: 42 }}>
-                  <Text style={{ color: colors.mutedText, fontSize: 10, fontWeight: "900", lineHeight: 13 }}>{day}</Text>
-                  <Text style={{ color: colors.canvas, fontSize: 19, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 23 }}>{date}</Text>
+                  <Text style={{ color: colors.mutedText, fontSize: 10, fontWeight: "900", lineHeight: 13 }}>{weekday.toUpperCase()}</Text>
+                  <Text style={{ color: colors.canvas, fontSize: 19, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 23 }}>{dayNumber.replace(",", "")}</Text>
                 </View>
                 <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-                  <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{title}</Text>
+                  <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{row.title}</Text>
                   <Text style={{ color: colors.mutedText, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>{meta}</Text>
                 </View>
                 <View
                   style={{
                     alignItems: "center",
-                    backgroundColor: checked ? referenceAccent.green : "transparent",
-                    borderColor: checked ? alphaHex(referenceAccent.green, "AA") : "rgba(255, 255, 255, 0.42)",
+                    backgroundColor: "transparent",
+                    borderColor: row.status === "current" ? alphaHex(color, "AA") : "rgba(255, 255, 255, 0.42)",
                     borderRadius: radii.pill,
                     borderWidth: 1,
                     height: 25,
@@ -644,11 +703,12 @@ export function PlanReferencePanel({
                     width: 25
                   }}
                 >
-                  {checked ? <Ionicons color={colors.canvas} name="checkmark" size={15} /> : play ? <Ionicons color={colors.canvas} name="play" size={12} /> : null}
+                  {row.status === "current" ? <Ionicons color={colors.canvas} name="play" size={12} /> : null}
                 </View>
               </View>
-            </Pressable>
-          ))}
+            </View>
+          );
+          })}
         </View>
       </ReferenceCard>
     </View>
@@ -658,17 +718,20 @@ export function PlanReferencePanel({
 function PerformanceTile({
   delta,
   label,
+  tone = "green",
   value
 }: {
   delta: string;
   label: string;
+  tone?: ReferenceTone | undefined;
   value: string;
 }) {
+  const color = referenceAccent[tone];
   return (
     <View style={{ ...glassStyles.tile, flex: 1, gap: 2, minHeight: 74, minWidth: 84, padding: spacing.sm }}>
       <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
       <Text style={{ color: colors.canvas, fontSize: 21, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 26 }}>{value}</Text>
-      <Text style={{ color: referenceAccent.green, fontSize: 10, fontWeight: "900", lineHeight: 13 }}>{delta}</Text>
+      <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13 }}>{delta}</Text>
     </View>
   );
 }
@@ -699,17 +762,14 @@ function AchievementRow({
 }
 
 export function ProfileReferencePanel({
-  name,
+  model,
   onOpenAthlete,
-  onOpenSettings,
-  subtitle
+  onOpenSettings
 }: {
-  name: string;
+  model: ProfileReferencePanelViewModel;
   onOpenAthlete?: (() => void) | undefined;
   onOpenSettings?: (() => void) | undefined;
-  subtitle: string;
 }) {
-  const initial = name.trim().slice(0, 1).toUpperCase() || "A";
   return (
     <View style={{ gap: spacing.md }} testID="profile-reference-panel">
       <ReferenceCard>
@@ -726,11 +786,11 @@ export function ProfileReferencePanel({
               width: 58
             }}
           >
-            <Text style={{ color: colors.canvas, fontSize: 27, fontWeight: "800", lineHeight: 33 }}>{initial}</Text>
+            <Text style={{ color: colors.canvas, fontSize: 27, fontWeight: "800", lineHeight: 33 }}>{model.identity.initial}</Text>
           </View>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{name}</Text>
-            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{subtitle}</Text>
+            <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{model.identity.name}</Text>
+            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{model.identity.subtitle}</Text>
             <Pressable
               accessibilityRole="button"
               onPress={onOpenAthlete}
@@ -755,19 +815,25 @@ export function ProfileReferencePanel({
       </ReferenceCard>
 
       <ReferenceCard>
-        <SectionLabel accent="neutral" action="This month" title="Performance" />
+        <SectionLabel accent="neutral" action="Now" title="Performance" />
         <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm }}>
-          <PerformanceTile delta="+12%" label="Sessions" value="18" />
-          <PerformanceTile delta="+8%" label="Win Rate" value="72%" />
-          <PerformanceTile delta="+15%" label="Rounds" value="48" />
+          {model.performance.map((item) => (
+            <PerformanceTile delta={item.meta} key={`profile-performance:${item.label}`} label={item.label} tone={item.tone} value={item.value} />
+          ))}
         </View>
       </ReferenceCard>
 
       <ReferenceCard>
-        <SectionLabel accent="neutral" action="View all" title="Achievements" />
-        <AchievementRow accent="blue" icon="ribbon-outline" meta="Train 4 weeks in a row" title="Consistency" />
-        <AchievementRow accent="orange" icon="shield-checkmark-outline" meta="Complete 10 plan sessions" title="Iron Routine" />
-        <AchievementRow accent="blue" icon="sunny-outline" meta="5:00 AM workouts, 7 days" title="Early Riser" />
+        <SectionLabel accent="neutral" action="View all" title="Safety ledger" />
+        {model.ledger.map((item) => (
+          <AchievementRow
+            accent={item.tone === "neutral" || item.tone === "muted" ? "neutral" : item.tone}
+            icon={item.tone === "red" ? "warning-outline" : item.tone === "orange" ? "shield-checkmark-outline" : "ribbon-outline"}
+            key={item.id}
+            meta={item.meta}
+            title={item.title}
+          />
+        ))}
       </ReferenceCard>
 
       <Pressable accessibilityRole="button" onPress={onOpenSettings}>

@@ -17,6 +17,7 @@ import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
 import { colors, spacing } from "../../design/theme";
 import { buildPlanDashboardVisual, type PlanDashboardVisual } from "../../engine/presentation/dashboardVisualData";
+import { buildPlanReferencePanelViewModel } from "../../engine/presentation/referencePanelViewModel";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
@@ -651,6 +652,7 @@ export function PlanScreen({
     activeWorkspaceContent = <PlanDetailsWorkspace adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />;
   }
   const dashboard = buildPlanDashboardVisual(viewModel);
+  const referencePanel = buildPlanReferencePanelViewModel(viewModel, asOfDate);
 
   return (
     <LuminousScreen accent="green" testID="plan-screen">
@@ -665,8 +667,8 @@ export function PlanScreen({
       {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={plainPlanCopy(viewModel.lastAutoRollForwardMessage)} tone="info" /> : null}
       {adjustmentMessage ? <RiskBanner title="Plan update" message={plainPlanCopy(adjustmentMessage)} tone="info" /> : null}
       <PlanReferencePanel
+        model={referencePanel}
         onAdjustPlan={() => openWorkspace("goal_wizard")}
-        onOpenDetails={() => openWorkspace("plan_details")}
       />
       <PlanActionCard busy={busy} onOpenWorkspace={openWorkspace} viewModel={viewModel} />
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>

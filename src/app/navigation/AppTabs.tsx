@@ -240,6 +240,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         <Tab.Screen name="Train">
           {({ navigation }) => (
             <TrainScreen
+              asOfDate={asOfDate}
               busy={busy}
               completionActions={workoutCompletion}
               completionMessage={message}

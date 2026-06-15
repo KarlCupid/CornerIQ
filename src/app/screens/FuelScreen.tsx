@@ -15,6 +15,7 @@ import {
 import { colors, radii, spacing } from "../../design/theme";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type ModifierVisual, type ProgressVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { compactFuelCopy, plainFuelCopy } from "../../engine/presentation/fuelCopy";
+import { buildFuelReferencePanelViewModel } from "../../engine/presentation/referencePanelViewModel";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
@@ -497,6 +498,7 @@ function FuelVisualDashboard({
 export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   const [appliedFocusIntent, setAppliedFocusIntent] = React.useState<FuelFocusIntent | null>(null);
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
+  const referencePanel = buildFuelReferencePanelViewModel(viewModel, dashboard, recentLogs);
   const [fuelDetailOpen, setFuelDetailOpen] = React.useState(dashboard.detailDefaultOpen);
   React.useEffect(() => {
     if (!focusIntent) {
@@ -553,6 +555,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
     <LuminousScreen accent="orange" testID="fuel-screen">
       <ScreenHeader {...tabHeroHeaders.fuel} />
       <FuelReferencePanel
+        model={referencePanel}
         onAddWater={() => setAppliedFocusIntent("log_hydration")}
         onLogMeal={() => setAppliedFocusIntent("log_food")}
       />

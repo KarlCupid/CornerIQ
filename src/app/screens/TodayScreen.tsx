@@ -21,6 +21,7 @@ import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
 import { buildTodayDashboardVisual, type TodayDashboardVisual, type TodayPrimaryActionKind, type VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { buildTodayReferencePanelViewModel } from "../../engine/presentation/referencePanelViewModel";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
@@ -513,6 +514,7 @@ export function TodayScreen({
     today: viewModel,
     train: trainViewModel
   });
+  const referencePanel = buildTodayReferencePanelViewModel({ dashboard, recentLogs });
   const runTodayAction = (action: TodayPrimaryActionKind, quickCheckPlacement: TodayQuickCheckPlacement = "top") => {
     if (action === "log_food") {
       (onOpenFuelLog ?? onOpenFuel)?.();
@@ -577,6 +579,7 @@ export function TodayScreen({
       <LuminousScreen accent="blue" testID="today-screen">
         <ScreenHeader {...tabHeroHeaders.today} />
         <TodayReferencePanel
+          model={referencePanel}
           onOpenPlan={onOpenPlan}
           onOpenTrain={onOpenTrain}
           onOpenTrainWorkout={onOpenTrainWorkout ?? onOpenTrain}

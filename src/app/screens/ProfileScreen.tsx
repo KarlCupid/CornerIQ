@@ -10,6 +10,7 @@ import { DashboardCard, DashboardPill } from "../../design/components/Performanc
 import { SectionTabs, type SectionTabItem } from "../../design/components/SectionTabs";
 import { TopActionCard } from "../../design/components/TopActionCard";
 import { spacing } from "../../design/theme";
+import { buildProfileReferencePanelViewModel } from "../../engine/presentation/referencePanelViewModel";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { getReleaseLinkConfig } from "../../services/config/runtimeConfig";
 import type { ProfileSettingsDraft } from "../../services/supabase/onboardingService";
@@ -72,6 +73,7 @@ export function ProfileScreen({
   const [section, setSection] = React.useState<ProfileSection>("athlete");
   const [historyDetailOpen, setHistoryDetailOpen] = React.useState(false);
   const releaseLinks = React.useMemo(() => getReleaseLinkConfig(), []);
+  const referencePanel = buildProfileReferencePanelViewModel(viewModel);
   const openPrivacyPolicy = React.useCallback(() => {
     void Linking.openURL(releaseLinks.privacyPolicyUrl);
   }, [releaseLinks.privacyPolicyUrl]);
@@ -79,10 +81,9 @@ export function ProfileScreen({
     <LuminousScreen accent="neutral" testID="profile-screen">
       <ScreenHeader {...tabHeroHeaders.profile} />
       <ProfileReferencePanel
-        name={viewModel.identity.title}
+        model={referencePanel}
         onOpenAthlete={() => setSection("athlete")}
         onOpenSettings={() => setSection("settings")}
-        subtitle={viewModel.identity.subtitle}
       />
       <ProfileCommandCenter asOfDate={asOfDate} viewModel={viewModel} />
       <TopActionCard

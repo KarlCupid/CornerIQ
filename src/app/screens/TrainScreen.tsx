@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
-import type { DetailedTrainingSession, RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
+import type { DetailedTrainingSession, ISODateString, RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
@@ -11,6 +11,7 @@ import { RiskBanner } from "../../design/components/RiskBanner";
 import { colors, spacing } from "../../design/theme";
 import type { BarVisual, TimelineVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
+import { buildTrainReferencePanelViewModel } from "../../engine/presentation/referencePanelViewModel";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
@@ -25,6 +26,7 @@ export type TrainSection = "today" | "workout" | "progress";
 
 export interface TrainScreenProps {
   activeWorkout?: TrainWorkoutPlayerSummary | null | undefined;
+  asOfDate?: ISODateString | undefined;
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
   completionMessage?: string | null | undefined;
@@ -251,6 +253,7 @@ function WeekContextCard({ viewModel }: { viewModel: TrainViewModel }) {
 
 export function TrainScreen({
   activeWorkout,
+  asOfDate,
   busy,
   completionActions,
   completionMessage,
@@ -285,6 +288,7 @@ export function TrainScreen({
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
   const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? startWorkoutBlockedReason(viewModel, primarySession) : undefined;
   const primarySessionTone = primarySession ? toneForIntensity(primarySession.intensity) : viewModel.riskSummary.length > 0 ? "red" : "blue";
+  const referencePanel = buildTrainReferencePanelViewModel(viewModel, asOfDate);
 
   const startWorkout = (sessionDetail: DetailedTrainingSession) => {
     const blockedReason = startWorkoutBlockedReason(viewModel, sessionDetail);
@@ -349,7 +353,7 @@ export function TrainScreen({
   return (
     <LuminousScreen accent="purple" testID="train-screen">
       <ScreenHeader {...tabHeroHeaders.train} />
-      <TrainReferencePanel onOpenDetails={openReferenceDetails} onStartSession={startReferenceSession} />
+      <TrainReferencePanel model={referencePanel} onOpenDetails={openReferenceDetails} onStartSession={startReferenceSession} />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <PrimaryTaskCard
         accent={accentForTone(primarySessionTone)}
