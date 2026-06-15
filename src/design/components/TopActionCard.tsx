@@ -1,9 +1,9 @@
 import React from "react";
 import { Text, View } from "react-native";
 import { glassStyles } from "../glass";
+import { accentColor, type LuminousAccent, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, spacing } from "../theme";
 import { typography } from "../typography";
-import { accentColor, type LuminousAccent } from "./LuminousScreen";
 
 export function TopActionCard({
   accent = "blue",
@@ -22,10 +22,14 @@ export function TopActionCard({
   title: string;
   why: string;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View
       style={{
         ...glassStyles.card,
+        backgroundColor: theme.card,
+        borderColor: theme.cardBorder,
+        boxShadow: `0 18px 40px rgba(0, 0, 0, 0.34), 0 0 20px ${theme.strongGlow}`,
         gap: spacing.md,
         padding: spacing.lg
       }}

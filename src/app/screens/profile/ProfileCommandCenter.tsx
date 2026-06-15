@@ -11,6 +11,7 @@ import type {
   ProfileVisualTone
 } from "../../../engine/core/types";
 import { glassStyles } from "../../../design/glass";
+import { useLuminousScreenTheme } from "../../../design/luminousTheme";
 import { colors, radii, spacing } from "../../../design/theme";
 import { typography } from "../../../design/typography";
 import { DashboardCard, DashboardPill } from "../../../design/components/PerformanceVisuals";
@@ -249,12 +250,14 @@ export function ProfileCommandCenter({
   asOfDate: string;
   viewModel: ProfileViewModel;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View
       style={{
         ...glassStyles.cardDeep,
-        backgroundColor: "rgba(9, 15, 30, 0.94)",
-        borderColor: "rgba(39, 206, 241, 0.22)",
+        backgroundColor: theme.cardDeep,
+        borderColor: theme.cardBorder,
+        boxShadow: `0 18px 42px rgba(0, 0, 0, 0.34), 0 0 22px ${theme.strongGlow}`,
         gap: spacing.lg,
         overflow: "hidden",
         padding: spacing.lg
@@ -264,7 +267,7 @@ export function ProfileCommandCenter({
       <View
         pointerEvents="none"
         style={{
-          backgroundColor: "rgba(39, 206, 241, 0.12)",
+          backgroundColor: theme.hairline,
           height: 1,
           left: spacing.lg,
           position: "absolute",
@@ -472,8 +475,9 @@ export function ProfileSafetyLedger({ items }: { items: readonly ProfileLedgerIt
 }
 
 export function ProfileSystemNote() {
+  const theme = useLuminousScreenTheme();
   return (
-    <View style={{ ...glassStyles.tile, gap: spacing.xs, padding: spacing.md }}>
+    <View style={{ ...glassStyles.tile, backgroundColor: theme.tile, borderColor: theme.tileBorder, gap: spacing.xs, padding: spacing.md }}>
       <Text style={{ ...typography.cardTitle, color: colors.canvas }}>Maintenance, not pressure</Text>
       <Text style={screenStyles.body}>Profile is for settings, privacy, exports, and safety history. Today remains the place for daily action.</Text>
     </View>

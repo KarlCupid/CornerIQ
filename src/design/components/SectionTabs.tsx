@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { glassStyles } from "../glass";
+import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
 
 export interface SectionTabItem<T extends string> {
@@ -18,6 +19,7 @@ export function SectionTabs<T extends string>({
   value: T;
 }) {
   const { width } = useWindowDimensions();
+  const theme = useLuminousScreenTheme();
   const compact = width < 520;
   return (
     <View
@@ -49,8 +51,8 @@ export function SectionTabs<T extends string>({
               style={{
                 ...glassStyles.control,
                 alignItems: "center",
-                backgroundColor: selected ? "rgba(39, 206, 241, 0.16)" : "rgba(255, 255, 255, 0.055)",
-                borderColor: selected ? "rgba(39, 206, 241, 0.42)" : "rgba(255, 255, 255, 0.10)",
+                backgroundColor: selected ? theme.control : theme.tile,
+                borderColor: selected ? theme.accentColor : theme.tileBorder,
                 borderRadius: radii.pill,
                 justifyContent: "center",
                 minHeight: 44,

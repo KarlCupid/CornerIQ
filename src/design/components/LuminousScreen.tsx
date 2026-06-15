@@ -4,8 +4,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ImageBackground, Platform, ScrollView, Text, useWindowDimensions, View, type ImageSourcePropType, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { glassStyles } from "../glass";
+import { accentColor, LuminousScreenThemeContext, luminousScreenThemes, type LuminousAccent, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
+
+export { accentColor, accentWash, luminousScreenThemes, useLuminousScreenTheme, type LuminousAccent } from "../luminousTheme";
 
 const TAB_SCREEN_BOTTOM_PADDING = spacing.xl;
 
@@ -106,53 +109,42 @@ const luminousStyles = {
   }
 };
 
-export type LuminousAccent = "blue" | "green" | "orange" | "purple" | "gold" | "red" | "neutral";
-
-export const accentColor: Record<LuminousAccent, string> = {
-  blue: colors.blueIQ,
-  gold: colors.gold,
-  green: colors.readyGreen,
-  neutral: colors.mutedText,
-  orange: colors.amberCaution,
-  purple: colors.powerPurple,
-  red: colors.redCorner
-};
-
-export const accentWash: Record<LuminousAccent, string> = {
-  blue: "rgba(39, 206, 241, 0.16)",
-  gold: "rgba(255, 216, 97, 0.16)",
-  green: "rgba(56, 226, 138, 0.15)",
-  neutral: "rgba(183, 196, 217, 0.14)",
-  orange: "rgba(255, 148, 72, 0.16)",
-  purple: "rgba(150, 87, 245, 0.16)",
-  red: "rgba(255, 82, 101, 0.16)"
-};
-
 export function LuminousScreen({
+  accent = "blue",
   bottomInset = "tabs",
   children,
   testID
 }: PropsWithChildren<{
+  accent?: LuminousAccent | undefined;
   bottomInset?: "none" | "tabs" | undefined;
   testID: string;
 }>) {
   const insets = useSafeAreaInsets();
+  const theme = luminousScreenThemes[accent];
   const bottomPadding =
     bottomInset === "tabs"
       ? Math.max(insets.bottom, spacing.md) + TAB_SCREEN_BOTTOM_PADDING
       : Math.max(insets.bottom, spacing.lg) + spacing.lg;
 
   return (
-    <View style={luminousStyles.screen}>
-      <ScrollView
-        accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
-        contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.sm, spacing.lg) }]}
-        style={luminousStyles.scrollFill}
-        testID={testID}
-      >
-        {children}
-      </ScrollView>
-    </View>
+    <LuminousScreenThemeContext.Provider value={theme}>
+      <View style={[luminousStyles.screen, { backgroundColor: theme.background }]}>
+        <View pointerEvents="none" style={{ bottom: 0, left: 0, overflow: "hidden", position: "absolute", right: 0, top: 0 }}>
+          <View style={{ backgroundColor: theme.topWash, height: 330, left: 0, opacity: 0.82, position: "absolute", right: 0, top: 0 }} />
+          <View style={{ backgroundColor: theme.midWash, height: 420, left: 0, opacity: 0.58, position: "absolute", right: 0, top: 258 }} />
+          <View style={{ backgroundColor: theme.bottomWash, bottom: 0, height: "55%", left: 0, position: "absolute", right: 0 }} />
+          <View style={{ backgroundColor: theme.hairline, height: 1, left: spacing.lg, opacity: 0.42, position: "absolute", right: spacing.lg, top: 0 }} />
+        </View>
+        <ScrollView
+          accessibilityLabel={`${testID.replace(/-/g, " ")} screen`}
+          contentContainerStyle={[luminousStyles.content, { paddingBottom: bottomPadding, paddingTop: Math.max(insets.top + spacing.sm, spacing.lg) }]}
+          style={luminousStyles.scrollFill}
+          testID={testID}
+        >
+          {children}
+        </ScrollView>
+      </View>
+    </LuminousScreenThemeContext.Provider>
   );
 }
 
@@ -174,11 +166,12 @@ export function ScreenHeader({
   title
 }: ScreenHeaderProps) {
   const { width } = useWindowDimensions();
+  const theme = useLuminousScreenTheme();
   const compact = width < 520;
   if (heroImage) {
     const heroShadow: ViewStyle =
       Platform.OS === "web"
-        ? ({ boxShadow: `0 24px 54px rgba(0, 0, 0, 0.42), 0 0 32px ${accentWash[accent]}` } as ViewStyle)
+        ? ({ boxShadow: `0 24px 54px rgba(0, 0, 0, 0.42), 0 0 32px ${theme.strongGlow}` } as ViewStyle)
         : {
             elevation: 10,
             shadowColor: accentColor[accent],
@@ -193,15 +186,15 @@ export function ScreenHeader({
         imageStyle={luminousStyles.heroImage}
         resizeMode="cover"
         source={heroImage}
-        style={[luminousStyles.heroFrame, heroShadow, { minHeight: compact ? 232 : 260 }]}
+        style={[luminousStyles.heroFrame, heroShadow, { borderColor: theme.cardBorder, minHeight: compact ? 232 : 260 }]}
       >
-        <View style={luminousStyles.heroOverlay} />
-        <View style={luminousStyles.heroBaseShadow} />
+        <View style={[luminousStyles.heroOverlay, { backgroundColor: `${theme.background}1F` }]} />
+        <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}B8` }]} />
         <View pointerEvents="none" style={luminousStyles.heroActionRow}>
-          <View style={luminousStyles.heroActionGlyph}>
+          <View style={[luminousStyles.heroActionGlyph, { backgroundColor: theme.cardDeep, borderColor: theme.cardBorder }]}>
             <Ionicons color={colors.canvas} name="notifications-outline" size={18} />
           </View>
-          <View style={[luminousStyles.heroActionGlyph, { borderColor: `${accentColor[accent]}55` }]}>
+          <View style={[luminousStyles.heroActionGlyph, { backgroundColor: theme.cardDeep, borderColor: `${accentColor[accent]}66` }]}>
             <Ionicons color={colors.canvas} name={icon ?? "settings-outline"} size={18} />
           </View>
         </View>
@@ -301,12 +294,15 @@ export function MetricTile({
   meta?: string | undefined;
   value: string;
 }) {
+  const theme = useLuminousScreenTheme();
   const valueColor = accent ? accentColor[accent] : colors.canvas;
   return (
     <View
       accessibilityLabel={`${label}: ${value}${meta ? `. ${meta}` : ""}`}
       style={{
         ...glassStyles.tile,
+        backgroundColor: theme.tile,
+        borderColor: theme.tileBorder,
         borderRadius: 20,
         flexBasis: "47%",
         flexGrow: 1,

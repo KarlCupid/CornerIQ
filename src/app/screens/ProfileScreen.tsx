@@ -76,7 +76,7 @@ export function ProfileScreen({
     void Linking.openURL(releaseLinks.privacyPolicyUrl);
   }, [releaseLinks.privacyPolicyUrl]);
   return (
-    <LuminousScreen testID="profile-screen">
+    <LuminousScreen accent="neutral" testID="profile-screen">
       <ScreenHeader {...tabHeroHeaders.profile} />
       <ProfileReferencePanel
         name={viewModel.identity.title}
@@ -86,7 +86,7 @@ export function ProfileScreen({
       />
       <ProfileCommandCenter asOfDate={asOfDate} viewModel={viewModel} />
       <TopActionCard
-        accent="blue"
+        accent="neutral"
         optional={viewModel.topAction.optional}
         primaryAction={viewModel.topAction.primaryAction}
         purpose={viewModel.topAction.purpose}

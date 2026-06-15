@@ -403,7 +403,7 @@ export function TodayReferencePanel({
         <ReferenceCard>
           <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
             <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-        <SectionLabel accent="blue" title="Daily mission" />
+              <SectionLabel accent="blue" title="Daily mission" />
               <Text style={{ color: colors.canvas, fontSize: 17, fontWeight: "900", lineHeight: 22 }}>Technical Precision</Text>
               <Text numberOfLines={2} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 17 }}>
                 Focus on fundamentals and controlled power.

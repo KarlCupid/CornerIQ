@@ -653,7 +653,7 @@ export function PlanScreen({
   const dashboard = buildPlanDashboardVisual(viewModel);
 
   return (
-    <LuminousScreen testID="plan-screen">
+    <LuminousScreen accent="green" testID="plan-screen">
       <ScreenHeader {...tabHeroHeaders.plan} />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan safety check" message={plainPlanCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>

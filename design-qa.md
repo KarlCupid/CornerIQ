@@ -3,45 +3,55 @@
 
 **Implementation Evidence**
 - Full comparison: `qa-artifacts/browser-audit/current/screenshots/47-redesign-reference-vs-implementation.png`
-- Contact sheet: `qa-artifacts/browser-audit/current/screenshots/45-redesign-contact-sheet.png`
-- Content-only sheet: `qa-artifacts/browser-audit/current/screenshots/46-redesign-content-sheet.png`
-- Individual captures:
+- First-viewport contact sheet: `qa-artifacts/browser-audit/current/screenshots/45-redesign-contact-sheet.png`
+- Scrolled contact sheet: `qa-artifacts/browser-audit/current/screenshots/55-redesign-scrolled-contact-sheet.png`
+- Individual first-viewport captures:
   - `qa-artifacts/browser-audit/current/screenshots/40-redesign-today.png`
   - `qa-artifacts/browser-audit/current/screenshots/41-redesign-train.png`
   - `qa-artifacts/browser-audit/current/screenshots/42-redesign-fuel.png`
   - `qa-artifacts/browser-audit/current/screenshots/43-redesign-plan.png`
   - `qa-artifacts/browser-audit/current/screenshots/44-redesign-profile.png`
+- Scrolled captures:
+  - `qa-artifacts/browser-audit/current/screenshots/50-redesign-today-scrolled.png`
+  - `qa-artifacts/browser-audit/current/screenshots/51-redesign-train-scrolled.png`
+  - `qa-artifacts/browser-audit/current/screenshots/52-redesign-fuel-scrolled.png`
+  - `qa-artifacts/browser-audit/current/screenshots/53-redesign-plan-scrolled.png`
+  - `qa-artifacts/browser-audit/current/screenshots/54-redesign-profile-scrolled.png`
 
 **Viewport And State**
 - Viewport: 390 x 844 mobile web capture, device scale factor 1.
 - State: local E2E demo state, default date 2026-05-19.
-- Normalization: the local E2E orange banner was cropped out of the content-only comparison because it is test-only chrome and is not part of the product UI.
+- Normalization: the orange local E2E banner is test-only chrome and is not part of the production product UI.
 
 **Findings**
 - No actionable P0/P1/P2 issues remain.
 
 **Fidelity Surfaces**
-- Fonts and typography: implemented screens use the existing app type stack with heavy hero titles, compact uppercase labels, tabular numeric metrics, and tight card hierarchy matching the reference density. Text remains readable at 390px without clipping in the captured states.
-- Spacing and layout rhythm: each tab now follows the reference order: photo hero, accent-specific glass cards, compact metrics, then the existing bottom tab dock. Card radii, gaps, and row heights are close to the supplied phone mockups while preserving the existing safe-area/tab behavior.
-- Colors and visual tokens: tab accents match the reference system: blue Today, purple Train, amber Fuel, green Plan, slate Profile. Cards use deep glass panels, thin borders, and restrained accent washes consistent with the source.
-- Image quality and asset fidelity: header photos are real local raster assets wired through `tabHeroConfig`; Fuel was reframed in `assets/backgrounds/tab-fuel-hero.png` so the food subject appears in the mobile crop. Icons use Ionicons, not handcrafted SVGs or emoji.
-- Copy and content: visible first-screen content matches the reference structure. Intentional deviations: `Daily mission` replaces the source's `Today's Mission` to satisfy the repo's copy-density guardrail; `Footwork Rounds` and `Iron Routine` replace contact-forward reference copy to respect the boxing safety rules; Profile uses engine-backed athlete identity instead of the mock name `Alex Morgan`.
+- Screen color systems: Today, Train, Fuel, Plan, and Profile now apply their own full-screen palettes across the background, bottom tab dock, shared cards, dashboard cards, controls, tabs, and profile command surfaces.
+- Header photos: `tab-today-hero.png`, `tab-train-hero.png`, `tab-plan-hero.png`, and `tab-profile-hero.png` were conservatively reframed to lift their subject matter into the live mobile hero crop. Fuel remains on the previously corrected close crop.
+- Layout: each tab keeps the reference flow of large photo hero, tab-specific reference panel, dense glass cards, and bottom navigation while preserving existing safe-area and scroll behavior.
+- Existing content: older engine-backed sections now inherit tab-aware glass styling instead of the old universal dark/blue shell.
+- Safety and copy: the new UI remains boxing-only and engine-backed; no generated sparring, contact drill, weight-cut, or missing-data-as-safe copy was added.
 
-**Patches Made Since Previous QA Pass**
-- Added `src/app/screens/reference/TabReferencePanels.tsx` with Today, Train, Fuel, Plan, and Profile reference panels.
-- Wired the reference panels into all five tab screens above the existing engine-backed sections.
-- Switched photo heroes to cover cropping in `src/design/components/LuminousScreen.tsx`.
-- Reframed `assets/backgrounds/tab-fuel-hero.png` for the new mobile hero crop.
-- Kept existing engine cards and deeper workflows below the new reference-style first viewport.
+**Patches Made In This Pass**
+- Added an icon-free theme module in `src/design/luminousTheme.ts`.
+- Updated `LuminousScreen`, shared cards, dashboard panels, controls, profile panels, section tabs, and the bottom tab bar to consume tab-aware theme tokens.
+- Passed explicit accents to all five tab screen roots.
+- Reframed Today, Train, Plan, and Profile hero images.
+- Preserved the previously implemented reference panels and fixed a small formatting scar in the Today reference panel.
 
-**Implementation Checklist**
-- Source and implementation were compared in the same image artifact.
-- Five tab screenshots were captured from the local app.
-- P0/P1/P2 issues from the first test pass were fixed.
-- Required repo gates were run.
+**Verification**
+- `cmd /c npm install`: passed.
+- `cmd /c npm run typecheck`: passed.
+- `cmd /c npm test`: passed, 569 passed and 1 skipped.
+- `cmd /c npm run lint`: passed.
+- `cmd /c npm run quality`: passed, including typecheck and 569 passing tests with 1 skipped.
+- `cmd /c npm run preflight:beta`: passed.
+- Note: a direct `npx vitest run src/tests/app/foodQuickLogValidation.test.ts` attempt hit a Windows sandbox/config resolution error before running tests; the same targeted test passed via `cmd /c npm test -- src/tests/app/foodQuickLogValidation.test.ts`.
+- Preflight warnings remain the existing Apple submission warnings: final app icon not wired, final splash not wired, and public privacy-policy URL not finalized.
 
 **Follow-up Polish**
-- P3: native iOS/Android screenshots would be useful to verify exact status-bar and device-frame proportions outside the web E2E capture.
-- P3: if the product later allows purely static marketing/profile sample data, the Profile card can be made even closer to the source by using a designed sample identity in demo mode only.
+- P3: native iOS/Android screenshots would still be useful to verify exact status-bar and device-frame proportions outside the web E2E capture.
+- P3: the local E2E banner should stay visible in agent QA, but production/device visual review should be done without that test-only banner.
 
 final result: passed

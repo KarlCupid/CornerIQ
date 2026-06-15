@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import { glassStyles } from "../glass";
+import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
 import type { BarVisual, BreakdownVisual, ModifierVisual, ProgressVisual, TimelineVisual, TrendPoint, VisualTone } from "../../engine/presentation/dashboardVisualData";
 
@@ -52,10 +53,14 @@ export function DashboardCard({
   titleVariant?: "loud" | "quiet" | undefined;
 }>) {
   const quietTitle = titleVariant === "quiet";
+  const theme = useLuminousScreenTheme();
   return (
     <View
       style={{
         ...glassStyles.cardDeep,
+        backgroundColor: theme.cardDeep,
+        borderColor: theme.cardBorder,
+        boxShadow: `0 18px 42px rgba(0, 0, 0, 0.34), 0 0 22px ${theme.strongGlow}`,
         gap: density === "compact" ? spacing.sm : spacing.md,
         overflow: "hidden",
         padding: density === "compact" ? spacing.md : spacing.lg
@@ -266,10 +271,13 @@ export function ModifierRow({ item }: { item: ModifierVisual }) {
 
 export function VisualMetricTile({ item, variant = "loud" }: { item: ModifierVisual; variant?: "loud" | "quiet" | undefined }) {
   const quiet = variant === "quiet";
+  const theme = useLuminousScreenTheme();
   return (
     <View
       style={{
         ...glassStyles.tile,
+        backgroundColor: theme.tile,
+        borderColor: theme.tileBorder,
         flexBasis: quiet ? 128 : 116,
         flexGrow: 1,
         gap: spacing.xs,
@@ -352,6 +360,7 @@ export function TrendLineChart({
   width?: number | undefined;
 }) {
   const [layoutWidth, setLayoutWidth] = React.useState(width);
+  const theme = useLuminousScreenTheme();
   const chartWidth = Math.max(180, layoutWidth || width);
   const plotHeight = Math.max(56, height);
   if (points.length === 0) {
@@ -363,7 +372,7 @@ export function TrendLineChart({
             setLayoutWidth(nextWidth);
           }
         }}
-        style={{ ...glassStyles.tile, alignItems: "center", alignSelf: "stretch", minHeight: height, justifyContent: "center", width: "100%" }}
+        style={{ ...glassStyles.tile, alignItems: "center", alignSelf: "stretch", backgroundColor: theme.tile, borderColor: theme.tileBorder, minHeight: height, justifyContent: "center", width: "100%" }}
         testID={testID}
       >
         <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Trend unknown</Text>
@@ -391,6 +400,8 @@ export function TrendLineChart({
       <View
         style={{
           ...glassStyles.tile,
+          backgroundColor: theme.tile,
+          borderColor: theme.tileBorder,
           height: plotHeight,
           overflow: "hidden",
           paddingHorizontal: spacing.sm,
@@ -629,6 +640,7 @@ export function BlockOverviewDots({
     subtitle: string;
   }[];
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID={testID}>
       {weeks.map((week) => (
@@ -636,8 +648,8 @@ export function BlockOverviewDots({
           key={`block-week:${week.label}:${week.subtitle}`}
           style={{
             ...glassStyles.tile,
-            backgroundColor: week.active ? "rgba(39, 206, 241, 0.12)" : "rgba(255, 255, 255, 0.066)",
-            borderColor: week.active ? "rgba(39, 206, 241, 0.8)" : colors.line,
+            backgroundColor: week.active ? theme.control : theme.tile,
+            borderColor: week.active ? theme.accentColor : theme.tileBorder,
             flexBasis: 130,
             flexGrow: 1,
             gap: spacing.sm,

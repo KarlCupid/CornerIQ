@@ -347,7 +347,7 @@ export function TrainScreen({
   };
 
   return (
-    <LuminousScreen testID="train-screen">
+    <LuminousScreen accent="purple" testID="train-screen">
       <ScreenHeader {...tabHeroHeaders.train} />
       <TrainReferencePanel onOpenDetails={openReferenceDetails} onStartSession={startReferenceSession} />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />

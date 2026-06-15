@@ -3,6 +3,7 @@ import type { PropsWithChildren } from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "./EngineCard";
 import { glassStyles } from "../glass";
+import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, spacing } from "../theme";
 
 export function DisclosureCard({
@@ -16,6 +17,7 @@ export function DisclosureCard({
   title: string;
 }>) {
   const [open, setOpen] = useState(defaultOpen);
+  const theme = useLuminousScreenTheme();
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
@@ -23,17 +25,19 @@ export function DisclosureCard({
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
           onPress={() => setOpen((value) => !value)}
-            style={{
-              ...glassStyles.control,
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 44,
+          style={{
+            ...glassStyles.control,
+            alignItems: "center",
+            backgroundColor: theme.control,
+            borderColor: theme.controlBorder,
+            justifyContent: "center",
+            minHeight: 44,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm
           }}
-          >
-            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
-          </Pressable>
+        >
+          <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700" }}>{open ? `Hide ${title}` : `Show ${title}`}</Text>
+        </Pressable>
         {summary ? <Text style={{ color: colors.wrap, fontSize: 13, lineHeight: 19 }}>{summary}</Text> : null}
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
       </View>

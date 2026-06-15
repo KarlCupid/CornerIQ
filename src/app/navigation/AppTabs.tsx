@@ -7,6 +7,7 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, DetailedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
 import { alphaHex, glassStyles } from "../../design/glass";
+import { luminousScreenThemes } from "../../design/luminousTheme";
 import { colors, spacing } from "../../design/theme";
 import type { RootTabParamList } from "./rootNavigator";
 import { FuelScreen, type FuelFocusIntent } from "../screens/FuelScreen";
@@ -41,6 +42,14 @@ const tabIcons: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> =
   Profile: "person-outline",
   Today: "today-outline",
   Train: "barbell-outline"
+};
+
+const tabChromeThemes: Record<keyof RootTabParamList, (typeof luminousScreenThemes)[keyof typeof luminousScreenThemes]> = {
+  Fuel: luminousScreenThemes.orange,
+  Plan: luminousScreenThemes.green,
+  Profile: luminousScreenThemes.neutral,
+  Today: luminousScreenThemes.blue,
+  Train: luminousScreenThemes.purple
 };
 
 function playerStatusIsInProgress(status: WorkoutPlayerStatus): boolean {
@@ -172,7 +181,8 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             },
             tabBarStyle: {
               ...glassStyles.tabBar,
-              backgroundColor: "rgba(5, 9, 18, 0.95)",
+              backgroundColor: tabChromeThemes[route.name].cardDeep,
+              borderColor: tabChromeThemes[route.name].cardBorder,
               borderBottomLeftRadius: 18,
               borderBottomRightRadius: 18,
               borderBottomWidth: 1,
@@ -180,7 +190,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               borderRightWidth: 1,
               borderTopLeftRadius: 18,
               borderTopRightRadius: 18,
-              boxShadow: "0 -12px 30px rgba(0, 0, 0, 0.34)",
+              boxShadow: `0 -12px 30px rgba(0, 0, 0, 0.34), 0 0 20px ${tabChromeThemes[route.name].strongGlow}`,
               height: 62 + insets.bottom,
               marginBottom: spacing.sm,
               marginHorizontal: spacing.lg,

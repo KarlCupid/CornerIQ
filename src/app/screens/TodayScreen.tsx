@@ -574,7 +574,7 @@ export function TodayScreen({
   ].filter((action) => action.label !== primaryButton.label);
   return (
     <>
-      <LuminousScreen testID="today-screen">
+      <LuminousScreen accent="blue" testID="today-screen">
         <ScreenHeader {...tabHeroHeaders.today} />
         <TodayReferencePanel
           onOpenPlan={onOpenPlan}

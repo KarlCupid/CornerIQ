@@ -550,7 +550,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         summary: "Fast log"
       }];
   return (
-    <LuminousScreen testID="fuel-screen">
+    <LuminousScreen accent="orange" testID="fuel-screen">
       <ScreenHeader {...tabHeroHeaders.fuel} />
       <FuelReferencePanel
         onAddWater={() => setAppliedFocusIntent("log_hydration")}

@@ -2,10 +2,10 @@ import React from "react";
 import type { PropsWithChildren } from "react";
 import { Pressable, Text, View } from "react-native";
 import { glassStyles } from "../glass";
+import { accentColor, accentWash, type LuminousAccent, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
 import { typography } from "../typography";
 import { EngineCard } from "./EngineCard";
-import { accentColor, accentWash, type LuminousAccent } from "./LuminousScreen";
 
 export interface FastTaskAction {
   accessibilityLabel?: string | undefined;
@@ -34,6 +34,7 @@ function ActionButton({
   layout?: "equal" | "primary-led" | undefined;
   primary?: boolean | undefined;
 }) {
+  const theme = useLuminousScreenTheme();
   const primaryLed = layout === "primary-led";
   const disabledPrimary = primary && action.disabled;
   const primaryAccent = accentColor[accent];
@@ -46,7 +47,11 @@ function ActionButton({
           borderColor: `${primaryAccent}99`,
           boxShadow: `0 10px 26px ${accentWash[accent]}`
         }
-      : glassStyles.control;
+      : {
+          ...glassStyles.control,
+          backgroundColor: theme.control,
+          borderColor: theme.controlBorder
+        };
   const textColor = disabledPrimary ? colors.mutedText : primary ? colors.cornerBlack : colors.canvas;
   return (
     <Pressable
@@ -131,12 +136,13 @@ export function CompactStatusStrip({
   testID?: string | undefined;
 }) {
   const quiet = variant === "quiet";
+  const theme = useLuminousScreenTheme();
   return (
     <View
       style={{
-        borderBottomColor: quiet ? "rgba(255, 255, 255, 0.09)" : "transparent",
+        borderBottomColor: quiet ? theme.hairline : "transparent",
         borderBottomWidth: quiet ? 1 : 0,
-        borderTopColor: quiet ? "rgba(255, 255, 255, 0.09)" : "transparent",
+        borderTopColor: quiet ? theme.hairline : "transparent",
         borderTopWidth: quiet ? 1 : 0,
         flexDirection: "row",
         flexWrap: "wrap",
@@ -192,6 +198,7 @@ export function QuickActionRow({
   label?: string | undefined;
   testID?: string | undefined;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <View style={{ gap: spacing.sm }} testID={testID}>
       {label ? <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>{label}</Text> : null}
@@ -207,6 +214,8 @@ export function QuickActionRow({
             style={{
               ...glassStyles.control,
               alignItems: "center",
+              backgroundColor: theme.control,
+              borderColor: theme.controlBorder,
               borderRadius: radii.pill,
               flexBasis: 104,
               flexGrow: 1,
@@ -246,6 +255,7 @@ export function CollapsedDetailDisclosure({
   title: string;
 }>) {
   const [open, setOpen] = React.useState(defaultOpen);
+  const theme = useLuminousScreenTheme();
   React.useEffect(() => {
     if (defaultOpen) {
       setOpen(true);
@@ -260,6 +270,8 @@ export function CollapsedDetailDisclosure({
           style={{
             ...glassStyles.control,
             alignItems: "center",
+            backgroundColor: theme.control,
+            borderColor: theme.controlBorder,
             borderRadius: 20,
             justifyContent: "center",
             minHeight: 44,
