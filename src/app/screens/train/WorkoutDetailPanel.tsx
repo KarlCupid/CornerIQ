@@ -3,20 +3,15 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultSide, ExerciseResultTechnicalQuality } from "../../../engine/core/types";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { PostActionNextStep } from "../../../design/components/FastTask";
-import { DashboardCard, DashboardPill } from "../../../design/components/PerformanceVisuals";
-import { useLuminousScreenTheme } from "../../../design/components/LuminousScreen";
+import { DashboardCard } from "../../../design/components/PerformanceVisuals";
 import { glassStyles } from "../../../design/glass";
 import { colors, spacing } from "../../../design/theme";
 import {
-  plainGeneratedSessionFamilyLabel,
-  plainFuelDemandLabel,
-  plainIntensityLabel,
   plainSectionIntent,
   plainSectionName,
   plainTrainingCopy
 } from "../../../engine/presentation/trainingCopy";
-import { buildWorkoutPlayerTimeline } from "../../../engine/presentation/workoutPlayerTimeline";
-import { recipeEquipmentLabel, recipeFlowLines, recipeQuickLogContext, recipeTitle, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
+import { recipeQuickLogContext, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
@@ -151,26 +146,6 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
   );
 }
 
-function SessionMeta({ label }: { label: string }) {
-  const theme = useLuminousScreenTheme();
-  return (
-    <View
-      style={{
-        ...glassStyles.control,
-        backgroundColor: theme.control,
-        borderColor: theme.controlBorder,
-        borderRadius: 16,
-        minHeight: 34,
-        justifyContent: "center",
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.xs
-      }}
-    >
-      <Text style={screenStyles.chipText}>{label}</Text>
-    </View>
-  );
-}
-
 function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
   return (
     <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
@@ -179,17 +154,64 @@ function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
   );
 }
 
-function formatGuidedDuration(totalSeconds: number): string {
-  if (totalSeconds < 60) {
-    return `${totalSeconds} sec`;
-  }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return seconds === 0 ? `${minutes} min` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+function DetailToggleRow({
+  disabled = false,
+  label,
+  meta,
+  onPress,
+  open
+}: {
+  disabled?: boolean | undefined;
+  label: string;
+  meta?: string | undefined;
+  onPress: () => void;
+  open: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`${open ? "Hide" : "Show"} ${label}`}
+      accessibilityRole="button"
+      accessibilityState={{ disabled, expanded: open }}
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        glassStyles.control,
+        {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: spacing.md,
+          justifyContent: "space-between",
+          minHeight: 52,
+          opacity: disabled ? 0.58 : 1,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm
+        }
+      ]}
+    >
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 19 }}>
+          {label}
+        </Text>
+        {meta ? <Text numberOfLines={1} style={screenStyles.subtle}>{meta}</Text> : null}
+      </View>
+      <Text style={{ color: colors.powerPurple, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{open ? "Hide" : "Show"}</Text>
+    </Pressable>
+  );
 }
 
-function compactFlowLines(session: DetailedTrainingSession): readonly string[] {
-  return recipeFlowLines(session);
+function adjustTodayOptions(session: DetailedTrainingSession): readonly string[] {
+  const options = new Set<string>();
+  options.add("Lower the pace.");
+  options.add("Keep the warm-up longer.");
+  if (session.intensity === "hard") {
+    options.add("Change hard rounds to technical rounds.");
+  }
+  if (session.sections.some((section) => section.exercises.some((exercise) => /strength|lift|loaded|squat|hinge|row|press/i.test(`${section.name} ${exercise.name}`)))) {
+    options.add("Skip loaded work if pain shows up.");
+  }
+  options.add("Shorten the finisher.");
+  options.add("Stop the session if symptoms return.");
+  return Array.from(options).slice(0, 6);
 }
 
 function quickLogMainJob(session: DetailedTrainingSession): string {
@@ -200,7 +222,6 @@ export function WorkoutDetailPanel({
   busy,
   completionActions,
   completionMessage,
-  onStartWorkout,
   onOpenFuel,
   planOpenRequestKey = 0,
   previewOnlyReason,
@@ -211,7 +232,6 @@ export function WorkoutDetailPanel({
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
   completionMessage?: string | null | undefined;
-  onStartWorkout?: (() => void) | undefined;
   onOpenFuel?: (() => void) | undefined;
   planOpenRequestKey?: number | undefined;
   previewOnlyReason?: string | undefined;
@@ -224,6 +244,7 @@ export function WorkoutDetailPanel({
   const [exerciseDetailsOpen, setExerciseDetailsOpen] = useState(false);
   const [structuredActualsOpen, setStructuredActualsOpen] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
   const [sessionRpe, setSessionRpe] = useState("");
   const [painNotes, setPainNotes] = useState("");
   const [notes, setNotes] = useState("");
@@ -289,44 +310,19 @@ export function WorkoutDetailPanel({
 
   const followUpCopy =
     followUpState === "review"
-      ? "Review pain/RPE before progressing."
+      ? "Review pain and RPE before adding more."
       : followUpState === "skipped"
-        ? "Skipped. Plan remains conservative."
+        ? "Skipped. Keep the next session conservative."
         : "Done. Fuel check optional.";
-  const startBlockedReason = previewOnlyReason ?? startWorkoutDisabledReason;
-  const guidedTimeline = React.useMemo(() => buildWorkoutPlayerTimeline(session), [session]);
-  const guidedDurationLabel = formatGuidedDuration(guidedTimeline.totalSeconds || session.durationMinutes * 60);
-  const flowLines = compactFlowLines(session);
-  const mainJob = quickLogMainJob(session);
   const quickLogContext = recipeQuickLogContext(session);
-  const planToggleLabel = session.recipe ? "workout recipe" : "exercise details";
+  const quickLogBlocked = Boolean(previewOnlyReason);
 
   return (
     <View style={{ gap: spacing.lg }}>
-      <DashboardCard
-        headerRight={<DashboardPill label={`${session.durationMinutes} min`} tone={session.intensity === "hard" ? "orange" : "purple"} />}
-        testID="train-workout-preview-card"
-        title="Workout preview"
-      >
+      <DashboardCard testID="train-workout-preview-card" title="Workout Details">
         <View style={{ gap: spacing.sm }}>
-          <Text style={screenStyles.fieldLabel}>Support workout</Text>
-          <Text style={[screenStyles.callout, { fontSize: 20, fontWeight: "800", lineHeight: 26 }]}>{recipeTitle(session)}</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-            <SessionMeta label={guidedDurationLabel} />
-            <SessionMeta label={recipeEquipmentLabel(session.recipe)} />
-            <SessionMeta label={plainGeneratedSessionFamilyLabel(session.family)} />
-            <SessionMeta label={plainIntensityLabel(session.intensity)} />
-            <SessionMeta label={plainFuelDemandLabel(session.fuelDemand)} />
-            <SessionMeta label={`${guidedTimeline.blockCount} block${guidedTimeline.blockCount === 1 ? "" : "s"}`} />
-          </View>
-          <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.fieldLabel}>WHY</Text>
-            <Text style={screenStyles.body}>{recipeWhy(session)}</Text>
-          </View>
-          <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.fieldLabel}>FLOW</Text>
-            {flowLines.map((line) => <Text key={`detail-flow:${line}`} style={screenStyles.subtle}>{line}</Text>)}
-          </View>
+          {startWorkoutDisabledReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startWorkoutDisabledReason}</Text> : null}
+          {previewOnlyReason ? <Text style={screenStyles.subtle}>{previewOnlyReason}</Text> : null}
           {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
           {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
           {followUpState ? (
@@ -341,57 +337,51 @@ export function WorkoutDetailPanel({
               testID="workout-next-action-card"
             />
           ) : null}
-          {onStartWorkout || previewOnlyReason ? (
-            <Pressable
-              accessibilityLabel="Start workout"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: busy || Boolean(startBlockedReason) }}
-              disabled={busy || Boolean(startBlockedReason)}
-              onPress={onStartWorkout}
-              style={[screenStyles.button, startBlockedReason ? glassStyles.disabledPrimaryControl : null]}
-            >
-              <Text style={[screenStyles.buttonText, startBlockedReason ? { color: colors.mutedText } : null]}>{previewOnlyReason ? "Preview only" : startBlockedReason ? "Start blocked" : "Start workout"}</Text>
-            </Pressable>
+          <DetailToggleRow label="Exercise Details" meta="Full recipe and exercise rows" onPress={() => setPlanOpen((value) => !value)} open={planOpen} />
+          {planOpen ? <WorkoutPlanDetails session={session} /> : null}
+          <DetailToggleRow label="Why This Session" meta="What this is meant to improve" onPress={() => setWhyOpen((value) => !value)} open={whyOpen} />
+          {whyOpen ? (
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.body}>{recipeWhy(session)}</Text>
+              {(session.athleteQualityCues ?? []).slice(0, 2).map((item, index) => <Text key={`quality-cue:${index}`} style={screenStyles.subtle}>Coach's Note: {plainTrainingCopy(item)}</Text>)}
+              {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Readiness: {plainTrainingCopy(item)}</Text>)}
+              {session.nextSessionNote ? <Text style={screenStyles.subtle}>Next: {plainTrainingCopy(session.nextSessionNote)}</Text> : null}
+              {session.stopConditions.slice(0, 2).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {plainTrainingCopy(item)}</Text>)}
+              {session.safetyNotes.slice(0, 2).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Before you start: {plainTrainingCopy(item)}</Text>)}
+              <Text style={screenStyles.subtle}>Pain notes keep future training conservative.</Text>
+            </View>
           ) : null}
-          {startBlockedReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startBlockedReason}</Text> : null}
-          {!previewOnlyReason ? (
-            <Pressable accessibilityLabel={resultOpen ? "Hide quick log" : "Quick log"} accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => setResultOpen((value) => !value)} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>{resultOpen ? "Hide quick log" : "Quick log"}</Text>
-            </Pressable>
+          <DetailToggleRow label="Adjust Today" meta="Simple changes if the session feels off" onPress={() => setAdjustOpen((value) => !value)} open={adjustOpen} />
+          {adjustOpen ? (
+            <View style={{ gap: spacing.xs }}>
+              {adjustTodayOptions(session).map((item) => (
+                <Text key={`adjust:${item}`} style={screenStyles.subtle}>{item}</Text>
+              ))}
+            </View>
           ) : null}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityLabel={planOpen ? `Hide ${planToggleLabel}` : `Show ${planToggleLabel}`} accessibilityRole="button" accessibilityState={{ expanded: planOpen }} onPress={() => setPlanOpen((value) => !value)} style={[screenStyles.quietButton, { flexBasis: 180, flexGrow: 1 }]}>
-              <Text style={screenStyles.quietButtonText}>{planOpen ? `Hide ${planToggleLabel}` : `Show ${planToggleLabel}`}</Text>
-            </Pressable>
-            {!previewOnlyReason ? (
-              <Pressable accessibilityLabel="Skip session without reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 112, flexGrow: 1 }]}>
-                <Text style={screenStyles.quietButtonText}>Skip</Text>
-              </Pressable>
-            ) : null}
-          </View>
+          <DetailToggleRow disabled={quickLogBlocked} label="Quick Log" meta={quickLogBlocked ? "Available on the planned day" : "RPE, notes, done, or skipped"} onPress={() => setResultOpen((value) => !value)} open={resultOpen} />
         </View>
       </DashboardCard>
       {resultOpen && !previewOnlyReason ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.sectionTitle}>Quick log</Text>
+            <Text style={screenStyles.sectionTitle}>Quick Log</Text>
             <Text style={screenStyles.body}>Mark workout done without follow-along when time is tight.</Text>
-            <Text style={screenStyles.subtle}>What you were supposed to do: {quickLogContext.whatToDo}</Text>
-            <Text style={screenStyles.subtle}>Main job: {mainJob}</Text>
+            <Text style={screenStyles.subtle}>Session RPE is enough if you are short on time.</Text>
+            <Text style={screenStyles.subtle}>Workout: {quickLogContext.whatToDo}</Text>
+            <Text style={screenStyles.subtle}>Coach's Note: {quickLogMainJob(session)}</Text>
             <Text style={screenStyles.subtle}>Log only what matters: {quickLogContext.logPrompt}</Text>
           </View>
           <TextInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
           <TextInput onChangeText={setPainNotes} placeholder="Pain note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
           <TextInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={notes} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityLabel="Mark workout done" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void complete()} style={screenStyles.button}>
+            <Pressable accessibilityLabel="Mark workout done" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void complete()} style={[screenStyles.button, { flexBasis: 170, flexGrow: 1 }]}>
               <Text style={screenStyles.buttonText}>{busy ? "Saving workout..." : "Mark workout done"}</Text>
             </Pressable>
-            {notes.trim() ? (
-              <Pressable accessibilityLabel="Save skip reason" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>{busy ? "Saving skip..." : "Save skip reason"}</Text>
-              </Pressable>
-            ) : null}
+            <Pressable accessibilityLabel="Skip session" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 132, flexGrow: 1 }]}>
+              <Text style={screenStyles.quietButtonText}>{busy ? "Saving skip..." : "Skip session"}</Text>
+            </Pressable>
           </View>
           <View style={{ gap: spacing.sm }}>
             <Pressable accessibilityLabel={exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"} accessibilityRole="button" accessibilityState={{ selected: exerciseDetailsOpen }} onPress={() => setExerciseDetailsOpen((value) => !value)} style={screenStyles.quietButton}>
@@ -439,26 +429,6 @@ export function WorkoutDetailPanel({
           </View>
         </View>
       ) : null}
-      {planOpen ? <WorkoutPlanDetails session={session} /> : null}
-      <View style={{ gap: spacing.sm }}>
-        <Pressable accessibilityLabel={whyOpen ? "Hide why and safety" : "Show why and safety"} accessibilityRole="button" accessibilityState={{ selected: whyOpen }} onPress={() => setWhyOpen((value) => !value)} style={screenStyles.quietButton}>
-          <Text style={screenStyles.quietButtonText}>{whyOpen ? "Hide why / safety" : "Show why / safety"}</Text>
-        </Pressable>
-        {whyOpen ? (
-          <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.body}>{plainTrainingCopy(session.whyThisMattersForBoxing)}</Text>
-            {session.readinessModifications.slice(0, 2).map((item, index) => <Text key={`readiness-mod:${index}`} style={screenStyles.subtle}>Readiness: {plainTrainingCopy(item)}</Text>)}
-            {session.cycleModifications.slice(0, 1).map((item, index) => <Text key={`cycle-mod:${index}`} style={screenStyles.subtle}>Cycle: {plainTrainingCopy(item)}</Text>)}
-            {(session.athleteQualityCues ?? []).slice(0, 2).map((item, index) => <Text key={`quality-cue:${index}`} style={screenStyles.subtle}>Cue: {plainTrainingCopy(item)}</Text>)}
-            {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Self-check: {plainTrainingCopy(item)}</Text>)}
-            {session.filmCue ? <Text style={screenStyles.subtle}>Optional film: {plainTrainingCopy(session.filmCue)}</Text> : null}
-            {session.nextSessionNote ? <Text style={screenStyles.subtle}>Next: {plainTrainingCopy(session.nextSessionNote)}</Text> : null}
-            {session.stopConditions.slice(0, 2).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {plainTrainingCopy(item)}</Text>)}
-            {session.safetyNotes.slice(0, 2).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Safety: {plainTrainingCopy(item)}</Text>)}
-            <Text style={screenStyles.subtle}>Pain notes help CornerIQ avoid automatic progression. Result statuses: done, partial, not logged, or skipped.</Text>
-          </View>
-        ) : null}
-      </View>
     </View>
   );
 }

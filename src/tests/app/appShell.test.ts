@@ -2343,17 +2343,20 @@ describe("minimal app screens", () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Support workout");
-    expect(output).toContain("Workout preview");
+    expect(output).toContain("Today's Training Plan");
+    expect(output).toContain("Training Aim");
+    expect(output).toContain("Workout Flow");
+    expect(output).toContain("Before You Start");
     expect(output).not.toContain("Show Execution guidance");
     expect(output).toContain("Strength support");
     expect(output).toContain("35");
-    expect(output).toContain("moderate");
-    expect(output).toContain("If you complete it outside the player");
-    expect(output).toContain("Next 7 days");
-    expect(output).toContain("Manual boxing log");
+    expect(output).toContain("Moderate");
+    expect(output).toContain("This Week");
+    expect(output).toContain("Log Other Training");
+    expect(output).not.toContain("Training overview");
+    expect(output).not.toContain("Workout preview");
     expect(output).not.toContain("Training action");
-    await switchSection(renderer, "Show manual log");
+    await switchSection(renderer, "Show training log");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Training log");
   });
@@ -2364,11 +2367,12 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("train-workout-section");
-    expect(output).toContain("Quick log");
-    expect(output).toContain("Show workout recipe");
-    expect(output).toContain("Show why / safety");
-    expect(output).toContain("Next 7 days");
-    expect(output).toContain("Manual boxing log");
+    expect(output).toContain("Quick Log");
+    expect(output).toContain("Show Exercise Details");
+    expect(output).toContain("Show Why This Session");
+    expect(output).toContain("Show Adjust Today");
+    expect(output).toContain("This Week");
+    expect(output).toContain("Log Other Training");
   });
 
   it("TrainScreen can open directly to Workout from a Today intent", async () => {
@@ -2387,7 +2391,8 @@ describe("minimal app screens", () => {
     );
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("train-workout-section");
-    expect(output).toContain("Quick log");
+    expect(output).toContain("Quick Log");
+    expect(output).toContain("Workout recipe");
     expect(onInitialSectionApplied).toHaveBeenCalled();
   });
 
@@ -2484,9 +2489,9 @@ describe("minimal app screens", () => {
     const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
 
     expect(taperOutput).toContain("Fight-week sharpness");
-    expect(taperOutput).toContain("fight-week day");
-    expect(tournamentOutput).toContain("tournament conservation day");
-    expect(redOutput).toContain("Training safety check");
+    expect(taperOutput).toContain("Fight-week day");
+    expect(tournamentOutput).toContain("Tournament day: no extra hard conditioning.");
+    expect(redOutput).toContain("Before you train");
   });
 
   it("TrainScreen puts primary detail before history and opens completion controls", async () => {
@@ -2494,27 +2499,30 @@ describe("minimal app screens", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
     const closedOutput = JSON.stringify(renderer.toJSON());
-    expect(closedOutput).toContain("Quick log");
+    expect(closedOutput).toContain("Quick Log");
     expect(closedOutput).not.toContain("Recent training");
     expect(closedOutput).not.toContain("Session plan");
     expect(closedOutput).not.toContain("Quality checkpoints");
-    expect(closedOutput).toContain("Show workout recipe");
-    expect(closedOutput).toContain("Show why / safety");
+    expect(closedOutput).toContain("Show Exercise Details");
+    expect(closedOutput).toContain("Show Why This Session");
+    expect(closedOutput).toContain("Show Adjust Today");
     await act(async () => {
-      await press(pressableWithText(renderer, "Quick log"));
+      await press(pressableWithText(renderer, "Quick Log"));
     });
     const openOutput = JSON.stringify(renderer.toJSON());
     expect(openOutput).toContain("Mark workout done");
+    expect(openOutput).toContain("Skip session");
     expect(openOutput).toContain("Log only what matters");
     expect(openOutput).not.toContain("Save skip reason");
     expect(openOutput).toContain("Blank rows save as not logged");
     await act(async () => {
-      await press(pressableWithText(renderer, "Show why / safety"));
+      await press(pressableWithAccessibilityLabel(renderer, "Show Why This Session"));
     });
     const safetyOutput = JSON.stringify(renderer.toJSON());
-    expect(safetyOutput).toContain("Pain notes help CornerIQ avoid automatic progression.");
-    expect(safetyOutput).toContain("Result statuses");
-    await switchSection(renderer, "Show workout recipe");
+    expect(safetyOutput).toContain("Pain notes keep future training conservative.");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Show Exercise Details"));
+    });
     const planDetailOutput = JSON.stringify(renderer.toJSON());
     expect(planDetailOutput).toContain("Workout recipe");
     expect(planDetailOutput).toContain("Shoulder Support");
@@ -2524,12 +2532,11 @@ describe("minimal app screens", () => {
     expect(planDetailOutput).toContain("Show Secondary exercise details");
     expect(planDetailOutput).not.toContain("BOXING TRANSFER");
     expect(planDetailOutput).not.toContain("Workout walkthrough");
-    expect(planDetailOutput).not.toContain("Before you start");
     expect(planDetailOutput).not.toContain("Quality checkpoints");
     expect(planDetailOutput).not.toContain("Add-ons");
     expect(planDetailOutput).not.toContain("Session overview");
     expect(planDetailOutput).not.toContain("Target intensity");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Current week:");
+    expect(JSON.stringify(renderer.toJSON())).toContain("This Week");
   });
 
   it("TrainScreen delegates workout player launch and keeps resume controls outside the player", async () => {
@@ -2910,11 +2917,11 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(WorkoutDetailPanel, { busy: false, completionActions: { complete, skip }, session }));
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Quick log"));
+      await press(pressableWithAccessibilityLabel(renderer, "Show Quick Log"));
     });
     const quickLogOutput = JSON.stringify(renderer.toJSON());
-    expect(quickLogOutput).toContain("What you were supposed to do:");
-    expect(quickLogOutput).toContain("Main job:");
+    expect(quickLogOutput).toContain("Workout:");
+    expect(quickLogOutput).toContain("Coach's Note:");
     expect(quickLogOutput).toContain("Log only what matters:");
     expect(JSON.stringify(renderer.toJSON()).toLowerCase()).not.toMatch(/\b(contact|sparring)\b/);
     await act(async () => {
@@ -2925,20 +2932,20 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("Done. Fuel check optional.");
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Quick log"));
+      await press(pressableWithAccessibilityLabel(renderer, "Show Quick Log"));
     });
     act(() => {
       changeInput(renderer, "Session notes / skip reason optional", "Travel day");
     });
     await act(async () => {
-      await press(pressableWithText(renderer, "Save skip reason"));
+      await press(pressableWithText(renderer, "Skip session"));
     });
     expect(skip).toHaveBeenCalledWith(session, "Travel day");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Skipped. Plan remains conservative.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Skipped. Keep the next session conservative.");
 
     const reviewRenderer = render(React.createElement(WorkoutDetailPanel, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, session }));
     await act(async () => {
-      await press(pressableWithText(reviewRenderer, "Quick log"));
+      await press(pressableWithAccessibilityLabel(reviewRenderer, "Show Quick Log"));
     });
     act(() => {
       changeInput(reviewRenderer, "Session RPE 1-10 optional", "8");
@@ -2946,7 +2953,7 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithText(reviewRenderer, "Mark workout done"));
     });
-    expect(JSON.stringify(reviewRenderer.toJSON())).toContain("Review pain/RPE before progressing.");
+    expect(JSON.stringify(reviewRenderer.toJSON())).toContain("Review pain and RPE before adding more.");
   });
 
   it("ExercisePrescriptionCard shows transfer, substitutions, and stop conditions", async () => {
@@ -3135,8 +3142,8 @@ describe("minimal app screens", () => {
       expect(planOutput).toContain(session.title);
       expect(trainOutput).toContain(session.title);
     }
-    expect(trainOutput).toContain("Current week:");
-    expect(trainOutput).toContain(String(audit.targetGeneratedSupportCount));
+    expect(trainOutput).toContain("This Week");
+    expect(trainOutput).toContain("Theme:");
     await switchSection(planRenderer, "Diagnostics");
     planOutput = JSON.stringify(planRenderer.toJSON());
     expect(planOutput).toContain("Plan diagnostics");
@@ -4218,7 +4225,7 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Add water");
 
     const trainRenderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
-    expect(["Training overview", "Workout preview", "Next 7 days"].every((label) => JSON.stringify(trainRenderer.toJSON()).includes(label))).toBe(true);
+    expect(["Today's Training Plan", "Workout Flow", "This Week"].every((label) => JSON.stringify(trainRenderer.toJSON()).includes(label))).toBe(true);
     expect(JSON.stringify(trainRenderer.toJSON())).not.toContain("Exercise History");
     expect(JSON.stringify(trainRenderer.toJSON())).not.toContain("Progression");
 

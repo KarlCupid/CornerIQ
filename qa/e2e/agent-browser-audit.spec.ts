@@ -37,7 +37,10 @@ const activeSurfaceTestIds = [
   "fuel-status-strip",
   "fuel-food-status-card",
   "fuel-screen",
-  "train-overview-card",
+  "train-today-plan-card",
+  "train-quick-stats",
+  "train-workout-flow-card",
+  "train-before-start-card",
   "train-workout-section",
   "train-week-context",
   "train-manual-logger-section",
@@ -608,43 +611,49 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
 async function auditTrain(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Train");
-  await expectVisibleText(page, "Training overview");
-  await expect(page.getByTestId("train-overview-card")).toContainText(/Fuel check/i);
-  await expect(page.getByTestId("train-overview-card")).toContainText(/Hydration/i);
+  await expectVisibleText(page, "Today's Training Plan");
+  await expect(page.getByTestId("train-today-plan-card")).toContainText(/Training Aim/i);
+  await expect(page.getByTestId("train-quick-stats")).toContainText(/Duration/i);
+  await expect(page.getByTestId("train-quick-stats")).toContainText(/Readiness/i);
+  await expect(page.getByTestId("train-workout-flow-card")).toContainText(/Workout Flow/i);
+  await expect(page.getByTestId("train-before-start-card")).toContainText(/Coach's Note/i);
   await expect(page.getByTestId("train-execution-overlay-card")).toHaveCount(0);
   const workoutCount = await page.getByTestId("train-workout-section").count();
   let generatedQuickLogAvailable = false;
   if (workoutCount > 0) {
-    await expectVisibleText(page, "Workout preview");
     await expect(page.getByRole("button", { name: "Start workout" }).first()).toBeVisible();
-    generatedQuickLogAvailable = await page.getByRole("button", { name: "Quick log" }).first().count() > 0;
-    if (generatedQuickLogAvailable) {
-      await expect(page.getByRole("button", { name: "Quick log" }).first()).toBeVisible();
+    const quickLogButton = page.getByRole("button", { name: "Show Quick Log" }).first();
+    const hasQuickLogButton = (await quickLogButton.count()) > 0;
+    if (hasQuickLogButton) {
+      await expect(quickLogButton).toBeVisible();
+      await expect(page.getByRole("button", { name: "Show Why This Session" }).first()).toBeVisible();
+      const exerciseDetailsButton = page.getByTestId("train-workout-section").getByRole("button", { name: /^Show Exercise Details$/ });
+      await expect(exerciseDetailsButton).toBeVisible();
+      await page.getByRole("button", { name: "Show Why This Session" }).first().click();
+      await expect(page.getByTestId("train-workout-section")).toContainText(/Pain notes keep future training conservative/i);
+      await exerciseDetailsButton.click();
+      await expect(page.getByTestId("workout-plan-detail-section")).toContainText(/Workout recipe|Exercise details/);
+      generatedQuickLogAvailable = await quickLogButton.isEnabled();
+      if (!generatedQuickLogAvailable) {
+        await expect(page.getByTestId("train-workout-section")).toContainText(/Available on the planned day|Keep future sessions on their planned day/i);
+      }
     } else {
-      await expect(page.getByTestId("train-workout-section")).toContainText("Do not pull future support work forward from Plan.");
+      await expect(page.getByTestId("train-workout-section")).toContainText(/Keep future sessions on their planned day|player details are not available/i);
     }
-    await expect(page.getByRole("button", { name: "Show why and safety" }).first()).toBeVisible();
-    const exerciseDetailsButton = page.getByTestId("train-primary-task").getByRole("button", { name: /^Show exercise details$/ });
-    await expect(exerciseDetailsButton).toBeVisible();
-    await page.getByRole("button", { name: "Show why and safety" }).first().click();
-    await expect(page.getByTestId("train-workout-section")).toContainText(/Pain notes help CornerIQ avoid automatic progression/i);
-    await exerciseDetailsButton.click();
-    await expect(page.getByTestId("workout-plan-detail-section")).toContainText(/Workout recipe|Exercise details/);
   } else {
-    await expectVisibleText(page, "No support workout today");
+    await expectVisibleText(page, "No player workout today");
   }
   expectNoGeneratedContactLanguage(await visiblePageText(page, "train-screen"));
   await capture(page, testInfo, "Train screen", "16-train-screen.png", { scopeTestId: "train-screen" });
 
-  await expectVisibleText(page, "Manual boxing log");
-  await expectVisibleText(page, "Log boxing class, roadwork, or outside strength work.");
-  await expectVisibleText(page, "Free-text notes stay advisory.");
-  await expect(page.getByRole("button", { name: "Show manual log" })).toBeVisible();
+  await expectVisibleText(page, "Log Other Training");
+  await expectVisibleText(page, "Add boxing class, roadwork, lifting, or anything you did outside the player.");
+  await expect(page.getByRole("button", { name: "Show training log" })).toBeVisible();
   await expect(page.getByPlaceholder("Session RPE 1-10", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Show manual log" }).click();
+  await page.getByRole("button", { name: "Show training log" }).click();
   if (workoutCount > 0 && generatedQuickLogAvailable) {
-    await expect(page.getByRole("button", { name: "Quick log" })).toBeVisible();
-    await page.getByRole("button", { name: "Quick log" }).click();
+    await expect(page.getByRole("button", { name: "Show Quick Log" })).toBeVisible();
+    await page.getByRole("button", { name: "Show Quick Log" }).click();
     await expectVisibleText(page, "Mark workout done without follow-along when time is tight.");
     await expectVisibleText(page, "Session RPE is enough if you are short on time.");
     await expect(page.getByPlaceholder("Session RPE 1-10 optional")).toBeVisible();
@@ -670,15 +679,15 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
     await expectVisibleText(page, "Training logged. Plan confidence has more real completion and RPE context.");
     await capture(page, testInfo, "Train manual log completion", "18-train-manual-log-completion.png", { scopeTestId: "train-screen" });
   } else {
-    await expectVisibleText(page, "No workout detail today");
+    await expectVisibleText(page, "No player workout today");
     expectNoGeneratedContactLanguage(await visiblePageText(page, "train-workout-section"));
     await capture(page, testInfo, "Train Workout no-detail", "17-train-workout-no-detail.png", { scopeTestId: "train-workout-section" });
   }
 
-  await expect(page.getByTestId("train-week-context")).toContainText("Next 7 days");
-  await expect(page.getByTestId("train-week-context")).toContainText("Current week:");
+  await expect(page.getByTestId("train-week-context")).toContainText("This Week");
+  await expect(page.getByTestId("train-week-context")).toContainText("Theme:");
   await capture(page, testInfo, "Train week context", "19-train-week-context.png", { scopeTestId: "train-week-context" });
-  await expectVisibleText(page, "Free-text notes stay advisory.");
+  await expectVisibleText(page, "Log Other Training");
 }
 
 async function auditPlan(page: Page, testInfo: TestInfo) {

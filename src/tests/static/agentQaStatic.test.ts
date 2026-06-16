@@ -325,7 +325,8 @@ describe("agent browser QA static checks", () => {
     for (const scope of [
       "today-screen",
       "fuel-overview",
-      "train-overview-card",
+      "train-today-plan-card",
+      "train-quick-stats",
       "plan-visual-dashboard",
       "profile-safety-section",
       "profile-data-section"
