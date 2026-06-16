@@ -298,6 +298,17 @@ describe("agent browser QA static checks", () => {
     expect(analysis).toContain('analysis.automated_status !== "pass"');
   });
 
+  it("keeps QA comprehension evidence aligned with rendered launch copy", () => {
+    const analysis = readSource("scripts/analyze-agent-qa-evidence.mjs");
+
+    expect(analysis).toContain("today's fuel plan");
+    expect(analysis).toContain("food details");
+    expect(analysis).toContain("plan changes");
+    expect(analysis).toContain("adjust plan");
+    expect(analysis).toContain("manual input remains enough");
+    expect(analysis).toContain("wearables add confidence");
+  });
+
   it("captures scoped page-text snapshots and labels document-body fallback", () => {
     const scenario = readSource("qa/e2e/agent-browser-audit.spec.ts");
     const docs = [

@@ -59,12 +59,12 @@ const expectedScenarios = [
 
 const comprehensionNeedles = [
   { key: "Today dashboard", pattern: /today dashboard|readiness score/i },
-  { key: "Fuel dashboard", pattern: /fuel dashboard|macro summary|food targets/i },
+  { key: "Fuel dashboard", pattern: /fuel dashboard|today's fuel plan|macro summary|food targets|food details/i },
   { key: "Training overview", pattern: /training overview/i },
-  { key: "Plan action", pattern: /plan action/i },
+  { key: "Plan action", pattern: /plan action|plan changes|adjust plan|change goal or schedule/i },
   { key: "Profile action", pattern: /profile action/i },
   { key: "support outside app", pattern: /qualified support outside the app|contact support outside the app|(?:medical|nutrition) support outside the app/i },
-  { key: "manual input and wearable optional", pattern: /(manual logs are enough|manual input is first-class|manual-only is a complete setup).*(wearables are optional|wearable|manual input remains first-class)/is },
+  { key: "manual input and wearable optional", pattern: /(manual logs are enough|manual input is first-class|manual input remains enough|manual-only is a complete setup|manual lane).*(wearables are optional|wearables add confidence|wearable|manual input remains first-class)/is },
   { key: "unknown is not safe", pattern: /unknown, not safe|missing data (?:is|stays) unknown|missing data lowers confidence|missed logs stay unknown/i }
 ];
 

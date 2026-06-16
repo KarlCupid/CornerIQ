@@ -73,6 +73,13 @@
     "vitest": "^3.1.0"
   },
   "overrides": {
+    "@babel/core": "7.29.7",
+    "metro": {
+      "ws": "7.5.11"
+    },
+    "react-devtools-core": {
+      "ws": "7.5.11"
+    },
     "shell-quote": "1.8.4"
   }
 }
