@@ -4,8 +4,8 @@ import { Pressable, Text, View } from "react-native";
 import type { FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
-import { DashboardPill, TrendLineChart } from "../../design/components/PerformanceVisuals";
-import { colors, radii, spacing } from "../../design/theme";
+import { TrendLineChart } from "../../design/components/PerformanceVisuals";
+import { radii, spacing } from "../../design/theme";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -37,24 +37,56 @@ interface FuelPlanStatus {
   tone: VisualTone;
 }
 
+const fuelPalette = {
+  actionFill: "rgba(148, 88, 54, 0.34)",
+  actionFillPressed: "rgba(164, 98, 60, 0.42)",
+  actionBorder: "rgba(217, 160, 112, 0.54)",
+  actionShadow: "rgba(119, 69, 38, 0.28)",
+  cardLine: "rgba(222, 190, 150, 0.16)",
+  controlFill: "rgba(244, 230, 207, 0.064)",
+  controlFillPressed: "rgba(244, 230, 207, 0.1)",
+  controlLine: "rgba(222, 190, 150, 0.18)",
+  textPrimary: "#F4EFE8",
+  textBody: "#D8D0C3",
+  textMuted: "#AFA595",
+  toneBlue: "#7DAFBD",
+  toneGold: "#CBB578",
+  toneGreen: "#8DB99B",
+  toneMuted: "#AFA595",
+  toneOrange: "#C78355",
+  tonePurple: "#A996BD",
+  toneRed: "#D2767D"
+} as const;
+
+const fuelTextStyles = {
+  body: { ...screenStyles.body, color: fuelPalette.textBody },
+  callout: { ...screenStyles.callout, color: fuelPalette.textPrimary, fontWeight: "700" as const },
+  sectionTitle: { ...screenStyles.sectionTitle, color: fuelPalette.textPrimary, fontWeight: "800" as const },
+  subtle: { ...screenStyles.subtle, color: fuelPalette.textMuted }
+} as const;
+
 function colorForTone(tone: VisualTone): string {
   switch (tone) {
     case "blue":
-      return colors.blueIQ;
+      return fuelPalette.toneBlue;
     case "green":
-      return colors.readyGreen;
+      return fuelPalette.toneGreen;
     case "orange":
-      return colors.amberCaution;
+      return fuelPalette.toneOrange;
     case "purple":
-      return colors.powerPurple;
+      return fuelPalette.tonePurple;
     case "gold":
-      return colors.gold;
+      return fuelPalette.toneGold;
     case "red":
-      return colors.redCorner;
+      return fuelPalette.toneRed;
     case "muted":
     default:
-      return colors.mutedText;
+      return fuelPalette.toneMuted;
   }
+}
+
+function fuelTint(tone: VisualTone, alpha: string): string {
+  return `${colorForTone(tone)}${alpha}`;
 }
 
 function firstNumber(value: string | null | undefined): number | null {
@@ -239,6 +271,94 @@ function guideValue(dashboard: FuelDashboardVisual, label: RegExp): string {
   return dashboard.todayGuide.find((item) => label.test(item.label))?.valueLabel ?? "Guide";
 }
 
+function FuelTonePill({ label, tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
+  const color = colorForTone(tone);
+  return (
+    <View
+      accessibilityLabel={`Status: ${label}`}
+      style={{
+        alignItems: "center",
+        alignSelf: "flex-start",
+        backgroundColor: fuelTint(tone, "14"),
+        borderColor: fuelTint(tone, "3D"),
+        borderRadius: radii.pill,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.xs,
+        justifyContent: "center",
+        maxWidth: 190,
+        minHeight: 28,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 3
+      }}
+    >
+      <View style={{ backgroundColor: color, borderRadius: 4, height: 7, opacity: 0.88, width: 7 }} />
+      <Text numberOfLines={1} style={{ color, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function FuelActionButton({
+  basis = 142,
+  busy,
+  label,
+  onPress,
+  primary,
+  summary
+}: {
+  basis?: number | undefined;
+  busy: boolean;
+  label: string;
+  onPress: () => void;
+  primary?: boolean | undefined;
+  summary: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          alignItems: "center",
+          borderCurve: "continuous",
+          borderRadius: primary ? radii.pill : radii.control,
+          borderWidth: 1,
+          flexBasis: basis,
+          flexGrow: 1,
+          gap: 1,
+          justifyContent: "center",
+          minHeight: 50,
+          opacity: busy ? 0.58 : 1,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm
+        },
+        primary
+          ? {
+              backgroundColor: pressed ? fuelPalette.actionFillPressed : fuelPalette.actionFill,
+              borderColor: fuelPalette.actionBorder,
+              boxShadow: `0 12px 28px ${fuelPalette.actionShadow}`
+            }
+          : {
+              backgroundColor: pressed ? fuelPalette.controlFillPressed : fuelPalette.controlFill,
+              borderColor: fuelPalette.controlLine,
+              boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
+            }
+      ]}
+    >
+      <Text style={{ color: primary ? fuelPalette.textPrimary : fuelPalette.textBody, fontSize: 15, fontWeight: primary ? "800" : "700", lineHeight: 20, textAlign: "center" }}>
+        {label}
+      </Text>
+      <Text style={{ color: primary ? "#D9B690" : fuelPalette.textMuted, fontSize: 11, fontWeight: "600", lineHeight: 15, textAlign: "center" }}>
+        {summary}
+      </Text>
+    </Pressable>
+  );
+}
+
 function FuelActionButtons({
   busy,
   onLogFood,
@@ -259,17 +379,14 @@ function FuelActionButtons({
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
       {[primary, secondary].map((action, index) => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy }}
-          disabled={busy}
+        <FuelActionButton
+          busy={busy}
+          label={action.label}
+          primary={index === 0}
+          summary={action.summary}
           key={`fuel-plan-action:${action.label}`}
           onPress={action.onPress}
-          style={[index === 0 ? screenStyles.button : screenStyles.quietButton, { flexBasis: 142, flexGrow: 1 }]}
-        >
-          <Text style={index === 0 ? screenStyles.buttonText : screenStyles.quietButtonText}>{action.label}</Text>
-          <Text style={[screenStyles.subtle, { color: index === 0 ? colors.cornerBlack : colors.mutedText, fontSize: 11, lineHeight: 15 }]}>{action.summary}</Text>
-        </Pressable>
+        />
       ))}
     </View>
   );
@@ -293,15 +410,15 @@ function TodayFuelPlanCard({
       <View style={{ gap: spacing.md }} testID="fuel-today-plan-card">
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 260, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ ...screenStyles.sectionTitle, fontSize: 20, lineHeight: 25 }}>Today's Fuel Plan</Text>
-            <Text style={screenStyles.body}>{plan.sentence}</Text>
+            <Text style={{ ...fuelTextStyles.sectionTitle, fontSize: 20, lineHeight: 25 }}>Today's Fuel Plan</Text>
+            <Text style={fuelTextStyles.body}>{plan.sentence}</Text>
           </View>
-          <DashboardPill label={plan.label} tone={plan.tone} />
+          <FuelTonePill label={plan.label} tone={plan.tone} />
         </View>
         <View
           style={{
-            backgroundColor: `${colorForTone(plan.tone)}14`,
-            borderColor: `${colorForTone(plan.tone)}55`,
+            backgroundColor: fuelTint(plan.tone, "12"),
+            borderColor: fuelTint(plan.tone, "42"),
             borderCurve: "continuous",
             borderRadius: radii.tile,
             borderWidth: 1,
@@ -312,7 +429,7 @@ function TodayFuelPlanCard({
           <Text style={{ color: colorForTone(plan.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
             Today
           </Text>
-          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{plan.action}</Text>
+          <Text style={{ color: fuelPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{plan.action}</Text>
         </View>
         <FuelActionButtons busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} primaryLog={primaryLog} />
       </View>
@@ -333,8 +450,8 @@ function FuelMetricTile({
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(255, 255, 255, 0.12)",
+        backgroundColor: fuelPalette.controlFill,
+        borderColor: fuelPalette.cardLine,
         borderCurve: "continuous",
         borderRadius: radii.tile,
         borderWidth: 1,
@@ -345,7 +462,7 @@ function FuelMetricTile({
         padding: spacing.md
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
       <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={2} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 25 }}>
         {value}
       </Text>
@@ -394,8 +511,8 @@ function PriorityRow({
       <View
         style={{
           alignItems: "center",
-          backgroundColor: `${color}1F`,
-          borderColor: `${color}55`,
+          backgroundColor: fuelTint(tone, "18"),
+          borderColor: fuelTint(tone, "42"),
           borderRadius: radii.pill,
           borderWidth: 1,
           height: 36,
@@ -406,8 +523,8 @@ function PriorityRow({
         <Ionicons color={color} name={icon} size={18} />
       </View>
       <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}: {title}</Text>
-        <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{meta}</Text>
+        <Text numberOfLines={1} style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}: {title}</Text>
+        <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{meta}</Text>
       </View>
     </View>
   );
@@ -417,7 +534,7 @@ function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="fuel-do-not-miss-card">
-        <Text style={screenStyles.sectionTitle}>Do Not Miss Today</Text>
+        <Text style={fuelTextStyles.sectionTitle}>Do Not Miss Today</Text>
         <PriorityRow icon="flash-outline" label="Before training" meta={guideValue(dashboard, /carb/i)} title="carbs" tone="orange" />
         <PriorityRow icon="restaurant-outline" label="After training" meta={guideValue(dashboard, /protein/i)} title="protein + meal" tone="purple" />
         <PriorityRow icon="water-outline" label="Fluids" meta={`${dashboard.hydration.targetLabel} guide`} title="water + electrolytes" tone="blue" />
@@ -440,11 +557,11 @@ function TrainingTodayCard({
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="fuel-training-today-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <Text style={screenStyles.sectionTitle}>Training Today</Text>
-          <DashboardPill label={tier} tone={plan.tone === "red" ? "red" : viewModel.trainingDemandHandoff.todayTrainingDemand === "high" ? "orange" : "blue"} />
+          <Text style={fuelTextStyles.sectionTitle}>Training Today</Text>
+          <FuelTonePill label={tier} tone={plan.tone === "red" ? "red" : viewModel.trainingDemandHandoff.todayTrainingDemand === "high" ? "orange" : "blue"} />
         </View>
-        <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{trainingCopy}</Text>
-        <Text style={screenStyles.subtle}>Training stays performance-aware. Do not add extra work just to chase the scale.</Text>
+        <Text style={{ color: fuelPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{trainingCopy}</Text>
+        <Text style={fuelTextStyles.subtle}>Training stays performance-aware. Do not add extra work just to chase the scale.</Text>
       </View>
     </EngineCard>
   );
@@ -464,15 +581,15 @@ function WeightTrendCard({
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="fuel-weight-trend-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <Text style={screenStyles.sectionTitle}>Weight Trend</Text>
-          <DashboardPill label={trend.label} tone={trend.tone} />
+          <Text style={fuelTextStyles.sectionTitle}>Weight Trend</Text>
+          <FuelTonePill label={trend.label} tone={trend.tone} />
         </View>
         <TrendLineChart accent={trend.tone} height={92} points={dashboard.bodyMass.points} testID="fuel-weight-trend-chart" width={280} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <FuelMetricTile label="7-day read" tone={dashboard.bodyMass.tone} value={dashboard.bodyMass.deltaLabel} />
           <FuelMetricTile label="Needed pace" tone={plan.tone} value={plan.label} />
         </View>
-        <Text style={screenStyles.body}>{trend.sentence}</Text>
+        <Text style={fuelTextStyles.body}>{trend.sentence}</Text>
       </View>
     </EngineCard>
   );
@@ -521,8 +638,8 @@ function FuelDetailRow({
           <View
             style={{
               alignItems: "center",
-              backgroundColor: `${color}18`,
-              borderColor: `${color}4D`,
+              backgroundColor: fuelTint(tone, "16"),
+              borderColor: fuelTint(tone, "3D"),
               borderRadius: radii.pill,
               borderWidth: 1,
               height: 38,
@@ -533,10 +650,10 @@ function FuelDetailRow({
             <Ionicons color={color} name={icon} size={18} />
           </View>
           <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
-            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{status}</Text>
+            <Text style={{ color: fuelPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
+            <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{status}</Text>
           </View>
-          <Ionicons color={colors.wrap} name={open ? "chevron-up" : "chevron-down"} size={18} />
+          <Ionicons color={fuelPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
         </Pressable>
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
       </View>
@@ -545,7 +662,8 @@ function FuelDetailRow({
 }
 
 function DetailLine({ text, tone = "subtle" }: { text: string; tone?: "body" | "subtle" | "callout" | undefined }) {
-  return <Text style={screenStyles[tone]}>{fuelSurfaceCopy(text)}</Text>;
+  const style = tone === "body" ? fuelTextStyles.body : tone === "callout" ? fuelTextStyles.callout : fuelTextStyles.subtle;
+  return <Text style={style}>{fuelSurfaceCopy(text)}</Text>;
 }
 
 function FoodDetailsContent({ dashboard, viewModel }: { dashboard: FuelDashboardVisual; viewModel: FuelViewModel }) {
@@ -606,14 +724,14 @@ function HealthChecksContent({
       ) : null}
       {viewModel.underFuelingRisk ? (
         <View style={{ gap: spacing.xs }}>
-          <Text style={[screenStyles.callout, { color: colors.amberCaution }]}>{viewModel.underFuelingRisk.title}</Text>
+          <Text style={[fuelTextStyles.callout, { color: colorForTone("orange") }]}>{viewModel.underFuelingRisk.title}</Text>
           <DetailLine text={viewModel.underFuelingRisk.summary} tone="body" />
           {viewModel.underFuelingRisk.actions.map((item, index) => <DetailLine key={`fuel-under-risk:${index}`} text={item} />)}
         </View>
       ) : null}
       {viewModel.riskSummary.length > 0 ? (
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.callout}>Health warning</Text>
+          <Text style={fuelTextStyles.callout}>Health warning</Text>
           {viewModel.riskSummary.slice(0, 4).map((risk, index) => <DetailLine key={`fuel-risk:${index}`} text={risk} tone="body" />)}
         </View>
       ) : null}
@@ -674,8 +792,8 @@ function FuelStatusStrip({
   return (
     <View
       style={{
-        backgroundColor: warningActive ? "rgba(255, 82, 101, 0.105)" : theme.tile,
-        borderColor: `${color}55`,
+        backgroundColor: warningActive ? fuelTint("red", "12") : theme.tile,
+        borderColor: fuelTint(tone, "42"),
         borderCurve: "continuous",
         borderRadius: radii.tile,
         borderWidth: 1,
@@ -705,28 +823,26 @@ function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quic
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="fuel-food-status-card">
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>{viewModel.completionControls.statusTitle}</Text>
-          <Text style={screenStyles.callout}>{plainFuelCopy(viewModel.foodLogStatus.status.replaceAll("_", " "))}</Text>
-          <Text style={screenStyles.body}>{plainFuelCopy(viewModel.foodLogStatus.athleteFacingSummary)}</Text>
-          <Text style={screenStyles.subtle}>Logged: {viewModel.foodLogStatus.totalCaloriesLogged} kcal. Guide: {plainFuelCopy(viewModel.calorieSummary)}.</Text>
-          <Text style={screenStyles.subtle}>Too little food for the work is only considered after you say the day is done.</Text>
+          <Text style={fuelTextStyles.sectionTitle}>{viewModel.completionControls.statusTitle}</Text>
+          <Text style={fuelTextStyles.callout}>{plainFuelCopy(viewModel.foodLogStatus.status.replaceAll("_", " "))}</Text>
+          <Text style={fuelTextStyles.body}>{plainFuelCopy(viewModel.foodLogStatus.athleteFacingSummary)}</Text>
+          <Text style={fuelTextStyles.subtle}>Logged: {viewModel.foodLogStatus.totalCaloriesLogged} kcal. Guide: {plainFuelCopy(viewModel.calorieSummary)}.</Text>
+          <Text style={fuelTextStyles.subtle}>Too little food for the work is only considered after you say the day is done.</Text>
         </View>
         <View style={{ gap: spacing.xs }}>
-          {viewModel.completionControls.helperCopy.slice(0, 2).map((item, index) => <Text key={`fuel-completion-helper:${index}`} style={screenStyles.subtle}>{plainFuelCopy(item)}</Text>)}
+          {viewModel.completionControls.helperCopy.slice(0, 2).map((item, index) => <Text key={`fuel-completion-helper:${index}`} style={fuelTextStyles.subtle}>{plainFuelCopy(item)}</Text>)}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {viewModel.completionControls.actions.map((action) => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: busy }}
-              disabled={busy}
+            <FuelActionButton
+              basis={220}
+              busy={busy}
+              label={action.label}
+              primary={action.kind === "done_logging"}
+              summary={plainFuelCopy(action.summary)}
               key={`fuel-completion-action:${action.kind}`}
               onPress={() => run(action.kind)}
-              style={[action.kind === "done_logging" ? screenStyles.button : screenStyles.quietButton, { flexBasis: 220, flexGrow: 1 }]}
-            >
-              <Text style={action.kind === "done_logging" ? screenStyles.buttonText : screenStyles.quietButtonText}>{action.label}</Text>
-              <Text style={screenStyles.subtle}>{plainFuelCopy(action.summary)}</Text>
-            </Pressable>
+            />
           ))}
         </View>
       </View>
@@ -748,25 +864,44 @@ function FuelLogActionSection({
   recentLogs: RecentLogsViewModel;
 }) {
   const primaryCard = primaryLog === "food" ? (
-    <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
+    <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} surface="fuel" />
   ) : (
-    <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
+    <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} surface="fuel" />
   );
   const secondaryCard = primaryLog === "food" ? (
-    <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} />
+    <HydrationLogCard actions={quickLogs} busy={busy} status={recentLogs.hydrationToday} surface="fuel" />
   ) : (
-    <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} />
+    <FoodQuickLogCard actions={quickLogs} busy={busy} status={recentLogs.foodToday} surface="fuel" />
   );
   return (
     <View style={{ gap: spacing.lg }} testID="fuel-log-action-section">
       <EngineCard>
         <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={screenStyles.sectionTitle}>{primaryLog === "water" ? "Add water" : "Log food"}</Text>
-            <Text style={screenStyles.subtle}>Log what you know, then return to overview.</Text>
+            <Text style={fuelTextStyles.sectionTitle}>{primaryLog === "water" ? "Add water" : "Log food"}</Text>
+            <Text style={fuelTextStyles.subtle}>Log what you know, then return to overview.</Text>
           </View>
-          <Pressable accessibilityLabel="Back to Fuel overview" accessibilityRole="button" onPress={onClose} style={[screenStyles.quietButton, { minHeight: 44, minWidth: 92, paddingHorizontal: spacing.md }]}>
-            <Text style={screenStyles.quietButtonText}>Back to overview</Text>
+          <Pressable
+            accessibilityLabel="Back to Fuel overview"
+            accessibilityRole="button"
+            onPress={onClose}
+            style={({ pressed }) => [
+              {
+                alignItems: "center",
+                backgroundColor: pressed ? fuelPalette.controlFillPressed : fuelPalette.controlFill,
+                borderColor: fuelPalette.controlLine,
+                borderCurve: "continuous",
+                borderRadius: radii.control,
+                borderWidth: 1,
+                justifyContent: "center",
+                minHeight: 44,
+                minWidth: 92,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm
+              }
+            ]}
+          >
+            <Text style={{ color: fuelPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>Back to overview</Text>
           </Pressable>
         </View>
       </EngineCard>

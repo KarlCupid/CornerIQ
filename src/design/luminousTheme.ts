@@ -8,7 +8,7 @@ export const accentColor: Record<LuminousAccent, string> = {
   gold: colors.gold,
   green: colors.readyGreen,
   neutral: colors.mutedText,
-  orange: colors.amberCaution,
+  orange: "#C78355",
   purple: colors.powerPurple,
   red: colors.redCorner
 };
@@ -18,7 +18,7 @@ export const accentWash: Record<LuminousAccent, string> = {
   gold: "rgba(255, 216, 97, 0.16)",
   green: "rgba(56, 226, 138, 0.15)",
   neutral: "rgba(183, 196, 217, 0.14)",
-  orange: "rgba(255, 148, 72, 0.16)",
+  orange: "rgba(199, 131, 85, 0.14)",
   purple: "rgba(150, 87, 245, 0.16)",
   red: "rgba(255, 82, 101, 0.16)"
 };
@@ -112,20 +112,20 @@ export const luminousScreenThemes: Record<LuminousAccent, LuminousScreenTheme> =
   },
   orange: {
     accent: "orange",
-    accentColor: accentColor.orange,
-    background: "#120A03",
-    bottomWash: "rgba(8, 5, 2, 0.96)",
-    card: "rgba(35, 20, 6, 0.88)",
-    cardBorder: "rgba(255, 148, 72, 0.22)",
-    cardDeep: "rgba(27, 16, 5, 0.92)",
-    control: "rgba(255, 148, 72, 0.085)",
-    controlBorder: "rgba(255, 148, 72, 0.24)",
-    hairline: "rgba(255, 148, 72, 0.16)",
-    midWash: "rgba(77, 43, 8, 0.54)",
-    strongGlow: "rgba(255, 148, 72, 0.22)",
-    tile: "rgba(255, 148, 72, 0.07)",
-    tileBorder: "rgba(255, 148, 72, 0.18)",
-    topWash: "rgba(109, 64, 14, 0.45)"
+    accentColor: "#C78355",
+    background: "#0F0C0A",
+    bottomWash: "rgba(6, 5, 4, 0.96)",
+    card: "rgba(24, 21, 18, 0.9)",
+    cardBorder: "rgba(217, 160, 112, 0.2)",
+    cardDeep: "rgba(18, 16, 14, 0.93)",
+    control: "rgba(217, 160, 112, 0.074)",
+    controlBorder: "rgba(217, 160, 112, 0.2)",
+    hairline: "rgba(217, 160, 112, 0.13)",
+    midWash: "rgba(54, 38, 28, 0.44)",
+    strongGlow: "rgba(199, 131, 85, 0.15)",
+    tile: "rgba(244, 230, 207, 0.056)",
+    tileBorder: "rgba(217, 160, 112, 0.16)",
+    topWash: "rgba(76, 50, 33, 0.34)"
   },
   purple: {
     accent: "purple",

@@ -11,7 +11,7 @@ import {
   validateOneToFive
 } from "../../forms/validation";
 import { EngineCard } from "../../../design/components/EngineCard";
-import { colors, spacing } from "../../../design/theme";
+import { colors, radii, spacing } from "../../../design/theme";
 import type { QuickLogActions } from "../../../hooks/useQuickLogs";
 import type { CycleSymptom, RecentLogsViewModel, SessionIntensity } from "../../../engine/core/types";
 import { screenStyles } from "../screenStyles";
@@ -24,6 +24,7 @@ interface QuickLogCardProps extends LogCardProps {
   forceOpen?: boolean | undefined;
   actions: QuickLogActions;
   framed?: boolean | undefined;
+  surface?: "default" | "fuel" | undefined;
 }
 
 type DailyLogStatus = RecentLogsViewModel["readinessToday"];
@@ -32,6 +33,17 @@ type FoodTodayStatus = RecentLogsViewModel["foodToday"];
 type ScaleValue = "1" | "2" | "3" | "4" | "5";
 
 const scaleValues: readonly ScaleValue[] = ["1", "2", "3", "4", "5"];
+
+const fuelLogSurface = {
+  actionFill: "rgba(148, 88, 54, 0.34)",
+  actionBorder: "rgba(217, 160, 112, 0.54)",
+  actionShadow: "rgba(119, 69, 38, 0.28)",
+  controlFill: "rgba(244, 230, 207, 0.064)",
+  controlLine: "rgba(222, 190, 150, 0.18)",
+  textBody: "#D8D0C3",
+  textMuted: "#AFA595",
+  textPrimary: "#F4EFE8"
+} as const;
 
 function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
@@ -361,19 +373,20 @@ export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status 
   );
 }
 
-export function HydrationLogCard({ actions, busy, framed, status }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
+export function HydrationLogCard({ actions, busy, framed, status, surface = "default" }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
   const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Hydration log failed.");
   const [success, setSuccess] = useState<string | null>(null);
   const actionLabel = (status?.actionLabel ?? "Add water").replace(/log\s+water/i, "Add water");
+  const fuelSurface = surface === "fuel";
   return (
     <FrameOrPlain framed={framed}>
-        <Text style={screenStyles.sectionTitle}>Add water</Text>
-        <Text style={screenStyles.callout}>{status?.totalLabel ?? "Today's hydration total: add water when you have a true amount."}</Text>
-        <Text style={screenStyles.subtle}>{status?.addToTodayCopy ?? "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."}</Text>
-        {status ? <Text style={screenStyles.subtle}>Status: {status.statusLabel}. {status.summary}</Text> : <QuickLogHelp />}
+        <Text style={[screenStyles.sectionTitle, fuelSurface ? { color: fuelLogSurface.textPrimary, fontWeight: "800" } : null]}>Add water</Text>
+        <Text style={[screenStyles.callout, fuelSurface ? { color: fuelLogSurface.textPrimary, fontWeight: "700" } : null]}>{status?.totalLabel ?? "Today's hydration total: add water when you have a true amount."}</Text>
+        <Text style={[screenStyles.subtle, fuelSurface ? { color: fuelLogSurface.textMuted } : null]}>{status?.addToTodayCopy ?? "Add hydration to today. Each save adds another water/sodium entry; it does not replace or set a daily total."}</Text>
+        {status ? <Text style={[screenStyles.subtle, fuelSurface ? { color: fuelLogSurface.textMuted } : null]}>Status: {status.statusLabel}. {status.summary}</Text> : <QuickLogHelp />}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -398,9 +411,20 @@ export function HydrationLogCard({ actions, busy, framed, status }: QuickLogCard
                 setSuccess("Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown.");
               })
             }
-            style={[screenStyles.button, { flexBasis: 180, flexGrow: 1 }]}
+            style={[
+              screenStyles.button,
+              { flexBasis: 180, flexGrow: 1 },
+              fuelSurface
+                ? {
+                    backgroundColor: fuelLogSurface.actionFill,
+                    borderColor: fuelLogSurface.actionBorder,
+                    borderRadius: radii.pill,
+                    boxShadow: `0 12px 28px ${fuelLogSurface.actionShadow}`
+                  }
+                : null
+            ]}
           >
-            <Text style={screenStyles.buttonText}>{busy ? "Saving water..." : actionLabel}</Text>
+            <Text style={[screenStyles.buttonText, fuelSurface ? { color: fuelLogSurface.textPrimary } : null]}>{busy ? "Saving water..." : actionLabel}</Text>
           </Pressable>
           <Pressable
             accessibilityLabel={moreFieldsOpen ? "Hide more hydration fields" : "Show more hydration fields"}
@@ -408,9 +432,13 @@ export function HydrationLogCard({ actions, busy, framed, status }: QuickLogCard
             accessibilityState={{ disabled: busy, expanded: moreFieldsOpen }}
             disabled={busy}
             onPress={() => setMoreFieldsOpen((value) => !value)}
-            style={[screenStyles.quietButton, { flexBasis: 132, flexGrow: 1 }]}
+            style={[
+              screenStyles.quietButton,
+              { flexBasis: 132, flexGrow: 1 },
+              fuelSurface ? { backgroundColor: fuelLogSurface.controlFill, borderColor: fuelLogSurface.controlLine } : null
+            ]}
           >
-            <Text style={screenStyles.quietButtonText}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
+            <Text style={[screenStyles.quietButtonText, fuelSurface ? { color: fuelLogSurface.textBody } : null]}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
           </Pressable>
         </View>
     </FrameOrPlain>
@@ -485,7 +513,7 @@ export function CycleLogCard({ actions, busy, cycleSymptomOptions }: QuickLogCar
   );
 }
 
-export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & { status?: FoodTodayStatus | undefined }) {
+export function FoodQuickLogCard({ actions, busy, status, surface = "default" }: QuickLogCardProps & { status?: FoodTodayStatus | undefined }) {
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
@@ -496,12 +524,13 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
   const { message: error, runWithMessage } = useFormMessage("Food log failed.");
   const [success, setSuccess] = useState<string | null>(null);
   const macroPreview = foodEnergyPreview({ calories, protein, carbs, fat }, actions.validateFoodEnergy);
+  const fuelSurface = surface === "fuel";
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Log food</Text>
-        <Text style={screenStyles.body}>Add a meal, snack, or day total.</Text>
-        <Text style={screenStyles.subtle}>Status: {status?.statusLabel ?? "Macro check"}. {status?.summary ?? status?.addEntryCopy ?? "Add to today; this does not replace existing food entries."}</Text>
+        <Text style={[screenStyles.sectionTitle, fuelSurface ? { color: fuelLogSurface.textPrimary, fontWeight: "800" } : null]}>Log food</Text>
+        <Text style={[screenStyles.body, fuelSurface ? { color: fuelLogSurface.textBody } : null]}>Add a meal, snack, or day total.</Text>
+        <Text style={[screenStyles.subtle, fuelSurface ? { color: fuelLogSurface.textMuted } : null]}>Status: {status?.statusLabel ?? "Macro check"}. {status?.summary ?? status?.addEntryCopy ?? "Add to today; this does not replace existing food entries."}</Text>
         {macroPreview ? <Text style={macroPreview.valid ? screenStyles.subtle : [screenStyles.subtle, { color: colors.redCorner }]}>{macroPreview.message}</Text> : null}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
@@ -553,9 +582,20 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
                 setSuccess("Food logged. Fuel confidence has more intake context; missing hydration still lowers confidence when absent.");
               })
             }
-            style={[screenStyles.button, { flexBasis: 180, flexGrow: 1 }]}
+            style={[
+              screenStyles.button,
+              { flexBasis: 180, flexGrow: 1 },
+              fuelSurface
+                ? {
+                    backgroundColor: fuelLogSurface.actionFill,
+                    borderColor: fuelLogSurface.actionBorder,
+                    borderRadius: radii.pill,
+                    boxShadow: `0 12px 28px ${fuelLogSurface.actionShadow}`
+                  }
+                : null
+            ]}
           >
-            <Text style={screenStyles.buttonText}>{busy ? "Saving food..." : "Log food"}</Text>
+            <Text style={[screenStyles.buttonText, fuelSurface ? { color: fuelLogSurface.textPrimary } : null]}>{busy ? "Saving food..." : "Log food"}</Text>
           </Pressable>
           <Pressable
             accessibilityLabel={moreFieldsOpen ? "Hide more food fields" : "Show more food fields"}
@@ -563,9 +603,13 @@ export function FoodQuickLogCard({ actions, busy, status }: QuickLogCardProps & 
             accessibilityState={{ disabled: busy, expanded: moreFieldsOpen }}
             disabled={busy}
             onPress={() => setMoreFieldsOpen((value) => !value)}
-            style={[screenStyles.quietButton, { flexBasis: 132, flexGrow: 1 }]}
+            style={[
+              screenStyles.quietButton,
+              { flexBasis: 132, flexGrow: 1 },
+              fuelSurface ? { backgroundColor: fuelLogSurface.controlFill, borderColor: fuelLogSurface.controlLine } : null
+            ]}
           >
-            <Text style={screenStyles.quietButtonText}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
+            <Text style={[screenStyles.quietButtonText, fuelSurface ? { color: fuelLogSurface.textBody } : null]}>{moreFieldsOpen ? "Hide more fields" : "More fields"}</Text>
           </Pressable>
         </View>
       </View>
