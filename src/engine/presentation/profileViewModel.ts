@@ -2,8 +2,13 @@ import type {
   Confidence,
   ConfidenceLevel,
   PerformanceState,
+  ProfileAppInputViewModel,
+  ProfileAthleteSetupViewModel,
+  ProfileHealthSafetyItemViewModel,
+  ProfileHealthWarningViewModel,
   ProfileLedgerItemViewModel,
   ProfileMetricViewModel,
+  ProfileSetupFactViewModel,
   ProfileSignalViewModel,
   ProfileVisualTone,
   ProfileViewModel
@@ -91,21 +96,25 @@ function shortList(items: readonly string[], fallback: string): string {
   return `${first}, ${second}${items.length > 2 ? `, +${items.length - 2}` : ""}`;
 }
 
-function profileCompleteness(state: PerformanceState): { complete: number; ratio: number; total: number; missingLabels: readonly string[] } {
-  const equipmentAccess = state.athlete.equipmentAccess ?? [];
+function hasScheduleKnown(state: PerformanceState): boolean {
   const protectedBoxingSchedule = state.athlete.protectedBoxingSchedule ?? [];
   const scheduleAvailability = state.athlete.scheduleAvailability ?? [];
-  const scheduleKnown =
+  return (
     scheduleAvailability.length > 0 ||
     protectedBoxingSchedule.length > 0 ||
     (state.athlete.recurringProtectedAnchors?.length ?? 0) > 0 ||
-    state.training.protectedAnchors.length > 0;
+    state.training.protectedAnchors.length > 0
+  );
+}
+
+function profileCompleteness(state: PerformanceState): { complete: number; ratio: number; total: number; missingLabels: readonly string[] } {
+  const equipmentAccess = state.athlete.equipmentAccess ?? [];
   const checks = [
     { label: "age", complete: typeof state.athlete.ageYears === "number" },
     { label: "height", complete: state.athlete.height.value > 0 },
     { label: "current body mass", complete: Boolean(state.athlete.currentBodyMass ?? state.bodyMass.trend.latestKg) },
     { label: "equipment access", complete: equipmentAccess.length > 0 },
-    { label: "weekly availability", complete: scheduleKnown },
+    { label: "weekly availability", complete: hasScheduleKnown(state) },
     { label: "readiness today", complete: state.readiness.score !== null },
     { label: "food or hydration today", complete: state.nutrition.dailyFoodLogSummary.entryCount > 0 || state.hydration.waterLiters > 0 }
   ] as const;
@@ -116,6 +125,17 @@ function profileCompleteness(state: PerformanceState): { complete: number; ratio
     total: checks.length,
     missingLabels: checks.filter((item) => !item.complete).map((item) => item.label)
   };
+}
+
+function setupMissingLabels(state: PerformanceState): readonly string[] {
+  const equipmentAccess = state.athlete.equipmentAccess ?? [];
+  const checks = [
+    { label: "current weight", complete: Boolean(state.athlete.currentBodyMass ?? state.bodyMass.trend.latestKg) },
+    { label: "equipment", complete: equipmentAccess.length > 0 },
+    { label: "schedule", complete: hasScheduleKnown(state) },
+    { label: "units", complete: Boolean(state.athlete.preferredUnits) }
+  ] as const;
+  return checks.filter((item) => !item.complete).map((item) => item.label);
 }
 
 function bodyMassLabel(state: PerformanceState): string {
@@ -145,6 +165,167 @@ function stanceLabel(state: PerformanceState): string {
 function trainingAgeLabel(state: PerformanceState): string {
   const years = state.athlete.trainingAgeYears;
   return Number.isFinite(years) ? plural(years, "training year") : "Training age unknown";
+}
+
+function goalLabel(state: PerformanceState): string {
+  if (state.tournamentContext) {
+    return "Tournament";
+  }
+  if (state.fightContext && /camp|fight/i.test(state.objective)) {
+    return "Fight camp";
+  }
+  return titleCase(state.objective);
+}
+
+function activeBoxingScheduleCount(state: PerformanceState): number {
+  return (
+    (state.athlete.protectedBoxingSchedule?.length ?? 0) +
+    (state.athlete.recurringProtectedAnchors?.length ?? 0) +
+    state.training.protectedAnchors.length
+  );
+}
+
+function scheduleLabel(state: PerformanceState): string {
+  const boxingDays = activeBoxingScheduleCount(state);
+  if (boxingDays > 0) {
+    return plural(boxingDays, "boxing day");
+  }
+  const availableDays = state.athlete.scheduleAvailability?.length ?? 0;
+  return availableDays > 0 ? plural(availableDays, "available day") : "Needs details";
+}
+
+function equipmentLabel(state: PerformanceState): string {
+  const equipment = state.athlete.equipmentAccess.map(titleCase);
+  if (equipment.length === 0) {
+    return "Needs details";
+  }
+  if (equipment.some((item) => /full gym|gym/i.test(item))) {
+    return "Full gym";
+  }
+  return shortList(equipment, "Needs details");
+}
+
+function buildKeySetup(state: PerformanceState): readonly ProfileSetupFactViewModel[] {
+  return [
+    { label: "Goal", value: goalLabel(state), tone: "blue" },
+    { label: "Schedule", value: scheduleLabel(state), tone: hasScheduleKnown(state) ? "green" : "orange" },
+    { label: "Equipment", value: equipmentLabel(state), tone: state.athlete.equipmentAccess.length > 0 ? "green" : "orange" },
+    { label: "Units", value: titleCase(state.athlete.preferredUnits), tone: "muted" }
+  ];
+}
+
+function buildAppInputs(state: PerformanceState): readonly ProfileAppInputViewModel[] {
+  return [
+    {
+      label: "Training",
+      detail: "Schedule, equipment, and goal shape the weekly plan.",
+      tone: hasScheduleKnown(state) && state.athlete.equipmentAccess.length > 0 ? "green" : "orange"
+    },
+    {
+      label: "Fuel",
+      detail: "Weight, units, and fight details shape cut and fuel guidance.",
+      tone: state.athlete.currentBodyMass || state.bodyMass.trend.latestKg !== null ? "green" : "orange"
+    },
+    {
+      label: "Readiness",
+      detail: state.wearable.hasWearable ? "Manual logs and fresh wearables adjust daily training." : "Manual logs adjust daily training; wearables are optional.",
+      tone: state.wearable.conflictsWithManualLogs.length > 0 ? "orange" : "green"
+    },
+    {
+      label: "Cycle support",
+      detail: state.cycle.trackingEnabled
+        ? "Optional, private, and symptom-aware when enabled."
+        : state.athlete.cycleTrackingPreference === "undecided"
+          ? "Optional and private. No cycle assumptions until you choose."
+          : "Off. No cycle assumptions are applied.",
+      tone: state.cycle.trackingEnabled ? "green" : state.athlete.cycleTrackingPreference === "undecided" ? "orange" : "muted"
+    }
+  ];
+}
+
+function buildHealthWarning(state: PerformanceState): ProfileHealthWarningViewModel {
+  const activeRiskCount = state.safety.riskFlags.filter((flag) => flag.status === "active").length;
+  const active =
+    state.safety.hardStops.length > 0 ||
+    activeRiskCount > 0 ||
+    state.nutrition.nutritionSafetyReview.required;
+  return active
+    ? {
+        active: true,
+        detail: "Get outside support if symptoms are urgent.",
+        statusLabel: "Review needed",
+        summary: "Review before pushing training or weight.",
+        title: "Health warning active",
+        tone: "red"
+      }
+    : {
+        active: false,
+        detail: "Health notes and saved history stay here when you need them.",
+        statusLabel: "Ready",
+        summary: "No active health warning is shown right now.",
+        title: "Health notes",
+        tone: "green"
+      };
+}
+
+function buildAthleteSetup(state: PerformanceState, healthWarning: ProfileHealthWarningViewModel): ProfileAthleteSetupViewModel {
+  const missing = setupMissingLabels(state);
+  const contextParts = [`${titleCase(state.phase.phase)} - Week ${state.training.activeBlock.progressionState.weekIndex}`];
+  if (state.tournamentContext) {
+    contextParts.push("Tournament active");
+  } else if (state.fightContext) {
+    contextParts.push("Bout active");
+  }
+  const statusLabel = healthWarning.active ? "Review needed" : missing.length > 0 ? "Needs details" : "Ready";
+  return {
+    contextLabel: contextParts.join(" - "),
+    explanation:
+      missing.length > 0
+        ? `Add your ${shortList(missing, "missing details")} to improve your plan.`
+        : "CornerIQ uses this setup to build your Plan, adjust Train, and guide Fuel.",
+    primaryActionLabel: missing.length > 0 ? "Finish setup" : "Update setup",
+    statusLabel,
+    statusTone: healthWarning.active ? "red" : missing.length > 0 ? "orange" : "green",
+    summaryLines: [
+      `Goal: ${goalLabel(state)}.`,
+      state.tournamentContext || state.fightContext ? fightContextLabel(state) : "No active bout.",
+      `${stanceLabel(state)} - ${trainingAgeLabel(state)}.`
+    ]
+  };
+}
+
+function buildHealthSafetyItems(state: PerformanceState, healthWarning: ProfileHealthWarningViewModel): readonly ProfileHealthSafetyItemViewModel[] {
+  const latestTimelineEvent = state.training.timelineEvents.at(-1) ?? state.training.blockHistory.timelineEvents.at(-1) ?? null;
+  const fuelReviewActive =
+    state.nutrition.nutritionSafetyReview.required ||
+    state.bodyMass.feasibility.status === "unsafe" ||
+    state.bodyMass.feasibility.status === "blocked";
+  return [
+    {
+      label: "Health notes",
+      value: healthWarning.statusLabel,
+      detail: healthWarning.active ? healthWarning.summary : healthWarning.summary,
+      tone: healthWarning.tone
+    },
+    {
+      label: "Training history",
+      value: `Week ${state.training.activeBlock.progressionState.weekIndex}`,
+      detail: latestTimelineEvent ? `${latestTimelineEvent.title}: ${latestTimelineEvent.summary}` : "No saved training history detail yet.",
+      tone: latestTimelineEvent ? "blue" : "muted"
+    },
+    {
+      label: "Fuel safety history",
+      value: fuelReviewActive ? "Cut paused" : "Ready",
+      detail: fuelReviewActive ? "Fuel guidance stays conservative until support reviews it." : "No active fuel review is loaded.",
+      tone: fuelReviewActive ? "red" : "green"
+    },
+    {
+      label: "Support path",
+      value: "Get support",
+      detail: "Use outside support for urgent symptoms, app access, or account issues.",
+      tone: "blue"
+    }
+  ];
 }
 
 function commandSummary(input: {
@@ -408,6 +589,7 @@ function buildSafetyLedger(state: PerformanceState): readonly ProfileLedgerItemV
 export function buildProfileViewModel(state: PerformanceState): ProfileViewModel {
   const latestTimelineEvent = state.training.timelineEvents.at(-1) ?? state.training.blockHistory.timelineEvents.at(-1) ?? null;
   const completeness = profileCompleteness(state);
+  const healthWarning = buildHealthWarning(state);
   return {
     title: "Boxer profile",
     topAction: {
@@ -418,6 +600,11 @@ export function buildProfileViewModel(state: PerformanceState): ProfileViewModel
       optional: "Safety history and export/delete can wait until you need them."
     },
     summary: `${state.athlete.boxingLevel.replaceAll("_", " ")} - ${state.athlete.amateurOrPro}`,
+    athleteSetup: buildAthleteSetup(state, healthWarning),
+    keySetup: buildKeySetup(state),
+    appInputs: buildAppInputs(state),
+    healthWarning,
+    healthSafetyItems: buildHealthSafetyItems(state, healthWarning),
     identity: {
       title: `${titleCase(state.athlete.boxingLevel)} boxer`,
       subtitle: `${titleCase(state.athlete.amateurOrPro)} - ${titleCase(state.phase.phase)}`,

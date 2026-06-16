@@ -8,10 +8,16 @@ import { glassStyles } from "../../../design/glass";
 import { spacing } from "../../../design/theme";
 import {
   plainSectionIntent,
-  plainSectionName,
-  plainTrainingCopy
+  plainSectionName
 } from "../../../engine/presentation/trainingCopy";
-import { recipeQuickLogContext, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
+import {
+  recipeAdjustGuidance,
+  recipeEquipmentLabel,
+  recipePlanSummaryBlocks,
+  recipeQuickLogContext,
+  recipeQuickLogImpactRows,
+  recipeWhyHighlights
+} from "../../../engine/presentation/workoutRecipePresentation";
 import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validationError } from "../../forms/validation";
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
@@ -147,10 +153,109 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
   );
 }
 
+function GuidanceTile({
+  body,
+  detail,
+  label,
+  tone = "muted"
+}: {
+  body: string;
+  detail?: string | undefined;
+  label: string;
+  tone?: Parameters<typeof trainColorForTone>[0] | undefined;
+}) {
+  const color = trainColorForTone(tone);
+  return (
+    <View
+      style={{
+        backgroundColor: trainTint(tone, "10"),
+        borderColor: trainTint(tone, "36"),
+        borderRadius: 14,
+        borderWidth: 1,
+        gap: spacing.xs,
+        padding: spacing.md
+      }}
+    >
+      <Text style={{ color, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{label}</Text>
+      <Text style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{body}</Text>
+      {detail ? <Text style={trainTextStyles.subtle}>{detail}</Text> : null}
+    </View>
+  );
+}
+
+function CompactMetric({ label, value, tone = "muted" }: { label: string; value: string; tone?: Parameters<typeof trainColorForTone>[0] | undefined }) {
+  return (
+    <View
+      style={{
+        backgroundColor: trainPalette.controlFill,
+        borderColor: trainPalette.cardLine,
+        borderRadius: 14,
+        borderWidth: 1,
+        flexBasis: 104,
+        flexGrow: 1,
+        gap: 2,
+        minHeight: 58,
+        padding: spacing.sm
+      }}
+    >
+      <Text numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: trainColorForTone(tone), fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{value}</Text>
+    </View>
+  );
+}
+
 function WorkoutPlanDetails({ session }: { session: DetailedTrainingSession }) {
+  const [fullRowsOpen, setFullRowsOpen] = useState(false);
+  const summaryBlocks = recipePlanSummaryBlocks(session);
+  const totalMoves = session.sections.reduce((count, section) => count + section.exercises.length, 0);
+  const equipment = recipeEquipmentLabel(session.recipe);
   return (
     <View style={{ gap: spacing.md }} testID="workout-plan-detail-section">
-      <WorkoutExerciseDetails session={session} title={session.recipe ? "Workout recipe" : "Exercise details"} />
+      <View style={{ gap: spacing.xs }}>
+        <Text style={trainTextStyles.sectionTitle}>{session.recipe ? "Workout recipe" : "Exercise details"}</Text>
+        <Text style={trainTextStyles.body}>Short recipe view. Open full rows only when you need every set, load, swap, and stop note.</Text>
+      </View>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <CompactMetric label="Duration" tone="blue" value={`${session.durationMinutes} min`} />
+        <CompactMetric label="Blocks" tone="gold" value={`${summaryBlocks.length}`} />
+        <CompactMetric label="Moves" tone="green" value={`${totalMoves}`} />
+        <CompactMetric label="Equipment" tone="purple" value={equipment} />
+      </View>
+      <View style={{ gap: spacing.sm }}>
+        {summaryBlocks.map((block) => (
+          <View
+            key={`plan-summary:${block.label}:${block.title}`}
+            style={{
+              backgroundColor: trainTint(block.tone, "10"),
+              borderColor: trainTint(block.tone, "32"),
+              borderRadius: 14,
+              borderWidth: 1,
+              gap: spacing.sm,
+              padding: spacing.md
+            }}
+          >
+            <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
+              <Text style={{ color: trainColorForTone(block.tone), fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{block.label}</Text>
+              <Text style={{ color: trainPalette.textPrimary, flex: 1, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{block.title}</Text>
+              <Text style={{ color: trainPalette.textMuted, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{block.durationLabel}</Text>
+            </View>
+            <Text style={trainTextStyles.subtle}>{block.detail}</Text>
+            {block.steps.length ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+                {block.steps.map((step) => (
+                  <View key={`plan-step:${block.label}:${step}`} style={{ backgroundColor: trainPalette.controlFill, borderColor: trainPalette.controlLine, borderRadius: 999, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
+                    <Text numberOfLines={1} style={{ color: trainPalette.textBody, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ))}
+      </View>
+      <TrainPanelQuietButton accessibilityLabel={fullRowsOpen ? "Hide full exercise rows" : "Show full exercise rows"} onPress={() => setFullRowsOpen((value) => !value)} selected={fullRowsOpen}>
+        {fullRowsOpen ? "Hide full exercise rows" : "Show full exercise rows"}
+      </TrainPanelQuietButton>
+      {fullRowsOpen ? <WorkoutExerciseDetails session={session} title={null} /> : null}
     </View>
   );
 }
@@ -297,21 +402,6 @@ function TrainPanelQuietButton({
   );
 }
 
-function adjustTodayOptions(session: DetailedTrainingSession): readonly string[] {
-  const options = new Set<string>();
-  options.add("Lower the pace.");
-  options.add("Keep the warm-up longer.");
-  if (session.intensity === "hard") {
-    options.add("Change hard rounds to technical rounds.");
-  }
-  if (session.sections.some((section) => section.exercises.some((exercise) => /strength|lift|loaded|squat|hinge|row|press/i.test(`${section.name} ${exercise.name}`)))) {
-    options.add("Skip loaded work if pain shows up.");
-  }
-  options.add("Shorten the finisher.");
-  options.add("Stop the session if symptoms return.");
-  return Array.from(options).slice(0, 6);
-}
-
 function quickLogMainJob(session: DetailedTrainingSession): string {
   return recipeQuickLogContext(session).mainJob;
 }
@@ -435,44 +525,44 @@ export function WorkoutDetailPanel({
               testID="workout-next-action-card"
             />
           ) : null}
-          <DetailToggleRow label="Exercise Details" meta="Full recipe and exercise rows" onPress={() => setPlanOpen((value) => !value)} open={planOpen} />
+          <DetailToggleRow label="Exercise Details" meta="Recipe summary with optional full rows" onPress={() => setPlanOpen((value) => !value)} open={planOpen} />
           {planOpen ? <WorkoutPlanDetails session={session} /> : null}
-          <DetailToggleRow label="Why This Session" meta="What this is meant to improve" onPress={() => setWhyOpen((value) => !value)} open={whyOpen} />
+          <DetailToggleRow label="Why This Session" meta="Aim, quality cue, and decision signal" onPress={() => setWhyOpen((value) => !value)} open={whyOpen} />
           {whyOpen ? (
-            <View style={{ gap: spacing.xs }}>
-              <Text style={trainTextStyles.body}>{recipeWhy(session)}</Text>
-              {(session.athleteQualityCues ?? []).slice(0, 2).map((item, index) => <Text key={`quality-cue:${index}`} style={trainTextStyles.subtle}>Coach's Note: {plainTrainingCopy(item)}</Text>)}
-              {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={trainTextStyles.subtle}>Readiness: {plainTrainingCopy(item)}</Text>)}
-              {session.nextSessionNote ? <Text style={trainTextStyles.subtle}>Next: {plainTrainingCopy(session.nextSessionNote)}</Text> : null}
-              {session.stopConditions.slice(0, 2).map((item, index) => <Text key={`stop-condition:${index}`} style={trainTextStyles.subtle}>Stop: {plainTrainingCopy(item)}</Text>)}
-              {session.safetyNotes.slice(0, 2).map((item, index) => <Text key={`safety-note:${index}`} style={trainTextStyles.subtle}>Before you start: {plainTrainingCopy(item)}</Text>)}
-              <Text style={trainTextStyles.subtle}>Pain notes keep future training conservative.</Text>
-            </View>
-          ) : null}
-          <DetailToggleRow label="Adjust Today" meta="Simple changes if the session feels off" onPress={() => setAdjustOpen((value) => !value)} open={adjustOpen} />
-          {adjustOpen ? (
-            <View style={{ gap: spacing.xs }}>
-              {adjustTodayOptions(session).map((item) => (
-                <Text key={`adjust:${item}`} style={trainTextStyles.subtle}>{item}</Text>
+            <View style={{ gap: spacing.sm }}>
+              {recipeWhyHighlights(session).map((item) => (
+                <GuidanceTile body={item.body} detail={item.detail} key={`why:${item.label}`} label={item.label} tone={item.tone} />
               ))}
             </View>
           ) : null}
-          <DetailToggleRow disabled={quickLogBlocked} label="Quick Log" meta={quickLogBlocked ? "Available on the planned day" : "RPE, notes, done, or skipped"} onPress={() => setResultOpen((value) => !value)} open={resultOpen} />
+          <DetailToggleRow label="Adjust Today" meta="Concrete downshift and stop rules" onPress={() => setAdjustOpen((value) => !value)} open={adjustOpen} />
+          {adjustOpen ? (
+            <View style={{ gap: spacing.sm }}>
+              {recipeAdjustGuidance(session).map((item) => (
+                <GuidanceTile body={item.body} detail={item.detail} key={`adjust:${item.label}`} label={item.label} tone={item.tone} />
+              ))}
+            </View>
+          ) : null}
+          <DetailToggleRow disabled={quickLogBlocked} label="Quick Log" meta={quickLogBlocked ? "Available on the planned day" : "RPE, pain, actuals, done, or skipped"} onPress={() => setResultOpen((value) => !value)} open={resultOpen} />
         </View>
       </DashboardCard>
       {resultOpen && !previewOnlyReason ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
             <Text style={trainTextStyles.sectionTitle}>Quick Log</Text>
-            <Text style={trainTextStyles.body}>Mark workout done without follow-along when time is tight.</Text>
-            <Text style={trainTextStyles.subtle}>Session RPE is enough if you are short on time.</Text>
+            <Text style={trainTextStyles.body}>Capture the signals the engine can actually use. RPE alone is fine when time is tight; pain and actuals add more confidence.</Text>
             <Text style={trainTextStyles.subtle}>Workout: {quickLogContext.whatToDo}</Text>
             <Text style={trainTextStyles.subtle}>Coach's Note: {quickLogMainJob(session)}</Text>
-            <Text style={trainTextStyles.subtle}>Log only what matters: {quickLogContext.logPrompt}</Text>
+          </View>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={{ color: trainColorForTone("gold"), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>What affects the engine</Text>
+            {recipeQuickLogImpactRows(session).map((item) => (
+              <GuidanceTile body={item.body} detail={item.detail} key={`quick-log-impact:${item.label}`} label={item.label} tone={item.tone} />
+            ))}
           </View>
           <TrainInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" value={sessionRpe} />
-          <TrainInput onChangeText={setPainNotes} placeholder="Pain note optional" value={painNotes} />
-          <TrainInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" value={notes} />
+          <TrainInput onChangeText={setPainNotes} placeholder="Pain area, timing, or movement change optional" value={painNotes} />
+          <TrainInput onChangeText={setNotes} placeholder="Quality, missed work, reason skipped, or extra context optional" value={notes} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             <View style={{ flexBasis: 170, flexGrow: 1 }}>
               <TrainPanelPrimaryButton accessibilityLabel="Mark workout done" disabled={busy} onPress={() => void complete()}>{busy ? "Saving workout..." : "Mark workout done"}</TrainPanelPrimaryButton>
@@ -483,7 +573,7 @@ export function WorkoutDetailPanel({
           </View>
           <View style={{ gap: spacing.sm }}>
             <TrainPanelQuietButton accessibilityLabel={exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"} onPress={() => setExerciseDetailsOpen((value) => !value)} selected={exerciseDetailsOpen}>{exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"}</TrainPanelQuietButton>
-            <Text style={trainTextStyles.subtle}>Exercise rows are optional. Blank rows save as not logged when the workout is marked done; skipped sessions do not save exercise rows.</Text>
+            <Text style={trainTextStyles.subtle}>Exercise rows are optional. Completed sets, load, reps, quality, RPE, and pain flags become structured actuals. Blank rows save as not logged.</Text>
             {exerciseDetailsOpen ? (
               <TrainPanelQuietButton accessibilityLabel={structuredActualsOpen ? "Hide extra fields" : "Extra fields"} onPress={() => setStructuredActualsOpen((value) => !value)} selected={structuredActualsOpen}>{structuredActualsOpen ? "Hide extra fields" : "Extra fields"}</TrainPanelQuietButton>
             ) : null}

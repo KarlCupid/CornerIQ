@@ -9,7 +9,7 @@ import { DashboardCard } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
 import { radii, spacing } from "../../design/theme";
-import type { BarVisual, TimelineVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
+import type { BarVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
@@ -66,8 +66,17 @@ interface FlowRow {
 }
 
 interface PrepRow {
+  detail?: string | undefined;
   label: string;
+  tone: VisualTone;
   value: string;
+}
+
+interface TrainWeekDayVisual extends BarVisual {
+  date: string;
+  hasSession: boolean;
+  subtitle: string;
+  title: string;
 }
 
 function toneForIntensity(intensity: string): VisualTone {
@@ -89,6 +98,47 @@ function firstSentence(value: string): string {
   const copy = plainTrainCopy(value).trim();
   const match = copy.match(/^.+?[.!?](?:\s|$)/);
   return (match?.[0] ?? copy).trim();
+}
+
+function firstUsefulSentence(...values: (string | null | undefined)[]): string | undefined {
+  for (const value of values) {
+    const copy = firstSentence(value ?? "");
+    if (copy) {
+      return copy;
+    }
+  }
+  return undefined;
+}
+
+function parseIsoDate(date: string): Date | null {
+  const parsed = new Date(`${date}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: string, count: number): string {
+  const parsed = parseIsoDate(date);
+  if (!parsed) {
+    return date;
+  }
+  parsed.setDate(parsed.getDate() + count);
+  return toIsoDate(parsed);
+}
+
+function startOfTrainingWeek(seedDate: string): string {
+  const parsed = parseIsoDate(seedDate);
+  if (!parsed) {
+    return seedDate;
+  }
+  const mondayOffset = (parsed.getDay() + 6) % 7;
+  parsed.setDate(parsed.getDate() - mondayOffset);
+  return toIsoDate(parsed);
 }
 
 function compactDayLabel(date: string, fallback: string): string {
@@ -204,19 +254,37 @@ function prepRows(session: DetailedTrainingSession | null, card: TrainSessionCar
   const readiness = readinessValue(session, viewModel);
   return [
     {
-      label: "Fuel",
-      value: firstSentence(session?.fuelBefore ?? viewModel.preSessionFuelHint ?? plainFuelDemandLabel(card?.fuelDemand ?? "moderate"))
+      detail: firstUsefulSentence(session?.fuelingGate, viewModel.preSessionFuelHint),
+      label: "Fuel check",
+      tone: "gold",
+      value: firstUsefulSentence(session?.fuelBefore, viewModel.preSessionFuelHint, plainFuelDemandLabel(card?.fuelDemand ?? "moderate")) ?? "Fuel status is unknown."
     },
     {
-      label: "Hydration",
-      value: firstSentence(session?.hydrationGate ?? viewModel.hydrationHint ?? "Keep water nearby.")
+      detail: "Use a real water/sodium log if you want the engine to raise confidence.",
+      label: "Hydration check",
+      tone: "blue",
+      value: firstUsefulSentence(session?.hydrationGate, viewModel.hydrationHint, "Keep water nearby.") ?? "Hydration is unknown."
     },
     {
       label: "Readiness",
-      value: readinessPrepCopy(readiness)
+      tone: readinessTone(readiness),
+      value: firstUsefulSentence(session?.readinessGate, readinessPrepCopy(readiness)) ?? "Start controlled."
     },
     {
-      label: "Coach's Note",
+      detail: session?.downshiftIf?.[0] ? "Make the next block easier before technique breaks." : "Check this before the first hard or technical block.",
+      label: session?.downshiftIf?.[0] ? "Downshift if" : "First check",
+      tone: session?.downshiftIf?.[0] ? "orange" : "green",
+      value: firstUsefulSentence(session?.downshiftIf?.[0], session?.preSessionChecklist?.[0], session?.selfCheckCues?.[0], coachNote(session, card)) ?? "Keep the first clean cue repeatable."
+    },
+    {
+      detail: "Safety beats completing the prescription.",
+      label: "Stop if",
+      tone: "red",
+      value: firstUsefulSentence(session?.stopConditions[0], "Pain, dizziness, or unusual symptoms appear.") ?? "Pain, dizziness, or unusual symptoms appear."
+    },
+    {
+      label: "Coach's note",
+      tone: "purple",
       value: coachNote(session, card)
     }
   ];
@@ -263,30 +331,53 @@ function playerStatusIsInProgress(status: WorkoutPlayerStatus): boolean {
   return status === "active" || status === "paused" || status === "finishing";
 }
 
-function currentWeekBars(viewModel: TrainViewModel): readonly BarVisual[] {
-  const maxMinutes = Math.max(1, ...viewModel.weeklyWorkoutCards.map((session) => session.durationMinutes));
-  const todayDate = viewModel.todayGeneratedSessions[0]?.date ?? viewModel.weeklyWorkoutCards[0]?.date ?? "";
-  return viewModel.weeklyWorkoutCards.slice(0, 5).map((session) => ({
-    label: compactDayLabel(session.date, session.label.split(" ")[0]?.slice(0, 3).toUpperCase() ?? session.date.slice(5)),
-    value: session.durationMinutes,
-    valueLabel: `${session.durationMinutes} min`,
-    ratio: clamp01(session.durationMinutes / maxMinutes),
-    tone: toneForIntensity(session.intensity),
-    faded: session.date < todayDate
-  }));
-}
-
-function weeklyTimeline(viewModel: TrainViewModel): readonly TimelineVisual[] {
-  const sessions = viewModel.weeklyWorkoutCards.slice(0, 5);
-  if (sessions.length === 0) {
-    return [{ label: "Week", title: "Open", subtitle: "Log boxing if it happens", tone: "muted" }];
+function currentWeekDays(viewModel: TrainViewModel, asOfDate?: ISODateString | undefined): readonly TrainWeekDayVisual[] {
+  const seedDate =
+    asOfDate ??
+    viewModel.todayGeneratedSessions[0]?.date ??
+    viewModel.weeklyWorkoutCards[0]?.date ??
+    viewModel.upcomingGeneratedSessions[0]?.date ??
+    "";
+  if (!seedDate) {
+    return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => ({
+      date: "",
+      faded: false,
+      hasSession: false,
+      label,
+      ratio: 0.08,
+      subtitle: "No support session",
+      title: "Open",
+      tone: "muted" as const,
+      value: 0,
+      valueLabel: "Open"
+    }));
   }
-  return sessions.map((session, index) => ({
-    label: index === 0 ? "Today" : compactDayLabel(session.date, session.label),
-    title: plainWorkoutTitle(session.title, session.family),
-    subtitle: `${session.durationMinutes} min - ${sentenceCase(plainIntensityLabel(session.intensity))}`,
-    tone: toneForIntensity(session.intensity)
-  }));
+  const weekStart = startOfTrainingWeek(seedDate);
+  const sessionsByDate = new Map<string, TrainViewModel["weeklyWorkoutCards"]>();
+  for (const session of viewModel.weeklyWorkoutCards) {
+    sessionsByDate.set(session.date, [...(sessionsByDate.get(session.date) ?? []), session]);
+  }
+  const maxMinutes = Math.max(1, ...viewModel.weeklyWorkoutCards.map((session) => session.durationMinutes));
+  const todayDate = asOfDate ?? viewModel.todayGeneratedSessions[0]?.date ?? seedDate;
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index);
+    const sessions = sessionsByDate.get(date) ?? [];
+    const totalMinutes = sessions.reduce((total, session) => total + session.durationMinutes, 0);
+    const primary = sessions[0];
+    const title = primary ? `${plainWorkoutTitle(primary.title, primary.family)}${sessions.length > 1 ? ` +${sessions.length - 1}` : ""}` : "Open";
+    return {
+      date,
+      faded: date < todayDate,
+      hasSession: Boolean(primary),
+      label: compactDayLabel(date, date.slice(5)),
+      ratio: totalMinutes > 0 ? clamp01(totalMinutes / maxMinutes) : 0.08,
+      subtitle: primary ? `${totalMinutes} min - ${sentenceCase(plainIntensityLabel(primary.intensity))}` : "No support session",
+      title,
+      tone: primary ? toneForIntensity(primary.intensity) : "muted",
+      value: totalMinutes,
+      valueLabel: primary ? `${totalMinutes} min` : "Open"
+    };
+  });
 }
 
 function TrainTonePill({ label, tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
@@ -385,7 +476,7 @@ function TrainMiniBarChart({
   height = 84,
   referenceLabel
 }: {
-  bars: readonly BarVisual[];
+  bars: readonly TrainWeekDayVisual[];
   height?: number | undefined;
   referenceLabel?: string | undefined;
 }) {
@@ -396,15 +487,18 @@ function TrainMiniBarChart({
           const color = trainColorForTone(bar.tone);
           return (
             <View key={`train-bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, gap: spacing.xs, height: "100%", justifyContent: "flex-end", minWidth: 22 }}>
+              <Text numberOfLines={1} style={{ color: bar.hasSession ? trainPalette.textBody : trainPalette.textMuted, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>
+                {bar.valueLabel}
+              </Text>
               <View
                 style={{
-                  backgroundColor: bar.faded ? "transparent" : color,
-                  borderColor: bar.faded ? "rgba(218, 208, 242, 0.24)" : `${color}77`,
+                  backgroundColor: !bar.hasSession || bar.faded ? "transparent" : color,
+                  borderColor: !bar.hasSession || bar.faded ? "rgba(218, 208, 242, 0.24)" : `${color}77`,
                   borderRadius: 8,
-                  borderStyle: bar.faded ? "dashed" : "solid",
-                  borderWidth: bar.faded ? 1 : 0,
+                  borderStyle: !bar.hasSession || bar.faded ? "dashed" : "solid",
+                  borderWidth: !bar.hasSession || bar.faded ? 1 : 0,
                   height: `${Math.max(8, clamp01(bar.ratio) * 100)}%`,
-                  opacity: bar.faded ? 0.48 : 0.9,
+                  opacity: !bar.hasSession ? 0.34 : bar.faded ? 0.48 : 0.9,
                   width: "72%"
                 }}
               />
@@ -420,38 +514,6 @@ function TrainMiniBarChart({
         ))}
       </View>
       {referenceLabel ? <Text style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15, textAlign: "right" }}>{referenceLabel}</Text> : null}
-    </View>
-  );
-}
-
-function TrainTimelineStrip({ items }: { items: readonly TimelineVisual[] }) {
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-      {items.map((item, index) => (
-        <View
-          key={`train-timeline:${item.label}:${index}`}
-          style={{
-            ...glassStyles.tile,
-            backgroundColor: trainTint(item.tone, "15"),
-            borderColor: trainTint(item.tone, "4D"),
-            flexBasis: 148,
-            flexGrow: 1,
-            gap: spacing.xs,
-            minHeight: 82,
-            padding: spacing.md
-          }}
-        >
-          <Text numberOfLines={1} style={{ color: trainColorForTone(item.tone), fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
-            {item.label}
-          </Text>
-          <Text numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>
-            {item.title}
-          </Text>
-          <Text numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>
-            {item.subtitle}
-          </Text>
-        </View>
-      ))}
     </View>
   );
 }
@@ -656,9 +718,20 @@ function BeforeYouStartCard({
     <DashboardCard testID="train-before-start-card" title="Before You Start">
       <View style={{ gap: spacing.sm }}>
         {prepRows(session, card, viewModel).map((row) => (
-          <View key={`prep:${row.label}`} style={{ gap: 2 }}>
-            <Text style={{ color: row.label === "Coach's Note" ? trainColorForTone("gold") : trainPalette.textPrimary, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{row.label}</Text>
-            <Text style={trainTextStyles.subtle}>{row.value}</Text>
+          <View
+            key={`prep:${row.label}`}
+            style={{
+              backgroundColor: trainTint(row.tone, "0E"),
+              borderColor: trainTint(row.tone, "32"),
+              borderRadius: 14,
+              borderWidth: 1,
+              gap: spacing.xs,
+              padding: spacing.md
+            }}
+          >
+            <Text style={{ color: trainColorForTone(row.tone), fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{row.label}</Text>
+            <Text style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{row.value}</Text>
+            {row.detail ? <Text style={trainTextStyles.subtle}>{row.detail}</Text> : null}
           </View>
         ))}
       </View>
@@ -671,7 +744,8 @@ function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quick
   return (
     <View style={{ gap: spacing.md }} testID="train-manual-logger-section">
       <DashboardCard title="Log Other Training">
-        <Text style={trainTextStyles.body}>Add boxing class, roadwork, lifting, or anything you did outside the player.</Text>
+        <Text style={trainTextStyles.body}>Add boxing class, roadwork, lifting, or coach-assigned work outside the player.</Text>
+        <Text style={trainTextStyles.subtle}>Duration and RPE update training load. Rounds and notes help protect future boxing volume, pain decisions, and schedule conflicts.</Text>
         <TrainQuietButton expanded={open} onPress={() => setOpen((value) => !value)}>{open ? "Hide training log" : "Show training log"}</TrainQuietButton>
       </DashboardCard>
       {open ? <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} /> : null}
@@ -679,18 +753,21 @@ function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quick
   );
 }
 
-function WeekContextCard({ viewModel }: { viewModel: TrainViewModel }) {
-  const bars = currentWeekBars(viewModel);
-  const timeline = weeklyTimeline(viewModel);
+function WeekContextCard({ asOfDate, viewModel }: { asOfDate?: ISODateString | undefined; viewModel: TrainViewModel }) {
+  const weekDays = currentWeekDays(viewModel, asOfDate);
   return (
     <DashboardCard testID="train-week-context" title="This Week">
       <Text style={trainTextStyles.body}>Theme: {plainTrainCopy(viewModel.supportGenerationSummary.weekDevelopmentTheme || "keep boxing quality repeatable")}</Text>
-      {bars.length > 1 ? <TrainMiniBarChart bars={bars} height={84} referenceLabel="Minutes" /> : <TrainTimelineStrip items={timeline} />}
+      <TrainMiniBarChart bars={weekDays} height={86} referenceLabel="7-day support view" />
       <View style={{ gap: spacing.xs }}>
-        {timeline.slice(0, 5).map((item, index) => (
-          <Text key={`train-week-session:${index}:${item.title}`} style={trainTextStyles.subtle}>
-            {item.label}: {item.title}
-          </Text>
+        {weekDays.map((item) => (
+          <View key={`train-week-session:${item.date}:${item.label}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
+            <Text style={{ color: trainColorForTone(item.tone), fontSize: 11, fontWeight: "900", lineHeight: 15, width: 34 }}>{item.label}</Text>
+            <Text numberOfLines={1} style={{ color: item.hasSession ? trainPalette.textPrimary : trainPalette.textMuted, flex: 1, fontSize: 12, fontWeight: item.hasSession ? "800" : "700", lineHeight: 16 }}>
+              {item.title}
+            </Text>
+            <Text numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>{item.subtitle}</Text>
+          </View>
         ))}
       </View>
     </DashboardCard>
@@ -699,6 +776,7 @@ function WeekContextCard({ viewModel }: { viewModel: TrainViewModel }) {
 
 export function TrainScreen({
   activeWorkout,
+  asOfDate,
   busy,
   completionActions,
   completionMessage,
@@ -851,7 +929,7 @@ export function TrainScreen({
       ) : (
         <EmptyState title="No player workout today" message={plainTrainCopy(viewModel.todaySummary)} />
       )}
-      <WeekContextCard viewModel={viewModel} />
+      <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
       {viewModel.cycleTrainingDecision.status !== "none" ? (
         <DashboardCard title="Cycle context">
           <Text style={trainTextStyles.body}>{plainTrainCopy(viewModel.cycleTrainingDecision.summary)}</Text>

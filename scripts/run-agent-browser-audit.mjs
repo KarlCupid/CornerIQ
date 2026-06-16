@@ -8,6 +8,7 @@ const playwrightArtifactRoot = join(process.cwd(), "qa-artifacts", "playwright")
 rmSync(artifactRoot, { recursive: true, force: true });
 rmSync(playwrightArtifactRoot, { recursive: true, force: true });
 mkdirSync(artifactRoot, { recursive: true });
+mkdirSync(playwrightArtifactRoot, { recursive: true });
 
 const port = process.env.CORNERIQ_AGENT_QA_PORT ?? "8099";
 const baseUrl = `http://127.0.0.1:${port}`;

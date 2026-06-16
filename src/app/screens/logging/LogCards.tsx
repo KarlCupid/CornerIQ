@@ -57,6 +57,15 @@ function QuickLogHelp() {
   return <Text style={screenStyles.subtle}>Log enough for today. Optional fields can stay blank; missed logs stay unknown.</Text>;
 }
 
+function EngineUseRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flexBasis: 142, flexGrow: 1, gap: 2 }}>
+      <Text style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>{label}</Text>
+      <Text style={screenStyles.subtle}>{value}</Text>
+    </View>
+  );
+}
+
 function DailyLogFrame({
   busy,
   children,
@@ -639,7 +648,24 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
         <Text style={screenStyles.sectionTitle}>Training log</Text>
-        <Text style={screenStyles.subtle}>Log enough for today. Completed sessions are history; planned sessions are fixed boxing commitments.</Text>
+        <Text style={screenStyles.body}>Log the signals CornerIQ can use. Completed sessions update history; planned sessions become fixed boxing commitments.</Text>
+        <View
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+            borderColor: "rgba(255, 255, 255, 0.14)",
+            borderRadius: radii.tile,
+            borderWidth: 1,
+            gap: spacing.sm,
+            padding: spacing.md
+          }}
+        >
+          <Text style={{ color: colors.canvas, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>What affects the engine</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            <EngineUseRow label="Duration + RPE" value="Training load and intensity." />
+            <EngineUseRow label="Rounds" value="Boxing volume context." />
+            <EngineUseRow label="Notes" value="Pain, quality, missed work, or why plans changed." />
+          </View>
+        </View>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <InputLabel>Log type</InputLabel>
@@ -660,10 +686,10 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
           <Text style={screenStyles.subtle}>Use RPE instead of easy/moderate/hard labels: 1-3 easy, 4-6 moderate, 7-8 hard, 9-10 max.</Text>
           <TextInput keyboardType="number-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
         </View>
-        <InputLabel>Rounds (optional)</InputLabel>
+        <InputLabel>Rounds completed or planned (optional)</InputLabel>
         <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rounds} />
-        <InputLabel>Note (optional)</InputLabel>
-        <TextInput onChangeText={setNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={note} />
+        <InputLabel>Note: pain, quality, missed work, or schedule context (optional)</InputLabel>
+        <TextInput onChangeText={setNote} placeholder="Pain, quality, missed work, or reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={note} />
         <Pressable
           accessibilityLabel={busy ? "Saving training log" : logKind === "completed" ? "Log completed session" : "Save planned session"}
           accessibilityRole="button"

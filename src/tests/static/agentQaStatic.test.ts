@@ -327,7 +327,9 @@ describe("agent browser QA static checks", () => {
       "fuel-overview",
       "train-today-plan-card",
       "train-quick-stats",
-      "plan-visual-dashboard",
+      "plan-roadmap",
+      "plan-this-weeks-plan-card",
+      "plan-detail-rows",
       "profile-safety-section",
       "profile-data-section"
     ]) {
@@ -345,7 +347,7 @@ describe("agent browser QA static checks", () => {
     expect(panel).not.toMatch(/key=\{(?:summary|decision|event|flag|item)\}/);
     expect(panel).toContain("progression-decision");
     expect(plan).toContain("week-detail:${day.date}");
-    expect(plan).toContain("plan-structure:${day.day}");
+    expect(plan).toContain("plan-week-day:${day.date}");
     expect(scenario).toContain("Encountered two children with the same key");
   });
 

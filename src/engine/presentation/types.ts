@@ -862,10 +862,52 @@ export interface ProfileCommandCenterViewModel {
   metrics: readonly ProfileMetricViewModel[];
 }
 
+export interface ProfileAthleteSetupViewModel {
+  contextLabel: string;
+  explanation: string;
+  primaryActionLabel: string;
+  statusLabel: "Ready" | "Needs details" | "Review needed";
+  statusTone: ProfileVisualTone;
+  summaryLines: readonly string[];
+}
+
+export interface ProfileSetupFactViewModel {
+  label: string;
+  tone: ProfileVisualTone;
+  value: string;
+}
+
+export interface ProfileAppInputViewModel {
+  detail: string;
+  label: string;
+  tone: ProfileVisualTone;
+}
+
+export interface ProfileHealthWarningViewModel {
+  active: boolean;
+  detail: string;
+  statusLabel: "Ready" | "Review needed";
+  summary: string;
+  title: string;
+  tone: ProfileVisualTone;
+}
+
+export interface ProfileHealthSafetyItemViewModel {
+  detail: string;
+  label: string;
+  tone: ProfileVisualTone;
+  value: string;
+}
+
 export interface ProfileViewModel {
   title: string;
   topAction: TopActionViewModel;
   summary: string;
+  athleteSetup: ProfileAthleteSetupViewModel;
+  keySetup: readonly ProfileSetupFactViewModel[];
+  appInputs: readonly ProfileAppInputViewModel[];
+  healthWarning: ProfileHealthWarningViewModel;
+  healthSafetyItems: readonly ProfileHealthSafetyItemViewModel[];
   identity: ProfileIdentityViewModel;
   commandCenter: ProfileCommandCenterViewModel;
   dataConstellation: readonly ProfileSignalViewModel[];
