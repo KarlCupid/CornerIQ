@@ -27,11 +27,15 @@ const activeSurfaceTestIds = [
   "today-training-decision-meter",
   "today-manual-actions",
   "today-screen",
-  "fuel-visual-dashboard",
-  "fuel-macro-summary",
-  "fuel-meal-distribution",
+  "fuel-overview",
+  "fuel-today-plan-card",
+  "fuel-key-numbers",
+  "fuel-do-not-miss-card",
+  "fuel-training-today-card",
+  "fuel-weight-trend-card",
+  "fuel-detail-rows",
+  "fuel-status-strip",
   "fuel-food-status-card",
-  "fuel-reviews-section",
   "fuel-screen",
   "train-overview-card",
   "train-workout-section",
@@ -519,32 +523,32 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Today's fuel");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Status");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Protein");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Carbs");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Fat");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Water");
-  await expect(page.getByTestId("fuel-macro-summary")).toContainText("Target");
-  await expect(page.getByTestId("fuel-visual-dashboard")).toContainText("Show fuel detail");
-  await expect(page.getByTestId("fuel-visual-dashboard")).not.toContainText("Meal distribution");
-  await expect(page.getByTestId("fuel-visual-dashboard")).not.toContainText("Today's recommendation");
+  await expect(page.getByTestId("fuel-overview")).toContainText("Today's Fuel Plan");
+  await expect(page.getByTestId("fuel-overview")).toContainText("Morning weight");
+  await expect(page.getByTestId("fuel-overview")).toContainText("To weight");
+  await expect(page.getByTestId("fuel-overview")).toContainText("Do Not Miss Today");
+  await expect(page.getByTestId("fuel-overview")).toContainText("Training Today");
+  await expect(page.getByTestId("fuel-overview")).toContainText("Weight Trend");
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Food details");
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Weigh-in plan");
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Health checks");
+  await expect(page.getByTestId("fuel-overview")).not.toContainText("Calorie target");
+  await expect(page.getByTestId("fuel-overview")).not.toContainText("Today's recommendation");
   await expect(page.getByRole("button", { name: "Show Food guide" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Show More fuel info" })).toHaveCount(0);
   await expect(page.getByTestId("fuel-food-status-card")).toHaveCount(0);
   await expect(page.getByTestId("fuel-log-action-section")).toHaveCount(0);
   await expectVisibleText(page, "Log meal");
   await expectVisibleText(page, "Add water");
-  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-visual-dashboard"));
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-overview"));
   await capture(page, testInfo, "Fuel screen", "12-fuel-screen.png", { scopeTestId: "fuel-screen" });
 
-  await page.getByRole("button", { name: "Show fuel detail" }).click();
-  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Hydration");
-  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Sodium");
-  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Meal distribution");
-  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Body weight and fueling trend");
-  await expect(page.getByTestId("fuel-detail-dashboard")).toContainText("Recovery support");
-  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-detail-dashboard"));
+  await page.getByRole("button", { name: /Food details/ }).click();
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Calories:");
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Protein/carbs/fat:");
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Logged meals:");
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Water:");
+  expectNoUnsafeWeightCutLanguage(await visiblePageText(page, "fuel-detail-rows"));
 
   await page.getByRole("button", { name: "Log meal" }).click();
   await expect(page.getByTestId("fuel-log-action-section")).toBeVisible();
@@ -580,7 +584,7 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
 async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Profile");
-  await expectVisibleText(page, "Boxer profile");
+  await expect(page.getByTestId("profile-screen")).toContainText("Your Journey, Your Legacy.");
   await expect(page.getByTestId("profile-top-action-card")).toContainText("Profile action");
   await expect(page.getByTestId("profile-top-action-card")).toContainText("Use Profile for boxer settings");
   await expect(page.getByTestId("profile-top-action-card")).toContainText("manual input remains enough");
@@ -732,7 +736,7 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Data controls");
   await expectVisibleText(page, "Preview your app data before export or delete. Delete requires DELETE.");
   await expectVisibleText(page, /Delete app data removes user-owned app rows only/);
-  await expectVisibleText(page, /Delete account removes app data and deletes the sign-in identity/);
+  await expectVisibleText(page, /Delete account uses the trusted server-side account deletion function/);
   await expectVisibleText(page, "Privacy Policy");
   await expectVisibleText(page, "Open Privacy Policy");
   await expect(page.getByRole("button", { name: "Delete app data" })).toHaveCount(0);
@@ -897,7 +901,7 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Safety screening");
   await expectVisibleText(page, /Missing safety data stays unknown\./);
   await expectVisibleText(page, "Age");
-  await expectVisibleText(page, /Used for age-based safety rules\./);
+  await expectVisibleText(page, /MVP setup is available for athletes 18 or older\./);
   await expectVisibleText(page, "Sex at birth");
   await page.getByLabel("Age").fill("27");
   await page.getByRole("button", { name: "male", exact: true }).click();

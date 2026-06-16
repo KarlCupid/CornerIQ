@@ -313,7 +313,7 @@ describe("agent browser QA static checks", () => {
     expect(scenario).toContain("document.body");
     for (const scope of [
       "today-screen",
-      "fuel-visual-dashboard",
+      "fuel-overview",
       "train-overview-card",
       "plan-visual-dashboard",
       "profile-safety-section",

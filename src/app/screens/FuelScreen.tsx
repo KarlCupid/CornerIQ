@@ -1,26 +1,17 @@
 import React from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
 import type { FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
-import { PrimaryTaskCard, type FastTaskAction } from "../../design/components/FastTask";
-import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
-import {
-  DashboardCard,
-  DashboardPill,
-  MiniBarChart,
-  ProgressMeter,
-  RangeGauge,
-  TrendLineChart
-} from "../../design/components/PerformanceVisuals";
+import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
+import { DashboardPill, TrendLineChart } from "../../design/components/PerformanceVisuals";
 import { colors, radii, spacing } from "../../design/theme";
-import { buildFuelDashboardVisual, type FuelDashboardVisual, type ModifierVisual, type ProgressVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
-import { compactFuelCopy, plainFuelCopy } from "../../engine/presentation/fuelCopy";
-import { buildFuelReferencePanelViewModel } from "../../engine/presentation/referencePanelViewModel";
+import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
-import { FuelReferencePanel } from "./reference/TabReferencePanels";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
 
@@ -37,8 +28,13 @@ export interface FuelScreenProps {
 
 export type FuelFocusIntent = "action" | "log_food" | "log_hydration" | "safety_review";
 
-function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple" | "gold" | "red" {
-  return tone === "muted" ? "blue" : tone;
+type FuelPlanLabel = "No active cut" | "On pace" | "Tight" | "Behind pace" | "Too aggressive" | "Pause cut";
+
+interface FuelPlanStatus {
+  action: string;
+  label: FuelPlanLabel;
+  sentence: string;
+  tone: VisualTone;
 }
 
 function colorForTone(tone: VisualTone): string {
@@ -61,9 +57,636 @@ function colorForTone(tone: VisualTone): string {
   }
 }
 
-function progressWidth(ratio: number): `${number}%` {
-  const clamped = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
-  return `${Math.max(5, clamped * 100)}%` as `${number}%`;
+function firstNumber(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const match = value.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+  if (!match) {
+    return null;
+  }
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function titleCaseStatus(value: string): string {
+  return value
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function planStatusFromFuel(viewModel: FuelViewModel, warningActive: boolean): FuelPlanStatus {
+  if (warningActive || viewModel.underFuelingRisk) {
+    return {
+      action: "Eat normally today. Hydrate normally. Do not cut harder.",
+      label: "Pause cut",
+      sentence: viewModel.underFuelingRisk
+        ? "Your body is not showing enough recovery to keep pushing weight."
+        : "A cut warning is active, so weight pressure pauses today.",
+      tone: "red"
+    };
+  }
+
+  switch (viewModel.weightClassStatus.status) {
+    case "no_active_weight_target":
+      return {
+        action: "Train normally. Keep food and fluids steady.",
+        label: "No active cut",
+        sentence: "No fight weight target is active today.",
+        tone: "muted"
+      };
+    case "on_track":
+    case "ahead":
+      return {
+        action: "Do the planned boxing. Eat before training.",
+        label: "On pace",
+        sentence: "Your weight is moving at a reasonable pace.",
+        tone: "green"
+      };
+    case "behind":
+      return {
+        action: "Do the planned boxing. Do not add bonus work just to chase weight.",
+        label: "Behind pace",
+        sentence: "The scale is not moving fast enough for the current date.",
+        tone: "orange"
+      };
+    case "unsafe":
+      return {
+        action: "Pause weight pressure and review the plan.",
+        label: "Too aggressive",
+        sentence: "Making this weight from here may cost performance.",
+        tone: "red"
+      };
+    case "blocked":
+    case "needs_review":
+      return {
+        action: "Pause weight pressure and review the plan.",
+        label: "Too aggressive",
+        sentence: "This cut needs outside support before weight pressure continues.",
+        tone: "red"
+      };
+    case "cycle_noisy":
+      return {
+        action: "Keep meals predictable. No extra conditioning.",
+        label: "Tight",
+        sentence: "The scale may be noisy today, so use the trend before reacting.",
+        tone: "orange"
+      };
+    case "unknown":
+    default:
+      return {
+        action: "Log morning weight if useful. Do not guess the cut is safe.",
+        label: "Tight",
+        sentence: "The trend is unclear because key weight data is missing.",
+        tone: "orange"
+      };
+  }
+}
+
+function trainingTodayCopy(viewModel: FuelViewModel, plan: FuelPlanStatus): string {
+  if (plan.label === "Pause cut") {
+    return "Make today a recovery day.";
+  }
+  if (plan.label === "Too aggressive") {
+    return "Short session only.";
+  }
+  if (plan.label === "Behind pace") {
+    return "Do the planned boxing. Do not add bonus work just to chase weight.";
+  }
+  if (plan.label === "Tight") {
+    return "Do the planned boxing. Skip extra conditioning.";
+  }
+  if (viewModel.trainingDemandHandoff.todayTrainingDemand === "high") {
+    return "Do the planned boxing. Eat before training.";
+  }
+  return plan.label === "No active cut" ? "Train normally." : "Do the planned boxing.";
+}
+
+function weightLabel(viewModel: FuelViewModel): string {
+  const latest = viewModel.weightClassStatus.latestBodyMassKg;
+  if (latest !== null) {
+    return `${latest.toFixed(1)} kg`;
+  }
+  return viewModel.bodyMassTrajectory.latestWeight.replace(/^Latest:\s*/i, "") || "Unknown";
+}
+
+function toWeightLabel(dashboard: FuelDashboardVisual, viewModel: FuelViewModel): string {
+  if (viewModel.weightClassStatus.status === "no_active_weight_target") {
+    return "No target";
+  }
+  const current = dashboard.bodyMassRange.current;
+  const target = dashboard.bodyMassRange.target;
+  if (current === null || target === null) {
+    return "Unknown";
+  }
+  const delta = current - target;
+  if (Math.abs(delta) < 0.05) {
+    return "At class";
+  }
+  return delta > 0 ? `${delta.toFixed(1)} kg over` : `${Math.abs(delta).toFixed(1)} kg under`;
+}
+
+function weighInLabel(viewModel: FuelViewModel): string {
+  if (viewModel.weightClassStatus.status === "no_active_weight_target") {
+    return "No date";
+  }
+  const days = firstNumber(viewModel.bodyMassTrajectory.daysToWeighIn);
+  if (days === null) {
+    return "Unknown";
+  }
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+function bodyCheck(viewModel: FuelViewModel, warningActive: boolean): { tone: VisualTone; value: string } {
+  if (warningActive) {
+    return { tone: "red", value: "Cut warning" };
+  }
+  if (viewModel.underFuelingRisk || viewModel.riskSummary.length > 0 || viewModel.weightClassStatus.safetyFlags.length > 0) {
+    return { tone: "orange", value: "Caution" };
+  }
+  if (viewModel.weightClassStatus.status === "unknown") {
+    return { tone: "orange", value: "Unknown" };
+  }
+  return { tone: "green", value: "Clear" };
+}
+
+function trendInterpretation(viewModel: FuelViewModel, plan: FuelPlanStatus, dashboard: FuelDashboardVisual): { label: string; sentence: string; tone: VisualTone } {
+  if (dashboard.bodyMass.points.length === 0) {
+    return { label: "Trend unclear", sentence: "Trend unclear - log more morning weights.", tone: "orange" };
+  }
+  if (plan.label === "Pause cut" || plan.label === "Too aggressive") {
+    return { label: "Cut is getting risky", sentence: "The weight trend needs review before pushing harder.", tone: "red" };
+  }
+  if (plan.label === "Behind pace") {
+    return { label: "Slightly above pace", sentence: "You are slightly above the pace needed for this weigh-in.", tone: "orange" };
+  }
+  if (plan.label === "Tight") {
+    return { label: "Trend unclear", sentence: plainFuelCopy(viewModel.bodyMassTrajectory.trend), tone: "orange" };
+  }
+  return {
+    label: "Moving well",
+    sentence: viewModel.weightClassStatus.status === "no_active_weight_target"
+      ? "Your recent weight trend is context, not a cut instruction."
+      : "Your 7-day average is still moving toward the class.",
+    tone: "green"
+  };
+}
+
+function guideValue(dashboard: FuelDashboardVisual, label: RegExp): string {
+  return dashboard.todayGuide.find((item) => label.test(item.label))?.valueLabel ?? "Guide";
+}
+
+function FuelActionButtons({
+  busy,
+  onLogFood,
+  onLogHydration,
+  primaryLog
+}: {
+  busy: boolean;
+  onLogFood: () => void;
+  onLogHydration: () => void;
+  primaryLog: "food" | "water";
+}) {
+  const primary = primaryLog === "water"
+    ? { label: "Add water", onPress: onLogHydration, summary: "Fast log" }
+    : { label: "Log meal", onPress: onLogFood, summary: "Optional" };
+  const secondary = primaryLog === "water"
+    ? { label: "Log meal", onPress: onLogFood, summary: "If useful" }
+    : { label: "Add water", onPress: onLogHydration, summary: "Fast log" };
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+      {[primary, secondary].map((action, index) => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          key={`fuel-plan-action:${action.label}`}
+          onPress={action.onPress}
+          style={[index === 0 ? screenStyles.button : screenStyles.quietButton, { flexBasis: 142, flexGrow: 1 }]}
+        >
+          <Text style={index === 0 ? screenStyles.buttonText : screenStyles.quietButtonText}>{action.label}</Text>
+          <Text style={[screenStyles.subtle, { color: index === 0 ? colors.cornerBlack : colors.mutedText, fontSize: 11, lineHeight: 15 }]}>{action.summary}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function TodayFuelPlanCard({
+  busy,
+  onLogFood,
+  onLogHydration,
+  plan,
+  primaryLog
+}: {
+  busy: boolean;
+  onLogFood: () => void;
+  onLogHydration: () => void;
+  plan: FuelPlanStatus;
+  primaryLog: "food" | "water";
+}) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-today-plan-card">
+        <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flexBasis: 260, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ ...screenStyles.sectionTitle, fontSize: 20, lineHeight: 25 }}>Today's Fuel Plan</Text>
+            <Text style={screenStyles.body}>{plan.sentence}</Text>
+          </View>
+          <DashboardPill label={plan.label} tone={plan.tone} />
+        </View>
+        <View
+          style={{
+            backgroundColor: `${colorForTone(plan.tone)}14`,
+            borderColor: `${colorForTone(plan.tone)}55`,
+            borderCurve: "continuous",
+            borderRadius: radii.tile,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+        >
+          <Text style={{ color: colorForTone(plan.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+            Today
+          </Text>
+          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{plan.action}</Text>
+        </View>
+        <FuelActionButtons busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} primaryLog={primaryLog} />
+      </View>
+    </EngineCard>
+  );
+}
+
+function FuelMetricTile({
+  label,
+  tone = "muted",
+  value
+}: {
+  label: string;
+  tone?: VisualTone | undefined;
+  value: string;
+}) {
+  const color = colorForTone(tone);
+  return (
+    <View
+      style={{
+        backgroundColor: "rgba(255, 255, 255, 0.055)",
+        borderColor: "rgba(255, 255, 255, 0.12)",
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexBasis: 132,
+        flexGrow: 1,
+        gap: spacing.xs,
+        minHeight: 82,
+        padding: spacing.md
+      }}
+    >
+      <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={2} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 25 }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function FuelKeyNumbersCard({
+  dashboard,
+  viewModel,
+  warningActive
+}: {
+  dashboard: FuelDashboardVisual;
+  viewModel: FuelViewModel;
+  warningActive: boolean;
+}) {
+  const check = bodyCheck(viewModel, warningActive);
+  return (
+    <EngineCard>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="fuel-key-numbers">
+        <FuelMetricTile label="Morning weight" value={weightLabel(viewModel)} />
+        <FuelMetricTile label="To weight" tone="orange" value={toWeightLabel(dashboard, viewModel)} />
+        <FuelMetricTile label="Weigh-in" value={weighInLabel(viewModel)} />
+        <FuelMetricTile label="Body check" tone={check.tone} value={check.value} />
+      </View>
+    </EngineCard>
+  );
+}
+
+function PriorityRow({
+  icon,
+  label,
+  meta,
+  title,
+  tone
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  meta: string;
+  title: string;
+  tone: VisualTone;
+}) {
+  const color = colorForTone(tone);
+  return (
+    <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 50 }}>
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: `${color}1F`,
+          borderColor: `${color}55`,
+          borderRadius: radii.pill,
+          borderWidth: 1,
+          height: 36,
+          justifyContent: "center",
+          width: 36
+        }}
+      >
+        <Ionicons color={color} name={icon} size={18} />
+      </View>
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}: {title}</Text>
+        <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{meta}</Text>
+      </View>
+    </View>
+  );
+}
+
+function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="fuel-do-not-miss-card">
+        <Text style={screenStyles.sectionTitle}>Do Not Miss Today</Text>
+        <PriorityRow icon="flash-outline" label="Before training" meta={guideValue(dashboard, /carb/i)} title="carbs" tone="orange" />
+        <PriorityRow icon="restaurant-outline" label="After training" meta={guideValue(dashboard, /protein/i)} title="protein + meal" tone="purple" />
+        <PriorityRow icon="water-outline" label="Fluids" meta={`${dashboard.hydration.targetLabel} guide`} title="water + electrolytes" tone="blue" />
+      </View>
+    </EngineCard>
+  );
+}
+
+function TrainingTodayCard({
+  plan,
+  trainingCopy,
+  viewModel
+}: {
+  plan: FuelPlanStatus;
+  trainingCopy: string;
+  viewModel: FuelViewModel;
+}) {
+  const tier = titleCaseStatus(viewModel.trainingDemandHandoff.todayTrainingDemand);
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="fuel-training-today-card">
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <Text style={screenStyles.sectionTitle}>Training Today</Text>
+          <DashboardPill label={tier} tone={plan.tone === "red" ? "red" : viewModel.trainingDemandHandoff.todayTrainingDemand === "high" ? "orange" : "blue"} />
+        </View>
+        <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{trainingCopy}</Text>
+        <Text style={screenStyles.subtle}>Training stays performance-aware. Do not add extra work just to chase the scale.</Text>
+      </View>
+    </EngineCard>
+  );
+}
+
+function WeightTrendCard({
+  dashboard,
+  plan,
+  viewModel
+}: {
+  dashboard: FuelDashboardVisual;
+  plan: FuelPlanStatus;
+  viewModel: FuelViewModel;
+}) {
+  const trend = trendInterpretation(viewModel, plan, dashboard);
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-weight-trend-card">
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <Text style={screenStyles.sectionTitle}>Weight Trend</Text>
+          <DashboardPill label={trend.label} tone={trend.tone} />
+        </View>
+        <TrendLineChart accent={trend.tone} height={92} points={dashboard.bodyMass.points} testID="fuel-weight-trend-chart" width={280} />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <FuelMetricTile label="7-day read" tone={dashboard.bodyMass.tone} value={dashboard.bodyMass.deltaLabel} />
+          <FuelMetricTile label="Needed pace" tone={plan.tone} value={plan.label} />
+        </View>
+        <Text style={screenStyles.body}>{trend.sentence}</Text>
+      </View>
+    </EngineCard>
+  );
+}
+
+function detailRowsFromItems(items: readonly string[], fallback: string): readonly string[] {
+  return items.length > 0 ? items : [fallback];
+}
+
+function fuelSurfaceCopy(value: string): string {
+  return plainFuelCopy(value)
+    .replace(/\bsafety stops\b/gi, "cut warnings")
+    .replace(/\bsafety stop\b/gi, "cut warning");
+}
+
+function FuelDetailRow({
+  children,
+  defaultOpen = false,
+  icon,
+  status,
+  title,
+  tone = "muted"
+}: React.PropsWithChildren<{
+  defaultOpen?: boolean | undefined;
+  icon: keyof typeof Ionicons.glyphMap;
+  status: string;
+  title: string;
+  tone?: VisualTone | undefined;
+}>) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  React.useEffect(() => {
+    if (defaultOpen) {
+      setOpen(true);
+    }
+  }, [defaultOpen]);
+  const color = colorForTone(tone);
+  return (
+    <EngineCard>
+      <View style={{ gap: open ? spacing.md : 0 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          onPress={() => setOpen((value) => !value)}
+          style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 56 }}
+        >
+          <View
+            style={{
+              alignItems: "center",
+              backgroundColor: `${color}18`,
+              borderColor: `${color}4D`,
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              height: 38,
+              justifyContent: "center",
+              width: 38
+            }}
+          >
+            <Ionicons color={color} name={icon} size={18} />
+          </View>
+          <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
+            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{status}</Text>
+          </View>
+          <Ionicons color={colors.wrap} name={open ? "chevron-up" : "chevron-down"} size={18} />
+        </Pressable>
+        {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
+      </View>
+    </EngineCard>
+  );
+}
+
+function DetailLine({ text, tone = "subtle" }: { text: string; tone?: "body" | "subtle" | "callout" | undefined }) {
+  return <Text style={screenStyles[tone]}>{fuelSurfaceCopy(text)}</Text>;
+}
+
+function FoodDetailsContent({ dashboard, viewModel }: { dashboard: FuelDashboardVisual; viewModel: FuelViewModel }) {
+  const foodRows: readonly string[] = [
+    `Calories: ${viewModel.calorieSummary}`,
+    `Protein/carbs/fat: ${viewModel.macroSummary}`,
+    `Logged meals: ${viewModel.foodLogStatus.entryCount}`,
+    viewModel.actualIntakeSummary.summary,
+    `Water: ${dashboard.hydration.valueLabel} of ${dashboard.hydration.targetLabel}`
+  ];
+  return (
+    <>
+      {foodRows.map((item, index) => <DetailLine key={`fuel-food-detail:${index}`} text={item} />)}
+    </>
+  );
+}
+
+function WeighInPlanContent({ viewModel }: { viewModel: FuelViewModel }) {
+  const rows = [
+    viewModel.bodyMassTrajectory.target,
+    viewModel.bodyMassTrajectory.weighInCountdown,
+    viewModel.fightWeekFuelPlan.carbohydrateGuidance,
+    viewModel.fightWeekFuelPlan.hydrationGuidance,
+    ...(viewModel.rehydrationPlan ? [viewModel.rehydrationPlan.summary, ...viewModel.rehydrationPlan.actions.slice(0, 3)] : []),
+    ...(viewModel.tournamentFuel ? [viewModel.tournamentFuel.summary, ...viewModel.tournamentFuel.actions.slice(0, 2)] : [])
+  ];
+  return (
+    <>
+      {detailRowsFromItems(rows.map(fuelSurfaceCopy), "No weigh-in plan is active today.").slice(0, 7).map((item, index) => (
+        <DetailLine key={`fuel-weigh-in-detail:${index}`} text={item} />
+      ))}
+    </>
+  );
+}
+
+function HealthChecksContent({
+  message,
+  onAcknowledgeNutritionSafetyReview,
+  viewModel,
+  warningActive
+}: {
+  message: string | null;
+  onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  viewModel: FuelViewModel;
+  warningActive: boolean;
+}) {
+  return (
+    <View style={{ gap: spacing.md }} testID="fuel-health-checks-content">
+      {warningActive ? (
+        <>
+          <NutritionSafetyReviewCard
+            activeReviews={viewModel.activeNutritionSafetyReviews}
+            onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
+            review={viewModel.nutritionSafetyReview}
+          />
+          <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
+        </>
+      ) : null}
+      {viewModel.underFuelingRisk ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={[screenStyles.callout, { color: colors.amberCaution }]}>{viewModel.underFuelingRisk.title}</Text>
+          <DetailLine text={viewModel.underFuelingRisk.summary} tone="body" />
+          {viewModel.underFuelingRisk.actions.map((item, index) => <DetailLine key={`fuel-under-risk:${index}`} text={item} />)}
+        </View>
+      ) : null}
+      {viewModel.riskSummary.length > 0 ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.callout}>Health warning</Text>
+          {viewModel.riskSummary.slice(0, 4).map((risk, index) => <DetailLine key={`fuel-risk:${index}`} text={risk} tone="body" />)}
+        </View>
+      ) : null}
+      <DetailLine text={viewModel.hydrationSummary} />
+      <DetailLine text={viewModel.bodyMassTrajectory.riskExplanation} />
+      {message ? <DetailLine text={message} tone="callout" /> : null}
+      {!warningActive && !viewModel.underFuelingRisk && viewModel.riskSummary.length === 0 ? <DetailLine text="No health warnings logged today." tone="body" /> : null}
+    </View>
+  );
+}
+
+function FuelCollapsedDetails({
+  dashboard,
+  message,
+  onAcknowledgeNutritionSafetyReview,
+  viewModel,
+  warningActive
+}: {
+  dashboard: FuelDashboardVisual;
+  message: string | null;
+  onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  viewModel: FuelViewModel;
+  warningActive: boolean;
+}) {
+  const foodStatus = viewModel.foodLogStatus.entryCount > 0 ? `${viewModel.foodLogStatus.entryCount} logged` : "Food stays unknown until logged";
+  const healthStatus = warningActive ? "Cut warning active" : viewModel.riskSummary.length > 0 || viewModel.underFuelingRisk ? "Caution" : "No health warnings";
+  return (
+    <View style={{ gap: spacing.sm }} testID="fuel-detail-rows">
+      <FuelDetailRow icon="restaurant-outline" status={foodStatus} title="Food details" tone="orange">
+        <FoodDetailsContent dashboard={dashboard} viewModel={viewModel} />
+      </FuelDetailRow>
+      <FuelDetailRow icon="calendar-outline" status={viewModel.bodyMassTrajectory.daysToWeighIn} title="Weigh-in plan" tone="gold">
+        <WeighInPlanContent viewModel={viewModel} />
+      </FuelDetailRow>
+      <FuelDetailRow defaultOpen={warningActive} icon="shield-checkmark-outline" status={healthStatus} title="Health checks" tone={warningActive ? "red" : "green"}>
+        <HealthChecksContent
+          message={message}
+          onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+          viewModel={viewModel}
+          warningActive={warningActive}
+        />
+      </FuelDetailRow>
+    </View>
+  );
+}
+
+function FuelStatusStrip({
+  message,
+  warningActive
+}: {
+  message: string | null;
+  warningActive: boolean;
+}) {
+  const theme = useLuminousScreenTheme();
+  const tone: VisualTone = warningActive ? "red" : message ? "orange" : "green";
+  const color = colorForTone(tone);
+  const text = warningActive ? "Cut paused. Eat and hydrate normally today." : message ?? "No cut warnings today.";
+  return (
+    <View
+      style={{
+        backgroundColor: warningActive ? "rgba(255, 82, 101, 0.105)" : theme.tile,
+        borderColor: `${color}55`,
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      }}
+      testID="fuel-status-strip"
+    >
+      <Text style={{ color, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{text}</Text>
+    </View>
+  );
 }
 
 function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quickLogs: QuickLogActions; viewModel: FuelViewModel }) {
@@ -153,328 +776,46 @@ function FuelLogActionSection({
   );
 }
 
-function FuelRiskCard({ message, viewModel }: { message: string | null; viewModel: FuelViewModel }) {
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={screenStyles.sectionTitle}>Fuel safety</Text>
-        {viewModel.riskSummary.length > 0 ? viewModel.riskSummary.map((risk, index) => <Text key={`fuel-risk:${index}`} style={screenStyles.body}>{plainFuelCopy(risk)}</Text>) : <Text style={screenStyles.body}>No active fuel risk.</Text>}
-        <Text style={screenStyles.subtle}>{plainFuelCopy(viewModel.why)}</Text>
-        {message ? <Text style={screenStyles.subtle}>{message}</Text> : null}
-      </View>
-    </EngineCard>
-  );
-}
-
-function FuelSafetyReviewSection({
+function FuelOverview({
+  busy,
+  dashboard,
   message,
   onAcknowledgeNutritionSafetyReview,
-  viewModel
+  onLogFood,
+  onLogHydration,
+  plan,
+  primaryLog,
+  trainingCopy,
+  viewModel,
+  warningActive
 }: {
+  busy: boolean;
+  dashboard: FuelDashboardVisual;
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  onLogFood: () => void;
+  onLogHydration: () => void;
+  plan: FuelPlanStatus;
+  primaryLog: "food" | "water";
+  trainingCopy: string;
   viewModel: FuelViewModel;
+  warningActive: boolean;
 }) {
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.lg }} testID="fuel-reviews-section">
-        <View style={{ gap: spacing.xs }}>
-          <Text style={[screenStyles.sectionTitle, { color: colors.redCorner }]}>Safety stop</Text>
-          <Text style={screenStyles.body}>Safety is active. Keep regular food and fluids steady, and use medical or nutrition support outside the app.</Text>
-        </View>
-      <NutritionSafetyReviewCard
-        activeReviews={viewModel.activeNutritionSafetyReviews}
-        onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
-        review={viewModel.nutritionSafetyReview}
+    <View style={{ gap: spacing.md }} testID="fuel-overview">
+      <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
+      <FuelKeyNumbersCard dashboard={dashboard} viewModel={viewModel} warningActive={warningActive} />
+      <DoNotMissTodayCard dashboard={dashboard} />
+      <TrainingTodayCard plan={plan} trainingCopy={trainingCopy} viewModel={viewModel} />
+      <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} />
+      <FuelCollapsedDetails
+        dashboard={dashboard}
+        message={message}
+        onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+        viewModel={viewModel}
+        warningActive={warningActive}
       />
-      <NutritionReviewHistoryPanel history={viewModel.nutritionReviewHistory} />
-      <FuelRiskCard message={message} viewModel={viewModel} />
-      </View>
-    </EngineCard>
-  );
-}
-
-function helperForProgress(item: ProgressVisual, dashboard: FuelDashboardVisual): string {
-  const guide = dashboard.todayGuide.find((target) =>
-    target.label === item.label || (/hydration/i.test(item.label) && target.label === "Water")
-  );
-  return guide?.helperLabel ?? item.stateLabel ?? "Today";
-}
-
-function FuelProgressTile({ helper, item }: { helper: string; item: ProgressVisual }) {
-  const toneColor = colorForTone(item.tone);
-  return (
-    <View
-      style={{
-        backgroundColor: `${toneColor}12`,
-        borderColor: `${toneColor}5C`,
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
-        flexBasis: 156,
-        flexGrow: 1,
-        gap: spacing.sm,
-        minHeight: 118,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.md
-      }}
-    >
-      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
-        <Text numberOfLines={1} style={{ color: toneColor, flex: 1, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
-          {item.label}
-        </Text>
-        {item.stateLabel ? (
-          <Text numberOfLines={1} style={{ color: toneColor, fontSize: 11, fontWeight: "800", letterSpacing: 0, lineHeight: 15, maxWidth: 104, textAlign: "right" }}>
-            {item.stateLabel}
-          </Text>
-        ) : null}
-      </View>
-      <View style={{ gap: 2 }}>
-        <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 22, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 27 }}>
-          {item.valueLabel}
-        </Text>
-        <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
-          Target {item.targetLabel}
-        </Text>
-      </View>
-      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: radii.pill, height: 8, overflow: "hidden" }}>
-        <View style={{ backgroundColor: toneColor, borderRadius: radii.pill, height: "100%", width: progressWidth(item.ratio) }} />
-      </View>
-      <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
-        {helper}
-      </Text>
-    </View>
-  );
-}
-
-function FuelContextTile({ item }: { item: ModifierVisual }) {
-  const toneColor = colorForTone(item.tone);
-  const filled = Math.round(Math.max(0, Math.min(1, item.ratio)) * 4);
-  return (
-    <View
-      style={{
-        backgroundColor: "rgba(255, 255, 255, 0.06)",
-        borderColor: "rgba(255, 255, 255, 0.13)",
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
-        flexBasis: 132,
-        flexGrow: 1,
-        gap: spacing.xs,
-        minHeight: 76,
-        padding: spacing.md
-      }}
-    >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
-        {item.label}
-      </Text>
-      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 17, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 22 }}>
-        {item.value}
-      </Text>
-      <View style={{ flexDirection: "row", gap: 4 }}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <View
-            key={`fuel-context-dot:${item.label}:${index}`}
-            style={{
-              backgroundColor: index < filled ? toneColor : "rgba(255, 255, 255, 0.14)",
-              borderRadius: radii.pill,
-              flex: 1,
-              height: 5
-            }}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function FuelDoNowSummary({ dashboard }: { dashboard: FuelDashboardVisual }) {
-  const items = [
-    ...dashboard.macros.filter((item) => /protein|carb/i.test(item.label)).slice(0, 2),
-    { ...dashboard.hydration, label: "Water" }
-  ];
-  const foodStatus = dashboard.quickContext.find((item) => item.label === "Food log");
-  return (
-    <View
-      style={{
-        backgroundColor: "rgba(255, 255, 255, 0.06)",
-        borderColor: "rgba(255, 255, 255, 0.12)",
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
-        gap: spacing.sm,
-        padding: spacing.md
-      }}
-      testID="fuel-do-now-summary"
-    >
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {items.map((item) => (
-          <View key={`fuel-do-now:${item.label}`} style={{ flexBasis: 84, flexGrow: 1, gap: 2, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
-              {item.label}
-            </Text>
-            <Text numberOfLines={1} style={{ color: colorForTone(item.tone), fontSize: 16, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 20 }}>
-              {item.valueLabel}
-            </Text>
-            <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>
-              {item.stateLabel ?? "Today"}
-            </Text>
-          </View>
-        ))}
-        {foodStatus ? (
-          <View style={{ flexBasis: 104, flexGrow: 1, gap: 2, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
-              Food status
-            </Text>
-            <Text numberOfLines={1} style={{ color: colorForTone(foodStatus.tone), fontSize: 16, fontWeight: "900", lineHeight: 20 }}>
-              {foodStatus.value}
-            </Text>
-            <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>
-              {foodStatus.ratio >= 0.65 ? "Enough context" : "Optional log"}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function FuelBoardCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
-  const progressItems: readonly ProgressVisual[] = [
-    ...dashboard.macros,
-    { ...dashboard.hydration, label: "Water" }
-  ];
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="fuel-macro-summary">
-        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={screenStyles.sectionTitle}>Today's fuel</Text>
-          </View>
-          <DashboardPill label={dashboard.recommendation.label} tone={dashboard.recommendation.tone} />
-        </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {progressItems.map((item) => (
-            <FuelProgressTile helper={helperForProgress(item, dashboard)} item={item} key={`fuel-progress-tile:${item.label}`} />
-          ))}
-        </View>
-        <View style={{ borderTopColor: "rgba(255, 255, 255, 0.11)", borderTopWidth: 1, gap: spacing.sm, paddingTop: spacing.md }}>
-          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>Status</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            {dashboard.quickContext.map((item) => <FuelContextTile item={item} key={`fuel-context:${item.label}`} />)}
-          </View>
-        </View>
-      </View>
-    </EngineCard>
-  );
-}
-
-function FuelDetailToggle({
-  detailOpen,
-  onToggle,
-  summary
-}: {
-  detailOpen: boolean;
-  onToggle: () => void;
-  summary: string;
-}) {
-  return (
-    <EngineCard>
-      <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
-        <View style={{ flexBasis: 240, flexGrow: 1, gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Details</Text>
-          <Text style={screenStyles.subtle}>{summary}</Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: detailOpen }}
-          onPress={onToggle}
-          style={[screenStyles.quietButton, { flexBasis: 156, flexGrow: 0, minHeight: 44, paddingHorizontal: spacing.md }]}
-        >
-          <Text style={screenStyles.quietButtonText}>{detailOpen ? "Hide fuel detail" : "Show fuel detail"}</Text>
-        </Pressable>
-      </View>
-    </EngineCard>
-  );
-}
-
-function FuelDetailDashboard({ dashboard }: { dashboard: FuelDashboardVisual }) {
-  return (
-    <View style={{ gap: spacing.md }} testID="fuel-detail-dashboard">
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <View style={{ flexBasis: 240, flexGrow: 1 }}>
-          <DashboardCard headerRight={<DashboardPill label={dashboard.hydration.stateLabel ?? "Today"} tone={dashboard.hydration.tone} />} title="Hydration">
-            <ProgressMeter item={dashboard.hydration} />
-          </DashboardCard>
-        </View>
-        <View style={{ flexBasis: 240, flexGrow: 1 }}>
-          <DashboardCard headerRight={<DashboardPill label={dashboard.sodium.stateLabel ?? "Today"} tone={dashboard.sodium.tone} />} title="Sodium">
-            <ProgressMeter item={dashboard.sodium} />
-          </DashboardCard>
-        </View>
-      </View>
-
-      <DashboardCard
-        headerRight={<DashboardPill label={dashboard.mealReferenceLabel} tone="orange" />}
-        testID="fuel-meal-distribution"
-        title="Meal distribution"
-      >
-        <MiniBarChart bars={dashboard.meals} height={112} referenceLabel="Target context" />
-      </DashboardCard>
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-        <View style={{ flexBasis: 280, flexGrow: 1 }}>
-          <DashboardCard title="Body weight and fueling trend">
-            <View style={{ gap: spacing.sm }}>
-              <Text style={screenStyles.subtle}>Body weight</Text>
-              <TrendLineChart accent="blue" points={dashboard.trend.bodyMass} width={230} />
-              <Text style={screenStyles.subtle}>Carbs</Text>
-              <TrendLineChart accent="orange" points={dashboard.trend.carbs} width={230} />
-            </View>
-          </DashboardCard>
-        </View>
-        <View style={{ flexBasis: 280, flexGrow: 1 }}>
-          <DashboardCard title={dashboard.bodyMassRange.title}>
-            <RangeGauge
-              current={dashboard.bodyMassRange.current}
-              currentLabel={dashboard.bodyMassRange.currentLabel}
-              max={dashboard.bodyMassRange.max}
-              min={dashboard.bodyMassRange.min}
-              target={dashboard.bodyMassRange.target}
-              targetLabel={dashboard.bodyMassRange.targetLabel}
-            />
-            <Text style={screenStyles.subtle}>{dashboard.bodyMass.deltaLabel}</Text>
-          </DashboardCard>
-        </View>
-      </View>
-
-      <DashboardCard title="Recovery support">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-          {dashboard.recovery.map((item) => (
-            <View key={`fuel-recovery:${item.label}`} style={{ flexBasis: 140, flexGrow: 1 }}>
-              <ProgressMeter compact item={item} />
-            </View>
-          ))}
-        </View>
-      </DashboardCard>
-    </View>
-  );
-}
-
-function FuelVisualDashboard({
-  dashboard,
-  detailOpen,
-  onToggleDetail
-}: {
-  dashboard: FuelDashboardVisual;
-  detailOpen: boolean;
-  onToggleDetail: () => void;
-}) {
-  return (
-    <View style={{ gap: spacing.md }} testID="fuel-visual-dashboard">
-      <FuelBoardCard dashboard={dashboard} />
-      <FuelDetailToggle detailOpen={detailOpen} onToggle={onToggleDetail} summary={dashboard.detailSummary} />
-      {detailOpen ? <FuelDetailDashboard dashboard={dashboard} /> : null}
+      <FuelStatusStrip message={message} warningActive={warningActive} />
     </View>
   );
 }
@@ -482,8 +823,6 @@ function FuelVisualDashboard({
 export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   const [appliedFocusIntent, setAppliedFocusIntent] = React.useState<FuelFocusIntent | null>(null);
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
-  const referencePanel = buildFuelReferencePanelViewModel(viewModel, dashboard, recentLogs);
-  const [fuelDetailOpen, setFuelDetailOpen] = React.useState(dashboard.detailDefaultOpen);
   React.useEffect(() => {
     if (!focusIntent) {
       return;
@@ -491,12 +830,9 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
     setAppliedFocusIntent(focusIntent);
     onFocusIntentApplied?.();
   }, [focusIntent, onFocusIntentApplied]);
-  React.useEffect(() => {
-    if (dashboard.detailDefaultOpen) {
-      setFuelDetailOpen(true);
-    }
-  }, [dashboard.detailDefaultOpen]);
-  const safetyReviewActive = viewModel.nutritionSafetyReview.required || viewModel.activeNutritionSafetyReviews.length > 0 || viewModel.nutritionReviewHistory.activeReviewCount > 0;
+  const warningActive = viewModel.nutritionSafetyReview.required || viewModel.activeNutritionSafetyReviews.length > 0 || viewModel.nutritionReviewHistory.activeReviewCount > 0;
+  const plan = planStatusFromFuel(viewModel, warningActive);
+  const trainingCopy = trainingTodayCopy(viewModel, plan);
   const primaryLog =
     appliedFocusIntent === "log_hydration" || focusIntent === "log_hydration"
       ? "water"
@@ -507,82 +843,33 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
     setAppliedFocusIntent(null);
     onFocusIntentApplied?.();
   };
-  const logSection = <FuelLogActionSection busy={busy} onClose={closeLogSection} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />;
   const showLogSection = appliedFocusIntent === "log_food" || appliedFocusIntent === "log_hydration";
-  const primaryFuelButton: FastTaskAction = primaryLog === "water"
-    ? {
-        disabled: busy,
-        label: "Add water",
-        onPress: () => setAppliedFocusIntent("log_hydration"),
-        summary: "Fast log"
-      }
-    : {
-        disabled: busy,
-        label: "Log meal",
-        onPress: () => setAppliedFocusIntent("log_food"),
-        summary: "Optional"
-      };
-  const secondaryFuelActions: FastTaskAction[] = primaryLog === "water"
-    ? [{
-        disabled: busy,
-        label: "Log meal",
-        onPress: () => setAppliedFocusIntent("log_food"),
-        summary: "If useful"
-      }]
-    : [{
-        disabled: busy,
-        label: "Add water",
-        onPress: () => setAppliedFocusIntent("log_hydration"),
-        summary: "Fast log"
-      }];
+  const openLogFood = () => setAppliedFocusIntent("log_food");
+  const openLogHydration = () => setAppliedFocusIntent("log_hydration");
+
   return (
     <LuminousScreen accent="orange" backgroundImage={tabScreenBackgrounds.fuel} testID="fuel-screen">
       <ScreenHeader {...tabHeroHeaders.fuel} />
-      <FuelReferencePanel
-        model={referencePanel}
-        onAddWater={() => setAppliedFocusIntent("log_hydration")}
-        onLogMeal={() => setAppliedFocusIntent("log_food")}
-      />
-      <PrimaryTaskCard
-        accent={accentForTone(dashboard.recommendation.tone)}
-        actionLayout="primary-led"
-        primaryAction={compactFuelCopy(dashboard.recommendation.body)}
-        primaryButton={primaryFuelButton}
-        purpose="Missing food stays unknown until you log it."
-        secondaryActions={secondaryFuelActions}
-        testID="fuel-primary-task"
-        title="Fuel target"
-      >
-        <FuelDoNowSummary dashboard={dashboard} />
-      </PrimaryTaskCard>
-      {safetyReviewActive ? (
-        <FuelSafetyReviewSection
+      {showLogSection ? (
+        <>
+          <FuelLogActionSection busy={busy} onClose={closeLogSection} primaryLog={primaryLog} quickLogs={quickLogs} recentLogs={recentLogs} />
+          <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} />
+        </>
+      ) : (
+        <FuelOverview
+          busy={busy}
+          dashboard={dashboard}
           message={message}
           onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+          onLogFood={openLogFood}
+          onLogHydration={openLogHydration}
+          plan={plan}
+          primaryLog={primaryLog}
+          trainingCopy={trainingCopy}
           viewModel={viewModel}
+          warningActive={warningActive}
         />
-      ) : null}
-      {viewModel.underFuelingRisk ? (
-        <EngineCard>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={screenStyles.sectionTitle}>{viewModel.underFuelingRisk.title}</Text>
-            <Text style={screenStyles.body}>{plainFuelCopy(viewModel.underFuelingRisk.summary)}</Text>
-            {viewModel.underFuelingRisk.actions.map((item, index) => <Text key={`fuel-under-risk:${index}`} style={screenStyles.subtle}>{plainFuelCopy(item)}</Text>)}
-          </View>
-        </EngineCard>
-      ) : null}
-      {showLogSection ? logSection : null}
-      {showLogSection ? <FoodLogStatusCard busy={busy} quickLogs={quickLogs} viewModel={viewModel} /> : null}
-      <FuelVisualDashboard
-        dashboard={dashboard}
-        detailOpen={fuelDetailOpen}
-        onToggleDetail={() => setFuelDetailOpen((value) => !value)}
-      />
-      {message && !safetyReviewActive ? (
-        <EngineCard>
-          <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{message}</Text>
-        </EngineCard>
-      ) : null}
+      )}
     </LuminousScreen>
   );
 }

@@ -7,7 +7,13 @@ import { plainFuelCopy } from "../../../engine/presentation/fuelCopy";
 import { screenStyles } from "../screenStyles";
 
 function statusLabel(status: string): string {
-  return plainFuelCopy(status.replaceAll("_", " "));
+  return warningCopy(status.replaceAll("_", " "));
+}
+
+function warningCopy(value: string): string {
+  return plainFuelCopy(value)
+    .replace(/\bsafety stops\b/gi, "cut warnings")
+    .replace(/\bsafety stop\b/gi, "cut warning");
 }
 
 function Lines({ items, tone = "subtle" }: { items: readonly string[]; tone?: "body" | "subtle" | "callout" }) {
@@ -15,7 +21,7 @@ function Lines({ items, tone = "subtle" }: { items: readonly string[]; tone?: "b
     <>
       {items.map((item, index) => (
         <Text key={`line:${index}`} style={screenStyles[tone]}>
-          {plainFuelCopy(item)}
+          {warningCopy(item)}
         </Text>
       ))}
     </>
@@ -42,14 +48,14 @@ export function NutritionSafetyReviewCard({
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>
-        <Text style={[screenStyles.sectionTitle, { color: colors.redCorner }]}>Safety stop</Text>
-        <Text style={screenStyles.callout}>{plainFuelCopy(review.professionalReviewCopy)}</Text>
+        <Text style={[screenStyles.sectionTitle, { color: colors.redCorner }]}>Cut warning</Text>
+        <Text style={screenStyles.callout}>{warningCopy(review.professionalReviewCopy)}</Text>
         {activeReview ? <Text style={screenStyles.body}>Review {activeReview.id}: {statusLabel(activeReview.status)}.</Text> : null}
-        {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Safety stop remains active.</Text> : null}
+        {activeReview?.hardStop || review.blockingFlags.length > 0 ? <Text style={screenStyles.body}>Cut warning remains active.</Text> : null}
         <Text style={screenStyles.subtle}>This cannot be resolved in the app. Use medical or nutrition support outside the app.</Text>
         <Text style={screenStyles.subtle}>For urgent symptoms or unsafe weight concerns, stop and get support now.</Text>
-        <Lines items={reasons.length > 0 ? reasons.slice(0, 3) : ["Safety stop is active."]} />
-        {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Safety flags</Text> : null}
+        <Lines items={reasons.length > 0 ? reasons.slice(0, 3) : ["Cut warning is active."]} />
+        {blockingFlags.length > 0 ? <Text style={screenStyles.body}>Health flags</Text> : null}
         <Lines items={blockingFlags.slice(0, 3).map((flag) => flag.replaceAll("_", " "))} />
         <Lines items={suggestedNextSteps.slice(0, 3)} tone="body" />
         {canAcknowledge && activeReview ? (
