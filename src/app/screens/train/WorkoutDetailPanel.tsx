@@ -5,7 +5,7 @@ import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompleti
 import { PostActionNextStep } from "../../../design/components/FastTask";
 import { DashboardCard } from "../../../design/components/PerformanceVisuals";
 import { glassStyles } from "../../../design/glass";
-import { colors, spacing } from "../../../design/theme";
+import { spacing } from "../../../design/theme";
 import {
   plainSectionIntent,
   plainSectionName,
@@ -16,6 +16,7 @@ import { parseOptionalNonNegativeInteger, parseOptionalPositiveNumber, validatio
 import { screenStyles } from "../screenStyles";
 import { ExercisePrescriptionCard } from "./ExercisePrescriptionCard";
 import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
+import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./trainPalette";
 
 type WorkoutFollowUpState = "completed" | "skipped" | "review";
 
@@ -167,6 +168,7 @@ function DetailToggleRow({
   onPress: () => void;
   open: boolean;
 }) {
+  const accentTone = open ? "gold" : "blue";
   return (
     <Pressable
       accessibilityLabel={`${open ? "Hide" : "Show"} ${label}`}
@@ -178,6 +180,8 @@ function DetailToggleRow({
         glassStyles.control,
         {
           alignItems: "center",
+          backgroundColor: disabled ? trainPalette.controlFill : open ? trainTint("blue", "12") : trainPalette.controlFill,
+          borderColor: disabled ? "rgba(218, 208, 242, 0.12)" : open ? trainTint("blue", "42") : trainPalette.controlLine,
           flexDirection: "row",
           gap: spacing.md,
           justifyContent: "space-between",
@@ -189,12 +193,106 @@ function DetailToggleRow({
       ]}
     >
       <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 19 }}>
+        <Text numberOfLines={1} style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 19 }}>
           {label}
         </Text>
-        {meta ? <Text numberOfLines={1} style={screenStyles.subtle}>{meta}</Text> : null}
+        {meta ? <Text numberOfLines={1} style={trainTextStyles.subtle}>{meta}</Text> : null}
       </View>
-      <Text style={{ color: colors.powerPurple, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{open ? "Hide" : "Show"}</Text>
+      <Text style={{ color: disabled ? trainPalette.textMuted : trainColorForTone(accentTone), fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{open ? "Hide" : "Show"}</Text>
+    </Pressable>
+  );
+}
+
+function TrainInput({
+  keyboardType,
+  onChangeText,
+  placeholder,
+  value,
+  autoCapitalize
+}: {
+  autoCapitalize?: "none" | "sentences" | "words" | "characters" | undefined;
+  keyboardType?: React.ComponentProps<typeof TextInput>["keyboardType"];
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <TextInput
+      autoCapitalize={autoCapitalize}
+      keyboardType={keyboardType}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={trainPalette.textMuted}
+      style={[screenStyles.input, { backgroundColor: trainPalette.controlFill, borderColor: trainPalette.controlLine, color: trainPalette.textPrimary }]}
+      value={value}
+    />
+  );
+}
+
+function TrainPanelPrimaryButton({
+  accessibilityLabel,
+  children,
+  disabled,
+  onPress
+}: React.PropsWithChildren<{
+  accessibilityLabel?: string | undefined;
+  disabled?: boolean | undefined;
+  onPress: () => void;
+}>) {
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        screenStyles.button,
+        {
+          backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
+          borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : trainPalette.actionBorder,
+          boxShadow: disabled ? "none" : `0 12px 28px ${trainPalette.actionShadow}`
+        }
+      ]}
+    >
+      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+        {children}
+      </Text>
+    </Pressable>
+  );
+}
+
+function TrainPanelQuietButton({
+  accessibilityLabel,
+  children,
+  disabled,
+  onPress,
+  selected = false
+}: React.PropsWithChildren<{
+  accessibilityLabel?: string | undefined;
+  disabled?: boolean | undefined;
+  onPress: () => void;
+  selected?: boolean | undefined;
+}>) {
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      accessibilityState={{ disabled, selected }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        screenStyles.quietButton,
+        {
+          backgroundColor: pressed || selected ? trainPalette.controlFillPressed : trainPalette.controlFill,
+          borderColor: selected ? trainTint("gold", "66") : trainPalette.controlLine,
+          boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
+        }
+      ]}
+    >
+      <Text style={{ color: selected ? trainColorForTone("gold") : trainPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>
+        {children}
+      </Text>
     </Pressable>
   );
 }
@@ -321,10 +419,10 @@ export function WorkoutDetailPanel({
     <View style={{ gap: spacing.lg }}>
       <DashboardCard testID="train-workout-preview-card" title="Workout Details">
         <View style={{ gap: spacing.sm }}>
-          {startWorkoutDisabledReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startWorkoutDisabledReason}</Text> : null}
-          {previewOnlyReason ? <Text style={screenStyles.subtle}>{previewOnlyReason}</Text> : null}
-          {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
-          {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
+          {startWorkoutDisabledReason ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{startWorkoutDisabledReason}</Text> : null}
+          {previewOnlyReason ? <Text style={trainTextStyles.subtle}>{previewOnlyReason}</Text> : null}
+          {localError ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("red") }]}>{localError}</Text> : null}
+          {completionMessage ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{completionMessage}</Text> : null}
           {followUpState ? (
             <PostActionNextStep
               actions={
@@ -342,20 +440,20 @@ export function WorkoutDetailPanel({
           <DetailToggleRow label="Why This Session" meta="What this is meant to improve" onPress={() => setWhyOpen((value) => !value)} open={whyOpen} />
           {whyOpen ? (
             <View style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.body}>{recipeWhy(session)}</Text>
-              {(session.athleteQualityCues ?? []).slice(0, 2).map((item, index) => <Text key={`quality-cue:${index}`} style={screenStyles.subtle}>Coach's Note: {plainTrainingCopy(item)}</Text>)}
-              {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Readiness: {plainTrainingCopy(item)}</Text>)}
-              {session.nextSessionNote ? <Text style={screenStyles.subtle}>Next: {plainTrainingCopy(session.nextSessionNote)}</Text> : null}
-              {session.stopConditions.slice(0, 2).map((item, index) => <Text key={`stop-condition:${index}`} style={screenStyles.subtle}>Stop: {plainTrainingCopy(item)}</Text>)}
-              {session.safetyNotes.slice(0, 2).map((item, index) => <Text key={`safety-note:${index}`} style={screenStyles.subtle}>Before you start: {plainTrainingCopy(item)}</Text>)}
-              <Text style={screenStyles.subtle}>Pain notes keep future training conservative.</Text>
+              <Text style={trainTextStyles.body}>{recipeWhy(session)}</Text>
+              {(session.athleteQualityCues ?? []).slice(0, 2).map((item, index) => <Text key={`quality-cue:${index}`} style={trainTextStyles.subtle}>Coach's Note: {plainTrainingCopy(item)}</Text>)}
+              {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={trainTextStyles.subtle}>Readiness: {plainTrainingCopy(item)}</Text>)}
+              {session.nextSessionNote ? <Text style={trainTextStyles.subtle}>Next: {plainTrainingCopy(session.nextSessionNote)}</Text> : null}
+              {session.stopConditions.slice(0, 2).map((item, index) => <Text key={`stop-condition:${index}`} style={trainTextStyles.subtle}>Stop: {plainTrainingCopy(item)}</Text>)}
+              {session.safetyNotes.slice(0, 2).map((item, index) => <Text key={`safety-note:${index}`} style={trainTextStyles.subtle}>Before you start: {plainTrainingCopy(item)}</Text>)}
+              <Text style={trainTextStyles.subtle}>Pain notes keep future training conservative.</Text>
             </View>
           ) : null}
           <DetailToggleRow label="Adjust Today" meta="Simple changes if the session feels off" onPress={() => setAdjustOpen((value) => !value)} open={adjustOpen} />
           {adjustOpen ? (
             <View style={{ gap: spacing.xs }}>
               {adjustTodayOptions(session).map((item) => (
-                <Text key={`adjust:${item}`} style={screenStyles.subtle}>{item}</Text>
+                <Text key={`adjust:${item}`} style={trainTextStyles.subtle}>{item}</Text>
               ))}
             </View>
           ) : null}
@@ -365,62 +463,58 @@ export function WorkoutDetailPanel({
       {resultOpen && !previewOnlyReason ? (
         <View style={{ gap: spacing.md }}>
           <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.sectionTitle}>Quick Log</Text>
-            <Text style={screenStyles.body}>Mark workout done without follow-along when time is tight.</Text>
-            <Text style={screenStyles.subtle}>Session RPE is enough if you are short on time.</Text>
-            <Text style={screenStyles.subtle}>Workout: {quickLogContext.whatToDo}</Text>
-            <Text style={screenStyles.subtle}>Coach's Note: {quickLogMainJob(session)}</Text>
-            <Text style={screenStyles.subtle}>Log only what matters: {quickLogContext.logPrompt}</Text>
+            <Text style={trainTextStyles.sectionTitle}>Quick Log</Text>
+            <Text style={trainTextStyles.body}>Mark workout done without follow-along when time is tight.</Text>
+            <Text style={trainTextStyles.subtle}>Session RPE is enough if you are short on time.</Text>
+            <Text style={trainTextStyles.subtle}>Workout: {quickLogContext.whatToDo}</Text>
+            <Text style={trainTextStyles.subtle}>Coach's Note: {quickLogMainJob(session)}</Text>
+            <Text style={trainTextStyles.subtle}>Log only what matters: {quickLogContext.logPrompt}</Text>
           </View>
-          <TextInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sessionRpe} />
-          <TextInput onChangeText={setPainNotes} placeholder="Pain note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
-          <TextInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={notes} />
+          <TrainInput keyboardType="decimal-pad" onChangeText={setSessionRpe} placeholder="Session RPE 1-10 optional" value={sessionRpe} />
+          <TrainInput onChangeText={setPainNotes} placeholder="Pain note optional" value={painNotes} />
+          <TrainInput onChangeText={setNotes} placeholder="Session notes / skip reason optional" value={notes} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <Pressable accessibilityLabel="Mark workout done" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void complete()} style={[screenStyles.button, { flexBasis: 170, flexGrow: 1 }]}>
-              <Text style={screenStyles.buttonText}>{busy ? "Saving workout..." : "Mark workout done"}</Text>
-            </Pressable>
-            <Pressable accessibilityLabel="Skip session" accessibilityRole="button" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void skip()} style={[screenStyles.quietButton, { flexBasis: 132, flexGrow: 1 }]}>
-              <Text style={screenStyles.quietButtonText}>{busy ? "Saving skip..." : "Skip session"}</Text>
-            </Pressable>
+            <View style={{ flexBasis: 170, flexGrow: 1 }}>
+              <TrainPanelPrimaryButton accessibilityLabel="Mark workout done" disabled={busy} onPress={() => void complete()}>{busy ? "Saving workout..." : "Mark workout done"}</TrainPanelPrimaryButton>
+            </View>
+            <View style={{ flexBasis: 132, flexGrow: 1 }}>
+              <TrainPanelQuietButton accessibilityLabel="Skip session" disabled={busy} onPress={() => void skip()}>{busy ? "Saving skip..." : "Skip session"}</TrainPanelQuietButton>
+            </View>
           </View>
           <View style={{ gap: spacing.sm }}>
-            <Pressable accessibilityLabel={exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"} accessibilityRole="button" accessibilityState={{ selected: exerciseDetailsOpen }} onPress={() => setExerciseDetailsOpen((value) => !value)} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>{exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"}</Text>
-            </Pressable>
-            <Text style={screenStyles.subtle}>Exercise rows are optional. Blank rows save as not logged when the workout is marked done; skipped sessions do not save exercise rows.</Text>
+            <TrainPanelQuietButton accessibilityLabel={exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"} onPress={() => setExerciseDetailsOpen((value) => !value)} selected={exerciseDetailsOpen}>{exerciseDetailsOpen ? "Hide exercise details" : "Add exercise details"}</TrainPanelQuietButton>
+            <Text style={trainTextStyles.subtle}>Exercise rows are optional. Blank rows save as not logged when the workout is marked done; skipped sessions do not save exercise rows.</Text>
             {exerciseDetailsOpen ? (
-              <Pressable accessibilityLabel={structuredActualsOpen ? "Hide extra fields" : "Extra fields"} accessibilityRole="button" accessibilityState={{ selected: structuredActualsOpen }} onPress={() => setStructuredActualsOpen((value) => !value)} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>{structuredActualsOpen ? "Hide extra fields" : "Extra fields"}</Text>
-              </Pressable>
+              <TrainPanelQuietButton accessibilityLabel={structuredActualsOpen ? "Hide extra fields" : "Extra fields"} onPress={() => setStructuredActualsOpen((value) => !value)} selected={structuredActualsOpen}>{structuredActualsOpen ? "Hide extra fields" : "Extra fields"}</TrainPanelQuietButton>
             ) : null}
             {exerciseDetailsOpen ? session.sections.map((section, sectionIndex) => (
               <View key={`detail-section:${sectionIndex}`} style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.sectionTitle}>{plainSectionName(section.name)}</Text>
-                <Text style={screenStyles.subtle}>{plainSectionIntent(section.intent)}</Text>
+                <Text style={trainTextStyles.sectionTitle}>{plainSectionName(section.name)}</Text>
+                <Text style={trainTextStyles.subtle}>{plainSectionIntent(section.intent)}</Text>
                 {section.exercises.map((exercise) => {
                   const input = exerciseInputs[exercise.exerciseId] ?? emptyExerciseResultInputs();
                   return (
                     <View key={exercise.exerciseId} style={{ gap: spacing.sm }}>
                       <ExercisePrescriptionCard exercise={exercise} sectionName={plainSectionName(section.name)} />
-                      <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, completedSets: value }))} placeholder="Completed sets optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.completedSets} />
-                      <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadText} />
+                      <TrainInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, completedSets: value }))} placeholder="Completed sets optional" value={input.completedSets} />
+                      <TrainInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadText: value }))} placeholder="Load text optional" value={input.loadText} />
                       {structuredActualsOpen ? (
                         <View style={{ gap: spacing.sm }}>
-                          <Text style={screenStyles.subtle}>Extra fields are optional and are never inferred from load notes.</Text>
-                          <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadValue: value }))} placeholder="Structured load value optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadValue} />
-                          <TextInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadUnit: value }))} placeholder="Load unit: kg, lb, bodyweight, band, other" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.loadUnit} />
-                          <TextInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, repsCompleted: value }))} placeholder="Reps completed optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.repsCompleted} />
-                          <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, timeSeconds: value }))} placeholder="Time seconds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.timeSeconds} />
-                          <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, distanceMeters: value }))} placeholder="Distance meters optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.distanceMeters} />
-                          <TextInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, side: value }))} placeholder="Side: bilateral, left, right, alternating, not_applicable" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.side} />
-                          <TextInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, technicalQuality: value }))} placeholder="Quality: clean, mostly_clean, technical_breakdown, stopped_for_pain, unknown" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.technicalQuality} />
+                          <Text style={trainTextStyles.subtle}>Extra fields are optional and are never inferred from load notes.</Text>
+                          <TrainInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadValue: value }))} placeholder="Structured load value optional" value={input.loadValue} />
+                          <TrainInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, loadUnit: value }))} placeholder="Load unit: kg, lb, bodyweight, band, other" value={input.loadUnit} />
+                          <TrainInput keyboardType="number-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, repsCompleted: value }))} placeholder="Reps completed optional" value={input.repsCompleted} />
+                          <TrainInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, timeSeconds: value }))} placeholder="Time seconds optional" value={input.timeSeconds} />
+                          <TrainInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, distanceMeters: value }))} placeholder="Distance meters optional" value={input.distanceMeters} />
+                          <TrainInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, side: value }))} placeholder="Side: bilateral, left, right, alternating, not_applicable" value={input.side} />
+                          <TrainInput autoCapitalize="none" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, technicalQuality: value }))} placeholder="Quality: clean, mostly_clean, technical_breakdown, stopped_for_pain, unknown" value={input.technicalQuality} />
                         </View>
                       ) : null}
-                      <TextInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, rpe: value }))} placeholder="Exercise RPE optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.rpe} />
-                      <TextInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, notes: value }))} placeholder="Exercise notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={input.notes} />
-                      <Pressable accessibilityLabel={`${input.painFlag ? "Remove" : "Add"} pain flag for ${exercise.name}`} accessibilityRole="button" accessibilityState={{ disabled: busy, selected: input.painFlag }} disabled={busy} onPress={() => updateExercise(exercise.exerciseId, (current) => ({ ...current, painFlag: !current.painFlag }))} style={[screenStyles.quietButton, input.painFlag ? { borderColor: colors.amberCaution } : null]}>
-                        <Text style={screenStyles.quietButtonText}>{input.painFlag ? "Pain flag on" : "Pain flag optional"}</Text>
-                      </Pressable>
+                      <TrainInput keyboardType="decimal-pad" onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, rpe: value }))} placeholder="Exercise RPE optional" value={input.rpe} />
+                      <TrainInput onChangeText={(value) => updateExercise(exercise.exerciseId, (current) => ({ ...current, notes: value }))} placeholder="Exercise notes optional" value={input.notes} />
+                      <TrainPanelQuietButton accessibilityLabel={`${input.painFlag ? "Remove" : "Add"} pain flag for ${exercise.name}`} disabled={busy} onPress={() => updateExercise(exercise.exerciseId, (current) => ({ ...current, painFlag: !current.painFlag }))} selected={input.painFlag}>
+                        {input.painFlag ? "Pain flag on" : "Pain flag optional"}
+                      </TrainPanelQuietButton>
                     </View>
                   );
                 })}

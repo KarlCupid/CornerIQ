@@ -4,11 +4,11 @@ import type { DetailedTrainingSession, ISODateString, RecentLogsViewModel, Train
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
-import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
-import { DashboardCard, DashboardPill, MiniBarChart, TimelineStrip } from "../../design/components/PerformanceVisuals";
+import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
+import { DashboardCard } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
-import { colors, radii, spacing } from "../../design/theme";
+import { radii, spacing } from "../../design/theme";
 import type { BarVisual, TimelineVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -16,6 +16,7 @@ import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion"
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
+import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./train/trainPalette";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 import {
@@ -76,7 +77,7 @@ function toneForIntensity(intensity: string): VisualTone {
   if (intensity === "easy" || intensity === "recovery") {
     return "green";
   }
-  return "purple";
+  return "blue";
 }
 
 function sentenceCase(value: string): string {
@@ -288,6 +289,173 @@ function weeklyTimeline(viewModel: TrainViewModel): readonly TimelineVisual[] {
   }));
 }
 
+function TrainTonePill({ label, tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
+  const color = trainColorForTone(tone);
+  return (
+    <View
+      accessibilityLabel={`Status: ${label}`}
+      style={{
+        alignItems: "center",
+        alignSelf: "flex-start",
+        backgroundColor: trainTint(tone, "14"),
+        borderColor: trainTint(tone, "3D"),
+        borderRadius: radii.pill,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.xs,
+        justifyContent: "center",
+        maxWidth: 180,
+        minHeight: 28,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 3
+      }}
+    >
+      <View style={{ backgroundColor: color, borderRadius: 4, height: 7, opacity: 0.9, width: 7 }} />
+      <Text numberOfLines={1} style={{ color, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function TrainPrimaryButton({
+  children,
+  disabled,
+  onPress,
+  tone = "purple"
+}: React.PropsWithChildren<{
+  disabled?: boolean | undefined;
+  onPress?: (() => void) | undefined;
+  tone?: VisualTone | undefined;
+}>) {
+  const toneColor = trainColorForTone(tone);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        screenStyles.button,
+        {
+          backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
+          borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : tone === "purple" ? trainPalette.actionBorder : trainTint(tone, "66"),
+          boxShadow: disabled ? "none" : `0 12px 28px ${tone === "purple" ? trainPalette.actionShadow : `${toneColor}2B`}`
+        }
+      ]}
+    >
+      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+        {children}
+      </Text>
+    </Pressable>
+  );
+}
+
+function TrainQuietButton({
+  children,
+  expanded,
+  onPress
+}: React.PropsWithChildren<{
+  expanded?: boolean | undefined;
+  onPress?: (() => void) | undefined;
+}>) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={expanded === undefined ? undefined : { expanded }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        screenStyles.quietButton,
+        {
+          backgroundColor: pressed ? trainPalette.controlFillPressed : trainPalette.controlFill,
+          borderColor: trainPalette.controlLine,
+          boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
+        }
+      ]}
+    >
+      <Text style={{ color: trainPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>
+        {children}
+      </Text>
+    </Pressable>
+  );
+}
+
+function TrainMiniBarChart({
+  bars,
+  height = 84,
+  referenceLabel
+}: {
+  bars: readonly BarVisual[];
+  height?: number | undefined;
+  referenceLabel?: string | undefined;
+}) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View style={{ alignItems: "flex-end", flexDirection: "row", gap: spacing.sm, height }}>
+        {bars.map((bar, index) => {
+          const color = trainColorForTone(bar.tone);
+          return (
+            <View key={`train-bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, gap: spacing.xs, height: "100%", justifyContent: "flex-end", minWidth: 22 }}>
+              <View
+                style={{
+                  backgroundColor: bar.faded ? "transparent" : color,
+                  borderColor: bar.faded ? "rgba(218, 208, 242, 0.24)" : `${color}77`,
+                  borderRadius: 8,
+                  borderStyle: bar.faded ? "dashed" : "solid",
+                  borderWidth: bar.faded ? 1 : 0,
+                  height: `${Math.max(8, clamp01(bar.ratio) * 100)}%`,
+                  opacity: bar.faded ? 0.48 : 0.9,
+                  width: "72%"
+                }}
+              />
+            </View>
+          );
+        })}
+      </View>
+      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        {bars.map((bar, index) => (
+          <Text key={`train-bar-label:${bar.label}:${index}`} numberOfLines={1} style={{ color: trainPalette.textMuted, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "center" }}>
+            {bar.label}
+          </Text>
+        ))}
+      </View>
+      {referenceLabel ? <Text style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15, textAlign: "right" }}>{referenceLabel}</Text> : null}
+    </View>
+  );
+}
+
+function TrainTimelineStrip({ items }: { items: readonly TimelineVisual[] }) {
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+      {items.map((item, index) => (
+        <View
+          key={`train-timeline:${item.label}:${index}`}
+          style={{
+            ...glassStyles.tile,
+            backgroundColor: trainTint(item.tone, "15"),
+            borderColor: trainTint(item.tone, "4D"),
+            flexBasis: 148,
+            flexGrow: 1,
+            gap: spacing.xs,
+            minHeight: 82,
+            padding: spacing.md
+          }}
+        >
+          <Text numberOfLines={1} style={{ color: trainColorForTone(item.tone), fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+            {item.label}
+          </Text>
+          <Text numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>
+            {item.title}
+          </Text>
+          <Text numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>
+            {item.subtitle}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function WorkoutInProgressCard({
   onDiscard,
   onResume,
@@ -301,16 +469,16 @@ function WorkoutInProgressCard({
 }) {
   return (
     <DashboardCard testID="train-workout-in-progress-card" title="Workout in progress">
-      <Text style={screenStyles.body}>{sessionTitle}</Text>
-      <Text style={screenStyles.subtle}>Status: {status.replace(/_/g, " ")}.</Text>
-      <Text style={screenStyles.subtle}>Resume is available while this app session stays alive. If the app reloads or you discard, follow-along progress may be lost.</Text>
+      <Text style={trainTextStyles.body}>{sessionTitle}</Text>
+      <Text style={trainTextStyles.subtle}>Status: {status.replace(/_/g, " ")}.</Text>
+      <Text style={trainTextStyles.subtle}>Resume is available while this app session stays alive. If the app reloads or you discard, follow-along progress may be lost.</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        <Pressable accessibilityRole="button" onPress={onResume} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
-          <Text style={screenStyles.buttonText}>Resume workout</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={onDiscard} style={[screenStyles.quietButton, { flexBasis: 160, flexGrow: 1 }]}>
-          <Text style={screenStyles.quietButtonText}>Discard progress</Text>
-        </Pressable>
+        <View style={{ flexBasis: 160, flexGrow: 1 }}>
+          <TrainPrimaryButton onPress={onResume}>Resume workout</TrainPrimaryButton>
+        </View>
+        <View style={{ flexBasis: 160, flexGrow: 1 }}>
+          <TrainQuietButton onPress={onDiscard}>Discard progress</TrainQuietButton>
+        </View>
       </View>
     </DashboardCard>
   );
@@ -335,44 +503,43 @@ function TodayTrainingPlanCard({
   startBlockedReason: string | undefined;
   viewModel: TrainViewModel;
 }) {
-  const theme = useLuminousScreenTheme();
   const intensity = session?.intensity ?? card?.intensity ?? generated?.intensity ?? "moderate";
   const durationMinutes = session?.durationMinutes ?? card?.durationMinutes ?? generated?.durationMinutes ?? 0;
   const canStart = Boolean(onStart) && !previewOnlyReason && !startBlockedReason;
   const disabled = busy || !canStart;
-  const buttonColor = intensity === "hard" ? colors.amberCaution : colors.powerPurple;
+  const primaryTone = toneForIntensity(intensity);
   const dayNote = viewModel.todayRole.status === "support_day" ? null : firstSentence(viewModel.todayRole.summary);
   return (
     <DashboardCard
       density="regular"
-      headerRight={<DashboardPill label={sentenceCase(plainIntensityLabel(intensity))} tone={toneForIntensity(intensity)} />}
+      headerRight={<TrainTonePill label={sentenceCase(plainIntensityLabel(intensity))} tone={primaryTone} />}
       testID="train-today-plan-card"
       title="Today's Training Plan"
     >
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.xs }}>
-          <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: colors.canvas, fontSize: 24, fontWeight: "900", letterSpacing: 0, lineHeight: 29 }}>
+          <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 24, fontWeight: "900", letterSpacing: 0, lineHeight: 29 }}>
             {planTitle(session, card, generated)}
           </Text>
-          <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>
+          <Text style={{ color: trainPalette.textBody, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>
             {sessionTypeLabel(session, card, generated)} - {durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD"} - {sentenceCase(plainIntensityLabel(intensity))}
           </Text>
-          {dayNote ? <Text style={screenStyles.subtle}>{dayNote}</Text> : null}
+          {dayNote ? <Text style={trainTextStyles.subtle}>{dayNote}</Text> : null}
         </View>
         <View
           style={{
-            backgroundColor: theme.control,
-            borderColor: theme.controlBorder,
+            backgroundColor: trainTint(primaryTone, "12"),
+            borderColor: trainTint(primaryTone, "42"),
             borderRadius: radii.tile,
             borderWidth: 1,
             gap: spacing.xs,
             padding: spacing.md
           }}
         >
-          <Text style={{ color: theme.accentColor, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16 }}>
+          <Text style={{ color: trainColorForTone("gold"), fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
             Training Aim
           </Text>
-          <Text style={screenStyles.body}>{trainingAim(session, card, generated, viewModel)}</Text>
+          <Text style={trainTextStyles.body}>{trainingAim(session, card, generated, viewModel)}</Text>
         </View>
         <Pressable
           accessibilityLabel="Start workout"
@@ -380,20 +547,20 @@ function TodayTrainingPlanCard({
           accessibilityState={{ disabled }}
           disabled={disabled}
           onPress={onStart}
-          style={[
+          style={({ pressed }) => [
             screenStyles.button,
             {
-              backgroundColor: disabled ? "rgba(255, 255, 255, 0.105)" : buttonColor,
-              borderColor: disabled ? "rgba(255, 255, 255, 0.17)" : `${buttonColor}AA`,
-              boxShadow: disabled ? "none" : `0 12px 30px ${buttonColor}33`
+              backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
+              borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : primaryTone === "orange" ? trainTint("orange", "66") : trainPalette.actionBorder,
+              boxShadow: disabled ? "none" : `0 12px 30px ${primaryTone === "orange" ? `${trainColorForTone("orange")}2D` : trainPalette.actionShadow}`
             }
           ]}
         >
-          <Text style={[screenStyles.buttonText, disabled ? { color: colors.mutedText } : null]}>Start workout</Text>
+          <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>Start workout</Text>
         </Pressable>
-        {startBlockedReason ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{startBlockedReason}</Text> : null}
-        {previewOnlyReason ? <Text style={screenStyles.subtle}>{previewOnlyReason}</Text> : null}
-        {!session && !generated && !card ? <Text style={screenStyles.subtle}>Log boxing class, roadwork, lifting, or anything you complete outside the player.</Text> : null}
+        {startBlockedReason ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{startBlockedReason}</Text> : null}
+        {previewOnlyReason ? <Text style={trainTextStyles.subtle}>{previewOnlyReason}</Text> : null}
+        {!session && !generated && !card ? <Text style={trainTextStyles.subtle}>Log boxing class, roadwork, lifting, or anything you complete outside the player.</Text> : null}
       </View>
     </DashboardCard>
   );
@@ -410,15 +577,14 @@ function QuickStatsRow({
   session: DetailedTrainingSession | null;
   viewModel: TrainViewModel;
 }) {
-  const theme = useLuminousScreenTheme();
   const intensity = session?.intensity ?? card?.intensity ?? generated?.intensity ?? "moderate";
   const durationMinutes = session?.durationMinutes ?? card?.durationMinutes ?? generated?.durationMinutes ?? 0;
   const fuelDemand = session?.fuelDemand ?? card?.fuelDemand ?? generated?.fuelDemand ?? "moderate";
   const readiness = readinessValue(session, viewModel);
   const items = [
-    { label: "Duration", tone: "purple" as const, value: durationMinutes > 0 ? `${durationMinutes} min` : "TBD" },
+    { label: "Duration", tone: "muted" as const, value: durationMinutes > 0 ? `${durationMinutes} min` : "TBD" },
     { label: "Intensity", tone: toneForIntensity(intensity), value: sentenceCase(plainIntensityLabel(intensity)) },
-    { label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "purple" as const, value: fuelStatLabel(fuelDemand, intensity) },
+    { label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "gold" as const, value: fuelStatLabel(fuelDemand, intensity) },
     { label: "Readiness", tone: readinessTone(readiness), value: readiness }
   ];
   return (
@@ -428,8 +594,8 @@ function QuickStatsRow({
           key={`train-stat:${item.label}`}
           style={{
             ...glassStyles.tile,
-            backgroundColor: theme.tile,
-            borderColor: theme.tileBorder,
+            backgroundColor: trainPalette.controlFill,
+            borderColor: trainPalette.cardLine,
             flexBasis: 126,
             flexGrow: 1,
             gap: spacing.xs,
@@ -437,10 +603,10 @@ function QuickStatsRow({
             padding: spacing.md
           }}
         >
-          <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
+          <Text numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
             {item.label}
           </Text>
-          <Text numberOfLines={1} style={{ color: item.tone === "orange" ? colors.amberCaution : item.tone === "green" ? colors.readyGreen : item.tone === "red" ? colors.redCorner : colors.powerPurple, fontSize: 17, fontWeight: "900", lineHeight: 22 }}>
+          <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: trainColorForTone(item.tone), fontSize: 17, fontWeight: "900", lineHeight: 22 }}>
             {item.value}
           </Text>
         </View>
@@ -459,7 +625,7 @@ function WorkoutFlowCard({ card, session }: { card: TrainSessionCard | null; ses
             key={`flow:${index}:${row.label}`}
             style={{
               alignItems: "center",
-              borderBottomColor: index === rows.length - 1 ? "transparent" : "rgba(255, 255, 255, 0.1)",
+              borderBottomColor: index === rows.length - 1 ? "transparent" : trainPalette.cardLine,
               borderBottomWidth: 1,
               flexDirection: "row",
               gap: spacing.md,
@@ -467,9 +633,9 @@ function WorkoutFlowCard({ card, session }: { card: TrainSessionCard | null; ses
               paddingBottom: index === rows.length - 1 ? 0 : spacing.sm
             }}
           >
-            <View style={{ backgroundColor: colors.powerPurple, borderRadius: radii.pill, height: 8, opacity: 0.9, width: 8 }} />
-            <Text style={{ color: colors.canvas, flex: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{row.label}</Text>
-            {row.value ? <Text numberOfLines={1} style={{ color: colors.wrap, flexShrink: 1, fontSize: 13, fontWeight: "700", lineHeight: 18, textAlign: "right" }}>{row.value}</Text> : null}
+            <View style={{ backgroundColor: trainColorForTone(index === 0 ? "gold" : index === rows.length - 1 ? "green" : "blue"), borderRadius: radii.pill, height: 8, opacity: 0.9, width: 8 }} />
+            <Text style={{ color: trainPalette.textPrimary, flex: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{row.label}</Text>
+            {row.value ? <Text numberOfLines={1} style={{ color: trainPalette.textMuted, flexShrink: 1, fontSize: 13, fontWeight: "700", lineHeight: 18, textAlign: "right" }}>{row.value}</Text> : null}
           </View>
         ))}
       </View>
@@ -491,8 +657,8 @@ function BeforeYouStartCard({
       <View style={{ gap: spacing.sm }}>
         {prepRows(session, card, viewModel).map((row) => (
           <View key={`prep:${row.label}`} style={{ gap: 2 }}>
-            <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{row.label}</Text>
-            <Text style={screenStyles.subtle}>{row.value}</Text>
+            <Text style={{ color: row.label === "Coach's Note" ? trainColorForTone("gold") : trainPalette.textPrimary, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{row.label}</Text>
+            <Text style={trainTextStyles.subtle}>{row.value}</Text>
           </View>
         ))}
       </View>
@@ -505,10 +671,8 @@ function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quick
   return (
     <View style={{ gap: spacing.md }} testID="train-manual-logger-section">
       <DashboardCard title="Log Other Training">
-        <Text style={screenStyles.body}>Add boxing class, roadwork, lifting, or anything you did outside the player.</Text>
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
-          <Text style={screenStyles.quietButtonText}>{open ? "Hide training log" : "Show training log"}</Text>
-        </Pressable>
+        <Text style={trainTextStyles.body}>Add boxing class, roadwork, lifting, or anything you did outside the player.</Text>
+        <TrainQuietButton expanded={open} onPress={() => setOpen((value) => !value)}>{open ? "Hide training log" : "Show training log"}</TrainQuietButton>
       </DashboardCard>
       {open ? <ProtectedWorkoutLogCard actions={quickLogs} busy={busy} /> : null}
     </View>
@@ -520,11 +684,11 @@ function WeekContextCard({ viewModel }: { viewModel: TrainViewModel }) {
   const timeline = weeklyTimeline(viewModel);
   return (
     <DashboardCard testID="train-week-context" title="This Week">
-      <Text style={screenStyles.body}>Theme: {plainTrainCopy(viewModel.supportGenerationSummary.weekDevelopmentTheme || "keep boxing quality repeatable")}</Text>
-      {bars.length > 1 ? <MiniBarChart bars={bars} height={84} referenceLabel="Minutes" /> : <TimelineStrip items={timeline} />}
+      <Text style={trainTextStyles.body}>Theme: {plainTrainCopy(viewModel.supportGenerationSummary.weekDevelopmentTheme || "keep boxing quality repeatable")}</Text>
+      {bars.length > 1 ? <TrainMiniBarChart bars={bars} height={84} referenceLabel="Minutes" /> : <TrainTimelineStrip items={timeline} />}
       <View style={{ gap: spacing.xs }}>
         {timeline.slice(0, 5).map((item, index) => (
-          <Text key={`train-week-session:${index}:${item.title}`} style={screenStyles.subtle}>
+          <Text key={`train-week-session:${index}:${item.title}`} style={trainTextStyles.subtle}>
             {item.label}: {item.title}
           </Text>
         ))}
@@ -604,8 +768,8 @@ export function TrainScreen({
           tone="critical"
         >
           <View style={{ gap: spacing.xs }}>
-            <Text style={screenStyles.body}>Stop if symptoms return.</Text>
-            {viewModel.riskSummary.slice(0, 2).map((risk, index) => <Text key={`train-risk:${index}`} style={screenStyles.body}>{firstSentence(risk)}</Text>)}
+            <Text style={trainTextStyles.body}>Stop if symptoms return.</Text>
+            {viewModel.riskSummary.slice(0, 2).map((risk, index) => <Text key={`train-risk:${index}`} style={trainTextStyles.body}>{firstSentence(risk)}</Text>)}
           </View>
         </RiskBanner>
       ) : null}
@@ -626,12 +790,12 @@ export function TrainScreen({
       {pendingStartSession && activeWorkout ? (
         <EngineCard>
           <View style={{ gap: spacing.sm }} testID="train-start-conflict-card">
-            <Text style={screenStyles.sectionTitle}>Workout in progress</Text>
-            <Text style={screenStyles.body}>Resume {activeWorkout.title} or discard it before starting {pendingStartSession.title}.</Text>
+            <Text style={trainTextStyles.sectionTitle}>Workout in progress</Text>
+            <Text style={trainTextStyles.body}>Resume {activeWorkout.title} or discard it before starting {pendingStartSession.title}.</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              <Pressable accessibilityRole="button" onPress={onResumeWorkout} style={screenStyles.button}>
-                <Text style={screenStyles.buttonText}>Resume workout</Text>
-              </Pressable>
+              <View style={{ flexBasis: 160, flexGrow: 1 }}>
+                <TrainPrimaryButton onPress={onResumeWorkout}>Resume workout</TrainPrimaryButton>
+              </View>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
@@ -639,9 +803,15 @@ export function TrainScreen({
                   onDiscardWorkout?.();
                   onStartWorkout?.(pendingStartSession);
                 }}
-                style={screenStyles.quietButton}
+                style={({ pressed }) => [
+                  screenStyles.quietButton,
+                  {
+                    backgroundColor: pressed ? trainPalette.controlFillPressed : trainPalette.controlFill,
+                    borderColor: trainPalette.controlLine
+                  }
+                ]}
               >
-                <Text style={screenStyles.quietButtonText}>Discard and start</Text>
+                <Text style={{ color: trainPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>Discard and start</Text>
               </Pressable>
             </View>
           </View>
@@ -675,7 +845,7 @@ export function TrainScreen({
       ) : viewModel.sessionCards.length > 0 || viewModel.todayGeneratedSessions.length > 0 || viewModel.nextGeneratedSession ? (
         <View testID="train-workout-section">
           <DashboardCard testID="train-workout-summary-card" title="Exercise Details">
-            <Text style={screenStyles.body}>The player details are not available for this session. Use Log Other Training if you complete it outside the player.</Text>
+            <Text style={trainTextStyles.body}>The player details are not available for this session. Use Log Other Training if you complete it outside the player.</Text>
           </DashboardCard>
         </View>
       ) : (
@@ -684,12 +854,12 @@ export function TrainScreen({
       <WeekContextCard viewModel={viewModel} />
       {viewModel.cycleTrainingDecision.status !== "none" ? (
         <DashboardCard title="Cycle context">
-          <Text style={screenStyles.body}>{plainTrainCopy(viewModel.cycleTrainingDecision.summary)}</Text>
-          <Text style={screenStyles.subtle}>{plainTrainCopy(viewModel.cycleTrainingDecision.action)}</Text>
+          <Text style={trainTextStyles.body}>{plainTrainCopy(viewModel.cycleTrainingDecision.summary)}</Text>
+          <Text style={trainTextStyles.subtle}>{plainTrainCopy(viewModel.cycleTrainingDecision.action)}</Text>
         </DashboardCard>
       ) : null}
       <ManualTrainingLoggerSection busy={busy} quickLogs={quickLogs} />
-      {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
+      {completionMessage ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{completionMessage}</Text> : null}
     </LuminousScreen>
   );
 }
