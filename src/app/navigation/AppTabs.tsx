@@ -1,5 +1,5 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, type NavigationContainerRef } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { StatusBar } from "expo-status-bar";
@@ -27,12 +27,12 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
-const floatingTabBarHeight = 60;
+const floatingTabBarHeight = 72;
 const floatingTabBarRadius = floatingTabBarHeight / 2;
-const floatingTabTouchTarget = 48;
-const floatingTabPuckSize = 40;
-const floatingTabIconSize = 20;
-const floatingTabBarMaxWidth = 336;
+const floatingTabTouchTarget = 54;
+const floatingTabPuckSize = 36;
+const floatingTabIconSize = 18;
+const floatingTabBarMaxWidth = 376;
 const floatingTabBarMinWidth = floatingTabTouchTarget * 5 + spacing.md * 2;
 
 const tabAccents: Record<keyof RootTabParamList, string> = {
@@ -182,6 +182,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
     Math.min(windowWidth - spacing.xxl * 2, floatingTabBarMaxWidth)
   );
   const floatingTabBarSideInset = Math.max(spacing.sm, (windowWidth - floatingTabBarWidth) / 2);
+  const navigationRef = React.useRef<NavigationContainerRef<RootTabParamList>>(null);
   const [fuelFocusIntent, setFuelFocusIntent] = React.useState<FuelFocusIntent | undefined>();
   const [trainInitialSection, setTrainInitialSection] = React.useState<TrainSection | undefined>();
   const [playerInstanceKey, setPlayerInstanceKey] = React.useState(0);
@@ -235,9 +236,15 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
     }
   }, [playerStatus]);
 
+  const openFuelFromWorkoutPlayer = React.useCallback(() => {
+    setFuelFocusIntent("log_hydration");
+    discardWorkoutPlayer();
+    navigationRef.current?.navigate("Fuel");
+  }, [discardWorkoutPlayer]);
+
   return (
     <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <StatusBar style="light" />
         <Tab.Navigator
           screenOptions={({ route }) => ({
@@ -249,11 +256,11 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             tabBarIcon: ({ color, focused }) => (
               <FloatingTabIcon color={color} focused={focused} routeName={route.name} />
             ),
-            tabBarShowLabel: false,
+            tabBarShowLabel: true,
             tabBarLabelPosition: "below-icon",
             tabBarIconStyle: {
               alignItems: "center",
-              height: floatingTabTouchTarget,
+              height: 42,
               justifyContent: "center",
               marginBottom: 0,
               marginTop: 0,
@@ -264,14 +271,14 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               height: floatingTabBarHeight,
               justifyContent: "center",
               paddingBottom: 0,
-              paddingTop: 0
+              paddingTop: 2
             },
             tabBarLabelStyle: {
-              fontSize: 11,
-              fontWeight: "700",
-              lineHeight: 14,
-              marginBottom: 0,
-              marginTop: 1
+              fontSize: 10,
+              fontWeight: "800",
+              lineHeight: 12,
+              marginBottom: 8,
+              marginTop: -5
             },
             tabBarStyle: {
               ...glassStyles.tabBar,
@@ -327,6 +334,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
                 navigation.navigate("Train");
               }}
               planViewModel={state.viewModels.plan}
+              preferredUnits={state.athlete.preferredUnits}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
               trainViewModel={state.viewModels.train}
@@ -438,8 +446,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             onClose={closeWorkoutPlayer}
             onDiscard={discardWorkoutPlayer}
             onOpenFuel={() => {
-              setFuelFocusIntent("log_hydration");
-              discardWorkoutPlayer();
+              openFuelFromWorkoutPlayer();
             }}
             onStatusChange={setPlayerStatus}
             session={playerSession}

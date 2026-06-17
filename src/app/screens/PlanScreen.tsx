@@ -715,7 +715,7 @@ function ThisWeeksPlanCard({
           }}
         >
           <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
-            Training Aim
+            This week's job
           </Text>
           <Text style={{ color: planPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>
             {trainingAim(viewModel)}
@@ -1117,8 +1117,6 @@ function PlanRoadmap({
   return (
     <View style={{ gap: spacing.md }} testID="plan-roadmap">
       <ThisWeeksPlanCard busy={busy} onChangeGoal={() => onOpenWorkspace("goal_wizard")} onPreviewNextWeek={onPreviewNextWeek} viewModel={viewModel} />
-      <WeekAtAGlanceCard viewModel={viewModel} />
-      <BuiltAroundCard viewModel={viewModel} />
       <UpcomingSessionsCard asOfDate={asOfDate} viewModel={viewModel} />
       <NextWeekCard
         busy={busy}
@@ -1129,6 +1127,8 @@ function PlanRoadmap({
         viewModel={viewModel}
       />
       <ChangePlanCard busy={busy} onOpenWorkspace={onOpenWorkspace} />
+      <WeekAtAGlanceCard viewModel={viewModel} />
+      <BuiltAroundCard viewModel={viewModel} />
     </View>
   );
 }

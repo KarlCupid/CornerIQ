@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getPublicRuntimeConfig, PUBLIC_SUPABASE_ANON_KEY_ENV, PUBLIC_SUPABASE_URL_ENV } from "../config/runtimeConfig";
+import { createMemoryDeviceStorage, resolveDeviceStorage, type DeviceKeyValueStorage } from "../storage/deviceStorage";
 import type { Database } from "./database.types";
 
 export type CornerSupabaseClient = SupabaseClient<Database>;
@@ -12,6 +13,23 @@ export interface CornerSupabaseConfig {
 type RuntimeEnv = Record<string, string | undefined>;
 
 let singletonClient: CornerSupabaseClient | null = null;
+const authMemoryStorage = createMemoryDeviceStorage();
+
+async function resolveAuthStorage(): Promise<DeviceKeyValueStorage> {
+  return (await resolveDeviceStorage()) ?? authMemoryStorage;
+}
+
+export const supabaseAuthStorage: DeviceKeyValueStorage = {
+  async getItem(key) {
+    return (await resolveAuthStorage()).getItem(key);
+  },
+  async removeItem(key) {
+    await (await resolveAuthStorage()).removeItem(key);
+  },
+  async setItem(key, value) {
+    await (await resolveAuthStorage()).setItem(key, value);
+  }
+};
 
 function readRuntimeEnv(): RuntimeEnv {
   const runtime = globalThis as { process?: { env?: RuntimeEnv } };
@@ -71,7 +89,8 @@ export function createCornerSupabaseClient(config: CornerSupabaseConfig | null =
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false
+      detectSessionInUrl: false,
+      storage: supabaseAuthStorage
     }
   });
 }

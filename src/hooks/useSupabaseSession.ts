@@ -38,6 +38,10 @@ function cleanCredentials(email: string, password: string): { email: string; pas
   };
 }
 
+function authErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): SupabaseSessionState {
   const clientFactory = options.clientFactory ?? defaultClientFactory;
   const authServiceFactory = options.authServiceFactory ?? createAuthService;
@@ -63,16 +67,30 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
 
       setClient(nextClient);
       const nextAuth = authServiceFactory(nextClient);
-      void nextAuth.getSession().then(({ data, error }) => {
-        if (!active) {
-          return;
-        }
-        if (error) {
-          setAuthError(error.message);
-        }
-        setSession(data.session);
-        setStatus("ready");
-      });
+      setAuthError(null);
+      void nextAuth
+        .getSession()
+        .then(({ data, error }) => {
+          if (!active) {
+            return;
+          }
+          setAuthError(error?.message ?? null);
+          setSession(data.session);
+          setStatus("ready");
+        })
+        .catch((error: unknown) => {
+          if (!active) {
+            return;
+          }
+          setAuthError(authErrorMessage(error, "Could not load the saved sign-in. Try signing in again."));
+          setSession(null);
+          setStatus("ready");
+        })
+        .finally(() => {
+          if (active) {
+            setAuthLoading(false);
+          }
+        });
       const { data } = nextAuth.onAuthStateChange((_event, nextSession) => {
         if (active) {
           setSession(nextSession);
@@ -107,9 +125,14 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       setAuthLoading(true);
       setAuthError(null);
       setAuthMessage(null);
-      const { error } = await auth.signInWithPassword(credentials.email, credentials.password);
-      setAuthError(error?.message ?? null);
-      setAuthLoading(false);
+      try {
+        const { error } = await auth.signInWithPassword(credentials.email, credentials.password);
+        setAuthError(error?.message ?? null);
+      } catch (error) {
+        setAuthError(authErrorMessage(error, "Sign-in failed. Check the connection and try again."));
+      } finally {
+        setAuthLoading(false);
+      }
     },
     [auth]
   );
@@ -131,10 +154,16 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       setAuthLoading(true);
       setAuthError(null);
       setAuthMessage(null);
-      const { error } = await auth.signUpWithPassword(credentials.email, credentials.password);
-      setAuthError(error?.message ?? null);
-      setAuthMessage(error ? null : "Check your email to confirm the new account if confirmation is enabled.");
-      setAuthLoading(false);
+      try {
+        const { error } = await auth.signUpWithPassword(credentials.email, credentials.password);
+        setAuthError(error?.message ?? null);
+        setAuthMessage(error ? null : "Check your email to confirm the new account if confirmation is enabled.");
+      } catch (error) {
+        setAuthError(authErrorMessage(error, "Sign-up failed. Check the connection and try again."));
+        setAuthMessage(null);
+      } finally {
+        setAuthLoading(false);
+      }
     },
     [auth]
   );
@@ -156,20 +185,40 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       setAuthLoading(true);
       setAuthError(null);
       setAuthMessage(null);
-      const { error } = await auth.requestPasswordReset(email);
-      setAuthError(error?.message ?? null);
-      setAuthMessage(error ? null : "If that email is registered, Supabase will send password reset instructions.");
-      setAuthLoading(false);
+      try {
+        const { error } = await auth.requestPasswordReset(email);
+        setAuthError(error?.message ?? null);
+        setAuthMessage(error ? null : "If that email is registered, Supabase will send password reset instructions.");
+      } catch (error) {
+        setAuthError(authErrorMessage(error, "Password reset failed. Check the connection and try again."));
+        setAuthMessage(null);
+      } finally {
+        setAuthLoading(false);
+      }
     },
     [auth]
   );
 
   const signOut = useCallback(async () => {
-    if (auth) {
-      const { error } = await auth.signOut();
-      setAuthError(error?.message ?? null);
+    if (!auth) {
+      setAuthError("Supabase auth is not configured.");
+      return;
     }
-    setSession(null);
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthMessage(null);
+    try {
+      const { error } = await auth.signOut();
+      if (error) {
+        setAuthError(error.message);
+        return;
+      }
+      setSession(null);
+    } catch (error) {
+      setAuthError(authErrorMessage(error, "Sign-out failed. Check the connection and try again."));
+    } finally {
+      setAuthLoading(false);
+    }
   }, [auth]);
 
   return {

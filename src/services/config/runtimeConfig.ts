@@ -15,7 +15,7 @@ export interface PublicRuntimeConfig {
 
 export interface ReleaseLinkConfig {
   appleSubmissionBlockedReason: string | null;
-  privacyPolicyUrl: string;
+  privacyPolicyUrl: string | null;
   privacyPolicyUrlIsPlaceholder: boolean;
 }
 
@@ -82,11 +82,11 @@ function isHttpUrl(value: string): boolean {
 
 export function getReleaseLinkConfig(env: RuntimeEnv = readRuntimeEnv()): ReleaseLinkConfig {
   const configuredPrivacyPolicyUrl = env[PUBLIC_PRIVACY_POLICY_URL_ENV]?.trim();
-  const privacyPolicyUrl = configuredPrivacyPolicyUrl && isHttpUrl(configuredPrivacyPolicyUrl) ? configuredPrivacyPolicyUrl : PLACEHOLDER_PRIVACY_POLICY_URL;
-  const privacyPolicyUrlIsPlaceholder = privacyPolicyUrl === PLACEHOLDER_PRIVACY_POLICY_URL || new URL(privacyPolicyUrl).hostname === "example.com";
+  const privacyPolicyUrl = configuredPrivacyPolicyUrl && isHttpUrl(configuredPrivacyPolicyUrl) ? configuredPrivacyPolicyUrl : null;
+  const privacyPolicyUrlIsPlaceholder = !privacyPolicyUrl || privacyPolicyUrl === PLACEHOLDER_PRIVACY_POLICY_URL || new URL(privacyPolicyUrl).hostname === "example.com";
 
   return {
-    appleSubmissionBlockedReason: privacyPolicyUrlIsPlaceholder ? "APPLE_SUBMISSION_BLOCKED: replace the placeholder Privacy Policy URL before App Store submission." : null,
+    appleSubmissionBlockedReason: privacyPolicyUrlIsPlaceholder ? "APPLE_SUBMISSION_BLOCKED: set a real Privacy Policy URL before public submission." : null,
     privacyPolicyUrl,
     privacyPolicyUrlIsPlaceholder
   };

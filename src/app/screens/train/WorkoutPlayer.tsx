@@ -20,10 +20,15 @@ import { accentColor, accentWash, LuminousProgressBar, type LuminousAccent } fro
 import { glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
+import { clearWorkoutPlayerState, loadWorkoutPlayerState, saveWorkoutPlayerState, type PersistedWorkoutPlayerState, type PersistedWorkoutPlayerStatus } from "../../../services/workout/workoutPlayerPersistence";
 import { screenStyles } from "../screenStyles";
 import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 
 export type WorkoutPlayerStatus = "not_started" | "active" | "paused" | "finishing" | "completed" | "skipped";
+
+function isPersistableWorkoutStatus(status: WorkoutPlayerStatus): status is PersistedWorkoutPlayerStatus {
+  return status === "active" || status === "paused" || status === "finishing";
+}
 
 interface WorkoutPlayerProps {
   busy: boolean;
@@ -652,6 +657,7 @@ export function WorkoutPlayer({
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
+  const [resumeState, setResumeState] = React.useState<PersistedWorkoutPlayerState | null>(null);
   const activeStepIndexRef = React.useRef(activeStepIndex);
   activeStepIndexRef.current = activeStepIndex;
 
@@ -672,7 +678,27 @@ export function WorkoutPlayer({
     setDetailsOpen(false);
     setDiscardConfirm(false);
     setSkipConfirm(false);
+    setResumeState(null);
   }, [firstStepSeconds, session.generatedSessionId]);
+
+  React.useEffect(() => {
+    let active = true;
+    setResumeState(null);
+    void loadWorkoutPlayerState(session.generatedSessionId)
+      .then((persisted) => {
+        if (active) {
+          setResumeState(persisted);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setResumeState(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [session.generatedSessionId]);
 
   React.useEffect(() => {
     onStatusChange?.(status);
@@ -705,12 +731,59 @@ export function WorkoutPlayer({
     setStatus("finishing");
   }, [activeStepIndex, status, stepRemainingSeconds, timeline.steps]);
 
+  React.useEffect(() => {
+    if (!isPersistableWorkoutStatus(status)) {
+      return;
+    }
+    void saveWorkoutPlayerState({
+      activeStepIndex,
+      completedSetMap,
+      elapsedSeconds,
+      painFlagMap,
+      sessionId: session.generatedSessionId,
+      sessionRpe,
+      skippedExerciseMap,
+      skippedWorkStepMap,
+      status,
+      stepRemainingSeconds,
+      substitutionMap,
+      touchedExerciseMap,
+      updatedAt: new Date().toISOString(),
+      notes
+    });
+  }, [
+    activeStepIndex,
+    completedSetMap,
+    elapsedSeconds,
+    notes,
+    painFlagMap,
+    session.generatedSessionId,
+    sessionRpe,
+    skippedExerciseMap,
+    skippedWorkStepMap,
+    status,
+    stepRemainingSeconds,
+    substitutionMap,
+    touchedExerciseMap
+  ]);
+
+  React.useEffect(() => {
+    if (status === "completed" || status === "skipped") {
+      void clearWorkoutPlayerState(session.generatedSessionId);
+    }
+  }, [session.generatedSessionId, status]);
+
   const steps = timeline.steps;
   const currentTimelineStep = steps[clampIndex(activeStepIndex, steps.length - 1)];
   const currentSection = currentTimelineStep ? session.sections[currentTimelineStep.sectionIndex] ?? session.sections[0] : undefined;
   const currentExercise =
     currentSection?.exercises.find((exercise) => exercise.exerciseId === currentTimelineStep?.exerciseId) ??
     currentSection?.exercises[currentTimelineStep?.exerciseIndex ?? 0];
+
+  React.useEffect(() => {
+    setDetailsOpen(false);
+    setSkipConfirm(false);
+  }, [currentTimelineStep?.id]);
 
   if (!currentTimelineStep || !currentSection || !currentExercise || steps.length === 0) {
     return (
@@ -772,10 +845,67 @@ export function WorkoutPlayer({
   const previewFlowLines = recipeFlowLines(session);
   const previewWhy = recipeWhy(session);
 
+  const restoreWorkoutState = (persisted: PersistedWorkoutPlayerState) => {
+    const nextIndex = clampIndex(persisted.activeStepIndex, steps.length - 1);
+    setActiveStepIndex(nextIndex);
+    setStepRemainingSeconds(Math.max(0, Math.min(persisted.stepRemainingSeconds, steps[nextIndex]?.durationSeconds ?? persisted.stepRemainingSeconds)));
+    setElapsedSeconds(persisted.elapsedSeconds);
+    setCompletedSetMap(persisted.completedSetMap);
+    setSkippedWorkStepMap(persisted.skippedWorkStepMap);
+    setSkippedExerciseMap(persisted.skippedExerciseMap);
+    setPainFlagMap(persisted.painFlagMap);
+    setTouchedExerciseMap(persisted.touchedExerciseMap);
+    setSubstitutionMap(persisted.substitutionMap);
+    setSessionRpe(persisted.sessionRpe);
+    setNotes(persisted.notes);
+    setLocalError(null);
+    setDetailsOpen(false);
+    setDiscardConfirm(false);
+    setSkipConfirm(false);
+    setResumeState(null);
+    setStatus(persisted.status);
+  };
+
+  const startWorkoutFresh = () => {
+    void clearWorkoutPlayerState(session.generatedSessionId);
+    setResumeState(null);
+    setStepRemainingSeconds(currentTimelineStep.durationSeconds);
+    setStatus("active");
+  };
+
+  const discardCurrentWorkout = () => {
+    void clearWorkoutPlayerState(session.generatedSessionId);
+    onDiscard();
+  };
+
   if (status === "not_started") {
     return (
       <WorkoutScreenFrame mode="WORKOUT PREVIEW" onClose={onClose}>
         <GlassPanel testID="workout-player-preview">
+          {resumeState ? (
+            <View
+              style={{
+                backgroundColor: "rgba(39, 206, 241, 0.1)",
+                borderColor: "rgba(39, 206, 241, 0.32)",
+                borderRadius: 18,
+                borderWidth: 1,
+                gap: spacing.sm,
+                padding: spacing.md
+              }}
+              testID="workout-player-resume-card"
+            >
+              <Text style={screenStyles.sectionTitle}>Saved workout found</Text>
+              <Text style={screenStyles.body}>Resume from {formatElapsed(resumeState.elapsedSeconds)} elapsed, or start this workout from the top.</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                <PlayerButton label="Resume workout" onPress={() => restoreWorkoutState(resumeState)} tone="primary" />
+                <PlayerButton label="Start over" onPress={startWorkoutFresh} />
+                <PlayerButton label="Discard saved progress" onPress={() => {
+                  void clearWorkoutPlayerState(session.generatedSessionId);
+                  setResumeState(null);
+                }} tone="warning" />
+              </View>
+            </View>
+          ) : null}
           <View style={{ alignItems: "center", gap: spacing.md }}>
             <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>WORKOUT PREVIEW</Text>
             <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{recipeTitle(session)}</Text>
@@ -835,14 +965,11 @@ export function WorkoutPlayer({
           <PlayerButton
             disabled={busy}
             label="Start workout"
-            onPress={() => {
-              setStepRemainingSeconds(currentTimelineStep.durationSeconds);
-              setStatus("active");
-            }}
+            onPress={startWorkoutFresh}
             tone="primary"
           />
           <PlayerButton label="Back to Train" onPress={onClose} />
-          <Text style={screenStyles.subtle}>After starting, closing the player keeps progress only while this app session stays alive. If the app reloads or you discard, follow-along progress may be lost.</Text>
+          <Text style={screenStyles.subtle}>After starting, this device can offer to resume the workout if the same session is still available. Discard clears saved progress.</Text>
         </GlassPanel>
 
         <CollapsedDetailDisclosure title="Workout recipe" summary="Blocks, timed steps, cues, swaps, and stop rules." testID="workout-player-preview-detail">
@@ -968,6 +1095,7 @@ export function WorkoutPlayer({
         notes: notes.trim(),
         exerciseResults: playerResults
       });
+      await clearWorkoutPlayerState(session.generatedSessionId);
       setStatus("completed");
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "Workout completion failed.");
@@ -979,9 +1107,14 @@ export function WorkoutPlayer({
       setLocalError("Workout completion is unavailable until the app is connected.");
       return;
     }
-    setLocalError(null);
-    await completionActions.skip(session, notes.trim());
-    setStatus("skipped");
+    try {
+      setLocalError(null);
+      await completionActions.skip(session, notes.trim());
+      await clearWorkoutPlayerState(session.generatedSessionId);
+      setStatus("skipped");
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : "Workout skip failed.");
+    }
   };
 
   if (status === "completed") {
@@ -1036,7 +1169,7 @@ export function WorkoutPlayer({
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             {skipConfirm ? <PlayerButton disabled={busy} label="Confirm skip workout" onPress={() => void skipWorkout()} tone="warning" /> : <PlayerButton label="Skip workout" onPress={() => setSkipConfirm(true)} tone="warning" />}
-            {discardConfirm ? <PlayerButton label="Confirm discard" onPress={onDiscard} tone="warning" /> : <PlayerButton label="Discard workout" onPress={() => setDiscardConfirm(true)} tone="warning" />}
+            {discardConfirm ? <PlayerButton label="Confirm discard" onPress={discardCurrentWorkout} tone="warning" /> : <PlayerButton label="Discard workout" onPress={() => setDiscardConfirm(true)} tone="warning" />}
           </View>
         </GlassPanel>
       </WorkoutScreenFrame>
@@ -1091,7 +1224,7 @@ export function WorkoutPlayer({
   );
 
   return (
-    <WorkoutScreenFrame footer={liveControlDock} mode="LIVE WORKOUT" onClose={onClose} scrollResetKey={status} testID="workout-player">
+    <WorkoutScreenFrame footer={liveControlDock} mode="LIVE WORKOUT" onClose={onClose} scrollResetKey={`${status}:${currentTimelineStep.id}:${currentStepIndex}`} testID="workout-player">
       <View style={{ alignItems: "center", gap: spacing.xs }}>
         <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 37, textAlign: "center" }}>{recipeTitle(session)}</Text>
         {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
@@ -1123,7 +1256,7 @@ export function WorkoutPlayer({
       </View>
 
           <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{liveSafetyLine}</Text>
-      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 17, textAlign: "center" }}>Close returns to Train; resume works while this app session stays alive. Discard loses progress.</Text>
+      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 17, textAlign: "center" }}>Close returns to Train; this device can offer to resume this same session. Discard loses progress.</Text>
 
       {shouldShowPrimaryDone ? <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" /> : null}
 

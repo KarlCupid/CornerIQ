@@ -429,7 +429,7 @@ const fuelViewModel: FuelViewModel = {
   tournamentFuel: null,
   rehydrationPlan: null,
   underFuelingRisk: null,
-  riskSummary: ["No active fuel risk"],
+  riskSummary: [],
   why: "Fuel supports the planned session."
 };
 
@@ -1664,6 +1664,7 @@ describe("minimal app screens", () => {
         cycleSymptomOptions: ["cramps"],
         busy: false,
         message: null,
+        trainViewModel,
         onOpenFuelLog: vi.fn(),
         onOpenTrainWorkout: vi.fn()
       })
@@ -1672,7 +1673,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Today's Check-In");
     expect(output).toContain("Check in");
     expect(output).toContain("Log food");
-    expect(output).toContain("Start workout");
+    expect(output).toContain("View workout");
+    expect(output).not.toContain("Start workout");
     expect(output).toContain("Training Today");
     expect(output).toContain("Fuel Today");
     expect(output).toContain("This Week");
@@ -1705,10 +1707,13 @@ describe("minimal app screens", () => {
     const { TodayScreen, handledTodaySecondaryActions } = await import("../../app/screens/TodayScreen");
     const markFoodNotTrackingToday = vi.fn();
     const onOpenFuelLog = vi.fn();
-    const onOpenTrainWorkout = vi.fn();
+    const onOpenTrain = vi.fn();
     const renderer = render(
       React.createElement(TodayScreen, {
-        viewModel: todayViewModel,
+        viewModel: {
+          ...todayViewModel,
+          riskSummary: []
+        },
         recentLogs: recentLogsViewModel,
         cycleContext: null,
         quickLogs: { ...quickLogActions, markFoodNotTrackingToday },
@@ -1717,14 +1722,25 @@ describe("minimal app screens", () => {
         cycleSymptomOptions: ["cramps"],
         busy: false,
         message: null,
+        trainViewModel,
         onOpenFuelLog,
-        onOpenTrainWorkout
+        onOpenTrain
       })
     );
 
     expect(Object.keys(handledTodaySecondaryActions).sort()).toEqual(todayViewModel.secondaryActions.map((action) => action.action).sort());
     expect(JSON.stringify(renderer.toJSON())).not.toContain("today-quick-check-section");
     expect(visibleModalCount(renderer)).toBe(0);
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "View workout"));
+    });
+    expect(onOpenTrain).toHaveBeenCalled();
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Log food"));
+    });
+    expect(onOpenFuelLog).toHaveBeenCalled();
 
     await act(async () => {
       await press(pressableWithText(renderer, "Check in"));
@@ -1735,16 +1751,6 @@ describe("minimal app screens", () => {
     expect(quickCheckOutput).toContain("today-quick-check-section");
     expect(quickCheckOutput).toContain("Quick check");
     expect(quickCheckOutput.indexOf("today-check-in-card")).toBeLessThan(quickCheckOutput.indexOf("today-quick-check-modal"));
-
-    await act(async () => {
-      await press(pressableWithText(renderer, "Start workout"));
-    });
-    expect(onOpenTrainWorkout).toHaveBeenCalled();
-
-    await act(async () => {
-      await press(pressableWithText(renderer, "Log food"));
-    });
-    expect(onOpenFuelLog).toHaveBeenCalled();
 
     expect(markFoodNotTrackingToday).not.toHaveBeenCalled();
   });
@@ -1795,7 +1801,10 @@ describe("minimal app screens", () => {
     };
     const renderer = render(
       React.createElement(TodayScreen, {
-        viewModel: todayViewModel,
+        viewModel: {
+          ...todayViewModel,
+          riskSummary: []
+        },
         recentLogs: missingReadinessLogs,
         cycleContext: null,
         quickLogs: quickLogActions,
@@ -2015,10 +2024,12 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Today's Fuel Plan");
     expect(output).toContain("No active cut");
-    expect(output).toContain("Morning weight");
-    expect(output).toContain("To weight");
-    expect(output).toContain("Weigh-in");
-    expect(output).toContain("Body check");
+    expect(output).toContain("Fuel readiness");
+    expect(output).toContain("Hydration guide");
+    expect(output).toContain("Food log");
+    expect(output).toContain("Training load");
+    expect(output).not.toContain("To weight");
+    expect(output).not.toContain("Body check");
     expect(output).toContain("Do Not Miss Today");
     expect(output).toContain("Training Today");
     expect(output).toContain("Weight Trend");
@@ -2040,9 +2051,9 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Protein stays steady");
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output.indexOf("Today's Fuel Plan")).toBeLessThan(output.indexOf("Morning weight"));
+    expect(output.indexOf("Today's Fuel Plan")).toBeLessThan(output.indexOf("Do Not Miss Today"));
     expect(output.indexOf("Do Not Miss Today")).toBeLessThan(output.indexOf("Training Today"));
-    expect(output.indexOf("Weight Trend")).toBeLessThan(output.indexOf("Food details"));
+    expect(output.indexOf("Food details")).toBeLessThan(output.indexOf("Weight Trend"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Food details"));
@@ -2395,7 +2406,7 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Today's Training Plan");
-    expect(output).toContain("Training Aim");
+    expect(output).toContain("Your job today");
     expect(output).toContain("Workout Flow");
     expect(output).toContain("Before You Start");
     expect(output).not.toContain("Show Execution guidance");
@@ -3093,7 +3104,7 @@ describe("minimal app screens", () => {
 
     expect(state.viewModels.plan.dayPlans).toHaveLength(7);
     expect(output).toContain("This Week's Plan");
-    expect(output).toContain("Training Aim");
+    expect(output).toContain("This week's job");
     expect(output).toContain("Week at a Glance");
     expect(output).toContain("Built Around");
     expect(output).toContain("Upcoming Sessions");
@@ -4190,12 +4201,17 @@ describe("minimal app screens", () => {
     expect(output).toContain("Athlete Setup");
     expect(output).toContain("Build - Week 2");
     expect(output).toContain("CornerIQ uses this setup to build your Plan, adjust Train, and guide Fuel.");
-    expect(output).toContain("App Inputs");
-    expect(output).toContain("Quick Updates");
-    expect(output).toContain("Optional and private. No cycle assumptions until you choose.");
+    expect(output).toContain("Show Setup details");
+    expect(output).not.toContain("App inputs");
+    expect(output).not.toContain("Quick updates");
     expect(output).not.toContain("Signal constellation");
     expect(output).not.toContain("Corner intelligence layers");
     expect(output).not.toContain("Profile action");
+    await switchSection(renderer, "Show Setup details");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("App inputs");
+    expect(output).toContain("Quick updates");
+    expect(output).toContain("Optional and private. No cycle assumptions until you choose.");
     await switchSection(renderer, "Show Health & Safety");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Safety history");
@@ -4258,7 +4274,7 @@ describe("minimal app screens", () => {
     expect(generateExportBundle).toHaveBeenCalled();
     expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
     expect(JSON.stringify(renderer.toJSON())).toContain("Privacy Policy");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Open Privacy Policy");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Privacy policy unavailable");
     expect(pressableWithText(renderer, "Delete app data")).toBeUndefined();
     expect(pressableWithText(renderer, "Delete account")).toBeUndefined();
     expect(JSON.stringify(renderer.toJSON())).toContain("Show Delete controls");
@@ -4287,6 +4303,7 @@ describe("minimal app screens", () => {
         cycleSymptomOptions: ["cramps"],
         busy: false,
         message: null,
+        trainViewModel,
         onOpenFuelLog: vi.fn(),
         onOpenTrainWorkout: vi.fn()
       })
@@ -4295,7 +4312,8 @@ describe("minimal app screens", () => {
     expect(todayButtons.filter((label) => label.includes("Show "))).toHaveLength(0);
     expect(JSON.stringify(todayRenderer.toJSON())).toContain("Check in");
     expect(JSON.stringify(todayRenderer.toJSON())).toContain("Log food");
-    expect(JSON.stringify(todayRenderer.toJSON())).toContain("Start workout");
+    expect(JSON.stringify(todayRenderer.toJSON())).toContain("View workout");
+    expect(JSON.stringify(todayRenderer.toJSON())).not.toContain("Start workout");
     expect(JSON.stringify(todayRenderer.toJSON())).toContain("today-quick-logs");
 
     const fuelRenderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));

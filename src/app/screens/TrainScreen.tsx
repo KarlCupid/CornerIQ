@@ -599,7 +599,7 @@ function TodayTrainingPlanCard({
           }}
         >
           <Text style={{ color: trainColorForTone("gold"), fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
-            Training Aim
+            Your job today
           </Text>
           <Text style={trainTextStyles.body}>{trainingAim(session, card, generated, viewModel)}</Text>
         </View>

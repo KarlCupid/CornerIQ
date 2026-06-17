@@ -30,6 +30,7 @@ export interface TodayScreenProps {
   cycleQuickLogEnabled: boolean;
   cycleTrackingStatus: "enabled" | "disabled" | "undecided" | string;
   cycleSymptomOptions: readonly CycleSymptom[];
+  preferredUnits?: "metric" | "imperial" | undefined;
   busy: boolean;
   message: string | null;
   onOpenFuel?: (() => void) | undefined;
@@ -179,6 +180,7 @@ function TodayQuickCheckSection({
   focus,
   includeOtherLogs = true,
   onClose,
+  preferredUnits = "metric",
   quickLogs,
   recentLogs
 }: {
@@ -187,6 +189,7 @@ function TodayQuickCheckSection({
   focus: TodayQuickCheckFocus;
   includeOtherLogs?: boolean | undefined;
   onClose?: (() => void) | undefined;
+  preferredUnits: "metric" | "imperial";
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
 }) {
@@ -197,7 +200,7 @@ function TodayQuickCheckSection({
         ? "Weight first"
         : "Water first";
   const logCards = {
-    body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} forceOpen={focus === "body_mass"} framed={false} status={recentLogs.bodyMassToday} />,
+    body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} forceOpen={focus === "body_mass"} framed={false} preferredUnits={preferredUnits} status={recentLogs.bodyMassToday} />,
     hydration: <HydrationLogCard actions={quickLogs} busy={busy} framed={false} status={recentLogs.hydrationToday} />,
     readiness: <ReadinessCheckInCard actions={quickLogs} busy={busy} forceOpen={focus === "readiness"} framed={false} status={recentLogs.readinessToday} />
   } satisfies Record<TodayQuickCheckFocus, React.ReactNode>;
@@ -259,12 +262,14 @@ function TodayQuickCheckSection({
 function TodayQuickCheckModal({
   busy,
   onClose,
+  preferredUnits = "metric",
   quickCheck,
   quickLogs,
   recentLogs
 }: {
   busy: boolean;
   onClose: () => void;
+  preferredUnits: "metric" | "imperial";
   quickCheck: { focus: TodayQuickCheckFocus; placement: TodayQuickCheckPlacement } | null;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
@@ -354,6 +359,7 @@ function TodayQuickCheckModal({
               framed={false}
               includeOtherLogs={includeOtherLogs}
               onClose={onClose}
+              preferredUnits={preferredUnits}
               quickLogs={quickLogs}
               recentLogs={recentLogs}
             />
@@ -607,7 +613,15 @@ function readinessStatus(dashboard: TodayDashboardVisual, recentLogs: RecentLogs
 }
 
 function weightStatus(fuel: FuelViewModel | undefined, warningActive: boolean): PlainStatus<WeightValue> {
-  if (warningActive || fuel?.underFuelingRisk || fuel?.nutritionSafetyReview.required || (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0) {
+  if (
+    warningActive ||
+    fuel?.underFuelingRisk ||
+    fuel?.nutritionSafetyReview.required ||
+    (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0 ||
+    (fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0 ||
+    (fuel?.riskSummary.length ?? 0) > 0 ||
+    (fuel?.weightClassStatus.safetyFlags.length ?? 0) > 0
+  ) {
     return { tone: "red", value: "Paused" };
   }
   switch (fuel?.weightClassStatus.status) {
@@ -770,8 +784,9 @@ function buildTrainingTodayModel(train: TrainViewModel | undefined, warningActiv
   const durationMinutes = session?.durationMinutes ?? card?.durationMinutes ?? generated?.durationMinutes ?? 0;
   const intensity = session?.intensity ?? card?.intensity ?? generated?.intensity ?? "moderate";
   const hasWorkout = Boolean(session || card || generated);
+  const canStartPlayableSession = Boolean(session && hasStartHandler && !warningActive);
   return {
-    buttonLabel: hasWorkout && hasStartHandler ? "Start workout" : "Open Train",
+    buttonLabel: canStartPlayableSession ? "Start workout" : hasWorkout ? "View workout" : "Open Train",
     disabled: false,
     durationLabel: durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD",
     intensityLabel: sentenceCase(plainIntensityLabel(intensity)),
@@ -926,15 +941,37 @@ function warningIsActive(fuel: FuelViewModel | undefined, today: TodayViewModel)
       (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0 ||
       (fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0 ||
       fuel?.underFuelingRisk ||
-      (fuel?.riskSummary.length ?? 0) > 0
+      (fuel?.riskSummary.length ?? 0) > 0 ||
+      (fuel?.weightClassStatus.safetyFlags.length ?? 0) > 0
   );
+}
+
+function fuelWarningIsActive(fuel: FuelViewModel | undefined): boolean {
+  return Boolean(
+    fuel?.nutritionSafetyReview.required ||
+      (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0 ||
+      (fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0 ||
+      fuel?.underFuelingRisk ||
+      (fuel?.riskSummary.length ?? 0) > 0 ||
+      (fuel?.weightClassStatus.safetyFlags.length ?? 0) > 0
+  );
+}
+
+function warningSource(fuel: FuelViewModel | undefined, today: TodayViewModel): "fuel" | "readiness" | "mixed" {
+  const fuelActive = fuelWarningIsActive(fuel);
+  const readinessActive = today.riskSummary.length > 0;
+  if (fuelActive && readinessActive) {
+    return "mixed";
+  }
+  return fuelActive ? "fuel" : "readiness";
 }
 
 function warningLines(fuel: FuelViewModel | undefined, today: TodayViewModel): readonly string[] {
   return [
     ...today.riskSummary,
     ...(fuel?.underFuelingRisk ? [fuel.underFuelingRisk.summary] : []),
-    ...(fuel?.riskSummary ?? [])
+    ...(fuel?.riskSummary ?? []),
+    ...(fuel?.weightClassStatus.safetyFlags ?? [])
   ].map((item) => sentenceCase(firstSentence(item))).filter(Boolean).slice(0, 4);
 }
 
@@ -954,13 +991,15 @@ function TodayCheckInCard({
   checkIn,
   onCheckIn,
   onLogFood,
-  onStartWorkout
+  onStartWorkout,
+  workoutLabel
 }: {
   busy: boolean;
   checkIn: TodayCheckInModel;
   onCheckIn: () => void;
   onLogFood?: (() => void) | undefined;
   onStartWorkout?: (() => void) | undefined;
+  workoutLabel: string;
 }) {
   return (
     <EngineCard>
@@ -975,7 +1014,7 @@ function TodayCheckInCard({
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <TodayButton disabled={busy} icon="checkmark-circle-outline" label="Check in" onPress={onCheckIn} primary testID="today-primary-check-in-action" tone="blue" />
           <TodayButton disabled={busy || !onLogFood} icon="restaurant-outline" label="Log food" onPress={onLogFood} tone="orange" />
-          <TodayButton disabled={busy || !onStartWorkout} icon="barbell-outline" label="Start workout" onPress={onStartWorkout} tone="purple" />
+          <TodayButton disabled={busy || !onStartWorkout} icon={workoutLabel === "Start workout" ? "play-outline" : "barbell-outline"} label={workoutLabel} onPress={onStartWorkout} tone="purple" />
         </View>
       </View>
     </EngineCard>
@@ -1201,6 +1240,7 @@ export function TodayScreen({
   cycleTrackingStatus,
   busy,
   message,
+  preferredUnits = "metric",
   onOpenFuel,
   onOpenFuelLog,
   onOpenFuelSafety,
@@ -1239,11 +1279,22 @@ export function TodayScreen({
   const fuel = fuelStatus(dashboard, fuelViewModel, hasWarning);
   const training = trainingStatus(trainViewModel, hasWarning);
   const checkIn = buildCheckInModel({ fuel, readiness, training, warningActive: hasWarning });
-  const trainingToday = buildTrainingTodayModel(trainViewModel, hasWarning, Boolean(onOpenTrainWorkout ?? onOpenTrain));
+  const trainingToday = buildTrainingTodayModel(trainViewModel, hasWarning, Boolean(onOpenTrainWorkout));
   const fuelToday = buildFuelTodayModel({ fuel: fuelViewModel, fuelStatus: fuel, warningActive: hasWarning, weightStatus: weight });
   const weekToday = buildWeekModel(planViewModel, asOfDate);
   const foodAction = onOpenFuelLog ?? onOpenFuel;
-  const workoutAction = onOpenTrainWorkout ?? onOpenTrain;
+  const workoutAction = trainingToday.buttonLabel === "Start workout" ? onOpenTrainWorkout : onOpenTrain;
+  const activeWarningSource = warningSource(fuelViewModel, viewModel);
+  const warningActionLabel =
+    activeWarningSource === "fuel"
+      ? "Open Fuel review"
+      : activeWarningSource === "mixed"
+        ? "Review today"
+        : "Review readiness";
+  const warningAction =
+    activeWarningSource === "fuel"
+      ? onOpenFuelSafety ?? onOpenFuel
+      : () => openQuickCheck("readiness", "top");
   const warningText = fuelViewModel && weight.value === "Paused"
     ? "Cut paused. Eat and hydrate normally."
     : training.value === "Review"
@@ -1257,7 +1308,7 @@ export function TodayScreen({
           <RiskBanner title="Review needed before hard training" message={warningText} statusLabel="Review needed" tone="critical">
             <View style={{ gap: spacing.sm }}>
               {warningLines(fuelViewModel, viewModel).map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{risk}</Text>)}
-              <TodayButton disabled={busy || !(onOpenFuelSafety ?? onOpenFuel)} icon="shield-checkmark-outline" label="Open Fuel review" onPress={onOpenFuelSafety ?? onOpenFuel} tone="red" />
+              <TodayButton disabled={busy || !warningAction} icon={activeWarningSource === "fuel" ? "shield-checkmark-outline" : "pulse-outline"} label={warningActionLabel} onPress={warningAction} tone="red" />
             </View>
           </RiskBanner>
         ) : null}
@@ -1267,6 +1318,7 @@ export function TodayScreen({
           onCheckIn={() => openQuickCheck(checkIn.focus, "top")}
           onLogFood={foodAction}
           onStartWorkout={workoutAction}
+          workoutLabel={trainingToday.buttonLabel}
         />
         <KeyStatusRow fuel={fuel} readiness={readiness} training={training} weight={weight} />
         <TrainingTodayCard busy={busy} model={trainingToday} onOpen={workoutAction} />
@@ -1292,6 +1344,7 @@ export function TodayScreen({
       <TodayQuickCheckModal
         busy={busy}
         onClose={closeQuickCheck}
+        preferredUnits={preferredUnits}
         quickCheck={quickCheck}
         quickLogs={quickLogs}
         recentLogs={recentLogs}

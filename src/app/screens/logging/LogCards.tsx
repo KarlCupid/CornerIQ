@@ -33,6 +33,7 @@ type FoodTodayStatus = RecentLogsViewModel["foodToday"];
 type ScaleValue = "1" | "2" | "3" | "4" | "5";
 
 const scaleValues: readonly ScaleValue[] = ["1", "2", "3", "4", "5"];
+const KG_PER_LB = 0.45359237;
 
 const fuelLogSurface = {
   actionFill: "rgba(148, 88, 54, 0.34)",
@@ -249,17 +250,20 @@ function foodEnergyPreview(
   return { message: validation.athleteFacingMessage, valid: validation.valid };
 }
 
-export function BodyMassLogCard({ actions, busy, forceOpen, framed, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
-  const [bodyMassKg, setBodyMassKg] = useState("");
+export function BodyMassLogCard({ actions, busy, forceOpen, framed, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: DailyLogStatus | undefined }) {
+  const [bodyMassValue, setBodyMassValue] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body weight log failed.");
   const [success, setSuccess] = useState<string | null>(null);
+  const usesImperial = preferredUnits === "imperial";
+  const unitLabel = usesImperial ? "lb" : "kg";
+  const bodyMassExample = usesImperial ? "146" : "66.4";
   return (
     <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title="Body weight">
         <QuickLogHelp />
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
-        <InputLabel>Body weight (kg)</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setBodyMassKg} placeholder="kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={bodyMassKg} />
+        <InputLabel>Body weight ({unitLabel})</InputLabel>
+        <TextInput keyboardType="decimal-pad" onChangeText={setBodyMassValue} placeholder={unitLabel} placeholderTextColor={colors.wrap} style={screenStyles.input} value={bodyMassValue} />
         <Pressable
           accessibilityLabel={busy ? "Saving body weight log" : status?.loggedToday ? "Update body weight" : "Log body weight"}
           accessibilityRole="button"
@@ -268,9 +272,10 @@ export function BodyMassLogCard({ actions, busy, forceOpen, framed, status }: Qu
           onPress={() =>
             runWithMessage(async () => {
               setSuccess(null);
-              await actions.logBodyMass({ bodyMassKg: parseRequiredPositiveNumber(bodyMassKg, "Body weight", { example: "66.4" }) });
-              setBodyMassKg("");
-              setSuccess("Body weight saved. Trend confidence has fresher scale context; readiness can still be unknown.");
+              const enteredBodyMass = parseRequiredPositiveNumber(bodyMassValue, "Body weight", { example: bodyMassExample });
+              await actions.logBodyMass({ bodyMassKg: usesImperial ? enteredBodyMass * KG_PER_LB : enteredBodyMass });
+              setBodyMassValue("");
+              setSuccess(`Body weight saved in ${unitLabel}. Trend confidence has fresher scale context; readiness can still be unknown.`);
             })
           }
           style={screenStyles.button}

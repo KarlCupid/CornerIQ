@@ -11,12 +11,15 @@ describe("agent browser QA static checks", () => {
     expect(LOCAL_E2E_MODE_ENV).toBe("EXPO_PUBLIC_CORNERIQ_E2E_LOCAL");
     expect(isLocalE2EMode({})).toBe(false);
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "0" })).toBe(false);
-    expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1" })).toBe(true);
+    expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1" })).toBe(false);
+    expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", VITEST: "true" })).toBe(true);
+    expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", NODE_ENV: "test" })).toBe(true);
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", NODE_ENV: "production" })).toBe(false);
     expect(isLocalE2EMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PRODUCTION: "1" })).toBe(false);
     expect(PROMO_CAPTURE_MODE_ENV).toBe("EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE");
     expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1" })).toBe(false);
-    expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1" })).toBe(true);
+    expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1" })).toBe(false);
+    expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1", VITEST: "true" })).toBe(true);
     expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1", NODE_ENV: "production" })).toBe(false);
   });
 

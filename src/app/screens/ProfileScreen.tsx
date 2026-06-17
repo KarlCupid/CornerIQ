@@ -340,13 +340,16 @@ export function ProfileScreen({
   const accountDeleteConfirmation = userDataControls?.accountDeleteConfirmation ?? fallbackAccountDeleteConfirmation;
   const setAccountDeleteConfirmation = userDataControls?.setAccountDeleteConfirmation ?? setFallbackAccountDeleteConfirmation;
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [setupDetailsOpen, setSetupDetailsOpen] = React.useState(false);
   const [privacyOpen, setPrivacyOpen] = React.useState(false);
   const [healthOpen, setHealthOpen] = React.useState(viewModel.healthWarning.active);
   const [deleteControlsOpen, setDeleteControlsOpen] = React.useState(false);
   const [historyDetailOpen, setHistoryDetailOpen] = React.useState(false);
   const releaseLinks = React.useMemo(() => getReleaseLinkConfig(), []);
   const openPrivacyPolicy = React.useCallback(() => {
-    void Linking.openURL(releaseLinks.privacyPolicyUrl);
+    if (releaseLinks.privacyPolicyUrl) {
+      void Linking.openURL(releaseLinks.privacyPolicyUrl);
+    }
   }, [releaseLinks.privacyPolicyUrl]);
   React.useEffect(() => {
     if (viewModel.healthWarning.active) {
@@ -361,7 +364,10 @@ export function ProfileScreen({
     }
   }, [onOpenPlan]);
 
-  const privacySummary = "Export, privacy policy, and delete controls.";
+  const setupDetailsSummary = "Inputs, units, wearable preference, and quick maintenance.";
+  const privacySummary = releaseLinks.privacyPolicyUrlIsPlaceholder
+    ? "Export and delete controls. Privacy policy URL is not configured."
+    : "Export, privacy policy, and delete controls.";
   const healthSummary = viewModel.healthWarning.active
     ? "Health warning active. Review before pushing training or weight."
     : "Health notes, support path, and saved safety history.";
@@ -399,38 +405,46 @@ export function ProfileScreen({
         </View>
       </DashboardCard>
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="profile-key-setup-row">
-        {viewModel.keySetup.map((item) => <SetupFactTile item={item} key={`profile-key-setup:${item.label}`} />)}
-      </View>
-
-      <DashboardCard testID="profile-app-inputs-card" title="App Inputs">
-        <View style={{ gap: spacing.md }}>
-          {viewModel.appInputs.map((item) => <AppInputRow item={item} key={`profile-app-input:${item.label}`} />)}
+      <ProfileDisclosureSection
+        defaultTone="muted"
+        onToggle={() => setSetupDetailsOpen((value) => !value)}
+        open={setupDetailsOpen}
+        summary={setupDetailsSummary}
+        testID="profile-setup-details-section"
+        title="Setup details"
+        accessibilityName="Setup details"
+      >
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="profile-key-setup-row">
+          {viewModel.keySetup.map((item) => <SetupFactTile item={item} key={`profile-key-setup:${item.label}`} />)}
         </View>
-      </DashboardCard>
-
-      <DashboardCard testID="profile-quick-updates-card" title="Quick Updates">
-        <View style={{ gap: spacing.md }}>
-          <Text style={profileTextStyles.subtle}>Wearable: {wearableStatus}. Cycle support: {cycleTrackingStatus}.</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <View style={{ flexBasis: 220, flexGrow: 1 }}>
-              <ProfileIconButton disabled={!onOpenPlan || busy} icon="flag-outline" label="Change goal or schedule" onPress={openPlan} tone="blue" />
-            </View>
-            <View style={{ flexBasis: 220, flexGrow: 1 }}>
-              <ProfileIconButton disabled={!onOpenPlan || busy} icon="calendar-outline" label="Edit boxing schedule" onPress={openPlan} tone="green" />
-            </View>
-            <View style={{ flexBasis: 220, flexGrow: 1 }}>
-              <ProfileIconButton disabled={busy} icon="barbell-outline" label="Update equipment" onPress={openSettings} tone="muted" />
-            </View>
-            <View style={{ flexBasis: 220, flexGrow: 1 }}>
-              <ProfileIconButton disabled={busy} icon="watch-outline" label="Units & wearable" onPress={openSettings} tone="muted" />
-            </View>
-            <View style={{ flexBasis: 220, flexGrow: 1 }}>
-              <ProfileIconButton disabled={busy} icon="sync-outline" label="Cycle support" onPress={openSettings} tone="muted" />
+        <DashboardCard testID="profile-app-inputs-card" title="App inputs">
+          <View style={{ gap: spacing.md }}>
+            {viewModel.appInputs.map((item) => <AppInputRow item={item} key={`profile-app-input:${item.label}`} />)}
+          </View>
+        </DashboardCard>
+        <DashboardCard testID="profile-quick-updates-card" title="Quick updates">
+          <View style={{ gap: spacing.md }}>
+            <Text style={profileTextStyles.subtle}>Wearable: {wearableStatus}. Cycle support: {cycleTrackingStatus}.</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <View style={{ flexBasis: 220, flexGrow: 1 }}>
+                <ProfileIconButton disabled={!onOpenPlan || busy} icon="flag-outline" label="Change goal or schedule" onPress={openPlan} tone="blue" />
+              </View>
+              <View style={{ flexBasis: 220, flexGrow: 1 }}>
+                <ProfileIconButton disabled={!onOpenPlan || busy} icon="calendar-outline" label="Edit boxing schedule" onPress={openPlan} tone="green" />
+              </View>
+              <View style={{ flexBasis: 220, flexGrow: 1 }}>
+                <ProfileIconButton disabled={busy} icon="barbell-outline" label="Update equipment" onPress={openSettings} tone="muted" />
+              </View>
+              <View style={{ flexBasis: 220, flexGrow: 1 }}>
+                <ProfileIconButton disabled={busy} icon="watch-outline" label="Units & wearable" onPress={openSettings} tone="muted" />
+              </View>
+              <View style={{ flexBasis: 220, flexGrow: 1 }}>
+                <ProfileIconButton disabled={busy} icon="sync-outline" label="Cycle support" onPress={openSettings} tone="muted" />
+              </View>
             </View>
           </View>
-        </View>
-      </DashboardCard>
+        </DashboardCard>
+      </ProfileDisclosureSection>
 
       {settingsOpen ? (
         <View style={{ gap: spacing.md }} testID="profile-settings-section">
@@ -528,7 +542,8 @@ export function ProfileScreen({
         <DashboardCard title="Privacy Policy">
           <View style={{ gap: spacing.sm }}>
             <Text style={profileTextStyles.body}>Explains what CornerIQ stores, how training, fuel, body, cycle, safety, and account data are used, and how export/delete works.</Text>
-            <ProfileIconButton icon="document-text-outline" label="Open Privacy Policy" onPress={openPrivacyPolicy} tone="muted" />
+            {releaseLinks.privacyPolicyUrlIsPlaceholder ? <Text style={profileTextStyles.subtle}>Privacy policy link is unavailable until a real public URL is configured.</Text> : null}
+            <ProfileIconButton disabled={releaseLinks.privacyPolicyUrlIsPlaceholder} icon="document-text-outline" label={releaseLinks.privacyPolicyUrlIsPlaceholder ? "Privacy policy unavailable" : "Open Privacy Policy"} onPress={openPrivacyPolicy} tone="muted" />
           </View>
         </DashboardCard>
         <DashboardCard title="Data controls">

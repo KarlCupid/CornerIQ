@@ -31,7 +31,7 @@ export const tabHeroHeaders = {
     eyebrow: "Profile",
     heroImage: profileHero,
     icon: "person-outline",
-    title: "Your Journey, Your Legacy."
+    title: "Your Boxer Setup"
   },
   today: {
     accent: "blue",
@@ -45,7 +45,7 @@ export const tabHeroHeaders = {
     eyebrow: "Train",
     heroImage: trainHero,
     icon: "barbell-outline",
-    title: "Push Your Limits"
+    title: "Train Sharp"
   }
 } satisfies Record<string, ScreenHeaderProps>;
 

@@ -37,6 +37,14 @@ interface FuelPlanStatus {
   tone: VisualTone;
 }
 
+interface FuelSafetyState {
+  active: boolean;
+  healthStatus: string;
+  reviewActive: boolean;
+  stripText: string;
+  tone: VisualTone;
+}
+
 const fuelPalette = {
   actionFill: "rgba(148, 88, 54, 0.34)",
   actionFillPressed: "rgba(164, 98, 60, 0.42)",
@@ -110,15 +118,70 @@ function titleCaseStatus(value: string): string {
     .join(" ");
 }
 
-function planStatusFromFuel(viewModel: FuelViewModel, warningActive: boolean): FuelPlanStatus {
-  if (warningActive || viewModel.underFuelingRisk) {
+function buildFuelSafetyState(viewModel: FuelViewModel, message: string | null): FuelSafetyState {
+  const reviewActive =
+    viewModel.nutritionSafetyReview.required ||
+    viewModel.activeNutritionSafetyReviews.length > 0 ||
+    viewModel.nutritionReviewHistory.activeReviewCount > 0;
+  const underFuelingActive = Boolean(viewModel.underFuelingRisk);
+  const riskActive = viewModel.riskSummary.length > 0;
+  const weightSafetyActive = viewModel.weightClassStatus.safetyFlags.length > 0;
+  const active = reviewActive || underFuelingActive || riskActive || weightSafetyActive;
+
+  if (reviewActive) {
+    return {
+      active,
+      healthStatus: "Review active",
+      reviewActive,
+      stripText: "Cut paused. Eat and hydrate normally today.",
+      tone: "red"
+    };
+  }
+  if (underFuelingActive) {
+    return {
+      active,
+      healthStatus: "Under-fueling risk",
+      reviewActive,
+      stripText: "Fuel comes first today. Eat and hydrate normally.",
+      tone: "red"
+    };
+  }
+  if (weightSafetyActive) {
+    return {
+      active,
+      healthStatus: "Weight safety flags",
+      reviewActive,
+      stripText: "Weight pressure pauses until the safety flags are reviewed.",
+      tone: "red"
+    };
+  }
+  if (riskActive) {
+    return {
+      active,
+      healthStatus: "Caution",
+      reviewActive,
+      stripText: "Review the fuel signals before pushing training or weight.",
+      tone: "orange"
+    };
+  }
+  return {
+    active,
+    healthStatus: message ? "App note" : "Clear",
+    reviewActive,
+    stripText: message ?? "No cut warnings today.",
+    tone: message ? "orange" : "green"
+  };
+}
+
+function planStatusFromFuel(viewModel: FuelViewModel, safety: FuelSafetyState): FuelPlanStatus {
+  if (safety.active) {
     return {
       action: "Eat normally today. Hydrate normally. Do not cut harder.",
       label: "Pause cut",
       sentence: viewModel.underFuelingRisk
         ? "Your body is not showing enough recovery to keep pushing weight."
-        : "A cut warning is active, so weight pressure pauses today.",
-      tone: "red"
+        : "Fuel or weight safety signals are active, so weight pressure pauses today.",
+      tone: safety.tone === "orange" ? "orange" : "red"
     };
   }
 
@@ -232,9 +295,9 @@ function weighInLabel(viewModel: FuelViewModel): string {
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
-function bodyCheck(viewModel: FuelViewModel, warningActive: boolean): { tone: VisualTone; value: string } {
-  if (warningActive) {
-    return { tone: "red", value: "Cut warning" };
+function bodyCheck(viewModel: FuelViewModel, safety: FuelSafetyState): { tone: VisualTone; value: string } {
+  if (safety.active) {
+    return { tone: safety.tone, value: safety.healthStatus };
   }
   if (viewModel.underFuelingRisk || viewModel.riskSummary.length > 0 || viewModel.weightClassStatus.safetyFlags.length > 0) {
     return { tone: "orange", value: "Caution" };
@@ -472,21 +535,35 @@ function FuelMetricTile({
 
 function FuelKeyNumbersCard({
   dashboard,
+  hasActiveWeightTarget,
+  safety,
   viewModel,
-  warningActive
 }: {
   dashboard: FuelDashboardVisual;
+  hasActiveWeightTarget: boolean;
+  safety: FuelSafetyState;
   viewModel: FuelViewModel;
-  warningActive: boolean;
 }) {
-  const check = bodyCheck(viewModel, warningActive);
+  const check = bodyCheck(viewModel, safety);
+  if (!hasActiveWeightTarget) {
+    return (
+      <EngineCard>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="fuel-key-numbers">
+          <FuelMetricTile label="Fuel readiness" tone={check.tone} value={check.value} />
+          <FuelMetricTile label="Hydration guide" tone={dashboard.hydration.tone} value={dashboard.hydration.targetLabel} />
+          <FuelMetricTile label="Food log" tone={viewModel.foodLogStatus.entryCount > 0 ? "green" : "muted"} value={viewModel.foodLogStatus.entryCount > 0 ? `${viewModel.foodLogStatus.entryCount} logged` : "Optional"} />
+          <FuelMetricTile label="Training load" tone={viewModel.trainingDemandHandoff.todayTrainingDemand === "high" ? "orange" : "blue"} value={titleCaseStatus(viewModel.trainingDemandHandoff.todayTrainingDemand)} />
+        </View>
+      </EngineCard>
+    );
+  }
   return (
     <EngineCard>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="fuel-key-numbers">
         <FuelMetricTile label="Morning weight" value={weightLabel(viewModel)} />
         <FuelMetricTile label="To weight" tone="orange" value={toWeightLabel(dashboard, viewModel)} />
         <FuelMetricTile label="Weigh-in" value={weighInLabel(viewModel)} />
-        <FuelMetricTile label="Body check" tone={check.tone} value={check.value} />
+        <FuelMetricTile label="Fuel readiness" tone={check.tone} value={check.value} />
       </View>
     </EngineCard>
   );
@@ -702,17 +779,17 @@ function WeighInPlanContent({ viewModel }: { viewModel: FuelViewModel }) {
 function HealthChecksContent({
   message,
   onAcknowledgeNutritionSafetyReview,
+  safety,
   viewModel,
-  warningActive
 }: {
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  safety: FuelSafetyState;
   viewModel: FuelViewModel;
-  warningActive: boolean;
 }) {
   return (
     <View style={{ gap: spacing.md }} testID="fuel-health-checks-content">
-      {warningActive ? (
+      {safety.reviewActive ? (
         <>
           <NutritionSafetyReviewCard
             activeReviews={viewModel.activeNutritionSafetyReviews}
@@ -735,10 +812,16 @@ function HealthChecksContent({
           {viewModel.riskSummary.slice(0, 4).map((risk, index) => <DetailLine key={`fuel-risk:${index}`} text={risk} tone="body" />)}
         </View>
       ) : null}
+      {viewModel.weightClassStatus.safetyFlags.length > 0 ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={fuelTextStyles.callout}>Weight safety</Text>
+          {viewModel.weightClassStatus.safetyFlags.slice(0, 4).map((flag, index) => <DetailLine key={`fuel-weight-flag:${index}`} text={flag} tone="body" />)}
+        </View>
+      ) : null}
       <DetailLine text={viewModel.hydrationSummary} />
       <DetailLine text={viewModel.bodyMassTrajectory.riskExplanation} />
       {message ? <DetailLine text={message} tone="callout" /> : null}
-      {!warningActive && !viewModel.underFuelingRisk && viewModel.riskSummary.length === 0 ? <DetailLine text="No health warnings logged today." tone="body" /> : null}
+      {!safety.active ? <DetailLine text="No health warnings logged today." tone="body" /> : null}
     </View>
   );
 }
@@ -747,17 +830,17 @@ function FuelCollapsedDetails({
   dashboard,
   message,
   onAcknowledgeNutritionSafetyReview,
+  safety,
   viewModel,
-  warningActive
 }: {
   dashboard: FuelDashboardVisual;
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  safety: FuelSafetyState;
   viewModel: FuelViewModel;
-  warningActive: boolean;
 }) {
   const foodStatus = viewModel.foodLogStatus.entryCount > 0 ? `${viewModel.foodLogStatus.entryCount} logged` : "Food stays unknown until logged";
-  const healthStatus = warningActive ? "Cut warning active" : viewModel.riskSummary.length > 0 || viewModel.underFuelingRisk ? "Caution" : "No health warnings";
+  const healthStatus = safety.active ? safety.healthStatus : "No health warnings";
   return (
     <View style={{ gap: spacing.sm }} testID="fuel-detail-rows">
       <FuelDetailRow icon="restaurant-outline" status={foodStatus} title="Food details" tone="orange">
@@ -766,12 +849,12 @@ function FuelCollapsedDetails({
       <FuelDetailRow icon="calendar-outline" status={viewModel.bodyMassTrajectory.daysToWeighIn} title="Weigh-in plan" tone="gold">
         <WeighInPlanContent viewModel={viewModel} />
       </FuelDetailRow>
-      <FuelDetailRow defaultOpen={warningActive} icon="shield-checkmark-outline" status={healthStatus} title="Health checks" tone={warningActive ? "red" : "green"}>
+      <FuelDetailRow defaultOpen={safety.active} icon="shield-checkmark-outline" status={healthStatus} title="Health checks" tone={safety.active ? safety.tone : "green"}>
         <HealthChecksContent
           message={message}
           onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+          safety={safety}
           viewModel={viewModel}
-          warningActive={warningActive}
         />
       </FuelDetailRow>
     </View>
@@ -779,20 +862,17 @@ function FuelCollapsedDetails({
 }
 
 function FuelStatusStrip({
-  message,
-  warningActive
+  safety
 }: {
-  message: string | null;
-  warningActive: boolean;
+  safety: FuelSafetyState;
 }) {
   const theme = useLuminousScreenTheme();
-  const tone: VisualTone = warningActive ? "red" : message ? "orange" : "green";
+  const tone = safety.tone;
   const color = colorForTone(tone);
-  const text = warningActive ? "Cut paused. Eat and hydrate normally today." : message ?? "No cut warnings today.";
   return (
     <View
       style={{
-        backgroundColor: warningActive ? fuelTint("red", "12") : theme.tile,
+        backgroundColor: safety.active ? fuelTint(tone, "12") : theme.tile,
         borderColor: fuelTint(tone, "42"),
         borderCurve: "continuous",
         borderRadius: radii.tile,
@@ -802,7 +882,7 @@ function FuelStatusStrip({
       }}
       testID="fuel-status-strip"
     >
-      <Text style={{ color, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{text}</Text>
+      <Text style={{ color, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{safety.stripText}</Text>
     </View>
   );
 }
@@ -920,9 +1000,9 @@ function FuelOverview({
   onLogHydration,
   plan,
   primaryLog,
+  safety,
   trainingCopy,
-  viewModel,
-  warningActive
+  viewModel
 }: {
   busy: boolean;
   dashboard: FuelDashboardVisual;
@@ -932,25 +1012,27 @@ function FuelOverview({
   onLogHydration: () => void;
   plan: FuelPlanStatus;
   primaryLog: "food" | "water";
+  safety: FuelSafetyState;
   trainingCopy: string;
   viewModel: FuelViewModel;
-  warningActive: boolean;
 }) {
+  const hasActiveWeightTarget = viewModel.weightClassStatus.status !== "no_active_weight_target";
   return (
     <View style={{ gap: spacing.md }} testID="fuel-overview">
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
-      <FuelKeyNumbersCard dashboard={dashboard} viewModel={viewModel} warningActive={warningActive} />
       <DoNotMissTodayCard dashboard={dashboard} />
       <TrainingTodayCard plan={plan} trainingCopy={trainingCopy} viewModel={viewModel} />
-      <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} />
+      <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} safety={safety} viewModel={viewModel} />
+      {hasActiveWeightTarget ? <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} /> : null}
       <FuelCollapsedDetails
         dashboard={dashboard}
         message={message}
         onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+        safety={safety}
         viewModel={viewModel}
-        warningActive={warningActive}
       />
-      <FuelStatusStrip message={message} warningActive={warningActive} />
+      {!hasActiveWeightTarget ? <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} /> : null}
+      <FuelStatusStrip safety={safety} />
     </View>
   );
 }
@@ -965,8 +1047,8 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
     setAppliedFocusIntent(focusIntent);
     onFocusIntentApplied?.();
   }, [focusIntent, onFocusIntentApplied]);
-  const warningActive = viewModel.nutritionSafetyReview.required || viewModel.activeNutritionSafetyReviews.length > 0 || viewModel.nutritionReviewHistory.activeReviewCount > 0;
-  const plan = planStatusFromFuel(viewModel, warningActive);
+  const safety = buildFuelSafetyState(viewModel, message);
+  const plan = planStatusFromFuel(viewModel, safety);
   const trainingCopy = trainingTodayCopy(viewModel, plan);
   const primaryLog =
     appliedFocusIntent === "log_hydration" || focusIntent === "log_hydration"
@@ -1000,9 +1082,9 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
           onLogHydration={openLogHydration}
           plan={plan}
           primaryLog={primaryLog}
+          safety={safety}
           trainingCopy={trainingCopy}
           viewModel={viewModel}
-          warningActive={warningActive}
         />
       )}
     </LuminousScreen>

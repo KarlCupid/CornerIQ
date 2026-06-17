@@ -140,7 +140,7 @@ function whyForFamily(family: GeneratedSessionFamily): string {
 
 function athleteQualityCuesForFamily(family: GeneratedSessionFamily, theme?: string | undefined): readonly string[] {
   if (family.startsWith("boxing_") || family === "agility_reactive_footwork" || family === "movement_quality_prep") {
-    return [`Main focus: ${theme ?? "stance, guard return, balance, and reset"}.`, "Last round should still look clean.", "Simplify if the cue breaks twice."];
+    return [`Keep this clean: ${theme ?? "stance, guard return, balance, and reset"}.`, "Last round should still look clean.", "Simplify if the cue breaks twice."];
   }
   return ["Keep speed, posture, timing, and breathing clean."];
 }

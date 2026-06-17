@@ -18,11 +18,8 @@ export function isPromoCaptureMode(env: RuntimeEnv = readRuntimeEnv()): boolean 
 
 export function isNonProductionRuntime(env: RuntimeEnv = readRuntimeEnv()): boolean {
   const runtime = globalThis as { __DEV__?: boolean };
-  if (runtime.__DEV__ === true) {
-    return true;
-  }
   if (env.NODE_ENV === "production" || env.EXPO_PUBLIC_CORNERIQ_PRODUCTION === "1") {
     return false;
   }
-  return true;
+  return runtime.__DEV__ === true || env.NODE_ENV === "test" || env.VITEST === "true";
 }
