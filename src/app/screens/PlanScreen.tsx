@@ -4,16 +4,17 @@ import { Pressable, Text, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
-import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
+import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
-import { colors, radii, spacing } from "../../design/theme";
+import { radii, spacing } from "../../design/theme";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
 import { FixedBoxingScheduleCard } from "./plan/FixedBoxingScheduleCard";
 import { PlanAdjustmentControls } from "./plan/PlanAdjustmentControls";
 import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
+import { planPalette, planTextStyles, planTint, planToneColors, type PlanTone } from "./plan/planPalette";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
@@ -112,23 +113,8 @@ function friendlyCompactTag(tag: "Protected" | "Support" | "Recovery" | "Open"):
   return tag === "Protected" ? "Boxing" : tag;
 }
 
-type PlanTone = "blue" | "gold" | "green" | "muted" | "orange" | "purple" | "red";
 type PlanDay = PlanViewModel["dayPlans"][number];
 type PlanGeneratedSession = PlanDay["generatedSessions"][number];
-
-const planToneColors: Record<PlanTone, string> = {
-  blue: colors.blueIQ,
-  gold: colors.gold,
-  green: colors.readyGreen,
-  muted: colors.mutedText,
-  orange: colors.amberCaution,
-  purple: colors.powerPurple,
-  red: colors.redCorner
-};
-
-function planTint(tone: PlanTone, alpha: string): string {
-  return `${planToneColors[tone]}${alpha}`;
-}
 
 function titleCaseWords(value: string): string {
   return value
@@ -329,8 +315,20 @@ function DetailsToggle({
   }, [startOpen]);
   return (
     <View style={{ gap: spacing.sm }}>
-      <Pressable accessibilityLabel={open ? openLabel : closedLabel} accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((value) => !value)} style={screenStyles.quietButton}>
-        <Text style={screenStyles.quietButtonText}>{open ? openLabel : closedLabel}</Text>
+      <Pressable
+        accessibilityLabel={open ? openLabel : closedLabel}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={({ pressed }) => [
+          screenStyles.quietButton,
+          {
+            backgroundColor: pressed ? planPalette.controlFillPressed : planPalette.controlFill,
+            borderColor: planPalette.controlLine
+          }
+        ]}
+      >
+        <Text style={{ color: planPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>{open ? openLabel : closedLabel}</Text>
       </Pressable>
       {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
     </View>
@@ -359,41 +357,88 @@ function GeneratedSupportSummaryCard({
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-generated-support-summary-card">
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Next Week</Text>
-          <Text style={screenStyles.callout}>{generatedSupportPreviewSummary(viewModel).summary}</Text>
-          <Text style={screenStyles.body}>{plainPlanCopy(viewModel.athleteFacingWeekSummary)}</Text>
-          <Text style={screenStyles.subtle}>Available days: {viewModel.scheduleAvailabilitySummary}</Text>
-          <Text style={screenStyles.subtle}>{plainPlanRiskCopy(viewModel.supportWorkReason ?? "App sessions sit around boxing, readiness, and review notes.")}</Text>
+          <Text style={planTextStyles.sectionTitle}>Next Week</Text>
+          <Text style={planTextStyles.callout}>{generatedSupportPreviewSummary(viewModel).summary}</Text>
+          <Text style={planTextStyles.body}>{plainPlanCopy(viewModel.athleteFacingWeekSummary)}</Text>
+          <Text style={planTextStyles.subtle}>Available days: {viewModel.scheduleAvailabilitySummary}</Text>
+          <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(viewModel.supportWorkReason ?? "App sessions sit around boxing, readiness, and review notes.")}</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {preview.canAccept ? (
-            <Pressable accessibilityLabel="Accept next week preview" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekActionsAvailable }} disabled={busy || !nextWeekActionsAvailable} onPress={onAcceptPreview} style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}>
-              <Text style={screenStyles.buttonText}>Accept preview</Text>
+            <Pressable
+              accessibilityLabel="Accept next week preview"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy || !nextWeekActionsAvailable }}
+              disabled={busy || !nextWeekActionsAvailable}
+              onPress={onAcceptPreview}
+              style={({ pressed }) => [
+                screenStyles.button,
+                {
+                  backgroundColor: pressed ? planPalette.actionFillPressed : planPalette.actionFill,
+                  borderColor: planPalette.actionBorder,
+                  boxShadow: `0 12px 28px ${planPalette.actionShadow}`,
+                  flexBasis: 150,
+                  flexGrow: 1
+                }
+              ]}
+            >
+              <Text style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>Accept preview</Text>
             </Pressable>
           ) : null}
           {preview.showMaterializeAction ? (
-            <Pressable accessibilityLabel="Start next week plan" accessibilityRole="button" accessibilityState={{ disabled: busy || !nextWeekActionsAvailable || preview.requiresReview }} disabled={busy || !nextWeekActionsAvailable || preview.requiresReview} onPress={onStartNextWeekPlan} style={[screenStyles.button, { flexBasis: 160, flexGrow: 1 }]}>
-              <Text style={screenStyles.buttonText}>Start next week plan</Text>
+            <Pressable
+              accessibilityLabel="Start next week plan"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy || !nextWeekActionsAvailable || preview.requiresReview }}
+              disabled={busy || !nextWeekActionsAvailable || preview.requiresReview}
+              onPress={onStartNextWeekPlan}
+              style={({ pressed }) => [
+                screenStyles.button,
+                {
+                  backgroundColor: pressed ? planPalette.actionFillPressed : planPalette.actionFill,
+                  borderColor: planPalette.actionBorder,
+                  boxShadow: `0 12px 28px ${planPalette.actionShadow}`,
+                  flexBasis: 160,
+                  flexGrow: 1,
+                  opacity: busy || !nextWeekActionsAvailable || preview.requiresReview ? 0.55 : 1
+                }
+              ]}
+            >
+              <Text style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>Start next week plan</Text>
             </Pressable>
           ) : null}
-          <Pressable accessibilityRole="button" disabled={busy} onPress={onSecondaryAction} style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}>
-            <Text style={screenStyles.quietButtonText}>{preview.canAccept ? "Keep current plan" : "Preview next week"}</Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={onSecondaryAction}
+            style={({ pressed }) => [
+              screenStyles.quietButton,
+              {
+                backgroundColor: pressed ? planPalette.controlFillPressed : planPalette.controlFill,
+                borderColor: planPalette.controlLine,
+                flexBasis: 150,
+                flexGrow: 1,
+                opacity: busy ? 0.55 : 1
+              }
+            ]}
+          >
+            <Text style={{ color: planPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>{preview.canAccept ? "Keep current plan" : "Preview next week"}</Text>
           </Pressable>
         </View>
         <DetailsToggle closedLabel="Preview next week" openLabel="Hide next week preview" startOpen={previewDetailsOpen}>
-          <Text style={screenStyles.body}>{preview.goal}</Text>
-          <Text style={screenStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
-          {preview.requiresReview ? <Text style={screenStyles.subtle}>Health warnings need review before this plan can start.</Text> : null}
+          <Text style={planTextStyles.body}>{preview.goal}</Text>
+          <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
+          {preview.requiresReview ? <Text style={planTextStyles.subtle}>Health warnings need review before this plan can start.</Text> : null}
           {preview.dayPlanPreview.map((day) => (
             <View key={`next-preview:${day.date}`} style={{ gap: spacing.xs }}>
-              <Text style={screenStyles.fieldLabel}>{day.date}</Text>
-              <Text style={screenStyles.body}>{day.compactSummary}</Text>
-              <Text style={screenStyles.subtle}>{friendlyCompactTag(day.compactTag)} / {day.compactMetric}</Text>
+              <Text style={planTextStyles.fieldLabel}>{day.date}</Text>
+              <Text style={planTextStyles.body}>{day.compactSummary}</Text>
+              <Text style={planTextStyles.subtle}>{friendlyCompactTag(day.compactTag)} / {day.compactMetric}</Text>
             </View>
           ))}
-          {preview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={screenStyles.subtle}>Review: {plainPlanRiskCopy(note)}</Text>)}
+          {preview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={planTextStyles.subtle}>Review: {plainPlanRiskCopy(note)}</Text>)}
           {preview.materializedGeneratedSessions.map((session) => (
-            <Text key={session.id} style={screenStyles.subtle}>
+            <Text key={session.id} style={planTextStyles.subtle}>
               Active next week: {session.date} - {session.title} ({session.durationMinutes} min)
             </Text>
           ))}
@@ -406,9 +451,9 @@ function GeneratedSupportSummaryCard({
 function PlanReviewNotesContent({ viewModel }: { viewModel: PlanViewModel }) {
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={screenStyles.sectionTitle}>Review Notes</Text>
-      <Text style={screenStyles.body}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
-      {viewModel.warnings.length > 0 ? viewModel.warnings.map((warning, index) => <Text key={`plan-warning:${index}`} style={screenStyles.subtle}>{plainPlanRiskCopy(warning)}</Text>) : <Text style={screenStyles.subtle}>No active plan warnings.</Text>}
+      <Text style={planTextStyles.sectionTitle}>Review Notes</Text>
+      <Text style={planTextStyles.body}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
+      {viewModel.warnings.length > 0 ? viewModel.warnings.map((warning, index) => <Text key={`plan-warning:${index}`} style={planTextStyles.subtle}>{plainPlanRiskCopy(warning)}</Text>) : <Text style={planTextStyles.subtle}>No active plan warnings.</Text>}
     </View>
   );
 }
@@ -427,9 +472,9 @@ function PlanAdjustmentsContent({
   const dayPlan = viewModel.dayPlans.find((day) => day.date === asOfDate) ?? viewModel.dayPlans[0] ?? null;
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={screenStyles.sectionTitle}>Plan Changes</Text>
-      <Text style={screenStyles.body}>{plainPlanCopy(viewModel.adjustmentSummary)}</Text>
-      {viewModel.activeAdjustments.length > 0 ? viewModel.activeAdjustments.map((adjustment, index) => <Text key={`active-adjustment:${index}`} style={screenStyles.subtle}>{plainPlanCopy(adjustment)}</Text>) : <Text style={screenStyles.subtle}>No active plan changes.</Text>}
+      <Text style={planTextStyles.sectionTitle}>Plan Changes</Text>
+      <Text style={planTextStyles.body}>{plainPlanCopy(viewModel.adjustmentSummary)}</Text>
+      {viewModel.activeAdjustments.length > 0 ? viewModel.activeAdjustments.map((adjustment, index) => <Text key={`active-adjustment:${index}`} style={planTextStyles.subtle}>{plainPlanCopy(adjustment)}</Text>) : <Text style={planTextStyles.subtle}>No active plan changes.</Text>}
       <PlanAdjustmentControls
         actions={adjustmentActions}
         busy={busy}
@@ -451,30 +496,30 @@ function PlanAuditDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
     : [];
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={screenStyles.sectionTitle}>Planning Notes</Text>
+      <Text style={planTextStyles.sectionTitle}>Planning Notes</Text>
       {audit ? (
         <>
-          <Text style={screenStyles.body}>
+          <Text style={planTextStyles.body}>
             App sessions: {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount} planned this week.
           </Text>
-          <Text style={screenStyles.subtle}>Available days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None selected"}</Text>
+          <Text style={planTextStyles.subtle}>Available days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None selected"}</Text>
           {typeof audit.targetHardDayCount === "number" ? (
-            <Text style={screenStyles.subtle}>
+            <Text style={planTextStyles.subtle}>
               Hard work: {audit.actualHardDayCount ?? 0}/{audit.targetHardDayCount}
               {typeof audit.protectedHardDayCount === "number" ? ` (${audit.protectedHardDayCount} boxing, ${audit.generatedHardDayCount ?? 0} app)` : ""}.
             </Text>
           ) : null}
           {typeof audit.targetWeeklyGeneratedMinutes === "number" ? (
-            <Text style={screenStyles.subtle}>Planned app minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes}.</Text>
+            <Text style={planTextStyles.subtle}>Planned app minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes}.</Text>
           ) : null}
-          <Text style={screenStyles.subtle}>
+          <Text style={planTextStyles.subtle}>
             Readiness {audit.readinessGenerationImpact ?? "unknown"}; nutrition {audit.nutritionGenerationImpact ?? "unknown"}; hydration {audit.hydrationGenerationImpact ?? "unknown"}.
           </Text>
-          {audit.missingLogsAffectedExecutionOnly ? <Text style={screenStyles.subtle}>Missing logs affected how-to notes only; the workout stayed available.</Text> : null}
-          {planNotes.map((note, index) => <Text key={`plan-diagnostic-note:${index}`} style={screenStyles.subtle}>Note: {plainPlanRiskCopy(note)}</Text>)}
+          {audit.missingLogsAffectedExecutionOnly ? <Text style={planTextStyles.subtle}>Missing logs affected how-to notes only; the workout stayed available.</Text> : null}
+          {planNotes.map((note, index) => <Text key={`plan-diagnostic-note:${index}`} style={planTextStyles.subtle}>Note: {plainPlanRiskCopy(note)}</Text>)}
         </>
       ) : (
-        <Text style={screenStyles.subtle}>No deeper review notes were produced for this plan.</Text>
+        <Text style={planTextStyles.subtle}>No deeper review notes were produced for this plan.</Text>
       )}
     </View>
   );
@@ -516,7 +561,7 @@ function BlockHistoryWorkspace({ viewModel }: { viewModel: PlanViewModel }) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="plan-block-history-workspace">
-        <Text style={screenStyles.sectionTitle}>Block history</Text>
+        <Text style={planTextStyles.sectionTitle}>Block history</Text>
         <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
       </View>
     </EngineCard>
@@ -575,7 +620,7 @@ function PlanButton({
   onPress: () => void;
   primary?: boolean | undefined;
 }) {
-  const iconColor = primary ? colors.cornerBlack : colors.canvas;
+  const iconColor = primary ? planPalette.textPrimary : planPalette.textBody;
   return (
     <Pressable
       accessibilityLabel={label}
@@ -586,8 +631,9 @@ function PlanButton({
       style={({ pressed }) => [
         primary ? screenStyles.button : screenStyles.quietButton,
         {
-          backgroundColor: primary ? (pressed ? "#2FC679" : colors.readyGreen) : pressed ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.075)",
-          borderColor: primary ? "rgba(56, 226, 138, 0.68)" : "rgba(255, 255, 255, 0.16)",
+          backgroundColor: primary ? (pressed ? planPalette.actionFillPressed : planPalette.actionFill) : pressed ? planPalette.controlFillPressed : planPalette.controlFill,
+          borderColor: primary ? planPalette.actionBorder : planPalette.controlLine,
+          boxShadow: disabled ? "none" : primary ? `0 12px 28px ${planPalette.actionShadow}` : "none",
           flexBasis: primary ? 190 : 160,
           flexDirection: "row",
           flexGrow: 1,
@@ -597,7 +643,7 @@ function PlanButton({
       ]}
     >
       {icon ? <Ionicons color={iconColor} name={icon} size={16} /> : null}
-      <Text style={primary ? screenStyles.buttonText : screenStyles.quietButtonText}>{label}</Text>
+      <Text style={{ color: primary ? planPalette.textPrimary : planPalette.textBody, fontSize: 15, fontWeight: primary ? "800" : "700", lineHeight: 20, textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -622,7 +668,7 @@ function WeekReviewStrip({ viewModel }: { viewModel: PlanViewModel }) {
       <Text style={{ color: planToneColors[tone], fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
         {viewModel.rollForwardStatus === "blocked" ? "Plan needs review before next week starts." : "Review notes are active this week."}
       </Text>
-      <Text style={screenStyles.subtle}>
+      <Text style={planTextStyles.subtle}>
         {viewModel.warnings[0] ? plainPlanRiskCopy(viewModel.warnings[0]) : plainPlanRiskCopy(viewModel.rollForwardMessage)}
       </Text>
     </View>
@@ -640,20 +686,19 @@ function ThisWeeksPlanCard({
   onPreviewNextWeek: () => void;
   viewModel: PlanViewModel;
 }) {
-  const theme = useLuminousScreenTheme();
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-this-weeks-plan-card">
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 230, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", letterSpacing: 0, lineHeight: 27 }}>
+            <Text style={{ color: planPalette.textPrimary, fontSize: 22, fontWeight: "900", letterSpacing: 0, lineHeight: 27 }}>
               This Week's Plan
             </Text>
-            <Text style={screenStyles.body}>{weekPlanSentence(viewModel)}</Text>
+            <Text style={planTextStyles.body}>{weekPlanSentence(viewModel)}</Text>
           </View>
           <View style={{ alignItems: "flex-start", gap: spacing.xs }}>
             <PlanTonePill label={planPhaseLabel(viewModel)} tone={viewModel.rollForwardStatus === "blocked" ? "orange" : "green"} />
-            <Text style={{ color: theme.accentColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+            <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
               Week {viewModel.weekIndex}
             </Text>
           </View>
@@ -661,18 +706,18 @@ function ThisWeeksPlanCard({
         <WeekReviewStrip viewModel={viewModel} />
         <View
           style={{
-            backgroundColor: "rgba(56, 226, 138, 0.09)",
-            borderColor: "rgba(56, 226, 138, 0.30)",
+            backgroundColor: planTint("green", "12"),
+            borderColor: planTint("green", "3D"),
             borderRadius: radii.tile,
             borderWidth: 1,
             gap: spacing.xs,
             padding: spacing.md
           }}
         >
-          <Text style={{ color: colors.readyGreen, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
+          <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
             Training Aim
           </Text>
-          <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>
+          <Text style={{ color: planPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>
             {trainingAim(viewModel)}
           </Text>
         </View>
@@ -686,23 +731,22 @@ function ThisWeeksPlanCard({
 }
 
 function WeekAtAGlanceCard({ viewModel }: { viewModel: PlanViewModel }) {
-  const theme = useLuminousScreenTheme();
   const days = sortedPlanDays(viewModel).slice(0, 7);
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-week-at-a-glance">
-        <Text style={screenStyles.sectionTitle}>Week at a Glance</Text>
+        <Text style={planTextStyles.sectionTitle}>Week at a Glance</Text>
         <View style={{ alignItems: "stretch", flexDirection: "row", gap: 5 }}>
           {days.map((day) => {
             const tone = toneForPlanDay(day);
-            const color = tone === "muted" ? theme.accentColor : planToneColors[tone];
+            const color = planToneColors[tone];
             return (
               <View
                 key={`plan-week-day:${day.date}`}
                 style={{
                   ...glassStyles.tile,
-                  backgroundColor: tone === "muted" ? theme.tile : planTint(tone, "10"),
-                  borderColor: tone === "muted" ? theme.tileBorder : planTint(tone, "44"),
+                  backgroundColor: tone === "muted" ? planPalette.controlFill : planTint(tone, "10"),
+                  borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "44"),
                   flex: 1,
                   gap: spacing.xs,
                   justifyContent: "space-between",
@@ -715,13 +759,13 @@ function WeekAtAGlanceCard({ viewModel }: { viewModel: PlanViewModel }) {
                 <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
                   {weekdayLabelFromDate(day.date, day.label)}
                 </Text>
-                <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={{ color: colors.canvas, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
+                <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
                   {dayTypeLabel(day)}
                 </Text>
-                <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[screenStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>
+                <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[planTextStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>
                   {dayMetricLabel(day)}
                 </Text>
-                <View style={{ backgroundColor: "rgba(255, 255, 255, 0.13)", borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
+                <View style={{ backgroundColor: planPalette.controlLine, borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
                   <View style={{ backgroundColor: color, height: "100%", width: day.compactTag === "Open" ? "12%" : dayMetricLabel(day) === "Hard" ? "88%" : "56%" }} />
                 </View>
               </View>
@@ -770,13 +814,13 @@ function BuiltAroundCard({ viewModel }: { viewModel: PlanViewModel }) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="plan-built-around-card">
-        <Text style={screenStyles.sectionTitle}>Built Around</Text>
+        <Text style={planTextStyles.sectionTitle}>Built Around</Text>
         {builtAroundRows(viewModel).map((row) => (
           <View key={`built-around:${row.label}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 42 }}>
             <View style={{ backgroundColor: planToneColors[row.tone], borderRadius: radii.pill, height: 8, width: 8 }} />
             <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-              <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{row.label}</Text>
-              <Text style={screenStyles.subtle}>{row.detail}</Text>
+              <Text style={{ color: planPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{row.label}</Text>
+              <Text style={planTextStyles.subtle}>{row.detail}</Text>
             </View>
           </View>
         ))}
@@ -832,7 +876,7 @@ function UpcomingSessionsCard({ asOfDate, viewModel }: { asOfDate: ISODateString
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="plan-upcoming-sessions-card">
-        <Text style={screenStyles.sectionTitle}>Upcoming Sessions</Text>
+        <Text style={planTextStyles.sectionTitle}>Upcoming Sessions</Text>
         {sessions.length > 0 ? sessions.map((session) => (
           <View
             key={`upcoming:${session.id}`}
@@ -846,14 +890,14 @@ function UpcomingSessionsCard({ asOfDate, viewModel }: { asOfDate: ISODateString
             }}
           >
             <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-              <Text style={{ color: colors.canvas, flex: 1, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{session.date} - {session.title}</Text>
+              <Text style={{ color: planPalette.textPrimary, flex: 1, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{session.date} - {session.title}</Text>
               <PlanTonePill label={session.intensity} tone={session.tone} />
             </View>
-            <Text style={screenStyles.subtle}>{session.type}</Text>
-            <Text style={screenStyles.body}>Aim: {plainPlanRiskCopy(session.aim)}</Text>
+            <Text style={planTextStyles.subtle}>{session.type}</Text>
+            <Text style={planTextStyles.body}>Aim: {plainPlanRiskCopy(session.aim)}</Text>
           </View>
         )) : (
-          <Text style={screenStyles.subtle}>No upcoming app sessions are scheduled. Keep boxing logs manual if training happens outside the app.</Text>
+          <Text style={planTextStyles.subtle}>No upcoming app sessions are scheduled. Keep boxing logs manual if training happens outside the app.</Text>
         )}
       </View>
     </EngineCard>
@@ -911,12 +955,12 @@ function NextWeekCard({
       <View style={{ gap: spacing.md }} testID="plan-next-week-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={screenStyles.sectionTitle}>Next Week</Text>
-            <Text style={screenStyles.body}>{status.summary}</Text>
+            <Text style={planTextStyles.sectionTitle}>Next Week</Text>
+            <Text style={planTextStyles.body}>{status.summary}</Text>
           </View>
           <PlanTonePill label={status.label} tone={status.tone} />
         </View>
-        <Text style={screenStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
+        <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <PlanButton disabled={actionDisabled} icon={action.kind === "accept" ? "checkmark-outline" : "calendar-outline"} label={action.label} onPress={onPress} primary={action.kind !== "preview"} />
           {action.kind !== "preview" ? <PlanButton disabled={busy} icon="eye-outline" label="Preview next week" onPress={onPreviewNextWeek} /> : null}
@@ -937,8 +981,8 @@ function ChangePlanCard({
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-change-plan-card">
         <View style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.sectionTitle}>Change Plan</Text>
-          <Text style={screenStyles.body}>Update the goal, boxing schedule, or plan changes when real life moves the week.</Text>
+          <Text style={planTextStyles.sectionTitle}>Change Plan</Text>
+          <Text style={planTextStyles.body}>Update the goal, boxing schedule, or plan changes when real life moves the week.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <PlanButton disabled={busy} icon="create-outline" label="Change goal or schedule" onPress={() => onOpenWorkspace("goal_wizard")} primary />
@@ -956,11 +1000,11 @@ function WeekDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
     <View style={{ gap: spacing.sm }}>
       {sortedPlanDays(viewModel).map((day) => (
         <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
-          <Text style={screenStyles.fieldLabel}>{day.label}</Text>
-          <Text style={screenStyles.subtle}>Boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
-          <Text style={screenStyles.subtle}>App sessions: {friendlySupportText(day.generatedSupport)}</Text>
-          {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={screenStyles.subtle}>{plainPlanCopy(note)}</Text>)}
-          {day.warningSummary ? <Text style={screenStyles.subtle}>Review: {plainPlanRiskCopy(day.warningSummary)}</Text> : null}
+          <Text style={planTextStyles.fieldLabel}>{day.label}</Text>
+          <Text style={planTextStyles.subtle}>Boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
+          <Text style={planTextStyles.subtle}>App sessions: {friendlySupportText(day.generatedSupport)}</Text>
+          {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={planTextStyles.subtle}>{plainPlanCopy(note)}</Text>)}
+          {day.warningSummary ? <Text style={planTextStyles.subtle}>Review: {plainPlanRiskCopy(day.warningSummary)}</Text> : null}
         </View>
       ))}
     </View>
@@ -1015,10 +1059,10 @@ function PlanDetailRow({
             <Ionicons color={color} name={icon} size={18} />
           </View>
           <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-            <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
-            <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{summary}</Text>
+            <Text style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
+            <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{summary}</Text>
           </View>
-          <Ionicons color={colors.wrap} name={open ? "chevron-up" : "chevron-down"} size={18} />
+          <Ionicons color={planPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
         </Pressable>
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
       </View>
@@ -1201,7 +1245,7 @@ export function PlanScreen({
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan needs review" message={plainPlanRiskCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanRiskCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>
           <View style={{ gap: spacing.xs }}>
-            {viewModel.warnings.map((warning, index) => <Text key={`critical-plan-warning:${index}`} style={screenStyles.body}>{plainPlanRiskCopy(warning)}</Text>)}
+            {viewModel.warnings.map((warning, index) => <Text key={`critical-plan-warning:${index}`} style={planTextStyles.body}>{plainPlanRiskCopy(warning)}</Text>)}
           </View>
         </RiskBanner>
       ) : null}
