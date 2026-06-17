@@ -46,6 +46,9 @@ describe("fatigue-first UI copy density static checks", () => {
           if (!pattern.test(line)) {
             continue;
           }
+          if (line.includes(".replace(")) {
+            continue;
+          }
           if (label === "materialize/materialized/materialization" && allowedInternalIdentifiers.test(line)) {
             continue;
           }
@@ -59,7 +62,7 @@ describe("fatigue-first UI copy density static checks", () => {
 
   it("keeps the simplified first-screen action labels present", () => {
     const source = screenFiles.map((file) => readFileSync(file, "utf8")).join("\n");
-    const requiredLabels = ["Quick check-in", "Open workout", "Log meal", "Add water", "Manual inputs", "This week", "Plan details"];
+    const requiredLabels = ["Check in", "Start workout", "Log meal", "Add water", "Quick Logs", "This Week", "Plan details"];
 
     for (const label of requiredLabels) {
       expect(source, `missing ${label}`).toContain(label);

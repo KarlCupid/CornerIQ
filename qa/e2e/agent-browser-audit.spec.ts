@@ -20,12 +20,13 @@ const runtimeGuardFindings: { message: string; testTitle: string; type: string }
 const activeSurfaceTestIds = [
   "auth-screen",
   "onboarding-screen",
-  "today-visual-dashboard",
-  "today-readiness-gauge",
-  "today-weekly-load-chart",
-  "today-fuel-status-bars",
-  "today-training-decision-meter",
-  "today-manual-actions",
+  "today-check-in-card",
+  "today-key-status-row",
+  "today-training-card",
+  "today-fuel-card",
+  "today-week-card",
+  "today-quick-logs",
+  "today-detail-rows",
   "today-screen",
   "fuel-overview",
   "fuel-today-plan-card",
@@ -312,7 +313,7 @@ async function openLocalToday(page: Page, options: { scenario?: "due_workout_tod
 
 async function exerciseTodayQuickLogSaves(page: Page) {
   if ((await page.getByPlaceholder("kg").count()) === 0) {
-    await page.getByTestId("today-manual-actions").getByRole("button", { name: "Quick check-in" }).click();
+    await page.getByTestId("today-quick-logs").getByRole("button", { name: "Weight" }).click();
   }
 
   const updateBodyMass = page.getByRole("button", { name: "Update body weight" });
@@ -353,20 +354,35 @@ async function expectVisibleText(page: Page, text: string | RegExp) {
   await expect(page.getByText(text).first()).toBeVisible();
 }
 
-async function expectTodayDashboardSurface(page: Page) {
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Readiness score");
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Weekly training load");
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Fuel status");
-  await expect(page.getByTestId("today-visual-dashboard")).toContainText("Today's training decision");
-  await expect(page.getByTestId("today-manual-actions")).toContainText("Manual inputs");
-  await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Quick check-in" })).toBeVisible();
-  await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Log food" })).toBeVisible();
-  await expect(page.getByTestId("today-manual-actions").getByRole("button", { name: "Open workout" })).toBeVisible();
-  await expect(page.getByTestId("today-manual-actions")).toContainText("Missing data stays unknown, not safe.");
+async function expectTodayOverviewSurface(page: Page) {
+  await expect(page.getByTestId("today-check-in-card")).toContainText("Today's Check-In");
+  await expect(page.getByTestId("today-check-in-card").getByRole("button", { name: "Check in" })).toBeVisible();
+  await expect(page.getByTestId("today-check-in-card").getByRole("button", { name: "Log food" })).toBeVisible();
+  await expect(page.getByTestId("today-check-in-card").getByRole("button", { name: "Start workout" })).toBeVisible();
+  await expect(page.getByTestId("today-key-status-row")).toContainText("Training");
+  await expect(page.getByTestId("today-key-status-row")).toContainText("Fuel");
+  await expect(page.getByTestId("today-key-status-row")).toContainText("Weight");
+  await expect(page.getByTestId("today-key-status-row")).toContainText("Readiness");
+  await expect(page.getByTestId("today-training-card")).toContainText("Training Today");
+  await expect(page.getByTestId("today-fuel-card")).toContainText("Fuel Today");
+  await expect(page.getByTestId("today-week-card")).toContainText("This Week");
+  await expect(page.getByTestId("today-quick-logs")).toContainText("Quick Logs");
+  await expect(page.getByTestId("today-quick-logs").getByRole("button", { name: "Readiness" })).toBeVisible();
+  await expect(page.getByTestId("today-quick-logs").getByRole("button", { name: "Weight" })).toBeVisible();
+  await expect(page.getByTestId("today-quick-logs").getByRole("button", { name: "Water" })).toBeVisible();
+  await expect(page.getByTestId("today-quick-logs").getByRole("button", { name: "Food" })).toBeVisible();
+  await expect(page.getByTestId("today-quick-logs")).toContainText("Missing info stays unknown.");
+  await expect(page.getByTestId("today-detail-rows")).toContainText("Readiness details");
+  await expect(page.getByTestId("today-detail-rows")).toContainText("Training load");
+  await expect(page.getByTestId("today-detail-rows")).toContainText("Weight trend");
+  await expect(page.getByTestId("today-detail-rows")).toContainText("Recent logs");
   await expect(page.getByRole("button", { name: "Show More logs" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Show Why this plan?" })).toHaveCount(0);
-  await expect(page.getByTestId("today-readiness-gauge")).toContainText("Readiness score");
-  await expect(page.getByTestId("today-readiness-gauge")).toContainText(/Logged|Checked|Log readiness/);
+  await expect(page.getByText("Readiness score")).toHaveCount(0);
+  await expect(page.getByText("Weekly training load")).toHaveCount(0);
+  await expect(page.getByText("Today's training decision")).toHaveCount(0);
+  await expect(page.getByText("Manual inputs")).toHaveCount(0);
+  await expect(page.getByText("ACWR")).toHaveCount(0);
 }
 
 async function openTab(page: Page, tabName: "Fuel" | "Profile" | "Train" | "Plan") {
@@ -409,7 +425,7 @@ async function clickStartWorkout(page: Page) {
 async function openLiveWorkoutPlayer(page: Page) {
   const livePlayer = page.getByTestId("workout-player");
   if ((await livePlayer.count()) === 0) {
-    const todayOpenWorkout = page.getByTestId("today-manual-actions").getByRole("button", { name: "Open workout" });
+    const todayOpenWorkout = page.getByTestId("today-training-card").getByRole("button", { name: "Start workout" });
     if ((await todayOpenWorkout.count()) > 0 && (await todayOpenWorkout.first().isVisible().catch(() => false))) {
       await todayOpenWorkout.first().click();
     } else {
@@ -940,12 +956,12 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
 
   await page.getByRole("button", { name: "Finish boxer setup" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expectTodayDashboardSurface(page);
+  await expectTodayOverviewSurface(page);
   await capture(page, testInfo, "Today after real onboarding", "10-today-after-real-onboarding.png", { scopeTestId: "today-screen" });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expectTodayDashboardSurface(page);
+  await expectTodayOverviewSurface(page);
   await capture(page, testInfo, "Mobile Today after real onboarding", "11-mobile-today-after-real-onboarding.png", { scopeTestId: "today-screen" });
 }
 
@@ -979,7 +995,7 @@ test("Train screen exposes safe support workouts and completion affordances", as
   await auditTrain(page, testInfo);
 });
 
-test("Plan screen exposes week, next week, history, and plan adjustments", async ({ page }, testInfo) => {
+test("Plan screen exposes week, next week, history, and engine-owned adjustments", async ({ page }, testInfo) => {
   testInfo.setTimeout(90_000);
   await openLocalToday(page);
   await auditPlan(page, testInfo);
@@ -1010,7 +1026,7 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
 
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();
   await expect(page.getByTestId("today-screen")).toBeVisible();
-  await expectTodayDashboardSurface(page);
+  await expectTodayOverviewSurface(page);
   await capture(page, testInfo, "Smoke Today screen", "smoke-03-today-screen.png", { scopeTestId: "today-screen" });
   await exerciseTodayQuickLogSaves(page);
   await capture(page, testInfo, "Smoke Today quick log saves", "smoke-05-today-quick-log-saves.png", { scopeTestId: "today-screen" });
@@ -1026,8 +1042,8 @@ test("mobile-size browser layout smoke reaches Today", async ({ browser }, testI
   try {
     await openLocalToday(page);
     await expect(page.getByTestId("local-e2e-banner")).toBeVisible();
-    await expect(page.getByTestId("today-visual-dashboard")).toBeVisible();
-    await expectTodayDashboardSurface(page);
+    await expect(page.getByTestId("today-check-in-card")).toBeVisible();
+    await expectTodayOverviewSurface(page);
     await capture(page, testInfo, "Mobile Today smoke", "smoke-04-mobile-today-screen.png", { scopeTestId: "today-screen" });
   } finally {
     await context.close();

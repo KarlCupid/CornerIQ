@@ -58,14 +58,14 @@ const expectedScenarios = [
 ];
 
 const comprehensionNeedles = [
-  { key: "Today dashboard", pattern: /today dashboard|readiness score/i },
+  { key: "Today overview", pattern: /today(?:'s)? check-in|training today|fuel today|quick logs/i },
   { key: "Fuel dashboard", pattern: /fuel dashboard|today's fuel plan|macro summary|food targets|food details/i },
-  { key: "Training overview", pattern: /training overview/i },
+  { key: "Training overview", pattern: /training overview|today's training plan|workout flow/i },
   { key: "Plan action", pattern: /plan action|plan changes|adjust plan|change goal or schedule/i },
-  { key: "Profile action", pattern: /profile action/i },
+  { key: "Profile action", pattern: /profile action|app inputs|quick updates|update setup/i },
   { key: "support outside app", pattern: /qualified support outside the app|contact support outside the app|(?:medical|nutrition) support outside the app/i },
-  { key: "manual input and wearable optional", pattern: /(manual logs are enough|manual input is first-class|manual input remains enough|manual-only is a complete setup|manual lane).*(wearables are optional|wearables add confidence|wearable|manual input remains first-class)/is },
-  { key: "unknown is not safe", pattern: /unknown, not safe|missing data (?:is|stays) unknown|missing data lowers confidence|missed logs stay unknown/i }
+  { key: "manual input and wearable optional", pattern: /(manual logs are enough|manual input is first-class|manual input remains enough|manual-only is a complete setup|manual-only is complete|manual lane).*(wearables are optional|wearables add confidence|wearables can increase confidence|wearable|manual input remains first-class)/is },
+  { key: "unknown is not safe", pattern: /unknown, not safe|missing (?:data|info|values) (?:is|stays|stay) unknown|missing data lowers confidence|missed logs stay unknown/i }
 ];
 
 const safetyPatterns = [
