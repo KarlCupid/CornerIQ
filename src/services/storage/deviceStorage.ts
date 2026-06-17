@@ -52,6 +52,7 @@ export function createMemoryDeviceStorage(): DeviceKeyValueStorage {
 
 export function setDeviceStorageOverrideForTests(storage: DeviceKeyValueStorage | null | undefined): void {
   storageOverride = storage;
+  storagePromise = null;
 }
 
 function resolveBrowserStorage(): DeviceKeyValueStorage | null {
@@ -86,8 +87,7 @@ export async function resolveDeviceStorage(): Promise<DeviceKeyValueStorage | nu
   if (!storagePromise) {
     storagePromise = (async () => {
       try {
-        const importModule = new Function("moduleName", "return import(moduleName)") as (moduleName: string) => Promise<unknown>;
-        const imported = await importModule("@react-native-async-storage/async-storage");
+        const imported: unknown = await import("@react-native-async-storage/async-storage");
         const storage = imported && typeof imported === "object" && "default" in imported ? (imported as { default?: unknown }).default : imported;
         if (isDeviceStorage(storage)) {
           return storage;

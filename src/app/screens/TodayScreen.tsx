@@ -1285,16 +1285,17 @@ export function TodayScreen({
   const foodAction = onOpenFuelLog ?? onOpenFuel;
   const workoutAction = trainingToday.buttonLabel === "Start workout" ? onOpenTrainWorkout : onOpenTrain;
   const activeWarningSource = warningSource(fuelViewModel, viewModel);
-  const warningActionLabel =
-    activeWarningSource === "fuel"
-      ? "Open Fuel review"
-      : activeWarningSource === "mixed"
-        ? "Review today"
-        : "Review readiness";
-  const warningAction =
-    activeWarningSource === "fuel"
-      ? onOpenFuelSafety ?? onOpenFuel
-      : () => openQuickCheck("readiness", "top");
+  const fuelWarningAction = onOpenFuelSafety ?? onOpenFuel;
+  const readinessWarningAction = () => openQuickCheck("readiness", "top");
+  const warningActions =
+    activeWarningSource === "mixed"
+      ? [
+          { icon: "pulse-outline" as const, label: "Review readiness", onPress: readinessWarningAction },
+          { icon: "shield-checkmark-outline" as const, label: "Open Fuel review", onPress: fuelWarningAction }
+        ]
+      : activeWarningSource === "fuel"
+        ? [{ icon: "shield-checkmark-outline" as const, label: "Open Fuel review", onPress: fuelWarningAction }]
+        : [{ icon: "pulse-outline" as const, label: "Review readiness", onPress: readinessWarningAction }];
   const warningText = fuelViewModel && weight.value === "Paused"
     ? "Cut paused. Eat and hydrate normally."
     : training.value === "Review"
@@ -1308,7 +1309,18 @@ export function TodayScreen({
           <RiskBanner title="Review needed before hard training" message={warningText} statusLabel="Review needed" tone="critical">
             <View style={{ gap: spacing.sm }}>
               {warningLines(fuelViewModel, viewModel).map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{risk}</Text>)}
-              <TodayButton disabled={busy || !warningAction} icon={activeWarningSource === "fuel" ? "shield-checkmark-outline" : "pulse-outline"} label={warningActionLabel} onPress={warningAction} tone="red" />
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {warningActions.map((action) => (
+                  <TodayButton
+                    disabled={busy || !action.onPress}
+                    icon={action.icon}
+                    key={`today-warning-action:${action.label}`}
+                    label={action.label}
+                    onPress={action.onPress}
+                    tone="red"
+                  />
+                ))}
+              </View>
             </View>
           </RiskBanner>
         ) : null}

@@ -533,7 +533,7 @@ function WorkoutInProgressCard({
     <DashboardCard testID="train-workout-in-progress-card" title="Workout in progress">
       <Text style={trainTextStyles.body}>{sessionTitle}</Text>
       <Text style={trainTextStyles.subtle}>Status: {status.replace(/_/g, " ")}.</Text>
-      <Text style={trainTextStyles.subtle}>Resume is available while this app session stays alive. If the app reloads or you discard, follow-along progress may be lost.</Text>
+      <Text style={trainTextStyles.subtle}>Progress is saved on this device. Reopen this workout to resume. Discard removes saved progress.</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
         <View style={{ flexBasis: 160, flexGrow: 1 }}>
           <TrainPrimaryButton onPress={onResume}>Resume workout</TrainPrimaryButton>
@@ -550,7 +550,9 @@ function TodayTrainingPlanCard({
   busy,
   card,
   generated,
+  onOpenTrainingLog,
   onStart,
+  onViewDetails,
   previewOnlyReason,
   session,
   startBlockedReason,
@@ -559,7 +561,9 @@ function TodayTrainingPlanCard({
   busy: boolean;
   card: TrainSessionCard | null;
   generated: CompactGeneratedSession | null;
+  onOpenTrainingLog: () => void;
   onStart: (() => void) | undefined;
+  onViewDetails: (() => void) | undefined;
   previewOnlyReason: string | undefined;
   session: DetailedTrainingSession | null;
   startBlockedReason: string | undefined;
@@ -567,9 +571,21 @@ function TodayTrainingPlanCard({
 }) {
   const intensity = session?.intensity ?? card?.intensity ?? generated?.intensity ?? "moderate";
   const durationMinutes = session?.durationMinutes ?? card?.durationMinutes ?? generated?.durationMinutes ?? 0;
-  const canStart = Boolean(onStart) && !previewOnlyReason && !startBlockedReason;
-  const disabled = busy || !canStart;
   const primaryTone = toneForIntensity(intensity);
+  const hasSessionSummary = Boolean(session || generated || card);
+  const primaryAction =
+    startBlockedReason
+      ? { label: "Review first", onPress: onViewDetails, tone: "orange" as const }
+      : previewOnlyReason
+        ? { label: "View session", onPress: onViewDetails, tone: primaryTone }
+        : session && onStart
+          ? { label: "Start workout", onPress: onStart, tone: primaryTone }
+          : session
+            ? { label: "View details", onPress: onViewDetails, tone: primaryTone }
+            : hasSessionSummary
+              ? { label: "Log outside player", onPress: onOpenTrainingLog, tone: primaryTone }
+              : { label: "Log other training", onPress: onOpenTrainingLog, tone: "blue" as const };
+  const disabled = busy || !primaryAction.onPress;
   const dayNote = viewModel.todayRole.status === "support_day" ? null : firstSentence(viewModel.todayRole.summary);
   return (
     <DashboardCard
@@ -604,21 +620,21 @@ function TodayTrainingPlanCard({
           <Text style={trainTextStyles.body}>{trainingAim(session, card, generated, viewModel)}</Text>
         </View>
         <Pressable
-          accessibilityLabel="Start workout"
+          accessibilityLabel={primaryAction.label}
           accessibilityRole="button"
           accessibilityState={{ disabled }}
           disabled={disabled}
-          onPress={onStart}
+          onPress={primaryAction.onPress}
           style={({ pressed }) => [
             screenStyles.button,
             {
               backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
-              borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : primaryTone === "orange" ? trainTint("orange", "66") : trainPalette.actionBorder,
-              boxShadow: disabled ? "none" : `0 12px 30px ${primaryTone === "orange" ? `${trainColorForTone("orange")}2D` : trainPalette.actionShadow}`
+              borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : primaryAction.tone === "orange" ? trainTint("orange", "66") : trainPalette.actionBorder,
+              boxShadow: disabled ? "none" : `0 12px 30px ${primaryAction.tone === "orange" ? `${trainColorForTone("orange")}2D` : trainPalette.actionShadow}`
             }
           ]}
         >
-          <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>Start workout</Text>
+          <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{primaryAction.label}</Text>
         </Pressable>
         {startBlockedReason ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{startBlockedReason}</Text> : null}
         {previewOnlyReason ? <Text style={trainTextStyles.subtle}>{previewOnlyReason}</Text> : null}
@@ -739,8 +755,13 @@ function BeforeYouStartCard({
   );
 }
 
-function ManualTrainingLoggerSection({ busy, quickLogs }: { busy: boolean; quickLogs: QuickLogActions }) {
+function ManualTrainingLoggerSection({ busy, openRequestKey, quickLogs }: { busy: boolean; openRequestKey: number; quickLogs: QuickLogActions }) {
   const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (openRequestKey > 0) {
+      setOpen(true);
+    }
+  }, [openRequestKey]);
   return (
     <View style={{ gap: spacing.md }} testID="train-manual-logger-section">
       <DashboardCard title="Log Other Training">
@@ -792,6 +813,7 @@ export function TrainScreen({
 }: TrainScreenProps) {
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
   const [planOpenRequestKey, setPlanOpenRequestKey] = React.useState(0);
+  const [trainingLogOpenRequestKey, setTrainingLogOpenRequestKey] = React.useState(0);
   const quickLogOpenRequestKey = 0;
 
   React.useEffect(() => {
@@ -834,6 +856,8 @@ export function TrainScreen({
     primarySession && !previewOnlyWeeklySession
       ? () => startWorkout(primarySession)
       : undefined;
+  const openPrimaryDetails = primarySession ? () => setPlanOpenRequestKey((value) => value + 1) : undefined;
+  const openTrainingLog = () => setTrainingLogOpenRequestKey((value) => value + 1);
   const showSafety = viewModel.riskSummary.length > 0 || Boolean(primarySessionBlockedReason);
 
   return (
@@ -855,7 +879,9 @@ export function TrainScreen({
         busy={busy}
         card={primaryCard}
         generated={generatedSummary}
+        onOpenTrainingLog={openTrainingLog}
         onStart={startCurrentSession}
+        onViewDetails={openPrimaryDetails}
         previewOnlyReason={previewOnlyReason}
         session={primarySession}
         startBlockedReason={primarySessionBlockedReason}
@@ -936,7 +962,7 @@ export function TrainScreen({
           <Text style={trainTextStyles.subtle}>{plainTrainCopy(viewModel.cycleTrainingDecision.action)}</Text>
         </DashboardCard>
       ) : null}
-      <ManualTrainingLoggerSection busy={busy} quickLogs={quickLogs} />
+      <ManualTrainingLoggerSection busy={busy} openRequestKey={trainingLogOpenRequestKey} quickLogs={quickLogs} />
       {completionMessage ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{completionMessage}</Text> : null}
     </LuminousScreen>
   );

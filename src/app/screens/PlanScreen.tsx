@@ -730,50 +730,45 @@ function ThisWeeksPlanCard({
   );
 }
 
-function WeekAtAGlanceCard({ viewModel }: { viewModel: PlanViewModel }) {
+function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
   const days = sortedPlanDays(viewModel).slice(0, 7);
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-week-at-a-glance">
-        <Text style={planTextStyles.sectionTitle}>Week at a Glance</Text>
-        <View style={{ alignItems: "stretch", flexDirection: "row", gap: 5 }}>
-          {days.map((day) => {
-            const tone = toneForPlanDay(day);
-            const color = planToneColors[tone];
-            return (
-              <View
-                key={`plan-week-day:${day.date}`}
-                style={{
-                  ...glassStyles.tile,
-                  backgroundColor: tone === "muted" ? planPalette.controlFill : planTint(tone, "10"),
-                  borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "44"),
-                  flex: 1,
-                  gap: spacing.xs,
-                  justifyContent: "space-between",
-                  minHeight: 88,
-                  minWidth: 0,
-                  paddingHorizontal: 5,
-                  paddingVertical: spacing.sm
-                }}
-              >
-                <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
-                  {weekdayLabelFromDate(day.date, day.label)}
-                </Text>
-                <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
-                  {dayTypeLabel(day)}
-                </Text>
-                <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[planTextStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>
-                  {dayMetricLabel(day)}
-                </Text>
-                <View style={{ backgroundColor: planPalette.controlLine, borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
-                  <View style={{ backgroundColor: color, height: "100%", width: day.compactTag === "Open" ? "12%" : dayMetricLabel(day) === "Hard" ? "88%" : "56%" }} />
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-    </EngineCard>
+    <View style={{ alignItems: "stretch", flexDirection: "row", gap: 5 }}>
+      {days.map((day) => {
+        const tone = toneForPlanDay(day);
+        const color = planToneColors[tone];
+        return (
+          <View
+            key={`plan-week-day:${day.date}`}
+            style={{
+              ...glassStyles.tile,
+              backgroundColor: tone === "muted" ? planPalette.controlFill : planTint(tone, "10"),
+              borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "44"),
+              flex: 1,
+              gap: spacing.xs,
+              justifyContent: "space-between",
+              minHeight: 88,
+              minWidth: 0,
+              paddingHorizontal: 5,
+              paddingVertical: spacing.sm
+            }}
+          >
+            <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
+              {weekdayLabelFromDate(day.date, day.label)}
+            </Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
+              {dayTypeLabel(day)}
+            </Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[planTextStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>
+              {dayMetricLabel(day)}
+            </Text>
+            <View style={{ backgroundColor: planPalette.controlLine, borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
+              <View style={{ backgroundColor: color, height: "100%", width: day.compactTag === "Open" ? "12%" : dayMetricLabel(day) === "Hard" ? "88%" : "56%" }} />
+            </View>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -810,22 +805,19 @@ function builtAroundRows(viewModel: PlanViewModel): { detail: string; label: str
   ];
 }
 
-function BuiltAroundCard({ viewModel }: { viewModel: PlanViewModel }) {
+function BuiltAroundContent({ viewModel }: { viewModel: PlanViewModel }) {
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="plan-built-around-card">
-        <Text style={planTextStyles.sectionTitle}>Built Around</Text>
-        {builtAroundRows(viewModel).map((row) => (
-          <View key={`built-around:${row.label}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 42 }}>
-            <View style={{ backgroundColor: planToneColors[row.tone], borderRadius: radii.pill, height: 8, width: 8 }} />
-            <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-              <Text style={{ color: planPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{row.label}</Text>
-              <Text style={planTextStyles.subtle}>{row.detail}</Text>
-            </View>
+    <>
+      {builtAroundRows(viewModel).map((row) => (
+        <View key={`built-around:${row.label}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 42 }}>
+          <View style={{ backgroundColor: planToneColors[row.tone], borderRadius: radii.pill, height: 8, width: 8 }} />
+          <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+            <Text style={{ color: planPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{row.label}</Text>
+            <Text style={planTextStyles.subtle}>{row.detail}</Text>
           </View>
-        ))}
-      </View>
-    </EngineCard>
+        </View>
+      ))}
+    </>
   );
 }
 
@@ -1088,6 +1080,10 @@ function PlanDetailRows({
         <PlanReviewNotesContent viewModel={viewModel} />
         <PlanAuditDetailsContent viewModel={viewModel} />
       </PlanDetailRow>
+      <PlanDetailRow icon="grid-outline" summary="Seven-day shape and what the week is built around." testID="plan-week-shape-row" title="Week Shape" tone="green">
+        <WeekAtAGlanceContent viewModel={viewModel} />
+        <BuiltAroundContent viewModel={viewModel} />
+      </PlanDetailRow>
       <PlanDetailRow icon="time-outline" summary="Block history, previous changes, and saved decisions." testID="plan-history-row" title="Plan History" tone="purple">
         <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
       </PlanDetailRow>
@@ -1127,8 +1123,6 @@ function PlanRoadmap({
         viewModel={viewModel}
       />
       <ChangePlanCard busy={busy} onOpenWorkspace={onOpenWorkspace} />
-      <WeekAtAGlanceCard viewModel={viewModel} />
-      <BuiltAroundCard viewModel={viewModel} />
     </View>
   );
 }

@@ -38,7 +38,7 @@ export const tabHeroHeaders = {
     eyebrow: "Today",
     heroImage: todayHero,
     icon: "today-outline",
-    title: "Ready to Own Your Day"
+    title: "Today's Corner"
   },
   train: {
     accent: "purple",

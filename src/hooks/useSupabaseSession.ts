@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { createAuthService } from "../services/supabase/authService";
-import { getCornerSupabaseClient, getSupabaseConfigFromEnv, type CornerSupabaseClient } from "../services/supabase/client";
+import {
+  assertSupabaseAuthStorageAvailable,
+  getCornerSupabaseClient,
+  getSupabaseConfigFromEnv,
+  isSupabaseAuthStorageUnavailableError,
+  type CornerSupabaseClient
+} from "../services/supabase/client";
 
 type AuthService = ReturnType<typeof createAuthService>;
 
@@ -68,8 +74,8 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       setClient(nextClient);
       const nextAuth = authServiceFactory(nextClient);
       setAuthError(null);
-      void nextAuth
-        .getSession()
+      void assertSupabaseAuthStorageAvailable()
+        .then(() => nextAuth.getSession())
         .then(({ data, error }) => {
           if (!active) {
             return;
@@ -80,6 +86,12 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
         })
         .catch((error: unknown) => {
           if (!active) {
+            return;
+          }
+          if (isSupabaseAuthStorageUnavailableError(error)) {
+            setStartupError(error.message);
+            setSession(null);
+            setStatus("error");
             return;
           }
           setAuthError(authErrorMessage(error, "Could not load the saved sign-in. Try signing in again."));

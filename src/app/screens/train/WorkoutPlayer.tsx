@@ -1256,7 +1256,7 @@ export function WorkoutPlayer({
       </View>
 
           <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{liveSafetyLine}</Text>
-      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 17, textAlign: "center" }}>Close returns to Train; this device can offer to resume this same session. Discard loses progress.</Text>
+      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 17, textAlign: "center" }}>Progress is saved on this device. Reopen this workout to resume. Discard removes saved progress.</Text>
 
       {shouldShowPrimaryDone ? <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" /> : null}
 

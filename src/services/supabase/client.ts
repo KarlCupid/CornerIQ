@@ -14,9 +14,17 @@ type RuntimeEnv = Record<string, string | undefined>;
 
 let singletonClient: CornerSupabaseClient | null = null;
 const authMemoryStorage = createMemoryDeviceStorage();
+const AUTH_STORAGE_UNAVAILABLE_MESSAGE = "CornerIQ Supabase startup error: persistent auth storage is unavailable in this runtime.";
 
 async function resolveAuthStorage(): Promise<DeviceKeyValueStorage> {
-  return (await resolveDeviceStorage()) ?? authMemoryStorage;
+  const storage = await resolveDeviceStorage();
+  if (storage) {
+    return storage;
+  }
+  if (authMemoryFallbackAllowed()) {
+    return authMemoryStorage;
+  }
+  throw new Error(AUTH_STORAGE_UNAVAILABLE_MESSAGE);
 }
 
 export const supabaseAuthStorage: DeviceKeyValueStorage = {
@@ -38,6 +46,21 @@ function readRuntimeEnv(): RuntimeEnv {
 
 function isTestRuntime(env: RuntimeEnv): boolean {
   return env.NODE_ENV === "test" || env.VITEST === "true";
+}
+
+function authMemoryFallbackAllowed(env: RuntimeEnv = readRuntimeEnv()): boolean {
+  if (env.NODE_ENV === "production" || env.EXPO_PUBLIC_CORNERIQ_PRODUCTION === "1") {
+    return false;
+  }
+  return env.NODE_ENV === "test" || env.VITEST === "true" || env.EXPO_PUBLIC_CORNERIQ_E2E_LOCAL === "1" || env.EXPO_OS === "web";
+}
+
+export function isSupabaseAuthStorageUnavailableError(error: unknown): error is Error {
+  return error instanceof Error && error.message === AUTH_STORAGE_UNAVAILABLE_MESSAGE;
+}
+
+export async function assertSupabaseAuthStorageAvailable(): Promise<void> {
+  await resolveAuthStorage();
 }
 
 function isValidHttpUrl(value: string): boolean {

@@ -118,6 +118,15 @@ describe("fatigue-first UI copy density static checks", () => {
     }
   });
 
+  it("keeps hero titles boxing-specific and away from generic fitness phrasing", () => {
+    const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
+
+    expect(heroSource).toContain("Today's Corner");
+    expect(heroSource).toContain("Train Sharp");
+    expect(heroSource).toContain("Your Boxer Setup");
+    expect(heroSource).not.toContain("Ready to Own Your Day");
+  });
+
   it("keeps the tab screen backgrounds wired to real local assets", () => {
     const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
     const screenShellSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");

@@ -295,6 +295,13 @@ function weighInLabel(viewModel: FuelViewModel): string {
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
+function hasActiveWeightContext(viewModel: FuelViewModel): boolean {
+  return (
+    viewModel.weightClassStatus.status !== "no_active_weight_target" ||
+    Boolean(viewModel.fightOrTournamentNote || viewModel.fightWeekFuel || viewModel.tournamentFuel || viewModel.rehydrationPlan)
+  );
+}
+
 function bodyCheck(viewModel: FuelViewModel, safety: FuelSafetyState): { tone: VisualTone; value: string } {
   if (safety.active) {
     return { tone: safety.tone, value: safety.healthStatus };
@@ -841,12 +848,15 @@ function FuelCollapsedDetails({
 }) {
   const foodStatus = viewModel.foodLogStatus.entryCount > 0 ? `${viewModel.foodLogStatus.entryCount} logged` : "Food stays unknown until logged";
   const healthStatus = safety.active ? safety.healthStatus : "No health warnings";
+  const hasActiveWeightTarget = hasActiveWeightContext(viewModel);
+  const weightDetailTitle = hasActiveWeightTarget ? "Weigh-in plan" : "Weight context";
+  const weightDetailStatus = hasActiveWeightTarget ? viewModel.bodyMassTrajectory.daysToWeighIn : "Trend context";
   return (
     <View style={{ gap: spacing.sm }} testID="fuel-detail-rows">
       <FuelDetailRow icon="restaurant-outline" status={foodStatus} title="Food details" tone="orange">
         <FoodDetailsContent dashboard={dashboard} viewModel={viewModel} />
       </FuelDetailRow>
-      <FuelDetailRow icon="calendar-outline" status={viewModel.bodyMassTrajectory.daysToWeighIn} title="Weigh-in plan" tone="gold">
+      <FuelDetailRow icon="calendar-outline" status={weightDetailStatus} title={weightDetailTitle} tone="gold">
         <WeighInPlanContent viewModel={viewModel} />
       </FuelDetailRow>
       <FuelDetailRow defaultOpen={safety.active} icon="shield-checkmark-outline" status={healthStatus} title="Health checks" tone={safety.active ? safety.tone : "green"}>
@@ -1016,7 +1026,7 @@ function FuelOverview({
   trainingCopy: string;
   viewModel: FuelViewModel;
 }) {
-  const hasActiveWeightTarget = viewModel.weightClassStatus.status !== "no_active_weight_target";
+  const hasActiveWeightTarget = hasActiveWeightContext(viewModel);
   return (
     <View style={{ gap: spacing.md }} testID="fuel-overview">
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
