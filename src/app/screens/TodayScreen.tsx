@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, use
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
-import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
+import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart, WeeklyLoadBars } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
@@ -137,10 +137,6 @@ function colorForTone(tone: VisualTone): string {
   }
 }
 
-function tintForTone(tone: VisualTone, alpha: string): string {
-  return `${colorForTone(tone)}${alpha}`;
-}
-
 function firstSentence(value: string | null | undefined, fallback = ""): string {
   const copy = plainTodayCopy(value ?? "").trim();
   if (!copy) {
@@ -168,10 +164,6 @@ function toneForIntensity(intensity: string | undefined): VisualTone {
     return "green";
   }
   return "purple";
-}
-
-function todayButtonShadow(tone: VisualTone): string {
-  return `0 12px 28px ${tintForTone(tone, "2B")}`;
 }
 
 export const handledTodaySecondaryActions: Record<TodaySecondaryAction, true> = {
@@ -373,6 +365,7 @@ function TodayQuickCheckModal({
 }
 
 function TodayTonePill({ label, tone = "blue" }: { label: string; tone?: VisualTone | undefined }) {
+  const theme = useLuminousScreenTheme();
   const color = colorForTone(tone);
   return (
     <View
@@ -380,8 +373,10 @@ function TodayTonePill({ label, tone = "blue" }: { label: string; tone?: VisualT
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: tintForTone(tone, "16"),
-        borderColor: tintForTone(tone, "44"),
+        backgroundColor: theme.control,
+        borderColor: theme.controlBorder,
+        borderLeftColor: color,
+        borderLeftWidth: 3,
         borderRadius: radii.pill,
         borderWidth: 1,
         flexDirection: "row",
@@ -417,7 +412,10 @@ function TodayButton({
   testID?: string | undefined;
   tone?: VisualTone | undefined;
 }) {
+  const theme = useLuminousScreenTheme();
   const toneColor = colorForTone(tone);
+  const primaryColor = tone === "red" ? colors.redCorner : theme.accentColor;
+  const primaryForeground = tone === "red" ? colors.canvas : colors.cornerBlack;
   return (
     <Pressable
       accessibilityLabel={label}
@@ -443,19 +441,19 @@ function TodayButton({
         },
         primary
           ? {
-              backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? tintForTone(tone, "CC") : tintForTone(tone, "E6"),
-              borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : tintForTone(tone, "99"),
-              boxShadow: disabled ? "none" : todayButtonShadow(tone)
+              backgroundColor: disabled ? theme.control : pressed ? `${primaryColor}C7` : `${primaryColor}E0`,
+              borderColor: disabled ? theme.controlBorder : `${primaryColor}70`,
+              boxShadow: disabled ? "none" : `0 10px 24px ${theme.strongGlow}`
             }
           : {
-              backgroundColor: pressed ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.07)",
-              borderColor: "rgba(255, 255, 255, 0.16)"
+              backgroundColor: pressed ? theme.tile : theme.control,
+              borderColor: theme.controlBorder
             }
       ]}
       testID={testID}
     >
-      <Ionicons color={primary && !disabled ? colors.cornerBlack : disabled ? colors.mutedText : toneColor} name={icon} size={18} />
-      <Text style={{ color: primary && !disabled ? colors.cornerBlack : colors.canvas, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+      <Ionicons color={primary && !disabled ? primaryForeground : disabled ? colors.mutedText : toneColor} name={icon} size={18} />
+      <Text style={{ color: primary && !disabled ? primaryForeground : colors.canvas, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
     </Pressable>
@@ -471,13 +469,17 @@ function TodayStatusTile({
   tone: VisualTone;
   value: string;
 }) {
+  const theme = useLuminousScreenTheme();
+  const color = colorForTone(tone);
   return (
     <View
       accessibilityLabel={`${label}: ${value}`}
       style={{
         ...glassStyles.tile,
-        backgroundColor: "rgba(255, 255, 255, 0.065)",
-        borderColor: tintForTone(tone, "34"),
+        backgroundColor: theme.tile,
+        borderColor: theme.tileBorder,
+        borderLeftColor: tone === "muted" ? theme.hairline : color,
+        borderLeftWidth: 2,
         flexBasis: 132,
         flexGrow: 1,
         gap: spacing.xs,
@@ -488,7 +490,7 @@ function TodayStatusTile({
       <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
         {label}
       </Text>
-      <Text adjustsFontSizeToFit minimumFontScale={0.74} numberOfLines={1} style={{ color: colorForTone(tone), fontSize: 19, fontWeight: "900", lineHeight: 24 }}>
+      <Text adjustsFontSizeToFit minimumFontScale={0.74} numberOfLines={1} style={{ color, fontSize: 19, fontWeight: "900", lineHeight: 24 }}>
         {value}
       </Text>
     </View>
@@ -545,6 +547,7 @@ function TodayDetailRow({
   tone?: VisualTone | undefined;
 }>) {
   const [open, setOpen] = React.useState(defaultOpen);
+  const theme = useLuminousScreenTheme();
   React.useEffect(() => {
     if (defaultOpen) {
       setOpen(true);
@@ -564,8 +567,8 @@ function TodayDetailRow({
           <View
             style={{
               alignItems: "center",
-              backgroundColor: tintForTone(tone, "16"),
-              borderColor: tintForTone(tone, "42"),
+              backgroundColor: theme.control,
+              borderColor: theme.controlBorder,
               borderRadius: radii.pill,
               borderWidth: 1,
               height: 38,
@@ -1060,6 +1063,7 @@ function ThisWeekCard({
   model: WeekTodayModel;
   onOpenPlan?: (() => void) | undefined;
 }) {
+  const theme = useLuminousScreenTheme();
   return (
     <TodaySectionCard
       action={<TodayButton disabled={busy || !onOpenPlan} icon="calendar-outline" label="View Plan" onPress={onOpenPlan} tone="green" />}
@@ -1074,8 +1078,10 @@ function ThisWeekCard({
           <View
             key={`today-week-session:${session.id}`}
             style={{
-              backgroundColor: tintForTone(session.tone, "10"),
-              borderColor: tintForTone(session.tone, "36"),
+              backgroundColor: theme.tile,
+              borderColor: theme.tileBorder,
+              borderLeftColor: colorForTone(session.tone),
+              borderLeftWidth: 3,
               borderRadius: radii.tile,
               borderWidth: 1,
               gap: spacing.xs,
