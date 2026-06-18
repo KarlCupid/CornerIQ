@@ -5,9 +5,16 @@
     "scheme": "corneriq",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-screen.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#020610"
+    },
     "ios": {
       "bundleIdentifier": "com.corneriq.app",
+      "icon": "./assets/app-icon.png",
       "supportsTablet": false
     },
     "android": {
