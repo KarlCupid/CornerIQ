@@ -7,15 +7,15 @@ Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers 
 ## Required Before Submission
 
 - Privacy Policy URL: published at `https://sites.google.com/view/corneriq/privacy-policy` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` can override it if the release owner moves the policy.
-- Account deletion Edge Function: deploy `supabase/functions/delete-account` to the production Supabase project and smoke-test it with a real signed-in review account before submission.
+- Account deletion Edge Function: completed on 2026-06-18. `supabase/functions/delete-account` is deployed to the production Supabase project as ACTIVE v2, and Profile > Data > Delete account passed live smoke with a real signed-in account.
 - App icon and splash: APPLE_SUBMISSION_BLOCKED until final icon/splash assets are added and wired in `app.json`, or the release owner documents accepted final assets.
 - Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy and support metadata.
 - Support URL: published at `https://sites.google.com/view/corneriq/support` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override it if the release owner moves support.
-- Reviewer credentials: provide only in App Store Connect Review Notes. Do not commit credentials.
+- Reviewer credentials: create and confirm a fresh account before submission, then provide credentials only in App Store Connect Review Notes. Do not commit credentials.
 
 ## Reviewer Access
 
-1. Create a Supabase review account before submission.
+1. Create a fresh Supabase review account before submission; the account used for the 2026-06-18 deletion smoke was intentionally deleted.
 2. Confirm email if the production auth project requires email confirmation.
 3. Preload a safe adult boxer profile, or confirm onboarding remains available after login when no profile exists.
 4. Provide credentials only in App Store Connect Review Notes.
@@ -45,8 +45,9 @@ The app is manual-first and does not require a wearable.
 - The Edge Function verifies the JWT, derives the caller user id from Supabase Auth, deletes user-owned app rows, deletes only that caller's Supabase Auth identity, and returns typed JSON.
 - No trusted key is exposed in Expo/client code.
 - On success, the app signs the user out.
+- Production status on 2026-06-18: `delete-account` listed ACTIVE v2, updated `2026-06-18 22:30:16 UTC`, and live smoke verified sign-in, delete confirmation, sign-out, and rejected re-login for the deleted credentials.
 
-Deployment checklist:
+Deployment command, needed only if the function changes again:
 
 ```powershell
 cmd /c npm exec supabase -- functions deploy delete-account
@@ -120,8 +121,9 @@ Do not claim:
 - [x] Configure in-app Privacy Policy URL.
 - [x] Publish public Support page.
 - [x] Configure in-app Support URL.
+- [x] Deploy `delete-account` Edge Function.
+- [x] Smoke-test Profile > Data > Delete account in production.
 - [ ] Add final icon and splash assets to `app.json`.
-- [ ] Deploy `delete-account` Edge Function.
 - [ ] Create and confirm review account.
 - [ ] Preload a safe adult boxer profile or verify onboarding from empty profile.
 - [ ] Capture screenshots.

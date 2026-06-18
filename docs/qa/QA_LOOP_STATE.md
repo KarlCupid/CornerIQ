@@ -8,13 +8,13 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | --- | --- |
 | Current QA phase | needs_human_review |
 | Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
-| Last QA run result | 2026-06-10 release-blocker hardening verification: workout-player no-op options were removed, onboarding draft persistence now uses AsyncStorage on native with test/web fallback only, Plan Details is athlete-readable before collapsed technical details, outside-app support copy was added, workout resume limitations are explicit, Today routing uses an action enum, and Fuel logging can return to overview. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed; tests reported 556 passed and 1 live-smoke test skipped. Installing `@react-native-async-storage/async-storage` first failed under Windows sandbox/package-cache restrictions and passed on the approved rerun. Focused Vitest first failed under the Windows sandbox while resolving `vitest.config.mjs` and passed on approved reruns. Agent browser CI was not rerun in this pass, so live Supabase, physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human or live evidence exists. |
+| Last QA run result | 2026-06-18 production Supabase/account-deletion verification: remote migrations `001` through `013` aligned, `cmd /c npm exec supabase -- db push --dry-run` reported the remote database up to date, `delete-account` listed ACTIVE v2, and a live Profile > Data > Delete account smoke passed with sign-out plus rejected re-login for the deleted credentials. The function was updated for browser CORS before the passing smoke. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed; tests reported 598 passed and 1 live-smoke test skipped. `npm install` and focused Vitest needed approved reruns after Windows sandbox/package-cache or esbuild access issues. Fresh sign-up still requires email confirmation, and the deleted smoke account must be replaced with a fresh confirmed review account. Agent browser CI was not rerun in this pass, so physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human evidence exists. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 3 human/AI review limitations remain explicitly tracked |
-| Next recommended action | Run `cmd /c npm run qa:agent:ci` to refresh browser evidence for the release-blocker polish, then review Today, Fuel, Train, Plan, Profile, onboarding persistence expectations, and workout resume copy with a human boxer/designer on a physical phone. Schedule live Supabase/release-owner verification, including remote migrations `010` through `012`, before declaring external launch readiness. |
+| Next recommended action | Create and confirm a fresh App Store review account, run `cmd /c npm run qa:agent:ci` if browser evidence needs a final refresh, then review Today, Fuel, Train, Plan, Profile, onboarding persistence expectations, and workout resume copy with a human boxer/designer on a physical phone before declaring external launch readiness. |
 | Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -27,12 +27,12 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-10 after adding `@react-native-async-storage/async-storage`. The dependency install initially hit Windows sandbox/package-cache restrictions and passed on the approved rerun. |
-| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-10 directly and again inside `quality`. |
-| tests | automated_pass | `cmd /c npm test` passed on 2026-06-10 directly and again inside `quality`; 556 tests passed and 1 live-smoke test skipped. |
-| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-10. |
-| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-10; 556 tests passed and 1 live-smoke test skipped. |
-| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-10 for the release-blocker hardening pass. |
+| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-18 on the approved rerun after an initial Windows sandbox/package-cache hang. |
+| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-18 directly and again inside `quality`. |
+| tests | automated_pass | `cmd /c npm test` passed on 2026-06-18 directly and again inside `quality`; 598 tests passed and 1 live-smoke test skipped. |
+| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-18. |
+| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-18; 598 tests passed and 1 live-smoke test skipped. |
+| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-18. |
 | GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
 | agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. Targeted approved `cmd /c npm run qa:agent:audit` passed on 2026-06-10 after the bottom navigation/tab tuning with 10 browser scenarios; a previous same-day audit caught and prevented a fixed-width tab click regression, and the full bundle was not regenerated in that targeted pass. |
@@ -48,7 +48,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | sign-out | automated_pass | Profile Settings local sign-out smoke required. |
 | signed-out recovery | automated_pass | Auth tests cover signed-out password reset request, success/failure messaging, signed-in state, and missing Supabase config copy. |
 | error behavior | automated_pass | Error boundary static coverage required. |
-| real Supabase auth human/live check | human_review_required | Explicit opt-in only. |
+| real Supabase auth human/live check | verified | Explicit opt-in production sign-in plus full account-deletion smoke passed on 2026-06-18. Fresh sign-up/email confirmation and creation of a new review account remain human_review_required. |
 
 ### C. Onboarding
 
@@ -205,11 +205,11 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| migrations aligned | human_review_required | Local migration `012_remove_beta_feedback_launch.sql` was added; remote migrations `010` through `012` still require release-owner/live Supabase verification. |
-| dry run up to date | human_review_required | Release-owner check, opt-in only. |
-| live smoke passes | human_review_required | Explicit live smoke only. |
-| support intake removed from live app | automated_pass | In-app feedback persistence was removed from launch runtime; live data check should verify the old table is absent after migration `012`. |
-| data export/delete scope works | human_review_required | Live data check only. |
+| migrations aligned | verified | Production migration list aligned for local/remote migrations `001` through `013` on 2026-06-18. |
+| dry run up to date | verified | `cmd /c npm exec supabase -- db push --dry-run` reported the remote database is up to date on 2026-06-18. |
+| live smoke passes | verified | Explicit live Profile > Data > Delete account smoke passed on 2026-06-18 with sign-out and rejected re-login for deleted credentials. |
+| support intake removed from live app | automated_pass | In-app feedback persistence was removed from launch runtime; migration `012` is now applied in production. |
+| data export/delete scope works | human_review_required | Full account deletion live smoke passed on 2026-06-18; portable export and app-data-only deletion still need final live data check if the release owner wants those separately evidenced. |
 | RLS/user-owned behavior remains safe | human_review_required | Live data check only. |
 | real auth/email confirmation reviewed | human_review_required | Live auth check only. |
 

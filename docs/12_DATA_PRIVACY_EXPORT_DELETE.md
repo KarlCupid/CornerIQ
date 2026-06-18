@@ -97,4 +97,4 @@ The script is `scripts/dev-reset-supabase.mjs`. It previews row counts first, de
 - Verify export bundle redacts secret-shaped keys and values.
 - Verify delete removes generated projections as well as source logs.
 - Verify no service role key is used from Expo or client runtime code.
-- Verify account deletion is double-confirmed in production UI, routed through `supabase/functions/delete-account`, deployed to the production project, and smoke-tested before Apple submission.
+- Verify account deletion is double-confirmed in production UI, routed through `supabase/functions/delete-account`, deployed to the production project, and smoke-tested before Apple submission. The 2026-06-18 production smoke passed against `delete-account` v2; rerun this check if the function, auth settings, or data schema change before submission.

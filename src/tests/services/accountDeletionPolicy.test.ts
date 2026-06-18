@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ACCOUNT_DELETION_CONFIRMATION, bearerToken, validatePayload, USER_OWNED_TABLES } from "../../../supabase/functions/delete-account/policy";
+import {
+  ACCOUNT_DELETION_CONFIRMATION,
+  ACCOUNT_DELETION_CORS_HEADERS,
+  bearerToken,
+  validatePayload,
+  USER_OWNED_TABLES
+} from "../../../supabase/functions/delete-account/policy";
 
 describe("account deletion Edge Function policy", () => {
   it("requires a Bearer token and exact DELETE ACCOUNT confirmation", () => {
@@ -18,5 +24,14 @@ describe("account deletion Edge Function policy", () => {
     expect(index("training_day_plans")).toBeLessThan(index("training_microcycles"));
     expect(index("training_microcycles")).toBeLessThan(index("training_blocks"));
     expect(index("athlete_profiles")).toBeLessThan(index("users_public"));
+  });
+
+  it("allows browser and webview clients to preflight the account deletion request", () => {
+    expect(ACCOUNT_DELETION_CORS_HEADERS["access-control-allow-origin"]).toBe("*");
+    expect(ACCOUNT_DELETION_CORS_HEADERS["access-control-allow-methods"]).toContain("OPTIONS");
+    expect(ACCOUNT_DELETION_CORS_HEADERS["access-control-allow-methods"]).toContain("POST");
+    expect(ACCOUNT_DELETION_CORS_HEADERS["access-control-allow-headers"]).toContain("authorization");
+    expect(ACCOUNT_DELETION_CORS_HEADERS["access-control-allow-headers"]).toContain("apikey");
+    expect(ACCOUNT_DELETION_CORS_HEADERS["access-control-allow-headers"]).toContain("content-type");
   });
 });

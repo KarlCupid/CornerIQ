@@ -52,9 +52,10 @@ describe("production quality audit documentation", () => {
     expect(source).toContain("cmd /c npm run qa:agent:ci");
     expect(source).toContain("release-blocking");
     expect(source).toContain("010_generated_sessions_training_block_scope.sql");
-    expect(source).toContain("remote status is release-blocking");
+    expect(source).toContain("historically aligned in production");
+    expect(source).toContain("release-blocking if generated evidence for the exact candidate is absent or stale");
     expect(source).toContain("CodeQL run");
-    expect(ledger).toContain("migration `010`");
+    expect(ledger).toContain("migrations `010` through `013`");
     expect(combined).not.toContain("security evidence pending");
     expect(source).not.toMatch(/current-head pass|latest head passed|current head passed/i);
 
@@ -78,6 +79,7 @@ describe("production quality audit documentation", () => {
       .split(/\r?\n/)
       .filter((line) => /010_generated_sessions_training_block_scope\.sql/i.test(line))
       .filter((line) => /remote(?:ly)? verified|up to date|applied remotely/i.test(line))
+      .filter((line) => !/historically applied remotely|historical status only|historical evidence is not current-candidate proof/i.test(line))
       .filter((line) => !/\b(not|do not|must not|release-blocking)\b/i.test(line));
     expect(unsupportedMigrationPassClaims).toHaveLength(0);
     expect(combined).not.toMatch(/CodeQL[^.\n]*(latest run passed|passed)(?![^.\n]*(run ID|https:\/\/github\.com))/i);

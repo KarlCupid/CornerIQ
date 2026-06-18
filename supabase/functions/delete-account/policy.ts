@@ -1,4 +1,9 @@
 export const ACCOUNT_DELETION_CONFIRMATION = "DELETE ACCOUNT";
+export const ACCOUNT_DELETION_CORS_HEADERS = {
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-origin": "*"
+} as const;
 
 export const USER_OWNED_TABLES = [
   "exercise_results",

@@ -1,5 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { bearerToken, validatePayload, USER_OWNED_TABLES, type AccountDeletionPayload, type UserOwnedTable } from "./policy.ts";
+import {
+  ACCOUNT_DELETION_CORS_HEADERS,
+  bearerToken,
+  validatePayload,
+  USER_OWNED_TABLES,
+  type AccountDeletionPayload,
+  type UserOwnedTable
+} from "./policy.ts";
 
 type UserOwnedDeleteResult = {
   [TTable in UserOwnedTable]: {
@@ -13,7 +20,7 @@ type FailureCode = "method_not_allowed" | "missing_bearer" | "bad_payload" | "mi
 function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" }
+    headers: { ...ACCOUNT_DELETION_CORS_HEADERS, "content-type": "application/json" }
   });
 }
 
@@ -39,6 +46,10 @@ async function deleteUserOwnedRows(admin: ReturnType<typeof createClient>, userI
 }
 
 Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { headers: ACCOUNT_DELETION_CORS_HEADERS, status: 204 });
+  }
+
   if (request.method !== "POST") {
     return failure(405, "method_not_allowed", "POST required.");
   }
