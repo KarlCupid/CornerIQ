@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import loadingCornerBackground from "../../../assets/backgrounds/loading-corner-orb.png";
 import { CornerIQWordmark } from "./CornerIQWordmark";
 import { glassStyles } from "../../design/glass";
-import { colors, spacing } from "../../design/theme";
+import { colors, radii, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 
 export interface StartupStateProps {
@@ -115,7 +115,7 @@ function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
         <Animated.View
           pointerEvents="none"
           style={{
-            backgroundColor: "rgba(7, 157, 255, 0.32)",
+            backgroundColor: "rgba(39, 206, 241, 0.32)",
             borderRadius: 17,
             height: 34,
             opacity: pulseOpacity,
@@ -124,7 +124,7 @@ function StatusIcon({ state }: { state: "active" | "done" | "pending" }) {
             width: 34
           }}
         />
-        <View style={{ backgroundColor: colors.blueIQ, borderRadius: 6, height: 12, width: 12 }} />
+        <View style={{ backgroundColor: colors.blueIQ, borderRadius: radii.pill, height: 12, width: 12 }} />
       </Animated.View>
     );
   }
@@ -164,9 +164,10 @@ function StartupStatusRows() {
     <View
       style={{
         ...glassStyles.cardDeep,
-        backgroundColor: "rgba(6, 13, 28, 0.72)",
-        borderColor: "rgba(217, 228, 244, 0.24)",
-        borderRadius: 8,
+        backgroundColor: "rgba(5, 17, 34, 0.86)",
+        borderColor: "rgba(39, 206, 241, 0.22)",
+        borderRadius: radii.card,
+        boxShadow: "0 18px 42px rgba(0, 0, 0, 0.34), 0 0 24px rgba(39, 206, 241, 0.18)",
         overflow: "hidden",
         paddingHorizontal: spacing.xl,
         width: "100%"
@@ -272,10 +273,12 @@ export function StartupState({ title, message, actionLabel, onAction }: StartupS
               onPress={onAction}
               style={{
                 alignItems: "center",
-                backgroundColor: "#079DFF",
+                backgroundColor: colors.blueIQ,
                 borderColor: "rgba(255, 255, 255, 0.32)",
-                borderRadius: 6,
+                borderCurve: "continuous",
+                borderRadius: radii.pill,
                 borderWidth: 1,
+                boxShadow: "0 10px 26px rgba(39, 206, 241, 0.22)",
                 justifyContent: "center",
                 minHeight: 54,
                 paddingHorizontal: spacing.lg,
@@ -283,7 +286,7 @@ export function StartupState({ title, message, actionLabel, onAction }: StartupS
                 width: "100%"
               }}
             >
-              <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>
+              <Text style={{ color: colors.cornerBlack, fontSize: 16, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
                 {actionLabel}
               </Text>
             </Pressable>

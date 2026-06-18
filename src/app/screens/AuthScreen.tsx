@@ -3,7 +3,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { AuthBackgroundShell } from "../components/AuthBackgroundShell";
 import { glassStyles } from "../../design/glass";
-import { colors, spacing } from "../../design/theme";
+import { colors, radii, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 
 export interface AuthScreenProps {
@@ -43,9 +43,10 @@ function AuthCard({ children }: React.PropsWithChildren) {
     <View
       style={{
         ...glassStyles.cardDeep,
-        backgroundColor: "rgba(6, 13, 28, 0.72)",
-        borderColor: "rgba(217, 228, 244, 0.24)",
-        borderRadius: 8,
+        backgroundColor: "rgba(5, 17, 34, 0.86)",
+        borderColor: "rgba(39, 206, 241, 0.22)",
+        borderRadius: radii.card,
+        boxShadow: "0 18px 42px rgba(0, 0, 0, 0.34), 0 0 24px rgba(39, 206, 241, 0.18)",
         gap: spacing.lg,
         overflow: "hidden",
         padding: spacing.xl,
@@ -60,7 +61,7 @@ function AuthCard({ children }: React.PropsWithChildren) {
 
 function FieldLabel({ children }: React.PropsWithChildren) {
   return (
-    <Text style={{ color: colors.canvas, fontSize: 17, fontWeight: "700", lineHeight: 23 }}>
+    <Text style={{ color: colors.canvas, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>
       {children}
     </Text>
   );
@@ -95,14 +96,15 @@ function AuthTextInput({
       placeholderTextColor="rgba(139, 163, 198, 0.9)"
       secureTextEntry={secureTextEntry}
       style={{
-        backgroundColor: "rgba(2, 7, 17, 0.48)",
-        borderColor: "rgba(217, 228, 244, 0.30)",
-        borderRadius: 6,
+        backgroundColor: "rgba(39, 206, 241, 0.085)",
+        borderColor: "rgba(39, 206, 241, 0.24)",
+        borderCurve: "continuous",
+        borderRadius: radii.control,
         borderWidth: 1,
         color: colors.canvas,
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "500",
-        minHeight: 58,
+        minHeight: 54,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md
       }}
@@ -152,12 +154,13 @@ function PasswordField({
       <View
         style={{
           alignItems: "center",
-          backgroundColor: "rgba(2, 7, 17, 0.48)",
-          borderColor: "rgba(217, 228, 244, 0.30)",
-          borderRadius: 6,
+          backgroundColor: "rgba(39, 206, 241, 0.085)",
+          borderColor: "rgba(39, 206, 241, 0.24)",
+          borderCurve: "continuous",
+          borderRadius: radii.control,
           borderWidth: 1,
           flexDirection: "row",
-          minHeight: 58,
+          minHeight: 54,
           paddingLeft: spacing.lg,
           paddingRight: spacing.sm
         }}
@@ -171,9 +174,9 @@ function PasswordField({
           style={{
             color: colors.canvas,
             flex: 1,
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: "500",
-            minHeight: 56,
+            minHeight: 52,
             paddingVertical: spacing.md
           }}
           textContentType={signingUp ? "newPassword" : "password"}
@@ -217,19 +220,21 @@ function PrimaryAuthButton({
       onPress={onPress}
       style={{
         alignItems: "center",
-        backgroundColor: disabled ? "rgba(39, 206, 241, 0.42)" : "#079DFF",
+        backgroundColor: disabled ? "rgba(39, 206, 241, 0.28)" : colors.blueIQ,
         borderColor: "rgba(255, 255, 255, 0.32)",
-        borderRadius: 6,
+        borderCurve: "continuous",
+        borderRadius: radii.pill,
         borderWidth: 1,
+        boxShadow: disabled ? "none" : "0 10px 26px rgba(39, 206, 241, 0.22)",
         justifyContent: "center",
-        minHeight: 58,
+        minHeight: 54,
         opacity: disabled ? 0.78 : 1,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md,
         width: "100%"
       }}
     >
-      <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "800", lineHeight: 24, textAlign: "center" }}>
+      <Text style={{ color: disabled ? colors.wrap : colors.cornerBlack, fontSize: 16, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
         {loading ? "Working..." : label}
       </Text>
     </Pressable>
@@ -281,9 +286,9 @@ function QuietAuthButton({
         alignItems: "center",
         backgroundColor: "rgba(255, 255, 255, 0.035)",
         borderColor: "rgba(217, 228, 244, 0.22)",
-        borderRadius: 6,
+        borderRadius: radii.control,
         justifyContent: "center",
-        minHeight: 56,
+        minHeight: 50,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.md,
         width: "100%"
@@ -304,7 +309,8 @@ function NoticeText({ children, tone }: React.PropsWithChildren<{ tone: "error" 
       style={{
         backgroundColor: `${color}18`,
         borderColor: `${color}55`,
-        borderRadius: 8,
+        borderCurve: "continuous",
+        borderRadius: radii.control,
         borderWidth: 1,
         padding: spacing.md
       }}
@@ -322,9 +328,10 @@ function SignUpStepper() {
       <View
         style={{
           alignItems: "center",
-          backgroundColor: "rgba(255, 255, 255, 0.035)",
-          borderColor: "rgba(217, 228, 244, 0.62)",
-          borderRadius: 7,
+          backgroundColor: "rgba(39, 206, 241, 0.09)",
+          borderColor: "rgba(39, 206, 241, 0.52)",
+          borderCurve: "continuous",
+          borderRadius: radii.control,
           borderWidth: 1,
           flexDirection: "row",
           gap: spacing.sm,
@@ -332,7 +339,7 @@ function SignUpStepper() {
           paddingHorizontal: spacing.md
         }}
       >
-        <View style={{ backgroundColor: colors.blueIQ, borderRadius: 8, height: 16, width: 16 }} />
+        <View style={{ backgroundColor: colors.blueIQ, borderRadius: radii.pill, height: 16, width: 16 }} />
         <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "700", lineHeight: 20 }}>Account</Text>
       </View>
       <View style={{ backgroundColor: colors.blueIQ, height: 1, width: 32 }} />
@@ -346,7 +353,7 @@ function SignUpStepper() {
 function StepDot({ label }: { label: string }) {
   return (
     <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, minHeight: 42 }}>
-      <View style={{ borderColor: "rgba(139, 163, 198, 0.76)", borderRadius: 12, borderWidth: 2, height: 24, width: 24 }} />
+      <View style={{ borderColor: "rgba(139, 163, 198, 0.76)", borderRadius: radii.pill, borderWidth: 2, height: 24, width: 24 }} />
       <Text style={{ color: "rgba(183, 196, 217, 0.74)", fontSize: 15, fontWeight: "600", lineHeight: 20 }}>{label}</Text>
     </View>
   );
@@ -359,7 +366,8 @@ function SignUpInfoNote() {
         alignItems: "center",
         backgroundColor: "rgba(255, 255, 255, 0.035)",
         borderColor: "rgba(217, 228, 244, 0.26)",
-        borderRadius: 6,
+        borderCurve: "continuous",
+        borderRadius: radii.control,
         borderWidth: 1,
         flexDirection: "row",
         gap: spacing.md,
@@ -389,7 +397,8 @@ function TrustPills() {
             alignItems: "center",
             backgroundColor: "rgba(255, 255, 255, 0.035)",
             borderColor: "rgba(217, 228, 244, 0.18)",
-            borderRadius: 6,
+            borderCurve: "continuous",
+            borderRadius: radii.pill,
             borderWidth: 1,
             flexDirection: "row",
             gap: spacing.sm,

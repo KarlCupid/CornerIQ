@@ -1,12 +1,13 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "../../../design/components/EngineCard";
-import { LuminousProgressBar, LuminousScreen, ScreenHeader } from "../../../design/components/LuminousScreen";
+import { AccentPill, LuminousProgressBar, LuminousScreen, ScreenHeader } from "../../../design/components/LuminousScreen";
 import { colors, spacing } from "../../../design/theme";
 import type { ISODateString } from "../../../engine/core/types";
 import { useOnboardingDraft } from "../../../hooks/useOnboardingDraft";
 import type { OnboardingCompletionResult, OnboardingDraft } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
+import { tabHeroHeaders, tabScreenBackgrounds } from "../tabHeroConfig";
 import { BodyMassStep } from "./steps/BodyMassStep";
 import { BoxerBasicsStep } from "./steps/BoxerBasicsStep";
 import { CycleSupportStep } from "./steps/CycleSupportStep";
@@ -86,15 +87,18 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
   const showStorageStatus = /resume setup|unavailable/i.test(onboarding.storageStatus);
 
   return (
-    <LuminousScreen bottomInset="none" testID="onboarding-screen">
-      <ScreenHeader title="Boxer setup" />
+    <LuminousScreen accent="neutral" backgroundImage={tabScreenBackgrounds.profile} bottomInset="none" testID="onboarding-screen">
+      <ScreenHeader
+        {...tabHeroHeaders.profile}
+        eyebrow="Setup"
+        subtitle="Manual inputs are enough. Add what you know; missing data stays unknown."
+        title="Boxer setup"
+      />
       <View style={{ gap: spacing.sm }}>
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
-          <View style={screenStyles.headerPill}>
-            <Text style={screenStyles.headerPillText}>STEP {onboarding.stepIndex + 1} OF {onboarding.stepTotal}</Text>
-          </View>
+          <AccentPill accent="blue" label={`STEP ${onboarding.stepIndex + 1} OF ${onboarding.stepTotal}`} />
           <View style={{ flex: 1 }}>
-            <LuminousProgressBar progress={(onboarding.stepIndex + 1) / onboarding.stepTotal} />
+            <LuminousProgressBar accent="blue" progress={(onboarding.stepIndex + 1) / onboarding.stepTotal} />
           </View>
         </View>
       </View>
