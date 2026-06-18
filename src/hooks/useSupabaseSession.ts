@@ -41,6 +41,15 @@ function defaultClientFactory(): CornerSupabaseClient | null {
   return config === null ? null : getCornerSupabaseClient();
 }
 
+async function prepareDefaultClientStartup(): Promise<"ready" | "missing_config"> {
+  const config = getSupabaseConfigFromEnv();
+  if (config === null) {
+    return "missing_config";
+  }
+  await assertSupabaseAuthStorageAvailable();
+  return "ready";
+}
+
 function cleanCredentials(email: string, password: string): { email: string; password: string } {
   return {
     email: email.trim(),
@@ -75,6 +84,7 @@ type LinkingLike = {
 export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): SupabaseSessionState {
   const clientFactory = options.clientFactory ?? defaultClientFactory;
   const authServiceFactory = options.authServiceFactory ?? createAuthService;
+  const shouldPrepareDefaultClient = options.clientFactory === undefined;
   const [client, setClient] = useState<CornerSupabaseClient | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<SupabaseSessionStatus>("starting");
@@ -88,66 +98,87 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
 
   useEffect(() => {
     let active = true;
-    try {
-      const nextClient = clientFactory();
-      if (!nextClient) {
-        setClient(null);
-        setStatus("missing_config");
-        return undefined;
-      }
+    let subscription: { unsubscribe: () => void } | null = null;
+    void (async () => {
+      try {
+        if (shouldPrepareDefaultClient) {
+          const startupStatus = await prepareDefaultClientStartup();
+          if (!active) {
+            return;
+          }
+          if (startupStatus === "missing_config") {
+            setClient(null);
+            setStatus("missing_config");
+            return;
+          }
+        }
 
-      setClient(nextClient);
-      const nextAuth = authServiceFactory(nextClient);
-      setAuthError(null);
-      void assertSupabaseAuthStorageAvailable()
-        .then(() => nextAuth.getSession())
-        .then(({ data, error }) => {
-          if (!active) {
-            return;
-          }
-          setAuthError(error?.message ?? null);
-          setSession(data.session);
-          setStatus("ready");
-        })
-        .catch((error: unknown) => {
-          if (!active) {
-            return;
-          }
-          if (isSupabaseAuthStorageUnavailableError(error)) {
-            setStartupError(error.message);
+        const nextClient = clientFactory();
+        if (!active) {
+          return;
+        }
+        if (!nextClient) {
+          setClient(null);
+          setStatus("missing_config");
+          return;
+        }
+
+        setClient(nextClient);
+        const nextAuth = authServiceFactory(nextClient);
+        setAuthError(null);
+        void assertSupabaseAuthStorageAvailable()
+          .then(() => nextAuth.getSession())
+          .then(({ data, error }) => {
+            if (!active) {
+              return;
+            }
+            setAuthError(error?.message ?? null);
+            setSession(data.session);
+            setStatus("ready");
+          })
+          .catch((error: unknown) => {
+            if (!active) {
+              return;
+            }
+            if (isSupabaseAuthStorageUnavailableError(error)) {
+              setStartupError(error.message);
+              setSession(null);
+              setStatus("error");
+              return;
+            }
+            setAuthError(authErrorMessage(error, "Could not load the saved sign-in. Try signing in again."));
             setSession(null);
-            setStatus("error");
-            return;
-          }
-          setAuthError(authErrorMessage(error, "Could not load the saved sign-in. Try signing in again."));
-          setSession(null);
-          setStatus("ready");
-        })
-        .finally(() => {
+            setStatus("ready");
+          })
+          .finally(() => {
+            if (active) {
+              setAuthLoading(false);
+            }
+          });
+        const { data } = nextAuth.onAuthStateChange((_event, nextSession) => {
           if (active) {
-            setAuthLoading(false);
+            setSession(nextSession);
+            if (_event === "PASSWORD_RECOVERY") {
+              setPasswordRecoveryReady(true);
+              setAuthMessage("Enter a new password to finish account recovery.");
+            }
+            setStatus("ready");
           }
         });
-      const { data } = nextAuth.onAuthStateChange((_event, nextSession) => {
-        if (active) {
-          setSession(nextSession);
-          if (_event === "PASSWORD_RECOVERY") {
-            setPasswordRecoveryReady(true);
-            setAuthMessage("Enter a new password to finish account recovery.");
-          }
-          setStatus("ready");
+        subscription = data.subscription;
+      } catch (error) {
+        if (!active) {
+          return;
         }
-      });
-      return () => {
-        active = false;
-        data.subscription.unsubscribe();
-      };
-    } catch (error) {
-      setStartupError(error instanceof Error ? error.message : "Supabase startup failed.");
-      setStatus("error");
-      return undefined;
-    }
-  }, [authServiceFactory, clientFactory]);
+        setStartupError(error instanceof Error ? error.message : "Supabase startup failed.");
+        setStatus("error");
+      }
+    })();
+    return () => {
+      active = false;
+      subscription?.unsubscribe();
+    };
+  }, [authServiceFactory, clientFactory, shouldPrepareDefaultClient]);
 
   const handlePasswordRecoveryUrl = useCallback(
     async (url: string) => {

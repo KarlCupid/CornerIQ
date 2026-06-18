@@ -21,6 +21,7 @@ interface DraftStorage {
 }
 
 const memoryDraftStorage = new Map<string, string>();
+let draftStorageProbeCounter = 0;
 type DraftStorageResolution =
   | { storage: DraftStorage; type: "async" | "memory" }
   | { storage: null; type: "unavailable" };
@@ -58,6 +59,24 @@ function memoryStorage(): DraftStorage {
   };
 }
 
+async function draftStorageRoundTripSucceeds(storage: DraftStorage): Promise<boolean> {
+  draftStorageProbeCounter += 1;
+  const probeKey = `corneriq:onboarding-storage-probe:${draftStorageProbeCounter}`;
+  try {
+    await storage.setItem(probeKey, "1");
+    const value = await storage.getItem(probeKey);
+    await storage.removeItem(probeKey);
+    return value === "1";
+  } catch {
+    try {
+      await storage.removeItem(probeKey);
+    } catch {
+      // The storage backend is already being rejected.
+    }
+    return false;
+  }
+}
+
 async function resolveDraftStorage(): Promise<DraftStorageResolution> {
   if (!asyncStoragePromise) {
     asyncStoragePromise = (async () => {
@@ -65,7 +84,7 @@ async function resolveDraftStorage(): Promise<DraftStorageResolution> {
         const importModule = new Function("moduleName", "return import(moduleName)") as (moduleName: string) => Promise<unknown>;
         const imported = await importModule("@react-native-async-storage/async-storage");
         const storage = imported && typeof imported === "object" && "default" in imported ? (imported as { default?: unknown }).default : imported;
-        if (isDraftStorage(storage)) {
+        if (isDraftStorage(storage) && (await draftStorageRoundTripSucceeds(storage))) {
           return { storage, type: "async" as const };
         }
       } catch {

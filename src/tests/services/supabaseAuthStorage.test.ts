@@ -82,6 +82,32 @@ describe("Supabase auth storage", () => {
     await expect(supabaseAuthStorage.getItem("corneriq.auth.test")).resolves.toBeNull();
   });
 
+  it("falls back before Supabase can cache an unavailable native AsyncStorage wrapper", async () => {
+    setEnvValue("NODE_ENV", "test");
+    setEnvValue("EXPO_PUBLIC_CORNERIQ_PRODUCTION", undefined);
+    setEnvValue("VITEST", "true");
+    const unavailableNativeStorage: DeviceKeyValueStorage = {
+      getItem: vi.fn(async () => {
+        throw new Error("Native module is null, cannot access legacy storage");
+      }),
+      removeItem: vi.fn(async () => {
+        throw new Error("Native module is null, cannot access legacy storage");
+      }),
+      setItem: vi.fn(async () => {
+        throw new Error("Native module is null, cannot access legacy storage");
+      })
+    };
+    vi.doMock("@react-native-async-storage/async-storage", () => ({ default: unavailableNativeStorage }));
+    const { supabaseAuthStorage } = await import("../../services/supabase/client");
+
+    await supabaseAuthStorage.setItem("corneriq.auth.native-unavailable", "session");
+
+    expect(unavailableNativeStorage.setItem).toHaveBeenCalledTimes(1);
+    await expect(supabaseAuthStorage.getItem("corneriq.auth.native-unavailable")).resolves.toBe("session");
+    await expect(supabaseAuthStorage.removeItem("corneriq.auth.native-unavailable")).resolves.toBeUndefined();
+    await expect(supabaseAuthStorage.getItem("corneriq.auth.native-unavailable")).resolves.toBeNull();
+  });
+
   it("uses resolved persistent storage when native storage is available", async () => {
     setEnvValue("NODE_ENV", "production");
     setEnvValue("EXPO_PUBLIC_CORNERIQ_PRODUCTION", "1");

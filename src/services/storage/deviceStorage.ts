@@ -5,6 +5,7 @@ export interface DeviceKeyValueStorage {
 }
 
 const memoryStorageState = new Map<string, string>();
+let storageProbeCounter = 0;
 
 let storagePromise: Promise<DeviceKeyValueStorage | null> | null = null;
 let storageOverride: DeviceKeyValueStorage | null | undefined;
@@ -34,6 +35,24 @@ function isDeviceStorage(value: unknown): value is DeviceKeyValueStorage {
   }
   const candidate = value as Partial<DeviceKeyValueStorage>;
   return typeof candidate.getItem === "function" && typeof candidate.setItem === "function" && typeof candidate.removeItem === "function";
+}
+
+async function storageRoundTripSucceeds(storage: DeviceKeyValueStorage): Promise<boolean> {
+  storageProbeCounter += 1;
+  const probeKey = `corneriq:storage-probe:${storageProbeCounter}`;
+  try {
+    await storage.setItem(probeKey, "1");
+    const value = await storage.getItem(probeKey);
+    await storage.removeItem(probeKey);
+    return value === "1";
+  } catch {
+    try {
+      await storage.removeItem(probeKey);
+    } catch {
+      // The storage backend is already being rejected.
+    }
+    return false;
+  }
 }
 
 export function createMemoryDeviceStorage(): DeviceKeyValueStorage {
@@ -86,18 +105,18 @@ export async function resolveDeviceStorage(): Promise<DeviceKeyValueStorage | nu
   }
   if (!storagePromise) {
     storagePromise = (async () => {
+      const browserStorage = resolveBrowserStorage();
+      if (browserStorage && (await storageRoundTripSucceeds(browserStorage))) {
+        return browserStorage;
+      }
       try {
         const imported: unknown = await import("@react-native-async-storage/async-storage");
         const storage = imported && typeof imported === "object" && "default" in imported ? (imported as { default?: unknown }).default : imported;
-        if (isDeviceStorage(storage)) {
+        if (isDeviceStorage(storage) && (await storageRoundTripSucceeds(storage))) {
           return storage;
         }
       } catch {
         // Native AsyncStorage is unavailable in Node/static shells.
-      }
-      const browserStorage = resolveBrowserStorage();
-      if (browserStorage) {
-        return browserStorage;
       }
       return memoryFallbackAllowed() ? createMemoryDeviceStorage() : null;
     })();
