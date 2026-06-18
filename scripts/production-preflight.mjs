@@ -8,6 +8,8 @@ const failures = [];
 const warnings = [];
 const APPLE_SUBMISSION_MODE_ENV = "CORNERIQ_APPLE_SUBMISSION";
 const APPLE_SUBMISSION_READY_VALUE = "1";
+const DEFAULT_PUBLIC_PRIVACY_POLICY_URL = "https://sites.google.com/view/corneriq/privacy-policy";
+const DEFAULT_PUBLIC_SUPPORT_URL = "https://sites.google.com/view/corneriq/support";
 
 function pathFromRoot(path) {
   return join(root, path);
@@ -70,7 +72,7 @@ function checkAppConfig() {
 
 function checkPublicEnvDeclarations() {
   const envExampleNames = parseEnvExampleNames();
-  for (const name of ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY", "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL"]) {
+  for (const name of ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY", "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL", "EXPO_PUBLIC_CORNERIQ_SUPPORT_URL"]) {
     if (process.env[name] === undefined && !envExampleNames.has(name)) {
       failures.push(`Missing public env declaration: ${name}`);
     }
@@ -124,7 +126,8 @@ function checkAppleSubmissionReadiness() {
   const iconPath = typeof expo.icon === "string" ? expo.icon : "";
   const splash = expo.splash && typeof expo.splash === "object" ? expo.splash : {};
   const splashImagePath = typeof splash.image === "string" ? splash.image : "";
-  const privacyPolicyUrl = process.env.EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL ?? "";
+  const privacyPolicyUrl = process.env.EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL ?? DEFAULT_PUBLIC_PRIVACY_POLICY_URL;
+  const supportUrl = process.env.EXPO_PUBLIC_CORNERIQ_SUPPORT_URL ?? DEFAULT_PUBLIC_SUPPORT_URL;
 
   if (!iconPath || !optionalFileExists(iconPath)) {
     addAppleSubmissionBlocker("final app icon is not wired in app.json.");
@@ -134,6 +137,9 @@ function checkAppleSubmissionReadiness() {
   }
   if (isPlaceholderPrivacyUrl(privacyPolicyUrl)) {
     addAppleSubmissionBlocker("set EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL to a real public policy URL.");
+  }
+  if (isPlaceholderPrivacyUrl(supportUrl)) {
+    addAppleSubmissionBlocker("set EXPO_PUBLIC_CORNERIQ_SUPPORT_URL to a real public support URL.");
   }
   if (expo.ios?.supportsTablet === true && process.env.CORNERIQ_IPAD_VALIDATED !== "1") {
     addAppleSubmissionBlocker("iPad support is enabled without CORNERIQ_IPAD_VALIDATED=1.");
@@ -160,7 +166,7 @@ if (failures.length > 0) {
 }
 
 console.log("Production preflight passed.");
-console.log("Checked public env declarations: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL.");
+console.log("Checked public env declarations: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL, EXPO_PUBLIC_CORNERIQ_SUPPORT_URL.");
 console.log("Checked package scripts, EAS profiles, app config, client config markers, and launch docs.");
 if (warnings.length > 0) {
   console.log(`Apple submission checks are warnings unless ${APPLE_SUBMISSION_MODE_ENV}=1.`);

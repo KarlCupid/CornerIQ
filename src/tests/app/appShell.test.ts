@@ -16,6 +16,7 @@ import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
 import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { usePerformanceState } from "../../hooks/usePerformanceState";
 import type { PerformanceStateHook } from "../../hooks/usePerformanceState";
+import { CORNERIQ_PRIVACY_POLICY_URL, CORNERIQ_SUPPORT_URL } from "../../services/config/runtimeConfig";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
@@ -90,7 +91,8 @@ vi.mock("react-native", () => {
     KeyboardAvoidingView: component("KeyboardAvoidingView"),
     Linking: {
       addEventListener: vi.fn(() => ({ remove: vi.fn() })),
-      getInitialURL: vi.fn(async () => null)
+      getInitialURL: vi.fn(async () => null),
+      openURL: vi.fn(async () => true)
     },
     Modal: component("Modal"),
     Platform: { OS: "ios" },
@@ -4487,65 +4489,86 @@ describe("minimal app screens", () => {
 
   it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
+    const reactNative = (await import("react-native")) as unknown as {
+      Linking: {
+        openURL: ReturnType<typeof vi.fn>;
+      };
+    };
+    reactNative.Linking.openURL.mockClear();
+    vi.stubEnv("EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL", CORNERIQ_PRIVACY_POLICY_URL);
+    vi.stubEnv("EXPO_PUBLIC_CORNERIQ_SUPPORT_URL", CORNERIQ_SUPPORT_URL);
     const previewExport = vi.fn(async () => undefined);
     const deleteData = vi.fn(async () => undefined);
     const deleteAccount = vi.fn(async () => undefined);
     const generateExportBundle = vi.fn(async () => undefined);
-    const renderer = render(
-      React.createElement(ProfileScreen, {
-        asOfDate: fixtureAsOfDate,
-        busy: false,
-        cycleTrackingStatus: "undecided",
-        cycleContext: null,
-        equipmentAccess: ["jump_rope"],
-        onSignOut: vi.fn(),
-        onUpdateSettings: vi.fn(),
-        preferredUnits: "metric",
-        recentLogs: recentLogsViewModel,
-        userDataControls: {
-          accountDeleteConfirmation: "",
-          accountDeletionResultRows: [],
-          accountDeletionCopy: "Delete app data removes user-owned app rows only. Delete account removes app data and deletes the sign-in identity through CornerIQ's trusted server-side account deletion function.",
-          bundleText: "{\n  \"metadata\": { \"schemaVersion\": \"corneriq.app_data_export.v1\" }\n}\n",
+    try {
+      const renderer = render(
+        React.createElement(ProfileScreen, {
+          asOfDate: fixtureAsOfDate,
           busy: false,
-          deleteConfirmation: "",
-          deleteAccount,
-          deleteData,
-          generateExportBundle,
-          message: "Export preview loaded.",
-          portableExportRows: ["Portable JSON: 72 characters"],
-          preview: null,
-          previewExport,
-          previewRows: ["training: 1"],
-          setAccountDeleteConfirmation: vi.fn(),
-          setDeleteConfirmation: vi.fn()
-        },
-        viewModel: profileViewModel,
-        wearablePreference: "manual_only",
-        wearableStatus: "manual only"
-      })
-    );
-    await switchSection(renderer, "Show Privacy & Data");
-    await act(async () => {
-      await press(pressableWithText(renderer, "Preview export"));
-    });
-    expect(previewExport).toHaveBeenCalled();
-    expect(JSON.stringify(renderer.toJSON())).toContain("training: 1");
-    await act(async () => {
-      await press(pressableWithText(renderer, "Generate portable JSON export"));
-    });
-    expect(generateExportBundle).toHaveBeenCalled();
-    expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Privacy Policy");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Privacy policy unavailable");
-    expect(pressableWithText(renderer, "Delete app data")).toBeUndefined();
-    expect(pressableWithText(renderer, "Delete account")).toBeUndefined();
-    expect(JSON.stringify(renderer.toJSON())).toContain("Show Delete controls");
-    await switchSection(renderer, "Show Delete controls");
-    const deleteButton = pressableWithText(renderer, "Delete app data");
-    const deleteAccountButton = pressableWithText(renderer, "Delete account");
-    expect(deleteButton?.props.disabled).toBe(true);
-    expect(deleteAccountButton?.props.disabled).toBe(true);
+          cycleTrackingStatus: "undecided",
+          cycleContext: null,
+          equipmentAccess: ["jump_rope"],
+          onSignOut: vi.fn(),
+          onUpdateSettings: vi.fn(),
+          preferredUnits: "metric",
+          recentLogs: recentLogsViewModel,
+          userDataControls: {
+            accountDeleteConfirmation: "",
+            accountDeletionResultRows: [],
+            accountDeletionCopy: "Delete app data removes user-owned app rows only. Delete account removes app data and deletes the sign-in identity through CornerIQ's trusted server-side account deletion function.",
+            bundleText: "{\n  \"metadata\": { \"schemaVersion\": \"corneriq.app_data_export.v1\" }\n}\n",
+            busy: false,
+            deleteConfirmation: "",
+            deleteAccount,
+            deleteData,
+            generateExportBundle,
+            message: "Export preview loaded.",
+            portableExportRows: ["Portable JSON: 72 characters"],
+            preview: null,
+            previewExport,
+            previewRows: ["training: 1"],
+            setAccountDeleteConfirmation: vi.fn(),
+            setDeleteConfirmation: vi.fn()
+          },
+          viewModel: profileViewModel,
+          wearablePreference: "manual_only",
+          wearableStatus: "manual only"
+        })
+      );
+      await switchSection(renderer, "Show Privacy & Data");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Privacy Policy");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Open Privacy Policy");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Support");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Open Support");
+      expect(JSON.stringify(renderer.toJSON())).not.toContain("Privacy policy unavailable");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Open Privacy Policy"));
+        await press(pressableWithText(renderer, "Open Support"));
+      });
+      expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_PRIVACY_POLICY_URL);
+      expect(reactNative.Linking.openURL).toHaveBeenCalledWith(CORNERIQ_SUPPORT_URL);
+      await act(async () => {
+        await press(pressableWithText(renderer, "Preview export"));
+      });
+      expect(previewExport).toHaveBeenCalled();
+      expect(JSON.stringify(renderer.toJSON())).toContain("training: 1");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Generate portable JSON export"));
+      });
+      expect(generateExportBundle).toHaveBeenCalled();
+      expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
+      expect(pressableWithText(renderer, "Delete app data")).toBeUndefined();
+      expect(pressableWithText(renderer, "Delete account")).toBeUndefined();
+      expect(JSON.stringify(renderer.toJSON())).toContain("Show Delete controls");
+      await switchSection(renderer, "Show Delete controls");
+      const deleteButton = pressableWithText(renderer, "Delete app data");
+      const deleteAccountButton = pressableWithText(renderer, "Delete account");
+      expect(deleteButton?.props.disabled).toBe(true);
+      expect(deleteAccountButton?.props.disabled).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("fatigue-first screens keep collapsed sections and primary actions short", async () => {

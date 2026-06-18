@@ -1,6 +1,9 @@
 export const PUBLIC_SUPABASE_URL_ENV = "EXPO_PUBLIC_SUPABASE_URL";
 export const PUBLIC_SUPABASE_ANON_KEY_ENV = "EXPO_PUBLIC_SUPABASE_ANON_KEY";
 export const PUBLIC_PRIVACY_POLICY_URL_ENV = "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL";
+export const PUBLIC_SUPPORT_URL_ENV = "EXPO_PUBLIC_CORNERIQ_SUPPORT_URL";
+export const CORNERIQ_PRIVACY_POLICY_URL = "https://sites.google.com/view/corneriq/privacy-policy";
+export const CORNERIQ_SUPPORT_URL = "https://sites.google.com/view/corneriq/support";
 export const PLACEHOLDER_PRIVACY_POLICY_URL = "https://example.com/corneriq/privacy-policy";
 
 export type PublicRuntimeEnvName = typeof PUBLIC_SUPABASE_URL_ENV | typeof PUBLIC_SUPABASE_ANON_KEY_ENV;
@@ -17,6 +20,7 @@ export interface ReleaseLinkConfig {
   appleSubmissionBlockedReason: string | null;
   privacyPolicyUrl: string | null;
   privacyPolicyUrlIsPlaceholder: boolean;
+  supportUrl: string | null;
 }
 
 type RuntimeEnv = Record<string, string | undefined>;
@@ -82,12 +86,15 @@ function isHttpUrl(value: string): boolean {
 
 export function getReleaseLinkConfig(env: RuntimeEnv = readRuntimeEnv()): ReleaseLinkConfig {
   const configuredPrivacyPolicyUrl = env[PUBLIC_PRIVACY_POLICY_URL_ENV]?.trim();
-  const privacyPolicyUrl = configuredPrivacyPolicyUrl && isHttpUrl(configuredPrivacyPolicyUrl) ? configuredPrivacyPolicyUrl : null;
+  const configuredSupportUrl = env[PUBLIC_SUPPORT_URL_ENV]?.trim();
+  const privacyPolicyUrl = configuredPrivacyPolicyUrl && isHttpUrl(configuredPrivacyPolicyUrl) ? configuredPrivacyPolicyUrl : CORNERIQ_PRIVACY_POLICY_URL;
+  const supportUrl = configuredSupportUrl && isHttpUrl(configuredSupportUrl) ? configuredSupportUrl : CORNERIQ_SUPPORT_URL;
   const privacyPolicyUrlIsPlaceholder = !privacyPolicyUrl || privacyPolicyUrl === PLACEHOLDER_PRIVACY_POLICY_URL || new URL(privacyPolicyUrl).hostname === "example.com";
 
   return {
     appleSubmissionBlockedReason: privacyPolicyUrlIsPlaceholder ? "APPLE_SUBMISSION_BLOCKED: set a real Privacy Policy URL before public submission." : null,
     privacyPolicyUrl,
-    privacyPolicyUrlIsPlaceholder
+    privacyPolicyUrlIsPlaceholder,
+    supportUrl
   };
 }

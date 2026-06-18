@@ -1,6 +1,10 @@
 # CornerIQ Privacy Policy Template
 
-APPLE_SUBMISSION_BLOCKED until this template is reviewed, published at a real public URL, and `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` is set for the production build.
+Published Privacy Policy URL: `https://sites.google.com/view/corneriq/privacy-policy`.
+
+Published Support URL: `https://sites.google.com/view/corneriq/support`.
+
+The app defaults point to these public URLs. `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` and `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override them if the release owner moves the pages.
 
 This template is for release-owner/legal review. Replace bracketed placeholders before publication.
 
@@ -46,6 +50,6 @@ Backups, logs, and processor retention may continue for limited operational peri
 
 ## Contact
 
-Support URL: [insert public support URL].
+Support URL: `https://sites.google.com/view/corneriq/support`.
 
 Do not include private emails, credentials, or secret values in this policy.

@@ -351,6 +351,11 @@ export function ProfileScreen({
       void Linking.openURL(releaseLinks.privacyPolicyUrl);
     }
   }, [releaseLinks.privacyPolicyUrl]);
+  const openSupport = React.useCallback(() => {
+    if (releaseLinks.supportUrl) {
+      void Linking.openURL(releaseLinks.supportUrl);
+    }
+  }, [releaseLinks.supportUrl]);
   React.useEffect(() => {
     if (viewModel.healthWarning.active) {
       setHealthOpen(true);
@@ -367,7 +372,7 @@ export function ProfileScreen({
   const setupDetailsSummary = "Inputs, units, wearable preference, and quick maintenance.";
   const privacySummary = releaseLinks.privacyPolicyUrlIsPlaceholder
     ? "Export and delete controls. Privacy policy URL is not configured."
-    : "Export, privacy policy, and delete controls.";
+    : "Export, privacy policy, support, and delete controls.";
   const healthSummary = viewModel.healthWarning.active
     ? "Health warning active. Review before pushing training or weight."
     : "Health notes, support path, and saved safety history.";
@@ -544,6 +549,12 @@ export function ProfileScreen({
             <Text style={profileTextStyles.body}>Explains what CornerIQ stores, how training, fuel, body, cycle, safety, and account data are used, and how export/delete works.</Text>
             {releaseLinks.privacyPolicyUrlIsPlaceholder ? <Text style={profileTextStyles.subtle}>Privacy policy link is unavailable until a real public URL is configured.</Text> : null}
             <ProfileIconButton disabled={releaseLinks.privacyPolicyUrlIsPlaceholder} icon="document-text-outline" label={releaseLinks.privacyPolicyUrlIsPlaceholder ? "Privacy policy unavailable" : "Open Privacy Policy"} onPress={openPrivacyPolicy} tone="muted" />
+          </View>
+        </DashboardCard>
+        <DashboardCard title="Support">
+          <View style={{ gap: spacing.sm }}>
+            <Text style={profileTextStyles.body}>Account help, account deletion steps, privacy questions, and urgent safety guidance are available on the public CornerIQ Support page.</Text>
+            <ProfileIconButton disabled={!releaseLinks.supportUrl} icon="help-circle-outline" label="Open Support" onPress={openSupport} tone="blue" />
           </View>
         </DashboardCard>
         <DashboardCard title="Data controls">

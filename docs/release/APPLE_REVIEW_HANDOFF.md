@@ -1,16 +1,16 @@
 # Apple Review Handoff
 
-Date: 2026-06-12
+Date: 2026-06-18
 
 Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers marked below. This file is a handoff checklist, not final App Store metadata.
 
 ## Required Before Submission
 
-- Privacy Policy URL: APPLE_SUBMISSION_BLOCKED until `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` points to a real public policy URL. The in-app placeholder is `https://example.com/corneriq/privacy-policy` and must not ship to App Review.
+- Privacy Policy URL: published at `https://sites.google.com/view/corneriq/privacy-policy` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` can override it if the release owner moves the policy.
 - Account deletion Edge Function: deploy `supabase/functions/delete-account` to the production Supabase project and smoke-test it with a real signed-in review account before submission.
 - App icon and splash: APPLE_SUBMISSION_BLOCKED until final icon/splash assets are added and wired in `app.json`, or the release owner documents accepted final assets.
-- Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy metadata.
-- Support URL: placeholder required in App Store Connect. Do not add a public support URL in the app in this pass.
+- Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy and support metadata.
+- Support URL: published at `https://sites.google.com/view/corneriq/support` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override it if the release owner moves support.
 - Reviewer credentials: provide only in App Store Connect Review Notes. Do not commit credentials.
 
 ## Reviewer Access
@@ -62,10 +62,13 @@ Do not print or commit secret values.
 ## Privacy Policy
 
 - In-app path: Profile > Data > Privacy Policy.
+- Public URL: `https://sites.google.com/view/corneriq/privacy-policy`.
+- Public support URL: `https://sites.google.com/view/corneriq/support`.
 - Central config: `src/services/config/runtimeConfig.ts`.
 - Public env name: `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL`.
+- Public support env name: `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL`.
 - Template: `docs/legal/PRIVACY_POLICY_TEMPLATE.md`.
-- APPLE_SUBMISSION_BLOCKED until the template is finalized, published, and the public URL is configured.
+- The Google Site is public and the app defaults point to the published URLs.
 
 The policy must cover account/auth data, email/auth identifier, athlete profile, body mass, height, age, sex at birth, pregnancy context, readiness and safety flags, nutrition/water/electrolyte logs, cycle data and symptoms, training plans, workout history, exercise results, wearable/manual preference, exports/deletions, retention/deletion, Supabase as a processor, and analytics status.
 
@@ -83,8 +86,8 @@ The policy must cover account/auth data, email/auth identifier, athlete profile,
 - Subtitle suggestion: Boxing training and fuel planner.
 - Category suggestion: Health & Fitness.
 - Age rating notes: 18+ MVP; sensitive health/body/cycle/nutrition context; no Kids category.
-- Privacy Policy URL: required before submission; blocked until replaced.
-- Support URL: required in App Store Connect; placeholder pending release owner.
+- Privacy Policy URL: `https://sites.google.com/view/corneriq/privacy-policy`.
+- Support URL: `https://sites.google.com/view/corneriq/support`.
 - Account deletion instructions: Profile > Data > Danger Zone > Delete account > type `DELETE ACCOUNT`; successful deletion signs the user out.
 - Demo account/review notes: create and provide only in App Store Connect Review Notes.
 
@@ -103,7 +106,7 @@ Do not claim:
 - Current `app.json` has name, slug, scheme, version, portrait orientation, bundle id, Android package, EAS project id, and `ios.supportsTablet: false`.
 - Final app icon is not wired.
 - Final splash image is not wired.
-- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` must fail until the privacy URL and assets are ready.
+- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` must fail until final icon/splash and any remaining release-owner blockers are ready.
 
 ## Production E2E/Demo Mode Guard
 
@@ -113,13 +116,15 @@ Do not claim:
 
 ## Final Owner Checklist
 
-- [ ] Publish Privacy Policy.
-- [ ] Configure `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL`.
+- [x] Publish Privacy Policy.
+- [x] Configure in-app Privacy Policy URL.
+- [x] Publish public Support page.
+- [x] Configure in-app Support URL.
 - [ ] Add final icon and splash assets to `app.json`.
 - [ ] Deploy `delete-account` Edge Function.
 - [ ] Create and confirm review account.
 - [ ] Preload a safe adult boxer profile or verify onboarding from empty profile.
 - [ ] Capture screenshots.
-- [ ] Fill App Store Connect Support URL.
+- [ ] Fill App Store Connect Support URL with `https://sites.google.com/view/corneriq/support`.
 - [ ] Put credentials only in App Store Connect Review Notes.
 - [ ] Run `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` and resolve blockers.
