@@ -461,6 +461,7 @@ export const GeneratedTrainingSessionSchema = z.object({
 
 export const CompletedTrainingSessionSchema = z.object({
   id: z.string().min(1),
+  completionKey: z.string().min(1).optional(),
   date: ISODateSchema,
   type: z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]),
   durationMinutes: z.number().int().positive(),

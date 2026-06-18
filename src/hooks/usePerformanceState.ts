@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { AthleteProfile, ISODateString } from "../engine/core/types";
 import { useAutoRollForward } from "./useAutoRollForward";
@@ -77,8 +77,21 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const [generationStatus, setGenerationStatus] = useState<EngineGenerationStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const latestAthleteProfileRef = useRef<AthleteProfile | null>(null);
+  const mountedRef = useRef(true);
+  const refreshRunIdRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      refreshRunIdRef.current += 1;
+    };
+  }, [userId]);
 
   const refresh = useCallback(async (status: EngineGenerationStatus = "generating_workout") => {
+    const runId = refreshRunIdRef.current + 1;
+    refreshRunIdRef.current = runId;
+    const isActiveRun = () => mountedRef.current && refreshRunIdRef.current === runId;
     setLoading(true);
     setGenerationStatus(status);
     setMessage(null);
@@ -107,11 +120,13 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         nextMessage = `Auto roll-forward could not run: ${auto.explanation}`;
       }
     }
-    latestAthleteProfileRef.current = final.status === "ready" ? final.state.athlete : null;
-    setResult(final);
-    setMessage(nextMessage);
-    setLoading(false);
-    setGenerationStatus("idle");
+    if (isActiveRun()) {
+      latestAthleteProfileRef.current = final.status === "ready" ? final.state.athlete : null;
+      setResult(final);
+      setMessage(nextMessage);
+      setLoading(false);
+      setGenerationStatus("idle");
+    }
     return final;
   }, [asOfDate, repositories, runAutoRollForward, userId]);
 

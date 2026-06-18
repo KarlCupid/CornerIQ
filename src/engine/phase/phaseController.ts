@@ -1,5 +1,5 @@
 import { makeConfidence } from "../core/confidence";
-import { dateOnly, daysBetween, isWithinInclusive } from "../core/dates";
+import { dateOnlyInTimeZone, daysBetween, isWithinInclusive } from "../core/dates";
 import type { AthleteJourney, PhaseState } from "../core/types";
 
 export function resolvePhase(journey: AthleteJourney, asOfDate: string): PhaseState {
@@ -27,7 +27,7 @@ export function resolvePhase(journey: AthleteJourney, asOfDate: string): PhaseSt
   }
 
   const daysUntilBout = daysBetween(asOfDate, fight.boutDate);
-  const daysUntilWeighIn = fight.weighInDateTime ? daysBetween(asOfDate, dateOnly(fight.weighInDateTime)) : null;
+  const daysUntilWeighIn = fight.weighInDateTime ? daysBetween(asOfDate, dateOnlyInTimeZone(fight.weighInDateTime, fight.timezone)) : null;
 
   if (daysUntilBout === 0) {
     return {

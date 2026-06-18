@@ -124,6 +124,7 @@ export interface RecurringProtectedWorkoutAnchor {
 
 export interface CompletedTrainingSession {
   id: string;
+  completionKey?: string | undefined;
   date: ISODateString;
   type: ProtectedWorkoutType;
   durationMinutes: number;

@@ -165,11 +165,21 @@ function existingStatusForUpdate(status: string): NutritionSafetyReviewStatus {
 
 function eventInsert(input: AppendNutritionSafetyReviewEventInput): TableInsert<"nutrition_safety_review_events"> {
   const userId = assertUserId(input.userId, "nutrition_safety_review_events.appendNutritionSafetyReviewEvent");
+  const reviewId = assertReviewId(input.nutritionSafetyReviewId, "nutrition_safety_review_events.appendNutritionSafetyReviewEvent");
   const eventType = parseWithSchema(NutritionSafetyReviewEventTypeSchema, input.eventType, "nutrition_safety_review_events.event_type");
   const actorType = parseWithSchema(NutritionSafetyReviewActorTypeSchema, input.actorType ?? "athlete", "nutrition_safety_review_events.actor_type");
+  const athleteWritable = eventType === "requested" || eventType === "acknowledged" || eventType === "acknowledged_by_athlete";
+  const engineRequest = actorType === "engine" && eventType === "requested";
+  if (!athleteWritable || (actorType !== "athlete" && !engineRequest)) {
+    throw new RepositoryError(
+      "malformed_payload",
+      "nutrition_safety_review_events.appendNutritionSafetyReviewEvent",
+      "athlete clients cannot append reviewer nutrition safety review events"
+    );
+  }
   return {
     user_id: userId,
-    nutrition_safety_review_id: input.nutritionSafetyReviewId,
+    nutrition_safety_review_id: reviewId,
     event_type: eventType,
     actor_type: actorType,
     actor_user_id: input.actorUserId ?? userId,
@@ -305,7 +315,7 @@ export function createNutritionSafetyReviewRepository(client: CornerSupabaseClie
         .update({ status: "acknowledged_by_athlete" })
         .eq("user_id", safeUserId)
         .eq("id", reviewId)
-        .in("status", ["requested", "blocked", "in_review", "reviewer_reviewing"])
+        .in("status", ["requested", "acknowledged", "blocked", "in_review"])
         .select(reviewSelect)
         .single();
       return mapNutritionSafetyReviewRow(readDataOrThrow(response, "nutrition_safety_reviews.acknowledgeNutritionSafetyReview"));

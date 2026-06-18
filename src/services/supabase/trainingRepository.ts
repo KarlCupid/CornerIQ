@@ -2,10 +2,10 @@ import { CompletedTrainingSessionSchema, GeneratedTrainingSessionSchema } from "
 import type { CompletedTrainingSession, GeneratedTrainingSession, ISODateString } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
 export type GeneratedTrainingSessionRow = Pick<TableRow<"generated_training_sessions">, "id" | "block_id" | "planned_date" | "session_payload">;
-export type CompletedTrainingSessionRow = Pick<TableRow<"completed_training_sessions">, "id" | "completed_date" | "session_payload">;
+export type CompletedTrainingSessionRow = Pick<TableRow<"completed_training_sessions">, "id" | "completion_key" | "completed_date" | "session_payload">;
 
 export interface ListGeneratedSessionsOptions {
   asOfDate?: ISODateString | undefined;
@@ -40,6 +40,7 @@ export function mapCompletedTrainingSessionRow(row: CompletedTrainingSessionRow)
     {
       ...payload,
       id: row.id,
+      ...(row.completion_key === null ? {} : { completionKey: row.completion_key }),
       date: row.completed_date,
       completionStatus,
       painNotes,
@@ -48,6 +49,16 @@ export function mapCompletedTrainingSessionRow(row: CompletedTrainingSessionRow)
     },
     "completed_training_sessions"
   );
+}
+
+export function completionKeyForCompletedTrainingSession(session: CompletedTrainingSession): string | null {
+  if (session.completionKey) {
+    return session.completionKey;
+  }
+  if (session.completionSource !== "generated_session" || !session.generatedSessionId) {
+    return null;
+  }
+  return `generated_session_completion:${session.generatedSessionId}:${session.completionStatus}`;
 }
 
 function rowMatchesGeneratedSessionScope(row: GeneratedTrainingSessionRow, options: ListGeneratedSessionsOptions): boolean {
@@ -77,19 +88,35 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "completed_training_sessions.listCompletedTrainingSessions");
       const response = await client
         .from("completed_training_sessions")
-        .select("id, completed_date, session_payload")
+        .select("id, completion_key, completed_date, session_payload")
         .eq("user_id", safeUserId)
         .order("completed_date", { ascending: true });
       return readDataOrThrow(response, "completed_training_sessions.listCompletedTrainingSessions").map(mapCompletedTrainingSessionRow);
     },
 
-    async insertCompletedTrainingSession(userId: string, session: CompletedTrainingSession): Promise<{ id: string }> {
+    async insertCompletedTrainingSession(userId: string, session: CompletedTrainingSession): Promise<{ id: string; existing?: boolean | undefined }> {
       const safeUserId = assertUserId(userId, "completed_training_sessions.insertCompletedTrainingSession");
       const validated = parseWithSchema(CompletedTrainingSessionSchema, session, "completed_training_sessions.insertCompletedTrainingSession");
+      const completionKey = completionKeyForCompletedTrainingSession(validated);
+      if (completionKey) {
+        const existingResponse = await client
+          .from("completed_training_sessions")
+          .select("id")
+          .eq("user_id", safeUserId)
+          .eq("completion_key", completionKey)
+          .limit(1)
+          .maybeSingle();
+        const existing = readMaybeDataOrThrow(existingResponse, "completed_training_sessions.insertCompletedTrainingSession.findExisting");
+        if (existing) {
+          return { id: existing.id, existing: true };
+        }
+      }
       const insert: TableInsert<"completed_training_sessions"> = {
         user_id: safeUserId,
+        completion_key: completionKey,
         completed_date: validated.date,
         session_payload: toJson({
+          completionKey,
           type: validated.type,
           durationMinutes: validated.durationMinutes,
           intensity: validated.intensity,
@@ -108,6 +135,19 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
         })
       };
       const response = await client.from("completed_training_sessions").insert(insert).select("id").single();
+      if (response.error?.code === "23505" && completionKey) {
+        const existingResponse = await client
+          .from("completed_training_sessions")
+          .select("id")
+          .eq("user_id", safeUserId)
+          .eq("completion_key", completionKey)
+          .limit(1)
+          .maybeSingle();
+        const existing = readMaybeDataOrThrow(existingResponse, "completed_training_sessions.insertCompletedTrainingSession.findAfterConflict");
+        if (existing) {
+          return { id: existing.id, existing: true };
+        }
+      }
       return readDataOrThrow(response, "completed_training_sessions.insertCompletedTrainingSession");
     }
   };

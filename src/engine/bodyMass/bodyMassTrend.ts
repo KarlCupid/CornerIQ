@@ -52,7 +52,7 @@ export function resolveBodyMassTrend(logs: readonly BodyMassLog[], asOfDate: str
     })
     .map(({ log }) => log);
   const latest = sorted.at(-1);
-  const last7 = sorted.filter((log) => daysBetween(log.date, asOfDate) >= 0 && daysBetween(log.date, asOfDate) <= 6);
+  const last7 = medianDailyLogs(sorted.filter((log) => daysBetween(log.date, asOfDate) >= 0 && daysBetween(log.date, asOfDate) <= 6));
   const trendKgPerWeek = robustTrendKgPerWeek(sorted, asOfDate);
 
   return {

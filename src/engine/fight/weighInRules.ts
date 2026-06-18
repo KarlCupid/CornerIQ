@@ -1,7 +1,11 @@
 import { makeConfidence } from "../core/confidence";
-import { dateOnly, daysBetween } from "../core/dates";
+import { dateOnlyInTimeZone, daysBetween } from "../core/dates";
 import type { AcuteProtocolEligibility, AthleteProfile, BodyMassTrend, CycleState, FightOpportunity, RiskFlag, WeighInContext, WeightClassFeasibility } from "../core/types";
 import { createRiskFlag } from "../safety/riskSafetyEngine";
+
+function weighInDate(fight: FightOpportunity): string | null {
+  return fight.weighInDateTime ? dateOnlyInTimeZone(fight.weighInDateTime, fight.timezone) : null;
+}
 
 export function resolveWeighInContext(fight: FightOpportunity | null, asOfDate: string): WeighInContext {
   if (!fight || fight.status === "canceled" || fight.status === "completed") {
@@ -18,7 +22,7 @@ export function resolveWeighInContext(fight: FightOpportunity | null, asOfDate: 
   return {
     weighInType: fight.weighInType,
     weighInDateTime: fight.weighInDateTime ?? null,
-    daysUntilWeighIn: fight.weighInDateTime ? daysBetween(asOfDate, dateOnly(fight.weighInDateTime)) : null,
+    daysUntilWeighIn: fight.weighInDateTime ? daysBetween(asOfDate, weighInDate(fight) ?? asOfDate) : null,
     hydrationTestingRequired: fight.hydrationTestingRequired,
     postWeighInWeightCapKg: fight.postWeighInWeightCapKg ?? null,
     explanation: fight.weighInDateTime ? "Weigh-in context is confirmed." : "Weigh-in timing is unknown."
@@ -123,7 +127,7 @@ export function resolveAcuteProtocolEligibility(input: {
 
   const targetKg = fight.contractedWeightKg + fight.allowanceKg;
   const requiredLossPercent = input.trend.latestKg === null ? null : (Math.max(0, input.trend.latestKg - targetKg) / input.trend.latestKg) * 100;
-  const daysUntilWeighIn = fight.weighInDateTime ? daysBetween(input.asOfDate, dateOnly(fight.weighInDateTime)) : null;
+  const daysUntilWeighIn = fight.weighInDateTime ? daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate) : null;
   if (requiredLossPercent !== null && fight.weighInType === "same_day" && requiredLossPercent > 1) {
     fail("same-day acute threshold", "Same-day acute loss is above CornerIQ's conservative safety threshold.");
   } else {
@@ -223,7 +227,7 @@ export function resolveWeightClassFeasibility(input: {
       status: "unknown",
       requiredLossKg: null,
       requiredLossPercent: null,
-      daysUntilWeighIn: daysBetween(input.asOfDate, dateOnly(fight.weighInDateTime)),
+      daysUntilWeighIn: daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate),
       explanation: "No current body-mass log is available.",
       riskFlags,
       confidence: makeConfidence(0.24, ["fight target exists"], ["current body mass", "recent body-mass logs"])
@@ -233,7 +237,7 @@ export function resolveWeightClassFeasibility(input: {
   const targetKg = fight.contractedWeightKg + fight.allowanceKg;
   const requiredLossKg = Math.max(0, input.trend.latestKg - targetKg);
   const requiredLossPercent = (requiredLossKg / input.trend.latestKg) * 100;
-  const daysUntilWeighIn = daysBetween(input.asOfDate, dateOnly(fight.weighInDateTime));
+  const daysUntilWeighIn = daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate);
   const age = input.athlete.ageYears;
 
   if (age !== undefined && age < 18 && requiredLossKg > 0) {

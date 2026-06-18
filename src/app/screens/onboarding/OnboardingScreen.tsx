@@ -23,6 +23,7 @@ export interface OnboardingScreenProps {
   message: string | null;
   onComplete: (draft: OnboardingDraft) => Promise<OnboardingCompletionResult>;
   onCreateDemoProfile: () => void;
+  userId: string;
 }
 
 function stepWhy(stepIndex: number): string {
@@ -59,8 +60,8 @@ function goalSummary(draft: OnboardingDraft): string {
   return "Finishing setup will start a build phase. CornerIQ will protect boxing sessions and place support workouts around them.";
 }
 
-export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, message, onComplete, onCreateDemoProfile }: OnboardingScreenProps) {
-  const onboarding = useOnboardingDraft(asOfDate);
+export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, message, onComplete, onCreateDemoProfile, userId }: OnboardingScreenProps) {
+  const onboarding = useOnboardingDraft(asOfDate, userId);
   const stepProps = { draft: onboarding.draft, setStepError: onboarding.setStepError, updateDraft: onboarding.updateDraft };
   const step = (() => {
     switch (onboarding.stepIndex) {

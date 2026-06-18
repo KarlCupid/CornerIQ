@@ -21,7 +21,7 @@ import {
 } from "../../services/supabase/userDataService";
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
-import { createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
+import { completionKeyForCompletedTrainingSession, createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
 import { createTrainingBlockRepository } from "../../services/supabase/trainingBlockRepository";
 import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
 import { mapJourneyEventRow } from "../../services/supabase/journeyRepository";
@@ -35,17 +35,35 @@ import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from 
 import { createEngineRunRepository } from "../../services/supabase/engineRunRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 
-function createInsertClient() {
+function createInsertClient(options: { existingCompletedSessionId?: string | null; completedTrainingConflict?: boolean } = {}) {
   const inserted: { table: string; record: unknown }[] = [];
   const client = {
     from(table: string) {
+      const existingQuery = {
+        eq() {
+          return existingQuery;
+        },
+        limit() {
+          return existingQuery;
+        },
+        maybeSingle: async () => ({
+          data: table === "completed_training_sessions" && options.existingCompletedSessionId ? { id: options.existingCompletedSessionId } : null,
+          error: null
+        })
+      };
       return {
+        select() {
+          return existingQuery;
+        },
         insert(record: unknown) {
           inserted.push({ table, record });
           return {
             select() {
               return {
-                single: async () => ({ data: { id: `${table}_id` }, error: null })
+                single: async () =>
+                  options.completedTrainingConflict && table === "completed_training_sessions"
+                    ? { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } }
+                    : { data: { id: `${table}_id` }, error: null }
               };
             }
           };
@@ -464,7 +482,7 @@ describe("Supabase repositories", () => {
 
   it("completed training sessions persist structured completion payloads and map legacy rows", async () => {
     const { client, inserted } = createInsertClient();
-    await createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
+    const completion = {
       id: "completed_1",
       date: fixtureAsOfDate,
       type: "coach_assigned_strength",
@@ -479,12 +497,15 @@ describe("Supabase repositories", () => {
       completionSource: "generated_session",
       smokeRunId: "smoke_1",
       note: "Display copy only"
-    });
+    } as const;
+    await createTrainingRepository(client).insertCompletedTrainingSession("user_1", completion);
 
     expect(inserted[0]?.record).toMatchObject({
       user_id: "user_1",
+      completion_key: "generated_session_completion:generated_1:completed",
       completed_date: fixtureAsOfDate,
       session_payload: expect.objectContaining({
+        completionKey: "generated_session_completion:generated_1:completed",
         completionStatus: "completed",
         sessionRpe: 7,
         painNotes: ["left shoulder tight"],
@@ -493,15 +514,35 @@ describe("Supabase repositories", () => {
         smokeRunId: "smoke_1"
       })
     });
+    expect(completionKeyForCompletedTrainingSession(completion)).toBe("generated_session_completion:generated_1:completed");
 
     const mapped = mapCompletedTrainingSessionRow({
       id: "legacy_completed_1",
+      completion_key: null,
       completed_date: fixtureAsOfDate,
       session_payload: { type: "coach_assigned_strength", durationMinutes: 30, intensity: "moderate", source: "generated_session", note: "Session RPE: 8" }
     });
     expect(mapped.completionStatus).toBe("completed");
     expect(mapped.completionSource).toBe("generated_session");
     expect(mapped.painNotes).toEqual([]);
+  });
+
+  it("completed training sessions reuse existing generated-session completion keys before duplicate writes", async () => {
+    const { client, inserted } = createInsertClient({ existingCompletedSessionId: "existing_completed_1" });
+    const result = await createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
+      id: "completed_1",
+      date: fixtureAsOfDate,
+      type: "coach_assigned_strength",
+      durationMinutes: 35,
+      intensity: "moderate",
+      completionStatus: "completed",
+      painNotes: [],
+      generatedSessionId: "generated_1",
+      completionSource: "generated_session"
+    });
+
+    expect(result).toEqual({ id: "existing_completed_1", existing: true });
+    expect(inserted).toEqual([]);
   });
 
   it("generated training session reads are scoped to the active training block when requested", async () => {
@@ -722,6 +763,24 @@ describe("Supabase repositories", () => {
     expect(source).not.toContain("service_role");
   });
 
+  it("013 migration hardens nutrition review RLS and generated-session idempotency", () => {
+    const source = readFileSync("supabase/migrations/013_security_bug_sweep_hardening.sql", "utf8");
+
+    expect(source).toContain('drop policy if exists "nutrition_safety_reviews owner access"');
+    expect(source).toContain('drop policy if exists "nutrition_safety_review_events owner access"');
+    expect(source).toContain('create policy "nutrition_safety_reviews athlete request"');
+    expect(source).toContain("status = 'requested'");
+    expect(source).toContain('create policy "nutrition_safety_reviews athlete acknowledge"');
+    expect(source).toContain("status in ('requested', 'acknowledged', 'in_review', 'blocked')");
+    expect(source).toContain("status in ('acknowledged_by_athlete', 'acknowledged')");
+    expect(source).toContain("reviewer_user_id is null");
+    expect(source).toContain("event_type in ('requested', 'acknowledged', 'acknowledged_by_athlete')");
+    expect(source).toContain("actor_user_id is null or actor_user_id = auth.uid()");
+    expect(source).toContain("completion_key text");
+    expect(source).toContain("completed_training_sessions_user_completion_key_uidx");
+    expect(source).not.toContain("for all");
+  });
+
   it("database types include coach relationship table", () => {
     const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
 
@@ -859,6 +918,31 @@ describe("Supabase repositories", () => {
     );
   });
 
+  it("nutritionSafetyReviewRepository rejects athlete-forged reviewer events before Supabase writes", async () => {
+    const client = { from: vi.fn() } as unknown as CornerSupabaseClient;
+    const repository = createNutritionSafetyReviewRepository(client);
+
+    await expect(
+      repository.appendNutritionSafetyReviewEvent({
+        userId: "user_1",
+        nutritionSafetyReviewId: "review_1",
+        eventType: "cleared_by_reviewer",
+        actorType: "athlete",
+        eventPayload: { forged: true }
+      })
+    ).rejects.toBeInstanceOf(RepositoryError);
+    await expect(
+      repository.appendNutritionSafetyReviewEvent({
+        userId: "user_1",
+        nutritionSafetyReviewId: "review_1",
+        eventType: "acknowledged",
+        actorType: "dietitian",
+        eventPayload: { forged: true }
+      })
+    ).rejects.toBeInstanceOf(RepositoryError);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
   it("trainingBlockRepository persists typed block, microcycle, day plan, and adjustment payloads", () => {
     const source = readFileSync("src/services/supabase/trainingBlockRepository.ts", "utf8");
 
@@ -982,6 +1066,13 @@ describe("Supabase repositories", () => {
     await expect(createNutritionSafetyReviewRepository(client).listNutritionSafetyReviewEvents("", "review_1")).rejects.toBeInstanceOf(RepositoryError);
     await expect(createNutritionSafetyReviewRepository(client).listNutritionSafetyReviewEvents("user_1", "")).rejects.toBeInstanceOf(RepositoryError);
     await expect(createNutritionSafetyReviewRepository(client).listRecentNutritionSafetyReviewEvents("")).rejects.toBeInstanceOf(RepositoryError);
+    await expect(
+      createNutritionSafetyReviewRepository(client).appendNutritionSafetyReviewEvent({
+        userId: "user_1",
+        nutritionSafetyReviewId: "",
+        eventType: "requested"
+      })
+    ).rejects.toBeInstanceOf(RepositoryError);
     expect(client.from).not.toHaveBeenCalled();
   });
 

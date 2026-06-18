@@ -439,6 +439,7 @@ export function WorkoutDetailPanel({
   const [exerciseInputs, setExerciseInputs] = useState<Record<string, ExerciseResultInputs>>({});
   const [localError, setLocalError] = useState<string | null>(null);
   const [followUpState, setFollowUpState] = useState<WorkoutFollowUpState | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => {
     if (quickLogOpenRequestKey > 0) {
@@ -457,11 +458,15 @@ export function WorkoutDetailPanel({
   };
 
   const complete = async () => {
+    if (submitting) {
+      return;
+    }
     if (!completionActions) {
       setLocalError("Workout completion is unavailable until the app is connected.");
       return;
     }
     try {
+      setSubmitting(true);
       setLocalError(null);
       const parsedSessionRpe = parseOptionalPositiveNumber(sessionRpe, "Session RPE", { required: false });
       if (parsedSessionRpe !== undefined && parsedSessionRpe > 10) {
@@ -482,18 +487,30 @@ export function WorkoutDetailPanel({
       setResultOpen(false);
     } catch (error) {
       setLocalError(validationError(error, "Workout completion failed."));
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const skip = async () => {
+    if (submitting) {
+      return;
+    }
     if (!completionActions) {
       setLocalError("Workout completion is unavailable until the app is connected.");
       return;
     }
-    setLocalError(null);
-    await completionActions.skip(session, notes.trim());
-    setFollowUpState("skipped");
-    setResultOpen(false);
+    try {
+      setSubmitting(true);
+      setLocalError(null);
+      await completionActions.skip(session, notes.trim());
+      setFollowUpState("skipped");
+      setResultOpen(false);
+    } catch (error) {
+      setLocalError(validationError(error, "Workout skip failed."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const followUpCopy =
@@ -565,10 +582,10 @@ export function WorkoutDetailPanel({
           <TrainInput onChangeText={setNotes} placeholder="Quality, missed work, reason skipped, or extra context optional" value={notes} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             <View style={{ flexBasis: 170, flexGrow: 1 }}>
-              <TrainPanelPrimaryButton accessibilityLabel="Mark workout done" disabled={busy} onPress={() => void complete()}>{busy ? "Saving workout..." : "Mark workout done"}</TrainPanelPrimaryButton>
+              <TrainPanelPrimaryButton accessibilityLabel="Mark workout done" disabled={busy || submitting} onPress={() => void complete()}>{busy || submitting ? "Saving workout..." : "Mark workout done"}</TrainPanelPrimaryButton>
             </View>
             <View style={{ flexBasis: 132, flexGrow: 1 }}>
-              <TrainPanelQuietButton accessibilityLabel="Skip session" disabled={busy} onPress={() => void skip()}>{busy ? "Saving skip..." : "Skip session"}</TrainPanelQuietButton>
+              <TrainPanelQuietButton accessibilityLabel="Skip session" disabled={busy || submitting} onPress={() => void skip()}>{busy || submitting ? "Saving skip..." : "Skip session"}</TrainPanelQuietButton>
             </View>
           </View>
           <View style={{ gap: spacing.sm }}>

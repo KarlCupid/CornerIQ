@@ -13,9 +13,11 @@ export interface AuthScreenProps {
   onRequestPasswordReset: (email: string) => Promise<void>;
   onSignIn: (email: string, password: string) => Promise<void>;
   onSignUp: (email: string, password: string) => Promise<void>;
+  onUpdatePassword?: ((password: string) => Promise<void>) | undefined;
+  passwordRecoveryReady?: boolean | undefined;
 }
 
-type AuthMode = "sign_in" | "sign_up" | "recovery";
+type AuthMode = "sign_in" | "sign_up" | "recovery" | "update_password";
 
 const authModeCopy: Record<AuthMode, { heading: string; subheading: string }> = {
   recovery: {
@@ -29,6 +31,10 @@ const authModeCopy: Record<AuthMode, { heading: string; subheading: string }> = 
   sign_up: {
     heading: "Create your account",
     subheading: "Start building your boxer prep state."
+  },
+  update_password: {
+    heading: "Set new password",
+    subheading: "Choose a new password to finish account recovery."
   }
 };
 
@@ -417,11 +423,12 @@ function SignUpFooter() {
   );
 }
 
-export function AuthScreen({ loading, error, message, onRequestPasswordReset, onSignIn, onSignUp }: AuthScreenProps) {
+export function AuthScreen({ loading, error, message, onRequestPasswordReset, onSignIn, onSignUp, onUpdatePassword, passwordRecoveryReady = false }: AuthScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<AuthMode>("sign_in");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const effectiveMode: AuthMode = passwordRecoveryReady ? "update_password" : mode;
 
   const switchMode = (nextMode: AuthMode) => {
     setValidationError(null);
@@ -448,20 +455,34 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
     await onRequestPasswordReset(trimmedEmail);
   };
 
-  const visibleError = validationError ?? error;
-  const signingUp = mode === "sign_up";
-  const recovering = mode === "recovery";
-  const copy = authModeCopy[mode];
+  const submitPasswordUpdate = async () => {
+    if (!password) {
+      setValidationError("New password is required.");
+      return;
+    }
+    if (!onUpdatePassword) {
+      setValidationError("Password update is unavailable.");
+      return;
+    }
+    setValidationError(null);
+    await onUpdatePassword(password);
+  };
 
-  const primaryLabel = recovering ? "Send reset email" : signingUp ? "Create account" : "Sign in";
-  const primaryAction = recovering ? submitRecovery : () => void submit(signingUp ? onSignUp : onSignIn);
+  const visibleError = validationError ?? error;
+  const signingUp = effectiveMode === "sign_up";
+  const recovering = effectiveMode === "recovery";
+  const updatingPassword = effectiveMode === "update_password";
+  const copy = authModeCopy[effectiveMode];
+
+  const primaryLabel = updatingPassword ? "Update password" : recovering ? "Send reset email" : signingUp ? "Create account" : "Sign in";
+  const primaryAction = updatingPassword ? submitPasswordUpdate : recovering ? submitRecovery : () => void submit(signingUp ? onSignUp : onSignIn);
 
   return (
     <AuthBackgroundShell
       footer={
         signingUp ? (
           <SignUpFooter />
-        ) : mode === "sign_in" ? (
+        ) : effectiveMode === "sign_in" ? (
           <TrustPills />
         ) : null
       }
@@ -470,20 +491,20 @@ export function AuthScreen({ loading, error, message, onRequestPasswordReset, on
     >
       {signingUp ? <SignUpStepper /> : null}
       <AuthCard>
-        <EmailField email={email} setEmail={setEmail} />
+        {!updatingPassword ? <EmailField email={email} setEmail={setEmail} /> : null}
         {!recovering ? (
           <PasswordField
-            helper={signingUp ? "Use a password you will remember." : "Use the password for your existing account."}
+            helper={updatingPassword ? "Use a new password you will remember." : signingUp ? "Use a password you will remember." : "Use the password for your existing account."}
             password={password}
             setPassword={setPassword}
-            signingUp={signingUp}
+            signingUp={signingUp || updatingPassword}
           />
         ) : null}
         {visibleError ? <NoticeText tone="error">{visibleError}</NoticeText> : null}
         {!visibleError && message ? <NoticeText tone="message">{message}</NoticeText> : null}
         <PrimaryAuthButton disabled={loading} label={primaryLabel} loading={loading} onPress={primaryAction} />
         {signingUp ? <SignUpInfoNote /> : null}
-        {mode === "sign_in" ? (
+        {effectiveMode === "sign_in" ? (
           <>
             <LinkButton disabled={loading} label="Forgot password?" onPress={() => switchMode("recovery")} />
             <QuietAuthButton disabled={loading} label="New here? Create account" onPress={() => switchMode("sign_up")} />

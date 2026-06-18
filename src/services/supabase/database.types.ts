@@ -164,6 +164,7 @@ export type Database = {
       }
       completed_training_sessions: {
         Row: {
+          completion_key: string | null
           completed_date: string
           created_at: string
           id: string
@@ -172,6 +173,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          completion_key?: string | null
           completed_date: string
           created_at?: string
           id?: string
@@ -180,6 +182,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          completion_key?: string | null
           completed_date?: string
           created_at?: string
           id?: string

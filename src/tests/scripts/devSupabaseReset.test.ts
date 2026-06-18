@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 interface ResetModule {
+  PRODUCTION_OVERRIDE: string;
   RESET_CONFIRMATION: string;
   USER_OWNED_TABLES: readonly string[];
   resolveResetOptions: (env: Record<string, string | undefined>, argv: readonly string[]) => unknown;
@@ -11,7 +12,9 @@ interface ResetModule {
       confirm: string;
       deleteAuthUsers: boolean;
       dryRun: boolean;
+      projectRef?: string | undefined;
       productionOverride: boolean;
+      supabaseUrl?: string | undefined;
     };
   }) => Promise<{ deletedAuthUserIds: readonly string[]; totalPreviewRows: number }>;
 }
@@ -77,6 +80,60 @@ describe("dev Supabase reset script", () => {
     ).toThrow(/production/i);
   });
 
+  it("refuses public Supabase URL fallback and hosted resets without a matching project override", async () => {
+    const reset = await loadResetModule();
+    const baseEnv = {
+      CONFIRM_CORNERIQ_RESET: reset.RESET_CONFIRMATION,
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-key"
+    };
+
+    expect(() =>
+      reset.resolveResetOptions(
+        {
+          ...baseEnv,
+          EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+        },
+        []
+      )
+    ).toThrow(/EXPO_PUBLIC_SUPABASE_URL/);
+    expect(() =>
+      reset.resolveResetOptions(
+        {
+          ...baseEnv,
+          SUPABASE_URL: "https://corneriq-prod.supabase.co"
+        },
+        []
+      )
+    ).toThrow(/hosted\/non-local/i);
+    expect(() =>
+      reset.resolveResetOptions(
+        {
+          ...baseEnv,
+          CORNERIQ_PRODUCTION_RESET_OVERRIDE: reset.PRODUCTION_OVERRIDE,
+          SUPABASE_PROJECT_REF: "wrong-ref",
+          SUPABASE_URL: "https://corneriq-prod.supabase.co"
+        },
+        []
+      )
+    ).toThrow(/matching the Supabase URL host/i);
+
+    expect(
+      reset.resolveResetOptions(
+        {
+          ...baseEnv,
+          CORNERIQ_PRODUCTION_RESET_OVERRIDE: reset.PRODUCTION_OVERRIDE,
+          SUPABASE_PROJECT_REF: "corneriq-prod",
+          SUPABASE_URL: "https://corneriq-prod.supabase.co"
+        },
+        []
+      )
+    ).toMatchObject({
+      productionOverride: true,
+      projectRef: "corneriq-prod",
+      supabaseUrl: "https://corneriq-prod.supabase.co"
+    });
+  });
+
   it("previews app-owned rows without deleting in dry-run mode", async () => {
     const reset = await loadResetModule();
     const { calls, client } = createResetClient({ count: 3 });
@@ -89,7 +146,8 @@ describe("dev Supabase reset script", () => {
         confirm: reset.RESET_CONFIRMATION,
         deleteAuthUsers: false,
         dryRun: true,
-        productionOverride: false
+        productionOverride: false,
+        supabaseUrl: "http://127.0.0.1:54321"
       }
     });
 
@@ -110,7 +168,8 @@ describe("dev Supabase reset script", () => {
         confirm: reset.RESET_CONFIRMATION,
         deleteAuthUsers: true,
         dryRun: false,
-        productionOverride: false
+        productionOverride: false,
+        supabaseUrl: "http://127.0.0.1:54321"
       }
     });
 

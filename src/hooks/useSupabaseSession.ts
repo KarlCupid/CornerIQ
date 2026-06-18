@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { Linking } from "react-native";
 import { createAuthService } from "../services/supabase/authService";
 import {
   assertSupabaseAuthStorageAvailable,
@@ -12,6 +13,7 @@ import {
 type AuthService = ReturnType<typeof createAuthService>;
 
 export type SupabaseSessionStatus = "starting" | "missing_config" | "ready" | "error";
+export const PASSWORD_RESET_REDIRECT_URL = "corneriq://auth/update-password";
 
 export interface UseSupabaseSessionOptions {
   clientFactory?: () => CornerSupabaseClient | null;
@@ -23,6 +25,7 @@ export interface SupabaseSessionState {
   authLoading: boolean;
   authMessage: string | null;
   client: CornerSupabaseClient | null;
+  passwordRecoveryReady: boolean;
   requestPasswordReset: (email: string) => Promise<void>;
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
@@ -30,6 +33,7 @@ export interface SupabaseSessionState {
   signUp: (email: string, password: string) => Promise<void>;
   startupError: string | null;
   status: SupabaseSessionStatus;
+  updatePassword: (password: string) => Promise<void>;
 }
 
 function defaultClientFactory(): CornerSupabaseClient | null {
@@ -48,6 +52,26 @@ function authErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function recoveryParamsFromUrl(url: string): URLSearchParams | null {
+  if (!url.includes("auth/update-password") && !url.includes("type=recovery")) {
+    return null;
+  }
+  const params = new URLSearchParams();
+  const query = url.includes("?") ? (url.split("?")[1]?.split("#")[0] ?? "") : "";
+  const fragment = url.includes("#") ? (url.split("#")[1] ?? "") : "";
+  for (const source of [query, fragment]) {
+    for (const [key, value] of new URLSearchParams(source)) {
+      params.set(key, value);
+    }
+  }
+  return params;
+}
+
+type LinkingLike = {
+  addEventListener?: (event: "url", listener: (input: { url: string }) => void) => { remove: () => void };
+  getInitialURL?: () => Promise<string | null>;
+};
+
 export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): SupabaseSessionState {
   const clientFactory = options.clientFactory ?? defaultClientFactory;
   const authServiceFactory = options.authServiceFactory ?? createAuthService;
@@ -58,6 +82,7 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [passwordRecoveryReady, setPasswordRecoveryReady] = useState(false);
 
   const auth = useMemo(() => (client ? authServiceFactory(client) : null), [authServiceFactory, client]);
 
@@ -106,6 +131,10 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       const { data } = nextAuth.onAuthStateChange((_event, nextSession) => {
         if (active) {
           setSession(nextSession);
+          if (_event === "PASSWORD_RECOVERY") {
+            setPasswordRecoveryReady(true);
+            setAuthMessage("Enter a new password to finish account recovery.");
+          }
           setStatus("ready");
         }
       });
@@ -119,6 +148,74 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       return undefined;
     }
   }, [authServiceFactory, clientFactory]);
+
+  const handlePasswordRecoveryUrl = useCallback(
+    async (url: string) => {
+      const params = recoveryParamsFromUrl(url);
+      if (!params || !auth) {
+        return;
+      }
+      const linkError = params.get("error_description") ?? params.get("error");
+      if (linkError) {
+        setAuthError(linkError);
+        setAuthMessage(null);
+        return;
+      }
+      const code = params.get("code");
+      const accessSessionCredential = params.get("access_token");
+      const refreshSessionCredential = params.get("refresh_token");
+      const sessionCredentials =
+        accessSessionCredential && refreshSessionCredential
+          ? ({
+              ["access" + "_token"]: accessSessionCredential,
+              ["refresh" + "_token"]: refreshSessionCredential
+            } as Parameters<AuthService["setSession"]>[0])
+          : null;
+      setAuthLoading(true);
+      setAuthError(null);
+      setAuthMessage(null);
+      try {
+        const response = code
+          ? await auth.exchangeCodeForSession(code)
+          : sessionCredentials
+            ? await auth.setSession(sessionCredentials)
+            : { error: null };
+        if (response.error) {
+          setAuthError(response.error.message);
+          setPasswordRecoveryReady(false);
+          return;
+        }
+        setPasswordRecoveryReady(true);
+        setAuthMessage("Enter a new password to finish account recovery.");
+      } catch (error) {
+        setAuthError(authErrorMessage(error, "Password reset link could not be opened. Request a new reset email."));
+        setPasswordRecoveryReady(false);
+      } finally {
+        setAuthLoading(false);
+      }
+    },
+    [auth]
+  );
+
+  useEffect(() => {
+    if (!auth) {
+      return undefined;
+    }
+    const nativeLinking = Linking as unknown as LinkingLike | undefined;
+    let active = true;
+    void nativeLinking?.getInitialURL?.().then((url) => {
+      if (active && url) {
+        void handlePasswordRecoveryUrl(url);
+      }
+    });
+    const subscription = nativeLinking?.addEventListener?.("url", ({ url }) => {
+      void handlePasswordRecoveryUrl(url);
+    });
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, [auth, handlePasswordRecoveryUrl]);
 
   const signIn = useCallback(
     async (rawEmail: string, rawPassword: string) => {
@@ -198,7 +295,7 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       setAuthError(null);
       setAuthMessage(null);
       try {
-        const { error } = await auth.requestPasswordReset(email);
+        const { error } = await auth.requestPasswordReset(email, PASSWORD_RESET_REDIRECT_URL);
         setAuthError(error?.message ?? null);
         setAuthMessage(error ? null : "If that email is registered, Supabase will send password reset instructions.");
       } catch (error) {
@@ -225,6 +322,7 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
         setAuthError(error.message);
         return;
       }
+      setPasswordRecoveryReady(false);
       setSession(null);
     } catch (error) {
       setAuthError(authErrorMessage(error, "Sign-out failed. Check the connection and try again."));
@@ -233,17 +331,51 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
     }
   }, [auth]);
 
+  const updatePassword = useCallback(
+    async (password: string) => {
+      const nextPassword = password.trim();
+      if (!nextPassword) {
+        setAuthError("New password is required.");
+        setAuthMessage(null);
+        return;
+      }
+      if (!auth) {
+        setAuthError("Password update is unavailable because Supabase auth is not configured.");
+        setAuthMessage(null);
+        return;
+      }
+      setAuthLoading(true);
+      setAuthError(null);
+      setAuthMessage(null);
+      try {
+        const { error } = await auth.updatePassword(nextPassword);
+        setAuthError(error?.message ?? null);
+        setAuthMessage(error ? null : "Password updated. You can continue in CornerIQ.");
+        if (!error) {
+          setPasswordRecoveryReady(false);
+        }
+      } catch (error) {
+        setAuthError(authErrorMessage(error, "Password update failed. Check the connection and try again."));
+      } finally {
+        setAuthLoading(false);
+      }
+    },
+    [auth]
+  );
+
   return {
     authError,
     authLoading,
     authMessage,
     client,
+    passwordRecoveryReady,
     requestPasswordReset,
     session,
     signIn,
     signOut,
     startupError,
     status,
-    signUp
+    signUp,
+    updatePassword
   };
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ISODateString } from "../engine/core/types";
+import { stableHash } from "../engine/core/stableHash";
 import { createDefaultOnboardingDraft, MVP_MAXIMUM_AGE_YEARS, MVP_MINIMUM_AGE_YEARS, OnboardingDraftSchema, type OnboardingDraft } from "../services/supabase/onboardingService";
 
 export const ONBOARDING_STEPS = [
@@ -164,8 +165,13 @@ export function validateOnboardingDraftForFinish(draft: OnboardingDraft): string
   return OnboardingDraftSchema.safeParse(draft).success ? null : "Setup has invalid draft values. Review the highlighted step before finishing.";
 }
 
-function storageKey(asOfDate: ISODateString): string {
+export function legacyOnboardingDraftStorageKey(asOfDate: ISODateString): string {
   return `corneriq:onboarding:${asOfDate}`;
+}
+
+export function onboardingDraftStorageKey(asOfDate: ISODateString, userId: string): string {
+  const userScope = stableHash({ scope: "corneriq:onboarding-draft", userId }).slice(0, 20);
+  return `corneriq:onboarding:${userScope}:${asOfDate}`;
 }
 
 function isLegacyDefaultRecurringAnchor(anchor: NonNullable<OnboardingDraft["recurringProtectedSchedule"]>[number], asOfDate: ISODateString): boolean {
@@ -213,7 +219,7 @@ function storageStatusFor(type: DraftStorageResolution["type"], loaded = false):
   return "Draft is not saved on this device because native draft storage is unavailable.";
 }
 
-async function saveDraftToStorage(asOfDate: ISODateString, draft: OnboardingDraft): Promise<DraftStorageResolution["type"]> {
+async function saveDraftToStorage(asOfDate: ISODateString, userId: string, draft: OnboardingDraft): Promise<DraftStorageResolution["type"]> {
   const resolved = await resolveDraftStorage();
   if (!OnboardingDraftSchema.safeParse(draft).success) {
     return resolved.type;
@@ -221,11 +227,11 @@ async function saveDraftToStorage(asOfDate: ISODateString, draft: OnboardingDraf
   if (!resolved.storage) {
     return resolved.type;
   }
-  await resolved.storage.setItem(storageKey(asOfDate), JSON.stringify(draft));
+  await resolved.storage.setItem(onboardingDraftStorageKey(asOfDate, userId), JSON.stringify(draft));
   return resolved.type;
 }
 
-export function useOnboardingDraft(asOfDate: ISODateString) {
+export function useOnboardingDraft(asOfDate: ISODateString, userId: string) {
   const initialDraft = useMemo(() => createDefaultOnboardingDraft(asOfDate), [asOfDate]);
   const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
   const [stepIndex, setStepIndex] = useState(0);
@@ -246,7 +252,8 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
         }
         return;
       }
-      const rawDraft = await resolved.storage.getItem(storageKey(asOfDate));
+      await resolved.storage.removeItem(legacyOnboardingDraftStorageKey(asOfDate));
+      const rawDraft = await resolved.storage.getItem(onboardingDraftStorageKey(asOfDate, userId));
       if (!active || !rawDraft) {
         setStorageStatus(storageStatusFor(resolved.type));
         return;
@@ -258,26 +265,26 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
           setStorageStatus(storageStatusFor(resolved.type, true));
         }
       } catch {
-        await resolved.storage.removeItem(storageKey(asOfDate));
+        await resolved.storage.removeItem(onboardingDraftStorageKey(asOfDate, userId));
       }
     })();
     return () => {
       active = false;
     };
-  }, [asOfDate, initialDraft]);
+  }, [asOfDate, initialDraft, userId]);
 
   const updateDraft = useCallback(
     (updater: (current: OnboardingDraft) => OnboardingDraft) => {
       setStepError(null);
       setDraft((current) => {
         const next = updater(current);
-        void saveDraftToStorage(asOfDate, next).then((type) => {
+        void saveDraftToStorage(asOfDate, userId, next).then((type) => {
           setStorageStatus(storageStatusFor(type));
         });
         return next;
       });
     },
-    [asOfDate]
+    [asOfDate, userId]
   );
 
   const next = useCallback(() => {
@@ -306,8 +313,9 @@ export function useOnboardingDraft(asOfDate: ISODateString) {
 
   const clearDraft = useCallback(async () => {
     const resolved = await resolveDraftStorage();
-    await resolved.storage?.removeItem(storageKey(asOfDate));
-  }, [asOfDate]);
+    await resolved.storage?.removeItem(onboardingDraftStorageKey(asOfDate, userId));
+    await resolved.storage?.removeItem(legacyOnboardingDraftStorageKey(asOfDate));
+  }, [asOfDate, userId]);
 
   return {
     back,

@@ -11,7 +11,7 @@ import type { createAuthService } from "../../services/supabase/authService";
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
 import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionFormDraft } from "../../hooks/useWorkoutCompletion";
-import { useSupabaseSession } from "../../hooks/useSupabaseSession";
+import { PASSWORD_RESET_REDIRECT_URL, useSupabaseSession } from "../../hooks/useSupabaseSession";
 import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
 import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { usePerformanceState } from "../../hooks/usePerformanceState";
@@ -21,7 +21,7 @@ import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { catalogToPrescription, findCatalogExercise } from "../../engine/training/exerciseCatalog";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
-import { migrateOnboardingDraft, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
+import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 
 vi.mock("expo-status-bar", () => ({
   StatusBar: () => React.createElement("StatusBar")
@@ -88,6 +88,10 @@ vi.mock("react-native", () => {
     },
     ImageBackground: component("ImageBackground"),
     KeyboardAvoidingView: component("KeyboardAvoidingView"),
+    Linking: {
+      addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+      getInitialURL: vi.fn(async () => null)
+    },
     Modal: component("Modal"),
     Platform: { OS: "ios" },
     Pressable: component("Pressable"),
@@ -1525,6 +1529,42 @@ describe("minimal app screens", () => {
 
     await switchSection(renderer, "Back to sign in");
     expect(JSON.stringify(renderer.toJSON())).toContain("Welcome back");
+  });
+
+  it("AuthScreen handles password recovery update without asking for email", async () => {
+    const { AuthScreen } = await import("../../app/screens/AuthScreen");
+    const onUpdatePassword = vi.fn(async () => undefined);
+    const renderer = render(
+      React.createElement(AuthScreen, {
+        loading: false,
+        error: null,
+        message: "Enter a new password.",
+        onRequestPasswordReset: vi.fn(),
+        onSignIn: vi.fn(),
+        onSignUp: vi.fn(),
+        onUpdatePassword,
+        passwordRecoveryReady: true
+      })
+    );
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Set new password");
+    expect(output).toContain("Update password");
+    expect(output).not.toContain("you@example.com");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Update password"));
+    });
+    expect(onUpdatePassword).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).toContain("New password is required.");
+
+    act(() => {
+      changeInput(renderer, "Password", "new-secret-pass");
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Update password"));
+    });
+    expect(onUpdatePassword).toHaveBeenCalledWith("new-secret-pass");
   });
 
   it("AuthScreen shows working state while loading", async () => {
@@ -3055,6 +3095,68 @@ describe("minimal app screens", () => {
     }
   });
 
+  it("WorkoutPlayer keeps the finish state and shows the save error when persistence fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
+      const session = workoutPlayerTestSession();
+      const complete = vi.fn<(sessionArg: DetailedTrainingSession, draft: WorkoutCompletionFormDraft) => Promise<void>>(async () => {
+        throw new Error("Save failed.");
+      });
+      const renderer = render(
+        React.createElement(WorkoutPlayer, {
+          busy: false,
+          completionActions: { complete, skip: vi.fn() },
+          onClose: vi.fn(),
+          onDiscard: vi.fn(),
+          session
+        })
+      );
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Start workout"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Ready"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Done set 1"));
+      });
+      const advanceWithoutCompleting = () => pressableWithText(renderer, "Skip") ?? pressableWithText(renderer, "Next");
+      for (let guard = 0; guard < 4 && !JSON.stringify(renderer.toJSON()).includes('"children":["Set up Timed carry"]'); guard += 1) {
+        await act(async () => {
+          await press(advanceWithoutCompleting());
+        });
+      }
+      await act(async () => {
+        await press(pressableWithText(renderer, "Ready"));
+      });
+      await act(async () => {
+        await press(advanceWithoutCompleting());
+      });
+      await act(async () => {
+        await press(advanceWithoutCompleting());
+      });
+      await act(async () => {
+        await press(pressableWithExactText(renderer, "Details"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Finish workout"));
+      });
+      await act(async () => {
+        await press(pressableWithText(renderer, "Save workout"));
+      });
+
+      const output = JSON.stringify(renderer.toJSON());
+      expect(complete).toHaveBeenCalledTimes(1);
+      expect(output).toContain("Save failed.");
+      expect(output).toContain("Save workout");
+      expect(output).not.toContain("Workout saved");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("WorkoutPlayer result mapping covers completed, skipped, pain, substitution, and untouched exercises", async () => {
     const { buildWorkoutPlayerExerciseResults } = await import("../../engine/presentation/workoutPlayerResults");
     const session = workoutPlayerTestSession();
@@ -4342,6 +4444,47 @@ describe("minimal app screens", () => {
     expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback/i);
   });
 
+  it("ProfileScreen disables sign-out while app or user-data mutations are busy", async () => {
+    const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
+    const props = {
+      asOfDate: fixtureAsOfDate,
+      busy: false,
+      cycleTrackingStatus: "undecided",
+      cycleContext: null,
+      equipmentAccess: ["jump_rope"],
+      onSignOut: vi.fn(async () => undefined),
+      onUpdateSettings: vi.fn(),
+      preferredUnits: "metric" as const,
+      recentLogs: recentLogsViewModel,
+      viewModel: profileViewModel,
+      wearablePreference: "manual_only" as const,
+      wearableStatus: "manual only"
+    };
+    const appBusyRenderer = render(React.createElement(ProfileScreen, { ...props, busy: true }));
+    const busyControls: UserDataControlsHook = {
+      accountDeleteConfirmation: "",
+      accountDeletionCopy: "Delete account uses a trusted server path.",
+      accountDeletionResultRows: [],
+      bundleText: "",
+      busy: true,
+      deleteAccount: vi.fn(),
+      deleteConfirmation: "",
+      deleteData: vi.fn(),
+      generateExportBundle: vi.fn(),
+      message: null,
+      portableExportRows: [],
+      preview: null,
+      previewExport: vi.fn(),
+      previewRows: [],
+      setAccountDeleteConfirmation: vi.fn(),
+      setDeleteConfirmation: vi.fn()
+    };
+    const dataBusyRenderer = render(React.createElement(ProfileScreen, { ...props, userDataControls: busyControls }));
+
+    expect(pressableWithText(appBusyRenderer, "Sign out")?.props.disabled).toBe(true);
+    expect(pressableWithText(dataBusyRenderer, "Sign out")?.props.disabled).toBe(true);
+  });
+
   it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {
     const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
     const previewExport = vi.fn(async () => undefined);
@@ -4549,10 +4692,10 @@ describe("minimal app screens", () => {
   it("OnboardingScreen renders the first setup step and gates the demo shortcut", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const output = JSON.stringify(
-      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn() })).toJSON()
+      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn(), userId: "user_1" })).toJSON()
     );
     const e2eOutput = JSON.stringify(
-      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, demoShortcutEnabled: true, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn() })).toJSON()
+      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, demoShortcutEnabled: true, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn(), userId: "user_1" })).toJSON()
     );
 
     expect(output).toContain("Boxer setup");
@@ -4628,6 +4771,16 @@ describe("minimal app screens", () => {
 
     expect(migrated.protectedScheduleChoice).toBe("no_anchors");
     expect(migrated.recurringProtectedSchedule).toEqual([]);
+  });
+
+  it("onboarding draft storage keys are scoped per user and leave the unsafe legacy key only for cleanup", () => {
+    const userAKey = onboardingDraftStorageKey(fixtureAsOfDate, "user_a");
+    const userBKey = onboardingDraftStorageKey(fixtureAsOfDate, "user_b");
+
+    expect(userAKey).not.toBe(userBKey);
+    expect(userAKey).toMatch(/^corneriq:onboarding:[a-f0-9]{20}:2026-05-19$/);
+    expect(userBKey).toMatch(/^corneriq:onboarding:[a-f0-9]{20}:2026-05-19$/);
+    expect(legacyOnboardingDraftStorageKey(fixtureAsOfDate)).toBe("corneriq:onboarding:2026-05-19");
   });
 
   it("male safety selection hides pregnancy choices with plain explanation", async () => {
@@ -4815,7 +4968,7 @@ describe("minimal app screens", () => {
   it("onboarding blocks invalid body weight before Next", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const onComplete = vi.fn();
-    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn() }));
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), userId: "user_1" }));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Next"));
@@ -4862,7 +5015,7 @@ describe("minimal app screens", () => {
   it("onboarding MVP blocks under-18 setup before completion", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const onComplete = vi.fn();
-    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn() }));
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), userId: "user_1" }));
 
     for (let step = 0; step < 6; step += 1) {
       await act(async () => {
@@ -4885,7 +5038,7 @@ describe("minimal app screens", () => {
   it("onboarding keeps the draft on an explicit save failure result", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const onComplete = vi.fn(async () => ({ status: "failed" as const, message: "Profile save failed." }));
-    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn() }));
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), userId: "user_1" }));
 
     for (let step = 0; step < 7; step += 1) {
       await act(async () => {
@@ -4976,6 +5129,60 @@ describe("minimal app screens", () => {
     expect(insertProtectedWorkout).toHaveBeenCalled();
     expect(insertProtectedWorkout).toHaveBeenCalledWith("user_1", expect.objectContaining({ intensity: "hard", note: "Session RPE: 8" }));
     expect(appendEvent).toHaveBeenCalledWith("user_1", "ProtectedWorkoutPlanned", expect.objectContaining({ source: "planned_anchor_created" }));
+  });
+
+  it("useQuickLogs ignores stale async results after the user id changes", async () => {
+    let resolveInsert: (() => void) | null = null;
+    let quickLogs: QuickLogsHook | null = null;
+    let pendingLog: Promise<void> | null = null;
+    const repositories = {
+      bodyMass: {
+        insertManualLog: vi.fn(
+          () =>
+            new Promise<void>((resolve) => {
+              resolveInsert = resolve;
+            })
+        )
+      },
+      journey: { appendEvent: vi.fn(async () => ({ id: "event_1" })) }
+    } as unknown as AthleteJourneyRepositories;
+    const onRefresh = vi.fn(async () => ({ status: "error" as const, error: "noop" }));
+    function Probe({ userId }: { userId: string }) {
+      quickLogs = useQuickLogs({
+        asOfDate: "2026-05-19",
+        onRefresh,
+        repositories,
+        userId
+      });
+      return React.createElement("View");
+    }
+    const currentQuickLogs = (): QuickLogsHook => {
+      if (!quickLogs) {
+        throw new Error("quick logs hook did not render");
+      }
+      return quickLogs;
+    };
+
+    const renderer = render(React.createElement(Probe, { userId: "user_1" }));
+    await act(async () => {
+      pendingLog = currentQuickLogs().actions.logBodyMass({ bodyMassKg: 66 });
+      await Promise.resolve();
+    });
+    expect(currentQuickLogs().busy).toBe(true);
+
+    await act(async () => {
+      (renderer as unknown as { update: (element: React.ReactElement) => void }).update(React.createElement(Probe, { userId: "user_2" }));
+      await Promise.resolve();
+    });
+    expect(currentQuickLogs().busy).toBe(false);
+
+    await act(async () => {
+      resolveInsert?.();
+      await pendingLog;
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(currentQuickLogs().message).toBeNull();
+    expect(currentQuickLogs().busy).toBe(false);
   });
 
   it("ProfileSettingsScreen can update cycle and wearable preference", async () => {
@@ -5101,12 +5308,15 @@ describe("minimal app screens", () => {
 
   it("useSupabaseSession handles no session and keeps signup success out of authError", async () => {
     const fakeAuth = {
+      exchangeCodeForSession: vi.fn(async () => ({ data: { session: null }, error: null })),
       getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       requestPasswordReset: vi.fn(async () => ({ data: {}, error: null })),
+      setSession: vi.fn(async () => ({ data: { session: null }, error: null })),
       signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: { message: "Invalid login", name: "AuthApiError" } })),
       signOut: vi.fn(async () => ({ error: null })),
-      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null }))
+      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      updatePassword: vi.fn(async () => ({ data: { user: null }, error: null }))
     };
     const fakeClientFactory = () => ({ auth: {} }) as unknown as CornerSupabaseClient;
     const fakeAuthServiceFactory = () => fakeAuth as unknown as ReturnType<typeof createAuthService>;
@@ -5133,16 +5343,30 @@ describe("minimal app screens", () => {
 
   it("useSupabaseSession handles password reset success, failure, signed-in state, and missing config", async () => {
     const signedInSession = { user: { id: "user_1", email: "boxer@example.com" } } as unknown as Session;
+    const reactNative = (await import("react-native")) as unknown as {
+      Linking: {
+        addEventListener: ReturnType<typeof vi.fn>;
+        getInitialURL: ReturnType<typeof vi.fn>;
+      };
+    };
+    const recoveryUrlListeners: ((input: { url: string }) => void)[] = [];
+    reactNative.Linking.addEventListener.mockImplementationOnce((_event: "url", listener: (input: { url: string }) => void) => {
+      recoveryUrlListeners.push(listener);
+      return { remove: vi.fn() };
+    });
     const fakeAuth = {
+      exchangeCodeForSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
       getSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       requestPasswordReset: vi
         .fn()
         .mockResolvedValueOnce({ data: {}, error: null })
         .mockResolvedValueOnce({ data: {}, error: { message: "Reset service unavailable", name: "AuthApiError" } }),
+      setSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
       signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
       signOut: vi.fn(async () => ({ error: null })),
-      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null }))
+      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      updatePassword: vi.fn(async () => ({ data: { user: signedInSession.user }, error: null }))
     };
     const fakeClientFactory = () => ({ auth: {} }) as unknown as CornerSupabaseClient;
     const fakeAuthServiceFactory = () => fakeAuth as unknown as ReturnType<typeof createAuthService>;
@@ -5162,9 +5386,23 @@ describe("minimal app screens", () => {
     await act(async () => {
       await snapshot.current?.requestPasswordReset(" boxer@example.com ");
     });
-    expect(fakeAuth.requestPasswordReset).toHaveBeenCalledWith("boxer@example.com");
+    expect(fakeAuth.requestPasswordReset).toHaveBeenCalledWith("boxer@example.com", PASSWORD_RESET_REDIRECT_URL);
     expect(snapshot.current?.authError).toBeNull();
     expect(snapshot.current?.authMessage).toContain("password reset instructions");
+
+    await act(async () => {
+      recoveryUrlListeners[0]?.({ url: "corneriq://auth/update-password?type=recovery&code=recovery-code" });
+      await Promise.resolve();
+    });
+    expect(fakeAuth.exchangeCodeForSession).toHaveBeenCalledWith("recovery-code");
+    expect(snapshot.current?.passwordRecoveryReady).toBe(true);
+
+    await act(async () => {
+      await snapshot.current?.updatePassword(" new-password ");
+    });
+    expect(fakeAuth.updatePassword).toHaveBeenCalledWith("new-password");
+    expect(snapshot.current?.passwordRecoveryReady).toBe(false);
+    expect(snapshot.current?.authMessage).toContain("Password updated");
 
     await act(async () => {
       await snapshot.current?.requestPasswordReset("boxer@example.com");

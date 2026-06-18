@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createClient } from "@supabase/supabase-js";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, URL } from "node:url";
 
 export const RESET_CONFIRMATION = "DELETE_ALL_CORNERIQ_TEST_DATA";
 export const PRODUCTION_OVERRIDE = "I_UNDERSTAND_THIS_DELETES_REAL_CORNERIQ_USERS";
@@ -66,6 +66,24 @@ function envValue(env, name) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+export function isLocalSupabaseUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function hostedProjectRef(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname.endsWith(".supabase.co") ? parsed.hostname.split(".")[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 export function resolveResetOptions(env = process.env, argv = process.argv.slice(2)) {
   const confirm = flagValue(argv, "confirm") ?? envValue(env, "CONFIRM_CORNERIQ_RESET");
   if (confirm !== RESET_CONFIRMATION) {
@@ -73,23 +91,33 @@ export function resolveResetOptions(env = process.env, argv = process.argv.slice
   }
 
   const productionOverride = (flagValue(argv, "production-override") ?? envValue(env, "CORNERIQ_PRODUCTION_RESET_OVERRIDE")) === PRODUCTION_OVERRIDE;
-  if (env.NODE_ENV === "production" && !productionOverride) {
-    throw new Error(`Refusing reset: NODE_ENV=production requires --production-override=${PRODUCTION_OVERRIDE}.`);
-  }
-
-  const supabaseUrl = flagValue(argv, "supabase-url") ?? envValue(env, "SUPABASE_URL") ?? envValue(env, "EXPO_PUBLIC_SUPABASE_URL");
+  const supabaseUrl = flagValue(argv, "supabase-url") ?? envValue(env, "SUPABASE_URL");
+  const projectRef = flagValue(argv, "project-ref") ?? envValue(env, "SUPABASE_PROJECT_REF");
   const serviceRoleKey = envValue(env, "SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl) {
-    throw new Error("Refusing reset: SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL is required.");
+    throw new Error("Refusing reset: SUPABASE_URL or --supabase-url is required. EXPO_PUBLIC_SUPABASE_URL is never accepted by this destructive script.");
   }
   if (!serviceRoleKey) {
     throw new Error("Refusing reset: SUPABASE_SERVICE_ROLE_KEY is required in this server-side process.");
+  }
+  const hostedRef = hostedProjectRef(supabaseUrl);
+  if (env.NODE_ENV === "production" && !productionOverride) {
+    throw new Error(`Refusing reset: NODE_ENV=production requires --production-override=${PRODUCTION_OVERRIDE}.`);
+  }
+  if (!isLocalSupabaseUrl(supabaseUrl)) {
+    if (!productionOverride) {
+      throw new Error(`Refusing reset: hosted/non-local Supabase URL requires --production-override=${PRODUCTION_OVERRIDE}.`);
+    }
+    if (!hostedRef || !projectRef || hostedRef !== projectRef) {
+      throw new Error("Refusing reset: hosted reset requires --project-ref/SUPABASE_PROJECT_REF matching the Supabase URL host.");
+    }
   }
 
   return {
     confirm,
     deleteAuthUsers: hasFlag(argv, "delete-auth-users") || env.DELETE_CORNERIQ_AUTH_USERS === "1",
     dryRun: hasFlag(argv, "dry-run"),
+    projectRef,
     productionOverride,
     serviceRoleKey,
     supabaseUrl
@@ -145,8 +173,11 @@ export async function runCornerIqDevReset({ client, logger = console, options })
   if (options.confirm !== RESET_CONFIRMATION) {
     throw new Error("Refusing reset: invalid confirmation.");
   }
-  if (process.env.NODE_ENV === "production" && !options.productionOverride) {
-    throw new Error("Refusing reset: production override is required.");
+  if (options.supabaseUrl && !isLocalSupabaseUrl(options.supabaseUrl)) {
+    const hostedRef = hostedProjectRef(options.supabaseUrl);
+    if (!options.productionOverride || !hostedRef || hostedRef !== options.projectRef) {
+      throw new Error("Refusing reset: hosted reset requires production override and matching project ref.");
+    }
   }
 
   const tableCounts = {};

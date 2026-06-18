@@ -42,6 +42,10 @@ function sessionIntensityFromDetail(input: DetailedTrainingSession): "easy" | "m
   return input.intensity === "moderate" ? "moderate" : "hard";
 }
 
+export function generatedWorkoutCompletionKey(generatedSessionId: string, status: WorkoutCompletionDraft["status"]): string {
+  return `generated_session_completion:${generatedSessionId}:${status}`;
+}
+
 export async function completeWorkoutService(input: CompleteWorkoutInput): Promise<WorkoutCompletionResult> {
   const userId = assertUserId(input.userId, "completeWorkoutService");
   const generatedSessionId = input.completion.generatedSessionId ?? input.detailedSession.generatedSessionId;
@@ -53,6 +57,7 @@ export async function completeWorkoutService(input: CompleteWorkoutInput): Promi
     durationMinutes: input.detailedSession.durationMinutes,
     intensity: sessionIntensityFromDetail(input.detailedSession),
     completionStatus: input.completion.status,
+    completionKey: generatedWorkoutCompletionKey(generatedSessionId, input.completion.status),
     ...(input.completion.sessionRpe === undefined ? {} : { sessionRpe: input.completion.sessionRpe }),
     painNotes: input.completion.painNotes,
     ...(input.completion.athleteNotes ?? input.completion.notes ? { athleteNotes: input.completion.athleteNotes ?? input.completion.notes } : {}),
@@ -63,6 +68,15 @@ export async function completeWorkoutService(input: CompleteWorkoutInput): Promi
     ...(input.completion.smokeRunId === undefined ? {} : { smokeRunId: input.completion.smokeRunId }),
     ...(displayNote ? { note: displayNote } : {})
   });
+
+  if (completedSession.existing) {
+    return {
+      status: input.completion.status,
+      completedTrainingSessionId: completedSession.id,
+      exerciseResultIds: [],
+      eventId: "existing_completion"
+    };
+  }
 
   if (input.completion.status === "skipped") {
     const event = await input.repositories.journey.appendEvent(userId, "TrainingSessionCompleted", {

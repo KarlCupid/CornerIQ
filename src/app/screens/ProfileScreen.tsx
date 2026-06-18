@@ -609,7 +609,7 @@ export function ProfileScreen({
         <DashboardCard title="Account">
           <View style={{ gap: spacing.sm }}>
             <Text style={profileTextStyles.body}>Sign out of this device when you are done.</Text>
-            <ProfileIconButton icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} tone="muted" />
+            <ProfileIconButton disabled={busy || Boolean(userDataControls?.busy)} icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} tone="muted" />
           </View>
         </DashboardCard>
       </View>

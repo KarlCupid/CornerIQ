@@ -654,6 +654,7 @@ export function WorkoutPlayer({
   const [notes, setNotes] = React.useState("");
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [localError, setLocalError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
@@ -675,6 +676,7 @@ export function WorkoutPlayer({
     setNotes("");
     setElapsedSeconds(0);
     setLocalError(null);
+    setSubmitting(false);
     setDetailsOpen(false);
     setDiscardConfirm(false);
     setSkipConfirm(false);
@@ -1081,11 +1083,15 @@ export function WorkoutPlayer({
   };
 
   const saveWorkout = async () => {
+    if (submitting) {
+      return;
+    }
     if (!completionActions) {
       setLocalError("Workout completion is unavailable until the app is connected.");
       return;
     }
     try {
+      setSubmitting(true);
       setLocalError(null);
       const parsedRpe = parseSessionRpe(sessionRpe);
       const painNames = playerResults.filter((result) => result.painFlag).map((result) => result.exerciseName);
@@ -1099,21 +1105,29 @@ export function WorkoutPlayer({
       setStatus("completed");
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "Workout completion failed.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const skipWorkout = async () => {
+    if (submitting) {
+      return;
+    }
     if (!completionActions) {
       setLocalError("Workout completion is unavailable until the app is connected.");
       return;
     }
     try {
+      setSubmitting(true);
       setLocalError(null);
       await completionActions.skip(session, notes.trim());
       await clearWorkoutPlayerState(session.generatedSessionId);
       setStatus("skipped");
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "Workout skip failed.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1163,12 +1177,12 @@ export function WorkoutPlayer({
           {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
           {completionMessage ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{completionMessage}</Text> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <PlayerButton disabled={busy} label={busy ? "Saving workout..." : "Save workout"} onPress={() => void saveWorkout()} tone="primary" />
+            <PlayerButton disabled={busy || submitting} label={busy || submitting ? "Saving workout..." : "Save workout"} onPress={() => void saveWorkout()} tone="primary" />
             <PlayerButton label="Go back" onPress={moveBack} />
             <PlayerButton label="Close player" onPress={onClose} />
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            {skipConfirm ? <PlayerButton disabled={busy} label="Confirm skip workout" onPress={() => void skipWorkout()} tone="warning" /> : <PlayerButton label="Skip workout" onPress={() => setSkipConfirm(true)} tone="warning" />}
+            {skipConfirm ? <PlayerButton disabled={busy || submitting} label="Confirm skip workout" onPress={() => void skipWorkout()} tone="warning" /> : <PlayerButton disabled={submitting} label="Skip workout" onPress={() => setSkipConfirm(true)} tone="warning" />}
             {discardConfirm ? <PlayerButton label="Confirm discard" onPress={discardCurrentWorkout} tone="warning" /> : <PlayerButton label="Discard workout" onPress={() => setDiscardConfirm(true)} tone="warning" />}
           </View>
         </GlassPanel>

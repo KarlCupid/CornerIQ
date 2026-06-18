@@ -109,6 +109,7 @@ describe("workout completion service", () => {
     expect(insertCompletedTrainingSession).toHaveBeenCalledWith(
       "user_1",
       expect.objectContaining({
+        completionKey: `generated_session_completion:${session.generatedSessionId}:completed`,
         completionStatus: "completed",
         completionSource: "generated_session",
         generatedSessionId: session.generatedSessionId,
@@ -152,9 +153,51 @@ describe("workout completion service", () => {
 
     expect(result.status).toBe("skipped");
     expect(result.completedTrainingSessionId).toBe("skipped_1");
-    expect(insertCompletedTrainingSession).toHaveBeenCalledWith("user_1", expect.objectContaining({ completionStatus: "skipped", completionSource: "generated_session" }));
+    expect(insertCompletedTrainingSession).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({
+        completionKey: `generated_session_completion:${session.generatedSessionId}:skipped`,
+        completionStatus: "skipped",
+        completionSource: "generated_session"
+      })
+    );
     expect(insertExerciseResults).not.toHaveBeenCalled();
     expect(appendEvent).toHaveBeenCalledWith("user_1", "TrainingSessionCompleted", expect.objectContaining({ status: "skipped" }));
+  });
+
+  it("existing generated workout completion returns idempotently without duplicate exercise results or events", async () => {
+    const session = detailedSession();
+    const insertCompletedTrainingSession = vi.fn(async () => ({ id: "completed_existing", existing: true }));
+    const insertExerciseResults = vi.fn();
+    const appendEvent = vi.fn();
+
+    const result = await completeWorkoutService({
+      userId: "user_1",
+      asOfDate: fixtureAsOfDate,
+      detailedSession: session,
+      completion: {
+        generatedSessionId: session.generatedSessionId,
+        completedSessionType: completedSessionTypeForFamily(session.family),
+        status: "completed",
+        painNotes: [],
+        notes: "Retry after network wobble",
+        exerciseResults: [firstExerciseResult(session)]
+      },
+      repositories: {
+        training: { insertCompletedTrainingSession },
+        exerciseResult: { insertExerciseResults },
+        journey: { appendEvent }
+      } as never,
+      engineVersion: "test"
+    });
+
+    expect(result).toMatchObject({
+      completedTrainingSessionId: "completed_existing",
+      eventId: "existing_completion",
+      status: "completed"
+    });
+    expect(insertExerciseResults).not.toHaveBeenCalled();
+    expect(appendEvent).not.toHaveBeenCalled();
   });
 
   it("missing user id is blocked before writes", async () => {

@@ -24,6 +24,7 @@ import type { CornerSupabaseClient } from "../services/supabase/client";
 import { colors, spacing } from "../design/theme";
 
 function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupabaseClient; onSignOut: () => Promise<void>; session: Session }) {
+  const [signingOut, setSigningOut] = useState(false);
   const performance = usePerformanceState({ client, session });
   const quickLogs = useQuickLogs({
     asOfDate: performance.asOfDate,
@@ -61,6 +62,25 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       : trainingPlanAdjustments.generationStatus !== "idle"
         ? trainingPlanAdjustments.generationStatus
         : nextWeekPreviewActions.generationStatus;
+  const busy =
+    signingOut ||
+    performance.loading ||
+    quickLogs.busy ||
+    workoutCompletion.busy ||
+    userDataControls.busy ||
+    trainingPlanAdjustments.busy ||
+    nextWeekPreviewActions.busy;
+  const guardedSignOut = useCallback(async () => {
+    if (busy) {
+      return;
+    }
+    setSigningOut(true);
+    try {
+      await onSignOut();
+    } finally {
+      setSigningOut(false);
+    }
+  }, [busy, onSignOut]);
 
   useEffect(() => {
     void performance.refresh();
@@ -78,6 +98,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
         message={performance.message}
         onComplete={performance.completeOnboarding}
         onCreateDemoProfile={() => void performance.createDemoProfile()}
+        userId={session.user.id}
       />
     );
   }
@@ -93,7 +114,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   return (
     <AppErrorBoundary signedIn>
       <AppTabs
-      busy={performance.loading || quickLogs.busy || workoutCompletion.busy || userDataControls.busy || trainingPlanAdjustments.busy || nextWeekPreviewActions.busy}
+      busy={busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       generationStatus={generationStatus}
       message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
@@ -101,7 +122,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       onDeleteRecurringProtectedAnchor={performance.deleteRecurringProtectedAnchor}
       onDeleteProtectedSession={performance.deleteProtectedSession}
       onSaveBuildGoal={performance.saveBuildGoal}
-      onSignOut={onSignOut}
+      onSignOut={guardedSignOut}
       onSaveFightSetup={performance.saveFightSetup}
       onSaveProtectedSession={performance.saveProtectedSession}
       onSaveRecurringProtectedAnchor={performance.saveRecurringProtectedAnchor}
@@ -124,6 +145,8 @@ interface LocalE2EConfig {
   asOfDate: ISODateString;
   scenario: LocalE2EScenario;
 }
+
+const LOCAL_E2E_USER_ID = "local_e2e_user";
 
 function isISODateString(value: string | null): value is ISODateString {
   return value !== null && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -400,6 +423,7 @@ function LocalE2EApp() {
           onCreateDemoProfile={() => {
             void loadToday();
           }}
+          userId={LOCAL_E2E_USER_ID}
         />
       </LocalE2EFrame>
     );
@@ -503,6 +527,23 @@ function CornerIQApp() {
         onRequestPasswordReset={supabaseSession.requestPasswordReset}
         onSignIn={supabaseSession.signIn}
         onSignUp={supabaseSession.signUp}
+        onUpdatePassword={supabaseSession.updatePassword}
+        passwordRecoveryReady={supabaseSession.passwordRecoveryReady}
+      />
+    );
+  }
+
+  if (supabaseSession.passwordRecoveryReady) {
+    return (
+      <AuthScreen
+        error={supabaseSession.authError}
+        loading={supabaseSession.authLoading}
+        message={supabaseSession.authMessage}
+        onRequestPasswordReset={supabaseSession.requestPasswordReset}
+        onSignIn={supabaseSession.signIn}
+        onSignUp={supabaseSession.signUp}
+        onUpdatePassword={supabaseSession.updatePassword}
+        passwordRecoveryReady
       />
     );
   }

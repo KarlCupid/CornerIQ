@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { DetailedTrainingSession, ExerciseResultDraft, ISODateString } from "../engine/core/types";
 import type { ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
@@ -31,9 +31,14 @@ export function useWorkoutCompletion(input: {
 }): WorkoutCompletionHook {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const busyRef = useRef(false);
 
   const run = useCallback(
     async (action: () => Promise<unknown>, success: string) => {
+      if (busyRef.current) {
+        throw new Error("Workout completion is already saving.");
+      }
+      busyRef.current = true;
       setBusy(true);
       setMessage(null);
       try {
@@ -41,8 +46,11 @@ export function useWorkoutCompletion(input: {
         await input.onRefresh();
         setMessage(success);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Workout completion failed.");
+        const message = error instanceof Error ? error.message : "Workout completion failed.";
+        setMessage(message);
+        throw new Error(message);
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
     },

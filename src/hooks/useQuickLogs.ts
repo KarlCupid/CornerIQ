@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CompletedTrainingSession, CycleLog, CycleSymptom, DailyFoodLogStatus, ISODateString, ProtectedWorkout, SessionIntensity } from "../engine/core/types";
 import { assertValidFoodLogEnergy, validateFoodLogEnergy, type FoodLogEnergyValidationResult } from "../engine/nutrition/foodLogEnergyValidation";
 import type { ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
@@ -131,19 +131,41 @@ function foodStatusPayload(date: ISODateString, status: DailyFoodLogStatus, note
 export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  const runIdRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    runIdRef.current += 1;
+    setBusy(false);
+    setMessage(null);
+    return () => {
+      mountedRef.current = false;
+      runIdRef.current += 1;
+    };
+  }, [input.userId]);
 
   const runQuickLog = useCallback(
     async (action: () => Promise<unknown>, success: string) => {
+      const runId = runIdRef.current + 1;
+      runIdRef.current = runId;
       setBusy(true);
       setMessage(null);
+      const isActiveRun = () => mountedRef.current && runIdRef.current === runId;
       try {
         await action();
         await input.onRefresh();
-        setMessage(success);
+        if (isActiveRun()) {
+          setMessage(success);
+        }
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Log failed.");
+        if (isActiveRun()) {
+          setMessage(error instanceof Error ? error.message : "Log failed.");
+        }
       } finally {
-        setBusy(false);
+        if (isActiveRun()) {
+          setBusy(false);
+        }
       }
     },
     [input]

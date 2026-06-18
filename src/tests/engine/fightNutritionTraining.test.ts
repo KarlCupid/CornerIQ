@@ -92,6 +92,23 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.nutrition.acuteProtocolEligibility.status).toBe("eligible_education");
   });
 
+  it("uses the fight timezone when resolving a UTC-midnight weigh-in boundary", () => {
+    const state = resolvePerformanceState({
+      journey: withFight(pro_8_round_camp_day_before_weigh_in, {
+        boutDate: "2026-06-20",
+        timezone: "America/Vancouver",
+        weighInDateTime: "2026-06-20T06:30:00.000Z",
+        weighInType: "day_before"
+      }),
+      asOfDate: "2026-06-19"
+    });
+
+    expect(state.phase.phase).toBe("weigh_in_day");
+    expect(state.phase.daysUntilWeighIn).toBe(0);
+    expect(state.weighInContext.daysUntilWeighIn).toBe(0);
+    expect(state.bodyMass.feasibility.daysUntilWeighIn).toBe(0);
+  });
+
   it("unknown weigh-in timing blocks", () => {
     const existingFight = pro_8_round_camp_day_before_weigh_in.activeFightOpportunity;
     if (!existingFight) {
