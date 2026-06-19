@@ -4724,8 +4724,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Boxer setup");
     expect(output).toContain("Boxing identity");
     expect(output).toContain("Training age");
-    expect(output).toContain("Training for boxing, not competing yet.");
     expect(output).toContain("Early amateur; limited sanctioned bouts.");
+    expect(output).not.toContain("Currently fighting longer pro bouts.");
     expect(output).toContain("Choose the closest option");
     expect(output).not.toContain("Development shortcut: create safe demo boxer");
     expect(e2eOutput).toContain("Development shortcut: create safe demo boxer");
@@ -4750,10 +4750,13 @@ describe("minimal app screens", () => {
     };
 
     const boxerOutput = JSON.stringify(render(React.createElement(BoxerBasicsStep, stepProps)).toJSON());
-    expect(boxerOutput).toContain("Training for boxing, not competing yet.");
-    expect(boxerOutput).toContain("Active amateur with multiple bouts.");
-    expect(boxerOutput).toContain("Currently fighting longer pro bouts.");
-    expect(boxerOutput).toContain("Championship-distance pro context.");
+    expect(boxerOutput).toContain("Amateur boxer");
+    expect(boxerOutput).toContain("Professional boxer");
+    expect(boxerOutput).toContain("Aspiring boxer");
+    expect(boxerOutput).toContain("Open amateur");
+    expect(boxerOutput).toContain("Early amateur; limited sanctioned bouts.");
+    expect(boxerOutput).not.toContain("Currently fighting longer pro bouts.");
+    expect(boxerOutput).not.toContain("Championship-distance pro context.");
 
     const bodyMassOutput = JSON.stringify(render(React.createElement(BodyMassStep, stepProps)).toJSON());
     expect(bodyMassOutput).toContain("Current body weight (kg)");

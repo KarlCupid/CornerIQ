@@ -25,7 +25,7 @@ export function ChipButton({
       style={[
         screenStyles.quietButton,
         { maxWidth: 280 },
-        active ? { borderColor: colors.blueIQ, backgroundColor: colors.panelRaised } : null,
+        active ? { backgroundColor: "rgba(217, 228, 244, 0.075)", borderColor: "rgba(217, 228, 244, 0.46)" } : null,
         disabled ? { opacity: 0.55 } : null,
         description ? { alignItems: "flex-start" } : null
       ]}

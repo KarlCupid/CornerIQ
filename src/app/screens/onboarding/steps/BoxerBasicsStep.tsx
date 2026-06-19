@@ -22,6 +22,13 @@ const boxingLevels: Array<{ description: string; label: string; value: Onboardin
   { label: "Pro, 12 rounds", value: "pro_12_round", description: "Championship-distance pro context." }
 ];
 
+const amateurLevelValues = new Set<OnboardingDraft["boxing"]["boxingLevel"]>([
+  "aspiring_boxer",
+  "amateur_novice",
+  "amateur_open",
+  "amateur_elite"
+]);
+
 const trainingAgeOptions = [
   { label: "0", value: 0 },
   { label: "1", value: 1 },
@@ -45,6 +52,8 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
     updateDraft(updater);
     setStepError(null);
   };
+  const visibleLevels = boxingLevels.filter((option) => draft.boxing.amateurOrPro === "amateur" ? amateurLevelValues.has(option.value) : !amateurLevelValues.has(option.value));
+  const selectedLevel = boxingLevels.find((option) => option.value === draft.boxing.boxingLevel);
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -52,22 +61,44 @@ export function BoxerBasicsStep({ draft, setStepError, updateDraft }: Onboarding
       <Text style={screenStyles.subtle}>Boxer-first across amateur and pro contexts.</Text>
       <FieldGroup helper="Choose your current lane." label="Boxing status">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <ChipButton active={draft.boxing.amateurOrPro === "amateur"} label="Amateur boxer" onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: "amateur" } }))} />
-          <ChipButton active={draft.boxing.amateurOrPro === "pro"} label="Professional boxer" onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, amateurOrPro: "pro" } }))} />
+          <ChipButton
+            active={draft.boxing.amateurOrPro === "amateur"}
+            label="Amateur boxer"
+            onPress={() => updateBoxing((current) => ({
+              ...current,
+              boxing: {
+                ...current.boxing,
+                amateurOrPro: "amateur",
+                boxingLevel: amateurLevelValues.has(current.boxing.boxingLevel) ? current.boxing.boxingLevel : "amateur_novice"
+              }
+            }))}
+          />
+          <ChipButton
+            active={draft.boxing.amateurOrPro === "pro"}
+            label="Professional boxer"
+            onPress={() => updateBoxing((current) => ({
+              ...current,
+              boxing: {
+                ...current.boxing,
+                amateurOrPro: "pro",
+                boxingLevel: amateurLevelValues.has(current.boxing.boxingLevel) ? "pro_development" : current.boxing.boxingLevel
+              }
+            }))}
+          />
         </View>
       </FieldGroup>
       <FieldGroup helper="Pick the closest current level." label="Current boxing level">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {boxingLevels.map((option) => (
+          {visibleLevels.map((option) => (
             <ChipButton
               active={draft.boxing.boxingLevel === option.value}
-              description={option.description}
               key={option.value}
               label={option.label}
               onPress={() => updateBoxing((current) => ({ ...current, boxing: { ...current.boxing, boxingLevel: option.value } }))}
             />
           ))}
         </View>
+        {selectedLevel ? <Text style={screenStyles.subtle}>{selectedLevel.description}</Text> : null}
       </FieldGroup>
       <FieldGroup example="Use 0 if brand new." helper="Choose the closest option." label="Training age">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>

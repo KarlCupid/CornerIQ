@@ -1,13 +1,13 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { EngineCard } from "../../../design/components/EngineCard";
-import { AccentPill, LuminousProgressBar, LuminousScreen, ScreenHeader } from "../../../design/components/LuminousScreen";
-import { colors, spacing } from "../../../design/theme";
+import { LuminousProgressBar, LuminousScreen } from "../../../design/components/LuminousScreen";
+import { colors, radii, spacing } from "../../../design/theme";
 import type { ISODateString } from "../../../engine/core/types";
 import { useOnboardingDraft } from "../../../hooks/useOnboardingDraft";
 import type { OnboardingCompletionResult, OnboardingDraft } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
-import { tabHeroHeaders, tabScreenBackgrounds } from "../tabHeroConfig";
+import { tabScreenBackgrounds } from "../tabHeroConfig";
 import { BodyMassStep } from "./steps/BodyMassStep";
 import { BoxerBasicsStep } from "./steps/BoxerBasicsStep";
 import { CycleSupportStep } from "./steps/CycleSupportStep";
@@ -62,6 +62,49 @@ function goalSummary(draft: OnboardingDraft): string {
   return "Finishing setup will start a build phase. CornerIQ will protect boxing sessions and place support workouts around them.";
 }
 
+function OnboardingHeader({
+  stepIndex,
+  stepLabel,
+  stepTotal
+}: {
+  stepIndex: number;
+  stepLabel: string;
+  stepTotal: number;
+}) {
+  return (
+    <View style={{ gap: spacing.sm, paddingTop: spacing.xs }}>
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+          <Text style={{ color: colors.mutedText, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>
+            BOXER SETUP
+          </Text>
+          <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={{ color: colors.canvas, fontSize: 30, fontWeight: "900", lineHeight: 36 }}>
+            Boxer setup
+          </Text>
+        </View>
+        <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "800", lineHeight: 16, paddingTop: 3 }}>
+          {stepIndex + 1}/{stepTotal}
+        </Text>
+      </View>
+      <LuminousProgressBar accent="neutral" progress={(stepIndex + 1) / stepTotal} />
+      <View
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.055)",
+          borderColor: "rgba(169, 185, 207, 0.16)",
+          borderRadius: radii.tile,
+          borderWidth: 1,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm
+        }}
+      >
+        <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>
+          {stepLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, message, onComplete, onCreateDemoProfile, onSignOut, userId }: OnboardingScreenProps) {
   const onboarding = useOnboardingDraft(asOfDate, userId);
   const stepProps = { draft: onboarding.draft, setStepError: onboarding.setStepError, updateDraft: onboarding.updateDraft };
@@ -89,25 +132,9 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
 
   return (
     <LuminousScreen accent="neutral" backgroundImage={tabScreenBackgrounds.profile} bottomInset="none" testID="onboarding-screen">
-      <ScreenHeader
-        {...tabHeroHeaders.profile}
-        eyebrow="Setup"
-        subtitle="Manual inputs are enough. Add what you know; missing data stays unknown."
-        title="Boxer setup"
-      />
-      <View style={{ gap: spacing.sm }}>
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
-          <AccentPill accent="blue" label={`STEP ${onboarding.stepIndex + 1} OF ${onboarding.stepTotal}`} />
-          <View style={{ flex: 1 }}>
-            <LuminousProgressBar accent="blue" progress={(onboarding.stepIndex + 1) / onboarding.stepTotal} />
-          </View>
-        </View>
-      </View>
+      <OnboardingHeader stepIndex={onboarding.stepIndex} stepLabel={onboarding.stepLabel ?? "Boxer basics"} stepTotal={onboarding.stepTotal} />
       <EngineCard>
         <View style={{ gap: spacing.md }}>
-          <Text style={screenStyles.callout}>
-            Step {onboarding.stepIndex + 1} of {onboarding.stepTotal}: {onboarding.stepLabel}
-          </Text>
           <Text style={screenStyles.subtle}>{stepWhy(onboarding.stepIndex)}</Text>
           {showStorageStatus ? <Text style={screenStyles.subtle}>{onboarding.storageStatus}</Text> : null}
           {message ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{message}</Text> : null}
