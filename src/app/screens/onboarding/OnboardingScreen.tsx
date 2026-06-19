@@ -24,6 +24,7 @@ export interface OnboardingScreenProps {
   message: string | null;
   onComplete: (draft: OnboardingDraft) => Promise<OnboardingCompletionResult>;
   onCreateDemoProfile: () => void;
+  onSignOut: () => Promise<void>;
   userId: string;
 }
 
@@ -61,7 +62,7 @@ function goalSummary(draft: OnboardingDraft): string {
   return "Finishing setup will start a build phase. CornerIQ will protect boxing sessions and place support workouts around them.";
 }
 
-export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, message, onComplete, onCreateDemoProfile, userId }: OnboardingScreenProps) {
+export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, message, onComplete, onCreateDemoProfile, onSignOut, userId }: OnboardingScreenProps) {
   const onboarding = useOnboardingDraft(asOfDate, userId);
   const stepProps = { draft: onboarding.draft, setStepError: onboarding.setStepError, updateDraft: onboarding.updateDraft };
   const step = (() => {
@@ -156,6 +157,9 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
               <Text style={screenStyles.quietButtonText}>Development shortcut: create safe demo boxer</Text>
             </Pressable>
           ) : null}
+          <Pressable accessibilityLabel="Sign out of onboarding" accessibilityRole="button" disabled={busy} onPress={() => void onSignOut()} style={screenStyles.quietButton}>
+            <Text style={screenStyles.quietButtonText}>Sign out</Text>
+          </Pressable>
         </View>
       </EngineCard>
     </LuminousScreen>

@@ -4714,12 +4714,12 @@ describe("minimal app screens", () => {
 
   it("OnboardingScreen renders the first setup step and gates the demo shortcut", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
+    const onSignOut = vi.fn(async () => undefined);
     const output = JSON.stringify(
-      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn(), userId: "user_1" })).toJSON()
+      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn(), onSignOut, userId: "user_1" })).toJSON()
     );
-    const e2eOutput = JSON.stringify(
-      render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, demoShortcutEnabled: true, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn(), userId: "user_1" })).toJSON()
-    );
+    const e2eRenderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, demoShortcutEnabled: true, message: null, onComplete: vi.fn(), onCreateDemoProfile: vi.fn(), onSignOut, userId: "user_1" }));
+    const e2eOutput = JSON.stringify(e2eRenderer.toJSON());
 
     expect(output).toContain("Boxer setup");
     expect(output).toContain("Boxing identity");
@@ -4729,6 +4729,12 @@ describe("minimal app screens", () => {
     expect(output).toContain("Choose the closest option");
     expect(output).not.toContain("Development shortcut: create safe demo boxer");
     expect(e2eOutput).toContain("Development shortcut: create safe demo boxer");
+    expect(output).toContain("Sign out");
+
+    await act(async () => {
+      await press(pressableWithText(e2eRenderer, "Sign out"));
+    });
+    expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
   it("onboarding setup steps show visible labels, examples, chips, and recurring anchor copy", async () => {
@@ -4991,7 +4997,7 @@ describe("minimal app screens", () => {
   it("onboarding blocks invalid body weight before Next", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const onComplete = vi.fn();
-    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), userId: "user_1" }));
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), onSignOut: vi.fn(async () => undefined), userId: "user_1" }));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Next"));
@@ -5038,7 +5044,7 @@ describe("minimal app screens", () => {
   it("onboarding MVP blocks under-18 setup before completion", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const onComplete = vi.fn();
-    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), userId: "user_1" }));
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), onSignOut: vi.fn(async () => undefined), userId: "user_1" }));
 
     for (let step = 0; step < 6; step += 1) {
       await act(async () => {
@@ -5061,7 +5067,7 @@ describe("minimal app screens", () => {
   it("onboarding keeps the draft on an explicit save failure result", async () => {
     const { OnboardingScreen } = await import("../../app/screens/onboarding/OnboardingScreen");
     const onComplete = vi.fn(async () => ({ status: "failed" as const, message: "Profile save failed." }));
-    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), userId: "user_1" }));
+    const renderer = render(React.createElement(OnboardingScreen, { asOfDate: fixtureAsOfDate, busy: false, message: null, onComplete, onCreateDemoProfile: vi.fn(), onSignOut: vi.fn(async () => undefined), userId: "user_1" }));
 
     for (let step = 0; step < 7; step += 1) {
       await act(async () => {

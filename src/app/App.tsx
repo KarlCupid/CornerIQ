@@ -94,10 +94,11 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
     return (
       <OnboardingScreen
         asOfDate={performance.asOfDate}
-        busy={performance.loading}
+        busy={busy}
         message={performance.message}
         onComplete={performance.completeOnboarding}
         onCreateDemoProfile={() => void performance.createDemoProfile()}
+        onSignOut={guardedSignOut}
         userId={session.user.id}
       />
     );
@@ -384,6 +385,11 @@ function LocalE2EApp() {
     setLocalRecurringAnchors([...(state.athlete.recurringProtectedAnchors ?? [])]);
     setMessage("Local E2E demo profile loaded. No Supabase writes occurred.");
   }, [localAsOfDate, localScenario]);
+  const signOutLocalE2E = useCallback(async () => {
+    setTodayState(null);
+    setSignedIn(false);
+    setMessage("Local E2E sign-out complete.");
+  }, []);
 
   if (!signedIn) {
     return (
@@ -423,6 +429,7 @@ function LocalE2EApp() {
           onCreateDemoProfile={() => {
             void loadToday();
           }}
+          onSignOut={signOutLocalE2E}
           userId={LOCAL_E2E_USER_ID}
         />
       </LocalE2EFrame>
@@ -478,11 +485,7 @@ function LocalE2EApp() {
         onSaveTournamentSetup={async () => {
           setMessage("Local E2E tournament setup save stayed local. No Supabase call was made.");
         }}
-        onSignOut={async () => {
-          setTodayState(null);
-          setSignedIn(false);
-          setMessage("Local E2E sign-out complete.");
-        }}
+        onSignOut={signOutLocalE2E}
         onUpdateProfileSettings={async () => {
           setMessage("Local E2E profile settings save stayed local. No Supabase call was made.");
         }}
