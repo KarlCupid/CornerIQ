@@ -345,6 +345,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         <Tab.Screen name="Train">
           {({ navigation }) => (
             <TrainScreen
+              adjustmentActions={trainingPlanAdjustments?.actions}
               asOfDate={asOfDate}
               busy={busy}
               completionActions={workoutCompletion}
@@ -358,6 +359,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
                 setFuelFocusIntent("log_hydration");
                 navigation.navigate("Fuel");
               }}
+              onOpenReadinessLog={() => navigation.navigate("Today")}
               onResumeWorkout={resumeWorkoutPlayer}
               onStartWorkout={openWorkoutPlayer}
               quickLogs={quickLogs}

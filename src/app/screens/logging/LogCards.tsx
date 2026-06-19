@@ -28,6 +28,7 @@ interface QuickLogCardProps extends LogCardProps {
 }
 
 type DailyLogStatus = RecentLogsViewModel["readinessToday"];
+type BodyMassTodayStatus = RecentLogsViewModel["bodyMassToday"];
 type HydrationTodayStatus = RecentLogsViewModel["hydrationToday"];
 type FoodTodayStatus = RecentLogsViewModel["foodToday"];
 type ScaleValue = "1" | "2" | "3" | "4" | "5";
@@ -250,7 +251,7 @@ function foodEnergyPreview(
   return { message: validation.athleteFacingMessage, valid: validation.valid };
 }
 
-export function BodyMassLogCard({ actions, busy, forceOpen, framed, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: DailyLogStatus | undefined }) {
+export function BodyMassLogCard({ actions, busy, forceOpen, framed, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined }) {
   const [bodyMassValue, setBodyMassValue] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body weight log failed.");
   const [success, setSuccess] = useState<string | null>(null);

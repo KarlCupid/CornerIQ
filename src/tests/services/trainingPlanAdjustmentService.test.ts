@@ -87,7 +87,7 @@ describe("applyTrainingPlanAdjustmentService", () => {
     );
   });
 
-  it("rejects athlete attempts to perform coach-only generated-session moves", async () => {
+  it("rejects athlete generated-session moves onto unsafe days after permission passes", async () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const session = state.training.generatedSessions[0];
     if (!session) {
@@ -110,8 +110,16 @@ describe("applyTrainingPlanAdjustmentService", () => {
     });
 
     expect(result.status).toBe("rejected");
-    expect(result.explanation).toContain("athlete actor");
-    expect(calls.insertTrainingPlanAdjustment).toHaveBeenCalledWith(expect.objectContaining({ result: expect.objectContaining({ status: "rejected" }) }));
+    expect(result.explanation).toContain("sparring");
+    expect(result.safetyFlags).toEqual(["protected_boxing_anchor_conflict"]);
+    expect(calls.insertTrainingPlanAdjustment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          status: "rejected",
+          safetyFlags: ["protected_boxing_anchor_conflict"]
+        })
+      })
+    );
   });
 
   it("allows coach actor only with active relationship lookup or trusted test flag", async () => {

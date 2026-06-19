@@ -12,6 +12,7 @@ import { radii, spacing } from "../../design/theme";
 import type { BarVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
@@ -35,6 +36,7 @@ export type TrainSection = "today" | "workout" | "progress";
 
 export interface TrainScreenProps {
   activeWorkout?: TrainWorkoutPlayerSummary | null | undefined;
+  adjustmentActions?: Pick<TrainingPlanAdjustmentActions, "moveGeneratedSession"> | undefined;
   asOfDate?: ISODateString | undefined;
   busy: boolean;
   completionActions?: WorkoutCompletionActions | undefined;
@@ -44,6 +46,7 @@ export interface TrainScreenProps {
   onInitialSectionApplied?: (() => void) | undefined;
   onDiscardWorkout?: (() => void) | undefined;
   onOpenFuelAfterWorkout?: (() => void) | undefined;
+  onOpenReadinessLog?: (() => void) | undefined;
   onResumeWorkout?: (() => void) | undefined;
   onStartWorkout?: ((session: DetailedTrainingSession) => void) | undefined;
   quickLogs: QuickLogActions;
@@ -546,6 +549,156 @@ function WorkoutInProgressCard({
   );
 }
 
+function WorkoutLooseEndsCard({
+  adjustmentActions,
+  asOfDate,
+  busy,
+  completionActions,
+  detailsById,
+  looseEnds,
+  onLeaveUnknown
+}: {
+  adjustmentActions?: Pick<TrainingPlanAdjustmentActions, "moveGeneratedSession"> | undefined;
+  asOfDate?: ISODateString | undefined;
+  busy: boolean;
+  completionActions?: WorkoutCompletionActions | undefined;
+  detailsById: ReadonlyMap<string, DetailedTrainingSession>;
+  looseEnds: TrainViewModel["workoutLooseEnds"];
+  onLeaveUnknown: (sessionId: string) => void;
+}) {
+  if (looseEnds.length === 0) {
+    return null;
+  }
+  const looseEnd = looseEnds[0]!;
+  const detail = detailsById.get(looseEnd.generatedSessionId) ?? null;
+  const canResolve = Boolean(detail && completionActions);
+  const canMove = Boolean(adjustmentActions && asOfDate);
+  return (
+    <DashboardCard testID="train-loose-end-card" title="Still open">
+      <View style={{ gap: spacing.md }}>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{looseEnd.title}</Text>
+          <Text style={trainTextStyles.body}>This workout was planned for {looseEnd.originalDate}. Did it happen?</Text>
+          <Text style={trainTextStyles.subtle}>{looseEnd.sessionTypeLabel} - {looseEnd.duration} - {sentenceCase(plainIntensityLabel(looseEnd.intensity))}</Text>
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <View style={{ flexBasis: 132, flexGrow: 1 }}>
+            <TrainPrimaryButton
+              disabled={busy || !canResolve}
+              onPress={() => {
+                if (!detail || !completionActions) {
+                  return;
+                }
+                void completionActions.complete(detail, {
+                  painNotes: [],
+                  notes: "Completed from loose-end resolution.",
+                  exerciseResults: []
+                });
+              }}
+              tone="green"
+            >
+              Did it
+            </TrainPrimaryButton>
+          </View>
+          <View style={{ flexBasis: 132, flexGrow: 1 }}>
+            <TrainQuietButton
+              onPress={() => {
+                if (!detail || !completionActions || busy) {
+                  return;
+                }
+                void completionActions.skip(detail, "Skipped from loose-end resolution.");
+              }}
+            >
+              Skipped
+            </TrainQuietButton>
+          </View>
+          <View style={{ flexBasis: 132, flexGrow: 1 }}>
+            <TrainQuietButton
+              onPress={() => {
+                if (!adjustmentActions || !asOfDate || busy) {
+                  return;
+                }
+                void adjustmentActions.moveGeneratedSession(looseEnd.generatedSessionId, looseEnd.originalDate, asOfDate);
+              }}
+            >
+              Move to today
+            </TrainQuietButton>
+          </View>
+          <View style={{ flexBasis: 132, flexGrow: 1 }}>
+            <TrainQuietButton onPress={() => onLeaveUnknown(looseEnd.generatedSessionId)}>Leave unknown</TrainQuietButton>
+          </View>
+        </View>
+        {!canResolve ? <Text style={trainTextStyles.subtle}>Exercise details are unavailable for quick resolution. Move it or leave it unknown.</Text> : null}
+        {!canMove ? <Text style={trainTextStyles.subtle}>Move is available after the plan and date are loaded.</Text> : null}
+        {looseEnds.length > 1 ? <Text style={trainTextStyles.subtle}>{looseEnds.length - 1} more open workout{looseEnds.length === 2 ? "" : "s"} after this.</Text> : null}
+      </View>
+    </DashboardCard>
+  );
+}
+
+function ReadinessGateCard({
+  acknowledged,
+  gate,
+  onLogReadiness,
+  onStartControlled
+}: {
+  acknowledged: boolean;
+  gate: TrainViewModel["preSessionReadinessGate"];
+  onLogReadiness?: (() => void) | undefined;
+  onStartControlled: () => void;
+}) {
+  if (gate.status !== "prompt" || acknowledged) {
+    return null;
+  }
+  return (
+    <DashboardCard testID="train-readiness-gate-card" title={gate.title}>
+      <View style={{ gap: spacing.md }}>
+        <Text style={trainTextStyles.body}>{gate.body}</Text>
+        <Text style={trainTextStyles.subtle}>{gate.guidance}</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <View style={{ flexBasis: 150, flexGrow: 1 }}>
+            <TrainPrimaryButton onPress={onLogReadiness} tone="blue">Log readiness</TrainPrimaryButton>
+          </View>
+          <View style={{ flexBasis: 150, flexGrow: 1 }}>
+            <TrainQuietButton onPress={onStartControlled}>Start controlled</TrainQuietButton>
+          </View>
+        </View>
+      </View>
+    </DashboardCard>
+  );
+}
+
+function TrainingScheduleDebugCard({ viewModel }: { viewModel: TrainViewModel }) {
+  const isDev = (globalThis as { __DEV__?: boolean }).__DEV__ === true;
+  const [open, setOpen] = React.useState(false);
+  if (!isDev) {
+    return null;
+  }
+  const debug = viewModel.scheduleDebug;
+  const rows = [
+    `asOfDate: ${debug.asOfDate}`,
+    `planStartDate: ${debug.planStartDate}`,
+    `planRevisionId: ${debug.planRevisionId}`,
+    `targetGeneratedSupportCount: ${debug.targetGeneratedSupportCount}`,
+    `pastGeneratedSupportCount: ${debug.pastGeneratedSupportCount}`,
+    `unresolvedPastGeneratedSupportCount: ${debug.unresolvedPastGeneratedSupportCount}`,
+    `remainingGeneratedSupportTarget: ${debug.remainingGeneratedSupportTarget}`,
+    `generatedSessionDates: ${debug.generatedSessionDates.join(", ") || "none"}`,
+    `persistedGeneratedSessionsConsidered: ${debug.persistedGeneratedSessionsConsidered.join("; ") || "none"}`,
+    `persistedGeneratedSessionsIgnored: ${debug.persistedGeneratedSessionsIgnored.join("; ") || "none"}`,
+    `autoRollForwardPrevented: ${debug.autoRollForwardPrevented ? "true" : "false"}`,
+    `looseEndSessionIds: ${debug.looseEndSessionIds.join(", ") || "none"}`
+  ];
+  return (
+    <DashboardCard testID="train-schedule-debug-card" title="Training Schedule Debug">
+      <View style={{ gap: spacing.sm }}>
+        <TrainQuietButton expanded={open} onPress={() => setOpen((value) => !value)}>{open ? "Hide debug" : "Show debug"}</TrainQuietButton>
+        {open ? rows.map((row) => <Text key={`train-debug:${row}`} style={trainTextStyles.subtle}>{row}</Text>) : null}
+      </View>
+    </DashboardCard>
+  );
+}
+
 function TodayTrainingPlanCard({
   busy,
   card,
@@ -797,6 +950,7 @@ function WeekContextCard({ asOfDate, viewModel }: { asOfDate?: ISODateString | u
 
 export function TrainScreen({
   activeWorkout,
+  adjustmentActions,
   asOfDate,
   busy,
   completionActions,
@@ -806,12 +960,15 @@ export function TrainScreen({
   onDiscardWorkout,
   onInitialSectionApplied,
   onOpenFuelAfterWorkout,
+  onOpenReadinessLog,
   onResumeWorkout,
   onStartWorkout,
   quickLogs,
   viewModel
 }: TrainScreenProps) {
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
+  const [dismissedLooseEndIds, setDismissedLooseEndIds] = React.useState<ReadonlySet<string>>(new Set());
+  const [controlledStartSessionIds, setControlledStartSessionIds] = React.useState<ReadonlySet<string>>(new Set());
   const [planOpenRequestKey, setPlanOpenRequestKey] = React.useState(0);
   const [trainingLogOpenRequestKey, setTrainingLogOpenRequestKey] = React.useState(0);
   const quickLogOpenRequestKey = 0;
@@ -828,6 +985,14 @@ export function TrainScreen({
   const detailedSessions = viewModel.detailedTodaySessions
     .map((session) => session.detail)
     .filter((session): session is DetailedTrainingSession => session !== null);
+  const detailedWeeklySessions = viewModel.detailedWeeklySessions
+    .map((session) => session.detail)
+    .filter((session): session is DetailedTrainingSession => session !== null);
+  const detailsById = React.useMemo(
+    () => new Map([...detailedSessions, ...detailedWeeklySessions].map((session) => [session.generatedSessionId, session] as const)),
+    [detailedSessions, detailedWeeklySessions]
+  );
+  const visibleLooseEnds = viewModel.workoutLooseEnds.filter((looseEnd) => !dismissedLooseEndIds.has(looseEnd.generatedSessionId));
   const previewOnlyWeeklySession = detailedSessions.length === 0
     ? viewModel.detailedWeeklySessions.find((session) => session.detail !== null)
     : null;
@@ -838,6 +1003,7 @@ export function TrainScreen({
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
   const previewOnlyReason = previewOnlyWeeklySession ? `Scheduled for ${previewOnlyWeeklySession.date}. Keep future sessions on their planned day.` : undefined;
   const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? startWorkoutBlockedReason(viewModel, primarySession) : undefined;
+  const readinessGateAcknowledged = Boolean(viewModel.preSessionReadinessGate.sessionId && controlledStartSessionIds.has(viewModel.preSessionReadinessGate.sessionId));
 
   const startWorkout = (sessionDetail: DetailedTrainingSession) => {
     const blockedReason = startWorkoutBlockedReason(viewModel, sessionDetail);
@@ -875,6 +1041,25 @@ export function TrainScreen({
           </View>
         </RiskBanner>
       ) : null}
+      <WorkoutLooseEndsCard
+        adjustmentActions={adjustmentActions}
+        asOfDate={asOfDate}
+        busy={busy}
+        completionActions={completionActions}
+        detailsById={detailsById}
+        looseEnds={visibleLooseEnds}
+        onLeaveUnknown={(sessionId) => setDismissedLooseEndIds((current) => new Set([...current, sessionId]))}
+      />
+      <ReadinessGateCard
+        acknowledged={readinessGateAcknowledged}
+        gate={viewModel.preSessionReadinessGate}
+        onLogReadiness={onOpenReadinessLog}
+        onStartControlled={() => {
+          if (viewModel.preSessionReadinessGate.sessionId) {
+            setControlledStartSessionIds((current) => new Set([...current, viewModel.preSessionReadinessGate.sessionId!]));
+          }
+        }}
+      />
       <TodayTrainingPlanCard
         busy={busy}
         card={primaryCard}
@@ -956,6 +1141,7 @@ export function TrainScreen({
         <EmptyState title="No player workout today" message={plainTrainCopy(viewModel.todaySummary)} />
       )}
       <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
+      <TrainingScheduleDebugCard viewModel={viewModel} />
       {viewModel.cycleTrainingDecision.status !== "none" ? (
         <DashboardCard title="Cycle context">
           <Text style={trainTextStyles.body}>{plainTrainCopy(viewModel.cycleTrainingDecision.summary)}</Text>

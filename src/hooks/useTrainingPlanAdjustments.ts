@@ -119,7 +119,7 @@ export function useTrainingPlanAdjustments(input: {
           sessionId,
           fromDate,
           toDate,
-          reason: "Athlete requested a support workout move.",
+          reason: "Athlete moved unresolved generated workout to today.",
           requestedBy: "user",
           actor: { actorType: "athlete", actorId: input.userId },
           createdAt: new Date().toISOString()

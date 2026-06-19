@@ -245,6 +245,10 @@ function createGeneratedSessionListClient(rows: readonly ReturnType<typeof gener
       calls.push({ method: "gte", column, value });
       return query;
     },
+    lte(column: string, value: unknown) {
+      calls.push({ method: "lte", column, value });
+      return query;
+    },
     order(column: string) {
       calls.push({ method: "order", column });
       return Promise.resolve(response);
@@ -562,6 +566,26 @@ describe("Supabase repositories", () => {
         { method: "from", value: "generated_training_sessions" },
         { method: "eq", column: "user_id", value: "user_1" },
         { method: "gte", column: "planned_date", value: fixtureAsOfDate }
+      ])
+    );
+  });
+
+  it("generated training session reads can use active week bounds before asOfDate", async () => {
+    const { calls, client } = createGeneratedSessionListClient([
+      generatedSessionRow({ id: "monday_scoped", date: "2026-05-18", title: "Monday scoped support", trainingBlockId: "training_block_current" }),
+      generatedSessionRow({ id: "tuesday_scoped", date: fixtureAsOfDate, title: "Tuesday scoped support", trainingBlockId: "training_block_current" })
+    ]);
+    const sessions = await createTrainingRepository(client).listGeneratedSessions("user_1", {
+      startDate: "2026-05-18",
+      endDate: "2026-05-24",
+      trainingBlockId: "training_block_current"
+    });
+
+    expect(sessions.map((session) => session.title)).toEqual(["Monday scoped support", "Tuesday scoped support"]);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "gte", column: "planned_date", value: "2026-05-18" },
+        { method: "lte", column: "planned_date", value: "2026-05-24" }
       ])
     );
   });
@@ -1126,6 +1150,35 @@ describe("Supabase repositories", () => {
       expect(result.journey.trainingPlanAdjustments).toEqual([]);
       expect(result.journey.nutritionSafetyReviewEvents).toEqual([]);
     }
+  });
+
+  it("loadAthleteJourney fetches active-block generated sessions across the current week", async () => {
+    const repositories = createJourneyRepositories();
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    repositories.trainingBlock.getActiveTrainingBlockForDate = vi.fn(async () => ({
+      id: "training_block_current",
+      userId: "user_1",
+      blockKey: "block:user_1:2026-05-18:2026-06-14",
+      status: "active" as const,
+      inputHash: "input_hash",
+      outputHash: "output_hash",
+      block: {
+        ...state.training.activeBlock,
+        id: "training_block_current",
+        startDate: "2026-05-18",
+        endDate: "2026-06-14"
+      },
+      createdAt: "2026-05-18T00:00:00.000Z",
+      updatedAt: "2026-05-18T00:00:00.000Z"
+    }));
+
+    await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(repositories.training.listGeneratedSessions).toHaveBeenCalledWith("user_1", {
+      startDate: "2026-05-18",
+      endDate: "2026-05-24",
+      trainingBlockId: "training_block_current"
+    });
   });
 
   it("loadAthleteJourney includes active persisted nutrition safety reviews and recent events when available", async () => {

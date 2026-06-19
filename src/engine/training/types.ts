@@ -17,6 +17,7 @@ export type {
   DailyOperatingMode,
   DailyOperatingModeView
 } from "./dailyOperatingMode";
+export type { GeneratedSessionResolvedStatus } from "./generatedSessionStatus";
 export type {
   PlannedVsFinalTrainingDelta,
   TrainingExecutionBaselineTargets,
@@ -663,6 +664,13 @@ export interface TrainingSupportGenerationAudit {
   unusedAvailableDays: readonly ISODateString[];
   unusedAvailableDayReasons: readonly string[];
   targetGeneratedSupportCount: number;
+  pastGeneratedSupportCount: number;
+  unresolvedPastGeneratedSupportCount: number;
+  resolvedPastGeneratedSupportCount: number;
+  remainingGeneratedSupportTarget: number;
+  looseEndSessionIds: readonly string[];
+  autoRollForwardPrevented: boolean;
+  autoRollForwardExplanation: string;
   actualGeneratedSupportCount: number;
   todayGeneratedSupportCount: number;
   generatedSessionDates: readonly ISODateString[];

@@ -1,4 +1,5 @@
 import { AthleteJourneySchema } from "../../engine/core/schemas";
+import { addDays, daysBetween } from "../../engine/core/dates";
 import type { AthleteJourney, FightOpportunity, ISODateString, TournamentDetails } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import { createAthleteRepository } from "./athleteRepository";
@@ -113,6 +114,15 @@ function activePhaseFromEvents(events: AthleteJourney["journeyEvents"]): Athlete
   return null;
 }
 
+function activeTrainingWeekWindow(block: NonNullable<AthleteJourney["activeTrainingBlock"]>, asOfDate: ISODateString): { endDate: ISODateString; startDate: ISODateString } {
+  const elapsedDays = Math.max(0, daysBetween(block.startDate, asOfDate));
+  const startDate = addDays(block.startDate, Math.floor(elapsedDays / 7) * 7);
+  return {
+    startDate,
+    endDate: addDays(startDate, 6)
+  };
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown repository error";
 }
@@ -187,9 +197,14 @@ export async function loadAthleteJourney(input: {
     const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
     const activePhase = activeFightOpportunity || activeTournament ? null : activePhaseFromEvents(journeyEvents);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
+    const activeWeekWindow = activeTrainingBlock ? activeTrainingWeekWindow(activeTrainingBlock.block, input.asOfDate) : null;
     const [trainingHistory, trainingPlanAdjustments, trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
-          input.repositories.training.listGeneratedSessions(userId, { asOfDate: input.asOfDate, trainingBlockId: activeTrainingBlock.id }),
+          input.repositories.training.listGeneratedSessions(userId, {
+            startDate: activeWeekWindow?.startDate,
+            endDate: activeWeekWindow?.endDate,
+            trainingBlockId: activeTrainingBlock.id
+          }),
           input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id),
           input.repositories.trainingProgression.listTrainingWeekSummaries(userId, activeTrainingBlock.id),
           input.repositories.trainingProgression.listTrainingProgressionDecisions(userId, activeTrainingBlock.id),

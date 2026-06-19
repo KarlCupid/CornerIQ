@@ -133,6 +133,17 @@ describe("planAdjustmentEngine", () => {
     expect(result.modifiedDayPlans.find((day) => day.date === "2026-05-22")?.generatedSessions[0]?.date).toBe("2026-05-22");
   });
 
+  it("move_generated_session applies for athlete actors when safety checks pass", () => {
+    const result = applyTrainingPlanAdjustment({
+      activeBlock,
+      dayPlans: [supportDay, openDay],
+      command: { type: "move_generated_session", sessionId: "generated_hard_1", fromDate: "2026-05-20", toDate: "2026-05-22", reason: "Athlete moved unresolved generated workout to today.", requestedBy: "user", actor: athleteActor }
+    });
+
+    expect(result.status).toBe("applied");
+    expect(result.modifiedDayPlans.find((day) => day.date === "2026-05-22")?.generatedSessions[0]?.date).toBe("2026-05-22");
+  });
+
   it("move_generated_session cannot bypass hard-stop safety flags", () => {
     const result = applyTrainingPlanAdjustment({
       activeBlock,

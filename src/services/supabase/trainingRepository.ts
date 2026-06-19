@@ -9,6 +9,8 @@ export type CompletedTrainingSessionRow = Pick<TableRow<"completed_training_sess
 
 export interface ListGeneratedSessionsOptions {
   asOfDate?: ISODateString | undefined;
+  endDate?: ISODateString | undefined;
+  startDate?: ISODateString | undefined;
   trainingBlockId?: string | null | undefined;
 }
 
@@ -77,7 +79,9 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
         .from("generated_training_sessions")
         .select("id, block_id, planned_date, session_payload")
         .eq("user_id", safeUserId);
-      const scopedQuery = options.asOfDate ? query.gte("planned_date", options.asOfDate) : query;
+      const startDate = options.startDate ?? options.asOfDate;
+      let scopedQuery = startDate ? query.gte("planned_date", startDate) : query;
+      scopedQuery = options.endDate ? scopedQuery.lte("planned_date", options.endDate) : scopedQuery;
       const response = await scopedQuery.order("planned_date", { ascending: true });
       return readDataOrThrow(response, "generated_training_sessions.listGeneratedSessions")
         .filter((row) => rowMatchesGeneratedSessionScope(row, options))

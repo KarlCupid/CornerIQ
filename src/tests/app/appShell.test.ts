@@ -468,6 +468,15 @@ const trainViewModel: TrainViewModel = {
       fuelDemand: "moderate"
     }
   ],
+  workoutLooseEnds: [],
+  preSessionReadinessGate: {
+    actions: [],
+    body: "Readiness does not need a separate prompt before this session.",
+    guidance: "Use the normal warm-up check.",
+    sessionId: "generated_1",
+    status: "not_needed",
+    title: "Readiness checked"
+  },
   upcomingGeneratedSessions: [],
   currentWeekGeneratedSessions: [
     {
@@ -546,6 +555,20 @@ const trainViewModel: TrainViewModel = {
     selectedSupportDays: ["tuesday"],
     blockedGenerationReasons: [],
     reducedBy: []
+  },
+  scheduleDebug: {
+    asOfDate: "2026-05-19",
+    planStartDate: "2026-05-19",
+    planRevisionId: "plan:test",
+    targetGeneratedSupportCount: 3,
+    pastGeneratedSupportCount: 0,
+    unresolvedPastGeneratedSupportCount: 0,
+    remainingGeneratedSupportTarget: 3,
+    generatedSessionDates: ["2026-05-19"],
+    persistedGeneratedSessionsConsidered: [],
+    persistedGeneratedSessionsIgnored: [],
+    autoRollForwardPrevented: false,
+    looseEndSessionIds: []
   },
   blockPhase: "build_strength",
   blockGoal: "strength base",
@@ -981,6 +1004,7 @@ const recentLogsViewModel: RecentLogsViewModel = {
   },
   bodyMassToday: {
     loggedToday: true,
+    status: "logged_today",
     actionLabel: "Update body weight",
     statusLabel: "Logged today",
     summary: "Today's body weight logged: 66.4 kg.",

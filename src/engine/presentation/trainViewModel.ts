@@ -1,5 +1,6 @@
 import type { CycleTrainingDecisionViewModel, PerformanceState, TrainViewModel, TrainingDayPlan } from "../core/types";
 import { buildDetailedTrainingSession } from "../training/detailedSessionEngine";
+import { resolveGeneratedSessionStatus } from "../training/generatedSessionStatus";
 import { buildTrainingAnalytics } from "../training/trainingAnalytics";
 import { buildExerciseHistoryViewModel } from "./exerciseHistoryViewModel";
 import { riskSummary } from "./explanationCopy";
@@ -238,6 +239,69 @@ function detailedSessionCard(state: PerformanceState, session: PerformanceState[
   }
 }
 
+function looseEndCards(state: PerformanceState, sessions: readonly PerformanceState["training"]["generatedSessions"][number][]): TrainViewModel["workoutLooseEnds"] {
+  return sessions
+    .filter(
+      (session) =>
+        resolveGeneratedSessionStatus({
+          asOfDate: state.asOfDate,
+          completedSessions: state.training.completedSessions,
+          session,
+          trainingPlanAdjustments: state.training.adjustmentHistory
+        }).status === "unresolved_past"
+    )
+    .map((session) => ({
+      allowedActions: ["Did it", "Skipped", "Move to today", "Leave unknown"] as const,
+      duration: `${session.durationMinutes} min`,
+      family: session.family,
+      generatedSessionId: session.id,
+      intensity: session.intensity,
+      originalDate: session.date,
+      prompt: "Did this happen?",
+      sessionTypeLabel: session.sessionTypeLabel ? plainTrainingCopy(session.sessionTypeLabel) : plainGeneratedSessionFamilyLabel(session.family),
+      status: "unresolved_past",
+      title: plainWorkoutTitle(session.title, session.family)
+    }));
+}
+
+function preSessionReadinessGate(
+  state: PerformanceState,
+  session: PerformanceState["training"]["generatedSessions"][number] | null,
+  riskSummaryLines: readonly string[]
+): TrainViewModel["preSessionReadinessGate"] {
+  if (state.training.executionReadiness.readinessStatus === "red_hard_stop") {
+    return {
+      actions: [],
+      body: "Readiness has a hard-stop signal today. Hard work stays blocked.",
+      guidance: "Choose recovery and get qualified help if symptoms require it.",
+      sessionId: session?.id ?? null,
+      status: "blocked",
+      title: "Readiness stop"
+    };
+  }
+  const fightOrTournamentWeek = state.training.activeBlock.phase === "fight_week_taper" || state.training.activeBlock.phase === "tournament_week";
+  const highDemand = Boolean(session && (session.intensity === "hard" || session.fuelDemand === "high"));
+  const shouldPrompt = state.training.executionReadiness.readinessStatus === "unknown" && Boolean(session) && (highDemand || riskSummaryLines.length > 0 || fightOrTournamentWeek);
+  if (!shouldPrompt) {
+    return {
+      actions: [],
+      body: "Readiness does not need a separate prompt before this session.",
+      guidance: "Use the normal warm-up check.",
+      sessionId: session?.id ?? null,
+      status: "not_needed",
+      title: "Readiness checked"
+    };
+  }
+  return {
+    actions: ["Log readiness", "Start controlled"] as const,
+    body: "Readiness is unknown. Check energy, soreness, and red flags before pushing.",
+    guidance: "Start easy. Build only if the warm-up feels clean.",
+    sessionId: session?.id ?? null,
+    status: "prompt",
+    title: "Quick readiness first"
+  };
+}
+
 export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const todayAnchors = state.training.protectedAnchors.filter((anchor) => anchor.date === state.asOfDate);
   const plan = todayPlan(state);
@@ -266,6 +330,9 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   });
   const exerciseHistory = buildExerciseHistoryViewModel(state.training.recentExerciseResults);
   const hints = fuelHints(state, plan);
+  const trainingRiskSummary = riskSummary(state.safety.riskFlags.filter((flag) => flag.domain === "training" || flag.domain === "readiness"));
+  const workoutLooseEnds = looseEndCards(state, currentWeekGeneratedSessionsRaw);
+  const preSessionGate = preSessionReadinessGate(state, todayGeneratedSessionsRaw[0] ?? null, trainingRiskSummary);
   const generationExplanation =
     state.safety.hardStops.length > 0
       ? "Safety stops are active; recovery only today."
@@ -317,11 +384,27 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       ? todayGeneratedSessions.map((session) => plainWorkoutTitle(session.title, session.family)).join(", ")
       : upcomingSummary(upcomingGeneratedSessions),
     todayGeneratedSessions,
+    workoutLooseEnds,
+    preSessionReadinessGate: preSessionGate,
     upcomingGeneratedSessions,
     currentWeekGeneratedSessions,
     nextGeneratedSession,
     weeklyWorkoutCards,
     supportGenerationSummary,
+    scheduleDebug: {
+      asOfDate: state.training.supportGenerationAudit.asOfDate,
+      planStartDate: state.training.supportGenerationAudit.planStartDate,
+      planRevisionId: state.training.supportGenerationAudit.planRevisionId,
+      targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
+      pastGeneratedSupportCount: state.training.supportGenerationAudit.pastGeneratedSupportCount,
+      unresolvedPastGeneratedSupportCount: state.training.supportGenerationAudit.unresolvedPastGeneratedSupportCount,
+      remainingGeneratedSupportTarget: state.training.supportGenerationAudit.remainingGeneratedSupportTarget,
+      generatedSessionDates: state.training.supportGenerationAudit.generatedSessionDates,
+      persistedGeneratedSessionsConsidered: state.training.supportGenerationAudit.persistedGeneratedSessionsConsidered.map((session) => `${session.date}: ${plainWorkoutTitle(session.title, session.family)}`),
+      persistedGeneratedSessionsIgnored: state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.map((session) => `${session.date}: ${plainWorkoutTitle(session.title, session.family)} - ${plainTrainingCopy(session.reason)}`),
+      autoRollForwardPrevented: state.training.supportGenerationAudit.autoRollForwardPrevented,
+      looseEndSessionIds: state.training.supportGenerationAudit.looseEndSessionIds
+    },
     blockPhase: state.training.activeBlock.phase,
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),
     blockExplanation: plainTrainingCopy(state.training.blockRecommendation.reason),
@@ -372,6 +455,6 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       todayAnchors.length > 0
         ? todayAnchors.map((anchor) => `${anchor.type.replaceAll("_", " ")} (${anchor.intensity})`).join(", ")
         : "No boxing you added today.",
-    riskSummary: riskSummary(state.safety.riskFlags.filter((flag) => flag.domain === "training" || flag.domain === "readiness"))
+    riskSummary: trainingRiskSummary
   };
 }

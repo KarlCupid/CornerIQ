@@ -8,6 +8,7 @@ import type {
   JourneyEvent,
   PlanGenerationTrainingDose,
   PlanGenerationPrimaryFocus,
+  PersistedTrainingPlanAdjustment,
   ProtectedWorkout,
   ReadinessCheckIn,
   RecurringProtectedWorkoutAnchor,
@@ -206,6 +207,91 @@ function seriousSixDayState(input: {
     },
     asOfDate: fixtureAsOfDate
   });
+}
+
+function readinessForDate(date: string): ReadinessCheckIn {
+  return {
+    ...pro_4_round_build_strength.readinessHistory[0]!,
+    date
+  };
+}
+
+function completedRecordForGeneratedSession(session: GeneratedTrainingSession, completionStatus: "completed" | "skipped"): CompletedTrainingSession {
+  return {
+    id: `${completionStatus}_${session.id.replace(/[^a-zA-Z0-9]+/g, "_")}`,
+    date: session.date,
+    type: "coach_assigned_strength",
+    durationMinutes: session.durationMinutes,
+    intensity: session.intensity === "recovery" ? "easy" : session.intensity,
+    completionStatus,
+    painNotes: [],
+    generatedSessionId: session.id,
+    completionSource: "generated_session",
+    source: "generated_session"
+  };
+}
+
+function persistedMoveAdjustment(input: {
+  session: GeneratedTrainingSession;
+  fromDate: string;
+  toDate: string;
+  trainingBlockId: string | null;
+}): PersistedTrainingPlanAdjustment {
+  const command = {
+    type: "move_generated_session" as const,
+    sessionId: input.session.id,
+    fromDate: input.fromDate,
+    toDate: input.toDate,
+    reason: "Athlete moved unresolved generated workout to today.",
+    requestedBy: "user" as const,
+    actor: {
+      actorType: "athlete" as const,
+      actorId: pro_4_round_build_strength.athlete.athleteId
+    }
+  };
+  return {
+    id: `move_${input.session.id.replace(/[^a-zA-Z0-9]+/g, "_")}`,
+    trainingBlockId: input.trainingBlockId,
+    planDate: input.toDate,
+    adjustmentType: "move_generated_session",
+    command,
+    status: "applied",
+    engineResponse: {
+      status: "applied",
+      explanation: "Move applied by the engine within the hard-day cap.",
+      modifiedDayPlans: [],
+      safetyFlags: [],
+      persistedAdjustmentPayload: { command }
+    },
+    createdAt: `${input.toDate}T08:00:00.000Z`
+  };
+}
+
+function materializedGeneratedSession(input: {
+  date: string;
+  fuelDemand: GeneratedTrainingSession["fuelDemand"];
+  id: string;
+  intensity: GeneratedTrainingSession["intensity"];
+  planRevisionId: string;
+}): GeneratedTrainingSession {
+  return {
+    id: input.id,
+    date: input.date,
+    family: input.intensity === "easy" ? "hip_ankle_mobility" : "strength_full_body",
+    trainingStimulus: input.intensity === "easy" ? "mobility" : "strength",
+    sessionTypeLabel: input.intensity === "easy" ? "Mobility" : "Strength",
+    title: input.intensity === "easy" ? "Mobility reset" : "Full-body strength support",
+    durationMinutes: input.intensity === "easy" ? 24 : 45,
+    intensity: input.intensity,
+    prescription: ["Support boxing quality without contact."],
+    rationale: "Persisted support session for readiness gate coverage.",
+    protects: ["boxing quality"],
+    modifications: [],
+    fuelDemand: input.fuelDemand,
+    planRevisionId: input.planRevisionId,
+    planStartDate: input.date,
+    source: "next_week_preview_materialization"
+  };
 }
 
 describe("training block and microcycle engine", () => {
@@ -419,6 +505,301 @@ describe("training block and microcycle engine", () => {
     expect(state.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(state.training.supportGenerationAudit.minHardDayCount);
     expect(state.training.supportGenerationAudit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(state.training.supportGenerationAudit.targetWeeklyGeneratedMinutes);
     expect(state.training.supportGenerationAudit.unmetPrescriptionTargets).toEqual([]);
+  });
+
+  it("keeps an unlogged generated workout as a loose end when asOfDate advances", () => {
+    const selectedDays = ["monday", "tuesday", "wednesday"] as const;
+    const planEvent = planWizardBuildEvent({
+      focus: "balanced",
+      id: "plan_loose_end_stability",
+      planStartDate: "2026-05-18",
+      selectedSupportDays: selectedDays,
+      trainingDose: "standard"
+    });
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: selectedDays
+      },
+      journeyEvents: [planEvent],
+      readinessHistory: [readinessForDate("2026-05-18"), readinessForDate("2026-05-19")],
+      trainingHistory: [],
+      completedTrainingSessions: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const monday = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-18" });
+    const mondaySession = monday.training.generatedSessions.find((session) => session.date === "2026-05-18");
+
+    expect(mondaySession).toBeDefined();
+    const tuesday = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        trainingHistory: monday.training.generatedSessions
+      },
+      asOfDate: "2026-05-19"
+    });
+    const audit = tuesday.training.supportGenerationAudit;
+    const futureOrTodaySessions = tuesday.training.generatedSessions.filter((session) => session.date >= "2026-05-19");
+
+    expect(tuesday.viewModels.train.workoutLooseEnds).toEqual([
+      expect.objectContaining({
+        generatedSessionId: mondaySession!.id,
+        originalDate: "2026-05-18",
+        prompt: "Did this happen?",
+        status: "unresolved_past"
+      })
+    ]);
+    expect(tuesday.training.todaySessions.map((session) => session.id)).not.toContain(mondaySession!.id);
+    expect(tuesday.viewModels.train.todayGeneratedSessions.map((session) => session.id)).not.toContain(mondaySession!.id);
+    expect(tuesday.training.generatedSessions.length).toBe(monday.training.generatedSessions.length);
+    expect(futureOrTodaySessions).toHaveLength(audit.remainingGeneratedSupportTarget);
+    expect(audit.pastGeneratedSupportCount).toBe(1);
+    expect(audit.unresolvedPastGeneratedSupportCount).toBe(1);
+    expect(audit.resolvedPastGeneratedSupportCount).toBe(0);
+    expect(audit.remainingGeneratedSupportTarget).toBe(Math.max(0, audit.targetGeneratedSupportCount - 1));
+    expect(audit.looseEndSessionIds).toContain(mondaySession!.id);
+    expect(audit.autoRollForwardPrevented).toBe(true);
+    expect(audit.autoRollForwardExplanation).toContain("does not silently move");
+  });
+
+  it.each(["completed", "skipped"] as const)("removes a generated loose end after it is marked %s", (completionStatus) => {
+    const selectedDays = ["monday", "tuesday", "wednesday"] as const;
+    const planEvent = planWizardBuildEvent({
+      focus: "balanced",
+      id: `plan_loose_end_${completionStatus}`,
+      planStartDate: "2026-05-18",
+      selectedSupportDays: selectedDays,
+      trainingDose: "standard"
+    });
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: selectedDays
+      },
+      journeyEvents: [planEvent],
+      readinessHistory: [readinessForDate("2026-05-18"), readinessForDate("2026-05-19")],
+      trainingHistory: [],
+      completedTrainingSessions: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const monday = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-18" });
+    const mondaySession = monday.training.generatedSessions.find((session) => session.date === "2026-05-18");
+
+    expect(mondaySession).toBeDefined();
+    const tuesday = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        trainingHistory: monday.training.generatedSessions,
+        completedTrainingSessions: [completedRecordForGeneratedSession(mondaySession!, completionStatus)]
+      },
+      asOfDate: "2026-05-19"
+    });
+
+    expect(tuesday.viewModels.train.workoutLooseEnds).toEqual([]);
+    expect(tuesday.training.supportGenerationAudit.unresolvedPastGeneratedSupportCount).toBe(0);
+    expect(tuesday.training.supportGenerationAudit.resolvedPastGeneratedSupportCount).toBe(1);
+    expect(tuesday.training.supportGenerationAudit.looseEndSessionIds).toEqual([]);
+  });
+
+  it("moves a generated loose end to today only through an applied move adjustment", () => {
+    const selectedDays = ["monday", "tuesday", "wednesday"] as const;
+    const planEvent = planWizardBuildEvent({
+      focus: "balanced",
+      id: "plan_loose_end_move",
+      planStartDate: "2026-05-18",
+      selectedSupportDays: selectedDays,
+      trainingDose: "standard"
+    });
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: selectedDays
+      },
+      journeyEvents: [planEvent],
+      readinessHistory: [readinessForDate("2026-05-18"), readinessForDate("2026-05-19")],
+      trainingHistory: [],
+      completedTrainingSessions: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const monday = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-18" });
+    const mondaySession = monday.training.generatedSessions.find((session) => session.date === "2026-05-18");
+
+    expect(mondaySession).toBeDefined();
+    const tuesday = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        trainingHistory: monday.training.generatedSessions,
+        trainingPlanAdjustments: [
+          persistedMoveAdjustment({
+            session: mondaySession!,
+            fromDate: "2026-05-18",
+            toDate: "2026-05-19",
+            trainingBlockId: monday.training.activeBlock.id
+          })
+        ]
+      },
+      asOfDate: "2026-05-19"
+    });
+
+    expect(tuesday.viewModels.train.workoutLooseEnds).toEqual([]);
+    expect(tuesday.training.todaySessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: mondaySession!.id,
+          date: "2026-05-19"
+        })
+      ])
+    );
+    expect(tuesday.training.adjustmentDecisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "applied",
+          explanation: expect.stringContaining("Move applied")
+        })
+      ])
+    );
+    expect(tuesday.training.supportGenerationAudit.resolvedPastGeneratedSupportCount).toBe(1);
+    expect(tuesday.training.supportGenerationAudit.looseEndSessionIds).toEqual([]);
+  });
+
+  it("does not prompt missing readiness before an easy generated session", () => {
+    const planId = "plan_readiness_easy";
+    const easySession = materializedGeneratedSession({
+      id: "next-week:readiness_easy",
+      date: fixtureAsOfDate,
+      intensity: "easy",
+      fuelDemand: "low",
+      planRevisionId: planId
+    });
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday"]
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "mobility",
+            id: planId,
+            planStartDate: fixtureAsOfDate,
+            selectedSupportDays: ["tuesday"],
+            trainingDose: "minimal"
+          })
+        ],
+        readinessHistory: [],
+        trainingHistory: [easySession],
+        completedTrainingSessions: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.readiness.color).toBe("unknown");
+    expect(state.viewModels.train.todayGeneratedSessions[0]).toEqual(expect.objectContaining({ id: easySession.id, intensity: "easy" }));
+    expect(state.viewModels.train.preSessionReadinessGate.status).toBe("not_needed");
+  });
+
+  it("prompts for quick readiness before hard or high-demand generated work when readiness is missing", () => {
+    const planId = "plan_readiness_hard";
+    const hardSession = materializedGeneratedSession({
+      id: "next-week:readiness_hard",
+      date: fixtureAsOfDate,
+      intensity: "hard",
+      fuelDemand: "high",
+      planRevisionId: planId
+    });
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday"]
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "strength",
+            id: planId,
+            planStartDate: fixtureAsOfDate,
+            selectedSupportDays: ["tuesday"],
+            trainingDose: "minimal"
+          })
+        ],
+        readinessHistory: [],
+        trainingHistory: [hardSession],
+        completedTrainingSessions: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.readiness.color).toBe("unknown");
+    expect(state.viewModels.train.todayGeneratedSessions[0]).toEqual(expect.objectContaining({ id: hardSession.id, intensity: "hard" }));
+    expect(state.viewModels.train.preSessionReadinessGate).toEqual(
+      expect.objectContaining({
+        status: "prompt",
+        title: "Quick readiness first",
+        body: "Readiness is unknown. Check energy, soreness, and red flags before pushing.",
+        guidance: "Start easy. Build only if the warm-up feels clean.",
+        actions: ["Log readiness", "Start controlled"]
+      })
+    );
+  });
+
+  it("blocks hard generated work when logged readiness has a hard-stop signal", () => {
+    const planId = "plan_readiness_hard_stop";
+    const hardSession = materializedGeneratedSession({
+      id: "next-week:readiness_hard_stop",
+      date: fixtureAsOfDate,
+      intensity: "hard",
+      fuelDemand: "high",
+      planRevisionId: planId
+    });
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday"]
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "strength",
+            id: planId,
+            planStartDate: fixtureAsOfDate,
+            selectedSupportDays: ["tuesday"],
+            trainingDose: "minimal"
+          })
+        ],
+        readinessHistory: [
+          {
+            ...readinessForDate(fixtureAsOfDate),
+            energy1To5: 1,
+            dizziness: true,
+            fainting: true
+          }
+        ],
+        trainingHistory: [hardSession],
+        completedTrainingSessions: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.executionReadiness.readinessStatus).toBe("red_hard_stop");
+    expect(state.viewModels.train.preSessionReadinessGate.status).toBe("blocked");
+    expect(state.viewModels.train.preSessionReadinessGate.actions).toEqual([]);
+    expect(state.training.todaySessions.some((session) => session.id === hardSession.id)).toBe(false);
+    expect(state.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
   });
 
   it("normal build plan generation produces substantial support sessions with duration audit", () => {

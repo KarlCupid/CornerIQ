@@ -107,7 +107,7 @@ function defaultActor(): TrainingPlanAdjustmentActor {
 function actorAllowed(actor: TrainingPlanAdjustmentActor, command: TrainingPlanAdjustmentCommand): boolean {
   switch (actor.actorType) {
     case "athlete":
-      return command.type === "protect_day" || command.type === "mark_unavailable" || command.type === "request_deload" || command.type === "restore_engine_plan" || command.type === "note";
+      return command.type === "protect_day" || command.type === "mark_unavailable" || command.type === "request_deload" || command.type === "restore_engine_plan" || command.type === "move_generated_session" || command.type === "note";
     case "coach":
       return (
         command.type === "coach_note" ||

@@ -204,14 +204,15 @@ function TodayQuickCheckSection({
     hydration: <HydrationLogCard actions={quickLogs} busy={busy} framed={false} status={recentLogs.hydrationToday} />,
     readiness: <ReadinessCheckInCard actions={quickLogs} busy={busy} forceOpen={focus === "readiness"} framed={false} status={recentLogs.readinessToday} />
   } satisfies Record<TodayQuickCheckFocus, React.ReactNode>;
+  const bodyMassNeeded = recentLogs.bodyMassToday.status === "needed_for_cut" || recentLogs.bodyMassToday.status === "unknown_cut_context";
   const orderedFocuses: readonly TodayQuickCheckFocus[] =
     !includeOtherLogs
       ? [focus]
       : focus === "body_mass"
-      ? ["body_mass", "readiness", "hydration"]
-      : focus === "hydration"
-        ? ["hydration", "readiness", "body_mass"]
-        : ["readiness", "body_mass", "hydration"];
+        ? ["body_mass", "readiness", "hydration"]
+        : focus === "hydration"
+          ? bodyMassNeeded ? ["hydration", "readiness", "body_mass"] : ["hydration", "readiness"]
+          : bodyMassNeeded ? ["readiness", "body_mass", "hydration"] : ["readiness", "hydration"];
   const content = (
     <View
       accessibilityLabel="Quick check wizard"

@@ -36,6 +36,7 @@ import type {
   TrainingGenerationImpact,
   TrainingExecutionBaselineTargets,
   TrainingExecutionReadinessStatus,
+  GeneratedSessionResolvedStatus,
   DailyOperatingModeView,
   PlannedVsFinalTrainingDelta,
   TrainingStimulus,
@@ -100,6 +101,7 @@ export interface RecentLogsViewModel {
   };
   bodyMassToday: {
     loggedToday: boolean;
+    status: "logged_today" | "needed_for_cut" | "optional_today" | "not_needed_today" | "unknown_cut_context";
     actionLabel: string;
     statusLabel: string;
     summary: string;
@@ -293,6 +295,26 @@ export interface TrainViewModel {
     selectedTemplateId?: string | null | undefined;
     selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
+  workoutLooseEnds: readonly {
+    allowedActions: readonly ["Did it", "Skipped", "Move to today", "Leave unknown"];
+    duration: string;
+    family: string;
+    generatedSessionId: string;
+    intensity: GeneratedSessionIntensity;
+    originalDate: string;
+    prompt: string;
+    sessionTypeLabel: string;
+    status: GeneratedSessionResolvedStatus;
+    title: string;
+  }[];
+  preSessionReadinessGate: {
+    actions: readonly ["Log readiness", "Start controlled"] | readonly [];
+    body: string;
+    guidance: string;
+    sessionId: string | null;
+    status: "not_needed" | "prompt" | "blocked";
+    title: string;
+  };
   upcomingGeneratedSessions: readonly {
     id: string;
     title: string;
@@ -374,6 +396,20 @@ export interface TrainViewModel {
     blockedGenerationReasons: readonly string[];
     durationAudit?: readonly GeneratedSessionDurationAuditItem[] | undefined;
     reducedBy: readonly TrainingGenerationReductionSource[];
+  };
+  scheduleDebug: {
+    asOfDate: string;
+    planStartDate: string;
+    planRevisionId: string;
+    targetGeneratedSupportCount: number;
+    pastGeneratedSupportCount: number;
+    unresolvedPastGeneratedSupportCount: number;
+    remainingGeneratedSupportTarget: number;
+    generatedSessionDates: readonly string[];
+    persistedGeneratedSessionsConsidered: readonly string[];
+    persistedGeneratedSessionsIgnored: readonly string[];
+    autoRollForwardPrevented: boolean;
+    looseEndSessionIds: readonly string[];
   };
   blockPhase: TrainingBlockPhase;
   blockGoal: string;
@@ -673,6 +709,13 @@ export interface PlanViewModel {
     unusedAvailableDays?: readonly string[] | undefined;
     unusedAvailableDayReasons?: readonly string[] | undefined;
     targetGeneratedSupportCount: number;
+    pastGeneratedSupportCount?: number | undefined;
+    unresolvedPastGeneratedSupportCount?: number | undefined;
+    resolvedPastGeneratedSupportCount?: number | undefined;
+    remainingGeneratedSupportTarget?: number | undefined;
+    looseEndSessionIds?: readonly string[] | undefined;
+    autoRollForwardPrevented?: boolean | undefined;
+    autoRollForwardExplanation?: string | undefined;
     actualGeneratedSupportCount: number;
     todayGeneratedSupportCount: number;
     generatedSessionDates: readonly string[];

@@ -36,6 +36,15 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
   const todaySodiumTotal = todayElectrolytes.reduce((total, log) => total + log.sodiumMg, 0);
   const todayCalories = todayFoodLogs.reduce((total, log) => total + log.calories, 0);
   const foodStatus = state.nutrition.dailyFoodLogSummary.status;
+  const activeWeightContext = Boolean(
+    journey.activeFightOpportunity ||
+      journey.activeTournament ||
+      (state.bodyMass.feasibility.status !== "not_applicable" && state.bodyMass.feasibility.status !== "unknown")
+  );
+  const unknownCutContext = Boolean(
+    journey.activeFightOpportunity &&
+      (state.weighInContext.weighInType === "unknown" || state.weighInContext.daysUntilWeighIn === null)
+  );
 
   const bodyMassTrendSummary =
     state.bodyMass.trend.logCount7Day < 4
@@ -70,18 +79,38 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
   const bodyMassToday = todayBodyMass
     ? {
         loggedToday: true,
+        status: "logged_today" as const,
         actionLabel: "Update body weight",
         statusLabel: "Logged today",
         summary: `Today's body weight logged: ${todayBodyMass.bodyMassKg} kg.`,
         why: "Daily scale context improves trend confidence, but one value never becomes pressure to chase weight."
       }
-    : {
+    : unknownCutContext
+      ? {
         loggedToday: false,
         actionLabel: "Log body weight",
-        statusLabel: "Missing today",
-        summary: "Body weight log due if it is safe and useful. Missing scale data stays unknown, not safe.",
-        why: "A true manual scale entry helps trend confidence without requiring a wearable or forcing a target."
-      };
+        status: "unknown_cut_context" as const,
+        statusLabel: "Cut context unknown",
+        summary: "Scale-driven decisions stay paused until weigh-in details and a true body weight are logged.",
+        why: "Weight-class guidance should not guess when key fight or weigh-in details are missing."
+      }
+      : activeWeightContext
+        ? {
+            loggedToday: false,
+            actionLabel: "Log body weight",
+            status: "needed_for_cut" as const,
+            statusLabel: "Needed for cut",
+            summary: "Scale-driven decisions stay paused until a true body weight is logged.",
+            why: "Weight-class guidance should not guess from old or missing scale data."
+          }
+        : {
+            loggedToday: false,
+            actionLabel: "Log body weight",
+            status: "optional_today" as const,
+            statusLabel: "Optional today",
+            summary: "No weight target needs a scale check today.",
+            why: "Body weight helps trends, but it is not required outside a cut or active weight target."
+          };
   const hydrationToday = {
     loggedToday: todayWaterLogs.length > 0,
     actionLabel: "Add hydration",
@@ -109,7 +138,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
 
   return {
     today: [
-      lastBodyMass ? `Last body weight: ${lastBodyMass.bodyMassKg} kg on ${lastBodyMass.date}.` : "No body weight log yet.",
+      todayBodyMass ? `Last body weight: ${lastBodyMass?.bodyMassKg ?? todayBodyMass.bodyMassKg} kg on ${lastBodyMass?.date ?? todayBodyMass.date}.` : bodyMassToday.summary,
       readinessLastCheckSummary,
       hydrationToday.totalLabel,
       trainingRecentSummary

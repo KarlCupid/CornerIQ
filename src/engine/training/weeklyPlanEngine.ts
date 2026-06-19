@@ -35,6 +35,7 @@ import { resolveTrainingBlock } from "./trainingBlockEngine";
 import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine";
 import type { TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import { generatedSupportAllowedOnDate, generatedSupportWeekdayForDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
+import { appliedMovedGeneratedSessionIds, resolveGeneratedSessionStatus } from "./generatedSessionStatus";
 import {
   activeHardStopFlags,
   activeUnderfuelingEvidence,
@@ -212,6 +213,8 @@ function scopedPersistedGeneratedSessions(input: {
   persistedSessions: readonly GeneratedTrainingSession[];
   planGenerationIntent?: PlanGenerationIntent | undefined;
   planRevisionId: string;
+  weekEndDate: ISODateString;
+  weekStartDate: ISODateString;
 }): {
   considered: readonly PersistedGeneratedSessionAuditItem[];
   ignored: readonly PersistedGeneratedSessionAuditItem[];
@@ -223,35 +226,35 @@ function scopedPersistedGeneratedSessions(input: {
   const ignored: PersistedGeneratedSessionAuditItem[] = [];
 
   for (const session of input.persistedSessions) {
-    if (session.date < input.asOfDate) {
-      ignored.push(persistedGeneratedSessionAuditItem(session, "Ignored because the persisted generated session is before the current as-of date."));
-      continue;
-    }
-    if (input.planGenerationIntent && session.planRevisionId !== input.planRevisionId) {
-      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because plan revision ${session.planRevisionId ?? "unknown"} does not match active plan revision ${input.planRevisionId}.`));
-      continue;
-    }
-    if (!input.planGenerationIntent && session.planRevisionId && session.planRevisionId !== input.planRevisionId) {
-      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because plan revision ${session.planRevisionId} does not match active plan revision ${input.planRevisionId}.`));
+    if (session.date < input.weekStartDate || session.date > input.weekEndDate) {
+      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because the persisted generated session is outside the active week ${input.weekStartDate} to ${input.weekEndDate}.`));
       continue;
     }
     if (blockScopeIds.size > 0 && (!session.trainingBlockId || !blockScopeIds.has(session.trainingBlockId))) {
       ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because training block ${session.trainingBlockId ?? "unknown"} is outside the active training block scope.`));
       continue;
     }
+    if (blockScopeIds.size === 0 && input.planGenerationIntent && session.planRevisionId !== input.planRevisionId) {
+      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because plan revision ${session.planRevisionId ?? "unknown"} does not match active plan revision ${input.planRevisionId}.`));
+      continue;
+    }
+    if (blockScopeIds.size === 0 && !input.planGenerationIntent && session.planRevisionId && session.planRevisionId !== input.planRevisionId) {
+      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because plan revision ${session.planRevisionId} does not match active plan revision ${input.planRevisionId}.`));
+      continue;
+    }
     sessions.push(session);
-    considered.push(persistedGeneratedSessionAuditItem(session, "Considered because it matches the active generated-session revision and block scope."));
+    considered.push(persistedGeneratedSessionAuditItem(session, "Considered because it is inside the active week and matches the active generated-session block scope."));
   }
 
   return { considered, ignored, sessions };
 }
 
-function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSession[], persistedSessions: readonly GeneratedTrainingSession[], asOfDate: ISODateString): readonly GeneratedTrainingSession[] {
+function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSession[], persistedSessions: readonly GeneratedTrainingSession[]): readonly GeneratedTrainingSession[] {
   const merged = new Map<string, GeneratedTrainingSession>();
   for (const session of engineSessions) {
     merged.set(session.id, session);
   }
-  for (const session of persistedSessions.filter((item) => item.date >= asOfDate)) {
+  for (const session of persistedSessions) {
     merged.set(session.id, session);
   }
   return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
@@ -463,6 +466,7 @@ function generatedSessionAllowedByCurrentSafety(input: {
   safetyBlocks?: boolean | undefined;
   session: GeneratedTrainingSession;
   underFuelingRisk: boolean;
+  explicitMove?: boolean | undefined;
 }): boolean {
   if (input.session.date < input.asOfDate) {
     return false;
@@ -470,7 +474,7 @@ function generatedSessionAllowedByCurrentSafety(input: {
   if (hasProtectedCompetition(input.anchors, input.session.date)) {
     return false;
   }
-  if (!supportAllowedOnDate(input.selectedSupportDays, input.athleteScheduleAvailability, input.session.date)) {
+  if (!input.explicitMove && !supportAllowedOnDate(input.selectedSupportDays, input.athleteScheduleAvailability, input.session.date)) {
     return false;
   }
   if (input.redReadinessHardStop) {
@@ -599,6 +603,7 @@ export function resolveWeeklyTrainingPlan(input: {
   const primaryFocus: PlanGenerationPrimaryFocus | undefined =
     input.planGenerationIntent?.goalMode === "build" ? input.planGenerationIntent.primaryFocus ?? "balanced" : input.planGenerationIntent?.primaryFocus;
   const candidateDates = Array.from({ length: 7 }, (_, index) => addDays(planStartDate, index));
+  const planWeekEndDate = addDays(planStartDate, 6);
   const blockedByAnchors = candidateDates.some((date, index) => {
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
@@ -635,6 +640,51 @@ export function resolveWeeklyTrainingPlan(input: {
   if (targetSessions === 1 && !hardStopOrRedReadiness && !fuelCountCap && generationConstraints.hardSafetyConstraints.length === 0) {
     throw new Error("Unexpected one-session generated support cap without readiness, hard-stop, or fueling safety reason.");
   }
+  const scopedPersistedSessions = scopedPersistedGeneratedSessions({
+    activeTrainingBlock: input.activeTrainingBlock,
+    activeTrainingBlockId: input.activeTrainingBlockId,
+    asOfDate: input.asOfDate,
+    persistedSessions: input.persistedGeneratedSessions ?? [],
+    planGenerationIntent: input.planGenerationIntent,
+    planRevisionId: planRevision,
+    weekStartDate: planStartDate,
+    weekEndDate: planWeekEndDate
+  });
+  const pastScopedPersistedSessions = scopedPersistedSessions.sessions.filter((session) => session.date < input.asOfDate);
+  const futureScopedPersistedSessions = scopedPersistedSessions.sessions.filter((session) => session.date >= input.asOfDate);
+  const movedSessionIds = appliedMovedGeneratedSessionIds(input.trainingPlanAdjustments ?? []);
+  const pastGeneratedSupportCount = pastScopedPersistedSessions.length;
+  const unresolvedPastGeneratedSupportCount = pastScopedPersistedSessions.filter(
+    (session) =>
+      resolveGeneratedSessionStatus({
+        asOfDate: input.asOfDate,
+        completedSessions: input.completedSessions ?? [],
+        session,
+        trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
+      }).status === "unresolved_past"
+  ).length;
+  const resolvedPastGeneratedSupportCount = pastScopedPersistedSessions.filter((session) => {
+    const status = resolveGeneratedSessionStatus({
+      asOfDate: input.asOfDate,
+      completedSessions: input.completedSessions ?? [],
+      session,
+      trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
+    }).status;
+    return status === "completed" || status === "skipped" || status === "moved";
+  }).length;
+  const remainingGeneratedSupportTarget = Math.max(0, targetSessions - pastGeneratedSupportCount);
+  const looseEndSessionIds = pastScopedPersistedSessions
+    .filter(
+      (session) =>
+        resolveGeneratedSessionStatus({
+          asOfDate: input.asOfDate,
+          completedSessions: input.completedSessions ?? [],
+          session,
+          trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
+        }).status === "unresolved_past"
+    )
+    .map((session) => session.id);
+  const initialFutureSelectionTarget = Math.max(remainingGeneratedSupportTarget, futureScopedPersistedSessions.length);
   const generatedHardDates = selectGeneratedHardDates({
     candidateDates: allowedSupportDates,
     count: prescriptionPolicy.targetGeneratedHardDayCount,
@@ -650,6 +700,9 @@ export function resolveWeeklyTrainingPlan(input: {
     const hasSparring = hasProtectedSparring(input.anchors, date);
     const hasCompetition = hasProtectedCompetition(input.anchors, date);
     const hasProtectedBoxingSkill = protectedBoxingSkillOnDate(input.anchors, date);
+    if (date < input.asOfDate) {
+      return null;
+    }
     if (!supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date)) {
       return null;
     }
@@ -720,10 +773,11 @@ export function resolveWeeklyTrainingPlan(input: {
   const generatedSelection = selectGeneratedSessions({
     candidates: generatedCandidates,
     policy: prescriptionPolicy,
-    targetSessions,
+    targetSessions: initialFutureSelectionTarget,
     trainingDose: selectedTrainingDose
   });
   const generated = generatedSelection.sessions;
+  const preAdjustmentGeneratedSessions = mergeGeneratedSessions(generated, scopedPersistedSessions.sessions);
 
   const todayAnchors = anchorsForDate(input.anchors, input.asOfDate);
   const block = resolveTrainingBlock({
@@ -734,7 +788,7 @@ export function resolveWeeklyTrainingPlan(input: {
     protectedWorkouts: input.anchors,
     completedSessions: input.completedSessions ?? [],
     exerciseResults: input.recentExerciseResults ?? [],
-    generatedSessions: generated,
+    generatedSessions: preAdjustmentGeneratedSessions,
     readiness: input.readiness,
     cycle: input.cycle,
     safetyFlags: input.safetyFlags ?? [],
@@ -755,16 +809,12 @@ export function resolveWeeklyTrainingPlan(input: {
   const adjustedGeneratedSessions =
     adjustmentApplication.activeAdjustments.length > 0
       ? adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions)
-      : generatedCandidates;
-  const scopedPersistedSessions = scopedPersistedGeneratedSessions({
-    activeTrainingBlock: input.activeTrainingBlock,
-    activeTrainingBlockId: input.activeTrainingBlockId,
-    asOfDate: input.asOfDate,
-    persistedSessions: input.persistedGeneratedSessions ?? [],
-    planGenerationIntent: input.planGenerationIntent,
-    planRevisionId: planRevision
-  });
-  const mergedGeneratedCandidates = mergeGeneratedSessions(adjustedGeneratedSessions, scopedPersistedSessions.sessions, input.asOfDate)
+      : preAdjustmentGeneratedSessions;
+  const adjustedPastGeneratedSessions = adjustedGeneratedSessions
+    .filter((session) => session.date < input.asOfDate)
+    .filter((session) => !movedSessionIds.has(session.id));
+  const adjustedFutureGeneratedSessions = adjustedGeneratedSessions.filter((session) => session.date >= input.asOfDate);
+  const mergedFutureGeneratedCandidates = mergeGeneratedSessions(adjustedFutureGeneratedSessions, futureScopedPersistedSessions)
     .filter((session) =>
       generatedSessionAllowedByCurrentSafety({
         anchors: input.anchors,
@@ -776,16 +826,19 @@ export function resolveWeeklyTrainingPlan(input: {
         redReadinessHardStop,
         safetyBlocks: input.safetyBlocks,
         session,
-        underFuelingRisk
+        underFuelingRisk,
+        explicitMove: movedSessionIds.has(session.id)
       })
     );
+  const movedIntoCurrentOrFutureCount = new Set(mergedFutureGeneratedCandidates.filter((session) => movedSessionIds.has(session.id)).map((session) => session.id)).size;
+  const finalFutureSelectionTarget = Math.max(remainingGeneratedSupportTarget + movedIntoCurrentOrFutureCount, futureScopedPersistedSessions.length + movedIntoCurrentOrFutureCount);
   const mergedSelection = selectGeneratedSessions({
-    candidates: mergedGeneratedCandidates,
+    candidates: mergedFutureGeneratedCandidates,
     policy: prescriptionPolicy,
-    targetSessions,
+    targetSessions: finalFutureSelectionTarget,
     trainingDose: selectedTrainingDose
   });
-  const mergedGeneratedSessions = mergedSelection.sessions.map((session) => applyTrainingExecutionGuidance(session, executionReadiness));
+  const mergedGeneratedSessions = mergeGeneratedSessions(adjustedPastGeneratedSessions, mergedSelection.sessions).map((session) => applyTrainingExecutionGuidance(session, executionReadiness));
   const repairActionsApplied = [...new Set([...generatedSelection.repairActionsApplied, ...mergedSelection.repairActionsApplied])];
   const adjustedDayPlans: readonly TrainingDayPlan[] = adjustmentApplication.dayPlans.map((dayPlan) => {
     const generatedSessions = mergedGeneratedSessions.filter((session) => session.date === dayPlan.date);
@@ -1009,6 +1062,8 @@ export function resolveWeeklyTrainingPlan(input: {
     ...(executionReadiness.fuelingStatus === "underfueling_evidence" ? ["Under-fueling evidence reduced generated load."] : []),
     ...(executionReadiness.fuelingStatus === "severe_underfueling_hard_stop" ? ["Severe under-fueling evidence blocked high-demand generated training."] : [])
   ];
+  const autoRollForwardPrevented = unresolvedPastGeneratedSupportCount > 0 && remainingGeneratedSupportTarget < targetSessions;
+  const autoRollForwardExplanation = "Past generated sessions stay as loose ends. CornerIQ does not silently move them forward.";
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,
     planStartDate,
@@ -1023,6 +1078,13 @@ export function resolveWeeklyTrainingPlan(input: {
     unusedAvailableDays,
     unusedAvailableDayReasons,
     targetGeneratedSupportCount: targetSessions,
+    pastGeneratedSupportCount,
+    unresolvedPastGeneratedSupportCount,
+    resolvedPastGeneratedSupportCount,
+    remainingGeneratedSupportTarget,
+    looseEndSessionIds,
+    autoRollForwardPrevented,
+    autoRollForwardExplanation,
     actualGeneratedSupportCount: mergedGeneratedSessions.length,
     todayGeneratedSupportCount: mergedGeneratedSessions.filter((session) => session.date === input.asOfDate).length,
     generatedSessionDates: mergedGeneratedSessions.map((session) => session.date),

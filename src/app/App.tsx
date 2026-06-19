@@ -330,12 +330,12 @@ function LocalE2EApp() {
           };
         },
         moveGeneratedSession: async (sessionId, fromDate, toDate) => {
-          setMessage("Local E2E move request stayed local. Drag/drop is not exposed in the app.");
+          setMessage("Local E2E move request stayed local. No remote plan was changed.");
           return {
-            status: "rejected",
-            explanation: `Local E2E move request for ${sessionId} from ${fromDate} to ${toDate} was not applied.`,
+            status: "applied",
+            explanation: `Local E2E move request for ${sessionId} from ${fromDate} to ${toDate} was accepted locally.`,
             modifiedDayPlans: [],
-            safetyFlags: ["Move-session UI is intentionally not exposed in local E2E mode."],
+            safetyFlags: [],
             persistedAdjustmentPayload: { command: { type: "move_generated_session", sessionId, fromDate, toDate } }
           };
         }
