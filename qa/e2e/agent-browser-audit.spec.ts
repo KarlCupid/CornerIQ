@@ -322,7 +322,7 @@ async function exerciseTodayQuickLogSaves(page: Page) {
   }
   await page.getByPlaceholder("kg").fill("82.1");
   await page.getByRole("button", { name: /Log body weight|Update body weight/ }).last().click();
-  await expectVisibleText(page, "Body weight saved. Trend confidence has fresher scale context; readiness can still be unknown.");
+  await expectVisibleText(page, "Body weight saved in kg. Trend confidence has fresher scale context; readiness can still be unknown.");
   await expectVisibleText(page, "Body weight log captured in local E2E mode only.");
 
   const updateReadiness = page.getByRole("button", { name: "Update readiness" });
@@ -358,7 +358,7 @@ async function expectTodayOverviewSurface(page: Page) {
   await expect(page.getByTestId("today-check-in-card")).toContainText("Today's Check-In");
   await expect(page.getByTestId("today-check-in-card").getByRole("button", { name: "Check in" })).toBeVisible();
   await expect(page.getByTestId("today-check-in-card").getByRole("button", { name: "Log food" })).toBeVisible();
-  await expect(page.getByTestId("today-check-in-card").getByRole("button", { name: "Start workout" })).toBeVisible();
+  await expect(page.getByTestId("today-check-in-card").getByRole("button", { name: /Start workout|View workout|Open Train/ })).toBeVisible();
   await expect(page.getByTestId("today-key-status-row")).toContainText("Training");
   await expect(page.getByTestId("today-key-status-row")).toContainText("Fuel");
   await expect(page.getByTestId("today-key-status-row")).toContainText("Weight");
@@ -550,16 +550,16 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
   await expect(page.getByTestId("fuel-overview")).toContainText("Today's Fuel Plan");
-  await expect(page.getByTestId("fuel-overview")).toContainText("Morning weight");
-  await expect(page.getByTestId("fuel-overview")).toContainText("To weight");
+  await expect(page.getByTestId("fuel-overview")).toContainText("No active cut");
   await expect(page.getByTestId("fuel-overview")).toContainText("Do Not Miss Today");
   await expect(page.getByTestId("fuel-overview")).toContainText("Training Today");
   await expect(page.getByTestId("fuel-overview")).toContainText("Weight Trend");
   await expect(page.getByTestId("fuel-detail-rows")).toContainText("Food details");
-  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Weigh-in plan");
+  await expect(page.getByTestId("fuel-detail-rows")).toContainText("Weight context");
   await expect(page.getByTestId("fuel-detail-rows")).toContainText("Health checks");
   await expect(page.getByTestId("fuel-overview")).not.toContainText("Calorie target");
   await expect(page.getByTestId("fuel-overview")).not.toContainText("Today's recommendation");
+  await expect(page.getByTestId("fuel-overview")).not.toContainText("To weight");
   await expect(page.getByRole("button", { name: "Show Food guide" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Show More fuel info" })).toHaveCount(0);
   await expect(page.getByTestId("fuel-food-status-card")).toHaveCount(0);
@@ -610,11 +610,12 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
 async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Profile");
-  await expect(page.getByTestId("profile-screen")).toContainText("Your Journey, Your Legacy.");
+  await expect(page.getByTestId("profile-screen")).toContainText("Your Boxer Setup");
   await expect(page.getByTestId("profile-athlete-section")).toContainText("Athlete Setup");
   await expect(page.getByTestId("profile-athlete-section")).toContainText(/Ready|Needs details|Review needed/);
-  await expect(page.getByTestId("profile-app-inputs-card")).toContainText("App Inputs");
-  await expect(page.getByTestId("profile-quick-updates-card")).toContainText("Quick Updates");
+  await openSection(page, "Setup details");
+  await expect(page.getByTestId("profile-app-inputs-card")).toContainText("App inputs");
+  await expect(page.getByTestId("profile-quick-updates-card")).toContainText("Quick updates");
   await page.getByRole("button", { name: "Show Safety section" }).click();
   await expectVisibleText(page, "Training history");
   await expectVisibleText(page, "Fuel safety history");
@@ -636,16 +637,22 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Train");
   await expectVisibleText(page, "Today's Training Plan");
-  await expect(page.getByTestId("train-today-plan-card")).toContainText(/Training Aim/i);
+  await expect(page.getByTestId("train-today-plan-card")).toContainText(/Your job today/i);
   await expect(page.getByTestId("train-quick-stats")).toContainText(/Duration/i);
   await expect(page.getByTestId("train-quick-stats")).toContainText(/Readiness/i);
   await expect(page.getByTestId("train-workout-flow-card")).toContainText(/Workout Flow/i);
-  await expect(page.getByTestId("train-before-start-card")).toContainText(/Coach's Note/i);
+  await expect(page.getByTestId("train-before-start-card")).toContainText(/Before You Start/i);
   await expect(page.getByTestId("train-execution-overlay-card")).toHaveCount(0);
   const workoutCount = await page.getByTestId("train-workout-section").count();
   let generatedQuickLogAvailable = false;
   if (workoutCount > 0) {
-    await expect(page.getByRole("button", { name: "Start workout" }).first()).toBeVisible();
+    const startWorkoutButton = page.getByRole("button", { name: "Start workout" }).first();
+    if ((await startWorkoutButton.count()) > 0 && await startWorkoutButton.isVisible().catch(() => false)) {
+      await expect(startWorkoutButton).toBeVisible();
+    } else {
+      await expect(page.getByRole("button", { name: "View session" }).first()).toBeVisible();
+      await expect(page.getByTestId("train-workout-section")).toContainText(/Available on the planned day|Keep future sessions on their planned day/i);
+    }
     const quickLogButton = page.getByRole("button", { name: "Show Quick Log" }).first();
     const hasQuickLogButton = (await quickLogButton.count()) > 0;
     if (hasQuickLogButton) {
@@ -721,9 +728,9 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Plan");
   await expectVisibleText(page, "Build phase");
   await expect(page.getByTestId("plan-roadmap")).toContainText("This Week's Plan");
-  await expect(page.getByTestId("plan-this-weeks-plan-card")).toContainText("Training Aim");
-  await expect(page.getByTestId("plan-week-at-a-glance")).toContainText("Week at a Glance");
-  await expect(page.getByTestId("plan-built-around-card")).toContainText("Built Around");
+  await expect(page.getByTestId("plan-this-weeks-plan-card")).toContainText("This week's job");
+  await expect(page.getByTestId("plan-week-at-a-glance")).toHaveCount(0);
+  await expect(page.getByTestId("plan-built-around-card")).toHaveCount(0);
   await expect(page.getByTestId("plan-upcoming-sessions-card")).toContainText("Upcoming Sessions");
   await expect(page.getByTestId("plan-next-week-card")).toContainText("Next Week");
   await expect(page.getByTestId("plan-change-plan-card")).toContainText("Change Plan");
@@ -829,10 +836,15 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, /Choose your current lane\./);
   await expectVisibleText(page, "Current boxing level");
   await expectVisibleText(page, /Pick the closest current level\./);
-  await expectVisibleText(page, "Training for boxing, not competing yet.");
   await expectVisibleText(page, "Early amateur; limited sanctioned bouts.");
+  await page.getByRole("button", { name: "Aspiring boxer" }).click();
+  await expectVisibleText(page, "Training for boxing, not competing yet.");
+  await page.getByRole("button", { name: "Open amateur" }).click();
   await expectVisibleText(page, "Active amateur with multiple bouts.");
+  await page.getByRole("button", { name: "Professional boxer" }).click();
+  await page.getByRole("button", { name: "Pro, 12 rounds" }).click();
   await expectVisibleText(page, "Championship-distance pro context.");
+  await page.getByRole("button", { name: "Amateur boxer" }).click();
   await expectVisibleText(page, "Training age");
   await expectVisibleText(page, /Choose the closest option\./);
   await expectVisibleText(page, /Example: Use 0 if brand new\./);
@@ -1021,7 +1033,7 @@ test("first launch reaches auth, local demo onboarding, Today, and quick logs", 
 
   await localSignIn(page);
   await expect(page.getByTestId("onboarding-screen")).toBeVisible();
-  await expect(page.getByText("Boxer setup")).toBeVisible();
+  await expect(page.getByTestId("onboarding-screen")).toContainText("Boxer setup");
   await capture(page, testInfo, "Smoke onboarding shortcut screen", "smoke-02-onboarding-shortcut-screen.png");
 
   await page.getByRole("button", { name: "Create safe demo boxer" }).click();
