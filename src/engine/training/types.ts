@@ -208,6 +208,7 @@ export type GeneratedSessionTypeLabel =
   | "Mobility / Recovery";
 export type GeneratedSessionEquipmentMode = "none" | "bag" | "mirror" | "line" | "coach_optional";
 export type GeneratedSessionPriority = "primary" | "secondary" | "add_on";
+export type GeneratedSessionLifecycle = "active" | "completed" | "skipped" | "unresolved" | "moved" | "superseded" | "canceled";
 export type GeneratedSessionAddOnPriority = "required" | "recommended" | "optional";
 export type GeneratedSessionAddOnPlacementType = "primer" | "finisher" | "recovery" | "mobility" | "durability" | "technical_touch";
 
@@ -254,6 +255,8 @@ export interface PlanGenerationIntent {
 export interface GeneratedTrainingSession {
   id: string;
   date: ISODateString;
+  originalPlannedDate?: ISODateString | undefined;
+  currentScheduledDate?: ISODateString | undefined;
   family: GeneratedSessionFamily;
   trainingStimulus?: TrainingStimulus | undefined;
   sessionTypeLabel?: GeneratedSessionTypeLabel | undefined;
@@ -267,7 +270,10 @@ export interface GeneratedTrainingSession {
   fuelDemand: "low" | "moderate" | "high";
   planRevisionId?: string | undefined;
   trainingBlockId?: string | undefined;
+  weekId?: string | undefined;
   weekIndex?: number | undefined;
+  prescriptionSlotId?: string | undefined;
+  generatedSessionLifecycle?: GeneratedSessionLifecycle | undefined;
   planStartDate?: ISODateString | undefined;
   source?: "active_plan_generation" | "engine_projection" | "next_week_preview_materialization" | undefined;
   templateId?: string | undefined;
@@ -620,12 +626,49 @@ export interface TrainingLoadLedger {
   recoverySessions: number;
 }
 
-export interface TrainingLoadLedgers {
-  planned: TrainingLoadLedger;
-  actual: TrainingLoadLedger;
+export interface PlannedTrainingLoad extends TrainingLoadLedger {
+  source: "planned";
+  plannedIds: readonly string[];
 }
 
-export type TrainingGenerationReductionSource = "nutrition" | "readiness" | "availability" | "anchors" | "safety" | "cycle" | "phase";
+export interface ActualTrainingLoad extends TrainingLoadLedger {
+  source: "actual";
+  evidenceIds: readonly string[];
+  unknownMetrics: readonly string[];
+}
+
+export interface TrainingLoadComparison {
+  planned: PlannedTrainingLoad;
+  actual: ActualTrainingLoad;
+  missingActualMetrics: readonly string[];
+}
+
+export interface RecentTrainingEvidence {
+  completedSessionIds: readonly string[];
+  exerciseResultIds: readonly string[];
+  painEvidenceIds: readonly string[];
+  highRpeSessionIds: readonly string[];
+}
+
+export interface PrescriptionAdaptationDecision {
+  decision: "progress" | "repeat" | "hold" | "deload" | "coach_review";
+  evidenceIds: readonly string[];
+  beforePrescription: TrainingExecutionBaselineTargets;
+  afterPrescription: TrainingExecutionBaselineTargets;
+  beforeGeneratedHardDayTarget: number;
+  afterGeneratedHardDayTarget: number;
+  reason: string;
+  confidence: Confidence;
+  safetyImplications: readonly string[];
+  revisionRequired: boolean;
+}
+
+export interface TrainingLoadLedgers {
+  planned: PlannedTrainingLoad;
+  actual: ActualTrainingLoad;
+}
+
+export type TrainingGenerationReductionSource = "nutrition" | "readiness" | "availability" | "anchors" | "safety" | "cycle" | "phase" | "actual_load";
 
 export type TrainingGenerationConstraintCategory = "hardSafetyConstraint" | "evidenceBasedLoadConstraint" | "advisoryUncertainty" | "noConstraint";
 
@@ -713,6 +756,9 @@ export interface TrainingSupportGenerationAudit {
   readinessDownshiftReasons: readonly string[];
   nutritionDownshiftReasons: readonly string[];
   plannedVsFinalTrainingDelta: PlannedVsFinalTrainingDelta;
+  loadComparison?: TrainingLoadComparison | undefined;
+  recentTrainingEvidence?: RecentTrainingEvidence | undefined;
+  prescriptionAdaptationDecision?: PrescriptionAdaptationDecision | undefined;
   generationConstraintSummary: TrainingGenerationConstraintSummaryAudit;
   hardSafetyConstraints: readonly TrainingGenerationConstraintAuditItem[];
   evidenceBasedLoadConstraints: readonly TrainingGenerationConstraintAuditItem[];
@@ -824,9 +870,8 @@ export interface TrainingState {
     trainingBlockId: string;
     status: "active" | "superseded" | "completed" | "canceled";
   } | undefined;
-  loadLedger: TrainingLoadLedger;
-  plannedLoadLedger: TrainingLoadLedger;
-  actualLoadLedger: TrainingLoadLedger;
+  plannedLoadLedger: PlannedTrainingLoad;
+  actualLoadLedger: ActualTrainingLoad;
   planGenerationIntent?: PlanGenerationIntent | undefined;
   supportGenerationAudit: TrainingSupportGenerationAudit;
   executionReadiness: TrainingReadinessFuelingIntegration;

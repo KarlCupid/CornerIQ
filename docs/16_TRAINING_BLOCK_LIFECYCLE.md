@@ -32,19 +32,27 @@ CornerIQ separates prescription, execution, and logging time:
 - `plannedDate` is the date a generated session was originally prescribed.
 - `performedDate` is the date the athlete says the work actually happened.
 - `recordedAt` is when the athlete entered or corrected the log.
-- `planRevisionId` is stable for one accepted plan revision and no longer uses `asOfDate` as a fallback identity input.
-- `generatedSessionId` is the stable prescribed-session identity for one revision/week/slot.
+- `planRevisionId` is stable for one accepted plan revision and no longer uses `asOfDate` as a fallback identity input. When no explicit plan intent exists, fallback identity uses the active block start date once a block exists, so crossing into week two does not create a new revision.
+- `weekId` identifies the plan revision/week that produced generated support.
+- `prescriptionSlotId` is the stable generated-support slot identity. It is built from the revision, week, original full-week slot index, original planned date, and deterministic plan seed, not from the set of dates remaining after `asOfDate`.
+- `generatedSessionId` is derived from the prescription slot, not the resolved family. Transient readiness, food, hydration, or actual-load overlays cannot create a different session identity.
+- `originalPlannedDate` is preserved on the generated session. `currentScheduledDate` changes only after an explicit audited move.
+- `generatedSessionLifecycle` records active, moved, completed/skipped overlay, superseded, unresolved, or canceled schedule state.
 - Unresolved is derived when a past generated session has no current resolution.
 
-Shared temporal selectors in `src/engine/core/temporalSelectors.ts` filter completed sessions, exercise results, and readiness revisions by effective date and optional `generatedAt` replay cutoff. Historical replays do not use later logs, later readiness updates, future exercise results, or future body-weight rows.
+Shared temporal selectors in `src/engine/core/temporalSelectors.ts` build the journey snapshot used by `resolvePerformanceState`. Date-scoped rows are filtered by effective date, while `generatedAt` is the recorded-time knowledge cutoff for replay. Historical replays do not use later logs, readiness revisions, exercise results, body-weight rows, journey events, nutrition status events, active safety flags, nutrition safety reviews, plan adjustments, summaries, decisions, or timeline events. Persisted moved generated sessions are projected back to `originalPlannedDate` when the move adjustment was not visible at the replay cutoff.
 
 Generated-session loading uses the active microcycle week window, not only `planned_date >= asOfDate`. `loadAthleteJourney` requests generated sessions from active week start through active week end, scoped to the active training block. That lets the engine see earlier active-week prescriptions, today, and future active-week prescriptions at the same time.
+
+Generated-session persistence also stores `plan_revision_id`, `week_id`, `week_index`, `prescription_slot_id`, `original_planned_date`, `current_scheduled_date`, and `generated_session_lifecycle` columns. Migration `20260619194631_generated_session_identity_lifecycle.sql` backfills legacy rows from payloads, marks duplicate active slot rows as `superseded`, and adds active-slot/current-date indexes while preserving old audit rows.
 
 ## Prescription Vs Execution Overlay
 
 Base generated sessions remain the stable prescription: identity, planned date, family, duration target, intensity target, template/recipe, rationale, block/week, and plan revision. Current readiness, fueling, hydration, and safety context are applied as an execution overlay during state resolution and view-model building.
 
 Today’s readiness or food log can change today’s start gate or downshift copy. It must not rewrite a future base session payload. Explicit plan adjustments or safety-driven plan amendments are the path for changing future prescriptions, and the audit exposes `scheduleRevisionChanged` plus `scheduleChangeReasons`.
+
+Weekly minute repair does not roll the full-week target onto the remaining future slots after earlier unpersisted days fall behind `asOfDate`; missed or unknown work remains unresolved instead of becoming longer future work.
 
 ## Session Resolution
 
@@ -58,15 +66,22 @@ Generated workout resolution is canonical per user and `generatedSessionId`:
 
 The Train view model exposes `workoutLooseEnds` for unresolved past generated sessions. The compact card asks: "This workout was planned for {date}. Did it happen?" Actions resolve the session as completed/skipped, request an explicit move adjustment, or leave it unknown. Leaving it unknown creates no completion row.
 
+Explicit moves keep the same `generatedSessionId` and `prescriptionSlotId`, preserve `originalPlannedDate`, set `currentScheduledDate`, and mark the generated session `moved`. Moves from stale clients are rejected when the source row is superseded/canceled or is no longer scheduled on the requested source date. The adjustment service also re-reads persisted generated sessions for the active week when available, so a client with stale state cannot persist a move after the server already sees that session on another date.
+
 ## Planned And Actual Load
 
 `TrainingState` now carries:
 
-- `plannedLoadLedger`: protected boxing anchors plus generated prescriptions.
-- `actualLoadLedger`: completed sessions only, using `performedDate`; skipped, unresolved, and future completions are excluded.
-- `loadLedger`: compatibility alias for planned load while older callers are retired.
+- `plannedLoadLedger`: protected boxing anchors plus generated prescriptions, with `source: planned` and planned row ids.
+- `actualLoadLedger`: current completed sessions plus linked exercise-result evidence, using the completed session `performedDate`; skipped, superseded, unresolved, stale exercise rows, and future completions are excluded.
 
-Planned load prevents scheduling conflicts. Actual load drives adaptation, recovery, progression interpretation, and recent-load evidence. Backfilled completions assign actual load to `performedDate`, while `recordedAt` remains log-entry metadata.
+Planned load prevents scheduling conflicts. Actual load drives adaptation, recovery, progression interpretation, and recent-load evidence. There is no compatibility `loadLedger` alias; consumers must choose planned or actual explicitly. Backfilled completions assign actual load to `performedDate`, while `recordedAt` remains log-entry metadata.
+
+Actual structured metrics are evidence-only. Completed session rows count completed minutes, hard-day dates, boxing rounds, and sparring rounds when those fields are logged. Strength set counts and interval counts come from logged exercise result fields only; the engine does not infer fixed set or interval counts from a session family or completed session type.
+
+Current-week actual hard work reserves hard-day capacity before future generated prescription is selected. Manual hard work and completed protected boxing count only after completion; scheduled but unlogged work remains planned, not actual. Linked exercise results stop contributing to current actual load when their generated completion is corrected to skipped.
+
+The support-generation audit includes `loadComparison`, `recentTrainingEvidence`, and `prescriptionAdaptationDecision`. The adaptation decision records evidence ids, missing actual metrics, before/after generated hard-day targets, confidence, safety implications, and whether a base-prescription revision is required.
 
 ## Persistence Tables
 
@@ -94,6 +109,8 @@ Migration `014_temporal_integrity_session_resolution.sql` adds:
 - summary/decision lifecycle columns for provisional vs final week history;
 - indexes for generated-session resolution, performed-date lookup, readiness revisions, preview status, and history lifecycle ordering.
 
+Migration `20260619194631_generated_session_identity_lifecycle.sql` adds generated-session schedule identity/lifecycle columns and active-slot indexes for deterministic retries, explicit moves, and legacy duplicate reconciliation.
+
 Training projection/progression/preview rows are user-owned where applicable, RLS-protected, and treated as engine audit/progression records. They are not medical directives and should not be mutated directly by screens.
 
 ## Week Summary And Decision Persistence
@@ -116,11 +133,18 @@ Week summaries and progression decisions now carry lifecycle metadata:
 
 - Active-week summaries are `provisional`.
 - Post-week summaries are `final`.
+- Corrected final records use `corrected_final`, are preserved separately from the original `final`, and outrank the original final for current authority.
+- Legacy or duplicate records may be retained as `superseded`; selectors keep them available for audit but exclude them from current progression authority.
 - `week_completed` timeline events are emitted only for final summaries.
 - Provisional progression decisions may still support next-week preview planning, but they are marked with `decisionLifecycle: provisional`.
-- Same-week decision ordering uses `generatedAt` where available.
+- Same-week decision ordering is centralized in `trainingHistoryAuthority`: active plan revision, highest week, corrected final over final, final over provisional, newest `generatedAt`, then stable row id.
+- Migration `20260619190201_training_week_finalization_authority.sql` adds deterministic `summary_authority_key`, `decision_authority_key`, and `event_key` columns so repeated refreshes and stale read retries use database-backed conflict targets. Final and corrected-final lifecycles have separate authority keys; timeline event keys include summary/decision lifecycle so a corrected-final event cannot overwrite the original final event.
 
 `resolveAndPersistPerformanceState` persists block, microcycle, day plans, week summary, progression decision, timeline events, and then the next-week preview. During a boundary refresh it preserves due accepted previews long enough for `autoRollForwardTrainingPlan` to materialize them instead of superseding them with the next preview first.
+
+Before the current-week projection is written, `resolveAndPersistPerformanceState` now finalizes any prior compatible block weeks that do not already have a `final` or `corrected_final` summary. It promotes the latest provisional summary when one exists; otherwise it creates a conservative final summary from available completion/evidence records without treating missing data as safe. Each finalized week writes its final progression decision and one idempotent `week_completed` timeline event before current-week provisional persistence continues.
+
+Boundary finalization is resumable. If a retry or crash leaves a final summary without its matching final progression decision or `week_completed` event, the next service refresh resumes those missing writes instead of skipping the week as already complete.
 
 ## Next-Week Preview Persistence
 
@@ -295,7 +319,7 @@ No destructive remote migration command was run in this pass. Live Supabase smok
 ## Still Scaffolded
 
 - Numeric load progression is intentionally deferred until structured load fields exist.
-- Server-scheduled/background week finalization remains deferred; app/service refresh can write provisional evidence and final summaries when called after the week end.
+- Server-scheduled/background week finalization remains deferred; app/service refresh owns deterministic catch-up finalization when called after the week end.
 - Coach UI remains hidden while approval audit/admin/team policy matures.
 - Team memberships are deferred.
 - Server-scheduled/background roll-forward is deferred; app-refresh automation is implemented.

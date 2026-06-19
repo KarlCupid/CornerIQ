@@ -161,6 +161,24 @@ export function applyTrainingPlanAdjustment(input: TrainingPlanAdjustmentEngineI
       if (!fromDay || !toDay || !session) {
         return result({ status: "rejected", explanation: "Generated session was not found on the requested source date.", modifiedDayPlans: [], command });
       }
+      if (session.generatedSessionLifecycle === "superseded" || session.generatedSessionLifecycle === "canceled") {
+        return result({
+          status: "rejected",
+          explanation: `Move rejected: generated session is ${session.generatedSessionLifecycle} and cannot be changed by a stale client.`,
+          modifiedDayPlans: [],
+          safetyFlags: ["stale_generated_session_mutation_rejected"],
+          command
+        });
+      }
+      if ((session.currentScheduledDate ?? session.date) !== command.fromDate) {
+        return result({
+          status: "rejected",
+          explanation: "Move rejected: generated session is no longer scheduled on the requested source date.",
+          modifiedDayPlans: [],
+          safetyFlags: ["stale_generated_session_mutation_rejected"],
+          command
+        });
+      }
       if (hasProtectedSparringOrCompetition(toDay)) {
         return result({
           status: "rejected",
@@ -176,7 +194,13 @@ export function applyTrainingPlanAdjustment(input: TrainingPlanAdjustmentEngineI
       }
 
       const nextFromGenerated = fromDay.generatedSessions.filter((item) => item.id !== command.sessionId);
-      const movedSession: GeneratedTrainingSession = { ...session, date: command.toDate };
+      const movedSession: GeneratedTrainingSession = {
+        ...session,
+        date: command.toDate,
+        originalPlannedDate: session.originalPlannedDate ?? session.date,
+        currentScheduledDate: command.toDate,
+        generatedSessionLifecycle: "moved"
+      };
       const nextToGenerated = [...toDay.generatedSessions, movedSession];
       const nextFrom: TrainingDayPlan = {
         ...fromDay,

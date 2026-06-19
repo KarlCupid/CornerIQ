@@ -4,7 +4,20 @@ import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
 import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
-export type GeneratedTrainingSessionRow = Pick<TableRow<"generated_training_sessions">, "id" | "block_id" | "planned_date" | "session_payload">;
+export type GeneratedTrainingSessionRow = Pick<
+  TableRow<"generated_training_sessions">,
+  | "id"
+  | "block_id"
+  | "planned_date"
+  | "original_planned_date"
+  | "current_scheduled_date"
+  | "plan_revision_id"
+  | "week_id"
+  | "week_index"
+  | "prescription_slot_id"
+  | "generated_session_lifecycle"
+  | "session_payload"
+>;
 export type CompletedTrainingSessionRow = Pick<
   TableRow<"completed_training_sessions">,
   | "id"
@@ -28,12 +41,32 @@ export interface ListGeneratedSessionsOptions {
 
 export function mapGeneratedTrainingSessionRow(row: GeneratedTrainingSessionRow): GeneratedTrainingSession {
   const payload = payloadObject(row.session_payload, "generated_training_sessions.session_payload");
+  const payloadDate = typeof payload.date === "string" ? payload.date : row.planned_date;
+  const originalPlannedDate = row.original_planned_date ?? (typeof payload.originalPlannedDate === "string" ? payload.originalPlannedDate : row.planned_date);
+  const currentScheduledDate = row.current_scheduled_date ?? (typeof payload.currentScheduledDate === "string" ? payload.currentScheduledDate : payloadDate);
   return parseWithSchema(
     GeneratedTrainingSessionSchema,
     {
       ...payload,
       id: typeof payload.id === "string" ? payload.id : row.id,
-      date: row.planned_date,
+      date: currentScheduledDate,
+      originalPlannedDate,
+      currentScheduledDate,
+      ...(row.plan_revision_id ? { planRevisionId: row.plan_revision_id } : {}),
+      ...(row.week_id ? { weekId: row.week_id } : {}),
+      ...(row.week_index ? { weekIndex: row.week_index } : {}),
+      ...(row.prescription_slot_id ? { prescriptionSlotId: row.prescription_slot_id } : {}),
+      generatedSessionLifecycle:
+        row.generated_session_lifecycle === "completed" ||
+        row.generated_session_lifecycle === "skipped" ||
+        row.generated_session_lifecycle === "unresolved" ||
+        row.generated_session_lifecycle === "moved" ||
+        row.generated_session_lifecycle === "superseded" ||
+        row.generated_session_lifecycle === "canceled"
+          ? row.generated_session_lifecycle
+          : typeof payload.generatedSessionLifecycle === "string"
+            ? payload.generatedSessionLifecycle
+            : "active",
       ...(typeof payload.trainingBlockId === "string" ? { trainingBlockId: payload.trainingBlockId } : row.block_id ? { trainingBlockId: row.block_id } : {})
     },
     "generated_training_sessions"
@@ -138,7 +171,7 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "generated_training_sessions.listGeneratedSessions");
       const query = client
         .from("generated_training_sessions")
-        .select("id, block_id, planned_date, session_payload")
+        .select("id, block_id, planned_date, original_planned_date, current_scheduled_date, plan_revision_id, week_id, week_index, prescription_slot_id, generated_session_lifecycle, session_payload")
         .eq("user_id", safeUserId);
       const startDate = options.startDate ?? options.asOfDate;
       let scopedQuery = startDate ? query.gte("planned_date", startDate) : query;

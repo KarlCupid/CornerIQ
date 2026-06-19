@@ -17,7 +17,9 @@ import type {
 } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
+import { applyTrainingPlanAdjustment } from "../../engine/training/planAdjustmentEngine";
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
+import { isHighStimulusGeneratedSession } from "../../engine/training/trainingStimulus";
 import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
 import {
   amateur_novice_build,
@@ -153,6 +155,8 @@ function seriousSixDayState(input: {
   safetyFlags?: typeof pro_4_round_build_strength.safetyFlags | undefined;
   trainingDose?: PlanGenerationTrainingDose | undefined;
   protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
+  completedTrainingSessions?: readonly CompletedTrainingSession[] | undefined;
+  exerciseResults?: readonly ExerciseResultRecord[] | undefined;
   additionalJourneyEvents?: readonly JourneyEvent[] | undefined;
 } = {}) {
   const base = input.journey ?? pro_4_round_build_strength;
@@ -201,6 +205,8 @@ function seriousSixDayState(input: {
       ],
       hydrationHistory: input.hydrationHistory ?? base.hydrationHistory,
       electrolyteHistory: input.electrolyteHistory ?? base.electrolyteHistory,
+      completedTrainingSessions: input.completedTrainingSessions ?? base.completedTrainingSessions,
+      exerciseResults: input.exerciseResults ?? base.exerciseResults,
       trainingHistory: [],
       trainingPlanAdjustments: [],
       safetyFlags: input.safetyFlags ?? []
@@ -217,12 +223,14 @@ function readinessForDate(date: string): ReadinessCheckIn {
 }
 
 function completedRecordForGeneratedSession(session: GeneratedTrainingSession, completionStatus: "completed" | "skipped"): CompletedTrainingSession {
+  const plannedDate = session.originalPlannedDate ?? session.date;
+  const performedDate = session.currentScheduledDate ?? session.date;
   return {
     id: `${completionStatus}_${session.id.replace(/[^a-zA-Z0-9]+/g, "_")}`,
-    date: session.date,
-    plannedDate: session.date,
-    performedDate: session.date,
-    recordedAt: `${session.date}T18:00:00.000Z`,
+    date: performedDate,
+    plannedDate,
+    performedDate,
+    recordedAt: `${performedDate}T18:00:00.000Z`,
     type: "coach_assigned_strength",
     durationMinutes: session.durationMinutes,
     intensity: session.intensity === "recovery" ? "easy" : session.intensity,
@@ -958,6 +966,197 @@ describe("training block and microcycle engine", () => {
     expect(second.training.generatedSessions.find((session) => session.date === unchangedFutureSession?.date && session.family === unchangedFutureSession?.family)?.id).toBe(unchangedFutureSession?.id);
   });
 
+  it("keeps fallback plan revision stable across a week boundary inside the same active block", () => {
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: ["tuesday", "wednesday", "thursday"]
+      },
+      journeyEvents: [],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const first = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-19" });
+    const secondWeek = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        currentTrainingBlock: first.training.activeBlock.id,
+        activeTrainingBlock: first.training.activeBlock,
+        trainingHistory: first.training.generatedSessions
+      },
+      asOfDate: "2026-05-26"
+    });
+
+    expect(secondWeek.training.activeBlock.progressionState.weekIndex).toBe(2);
+    expect(secondWeek.training.supportGenerationAudit.planRevisionId).toBe(first.training.supportGenerationAudit.planRevisionId);
+    expect(secondWeek.training.generatedSessions.every((session) => session.planRevisionId === first.training.supportGenerationAudit.planRevisionId)).toBe(true);
+  });
+
+  it("does not renumber future prescription slots when asOfDate advances without persisted generated rows", () => {
+    const selectedDays = ["tuesday", "wednesday", "thursday"];
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: selectedDays
+      },
+      journeyEvents: [
+        planWizardBuildEvent({
+          focus: "strength",
+          id: "plan_slot_stability",
+          planStartDate: "2026-05-18",
+          selectedSupportDays: selectedDays
+        })
+      ],
+      readinessHistory: [readinessForDate("2026-05-19"), readinessForDate("2026-05-20")],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const first = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-19" });
+    const second = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-20" });
+    const firstThursday = first.training.generatedSessions.find((session) => session.originalPlannedDate === "2026-05-21");
+    const secondThursday = second.training.generatedSessions.find((session) => session.originalPlannedDate === "2026-05-21");
+
+    expect(firstThursday).toBeTruthy();
+    expect(secondThursday).toBeTruthy();
+    expect(secondThursday).toMatchObject({
+      id: firstThursday?.id,
+      prescriptionSlotId: firstThursday?.prescriptionSlotId,
+      weekId: firstThursday?.weekId,
+      originalPlannedDate: "2026-05-21",
+      currentScheduledDate: "2026-05-21",
+      date: "2026-05-21",
+      family: firstThursday?.family,
+      title: firstThursday?.title,
+      durationMinutes: firstThursday?.durationMinutes
+    });
+  });
+
+  it("keeps explicit moves on the same prescription identity through completion", () => {
+    const selectedDays = ["tuesday", "wednesday", "thursday"];
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: selectedDays
+      },
+      journeyEvents: [
+        planWizardBuildEvent({
+          focus: "strength",
+          id: "plan_move_identity",
+          planStartDate: "2026-05-18",
+          selectedSupportDays: selectedDays
+        })
+      ],
+      readinessHistory: [readinessForDate("2026-05-19"), readinessForDate("2026-05-20"), readinessForDate("2026-05-22")],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const initial = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-19" });
+    const session = initial.training.generatedSessions.find((item) => item.originalPlannedDate === "2026-05-20")!;
+    const adjustment = persistedMoveAdjustment({
+      session,
+      fromDate: "2026-05-20",
+      toDate: "2026-05-22",
+      trainingBlockId: initial.training.activeBlock.id
+    });
+    const movedState = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        currentTrainingBlock: initial.training.activeBlock.id,
+        activeTrainingBlock: initial.training.activeBlock,
+        trainingHistory: initial.training.generatedSessions,
+        trainingPlanAdjustments: [adjustment]
+      },
+      asOfDate: "2026-05-20"
+    });
+    const moved = movedState.training.generatedSessions.find((item) => item.id === session.id)!;
+
+    expect(moved).toMatchObject({
+      id: session.id,
+      prescriptionSlotId: session.prescriptionSlotId,
+      originalPlannedDate: "2026-05-20",
+      currentScheduledDate: "2026-05-22",
+      date: "2026-05-22",
+      generatedSessionLifecycle: "moved"
+    });
+
+    const completion = completedRecordForGeneratedSession(moved, "completed");
+    const completedState = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        currentTrainingBlock: initial.training.activeBlock.id,
+        activeTrainingBlock: initial.training.activeBlock,
+        trainingHistory: movedState.training.generatedSessions,
+        trainingPlanAdjustments: [adjustment],
+        completedTrainingSessions: [completion]
+      },
+      asOfDate: "2026-05-22"
+    });
+
+    expect(completedState.training.completedSessions).toHaveLength(1);
+    expect(completedState.training.completedSessions[0]).toMatchObject({
+      generatedSessionId: session.id,
+      plannedDate: "2026-05-20",
+      performedDate: "2026-05-22",
+      completionStatus: "completed"
+    });
+    expect(completedState.viewModels.train.workoutLooseEnds.map((item) => item.generatedSessionId)).not.toContain(session.id);
+  });
+
+  it("rejects stale client moves for superseded generated-session rows", () => {
+    const initial = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "wednesday", "thursday"]
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "strength",
+            id: "plan_stale_move",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: ["tuesday", "wednesday", "thursday"]
+          })
+        ],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: "2026-05-19"
+    });
+    const session = initial.training.generatedSessions.find((item) => item.originalPlannedDate === "2026-05-20")!;
+    const staleSession: GeneratedTrainingSession = { ...session, generatedSessionLifecycle: "superseded" };
+    const dayPlans = initial.training.dayPlans.map((day) =>
+      day.date === session.date
+        ? {
+            ...day,
+            generatedSessions: day.generatedSessions.map((item) => (item.id === session.id ? staleSession : item))
+          }
+        : day
+    );
+    const adjustment = persistedMoveAdjustment({
+      session: staleSession,
+      fromDate: "2026-05-20",
+      toDate: "2026-05-22",
+      trainingBlockId: initial.training.activeBlock.id
+    });
+    const result = applyTrainingPlanAdjustment({
+      activeBlock: initial.training.activeBlock,
+      dayPlans,
+      command: adjustment.command
+    });
+
+    expect(result.status).toBe("rejected");
+    expect(result.modifiedDayPlans).toEqual([]);
+    expect(result.safetyFlags).toContain("stale_generated_session_mutation_rejected");
+  });
+
   it("uses one canonical generated-session resolution when skipped is corrected to completed", () => {
     const first = resolvePerformanceState({
       journey: {
@@ -1037,6 +1236,154 @@ describe("training block and microcycle engine", () => {
     expect(replay.training.plannedLoadLedger.generatedStrengthSets + replay.training.plannedLoadLedger.roadworkMinutes).toBeGreaterThan(0);
     expect(replay.training.actualLoadLedger.generatedStrengthSets + replay.training.actualLoadLedger.roadworkMinutes).toBe(0);
     expect(replay.training.supportGenerationAudit.looseEndSessionIds.length).toBeGreaterThan(0);
+  });
+
+  it("counts actual strength sets only from logged exercise results", () => {
+    const completedStrength: CompletedTrainingSession = {
+      ...completedGoodSession,
+      id: "completed_strength_without_sets",
+      date: fixtureAsOfDate,
+      performedDate: fixtureAsOfDate,
+      type: "coach_assigned_strength",
+      intensity: "hard",
+      completionStatus: "completed"
+    };
+    const loggedStrengthSets: ExerciseResultRecord = {
+      id: "logged_strength_sets",
+      exerciseId: "split_squat_iso",
+      exerciseName: "Split squat iso hold",
+      section: "Main strength",
+      prescribed: { category: "main_strength" },
+      resultStatus: "completed",
+      completedSets: 3,
+      source: "test",
+      engineVersion: "test",
+      completedTrainingSessionId: completedStrength.id,
+      generatedTrainingSessionDbId: null,
+      recordedAt: `${fixtureAsOfDate}T12:00:00.000Z`,
+      completedAt: `${fixtureAsOfDate}T12:00:00.000Z`
+    };
+    const stateWithoutExerciseActuals = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        completedTrainingSessions: [completedStrength],
+        exerciseResults: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: [],
+        journeyEvents: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const stateWithExerciseActuals = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        completedTrainingSessions: [completedStrength],
+        exerciseResults: [loggedStrengthSets],
+        trainingPlanAdjustments: [],
+        safetyFlags: [],
+        journeyEvents: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(stateWithoutExerciseActuals.training.actualLoadLedger.generatedStrengthSets).toBe(0);
+    expect(stateWithoutExerciseActuals.training.actualLoadLedger.source).toBe("actual");
+    expect(stateWithoutExerciseActuals.training.actualLoadLedger.unknownMetrics).toContain("strength sets");
+    expect(stateWithExerciseActuals.training.actualLoadLedger.generatedStrengthSets).toBe(3);
+    expect(stateWithExerciseActuals.training.actualLoadLedger.evidenceIds).toContain(loggedStrengthSets.id);
+  });
+
+  it("removes linked exercise actuals from current load after a completed workout is corrected to skipped", () => {
+    const completedStrength: CompletedTrainingSession = {
+      ...completedGoodSession,
+      id: "completed_strength_correction",
+      date: fixtureAsOfDate,
+      plannedDate: fixtureAsOfDate,
+      performedDate: fixtureAsOfDate,
+      recordedAt: `${fixtureAsOfDate}T12:00:00.000Z`,
+      type: "coach_assigned_strength",
+      intensity: "hard",
+      completionStatus: "completed",
+      generatedSessionId: "generated_strength_correction",
+      completionKey: "generated_session_completion:generated_strength_correction"
+    };
+    const skippedCorrection: CompletedTrainingSession = {
+      ...completedStrength,
+      id: "skipped_strength_correction",
+      recordedAt: `${fixtureAsOfDate}T18:00:00.000Z`,
+      completionStatus: "skipped",
+      sessionRpe: undefined
+    };
+    const staleExerciseActual: ExerciseResultRecord = {
+      id: "stale_strength_sets_after_skip",
+      exerciseId: "split_squat_iso",
+      exerciseName: "Split squat iso hold",
+      section: "Main strength",
+      prescribed: { category: "main_strength" },
+      resultStatus: "completed",
+      completedSets: 4,
+      source: "test",
+      engineVersion: "test",
+      generatedSessionId: completedStrength.generatedSessionId,
+      completedTrainingSessionId: completedStrength.id,
+      generatedTrainingSessionDbId: null,
+      recordedAt: `${fixtureAsOfDate}T12:05:00.000Z`,
+      completedAt: `${fixtureAsOfDate}T12:00:00.000Z`
+    };
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        completedTrainingSessions: [completedStrength, skippedCorrection],
+        exerciseResults: [staleExerciseActual],
+        trainingPlanAdjustments: [],
+        safetyFlags: [],
+        journeyEvents: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.completedSessions).toEqual([expect.objectContaining({ id: skippedCorrection.id, completionStatus: "skipped" })]);
+    expect(state.training.actualLoadLedger.generatedStrengthSets).toBe(0);
+    expect(state.training.actualLoadLedger.evidenceIds).not.toContain(staleExerciseActual.id);
+    expect(state.training.supportGenerationAudit.loadComparison?.missingActualMetrics).not.toContain("strength sets");
+    expect(state.training.supportGenerationAudit.recentTrainingEvidence?.exerciseResultIds).not.toContain(staleExerciseActual.id);
+  });
+
+  it("uses current actual hard work to reserve future generated hard-day capacity", () => {
+    const control = seriousSixDayState({ focus: "strength", id: "plan_actual_load_control" });
+    const manualHardWork: CompletedTrainingSession = {
+      id: "manual_hard_sparring_monday",
+      date: "2026-05-18",
+      plannedDate: "2026-05-18",
+      performedDate: "2026-05-18",
+      recordedAt: "2026-05-19T08:00:00.000Z",
+      type: "sparring",
+      durationMinutes: 45,
+      intensity: "hard",
+      rounds: 6,
+      completionStatus: "completed",
+      sessionRpe: 7,
+      painNotes: [],
+      completionSource: "manual",
+      source: "manual"
+    };
+    const adapted = seriousSixDayState({
+      focus: "strength",
+      id: "plan_actual_load_reserved",
+      completedTrainingSessions: [manualHardWork]
+    });
+    const adaptedFutureHardDates = adapted.training.generatedSessions.filter(isHighStimulusGeneratedSession).map((session) => session.date);
+
+    expect(adapted.training.actualLoadLedger.hardDayCount).toBe(1);
+    expect(adapted.training.supportGenerationAudit.reducedBy).toContain("actual_load");
+    expect(adapted.training.supportGenerationAudit.prescriptionAdaptationDecision?.beforeGeneratedHardDayTarget).toBeGreaterThan(
+      adapted.training.supportGenerationAudit.prescriptionAdaptationDecision?.afterGeneratedHardDayTarget ?? 0
+    );
+    expect(adapted.training.supportGenerationAudit.prescriptionAdaptationDecision?.evidenceIds).toContain(manualHardWork.id);
+    expect(adapted.training.supportGenerationAudit.generatedHardDayCount).toBeLessThan(control.training.supportGenerationAudit.generatedHardDayCount);
+    expect(adapted.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(adapted.training.supportGenerationAudit.minHardDayCount);
+    expect(adaptedFutureHardDates).not.toContain("2026-05-19");
+    expect(adapted.training.supportGenerationAudit.repairActionsApplied.join(" ")).toContain("Actual completed hard work");
   });
 
   it("ignores stale persisted generated sessions from superseded plan revisions", () => {
@@ -1561,8 +1908,23 @@ describe("training block and microcycle engine", () => {
       },
       asOfDate: "2026-05-20"
     });
+    const later = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "thursday", "saturday"]
+        },
+        journeyEvents: [legacyPlanEvent],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: "2026-05-26"
+    });
 
     expect(state.training.planGenerationIntent?.planStartDate).toBe("2026-05-19");
+    expect(later.training.planGenerationIntent?.id).toBe(state.training.planGenerationIntent?.id);
     expect(state.training.supportGenerationAudit.planStartDate).toBe("2026-05-19");
     expect(state.training.currentMicrocycle.weekStartDate).toBe("2026-05-19");
     expect(state.training.dayPlans.map((day) => day.date).slice(0, 2)).toEqual(["2026-05-19", "2026-05-20"]);
@@ -1762,6 +2124,52 @@ describe("training block and microcycle engine", () => {
 
     expect(newPlan.viewModels.plan.planLifecycleLabel).toBe("Week 1 · New plan");
     expect(amended.viewModels.plan.planLifecycleLabel).toBe("Week 4 · Amended");
+  });
+
+  it("does not let stale or superseded week summaries advance the active plan week", () => {
+    const staleOldRevisionSummary = {
+      id: "summary_old_revision",
+      blockId: "training_block_1",
+      weekIndex: 9,
+      weekStartDate: "2026-04-20",
+      weekEndDate: "2026-04-26",
+      completionCount: 3,
+      skippedCount: 0,
+      prescribedOnlyCount: 0,
+      partialResultCount: 0,
+      completedResultCount: 3,
+      painFlagCount: 0,
+      averageSessionRpe: 6,
+      averageExerciseRpe: 6,
+      hardDaysCompleted: 2,
+      protectedAnchorCount: 2,
+      generatedSupportCount: 3,
+      underfuelingFlag: false,
+      highCycleSymptomFlag: false,
+      safetyFlagCount: 0,
+      summary: "Old revision summary.",
+      reasons: ["Old explicit revision must not drive the current projection."],
+      lifecycle: "final" as const,
+      generatedAt: "2026-04-27T00:00:00.000Z",
+      finalizedAt: "2026-04-27T00:00:00.000Z",
+      planRevisionId: "old_revision"
+    };
+    const supersededCurrentRevisionSummary = {
+      ...staleOldRevisionSummary,
+      id: "summary_superseded_current_revision",
+      lifecycle: "superseded" as const,
+      planRevisionId: undefined
+    };
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        trainingWeekSummaries: [staleOldRevisionSummary, supersededCurrentRevisionSummary]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.activeBlock.progressionState.weekIndex).toBe(1);
+    expect(state.training.supportGenerationAudit.weekIndex).toBe(1);
   });
 
   it("high cycle symptoms trim optional work and completed good sessions allow progression", () => {

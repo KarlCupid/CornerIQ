@@ -297,15 +297,30 @@ function adjustedShape(
   };
 }
 
-function deterministicSessionId(input: NextWeekGeneratedSessionMaterializationInput, date: ISODateString, family: GeneratedSessionFamily): string {
+function previewRevisionKey(input: NextWeekGeneratedSessionMaterializationInput): string {
   const previewKey = input.previewId ?? input.previewHash ?? "preview-unpersisted";
-  return `next-week:${stableHash({
+  return `preview:${previewKey}`;
+}
+
+function weekId(input: NextWeekGeneratedSessionMaterializationInput): string {
+  return `week:${previewRevisionKey(input)}:${input.materialization.nextWeekIndex}`;
+}
+
+function prescriptionSlotId(input: NextWeekGeneratedSessionMaterializationInput, date: ISODateString, slotIndex: number): string {
+  return `slot:${previewRevisionKey(input)}:${input.materialization.nextWeekIndex}:${slotIndex}:${date}:${stableHash({
     athleteId: input.athlete.athleteId,
     date,
+    previewRevision: previewRevisionKey(input),
+    slotIndex
+  }).slice(0, 12)}`;
+}
+
+function deterministicSessionId(input: NextWeekGeneratedSessionMaterializationInput, slotId: string): string {
+  return `next-week:${stableHash({
+    athleteId: input.athlete.athleteId,
     engineVersion: input.engineVersion,
-    family,
     nextWeekIndex: input.materialization.nextWeekIndex,
-    previewKey
+    slotId
   })}`;
 }
 
@@ -342,13 +357,22 @@ export function materializeGeneratedSessionsFromPreview(input: NextWeekGenerated
     used.add(key);
     const adjusted = adjustedShape(input, family, protectedHard, [...usedTemplateIds]);
     usedTemplateIds.add(adjusted.templateId);
+    const slotIndex = sessions.length;
+    const slotId = prescriptionSlotId(input, day.date, slotIndex);
     sessions.push(
       assertSafeOutput({
-        id: deterministicSessionId(input, day.date, family),
+        id: deterministicSessionId(input, slotId),
         date: day.date,
+        originalPlannedDate: day.date,
+        currentScheduledDate: day.date,
         family,
         ...generatedSessionLabels(family),
         ...adjusted.shape,
+        planRevisionId: previewRevisionKey(input),
+        weekId: weekId(input),
+        weekIndex: input.materialization.nextWeekIndex,
+        prescriptionSlotId: slotId,
+        generatedSessionLifecycle: "active",
         source: "next_week_preview_materialization",
         templateId: adjusted.templateId,
         targetDurationMinutes: adjusted.durationPolicy.targetDurationMinutes,

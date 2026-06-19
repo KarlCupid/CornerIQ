@@ -584,7 +584,9 @@ const trainViewModel: TrainViewModel = {
       intervalCount: 0,
       hardDayCount: 0,
       hardDayCap: 3,
-      recoverySessions: 0
+      recoverySessions: 0,
+      source: "planned",
+      plannedIds: []
     },
     actualLoadLedger: {
       protectedBoxingMinutes: 0,
@@ -595,7 +597,10 @@ const trainViewModel: TrainViewModel = {
       intervalCount: 0,
       hardDayCount: 0,
       hardDayCap: 3,
-      recoverySessions: 0
+      recoverySessions: 0,
+      source: "actual",
+      evidenceIds: [],
+      unknownMetrics: []
     },
     acceptedPreviewStatus: null,
     weekSummaryLifecycle: "provisional",

@@ -21,19 +21,23 @@ import type {
   GeneratedSessionDurationAuditItem,
   PersistedGeneratedSessionAuditItem,
   TrainingGenerationReductionSource,
+  TrainingExecutionBaselineTargets,
+  TrainingLoadComparison,
+  RecentTrainingEvidence,
+  PrescriptionAdaptationDecision,
   TrainingState,
   PlanGenerationIntent,
   PlanGenerationTrainingDose,
   PlanGenerationPrimaryFocus
 } from "../core/types";
-import { buildActualLoadLedger, buildPlannedLoadLedger } from "./loadLedger";
+import { buildActualLoadLedger, buildPlannedLoadLedger, completedSessionActualDate, isCurrentCompletedSession } from "./loadLedger";
 import { generateSupportSession } from "./sessionGenerator";
 import { anchorsForDate, hasProtectedCompetition, hasProtectedSparring } from "./protectedAnchors";
 import { applyTrainingPlanAdjustments } from "./planAdjustmentEngine";
 import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
 import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine";
-import type { TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
+import { selectAuthoritativeTrainingProgressionDecision, selectAuthoritativeTrainingWeekSummary } from "./trainingHistoryAuthority";
 import { generatedSupportAllowedOnDate, generatedSupportWeekdayForDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
 import { appliedMovedGeneratedSessionIds, resolveGeneratedSessionStatus } from "./generatedSessionStatus";
 import {
@@ -95,21 +99,31 @@ function protectedHardDayCount(anchors: readonly ProtectedWorkout[], dates: read
   return dates.filter((date) => date >= asOfDate && protectedHardOnDate(anchors, date)).length;
 }
 
+function blockedByActualHardDate(date: ISODateString, actualHardDates: ReadonlySet<ISODateString>): boolean {
+  return actualHardDates.has(date) || actualHardDates.has(addDays(date, -1)) || actualHardDates.has(addDays(date, 1));
+}
+
 function selectGeneratedHardDates(input: {
   candidateDates: readonly ISODateString[];
   count: number;
   familySequence: readonly GeneratedSessionFamily[];
+  occupiedHardDates?: ReadonlySet<ISODateString> | undefined;
   protectedAnchors: readonly ProtectedWorkout[];
 }): ReadonlySet<ISODateString> {
   if (input.count <= 0) {
     return new Set();
   }
+  const occupiedHardDates = input.occupiedHardDates ?? new Set<ISODateString>();
   const eligible = input.candidateDates
     .map((date, index) => ({
       date,
       hardCapable: isHighStimulusFamily(input.familySequence[index % input.familySequence.length] ?? "trunk_durability")
     }))
-    .filter((candidate) => !protectedHardOnDate(input.protectedAnchors, candidate.date));
+    .filter(
+      (candidate) =>
+        !protectedHardOnDate(input.protectedAnchors, candidate.date) &&
+        !blockedByActualHardDate(candidate.date, occupiedHardDates)
+    );
   const selected: ISODateString[] = [];
   for (const candidate of eligible.filter((item) => item.hardCapable)) {
     selected.push(candidate.date);
@@ -128,8 +142,19 @@ function selectGeneratedHardDates(input: {
   return new Set(selected);
 }
 
-function latestByWeekIndex<T extends { weekIndex: number }>(items: readonly T[] | undefined): T | null {
-  return items?.reduce<T | null>((latest, item) => (!latest || item.weekIndex > latest.weekIndex ? item : latest), null) ?? null;
+function currentWeekActualHardDates(input: {
+  asOfDate: ISODateString;
+  completedSessions: readonly CompletedTrainingSession[];
+  weekEndDate: ISODateString;
+  weekStartDate: ISODateString;
+}): ReadonlySet<ISODateString> {
+  return new Set(
+    input.completedSessions
+      .filter((session) => isCurrentCompletedSession(session, input.asOfDate))
+      .filter((session) => session.intensity === "hard" || session.intensity === "max")
+      .map(completedSessionActualDate)
+      .filter((date) => date >= input.weekStartDate && date <= input.weekEndDate)
+  );
 }
 
 function activeWeekStartDate(input: {
@@ -149,11 +174,13 @@ function activeWeekStartDate(input: {
 }
 
 function planRevisionId(input: {
+  activeTrainingBlock?: TrainingBlock | null | undefined;
   athlete: AthleteProfile;
   planGenerationIntent?: PlanGenerationIntent | undefined;
   planStartDate: ISODateString;
 }): string {
-  return input.planGenerationIntent?.id ?? `projection:${input.athlete.athleteId}:${input.planStartDate}`;
+  const stableStartDate = input.planGenerationIntent?.planStartDate ?? input.activeTrainingBlock?.startDate ?? input.planStartDate;
+  return input.planGenerationIntent?.id ?? `projection:${input.athlete.athleteId}:${stableStartDate}`;
 }
 
 function selectedSupportDays(input: {
@@ -419,7 +446,7 @@ function selectGeneratedSessions(input: {
 
   const targetMinutes = input.policy.targetWeeklyGeneratedMinutes;
   let currentMinutes = repaired.reduce((total, session) => total + session.durationMinutes, 0);
-  if (currentMinutes < targetMinutes) {
+  if (targetCount >= input.policy.targetSessionCount && currentMinutes < targetMinutes) {
     repaired = repaired.map((session) => {
       if (currentMinutes >= targetMinutes || session.durationPolicyCategory !== "normal_support") {
         return session;
@@ -445,7 +472,7 @@ function selectGeneratedSessions(input: {
     const replaceIndex = [...repaired]
       .map((session, index) => ({ index, session }))
       .reverse()
-      .find((item) => isHighStimulusGeneratedSession(item.session) && item.session.intensity !== "hard")?.index;
+      .find((item) => isHighStimulusGeneratedSession(item.session) && !isPersistedMaterializedSession(item.session))?.index;
     if (replaceIndex === undefined) {
       break;
     }
@@ -511,6 +538,7 @@ function generationReductionSources(input: {
   candidateAllowedDays: number;
   blockedByAnchors: boolean;
   phase: PhaseState;
+  actualLoadReducedHardDays?: boolean | undefined;
 }): readonly TrainingGenerationReductionSource[] {
   const sources = new Set<TrainingGenerationReductionSource>();
   if (input.fuelCountCap || input.underFuelingRisk) {
@@ -534,7 +562,78 @@ function generationReductionSources(input: {
   if (input.phase.phase === "tournament" || input.phase.phase === "fight_week") {
     sources.add("phase");
   }
+  if (input.actualLoadReducedHardDays) {
+    sources.add("actual_load");
+  }
   return [...sources];
+}
+
+function prescriptionTargetSnapshot(policy: WeeklyTrainingPrescriptionPolicy): TrainingExecutionBaselineTargets {
+  return {
+    targetGeneratedSupportCount: policy.targetSessionCount,
+    targetHardDayCount: policy.targetHardDayCount,
+    targetWeeklyGeneratedMinutes: policy.targetWeeklyGeneratedMinutes
+  };
+}
+
+function recentTrainingEvidence(input: {
+  actualLoadLedger: { evidenceIds: readonly string[] };
+  completedSessions: readonly CompletedTrainingSession[];
+  exerciseResults: readonly ExerciseResultRecord[];
+}): RecentTrainingEvidence {
+  const actualEvidenceIds = new Set(input.actualLoadLedger.evidenceIds);
+  return {
+    completedSessionIds: input.completedSessions.filter((session) => actualEvidenceIds.has(session.id)).map((session) => session.id).sort(),
+    exerciseResultIds: input.exerciseResults.filter((result) => actualEvidenceIds.has(result.id)).map((result) => result.id).sort(),
+    painEvidenceIds: [
+      ...input.completedSessions.filter((session) => session.painNotes.length > 0).map((session) => session.id),
+      ...input.exerciseResults.filter((result) => result.painFlag).map((result) => result.id)
+    ].sort(),
+    highRpeSessionIds: input.completedSessions.filter((session) => (session.sessionRpe ?? 0) >= 8.5).map((session) => session.id).sort()
+  };
+}
+
+function prescriptionAdaptationDecision(input: {
+  afterGeneratedHardDayTarget: number;
+  actualLoadReservationReasons: readonly string[];
+  beforeGeneratedHardDayTarget: number;
+  comparison: TrainingLoadComparison;
+  evidence: RecentTrainingEvidence;
+  policy: WeeklyTrainingPrescriptionPolicy;
+}): PrescriptionAdaptationDecision {
+  const actualLoadChangedPrescription = input.afterGeneratedHardDayTarget < input.beforeGeneratedHardDayTarget;
+  const painEvidence = input.evidence.painEvidenceIds.length > 0;
+  const highRpeEvidence = input.evidence.highRpeSessionIds.length > 0;
+  const missingActualMetrics = input.comparison.missingActualMetrics;
+  return {
+    decision: painEvidence ? "coach_review" : actualLoadChangedPrescription || highRpeEvidence || missingActualMetrics.length > 0 ? "hold" : "progress",
+    evidenceIds: [...new Set([...input.comparison.actual.evidenceIds, ...input.evidence.painEvidenceIds, ...input.evidence.highRpeSessionIds])].sort(),
+    beforePrescription: prescriptionTargetSnapshot(input.policy),
+    afterPrescription: prescriptionTargetSnapshot(input.policy),
+    beforeGeneratedHardDayTarget: input.beforeGeneratedHardDayTarget,
+    afterGeneratedHardDayTarget: input.afterGeneratedHardDayTarget,
+    reason: painEvidence
+      ? "Pain evidence requires coach review before adapting prescription upward."
+      : actualLoadChangedPrescription
+        ? input.actualLoadReservationReasons.join(" ")
+        : highRpeEvidence
+          ? "Recent high RPE holds future prescription steady."
+          : missingActualMetrics.length > 0
+            ? `Missing actual metrics lower confidence without fabricating load: ${missingActualMetrics.join(", ")}.`
+            : "Actual evidence supports the planned prescription without additional downshift.",
+    confidence: makeConfidence(
+      missingActualMetrics.length > 0 ? 0.56 : input.evidence.completedSessionIds.length + input.evidence.exerciseResultIds.length > 0 ? 0.78 : 0.62,
+      ["planned and actual load compared with current completion evidence"],
+      missingActualMetrics
+    ),
+    safetyImplications: [
+      ...(painEvidence ? ["Pain evidence blocks automatic progression."] : []),
+      ...(highRpeEvidence ? ["High RPE keeps the next prescription stable."] : []),
+      ...input.actualLoadReservationReasons,
+      ...missingActualMetrics.map((metric) => `${metric} remains unknown; no load was inferred.`)
+    ],
+    revisionRequired: actualLoadChangedPrescription || painEvidence || highRpeEvidence
+  };
 }
 
 export function resolveWeeklyTrainingPlan(input: {
@@ -591,6 +690,7 @@ export function resolveWeeklyTrainingPlan(input: {
     planGenerationIntent: input.planGenerationIntent
   });
   const planRevision = planRevisionId({
+    activeTrainingBlock: input.activeTrainingBlock,
     athlete: input.athlete,
     planGenerationIntent: input.planGenerationIntent,
     planStartDate
@@ -627,6 +727,15 @@ export function resolveWeeklyTrainingPlan(input: {
       !(index > 0 && hasProtectedSparring(input.anchors, date))
   );
   const protectedHardDays = protectedHardDayCount(input.anchors, candidateDates, input.asOfDate);
+  const actualCurrentWeekHardDates = currentWeekActualHardDates({
+    asOfDate: input.asOfDate,
+    completedSessions: input.completedSessions ?? [],
+    weekStartDate: planStartDate,
+    weekEndDate: planWeekEndDate
+  });
+  const actualHardDatesReservedForGenerationTarget = new Set(
+    [...actualCurrentWeekHardDates].filter((date) => !(date >= input.asOfDate && protectedHardOnDate(input.anchors, date)))
+  );
   const selectedTrainingDose = input.planGenerationIntent?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedDays.length || candidateAllowedDays);
   const prescriptionPolicy = resolveWeeklyTrainingPrescriptionPolicy({
     athlete: input.athlete,
@@ -638,6 +747,16 @@ export function resolveWeeklyTrainingPlan(input: {
     trainingDose: selectedTrainingDose,
     generationConstraints
   });
+  const adaptedGeneratedHardDayTarget = Math.max(0, prescriptionPolicy.targetGeneratedHardDayCount - actualHardDatesReservedForGenerationTarget.size);
+  const actualLoadAdaptedPrescriptionPolicy: WeeklyTrainingPrescriptionPolicy = {
+    ...prescriptionPolicy,
+    targetGeneratedHardDayCount: adaptedGeneratedHardDayTarget,
+    intensityDistribution: {
+      ...prescriptionPolicy.intensityDistribution,
+      hard: adaptedGeneratedHardDayTarget,
+      moderate: Math.max(0, prescriptionPolicy.targetSessionCount - adaptedGeneratedHardDayTarget - prescriptionPolicy.intensityDistribution.easyRecovery)
+    }
+  };
   const baseTargetSessions = prescriptionPolicy.unconstrainedTargetSessionCount;
   const targetSessions = prescriptionPolicy.targetSessionCount;
   if (targetSessions === 1 && !hardStopOrRedReadiness && !fuelCountCap && generationConstraints.hardSafetyConstraints.length === 0) {
@@ -701,12 +820,19 @@ export function resolveWeeklyTrainingPlan(input: {
   const initialFutureSelectionTarget = Math.max(remainingGeneratedSupportTarget, futureScopedPersistedSessions.length);
   const generatedHardDates = selectGeneratedHardDates({
     candidateDates: allowedSupportDates,
-    count: prescriptionPolicy.targetGeneratedHardDayCount,
+    count: adaptedGeneratedHardDayTarget,
     familySequence: prescriptionPolicy.familySequence,
+    occupiedHardDates: actualCurrentWeekHardDates,
     protectedAnchors: input.anchors
   });
+  const fullWeekSupportDates = candidateDates.filter(
+    (date, index) =>
+      supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) &&
+      !hasProtectedCompetition(input.anchors, date) &&
+      !(index > 0 && hasProtectedSparring(input.anchors, date))
+  );
   const supportDateOrder = new Map(
-    allowedSupportDates.map((date, index) => [date, index] as const)
+    fullWeekSupportDates.map((date, index) => [date, index] as const)
   );
 
   const recentFamilies = input.persistedGeneratedSessions?.map((session) => session.family) ?? [];
@@ -751,6 +877,7 @@ export function resolveWeeklyTrainingPlan(input: {
             severeFuelingRisk: fuelCountCap,
             familySequence: prescriptionPolicy.familySequence,
             generationConstraints,
+            avoidHighStimulus: blockedByActualHardDate(date, actualCurrentWeekHardDates),
             prescriptionHard: generatedHardDates.has(date)
           })
         : null;
@@ -778,6 +905,7 @@ export function resolveWeeklyTrainingPlan(input: {
       severeFuelingRisk: fuelCountCap,
       familySequence: prescriptionPolicy.familySequence,
       generationConstraints,
+      avoidHighStimulus: blockedByActualHardDate(date, actualCurrentWeekHardDates),
       prescriptionHard: generatedHardDates.has(date)
     });
   })
@@ -786,7 +914,7 @@ export function resolveWeeklyTrainingPlan(input: {
     .filter((session) => !underFuelingRisk || session.intensity !== "hard");
   const generatedSelection = selectGeneratedSessions({
     candidates: generatedCandidates,
-    policy: prescriptionPolicy,
+    policy: actualLoadAdaptedPrescriptionPolicy,
     targetSessions: initialFutureSelectionTarget,
     trainingDose: selectedTrainingDose
   });
@@ -828,7 +956,8 @@ export function resolveWeeklyTrainingPlan(input: {
     .filter((session) => session.date < input.asOfDate)
     .filter((session) => !movedSessionIds.has(session.id));
   const adjustedFutureGeneratedSessions = adjustedGeneratedSessions.filter((session) => session.date >= input.asOfDate);
-  const mergedFutureGeneratedCandidates = mergeGeneratedSessions(adjustedFutureGeneratedSessions, futureScopedPersistedSessions)
+  const futurePersistedSessionsForMerge = futureScopedPersistedSessions.filter((session) => !movedSessionIds.has(session.id));
+  const mergedFutureGeneratedCandidates = mergeGeneratedSessions(adjustedFutureGeneratedSessions, futurePersistedSessionsForMerge)
     .filter((session) =>
       generatedSessionAllowedByCurrentSafety({
         anchors: input.anchors,
@@ -845,15 +974,21 @@ export function resolveWeeklyTrainingPlan(input: {
       })
     );
   const movedIntoCurrentOrFutureCount = new Set(mergedFutureGeneratedCandidates.filter((session) => movedSessionIds.has(session.id)).map((session) => session.id)).size;
-  const finalFutureSelectionTarget = Math.max(remainingGeneratedSupportTarget + movedIntoCurrentOrFutureCount, futureScopedPersistedSessions.length + movedIntoCurrentOrFutureCount);
+  const finalFutureSelectionTarget = Math.max(remainingGeneratedSupportTarget + movedIntoCurrentOrFutureCount, futurePersistedSessionsForMerge.length + movedIntoCurrentOrFutureCount);
   const mergedSelection = selectGeneratedSessions({
     candidates: mergedFutureGeneratedCandidates,
-    policy: prescriptionPolicy,
+    policy: actualLoadAdaptedPrescriptionPolicy,
     targetSessions: finalFutureSelectionTarget,
     trainingDose: selectedTrainingDose
   });
   const mergedGeneratedSessions = mergeGeneratedSessions(adjustedPastGeneratedSessions, mergedSelection.sessions).map((session) => applyTrainingExecutionGuidance(session, executionReadiness));
-  const repairActionsApplied = [...new Set([...generatedSelection.repairActionsApplied, ...mergedSelection.repairActionsApplied])];
+  const actualLoadReservationReasons =
+    actualHardDatesReservedForGenerationTarget.size > 0
+      ? [
+          `Actual completed hard work on ${[...actualHardDatesReservedForGenerationTarget].sort().join(", ")} reserved hard-day capacity before future generated prescription.`
+        ]
+      : [];
+  const repairActionsApplied = [...new Set([...actualLoadReservationReasons, ...generatedSelection.repairActionsApplied, ...mergedSelection.repairActionsApplied])];
   const adjustedDayPlans: readonly TrainingDayPlan[] = adjustmentApplication.dayPlans.map((dayPlan) => {
     const generatedSessions = mergedGeneratedSessions.filter((session) => session.date === dayPlan.date);
     const hardDay = isHighStimulusTrainingDay({ protectedAnchors: dayPlan.protectedAnchors, generatedSessions });
@@ -876,7 +1011,25 @@ export function resolveWeeklyTrainingPlan(input: {
     phase: input.phase
   });
   const plannedLoadLedger = buildPlannedLoadLedger(input.anchors, mergedGeneratedSessions);
-  const actualLoadLedger = buildActualLoadLedger(input.completedSessions ?? [], input.asOfDate);
+  const actualLoadLedger = buildActualLoadLedger(input.completedSessions ?? [], input.asOfDate, input.recentExerciseResults ?? []);
+  const loadComparison: TrainingLoadComparison = {
+    planned: plannedLoadLedger,
+    actual: actualLoadLedger,
+    missingActualMetrics: actualLoadLedger.unknownMetrics
+  };
+  const recentEvidence = recentTrainingEvidence({
+    actualLoadLedger,
+    completedSessions: input.completedSessions ?? [],
+    exerciseResults: input.recentExerciseResults ?? []
+  });
+  const adaptationDecision = prescriptionAdaptationDecision({
+    afterGeneratedHardDayTarget: adaptedGeneratedHardDayTarget,
+    actualLoadReservationReasons,
+    beforeGeneratedHardDayTarget: prescriptionPolicy.targetGeneratedHardDayCount,
+    comparison: loadComparison,
+    evidence: recentEvidence,
+    policy: prescriptionPolicy
+  });
   const adjustmentBlockedReasons = adjustmentApplication.decisions
     .filter((decision) => decision.status === "applied" && decision.modifiedDayPlans.some((day) => day.generatedSessions.length === 0))
     .map((decision) => decision.explanation);
@@ -891,7 +1044,8 @@ export function resolveWeeklyTrainingPlan(input: {
     generatedSessionCount: mergedGeneratedSessions.length,
     candidateAllowedDays,
     blockedByAnchors,
-    phase: input.phase
+    phase: input.phase,
+    actualLoadReducedHardDays: adaptedGeneratedHardDayTarget < prescriptionPolicy.targetGeneratedHardDayCount
   });
   const missingLogsDidNotReduceTraining =
     generationConstraints.advisoryUncertainty.length > 0 &&
@@ -902,7 +1056,7 @@ export function resolveWeeklyTrainingPlan(input: {
   const durationDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.durationReductionReasons ?? []);
   const protectedHardDayDates = new Set(candidateDates.filter((date) => date >= input.asOfDate && protectedHardOnDate(input.anchors, date)));
   const generatedHardDayDates = new Set(mergedGeneratedSessions.filter(isHighStimulusGeneratedSession).map((session) => session.date));
-  const actualHardDayDates = new Set([...protectedHardDayDates, ...generatedHardDayDates]);
+  const actualHardDayDates = new Set([...actualCurrentWeekHardDates, ...protectedHardDayDates, ...generatedHardDayDates]);
   const actualWeeklyGeneratedMinutes = mergedGeneratedSessions.reduce((total, session) => total + session.durationMinutes, 0);
   const actualStimulusMix = trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family));
   const longestSessionMinutes = mergedGeneratedSessions.reduce((longest, session) => Math.max(longest, session.durationMinutes), 0);
@@ -1057,6 +1211,7 @@ export function resolveWeeklyTrainingPlan(input: {
   const evidenceBasedOverridesApplied = [
     ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
     ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
+    ...actualLoadReservationReasons,
     ...(underFuelingRisk ? ["Under-fueling evidence reduced generated load."] : []),
     ...(fuelCountCap ? ["Severe fueling evidence capped generated-support count."] : []),
     ...(redReadinessHardStop ? ["Readiness hard-stop symptoms blocked hard generated work."] : [])
@@ -1144,6 +1299,9 @@ export function resolveWeeklyTrainingPlan(input: {
       targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes,
       actualWeeklyGeneratedMinutes
     },
+    loadComparison,
+    recentTrainingEvidence: recentEvidence,
+    prescriptionAdaptationDecision: adaptationDecision,
     generationConstraintSummary: generationConstraints,
     hardSafetyConstraints: generationConstraints.hardSafetyConstraints,
     evidenceBasedLoadConstraints: generationConstraints.evidenceBasedLoadConstraints,
@@ -1270,8 +1428,8 @@ export function resolveWeeklyTrainingPlan(input: {
       timelineEvents: [],
       latestWeekIndex: 0
     };
-  const latestWeekSummary = latestByWeekIndex<TrainingWeekSummary>(blockHistory.summaries);
-  const latestProgressionDecision = latestByWeekIndex<TrainingProgressionDecision>(blockHistory.decisions);
+  const latestWeekSummary = selectAuthoritativeTrainingWeekSummary(blockHistory.summaries, { activePlanRevisionId: planRevision });
+  const latestProgressionDecision = selectAuthoritativeTrainingProgressionDecision(blockHistory.decisions, { activePlanRevisionId: planRevision });
   const nextWeekMaterialization = materializeNextWeekTrainingPlan({
     currentTrainingBlock: adjustmentApplication.activeBlock,
     currentMicrocycle: adjustedMicrocycle,
@@ -1308,7 +1466,6 @@ export function resolveWeeklyTrainingPlan(input: {
     latestProgressionDecision,
     nextWeekMaterialization,
     timelineEvents: blockHistory.timelineEvents,
-    loadLedger: plannedLoadLedger,
     plannedLoadLedger,
     actualLoadLedger,
     ...(input.planGenerationIntent ? { planGenerationIntent: input.planGenerationIntent } : {}),

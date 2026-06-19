@@ -675,7 +675,7 @@ function TrainingScheduleDebugCard({ viewModel }: { viewModel: TrainViewModel })
     return null;
   }
   const debug = viewModel.scheduleDebug;
-  const ledgerSummary = (ledger: TrainViewModel["scheduleDebug"]["plannedLoadLedger"]) =>
+  const ledgerSummary = (ledger: TrainViewModel["scheduleDebug"]["plannedLoadLedger"] | TrainViewModel["scheduleDebug"]["actualLoadLedger"]) =>
     `hardDays ${ledger.hardDayCount}/${ledger.hardDayCap}, strengthSets ${ledger.generatedStrengthSets}, roadworkMinutes ${ledger.roadworkMinutes}, intervals ${ledger.intervalCount}, recovery ${ledger.recoverySessions}`;
   const rows = [
     `asOfDate: ${debug.asOfDate}`,

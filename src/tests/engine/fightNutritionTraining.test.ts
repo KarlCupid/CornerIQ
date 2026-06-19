@@ -366,7 +366,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
       asOfDate: fixtureAsOfDate
     });
 
-    expect(state.training.loadLedger.hardDayCount).toBeGreaterThanOrEqual(3);
+    expect(state.training.plannedLoadLedger.hardDayCount).toBeGreaterThanOrEqual(3);
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("missed_period_underfueling_risk");
   });
 

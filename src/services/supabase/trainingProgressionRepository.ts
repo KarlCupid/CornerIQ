@@ -65,7 +65,7 @@ type TrainingWeekSummaryRow = Pick<
 
 type TrainingProgressionDecisionRow = Pick<
   TableRow<"training_progression_decisions">,
-  "week_index" | "decision" | "reason" | "next_week_phase" | "decision_payload" | "created_at" | "decision_lifecycle" | "plan_revision_id" | "generated_at"
+  "id" | "week_index" | "decision" | "reason" | "next_week_phase" | "decision_payload" | "created_at" | "decision_lifecycle" | "plan_revision_id" | "generated_at"
 >;
 
 type TrainingBlockTimelineEventRow = Pick<TableRow<"training_block_timeline_events">, "event_type" | "event_date" | "event_payload">;
@@ -77,11 +77,59 @@ function decisionValue(value: string, context: string): TrainingProgressionDecis
   throw new Error(`${context}: unknown progression decision ${value}`);
 }
 
+function lifecycleAuthorityGroup(lifecycle: string | undefined): string {
+  return lifecycle ?? "final";
+}
+
+function revisionKey(planRevisionId: string | undefined): string {
+  return planRevisionId ?? "legacy:missing-plan-revision";
+}
+
+function summaryAuthorityKey(trainingBlockId: string, summary: TrainingWeekSummary): string {
+  return [
+    "training_week_summary",
+    trainingBlockId,
+    `week:${summary.weekIndex}`,
+    `lifecycle:${lifecycleAuthorityGroup(summary.lifecycle)}`,
+    `revision:${revisionKey(summary.planRevisionId)}`
+  ].join(":");
+}
+
+function decisionAuthorityKey(trainingBlockId: string, decision: TrainingProgressionDecision): string {
+  return [
+    "training_progression_decision",
+    trainingBlockId,
+    `week:${decision.weekIndex}`,
+    `lifecycle:${lifecycleAuthorityGroup(decision.decisionLifecycle)}`,
+    `revision:${revisionKey(decision.planRevisionId)}`
+  ].join(":");
+}
+
+function timelineEventKey(trainingBlockId: string | null, event: TrainingBlockTimelineEvent): string {
+  const weekIndex = typeof event.payload.weekIndex === "number" || typeof event.payload.weekIndex === "string" ? String(event.payload.weekIndex) : "none";
+  const inputHash = typeof event.payload.inputHash === "string" ? event.payload.inputHash : "none";
+  const outputHash = typeof event.payload.outputHash === "string" ? event.payload.outputHash : "none";
+  const lifecycle = typeof event.payload.summaryLifecycle === "string" ? event.payload.summaryLifecycle : typeof event.payload.decisionLifecycle === "string" ? event.payload.decisionLifecycle : "none";
+  const revision = typeof event.payload.planRevisionId === "string" ? event.payload.planRevisionId : typeof event.payload.blockId === "string" ? event.payload.blockId : "legacy:missing-plan-revision";
+  return [
+    "training_block_timeline_event",
+    trainingBlockId ?? "no_block",
+    event.eventType,
+    event.eventDate,
+    `week:${weekIndex}`,
+    `lifecycle:${lifecycle}`,
+    `revision:${revision}`,
+    `input:${inputHash}`,
+    `output:${outputHash}`
+  ].join(":");
+}
+
 export function mapTrainingWeekSummaryRow(row: TrainingWeekSummaryRow): TrainingWeekSummary {
   const payload = payloadObject(row.summary_payload, "training_week_summaries.summary_payload");
   return parseWithSchema(
-    TrainingWeekSummarySchema,
-    {
+      TrainingWeekSummarySchema,
+      {
+      id: row.id,
       blockId: row.training_block_id,
       weekIndex: row.week_index,
       weekStartDate: row.week_start_date,
@@ -114,8 +162,9 @@ export function mapTrainingWeekSummaryRow(row: TrainingWeekSummaryRow): Training
 export function mapTrainingProgressionDecisionRow(row: TrainingProgressionDecisionRow): TrainingProgressionDecision {
   const payload = payloadObject(row.decision_payload, "training_progression_decisions.decision_payload");
   return parseWithSchema(
-    TrainingProgressionDecisionSchema,
-    {
+      TrainingProgressionDecisionSchema,
+      {
+      id: row.id,
       weekIndex: row.week_index,
       decision: decisionValue(row.decision, "training_progression_decisions.decision"),
       reason: row.reason,
@@ -150,9 +199,11 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
     async upsertTrainingWeekSummary(input: UpsertTrainingWeekSummaryInput): Promise<{ id: string }> {
       const safeUserId = assertUserId(input.userId, "training_week_summaries.upsertTrainingWeekSummary");
       const summary = parseWithSchema(TrainingWeekSummarySchema, input.summary, "training_week_summaries.upsertTrainingWeekSummary.summary");
+      const authorityKey = summaryAuthorityKey(input.trainingBlockId, summary);
       const record: TableInsert<"training_week_summaries"> = {
         user_id: safeUserId,
         training_block_id: input.trainingBlockId,
+        summary_authority_key: authorityKey,
         training_microcycle_id: input.trainingMicrocycleId ?? null,
         week_start_date: summary.weekStartDate,
         week_end_date: summary.weekEndDate,
@@ -173,11 +224,11 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
         safety_flag_count: summary.safetyFlagCount,
         summary_lifecycle: summary.lifecycle ?? "final",
         summary_generated_at: summary.generatedAt ?? null,
-        finalized_at: summary.lifecycle === "final" ? summary.finalizedAt ?? summary.generatedAt ?? null : null,
+        finalized_at: summary.lifecycle === "final" || summary.lifecycle === "corrected_final" ? summary.finalizedAt ?? summary.generatedAt ?? null : null,
         plan_revision_id: summary.planRevisionId ?? null,
-        summary_payload: toJson(summary)
+        summary_payload: toJson({ ...summary, authorityKey })
       };
-      const response = await client.from("training_week_summaries").upsert(record, { onConflict: "user_id,training_block_id,week_index" }).select("id").single();
+      const response = await client.from("training_week_summaries").upsert(record, { onConflict: "user_id,summary_authority_key" }).select("id").single();
       return readDataOrThrow(response, "training_week_summaries.upsertTrainingWeekSummary");
     },
 
@@ -198,25 +249,11 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
     async insertTrainingProgressionDecision(input: InsertTrainingProgressionDecisionInput): Promise<{ id: string }> {
       const safeUserId = assertUserId(input.userId, "training_progression_decisions.insertTrainingProgressionDecision");
       const decision = parseWithSchema(TrainingProgressionDecisionSchema, input.decision, "training_progression_decisions.insertTrainingProgressionDecision.decision");
-      const existingResponse = await client
-        .from("training_progression_decisions")
-        .select("id")
-        .eq("user_id", safeUserId)
-        .eq("training_block_id", input.trainingBlockId)
-        .eq("week_index", input.weekIndex)
-        .eq("input_hash", input.inputHash)
-        .eq("output_hash", input.outputHash)
-        .eq("decision", decision.decision)
-        .eq("decision_lifecycle", decision.decisionLifecycle ?? "final")
-        .limit(1)
-        .maybeSingle();
-      const existing = readMaybeDataOrThrow(existingResponse, "training_progression_decisions.insertTrainingProgressionDecision.findExisting");
-      if (existing) {
-        return { id: existing.id };
-      }
+      const authorityKey = decisionAuthorityKey(input.trainingBlockId, decision);
       const record: TableInsert<"training_progression_decisions"> = {
         user_id: safeUserId,
         training_block_id: input.trainingBlockId,
+        decision_authority_key: authorityKey,
         week_summary_id: input.weekSummaryId ?? null,
         week_index: input.weekIndex,
         decision: decision.decision,
@@ -228,9 +265,9 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
         decision_lifecycle: decision.decisionLifecycle ?? "final",
         plan_revision_id: decision.planRevisionId ?? null,
         generated_at: decision.generatedAt,
-        decision_payload: toJson(decision)
+        decision_payload: toJson({ ...decision, authorityKey })
       };
-      const response = await client.from("training_progression_decisions").insert(record).select("id").single();
+      const response = await client.from("training_progression_decisions").upsert(record, { onConflict: "user_id,decision_authority_key" }).select("id").single();
       return readDataOrThrow(response, "training_progression_decisions.insertTrainingProgressionDecision");
     },
 
@@ -238,7 +275,7 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
       const safeUserId = assertUserId(userId, "training_progression_decisions.listTrainingProgressionDecisions");
       const response = await client
         .from("training_progression_decisions")
-        .select("week_index, decision, reason, next_week_phase, decision_payload, created_at, decision_lifecycle, plan_revision_id, generated_at")
+        .select("id, week_index, decision, reason, next_week_phase, decision_payload, created_at, decision_lifecycle, plan_revision_id, generated_at")
         .eq("user_id", safeUserId)
         .eq("training_block_id", trainingBlockId)
         .order("week_index", { ascending: true })
@@ -250,14 +287,16 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
     async insertTrainingBlockTimelineEvent(input: InsertTrainingBlockTimelineEventInput): Promise<{ id: string }> {
       const safeUserId = assertUserId(input.userId, "training_block_timeline_events.insertTrainingBlockTimelineEvent");
       const event = parseWithSchema(TrainingBlockTimelineEventSchema, input.event, "training_block_timeline_events.insertTrainingBlockTimelineEvent.event");
+      const eventKey = timelineEventKey(input.trainingBlockId, event);
       const record: TableInsert<"training_block_timeline_events"> = {
         user_id: safeUserId,
         training_block_id: input.trainingBlockId,
+        event_key: eventKey,
         event_type: event.eventType,
         event_date: event.eventDate,
-        event_payload: toJson(event)
+        event_payload: toJson({ ...event, payload: { ...event.payload, eventKey } })
       };
-      const response = await client.from("training_block_timeline_events").insert(record).select("id").single();
+      const response = await client.from("training_block_timeline_events").upsert(record, { onConflict: "user_id,event_key" }).select("id").single();
       return readDataOrThrow(response, "training_block_timeline_events.insertTrainingBlockTimelineEvent");
     },
 

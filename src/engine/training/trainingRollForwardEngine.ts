@@ -156,11 +156,11 @@ function timelineEventsFor(input: TrainingRollForwardInput, decision: TrainingPr
   };
   const lifecycle = evidenceLifecycle(input.weekSummary);
   const events: TrainingBlockTimelineEvent[] = [];
-  if (lifecycle === "final") {
+  if (lifecycle === "final" || lifecycle === "corrected_final") {
     events.push({
       eventType: "week_completed",
       eventDate: input.currentMicrocycle.weekEndDate,
-      title: `Week ${input.weekSummary.weekIndex} summarized`,
+      title: lifecycle === "corrected_final" ? `Week ${input.weekSummary.weekIndex} corrected` : `Week ${input.weekSummary.weekIndex} summarized`,
       summary: input.weekSummary.summary,
       payload: { ...basePayload, summaryLifecycle: lifecycle }
     });

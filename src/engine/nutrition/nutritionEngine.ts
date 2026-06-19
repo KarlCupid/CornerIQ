@@ -62,7 +62,7 @@ function trainingDemandHandoff(input: {
       const label = session.sessionTypeLabel ?? session.family.replaceAll("_", " ");
       return `${session.date}: ${label} uses ${session.fuelDemand === "high" ? "higher" : "steady"} carbohydrate and fluid emphasis.`;
     });
-  const highWeeklyLoad = hardOrHighStimulusDates.length >= 3 || input.training.loadLedger.hardDayCount >= 3;
+  const highWeeklyLoad = hardOrHighStimulusDates.length >= 3 || input.training.plannedLoadLedger.hardDayCount >= 3;
   const deficitPressureBlockedReason = input.blocked
     ? "Hard-stop safety evidence blocks deficit pressure."
     : input.underFuelingBlocked

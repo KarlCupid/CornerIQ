@@ -39,7 +39,10 @@ function noEquipmentAccess(equipmentAccess: readonly string[]): boolean {
 }
 
 function phaseOverride(
-  input: Pick<GenerateSupportSessionInput, "hasProtectedBoxingSkill" | "hasSparring" | "hardStopActive" | "highCycleSymptoms" | "phase" | "readiness" | "severeFuelingRisk" | "underFuelingRisk">,
+  input: Pick<
+    GenerateSupportSessionInput,
+    "avoidHighStimulus" | "hasProtectedBoxingSkill" | "hasSparring" | "hardStopActive" | "highCycleSymptoms" | "phase" | "readiness" | "severeFuelingRisk" | "underFuelingRisk"
+  >,
   family: GeneratedSessionFamily
 ): GeneratedSessionFamily {
   if (input.hardStopActive || input.severeFuelingRisk) {
@@ -61,6 +64,9 @@ function phaseOverride(
     return family === "hip_ankle_mobility" || family === "mobility_recovery_flow" || family === "movement_quality_prep" || family === "boxing_technical_shadowboxing" || family === "trunk_durability" || family === "shoulder_scap_durability" ? family : "recovery_reset";
   }
   if (input.highCycleSymptoms && HIGH_DEMAND_FAMILIES.has(family)) {
+    return "trunk_durability";
+  }
+  if (input.avoidHighStimulus && HIGH_DEMAND_FAMILIES.has(family)) {
     return "trunk_durability";
   }
   if (input.underFuelingRisk && HIGH_DEMAND_FAMILIES.has(family)) {
@@ -151,9 +157,34 @@ function chooseFamily(input: GenerateSupportSessionInput): GeneratedSessionFamil
 }
 
 function deterministicSessionId(input: GenerateSupportSessionInput, family: GeneratedSessionFamily): string {
+  const slotId = prescriptionSlotId(input);
+  if (slotId) {
+    const revision = planRevisionKey(input);
+    const week = input.weekIndex ?? 1;
+    return `generated:${revision}:${week}:slot${input.index}:${input.originalPlannedDate ?? input.date}`;
+  }
   const revision = input.planRevisionId ?? `projection:${input.planStartDate ?? input.date}`;
   const week = input.weekIndex ?? 1;
   return `generated:${revision}:${week}:${input.date}:${family}`;
+}
+
+function planRevisionKey(input: GenerateSupportSessionInput): string {
+  return input.planRevisionId ?? `projection:${input.planStartDate ?? input.date}`;
+}
+
+function weekId(input: GenerateSupportSessionInput): string {
+  return `week:${planRevisionKey(input)}:${input.weekIndex ?? 1}`;
+}
+
+function prescriptionSlotId(input: GenerateSupportSessionInput): string {
+  const originalPlannedDate = input.originalPlannedDate ?? input.date;
+  const familySeed = stableHash({
+    focus: input.primaryFocus ?? "balanced",
+    seed: input.seed ?? planRevisionKey(input),
+    sequence: input.familySequence ?? [],
+    slotIndex: input.index
+  }).slice(0, 12);
+  return `slot:${planRevisionKey(input)}:${input.weekIndex ?? 1}:${input.index}:${originalPlannedDate}:${familySeed}`;
 }
 
 function assertSafeOutput(session: GeneratedTrainingSession): GeneratedTrainingSession {
@@ -190,10 +221,13 @@ export interface GenerateSupportSessionInput {
   seed?: string | undefined;
   supportDayIndex?: number | undefined;
   weekIndex?: number | undefined;
+  originalPlannedDate?: string | undefined;
+  currentScheduledDate?: string | undefined;
   hardStopActive?: boolean | undefined;
   underFuelingRisk?: boolean | undefined;
   severeFuelingRisk?: boolean | undefined;
   uncertainFueling?: boolean | undefined;
+  avoidHighStimulus?: boolean | undefined;
   familySequence?: readonly GeneratedSessionFamily[] | undefined;
   generationConstraints?: TrainingGenerationConstraintSummaryAudit | undefined;
   prescriptionHard?: boolean | undefined;
@@ -201,6 +235,8 @@ export interface GenerateSupportSessionInput {
 
 export function generateSupportSession(input: GenerateSupportSessionInput): GeneratedTrainingSession {
   const family = chooseFamily(input);
+  const originalPlannedDate = input.originalPlannedDate ?? input.date;
+  const currentScheduledDate = input.currentScheduledDate ?? input.date;
   const novice = isNovice(input.boxingLevel);
   const noEquipment = noEquipmentAccess(input.equipmentAccess);
   const protectedHard = input.hasSparring;
@@ -239,7 +275,9 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
 
   return assertSafeOutput({
     id: deterministicSessionId(input, family),
-    date: input.date,
+    date: currentScheduledDate,
+    originalPlannedDate,
+    currentScheduledDate,
     family,
     title: shape.title,
     durationMinutes: durationPolicy.finalDurationMinutes,
@@ -257,6 +295,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
       ...(prescribedHard ? ["Weekly prescription: this is a hard/high-stimulus training day."] : []),
       ...(input.readiness.color === "red" && !input.hardStopActive ? ["Readiness is red without hard-stop symptoms: keep execution conservative and use downshift gates."] : []),
       ...(input.hardStopActive ? ["Safety hard-stop active: generated work is recovery only."] : []),
+      ...(input.avoidHighStimulus ? ["Recent actual hard work reserved this date for lower-stress support."] : []),
       ...(input.underFuelingRisk ? ["Under-fueling evidence removes high fuel-demand generated work."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms: optional volume trimmed."] : []),
       ...(protectedHard ? ["Protected hard boxing owns the stress; generated work stays easy."] : []),
@@ -274,7 +313,10 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     addOnBlocks: template.addOnBlocks ?? defaultAddOnBlocksForFamily(family),
     sessionPriority: sessionPriorityForFamily(family, template.sessionPriority),
     ...(input.planRevisionId ? { planRevisionId: input.planRevisionId } : {}),
+    weekId: weekId(input),
     ...(input.weekIndex ? { weekIndex: input.weekIndex } : {}),
+    prescriptionSlotId: prescriptionSlotId(input),
+    generatedSessionLifecycle: "active",
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
     source: "active_plan_generation",
     templateId: template.templateId,

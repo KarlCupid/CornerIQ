@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import type { ReadinessCheckIn } from "../../engine/core/types";
+import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
+import type { GeneratedTrainingSession, JourneyEvent, PersistedTrainingPlanAdjustment, ReadinessCheckIn } from "../../engine/core/types";
 import {
   apple_health_wearable_enhanced,
   fixtureAsOfDate,
@@ -127,6 +128,125 @@ describe("Corner Engine performance kernel", () => {
 
     expect(latest.readiness.color).toBe("green");
     expect(replayBeforeAfternoonUpdate.readiness.color).toBe("amber");
+  });
+
+  it("keeps same-day food completion events invisible before their recorded time", () => {
+    const completeEvent: JourneyEvent = {
+      id: "food_complete_evening",
+      type: "FoodLogStatusUpdated",
+      occurredAt: "2026-05-19T21:30:00.000Z",
+      payload: {
+        date: fixtureAsOfDate,
+        status: "user_marked_complete",
+        completionSource: "user",
+        userMarkedCompleteAt: "2026-05-19T21:30:00.000Z"
+      }
+    };
+    const journey = {
+      ...no_wearable_manual_only,
+      nutritionHistory: [
+        {
+          date: fixtureAsOfDate,
+          calories: 2300,
+          proteinGrams: 155,
+          carbohydrateGrams: 265,
+          fatGrams: 70,
+          confidence: "high" as const,
+          mealTag: "day_total" as const,
+          entryType: "day_total" as const,
+          loggedAt: "2026-05-19T09:00:00.000Z"
+        }
+      ],
+      journeyEvents: [completeEvent]
+    };
+
+    const beforeMarker = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T20:00:00.000Z" });
+    const afterMarker = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T22:00:00.000Z" });
+
+    expect(beforeMarker.nutrition.dailyFoodLogSummary.underFuelingEvidenceAllowed).toBe(false);
+    expect(beforeMarker.nutrition.dailyFoodLogSummary.status).toBe("partial_day");
+    expect(afterMarker.nutrition.dailyFoodLogSummary.underFuelingEvidenceAllowed).toBe(true);
+    expect(["user_marked_complete", "complete_estimated", "complete_high_confidence"]).toContain(afterMarker.nutrition.dailyFoodLogSummary.status);
+  });
+
+  it("keeps external safety flags invisible before their recorded time", () => {
+    const futureHardStop = createRiskFlag(
+      "medical",
+      "severe_dizziness",
+      "critical",
+      "Severe dizziness was reported by an external safety intake.",
+      { date: fixtureAsOfDate, recordedAt: "2026-05-19T15:00:00.000Z" },
+      true
+    );
+    const journey = { ...no_wearable_manual_only, safetyFlags: [futureHardStop] };
+
+    const beforeFlag = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T10:00:00.000Z" });
+    const afterFlag = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T16:00:00.000Z" });
+
+    expect(beforeFlag.safety.hardStops.map((flag) => flag.id)).not.toContain(futureHardStop.id);
+    expect(beforeFlag.training.supportGenerationAudit.activeRiskFlagCodes).not.toContain("severe_dizziness");
+    expect(afterFlag.safety.hardStops.map((flag) => flag.id)).toContain(futureHardStop.id);
+    expect(afterFlag.training.supportGenerationAudit.activeRiskFlagCodes).toContain("severe_dizziness");
+  });
+
+  it("replays persisted generated-session moves only after their adjustment exists", () => {
+    const movedSession: GeneratedTrainingSession = {
+      id: "generated_replay_slot_1",
+      date: "2026-05-21",
+      originalPlannedDate: "2026-05-20",
+      currentScheduledDate: "2026-05-21",
+      family: "strength_full_body",
+      trainingStimulus: "strength",
+      sessionTypeLabel: "Strength",
+      title: "Replay strength support",
+      durationMinutes: 42,
+      intensity: "moderate",
+      prescription: ["Strength support only; no contact work."],
+      rationale: "Persisted generated session used to verify replay identity.",
+      protects: ["boxing quality"],
+      modifications: [],
+      fuelDemand: "moderate",
+      prescriptionSlotId: "projection:athlete_base:2026-05-19:w1:slot1:2026-05-20",
+      generatedSessionLifecycle: "moved"
+    };
+    const command = {
+      type: "move_generated_session" as const,
+      sessionId: movedSession.id,
+      fromDate: "2026-05-20",
+      toDate: "2026-05-21",
+      reason: "Calendar conflict after morning replay.",
+      requestedBy: "user" as const,
+      createdAt: "2026-05-19T15:00:00.000Z"
+    };
+    const adjustment: PersistedTrainingPlanAdjustment = {
+      id: "move_replay_slot_1",
+      trainingBlockId: null,
+      planDate: "2026-05-21",
+      adjustmentType: "move_generated_session",
+      command,
+      status: "applied",
+      engineResponse: {
+        status: "applied",
+        explanation: "Move applied by the engine within the hard-day cap.",
+        modifiedDayPlans: [],
+        safetyFlags: [],
+        persistedAdjustmentPayload: { command }
+      },
+      createdAt: "2026-05-19T15:00:00.000Z"
+    };
+    const journey = {
+      ...no_wearable_manual_only,
+      trainingHistory: [movedSession],
+      trainingPlanAdjustments: [adjustment]
+    };
+
+    const beforeMove = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T10:00:00.000Z" });
+    const afterMove = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T16:00:00.000Z" });
+
+    expect(beforeMove.training.generatedSessions.find((session) => session.id === movedSession.id)?.date).toBe("2026-05-20");
+    expect(beforeMove.training.activeAdjustments.map((item) => item.id)).not.toContain(adjustment.id);
+    expect(afterMove.training.generatedSessions.find((session) => session.id === movedSession.id)?.date).toBe("2026-05-21");
+    expect(afterMove.training.activeAdjustments.map((item) => item.id)).toContain(adjustment.id);
   });
 
   it("uses latest same-day readiness hard-stop symptoms for today's overlay", () => {

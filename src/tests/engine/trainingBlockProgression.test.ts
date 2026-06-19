@@ -3,6 +3,7 @@ import { addDays } from "../../engine/core/dates";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { CompletedTrainingSession, ExerciseResultRecord, PerformanceState } from "../../engine/core/types";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
+import { selectAuthoritativeTrainingProgressionDecision, selectAuthoritativeTrainingWeekSummary } from "../../engine/training/trainingHistoryAuthority";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
 import type { TrainingWeekSummary } from "../../engine/training/types";
 import {
@@ -223,6 +224,84 @@ describe("training week summary and roll-forward engines", () => {
 
     expect(secondWeek.training.activeBlock.startDate).toBe(firstWeek.training.activeBlock.startDate);
     expect(secondWeek.training.activeBlock.progressionState.weekIndex).toBe(2);
+  });
+
+  it("selects authoritative weekly history deterministically independent of input order", () => {
+    const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const provisional = {
+      ...summarize(state, [completedSession], [completedExercise]),
+      id: "summary_provisional",
+      lifecycle: "provisional" as const,
+      generatedAt: "2026-05-19T09:00:00.000Z",
+      planRevisionId: "revision_active"
+    };
+    const final = {
+      ...provisional,
+      id: "summary_final",
+      lifecycle: "final" as const,
+      generatedAt: "2026-05-20T09:00:00.000Z"
+    };
+    const correctedFinal = {
+      ...final,
+      id: "summary_corrected",
+      lifecycle: "corrected_final" as const,
+      generatedAt: "2026-05-20T09:00:00.000Z"
+    };
+    const staleDifferentRevision = {
+      ...correctedFinal,
+      id: "summary_stale_revision",
+      planRevisionId: "revision_old",
+      generatedAt: "2026-05-21T09:00:00.000Z"
+    };
+    const baseDecision = {
+      weekIndex: 1,
+      decision: "repeat" as const,
+      reason: "test",
+      nextWeekPhase: state.training.activeBlock.phase,
+      confidence: { level: "medium" as const, score: 0.7, reasons: ["test"], missingInputs: [] },
+      safetyFlags: [],
+      generatedAt: "2026-05-20T09:00:00.000Z",
+      planRevisionId: "revision_active"
+    };
+    const correctedDecision = {
+      ...baseDecision,
+      id: "decision_corrected",
+      decision: "progress" as const,
+      decisionLifecycle: "corrected_final" as const
+    };
+    const provisionalDecision = {
+      ...baseDecision,
+      id: "decision_provisional",
+      decisionLifecycle: "provisional" as const,
+      generatedAt: "2026-05-21T09:00:00.000Z"
+    };
+    const supersededDecision = {
+      ...baseDecision,
+      id: "decision_superseded",
+      decisionLifecycle: "superseded" as const,
+      generatedAt: "2026-05-22T09:00:00.000Z"
+    };
+
+    expect(
+      selectAuthoritativeTrainingWeekSummary([provisional, staleDifferentRevision, final, correctedFinal], {
+        activePlanRevisionId: "revision_active"
+      })?.id
+    ).toBe("summary_corrected");
+    expect(
+      selectAuthoritativeTrainingWeekSummary([correctedFinal, final, staleDifferentRevision, provisional], {
+        activePlanRevisionId: "revision_active"
+      })?.id
+    ).toBe("summary_corrected");
+    expect(
+      selectAuthoritativeTrainingProgressionDecision([supersededDecision, provisionalDecision, correctedDecision], {
+        activePlanRevisionId: "revision_active"
+      })?.id
+    ).toBe("decision_corrected");
+    expect(
+      selectAuthoritativeTrainingProgressionDecision([correctedDecision, provisionalDecision, supersededDecision], {
+        activePlanRevisionId: "revision_active"
+      })?.id
+    ).toBe("decision_corrected");
   });
 
   it("uses safety, fueling, fight week, tournament week, high cycle symptoms, and missing history conservatively", () => {

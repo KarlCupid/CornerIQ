@@ -157,8 +157,17 @@ describe("materializeNextWeekTrainingPlan service", () => {
       expect.arrayContaining([
         expect.objectContaining({
           user_id: "user_1",
-          generated_session_key: expect.stringContaining("next-week:"),
+          generated_session_key: expect.stringContaining("slot:preview:preview_1:"),
+          original_planned_date: expect.any(String),
+          current_scheduled_date: expect.any(String),
+          prescription_slot_id: expect.stringContaining("slot:preview:preview_1:"),
+          generated_session_lifecycle: "active",
           session_payload: expect.objectContaining({
+            id: expect.stringContaining("next-week:"),
+            originalPlannedDate: expect.any(String),
+            currentScheduledDate: expect.any(String),
+            prescriptionSlotId: expect.stringContaining("slot:preview:preview_1:"),
+            generatedSessionLifecycle: "active",
             projectionSource: "next_week_preview_materialization",
             previewId: "preview_1",
             materializedFromPreview: true

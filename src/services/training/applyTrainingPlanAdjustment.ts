@@ -8,12 +8,13 @@ import {
   type TrainingPlanAdjustmentCommand,
   type TrainingPlanAdjustmentResult
 } from "../../engine/training/planAdjustmentTypes";
-import type { PerformanceState } from "../../engine/core/types";
+import type { GeneratedTrainingSession, PerformanceState } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../supabase/loadAthleteJourney";
 import { assertUserId, parseWithSchema } from "../supabase/repositoryTypes";
 import type { createCoachRelationshipRepository } from "../supabase/coachRelationshipRepository";
 
 type CoachRelationshipAccess = Pick<ReturnType<typeof createCoachRelationshipRepository>, "hasActiveCoachRelationship">;
+type GeneratedSessionAccess = Pick<AthleteJourneyRepositories["training"], "listGeneratedSessions">;
 
 export interface ApplyTrainingPlanAdjustmentInput {
   userId: string;
@@ -23,6 +24,7 @@ export interface ApplyTrainingPlanAdjustmentInput {
   command: TrainingPlanAdjustmentCommand;
   repositories: Pick<AthleteJourneyRepositories, "journey" | "trainingBlock" | "trainingProgression"> & {
     coachRelationship?: CoachRelationshipAccess | undefined;
+    training?: GeneratedSessionAccess | undefined;
   };
 }
 
@@ -75,6 +77,59 @@ async function coachActorTrusted(input: Pick<ApplyTrainingPlanAdjustmentInput, "
   return input.repositories.coachRelationship.hasActiveCoachRelationship(input.athleteUserId, input.actor.actorId);
 }
 
+function staleGeneratedSessionMoveResult(command: TrainingPlanAdjustmentCommand, session: GeneratedTrainingSession): TrainingPlanAdjustmentResult | null {
+  if (command.type !== "move_generated_session") {
+    return null;
+  }
+  if (session.generatedSessionLifecycle === "superseded" || session.generatedSessionLifecycle === "canceled") {
+    return {
+      status: "rejected",
+      explanation: `Move rejected: generated session is ${session.generatedSessionLifecycle} and cannot be changed by a stale client.`,
+      modifiedDayPlans: [],
+      safetyFlags: ["stale_generated_session_mutation_rejected"],
+      persistedAdjustmentPayload: {
+        command,
+        currentScheduledDate: session.currentScheduledDate ?? session.date,
+        generatedSessionLifecycle: session.generatedSessionLifecycle
+      }
+    };
+  }
+  if ((session.currentScheduledDate ?? session.date) !== command.fromDate) {
+    return {
+      status: "rejected",
+      explanation: "Move rejected: generated session is no longer scheduled on the requested source date.",
+      modifiedDayPlans: [],
+      safetyFlags: ["stale_generated_session_mutation_rejected"],
+      persistedAdjustmentPayload: {
+        command,
+        currentScheduledDate: session.currentScheduledDate ?? session.date,
+        generatedSessionLifecycle: session.generatedSessionLifecycle ?? "active"
+      }
+    };
+  }
+  return null;
+}
+
+async function persistedMovePrecondition(input: {
+  command: TrainingPlanAdjustmentCommand;
+  repositories: ApplyTrainingPlanAdjustmentInput["repositories"];
+  state: PerformanceState;
+  trainingBlockId: string | null;
+  userId: string;
+}): Promise<TrainingPlanAdjustmentResult | null> {
+  if (input.command.type !== "move_generated_session" || !input.repositories.training) {
+    return null;
+  }
+  const command = input.command;
+  const persistedSessions = await input.repositories.training.listGeneratedSessions(input.userId, {
+    startDate: input.state.training.currentMicrocycle.weekStartDate,
+    endDate: input.state.training.currentMicrocycle.weekEndDate,
+    trainingBlockId: input.trainingBlockId
+  });
+  const persistedSession = persistedSessions.find((session) => session.id === command.sessionId);
+  return persistedSession ? staleGeneratedSessionMoveResult(command, persistedSession) : null;
+}
+
 export async function applyTrainingPlanAdjustmentService(input: ApplyTrainingPlanAdjustmentInput): Promise<ApplyTrainingPlanAdjustmentServiceResult> {
   const userId = assertUserId(input.userId, "applyTrainingPlanAdjustmentService");
   const parsedCommand = parseWithSchema(TrainingPlanAdjustmentCommandSchema, input.command, "applyTrainingPlanAdjustmentService.command");
@@ -82,9 +137,12 @@ export async function applyTrainingPlanAdjustmentService(input: ApplyTrainingPla
   const command = commandWithActor(parsedCommand, actor);
   const trainingBlockId = await resolveTrainingBlockId({ ...input, userId, command });
   const trustedCoach = await coachActorTrusted({ repositories: input.repositories, trustedActor: input.trustedActor, athleteUserId: userId, actor });
+  const persistedPrecondition = await persistedMovePrecondition({ command, repositories: input.repositories, state: input.state, trainingBlockId, userId });
   const result =
     actor.actorType === "coach" && !trustedCoach
       ? permissionRejectedResult(command, actor)
+      : persistedPrecondition
+        ? persistedPrecondition
       : applyTrainingPlanAdjustment({
           activeBlock: input.state.training.activeBlock,
           dayPlans: input.state.training.dayPlans,

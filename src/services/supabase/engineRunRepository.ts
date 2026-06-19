@@ -137,7 +137,7 @@ export function mapNutritionTargetToRow(userId: string, state: PerformanceState,
 }
 
 export function generatedTrainingSessionKey(session: GeneratedTrainingSession): string {
-  return `${session.id}:${session.date}:${session.family}`;
+  return session.prescriptionSlotId ?? session.id;
 }
 
 function riskFlagPersistenceKey(record: Pick<TableInsert<"risk_flags">, "code" | "domain">): string {
@@ -156,7 +156,14 @@ export function mapGeneratedSessionToRow(
   const trainingBlockId = typeof metadata.trainingBlockId === "string" ? metadata.trainingBlockId : session.trainingBlockId;
   return {
     user_id: userId,
-    planned_date: session.date,
+    planned_date: session.originalPlannedDate ?? session.date,
+    original_planned_date: session.originalPlannedDate ?? session.date,
+    current_scheduled_date: session.currentScheduledDate ?? session.date,
+    plan_revision_id: session.planRevisionId ?? null,
+    week_id: session.weekId ?? null,
+    week_index: session.weekIndex ?? null,
+    prescription_slot_id: session.prescriptionSlotId ?? null,
+    generated_session_lifecycle: session.generatedSessionLifecycle ?? "active",
     generated_session_key: generatedSessionKey,
     session_payload: toJson({
       ...session,

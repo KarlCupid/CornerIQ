@@ -23,6 +23,7 @@ import type {
 import { recommendTrainingProgression } from "./progressionEngine";
 import { buildWeeklyMicrocycle } from "./microcycleEngine";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
+import { selectAuthoritativeTrainingWeekSummary } from "./trainingHistoryAuthority";
 
 export interface TrainingBlockEngineInput {
   athlete: AthleteProfile;
@@ -152,9 +153,13 @@ function blockEndDate(input: TrainingBlockEngineInput): string {
 function weekIndexFor(input: TrainingBlockEngineInput): number {
   const startDate = blockStartDate(input);
   const calendarWeekIndex = Math.max(1, Math.floor(daysBetween(startDate, input.asOfDate) / 7) + 1);
-  const summaries = input.blockHistory?.summaries ?? [];
-  const latestSummary = summaries.reduce<(typeof summaries)[number] | null>((latest, summary) => (!latest || summary.weekIndex > latest.weekIndex ? summary : latest), null);
-  const latestPersistedIndex = input.blockHistory?.latestWeekIndex ?? 0;
+  const compatibleSummaries =
+    input.blockHistory?.summaries.filter(
+      (summary) => (summary.lifecycle ?? "final") !== "superseded" && (!input.planRevisionId || summary.planRevisionId === undefined || summary.planRevisionId === input.planRevisionId)
+    ) ?? [];
+  const latestSummary = selectAuthoritativeTrainingWeekSummary(compatibleSummaries, { activePlanRevisionId: input.planRevisionId });
+  const latestPersistedIndex =
+    compatibleSummaries.reduce((latest, summary) => Math.max(latest, summary.weekIndex), 0) ?? 0;
   if (latestSummary && latestSummary.weekEndDate < input.asOfDate) {
     return Math.max(calendarWeekIndex, latestSummary.weekIndex + 1, latestPersistedIndex + 1);
   }

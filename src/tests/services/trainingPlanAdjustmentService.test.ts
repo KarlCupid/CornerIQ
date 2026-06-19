@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { addDays } from "../../engine/core/dates";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import { applyTrainingPlanAdjustmentService } from "../../services/training/applyTrainingPlanAdjustment";
@@ -117,6 +118,61 @@ describe("applyTrainingPlanAdjustmentService", () => {
         result: expect.objectContaining({
           status: "rejected",
           safetyFlags: ["protected_boxing_anchor_conflict"]
+        })
+      })
+    );
+  });
+
+  it("rejects generated-session moves when the persisted session already moved", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const session = state.training.generatedSessions[0];
+    if (!session) {
+      throw new Error("fixture did not generate support");
+    }
+    const movedDate = addDays(session.date, 1);
+    const { repositories, calls } = createAdjustmentRepositories();
+    const listGeneratedSessions = vi.fn(async () => [
+      {
+        ...session,
+        date: movedDate,
+        originalPlannedDate: session.originalPlannedDate ?? session.date,
+        currentScheduledDate: movedDate,
+        generatedSessionLifecycle: "moved" as const
+      }
+    ]);
+
+    const result = await applyTrainingPlanAdjustmentService({
+      userId: "user_1",
+      state,
+      repositories: {
+        ...repositories,
+        training: { listGeneratedSessions }
+      },
+      command: {
+        type: "move_generated_session",
+        sessionId: session.id,
+        fromDate: session.date,
+        toDate: movedDate,
+        reason: "Athlete tries to move from a stale client view.",
+        requestedBy: "user"
+      }
+    });
+
+    expect(result.status).toBe("rejected");
+    expect(result.safetyFlags).toEqual(["stale_generated_session_mutation_rejected"]);
+    expect(listGeneratedSessions).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({
+        startDate: state.training.currentMicrocycle.weekStartDate,
+        endDate: state.training.currentMicrocycle.weekEndDate,
+        trainingBlockId: "training_block_1"
+      })
+    );
+    expect(calls.insertTrainingPlanAdjustment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          status: "rejected",
+          safetyFlags: ["stale_generated_session_mutation_rejected"]
         })
       })
     );

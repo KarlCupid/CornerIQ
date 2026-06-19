@@ -563,33 +563,54 @@ export type Database = {
           created_at: string
           engine_version: string
           generated_session_key: string | null
+          generated_session_lifecycle: string
           id: string
+          current_scheduled_date: string | null
+          original_planned_date: string | null
           planned_date: string
+          plan_revision_id: string | null
+          prescription_slot_id: string | null
           session_payload: Json
           updated_at: string
           user_id: string
+          week_id: string | null
+          week_index: number | null
         }
         Insert: {
           block_id?: string | null
           created_at?: string
           engine_version: string
           generated_session_key?: string | null
+          generated_session_lifecycle?: string
           id?: string
+          current_scheduled_date?: string | null
+          original_planned_date?: string | null
           planned_date: string
+          plan_revision_id?: string | null
+          prescription_slot_id?: string | null
           session_payload?: Json
           updated_at?: string
           user_id: string
+          week_id?: string | null
+          week_index?: number | null
         }
         Update: {
           block_id?: string | null
           created_at?: string
           engine_version?: string
           generated_session_key?: string | null
+          generated_session_lifecycle?: string
           id?: string
+          current_scheduled_date?: string | null
+          original_planned_date?: string | null
           planned_date?: string
+          plan_revision_id?: string | null
+          prescription_slot_id?: string | null
           session_payload?: Json
           updated_at?: string
           user_id?: string
+          week_id?: string | null
+          week_index?: number | null
         }
         Relationships: [
           {
@@ -895,6 +916,7 @@ export type Database = {
         Row: {
           created_at: string
           event_date: string
+          event_key: string
           event_payload: Json
           event_type: string
           id: string
@@ -904,6 +926,7 @@ export type Database = {
         Insert: {
           created_at?: string
           event_date: string
+          event_key: string
           event_payload?: Json
           event_type: string
           id?: string
@@ -913,6 +936,7 @@ export type Database = {
         Update: {
           created_at?: string
           event_date?: string
+          event_key?: string
           event_payload?: Json
           event_type?: string
           id?: string
@@ -1247,6 +1271,7 @@ export type Database = {
         Row: {
           created_at: string
           decision: string
+          decision_authority_key: string
           decision_lifecycle: string
           decision_payload: Json
           engine_version: string
@@ -1266,6 +1291,7 @@ export type Database = {
         Insert: {
           created_at?: string
           decision: string
+          decision_authority_key: string
           decision_lifecycle?: string
           decision_payload?: Json
           engine_version: string
@@ -1285,6 +1311,7 @@ export type Database = {
         Update: {
           created_at?: string
           decision?: string
+          decision_authority_key?: string
           decision_lifecycle?: string
           decision_payload?: Json
           engine_version?: string
@@ -1337,6 +1364,7 @@ export type Database = {
           protected_anchor_count: number
           safety_flag_count: number
           skipped_count: number
+          summary_authority_key: string
           summary_generated_at: string | null
           summary_lifecycle: string
           summary_payload: Json
@@ -1367,6 +1395,7 @@ export type Database = {
           protected_anchor_count?: number
           safety_flag_count?: number
           skipped_count?: number
+          summary_authority_key: string
           summary_generated_at?: string | null
           summary_lifecycle?: string
           summary_payload?: Json
@@ -1397,6 +1426,7 @@ export type Database = {
           protected_anchor_count?: number
           safety_flag_count?: number
           skipped_count?: number
+          summary_authority_key?: string
           summary_generated_at?: string | null
           summary_lifecycle?: string
           summary_payload?: Json

@@ -89,7 +89,7 @@ export function assessUnderFuelingRisk(
     cycle.hormonalContraception === "none" &&
     ((trend.trendKgPerWeek !== null && trend.trendKgPerWeek < -0.7) ||
       recentLowIntakeDays > 0 ||
-      (training?.loadLedger.hardDayCount ?? 0) >= 3);
+      (training?.plannedLoadLedger.hardDayCount ?? 0) >= 3);
   if (missedPeriodRisk) {
     flags.push(
       createRiskFlag(

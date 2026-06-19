@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AthleteJourney, ISODateString, PersistedNutritionSafetyReview } from "../../engine/core/types";
+import { addDays } from "../../engine/core/dates";
+import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
 import type { NutritionSafetyReviewRequest } from "../../engine/nutrition/nutritionSafetyReviewTypes";
 import { resolveAndPersistPerformanceState } from "../../services/engine/resolveAndPersistPerformanceState";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
@@ -623,6 +626,210 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(stores.weekSummaryStore.size).toBe(firstWeekSummaryCount);
     expect(stores.progressionDecisionStore.size).toBe(firstProgressionDecisionCount);
     expect(stores.nextWeekPreviewStore.size).toBe(firstPreviewCount);
+  });
+
+  it("finalizes prior compatible weeks before persisting the current week at a boundary refresh", async () => {
+    const firstWeek = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const planRevisionId = firstWeek.training.supportGenerationAudit.planRevisionId;
+    const provisionalSummary = summarizeTrainingWeek({
+      asOfDate: fixtureAsOfDate,
+      trainingBlock: firstWeek.training.activeBlock,
+      trainingBlockId: "training_block_1",
+      microcycle: firstWeek.training.currentMicrocycle,
+      dayPlans: firstWeek.training.dayPlans,
+      completedSessions: firstWeek.training.completedSessions,
+      exerciseResults: firstWeek.training.recentExerciseResults,
+      safetyFlags: firstWeek.safety.riskFlags,
+      cycle: firstWeek.cycle,
+      nutrition: firstWeek.nutrition,
+      protectedWorkouts: firstWeek.training.protectedAnchors,
+      weekIndex: 1,
+      generatedAt: firstWeek.generatedAt,
+      planRevisionId
+    });
+    const journey: AthleteJourney = {
+      ...no_wearable_manual_only,
+      currentTrainingBlock: "training_block_1",
+      activeTrainingBlock: firstWeek.training.activeBlock,
+      trainingWeekSummaries: [provisionalSummary],
+      trainingProgressionDecisions: [],
+      trainingBlockTimelineEvents: []
+    };
+    const { repositories, stores } = createRepositories({ journey });
+    const boundaryDate = addDays(firstWeek.training.currentMicrocycle.weekEndDate, 1);
+
+    const result = await resolveAndPersistPerformanceState({
+      userId: "user_1",
+      asOfDate: boundaryDate,
+      repositories,
+      journeyResult: { status: "ready", journey }
+    });
+
+    expect(result.status).toBe("ready");
+    const summaryCalls = vi.mocked(repositories.trainingProgression.upsertTrainingWeekSummary).mock.calls;
+    expect(summaryCalls[0]?.[0].summary).toMatchObject({ weekIndex: 1, lifecycle: "final", finalizedAt: expect.any(String) });
+    expect(summaryCalls[1]?.[0].summary).toMatchObject({ weekIndex: 2, lifecycle: "provisional" });
+    const weekCompletedEvents = stores.timelineEvents.filter(
+      (record) =>
+        typeof record === "object" &&
+        record !== null &&
+        "event" in record &&
+        (record as { event?: { eventType?: string; payload?: { weekIndex?: number } } }).event?.eventType === "week_completed" &&
+        (record as { event?: { payload?: { weekIndex?: number } } }).event?.payload?.weekIndex === 1
+    );
+    expect(weekCompletedEvents).toHaveLength(1);
+    if (result.status === "ready") {
+      expect(result.state.training.blockHistory.summaries.some((summary) => summary.weekIndex === 1 && summary.lifecycle === "final")).toBe(true);
+      expect(result.state.training.currentWeekSummary?.weekIndex).toBe(2);
+      expect(result.state.training.currentWeekSummary?.lifecycle).toBe("provisional");
+    }
+  });
+
+  it("resumes boundary finalization when a prior retry persisted the final summary only", async () => {
+    const firstWeek = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const planRevisionId = firstWeek.training.supportGenerationAudit.planRevisionId;
+    const finalSummary = {
+      ...summarizeTrainingWeek({
+        asOfDate: addDays(firstWeek.training.currentMicrocycle.weekEndDate, 1),
+        trainingBlock: firstWeek.training.activeBlock,
+        trainingBlockId: "training_block_1",
+        microcycle: firstWeek.training.currentMicrocycle,
+        dayPlans: firstWeek.training.dayPlans,
+        completedSessions: firstWeek.training.completedSessions,
+        exerciseResults: firstWeek.training.recentExerciseResults,
+        safetyFlags: firstWeek.safety.riskFlags,
+        cycle: firstWeek.cycle,
+        nutrition: firstWeek.nutrition,
+        protectedWorkouts: firstWeek.training.protectedAnchors,
+        weekIndex: 1,
+        generatedAt: firstWeek.generatedAt,
+        planRevisionId
+      }),
+      id: "week_summary_final_partial_retry"
+    };
+    const journey: AthleteJourney = {
+      ...no_wearable_manual_only,
+      currentTrainingBlock: "training_block_1",
+      activeTrainingBlock: firstWeek.training.activeBlock,
+      trainingWeekSummaries: [finalSummary],
+      trainingProgressionDecisions: [],
+      trainingBlockTimelineEvents: []
+    };
+    const { repositories, stores } = createRepositories({ journey });
+    const boundaryDate = addDays(firstWeek.training.currentMicrocycle.weekEndDate, 1);
+
+    const result = await resolveAndPersistPerformanceState({
+      userId: "user_1",
+      asOfDate: boundaryDate,
+      repositories,
+      journeyResult: { status: "ready", journey }
+    });
+
+    expect(result.status).toBe("ready");
+    const decisionCalls = vi.mocked(repositories.trainingProgression.insertTrainingProgressionDecision).mock.calls;
+    expect(decisionCalls[0]?.[0]).toMatchObject({
+      weekIndex: 1,
+      decision: expect.objectContaining({ decisionLifecycle: "final" })
+    });
+    const weekCompletedEvents = stores.timelineEvents.filter(
+      (record) =>
+        typeof record === "object" &&
+        record !== null &&
+        "event" in record &&
+        (record as { event?: { eventType?: string; payload?: { weekIndex?: number } } }).event?.eventType === "week_completed" &&
+        (record as { event?: { payload?: { weekIndex?: number } } }).event?.payload?.weekIndex === 1
+    );
+    expect(weekCompletedEvents).toHaveLength(1);
+  });
+
+  it("resumes corrected-final decision and event even when the original final already completed", async () => {
+    const firstWeek = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const finalAsOfDate = addDays(firstWeek.training.currentMicrocycle.weekEndDate, 1);
+    const originalFinal = {
+      ...summarizeTrainingWeek({
+        asOfDate: finalAsOfDate,
+        trainingBlock: firstWeek.training.activeBlock,
+        trainingBlockId: "training_block_1",
+        microcycle: firstWeek.training.currentMicrocycle,
+        dayPlans: firstWeek.training.dayPlans,
+        completedSessions: firstWeek.training.completedSessions,
+        exerciseResults: firstWeek.training.recentExerciseResults,
+        safetyFlags: firstWeek.safety.riskFlags,
+        cycle: firstWeek.cycle,
+        nutrition: firstWeek.nutrition,
+        protectedWorkouts: firstWeek.training.protectedAnchors,
+        weekIndex: 1,
+        generatedAt: "2026-05-28T10:00:00.000Z"
+      }),
+      id: "summary_original_final",
+      lifecycle: "final" as const,
+      generatedAt: "2026-05-28T10:00:00.000Z",
+      finalizedAt: "2026-05-28T10:00:00.000Z"
+    };
+    const correctedFinal = {
+      ...originalFinal,
+      id: "summary_corrected_final",
+      lifecycle: "corrected_final" as const,
+      generatedAt: "2026-05-27T10:00:00.000Z",
+      finalizedAt: "2026-05-27T10:00:00.000Z",
+      reasons: [...originalFinal.reasons, "Correction revised finalized evidence."]
+    };
+    const originalDecision = {
+      weekIndex: 1,
+      decision: "hold" as const,
+      reason: "Original final decision existed.",
+      nextWeekPhase: firstWeek.training.activeBlock.phase,
+      confidence: { level: "medium" as const, score: 0.7, reasons: ["test"], missingInputs: [] },
+      safetyFlags: [],
+      generatedAt: "2026-05-28T10:00:00.000Z",
+      decisionLifecycle: "final" as const
+    };
+    const originalWeekCompleted = {
+      eventType: "week_completed" as const,
+      eventDate: firstWeek.training.currentMicrocycle.weekEndDate,
+      title: "Week 1 summarized",
+      summary: "Original final event.",
+      payload: {
+        blockId: "training_block_1",
+        weekIndex: 1,
+        nextWeekIndex: 2,
+        decision: "hold",
+        summaryLifecycle: "final"
+      }
+    };
+    const journey: AthleteJourney = {
+      ...no_wearable_manual_only,
+      currentTrainingBlock: "training_block_1",
+      activeTrainingBlock: firstWeek.training.activeBlock,
+      trainingWeekSummaries: [originalFinal, correctedFinal],
+      trainingProgressionDecisions: [originalDecision],
+      trainingBlockTimelineEvents: [originalWeekCompleted]
+    };
+    const { repositories, stores } = createRepositories({ journey });
+
+    const result = await resolveAndPersistPerformanceState({
+      userId: "user_1",
+      asOfDate: finalAsOfDate,
+      repositories,
+      journeyResult: { status: "ready", journey }
+    });
+
+    expect(result.status).toBe("ready");
+    const decisionCalls = vi.mocked(repositories.trainingProgression.insertTrainingProgressionDecision).mock.calls;
+    expect(decisionCalls[0]?.[0]).toMatchObject({
+      weekIndex: 1,
+      decision: expect.objectContaining({ decisionLifecycle: "corrected_final" })
+    });
+    const correctedWeekCompletedEvents = stores.timelineEvents.filter(
+      (record) =>
+        typeof record === "object" &&
+        record !== null &&
+        "event" in record &&
+        (record as { event?: { eventType?: string; payload?: { summaryLifecycle?: string; weekIndex?: number } } }).event?.eventType === "week_completed" &&
+        (record as { event?: { payload?: { summaryLifecycle?: string; weekIndex?: number } } }).event?.payload?.weekIndex === 1 &&
+        (record as { event?: { payload?: { summaryLifecycle?: string } } }).event?.payload?.summaryLifecycle === "corrected_final"
+    );
+    expect(correctedWeekCompletedEvents).toHaveLength(1);
   });
 
   it("upserts active risk flags by user/domain/code/status", async () => {

@@ -248,10 +248,25 @@ function createNutritionReviewEventListClient() {
 function generatedSessionRow(input: { id: string; date: string; title: string; trainingBlockId?: string | undefined }) {
   return {
     id: input.id,
+    block_id: input.trainingBlockId ?? null,
     planned_date: input.date,
+    original_planned_date: input.date,
+    current_scheduled_date: input.date,
+    plan_revision_id: "plan:test",
+    week_id: "week:plan:test:1",
+    week_index: 1,
+    prescription_slot_id: `slot:plan:test:${input.id}`,
+    generated_session_lifecycle: "active",
     session_payload: {
       id: input.id,
       date: input.date,
+      originalPlannedDate: input.date,
+      currentScheduledDate: input.date,
+      planRevisionId: "plan:test",
+      weekId: "week:plan:test:1",
+      weekIndex: 1,
+      prescriptionSlotId: `slot:plan:test:${input.id}`,
+      generatedSessionLifecycle: "active",
       family: "strength_full_body",
       title: input.title,
       durationMinutes: 35,
@@ -633,6 +648,17 @@ describe("Supabase repositories", () => {
     });
 
     expect(sessions.map((session) => session.title)).toEqual(["Current scoped support"]);
+    expect(sessions[0]).toMatchObject({
+      id: "current_scoped",
+      originalPlannedDate: fixtureAsOfDate,
+      currentScheduledDate: fixtureAsOfDate,
+      date: fixtureAsOfDate,
+      planRevisionId: "plan:test",
+      weekId: "week:plan:test:1",
+      weekIndex: 1,
+      prescriptionSlotId: "slot:plan:test:current_scoped",
+      generatedSessionLifecycle: "active"
+    });
     expect(calls).toEqual(
       expect.arrayContaining([
         { method: "from", value: "generated_training_sessions" },
@@ -733,6 +759,9 @@ describe("Supabase repositories", () => {
     expect(source).toContain("async upsertNutritionTarget");
     expect(source).toContain("async upsertGeneratedSessions");
     expect(source).toContain("generated_session_key");
+    expect(source).toContain("session.prescriptionSlotId ?? session.id");
+    expect(source).toContain("original_planned_date: session.originalPlannedDate ?? session.date");
+    expect(source).toContain("current_scheduled_date: session.currentScheduledDate ?? session.date");
     expect(source).not.toContain("async saveGeneratedSessions");
   });
 
@@ -743,6 +772,22 @@ describe("Supabase repositories", () => {
     expect(source).toContain("generated_training_session_id: string | null");
     expect(source).toContain("exercise_id: string | null");
     expect(source).toContain("generated_session_key: string | null");
+    expect(source).toContain("prescription_slot_id: string | null");
+    expect(source).toContain("original_planned_date: string | null");
+    expect(source).toContain("current_scheduled_date: string | null");
+    expect(source).toContain("generated_session_lifecycle: string");
+  });
+
+  it("20260619194631 migration adds generated-session schedule identity and reconciles duplicate active slots", () => {
+    const source = readFileSync("supabase/migrations/20260619194631_generated_session_identity_lifecycle.sql", "utf8");
+
+    expect(source).toContain("add column if not exists prescription_slot_id text");
+    expect(source).toContain("add column if not exists original_planned_date date");
+    expect(source).toContain("add column if not exists current_scheduled_date date");
+    expect(source).toContain("add column if not exists generated_session_lifecycle text not null default 'active'");
+    expect(source).toContain("duplicate_generated_session_identity_reconciled");
+    expect(source).toContain("generated_training_sessions_user_active_slot_uidx");
+    expect(source).toContain("generated_session_lifecycle in ('active', 'moved')");
   });
 
   it("database types include 005 training progression tables", () => {
@@ -759,6 +804,23 @@ describe("Supabase repositories", () => {
     expect(source).toContain("generated_training_sessions_block_id_fkey");
     expect(source).toContain("references public.training_blocks");
     expect(source).toContain("generated_training_sessions_user_block_date_idx");
+  });
+
+  it("20260619190201 migration adds deterministic week-finalization authority keys", () => {
+    const source = readFileSync("supabase/migrations/20260619190201_training_week_finalization_authority.sql", "utf8");
+
+    expect(source).toContain("summary_authority_key");
+    expect(source).toContain("decision_authority_key");
+    expect(source).toContain("event_key");
+    expect(source).toContain("corrected_final");
+    expect(source).toContain("superseded");
+    expect(source).toContain("coalesce(summary_lifecycle, 'final')");
+    expect(source).toContain("coalesce(decision_lifecycle, 'final')");
+    expect(source).toContain("coalesce(event_payload->>'summaryLifecycle', event_payload->>'decisionLifecycle', 'none')");
+    expect(source).toContain("training_week_summaries_user_authority_key_uidx");
+    expect(source).toContain("training_progression_decisions_user_authority_key_uidx");
+    expect(source).toContain("training_block_timeline_events_user_event_key_uidx");
+    expect(source).toContain("legacy_duplicate");
   });
 
   it("004 migration creates training block persistence tables, RLS, and indexes", () => {
@@ -1060,8 +1122,13 @@ describe("Supabase repositories", () => {
 
     expect(source).toContain("async upsertTrainingWeekSummary");
     expect(source).toContain("TrainingWeekSummarySchema");
-    expect(source).toContain("onConflict: \"user_id,training_block_id,week_index\"");
+    expect(source).toContain("summaryAuthorityKey");
+    expect(source).toContain("onConflict: \"user_id,summary_authority_key\"");
     expect(source).toContain("async insertTrainingProgressionDecision");
+    expect(source).toContain("decisionAuthorityKey");
+    expect(source).toContain("onConflict: \"user_id,decision_authority_key\"");
+    expect(source).toContain("timelineEventKey");
+    expect(source).toContain("onConflict: \"user_id,event_key\"");
     expect(source).toContain("input_hash");
     expect(source).toContain("output_hash");
     expect(source).toContain("async insertTrainingBlockTimelineEvent");

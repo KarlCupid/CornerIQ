@@ -15,6 +15,7 @@ const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesd
 const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
 const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper", "boxing_skill", "technical", "agility", "tactical"]);
 const TrainingExecutionReadinessStatusSchema = z.enum(["unknown", "green", "amber", "red_non_hard_stop", "red_hard_stop"]);
+const GeneratedSessionLifecycleSchema = z.enum(["active", "completed", "skipped", "unresolved", "moved", "superseded", "canceled"]);
 const GeneratedSessionAddOnPrioritySchema = z.enum(["required", "recommended", "optional"]);
 const GeneratedSessionAddOnPlacementTypeSchema = z.enum(["primer", "finisher", "recovery", "mobility", "durability", "technical_touch"]);
 const ExerciseResultLoadUnitSchema = z.enum(["kg", "lb", "bodyweight", "band", "other"]);
@@ -385,6 +386,8 @@ export const JourneyEventSchema = z.object({
 export const GeneratedTrainingSessionSchema = z.object({
   id: z.string().min(1),
   date: ISODateSchema,
+  originalPlannedDate: ISODateSchema.optional(),
+  currentScheduledDate: ISODateSchema.optional(),
   family: z.enum([
     "strength_lower",
     "strength_upper",
@@ -429,7 +432,10 @@ export const GeneratedTrainingSessionSchema = z.object({
   fuelDemand: z.enum(["low", "moderate", "high"]),
   planRevisionId: z.string().min(1).optional(),
   trainingBlockId: z.string().min(1).optional(),
+  weekId: z.string().min(1).optional(),
   weekIndex: z.number().int().positive().optional(),
+  prescriptionSlotId: z.string().min(1).optional(),
+  generatedSessionLifecycle: GeneratedSessionLifecycleSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   source: z.enum(["active_plan_generation", "engine_projection", "next_week_preview_materialization"]).optional(),
   templateId: z.string().min(1).optional(),

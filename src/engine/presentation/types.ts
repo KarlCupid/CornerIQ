@@ -39,7 +39,8 @@ import type {
   GeneratedSessionResolvedStatus,
   DailyOperatingModeView,
   PlannedVsFinalTrainingDelta,
-  TrainingLoadLedger,
+  ActualTrainingLoad,
+  PlannedTrainingLoad,
   TrainingStimulus,
   TrainingStimulusMix,
   TrainingBlockPhase,
@@ -417,10 +418,10 @@ export interface TrainViewModel {
     generatedSessionResolutions: readonly string[];
     persistedGeneratedSessionsConsidered: readonly string[];
     persistedGeneratedSessionsIgnored: readonly string[];
-    plannedLoadLedger: TrainingLoadLedger;
-    actualLoadLedger: TrainingLoadLedger;
+    plannedLoadLedger: PlannedTrainingLoad;
+    actualLoadLedger: ActualTrainingLoad;
     acceptedPreviewStatus: string | null;
-    weekSummaryLifecycle: "provisional" | "final" | "unknown";
+    weekSummaryLifecycle: "provisional" | "final" | "corrected_final" | "superseded" | "unknown";
     selectedProgressionDecisionRevision: string | null;
     autoRollForwardPrevented: boolean;
     scheduleRevisionChanged: boolean;

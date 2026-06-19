@@ -162,7 +162,7 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
   const id =
     stringValue(intentPayload?.id) ??
     stringValue(payload.planRevisionId) ??
-    `plan:${stableHash({ eventId: event.id, payload, requestedAt, asOfDate })}`;
+    `plan:${stableHash({ eventId: event.id, payload, requestedAt })}`;
   const seed = stringValue(intentPayload?.seed) ?? stringValue(payload.seed) ?? id;
   const planStartDate =
     isoDateValue(intentPayload?.planStartDate) ??

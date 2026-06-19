@@ -3,7 +3,7 @@ import { addDays, daysBetween } from "./dates";
 import { traceDecision } from "./decisionTrace";
 import type { EngineViewModels, PerformanceState, ResolvePerformanceStateInput } from "./types";
 import { stableHash } from "./stableHash";
-import { selectAsOfCompletedTrainingSessions, selectAsOfExerciseResults, selectAsOfReadinessHistory, selectLatestReadinessForDate } from "./temporalSelectors";
+import { buildAthleteJourneySnapshot, selectLatestReadinessForDate } from "./temporalSelectors";
 import { resolvePhase } from "../phase/phaseController";
 import { resolveCycleState } from "../cycle/cycleEngine";
 import { resolveReadiness } from "../readiness/readinessEngine";
@@ -36,8 +36,12 @@ import type { TrainingBlockHistory } from "../training/types";
 export const ENGINE_VERSION = "0.2.0";
 
 function trainingBlockHistoryFor(journey: ResolvePerformanceStateInput["journey"]): TrainingBlockHistory {
-  const latestSummaryIndex = journey.trainingWeekSummaries.reduce((latest, summary) => Math.max(latest, summary.weekIndex), 0);
-  const latestDecisionIndex = journey.trainingProgressionDecisions.reduce((latest, decision) => Math.max(latest, decision.weekIndex), 0);
+  const latestSummaryIndex = journey.trainingWeekSummaries
+    .filter((summary) => (summary.lifecycle ?? "final") !== "superseded")
+    .reduce((latest, summary) => Math.max(latest, summary.weekIndex), 0);
+  const latestDecisionIndex = journey.trainingProgressionDecisions
+    .filter((decision) => (decision.decisionLifecycle ?? "final") !== "superseded")
+    .reduce((latest, decision) => Math.max(latest, decision.weekIndex), 0);
   return {
     blockId: journey.currentTrainingBlock,
     summaries: journey.trainingWeekSummaries,
@@ -85,16 +89,16 @@ function underFuelingCalorieTargets(input: {
 export function resolvePerformanceState(input: ResolvePerformanceStateInput): PerformanceState {
   const generatedAt = input.generatedAt ?? `${input.asOfDate}T00:00:00.000Z`;
   const generatedAtCutoff = input.generatedAt;
-  const journey = input.journey;
-  const readinessHistory = selectAsOfReadinessHistory(journey.readinessHistory, input.asOfDate, generatedAtCutoff);
-  const completedTrainingSessions = selectAsOfCompletedTrainingSessions(journey.completedTrainingSessions, input.asOfDate, generatedAtCutoff);
-  const exerciseResults = selectAsOfExerciseResults(journey.exerciseResults, input.asOfDate, generatedAtCutoff);
-  const bodyMassHistory = journey.bodyMassHistory.filter((log) => log.date <= input.asOfDate && (generatedAtCutoff === undefined || log.recordedAt === undefined || log.recordedAt <= generatedAtCutoff));
-  const nutritionHistory = journey.nutritionHistory.filter((log) => log.date <= input.asOfDate && (generatedAtCutoff === undefined || log.loggedAt === undefined || log.loggedAt <= generatedAtCutoff));
-  const hydrationHistory = journey.hydrationHistory.filter((log) => log.date <= input.asOfDate);
-  const electrolyteHistory = journey.electrolyteHistory.filter((log) => log.date <= input.asOfDate);
-  const cycleHistory = journey.cycleHistory.filter((log) => log.date <= input.asOfDate);
-  const wearableSignalHistory = journey.wearableSignalHistory.filter((signal) => signal.recordedAt.slice(0, 10) <= input.asOfDate && (generatedAtCutoff === undefined || signal.recordedAt <= generatedAtCutoff));
+  const journey = buildAthleteJourneySnapshot(input.journey, input.asOfDate, generatedAtCutoff);
+  const readinessHistory = journey.readinessHistory;
+  const completedTrainingSessions = journey.completedTrainingSessions;
+  const exerciseResults = journey.exerciseResults;
+  const bodyMassHistory = journey.bodyMassHistory;
+  const nutritionHistory = journey.nutritionHistory;
+  const hydrationHistory = journey.hydrationHistory;
+  const electrolyteHistory = journey.electrolyteHistory;
+  const cycleHistory = journey.cycleHistory;
+  const wearableSignalHistory = journey.wearableSignalHistory;
   const phase = resolvePhase(journey, input.asOfDate);
   const cycle = resolveCycleState({
     trackingEnabled: journey.athlete.cycleTrackingPreference === "enabled",
