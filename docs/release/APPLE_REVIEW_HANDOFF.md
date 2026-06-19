@@ -1,6 +1,6 @@
 # Apple Review Handoff
 
-Date: 2026-06-18
+Date: 2026-06-19
 
 Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers marked below. This file is a handoff checklist, not final App Store metadata.
 
@@ -11,22 +11,49 @@ Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers 
 - App icon and splash: APPLE_SUBMISSION_BLOCKED until final icon/splash assets are added and wired in `app.json`, or the release owner documents accepted final assets.
 - Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy and support metadata.
 - Support URL: published at `https://sites.google.com/view/corneriq/support` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override it if the release owner moves support.
-- Reviewer credentials: create and confirm a fresh account before submission, then provide credentials only in App Store Connect Review Notes. Do not commit credentials.
+- Reviewer credentials: review account prepared on 2026-06-19. Provide credentials only in App Store Connect Review Notes. Do not commit credentials.
 
 ## Reviewer Access
 
-1. Create a fresh Supabase review account before submission; the account used for the 2026-06-18 deletion smoke was intentionally deleted.
-2. Confirm email if the production auth project requires email confirmation.
-3. Preload a safe adult boxer profile, or confirm onboarding remains available after login when no profile exists.
-4. Provide credentials only in App Store Connect Review Notes.
-5. Do not commit credentials, personal emails, or screenshots containing credentials.
+1. Review account auth was completed before setup; onboarding was completed through the normal signed-in app flow on 2026-06-19.
+2. Provide the review account email and password only in App Store Connect Review Notes.
+3. Do not commit credentials, personal emails, or screenshots containing credentials.
+
+Preloaded reviewer profile:
+
+- Adult amateur open boxer; age 25; male; orthodox; 3-5 years training age.
+- Body context: 175 cm, 67.5 kg current body weight, 69 kg typical walk-around weight.
+- Manual-first setup: wearable preference is manual only; no wearable is required.
+- Cycle support is left as decide later.
+- Equipment/access: jump rope, gloves/wraps, dumbbells, pull-up bar, heavy bag.
+- Availability: Monday, Tuesday, Wednesday, Thursday, Saturday.
+- Fixed boxing sessions: Wednesday technical session, 45 min, RPE 6; Saturday pads/mitts, 75 min, RPE 7.
+- Safety profile has no medical restriction flags, no eating/weight-cut risk flags, and no prior adverse cut notes.
+- Fight camp context: confirmed amateur bout on 2026-08-15, 68 kg, day-before weigh-in. Exact weigh-in datetime was saved through Plan > Change goal or schedule as `2026-08-15T01:00:00.000Z`, with standard support dose and existing fixed schedule kept.
+- Manual readiness was logged for the review account: 7.5h sleep, energy 4/5, soreness 2/5, sleep quality 4/5, stress 2/5, mood 4/5.
+
+Expected reviewer behavior:
+
+- Today may still show conservative review/cut-paused language when fuel, hydration, or safety context is incomplete. This is intentional: missing data stays unknown, not safe.
+- The reviewer can use Today > Check in and Quick Logs to see manual-first readiness, weight, water, and food logging.
+- Plan shows a fight-camp week built around the fixed boxing sessions.
+- Fuel shows weight/fuel safety framing and should not present unsafe weight-cut pressure.
+- Profile > Data includes export preview, portable JSON export, delete app data, and delete account.
 
 Suggested Review Notes:
 
 ```text
-CornerIQ is account-gated. A review account has been created and confirmed.
+CornerIQ is account-gated. A review account has been created, confirmed, and preloaded through onboarding.
 Username: [provide only in App Store Connect]
 Password: [provide only in App Store Connect]
+
+The account demonstrates:
+- Manual-first onboarding; no wearable is required
+- Adult amateur boxing profile
+- Fixed weekly boxing sessions
+- Fight-camp planning context
+- Manual readiness and body-weight logging
+- Safety-first fuel/weight guidance when context is incomplete
 
 Profile > Data includes:
 - Export preview
@@ -124,8 +151,8 @@ Do not claim:
 - [x] Deploy `delete-account` Edge Function.
 - [x] Smoke-test Profile > Data > Delete account in production.
 - [ ] Add final icon and splash assets to `app.json`.
-- [ ] Create and confirm review account.
-- [ ] Preload a safe adult boxer profile or verify onboarding from empty profile.
+- [x] Create and confirm review account.
+- [x] Preload a safe adult boxer profile or verify onboarding from empty profile.
 - [ ] Capture screenshots.
 - [ ] Fill App Store Connect Support URL with `https://sites.google.com/view/corneriq/support`.
 - [ ] Put credentials only in App Store Connect Review Notes.
