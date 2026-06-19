@@ -128,6 +128,32 @@ describe("autoRollForwardTrainingPlan", () => {
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });
 
+  it("does not auto-materialize a preview whose acceptance is after the state replay cutoff", async () => {
+    const state = stateFixture({ snapshotGeneratedAt: "2026-05-20T12:00:00.000Z" });
+    const preview = previewFixture(state, {
+      status: "accepted",
+      createdAt: "2026-05-20T09:00:00.000Z",
+      updatedAt: "2026-05-20T18:00:00.000Z",
+      acceptedAt: "2026-05-20T18:00:00.000Z"
+    });
+    const repositories = repositoriesFor(preview);
+
+    const result = await autoRollForwardTrainingPlan({
+      userId: "user_1",
+      current: state,
+      repositories,
+      asOfDate: preview.weekStartDate,
+      options: { enabled: true, allowBoundaryOverrideForTests: true }
+    });
+
+    expect(result.status).toBe("not_needed");
+    expect(result.explanation).toContain("not accepted");
+    expect(result.shouldRefreshState).toBe(false);
+    expect(repositories.trainingBlock.upsertTrainingMicrocycle).not.toHaveBeenCalled();
+    expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
+    expect(repositories.trainingNextWeekPreview.markPreviewMaterialized).not.toHaveBeenCalled();
+  });
+
   it("materializes at the boundary and emits auto-roll-forward audit payloads", async () => {
     const state = stateFixture();
     const base = previewFixture(state);

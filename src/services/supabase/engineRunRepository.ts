@@ -140,6 +140,38 @@ export function generatedTrainingSessionKey(session: GeneratedTrainingSession): 
   return session.prescriptionSlotId ?? session.id;
 }
 
+const EXECUTION_OVERLAY_MODIFICATION_MARKERS = [
+  "No readiness check-in",
+  "No food log today",
+  "Food log is incomplete",
+  "Food marked not tracking today",
+  "Quick fuel check supports execution only",
+  "Hydration confidence is advisory",
+  "Amber readiness execution",
+  "Red readiness without hard-stop symptoms: session stays planned",
+  "One complete low intake day",
+  "Under-fueling evidence: remove all-out finishers",
+  "Hard-stop evidence: do not turn this into hard training"
+];
+
+function baseGeneratedSessionForPersistence(session: GeneratedTrainingSession): GeneratedTrainingSession {
+  const baseSession: GeneratedTrainingSession = {
+    ...session,
+    modifications: session.modifications.filter((modification) => !EXECUTION_OVERLAY_MODIFICATION_MARKERS.some((marker) => modification.includes(marker)))
+  };
+  delete baseSession.readinessGate;
+  delete baseSession.fuelingGate;
+  delete baseSession.hydrationGate;
+  delete baseSession.executionReadinessStatus;
+  delete baseSession.preSessionChecklist;
+  delete baseSession.downshiftIf;
+  delete baseSession.fuelBefore;
+  delete baseSession.fuelAfter;
+  delete baseSession.confidenceImpact;
+  delete baseSession.missingDataAdvisories;
+  return baseSession;
+}
+
 function riskFlagPersistenceKey(record: Pick<TableInsert<"risk_flags">, "code" | "domain">): string {
   return `${record.domain}:${record.code}`;
 }
@@ -152,21 +184,22 @@ export function mapGeneratedSessionToRow(
   outputHash: string,
   metadata: Record<string, unknown> = {}
 ): TableInsert<"generated_training_sessions"> {
-  const generatedSessionKey = generatedTrainingSessionKey(session);
-  const trainingBlockId = typeof metadata.trainingBlockId === "string" ? metadata.trainingBlockId : session.trainingBlockId;
+  const baseSession = baseGeneratedSessionForPersistence(session);
+  const generatedSessionKey = generatedTrainingSessionKey(baseSession);
+  const trainingBlockId = typeof metadata.trainingBlockId === "string" ? metadata.trainingBlockId : baseSession.trainingBlockId;
   return {
     user_id: userId,
-    planned_date: session.originalPlannedDate ?? session.date,
-    original_planned_date: session.originalPlannedDate ?? session.date,
-    current_scheduled_date: session.currentScheduledDate ?? session.date,
-    plan_revision_id: session.planRevisionId ?? null,
-    week_id: session.weekId ?? null,
-    week_index: session.weekIndex ?? null,
-    prescription_slot_id: session.prescriptionSlotId ?? null,
-    generated_session_lifecycle: session.generatedSessionLifecycle ?? "active",
+    planned_date: baseSession.originalPlannedDate ?? baseSession.date,
+    original_planned_date: baseSession.originalPlannedDate ?? baseSession.date,
+    current_scheduled_date: baseSession.currentScheduledDate ?? baseSession.date,
+    plan_revision_id: baseSession.planRevisionId ?? null,
+    week_id: baseSession.weekId ?? null,
+    week_index: baseSession.weekIndex ?? null,
+    prescription_slot_id: baseSession.prescriptionSlotId ?? null,
+    generated_session_lifecycle: baseSession.generatedSessionLifecycle ?? "active",
     generated_session_key: generatedSessionKey,
     session_payload: toJson({
-      ...session,
+      ...baseSession,
       generatedSessionKey,
       inputHash,
       outputHash,

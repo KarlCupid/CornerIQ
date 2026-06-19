@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it } from "vitest";
 const SCRIPT_PATH = resolve(process.cwd(), "scripts/collect-release-evidence-input.mjs");
 const CURRENT_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const OUTPUT_PATH = "qa-artifacts/release-evidence/release-evidence-input.json";
+const MIGRATION_010 = "010_generated_sessions_training_block_scope.sql";
+const MIGRATION_014 = "014_temporal_integrity_session_resolution.sql";
 const preservedEnvNames = ["PATH", "Path", "PATHEXT", "SystemRoot", "ComSpec", "TEMP", "TMP", "HOME", "USERPROFILE"];
 
 function cleanEnv(extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
@@ -39,6 +41,8 @@ function createFixture(): string {
     "vitest.config.mjs",
     "export default { test: { coverage: { thresholds: { statements: 75, functions: 75, lines: 75, branches: 65 } } } };"
   );
+  writeFixtureFile(root, `supabase/migrations/${MIGRATION_010}`, "-- fixture migration\n");
+  writeFixtureFile(root, `supabase/migrations/${MIGRATION_014}`, "-- fixture migration\n");
   return root;
 }
 
@@ -90,7 +94,11 @@ describe("release evidence input collector", () => {
     expect(output.qualityRun).toContain("release-blocking");
     expect(output.codeqlRun).toContain("release-blocking");
     expect(output.coverageResult).toContain("coverage/coverage-summary.json unavailable");
+    expect(output.localSchemaValidation).toContain("release-blocking");
+    expect(output.localSchemaValidation).toContain("CORNERIQ_COLLECT_LOCAL_SUPABASE_VALIDATION");
     expect(output.supabaseMigration).toContain("release-blocking");
+    expect(output.supabaseMigration).toContain(MIGRATION_010);
+    expect(output.supabaseMigration).toContain(MIGRATION_014);
     expect(output.liveSmoke).toContain("release-blocking");
     expect(output.knownBlockers).toContain("unresolved release evidence blockers");
   });

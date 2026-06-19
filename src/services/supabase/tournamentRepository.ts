@@ -4,7 +4,7 @@ import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
 import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export type TournamentPlanRow = Pick<TableRow<"tournament_plans">, "id" | "tournament_start_date" | "tournament_end_date" | "plan_payload">;
+export type TournamentPlanRow = Pick<TableRow<"tournament_plans">, "created_at" | "id" | "tournament_start_date" | "tournament_end_date" | "plan_payload">;
 
 export function mapTournamentPlanRow(row: TournamentPlanRow): TournamentDetails {
   const payload = payloadObject(row.plan_payload, "tournament_plans.plan_payload");
@@ -14,7 +14,8 @@ export function mapTournamentPlanRow(row: TournamentPlanRow): TournamentDetails 
       ...payload,
       id: row.id,
       tournamentStartDate: row.tournament_start_date,
-      tournamentEndDate: row.tournament_end_date
+      tournamentEndDate: row.tournament_end_date,
+      recordedAt: row.created_at
     },
     "tournament_plans"
   );
@@ -50,7 +51,7 @@ export function createTournamentRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "tournament_plans.listTournamentPlans");
       const response = await client
         .from("tournament_plans")
-        .select("id, tournament_start_date, tournament_end_date, plan_payload")
+        .select("created_at, id, tournament_start_date, tournament_end_date, plan_payload")
         .eq("user_id", safeUserId)
         .order("tournament_start_date", { ascending: true });
       const rows = readDataOrThrow(response, "tournament_plans.listTournamentPlans");

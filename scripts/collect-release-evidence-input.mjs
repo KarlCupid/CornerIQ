@@ -1,17 +1,18 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import process from "node:process";
 
 const root = process.cwd();
 const defaultOutputPath = "qa-artifacts/release-evidence/release-evidence-input.json";
-const migration010Name = "010_generated_sessions_training_block_scope.sql";
+const migrationsDir = "supabase/migrations";
 const releaseEvidenceFields = [
   "qualityRun",
   "codeqlRun",
   "releaseQualityRun",
   "localCommandResults",
   "coverageResult",
+  "localSchemaValidation",
   "supabaseMigration",
   "liveSmoke",
   "easMobile",
@@ -24,6 +25,7 @@ const manualEvidenceEnv = {
   releaseQualityRun: "CORNERIQ_RELEASE_QUALITY_RUN_EVIDENCE",
   localCommandResults: "CORNERIQ_RELEASE_LOCAL_COMMAND_RESULTS",
   coverageResult: "CORNERIQ_RELEASE_COVERAGE_RESULT",
+  localSchemaValidation: "CORNERIQ_RELEASE_LOCAL_SCHEMA_VALIDATION",
   supabaseMigration: "CORNERIQ_RELEASE_SUPABASE_MIGRATION",
   liveSmoke: "CORNERIQ_RELEASE_LIVE_SMOKE",
   easMobile: "CORNERIQ_RELEASE_EAS_MOBILE",
@@ -41,6 +43,24 @@ function argValue(name) {
 
 function resolvePath(path) {
   return isAbsolute(path) ? path : join(root, path);
+}
+
+function localMigrationNames() {
+  const directory = resolvePath(migrationsDir);
+  if (!existsSync(directory)) {
+    return [];
+  }
+  return readdirSync(directory)
+    .filter((name) => name.endsWith(".sql"))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function migrationVersion(name) {
+  return name.replace(/\.sql$/i, "").split("_", 1)[0];
+}
+
+function migrationEvidenceList(names = localMigrationNames()) {
+  return names.length > 0 ? names.join(", ") : "no local migration files found";
 }
 
 function candidateSha() {
@@ -233,6 +253,61 @@ function collectCoverageEvidence(sha) {
   return `Candidate ${sha}; statements ${metrics.statements}, functions ${metrics.functions}, lines ${metrics.lines}, branches ${metrics.branches}; thresholds statements ${thresholds.statements}, functions ${thresholds.functions}, lines ${thresholds.lines}, branches ${thresholds.branches}; ${status}`;
 }
 
+function normalizeGeneratedTypes(source) {
+  return String(source ?? "").replace(/\r\n/g, "\n").trimEnd();
+}
+
+function localSchemaValidationEvidence(sha) {
+  if (process.env.CORNERIQ_COLLECT_LOCAL_SUPABASE_VALIDATION !== "1") {
+    return `Candidate ${sha}; clean local/staging migration apply, schema lint, and generated database type validation not collected by this run; set CORNERIQ_COLLECT_LOCAL_SUPABASE_VALIDATION=1 or supply CORNERIQ_RELEASE_LOCAL_SCHEMA_VALIDATION after a clean validation; release-blocking.`;
+  }
+
+  if (!localSupabaseCliAvailable()) {
+    return `Candidate ${sha}; local Supabase CLI dependency unavailable in node_modules; clean local/staging migration apply, schema lint, and generated database type validation not verified; release-blocking.`;
+  }
+
+  const excludeServices = "edge-runtime,gotrue,imgproxy,kong,logflare,mailpit,postgres-meta,postgrest,realtime,storage-api,studio,supavisor,vector";
+  const start = runNpm(["exec", "supabase", "--", "start", "--exclude", excludeServices]);
+  const migrationList = runNpm(["exec", "supabase", "--", "migration", "list", "--local"]);
+  const lint = runNpm(["exec", "supabase", "--", "db", "lint", "--local", "--level", "error", "--fail-on", "error"]);
+  const generatedTypes = runNpm(["exec", "supabase", "--", "gen", "types", "typescript", "--local"]);
+  const checkedInTypesPath = resolvePath("src/services/supabase/database.types.ts");
+  const checkedInTypes = existsSync(checkedInTypesPath) ? readFileSync(checkedInTypesPath, "utf8") : "";
+  const typesMatch = generatedTypes.status === 0 && normalizeGeneratedTypes(generatedTypes.stdout) === normalizeGeneratedTypes(checkedInTypes);
+
+  const migrationNames = localMigrationNames();
+  const missingMigrations = migrationNames.filter((name) => {
+    const version = migrationVersion(name);
+    const text = commandText(migrationList).toLowerCase();
+    return !text.includes(name.toLowerCase()) && !new RegExp(`\\b${version}\\b`, "i").test(text);
+  });
+
+  if (start.status === 0 && migrationList.status === 0 && lint.status === 0 && typesMatch && missingMigrations.length === 0) {
+    return `Candidate ${sha}; npm exec supabase -- start --exclude ${excludeServices} exit 0; npm exec supabase -- migration list --local exit 0 and includes every local migration: ${migrationEvidenceList(migrationNames)}; npm exec supabase -- db lint --local --level error --fail-on error exit 0; npm exec supabase -- gen types typescript --local exit 0 and generated database types match src/services/supabase/database.types.ts; pass.`;
+  }
+
+  const blockers = [];
+  if (start.status !== 0) {
+    blockers.push(`local Supabase start exit ${start.status}`);
+  }
+  if (migrationList.status !== 0) {
+    blockers.push(`local migration list exit ${migrationList.status}`);
+  }
+  if (missingMigrations.length > 0) {
+    blockers.push(`migration list omitted ${missingMigrations.join(", ")}`);
+  }
+  if (lint.status !== 0) {
+    blockers.push(`local db lint exit ${lint.status}`);
+  }
+  if (generatedTypes.status !== 0) {
+    blockers.push(`type generation exit ${generatedTypes.status}`);
+  } else if (!typesMatch) {
+    blockers.push("generated database types differ from src/services/supabase/database.types.ts");
+  }
+
+  return `Candidate ${sha}; local/staging migration apply, schema lint, and generated database type validation failed or incomplete: ${blockers.join("; ")}; release-blocking.`;
+}
+
 function supabaseVersion(result) {
   const match = commandText(result).match(/\b\d+\.\d+\.\d+\b/);
   return match?.[0] ?? "unknown";
@@ -242,32 +317,37 @@ function dryRunProvesUpToDate(text) {
   return /\b(no migrations to push|database is up to date|already up to date|nothing to push|no changes found|remote database is up to date)\b/i.test(text);
 }
 
-function detectsPendingMigration010(text) {
+function pendingRequiredMigrations(text, names = localMigrationNames()) {
   const lower = text.toLowerCase();
-  if (!lower.includes("010") && !lower.includes(migration010Name.toLowerCase())) {
-    return false;
+  if (!/pending|not applied|would apply|will apply|push.*migration|apply.*migration|local only|to push/i.test(text)) {
+    return [];
   }
-  return /pending|not applied|would apply|will apply|push.*migration|apply.*migration|local only|to push/i.test(text);
+  return names.filter((name) => {
+    const version = migrationVersion(name);
+    return lower.includes(name.toLowerCase()) || new RegExp(`\\b${version}\\b`, "i").test(text);
+  });
 }
 
 function summarizeSupabaseEvidence(sha, version, link, migrationList, dryRun, applied = false) {
+  const migrationNames = localMigrationNames();
+  const migrationListText = migrationEvidenceList(migrationNames);
   const dryRunText = commandText(dryRun);
   const migrationText = `${commandText(migrationList)}\n${dryRunText}`;
   const upToDate = migrationList.status === 0 && dryRun.status === 0 && dryRunProvesUpToDate(dryRunText);
-  const pending010 = detectsPendingMigration010(migrationText);
+  const pendingMigrations = pendingRequiredMigrations(migrationText, migrationNames);
   const linkSummary = link ? `supabase link exit ${link.status}; ` : "";
 
-  if (upToDate && !pending010) {
+  if (upToDate && pendingMigrations.length === 0) {
     const appliedText = applied ? "guarded remote db push was applied before final verification; " : "";
     return {
       aligned: true,
-      row: `Candidate ${sha}; npm exec supabase -- --version exit 0 (version ${version}); ${linkSummary}npm exec supabase -- migration list exit ${migrationList.status}; npm exec supabase -- db push --dry-run exit ${dryRun.status}; ${migration010Name} verified up to date; ${appliedText}pass.`
+      row: `Candidate ${sha}; npm exec supabase -- --version exit 0 (version ${version}); ${linkSummary}npm exec supabase -- migration list exit ${migrationList.status}; npm exec supabase -- db push --dry-run exit ${dryRun.status}; all local migrations verified up to date: ${migrationListText}; ${appliedText}pass.`
     };
   }
 
-  const reason = pending010
-    ? `${migration010Name} appears pending or would be applied by dry-run`
-    : "migration list/dry-run did not prove the remote database is up to date";
+  const reason = pendingMigrations.length > 0
+    ? `required migrations appear pending or would be applied by dry-run: ${pendingMigrations.join(", ")}`
+    : `migration list/dry-run did not prove all local migrations are remotely up to date: ${migrationListText}`;
   return {
     aligned: false,
     row: `Candidate ${sha}; npm exec supabase -- --version exit 0 (version ${version}); ${linkSummary}npm exec supabase -- migration list exit ${migrationList.status}; npm exec supabase -- db push --dry-run exit ${dryRun.status}; ${reason}; release-blocking.`
@@ -280,7 +360,7 @@ function collectSupabaseEvidence(sha) {
   if (!localSupabaseCliAvailable()) {
     return {
       aligned: false,
-      row: `Candidate ${sha}; local Supabase CLI dependency unavailable in node_modules; ${envSummary}; ${migration010Name} not remotely verified; release-blocking.`
+      row: `Candidate ${sha}; local Supabase CLI dependency unavailable in node_modules; ${envSummary}; all local migrations not remotely verified: ${migrationEvidenceList()}; release-blocking.`
     };
   }
 
@@ -293,7 +373,7 @@ function collectSupabaseEvidence(sha) {
   const dryRun = runNpm(["exec", "supabase", "--", "db", "push", "--dry-run"]);
   let summarized = summarizeSupabaseEvidence(sha, versionText, link, migrationList, dryRun);
 
-  if (summarized.aligned || process.env.CORNERIQ_ALLOW_REMOTE_DB_PUSH !== "1" || !detectsPendingMigration010(`${commandText(migrationList)}\n${commandText(dryRun)}`)) {
+  if (summarized.aligned || process.env.CORNERIQ_ALLOW_REMOTE_DB_PUSH !== "1" || pendingRequiredMigrations(`${commandText(migrationList)}\n${commandText(dryRun)}`).length === 0) {
     if (!summarized.aligned) {
       summarized.row = summarized.row.replace("; release-blocking.", `; ${envSummary}; release-blocking.`);
     }
@@ -307,7 +387,7 @@ function collectSupabaseEvidence(sha) {
   if (push.status !== 0) {
     return {
       aligned: false,
-      row: `Candidate ${sha}; guarded npm exec supabase -- db push attempted because ${migration010Name} appeared pending; db push exit ${push.status}; final migration alignment not verified; release-blocking.`
+      row: `Candidate ${sha}; guarded npm exec supabase -- db push attempted because required local migrations appeared pending; db push exit ${push.status}; final migration alignment not verified; release-blocking.`
     };
   }
 
@@ -324,7 +404,7 @@ function collectLiveSmokeEvidence(sha, migrationAligned) {
     return `Candidate ${sha}; live smoke not run because run_live_smoke opt-in is false; ${envSummary}; rows created/cleaned not recorded; release-blocking.`;
   }
   if (!migrationAligned) {
-    return `Candidate ${sha}; live smoke not run because ${migration010Name} remote alignment is not verified; ${envSummary}; rows created/cleaned not recorded; release-blocking.`;
+    return `Candidate ${sha}; live smoke not run because remote alignment for all local migrations is not verified; ${envSummary}; rows created/cleaned not recorded; release-blocking.`;
   }
   if (!allEnvPresent(envNames)) {
     return `Candidate ${sha}; live smoke requested but required env is unavailable; ${envSummary}; rows created/cleaned not recorded; release-blocking.`;
@@ -398,6 +478,7 @@ const initialFields = {
   releaseQualityRun: releaseQualityRunEvidence(sha),
   localCommandResults: localCommandResultsEvidence(sha),
   coverageResult: collectCoverageEvidence(sha),
+  localSchemaValidation: localSchemaValidationEvidence(sha),
   supabaseMigration: supabaseEvidence.row,
   liveSmoke: collectLiveSmokeEvidence(sha, supabaseEvidence.aligned),
   easMobile:

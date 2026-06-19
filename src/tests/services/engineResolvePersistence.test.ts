@@ -628,6 +628,39 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(stores.nextWeekPreviewStore.size).toBe(firstPreviewCount);
   });
 
+  it("persists future generated sessions as base prescriptions without today's execution overlay", async () => {
+    const { repositories, stores } = createRepositories();
+
+    await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    const futureGeneratedRows = [...stores.generatedSessionStore.values()].filter(
+      (record): record is { planned_date: string; session_payload: Record<string, unknown> } =>
+        typeof record === "object" &&
+        record !== null &&
+        "planned_date" in record &&
+        "session_payload" in record &&
+        typeof (record as { planned_date?: unknown }).planned_date === "string" &&
+        (record as { planned_date: string }).planned_date > fixtureAsOfDate &&
+        typeof (record as { session_payload?: unknown }).session_payload === "object" &&
+        (record as { session_payload?: unknown }).session_payload !== null
+    );
+    expect(futureGeneratedRows.length).toBeGreaterThan(0);
+    for (const row of futureGeneratedRows) {
+      expect(row.session_payload).not.toHaveProperty("readinessGate");
+      expect(row.session_payload).not.toHaveProperty("fuelingGate");
+      expect(row.session_payload).not.toHaveProperty("hydrationGate");
+      expect(row.session_payload).not.toHaveProperty("executionReadinessStatus");
+      expect(row.session_payload).not.toHaveProperty("preSessionChecklist");
+      expect(row.session_payload).not.toHaveProperty("downshiftIf");
+      expect(row.session_payload).not.toHaveProperty("fuelBefore");
+      expect(row.session_payload).not.toHaveProperty("fuelAfter");
+      expect(row.session_payload).not.toHaveProperty("confidenceImpact");
+      expect(row.session_payload).not.toHaveProperty("missingDataAdvisories");
+      expect(JSON.stringify(row.session_payload)).not.toContain("No readiness check-in yet");
+      expect(JSON.stringify(row.session_payload)).not.toContain("No food log today");
+    }
+  });
+
   it("finalizes prior compatible weeks before persisting the current week at a boundary refresh", async () => {
     const firstWeek = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const planRevisionId = firstWeek.training.supportGenerationAudit.planRevisionId;
@@ -740,6 +773,44 @@ describe("resolveAndPersistPerformanceState", () => {
         (record as { event?: { payload?: { weekIndex?: number } } }).event?.payload?.weekIndex === 1
     );
     expect(weekCompletedEvents).toHaveLength(1);
+  });
+
+  it("catches up multiple unopened previous weeks through the normal refresh path", async () => {
+    const firstWeek = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const journey: AthleteJourney = {
+      ...no_wearable_manual_only,
+      currentTrainingBlock: "training_block_1",
+      activeTrainingBlock: firstWeek.training.activeBlock,
+      trainingWeekSummaries: [],
+      trainingProgressionDecisions: [],
+      trainingBlockTimelineEvents: []
+    };
+    const { repositories, stores } = createRepositories({ journey });
+    const weekThreeDate = addDays(firstWeek.training.activeBlock.startDate, 14);
+
+    const result = await resolveAndPersistPerformanceState({
+      userId: "user_1",
+      asOfDate: weekThreeDate,
+      repositories,
+      journeyResult: { status: "ready", journey }
+    });
+
+    expect(result.status).toBe("ready");
+    const summaryWeeks = vi.mocked(repositories.trainingProgression.upsertTrainingWeekSummary).mock.calls.map((call) => ({
+      lifecycle: call[0].summary.lifecycle,
+      weekIndex: call[0].summary.weekIndex
+    }));
+    expect(summaryWeeks).toEqual([
+      { weekIndex: 1, lifecycle: "final" },
+      { weekIndex: 2, lifecycle: "final" },
+      { weekIndex: 3, lifecycle: "provisional" }
+    ]);
+    const completedWeekEvents = stores.timelineEvents
+      .filter((record) => typeof record === "object" && record !== null && "event" in record)
+      .map((record) => (record as { event?: { eventType?: string; payload?: { weekIndex?: number } } }).event)
+      .filter((event) => event?.eventType === "week_completed")
+      .map((event) => event?.payload?.weekIndex);
+    expect(completedWeekEvents).toEqual([1, 2]);
   });
 
   it("resumes corrected-final decision and event even when the original final already completed", async () => {

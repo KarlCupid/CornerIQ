@@ -1,4 +1,4 @@
-import type { Confidence, ISODateString } from "../core/sharedTypes";
+import type { Confidence, ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { GeneratedSupportWeekday } from "./supportAvailability";
 import type { DailyOperatingModeView } from "./dailyOperatingMode";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
@@ -98,6 +98,7 @@ export interface ProtectedWorkout {
   id: string;
   type: ProtectedWorkoutType;
   date: ISODateString;
+  recordedAt?: ISODateTimeString | undefined;
   startTime?: string | undefined;
   localStartTime?: string | undefined;
   durationMinutes: number;
@@ -141,6 +142,7 @@ export interface CompletedTrainingSession {
   generatedSessionId?: string | undefined;
   engineVersion?: string | undefined;
   completionSource: "generated_session" | "protected_anchor" | "manual";
+  exerciseResultFingerprint?: string | undefined;
   resolutionLifecycle?: "current" | "superseded" | undefined;
   supersededAt?: string | undefined;
   smokeRunId?: string | undefined;

@@ -80,11 +80,13 @@ export interface DailyFoodLogSummary {
 export interface WaterLog {
   date: ISODateString;
   liters: number;
+  recordedAt?: ISODateTimeString | undefined;
 }
 
 export interface ElectrolyteLog {
   date: ISODateString;
   sodiumMg: number;
+  recordedAt?: ISODateTimeString | undefined;
 }
 
 export interface RehydrationPlan {

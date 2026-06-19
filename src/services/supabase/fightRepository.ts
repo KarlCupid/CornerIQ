@@ -4,7 +4,7 @@ import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
 import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export type FightOpportunityRow = Pick<TableRow<"fight_opportunities">, "id" | "status" | "bout_date" | "weigh_in_datetime" | "weigh_in_type" | "fight_payload">;
+export type FightOpportunityRow = Pick<TableRow<"fight_opportunities">, "created_at" | "id" | "status" | "bout_date" | "weigh_in_datetime" | "weigh_in_type" | "fight_payload">;
 
 export function mapFightOpportunityRow(row: FightOpportunityRow): FightOpportunity {
   const payload = payloadObject(row.fight_payload, "fight_opportunities.fight_payload");
@@ -12,6 +12,7 @@ export function mapFightOpportunityRow(row: FightOpportunityRow): FightOpportuni
     ...payload,
     id: row.id,
     status: row.status,
+    recordedAt: row.created_at,
     boutDate: row.bout_date,
     weighInType: row.weigh_in_type,
     ...(row.weigh_in_datetime ? { weighInDateTime: isoDateTimeValue(row.weigh_in_datetime, "fight_opportunities.weigh_in_datetime") } : {})
@@ -46,7 +47,7 @@ export function createFightRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "fight_opportunities.listFightOpportunities");
       const response = await client
         .from("fight_opportunities")
-        .select("id, status, bout_date, weigh_in_datetime, weigh_in_type, fight_payload")
+        .select("created_at, id, status, bout_date, weigh_in_datetime, weigh_in_type, fight_payload")
         .eq("user_id", safeUserId)
         .order("bout_date", { ascending: true });
       return readDataOrThrow(response, "fight_opportunities.listFightOpportunities").map(mapFightOpportunityRow);

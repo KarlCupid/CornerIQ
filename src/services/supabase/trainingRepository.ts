@@ -1,8 +1,9 @@
 import { CompletedTrainingSessionSchema, GeneratedTrainingSessionSchema } from "../../engine/core/schemas";
+import { stableHash } from "../../engine/core/stableHash";
 import type { CompletedTrainingSession, GeneratedTrainingSession, ISODateString } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
-import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, RepositoryError, toJson } from "./repositoryTypes";
 
 export type GeneratedTrainingSessionRow = Pick<
   TableRow<"generated_training_sessions">,
@@ -96,6 +97,7 @@ export function mapCompletedTrainingSessionRow(row: CompletedTrainingSessionRow)
       painNotes,
       completionSource,
       ...(row.generated_session_id ? { generatedSessionId: row.generated_session_id } : typeof payload.generatedSessionId === "string" ? { generatedSessionId: payload.generatedSessionId } : {}),
+      ...(typeof payload.exerciseResultFingerprint === "string" ? { exerciseResultFingerprint: payload.exerciseResultFingerprint } : {}),
       resolutionLifecycle: row.resolution_lifecycle === "superseded" ? "superseded" : "current",
       ...(row.superseded_at ? { supersededAt: isoDateTimeValue(row.superseded_at, "completed_training_sessions.superseded_at") } : {}),
       ...(payload.source === undefined ? {} : { source: legacySource })
@@ -147,12 +149,62 @@ function completedSessionMutation(
       generatedSessionId: validated.generatedSessionId,
       engineVersion: validated.engineVersion,
       completionSource: validated.completionSource,
+      exerciseResultFingerprint: validated.exerciseResultFingerprint,
       resolutionLifecycle: validated.resolutionLifecycle ?? "current",
       supersededAt: validated.supersededAt,
       smokeRunId: validated.smokeRunId,
       note: validated.note,
       source: validated.source ?? validated.completionSource,
       linkedProtectedWorkoutId: validated.linkedProtectedWorkoutId
+    })
+  };
+}
+
+function supersededCompletionKey(rowId: string, generatedSessionId: string): string {
+  return `generated_session_completion:${generatedSessionId}:superseded:${rowId}`;
+}
+
+function completionMaterialFingerprint(session: CompletedTrainingSession): string {
+  return stableHash({
+    plannedDate: session.plannedDate ?? session.date,
+    performedDate: session.performedDate ?? session.date,
+    type: session.type,
+    durationMinutes: session.durationMinutes,
+    intensity: session.intensity,
+    rounds: session.rounds ?? null,
+    completionStatus: session.completionStatus,
+    sessionRpe: session.sessionRpe ?? null,
+    painNotes: session.painNotes,
+    athleteNotes: session.athleteNotes ?? null,
+    generatedSessionId: session.generatedSessionId ?? null,
+    engineVersion: session.engineVersion ?? null,
+    completionSource: session.completionSource,
+    exerciseResultFingerprint: session.exerciseResultFingerprint ?? null,
+    smokeRunId: session.smokeRunId ?? null,
+    note: session.note ?? null,
+    source: session.source ?? null,
+    linkedProtectedWorkoutId: session.linkedProtectedWorkoutId ?? null
+  });
+}
+
+function recordedAtForConflict(session: CompletedTrainingSession): string {
+  return session.recordedAt ?? `${session.performedDate ?? session.date}T00:00:00.000Z`;
+}
+
+function supersededSessionMutation(row: CompletedTrainingSessionRow, generatedSessionId: string, supersededAt: string): TableUpdate<"completed_training_sessions"> {
+  const payload = payloadObject(row.session_payload, "completed_training_sessions.supersede.session_payload");
+  const completionKey = supersededCompletionKey(row.id, generatedSessionId);
+  return {
+    completion_key: completionKey,
+    generated_session_id: generatedSessionId,
+    resolution_lifecycle: "superseded",
+    superseded_at: supersededAt,
+    session_payload: toJson({
+      ...payload,
+      completionKey,
+      generatedSessionId,
+      resolutionLifecycle: "superseded",
+      supersededAt
     })
   };
 }
@@ -166,6 +218,89 @@ function rowMatchesGeneratedSessionScope(row: GeneratedTrainingSessionRow, optio
 }
 
 export function createTrainingRepository(client: CornerSupabaseClient) {
+  async function findCurrentGeneratedSessionResolution(
+    safeUserId: string,
+    completionKey: string | null,
+    generatedSessionId?: string | undefined
+  ): Promise<CompletedTrainingSessionRow | null> {
+    if (completionKey) {
+      const byKeyResponse = await client
+        .from("completed_training_sessions")
+        .select(completedSessionSelect)
+        .eq("user_id", safeUserId)
+        .eq("completion_key", completionKey)
+        .limit(1)
+        .maybeSingle();
+      const byKey = readMaybeDataOrThrow(byKeyResponse, "completed_training_sessions.findCurrentGeneratedSessionResolution.byKey");
+      if (byKey) {
+        return byKey;
+      }
+    }
+    if (!generatedSessionId) {
+      return null;
+    }
+    const byGeneratedSessionResponse = await client
+      .from("completed_training_sessions")
+      .select(completedSessionSelect)
+      .eq("user_id", safeUserId)
+      .eq("generated_session_id", generatedSessionId)
+      .eq("resolution_lifecycle", "current")
+      .limit(1)
+      .maybeSingle();
+    return readMaybeDataOrThrow(byGeneratedSessionResponse, "completed_training_sessions.findCurrentGeneratedSessionResolution.byGeneratedSession");
+  }
+
+  async function supersedeCurrentGeneratedSessionResolution(
+    safeUserId: string,
+    row: CompletedTrainingSessionRow,
+    generatedSessionId: string,
+    supersededAt: string
+  ): Promise<void> {
+    const updateResponse = await client
+      .from("completed_training_sessions")
+      .update(supersededSessionMutation(row, generatedSessionId, supersededAt))
+      .eq("id", row.id)
+      .eq("user_id", safeUserId)
+      .eq("resolution_lifecycle", "current")
+      .select("id")
+      .single();
+    readDataOrThrow(updateResponse, "completed_training_sessions.supersedeCurrentGeneratedSessionResolution");
+  }
+
+  function assertCorrectionIsNotStale(existing: CompletedTrainingSession, validated: CompletedTrainingSession): void {
+    if (recordedAtForConflict(validated) <= recordedAtForConflict(existing)) {
+      throw new RepositoryError(
+        "remote_error",
+        "completed_training_sessions.insertCompletedTrainingSession.staleCorrection",
+        "generated-session correction is older than the current recorded resolution"
+      );
+    }
+  }
+
+  async function insertCurrentCompletedTrainingSession(
+    safeUserId: string,
+    validated: CompletedTrainingSession,
+    completionKey: string | null,
+    corrected: boolean
+  ): Promise<{ id: string; existing?: boolean | undefined; corrected?: boolean | undefined }> {
+    const insert: TableInsert<"completed_training_sessions"> = completedSessionMutation(safeUserId, validated, completionKey);
+    const response = await client.from("completed_training_sessions").insert(insert).select("id").single();
+    if (response.error?.code === "23505" && completionKey) {
+      const current = await findCurrentGeneratedSessionResolution(safeUserId, completionKey, validated.generatedSessionId);
+      if (current) {
+        const mapped = mapCompletedTrainingSessionRow(current);
+        if (completionMaterialFingerprint(mapped) === completionMaterialFingerprint(validated)) {
+          return { id: current.id, existing: true };
+        }
+        assertCorrectionIsNotStale(mapped, validated);
+        await supersedeCurrentGeneratedSessionResolution(safeUserId, current, validated.generatedSessionId ?? mapped.generatedSessionId ?? "", recordedAtForConflict(validated));
+        return insertCurrentCompletedTrainingSession(safeUserId, validated, completionKey, true);
+      }
+    }
+    const inserted = readDataOrThrow(response, "completed_training_sessions.insertCompletedTrainingSession");
+    return corrected ? { ...inserted, corrected: true } : inserted;
+  }
+
   return {
     async listGeneratedSessions(userId: string, options: ListGeneratedSessionsOptions = {}): Promise<GeneratedTrainingSession[]> {
       const safeUserId = assertUserId(userId, "generated_training_sessions.listGeneratedSessions");
@@ -197,47 +332,18 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
       const validated = parseWithSchema(CompletedTrainingSessionSchema, session, "completed_training_sessions.insertCompletedTrainingSession");
       const completionKey = completionKeyForCompletedTrainingSession(validated);
       if (completionKey) {
-        const existingResponse = await client
-          .from("completed_training_sessions")
-          .select(completedSessionSelect)
-          .eq("user_id", safeUserId)
-          .eq("completion_key", completionKey)
-          .limit(1)
-          .maybeSingle();
-        const existing = readMaybeDataOrThrow(existingResponse, "completed_training_sessions.insertCompletedTrainingSession.findExisting");
+        const existing = await findCurrentGeneratedSessionResolution(safeUserId, completionKey, validated.generatedSessionId);
         if (existing) {
           const mapped = mapCompletedTrainingSessionRow(existing);
-          if (mapped.completionStatus === validated.completionStatus) {
+          if (completionMaterialFingerprint(mapped) === completionMaterialFingerprint(validated)) {
             return { id: existing.id, existing: true };
           }
-          const update = completedSessionMutation(safeUserId, validated, completionKey);
-          const updateResponse = await client
-            .from("completed_training_sessions")
-            .update(update)
-            .eq("id", existing.id)
-            .eq("user_id", safeUserId)
-            .select("id")
-            .single();
-          const updated = readDataOrThrow(updateResponse, "completed_training_sessions.insertCompletedTrainingSession.correctExisting");
-          return { id: updated.id, existing: true, corrected: true };
+          assertCorrectionIsNotStale(mapped, validated);
+          await supersedeCurrentGeneratedSessionResolution(safeUserId, existing, validated.generatedSessionId ?? mapped.generatedSessionId ?? "", recordedAtForConflict(validated));
+          return insertCurrentCompletedTrainingSession(safeUserId, validated, completionKey, true);
         }
       }
-      const insert: TableInsert<"completed_training_sessions"> = completedSessionMutation(safeUserId, validated, completionKey);
-      const response = await client.from("completed_training_sessions").insert(insert).select("id").single();
-      if (response.error?.code === "23505" && completionKey) {
-        const existingResponse = await client
-          .from("completed_training_sessions")
-          .select("id")
-          .eq("user_id", safeUserId)
-          .eq("completion_key", completionKey)
-          .limit(1)
-          .maybeSingle();
-        const existing = readMaybeDataOrThrow(existingResponse, "completed_training_sessions.insertCompletedTrainingSession.findAfterConflict");
-        if (existing) {
-          return { id: existing.id, existing: true };
-        }
-      }
-      return readDataOrThrow(response, "completed_training_sessions.insertCompletedTrainingSession");
+      return insertCurrentCompletedTrainingSession(safeUserId, validated, completionKey, false);
     }
   };
 }

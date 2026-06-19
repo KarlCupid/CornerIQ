@@ -5,14 +5,18 @@ import type {
   CycleLog,
   ElectrolyteLog,
   ExerciseResultRecord,
+  FightOpportunity,
   FoodLog,
   GeneratedTrainingSession,
   JourneyEvent,
   NutritionSafetyReviewEvent,
   PersistedNutritionSafetyReview,
   PersistedTrainingPlanAdjustment,
+  ProtectedWorkout,
   ReadinessCheckIn,
   RiskFlag,
+  TournamentDetails,
+  TrainingBlock,
   TrainingBlockTimelineEvent,
   TrainingProgressionDecision,
   TrainingWeekSummary,
@@ -79,6 +83,34 @@ function bodyMassRecordedAt(log: BodyMassLog): string {
 
 function foodLoggedAt(log: FoodLog): string {
   return log.loggedAt ?? fallbackRecordedAt(log.date);
+}
+
+function waterLoggedAt(log: WaterLog): string {
+  return log.recordedAt ?? fallbackRecordedAt(log.date);
+}
+
+function electrolyteLoggedAt(log: ElectrolyteLog): string {
+  return log.recordedAt ?? fallbackRecordedAt(log.date);
+}
+
+function cycleLoggedAt(log: CycleLog): string {
+  return log.recordedAt ?? fallbackRecordedAt(log.date);
+}
+
+function protectedWorkoutRecordedAt(workout: ProtectedWorkout): string {
+  return workout.recordedAt ?? fallbackRecordedAt(workout.date);
+}
+
+function fightRecordedAt(fight: FightOpportunity): string {
+  return fight.recordedAt ?? fallbackRecordedAt(fight.boutDate);
+}
+
+function tournamentRecordedAt(tournament: TournamentDetails): string {
+  return tournament.recordedAt ?? fallbackRecordedAt(tournament.tournamentStartDate);
+}
+
+function trainingBlockRecordedAt(block: TrainingBlock): string {
+  return block.recordedAt ?? fallbackRecordedAt(block.startDate);
 }
 
 function trainingWeekSummaryRecordedAt(summary: TrainingWeekSummary): string {
@@ -150,7 +182,7 @@ export function selectAsOfCompletedTrainingSessions(
   generatedAt?: string | undefined
 ): readonly CompletedTrainingSession[] {
   const visible = sessions.filter((session) => {
-    if (session.resolutionLifecycle === "superseded") {
+    if (session.resolutionLifecycle === "superseded" && (generatedAt === undefined || !session.supersededAt || session.supersededAt <= generatedAt)) {
       return false;
     }
     const effectiveDate = completionEffectiveDate(session);
@@ -184,9 +216,14 @@ export function selectAsOfCompletedTrainingSessions(
 export function selectAsOfExerciseResults(
   results: readonly ExerciseResultRecord[],
   asOfDate: string,
-  generatedAt?: string | undefined
+  generatedAt?: string | undefined,
+  completedSessions?: readonly CompletedTrainingSession[] | undefined
 ): readonly ExerciseResultRecord[] {
+  const visibleCompletedSessionIds = completedSessions ? new Set(completedSessions.filter((session) => session.completionStatus === "completed").map((session) => session.id)) : null;
   return results.filter((result) => {
+    if (visibleCompletedSessionIds && result.completedTrainingSessionId && !visibleCompletedSessionIds.has(result.completedTrainingSessionId)) {
+      return false;
+    }
     const effectiveDate = exerciseResultEffectiveDate(result);
     return effectiveDate <= asOfDate && (generatedAt === undefined || result.recordedAt <= generatedAt);
   });
@@ -233,23 +270,26 @@ export function selectAsOfFoodLogs(
 
 export function selectAsOfWaterLogs(
   logs: readonly WaterLog[],
-  asOfDate: string
+  asOfDate: string,
+  generatedAt?: string | undefined
 ): readonly WaterLog[] {
-  return logs.filter((log) => log.date <= asOfDate);
+  return logs.filter((log) => datedItemVisible(log.date, waterLoggedAt(log), asOfDate, generatedAt));
 }
 
 export function selectAsOfElectrolyteLogs(
   logs: readonly ElectrolyteLog[],
-  asOfDate: string
+  asOfDate: string,
+  generatedAt?: string | undefined
 ): readonly ElectrolyteLog[] {
-  return logs.filter((log) => log.date <= asOfDate);
+  return logs.filter((log) => datedItemVisible(log.date, electrolyteLoggedAt(log), asOfDate, generatedAt));
 }
 
 export function selectAsOfCycleLogs(
   logs: readonly CycleLog[],
-  asOfDate: string
+  asOfDate: string,
+  generatedAt?: string | undefined
 ): readonly CycleLog[] {
-  return logs.filter((log) => log.date <= asOfDate);
+  return logs.filter((log) => datedItemVisible(log.date, cycleLoggedAt(log), asOfDate, generatedAt));
 }
 
 export function selectAsOfWearableSignals(
@@ -258,6 +298,60 @@ export function selectAsOfWearableSignals(
   generatedAt?: string | undefined
 ): readonly WearableSignal[] {
   return signals.filter((signal) => datedItemVisible(signal.recordedAt.slice(0, 10), signal.recordedAt, asOfDate, generatedAt));
+}
+
+export function selectAsOfProtectedWorkouts(
+  workouts: readonly ProtectedWorkout[],
+  generatedAt?: string | undefined
+): readonly ProtectedWorkout[] {
+  return workouts.filter((workout) => generatedCutoffAllows(protectedWorkoutRecordedAt(workout), generatedAt));
+}
+
+export function selectAsOfActiveFightOpportunity(
+  fight: FightOpportunity | null,
+  generatedAt?: string | undefined
+): FightOpportunity | null {
+  if (!fight) {
+    return null;
+  }
+  return generatedCutoffAllows(fightRecordedAt(fight), generatedAt) ? fight : null;
+}
+
+export function selectAsOfActiveTournament(
+  tournament: TournamentDetails | null,
+  generatedAt?: string | undefined
+): TournamentDetails | null {
+  if (!tournament) {
+    return null;
+  }
+  return generatedCutoffAllows(tournamentRecordedAt(tournament), generatedAt) ? tournament : null;
+}
+
+export function selectAsOfActiveTrainingBlock(
+  block: TrainingBlock | null,
+  generatedAt?: string | undefined
+): TrainingBlock | null {
+  if (!block) {
+    return null;
+  }
+  return generatedCutoffAllows(trainingBlockRecordedAt(block), generatedAt) ? block : null;
+}
+
+function activeObjectiveForSnapshot(
+  journey: AthleteJourney,
+  fight: FightOpportunity | null,
+  tournament: TournamentDetails | null
+): string {
+  if (tournament) {
+    return "tournament";
+  }
+  if (fight?.status === "short_notice") {
+    return "short_notice_camp";
+  }
+  if (fight) {
+    return "camp";
+  }
+  return journey.activeFightOpportunity || journey.activeTournament ? "build" : journey.activeObjective;
 }
 
 export function selectAsOfJourneyEvents(
@@ -273,24 +367,27 @@ export function selectAsOfRiskFlags(
   asOfDate: string,
   generatedAt?: string | undefined
 ): readonly RiskFlag[] {
-  return flags.filter((flag) => {
+  return flags.flatMap((flag) => {
     const effectiveDate = riskFlagEffectiveDate(flag);
     if (effectiveDate && effectiveDate > asOfDate) {
-      return false;
+      return [];
     }
     const recordedAt = riskFlagRecordedAt(flag) ?? (effectiveDate ? fallbackRecordedAt(effectiveDate) : null);
     if (!generatedCutoffAllows(recordedAt, generatedAt)) {
-      return false;
+      return [];
     }
     const endAt = riskFlagEndAt(flag);
     const endDate = datePart(endAt);
     if (endDate && endDate < asOfDate) {
-      return false;
+      return [];
     }
-    if (generatedAt && endAt && flag.status === "active" && endAt <= generatedAt) {
-      return false;
+    if (generatedAt && endAt && endAt <= generatedAt) {
+      return [];
     }
-    return true;
+    if (flag.status === "resolved") {
+      return generatedAt && endAt && generatedAt < endAt ? [{ ...flag, status: "active" }] : [];
+    }
+    return [flag];
   });
 }
 
@@ -382,8 +479,21 @@ export function buildAthleteJourneySnapshot(
   generatedAt?: string | undefined
 ): AthleteJourney {
   const trainingPlanAdjustments = selectAsOfTrainingPlanAdjustments(journey.trainingPlanAdjustments, asOfDate, generatedAt);
+  const completedTrainingSessions = selectAsOfCompletedTrainingSessions(journey.completedTrainingSessions, asOfDate, generatedAt);
+  const activeFightOpportunity = selectAsOfActiveFightOpportunity(journey.activeFightOpportunity, generatedAt);
+  const activeTournament = selectAsOfActiveTournament(journey.activeTournament, generatedAt);
+  const activeTrainingBlock = selectAsOfActiveTrainingBlock(journey.activeTrainingBlock, generatedAt);
   return {
     ...journey,
+    athlete: {
+      ...journey.athlete,
+      protectedBoxingSchedule: selectAsOfProtectedWorkouts(journey.athlete.protectedBoxingSchedule, generatedAt)
+    },
+    activeObjective: activeObjectiveForSnapshot(journey, activeFightOpportunity, activeTournament),
+    activeFightOpportunity,
+    activeTournament,
+    currentTrainingBlock: activeTrainingBlock ? journey.currentTrainingBlock : null,
+    activeTrainingBlock,
     trainingWeekSummaries: selectAsOfTrainingWeekSummaries(journey.trainingWeekSummaries, asOfDate, generatedAt),
     trainingProgressionDecisions: selectAsOfTrainingProgressionDecisions(journey.trainingProgressionDecisions, asOfDate, generatedAt),
     trainingBlockTimelineEvents: selectAsOfTrainingBlockTimelineEvents(journey.trainingBlockTimelineEvents, asOfDate, generatedAt),
@@ -391,15 +501,16 @@ export function buildAthleteJourneySnapshot(
     nutritionHistory: selectAsOfFoodLogs(journey.nutritionHistory, asOfDate, generatedAt),
     nutritionSafetyReviews: selectAsOfNutritionSafetyReviews(journey.nutritionSafetyReviews, asOfDate, generatedAt),
     nutritionSafetyReviewEvents: selectAsOfNutritionSafetyReviewEvents(journey.nutritionSafetyReviewEvents, asOfDate, generatedAt),
-    hydrationHistory: selectAsOfWaterLogs(journey.hydrationHistory, asOfDate),
-    electrolyteHistory: selectAsOfElectrolyteLogs(journey.electrolyteHistory, asOfDate),
-    cycleHistory: selectAsOfCycleLogs(journey.cycleHistory, asOfDate),
+    hydrationHistory: selectAsOfWaterLogs(journey.hydrationHistory, asOfDate, generatedAt),
+    electrolyteHistory: selectAsOfElectrolyteLogs(journey.electrolyteHistory, asOfDate, generatedAt),
+    cycleHistory: selectAsOfCycleLogs(journey.cycleHistory, asOfDate, generatedAt),
     readinessHistory: selectAsOfReadinessHistory(journey.readinessHistory, asOfDate, generatedAt),
     wearableSignalHistory: selectAsOfWearableSignals(journey.wearableSignalHistory, asOfDate, generatedAt),
-    completedTrainingSessions: selectAsOfCompletedTrainingSessions(journey.completedTrainingSessions, asOfDate, generatedAt),
-    exerciseResults: selectAsOfExerciseResults(journey.exerciseResults, asOfDate, generatedAt),
+    completedTrainingSessions,
+    exerciseResults: selectAsOfExerciseResults(journey.exerciseResults, asOfDate, generatedAt, completedTrainingSessions),
     trainingHistory: selectAsOfGeneratedTrainingSessions(journey.trainingHistory, trainingPlanAdjustments),
     trainingPlanAdjustments,
+    protectedWorkouts: selectAsOfProtectedWorkouts(journey.protectedWorkouts, generatedAt),
     safetyFlags: selectAsOfRiskFlags(journey.safetyFlags, asOfDate, generatedAt),
     journeyEvents: selectAsOfJourneyEvents(journey.journeyEvents, asOfDate, generatedAt)
   };

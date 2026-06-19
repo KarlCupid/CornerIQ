@@ -20,6 +20,7 @@ export interface TournamentDetails {
   id?: string | undefined;
   tournamentStartDate: ISODateString;
   tournamentEndDate: ISODateString;
+  recordedAt?: ISODateTimeString | undefined;
   possibleBoutDates: readonly ISODateString[];
   dailyWeighIns: boolean;
   weighInTimeEachDay: string;
@@ -41,6 +42,7 @@ export interface TournamentStrategy {
 export interface FightOpportunity {
   id: string;
   status: FightStatus;
+  recordedAt?: ISODateTimeString | undefined;
   opponent?: string | undefined;
   boutDate: ISODateString;
   boutTime?: string | undefined;

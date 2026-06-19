@@ -26,7 +26,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 
 - Normal push CI can skip Supabase migration dry-run when credentials are absent; Release Quality cannot.
 - `npx supabase db push --dry-run` must be verified for the candidate SHA before release handoff.
-- Migration `010_generated_sessions_training_block_scope.sql` must be applied or explicitly marked release-blocking.
+- Every local migration file under `supabase/migrations/` must be applied or explicitly marked release-blocking for the exact candidate.
 - CodeQL must be configured and the candidate run result must be recorded before security evidence is considered complete.
 - Coverage thresholds must remain at least statements 75, functions 75, lines 75, and branches 65.
 - Generated release evidence must record exact full and short SHA evidence; committed docs must not be forced to contain their own final SHA.
@@ -35,12 +35,15 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 ## Supabase Gates
 
 - `npm exec supabase -- --version` reports the expected CLI.
+- A clean local or staging Supabase database applies every local migration in order.
+- `npm exec supabase -- db lint --local --level error --fail-on error` or equivalent staging lint passes after the clean migration apply.
+- Generated TypeScript database types are refreshed from, or compared against, the release schema.
 - `npm exec supabase -- migration list` shows local and remote migrations aligned.
 - `npm exec supabase -- db push --dry-run` reports the remote database is up to date.
-- If a local migration file exists beyond the last recorded remote verification, that migration is either applied by dry run/push workflow or documented as a release blocker.
+- If a local migration file exists beyond the last recorded remote verification, including `014_temporal_integrity_session_resolution.sql`, `20260619190201_training_week_finalization_authority.sql`, or `20260619194631_generated_session_identity_lifecycle.sql`, that migration is either applied by dry run/push workflow or documented as a release blocker.
 - Live smoke passes with ignored local env values loaded into the process and exact-SHA generated evidence, or the exact blocker is documented.
 - Live smoke uses public Supabase URL and anon key only.
-- No new migration is added for this release-candidate pass.
+- No unverified local migration is treated as applied for this release-candidate pass.
 
 ## Safety Gates
 

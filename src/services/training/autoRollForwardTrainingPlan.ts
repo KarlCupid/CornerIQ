@@ -2,6 +2,7 @@ import type { ISODateString, PerformanceState } from "../../engine/core/types";
 import { assertUserId } from "../supabase/repositoryTypes";
 import type { PersistedTrainingNextWeekPreview } from "../supabase/trainingNextWeekPreviewRepository";
 import { materializeNextWeekTrainingPlan, type MaterializeNextWeekTrainingPlanRepositories } from "./materializeNextWeekTrainingPlan";
+import { replayTrainingNextWeekPreviews } from "./trainingNextWeekPreviewTemporal";
 
 export type AutoRollForwardTrainingPlanStatus = "not_needed" | "materialized" | "blocked" | "error";
 
@@ -109,7 +110,10 @@ export async function autoRollForwardTrainingPlan(input: AutoRollForwardTraining
       });
     }
 
-    const previews = await input.repositories.trainingNextWeekPreview.listPreviewsForBlock(userId, trainingBlockId);
+    const previews = replayTrainingNextWeekPreviews(
+      await input.repositories.trainingNextWeekPreview.listPreviewsForBlock(userId, trainingBlockId),
+      input.current.snapshotGeneratedAt
+    );
     const handledPreviewIds = new Set(input.options.handledPreviewIds ?? []);
     const candidate = findCandidate({
       previews,

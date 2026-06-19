@@ -168,7 +168,6 @@ export async function loadAthleteJourney(input: {
       readinessHistory,
       wearableSignalHistory,
       completedTrainingSessions,
-      exerciseResults,
       activeTrainingBlock,
       safetyFlags,
       journeyEvents
@@ -187,7 +186,6 @@ export async function loadAthleteJourney(input: {
       input.repositories.readiness.listCheckIns(userId),
       input.repositories.wearable.listSignals(userId),
       input.repositories.training.listCompletedTrainingSessions(userId),
-      input.repositories.exerciseResult.listRecentExerciseResults(userId),
       input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate),
       input.repositories.engineRun.listActiveRiskFlags(userId, { asOfDate: input.asOfDate }),
       input.repositories.journey.listEvents(userId)
@@ -198,6 +196,9 @@ export async function loadAthleteJourney(input: {
     const activePhase = activeFightOpportunity || activeTournament ? null : activePhaseFromEvents(journeyEvents);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
     const activeWeekWindow = activeTrainingBlock ? activeTrainingWeekWindow(activeTrainingBlock.block, input.asOfDate) : null;
+    const exerciseResults = activeWeekWindow && typeof input.repositories.exerciseResult.listExerciseResultsForDateRange === "function"
+      ? await input.repositories.exerciseResult.listExerciseResultsForDateRange(userId, activeWeekWindow)
+      : await input.repositories.exerciseResult.listRecentExerciseResults(userId);
     const [trainingHistory, trainingPlanAdjustments, trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
           input.repositories.training.listGeneratedSessions(userId, {

@@ -1,11 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import process from "node:process";
 
 const root = process.cwd();
 const defaultOutputPath = "qa-artifacts/release-evidence/current-release-evidence.md";
 const defaultInputPath = "qa-artifacts/release-evidence/release-evidence-input.json";
+const migrationsDir = "supabase/migrations";
 
 function argValue(name) {
   const index = process.argv.indexOf(name);
@@ -17,6 +18,20 @@ function argValue(name) {
 
 function resolvePath(path) {
   return isAbsolute(path) ? path : join(root, path);
+}
+
+function localMigrationNames() {
+  const directory = resolvePath(migrationsDir);
+  if (!existsSync(directory)) {
+    return [];
+  }
+  return readdirSync(directory)
+    .filter((name) => name.endsWith(".sql"))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function migrationEvidenceList(names = localMigrationNames()) {
+  return names.length > 0 ? names.join(", ") : "no local migration files found";
 }
 
 function candidateSha() {
@@ -91,6 +106,7 @@ const sha = candidateSha();
 const shortSha = sha.slice(0, 7);
 const generatedAt = new Date().toISOString();
 const input = readInput(inputPath);
+const migrationList = migrationEvidenceList();
 
 const fields = {
   qualityRun:
@@ -108,9 +124,12 @@ const fields = {
   coverageResult:
     input.coverageResult ??
     `Candidate ${sha}; not recorded yet. Record statements, functions, lines, and branches from npm run test:coverage.`,
+  localSchemaValidation:
+    input.localSchemaValidation ??
+    `Candidate ${sha}; clean local/staging migration apply, schema lint, and generated database type validation are not recorded; release-blocking.`,
   supabaseMigration:
     input.supabaseMigration ??
-    `Candidate ${sha}; Supabase migration list/dry-run not recorded in this artifact; 010_generated_sessions_training_block_scope.sql is pending remotely unless later evidence proves alignment; release-blocking.`,
+    `Candidate ${sha}; Supabase migration list/dry-run not recorded in this artifact; all local migrations are pending remote proof unless later evidence proves alignment: ${migrationList}; release-blocking.`,
   liveSmoke:
     input.liveSmoke ??
     `Candidate ${sha}; live smoke not run; ${envPresenceSummary()}; rows created/cleaned not recorded; release-blocking.`,
@@ -123,7 +142,7 @@ const fields = {
     `No real boxer findings recorded for candidate ${sha}; scripted automation only and production UX validation remains human_review_required.`,
   knownBlockers:
     input.knownBlockers ??
-    "Supabase migration 010 remote alignment, live smoke, exact Quality/CodeQL run evidence, Release Quality pass evidence, private mobile distribution, physical-device checks, and real boxer comprehension findings remain unresolved until recorded."
+    "All local Supabase migration remote alignment, live smoke, exact Quality/CodeQL run evidence, Release Quality pass evidence, private mobile distribution, physical-device checks, and real boxer comprehension findings remain unresolved until recorded."
 };
 
 assertNoSecretShapedValues(fields);
@@ -142,6 +161,7 @@ ${tableRow("CodeQL run", fields.codeqlRun)}
 ${tableRow("Release Quality run", fields.releaseQualityRun)}
 ${tableRow("Local command results", fields.localCommandResults)}
 ${tableRow("Coverage result", fields.coverageResult)}
+${tableRow("Local/staging migration apply and generated types", fields.localSchemaValidation)}
 ${tableRow("Supabase migration list/dry-run", fields.supabaseMigration)}
 ${tableRow("Live smoke", fields.liveSmoke)}
 ${tableRow("EAS/mobile artifact status", fields.easMobile)}
@@ -153,7 +173,8 @@ ${tableRow("Known blockers", fields.knownBlockers)}
 - This artifact must contain the exact candidate SHA from \`GITHUB_SHA\` or \`git rev-parse HEAD\`.
 - A generated artifact with stale SHA fails release quality.
 - Env flags alone do not satisfy release evidence; the non-secret result must be written here or supplied as a CI artifact for the exact SHA.
-- Supabase migration \`010_generated_sessions_training_block_scope.sql\` remains release-blocking until migration list and dry-run evidence prove remote alignment.
+- All local Supabase migrations remain release-blocking until migration list and dry-run evidence prove remote alignment. Current local set: ${migrationList}.
+- Clean local or staging migration apply, schema lint, and generated database type validation remain release-blocking until recorded for the exact candidate.
 - Live smoke remains release-blocking until \`smoke:live-db\` passes with non-secret rows-created/rows-cleaned evidence.
 - EAS/mobile status is a separate lane and must not be counted as local production readiness.
 - Scripted automation is not real boxer validation.

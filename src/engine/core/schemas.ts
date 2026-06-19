@@ -68,6 +68,7 @@ export const ProtectedWorkoutSchema = z.object({
   id: z.string().min(1),
   type: ProtectedWorkoutTypeSchema,
   date: ISODateSchema,
+  recordedAt: ISODateTimeSchema.optional(),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   durationMinutes: z.number().int().positive(),
@@ -139,6 +140,7 @@ export const TournamentDetailsSchema = z.object({
   id: z.string().min(1).optional(),
   tournamentStartDate: ISODateSchema,
   tournamentEndDate: ISODateSchema,
+  recordedAt: ISODateTimeSchema.optional(),
   possibleBoutDates: z.array(ISODateSchema),
   dailyWeighIns: z.boolean(),
   weighInTimeEachDay: z.string().min(1),
@@ -151,6 +153,7 @@ export const TournamentDetailsSchema = z.object({
 export const FightOpportunitySchema = z.object({
   id: z.string().min(1),
   status: z.enum(["tentative", "confirmed", "short_notice", "canceled", "rescheduled", "completed"]),
+  recordedAt: ISODateTimeSchema.optional(),
   opponent: z.string().optional(),
   boutDate: ISODateSchema,
   boutTime: z.string().optional(),
@@ -176,6 +179,7 @@ export const FightOpportunitySchema = z.object({
 
 export const CycleLogSchema = z.object({
   date: ISODateSchema,
+  recordedAt: ISODateTimeSchema.optional(),
   bleedStart: z.boolean().optional(),
   bleedEnd: z.boolean().optional(),
   flowLevel: z.enum(["none", "spotting", "light", "moderate", "heavy", "very_heavy", "unknown"]),
@@ -275,12 +279,14 @@ export const FoodLogSchema = z.object({
 
 export const WaterLogSchema = z.object({
   date: ISODateSchema,
-  liters: z.number().nonnegative()
+  liters: z.number().nonnegative(),
+  recordedAt: ISODateTimeSchema.optional()
 });
 
 export const ElectrolyteLogSchema = z.object({
   date: ISODateSchema,
-  sodiumMg: z.number().nonnegative()
+  sodiumMg: z.number().nonnegative(),
+  recordedAt: ISODateTimeSchema.optional()
 });
 
 export const RiskFlagSchema = z.object({
@@ -485,6 +491,7 @@ export const CompletedTrainingSessionSchema = z.object({
   generatedSessionId: z.string().min(1).optional(),
   engineVersion: z.string().min(1).optional(),
   completionSource: z.enum(["manual", "generated_session", "protected_anchor"]),
+  exerciseResultFingerprint: z.string().min(1).optional(),
   resolutionLifecycle: z.enum(["current", "superseded"]).optional(),
   supersededAt: ISODateTimeSchema.optional(),
   smokeRunId: z.string().min(1).optional(),
@@ -603,6 +610,7 @@ export const TrainingBlockSchema = z.object({
   athleteId: z.string().min(1),
   startDate: ISODateSchema,
   endDate: ISODateSchema,
+  recordedAt: ISODateTimeSchema.optional(),
   phase: TrainingBlockPhaseSchema,
   primaryGoal: TrainingBlockGoalSchema,
   secondaryGoals: z.array(TrainingBlockGoalSchema),

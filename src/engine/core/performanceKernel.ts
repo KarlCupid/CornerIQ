@@ -353,6 +353,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       adjustments: training.activeAdjustments.map((adjustment) => adjustment.id)
     }),
     generatedAt,
+    snapshotGeneratedAt: generatedAtCutoff,
     asOfDate: input.asOfDate
   } satisfies Omit<PerformanceState, "viewModels">;
 

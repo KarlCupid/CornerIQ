@@ -1,4 +1,4 @@
-import type { Confidence, ISODateString } from "../core/sharedTypes";
+import type { Confidence, ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { RiskFlag } from "../safety/types";
 
 export type CycleTrackingPreference = "enabled" | "disabled" | "undecided";
@@ -57,6 +57,7 @@ export type CycleRelatedWeightNoiseRisk = "low" | "moderate" | "high" | "unknown
 
 export interface CycleLog {
   date: ISODateString;
+  recordedAt?: ISODateTimeString | undefined;
   bleedStart?: boolean | undefined;
   bleedEnd?: boolean | undefined;
   flowLevel: FlowLevel;

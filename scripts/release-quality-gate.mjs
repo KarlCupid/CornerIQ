@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 import process from "node:process";
 
@@ -7,6 +7,7 @@ const failures = [];
 const root = process.cwd();
 const defaultReleaseEvidencePath = "qa-artifacts/release-evidence/current-release-evidence.md";
 const releaseEvidencePath = process.env.CORNERIQ_RELEASE_EVIDENCE_PATH ?? defaultReleaseEvidencePath;
+const migrationsDir = "supabase/migrations";
 
 function resolvePath(path) {
   return isAbsolute(path) ? path : join(root, path);
@@ -23,6 +24,32 @@ function displayPath(path) {
 
 function read(path) {
   return readFileSync(resolvePath(path), "utf8");
+}
+
+function localMigrationNames() {
+  const directory = resolvePath(migrationsDir);
+  if (!existsSync(directory)) {
+    return [];
+  }
+  return readdirSync(directory)
+    .filter((name) => name.endsWith(".sql"))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function migrationEvidencePattern(sha) {
+  const migrationNameLookaheads = localMigrationNames()
+    .map((name) => `(?=.*${escapeRegExp(name)})`)
+    .join("");
+  return new RegExp(`${migrationNameLookaheads}(?=.*${sha})(?=.*(?:dry-run|migration list))(?=.*(?:pass|success|verified|up to date))`, "is");
+}
+
+function migrationEvidenceMessage() {
+  const names = localMigrationNames();
+  return names.length > 0 ? `migration evidence must mention every local migration: ${names.join(", ")}.` : "migration evidence must prove the local migration directory state.";
 }
 
 function requireFile(path) {
@@ -94,6 +121,7 @@ function requireReleaseEvidenceFields(path) {
     "release quality run",
     "local command results",
     "coverage result",
+    "local/staging migration apply and generated types",
     "supabase migration list/dry-run",
     "live smoke",
     "eas/mobile artifact status",
@@ -265,10 +293,17 @@ if (sha) {
   );
   requireLedgerEvidence(
     releaseEvidencePath,
+    "Local/staging migration apply and generated types",
+    new RegExp(`(?=.*${sha})(?=.*(?:migration apply|migration list|every local migration|clean local|staging))(?=.*(?:db lint|schema lint))(?=.*(?:gen types|database types|generated type))(?=.*(?:pass|passed|success|verified|match))`, "is"),
+    /release-blocking|not collected|not recorded|pending|blocked|not run|missing|unavailable|failed|incomplete|differ/i,
+    "clean migration apply, schema lint, and generated database type validation must be exact-SHA verified."
+  );
+  requireLedgerEvidence(
+    releaseEvidencePath,
     "Supabase migration list/dry-run",
-    new RegExp(`${sha}.*010_generated_sessions_training_block_scope\\.sql.*(?:dry-run|migration list).*(?:pass|success|verified|up to date)`, "is"),
+    migrationEvidencePattern(sha),
     /release-blocking|not remotely verified|not verified|pending|credential-blocked|blocked|not run/i,
-    "migration 010 pending remotely or not verified; migration 010 remote dry-run/list evidence must be exact-SHA verified before release quality can pass."
+    `remote migration alignment is pending or not verified; ${migrationEvidenceMessage()}`
   );
   requireLedgerEvidence(
     releaseEvidencePath,

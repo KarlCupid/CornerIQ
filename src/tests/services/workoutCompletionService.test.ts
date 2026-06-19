@@ -87,6 +87,7 @@ describe("workout completion service", () => {
     const result = await completeWorkoutService({
       userId: "user_1",
       asOfDate: fixtureAsOfDate,
+      clock: { now: () => "2026-05-19T18:30:00.000Z" },
       detailedSession: session,
       completion: {
         generatedSessionId: session.generatedSessionId,
@@ -115,7 +116,7 @@ describe("workout completion service", () => {
         generatedSessionId: session.generatedSessionId,
         plannedDate: session.date,
         performedDate: session.date,
-        recordedAt: `${fixtureAsOfDate}T00:00:00.000Z`,
+        recordedAt: "2026-05-19T18:30:00.000Z",
         sessionRpe: 7,
         painNotes: [],
         athleteNotes: "Good session",

@@ -304,6 +304,48 @@ describe("training week summary and roll-forward engines", () => {
     ).toBe("decision_corrected");
   });
 
+  it("selects newest same-week progression decision without letting stale plan revisions win", () => {
+    const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const olderActiveDecision = {
+      id: "decision_active_older",
+      weekIndex: 2,
+      decision: "repeat" as const,
+      reason: "Older active-plan evidence.",
+      nextWeekPhase: state.training.activeBlock.phase,
+      confidence: { level: "medium" as const, score: 0.7, reasons: ["test"], missingInputs: [] },
+      safetyFlags: [],
+      generatedAt: "2026-05-25T09:00:00.000Z",
+      planRevisionId: "revision_active",
+      decisionLifecycle: "final" as const
+    };
+    const newerActiveDecision = {
+      ...olderActiveDecision,
+      id: "decision_active_newer",
+      decision: "progress" as const,
+      reason: "Newer active-plan evidence.",
+      generatedAt: "2026-05-25T10:00:00.000Z"
+    };
+    const newestStaleRevisionDecision = {
+      ...olderActiveDecision,
+      id: "decision_stale_revision_newest",
+      decision: "deload" as const,
+      reason: "Newer generatedAt but stale plan revision.",
+      generatedAt: "2026-05-25T11:00:00.000Z",
+      planRevisionId: "revision_old"
+    };
+
+    expect(
+      selectAuthoritativeTrainingProgressionDecision([olderActiveDecision, newestStaleRevisionDecision, newerActiveDecision], {
+        activePlanRevisionId: "revision_active"
+      })?.id
+    ).toBe("decision_active_newer");
+    expect(
+      selectAuthoritativeTrainingProgressionDecision([newerActiveDecision, olderActiveDecision], {
+        activePlanRevisionId: "revision_active"
+      })?.id
+    ).toBe("decision_active_newer");
+  });
+
   it("uses safety, fueling, fight week, tournament week, high cycle symptoms, and missing history conservatively", () => {
     const red = resolvePerformanceState({
       journey: {

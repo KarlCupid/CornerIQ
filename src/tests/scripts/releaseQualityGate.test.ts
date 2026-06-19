@@ -10,6 +10,8 @@ const CURRENT_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHORT_SHA = CURRENT_SHA.slice(0, 7);
 const STALE_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const EVIDENCE_PATH = "qa-artifacts/release-evidence/current-release-evidence.md";
+const MIGRATION_010 = "010_generated_sessions_training_block_scope.sql";
+const MIGRATION_014 = "014_temporal_integrity_session_resolution.sql";
 
 function writeFixtureFile(root: string, path: string, source: string): void {
   const target = join(root, path);
@@ -30,7 +32,8 @@ This committed template defines required release evidence fields. Generated rele
 | Release Quality run | Command or workflow URL, status, conclusion, and SHA. |
 | Local command results | Command, pass/fail, and non-secret summary. |
 | Coverage result | Statements, functions, lines, branches, and command. |
-| Supabase migration list/dry-run | CLI version, command, migration 010 status, dry-run result, and SHA. |
+| Local/staging migration apply and generated types | Clean migration apply, schema lint, generated types, and SHA. |
+| Supabase migration list/dry-run | CLI version, command, all local migration statuses, dry-run result, and SHA. |
 | Live smoke | Date/time, command, env names present yes/no, pass/fail, rows created/cleaned summary, and SHA. |
 | EAS/mobile artifact status | Separate mobile lane. |
 | Human boxer validation | Scripted automation versus real boxer validation. |
@@ -50,7 +53,8 @@ function passingEvidence(sha = CURRENT_SHA): string {
 | Release Quality run | Candidate ${sha}; npm run release:quality passed in this release-quality execution. |
 | Local command results | Candidate ${sha}; npm run typecheck passed; npm test passed; npm run lint passed; npm run quality passed; npm run preflight:production passed; npm run smoke:fixtures passed; npm run test:coverage passed; npm audit passed; npm run qa:agent:ci passed. |
 | Coverage result | Candidate ${sha}; statements 88.81, functions 87.77, lines 88.81, branches 87.05; npm run test:coverage passed. |
-| Supabase migration list/dry-run | Candidate ${sha}; migration list includes 010_generated_sessions_training_block_scope.sql; db push dry-run passed and reported remote database is up to date. |
+| Local/staging migration apply and generated types | Candidate ${sha}; clean local migration apply completed; migration list includes every local migration including ${MIGRATION_010} and ${MIGRATION_014}; db lint passed; generated database types match src/services/supabase/database.types.ts; pass. |
+| Supabase migration list/dry-run | Candidate ${sha}; migration list includes ${MIGRATION_010} and ${MIGRATION_014}; db push dry-run passed and reported remote database is up to date. |
 | Live smoke | Candidate ${sha}; smoke:live-db passed; env names present yes/no recorded without values; rows created 1 and rows cleaned 1. |
 | EAS/mobile artifact status | Mobile lane separate and excluded from this in-scope release-quality proof. |
 | Human boxer validation | No real boxer findings recorded; scripted automation only and human_review_required. |
@@ -65,6 +69,8 @@ function writeFixture(overrides: Partial<Record<string, string | undefined>> = {
     "package.json": '{ "scripts": { "release:evidence": "node scripts/generate-release-evidence.mjs", "release:quality": "node scripts/release-quality-gate.mjs" } }',
     "scripts/production-preflight.mjs": "console.log('Production preflight fixture');\n",
     "scripts/collect-release-evidence-input.mjs": 'const dryRun = ["db", "push", "--dry-run"];\nconsole.log(dryRun.join(" "));\n',
+    [`supabase/migrations/${MIGRATION_010}`]: "-- fixture migration\n",
+    [`supabase/migrations/${MIGRATION_014}`]: "-- fixture migration\n",
     "vitest.config.mjs": "export default { test: { coverage: { reporter: ['text', 'json-summary'], thresholds: { statements: 75, functions: 75, lines: 75, branches: 65 } } } };",
     ".github/workflows/codeql.yml": "steps:\n  - uses: github/codeql-action/init@v3\n  - uses: github/codeql-action/analyze@v3\n",
     ".github/workflows/quality.yml": "name: Quality\n",
@@ -167,7 +173,8 @@ describe("release quality gate", () => {
 | Release Quality run | Candidate ${CURRENT_SHA}; npm run release:quality passed in this release-quality execution. |
 | Local command results | Candidate ${CURRENT_SHA}; npm run typecheck passed; npm test passed; npm run lint passed; npm run quality passed; npm run preflight:production passed. |
 | Coverage result | Candidate ${CURRENT_SHA}; statements 88.81, functions 87.77, lines 88.81, branches 87.05; npm run test:coverage passed. |
-| Supabase migration list/dry-run | Candidate ${CURRENT_SHA}; 010_generated_sessions_training_block_scope.sql not remotely verified; release-blocking. |
+| Local/staging migration apply and generated types | Candidate ${CURRENT_SHA}; clean local migration apply completed; migration list includes every local migration including ${MIGRATION_010} and ${MIGRATION_014}; db lint passed; generated database types match src/services/supabase/database.types.ts; pass. |
+| Supabase migration list/dry-run | Candidate ${CURRENT_SHA}; ${MIGRATION_010} and ${MIGRATION_014} not remotely verified; release-blocking. |
 | Live smoke | Candidate ${CURRENT_SHA}; credential-blocked and not run. |
 | EAS/mobile artifact status | Mobile lane separate and excluded. |
 | Human boxer validation | No real boxer findings recorded; scripted automation only and human_review_required. |
@@ -197,6 +204,35 @@ describe("release quality gate", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("must record exact Quality run evidence");
     expect(result.stderr).toContain("must record exact CodeQL run evidence");
+  });
+
+  it("fails Supabase evidence that omits any local migration file", () => {
+    const result = runGate(
+      writeFixture({
+        [EVIDENCE_PATH]: passingEvidence().replace(
+          `| Supabase migration list/dry-run | Candidate ${CURRENT_SHA}; migration list includes ${MIGRATION_010} and ${MIGRATION_014}; db push dry-run passed and reported remote database is up to date. |`,
+          `| Supabase migration list/dry-run | Candidate ${CURRENT_SHA}; migration list includes ${MIGRATION_010}; db push dry-run passed and reported remote database is up to date. |`
+        )
+      })
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("must record exact Supabase migration list/dry-run evidence");
+    expect(result.stderr).toContain(MIGRATION_014);
+  });
+
+  it("fails when local schema validation evidence is missing", () => {
+    const result = runGate(
+      writeFixture({
+        [EVIDENCE_PATH]: passingEvidence().replace(
+          `| Local/staging migration apply and generated types | Candidate ${CURRENT_SHA}; clean local migration apply completed; migration list includes every local migration including ${MIGRATION_010} and ${MIGRATION_014}; db lint passed; generated database types match src/services/supabase/database.types.ts; pass. |\n`,
+          ""
+        )
+      })
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("must record Local/staging migration apply and generated types");
   });
 
   it("fails coverage rows that omit required exact-SHA coverage metrics", () => {

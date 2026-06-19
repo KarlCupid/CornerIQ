@@ -8,7 +8,7 @@ This document is the operational checklist for structured CornerIQ beta releases
 
 CornerIQ is beta-ready for structured local/scripted boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a beta tester notice, runtime public-env validation, EAS build profiles, a beta preflight script, GitHub Actions quality workflows, CodeQL, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
 
-Local migration files now run through `010_generated_sessions_training_block_scope.sql`. The last remote verification recorded on 2026-05-21 showed migrations `001` through `009` applied and dry run up to date; rerun migration list and dry run before release handoff so `010` is either applied or explicitly documented as pending.
+Local migration files now run through `20260619194631_generated_session_identity_lifecycle.sql`. Historical remote verification aligned migrations `001` through `013` on 2026-06-18. On 2026-06-19, a local clean Supabase database applied every local migration, local migration list/lint passed, and generated database types were refreshed from that schema. A guarded remote release pass then applied `014_temporal_integrity_session_resolution.sql`, `20260619190201_training_week_finalization_authority.sql`, and `20260619194631_generated_session_identity_lifecycle.sql`; follow-up remote migration list, dry-run, and linked lint passed. Live smoke remains blocked until the configured smoke account signs in successfully.
 
 2026-05-21 historical release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and a public GitHub Actions `Quality` run passed for that older candidate. That historical result does not prove any later candidate.
 
@@ -119,9 +119,10 @@ npm exec supabase -- db push --dry-run
 Expected current state:
 
 - CLI version verified as `2.100.1`.
-- Local migration files include `001` through `010`.
-- The last recorded remote verification aligned `001` through `009`.
-- Dry run must be rerun before release handoff and must either report `Remote database is up to date.` or document the exact pending migration.
+- Local migration files include `001` through `014` plus timestamped migrations `20260619190201` and `20260619194631`.
+- 2026-06-19 local clean-database evidence applied every local migration, `migration list --local` showed all local migrations, `db lint --local --level error --fail-on error` passed, and generated TypeScript database types were refreshed from that local schema.
+- The latest guarded remote verification aligned every local migration through `20260619194631`.
+- Dry run must be rerun before release handoff and must either report `Remote database is up to date.` or document the exact pending migration files.
 
 ## Feedback Workflow
 
@@ -223,7 +224,7 @@ The results and human testing adjustments are documented in `docs/22_BETA_SCENAR
 
 CI does not run live smoke and does not require Supabase smoke credentials.
 
-`.github/workflows/release-quality.yml` is stricter and manual-only. It runs the local quality gates, agent QA evidence loop, production dependency audit, and a non-optional Supabase migration dry-run. It then runs `npm run release:quality`, which fails if release-critical evidence is missing. Missing Supabase migration credentials are therefore advisory in normal CI but release-blocking in Release Quality.
+`.github/workflows/release-quality.yml` is stricter and manual-only. It runs the local quality gates, agent QA evidence loop, production dependency audit, opt-in local Supabase schema validation, and a non-optional Supabase migration dry-run. It then runs `npm run release:quality`, which fails if release-critical evidence is missing. Missing Supabase migration credentials are therefore advisory in normal CI but release-blocking in Release Quality.
 
 For each release-candidate commit, record the `Quality` and `CodeQL` run IDs, commit SHA, status, and conclusion in generated release evidence before release handoff. If CodeQL has not run on the candidate commit yet, keep release status at build/security evidence pending.
 
@@ -241,7 +242,7 @@ Advisory in normal development:
 Release-blocking for a beta handoff:
 
 - `npm run release:quality` must pass in a release-owner context.
-- Supabase migration dry-run must be verified for the candidate SHA, including migration `010`.
+- Supabase migration dry-run must be verified for the candidate SHA, including every local migration file.
 - CodeQL must be configured and a candidate run result must be recorded.
 - Coverage thresholds must remain at least statements 75, functions 75, lines 75, and branches 65.
 - Beta preflight, static safety scans, smoke fixtures, typecheck, lint, tests, coverage, and agent QA evidence loop must pass.
@@ -268,6 +269,7 @@ Use this ledger shape for each release-candidate commit:
 | Agent QA evidence loop | pass | Agent or CI | `qa-artifacts/corneriq-agent-qa-bundle.zip` |
 | Static safety scans | pass | Agent or CI | `src/tests/static` |
 | Supabase migration dry-run | verified or release-blocking | Release owner | migration list and dry-run result |
+| Local/staging migration apply, lint, and generated types | pass or exact blocker | Agent, CI, or release owner | clean migration apply, `db lint`, and generated type validation result |
 | CodeQL | configured and candidate result recorded | Release owner | CodeQL run URL/result |
 | Live smoke | verified or exact credential blocker documented | Release owner | private notes, no values |
 | EAS/mobile deliverability | excluded in this run | Release owner | separate distribution ledger |

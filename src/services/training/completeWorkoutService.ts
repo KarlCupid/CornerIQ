@@ -1,6 +1,11 @@
 import type { DetailedTrainingSession, ProtectedWorkoutType, WorkoutCompletionDraft, WorkoutCompletionResult } from "../../engine/core/types";
+import { stableHash } from "../../engine/core/stableHash";
 import type { AthleteJourneyRepositories } from "../supabase/loadAthleteJourney";
 import { assertUserId } from "../supabase/repositoryTypes";
+
+export interface CompletionClock {
+  now: () => string;
+}
 
 export interface CompleteWorkoutInput {
   userId: string;
@@ -9,6 +14,7 @@ export interface CompleteWorkoutInput {
   repositories: Pick<AthleteJourneyRepositories, "exerciseResult" | "journey" | "training">;
   asOfDate: string;
   recordedAt?: string | undefined;
+  clock?: CompletionClock | undefined;
   engineVersion: string;
 }
 
@@ -48,7 +54,11 @@ export function generatedWorkoutCompletionKey(generatedSessionId: string): strin
 }
 
 function defaultRecordedAt(input: CompleteWorkoutInput): string {
-  return input.completion.recordedAt ?? input.recordedAt ?? `${input.asOfDate}T00:00:00.000Z`;
+  return input.completion.recordedAt ?? input.recordedAt ?? input.clock?.now() ?? new Date().toISOString();
+}
+
+function exerciseResultFingerprint(completion: WorkoutCompletionDraft): string {
+  return stableHash(completion.exerciseResults);
 }
 
 function dateTimeForPerformedDate(date: string): string {
@@ -79,6 +89,7 @@ export async function completeWorkoutService(input: CompleteWorkoutInput): Promi
     generatedSessionId,
     engineVersion: input.engineVersion,
     completionSource: "generated_session",
+    exerciseResultFingerprint: exerciseResultFingerprint(input.completion),
     resolutionLifecycle: "current",
     source: "generated_session",
     ...(input.completion.smokeRunId === undefined ? {} : { smokeRunId: input.completion.smokeRunId }),

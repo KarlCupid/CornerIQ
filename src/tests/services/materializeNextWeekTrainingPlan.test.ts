@@ -127,6 +127,32 @@ describe("materializeNextWeekTrainingPlan service", () => {
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });
 
+  it("does not materialize a preview whose acceptance is after the state replay cutoff", async () => {
+    const state = stateFixture({ snapshotGeneratedAt: "2026-05-20T12:00:00.000Z" });
+    const preview = previewFixture(state, {
+      status: "accepted",
+      createdAt: "2026-05-20T09:00:00.000Z",
+      updatedAt: "2026-05-20T18:00:00.000Z",
+      acceptedAt: "2026-05-20T18:00:00.000Z"
+    });
+    const repositories = repositoriesFor(preview);
+
+    const result = await materializeNextWeekTrainingPlan({
+      userId: "user_1",
+      current: state,
+      repositories,
+      asOfDate: preview.weekStartDate,
+      mode: "materialize_if_week_boundary",
+      allowBoundaryOverride: true
+    });
+
+    expect(result.status).toBe("rejected");
+    expect(result.explanation).toContain("must be accepted");
+    expect(repositories.trainingBlock.upsertTrainingMicrocycle).not.toHaveBeenCalled();
+    expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
+    expect(repositories.trainingNextWeekPreview.markPreviewMaterialized).not.toHaveBeenCalled();
+  });
+
   it("boundary materialization creates next-week day plans, persists generated sessions, and marks the preview materialized", async () => {
     const state = stateFixture();
     const base = previewFixture(state);

@@ -4,8 +4,8 @@ import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export type CycleLogRow = Pick<TableRow<"cycle_logs">, "log_date" | "cycle_payload">;
-export type CycleSymptomLogRow = Pick<TableRow<"cycle_symptom_logs">, "log_date" | "symptom_payload">;
+export type CycleLogRow = Pick<TableRow<"cycle_logs">, "created_at" | "log_date" | "cycle_payload">;
+export type CycleSymptomLogRow = Pick<TableRow<"cycle_symptom_logs">, "created_at" | "log_date" | "symptom_payload">;
 
 export interface CreateCycleSymptomLogInput {
   userId: string;
@@ -24,7 +24,8 @@ export function mapCycleLogRow(row: CycleLogRow): CycleLog {
     CycleLogSchema,
     {
       ...payload,
-      date: row.log_date
+      date: row.log_date,
+      recordedAt: row.created_at
     },
     "cycle_logs"
   );
@@ -39,7 +40,8 @@ export function mapCycleSymptomLogRow(row: CycleSymptomLogRow): CycleLog {
       symptoms: [],
       hormonalContraception: "unknown",
       ...payload,
-      date: row.log_date
+      date: row.log_date,
+      recordedAt: row.created_at
     },
     "cycle_symptom_logs"
   );
@@ -49,13 +51,13 @@ export function createCycleRepository(client: CornerSupabaseClient) {
   return {
     async listCycleLogs(userId: string): Promise<CycleLog[]> {
       const safeUserId = assertUserId(userId, "cycle_logs.listCycleLogs");
-      const response = await client.from("cycle_logs").select("log_date, cycle_payload").eq("user_id", safeUserId).order("log_date", { ascending: true });
+      const response = await client.from("cycle_logs").select("created_at, log_date, cycle_payload").eq("user_id", safeUserId).order("log_date", { ascending: true });
       return readDataOrThrow(response, "cycle_logs.listCycleLogs").map(mapCycleLogRow);
     },
 
     async listSymptomLogs(userId: string): Promise<CycleLog[]> {
       const safeUserId = assertUserId(userId, "cycle_symptom_logs.listSymptomLogs");
-      const response = await client.from("cycle_symptom_logs").select("log_date, symptom_payload").eq("user_id", safeUserId).order("log_date", { ascending: true });
+      const response = await client.from("cycle_symptom_logs").select("created_at, log_date, symptom_payload").eq("user_id", safeUserId).order("log_date", { ascending: true });
       return readDataOrThrow(response, "cycle_symptom_logs.listSymptomLogs").map(mapCycleSymptomLogRow);
     },
 

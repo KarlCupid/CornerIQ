@@ -6,16 +6,16 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 
 | Field | Value |
 | --- | --- |
-| Current QA phase | needs_human_review |
-| Last commit tested | Historical only. Exact current-candidate proof is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. |
-| Last QA run result | 2026-06-18 production Supabase/account-deletion verification: remote migrations `001` through `013` aligned, `cmd /c npm exec supabase -- db push --dry-run` reported the remote database up to date, `delete-account` listed ACTIVE v2, and a live Profile > Data > Delete account smoke passed with sign-out plus rejected re-login for the deleted credentials. The function was updated for browser CORS before the passing smoke. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, and `cmd /c npm run preflight:beta` passed; tests reported 598 passed and 1 live-smoke test skipped. `npm install` and focused Vitest needed approved reruns after Windows sandbox/package-cache or esbuild access issues. Fresh sign-up still requires email confirmation, and the deleted smoke account must be replaced with a fresh confirmed review account. Agent browser CI was not rerun in this pass, so physical-device checks, private distribution, and real boxer findings remain unresolved until explicit human evidence exists. |
+| Current QA phase | blocked |
+| Last commit tested | Historical committed release evidence is generated under `qa-artifacts/release-evidence/current-release-evidence.md` and is not stored in this committed state file. The 2026-06-19 launch-integrity candidate has local verification, guarded remote migration alignment, and a live-smoke credential blocker; exact GitHub Quality/CodeQL run evidence is still required for the pushed commit. |
+| Last QA run result | 2026-06-19 launch-integrity fix pass: fixed generated-workout immutable correction replay, real completion `recordedAt`, completed-to-skipped exercise-result visibility, future generated-session overlay persistence, active-week exercise-result loading, high-severity production `undici` audit exposure, and temporal replay gaps. Added replay coverage for generated completion corrections, resolved risk flags, Supabase-loaded hydration/electrolyte/cycle logs, protected anchors, active fight/tournament/block records, and accepted/materialized next-week preview actions. Release evidence gates now require every local Supabase migration file, clean local/staging migration apply, schema lint, and generated database type validation in generated exact-SHA evidence. Local Supabase validation passed: clean local database start applied every local migration, `migration list --local` showed every migration through `20260619194631`, `db lint --local --level error --fail-on error` passed, and generated TypeScript database types matched `src/services/supabase/database.types.ts`. A guarded remote release pass then applied the previously pending `014`, `20260619190201`, and `20260619194631` migrations; follow-up `cmd /c npm exec supabase -- migration list` showed every local migration aligned remotely, `cmd /c npm exec supabase -- db push --dry-run` reported `Remote database is up to date.`, and `cmd /c npm exec supabase -- db lint --linked --level error --fail-on error` passed. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:beta`, and `cmd /c npm run test:coverage` passed; tests reported 664 passed and 1 skipped, and coverage reported statements 90.22, functions 90.51, lines 90.22, branches 85.38. `cmd /c npm audit --audit-level=high --omit=dev` passed after the narrow `undici@6.27.0` override, but npm still reports 17 moderate advisories requiring breaking Expo/React Native upgrades. `cmd /c npm run smoke:live-db` with `CORNERIQ_LIVE_DB_SMOKE=1` failed at Supabase sign-in with `invalid_credentials`, so live rows-created/cleaned evidence is still missing. Current candidate is not launch-ready until a valid confirmed smoke account passes live smoke and exact GitHub Quality/CodeQL runs pass for the pushed commit. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
-| Current open high count | 0 |
+| Current open high count | 1 |
 | Current required-medium count | 3 human/AI review limitations remain explicitly tracked |
-| Next recommended action | Create and confirm a fresh App Store review account, run `cmd /c npm run qa:agent:ci` if browser evidence needs a final refresh, then review Today, Fuel, Train, Plan, Profile, onboarding persistence expectations, and workout resume copy with a human boxer/designer on a physical phone before declaring external launch readiness. |
-| Launch readiness decision | needs_human_review |
+| Next recommended action | Update or confirm the configured Supabase smoke email/password pair so it signs in to the linked project, rerun `cmd /c npm run smoke:live-db`, then wait for exact GitHub Quality and CodeQL runs on the pushed branch. Physical iPhone, human boxer, and release-owner distribution review remain separate human gates. |
+| Launch readiness decision | blocked |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
 
@@ -27,13 +27,14 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-18 on the approved rerun after an initial Windows sandbox/package-cache hang. |
-| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-18 directly and again inside `quality`. |
-| tests | automated_pass | `cmd /c npm test` passed on 2026-06-18 directly and again inside `quality`; 598 tests passed and 1 live-smoke test skipped. |
-| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-18. |
-| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-18; 598 tests passed and 1 live-smoke test skipped. |
-| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-18. |
-| GitHub Actions quality | human_review_required | Remote workflow status cannot be completed by local E2E alone. |
+| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-19 for the uncommitted launch-integrity candidate; npm still reports 18 advisories, 1 low and 17 moderate. |
+| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-19 directly and again inside `quality`. |
+| tests | automated_pass | `cmd /c npm test` passed on 2026-06-19 directly and again inside `quality`; 664 tests passed and 1 skipped. |
+| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-19. |
+| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-19; 664 tests passed and 1 skipped. |
+| coverage | automated_pass | `cmd /c npm run test:coverage` passed on 2026-06-19; statements 90.22, functions 90.51, lines 90.22, branches 85.38. |
+| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-19. |
+| GitHub Actions quality | human_review_required | Exact Quality run evidence is required for the pushed commit. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
 | agent QA CI | automated_pass | Approved `cmd /c npm run qa:agent:ci` passed on 2026-06-07; 9 browser tests passed, deterministic analysis reported 0 blockers / 0 high / 3 medium human-review items, contact sheet was regenerated, and the 192-file bundle was written under `qa-artifacts/`. Targeted approved `cmd /c npm run qa:agent:audit` passed on 2026-06-10 after the bottom navigation/tab tuning with 10 browser scenarios; a previous same-day audit caught and prevented a fixed-width tab click regression, and the full bundle was not regenerated in that targeted pass. |
 
@@ -205,12 +206,15 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| migrations aligned | verified | Production migration list aligned for local/remote migrations `001` through `013` on 2026-06-18. |
-| dry run up to date | verified | `cmd /c npm exec supabase -- db push --dry-run` reported the remote database is up to date on 2026-06-18. |
-| live smoke passes | verified | Explicit live Profile > Data > Delete account smoke passed on 2026-06-18 with sign-out and rejected re-login for deleted credentials. |
+| migrations aligned | automated_pass | Guarded 2026-06-19 remote push applied pending migrations, and follow-up `cmd /c npm exec supabase -- migration list` showed every local migration through `20260619194631` aligned remotely. |
+| dry run up to date | automated_pass | Follow-up `cmd /c npm exec supabase -- db push --dry-run` reported `Remote database is up to date.` |
+| local clean migration apply | automated_pass | Local Supabase database start with only the database service applied migrations `001` through `014`, `20260619190201`, and `20260619194631` on 2026-06-19. |
+| local schema lint | automated_pass | `cmd /c npm exec supabase -- db lint --local --level error --fail-on error` passed on 2026-06-19 after local database startup. |
+| generated database types | automated_pass | `cmd /c npm exec supabase -- gen types typescript --local` passed on 2026-06-19 and generated types matched `src/services/supabase/database.types.ts`. |
+| live smoke passes | blocked | `cmd /c npm run smoke:live-db` ran with live env names present after remote migration alignment, but Supabase sign-in failed with `invalid_credentials`; the configured smoke email/password pair must sign in before this gate can pass. |
 | support intake removed from live app | automated_pass | In-app feedback persistence was removed from launch runtime; migration `012` is now applied in production. |
 | data export/delete scope works | human_review_required | Full account deletion live smoke passed on 2026-06-18; portable export and app-data-only deletion still need final live data check if the release owner wants those separately evidenced. |
-| RLS/user-owned behavior remains safe | human_review_required | Live data check only. |
+| RLS/user-owned behavior remains safe | human_review_required | `cmd /c npm exec supabase -- db lint --linked --level error --fail-on error` passed after remote migration alignment, but cross-user RLS smoke still requires a valid live account path. |
 | real auth/email confirmation reviewed | human_review_required | Live auth check only. |
 
 ### M. Physical mobile / iPhone

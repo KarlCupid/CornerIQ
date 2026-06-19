@@ -52,10 +52,14 @@ describe("production quality audit documentation", () => {
     expect(source).toContain("cmd /c npm run qa:agent:ci");
     expect(source).toContain("release-blocking");
     expect(source).toContain("010_generated_sessions_training_block_scope.sql");
+    expect(source).toContain("014_temporal_integrity_session_resolution.sql");
+    expect(source).toContain("20260619190201_training_week_finalization_authority.sql");
+    expect(source).toContain("20260619194631_generated_session_identity_lifecycle.sql");
     expect(source).toContain("historically aligned in production");
-    expect(source).toContain("release-blocking if generated evidence for the exact candidate is absent or stale");
+    expect(source).toContain("rows-created/cleaned proof remains release-blocking");
     expect(source).toContain("CodeQL run");
-    expect(ledger).toContain("migrations `010` through `013`");
+    expect(ledger).toContain("every local migration file status");
+    expect(ledger).toContain("20260619194631_generated_session_identity_lifecycle.sql");
     expect(combined).not.toContain("security evidence pending");
     expect(source).not.toMatch(/current-head pass|latest head passed|current head passed/i);
 

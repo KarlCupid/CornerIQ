@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -164,8 +159,8 @@ export type Database = {
       }
       completed_training_sessions: {
         Row: {
-          completion_key: string | null
           completed_date: string
+          completion_key: string | null
           created_at: string
           generated_session_id: string | null
           id: string
@@ -179,8 +174,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          completion_key?: string | null
           completed_date: string
+          completion_key?: string | null
           created_at?: string
           generated_session_id?: string | null
           id?: string
@@ -194,8 +189,8 @@ export type Database = {
           user_id: string
         }
         Update: {
-          completion_key?: string | null
           completed_date?: string
+          completion_key?: string | null
           created_at?: string
           generated_session_id?: string | null
           id?: string
@@ -561,14 +556,14 @@ export type Database = {
         Row: {
           block_id: string | null
           created_at: string
+          current_scheduled_date: string | null
           engine_version: string
           generated_session_key: string | null
           generated_session_lifecycle: string
           id: string
-          current_scheduled_date: string | null
           original_planned_date: string | null
-          planned_date: string
           plan_revision_id: string | null
+          planned_date: string
           prescription_slot_id: string | null
           session_payload: Json
           updated_at: string
@@ -579,14 +574,14 @@ export type Database = {
         Insert: {
           block_id?: string | null
           created_at?: string
+          current_scheduled_date?: string | null
           engine_version: string
           generated_session_key?: string | null
           generated_session_lifecycle?: string
           id?: string
-          current_scheduled_date?: string | null
           original_planned_date?: string | null
-          planned_date: string
           plan_revision_id?: string | null
+          planned_date: string
           prescription_slot_id?: string | null
           session_payload?: Json
           updated_at?: string
@@ -597,14 +592,14 @@ export type Database = {
         Update: {
           block_id?: string | null
           created_at?: string
+          current_scheduled_date?: string | null
           engine_version?: string
           generated_session_key?: string | null
           generated_session_lifecycle?: string
           id?: string
-          current_scheduled_date?: string | null
           original_planned_date?: string | null
-          planned_date?: string
           plan_revision_id?: string | null
+          planned_date?: string
           prescription_slot_id?: string | null
           session_payload?: Json
           updated_at?: string
@@ -1352,13 +1347,13 @@ export type Database = {
           completed_result_count: number
           completion_count: number
           created_at: string
+          finalized_at: string | null
           generated_support_count: number
           hard_days_completed: number
           high_cycle_symptom_flag: boolean
           id: string
           pain_flag_count: number
           partial_result_count: number
-          finalized_at: string | null
           plan_revision_id: string | null
           prescribed_only_count: number
           protected_anchor_count: number
@@ -1383,13 +1378,13 @@ export type Database = {
           completed_result_count?: number
           completion_count?: number
           created_at?: string
+          finalized_at?: string | null
           generated_support_count?: number
           hard_days_completed?: number
           high_cycle_symptom_flag?: boolean
           id?: string
           pain_flag_count?: number
           partial_result_count?: number
-          finalized_at?: string | null
           plan_revision_id?: string | null
           prescribed_only_count?: number
           protected_anchor_count?: number
@@ -1414,13 +1409,13 @@ export type Database = {
           completed_result_count?: number
           completion_count?: number
           created_at?: string
+          finalized_at?: string | null
           generated_support_count?: number
           hard_days_completed?: number
           high_cycle_symptom_flag?: boolean
           id?: string
           pain_flag_count?: number
           partial_result_count?: number
-          finalized_at?: string | null
           plan_revision_id?: string | null
           prescribed_only_count?: number
           protected_anchor_count?: number

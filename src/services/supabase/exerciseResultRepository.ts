@@ -41,6 +41,11 @@ export interface InsertExerciseResultInput {
   smokeRunId?: string | undefined;
 }
 
+export interface ListExerciseResultsForDateRangeOptions {
+  startDate: string;
+  endDate: string;
+}
+
 export type ExerciseResultRow = Pick<
   TableRow<"exercise_results">,
   | "id"
@@ -139,6 +144,7 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
 }
 
 export function createExerciseResultRepository(client: CornerSupabaseClient) {
+  const exerciseResultSelect = "id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, recorded_at, completed_at, source, result_payload";
   return {
     async insertExerciseResult(input: InsertExerciseResultInput): Promise<{ id: string }> {
       const safeUserId = assertUserId(input.userId, "exercise_results.insertExerciseResult");
@@ -171,18 +177,31 @@ export function createExerciseResultRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "exercise_results.listExerciseResultsForCompletedSession");
       const response = await client
         .from("exercise_results")
-        .select("id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, recorded_at, completed_at, source, result_payload")
+        .select(exerciseResultSelect)
         .eq("user_id", safeUserId)
         .eq("completed_training_session_id", completedTrainingSessionId)
         .order("recorded_at", { ascending: true });
       return readDataOrThrow(response, "exercise_results.listExerciseResultsForCompletedSession").map(mapExerciseResultRow);
     },
 
+    async listExerciseResultsForDateRange(userId: string, options: ListExerciseResultsForDateRangeOptions): Promise<ExerciseResultRecord[]> {
+      const safeUserId = assertUserId(userId, "exercise_results.listExerciseResultsForDateRange");
+      const response = await client
+        .from("exercise_results")
+        .select(exerciseResultSelect)
+        .eq("user_id", safeUserId)
+        .gte("completed_at", `${options.startDate}T00:00:00.000Z`)
+        .lte("completed_at", `${options.endDate}T23:59:59.999Z`)
+        .order("completed_at", { ascending: true })
+        .order("recorded_at", { ascending: true });
+      return readDataOrThrow(response, "exercise_results.listExerciseResultsForDateRange").map(mapExerciseResultRow);
+    },
+
     async listRecentExerciseResults(userId: string, limit = 25): Promise<ExerciseResultRecord[]> {
       const safeUserId = assertUserId(userId, "exercise_results.listRecentExerciseResults");
       const response = await client
         .from("exercise_results")
-        .select("id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, recorded_at, completed_at, source, result_payload")
+        .select(exerciseResultSelect)
         .eq("user_id", safeUserId)
         .order("recorded_at", { ascending: false })
         .limit(limit);

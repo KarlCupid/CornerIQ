@@ -100,7 +100,7 @@ function mapTrainingBlockRow(row: TrainingBlockRow): PersistedTrainingBlock {
     status: statusValue(row.status, "training_blocks.status"),
     inputHash: row.input_hash,
     outputHash: row.output_hash,
-    block: parseWithSchema(TrainingBlockSchema, payload, "training_blocks.block_payload"),
+    block: parseWithSchema(TrainingBlockSchema, { ...payload, recordedAt: row.created_at }, "training_blocks.block_payload"),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

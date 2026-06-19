@@ -8,6 +8,7 @@ import { mapGeneratedSessionToRow } from "../supabase/engineRunRepository";
 import type { AthleteJourneyRepositories } from "../supabase/loadAthleteJourney";
 import { assertUserId } from "../supabase/repositoryTypes";
 import type { PersistedTrainingNextWeekPreview } from "../supabase/trainingNextWeekPreviewRepository";
+import { replayTrainingNextWeekPreviews } from "./trainingNextWeekPreviewTemporal";
 
 export type NextWeekTrainingPlanMaterializationMode = "preview_only" | "accept_preview" | "materialize_if_week_boundary";
 export type NextWeekTrainingPlanMaterializationStatus = "preview_only" | "accepted" | "materialized" | "rejected" | "error";
@@ -59,10 +60,15 @@ async function resolvePreview(input: {
   userId: string;
   trainingBlockId: string;
   previewId?: string | undefined;
+  generatedAt?: string | undefined;
 }): Promise<PersistedTrainingNextWeekPreview | null> {
-  if (input.previewId) {
+  if (input.previewId || input.generatedAt !== undefined) {
     const previews = await input.repositories.trainingNextWeekPreview.listPreviewsForBlock(input.userId, input.trainingBlockId);
-    return previews.find((preview) => preview.id === input.previewId) ?? null;
+    const replayed = replayTrainingNextWeekPreviews(previews, input.generatedAt);
+    if (input.previewId) {
+      return replayed.find((preview) => preview.id === input.previewId) ?? null;
+    }
+    return [...replayed].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
   }
   return input.repositories.trainingNextWeekPreview.getLatestPreviewForBlock(input.userId, input.trainingBlockId);
 }
@@ -175,7 +181,8 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       repositories: input.repositories,
       userId,
       trainingBlockId,
-      previewId: input.previewId
+      previewId: input.previewId,
+      generatedAt: input.current.snapshotGeneratedAt
     });
     if (!preview) {
       return rejected("No saved next-week preview was found for the active block.", input.previewId);

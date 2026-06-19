@@ -1386,6 +1386,35 @@ describe("training block and microcycle engine", () => {
     expect(adapted.training.supportGenerationAudit.repairActionsApplied.join(" ")).toContain("Actual completed hard work");
   });
 
+  it("uses recent high RPE to hold prescription without fabricating actual sets or intervals", () => {
+    const highRpeSession: CompletedTrainingSession = {
+      ...completedGoodSession,
+      id: "completed_high_rpe",
+      date: "2026-05-18",
+      performedDate: "2026-05-18",
+      recordedAt: "2026-05-19T08:00:00.000Z",
+      intensity: "moderate",
+      sessionRpe: 9
+    };
+    const adapted = seriousSixDayState({
+      focus: "strength",
+      id: "plan_actual_load_high_rpe",
+      completedTrainingSessions: [highRpeSession],
+      exerciseResults: []
+    });
+
+    expect(adapted.training.actualLoadLedger.generatedStrengthSets).toBe(0);
+    expect(adapted.training.actualLoadLedger.intervalCount).toBe(0);
+    expect(adapted.training.actualLoadLedger.unknownMetrics).toEqual(expect.arrayContaining(["strength sets"]));
+    expect(adapted.training.supportGenerationAudit.prescriptionAdaptationDecision).toMatchObject({
+      decision: "hold",
+      revisionRequired: true,
+      evidenceIds: expect.arrayContaining([highRpeSession.id]),
+      reason: expect.stringContaining("Recent high RPE")
+    });
+    expect(adapted.training.supportGenerationAudit.prescriptionAdaptationDecision?.safetyImplications.join(" ")).toContain("High RPE");
+  });
+
   it("ignores stale persisted generated sessions from superseded plan revisions", () => {
     const selectedDays = ["tuesday", "thursday", "saturday"];
     const staleRoadwork: GeneratedTrainingSession = {

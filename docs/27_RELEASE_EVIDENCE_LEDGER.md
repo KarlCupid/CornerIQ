@@ -1,6 +1,6 @@
 # Release Evidence Ledger Template
 
-Date: 2026-06-18
+Date: 2026-06-19
 
 Purpose: committed template, release-owner checklist, and historical context for CornerIQ release evidence. This file is not authoritative exact-SHA proof for a future release commit.
 
@@ -12,7 +12,7 @@ Do not paste credentials, personal emails, smoke passwords, service-role values,
 
 The audit that prompted this template observed latest `main` at `224132c08ee0181210967de82880c3a5707de728`, while previously committed release docs still described candidate `7ff2d7f524c0c50075a429163e62dd8ce4b99419`. That proved committed exact-SHA docs become stale when the docs are changed.
 
-Historical remote evidence once showed local migration `010_generated_sessions_training_block_scope.sql` present and pending remotely: migration list had no remote `010`, and dry-run would push `010`. A later 2026-06-18 production maintenance pass aligned migrations `001` through `013`, produced a clean dry-run, deployed `delete-account` ACTIVE v2, and passed Profile > Data account-deletion smoke. Treat that as historical status only; future candidates still need generated exact-SHA evidence.
+Historical remote evidence once showed local migration `010_generated_sessions_training_block_scope.sql` present and pending remotely: migration list had no remote `010`, and dry-run would push `010`. A later 2026-06-18 production maintenance pass aligned migrations `001` through `013`, produced a clean dry-run, deployed `delete-account` ACTIVE v2, and passed Profile > Data account-deletion smoke. The current local migration set now extends through `014_temporal_integrity_session_resolution.sql`, `20260619190201_training_week_finalization_authority.sql`, and `20260619194631_generated_session_identity_lifecycle.sql`. A 2026-06-19 local clean Supabase database applied every local migration, linted cleanly, and generated fresh TypeScript database types. A guarded 2026-06-19 remote release pass then applied the later migrations, and follow-up remote migration list, dry-run, and linked lint passed. Treat committed status as bounded evidence; future candidates still need generated exact-SHA evidence for every local migration and fresh live-smoke proof.
 
 An Android preview APK artifact was historically produced in the mobile lane. That artifact does not count toward local production-readiness scoring and does not prove private distribution, physical-device behavior, app metadata, or real boxer comprehension.
 
@@ -28,7 +28,8 @@ Use this exact field set in the generated release evidence artifact for each can
 | Release Quality run | Exact SHA plus local command result or workflow run ID/URL/status/conclusion. |
 | Local command results | Command list, pass/fail status, and non-secret notes for required local gates. |
 | Coverage result | Command, statements, functions, lines, branches, thresholds, and pass/fail status. |
-| Supabase migration list/dry-run | Supabase CLI version, migration list status, migrations `010` through `013` status, dry-run result, and exact SHA. |
+| Supabase migration list/dry-run | Supabase CLI version, migration list status, every local migration file status, dry-run result, and exact SHA. |
+| Local/staging migration apply and generated types | Clean migration apply status, schema lint status, generated type command/result, and exact SHA. |
 | Live smoke | Date/time, command, env names present yes/no, pass/fail, rows created/cleaned summary, and exact SHA. |
 | EAS/mobile artifact status | Separate mobile-lane status; artifact URL only if private-sharing rules allow recording it. |
 | Human boxer validation | Scripted automation versus real boxer validation status. |
@@ -48,6 +49,7 @@ Use this exact field set in the generated release evidence artifact for each can
 - Do not mark release-ready if the generated artifact lacks the current candidate SHA.
 - Do not mark Quality or CodeQL passed from latest-run language; record a run ID or URL tied to the exact SHA.
 - Do not mark Supabase migrations remotely verified unless migration list and dry-run evidence are recorded for the exact SHA.
+- Do not mark generated database types verified unless they were generated from the release schema or compared against an equivalent staging schema.
 - Do not mark live smoke passed unless the command result and rows-created/rows-cleaned summary are recorded without secret values.
 - Do not count EAS/mobile deliverability inside local production-readiness scores.
 - Do not convert scripted automation into real boxer validation.
@@ -81,4 +83,4 @@ Optional ignored input for the generator:
 qa-artifacts/release-evidence/release-evidence-input.json
 ```
 
-The input file may contain sanitized strings for `qualityRun`, `codeqlRun`, `releaseQualityRun`, `localCommandResults`, `coverageResult`, `supabaseMigration`, `liveSmoke`, `easMobile`, `humanBoxerValidation`, and `knownBlockers`. The generator rejects obvious secret-shaped values.
+The input file may contain sanitized strings for `qualityRun`, `codeqlRun`, `releaseQualityRun`, `localCommandResults`, `coverageResult`, `localSchemaValidation`, `supabaseMigration`, `liveSmoke`, `easMobile`, `humanBoxerValidation`, and `knownBlockers`. The generator rejects obvious secret-shaped values.

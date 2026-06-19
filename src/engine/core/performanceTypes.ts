@@ -34,6 +34,7 @@ export interface PerformanceState {
   engineVersion: string;
   outputHash: string;
   generatedAt: ISODateTimeString;
+  snapshotGeneratedAt?: ISODateTimeString | undefined;
   asOfDate: ISODateString;
 }
 

@@ -4,7 +4,7 @@ import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export type ProtectedWorkoutRow = Pick<TableRow<"protected_workouts">, "id" | "workout_type" | "workout_date" | "workout_payload">;
+export type ProtectedWorkoutRow = Pick<TableRow<"protected_workouts">, "created_at" | "id" | "workout_type" | "workout_date" | "workout_payload">;
 
 export interface InsertProtectedWorkoutOptions {
   metadata?: Record<string, unknown>;
@@ -19,6 +19,7 @@ export function mapProtectedWorkoutRow(row: ProtectedWorkoutRow): ProtectedWorko
       id: row.id,
       type: row.workout_type,
       date: row.workout_date,
+      recordedAt: row.created_at,
       protected: true
     },
     "protected_workouts"
@@ -31,7 +32,7 @@ export function createProtectedWorkoutRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "protected_workouts.listProtectedWorkouts");
       const response = await client
         .from("protected_workouts")
-        .select("id, workout_type, workout_date, workout_payload")
+        .select("created_at, id, workout_type, workout_date, workout_payload")
         .eq("user_id", safeUserId)
         .order("workout_date", { ascending: true });
       return readDataOrThrow(response, "protected_workouts.listProtectedWorkouts").map(mapProtectedWorkoutRow);

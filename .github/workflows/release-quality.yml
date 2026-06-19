@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       run_live_smoke:
-        description: Run opt-in live Supabase smoke after migration 010 is verified
+        description: Run opt-in live Supabase smoke after all local migrations are verified
         type: boolean
         default: false
       allow_remote_db_push:
-        description: Allow guarded remote Supabase db push when migration 010 is pending
+        description: Allow guarded remote Supabase db push when local migrations are pending
         type: boolean
         default: false
 
@@ -69,6 +69,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           CORNERIQ_SMOKE_EMAIL: ${{ secrets.CORNERIQ_SMOKE_EMAIL }}
           CORNERIQ_SMOKE_PASSWORD: ${{ secrets.CORNERIQ_SMOKE_PASSWORD }}
+          CORNERIQ_COLLECT_LOCAL_SUPABASE_VALIDATION: "1"
           CORNERIQ_RUN_LIVE_SMOKE: ${{ inputs.run_live_smoke && '1' || '0' }}
           CORNERIQ_ALLOW_REMOTE_DB_PUSH: ${{ inputs.allow_remote_db_push && '1' || '0' }}
         run: node scripts/collect-release-evidence-input.mjs

@@ -1,6 +1,6 @@
 # Production Quality Audit
 
-Date: 2026-06-18
+Date: 2026-06-19
 
 Purpose: stable production-readiness audit, release-evidence runbook, and historical evidence summary for CornerIQ. This committed document is not authoritative proof for the final SHA of a future release commit.
 
@@ -29,7 +29,7 @@ These scores describe local code posture and evidence-system maturity, not publi
 | Testing depth | 7.6 | 8.6 | Coverage floors remain statements 75, functions 75, lines 75, branches 65; exact run output belongs in generated evidence. |
 | CI/release gates | 7.1 | 8.7 | Release quality now checks generated exact-SHA evidence instead of committed self-SHA docs. |
 | Security posture | 7.4 | 8.6 | Static scans reject personal emails in public docs and secret-shaped values in client/config/docs. |
-| Supabase/persistence readiness | 7.0 | 8.6 | Migrations `001` through `013` were historically aligned in production on 2026-06-18 with a clean dry-run; final candidates still need generated exact-SHA evidence. |
+| Supabase/persistence readiness | 7.0 | 8.8 | Migrations `001` through `013` were historically aligned in production on 2026-06-18 with a clean dry-run. A 2026-06-19 clean local Supabase database applied every local migration through `20260619194631_generated_session_identity_lifecycle.sql`, linted cleanly, and generated fresh database types; a guarded remote release pass then applied the later migrations, and follow-up remote migration list, dry-run, and linked lint passed. Live smoke remains blocked by invalid smoke credentials. |
 | Support/incident boundary | 6.8 | 8.6 | In-app feedback/reporting is removed from launch runtime; support intake remains outside the app until a privacy-reviewed path exists. |
 | UX readiness (automated local) | 6.7 | 8.5 | Automated local evidence is separate from real boxer validation. |
 | Production observability/ops | 5.5 | 8.6 | Release evidence fields are now generated per SHA and validated by the release gate. |
@@ -53,6 +53,8 @@ For each release candidate, run and record non-secret results in `qa-artifacts/r
 | `cmd /c npm run test:coverage` | Record pass/fail plus statements, functions, lines, and branches. | Coverage numbers belong in generated evidence, not as self-SHA committed proof. |
 | `cmd /c npm audit --audit-level=high --omit=dev` | Record exact-SHA pass/fail and high/critical result. | Registry/cache sandbox failures must be documented if rerun with approval. |
 | `cmd /c npm run qa:agent:ci` | Record exact-SHA pass/fail and artifact paths. | Writes ignored QA artifacts under `qa-artifacts/`. |
+| `cmd /c npm exec supabase -- db lint --local --level error --fail-on error` | Record local/staging schema lint result after clean migration apply. | Requires a running local or staging database. |
+| `cmd /c npm exec supabase -- gen types typescript --local` | Record generated database type validation result. | Regenerated types must match the release schema contract. |
 | `cmd /c npm run release:evidence` | Generate exact-SHA evidence artifact. | Defaults unresolved external lanes to blocking. |
 | `cmd /c npm run release:quality` | Validate exact-SHA generated evidence. | Must fail if generated evidence is absent, stale, or unresolved. |
 
@@ -72,7 +74,8 @@ Required generated evidence fields:
 | Release Quality run | Current local command evidence or workflow run ID/URL for exact SHA. |
 | Local command results | Commands, pass/fail, and non-secret notes. |
 | Coverage result | Statements, functions, lines, branches, command, and pass/fail. |
-| Supabase migration list/dry-run | CLI version, migrations `010` through `013` status, dry-run result, and exact SHA. |
+| Supabase migration list/dry-run | CLI version, every local migration file status, dry-run result, and exact SHA. |
+| Local/staging migration apply and generated types | Clean migration apply result, lint result, generated type command, and exact SHA. |
 | Live smoke | Command, env names present yes/no, pass/fail, rows created/cleaned summary, and exact SHA. |
 | EAS/mobile artifact status | Separate mobile-lane status only; not counted as local production readiness. |
 | Human boxer validation | Scripted automation versus real boxer findings, with no private health detail. |
@@ -87,6 +90,9 @@ Required generated evidence fields:
 | `011_reviewer_workflow_export_feedback_statuses.sql` | Present; historically applied remotely by 2026-06-18. | Generated release evidence must record migration list and dry-run alignment for the exact SHA. |
 | `012_remove_beta_feedback_launch.sql` | Present; historically applied remotely by 2026-06-18. | Generated release evidence must record migration list and dry-run alignment for the exact SHA. |
 | `013_security_bug_sweep_hardening.sql` | Present; historically applied remotely by 2026-06-18. | Generated release evidence must record migration list and dry-run alignment for the exact SHA. |
+| `014_temporal_integrity_session_resolution.sql` | Present locally; applied and linted in a clean local Supabase database on 2026-06-19; applied remotely in the guarded 2026-06-19 release pass; follow-up remote migration list and dry-run passed. | Generated release evidence must record migration list and dry-run alignment for the exact SHA. |
+| `20260619190201_training_week_finalization_authority.sql` | Present locally; applied and linted in a clean local Supabase database on 2026-06-19; applied remotely in the guarded 2026-06-19 release pass; follow-up remote migration list and dry-run passed. | Generated release evidence must record migration list and dry-run alignment for the exact SHA. |
+| `20260619194631_generated_session_identity_lifecycle.sql` | Present locally; applied and linted in a clean local Supabase database on 2026-06-19; applied remotely in the guarded 2026-06-19 release pass; follow-up remote migration list and dry-run passed. | Generated release evidence must record migration list and dry-run alignment for the exact SHA. |
 
 Do not treat historical migration alignment as proof for a future release candidate after migrations, function code, or config changes. Generated evidence must record command, date/time, exact SHA, and non-secret result proving alignment.
 
@@ -131,8 +137,8 @@ Scripted automation is not real boxer validation.
 | Self-referential SHA loop | Removed from committed docs; exact SHA is generated under `qa-artifacts/`. |
 | Missing generated release evidence | `npm run release:quality` fails if the artifact is absent or stale. |
 | Ambiguous pass wording | Release gate rejects ambiguous current-head/latest-run pass wording in committed docs and generated evidence. |
-| Remote Supabase migrations | Historically aligned through `013` on 2026-06-18; release-blocking if generated evidence for the exact candidate is absent or stale. |
-| Live smoke | Account-deletion smoke historically passed on 2026-06-18; release-blocking if generated evidence for the exact candidate is absent or stale. |
+| Remote Supabase migrations | Historically aligned through `013` on 2026-06-18; local clean apply/lint/type generation passed on 2026-06-19; the guarded remote release pass applied `014`, `20260619190201`, and `20260619194631`, and follow-up remote migration list/dry-run/lint passed. Generated evidence must remain exact-SHA and fresh if migrations change. |
+| Live smoke | Account-deletion smoke historically passed on 2026-06-18; the 2026-06-19 live DB smoke failed at Supabase sign-in with `invalid_credentials`, so rows-created/cleaned proof remains release-blocking until a valid confirmed smoke account passes. |
 | CodeQL and Quality evidence | Must be tied to exact SHA with run ID or URL. |
 | Mobile/EAS deliverability | Android APK artifact can be recorded separately; distribution remains human/release-owner work. |
 | Human boxer comprehension | No production UX validation claim until real findings are recorded privately. |
@@ -149,7 +155,8 @@ Scripted automation is not real boxer validation.
 
 ## Blockers
 
-- Supabase migration alignment must be generated or verified remotely for the exact candidate SHA.
+- Supabase migration alignment must be recorded in generated evidence for the exact candidate SHA and rerun if migrations change.
+- Clean local or staging migration apply, schema lint, and generated database type validation must be recorded for the exact candidate SHA.
 - Live Supabase smoke must pass for the exact candidate SHA after migration alignment, or remain release-blocking for that candidate.
 - Quality, CodeQL, and Release Quality evidence must be exact-SHA, with run IDs/URLs where applicable.
 - Private distribution, physical-device checks, app metadata, icon/splash acceptance, and user instructions remain release-owner lanes.

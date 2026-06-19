@@ -224,7 +224,7 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     sourcePosture: "internal_conservative_policy",
     owner: "training_safety",
     reviewCadence: "before_beta_release",
-    knownLimitations: ["Historical legacy rows can be unscoped and are intentionally filtered out when active block scope is requested.", "Remote migration 010 still requires explicit remote verification before release."],
+    knownLimitations: ["Historical legacy rows can be unscoped and are intentionally filtered out when active block scope is requested.", "Every local migration that affects generated-session identity, temporal replay, and finalization authority requires explicit remote verification before release."],
     betaCalibrationPlan: "Keep stale-session scope tests and remote migration evidence in the release ledger before any beta handoff that relies on persisted generated sessions.",
     sources: [
       { kind: "internal_policy", label: "Persisted generated sessions cannot escape active plan/block scope." },

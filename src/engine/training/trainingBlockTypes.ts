@@ -1,4 +1,4 @@
-import type { ISODateString } from "../core/sharedTypes";
+import type { ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { CompletedTrainingSession, GeneratedTrainingSession, ProtectedWorkout } from "./types";
 
 export type TrainingBlockPhase =
@@ -84,6 +84,7 @@ export interface TrainingBlock {
   athleteId: string;
   startDate: ISODateString;
   endDate: ISODateString;
+  recordedAt?: ISODateTimeString | undefined;
   phase: TrainingBlockPhase;
   primaryGoal: TrainingBlockGoal;
   secondaryGoals: readonly TrainingBlockGoal[];

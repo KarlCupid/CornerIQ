@@ -111,6 +111,80 @@ function createInsertClient(options: { existingCompletedSessionId?: string | nul
   return { client: client as unknown as CornerSupabaseClient, inserted, updated };
 }
 
+function createCompletionConflictAfterMissClient() {
+  const inserted: { table: string; record: unknown }[] = [];
+  const updated: { table: string; record: unknown }[] = [];
+  let insertAttempted = false;
+  const currentCompletedSession = {
+    id: "concurrent_completed_1",
+    completion_key: "generated_session_completion:generated_1",
+    completed_date: fixtureAsOfDate,
+    generated_session_id: "generated_1",
+    planned_date: fixtureAsOfDate,
+    performed_date: fixtureAsOfDate,
+    recorded_at: "2026-05-19T18:00:00.000Z",
+    resolution_lifecycle: "current",
+    superseded_at: null,
+    session_payload: {
+      type: "coach_assigned_strength",
+      durationMinutes: 35,
+      intensity: "moderate",
+      completionStatus: "completed",
+      painNotes: [],
+      generatedSessionId: "generated_1",
+      completionSource: "generated_session",
+      source: "generated_session"
+    }
+  };
+  const existingQuery = {
+    eq() {
+      return existingQuery;
+    },
+    limit() {
+      return existingQuery;
+    },
+    maybeSingle: async () => ({
+      data: insertAttempted ? currentCompletedSession : null,
+      error: null
+    })
+  };
+  const updateQuery = {
+    eq() {
+      return updateQuery;
+    },
+    select() {
+      return {
+        single: async () => ({ data: { id: "unexpected_update" }, error: null })
+      };
+    }
+  };
+  const client = {
+    from(table: string) {
+      return {
+        select() {
+          return existingQuery;
+        },
+        update(record: unknown) {
+          updated.push({ table, record });
+          return updateQuery;
+        },
+        insert(record: unknown) {
+          inserted.push({ table, record });
+          insertAttempted = true;
+          return {
+            select() {
+              return {
+                single: async () => ({ data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } })
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, inserted, updated };
+}
+
 function persistedNutritionSafetyReview(overrides: Partial<PersistedNutritionSafetyReview> = {}): PersistedNutritionSafetyReview {
   return {
     id: "review_1",
@@ -394,7 +468,13 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
       listTrainingBlockTimelineEvents: vi.fn(async () => journey.trainingBlockTimelineEvents),
       getLatestWeekIndex: vi.fn(async () => 0)
     },
-    exerciseResult: { listRecentExerciseResults: vi.fn(async () => journey.exerciseResults), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
+    exerciseResult: {
+      listRecentExerciseResults: vi.fn(async () => journey.exerciseResults),
+      listExerciseResultsForDateRange: vi.fn(async () => journey.exerciseResults),
+      insertExerciseResult: vi.fn(),
+      insertExerciseResults: vi.fn(),
+      listExerciseResultsForCompletedSession: vi.fn()
+    },
     engineRun: {
       listActiveRiskFlags: vi.fn(async () => journey.safetyFlags),
       upsertRun: vi.fn(),
@@ -459,7 +539,7 @@ describe("Supabase repositories", () => {
       "2026-05-20T02:48:34.495Z"
     );
     expect(mapFoodLogRow({ log_date: "2026-05-19", meal_payload: { calories: 2200, proteinGrams: 130, carbohydrateGrams: 260, fatGrams: 70, confidence: "medium" } }).calories).toBe(2200);
-    expect(mapCycleSymptomLogRow({ log_date: "2026-05-19", symptom_payload: { symptoms: ["cramps"] } }).symptoms).toContain("cramps");
+    expect(mapCycleSymptomLogRow({ created_at: "2026-05-19T07:00:00.000Z", log_date: "2026-05-19", symptom_payload: { symptoms: ["cramps"] } }).symptoms).toContain("cramps");
     expect(mapWearableSignalRow({ signal_type: "sleep_duration", signal_value: 7.5, signal_unit: "h", source_platform: "apple_health", recorded_at: "2026-05-20 02:48:34.495071+00" }).recordedAt).toBe(
       "2026-05-20T02:48:34.495Z"
     );
@@ -473,6 +553,7 @@ describe("Supabase repositories", () => {
     ).toBe("2026-05-20T02:48:34.495Z");
     expect(
       mapProtectedWorkoutRow({
+        created_at: "2026-05-19T07:00:00.000Z",
         id: "protected_1",
         workout_type: "technical_session",
         workout_date: "2026-05-19",
@@ -481,6 +562,7 @@ describe("Supabase repositories", () => {
     ).toBe(true);
     expect(
       mapFightOpportunityRow({
+        created_at: "2026-05-19T07:00:00.000Z",
         id: "fight_1",
         status: "confirmed",
         bout_date: "2026-06-20",
@@ -501,6 +583,7 @@ describe("Supabase repositories", () => {
     ).toBe(3);
     expect(
       mapFightOpportunityRow({
+        created_at: "2026-05-19T07:00:00.000Z",
         id: "fight_2",
         status: "confirmed",
         bout_date: "2026-06-20",
@@ -613,11 +696,12 @@ describe("Supabase repositories", () => {
     expect(inserted).toEqual([]);
   });
 
-  it("completed training sessions correct an existing generated-session resolution instead of creating status-specific duplicates", async () => {
+  it("completed training sessions insert immutable correction revisions and supersede the prior current row", async () => {
     const { client, inserted, updated } = createInsertClient({ existingCompletedSessionId: "existing_completed_1", existingCompletedSessionStatus: "skipped" });
     const result = await createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
       id: "completed_1",
       date: fixtureAsOfDate,
+      recordedAt: "2026-05-19T18:00:00.000Z",
       type: "coach_assigned_strength",
       durationMinutes: 35,
       intensity: "moderate",
@@ -627,13 +711,100 @@ describe("Supabase repositories", () => {
       completionSource: "generated_session"
     });
 
-    expect(result).toEqual({ id: "existing_completed_1", existing: true, corrected: true });
-    expect(inserted).toEqual([]);
-    expect(updated[0]?.record).toMatchObject({
+    expect(result).toEqual({ id: "completed_training_sessions_id", corrected: true });
+    expect(inserted[0]?.record).toMatchObject({
       completion_key: "generated_session_completion:generated_1",
       generated_session_id: "generated_1",
+      recorded_at: "2026-05-19T18:00:00.000Z",
+      resolution_lifecycle: "current",
       session_payload: expect.objectContaining({ completionStatus: "completed" })
     });
+    expect(updated[0]?.record).toMatchObject({
+      completion_key: "generated_session_completion:generated_1:superseded:existing_completed_1",
+      generated_session_id: "generated_1",
+      resolution_lifecycle: "superseded",
+      superseded_at: "2026-05-19T18:00:00.000Z",
+      session_payload: expect.objectContaining({
+        completionKey: "generated_session_completion:generated_1:superseded:existing_completed_1",
+        completionStatus: "skipped",
+        resolutionLifecycle: "superseded",
+        supersededAt: "2026-05-19T18:00:00.000Z"
+      })
+    });
+  });
+
+  it("completed training sessions reject stale generated-session corrections before mutating rows", async () => {
+    const { client, inserted, updated } = createInsertClient({ existingCompletedSessionId: "existing_completed_1", existingCompletedSessionStatus: "completed" });
+
+    await expect(
+      createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
+        id: "completed_older",
+        date: fixtureAsOfDate,
+        recordedAt: "2026-05-18T23:59:00.000Z",
+        type: "coach_assigned_strength",
+        durationMinutes: 35,
+        intensity: "moderate",
+        completionStatus: "skipped",
+        painNotes: [],
+        generatedSessionId: "generated_1",
+        completionSource: "generated_session"
+      })
+    ).rejects.toThrow(/older than the current recorded resolution/);
+
+    expect(inserted).toEqual([]);
+    expect(updated).toEqual([]);
+  });
+
+  it("completed training sessions treat same-status exercise detail changes as immutable corrections", async () => {
+    const { client, inserted, updated } = createInsertClient({ existingCompletedSessionId: "existing_completed_1", existingCompletedSessionStatus: "completed" });
+    const result = await createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
+      id: "completed_detail_correction",
+      date: fixtureAsOfDate,
+      recordedAt: "2026-05-19T18:00:00.000Z",
+      type: "coach_assigned_strength",
+      durationMinutes: 35,
+      intensity: "moderate",
+      completionStatus: "completed",
+      painNotes: [],
+      generatedSessionId: "generated_1",
+      completionSource: "generated_session",
+      exerciseResultFingerprint: "exercise-results-v2"
+    });
+
+    expect(result).toEqual({ id: "completed_training_sessions_id", corrected: true });
+    expect(updated[0]?.record).toMatchObject({
+      completion_key: "generated_session_completion:generated_1:superseded:existing_completed_1",
+      resolution_lifecycle: "superseded"
+    });
+    expect(inserted[0]?.record).toMatchObject({
+      completion_key: "generated_session_completion:generated_1",
+      resolution_lifecycle: "current",
+      session_payload: expect.objectContaining({
+        completionStatus: "completed",
+        exerciseResultFingerprint: "exercise-results-v2"
+      })
+    });
+  });
+
+  it("completed training sessions recover idempotently when a concurrent retry wins the insert race", async () => {
+    const { client, inserted, updated } = createCompletionConflictAfterMissClient();
+    const result = await createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
+      id: "completed_race",
+      date: fixtureAsOfDate,
+      recordedAt: "2026-05-19T18:00:00.000Z",
+      type: "coach_assigned_strength",
+      durationMinutes: 35,
+      intensity: "moderate",
+      completionStatus: "completed",
+      painNotes: [],
+      generatedSessionId: "generated_1",
+      completionSource: "generated_session",
+      source: "generated_session"
+    });
+
+    expect(result).toEqual({ id: "concurrent_completed_1", existing: true });
+    expect(inserted).toHaveLength(1);
+    expect(updated).toEqual([]);
   });
 
   it("generated training session reads are scoped to the active training block when requested", async () => {
@@ -760,8 +931,10 @@ describe("Supabase repositories", () => {
     expect(source).toContain("async upsertGeneratedSessions");
     expect(source).toContain("generated_session_key");
     expect(source).toContain("session.prescriptionSlotId ?? session.id");
-    expect(source).toContain("original_planned_date: session.originalPlannedDate ?? session.date");
-    expect(source).toContain("current_scheduled_date: session.currentScheduledDate ?? session.date");
+    expect(source).toContain("baseGeneratedSessionForPersistence");
+    expect(source).toContain("delete baseSession.readinessGate");
+    expect(source).toContain("original_planned_date: baseSession.originalPlannedDate ?? baseSession.date");
+    expect(source).toContain("current_scheduled_date: baseSession.currentScheduledDate ?? baseSession.date");
     expect(source).not.toContain("async saveGeneratedSessions");
   });
 
@@ -1318,6 +1491,11 @@ describe("Supabase repositories", () => {
       endDate: "2026-05-24",
       trainingBlockId: "training_block_current"
     });
+    expect(repositories.exerciseResult.listExerciseResultsForDateRange).toHaveBeenCalledWith("user_1", {
+      startDate: "2026-05-18",
+      endDate: "2026-05-24"
+    });
+    expect(repositories.exerciseResult.listRecentExerciseResults).not.toHaveBeenCalled();
   });
 
   it("loadAthleteJourney includes active persisted nutrition safety reviews and recent events when available", async () => {

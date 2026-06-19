@@ -222,6 +222,7 @@ describe("kernel immutability, view models, and persistence schema", () => {
     });
     expect(
       mapCycleLogRow({
+        created_at: "2026-05-19T07:30:00.000Z",
         log_date: "2026-05-19",
         cycle_payload: { flowLevel: "moderate", symptoms: ["cramps"], hormonalContraception: "none" }
       }).symptoms
