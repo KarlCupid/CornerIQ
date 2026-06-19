@@ -26,7 +26,7 @@ import type {
   PlanGenerationTrainingDose,
   PlanGenerationPrimaryFocus
 } from "../core/types";
-import { buildLoadLedger } from "./loadLedger";
+import { buildActualLoadLedger, buildPlannedLoadLedger } from "./loadLedger";
 import { generateSupportSession } from "./sessionGenerator";
 import { anchorsForDate, hasProtectedCompetition, hasProtectedSparring } from "./protectedAnchors";
 import { applyTrainingPlanAdjustments } from "./planAdjustmentEngine";
@@ -150,11 +150,10 @@ function activeWeekStartDate(input: {
 
 function planRevisionId(input: {
   athlete: AthleteProfile;
-  asOfDate: ISODateString;
   planGenerationIntent?: PlanGenerationIntent | undefined;
   planStartDate: ISODateString;
 }): string {
-  return input.planGenerationIntent?.id ?? `projection:${input.athlete.athleteId}:${input.planStartDate}:${input.asOfDate}`;
+  return input.planGenerationIntent?.id ?? `projection:${input.athlete.athleteId}:${input.planStartDate}`;
 }
 
 function selectedSupportDays(input: {
@@ -231,7 +230,12 @@ function scopedPersistedGeneratedSessions(input: {
       continue;
     }
     if (blockScopeIds.size > 0 && (!session.trainingBlockId || !blockScopeIds.has(session.trainingBlockId))) {
-      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because training block ${session.trainingBlockId ?? "unknown"} is outside the active training block scope.`));
+      if (session.planRevisionId !== input.planRevisionId) {
+        ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because training block ${session.trainingBlockId ?? "unknown"} is outside the active training block scope.`));
+        continue;
+      }
+      considered.push(persistedGeneratedSessionAuditItem(session, "Considered because it is a legacy unscoped generated session with the active plan revision."));
+      sessions.push(session);
       continue;
     }
     if (blockScopeIds.size === 0 && input.planGenerationIntent && session.planRevisionId !== input.planRevisionId) {
@@ -588,7 +592,6 @@ export function resolveWeeklyTrainingPlan(input: {
   });
   const planRevision = planRevisionId({
     athlete: input.athlete,
-    asOfDate: input.asOfDate,
     planGenerationIntent: input.planGenerationIntent,
     planStartDate
   });
@@ -654,6 +657,16 @@ export function resolveWeeklyTrainingPlan(input: {
   const futureScopedPersistedSessions = scopedPersistedSessions.sessions.filter((session) => session.date >= input.asOfDate);
   const movedSessionIds = appliedMovedGeneratedSessionIds(input.trainingPlanAdjustments ?? []);
   const pastGeneratedSupportCount = pastScopedPersistedSessions.length;
+  const pastStatusResolutions = pastScopedPersistedSessions.map((session) =>
+    resolveGeneratedSessionStatus({
+      asOfDate: input.asOfDate,
+      completedSessions: input.completedSessions ?? [],
+      session,
+      trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
+    }).status
+  );
+  const completedPastGeneratedSupportCount = pastStatusResolutions.filter((status) => status === "completed").length;
+  const skippedPastGeneratedSupportCount = pastStatusResolutions.filter((status) => status === "skipped").length;
   const unresolvedPastGeneratedSupportCount = pastScopedPersistedSessions.filter(
     (session) =>
       resolveGeneratedSessionStatus({
@@ -673,6 +686,7 @@ export function resolveWeeklyTrainingPlan(input: {
     return status === "completed" || status === "skipped" || status === "moved";
   }).length;
   const remainingGeneratedSupportTarget = Math.max(0, targetSessions - pastGeneratedSupportCount);
+  const remainingUnfilledPrescriptionSlots = Math.max(0, targetSessions - pastGeneratedSupportCount - futureScopedPersistedSessions.length);
   const looseEndSessionIds = pastScopedPersistedSessions
     .filter(
       (session) =>
@@ -861,7 +875,8 @@ export function resolveWeeklyTrainingPlan(input: {
     todaySessions,
     phase: input.phase
   });
-  const ledger = buildLoadLedger(input.anchors, mergedGeneratedSessions);
+  const plannedLoadLedger = buildPlannedLoadLedger(input.anchors, mergedGeneratedSessions);
+  const actualLoadLedger = buildActualLoadLedger(input.completedSessions ?? [], input.asOfDate);
   const adjustmentBlockedReasons = adjustmentApplication.decisions
     .filter((decision) => decision.status === "applied" && decision.modifiedDayPlans.some((day) => day.generatedSessions.length === 0))
     .map((decision) => decision.explanation);
@@ -1052,6 +1067,10 @@ export function resolveWeeklyTrainingPlan(input: {
     ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Red readiness score without hard-stop symptoms triggered execution downshift, not automatic hard block."] : []),
     ...(executionReadiness.readinessStatus === "red_hard_stop" ? ["Readiness hard-stop symptoms blocked hard training."] : [])
   ];
+  const scheduleChangeReasons = [
+    ...adjustmentApplication.decisions.map((decision) => decision.explanation),
+    ...evidenceBasedOverridesApplied
+  ];
   const nutritionDownshiftReasons = [
     ...(executionReadiness.fuelingStatus === "unknown" ? ["Missing food log added a fuel prompt only."] : []),
     ...(executionReadiness.fuelingStatus === "quick_fuel_check_supported" ? ["Quick fuel check improved execution confidence only."] : []),
@@ -1063,7 +1082,7 @@ export function resolveWeeklyTrainingPlan(input: {
     ...(executionReadiness.fuelingStatus === "severe_underfueling_hard_stop" ? ["Severe under-fueling evidence blocked high-demand generated training."] : [])
   ];
   const autoRollForwardPrevented = unresolvedPastGeneratedSupportCount > 0 && remainingGeneratedSupportTarget < targetSessions;
-  const autoRollForwardExplanation = "Past generated sessions stay as loose ends. CornerIQ does not silently move them forward.";
+  const autoRollForwardExplanation = "Past workouts remain on their original dates. CornerIQ does not silently move missed or unresolved workouts forward.";
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,
     planStartDate,
@@ -1078,13 +1097,21 @@ export function resolveWeeklyTrainingPlan(input: {
     unusedAvailableDays,
     unusedAvailableDayReasons,
     targetGeneratedSupportCount: targetSessions,
+    originalTargetGeneratedSupportCount: targetSessions,
     pastGeneratedSupportCount,
+    pastPlacedGeneratedSupportCount: pastGeneratedSupportCount,
+    completedPastGeneratedSupportCount,
+    skippedPastGeneratedSupportCount,
     unresolvedPastGeneratedSupportCount,
     resolvedPastGeneratedSupportCount,
+    futurePersistedGeneratedSupportCount: futureScopedPersistedSessions.length,
     remainingGeneratedSupportTarget,
+    remainingUnfilledPrescriptionSlots,
     looseEndSessionIds,
     autoRollForwardPrevented,
     autoRollForwardExplanation,
+    scheduleRevisionChanged: adjustmentApplication.activeAdjustments.length > 0 || scheduleChangeReasons.length > 0,
+    scheduleChangeReasons,
     actualGeneratedSupportCount: mergedGeneratedSessions.length,
     todayGeneratedSupportCount: mergedGeneratedSessions.filter((session) => session.date === input.asOfDate).length,
     generatedSessionDates: mergedGeneratedSessions.map((session) => session.date),
@@ -1281,7 +1308,9 @@ export function resolveWeeklyTrainingPlan(input: {
     latestProgressionDecision,
     nextWeekMaterialization,
     timelineEvents: blockHistory.timelineEvents,
-    loadLedger: ledger,
+    loadLedger: plannedLoadLedger,
+    plannedLoadLedger,
+    actualLoadLedger,
     ...(input.planGenerationIntent ? { planGenerationIntent: input.planGenerationIntent } : {}),
     supportGenerationAudit,
     dailyOperatingMode,

@@ -264,6 +264,26 @@ function looseEndCards(state: PerformanceState, sessions: readonly PerformanceSt
     }));
 }
 
+function generatedSessionResolutionDebug(state: PerformanceState, sessions: readonly PerformanceState["training"]["generatedSessions"][number][]): readonly string[] {
+  return sessions.map((session) => {
+    const resolution = resolveGeneratedSessionStatus({
+      asOfDate: state.asOfDate,
+      completedSessions: state.training.completedSessions,
+      session,
+      trainingPlanAdjustments: state.training.adjustmentHistory
+    });
+    return `${session.id}: ${session.date} ${resolution.status}`;
+  });
+}
+
+function selectedProgressionDecisionRevision(state: PerformanceState): string | null {
+  const decision = state.training.latestProgressionDecision;
+  if (!decision) {
+    return null;
+  }
+  return `week ${decision.weekIndex}, ${decision.decisionLifecycle ?? "final"}, ${decision.generatedAt}${decision.planRevisionId ? `, ${decision.planRevisionId}` : ""}`;
+}
+
 function preSessionReadinessGate(
   state: PerformanceState,
   session: PerformanceState["training"]["generatedSessions"][number] | null,
@@ -394,15 +414,32 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     scheduleDebug: {
       asOfDate: state.training.supportGenerationAudit.asOfDate,
       planStartDate: state.training.supportGenerationAudit.planStartDate,
+      weekEndDate: state.training.currentMicrocycle.weekEndDate,
       planRevisionId: state.training.supportGenerationAudit.planRevisionId,
       targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
+      originalTargetGeneratedSupportCount: state.training.supportGenerationAudit.originalTargetGeneratedSupportCount,
       pastGeneratedSupportCount: state.training.supportGenerationAudit.pastGeneratedSupportCount,
+      pastPlacedGeneratedSupportCount: state.training.supportGenerationAudit.pastPlacedGeneratedSupportCount,
+      completedPastGeneratedSupportCount: state.training.supportGenerationAudit.completedPastGeneratedSupportCount,
+      skippedPastGeneratedSupportCount: state.training.supportGenerationAudit.skippedPastGeneratedSupportCount,
       unresolvedPastGeneratedSupportCount: state.training.supportGenerationAudit.unresolvedPastGeneratedSupportCount,
+      futurePersistedGeneratedSupportCount: state.training.supportGenerationAudit.futurePersistedGeneratedSupportCount,
       remainingGeneratedSupportTarget: state.training.supportGenerationAudit.remainingGeneratedSupportTarget,
+      remainingUnfilledPrescriptionSlots: state.training.supportGenerationAudit.remainingUnfilledPrescriptionSlots,
       generatedSessionDates: state.training.supportGenerationAudit.generatedSessionDates,
+      generatedSessionResolutions: generatedSessionResolutionDebug(state, currentWeekGeneratedSessionsRaw),
       persistedGeneratedSessionsConsidered: state.training.supportGenerationAudit.persistedGeneratedSessionsConsidered.map((session) => `${session.date}: ${plainWorkoutTitle(session.title, session.family)}`),
       persistedGeneratedSessionsIgnored: state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.map((session) => `${session.date}: ${plainWorkoutTitle(session.title, session.family)} - ${plainTrainingCopy(session.reason)}`),
+      plannedLoadLedger: state.training.plannedLoadLedger,
+      actualLoadLedger: state.training.actualLoadLedger,
+      acceptedPreviewStatus: state.training.nextWeekPreviewPersistenceStatus
+        ? `${state.training.nextWeekPreviewPersistenceStatus.previewId}: ${state.training.nextWeekPreviewPersistenceStatus.status}`
+        : null,
+      weekSummaryLifecycle: state.training.currentWeekSummary?.lifecycle ?? "unknown",
+      selectedProgressionDecisionRevision: selectedProgressionDecisionRevision(state),
       autoRollForwardPrevented: state.training.supportGenerationAudit.autoRollForwardPrevented,
+      scheduleRevisionChanged: state.training.supportGenerationAudit.scheduleRevisionChanged,
+      scheduleChangeReasons: state.training.supportGenerationAudit.scheduleChangeReasons,
       looseEndSessionIds: state.training.supportGenerationAudit.looseEndSessionIds
     },
     blockPhase: state.training.activeBlock.phase,

@@ -1,10 +1,15 @@
 import { makeConfidence } from "../core/confidence";
 import { dateOnlyInTimeZone, daysBetween } from "../core/dates";
 import type { AcuteProtocolEligibility, AthleteProfile, BodyMassTrend, CycleState, FightOpportunity, RiskFlag, WeighInContext, WeightClassFeasibility } from "../core/types";
+import { ACTIVE_CUT_RECENT_BODY_MASS_MAX_AGE_DAYS, FIGHT_WEEK_BODY_MASS_MAX_AGE_DAYS } from "../bodyMass/bodyMassTrend";
 import { createRiskFlag } from "../safety/riskSafetyEngine";
 
 function weighInDate(fight: FightOpportunity): string | null {
   return fight.weighInDateTime ? dateOnlyInTimeZone(fight.weighInDateTime, fight.timezone) : null;
+}
+
+function requiredBodyMassMaxAgeDays(daysUntilWeighIn: number | null): number {
+  return daysUntilWeighIn !== null && daysUntilWeighIn <= 7 ? FIGHT_WEEK_BODY_MASS_MAX_AGE_DAYS : ACTIVE_CUT_RECENT_BODY_MASS_MAX_AGE_DAYS;
 }
 
 export function resolveWeighInContext(fight: FightOpportunity | null, asOfDate: string): WeighInContext {
@@ -71,10 +76,14 @@ export function resolveAcuteProtocolEligibility(input: {
     fail("age >= 18", "Minor athletes cannot receive acute weight manipulation protocols.");
   }
 
-  if (input.trend.latestKg !== null) {
+  const acuteDaysUntilWeighIn = fight.weighInDateTime ? daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate) : null;
+  const latestBodyMassAgeDays = input.trend.latestDate ? daysBetween(input.trend.latestDate, input.asOfDate) : null;
+  const maxBodyMassAgeDays = requiredBodyMassMaxAgeDays(acuteDaysUntilWeighIn);
+
+  if (input.trend.latestKg !== null && latestBodyMassAgeDays !== null && latestBodyMassAgeDays <= maxBodyMassAgeDays) {
     pass("current body mass exists");
   } else {
-    fail("current body mass exists", "Current body mass is unknown.");
+    fail("current body mass exists", input.trend.latestKg === null ? "Current body mass is unknown." : "Current body mass is stale for the weigh-in context.");
   }
 
   if (input.trend.logCount7Day >= 4) {
@@ -219,6 +228,7 @@ export function resolveWeightClassFeasibility(input: {
     };
   }
 
+  const daysUntilWeighIn = daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate);
   if (input.trend.latestKg === null) {
     riskFlags.push(
       createRiskFlag("body_mass", "missing_current_body_mass", "high", "Current body mass is unknown, so weight-class feasibility cannot be confirmed.", {}, true)
@@ -227,17 +237,40 @@ export function resolveWeightClassFeasibility(input: {
       status: "unknown",
       requiredLossKg: null,
       requiredLossPercent: null,
-      daysUntilWeighIn: daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate),
+      daysUntilWeighIn,
       explanation: "No current body-mass log is available.",
       riskFlags,
       confidence: makeConfidence(0.24, ["fight target exists"], ["current body mass", "recent body-mass logs"])
     };
   }
 
+  const latestBodyMassAgeDays = input.trend.latestDate ? daysBetween(input.trend.latestDate, input.asOfDate) : null;
+  const maxBodyMassAgeDays = requiredBodyMassMaxAgeDays(daysUntilWeighIn);
+  if (latestBodyMassAgeDays === null || latestBodyMassAgeDays > maxBodyMassAgeDays) {
+    riskFlags.push(
+      createRiskFlag(
+        "body_mass",
+        "stale_current_body_mass",
+        "high",
+        "Latest body mass is stale for the active weight context, so weight-class feasibility cannot be confirmed.",
+        { latestDate: input.trend.latestDate, ageDays: latestBodyMassAgeDays, maxAgeDays: maxBodyMassAgeDays },
+        true
+      )
+    );
+    return {
+      status: "unknown",
+      requiredLossKg: null,
+      requiredLossPercent: null,
+      daysUntilWeighIn,
+      explanation: "Latest body-mass log is stale for the active weight context.",
+      riskFlags,
+      confidence: makeConfidence(0.26, ["fight target exists"], ["current body mass"])
+    };
+  }
+
   const targetKg = fight.contractedWeightKg + fight.allowanceKg;
   const requiredLossKg = Math.max(0, input.trend.latestKg - targetKg);
   const requiredLossPercent = (requiredLossKg / input.trend.latestKg) * 100;
-  const daysUntilWeighIn = daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate);
   const age = input.athlete.ageYears;
 
   if (age !== undefined && age < 18 && requiredLossKg > 0) {

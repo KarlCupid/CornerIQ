@@ -25,6 +25,49 @@ This document is for future Codex/ChatGPT audits of CornerIQ's weekly boxing pro
 
 Current week remains stable during next-week preview persistence and accept/materialize actions. The roll-forward service does not mutate `state.training.dayPlans` prematurely.
 
+## Temporal Integrity Model
+
+CornerIQ separates prescription, execution, and logging time:
+
+- `plannedDate` is the date a generated session was originally prescribed.
+- `performedDate` is the date the athlete says the work actually happened.
+- `recordedAt` is when the athlete entered or corrected the log.
+- `planRevisionId` is stable for one accepted plan revision and no longer uses `asOfDate` as a fallback identity input.
+- `generatedSessionId` is the stable prescribed-session identity for one revision/week/slot.
+- Unresolved is derived when a past generated session has no current resolution.
+
+Shared temporal selectors in `src/engine/core/temporalSelectors.ts` filter completed sessions, exercise results, and readiness revisions by effective date and optional `generatedAt` replay cutoff. Historical replays do not use later logs, later readiness updates, future exercise results, or future body-weight rows.
+
+Generated-session loading uses the active microcycle week window, not only `planned_date >= asOfDate`. `loadAthleteJourney` requests generated sessions from active week start through active week end, scoped to the active training block. That lets the engine see earlier active-week prescriptions, today, and future active-week prescriptions at the same time.
+
+## Prescription Vs Execution Overlay
+
+Base generated sessions remain the stable prescription: identity, planned date, family, duration target, intensity target, template/recipe, rationale, block/week, and plan revision. Current readiness, fueling, hydration, and safety context are applied as an execution overlay during state resolution and view-model building.
+
+Today’s readiness or food log can change today’s start gate or downshift copy. It must not rewrite a future base session payload. Explicit plan adjustments or safety-driven plan amendments are the path for changing future prescriptions, and the audit exposes `scheduleRevisionChanged` plus `scheduleChangeReasons`.
+
+## Session Resolution
+
+Generated workout resolution is canonical per user and `generatedSessionId`:
+
+- `completed_training_sessions.completion_key` now uses `generated_session_completion:{generatedSessionId}` for current generated-session rows.
+- `generated_session_id`, `planned_date`, `performed_date`, `recorded_at`, `resolution_lifecycle`, and `superseded_at` are explicit columns.
+- Correcting skipped to completed updates the canonical row and appends a correction event instead of counting both records.
+- Legacy duplicates are preserved as `superseded`; the newest recorded resolution becomes current.
+- Missing completion stays unresolved. It is not treated as skipped, completed, safe adherence, or progression evidence.
+
+The Train view model exposes `workoutLooseEnds` for unresolved past generated sessions. The compact card asks: "This workout was planned for {date}. Did it happen?" Actions resolve the session as completed/skipped, request an explicit move adjustment, or leave it unknown. Leaving it unknown creates no completion row.
+
+## Planned And Actual Load
+
+`TrainingState` now carries:
+
+- `plannedLoadLedger`: protected boxing anchors plus generated prescriptions.
+- `actualLoadLedger`: completed sessions only, using `performedDate`; skipped, unresolved, and future completions are excluded.
+- `loadLedger`: compatibility alias for planned load while older callers are retired.
+
+Planned load prevents scheduling conflicts. Actual load drives adaptation, recovery, progression interpretation, and recent-load evidence. Backfilled completions assign actual load to `performedDate`, while `recordedAt` remains log-entry metadata.
+
 ## Persistence Tables
 
 Migration `004_training_block_persistence.sql` persists:
@@ -45,6 +88,12 @@ Migration `007_training_next_week_previews.sql` persists:
 - `training_next_week_previews`
 - timeline event types `next_week_preview_accepted` and `next_week_materialized`
 
+Migration `014_temporal_integrity_session_resolution.sql` adds:
+- readiness `recorded_at` for latest same-day revision selection;
+- generated-session resolution identity/date/lifecycle columns on `completed_training_sessions`;
+- summary/decision lifecycle columns for provisional vs final week history;
+- indexes for generated-session resolution, performed-date lookup, readiness revisions, preview status, and history lifecycle ordering.
+
 Training projection/progression/preview rows are user-owned where applicable, RLS-protected, and treated as engine audit/progression records. They are not medical directives and should not be mutated directly by screens.
 
 ## Week Summary And Decision Persistence
@@ -62,6 +111,14 @@ It counts completed/skipped sessions, completed/partial/prescribed-only/skipped 
 - Skipped/missed sessions repeat.
 - High cycle symptoms can trim or hold optional volume without automatic deload.
 - Missing history does not fake progress.
+
+Week summaries and progression decisions now carry lifecycle metadata:
+
+- Active-week summaries are `provisional`.
+- Post-week summaries are `final`.
+- `week_completed` timeline events are emitted only for final summaries.
+- Provisional progression decisions may still support next-week preview planning, but they are marked with `decisionLifecycle: provisional`.
+- Same-week decision ordering uses `generatedAt` where available.
 
 `resolveAndPersistPerformanceState` persists block, microcycle, day plans, week summary, progression decision, timeline events, and then the next-week preview. During a boundary refresh it preserves due accepted previews long enough for `autoRollForwardTrainingPlan` to materialize them instead of superseding them with the next preview first.
 
@@ -84,7 +141,7 @@ The persisted row stores:
 Repository rules:
 - `upsertTrainingNextWeekPreview` is idempotent by user/block/week/inputHash/outputHash.
 - Existing accepted/materialized lifecycle state is not downgraded by an identical resolve.
-- `supersedePreviewsForBlock` supersedes older preview/accepted rows when a new preview wins.
+- `supersedePreviewsForBlock` supersedes open preview rows only; accepted previews are frozen plan direction until explicit user action, accepted amendment, materialization, rejection, or a safety-block workflow changes them.
 - Repository methods validate preview payloads with Zod and do not decide programming logic.
 
 Primary files:
@@ -191,10 +248,27 @@ Train:
 - uses local Today / Workout / Exercise History / Progression sections;
 - detailed generated sessions;
 - persisted next-week sessions appear through normal training state only on their planned date;
+- unresolved past generated sessions appear as compact loose-end cards instead of silently rolling forward;
+- a dev-only Training Schedule Debug card shows as-of date, week window, plan revision, placed/completed/skipped/unresolved counts, generated-session resolutions, planned and actual load ledgers, accepted preview status, summary/decision lifecycle, auto-roll-forward prevention, and schedule-change reasons;
 - progression/analytics;
 - exercise history grouped into recent actuals, pain flags, prescribed-only rows, RPE, strength notes, and explicit free-text-load/pain-flag safety copy;
 - per-exercise grouped counts for completed, partial, prescribed-only, pain flags, recent RPE, and latest load notes;
 - top pain-flagged and repeated exercise summaries without inferring numeric progression.
+
+## Readiness And Body Weight Freshness
+
+Readiness check-ins can have multiple same-day revisions. The engine selects the latest same-day `recordedAt`; historical replay with a `generatedAt` cutoff cannot see a future readiness revision.
+
+Body-weight trend history remains available, but current scale-driven decisions require fresh context:
+
+- outside an active weight target, today’s body weight is optional;
+- active cut context treats missing or stale values as paused scale-driven decisions;
+- fight-week or short-notice context requires same-day body weight;
+- stale active-cut body weight raises `stale_current_body_mass` and leaves feasibility unknown instead of authorizing acute decisions from old data.
+
+## As-Of Replay Guarantees
+
+`resolvePerformanceState` filters effective-dated collections before they enter prescription and progression: completed sessions, exercise results, readiness, body weight, nutrition, hydration, electrolytes, cycle logs, wearables, safety flags, plan adjustments, generated sessions, decisions, timeline events, and journey events. Missing data remains unknown. Future facts do not leak backward into earlier `asOfDate` resolution.
 
 Twentieth-pass IA hardening:
 - `SectionTabs` keeps dense surfaces local without adding routed navigation yet.
@@ -206,23 +280,22 @@ Twentieth-pass IA hardening:
 
 ## Current Verification
 
-Local:
+Latest local temporal-integrity pass, 2026-06-19:
+
+- `cmd /c npm install`: passed; npm audit reported 19 known vulnerabilities without failing install.
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed, `318` tests passed and `1` skipped.
-- `cmd /c npm run quality`: passed, including typecheck plus tests with `318` tests passed and `1` skipped.
+- Focused temporal regression suite: passed, `273` tests.
+- `cmd /c npm test`: passed, `623` tests passed and `1` live smoke test skipped by default.
 - `cmd /c npm run lint`: passed.
-- Extended live smoke: passed, `1` test passed, test body `12772ms`, duration `15.10s`.
+- `cmd /c npm run quality`: passed, including typecheck plus tests with `623` passed and `1` skipped.
+- `cmd /c npm run preflight:beta`: passed.
 
-Remote:
-- Supabase migration list shows `001` through `008` applied.
-- Supabase dry run reports `Remote database is up to date.`
-- Live smoke passes with ignored `.env` loaded and `CORNERIQ_LIVE_DB_SMOKE=1`.
-
-Smoke coverage includes weekly summaries, progression decisions, timeline events, persisted next-week previews, accept-preview action, auto-roll-forward pre-boundary non-materialization, smoke-only boundary auto materialization, future generated support sessions, `autoRollForward`, `generatedSessionCount`, repeated-call no-duplicate behavior, actor-scoped adjustment payloads, safe coach relationship RLS read, and scoped cleanup/restoration of smoke-created or smoke-touched rows.
+No destructive remote migration command was run in this pass. Live Supabase smoke remains explicit and opt-in with `CORNERIQ_LIVE_DB_SMOKE=1`.
 
 ## Still Scaffolded
 
 - Numeric load progression is intentionally deferred until structured load fields exist.
+- Server-scheduled/background week finalization remains deferred; app/service refresh can write provisional evidence and final summaries when called after the week end.
 - Coach UI remains hidden while approval audit/admin/team policy matures.
 - Team memberships are deferred.
 - Server-scheduled/background roll-forward is deferred; app-refresh automation is implemented.

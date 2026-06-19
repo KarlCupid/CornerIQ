@@ -109,10 +109,13 @@ describe("workout completion service", () => {
     expect(insertCompletedTrainingSession).toHaveBeenCalledWith(
       "user_1",
       expect.objectContaining({
-        completionKey: `generated_session_completion:${session.generatedSessionId}:completed`,
+        completionKey: `generated_session_completion:${session.generatedSessionId}`,
         completionStatus: "completed",
         completionSource: "generated_session",
         generatedSessionId: session.generatedSessionId,
+        plannedDate: session.date,
+        performedDate: session.date,
+        recordedAt: `${fixtureAsOfDate}T00:00:00.000Z`,
         sessionRpe: 7,
         painNotes: [],
         athleteNotes: "Good session",
@@ -122,7 +125,11 @@ describe("workout completion service", () => {
       })
     );
     expect(insertExerciseResults).toHaveBeenCalledWith([expect.objectContaining({ completedTrainingSessionId: "completed_1", source: "generated_session_completion" })]);
-    expect(appendEvent).toHaveBeenCalledWith("user_1", "TrainingSessionCompleted", expect.objectContaining({ status: "completed", exerciseResultCount: 1 }));
+    expect(appendEvent).toHaveBeenCalledWith(
+      "user_1",
+      "TrainingSessionCompleted",
+      expect.objectContaining({ status: "completed", exerciseResultCount: 1, plannedDate: session.date, performedDate: session.date })
+    );
   });
 
   it("skipped workout creates an event and no exercise results", async () => {
@@ -156,7 +163,7 @@ describe("workout completion service", () => {
     expect(insertCompletedTrainingSession).toHaveBeenCalledWith(
       "user_1",
       expect.objectContaining({
-        completionKey: `generated_session_completion:${session.generatedSessionId}:skipped`,
+        completionKey: `generated_session_completion:${session.generatedSessionId}`,
         completionStatus: "skipped",
         completionSource: "generated_session"
       })
@@ -198,6 +205,56 @@ describe("workout completion service", () => {
     });
     expect(insertExerciseResults).not.toHaveBeenCalled();
     expect(appendEvent).not.toHaveBeenCalled();
+  });
+
+  it("backfilled completion assigns actual load to performedDate and keeps recordedAt separate", async () => {
+    const session = detailedSession();
+    const insertCompletedTrainingSession = vi.fn(async () => ({ id: "completed_backfill" }));
+    const insertExerciseResults = vi.fn(async () => ({ ids: [] }));
+    const appendEvent = vi.fn(async () => ({ id: "event_backfill" }));
+
+    await completeWorkoutService({
+      userId: "user_1",
+      asOfDate: "2026-05-20",
+      recordedAt: "2026-05-20T18:00:00.000Z",
+      detailedSession: { ...session, date: "2026-05-19" },
+      completion: {
+        generatedSessionId: session.generatedSessionId,
+        plannedDate: "2026-05-19",
+        performedDate: "2026-05-19",
+        completedSessionType: completedSessionTypeForFamily(session.family),
+        status: "completed",
+        painNotes: [],
+        notes: "Logged the next day",
+        exerciseResults: []
+      },
+      repositories: {
+        training: { insertCompletedTrainingSession },
+        exerciseResult: { insertExerciseResults },
+        journey: { appendEvent }
+      } as never,
+      engineVersion: "test"
+    });
+
+    expect(insertCompletedTrainingSession).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({
+        date: "2026-05-19",
+        plannedDate: "2026-05-19",
+        performedDate: "2026-05-19",
+        recordedAt: "2026-05-20T18:00:00.000Z"
+      })
+    );
+    expect(appendEvent).toHaveBeenCalledWith(
+      "user_1",
+      "TrainingSessionCompleted",
+      expect.objectContaining({
+        date: "2026-05-20",
+        plannedDate: "2026-05-19",
+        performedDate: "2026-05-19",
+        recordedAt: "2026-05-20T18:00:00.000Z"
+      })
+    );
   });
 
   it("missing user id is blocked before writes", async () => {

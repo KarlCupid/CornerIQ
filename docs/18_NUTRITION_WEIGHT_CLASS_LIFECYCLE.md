@@ -90,6 +90,17 @@ Factors include:
 
 Fuel UI shows this status before macro numbers so targets do not look more exact than the inputs support. Under-fueling and hard-stop states preserve useful fueling context but explicitly block deficit pressure.
 
+## Body-Weight Freshness
+
+`BodyMassState.freshness` separates trend history from current weight-class authorization:
+
+- no active weight target: today’s scale check is optional;
+- active normal cut: recent body weight can support trend context, but stale or missing values pause scale-driven decisions;
+- fight-week or short-notice context: same-day body weight is required;
+- stale active-cut body weight raises `stale_current_body_mass` and leaves feasibility `unknown` instead of using an old latest value.
+
+Trend history still renders in Fuel and Recent Logs, but stale values cannot authorize acute or scale-driven recommendations.
+
 ## Review Persistence
 
 `requestNutritionSafetyReview` now:

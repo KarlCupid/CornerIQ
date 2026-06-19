@@ -1,8 +1,8 @@
 import type { CycleState, NutritionState, RiskFlag } from "../core/types";
-import type { ISODateString } from "../core/sharedTypes";
+import type { ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { CompletedTrainingSession, ExerciseResultRecord, ProtectedWorkout } from "./types";
 import type { TrainingBlock, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
-import type { TrainingWeekSummary } from "./trainingBlockHistoryTypes";
+import type { TrainingHistoryLifecycle, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 
 export interface TrainingWeekSummaryInput {
   asOfDate: ISODateString;
@@ -17,6 +17,8 @@ export interface TrainingWeekSummaryInput {
   nutrition?: Pick<NutritionState, "underFuelingRiskNote" | "riskFlags"> | null | undefined;
   protectedWorkouts: readonly ProtectedWorkout[];
   weekIndex?: number | undefined;
+  generatedAt?: ISODateTimeString | undefined;
+  planRevisionId?: string | undefined;
 }
 
 function inWeek(date: ISODateString, start: ISODateString, end: ISODateString): boolean {
@@ -33,6 +35,10 @@ function average(values: readonly number[]): number | null {
   }
   const total = values.reduce((sum, value) => sum + value, 0);
   return Math.round((total / values.length) * 10) / 10;
+}
+
+function summaryLifecycle(asOfDate: ISODateString, weekEndDate: ISODateString): TrainingHistoryLifecycle {
+  return asOfDate > weekEndDate ? "final" : "provisional";
 }
 
 function underfuelingActive(input: Pick<TrainingWeekSummaryInput, "nutrition" | "safetyFlags">): boolean {
@@ -85,6 +91,7 @@ function summaryCopy(input: {
 export function summarizeTrainingWeek(input: TrainingWeekSummaryInput): TrainingWeekSummary {
   const weekStartDate = input.microcycle.weekStartDate;
   const weekEndDate = input.microcycle.weekEndDate;
+  const lifecycle = summaryLifecycle(input.asOfDate, weekEndDate);
   const sessions = input.completedSessions.filter((session) => inWeek(session.date, weekStartDate, weekEndDate));
   const exerciseResults = input.exerciseResults.filter((result) => inWeek(resultDate(result), weekStartDate, weekEndDate));
   const completedSessions = sessions.filter((session) => session.completionStatus === "completed");
@@ -143,6 +150,10 @@ export function summarizeTrainingWeek(input: TrainingWeekSummaryInput): Training
       underfuelingFlag,
       highCycleSymptomFlag
     }),
-    reasons
+    reasons,
+    lifecycle,
+    ...(input.generatedAt ? { generatedAt: input.generatedAt } : {}),
+    ...(lifecycle === "final" && input.generatedAt ? { finalizedAt: input.generatedAt } : {}),
+    ...(input.planRevisionId ? { planRevisionId: input.planRevisionId } : {})
   };
 }

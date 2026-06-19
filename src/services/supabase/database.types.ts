@@ -167,8 +167,14 @@ export type Database = {
           completion_key: string | null
           completed_date: string
           created_at: string
+          generated_session_id: string | null
           id: string
+          performed_date: string | null
+          planned_date: string | null
+          recorded_at: string | null
+          resolution_lifecycle: string
           session_payload: Json
+          superseded_at: string | null
           updated_at: string
           user_id: string
         }
@@ -176,8 +182,14 @@ export type Database = {
           completion_key?: string | null
           completed_date: string
           created_at?: string
+          generated_session_id?: string | null
           id?: string
+          performed_date?: string | null
+          planned_date?: string | null
+          recorded_at?: string | null
+          resolution_lifecycle?: string
           session_payload?: Json
+          superseded_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -185,8 +197,14 @@ export type Database = {
           completion_key?: string | null
           completed_date?: string
           created_at?: string
+          generated_session_id?: string | null
           id?: string
+          performed_date?: string | null
+          planned_date?: string | null
+          recorded_at?: string | null
+          resolution_lifecycle?: string
           session_payload?: Json
+          superseded_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -756,6 +774,7 @@ export type Database = {
           checkin_payload: Json
           created_at: string
           id: string
+          recorded_at: string | null
           updated_at: string
           user_id: string
         }
@@ -764,6 +783,7 @@ export type Database = {
           checkin_payload?: Json
           created_at?: string
           id?: string
+          recorded_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -772,6 +792,7 @@ export type Database = {
           checkin_payload?: Json
           created_at?: string
           id?: string
+          recorded_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1226,12 +1247,15 @@ export type Database = {
         Row: {
           created_at: string
           decision: string
+          decision_lifecycle: string
           decision_payload: Json
           engine_version: string
+          generated_at: string | null
           id: string
           input_hash: string
           next_week_phase: string | null
           output_hash: string
+          plan_revision_id: string | null
           reason: string
           training_block_id: string
           updated_at: string
@@ -1242,12 +1266,15 @@ export type Database = {
         Insert: {
           created_at?: string
           decision: string
+          decision_lifecycle?: string
           decision_payload?: Json
           engine_version: string
+          generated_at?: string | null
           id?: string
           input_hash: string
           next_week_phase?: string | null
           output_hash: string
+          plan_revision_id?: string | null
           reason: string
           training_block_id: string
           updated_at?: string
@@ -1258,12 +1285,15 @@ export type Database = {
         Update: {
           created_at?: string
           decision?: string
+          decision_lifecycle?: string
           decision_payload?: Json
           engine_version?: string
+          generated_at?: string | null
           id?: string
           input_hash?: string
           next_week_phase?: string | null
           output_hash?: string
+          plan_revision_id?: string | null
           reason?: string
           training_block_id?: string
           updated_at?: string
@@ -1301,10 +1331,14 @@ export type Database = {
           id: string
           pain_flag_count: number
           partial_result_count: number
+          finalized_at: string | null
+          plan_revision_id: string | null
           prescribed_only_count: number
           protected_anchor_count: number
           safety_flag_count: number
           skipped_count: number
+          summary_generated_at: string | null
+          summary_lifecycle: string
           summary_payload: Json
           training_block_id: string
           training_microcycle_id: string | null
@@ -1327,10 +1361,14 @@ export type Database = {
           id?: string
           pain_flag_count?: number
           partial_result_count?: number
+          finalized_at?: string | null
+          plan_revision_id?: string | null
           prescribed_only_count?: number
           protected_anchor_count?: number
           safety_flag_count?: number
           skipped_count?: number
+          summary_generated_at?: string | null
+          summary_lifecycle?: string
           summary_payload?: Json
           training_block_id: string
           training_microcycle_id?: string | null
@@ -1353,10 +1391,14 @@ export type Database = {
           id?: string
           pain_flag_count?: number
           partial_result_count?: number
+          finalized_at?: string | null
+          plan_revision_id?: string | null
           prescribed_only_count?: number
           protected_anchor_count?: number
           safety_flag_count?: number
           skipped_count?: number
+          summary_generated_at?: string | null
+          summary_lifecycle?: string
           summary_payload?: Json
           training_block_id?: string
           training_microcycle_id?: string | null

@@ -1,4 +1,5 @@
 import type { CompletedTrainingSession, GeneratedTrainingSession } from "../core/types";
+import { selectAsOfCompletedTrainingSessions } from "../core/temporalSelectors";
 import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 
 export type GeneratedSessionResolvedStatus = "scheduled_today" | "upcoming" | "completed" | "skipped" | "unresolved_past" | "moved";
@@ -35,9 +36,14 @@ export function appliedMovedGeneratedSessionIds(adjustments: readonly PersistedT
 
 export function completionForGeneratedSession(
   sessionId: string,
-  completedSessions: readonly CompletedTrainingSession[] = []
+  completedSessions: readonly CompletedTrainingSession[] = [],
+  asOfDate = "9999-12-31"
 ): CompletedTrainingSession | null {
-  return completedSessions.find((session) => session.generatedSessionId === sessionId && (session.completionStatus === "completed" || session.completionStatus === "skipped")) ?? null;
+  return (
+    selectAsOfCompletedTrainingSessions(completedSessions, asOfDate).find(
+      (session) => session.generatedSessionId === sessionId && (session.completionStatus === "completed" || session.completionStatus === "skipped")
+    ) ?? null
+  );
 }
 
 export function resolveGeneratedSessionStatus(input: {
@@ -46,7 +52,7 @@ export function resolveGeneratedSessionStatus(input: {
   session: GeneratedTrainingSession;
   trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
 }): GeneratedSessionStatusResolution {
-  const completedSession = completionForGeneratedSession(input.session.id, input.completedSessions);
+  const completedSession = completionForGeneratedSession(input.session.id, input.completedSessions, input.asOfDate);
   if (completedSession) {
     return {
       completedSession,

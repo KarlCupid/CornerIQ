@@ -79,6 +79,50 @@ describe("body-mass trend", () => {
 
     expect(state.confidence.level).toBe("low");
     expect(state.trend.latestKg).toBe(64);
+    expect(state.freshness.status).toBe("optional_no_active_target");
+  });
+
+  it("classifies active-cut freshness as current, recent, stale, or missing", () => {
+    const cycle = resolveCycleState({ trackingEnabled: false, consentVersion: null, cycleLogs: [], asOfDate: "2026-05-19" });
+    const activeCutFeasibility: WeightClassFeasibility = {
+      status: "behind",
+      requiredLossKg: 1,
+      requiredLossPercent: 1.4,
+      daysUntilWeighIn: 21,
+      explanation: "Active target.",
+      riskFlags: [],
+      confidence: makeConfidence(0.7)
+    };
+    const fightWeekFeasibility: WeightClassFeasibility = {
+      ...activeCutFeasibility,
+      daysUntilWeighIn: 6
+    };
+
+    expect(
+      resolveBodyMassState({
+        logs: [{ date: "2026-05-19", bodyMassKg: 70, source: "manual" }],
+        asOfDate: "2026-05-19",
+        cycle,
+        feasibility: activeCutFeasibility
+      }).freshness.status
+    ).toBe("current");
+    expect(
+      resolveBodyMassState({
+        logs: [{ date: "2026-05-17", bodyMassKg: 70, source: "manual" }],
+        asOfDate: "2026-05-19",
+        cycle,
+        feasibility: activeCutFeasibility
+      }).freshness.status
+    ).toBe("recent");
+    expect(
+      resolveBodyMassState({
+        logs: [{ date: "2026-05-18", bodyMassKg: 70, source: "manual" }],
+        asOfDate: "2026-05-19",
+        cycle,
+        feasibility: fightWeekFeasibility
+      }).freshness.status
+    ).toBe("stale");
+    expect(resolveBodyMassState({ logs: [], asOfDate: "2026-05-19", cycle, feasibility: activeCutFeasibility }).freshness.status).toBe("missing");
   });
 
   it("cycle-noise tag reduces scale confidence without erasing trend", () => {

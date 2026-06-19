@@ -16,6 +16,16 @@ export interface BodyMassTrend {
   logCount7Day: number;
 }
 
+export type BodyMassFreshnessStatus = "current" | "recent" | "stale" | "missing" | "optional_no_active_target";
+
+export interface BodyMassFreshness {
+  status: BodyMassFreshnessStatus;
+  latestDate: ISODateString | null;
+  ageDays: number | null;
+  maxAgeDays: number | null;
+  explanation: string;
+}
+
 export type WeightFeasibilityStatus =
   | "not_applicable"
   | "unknown"
@@ -39,6 +49,7 @@ export interface WeightClassFeasibility {
 
 export interface BodyMassState {
   trend: BodyMassTrend;
+  freshness: BodyMassFreshness;
   recentLogs: readonly BodyMassLog[];
   scaleNoise: {
     risk: "low" | "moderate" | "high" | "unknown";

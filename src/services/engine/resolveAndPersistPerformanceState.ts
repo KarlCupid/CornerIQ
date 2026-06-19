@@ -68,8 +68,15 @@ function mergedSummaries(existing: readonly TrainingWeekSummary[], summary: Trai
 }
 
 function mergedDecisions(existing: readonly TrainingProgressionDecision[], decision: TrainingProgressionDecision): readonly TrainingProgressionDecision[] {
-  const duplicate = existing.some((item) => item.weekIndex === decision.weekIndex && item.decision === decision.decision && item.reason === decision.reason);
-  return duplicate ? existing : [...existing, decision].sort((left, right) => left.weekIndex - right.weekIndex);
+  const duplicate = existing.some(
+    (item) =>
+      item.weekIndex === decision.weekIndex &&
+      item.decision === decision.decision &&
+      item.reason === decision.reason &&
+      item.generatedAt === decision.generatedAt &&
+      (item.decisionLifecycle ?? "final") === (decision.decisionLifecycle ?? "final")
+  );
+  return duplicate ? existing : [...existing, decision].sort((left, right) => left.weekIndex - right.weekIndex || left.generatedAt.localeCompare(right.generatedAt));
 }
 
 function timelineDuplicate(existing: readonly TrainingBlockTimelineEvent[], event: TrainingBlockTimelineEvent, inputHash: string, outputHash: string): boolean {
@@ -304,7 +311,9 @@ async function persistTrainingBlockProjection(
     cycle: state.cycle,
     nutrition: state.nutrition,
     protectedWorkouts: state.training.protectedAnchors,
-    weekIndex: state.training.activeBlock.progressionState.weekIndex
+    weekIndex: state.training.activeBlock.progressionState.weekIndex,
+    generatedAt: state.generatedAt,
+    planRevisionId: state.training.supportGenerationAudit.planRevisionId
   });
   const persistedWeekSummary = await repositories.trainingProgression.upsertTrainingWeekSummary({
     userId,
@@ -323,7 +332,8 @@ async function persistTrainingBlockProjection(
     safetyFlags: state.safety.riskFlags,
     readiness: state.readiness,
     cycle: state.cycle,
-    activeAdjustments: state.training.activeAdjustments
+    activeAdjustments: state.training.activeAdjustments,
+    planRevisionId: state.training.supportGenerationAudit.planRevisionId
   });
   await repositories.trainingProgression.insertTrainingProgressionDecision({
     userId,

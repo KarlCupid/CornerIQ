@@ -1,8 +1,9 @@
-import type { Confidence, ISODateString } from "../core/sharedTypes";
+import type { Confidence, ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { RiskFlag } from "../safety/types";
 
 export interface ReadinessCheckIn {
   date: ISODateString;
+  recordedAt?: ISODateTimeString | undefined;
   sleepHours?: number | undefined;
   sleepQuality1To5?: number | undefined;
   energy1To5?: number | undefined;

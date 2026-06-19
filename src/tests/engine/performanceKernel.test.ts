@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import type { ReadinessCheckIn } from "../../engine/core/types";
 import {
   apple_health_wearable_enhanced,
   fixtureAsOfDate,
@@ -86,6 +87,78 @@ describe("Corner Engine performance kernel", () => {
     expect(state.viewModels.today.decisionStack.some((item) => item.label === "Body weight" && item.summary.includes("Trend unknown"))).toBe(true);
     expect(state.viewModels.recentLogs.bodyMassTrendSummary).toContain("unknown");
     expect(state.viewModels.recentLogs.today.length).toBeGreaterThan(0);
+  });
+
+  it("uses the latest same-day readiness revision and respects historical generatedAt replay", () => {
+    const morningAmber: ReadinessCheckIn = {
+      date: fixtureAsOfDate,
+      recordedAt: "2026-05-19T08:00:00.000Z",
+      sleepHours: 7,
+      sleepQuality1To5: 3,
+      energy1To5: 3,
+      soreness1To5: 3,
+      stress1To5: 3,
+      mood1To5: 3,
+      painNotes: [],
+      illnessSymptoms: [],
+      dizziness: false,
+      fainting: false
+    };
+    const afternoonGreen: ReadinessCheckIn = {
+      ...morningAmber,
+      recordedAt: "2026-05-19T15:00:00.000Z",
+      sleepQuality1To5: 4,
+      energy1To5: 4,
+      soreness1To5: 2,
+      stress1To5: 2,
+      mood1To5: 4
+    };
+
+    const latest = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, readinessHistory: [morningAmber, afternoonGreen] },
+      asOfDate: fixtureAsOfDate,
+      generatedAt: "2026-05-19T16:00:00.000Z"
+    });
+    const replayBeforeAfternoonUpdate = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, readinessHistory: [morningAmber, afternoonGreen] },
+      asOfDate: fixtureAsOfDate,
+      generatedAt: "2026-05-19T10:00:00.000Z"
+    });
+
+    expect(latest.readiness.color).toBe("green");
+    expect(replayBeforeAfternoonUpdate.readiness.color).toBe("amber");
+  });
+
+  it("uses latest same-day readiness hard-stop symptoms for today's overlay", () => {
+    const morningGreen: ReadinessCheckIn = {
+      date: fixtureAsOfDate,
+      recordedAt: "2026-05-19T08:00:00.000Z",
+      sleepHours: 8,
+      sleepQuality1To5: 4,
+      energy1To5: 4,
+      soreness1To5: 2,
+      stress1To5: 2,
+      mood1To5: 4,
+      painNotes: [],
+      illnessSymptoms: [],
+      dizziness: false,
+      fainting: false
+    };
+    const afternoonDizziness = {
+      ...morningGreen,
+      recordedAt: "2026-05-19T15:00:00.000Z",
+      dizziness: true
+    };
+
+    const state = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, readinessHistory: [morningGreen, afternoonDizziness] },
+      asOfDate: fixtureAsOfDate,
+      generatedAt: "2026-05-19T16:00:00.000Z"
+    });
+
+    expect(state.readiness.color).toBe("red");
+    expect(state.safety.hardStops.map((flag) => flag.code)).toContain("severe_dizziness");
+    expect(state.training.executionReadiness.readinessStatus).toBe("red_hard_stop");
   });
 
   it("surfaces risk, fuel, and cycle context without unsafe acute-cut instructions", () => {

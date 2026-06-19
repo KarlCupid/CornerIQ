@@ -1,15 +1,28 @@
 import type { AthleteJourney, PerformanceState } from "../core/types";
 
-function latestByDate<TItem extends { date: string }>(items: readonly TItem[]): TItem | null {
-  return [...items].sort((left, right) => right.date.localeCompare(left.date))[0] ?? null;
+function recordedAtFor<TItem extends { date: string; recordedAt?: string | undefined }>(item: TItem): string {
+  return item.recordedAt ?? `${item.date}T00:00:00.000Z`;
 }
 
-function latestForDate<TItem extends { date: string }>(items: readonly TItem[], date: string): TItem | null {
-  return [...items].reverse().find((item) => item.date === date) ?? null;
+function latestByDate<TItem extends { date: string; recordedAt?: string | undefined }>(items: readonly TItem[]): TItem | null {
+  return [...items]
+    .sort((left, right) => {
+      const dateOrder = right.date.localeCompare(left.date);
+      return dateOrder !== 0 ? dateOrder : recordedAtFor(right).localeCompare(recordedAtFor(left));
+    })[0] ?? null;
 }
 
-function takeRecentByDate<TItem extends { date: string }>(items: readonly TItem[], count: number): TItem[] {
-  return [...items].sort((left, right) => right.date.localeCompare(left.date)).slice(0, count);
+function latestForDate<TItem extends { date: string; recordedAt?: string | undefined }>(items: readonly TItem[], date: string): TItem | null {
+  return latestByDate(items.filter((item) => item.date === date));
+}
+
+function takeRecentByDate<TItem extends { date: string; recordedAt?: string | undefined }>(items: readonly TItem[], count: number): TItem[] {
+  return [...items]
+    .sort((left, right) => {
+      const dateOrder = right.date.localeCompare(left.date);
+      return dateOrder !== 0 ? dateOrder : recordedAtFor(right).localeCompare(recordedAtFor(left));
+    })
+    .slice(0, count);
 }
 
 function plural(count: number, singular: string, pluralLabel = `${singular}s`): string {
@@ -17,21 +30,30 @@ function plural(count: number, singular: string, pluralLabel = `${singular}s`): 
 }
 
 export function buildRecentLogsViewModel(journey: AthleteJourney, state: PerformanceState) {
-  const lastBodyMass = latestByDate(journey.bodyMassHistory);
-  const lastReadiness = latestByDate(journey.readinessHistory);
-  const lastElectrolytes = latestByDate(journey.electrolyteHistory);
-  const lastCycle = latestByDate(journey.cycleHistory);
-  const lastCompleted = latestByDate(journey.completedTrainingSessions);
-  const lastAnchor = latestByDate(journey.protectedWorkouts);
-  const todayBodyMass = latestForDate(journey.bodyMassHistory, state.asOfDate);
-  const todayReadiness = latestForDate(journey.readinessHistory, state.asOfDate);
-  const todayWaterLogs = journey.hydrationHistory.filter((log) => log.date === state.asOfDate);
-  const todayElectrolytes = journey.electrolyteHistory.filter((log) => log.date === state.asOfDate);
-  const todayFoodLogs = journey.nutritionHistory.filter((log) => log.date === state.asOfDate);
-  const recentFood = takeRecentByDate(journey.nutritionHistory, 3);
-  const recentTraining = takeRecentByDate([...journey.completedTrainingSessions, ...journey.protectedWorkouts], 3);
+  const bodyMassHistory = journey.bodyMassHistory.filter((log) => log.date <= state.asOfDate);
+  const readinessHistory = journey.readinessHistory.filter((log) => log.date <= state.asOfDate);
+  const electrolyteHistory = journey.electrolyteHistory.filter((log) => log.date <= state.asOfDate);
+  const cycleHistory = journey.cycleHistory.filter((log) => log.date <= state.asOfDate);
+  const completedTrainingSessions = journey.completedTrainingSessions.filter((log) => log.date <= state.asOfDate);
+  const protectedWorkouts = journey.protectedWorkouts.filter((log) => log.date <= state.asOfDate);
+  const hydrationHistory = journey.hydrationHistory.filter((log) => log.date <= state.asOfDate);
+  const nutritionHistory = journey.nutritionHistory.filter((log) => log.date <= state.asOfDate);
+  const journeyEvents = journey.journeyEvents.filter((event) => event.occurredAt.slice(0, 10) <= state.asOfDate);
+  const lastBodyMass = latestByDate(bodyMassHistory);
+  const lastReadiness = latestByDate(readinessHistory);
+  const lastElectrolytes = latestByDate(electrolyteHistory);
+  const lastCycle = latestByDate(cycleHistory);
+  const lastCompleted = latestByDate(completedTrainingSessions);
+  const lastAnchor = latestByDate(protectedWorkouts);
+  const todayBodyMass = latestForDate(bodyMassHistory, state.asOfDate);
+  const todayReadiness = latestForDate(readinessHistory, state.asOfDate);
+  const todayWaterLogs = hydrationHistory.filter((log) => log.date === state.asOfDate);
+  const todayElectrolytes = electrolyteHistory.filter((log) => log.date === state.asOfDate);
+  const todayFoodLogs = nutritionHistory.filter((log) => log.date === state.asOfDate);
+  const recentFood = takeRecentByDate(nutritionHistory, 3);
+  const recentTraining = takeRecentByDate([...completedTrainingSessions, ...protectedWorkouts], 3);
   const todayFoodCount = todayFoodLogs.length;
-  const lastEvent = [...journey.journeyEvents].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0] ?? null;
+  const lastEvent = [...journeyEvents].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))[0] ?? null;
   const todayWaterTotal = todayWaterLogs.reduce((total, log) => total + log.liters, 0);
   const todaySodiumTotal = todayElectrolytes.reduce((total, log) => total + log.sodiumMg, 0);
   const todayCalories = todayFoodLogs.reduce((total, log) => total + log.calories, 0);
@@ -91,7 +113,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
         actionLabel: "Log body weight",
         status: "unknown_cut_context" as const,
         statusLabel: "Cut context unknown",
-        summary: "Scale-driven decisions stay paused until weigh-in details and a true body weight are logged.",
+        summary: "Scale-driven decisions stay paused until weigh-in details and a current body weight are logged.",
         why: "Weight-class guidance should not guess when key fight or weigh-in details are missing."
       }
       : activeWeightContext
@@ -100,7 +122,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
             actionLabel: "Log body weight",
             status: "needed_for_cut" as const,
             statusLabel: "Needed for cut",
-            summary: "Scale-driven decisions stay paused until a true body weight is logged.",
+            summary: "Scale-driven decisions stay paused until a current body weight is logged.",
             why: "Weight-class guidance should not guess from old or missing scale data."
           }
         : {

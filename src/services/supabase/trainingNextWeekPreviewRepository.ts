@@ -269,7 +269,7 @@ export function createTrainingNextWeekPreviewRepository(client: CornerSupabaseCl
         .update(previewLifecycleUpdate("superseded"))
         .eq("user_id", safeUserId)
         .eq("training_block_id", trainingBlockId)
-        .in("status", ["preview", "accepted"]);
+        .in("status", ["preview"]);
       const scoped = exceptPreviewId ? query.neq("id", exceptPreviewId) : query;
       const response = await scoped.select("id");
       const rows = readDataOrThrow(response, "training_next_week_previews.supersedePreviewsForBlock");

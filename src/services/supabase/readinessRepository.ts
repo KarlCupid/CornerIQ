@@ -2,9 +2,9 @@ import { ReadinessCheckInSchema } from "../../engine/core/schemas";
 import type { ISODateString, ReadinessCheckIn } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export type ReadinessCheckInRow = Pick<TableRow<"readiness_checkins">, "checkin_date" | "checkin_payload">;
+export type ReadinessCheckInRow = Pick<TableRow<"readiness_checkins">, "checkin_date" | "checkin_payload" | "recorded_at">;
 
 export interface CreateReadinessCheckInInput {
   userId: string;
@@ -19,16 +19,19 @@ export interface CreateReadinessCheckInInput {
   illnessSymptoms?: readonly string[];
   dizziness?: boolean;
   fainting?: boolean;
+  recordedAt?: string;
   metadata?: Record<string, unknown>;
   urineColor?: ReadinessCheckIn["urineColor"];
 }
 
 export function mapReadinessCheckInRow(row: ReadinessCheckInRow): ReadinessCheckIn {
+  const payload = payloadObject(row.checkin_payload, "readiness_checkins.checkin_payload");
   return parseWithSchema(
     ReadinessCheckInSchema,
     {
-      ...payloadObject(row.checkin_payload, "readiness_checkins.checkin_payload"),
-      date: row.checkin_date
+      ...payload,
+      date: row.checkin_date,
+      ...(row.recorded_at ? { recordedAt: isoDateTimeValue(row.recorded_at, "readiness_checkins.recorded_at") } : typeof payload.recordedAt === "string" ? { recordedAt: payload.recordedAt } : {})
     },
     "readiness_checkins"
   );
@@ -40,9 +43,10 @@ export function createReadinessRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "readiness_checkins.listCheckIns");
       const response = await client
         .from("readiness_checkins")
-        .select("checkin_date, checkin_payload")
+        .select("checkin_date, checkin_payload, recorded_at")
         .eq("user_id", safeUserId)
-        .order("checkin_date", { ascending: true });
+        .order("checkin_date", { ascending: true })
+        .order("recorded_at", { ascending: true, nullsFirst: true });
       return readDataOrThrow(response, "readiness_checkins.listCheckIns").map(mapReadinessCheckInRow);
     },
 
@@ -62,6 +66,7 @@ export function createReadinessRepository(client: CornerSupabaseClient) {
           illnessSymptoms: input.illnessSymptoms ?? [],
           dizziness: input.dizziness ?? false,
           fainting: input.fainting ?? false,
+          recordedAt: input.recordedAt ?? new Date().toISOString(),
           urineColor: input.urineColor,
           metadata: input.metadata
         },
@@ -70,6 +75,7 @@ export function createReadinessRepository(client: CornerSupabaseClient) {
       const insert: TableInsert<"readiness_checkins"> = {
         user_id: safeUserId,
         checkin_date: input.date,
+        recorded_at: checkIn.recordedAt ?? null,
         checkin_payload: toJson({
           ...checkIn,
           metadata: input.metadata

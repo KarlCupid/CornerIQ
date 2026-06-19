@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { addDays } from "../../engine/core/dates";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { CompletedTrainingSession, ExerciseResultRecord, PerformanceState } from "../../engine/core/types";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
@@ -149,6 +150,50 @@ describe("training week summary and roll-forward engines", () => {
     expect(skipped.decision.decision).toBe("repeat");
     expect(pain.decision.decision).toBe("coach_review");
     expect(pain.timelineEvents.some((event) => event.eventType === "coach_review_flagged")).toBe(true);
+  });
+
+  it("keeps active-week summaries provisional and emits week_completed only after week end", () => {
+    const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const midweekSummary = summarize(state, [completedSession], [completedExercise]);
+    const midweekRollForward = rollForward(state, midweekSummary);
+
+    expect(midweekSummary.lifecycle).toBe("provisional");
+    expect(midweekRollForward.decision.decisionLifecycle).toBe("provisional");
+    expect(midweekRollForward.timelineEvents.some((event) => event.eventType === "week_completed")).toBe(false);
+    expect(midweekRollForward.timelineEvents.some((event) => event.eventType === "progression_decided")).toBe(true);
+
+    const finalAsOfDate = addDays(state.training.currentMicrocycle.weekEndDate, 1);
+    const finalSummary = summarizeTrainingWeek({
+      asOfDate: finalAsOfDate,
+      trainingBlock: state.training.activeBlock,
+      trainingBlockId: "training_block_1",
+      microcycle: state.training.currentMicrocycle,
+      dayPlans: state.training.dayPlans,
+      completedSessions: [completedSession],
+      exerciseResults: [completedExercise],
+      safetyFlags: state.safety.riskFlags,
+      cycle: state.cycle,
+      nutrition: state.nutrition,
+      protectedWorkouts: state.training.protectedAnchors,
+      weekIndex: state.training.activeBlock.progressionState.weekIndex
+    });
+    const finalRollForward = rollForwardTrainingBlock({
+      asOfDate: finalAsOfDate,
+      generatedAt: state.generatedAt,
+      currentBlock: state.training.activeBlock,
+      currentMicrocycle: state.training.currentMicrocycle,
+      weekSummary: finalSummary,
+      fight: state.fightContext,
+      tournament: state.tournamentContext,
+      safetyFlags: state.safety.riskFlags,
+      readiness: state.readiness,
+      cycle: state.cycle,
+      activeAdjustments: state.training.activeAdjustments
+    });
+
+    expect(finalSummary.lifecycle).toBe("final");
+    expect(finalRollForward.decision.decisionLifecycle).toBe("final");
+    expect(finalRollForward.timelineEvents.some((event) => event.eventType === "week_completed")).toBe(true);
   });
 
   it("uses persisted block history to advance week index across weeks", () => {

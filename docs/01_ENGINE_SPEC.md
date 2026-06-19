@@ -18,6 +18,18 @@ Corner Engine is the source of truth for business decisions. Screens read view m
 
 Generated plans are prescriptions. Logs are actuals. Engine outputs are reproducible projections, not source of truth.
 
+## Temporal Model
+
+All engine history is resolved as of an explicit `asOfDate`:
+
+- prescription dates stay in `plannedDate`;
+- actual work dates stay in `performedDate`;
+- log entry/correction time stays in `recordedAt`;
+- `generatedAt` can act as a replay cutoff for historical engine runs;
+- generated sessions keep stable `planRevisionId` and `generatedSessionId` identities until an explicit amendment, move, or safety revision changes them.
+
+Missing completion is unresolved, not skipped or completed. Future facts are filtered before prescription, progression, recent logs, and view models. Planned load and actual load are separate ledgers.
+
 ## PerformanceState
 
 `PerformanceState` is the unified resolved state for an `asOfDate`.

@@ -23,7 +23,10 @@ describe("bodyMassTrajectoryViewModel", () => {
 
     expect(state.viewModels.recentLogs.bodyMassToday.status).toBe("needed_for_cut");
     expect(state.viewModels.recentLogs.bodyMassToday.statusLabel).toBe("Needed for cut");
-    expect(state.viewModels.recentLogs.bodyMassToday.summary).toBe("Scale-driven decisions stay paused until a true body weight is logged.");
+    expect(state.viewModels.recentLogs.bodyMassToday.summary).toBe("Scale-driven decisions stay paused until a current body weight is logged.");
+    expect(state.bodyMass.freshness.status).toBe("stale");
+    expect(state.bodyMass.feasibility.status).toBe("unknown");
+    expect(state.bodyMass.feasibility.riskFlags.map((flag) => flag.code)).toContain("stale_current_body_mass");
   });
 
   it("keeps active fight body weight logged when today's manual value exists", () => {
@@ -32,6 +35,7 @@ describe("bodyMassTrajectoryViewModel", () => {
     expect(state.viewModels.recentLogs.bodyMassToday.status).toBe("logged_today");
     expect(state.viewModels.recentLogs.bodyMassToday.statusLabel).toBe("Logged today");
     expect(state.viewModels.recentLogs.bodyMassToday.summary).toContain("Today's body weight logged");
+    expect(state.bodyMass.freshness.status).toBe("current");
   });
 
   it("renders cycle-noisy trajectory context without calorie-cut instructions", () => {

@@ -675,18 +675,35 @@ function TrainingScheduleDebugCard({ viewModel }: { viewModel: TrainViewModel })
     return null;
   }
   const debug = viewModel.scheduleDebug;
+  const ledgerSummary = (ledger: TrainViewModel["scheduleDebug"]["plannedLoadLedger"]) =>
+    `hardDays ${ledger.hardDayCount}/${ledger.hardDayCap}, strengthSets ${ledger.generatedStrengthSets}, roadworkMinutes ${ledger.roadworkMinutes}, intervals ${ledger.intervalCount}, recovery ${ledger.recoverySessions}`;
   const rows = [
     `asOfDate: ${debug.asOfDate}`,
     `planStartDate: ${debug.planStartDate}`,
+    `weekEndDate: ${debug.weekEndDate}`,
     `planRevisionId: ${debug.planRevisionId}`,
     `targetGeneratedSupportCount: ${debug.targetGeneratedSupportCount}`,
+    `originalTargetGeneratedSupportCount: ${debug.originalTargetGeneratedSupportCount}`,
     `pastGeneratedSupportCount: ${debug.pastGeneratedSupportCount}`,
+    `pastPlacedGeneratedSupportCount: ${debug.pastPlacedGeneratedSupportCount}`,
+    `completedPastGeneratedSupportCount: ${debug.completedPastGeneratedSupportCount}`,
+    `skippedPastGeneratedSupportCount: ${debug.skippedPastGeneratedSupportCount}`,
     `unresolvedPastGeneratedSupportCount: ${debug.unresolvedPastGeneratedSupportCount}`,
+    `futurePersistedGeneratedSupportCount: ${debug.futurePersistedGeneratedSupportCount}`,
     `remainingGeneratedSupportTarget: ${debug.remainingGeneratedSupportTarget}`,
+    `remainingUnfilledPrescriptionSlots: ${debug.remainingUnfilledPrescriptionSlots}`,
     `generatedSessionDates: ${debug.generatedSessionDates.join(", ") || "none"}`,
+    `generatedSessionResolutions: ${debug.generatedSessionResolutions.join("; ") || "none"}`,
     `persistedGeneratedSessionsConsidered: ${debug.persistedGeneratedSessionsConsidered.join("; ") || "none"}`,
     `persistedGeneratedSessionsIgnored: ${debug.persistedGeneratedSessionsIgnored.join("; ") || "none"}`,
+    `plannedLoadLedger: ${ledgerSummary(debug.plannedLoadLedger)}`,
+    `actualLoadLedger: ${ledgerSummary(debug.actualLoadLedger)}`,
+    `acceptedPreviewStatus: ${debug.acceptedPreviewStatus ?? "none"}`,
+    `weekSummaryLifecycle: ${debug.weekSummaryLifecycle}`,
+    `selectedProgressionDecisionRevision: ${debug.selectedProgressionDecisionRevision ?? "none"}`,
     `autoRollForwardPrevented: ${debug.autoRollForwardPrevented ? "true" : "false"}`,
+    `scheduleRevisionChanged: ${debug.scheduleRevisionChanged ? "true" : "false"}`,
+    `scheduleChangeReasons: ${debug.scheduleChangeReasons.join("; ") || "none"}`,
     `looseEndSessionIds: ${debug.looseEndSessionIds.join(", ") || "none"}`
   ];
   return (

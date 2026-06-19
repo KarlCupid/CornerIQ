@@ -220,12 +220,16 @@ function completedRecordForGeneratedSession(session: GeneratedTrainingSession, c
   return {
     id: `${completionStatus}_${session.id.replace(/[^a-zA-Z0-9]+/g, "_")}`,
     date: session.date,
+    plannedDate: session.date,
+    performedDate: session.date,
+    recordedAt: `${session.date}T18:00:00.000Z`,
     type: "coach_assigned_strength",
     durationMinutes: session.durationMinutes,
     intensity: session.intensity === "recovery" ? "easy" : session.intensity,
     completionStatus,
     painNotes: [],
     generatedSessionId: session.id,
+    completionKey: `generated_session_completion:${session.id}`,
     completionSource: "generated_session",
     source: "generated_session"
   };
@@ -923,6 +927,116 @@ describe("training block and microcycle engine", () => {
     expect(state.training.supportGenerationAudit.planRevisionId).toBe("plan_strength_week_1");
     expect(state.training.generatedSessions.every((session) => session.id.startsWith("generated:plan_strength_week_1:"))).toBe(true);
     expect(state.training.generatedSessions.some((session) => session.family.startsWith("strength"))).toBe(true);
+  });
+
+  it("keeps fallback plan revisions and future generated-session identities stable when asOfDate advances inside the same active block", () => {
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: ["tuesday", "wednesday", "thursday"]
+      },
+      journeyEvents: [],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const first = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-19" });
+    const second = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        currentTrainingBlock: first.training.activeBlock.id,
+        activeTrainingBlock: first.training.activeBlock,
+        trainingHistory: first.training.generatedSessions
+      },
+      asOfDate: "2026-05-20"
+    });
+
+    expect(first.training.supportGenerationAudit.planRevisionId).toBe(second.training.supportGenerationAudit.planRevisionId);
+    const unchangedFutureSession = first.training.generatedSessions.find((session) => session.date >= "2026-05-20");
+    expect(unchangedFutureSession).toBeTruthy();
+    expect(second.training.generatedSessions.find((session) => session.date === unchangedFutureSession?.date && session.family === unchangedFutureSession?.family)?.id).toBe(unchangedFutureSession?.id);
+  });
+
+  it("uses one canonical generated-session resolution when skipped is corrected to completed", () => {
+    const first = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "wednesday", "thursday"]
+        },
+        journeyEvents: [],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: "2026-05-19"
+    });
+    const generated = first.training.generatedSessions[0]!;
+    const skipped = {
+      ...completedRecordForGeneratedSession(generated, "skipped"),
+      id: "resolution_skipped",
+      recordedAt: "2026-05-20T09:00:00.000Z"
+    };
+    const corrected = {
+      ...completedRecordForGeneratedSession(generated, "completed"),
+      id: "resolution_completed",
+      recordedAt: "2026-05-20T10:00:00.000Z"
+    };
+    const replay = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        currentTrainingBlock: first.training.activeBlock.id,
+        activeTrainingBlock: first.training.activeBlock,
+        trainingHistory: first.training.generatedSessions,
+        completedTrainingSessions: [skipped, corrected],
+        trainingPlanAdjustments: [],
+        safetyFlags: [],
+        journeyEvents: [],
+        readinessHistory: [readinessForDate("2026-05-20")]
+      },
+      asOfDate: "2026-05-20"
+    });
+
+    expect(replay.training.completedSessions).toHaveLength(1);
+    expect(replay.training.completedSessions[0]).toMatchObject({ id: "resolution_completed", completionStatus: "completed" });
+    expect(replay.viewModels.train.workoutLooseEnds.map((item) => item.generatedSessionId)).not.toContain(generated.id);
+  });
+
+  it("keeps unresolved planned load out of actual load", () => {
+    const first = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: ["tuesday", "wednesday", "thursday"]
+        },
+        journeyEvents: [],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: "2026-05-19"
+    });
+    const replay = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        currentTrainingBlock: first.training.activeBlock.id,
+        activeTrainingBlock: first.training.activeBlock,
+        trainingHistory: first.training.generatedSessions,
+        completedTrainingSessions: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: [],
+        journeyEvents: [],
+        readinessHistory: [readinessForDate("2026-05-20")]
+      },
+      asOfDate: "2026-05-20"
+    });
+
+    expect(replay.training.plannedLoadLedger.generatedStrengthSets + replay.training.plannedLoadLedger.roadworkMinutes).toBeGreaterThan(0);
+    expect(replay.training.actualLoadLedger.generatedStrengthSets + replay.training.actualLoadLedger.roadworkMinutes).toBe(0);
+    expect(replay.training.supportGenerationAudit.looseEndSessionIds.length).toBeGreaterThan(0);
   });
 
   it("ignores stale persisted generated sessions from superseded plan revisions", () => {

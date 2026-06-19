@@ -20,6 +20,7 @@ export type UnderFuelingRiskCode = "rapid_weight_loss" | "repeated_low_intake" |
 export type AcuteCutRiskCode =
   | "unknown_weigh_in_timing"
   | "missing_current_body_mass"
+  | "stale_current_body_mass"
   | "minor_acute_cut_blocked"
   | "ed_risk_cut_blocked"
   | "pregnancy_cut_blocked"

@@ -1,10 +1,11 @@
 import { makeConfidence } from "../core/confidence";
 import type { ReadinessCheckIn, ReadinessState, RiskFlag } from "../core/types";
+import { selectLatestReadinessForDate } from "../core/temporalSelectors";
 import { createRiskFlag } from "../safety/riskSafetyEngine";
 import { scoreCheckIn } from "./checkInScoring";
 
-export function resolveReadiness(checkIns: readonly ReadinessCheckIn[], asOfDate: string): ReadinessState {
-  const today = checkIns.find((item) => item.date === asOfDate);
+export function resolveReadiness(checkIns: readonly ReadinessCheckIn[], asOfDate: string, generatedAt?: string | undefined): ReadinessState {
+  const today = selectLatestReadinessForDate(checkIns, asOfDate, generatedAt);
   if (!today) {
     return {
       score: null,

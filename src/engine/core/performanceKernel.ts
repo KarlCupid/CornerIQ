@@ -3,6 +3,7 @@ import { addDays, daysBetween } from "./dates";
 import { traceDecision } from "./decisionTrace";
 import type { EngineViewModels, PerformanceState, ResolvePerformanceStateInput } from "./types";
 import { stableHash } from "./stableHash";
+import { selectAsOfCompletedTrainingSessions, selectAsOfExerciseResults, selectAsOfReadinessHistory, selectLatestReadinessForDate } from "./temporalSelectors";
 import { resolvePhase } from "../phase/phaseController";
 import { resolveCycleState } from "../cycle/cycleEngine";
 import { resolveReadiness } from "../readiness/readinessEngine";
@@ -83,23 +84,33 @@ function underFuelingCalorieTargets(input: {
 
 export function resolvePerformanceState(input: ResolvePerformanceStateInput): PerformanceState {
   const generatedAt = input.generatedAt ?? `${input.asOfDate}T00:00:00.000Z`;
+  const generatedAtCutoff = input.generatedAt;
   const journey = input.journey;
+  const readinessHistory = selectAsOfReadinessHistory(journey.readinessHistory, input.asOfDate, generatedAtCutoff);
+  const completedTrainingSessions = selectAsOfCompletedTrainingSessions(journey.completedTrainingSessions, input.asOfDate, generatedAtCutoff);
+  const exerciseResults = selectAsOfExerciseResults(journey.exerciseResults, input.asOfDate, generatedAtCutoff);
+  const bodyMassHistory = journey.bodyMassHistory.filter((log) => log.date <= input.asOfDate && (generatedAtCutoff === undefined || log.recordedAt === undefined || log.recordedAt <= generatedAtCutoff));
+  const nutritionHistory = journey.nutritionHistory.filter((log) => log.date <= input.asOfDate && (generatedAtCutoff === undefined || log.loggedAt === undefined || log.loggedAt <= generatedAtCutoff));
+  const hydrationHistory = journey.hydrationHistory.filter((log) => log.date <= input.asOfDate);
+  const electrolyteHistory = journey.electrolyteHistory.filter((log) => log.date <= input.asOfDate);
+  const cycleHistory = journey.cycleHistory.filter((log) => log.date <= input.asOfDate);
+  const wearableSignalHistory = journey.wearableSignalHistory.filter((signal) => signal.recordedAt.slice(0, 10) <= input.asOfDate && (generatedAtCutoff === undefined || signal.recordedAt <= generatedAtCutoff));
   const phase = resolvePhase(journey, input.asOfDate);
   const cycle = resolveCycleState({
     trackingEnabled: journey.athlete.cycleTrackingPreference === "enabled",
     consentVersion: journey.athlete.cycleTrackingPreference === "enabled" ? "v1" : null,
-    cycleLogs: journey.cycleHistory,
+    cycleLogs: cycleHistory,
     asOfDate: input.asOfDate
   });
-  const readiness = resolveReadiness(journey.readinessHistory, input.asOfDate);
+  const readiness = resolveReadiness(readinessHistory, input.asOfDate, generatedAtCutoff);
   const wearable = resolveWearableState({
-    signals: journey.wearableSignalHistory,
+    signals: wearableSignalHistory,
     asOfDate: input.asOfDate,
-    bodyMassLogs: journey.bodyMassHistory,
-    readinessCheckIns: journey.readinessHistory
+    bodyMassLogs: bodyMassHistory,
+    readinessCheckIns: readinessHistory
   });
-  const todayCheckIn = journey.readinessHistory.find((checkIn) => checkIn.date === input.asOfDate);
-  const trend = resolveBodyMassTrend(journey.bodyMassHistory, input.asOfDate);
+  const todayCheckIn = selectLatestReadinessForDate(readinessHistory, input.asOfDate, generatedAtCutoff);
+  const trend = resolveBodyMassTrend(bodyMassHistory, input.asOfDate);
   const concreteAnchors = [...journey.athlete.protectedBoxingSchedule, ...journey.protectedWorkouts];
   const anchors = materializeProtectedWorkoutAnchors({
     concreteWorkouts: concreteAnchors,
@@ -110,11 +121,11 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   const blockHistory = trainingBlockHistoryFor(journey);
   const planGenerationIntent = resolveActivePlanGenerationIntent(journey, input.asOfDate);
   const persistedGeneratedSessions = journey.trainingHistory;
-  const foodLogCountToday = journey.nutritionHistory.filter((log) => log.date === input.asOfDate).length;
+  const foodLogCountToday = nutritionHistory.filter((log) => log.date === input.asOfDate).length;
   const foodStatusEvents = foodStatusEventsFromJourneyEvents(journey.journeyEvents);
-  const dailyFoodLogSummary = resolveDailyFoodLogSummary(journey.nutritionHistory, foodStatusEvents, input.asOfDate, undefined, generatedAt);
-  const hydrationLogCountToday = journey.hydrationHistory.filter((log) => log.date === input.asOfDate).length;
-  const electrolyteLogCountToday = journey.electrolyteHistory.filter((log) => log.date === input.asOfDate).length;
+  const dailyFoodLogSummary = resolveDailyFoodLogSummary(nutritionHistory, foodStatusEvents, input.asOfDate, undefined, generatedAt);
+  const hydrationLogCountToday = hydrationHistory.filter((log) => log.date === input.asOfDate).length;
+  const electrolyteLogCountToday = electrolyteHistory.filter((log) => log.date === input.asOfDate).length;
   const initialTraining = resolveWeeklyTrainingPlan({
     athlete: journey.athlete,
     anchors,
@@ -124,8 +135,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     cycle,
     fight: journey.activeFightOpportunity,
     tournament: journey.activeTournament,
-    completedSessions: journey.completedTrainingSessions,
-    recentExerciseResults: journey.exerciseResults,
+    completedSessions: completedTrainingSessions,
+    recentExerciseResults: exerciseResults,
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: journey.safetyFlags,
     foodLogSummary: dailyFoodLogSummary,
@@ -144,13 +155,13 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     ...journey.safetyFlags,
     ...cycle.safetyFlags,
     ...readiness.hardStops,
-    ...hardStopsFromCheckIn(todayCheckIn),
-    ...assessInjuryRisk(todayCheckIn),
+    ...hardStopsFromCheckIn(todayCheckIn ?? undefined),
+    ...assessInjuryRisk(todayCheckIn ?? undefined),
     ...assessMedicalReview(journey.athlete),
-    ...assessDehydrationRisk(journey.hydrationHistory, journey.electrolyteHistory, input.asOfDate, journey.athlete),
+    ...assessDehydrationRisk(hydrationHistory, electrolyteHistory, input.asOfDate, journey.athlete),
     ...assessUnderFuelingRisk(
       trend,
-      journey.nutritionHistory,
+      nutritionHistory,
       input.asOfDate,
       cycle,
       initialTraining,
@@ -161,7 +172,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
         phase,
         readiness,
         training: initialTraining,
-        foodLogs: journey.nutritionHistory,
+        foodLogs: nutritionHistory,
         asOfDate: input.asOfDate
       })
     )
@@ -175,7 +186,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     existingSafetyFlags: earlySafetyFlags
   });
   const bodyMass = resolveBodyMassState({
-    logs: journey.bodyMassHistory,
+    logs: bodyMassHistory,
     asOfDate: input.asOfDate,
     cycle,
     feasibility
@@ -191,8 +202,8 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     cycle,
     fight: journey.activeFightOpportunity,
     tournament: journey.activeTournament,
-    completedSessions: journey.completedTrainingSessions,
-    recentExerciseResults: journey.exerciseResults,
+    completedSessions: completedTrainingSessions,
+    recentExerciseResults: exerciseResults,
     highCycleSymptoms: cycle.symptomBurden === "high",
     safetyFlags: safety.riskFlags,
     safetyBlocks: safety.blocksPlan,
@@ -231,9 +242,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     training,
     safetyFlags: safety.riskFlags,
     acuteProtocolEligibility,
-    foodLogs: journey.nutritionHistory,
-    waterLogs: journey.hydrationHistory,
-    electrolyteLogs: journey.electrolyteHistory,
+    foodLogs: nutritionHistory,
+    waterLogs: hydrationHistory,
+    electrolyteLogs: electrolyteHistory,
     activeNutritionSafetyReviews: journey.nutritionSafetyReviews,
     nutritionSafetyReviewEvents: journey.nutritionSafetyReviewEvents,
     asOfDate: input.asOfDate,

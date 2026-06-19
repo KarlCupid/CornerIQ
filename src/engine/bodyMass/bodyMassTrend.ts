@@ -1,7 +1,10 @@
 import { makeConfidence } from "../core/confidence";
 import { daysBetween } from "../core/dates";
 import { average, median, round } from "../core/math";
-import type { BodyMassLog, BodyMassState, BodyMassTrend, CycleState, WeightClassFeasibility } from "../core/types";
+import type { BodyMassFreshness, BodyMassLog, BodyMassState, BodyMassTrend, CycleState, WeightClassFeasibility } from "../core/types";
+
+export const ACTIVE_CUT_RECENT_BODY_MASS_MAX_AGE_DAYS = 3;
+export const FIGHT_WEEK_BODY_MASS_MAX_AGE_DAYS = 0;
 
 function medianDailyLogs(logs: readonly BodyMassLog[]): readonly { date: string; bodyMassKg: number }[] {
   const byDate = new Map<string, number[]>();
@@ -64,6 +67,58 @@ export function resolveBodyMassTrend(logs: readonly BodyMassLog[], asOfDate: str
   };
 }
 
+export function resolveBodyMassFreshness(input: {
+  trend: BodyMassTrend;
+  asOfDate: string;
+  feasibility: WeightClassFeasibility;
+}): BodyMassFreshness {
+  if (input.feasibility.status === "not_applicable") {
+    return {
+      status: "optional_no_active_target",
+      latestDate: input.trend.latestDate,
+      ageDays: input.trend.latestDate ? daysBetween(input.trend.latestDate, input.asOfDate) : null,
+      maxAgeDays: null,
+      explanation: "No active weight target needs a scale check today."
+    };
+  }
+  if (!input.trend.latestDate) {
+    return {
+      status: "missing",
+      latestDate: null,
+      ageDays: null,
+      maxAgeDays: input.feasibility.daysUntilWeighIn !== null && input.feasibility.daysUntilWeighIn <= 7 ? FIGHT_WEEK_BODY_MASS_MAX_AGE_DAYS : ACTIVE_CUT_RECENT_BODY_MASS_MAX_AGE_DAYS,
+      explanation: "Scale-driven decisions stay paused until a current body weight is logged."
+    };
+  }
+  const ageDays = daysBetween(input.trend.latestDate, input.asOfDate);
+  const maxAgeDays = input.feasibility.daysUntilWeighIn !== null && input.feasibility.daysUntilWeighIn <= 7 ? FIGHT_WEEK_BODY_MASS_MAX_AGE_DAYS : ACTIVE_CUT_RECENT_BODY_MASS_MAX_AGE_DAYS;
+  if (ageDays <= 0) {
+    return {
+      status: "current",
+      latestDate: input.trend.latestDate,
+      ageDays,
+      maxAgeDays,
+      explanation: "Today's body weight is current for weight-class decisions."
+    };
+  }
+  if (ageDays <= maxAgeDays) {
+    return {
+      status: "recent",
+      latestDate: input.trend.latestDate,
+      ageDays,
+      maxAgeDays,
+      explanation: "Recent body weight can support trend context, with less confidence than today's value."
+    };
+  }
+  return {
+    status: "stale",
+    latestDate: input.trend.latestDate,
+    ageDays,
+    maxAgeDays,
+    explanation: "Scale-driven decisions stay paused because the latest body weight is stale for the active weight context."
+  };
+}
+
 export function resolveBodyMassState(input: {
   logs: readonly BodyMassLog[];
   asOfDate: string;
@@ -71,6 +126,7 @@ export function resolveBodyMassState(input: {
   feasibility: WeightClassFeasibility;
 }): BodyMassState {
   const trend = resolveBodyMassTrend(input.logs, input.asOfDate);
+  const freshness = resolveBodyMassFreshness({ trend, asOfDate: input.asOfDate, feasibility: input.feasibility });
   const recentLogs = input.logs
     .filter((log) => log.date <= input.asOfDate && daysBetween(log.date, input.asOfDate) <= 13)
     .sort((left, right) => right.date.localeCompare(left.date));
@@ -83,6 +139,7 @@ export function resolveBodyMassState(input: {
 
   return {
     trend,
+    freshness,
     recentLogs,
     scaleNoise: {
       risk: scaleNoiseRisk === "unknown" ? "unknown" : scaleNoiseRisk,

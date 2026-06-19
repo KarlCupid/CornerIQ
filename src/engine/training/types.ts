@@ -127,6 +127,9 @@ export interface CompletedTrainingSession {
   id: string;
   completionKey?: string | undefined;
   date: ISODateString;
+  plannedDate?: ISODateString | undefined;
+  performedDate?: ISODateString | undefined;
+  recordedAt?: string | undefined;
   type: ProtectedWorkoutType;
   durationMinutes: number;
   intensity: SessionIntensity;
@@ -138,6 +141,8 @@ export interface CompletedTrainingSession {
   generatedSessionId?: string | undefined;
   engineVersion?: string | undefined;
   completionSource: "generated_session" | "protected_anchor" | "manual";
+  resolutionLifecycle?: "current" | "superseded" | undefined;
+  supersededAt?: string | undefined;
   smokeRunId?: string | undefined;
   note?: string | undefined;
   source?: "manual" | "generated_session" | "protected_anchor" | undefined;
@@ -577,6 +582,9 @@ export interface ExerciseResultRecord {
 
 export interface WorkoutCompletionDraft {
   generatedSessionId?: string | undefined;
+  plannedDate?: ISODateString | undefined;
+  performedDate?: ISODateString | undefined;
+  recordedAt?: string | undefined;
   completedSessionType: ProtectedWorkoutType;
   status: "completed" | "skipped";
   sessionRpe?: number | undefined;
@@ -610,6 +618,11 @@ export interface TrainingLoadLedger {
   hardDayCount: number;
   hardDayCap: number;
   recoverySessions: number;
+}
+
+export interface TrainingLoadLedgers {
+  planned: TrainingLoadLedger;
+  actual: TrainingLoadLedger;
 }
 
 export type TrainingGenerationReductionSource = "nutrition" | "readiness" | "availability" | "anchors" | "safety" | "cycle" | "phase";
@@ -664,13 +677,21 @@ export interface TrainingSupportGenerationAudit {
   unusedAvailableDays: readonly ISODateString[];
   unusedAvailableDayReasons: readonly string[];
   targetGeneratedSupportCount: number;
+  originalTargetGeneratedSupportCount: number;
   pastGeneratedSupportCount: number;
+  pastPlacedGeneratedSupportCount: number;
+  completedPastGeneratedSupportCount: number;
+  skippedPastGeneratedSupportCount: number;
   unresolvedPastGeneratedSupportCount: number;
   resolvedPastGeneratedSupportCount: number;
+  futurePersistedGeneratedSupportCount: number;
   remainingGeneratedSupportTarget: number;
+  remainingUnfilledPrescriptionSlots: number;
   looseEndSessionIds: readonly string[];
   autoRollForwardPrevented: boolean;
   autoRollForwardExplanation: string;
+  scheduleRevisionChanged: boolean;
+  scheduleChangeReasons: readonly string[];
   actualGeneratedSupportCount: number;
   todayGeneratedSupportCount: number;
   generatedSessionDates: readonly ISODateString[];
@@ -804,6 +825,8 @@ export interface TrainingState {
     status: "active" | "superseded" | "completed" | "canceled";
   } | undefined;
   loadLedger: TrainingLoadLedger;
+  plannedLoadLedger: TrainingLoadLedger;
+  actualLoadLedger: TrainingLoadLedger;
   planGenerationIntent?: PlanGenerationIntent | undefined;
   supportGenerationAudit: TrainingSupportGenerationAudit;
   executionReadiness: TrainingReadinessFuelingIntegration;

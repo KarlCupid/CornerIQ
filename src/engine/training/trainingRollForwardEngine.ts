@@ -3,7 +3,7 @@ import type { CycleState, FightOpportunity, ReadinessState, RiskFlag, Tournament
 import type { ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import type { TrainingBlock, TrainingBlockPhase, TrainingMicrocycle } from "./trainingBlockTypes";
-import type { TrainingBlockRollForwardResult, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
+import type { TrainingBlockRollForwardResult, TrainingBlockTimelineEvent, TrainingHistoryLifecycle, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
 export interface TrainingRollForwardInput {
@@ -18,6 +18,7 @@ export interface TrainingRollForwardInput {
   readiness: ReadinessState;
   cycle: CycleState;
   activeAdjustments: readonly PersistedTrainingPlanAdjustment[];
+  planRevisionId?: string | undefined;
 }
 
 function activeUnderfueling(flags: readonly RiskFlag[], summary: TrainingWeekSummary): boolean {
@@ -88,6 +89,10 @@ function confidenceFor(decision: TrainingProgressionDecision["decision"], missin
   };
 }
 
+function evidenceLifecycle(summary: TrainingWeekSummary): TrainingHistoryLifecycle {
+  return summary.lifecycle ?? "final";
+}
+
 export function decideNextWeekProgression(input: TrainingRollForwardInput): TrainingProgressionDecision {
   const missingHistory =
     input.weekSummary.completionCount === 0 &&
@@ -136,7 +141,9 @@ export function decideNextWeekProgression(input: TrainingRollForwardInput): Trai
     nextWeekPhase: nextPhaseForDecision(decision, input.currentBlock.phase, input),
     confidence: confidenceFor(decision, missingHistory),
     safetyFlags: input.safetyFlags.filter((flag) => flag.status === "active").map((flag) => flag.code),
-    generatedAt: input.generatedAt
+    generatedAt: input.generatedAt,
+    decisionLifecycle: evidenceLifecycle(input.weekSummary),
+    ...(input.planRevisionId ? { planRevisionId: input.planRevisionId } : {})
   };
 }
 
@@ -147,29 +154,31 @@ function timelineEventsFor(input: TrainingRollForwardInput, decision: TrainingPr
     nextWeekIndex,
     decision: decision.decision
   };
-  const events: TrainingBlockTimelineEvent[] = [
-    {
+  const lifecycle = evidenceLifecycle(input.weekSummary);
+  const events: TrainingBlockTimelineEvent[] = [];
+  if (lifecycle === "final") {
+    events.push({
       eventType: "week_completed",
       eventDate: input.currentMicrocycle.weekEndDate,
       title: `Week ${input.weekSummary.weekIndex} summarized`,
       summary: input.weekSummary.summary,
-      payload: basePayload
-    },
-    {
-      eventType: "progression_decided",
-      eventDate: input.asOfDate,
-      title: `Next week: ${decision.decision.replaceAll("_", " ")}`,
-      summary: decision.reason,
-      payload: { ...basePayload, nextWeekPhase: decision.nextWeekPhase }
-    }
-  ];
+      payload: { ...basePayload, summaryLifecycle: lifecycle }
+    });
+  }
+  events.push({
+    eventType: "progression_decided",
+    eventDate: input.asOfDate,
+    title: lifecycle === "final" ? `Next week: ${decision.decision.replaceAll("_", " ")}` : `Provisional next week: ${decision.decision.replaceAll("_", " ")}`,
+    summary: decision.reason,
+    payload: { ...basePayload, nextWeekPhase: decision.nextWeekPhase, summaryLifecycle: lifecycle, decisionLifecycle: decision.decisionLifecycle ?? lifecycle }
+  });
   if (decision.decision === "coach_review") {
     events.push({
       eventType: "coach_review_flagged",
       eventDate: input.asOfDate,
       title: "Qualified review flagged",
       summary: "Pain or review flags stopped automatic progression.",
-      payload: basePayload
+      payload: { ...basePayload, summaryLifecycle: lifecycle }
     });
   }
   return events;

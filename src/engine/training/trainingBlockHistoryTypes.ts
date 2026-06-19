@@ -23,6 +23,8 @@ const trainingBlockPhaseSchema = z.enum([
 
 export const TrainingProgressionDecisionValueSchema = z.enum(["progress", "repeat", "regress", "deload", "taper", "recovery", "coach_review", "hold"]);
 export type TrainingProgressionDecisionValue = z.infer<typeof TrainingProgressionDecisionValueSchema>;
+export const TrainingHistoryLifecycleSchema = z.enum(["provisional", "final"]);
+export type TrainingHistoryLifecycle = z.infer<typeof TrainingHistoryLifecycleSchema>;
 
 export const TrainingBlockTimelineEventTypeSchema = z.enum([
   "block_started",
@@ -58,7 +60,11 @@ export const TrainingWeekSummarySchema = z.object({
   highCycleSymptomFlag: z.boolean(),
   safetyFlagCount: z.number().int().nonnegative(),
   summary: z.string().min(1),
-  reasons: z.array(z.string())
+  reasons: z.array(z.string()),
+  lifecycle: TrainingHistoryLifecycleSchema.optional(),
+  generatedAt: isoDateTimeSchema.optional(),
+  finalizedAt: isoDateTimeSchema.nullable().optional(),
+  planRevisionId: z.string().min(1).optional()
 });
 export type TrainingWeekSummary = z.infer<typeof TrainingWeekSummarySchema>;
 
@@ -69,7 +75,9 @@ export const TrainingProgressionDecisionSchema = z.object({
   nextWeekPhase: trainingBlockPhaseSchema.nullable(),
   confidence: confidenceSchema,
   safetyFlags: z.array(z.string()),
-  generatedAt: isoDateTimeSchema
+  generatedAt: isoDateTimeSchema,
+  decisionLifecycle: TrainingHistoryLifecycleSchema.optional(),
+  planRevisionId: z.string().min(1).optional()
 });
 export interface TrainingProgressionDecision {
   weekIndex: number;
@@ -79,6 +87,8 @@ export interface TrainingProgressionDecision {
   confidence: Confidence;
   safetyFlags: readonly string[];
   generatedAt: ISODateTimeString;
+  decisionLifecycle?: TrainingHistoryLifecycle | undefined;
+  planRevisionId?: string | undefined;
 }
 
 export const TrainingBlockTimelineEventSchema = z.object({

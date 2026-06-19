@@ -258,6 +258,22 @@ describe("trainingNextWeekPreviewRepository", () => {
     expect(list.find((item) => item.id === second.id)?.status).toBe("superseded");
   });
 
+  it("does not supersede accepted previews during generic preview refresh", async () => {
+    const { client } = createPreviewClient();
+    const repository = createTrainingNextWeekPreviewRepository(client);
+    const preview = previewFixture();
+
+    const acceptedDraft = await repository.upsertTrainingNextWeekPreview({ userId: "user_1", trainingBlockId: "block_1", preview, engineVersion: "test", inputHash: "input_1", outputHash: "out_1" });
+    const openDraft = await repository.upsertTrainingNextWeekPreview({ userId: "user_1", trainingBlockId: "block_1", preview, engineVersion: "test", inputHash: "input_2", outputHash: "out_2" });
+    await repository.markPreviewAccepted("user_1", acceptedDraft.id);
+    const superseded = await repository.supersedePreviewsForBlock("user_1", "block_1");
+    const list = await repository.listPreviewsForBlock("user_1", "block_1");
+
+    expect(superseded.ids).toEqual([openDraft.id]);
+    expect(list.find((item) => item.id === acceptedDraft.id)?.status).toBe("accepted");
+    expect(list.find((item) => item.id === openDraft.id)?.status).toBe("superseded");
+  });
+
   it("blocks missing userId before any Supabase call", async () => {
     const from = vi.fn();
     const client = { from } as unknown as CornerSupabaseClient;

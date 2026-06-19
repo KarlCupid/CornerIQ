@@ -35,10 +35,33 @@ import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from 
 import { createEngineRunRepository } from "../../services/supabase/engineRunRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 
-function createInsertClient(options: { existingCompletedSessionId?: string | null; completedTrainingConflict?: boolean } = {}) {
+function createInsertClient(options: { existingCompletedSessionId?: string | null; existingCompletedSessionStatus?: "completed" | "skipped"; completedTrainingConflict?: boolean } = {}) {
   const inserted: { table: string; record: unknown }[] = [];
+  const updated: { table: string; record: unknown }[] = [];
   const client = {
     from(table: string) {
+      const existingCompletedSession = options.existingCompletedSessionId
+        ? {
+            id: options.existingCompletedSessionId,
+            completion_key: "generated_session_completion:generated_1",
+            completed_date: fixtureAsOfDate,
+            generated_session_id: "generated_1",
+            planned_date: fixtureAsOfDate,
+            performed_date: fixtureAsOfDate,
+            recorded_at: "2026-05-19T00:00:00.000Z",
+            resolution_lifecycle: "current",
+            superseded_at: null,
+            session_payload: {
+              type: "coach_assigned_strength",
+              durationMinutes: 35,
+              intensity: "moderate",
+              completionStatus: options.existingCompletedSessionStatus ?? "completed",
+              painNotes: [],
+              generatedSessionId: "generated_1",
+              completionSource: "generated_session"
+            }
+          }
+        : null;
       const existingQuery = {
         eq() {
           return existingQuery;
@@ -47,13 +70,27 @@ function createInsertClient(options: { existingCompletedSessionId?: string | nul
           return existingQuery;
         },
         maybeSingle: async () => ({
-          data: table === "completed_training_sessions" && options.existingCompletedSessionId ? { id: options.existingCompletedSessionId } : null,
+          data: table === "completed_training_sessions" ? existingCompletedSession : null,
           error: null
         })
+      };
+      const updateQuery = {
+        eq() {
+          return updateQuery;
+        },
+        select() {
+          return {
+            single: async () => ({ data: { id: options.existingCompletedSessionId ?? `${table}_updated_id` }, error: null })
+          };
+        }
       };
       return {
         select() {
           return existingQuery;
+        },
+        update(record: unknown) {
+          updated.push({ table, record });
+          return updateQuery;
         },
         insert(record: unknown) {
           inserted.push({ table, record });
@@ -71,7 +108,7 @@ function createInsertClient(options: { existingCompletedSessionId?: string | nul
       };
     }
   };
-  return { client: client as unknown as CornerSupabaseClient, inserted };
+  return { client: client as unknown as CornerSupabaseClient, inserted, updated };
 }
 
 function persistedNutritionSafetyReview(overrides: Partial<PersistedNutritionSafetyReview> = {}): PersistedNutritionSafetyReview {
@@ -506,10 +543,16 @@ describe("Supabase repositories", () => {
 
     expect(inserted[0]?.record).toMatchObject({
       user_id: "user_1",
-      completion_key: "generated_session_completion:generated_1:completed",
+      completion_key: "generated_session_completion:generated_1",
       completed_date: fixtureAsOfDate,
+      generated_session_id: "generated_1",
+      planned_date: fixtureAsOfDate,
+      performed_date: fixtureAsOfDate,
+      resolution_lifecycle: "current",
       session_payload: expect.objectContaining({
-        completionKey: "generated_session_completion:generated_1:completed",
+        completionKey: "generated_session_completion:generated_1",
+        plannedDate: fixtureAsOfDate,
+        performedDate: fixtureAsOfDate,
         completionStatus: "completed",
         sessionRpe: 7,
         painNotes: ["left shoulder tight"],
@@ -518,12 +561,18 @@ describe("Supabase repositories", () => {
         smokeRunId: "smoke_1"
       })
     });
-    expect(completionKeyForCompletedTrainingSession(completion)).toBe("generated_session_completion:generated_1:completed");
+    expect(completionKeyForCompletedTrainingSession(completion)).toBe("generated_session_completion:generated_1");
 
     const mapped = mapCompletedTrainingSessionRow({
       id: "legacy_completed_1",
       completion_key: null,
       completed_date: fixtureAsOfDate,
+      generated_session_id: null,
+      planned_date: null,
+      performed_date: null,
+      recorded_at: null,
+      resolution_lifecycle: "current",
+      superseded_at: null,
       session_payload: { type: "coach_assigned_strength", durationMinutes: 30, intensity: "moderate", source: "generated_session", note: "Session RPE: 8" }
     });
     expect(mapped.completionStatus).toBe("completed");
@@ -547,6 +596,29 @@ describe("Supabase repositories", () => {
 
     expect(result).toEqual({ id: "existing_completed_1", existing: true });
     expect(inserted).toEqual([]);
+  });
+
+  it("completed training sessions correct an existing generated-session resolution instead of creating status-specific duplicates", async () => {
+    const { client, inserted, updated } = createInsertClient({ existingCompletedSessionId: "existing_completed_1", existingCompletedSessionStatus: "skipped" });
+    const result = await createTrainingRepository(client).insertCompletedTrainingSession("user_1", {
+      id: "completed_1",
+      date: fixtureAsOfDate,
+      type: "coach_assigned_strength",
+      durationMinutes: 35,
+      intensity: "moderate",
+      completionStatus: "completed",
+      painNotes: [],
+      generatedSessionId: "generated_1",
+      completionSource: "generated_session"
+    });
+
+    expect(result).toEqual({ id: "existing_completed_1", existing: true, corrected: true });
+    expect(inserted).toEqual([]);
+    expect(updated[0]?.record).toMatchObject({
+      completion_key: "generated_session_completion:generated_1",
+      generated_session_id: "generated_1",
+      session_payload: expect.objectContaining({ completionStatus: "completed" })
+    });
   });
 
   it("generated training session reads are scoped to the active training block when requested", async () => {

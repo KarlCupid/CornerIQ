@@ -57,9 +57,16 @@ type TrainingWeekSummaryRow = Pick<
   | "high_cycle_symptom_flag"
   | "safety_flag_count"
   | "summary_payload"
+  | "summary_lifecycle"
+  | "summary_generated_at"
+  | "finalized_at"
+  | "plan_revision_id"
 >;
 
-type TrainingProgressionDecisionRow = Pick<TableRow<"training_progression_decisions">, "week_index" | "decision" | "reason" | "next_week_phase" | "decision_payload" | "created_at">;
+type TrainingProgressionDecisionRow = Pick<
+  TableRow<"training_progression_decisions">,
+  "week_index" | "decision" | "reason" | "next_week_phase" | "decision_payload" | "created_at" | "decision_lifecycle" | "plan_revision_id" | "generated_at"
+>;
 
 type TrainingBlockTimelineEventRow = Pick<TableRow<"training_block_timeline_events">, "event_type" | "event_date" | "event_payload">;
 
@@ -94,7 +101,11 @@ export function mapTrainingWeekSummaryRow(row: TrainingWeekSummaryRow): Training
       highCycleSymptomFlag: row.high_cycle_symptom_flag,
       safetyFlagCount: row.safety_flag_count,
       summary: typeof payload.summary === "string" ? payload.summary : "Week summary persisted without display copy.",
-      reasons: Array.isArray(payload.reasons) ? payload.reasons.filter((reason): reason is string => typeof reason === "string") : []
+      reasons: Array.isArray(payload.reasons) ? payload.reasons.filter((reason): reason is string => typeof reason === "string") : [],
+      lifecycle: row.summary_lifecycle ?? (typeof payload.lifecycle === "string" ? payload.lifecycle : "final"),
+      generatedAt: row.summary_generated_at ?? (typeof payload.generatedAt === "string" ? payload.generatedAt : row.finalized_at ?? undefined),
+      finalizedAt: row.finalized_at ?? (typeof payload.finalizedAt === "string" ? payload.finalizedAt : null),
+      ...(row.plan_revision_id ?? (typeof payload.planRevisionId === "string" ? payload.planRevisionId : null) ? { planRevisionId: row.plan_revision_id ?? (payload.planRevisionId as string) } : {})
     },
     "training_week_summaries"
   );
@@ -111,7 +122,9 @@ export function mapTrainingProgressionDecisionRow(row: TrainingProgressionDecisi
       nextWeekPhase: row.next_week_phase,
       confidence: payload.confidence,
       safetyFlags: Array.isArray(payload.safetyFlags) ? payload.safetyFlags : [],
-      generatedAt: typeof payload.generatedAt === "string" ? payload.generatedAt : row.created_at
+      generatedAt: row.generated_at ?? (typeof payload.generatedAt === "string" ? payload.generatedAt : row.created_at),
+      decisionLifecycle: row.decision_lifecycle ?? (typeof payload.decisionLifecycle === "string" ? payload.decisionLifecycle : "final"),
+      ...(row.plan_revision_id ?? (typeof payload.planRevisionId === "string" ? payload.planRevisionId : null) ? { planRevisionId: row.plan_revision_id ?? (payload.planRevisionId as string) } : {})
     },
     "training_progression_decisions"
   );
@@ -158,6 +171,10 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
         underfueling_flag: summary.underfuelingFlag,
         high_cycle_symptom_flag: summary.highCycleSymptomFlag,
         safety_flag_count: summary.safetyFlagCount,
+        summary_lifecycle: summary.lifecycle ?? "final",
+        summary_generated_at: summary.generatedAt ?? null,
+        finalized_at: summary.lifecycle === "final" ? summary.finalizedAt ?? summary.generatedAt ?? null : null,
+        plan_revision_id: summary.planRevisionId ?? null,
         summary_payload: toJson(summary)
       };
       const response = await client.from("training_week_summaries").upsert(record, { onConflict: "user_id,training_block_id,week_index" }).select("id").single();
@@ -170,11 +187,12 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
         .from("training_week_summaries")
         .select(
           "id, training_block_id, week_start_date, week_end_date, week_index, completion_count, skipped_count, prescribed_only_count, partial_result_count, completed_result_count, pain_flag_count, average_session_rpe, average_exercise_rpe, hard_days_completed, protected_anchor_count, generated_support_count, underfueling_flag, high_cycle_symptom_flag, safety_flag_count, summary_payload"
+            + ", summary_lifecycle, summary_generated_at, finalized_at, plan_revision_id"
         )
         .eq("user_id", safeUserId)
         .eq("training_block_id", trainingBlockId)
         .order("week_index", { ascending: true });
-      return readDataOrThrow(response, "training_week_summaries.listTrainingWeekSummaries").map(mapTrainingWeekSummaryRow);
+      return readDataOrThrow(response, "training_week_summaries.listTrainingWeekSummaries").map((row) => mapTrainingWeekSummaryRow(row as unknown as TrainingWeekSummaryRow));
     },
 
     async insertTrainingProgressionDecision(input: InsertTrainingProgressionDecisionInput): Promise<{ id: string }> {
@@ -189,6 +207,7 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
         .eq("input_hash", input.inputHash)
         .eq("output_hash", input.outputHash)
         .eq("decision", decision.decision)
+        .eq("decision_lifecycle", decision.decisionLifecycle ?? "final")
         .limit(1)
         .maybeSingle();
       const existing = readMaybeDataOrThrow(existingResponse, "training_progression_decisions.insertTrainingProgressionDecision.findExisting");
@@ -206,6 +225,9 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
         engine_version: input.engineVersion,
         input_hash: input.inputHash,
         output_hash: input.outputHash,
+        decision_lifecycle: decision.decisionLifecycle ?? "final",
+        plan_revision_id: decision.planRevisionId ?? null,
+        generated_at: decision.generatedAt,
         decision_payload: toJson(decision)
       };
       const response = await client.from("training_progression_decisions").insert(record).select("id").single();
@@ -216,10 +238,11 @@ export function createTrainingProgressionRepository(client: CornerSupabaseClient
       const safeUserId = assertUserId(userId, "training_progression_decisions.listTrainingProgressionDecisions");
       const response = await client
         .from("training_progression_decisions")
-        .select("week_index, decision, reason, next_week_phase, decision_payload, created_at")
+        .select("week_index, decision, reason, next_week_phase, decision_payload, created_at, decision_lifecycle, plan_revision_id, generated_at")
         .eq("user_id", safeUserId)
         .eq("training_block_id", trainingBlockId)
         .order("week_index", { ascending: true })
+        .order("generated_at", { ascending: true })
         .order("created_at", { ascending: true });
       return readDataOrThrow(response, "training_progression_decisions.listTrainingProgressionDecisions").map(mapTrainingProgressionDecisionRow);
     },
