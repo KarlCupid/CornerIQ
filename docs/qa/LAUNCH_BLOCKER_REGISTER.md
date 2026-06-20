@@ -4,6 +4,8 @@ Audit date: 2026-06-19
 Starting commit: `defc80b` (`main`, `origin/main`)
 Scope: temporal workout-resolution integrity, previous-week finalization, future-session persistence hygiene, active-week exercise-result loading, manual-log replay cutoffs, active-context replay, accepted-preview replay, and production dependency audit triage.
 
+Loop 1 update: 2026-06-20 from baseline `c1bc4e4d36e46d934e53dbae87dae199f7db524e`, scoped to transactional and resumable generated-workout completion persistence.
+
 This register distinguishes confirmed code evidence from the initial pasted hypothesis list. Items marked `pending audit` are not launch-green.
 
 ## Current Register
@@ -15,6 +17,7 @@ This register distinguishes confirmed code evidence from the initial pasted hypo
 | C-003 | Critical | Completed-to-skipped correction could leave exercise actuals visible in current snapshots. | Confirmed in `src/engine/core/temporalSelectors.ts`: exercise results were filtered by date/recorded cutoff and selected completion ID, but not by the selected parent completion status. Failing replay test added in `src/tests/engine/temporalSelectors.test.ts`. | Fixed in working tree; only exercise actuals linked to the selected `completed` resolution are visible in snapshots. |
 | C-004 | Critical hypothesis | Previous-week finalization may be unreachable or unreliable through normal app refresh. | Current code calls `persistDueWeekFinalizations` from `persistTrainingBlockProjection` during `resolveAndPersistPerformanceState`; existing tests covered boundary finalization and partial retry. Added adversarial multi-week unopened refresh test in `src/tests/services/engineResolvePersistence.test.ts`. | Disproved for tested normal refresh paths; targeted tests pass. Concurrency/live DB evidence still pending. |
 | C-005 | Critical | Current readiness/fuel/hydration execution overlays leaked into persisted future generated sessions. | Confirmed by failing `src/tests/services/engineResolvePersistence.test.ts`: future `generated_training_sessions.session_payload` contained `readinessGate` and other execution-only fields. | Fixed in working tree with generated-session persistence sanitization; targeted tests pass. |
+| C-006 | Critical | A retry after the completion row was written could return `existing_completion` before repairing missing exercise-result rows or the journey event. | Confirmed in `src/services/training/completeWorkoutService.ts`: existing generated-session completions returned before downstream writes. Failing service, repository, and static migration tests were added before the retry ledger/idempotency fix. | Fixed in working tree; targeted tests pass. |
 | H-001 | High hypothesis | Oldest same-week progression decision may win when ordering compares only `weekIndex`. | `src/engine/training/trainingHistoryAuthority.ts` ranks active plan revision, week index, lifecycle, generated timestamp, and stable id. Fresh adversarial test added in `src/tests/engine/trainingBlockProgression.test.ts` for same-week same-lifecycle ordering and stale plan revisions. | Disproved for current selector paths; targeted tests pass. |
 | H-002 | High | Not all journey collections may pass through a complete as-of snapshot with correct replay semantics. | `buildAthleteJourneySnapshot` filters engine-run inputs. This pass fixed completion/exercise-result revision semantics, risk-flag replay before `resolvedAt`, generatedAt cutoffs for Supabase-loaded hydration/electrolyte/cycle logs, active protected anchors, active fight/tournament/block records, and accepted/materialized next-week preview actions. `PerformanceState.snapshotGeneratedAt` keeps historical cutoffs distinct from normal current-state timestamps. | Fixed for audited local engine/service paths; targeted and full tests pass. Release/staging evidence remains under H-004. |
 | H-003 | High | Exercise-result loading was capped by a generic recent-row limit instead of required week/block range. | Confirmed by inspection and failing test: `loadAthleteJourney` called `listRecentExerciseResults(userId)` before active block scope was known. | Fixed in working tree; active-block loads now call `listExerciseResultsForDateRange` for the current week window. |
@@ -25,6 +28,15 @@ This register distinguishes confirmed code evidence from the initial pasted hypo
 
 ## Verification In This Pass
 
+- `cmd /c npx vitest run src/tests/services/workoutCompletionService.test.ts src/tests/services/supabaseRepositories.test.ts src/tests/static/supabaseMigrationStatic.test.ts src/tests/services/accountDeletionPolicy.test.ts`: passed after Loop 1 retry ledger, idempotency keys, metadata-key hardening, and docs update, 84 tests.
+- `cmd /c npm install`: passed; npm reports the existing audit state of 18 vulnerabilities, 1 low and 17 moderate.
+- `cmd /c npm run typecheck`: passed after the final Loop 1 patch.
+- `cmd /c npm test`: initially failed because `README.md` still named `20260619194631_generated_session_identity_lifecycle.sql` as the latest migration. README was updated to `20260620000100_workout_completion_retry_integrity.sql`, and the rerun passed, 65 test files and 671 tests, with 1 live smoke test skipped by default.
+- `cmd /c npm run lint`: passed after the final Loop 1 patch.
+- `cmd /c npm run quality`: passed, including typecheck and the full test suite; 65 test files and 671 tests passed, with 1 live smoke test skipped by default.
+- `cmd /c npm run preflight:beta`: passed.
+- `cmd /c npm run test:coverage`: passed; statements 90.32, branches 85.34, functions 90.56, lines 90.32.
+- `cmd /c npm exec supabase -- migration list --local` and `cmd /c npm exec supabase -- db lint --local --level error --fail-on error`: initially could not connect because local Postgres was not running on `127.0.0.1:54322`. After `cmd /c npm exec supabase -- start --exclude edge-runtime,gotrue,imgproxy,kong,logflare,mailpit,postgres-meta,postgrest,realtime,storage-api,studio,supavisor,vector` and `cmd /c npm exec supabase -- db push --local`, the new migration was applied locally, `migration list --local` showed every local migration through `20260620000100` applied, and local schema lint passed with no errors.
 - Failing targeted tests were run before implementation and failed for C-001, C-002, and C-003.
 - `cmd /c npx vitest run src/tests/services/workoutCompletionService.test.ts src/tests/services/supabaseRepositories.test.ts src/tests/engine/temporalSelectors.test.ts`: passed after fix, 66 tests.
 - `cmd /c npm run typecheck`: passed.

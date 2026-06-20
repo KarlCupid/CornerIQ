@@ -16,6 +16,7 @@ export const USER_OWNED_TABLES = [
   "fight_week_protocols",
   "weigh_in_logs",
   "rehydration_plans",
+  "workout_completion_operations",
   "completed_training_sessions",
   "training_block_timeline_events",
   "training_next_week_previews",

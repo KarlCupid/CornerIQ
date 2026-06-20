@@ -67,6 +67,7 @@ export type Database = {
       athlete_journey_events: {
         Row: {
           created_at: string
+          event_key: string | null
           event_payload: Json
           event_type: string
           id: string
@@ -76,6 +77,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          event_key?: string | null
           event_payload?: Json
           event_type: string
           id?: string
@@ -85,6 +87,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          event_key?: string | null
           event_payload?: Json
           event_type?: string
           id?: string
@@ -383,6 +386,7 @@ export type Database = {
           generated_training_session_id: string | null
           id: string
           recorded_at: string
+          result_key: string | null
           result_payload: Json
           source: string | null
           updated_at: string
@@ -398,6 +402,7 @@ export type Database = {
           generated_training_session_id?: string | null
           id?: string
           recorded_at?: string
+          result_key?: string | null
           result_payload?: Json
           source?: string | null
           updated_at?: string
@@ -413,6 +418,7 @@ export type Database = {
           generated_training_session_id?: string | null
           id?: string
           recorded_at?: string
+          result_key?: string | null
           result_payload?: Json
           source?: string | null
           updated_at?: string
@@ -1447,6 +1453,62 @@ export type Database = {
             columns: ["training_microcycle_id"]
             isOneToOne: false
             referencedRelation: "training_microcycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_completion_operations: {
+        Row: {
+          completed_training_session_id: string | null
+          completion_key: string
+          created_at: string
+          event_key: string | null
+          generated_session_id: string
+          id: string
+          operation_key: string
+          operation_payload: Json
+          operation_status: string
+          recorded_at: string
+          result_keys: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_training_session_id?: string | null
+          completion_key: string
+          created_at?: string
+          event_key?: string | null
+          generated_session_id: string
+          id?: string
+          operation_key: string
+          operation_payload?: Json
+          operation_status?: string
+          recorded_at?: string
+          result_keys?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_training_session_id?: string | null
+          completion_key?: string
+          created_at?: string
+          event_key?: string | null
+          generated_session_id?: string
+          id?: string
+          operation_key?: string
+          operation_payload?: Json
+          operation_status?: string
+          recorded_at?: string
+          result_keys?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_completion_operations_completed_training_session_id_fkey"
+            columns: ["completed_training_session_id"]
+            isOneToOne: false
+            referencedRelation: "completed_training_sessions"
             referencedColumns: ["id"]
           },
         ]

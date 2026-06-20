@@ -62,6 +62,7 @@ Generated workout resolution is canonical per user and `generatedSessionId`:
 - `generated_session_id`, `planned_date`, `performed_date`, `recorded_at`, `resolution_lifecycle`, and `superseded_at` are explicit columns.
 - Correcting skipped to completed updates the canonical row and appends a correction event instead of counting both records.
 - Legacy duplicates are preserved as `superseded`; the newest recorded resolution becomes current.
+- Generated-session completion writes are staged through `workout_completion_operations`. The completion row, exercise-result rows, and journey event each use deterministic idempotency keys so a retry after a partial write resumes missing stages instead of returning early.
 - Missing completion stays unresolved. It is not treated as skipped, completed, safe adherence, or progression evidence.
 
 The Train view model exposes `workoutLooseEnds` for unresolved past generated sessions. The compact card asks: "This workout was planned for {date}. Did it happen?" Actions resolve the session as completed/skipped, request an explicit move adjustment, or leave it unknown. Leaving it unknown creates no completion row.
@@ -110,6 +111,11 @@ Migration `014_temporal_integrity_session_resolution.sql` adds:
 - indexes for generated-session resolution, performed-date lookup, readiness revisions, preview status, and history lifecycle ordering.
 
 Migration `20260619194631_generated_session_identity_lifecycle.sql` adds generated-session schedule identity/lifecycle columns and active-slot indexes for deterministic retries, explicit moves, and legacy duplicate reconciliation.
+
+Migration `20260620000100_workout_completion_retry_integrity.sql` adds generated-session completion retry authority:
+- `exercise_results.result_key` plus a unique `(user_id, result_key)` index for idempotent result writes.
+- `athlete_journey_events.event_key` plus a unique `(user_id, event_key)` index for idempotent completion events.
+- `workout_completion_operations` with owner RLS and staged statuses from `pending` through `completed` or `failed_retryable`.
 
 Training projection/progression/preview rows are user-owned where applicable, RLS-protected, and treated as engine audit/progression records. They are not medical directives and should not be mutated directly by screens.
 

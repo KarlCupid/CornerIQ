@@ -24,7 +24,7 @@ import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkout
 import { completionKeyForCompletedTrainingSession, createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
 import { createTrainingBlockRepository } from "../../services/supabase/trainingBlockRepository";
 import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
-import { mapJourneyEventRow } from "../../services/supabase/journeyRepository";
+import { createJourneyRepository, mapJourneyEventRow } from "../../services/supabase/journeyRepository";
 import { createNutritionSafetyReviewRepository, mapNutritionSafetyReviewEventRow, mapNutritionSafetyReviewRow } from "../../services/supabase/nutritionSafetyReviewRepository";
 import { createTournamentRepository } from "../../services/supabase/tournamentRepository";
 import { mapWearableSignalRow } from "../../services/supabase/wearableRepository";
@@ -525,6 +525,38 @@ function createAccountDeletionClient(response: unknown, error: { message: string
   return { client: client as unknown as CornerSupabaseClient, invoke };
 }
 
+function createJourneyEventUpsertClient() {
+  const inserted: { table: string; record: unknown }[] = [];
+  const upserted: { options: unknown; record: unknown; table: string }[] = [];
+  const client = {
+    from(table: string) {
+      return {
+        insert(record: unknown) {
+          inserted.push({ table, record });
+          return {
+            select() {
+              return {
+                single: async () => ({ data: { id: `${table}_inserted_id` }, error: null })
+              };
+            }
+          };
+        },
+        upsert(record: unknown, options: unknown) {
+          upserted.push({ table, record, options });
+          return {
+            select() {
+              return {
+                single: async () => ({ data: { id: `${table}_upserted_id` }, error: null })
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, inserted, upserted };
+}
+
 describe("Supabase repositories", () => {
   it("bodyMassRepository orders by valid migration columns", () => {
     const source = readFileSync("src/services/supabase/bodyMassRepository.ts", "utf8");
@@ -546,6 +578,7 @@ describe("Supabase repositories", () => {
     expect(
       mapJourneyEventRow({
         id: "journey_1",
+        event_key: null,
         event_type: "OnboardingCompleted",
         event_payload: { source: "test" },
         occurred_at: "2026-05-20 02:48:34.495071+00"
@@ -603,6 +636,36 @@ describe("Supabase repositories", () => {
       }).weighInDateTime
     ).toBe("2026-06-20T08:00:00.000Z");
     expect(() => mapFoodLogRow({ log_date: "2026-05-19", meal_payload: { calories: -1 } })).toThrow(/food_logs/);
+  });
+
+  it("journey repository upserts keyed completion events for retry-safe idempotency", async () => {
+    const { client, inserted, upserted } = createJourneyEventUpsertClient();
+
+    const result = await createJourneyRepository(client).appendEvent(
+      "user_1",
+      "TrainingSessionCompleted",
+      {
+        completedTrainingSessionId: "completed_1",
+        status: "completed"
+      },
+      "2026-05-19T18:45:00.000Z",
+      "training_completion_event:completed_1"
+    );
+
+    expect(result.id).toBe("athlete_journey_events_upserted_id");
+    expect(inserted).toEqual([]);
+    expect(upserted).toEqual([
+      expect.objectContaining({
+        table: "athlete_journey_events",
+        options: { onConflict: "user_id,event_key" },
+        record: expect.objectContaining({
+          event_key: "training_completion_event:completed_1",
+          event_type: "TrainingSessionCompleted",
+          occurred_at: "2026-05-19T18:45:00.000Z",
+          user_id: "user_1"
+        })
+      })
+    ]);
   });
 
   it("quick-log insert payloads use user-owned columns", async () => {
@@ -805,6 +868,36 @@ describe("Supabase repositories", () => {
     expect(result).toEqual({ id: "concurrent_completed_1", existing: true });
     expect(inserted).toHaveLength(1);
     expect(updated).toEqual([]);
+  });
+
+  it("training repository upserts workout completion operation lifecycle by operation key", async () => {
+    const { client, inserted, upserted } = createJourneyEventUpsertClient();
+
+    const result = await createTrainingRepository(client).upsertWorkoutCompletionOperation("user_1", {
+      operationKey: "workout_completion:generated_1:hash",
+      generatedSessionId: "generated_1",
+      completionKey: "generated_session_completion:generated_1",
+      operationStatus: "results_written",
+      completedTrainingSessionId: "completed_1",
+      eventKey: "workout_completion_event:completed_1",
+      resultKeys: ["workout_completion_result:completed_1:0:squat"],
+      recordedAt: "2026-05-19T18:45:00.000Z",
+      operationPayload: { completionStatus: "completed" }
+    });
+
+    expect(result.id).toBe("workout_completion_operations_upserted_id");
+    expect(inserted).toEqual([]);
+    expect(upserted).toEqual([
+      expect.objectContaining({
+        table: "workout_completion_operations",
+        options: { onConflict: "user_id,operation_key" },
+        record: expect.objectContaining({
+          operation_key: "workout_completion:generated_1:hash",
+          operation_status: "results_written",
+          user_id: "user_1"
+        })
+      })
+    ]);
   });
 
   it("generated training session reads are scoped to the active training block when requested", async () => {
@@ -1543,13 +1636,15 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).not.toContain("beta_feedback_reports");
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
-    expect(USER_OWNED_TABLES).toHaveLength(37);
+    expect(USER_OWNED_TABLES).toContain("workout_completion_operations");
+    expect(USER_OWNED_TABLES).toHaveLength(38);
   });
 
   it("userDataService deletion order keeps known child tables before parent tables", () => {
     const index = (table: (typeof USER_OWNED_TABLES)[number]) => USER_OWNED_TABLES.indexOf(table);
 
     expect(index("exercise_results")).toBeLessThan(index("completed_training_sessions"));
+    expect(index("workout_completion_operations")).toBeLessThan(index("completed_training_sessions"));
     expect(index("nutrition_safety_review_events")).toBeLessThan(index("nutrition_safety_reviews"));
     expect(index("training_day_plans")).toBeLessThan(index("training_microcycles"));
     expect(index("training_microcycles")).toBeLessThan(index("training_blocks"));

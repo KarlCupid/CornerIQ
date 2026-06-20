@@ -40,6 +40,20 @@ export interface ListGeneratedSessionsOptions {
   trainingBlockId?: string | null | undefined;
 }
 
+export type WorkoutCompletionOperationStatus = "pending" | "completion_written" | "results_written" | "event_written" | "completed" | "failed_retryable";
+
+export interface UpsertWorkoutCompletionOperationInput {
+  operationKey: string;
+  generatedSessionId: string;
+  completionKey: string;
+  operationStatus: WorkoutCompletionOperationStatus;
+  completedTrainingSessionId?: string | undefined;
+  eventKey?: string | undefined;
+  resultKeys?: readonly string[] | undefined;
+  recordedAt: string;
+  operationPayload?: Record<string, unknown> | undefined;
+}
+
 export function mapGeneratedTrainingSessionRow(row: GeneratedTrainingSessionRow): GeneratedTrainingSession {
   const payload = payloadObject(row.session_payload, "generated_training_sessions.session_payload");
   const payloadDate = typeof payload.date === "string" ? payload.date : row.planned_date;
@@ -344,6 +358,24 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
         }
       }
       return insertCurrentCompletedTrainingSession(safeUserId, validated, completionKey, false);
+    },
+
+    async upsertWorkoutCompletionOperation(userId: string, input: UpsertWorkoutCompletionOperationInput): Promise<{ id: string }> {
+      const safeUserId = assertUserId(userId, "workout_completion_operations.upsertWorkoutCompletionOperation");
+      const record: TableInsert<"workout_completion_operations"> = {
+        user_id: safeUserId,
+        operation_key: input.operationKey,
+        generated_session_id: input.generatedSessionId,
+        completion_key: input.completionKey,
+        completed_training_session_id: input.completedTrainingSessionId ?? null,
+        event_key: input.eventKey ?? null,
+        result_keys: [...(input.resultKeys ?? [])],
+        operation_status: input.operationStatus,
+        operation_payload: toJson(input.operationPayload ?? {}),
+        recorded_at: input.recordedAt
+      };
+      const response = await client.from("workout_completion_operations").upsert(record, { onConflict: "user_id,operation_key" }).select("id").single();
+      return readDataOrThrow(response, "workout_completion_operations.upsertWorkoutCompletionOperation");
     }
   };
 }

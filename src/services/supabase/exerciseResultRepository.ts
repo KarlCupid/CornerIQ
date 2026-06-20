@@ -33,6 +33,7 @@ export interface InsertExerciseResultInput {
   completedTrainingSessionId: string;
   generatedTrainingSessionDbId?: string | undefined;
   generatedSessionId?: string | undefined;
+  resultKey?: string | undefined;
   result: ExerciseResultDraft;
   source: string;
   engineVersion: string;
@@ -56,6 +57,7 @@ export type ExerciseResultRow = Pick<
   | "generated_training_session_id"
   | "recorded_at"
   | "completed_at"
+  | "result_key"
   | "source"
   | "result_payload"
 >;
@@ -144,7 +146,7 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
 }
 
 export function createExerciseResultRepository(client: CornerSupabaseClient) {
-  const exerciseResultSelect = "id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, recorded_at, completed_at, source, result_payload";
+  const exerciseResultSelect = "id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, recorded_at, completed_at, result_key, source, result_payload";
   return {
     async insertExerciseResult(input: InsertExerciseResultInput): Promise<{ id: string }> {
       const safeUserId = assertUserId(input.userId, "exercise_results.insertExerciseResult");
@@ -156,12 +158,15 @@ export function createExerciseResultRepository(client: CornerSupabaseClient) {
         exercise_key: payload.exerciseId,
         exercise_id: payload.exerciseId,
         exercise_name: payload.exerciseName,
+        result_key: input.resultKey ?? null,
         recorded_at: input.recordedAt ?? new Date().toISOString(),
         completed_at: input.completedAt ?? new Date().toISOString(),
         source: input.source,
         result_payload: toJson(payload)
       };
-      const response = await client.from("exercise_results").insert(insert).select("id").single();
+      const response = input.resultKey
+        ? await client.from("exercise_results").upsert(insert, { onConflict: "user_id,result_key" }).select("id").single()
+        : await client.from("exercise_results").insert(insert).select("id").single();
       return readDataOrThrow(response, "exercise_results.insertExerciseResult");
     },
 

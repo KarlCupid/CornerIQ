@@ -6,7 +6,8 @@ const migrationDir = "supabase/migrations";
 const launchMigrationNames = [
   "014_temporal_integrity_session_resolution.sql",
   "20260619190201_training_week_finalization_authority.sql",
-  "20260619194631_generated_session_identity_lifecycle.sql"
+  "20260619194631_generated_session_identity_lifecycle.sql",
+  "20260620000100_workout_completion_retry_integrity.sql"
 ] as const;
 
 function readSource(path: string): string {
@@ -83,6 +84,22 @@ describe("Supabase migration static checks", () => {
     }
   });
 
+  it("preserves workout-completion retry authority and idempotency keys", () => {
+    const source = readMigration("20260620000100_workout_completion_retry_integrity.sql");
+
+    for (const requiredFragment of [
+      "workout_completion_operations",
+      "operation_status in ('pending', 'completion_written', 'results_written', 'event_written', 'completed', 'failed_retryable')",
+      "workout_completion_operations_user_operation_uidx",
+      "result_key",
+      "exercise_results_user_result_key_uidx",
+      "event_key",
+      "athlete_journey_events_user_event_key_uidx"
+    ]) {
+      expect(source).toContain(requiredFragment);
+    }
+  });
+
   it("requires RLS and Data API grant review for new public tables in launch migrations", () => {
     for (const migrationName of launchMigrationNames) {
       const source = readMigration(migrationName);
@@ -102,8 +119,12 @@ describe("Supabase migration static checks", () => {
 
     for (const requiredFragment of [
       "recorded_at: string | null",
+      "event_key: string | null",
       "resolution_lifecycle: string",
       "superseded_at: string | null",
+      "result_key: string | null",
+      "workout_completion_operations",
+      "operation_status: string",
       "summary_authority_key: string",
       "summary_lifecycle: string",
       "summary_generated_at: string | null",

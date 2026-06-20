@@ -20,6 +20,7 @@ describe("account deletion Edge Function policy", () => {
     const index = (table: (typeof USER_OWNED_TABLES)[number]) => USER_OWNED_TABLES.indexOf(table);
 
     expect(index("exercise_results")).toBeLessThan(index("completed_training_sessions"));
+    expect(index("workout_completion_operations")).toBeLessThan(index("completed_training_sessions"));
     expect(index("nutrition_safety_review_events")).toBeLessThan(index("nutrition_safety_reviews"));
     expect(index("training_day_plans")).toBeLessThan(index("training_microcycles"));
     expect(index("training_microcycles")).toBeLessThan(index("training_blocks"));

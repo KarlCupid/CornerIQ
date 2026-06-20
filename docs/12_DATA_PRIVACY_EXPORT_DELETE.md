@@ -31,6 +31,7 @@ Include every user-owned table:
 - `training_next_week_previews`
 - `training_block_timeline_events`
 - `training_plan_adjustments`
+- `workout_completion_operations`
 - `completed_training_sessions`
 - `exercise_results`
 - `nutrition_safety_reviews`
@@ -60,7 +61,7 @@ Include every user-owned table:
 
 ## Delete Scope
 
-Delete by `user_id` for all user-owned tables, using dependency-aware ordering: projection/result tables first, source/profile tables later, and `users_public` last. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
+Delete by `user_id` for all user-owned tables, using dependency-aware ordering: projection/result tables first, source/profile tables later, and `users_public` last. Workout completion operation rows are deleted before their completed-session rows. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
 
 Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, `generateUserOwnedDataExportBundle(userId, client, options)`, `generateUserOwnedDataExportBundleString(userId, client, options)`, `deleteUserOwnedData(userId, client, confirmation)`, and `deleteAccount(userId, client, confirmation)`. App-data helpers use the anon client under RLS and never delete from `auth.users`.
 

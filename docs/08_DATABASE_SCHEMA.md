@@ -45,6 +45,7 @@ Public mirror for app-owned display state:
 - `event_type text not null`
 - `event_payload jsonb not null`
 - `occurred_at timestamptz not null`
+- `event_key text` optional idempotency key for retry-safe service events
 - append-only except admin/support correction workflow
 
 ### fight_opportunities
@@ -70,10 +71,18 @@ Public mirror for app-owned display state:
 ### completed_training_sessions
 
 - generated session id optional, protected workout id optional, completion, RPE, pain, notes
+- generated-session completions use stable completion keys and immutable correction lifecycle metadata
 
 ### exercise_results
 
 - session id, exercise id, sets, reps, load, RPE/RIR, pain
+- `result_key text` optional idempotency key for retry-safe generated-session completion result writes
+
+### workout_completion_operations
+
+- generated-session completion retry ledger keyed by `operation_key`
+- records staged persistence status, completion row id, result keys, event key, payload summary, and recorded time
+- lets retries repair missing exercise-result or journey-event writes without treating missing data as safe
 
 ### readiness_checkins
 
