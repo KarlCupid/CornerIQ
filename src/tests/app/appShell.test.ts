@@ -5585,6 +5585,147 @@ describe("minimal app screens", () => {
     await expect(refreshWith("error")).resolves.toBe("error");
   });
 
+  it("usePerformanceState retries a transient account load failure before showing an error", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    repositories.athlete.getProfile = vi
+      .fn()
+      .mockRejectedValueOnce(new RepositoryError("remote_error", "athlete_profiles.getProfile", "temporary read failed"))
+      .mockResolvedValue(no_wearable_manual_only.athlete) as AthleteJourneyRepositories["athlete"]["getProfile"];
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        autoRollForwardEnabled: false,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(snapshot.current?.result?.status).toBe("ready");
+    expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it("usePerformanceState keeps the account accessible when optional journey history cannot refresh", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    repositories.training.listCompletedTrainingSessions = vi.fn(async () => {
+      throw new RepositoryError("remote_error", "completed_training_sessions.listCompletedTrainingSessions", "table unavailable");
+    }) as AthleteJourneyRepositories["training"]["listCompletedTrainingSessions"];
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        autoRollForwardEnabled: false,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(snapshot.current?.result?.status).toBe("ready");
+    if (snapshot.current?.result?.status === "ready") {
+      expect(snapshot.current.result.persistenceWarning).toContain("Account data loaded with degraded remote reads");
+      expect(snapshot.current.result.persistenceWarning).toContain("training.listCompletedTrainingSessions");
+      expect(snapshot.current.result.state.safety.riskFlags).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "external_safety_flag",
+            domain: "plan_integrity",
+            blocksPlan: true
+          })
+        ])
+      );
+    }
+    expect(snapshot.current?.message).toBeNull();
+  });
+
+  it("usePerformanceState keeps the last ready account state when a later refresh fails", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    repositories.athlete.getProfile = vi
+      .fn()
+      .mockResolvedValueOnce(no_wearable_manual_only.athlete)
+      .mockRejectedValue(new RepositoryError("remote_error", "athlete_profiles.getProfile", "temporary read failed")) as AthleteJourneyRepositories["athlete"]["getProfile"];
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        autoRollForwardEnabled: false,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+    const firstInputHash = snapshot.current?.result?.status === "ready" ? snapshot.current.result.inputHash : null;
+
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(snapshot.current?.result?.status).toBe("ready");
+    expect(snapshot.current?.result?.status === "ready" ? snapshot.current.result.inputHash : null).toBe(firstInputHash);
+    expect(snapshot.current?.message).toContain("could not refresh your account");
+    expect(snapshot.current?.message).toContain("last loaded view");
+    expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(4);
+  });
+
+  it("usePerformanceState clears retained account state when the session user changes", async () => {
+    const firstSession = { user: { id: "user_1" } } as unknown as Session;
+    const secondSession = { user: { id: "user_2" } } as unknown as Session;
+    const firstRepositories = createPerformanceRepositories("ready");
+    const secondRepositories = createPerformanceRepositories("ready");
+    secondRepositories.athlete.getProfile = vi
+      .fn()
+      .mockRejectedValue(new RepositoryError("remote_error", "athlete_profiles.getProfile", "temporary read failed")) as AthleteJourneyRepositories["athlete"]["getProfile"];
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe({ repositories, session }: { repositories: AthleteJourneyRepositories; session: Session }) {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        autoRollForwardEnabled: false,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    const renderer = render(React.createElement(Probe, { repositories: firstRepositories, session: firstSession }));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+    expect(snapshot.current?.result?.status).toBe("ready");
+
+    await act(async () => {
+      (renderer as unknown as { update: (element: React.ReactElement) => void }).update(React.createElement(Probe, { repositories: secondRepositories, session: secondSession }));
+    });
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+
+    expect(snapshot.current?.result?.status).toBe("error");
+    expect(secondRepositories.athlete.getProfile).toHaveBeenCalledTimes(3);
+  });
+
   it("usePerformanceState returns an explicit onboarding failure result", async () => {
     const session = { user: { id: "user_1" } } as unknown as Session;
     const repositories = createPerformanceRepositories("needs_profile");

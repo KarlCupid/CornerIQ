@@ -64,6 +64,16 @@ function errorResult(error: unknown, message: string): ResolveAndPersistPerforma
   };
 }
 
+function combinedWarning(warnings: readonly (string | undefined)[]): string | undefined {
+  return warnings.filter((warning): warning is string => Boolean(warning)).join(" ") || undefined;
+}
+
+function degradedLoadWarning(journeyResult: LoadAthleteJourneyResult): string | undefined {
+  return journeyResult.status === "ready" && journeyResult.loadWarnings?.length
+    ? `Account data loaded with degraded remote reads: ${journeyResult.loadWarnings.join(" | ")}`
+    : undefined;
+}
+
 function mergedSummaries(existing: readonly TrainingWeekSummary[], summary: TrainingWeekSummary): readonly TrainingWeekSummary[] {
   const duplicate = existing.some(
     (item) =>
@@ -805,6 +815,7 @@ export async function resolveAndPersistPerformanceState(input: {
   if (journeyResult.status === "needs_profile") {
     return journeyResult;
   }
+  const loadWarning = degradedLoadWarning(journeyResult);
 
   let inputHash: string;
   let state: PerformanceState;
@@ -830,18 +841,20 @@ export async function resolveAndPersistPerformanceState(input: {
   try {
     const lifecycleSource = journeyResult.status === "ready" ? latestPlanWizardIntentSource(journeyResult.journey) : null;
     const persisted = await persistPerformanceState(userId, inputHash, state, input.repositories, lifecycleSource);
+    const persistenceWarning = combinedWarning([loadWarning, persisted.persistenceWarning]);
     return {
       status: "ready",
       state: persisted.state,
       inputHash,
-      ...(persisted.persistenceWarning ? { persistenceWarning: persisted.persistenceWarning } : {})
+      ...(persistenceWarning ? { persistenceWarning } : {})
     };
   } catch (error) {
+    const persistenceWarning = combinedWarning([loadWarning, `Engine state resolved, but persistence failed: ${errorMessage(error)}`]);
     return {
       status: "ready",
       state,
       inputHash,
-      persistenceWarning: `Engine state resolved, but persistence failed: ${errorMessage(error)}`
+      ...(persistenceWarning ? { persistenceWarning } : {})
     };
   }
 }

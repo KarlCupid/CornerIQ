@@ -8,7 +8,7 @@ import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousSc
 import { DashboardCard } from "../../design/components/PerformanceVisuals";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
-import { radii, spacing } from "../../design/theme";
+import { colors, radii, spacing } from "../../design/theme";
 import type { BarVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -390,8 +390,8 @@ function TrainTonePill({ label, tone: _tone = "muted" }: { label: string; tone?:
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: trainPalette.controlFill,
-        borderColor: trainPalette.controlLine,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
         borderRadius: radii.pill,
         borderWidth: 1,
         justifyContent: "center",
@@ -401,7 +401,7 @@ function TrainTonePill({ label, tone: _tone = "muted" }: { label: string; tone?:
         paddingVertical: 3
       }}
     >
-      <Text numberOfLines={1} style={{ color: trainPalette.textBody, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>

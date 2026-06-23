@@ -195,6 +195,7 @@ describe("fatigue-first UI copy density static checks", () => {
       expect(block, `${file} ${start} should not render a left accent rail`).not.toMatch(/borderLeft(?:Color|Width)/);
       expect(block, `${file} ${start} should not render a marker dot`).not.toMatch(/height:\s*[78][\s\S]{0,120}width:\s*[78]/);
       expect(block, `${file} ${start} should use neutral pill fills and borders`).not.toMatch(/(?:backgroundColor|borderColor):\s*(?:color|toneColor|trainTint|fuelTint|planTint|`\$\{toneColor)/);
+      expect(block, `${file} ${start} should not inherit tab-tinted control fills or borders`).not.toMatch(/(?:backgroundColor|borderColor):\s*(?:trainPalette|fuelPalette|planPalette|profilePalette)\.control(?:Fill|Line)/);
     }
   });
 });

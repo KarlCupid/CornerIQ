@@ -5,7 +5,7 @@ import type { FuelViewModel, RecentLogsViewModel } from "../../engine/core/types
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart } from "../../design/components/PerformanceVisuals";
-import { radii, spacing } from "../../design/theme";
+import { colors, radii, spacing } from "../../design/theme";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -348,8 +348,8 @@ function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: 
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: fuelPalette.controlFill,
-        borderColor: fuelPalette.controlLine,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
         borderRadius: radii.pill,
         borderWidth: 1,
         justifyContent: "center",
@@ -359,7 +359,7 @@ function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: 
         paddingVertical: 3
       }}
     >
-      <Text numberOfLines={1} style={{ color: fuelPalette.textBody, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>

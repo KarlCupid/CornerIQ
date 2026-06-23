@@ -6,8 +6,110 @@ import { RepositoryError, assertUserId, parseWithSchema, payloadObject, readData
 
 export type AthleteProfileRow = Pick<TableRow<"athlete_profiles">, "profile">;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function positiveNumberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function booleanValue(value: unknown): boolean {
+  return typeof value === "boolean" ? value : false;
+}
+
+function normalizeLegacyAthleteProfilePayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const profile: Record<string, unknown> = { ...payload };
+  let safetyDefaultsApplied = false;
+
+  if (!("currentBodyMass" in profile)) {
+    profile.currentBodyMass = null;
+  }
+  if (!Array.isArray(profile.injuryHistory)) {
+    profile.injuryHistory = [];
+  }
+  if (!Array.isArray(profile.medicalFlags)) {
+    profile.medicalFlags = [];
+    safetyDefaultsApplied = true;
+  }
+  if (!Array.isArray(profile.medications)) {
+    delete profile.medications;
+  }
+  if (!isRecord(profile.eatingDisorderRisk)) {
+    profile.eatingDisorderRisk = {
+      activeConcern: false,
+      severeRestrictionHistory: false,
+      rapidWeightLossConcern: false,
+      notes: []
+    };
+    safetyDefaultsApplied = true;
+  } else {
+    profile.eatingDisorderRisk = {
+      activeConcern: booleanValue(profile.eatingDisorderRisk.activeConcern),
+      severeRestrictionHistory: booleanValue(profile.eatingDisorderRisk.severeRestrictionHistory),
+      rapidWeightLossConcern: booleanValue(profile.eatingDisorderRisk.rapidWeightLossConcern),
+      notes: stringArray(profile.eatingDisorderRisk.notes)
+    };
+  }
+  if (!isRecord(profile.priorWeightCutHistory)) {
+    profile.priorWeightCutHistory = {
+      hasCutBefore: false,
+      adverseEvents: [],
+      lowestRecentFightingWeightKg: null
+    };
+    safetyDefaultsApplied = true;
+  } else {
+    profile.priorWeightCutHistory = {
+      hasCutBefore: booleanValue(profile.priorWeightCutHistory.hasCutBefore),
+      adverseEvents: stringArray(profile.priorWeightCutHistory.adverseEvents),
+      lowestRecentFightingWeightKg: positiveNumberOrNull(profile.priorWeightCutHistory.lowestRecentFightingWeightKg)
+    };
+  }
+  if (!("typicalWalkAroundWeightKg" in profile)) {
+    profile.typicalWalkAroundWeightKg = null;
+  }
+  if (!("lowestRecentFightingWeightKg" in profile)) {
+    profile.lowestRecentFightingWeightKg = null;
+  }
+  profile.coachInvolved = booleanValue(profile.coachInvolved);
+  profile.dietitianInvolved = booleanValue(profile.dietitianInvolved);
+  profile.medicalProfessionalInvolved = booleanValue(profile.medicalProfessionalInvolved);
+  if (!Array.isArray(profile.equipmentAccess)) {
+    profile.equipmentAccess = [];
+  }
+  if (!Array.isArray(profile.scheduleAvailability)) {
+    profile.scheduleAvailability = [];
+  }
+  if (!Array.isArray(profile.protectedBoxingSchedule)) {
+    profile.protectedBoxingSchedule = [];
+  }
+  if (!Array.isArray(profile.recurringProtectedAnchors)) {
+    profile.recurringProtectedAnchors = [];
+  }
+  if (profile.cycleTrackingPreference !== "enabled" && profile.cycleTrackingPreference !== "disabled" && profile.cycleTrackingPreference !== "undecided") {
+    profile.cycleTrackingPreference = "undecided";
+  }
+  if (profile.wearablePreference !== "manual_only" && profile.wearablePreference !== "wearable_connected" && profile.wearablePreference !== "undecided") {
+    profile.wearablePreference = "manual_only";
+  }
+  if (safetyDefaultsApplied) {
+    profile.medicalFlags = [
+      ...new Set([
+        ...stringArray(profile.medicalFlags),
+        "Profile safety setup needs review after an app update."
+      ])
+    ];
+  }
+
+  return profile;
+}
+
 export function mapAthleteProfileRow(row: AthleteProfileRow): AthleteProfile {
-  return parseWithSchema(AthleteProfileSchema, payloadObject(row.profile, "athlete_profiles.profile"), "athlete_profiles.profile");
+  return parseWithSchema(AthleteProfileSchema, normalizeLegacyAthleteProfilePayload(payloadObject(row.profile, "athlete_profiles.profile")), "athlete_profiles.profile");
 }
 
 export function createAthleteRepository(client: CornerSupabaseClient) {

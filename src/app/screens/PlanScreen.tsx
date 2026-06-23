@@ -7,7 +7,7 @@ import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
-import { radii, spacing } from "../../design/theme";
+import { colors, radii, spacing } from "../../design/theme";
 import type { NextWeekPreviewActions } from "../../hooks/useNextWeekPreviewActions";
 import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanAdjustments";
 import type { BuildGoalDraft, FightSetupDraft, ProtectedWorkoutDraft, RecurringProtectedWorkoutAnchorDraft, RecoveryGoalDraft, TournamentSetupDraft } from "../../services/supabase/onboardingService";
@@ -587,8 +587,8 @@ function PlanTonePill({ label, tone: _tone = "green" }: { label: string; tone?: 
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: planPalette.controlFill,
-        borderColor: planPalette.controlLine,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
         borderRadius: radii.pill,
         borderWidth: 1,
         minHeight: 28,
@@ -596,7 +596,7 @@ function PlanTonePill({ label, tone: _tone = "green" }: { label: string; tone?: 
         paddingVertical: 3
       }}
     >
-      <Text numberOfLines={1} style={{ color: planPalette.textBody, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>

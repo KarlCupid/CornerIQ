@@ -1,6 +1,7 @@
 import { AthleteJourneySchema } from "../../engine/core/schemas";
 import { addDays, daysBetween } from "../../engine/core/dates";
 import type { AthleteJourney, FightOpportunity, ISODateString, TournamentDetails } from "../../engine/core/types";
+import { createReviewFlag } from "../../engine/safety/riskSafetyEngine";
 import type { CornerSupabaseClient } from "./client";
 import { createAthleteRepository } from "./athleteRepository";
 import { createBodyMassRepository } from "./bodyMassRepository";
@@ -24,7 +25,7 @@ import { createTrainingRepository } from "./trainingRepository";
 import { createWearableRepository } from "./wearableRepository";
 
 export type LoadAthleteJourneyResult =
-  | { status: "ready"; journey: AthleteJourney }
+  | { status: "ready"; journey: AthleteJourney; loadWarnings?: readonly string[] }
   | { status: "needs_profile"; userId: string; asOfDate: ISODateString; reason: string }
   | { status: "error"; error: string; cause?: string };
 
@@ -135,6 +136,47 @@ function loadError(error: unknown, message: string): LoadAthleteJourneyResult {
   };
 }
 
+interface JourneyLoadIssue {
+  message: string;
+  source: string;
+}
+
+async function readJourneyData<TValue>(
+  issues: JourneyLoadIssue[],
+  source: string,
+  fallback: TValue,
+  read: () => Promise<TValue>
+): Promise<TValue> {
+  try {
+    return await read();
+  } catch (error) {
+    issues.push({ source, message: errorMessage(error) });
+    return fallback;
+  }
+}
+
+function loadWarningsFor(issues: readonly JourneyLoadIssue[]): readonly string[] {
+  return issues.map((issue) => `${issue.source}: ${issue.message}`);
+}
+
+function degradedJourneySafetyFlags(issues: readonly JourneyLoadIssue[]) {
+  if (issues.length === 0) {
+    return [];
+  }
+  return [
+    createReviewFlag(
+      "plan_integrity",
+      "external_safety_flag",
+      "Some account history could not refresh, so CornerIQ kept guidance conservative until the next successful sync.",
+      {
+        sources: issues.map((issue) => issue.source),
+        messages: loadWarningsFor(issues)
+      },
+      true
+    )
+  ];
+}
+
 export async function loadAthleteJourney(input: {
   userId: string;
   asOfDate: ISODateString;
@@ -143,6 +185,7 @@ export async function loadAthleteJourney(input: {
   try {
     const userId = assertUserId(input.userId, "loadAthleteJourney");
     const athlete = await input.repositories.athlete.getProfile(userId);
+    const issues: JourneyLoadIssue[] = [];
 
     if (!athlete) {
       return {
@@ -169,26 +212,30 @@ export async function loadAthleteJourney(input: {
       wearableSignalHistory,
       completedTrainingSessions,
       activeTrainingBlock,
-      safetyFlags,
+      persistedSafetyFlags,
       journeyEvents
     ] = await Promise.all([
-      input.repositories.fight.listFightOpportunities(userId),
-      input.repositories.tournament.listTournamentPlans(userId),
-      input.repositories.protectedWorkout.listProtectedWorkouts(userId),
-      input.repositories.bodyMass.listLogs(userId),
-      input.repositories.nutrition.listFoodLogs(userId),
-      input.repositories.nutritionSafetyReview?.listActiveNutritionSafetyReviews(userId) ?? Promise.resolve([]),
-      input.repositories.nutritionSafetyReview?.listRecentNutritionSafetyReviewEvents(userId, 25) ?? Promise.resolve([]),
-      input.repositories.hydration.listWaterLogs(userId),
-      input.repositories.hydration.listElectrolyteLogs(userId),
-      input.repositories.cycle.listCycleLogs(userId),
-      input.repositories.cycle.listSymptomLogs(userId),
-      input.repositories.readiness.listCheckIns(userId),
-      input.repositories.wearable.listSignals(userId),
-      input.repositories.training.listCompletedTrainingSessions(userId),
-      input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate),
-      input.repositories.engineRun.listActiveRiskFlags(userId, { asOfDate: input.asOfDate }),
-      input.repositories.journey.listEvents(userId)
+      readJourneyData(issues, "fight.listFightOpportunities", [], () => input.repositories.fight.listFightOpportunities(userId)),
+      readJourneyData(issues, "tournament.listTournamentPlans", [], () => input.repositories.tournament.listTournamentPlans(userId)),
+      readJourneyData(issues, "protectedWorkout.listProtectedWorkouts", [], () => input.repositories.protectedWorkout.listProtectedWorkouts(userId)),
+      readJourneyData(issues, "bodyMass.listLogs", [], () => input.repositories.bodyMass.listLogs(userId)),
+      readJourneyData(issues, "nutrition.listFoodLogs", [], () => input.repositories.nutrition.listFoodLogs(userId)),
+      input.repositories.nutritionSafetyReview
+        ? readJourneyData(issues, "nutritionSafetyReview.listActiveNutritionSafetyReviews", [], () => input.repositories.nutritionSafetyReview!.listActiveNutritionSafetyReviews(userId))
+        : Promise.resolve([]),
+      input.repositories.nutritionSafetyReview
+        ? readJourneyData(issues, "nutritionSafetyReview.listRecentNutritionSafetyReviewEvents", [], () => input.repositories.nutritionSafetyReview!.listRecentNutritionSafetyReviewEvents(userId, 25))
+        : Promise.resolve([]),
+      readJourneyData(issues, "hydration.listWaterLogs", [], () => input.repositories.hydration.listWaterLogs(userId)),
+      readJourneyData(issues, "hydration.listElectrolyteLogs", [], () => input.repositories.hydration.listElectrolyteLogs(userId)),
+      readJourneyData(issues, "cycle.listCycleLogs", [], () => input.repositories.cycle.listCycleLogs(userId)),
+      readJourneyData(issues, "cycle.listSymptomLogs", [], () => input.repositories.cycle.listSymptomLogs(userId)),
+      readJourneyData(issues, "readiness.listCheckIns", [], () => input.repositories.readiness.listCheckIns(userId)),
+      readJourneyData(issues, "wearable.listSignals", [], () => input.repositories.wearable.listSignals(userId)),
+      readJourneyData(issues, "training.listCompletedTrainingSessions", [], () => input.repositories.training.listCompletedTrainingSessions(userId)),
+      readJourneyData(issues, "trainingBlock.getActiveTrainingBlockForDate", null, () => input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate)),
+      readJourneyData(issues, "engineRun.listActiveRiskFlags", [], () => input.repositories.engineRun.listActiveRiskFlags(userId, { asOfDate: input.asOfDate })),
+      readJourneyData(issues, "journey.listEvents", [], () => input.repositories.journey.listEvents(userId))
     ]);
 
     const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
@@ -197,21 +244,22 @@ export async function loadAthleteJourney(input: {
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
     const activeWeekWindow = activeTrainingBlock ? activeTrainingWeekWindow(activeTrainingBlock.block, input.asOfDate) : null;
     const exerciseResults = activeWeekWindow && typeof input.repositories.exerciseResult.listExerciseResultsForDateRange === "function"
-      ? await input.repositories.exerciseResult.listExerciseResultsForDateRange(userId, activeWeekWindow)
-      : await input.repositories.exerciseResult.listRecentExerciseResults(userId);
+      ? await readJourneyData(issues, "exerciseResult.listExerciseResultsForDateRange", [], () => input.repositories.exerciseResult.listExerciseResultsForDateRange(userId, activeWeekWindow))
+      : await readJourneyData(issues, "exerciseResult.listRecentExerciseResults", [], () => input.repositories.exerciseResult.listRecentExerciseResults(userId));
     const [trainingHistory, trainingPlanAdjustments, trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
-          input.repositories.training.listGeneratedSessions(userId, {
+          readJourneyData(issues, "training.listGeneratedSessions", [], () => input.repositories.training.listGeneratedSessions(userId, {
             startDate: activeWeekWindow?.startDate,
             endDate: activeWeekWindow?.endDate,
             trainingBlockId: activeTrainingBlock.id
-          }),
-          input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id),
-          input.repositories.trainingProgression.listTrainingWeekSummaries(userId, activeTrainingBlock.id),
-          input.repositories.trainingProgression.listTrainingProgressionDecisions(userId, activeTrainingBlock.id),
-          input.repositories.trainingProgression.listTrainingBlockTimelineEvents(userId, activeTrainingBlock.id)
+          })),
+          readJourneyData(issues, "trainingBlock.listTrainingPlanAdjustments", [], () => input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id)),
+          readJourneyData(issues, "trainingProgression.listTrainingWeekSummaries", [], () => input.repositories.trainingProgression.listTrainingWeekSummaries(userId, activeTrainingBlock.id)),
+          readJourneyData(issues, "trainingProgression.listTrainingProgressionDecisions", [], () => input.repositories.trainingProgression.listTrainingProgressionDecisions(userId, activeTrainingBlock.id)),
+          readJourneyData(issues, "trainingProgression.listTrainingBlockTimelineEvents", [], () => input.repositories.trainingProgression.listTrainingBlockTimelineEvents(userId, activeTrainingBlock.id))
         ])
       : [[], [], [], [], []];
+    const loadWarnings = loadWarningsFor(issues);
 
     const journey: AthleteJourney = {
       athlete,
@@ -238,13 +286,14 @@ export async function loadAthleteJourney(input: {
       trainingHistory,
       trainingPlanAdjustments,
       protectedWorkouts,
-      safetyFlags,
+      safetyFlags: [...persistedSafetyFlags, ...degradedJourneySafetyFlags(issues)],
       journeyEvents
     };
 
     return {
       status: "ready",
-      journey: parseWithSchema(AthleteJourneySchema, journey, "loadAthleteJourney")
+      journey: parseWithSchema(AthleteJourneySchema, journey, "loadAthleteJourney"),
+      ...(loadWarnings.length > 0 ? { loadWarnings } : {})
     };
   } catch (error) {
     return loadError(error, "Unable to load athlete journey.");

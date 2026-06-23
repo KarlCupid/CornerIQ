@@ -16,7 +16,7 @@ import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousSc
 import { DashboardCard } from "../../design/components/PerformanceVisuals";
 import { glassStyles } from "../../design/glass";
 import { useLuminousScreenTheme } from "../../design/luminousTheme";
-import { radii, spacing } from "../../design/theme";
+import { colors, radii, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { getReleaseLinkConfig } from "../../services/config/runtimeConfig";
@@ -85,8 +85,8 @@ function ProfileStatusPill({ label, tone: _tone = "muted" }: { label: string; to
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: profilePalette.controlFill,
-        borderColor: profilePalette.controlLine,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
         borderRadius: radii.pill,
         borderWidth: 1,
         justifyContent: "center",
@@ -96,7 +96,7 @@ function ProfileStatusPill({ label, tone: _tone = "muted" }: { label: string; to
         paddingVertical: 3
         }}
     >
-      <Text numberOfLines={1} style={{ color: profilePalette.textBody, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
         {label}
       </Text>
     </View>

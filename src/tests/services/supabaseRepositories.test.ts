@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
+import { mapAthleteProfileRow } from "../../services/supabase/athleteRepository";
 import { createBodyMassRepository, mapBodyMassLogRow } from "../../services/supabase/bodyMassRepository";
 import { createCoachRelationshipRepository } from "../../services/supabase/coachRelationshipRepository";
 import { createCycleRepository, mapCycleSymptomLogRow } from "../../services/supabase/cycleRepository";
@@ -1607,6 +1608,57 @@ describe("Supabase repositories", () => {
     if (result.status === "ready") {
       expect(result.journey.nutritionSafetyReviews).toEqual([activeReview]);
       expect(result.journey.nutritionSafetyReviewEvents).toEqual([reviewEvent]);
+    }
+  });
+
+  it("mapAthleteProfileRow normalizes legacy profile payloads with conservative setup review", () => {
+    const legacyProfile = { ...no_wearable_manual_only.athlete } as Record<string, unknown>;
+    delete legacyProfile.eatingDisorderRisk;
+    delete legacyProfile.priorWeightCutHistory;
+    delete legacyProfile.cycleTrackingPreference;
+    delete legacyProfile.wearablePreference;
+
+    const profile = mapAthleteProfileRow({ profile: legacyProfile as never });
+
+    expect(profile.eatingDisorderRisk).toEqual({
+      activeConcern: false,
+      severeRestrictionHistory: false,
+      rapidWeightLossConcern: false,
+      notes: []
+    });
+    expect(profile.priorWeightCutHistory).toEqual({
+      hasCutBefore: false,
+      adverseEvents: [],
+      lowestRecentFightingWeightKg: null
+    });
+    expect(profile.cycleTrackingPreference).toBe("undecided");
+    expect(profile.wearablePreference).toBe("manual_only");
+    expect(profile.medicalFlags).toContain("Profile safety setup needs review after an app update.");
+  });
+
+  it("loadAthleteJourney keeps the account ready when optional journey history cannot refresh", async () => {
+    const repositories = createJourneyRepositories();
+    repositories.training.listCompletedTrainingSessions = vi.fn(async () => {
+      throw new RepositoryError("remote_error", "completed_training_sessions.listCompletedTrainingSessions", "table unavailable");
+    }) as AthleteJourneyRepositories["training"]["listCompletedTrainingSessions"];
+
+    const result = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.journey.completedTrainingSessions).toEqual([]);
+      expect(result.loadWarnings?.join("\n")).toContain("training.listCompletedTrainingSessions");
+      expect(result.loadWarnings?.join("\n")).toContain("table unavailable");
+      expect(result.journey.safetyFlags).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "external_safety_flag",
+            domain: "plan_integrity",
+            blocksPlan: true,
+            hardStop: false
+          })
+        ])
+      );
     }
   });
 

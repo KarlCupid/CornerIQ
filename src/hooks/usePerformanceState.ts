@@ -30,6 +30,10 @@ import {
 import type { CornerSupabaseClient } from "../services/supabase/client";
 import type { EngineGenerationStatus } from "../app/components/EngineGeneratingCard";
 
+type ReadyPerformanceStateResult = Extract<ResolveAndPersistPerformanceStateResult, { status: "ready" }>;
+
+const ENGINE_REFRESH_RETRY_DELAYS_MS = [300, 900] as const;
+
 export interface UsePerformanceStateInput {
   asOfDate?: ISODateString;
   autoRollForwardEnabled?: boolean | undefined;
@@ -67,6 +71,27 @@ export function todayLocalISODate(): ISODateString {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function resolveAndPersistWithRetry(input: Parameters<typeof resolveAndPersistPerformanceState>[0]): Promise<ResolveAndPersistPerformanceStateResult> {
+  let result = await resolveAndPersistPerformanceState(input);
+  for (const delayMs of ENGINE_REFRESH_RETRY_DELAYS_MS) {
+    if (result.status !== "error") {
+      return result;
+    }
+    await wait(delayMs);
+    result = await resolveAndPersistPerformanceState(input);
+  }
+  return result;
+}
+
+function retainedReadyRefreshMessage(result: Extract<ResolveAndPersistPerformanceStateResult, { status: "error" }>): string {
+  const detail = result.cause ? ` Detail: ${result.cause}` : "";
+  return `CornerIQ could not refresh your account just now. Keeping the last loaded view visible.${detail}`;
+}
+
 export function usePerformanceState(input: UsePerformanceStateInput): PerformanceStateHook {
   const asOfDate = input.asOfDate ?? todayLocalISODate();
   const userId = input.session.user.id;
@@ -77,11 +102,18 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const [generationStatus, setGenerationStatus] = useState<EngineGenerationStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const latestAthleteProfileRef = useRef<AthleteProfile | null>(null);
+  const latestReadyResultRef = useRef<ReadyPerformanceStateResult | null>(null);
   const mountedRef = useRef(true);
   const refreshRunIdRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
+    latestAthleteProfileRef.current = null;
+    latestReadyResultRef.current = null;
+    setResult(null);
+    setMessage(null);
+    setLoading(true);
+    setGenerationStatus("idle");
     return () => {
       mountedRef.current = false;
       refreshRunIdRef.current += 1;
@@ -95,21 +127,23 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     setLoading(true);
     setGenerationStatus(status);
     setMessage(null);
-    const next = await resolveAndPersistPerformanceState({
+    const next = await resolveAndPersistWithRetry({
       userId,
       asOfDate,
       repositories
     });
     let final = next;
     let nextMessage: string | null = null;
+    let latestReadyCandidate: ReadyPerformanceStateResult | null = next.status === "ready" ? next : null;
     if (next.status === "ready") {
       const auto = await runAutoRollForward(next.state);
       if (auto.status === "materialized" && auto.shouldRefreshState) {
-        final = await resolveAndPersistPerformanceState({
+        final = await resolveAndPersistWithRetry({
           userId,
           asOfDate,
           repositories
         });
+        latestReadyCandidate = final.status === "ready" ? final : latestReadyCandidate;
         nextMessage =
           final.status === "ready"
             ? auto.explanation
@@ -121,9 +155,30 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       }
     }
     if (isActiveRun()) {
-      latestAthleteProfileRef.current = final.status === "ready" ? final.state.athlete : null;
-      setResult(final);
-      setMessage(nextMessage);
+      if (final.status === "ready") {
+        latestReadyResultRef.current = final;
+        latestAthleteProfileRef.current = final.state.athlete;
+        setResult(final);
+        setMessage(nextMessage);
+      } else if (final.status === "error") {
+        const retained = latestReadyCandidate ?? latestReadyResultRef.current;
+        if (!retained) {
+          latestAthleteProfileRef.current = null;
+          setResult(final);
+          setMessage(nextMessage);
+          setLoading(false);
+          setGenerationStatus("idle");
+          return final;
+        }
+        latestReadyResultRef.current = retained;
+        latestAthleteProfileRef.current = retained.state.athlete;
+        setResult(retained);
+        setMessage(nextMessage ?? retainedReadyRefreshMessage(final));
+      } else {
+        latestAthleteProfileRef.current = null;
+        setResult(final);
+        setMessage(nextMessage);
+      }
       setLoading(false);
       setGenerationStatus("idle");
     }
