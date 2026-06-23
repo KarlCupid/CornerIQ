@@ -24,6 +24,7 @@ function profile(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
     trainingAgeYears: 4,
     injuryHistory: [],
     medicalFlags: [],
+    pregnancyStatus: "not_pregnant",
     eatingDisorderRisk: {
       activeConcern: false,
       severeRestrictionHistory: false,

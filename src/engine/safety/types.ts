@@ -24,6 +24,8 @@ export type AcuteCutRiskCode =
   | "minor_acute_cut_blocked"
   | "ed_risk_cut_blocked"
   | "pregnancy_cut_blocked"
+  | "pregnancy_status_unknown"
+  | "postpartum_cut_review"
   | "hard_stop_blocks_cut"
   | "same_day_acute_loss_blocked"
   | "short_notice_unsafe_loss"

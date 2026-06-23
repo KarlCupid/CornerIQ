@@ -151,6 +151,30 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.nutrition.acuteProtocolEligibility.blockReasons.join(" ")).toContain("pregnancy");
   });
 
+  it("sex and pregnancy context influence acute weight-cut eligibility", () => {
+    const unknownPregnancyContext = resolvePerformanceState({
+      journey: withFight(pro_8_round_camp_day_before_weigh_in, {}, { pregnancyStatus: "unknown", sexAtBirth: "female" }),
+      asOfDate: fixtureAsOfDate
+    });
+    const maleContext = resolvePerformanceState({
+      journey: withFight(pro_8_round_camp_day_before_weigh_in, {}, { pregnancyStatus: undefined, sexAtBirth: "male" }),
+      asOfDate: fixtureAsOfDate
+    });
+    const postpartumContext = resolvePerformanceState({
+      journey: withFight(pro_8_round_camp_day_before_weigh_in, {}, { pregnancyStatus: "postpartum", sexAtBirth: "female" }),
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(unknownPregnancyContext.nutrition.acuteProtocolEligibility.status).toBe("blocked");
+    expect(unknownPregnancyContext.nutrition.acuteProtocolEligibility.blockReasons.join(" ")).toContain("Pregnancy safety context is unknown");
+    expect(unknownPregnancyContext.safety.riskFlags.map((flag) => flag.code)).toContain("pregnancy_status_unknown");
+    expect(postpartumContext.nutrition.acuteProtocolEligibility.status).toBe("blocked");
+    expect(postpartumContext.nutrition.acuteProtocolEligibility.blockReasons.join(" ")).toContain("Postpartum context requires professional review");
+    expect(postpartumContext.safety.riskFlags.map((flag) => flag.code)).toContain("postpartum_cut_review");
+    expect(maleContext.nutrition.acuteProtocolEligibility.status).toBe("eligible_education");
+    expect(maleContext.safety.riskFlags.map((flag) => flag.code)).not.toContain("pregnancy_status_unknown");
+  });
+
   it("sparring day preserves carbs and fuel demand handoff", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
 

@@ -1,11 +1,67 @@
 import React, { useState } from "react";
 import { Text, View } from "react-native";
 import { spacing } from "../../../../design/theme";
+import { cmToIn, inToCm, kgToLb, lbToKg } from "../../../../engine/core/units";
 import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
 import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
 
 type BodyMassField = "currentBodyMassKg" | "typicalWalkAroundWeightKg" | "heightCm";
+type BodyMassUnits = OnboardingStepProps["draft"]["bodyMass"]["preferredUnits"];
+
+const bodyMassUnitCopy: Record<
+  BodyMassUnits,
+  {
+    currentExample: string;
+    heightExample: string;
+    heightUnit: string;
+    massUnit: string;
+    walkAroundExample: string;
+  }
+> = {
+  imperial: {
+    currentExample: "180",
+    heightExample: "70",
+    heightUnit: "in",
+    massUnit: "lb",
+    walkAroundExample: "185"
+  },
+  metric: {
+    currentExample: "82",
+    heightExample: "178",
+    heightUnit: "cm",
+    massUnit: "kg",
+    walkAroundExample: "84"
+  }
+};
+
+function formatMeasurement(value: number): string {
+  return Number(value.toFixed(1)).toString();
+}
+
+function displayMassText(kg: number, units: BodyMassUnits): string {
+  return formatMeasurement(units === "imperial" ? kgToLb(kg) : kg);
+}
+
+function displayHeightText(cm: number, units: BodyMassUnits): string {
+  return formatMeasurement(units === "imperial" ? cmToIn(cm) : cm);
+}
+
+function canonicalMassValue(value: number, units: BodyMassUnits): number {
+  return units === "imperial" ? lbToKg(value) : value;
+}
+
+function canonicalHeightValue(value: number, units: BodyMassUnits): number {
+  return units === "imperial" ? inToCm(value) : value;
+}
+
+function bodyMassTextsFromDraft(draft: OnboardingStepProps["draft"]["bodyMass"], units: BodyMassUnits) {
+  return {
+    currentMassText: displayMassText(draft.currentBodyMassKg, units),
+    heightText: displayHeightText(draft.heightCm, units),
+    walkAroundText: displayMassText(draft.typicalWalkAroundWeightKg, units)
+  };
+}
 
 function positiveNumber(value: string): number | null {
   const parsed = Number(value);
@@ -26,14 +82,24 @@ function bodyMassTextError(input: { currentMassText: string; heightText: string;
 }
 
 export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingStepProps) {
-  const [currentMassText, setCurrentMassText] = useState(`${draft.bodyMass.currentBodyMassKg}`);
-  const [walkAroundText, setWalkAroundText] = useState(`${draft.bodyMass.typicalWalkAroundWeightKg}`);
-  const [heightText, setHeightText] = useState(`${draft.bodyMass.heightCm}`);
+  const [currentMassText, setCurrentMassText] = useState(() => displayMassText(draft.bodyMass.currentBodyMassKg, draft.bodyMass.preferredUnits));
+  const [walkAroundText, setWalkAroundText] = useState(() => displayMassText(draft.bodyMass.typicalWalkAroundWeightKg, draft.bodyMass.preferredUnits));
+  const [heightText, setHeightText] = useState(() => displayHeightText(draft.bodyMass.heightCm, draft.bodyMass.preferredUnits));
+  const unitCopy = bodyMassUnitCopy[draft.bodyMass.preferredUnits];
   const applyBodyMassUpdate = (field: BodyMassField, value: string, nextTexts: { currentMassText: string; heightText: string; walkAroundText: string }) => {
     const parsed = positiveNumber(value);
     if (parsed !== null) {
-      updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, [field]: parsed } }));
+      const canonicalValue = field === "heightCm" ? canonicalHeightValue(parsed, draft.bodyMass.preferredUnits) : canonicalMassValue(parsed, draft.bodyMass.preferredUnits);
+      updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, [field]: canonicalValue } }));
     }
+    setStepError(bodyMassTextError(nextTexts));
+  };
+  const changePreferredUnits = (preferredUnits: BodyMassUnits) => {
+    const nextTexts = bodyMassTextsFromDraft(draft.bodyMass, preferredUnits);
+    setCurrentMassText(nextTexts.currentMassText);
+    setWalkAroundText(nextTexts.walkAroundText);
+    setHeightText(nextTexts.heightText);
+    updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, preferredUnits } }));
     setStepError(bodyMassTextError(nextTexts));
   };
 
@@ -42,52 +108,49 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
       <Text style={screenStyles.sectionTitle}>Body weight</Text>
       <Text style={screenStyles.subtle}>Used for conservative weight-class safety.</Text>
       <LabeledTextInput
-        example="82"
+        example={unitCopy.currentExample}
         helper="Current scale value."
         keyboardType="decimal-pad"
-        label="Current body weight (kg)"
+        label={`Current body weight (${unitCopy.massUnit})`}
         onChangeText={(value) => {
           setCurrentMassText(value);
           applyBodyMassUpdate("currentBodyMassKg", value, { currentMassText: value, heightText, walkAroundText });
         }}
-        placeholder="Current body weight kg"
+        placeholder={`Current body weight ${unitCopy.massUnit}`}
         value={currentMassText}
       />
       <LabeledTextInput
-        example="84"
+        example={unitCopy.walkAroundExample}
         helper="Normal training weight, not a target."
         keyboardType="decimal-pad"
-        label="Typical walk-around body weight (kg)"
+        label={`Typical walk-around body weight (${unitCopy.massUnit})`}
         onChangeText={(value) => {
           setWalkAroundText(value);
           applyBodyMassUpdate("typicalWalkAroundWeightKg", value, { currentMassText, heightText, walkAroundText: value });
         }}
-        placeholder="Typical walk-around kg"
+        placeholder={`Typical walk-around ${unitCopy.massUnit}`}
         value={walkAroundText}
       />
       <LabeledTextInput
-        example="178"
+        example={unitCopy.heightExample}
         helper="Basic safety context."
         keyboardType="decimal-pad"
-        label="Height (cm)"
+        label={`Height (${unitCopy.heightUnit})`}
         onChangeText={(value) => {
           setHeightText(value);
           applyBodyMassUpdate("heightCm", value, { currentMassText, heightText: value, walkAroundText });
         }}
-        placeholder="Height cm"
+        placeholder={`Height ${unitCopy.heightUnit}`}
         value={heightText}
       />
-      <FieldGroup helper="Setup entry stays kg/cm; this saves display preference." label="Preferred display units">
+      <FieldGroup helper="Use the units you want for setup and future display. CornerIQ stores the engine values safely behind the scenes." label="Preferred display units">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["metric", "imperial"] as const).map((option) => (
             <ChipButton
               active={draft.bodyMass.preferredUnits === option}
               key={option}
               label={option === "metric" ? "Metric displays" : "Imperial displays"}
-              onPress={() => {
-                updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, preferredUnits: option } }));
-                setStepError(bodyMassTextError({ currentMassText, heightText, walkAroundText }));
-              }}
+              onPress={() => changePreferredUnits(option)}
             />
           ))}
         </View>

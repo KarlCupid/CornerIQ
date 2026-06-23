@@ -4826,7 +4826,7 @@ describe("minimal app screens", () => {
     expect(bodyMassOutput).toContain("Current body weight (kg)");
     expect(bodyMassOutput).toContain("Typical walk-around body weight (kg)");
     expect(bodyMassOutput).toContain("Example: 82");
-    expect(bodyMassOutput).toContain("Setup entry stays kg/cm; this saves display preference.");
+    expect(bodyMassOutput).toContain("Use the units you want for setup and future display.");
 
     const accessOutput = JSON.stringify(render(React.createElement(TrainingAccessStep, stepProps)).toJSON());
     expect(accessOutput).toContain("Equipment access");

@@ -217,6 +217,20 @@ describe("onboardingService", () => {
     expect(store.profile?.wearablePreference).toBe("manual_only");
   });
 
+  it("onboarding safety demographics write to the athlete profile for engine use", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
+    draft.safety.ageYears = 29;
+    draft.safety.sexAtBirth = "female";
+    draft.safety.pregnancyStatus = "not_pregnant";
+
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft, repositories });
+
+    expect(store.profile?.ageYears).toBe(29);
+    expect(store.profile?.sexAtBirth).toBe("female");
+    expect(store.profile?.pregnancyStatus).toBe("not_pregnant");
+  });
+
   it("fight setup onboarding writes a fight opportunity and resolves camp objective", async () => {
     const { repositories, store } = createOnboardingRepositories();
     const draft = createDefaultOnboardingDraft(fixtureAsOfDate);
