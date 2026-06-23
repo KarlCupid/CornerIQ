@@ -265,7 +265,7 @@ export function ScreenHeader({
 }
 
 export function AccentPill({
-  accent = "blue",
+  accent: _accent = "blue",
   label
 }: {
   accent?: LuminousAccent | undefined;
@@ -275,11 +275,9 @@ export function AccentPill({
     <View
       style={{
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.065)",
-        borderColor: `${accentColor[accent]}5F`,
-        borderLeftColor: accentColor[accent],
-        borderLeftWidth: 3,
-        borderRadius: 10,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
+        borderRadius: radii.pill,
         borderWidth: 1,
         minHeight: 32,
         justifyContent: "center",
@@ -287,7 +285,7 @@ export function AccentPill({
         paddingVertical: spacing.xs
       }}
     >
-      <Text style={{ color: accent === "gold" ? colors.gold : accentColor[accent], fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
+      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
         {label}
       </Text>
     </View>

@@ -168,4 +168,33 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(workoutSource).toContain("train-workout-preview-card");
     expect(workoutSource).not.toContain("screenStyles.heroTitle");
   });
+
+  it("keeps card pills free of accent rails and marker dots", () => {
+    const pillBlocks: readonly { end: string; file: string; start: string }[] = [
+      { file: "src/design/components/LuminousScreen.tsx", start: "export function AccentPill", end: "export function LuminousProgressBar" },
+      { file: "src/design/components/PerformanceVisuals.tsx", start: "export function DashboardPill", end: "function RingSegments" },
+      { file: "src/design/components/StatusBadge.tsx", start: "export function StatusBadge", end: "" },
+      { file: "src/app/screens/screenStyles.ts", start: "headerPill:", end: "headerPillText:" },
+      { file: "src/app/screens/TodayScreen.tsx", start: "function TodayTonePill", end: "function TodayButton" },
+      { file: "src/app/screens/TrainScreen.tsx", start: "function TrainTonePill", end: "function TrainPrimaryButton" },
+      { file: "src/app/screens/FuelScreen.tsx", start: "function FuelTonePill", end: "function FuelActionButton" },
+      { file: "src/app/screens/PlanScreen.tsx", start: "function PlanTonePill", end: "function PlanButton" },
+      { file: "src/app/screens/ProfileScreen.tsx", start: "function ProfileStatusPill", end: "export interface ProfileScreenProps" },
+      { file: "src/app/screens/train/WorkoutPlayer.tsx", start: "function PreviewPill", end: "function SegmentedTimerRing" },
+      { file: "src/app/screens/AuthScreen.tsx", start: "function TrustPills", end: "export function AuthScreen" }
+    ];
+
+    for (const { end, file, start } of pillBlocks) {
+      const source = readFileSync(file, "utf8");
+      const startIndex = source.indexOf(start);
+      expect(startIndex, `${file} missing ${start}`).toBeGreaterThanOrEqual(0);
+      const endIndex = end ? source.indexOf(end, startIndex + start.length) : source.length;
+      expect(endIndex, `${file} missing ${end}`).toBeGreaterThan(startIndex);
+      const block = source.slice(startIndex, endIndex);
+
+      expect(block, `${file} ${start} should not render a left accent rail`).not.toMatch(/borderLeft(?:Color|Width)/);
+      expect(block, `${file} ${start} should not render a marker dot`).not.toMatch(/height:\s*[78][\s\S]{0,120}width:\s*[78]/);
+      expect(block, `${file} ${start} should use neutral pill fills and borders`).not.toMatch(/(?:backgroundColor|borderColor):\s*(?:color|toneColor|trainTint|fuelTint|planTint|`\$\{toneColor)/);
+    }
+  });
 });

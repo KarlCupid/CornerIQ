@@ -383,32 +383,26 @@ function SignUpInfoNote() {
 }
 
 function TrustPills() {
-  const items = [
-    { color: colors.redCorner, label: "Readiness" },
-    { color: "#159CFF", label: "Training" },
-    { color: "#2EDDE3", label: "Fuel" }
-  ];
+  const items = ["Readiness", "Training", "Fuel"];
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "center", width: "100%" }}>
-      {items.map((item) => (
+      {items.map((label) => (
         <View
-          key={item.label}
+          key={label}
           style={{
             alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.035)",
-            borderColor: "rgba(217, 228, 244, 0.18)",
+            backgroundColor: "rgba(255, 255, 255, 0.06)",
+            borderColor: "rgba(217, 228, 244, 0.16)",
             borderCurve: "continuous",
             borderRadius: radii.pill,
             borderWidth: 1,
-            flexDirection: "row",
-            gap: spacing.sm,
+            justifyContent: "center",
             minHeight: 44,
             minWidth: 112,
             paddingHorizontal: spacing.md
           }}
         >
-          <View style={{ backgroundColor: item.color, borderRadius: 7, height: 14, width: 14 }} />
-          <Text style={{ color: "rgba(217, 228, 244, 0.86)", fontSize: 15, fontWeight: "600", lineHeight: 20 }}>{item.label}</Text>
+          <Text style={{ color: "rgba(217, 228, 244, 0.86)", fontSize: 15, fontWeight: "600", lineHeight: 20 }}>{label}</Text>
         </View>
       ))}
     </View>

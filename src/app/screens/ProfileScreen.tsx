@@ -78,31 +78,25 @@ function profileTint(tone: ProfileVisualTone, alpha: string): string {
   return `${profileColorForTone(tone)}${alpha}`;
 }
 
-function ProfileStatusPill({ label, tone = "muted" }: { label: string; tone?: ProfileVisualTone | undefined }) {
-  const toneColor = profileColorForTone(tone);
+function ProfileStatusPill({ label, tone: _tone = "muted" }: { label: string; tone?: ProfileVisualTone | undefined }) {
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        flexDirection: "row",
-        gap: spacing.xs,
+        backgroundColor: profilePalette.controlFill,
+        borderColor: profilePalette.controlLine,
+        borderRadius: radii.pill,
+        borderWidth: 1,
         justifyContent: "center",
         maxWidth: 180,
-        minHeight: 24
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: toneColor,
-          borderRadius: 4,
-          height: 8,
-          opacity: 0.9,
-          width: 8
+        minHeight: 26,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 3
         }}
-      />
-      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
+    >
+      <Text numberOfLines={1} style={{ color: profilePalette.textBody, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
         {label}
       </Text>
     </View>

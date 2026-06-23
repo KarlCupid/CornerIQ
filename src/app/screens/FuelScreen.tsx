@@ -341,20 +341,17 @@ function guideValue(dashboard: FuelDashboardVisual, label: RegExp): string {
   return dashboard.todayGuide.find((item) => label.test(item.label))?.valueLabel ?? "Guide";
 }
 
-function FuelTonePill({ label, tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
-  const color = colorForTone(tone);
+function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: fuelTint(tone, "14"),
-        borderColor: fuelTint(tone, "3D"),
+        backgroundColor: fuelPalette.controlFill,
+        borderColor: fuelPalette.controlLine,
         borderRadius: radii.pill,
         borderWidth: 1,
-        flexDirection: "row",
-        gap: spacing.xs,
         justifyContent: "center",
         maxWidth: 190,
         minHeight: 28,
@@ -362,8 +359,7 @@ function FuelTonePill({ label, tone = "muted" }: { label: string; tone?: VisualT
         paddingVertical: 3
       }}
     >
-      <View style={{ backgroundColor: color, borderRadius: 4, height: 7, opacity: 0.88, width: 7 }} />
-      <Text numberOfLines={1} style={{ color, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: fuelPalette.textBody, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>

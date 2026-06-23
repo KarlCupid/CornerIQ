@@ -79,31 +79,25 @@ export function DashboardCard({
   );
 }
 
-export function DashboardPill({ label, tone = "blue" }: { label: string; tone?: VisualTone | undefined }) {
-  const toneColor = colorForTone(tone);
+export function DashboardPill({ label, tone: _tone = "blue" }: { label: string; tone?: VisualTone | undefined }) {
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        flexDirection: "row",
-        gap: spacing.xs,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
+        borderRadius: radii.pill,
+        borderWidth: 1,
         justifyContent: "center",
         maxWidth: 180,
-        minHeight: 24
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: toneColor,
-          borderRadius: 4,
-          height: 8,
-          opacity: 0.92,
-          width: 8
+        minHeight: 26,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 3
         }}
-      />
-      <Text numberOfLines={1} style={{ color: toneColor, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
+    >
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
         {label}
       </Text>
     </View>

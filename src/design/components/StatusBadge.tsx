@@ -4,26 +4,15 @@ import { colors, spacing } from "../theme";
 
 export type StatusBadgeTone = "neutral" | "info" | "success" | "caution" | "critical";
 
-const toneColor: Record<StatusBadgeTone, string> = {
-  caution: colors.amberCaution,
-  critical: colors.redCorner,
-  info: colors.blueIQ,
-  neutral: colors.wrap,
-  success: colors.readyGreen
-};
-
-export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?: StatusBadgeTone }) {
-  const color = toneColor[tone];
+export function StatusBadge({ label, tone: _tone = "neutral" }: { label: string; tone?: StatusBadgeTone }) {
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.065)",
-        borderColor: `${color}5F`,
-        borderLeftColor: color,
-        borderLeftWidth: 3,
-        borderRadius: 10,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
+        borderRadius: 999,
         borderWidth: 1,
         justifyContent: "center",
         minHeight: 32,
@@ -31,7 +20,7 @@ export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?:
         paddingVertical: spacing.xs
       }}
     >
-      <Text numberOfLines={1} style={{ color, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>{label}</Text>
     </View>
   );
 }

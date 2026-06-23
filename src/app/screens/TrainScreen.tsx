@@ -383,20 +383,17 @@ function currentWeekDays(viewModel: TrainViewModel, asOfDate?: ISODateString | u
   });
 }
 
-function TrainTonePill({ label, tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
-  const color = trainColorForTone(tone);
+function TrainTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: trainTint(tone, "14"),
-        borderColor: trainTint(tone, "3D"),
+        backgroundColor: trainPalette.controlFill,
+        borderColor: trainPalette.controlLine,
         borderRadius: radii.pill,
         borderWidth: 1,
-        flexDirection: "row",
-        gap: spacing.xs,
         justifyContent: "center",
         maxWidth: 180,
         minHeight: 28,
@@ -404,8 +401,7 @@ function TrainTonePill({ label, tone = "muted" }: { label: string; tone?: Visual
         paddingVertical: 3
       }}
     >
-      <View style={{ backgroundColor: color, borderRadius: 4, height: 7, opacity: 0.9, width: 7 }} />
-      <Text numberOfLines={1} style={{ color, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: trainPalette.textBody, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>

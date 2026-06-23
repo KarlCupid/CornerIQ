@@ -580,27 +580,23 @@ function PlanActiveWorkspaceFrame({ children, generationStatus }: React.PropsWit
   );
 }
 
-function PlanTonePill({ label, tone = "green" }: { label: string; tone?: PlanTone | undefined }) {
-  const color = planToneColors[tone];
+function PlanTonePill({ label, tone: _tone = "green" }: { label: string; tone?: PlanTone | undefined }) {
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: planTint(tone, "16"),
-        borderColor: planTint(tone, "44"),
+        backgroundColor: planPalette.controlFill,
+        borderColor: planPalette.controlLine,
         borderRadius: radii.pill,
         borderWidth: 1,
-        flexDirection: "row",
-        gap: spacing.xs,
         minHeight: 28,
         paddingHorizontal: spacing.sm,
         paddingVertical: 3
       }}
     >
-      <View style={{ backgroundColor: color, borderRadius: 4, height: 7, width: 7 }} />
-      <Text numberOfLines={1} style={{ color, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: planPalette.textBody, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>

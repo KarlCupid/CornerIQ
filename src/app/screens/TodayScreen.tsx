@@ -371,31 +371,24 @@ function TodayQuickCheckModal({
   );
 }
 
-function TodayTonePill({ label, tone = "blue" }: { label: string; tone?: VisualTone | undefined }) {
-  const theme = useLuminousScreenTheme();
-  const color = colorForTone(tone);
+function TodayTonePill({ label, tone: _tone = "blue" }: { label: string; tone?: VisualTone | undefined }) {
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: theme.control,
-        borderColor: theme.controlBorder,
-        borderLeftColor: color,
-        borderLeftWidth: 3,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
         borderRadius: radii.pill,
         borderWidth: 1,
-        flexDirection: "row",
-        gap: spacing.xs,
         justifyContent: "center",
         minHeight: 30,
         paddingHorizontal: spacing.md,
         paddingVertical: 4
       }}
     >
-      <View style={{ backgroundColor: color, borderRadius: 4, height: 7, width: 7 }} />
-      <Text numberOfLines={1} style={{ color, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
         {label}
       </Text>
     </View>

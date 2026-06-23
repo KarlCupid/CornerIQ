@@ -291,23 +291,20 @@ function WorkoutScreenFrame({
   );
 }
 
-function PreviewPill({ label, tone = "blue" }: { label: string; tone?: "blue" | "green" | "orange" | "quiet" | undefined }) {
-  const toneColor = tone === "green" ? colors.readyGreen : tone === "orange" ? colors.amberCaution : tone === "quiet" ? colors.wrap : colors.blueIQ;
+function PreviewPill({ label, tone: _tone = "blue" }: { label: string; tone?: "blue" | "green" | "orange" | "quiet" | undefined }) {
   return (
     <View
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.065)",
-        borderColor: tone === "quiet" ? colors.line : `${toneColor}5F`,
-        borderLeftColor: toneColor,
-        borderLeftWidth: 3,
-        borderRadius: 10,
+        backgroundColor: "rgba(255, 255, 255, 0.075)",
+        borderColor: "rgba(255, 255, 255, 0.16)",
+        borderRadius: radii.pill,
         borderWidth: 1,
         minHeight: 34,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.xs
       }}
     >
-      <Text numberOfLines={1} style={{ color: tone === "orange" ? colors.canvas : toneColor, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 17 }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 17 }}>{label}</Text>
     </View>
   );
 }

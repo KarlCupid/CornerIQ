@@ -55,12 +55,10 @@ export const screenStyles = {
   } satisfies TextStyle,
   headerPill: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.065)",
-    borderColor: "rgba(39, 206, 241, 0.38)",
+    backgroundColor: "rgba(255, 255, 255, 0.075)",
+    borderColor: "rgba(255, 255, 255, 0.16)",
     borderCurve: "continuous",
-    borderLeftColor: colors.blueIQ,
-    borderLeftWidth: 3,
-    borderRadius: 10,
+    borderRadius: 999,
     borderWidth: 1,
     minHeight: 28,
     justifyContent: "center",
@@ -68,7 +66,7 @@ export const screenStyles = {
     paddingVertical: spacing.xs
   } satisfies ViewStyle,
   headerPillText: {
-    color: colors.blueIQ,
+    color: colors.wrap,
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0,
