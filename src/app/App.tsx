@@ -105,11 +105,11 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   }
 
   if (performance.result?.status === "error") {
-    return <AppErrorState message={performance.result.error} cause={performance.result.cause} onRetry={() => void performance.refresh()} />;
+    return <AppErrorState message={performance.result.error} cause={performance.result.cause} onRetry={() => void performance.refresh()} onSignOut={() => void guardedSignOut()} />;
   }
 
   if (!performance.result || performance.result.status !== "ready") {
-    return <AppErrorState message="Engine state is unavailable." onRetry={() => void performance.refresh()} />;
+    return <AppErrorState message="Engine state is unavailable." onRetry={() => void performance.refresh()} onSignOut={() => void guardedSignOut()} />;
   }
 
   return (

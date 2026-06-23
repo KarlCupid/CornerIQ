@@ -6,6 +6,7 @@ export interface AppErrorStateProps {
   cause?: string | undefined;
   message: string;
   onRetry: () => void;
+  onSignOut?: (() => void) | undefined;
 }
 
 function safeCause(cause: string | undefined): string | null {
@@ -18,8 +19,17 @@ function safeCause(cause: string | undefined): string | null {
   return `Detail: ${cause}`;
 }
 
-export function AppErrorState({ cause, message, onRetry }: AppErrorStateProps) {
+export function AppErrorState({ cause, message, onRetry, onSignOut }: AppErrorStateProps) {
   const detail = safeCause(cause);
   const supportCopy = `${SUPPORT_OUTSIDE_APP_COPY} ${URGENT_SUPPORT_COPY}`;
-  return <StartupState title="CornerIQ needs a retry" message={detail ? `${message} ${detail} ${supportCopy}` : `${message} ${supportCopy}`} actionLabel="Retry" onAction={onRetry} />;
+  const signOutProps = onSignOut ? { onSecondaryAction: onSignOut, secondaryActionLabel: "Sign out on this device" } : {};
+  return (
+    <StartupState
+      title="CornerIQ needs a retry"
+      message={detail ? `${message} ${detail} ${supportCopy}` : `${message} ${supportCopy}`}
+      actionLabel="Retry"
+      onAction={onRetry}
+      {...signOutProps}
+    />
+  );
 }

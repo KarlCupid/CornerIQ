@@ -63,6 +63,20 @@ export async function assertSupabaseAuthStorageAvailable(): Promise<void> {
   await resolveAuthStorage();
 }
 
+export function supabaseAuthStorageKeyForUrl(url: string): string {
+  const baseUrl = new URL(url);
+  return `sb-${baseUrl.hostname.split(".")[0]}-auth-token`;
+}
+
+export async function clearSupabaseAuthStorage(config: CornerSupabaseConfig | null = getSupabaseConfigFromEnv()): Promise<void> {
+  if (config === null) {
+    return;
+  }
+  const storageKey = supabaseAuthStorageKeyForUrl(config.url);
+  await supabaseAuthStorage.removeItem(storageKey);
+  await supabaseAuthStorage.removeItem(`${storageKey}-code-verifier`);
+}
+
 function isValidHttpUrl(value: string): boolean {
   try {
     const parsed = new URL(value);

@@ -13,6 +13,8 @@ export interface StartupStateProps {
   actionLabel?: string;
   message: string;
   onAction?: () => void;
+  onSecondaryAction?: () => void;
+  secondaryActionLabel?: string;
   title: string;
 }
 
@@ -203,7 +205,7 @@ function ManualInputsFooter() {
   );
 }
 
-export function StartupState({ title, message, actionLabel, onAction }: StartupStateProps) {
+export function StartupState({ title, message, actionLabel, onAction, onSecondaryAction, secondaryActionLabel }: StartupStateProps) {
   const insets = useSafeAreaInsets();
   const isCornerStartup = title === "CornerIQ";
   const heading = isCornerStartup ? "Preparing your corner" : title;
@@ -288,6 +290,29 @@ export function StartupState({ title, message, actionLabel, onAction }: StartupS
             >
               <Text style={{ color: colors.cornerBlack, fontSize: 16, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
                 {actionLabel}
+              </Text>
+            </Pressable>
+          ) : null}
+          {secondaryActionLabel && onSecondaryAction ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onSecondaryAction}
+              style={{
+                alignItems: "center",
+                backgroundColor: "rgba(255, 255, 255, 0.075)",
+                borderColor: "rgba(255, 255, 255, 0.16)",
+                borderCurve: "continuous",
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                justifyContent: "center",
+                minHeight: 50,
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.md,
+                width: "100%"
+              }}
+            >
+              <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+                {secondaryActionLabel}
               </Text>
             </Pressable>
           ) : null}

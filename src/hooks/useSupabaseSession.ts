@@ -4,6 +4,7 @@ import { Linking } from "react-native";
 import { createAuthService } from "../services/supabase/authService";
 import {
   assertSupabaseAuthStorageAvailable,
+  clearSupabaseAuthStorage,
   getCornerSupabaseClient,
   getSupabaseConfigFromEnv,
   isSupabaseAuthStorageUnavailableError,
@@ -339,6 +340,17 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
     [auth]
   );
 
+  const completeLocalSignOut = useCallback(async () => {
+    try {
+      await clearSupabaseAuthStorage();
+    } catch {
+      // A failed storage cleanup must not trap the user behind an authenticated error screen.
+    }
+    setPasswordRecoveryReady(false);
+    setSession(null);
+    setAuthMessage("Signed out on this device. Sign in again when you are ready.");
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!auth) {
       setAuthError("Supabase auth is not configured.");
@@ -350,17 +362,17 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
     try {
       const { error } = await auth.signOut();
       if (error) {
-        setAuthError(error.message);
+        await completeLocalSignOut();
         return;
       }
       setPasswordRecoveryReady(false);
       setSession(null);
-    } catch (error) {
-      setAuthError(authErrorMessage(error, "Sign-out failed. Check the connection and try again."));
+    } catch {
+      await completeLocalSignOut();
     } finally {
       setAuthLoading(false);
     }
-  }, [auth]);
+  }, [auth, completeLocalSignOut]);
 
   const updatePassword = useCallback(
     async (password: string) => {

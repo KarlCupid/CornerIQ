@@ -5360,10 +5360,11 @@ describe("minimal app screens", () => {
 
   it("AppErrorState renders a retryable error", async () => {
     const { AppErrorState } = await import("../../app/components/AppErrorState");
-    const output = JSON.stringify(render(React.createElement(AppErrorState, { message: "Unable to load athlete journey.", cause: "read failed", onRetry: vi.fn() })).toJSON());
+    const output = JSON.stringify(render(React.createElement(AppErrorState, { message: "Unable to load athlete journey.", cause: "read failed", onRetry: vi.fn(), onSignOut: vi.fn() })).toJSON());
     expect(output).toContain("Unable to load athlete journey.");
     expect(output).toContain("Detail: read failed");
     expect(output).toContain("Retry");
+    expect(output).toContain("Sign out on this device");
     const stackOutput = JSON.stringify(render(React.createElement(AppErrorState, { message: "Unable to load athlete journey.", cause: "Error: nope\n at stack", onRetry: vi.fn() })).toJSON());
     expect(stackOutput).toContain("Details are available in the development logs.");
     expect(stackOutput).not.toContain(" at stack");
@@ -5519,6 +5520,44 @@ describe("minimal app screens", () => {
       await missingSnapshot.current?.requestPasswordReset("boxer@example.com");
     });
     expect(missingSnapshot.current?.authError).toContain("not configured");
+  });
+
+  it("useSupabaseSession clears the local session when remote sign-out fails", async () => {
+    const signedInSession = { user: { id: "user_1", email: "boxer@example.com" } } as unknown as Session;
+    const fakeAuth = {
+      exchangeCodeForSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
+      getSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      requestPasswordReset: vi.fn(async () => ({ data: {}, error: null })),
+      setSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
+      signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      signOut: vi.fn(async () => ({ error: { message: "Network sign-out failed", name: "AuthRetryableFetchError" } })),
+      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      updatePassword: vi.fn(async () => ({ data: { user: signedInSession.user }, error: null }))
+    };
+    const fakeClientFactory = () => ({ auth: {} }) as unknown as CornerSupabaseClient;
+    const fakeAuthServiceFactory = () => fakeAuth as unknown as ReturnType<typeof createAuthService>;
+    const snapshot: { current: SupabaseSessionState | null } = { current: null };
+    function Probe() {
+      snapshot.current = useSupabaseSession({
+        authServiceFactory: fakeAuthServiceFactory,
+        clientFactory: fakeClientFactory
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => undefined);
+    expect(snapshot.current?.session).toBe(signedInSession);
+
+    await act(async () => {
+      await snapshot.current?.signOut();
+    });
+
+    expect(fakeAuth.signOut).toHaveBeenCalled();
+    expect(snapshot.current?.session).toBeNull();
+    expect(snapshot.current?.authError).toBeNull();
+    expect(snapshot.current?.authMessage).toContain("Signed out on this device");
   });
 
   it("usePerformanceState handles ready, needs_profile, and error results", async () => {
