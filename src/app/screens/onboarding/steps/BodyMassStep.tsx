@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { colors, spacing } from "../../../../design/theme";
+import { Text, View } from "react-native";
+import { spacing } from "../../../../design/theme";
 import { screenStyles } from "../../screenStyles";
 import type { OnboardingStepProps } from "./BoxerBasicsStep";
-import { FieldGroup, LabeledTextInput } from "./StepControls";
+import { ChipButton, FieldGroup, LabeledTextInput } from "./StepControls";
 
 type BodyMassField = "currentBodyMassKg" | "typicalWalkAroundWeightKg" | "heightCm";
 
@@ -80,18 +80,15 @@ export function BodyMassStep({ draft, setStepError, updateDraft }: OnboardingSte
       <FieldGroup helper="Setup entry stays kg/cm; this saves display preference." label="Preferred display units">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {(["metric", "imperial"] as const).map((option) => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: draft.bodyMass.preferredUnits === option }}
+            <ChipButton
+              active={draft.bodyMass.preferredUnits === option}
               key={option}
+              label={option === "metric" ? "Metric displays" : "Imperial displays"}
               onPress={() => {
                 updateDraft((current) => ({ ...current, bodyMass: { ...current.bodyMass, preferredUnits: option } }));
                 setStepError(bodyMassTextError({ currentMassText, heightText, walkAroundText }));
               }}
-              style={[screenStyles.quietButton, draft.bodyMass.preferredUnits === option ? { borderColor: colors.blueIQ } : null]}
-            >
-              <Text style={screenStyles.quietButtonText}>{option === "metric" ? "Metric displays" : "Imperial displays"}</Text>
-            </Pressable>
+            />
           ))}
         </View>
       </FieldGroup>
