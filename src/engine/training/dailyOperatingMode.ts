@@ -1,4 +1,4 @@
-import type { GeneratedTrainingSession, PhaseState, RiskFlag, TrainingDayPlan } from "../core/types";
+import type { GeneratedTrainingSession, PhaseState, RiskDomain, RiskFlag, TrainingDayPlan } from "../core/types";
 import type {
   TrainingExecutionFuelingStatus,
   TrainingExecutionHydrationStatus,
@@ -40,15 +40,17 @@ function fuelIsCompleteLow(status: TrainingExecutionFuelingStatus): boolean {
   return status === "complete_low_advisory";
 }
 
+const TRAINING_STOP_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
+
 function hasSafetyStop(input: {
   integration: TrainingReadinessFuelingIntegration;
   safetyFlags: readonly RiskFlag[];
 }): string | null {
-  const flag = input.safetyFlags.find((item) => item.status === "active" && (item.hardStop || item.severity === "critical" || item.blocksPlan));
+  const flag = input.safetyFlags.find((item) => item.status === "active" && TRAINING_STOP_DOMAINS.has(item.domain) && (item.hardStop || item.severity === "critical" || item.blocksPlan));
   if (flag) {
     return flag.message;
   }
-  if (input.integration.generationImpact === "hard_block" || input.integration.readinessStatus === "red_hard_stop" || input.integration.fuelingStatus === "severe_underfueling_hard_stop") {
+  if (input.integration.generationImpact === "hard_block" || input.integration.readinessStatus === "red_hard_stop") {
     return input.integration.auditReasons[0] ?? "Safety evidence overrides the plan.";
   }
   return null;
@@ -58,11 +60,11 @@ function modeTitle(mode: DailyOperatingMode): string {
   const titles: Record<DailyOperatingMode, string> = {
     full_plan: "Full plan",
     plan_warmup_gate: "Plan plus warm-up gate",
-    plan_fuel_gate: "Plan plus fuel gate",
-    plan_warmup_and_fuel_gate: "Plan plus warm-up and fuel gates",
+    plan_fuel_gate: "Plan plus fuel advisory",
+    plan_warmup_and_fuel_gate: "Plan plus warm-up and fuel advisory",
     modified_execution: "Modified execution",
     downshift_today: "Downshift today",
-    safety_stop: "Safety stop"
+    safety_stop: "Safety-adjusted day"
   };
   return titles[mode];
 }
@@ -98,7 +100,7 @@ function resolveMode(input: {
 function primaryAction(mode: DailyOperatingMode): string {
   switch (mode) {
     case "safety_stop":
-      return "Follow the safety stop before training.";
+      return "Use today's safety-adjusted guidance before training.";
     case "downshift_today":
       return "Start conservatively and downshift today's hard work.";
     case "modified_execution":
@@ -115,7 +117,7 @@ function primaryAction(mode: DailyOperatingMode): string {
 }
 
 function secondaryAction(mode: DailyOperatingMode): string {
-  return mode === "safety_stop" ? "Log only true safety context; do not add hard work." : "Start without logging if you need to train now.";
+  return mode === "safety_stop" ? "Keep work easy and get help for urgent symptoms." : "Start without logging if you need to train now.";
 }
 
 export function resolveDailyOperatingMode(input: {
@@ -136,9 +138,7 @@ export function resolveDailyOperatingMode(input: {
   const requiredGates = [
     ...(input.integration.readinessStatus === "unknown" || input.integration.readinessStatus === "amber" || input.integration.readinessStatus === "red_non_hard_stop"
       ? [input.integration.warmupGate]
-      : []),
-    ...(input.integration.fuelingStatus !== "complete_supported" ? [input.integration.fuelingGate] : []),
-    ...(input.integration.hydrationStatus !== "supported" ? [input.integration.hydrationGate] : [])
+      : [])
   ];
   const phaseNote =
     input.phase.phase === "fight_week"
@@ -152,7 +152,7 @@ export function resolveDailyOperatingMode(input: {
     title: modeTitle(mode),
     athleteFacingSummary:
       mode === "safety_stop"
-        ? "Safety evidence overrides the plan. Recovery-only or review guidance comes first."
+        ? "Safety evidence changes execution. Recovery-only guidance comes first when symptoms require it."
         : `${phaseNote} Readiness and fuel adjust execution, not whether basic training exists.`,
     primaryAction: primaryAction(mode),
     secondaryAction: secondaryAction(mode),

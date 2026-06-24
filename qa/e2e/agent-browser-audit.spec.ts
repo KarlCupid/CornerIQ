@@ -612,7 +612,7 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await openTab(page, "Profile");
   await expect(page.getByTestId("profile-screen")).toContainText("Your Boxer Setup");
   await expect(page.getByTestId("profile-athlete-section")).toContainText("Athlete Setup");
-  await expect(page.getByTestId("profile-athlete-section")).toContainText(/Ready|Needs details|Review needed/);
+  await expect(page.getByTestId("profile-athlete-section")).toContainText(/Ready|Needs details|Health note/);
   await openSection(page, "Setup details");
   await expect(page.getByTestId("profile-app-inputs-card")).toContainText("App inputs");
   await expect(page.getByTestId("profile-quick-updates-card")).toContainText("Quick updates");

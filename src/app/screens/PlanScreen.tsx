@@ -1,6 +1,7 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
@@ -114,16 +115,6 @@ function friendlyCompactTag(tag: "Protected" | "Support" | "Recovery" | "Open"):
 }
 
 type PlanDay = PlanViewModel["dayPlans"][number];
-type PlanGeneratedSession = PlanDay["generatedSessions"][number];
-
-function titleCaseWords(value: string): string {
-  return value
-    .replace(/_/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
-}
 
 function firstSentence(value: string | null | undefined): string {
   const copy = plainPlanRiskCopy(value ?? "").trim();
@@ -247,16 +238,6 @@ function sessionIntensityLabel(day: PlanDay): string {
     return "Easy";
   }
   return "Moderate";
-}
-
-function sessionTypeLabel(session: PlanGeneratedSession | null, day: PlanDay): string {
-  if (session?.sessionTypeLabel) {
-    return plainPlanCopy(session.sessionTypeLabel);
-  }
-  if (session?.trainingStimulus) {
-    return titleCaseWords(session.trainingStimulus);
-  }
-  return dayTypeLabel(day);
 }
 
 function trainingAim(viewModel: PlanViewModel): string {
@@ -580,6 +561,108 @@ function PlanActiveWorkspaceFrame({ children, generationStatus }: React.PropsWit
   );
 }
 
+function PlanGoalWizardModal({
+  busy,
+  children,
+  onClose,
+  visible
+}: React.PropsWithChildren<{
+  busy: boolean;
+  onClose: () => void;
+  visible: boolean;
+}>) {
+  const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
+  if (!visible) {
+    return null;
+  }
+
+  const compact = width < 520;
+  const modalPaddingBottom = Math.max(insets.bottom + spacing.md, spacing.lg);
+  const modalPaddingTop = Math.max(insets.top + spacing.md, spacing.lg);
+  const availablePanelHeight = Math.max(360, height - modalPaddingTop - modalPaddingBottom);
+  const maxPanelHeight = Math.min(availablePanelHeight, 840);
+  const closeIfReady = () => {
+    if (!busy) {
+      onClose();
+    }
+  };
+  const modalShadowStyle: ViewStyle =
+    Platform.OS === "web"
+      ? ({ boxShadow: "0 22px 52px rgba(0, 0, 0, 0.42)" } as ViewStyle)
+      : {
+          elevation: 12,
+          shadowColor: "#000000",
+          shadowOffset: { height: 16, width: 0 },
+          shadowOpacity: 0.36,
+          shadowRadius: 28
+        };
+
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={closeIfReady}
+      presentationStyle="overFullScreen"
+      transparent
+      visible
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{
+          alignItems: "center",
+          flex: 1,
+          justifyContent: "flex-start",
+          paddingBottom: modalPaddingBottom,
+          paddingHorizontal: spacing.lg,
+          paddingTop: modalPaddingTop
+        }}
+      >
+        <Pressable
+          accessibilityElementsHidden
+          disabled={busy}
+          importantForAccessibility="no-hide-descendants"
+          onPress={closeIfReady}
+          style={{
+            backgroundColor: "rgba(3, 6, 15, 0.88)",
+            bottom: 0,
+            left: 0,
+            position: "absolute",
+            right: 0,
+            top: 0
+          }}
+        />
+        <View
+          accessibilityLabel="Plan goal wizard popup"
+          accessibilityViewIsModal
+          style={[
+            {
+              ...glassStyles.cardDeep,
+              backgroundColor: "rgba(12, 18, 35, 0.98)",
+              borderColor: "rgba(255, 255, 255, 0.22)",
+              borderRadius: compact ? 28 : radii.card,
+              maxHeight: maxPanelHeight,
+              maxWidth: 700,
+              overflow: "hidden",
+              padding: compact ? spacing.sm : spacing.lg,
+              width: "100%"
+            },
+            modalShadowStyle
+          ]}
+          testID="plan-goal-wizard-modal"
+        >
+          <ScrollView
+            contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.sm }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {children}
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 function PlanTonePill({ label, tone: _tone = "green" }: { label: string; tone?: PlanTone | undefined }) {
   return (
     <View
@@ -833,26 +916,15 @@ function upcomingPlanSessions(viewModel: PlanViewModel, asOfDate: ISODateString)
     if (day.date < asOfDate) {
       continue;
     }
-    if (friendlyAnchorText(day.protectedAnchors) !== "None") {
+    if (day.workSummary) {
       rows.push({
-        aim: firstSentence(day.explanation) || "Keep boxing quality first.",
+        aim: firstSentence(day.workSummary.aim) || "Keep the work useful for boxing.",
         date: shortDateLabel(day.date, asOfDate),
-        id: `boxing:${day.date}`,
+        id: day.workSummary.id,
         intensity: sessionIntensityLabel(day),
-        title: friendlyAnchorText(day.protectedAnchors).split(",")[0]?.trim() || day.compactSummary,
+        title: plainPlanCopy(day.workSummary.title),
         tone: toneForPlanDay(day),
-        type: `Boxing - ${day.compactMetric}`
-      });
-    }
-    for (const session of day.generatedSessions) {
-      rows.push({
-        aim: firstSentence(session.boxingSkillTheme ?? session.technicalEmphasis?.[0] ?? day.explanation) || "Keep the work useful for boxing.",
-        date: shortDateLabel(day.date, asOfDate),
-        id: session.id,
-        intensity: sessionIntensityLabel(day),
-        title: plainPlanCopy(session.title),
-        tone: toneForPlanDay(day),
-        type: `${sessionTypeLabel(session, day)} - ${day.compactMetric}`
+        type: plainPlanCopy(day.workSummary.detail)
       });
     }
   }
@@ -876,6 +948,7 @@ function UpcomingSessionsCard({ asOfDate, viewModel }: { asOfDate: ISODateString
               gap: spacing.xs,
               padding: spacing.md
             }}
+            testID="plan-upcoming-session-row"
           >
             <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
               <Text style={{ color: planPalette.textPrimary, flex: 1, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{session.date} - {session.title}</Text>
@@ -1147,6 +1220,7 @@ export function PlanScreen({
   const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession || !onSaveRecurringProtectedAnchor || !onDeleteRecurringProtectedAnchor;
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
   const effectiveWorkspace = workspaceForGenerationStatus(generationStatus) ?? activeWorkspace;
+  const goalWizardOpen = effectiveWorkspace === "goal_wizard";
   const nextWeekActionsAvailable = Boolean(nextWeekPreviewActions);
 
   const openWorkspace = (workspace: PlanActiveWorkspace) => {
@@ -1185,27 +1259,29 @@ export function PlanScreen({
     />
   );
 
+  const goalWizardContent = goalWizardOpen ? (
+    <PlanGoalFlowCard
+      asOfDate={asOfDate}
+      busy={goalBusy}
+      currentModeLabel={viewModel.modeLabel}
+      existingFixedSchedule={viewModel.fixedSchedule}
+      existingWeeklyAnchors={viewModel.weeklyAnchors}
+      framed={false}
+      initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
+      isMinor={isMinor}
+      onCancel={closeActiveWorkspace}
+      onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
+      onSaveFightSetup={onSaveFightSetup}
+      onSaveProtectedSession={onSaveProtectedSession}
+      onSaveRecurringProtectedAnchor={onSaveRecurringProtectedAnchor}
+      onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
+      onSaveTournamentSetup={onSaveTournamentSetup}
+      showCloseButton
+    />
+  ) : null;
+
   let activeWorkspaceContent: React.ReactNode = null;
-  if (effectiveWorkspace === "goal_wizard") {
-    activeWorkspaceContent = (
-      <PlanGoalFlowCard
-        asOfDate={asOfDate}
-        busy={goalBusy}
-        currentModeLabel={viewModel.modeLabel}
-        existingFixedSchedule={viewModel.fixedSchedule}
-        existingWeeklyAnchors={viewModel.weeklyAnchors}
-        initialAvailableDays={viewModel.generatedSupportAvailability.selectedDays}
-        isMinor={isMinor}
-        onCancel={closeActiveWorkspace}
-        onSaveBuildGoal={onSaveBuildGoal ?? (async () => undefined)}
-        onSaveFightSetup={onSaveFightSetup}
-        onSaveProtectedSession={onSaveProtectedSession}
-        onSaveRecurringProtectedAnchor={onSaveRecurringProtectedAnchor}
-        onSaveRecoveryGoal={onSaveRecoveryGoal ?? (async () => undefined)}
-        onSaveTournamentSetup={onSaveTournamentSetup}
-      />
-    );
-  } else if (effectiveWorkspace === "next_week_preview") {
+  if (effectiveWorkspace === "next_week_preview") {
     activeWorkspaceContent = renderNextWeekPreview(true);
   } else if (effectiveWorkspace === "fixed_schedule") {
     activeWorkspaceContent = (
@@ -1253,6 +1329,9 @@ export function PlanScreen({
       />
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
       <PlanDetailRows viewModel={viewModel} />
+      <PlanGoalWizardModal busy={goalBusy} onClose={closeActiveWorkspace} visible={goalWizardOpen}>
+        {goalWizardContent}
+      </PlanGoalWizardModal>
     </LuminousScreen>
   );
 }

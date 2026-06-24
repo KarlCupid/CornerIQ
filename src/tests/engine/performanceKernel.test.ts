@@ -21,7 +21,8 @@ describe("Corner Engine performance kernel", () => {
     expect(state.bodyMass.feasibility.status).toBe("blocked");
     expect(state.nutrition.acuteProtocolStatus).toBe("blocked");
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("same_day_acute_loss_blocked");
-    expect(state.viewModels.today.riskSummary.length).toBeGreaterThan(0);
+    expect(state.bodyMass.feasibility.riskFlags.length).toBeGreaterThan(0);
+    expect(state.viewModels.today.riskSummary.length).toBe(0);
   });
 
   it("blocks minor athlete acute weight manipulation", () => {
@@ -285,7 +286,9 @@ describe("Corner Engine performance kernel", () => {
     const blocked = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
     const cycle = resolvePerformanceState({ journey: hormonal_contraception_athlete_symptom_based, asOfDate: fixtureAsOfDate });
 
-    expect(blocked.viewModels.today.decisionStack.some((item) => item.label === "Safety" && item.severity !== "info")).toBe(true);
+    expect(blocked.viewModels.today.decisionStack.some((item) => item.label === "Body weight" && /blocked/i.test(item.summary))).toBe(true);
+    expect(blocked.viewModels.today.decisionStack.some((item) => item.label === "Safety" && item.severity !== "info")).toBe(false);
+    expect(blocked.viewModels.fuel.weightClassStatus.status).toBe("blocked");
     expect(blocked.viewModels.fuel.fightWeekFuel?.summary).toBeTruthy();
     expect(JSON.stringify(blocked.viewModels.fuel.fightWeekFuel)).not.toMatch(/dehydrat|water cut/i);
     expect(cycle.viewModels.cycle?.privacyReminder).toContain("not a window-prediction tool");

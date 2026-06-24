@@ -320,12 +320,9 @@ function flowRows(session: DetailedTrainingSession | null, card: TrainSessionCar
   ];
 }
 
-function startWorkoutBlockedReason(viewModel: TrainViewModel, session: DetailedTrainingSession): string | undefined {
-  if (session.executionReadinessStatus === "red_hard_stop") {
-    return "Start workout is unavailable today. Today should be recovery-focused.";
-  }
-  if (session.intensity === "hard" && viewModel.riskSummary.length > 0) {
-    return "Hard training is not recommended today. Keep this session easy.";
+function startWorkoutBlockedReason(session: DetailedTrainingSession): string | undefined {
+  if (session.executionReadinessStatus === "red_hard_stop" && session.intensity !== "recovery" && session.intensity !== "easy") {
+    return "Readiness logged hard-stop symptoms. Use recovery-focused work today.";
   }
   return undefined;
 }
@@ -741,7 +738,7 @@ function TodayTrainingPlanCard({
   const hasSessionSummary = Boolean(session || generated || card);
   const primaryAction =
     startBlockedReason
-      ? { label: "Review first", onPress: onViewDetails, tone: "orange" as const }
+      ? { label: "View details", onPress: onViewDetails, tone: "orange" as const }
       : previewOnlyReason
         ? { label: "View session", onPress: onViewDetails, tone: primaryTone }
         : session && onStart
@@ -1015,11 +1012,11 @@ export function TrainScreen({
   const pendingStartSession = detailedSessions.find((session) => session.generatedSessionId === pendingStartSessionId) ?? null;
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
   const previewOnlyReason = previewOnlyWeeklySession ? `Scheduled for ${previewOnlyWeeklySession.date}. Keep future sessions on their planned day.` : undefined;
-  const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? startWorkoutBlockedReason(viewModel, primarySession) : undefined;
+  const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? startWorkoutBlockedReason(primarySession) : undefined;
   const readinessGateAcknowledged = Boolean(viewModel.preSessionReadinessGate.sessionId && controlledStartSessionIds.has(viewModel.preSessionReadinessGate.sessionId));
 
   const startWorkout = (sessionDetail: DetailedTrainingSession) => {
-    const blockedReason = startWorkoutBlockedReason(viewModel, sessionDetail);
+    const blockedReason = startWorkoutBlockedReason(sessionDetail);
     if (blockedReason) {
       return;
     }
@@ -1037,14 +1034,14 @@ export function TrainScreen({
       : undefined;
   const openPrimaryDetails = primarySession ? () => setPlanOpenRequestKey((value) => value + 1) : undefined;
   const openTrainingLog = () => setTrainingLogOpenRequestKey((value) => value + 1);
-  const showSafety = viewModel.riskSummary.length > 0 || Boolean(primarySessionBlockedReason);
+  const showSafety = Boolean(primarySessionBlockedReason);
 
   return (
     <LuminousScreen accent="purple" backgroundImage={tabScreenBackgrounds.train} testID="train-screen">
       <ScreenHeader {...tabHeroHeaders.train} />
       {showSafety ? (
         <RiskBanner
-          message={primarySessionBlockedReason ?? "Hard training is not recommended today. Keep this session easy."}
+          message={primarySessionBlockedReason ?? "Use today's recovery-focused guidance."}
           title="Before you train"
           tone="critical"
         >

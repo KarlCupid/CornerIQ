@@ -470,7 +470,7 @@ export function ProfileScreen({
         accessibilityName="Safety"
       >
         {viewModel.healthWarning.active ? (
-          <DashboardCard headerRight={<ProfileStatusPill label="Review needed" tone="red" />} title="Health warning">
+          <DashboardCard headerRight={<ProfileStatusPill label="Health note" tone="red" />} title="Health warning">
             <View style={{ gap: spacing.sm }}>
               <Text style={profileTextStyles.body}>{viewModel.healthWarning.summary}</Text>
               <Text style={profileTextStyles.subtle}>{viewModel.healthWarning.detail}</Text>

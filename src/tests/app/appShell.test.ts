@@ -909,6 +909,15 @@ const planViewModel: PlanViewModel = {
       compactSummary: "Sparring",
       compactTag: "Protected",
       compactMetric: "75 min",
+      workSummary: {
+        id: "day-work:2026-05-19",
+        title: "Sparring + 1 app session",
+        detail: "Sparring 75 min + App session 30 min (105 min total)",
+        aim: "Boxing you added owns the day.",
+        workCount: 2,
+        hasBoxing: true,
+        hasAppWork: true
+      },
       generatedSessions: [{ id: "generated_1", title: "Support microdose around boxing", date: "2026-05-19" }],
       marker: "Hard day",
       fuelDemand: "high",
@@ -1132,6 +1141,35 @@ function pressableWithAccessibilityLabel(renderer: ReactTestRenderer, label: str
 
 function visibleModalCount(renderer: ReactTestRenderer): number {
   return (renderer.root.findAllByType("Modal") as TestInstance[]).filter((item) => (item.props as { visible?: boolean }).visible === true).length;
+}
+
+function flattenStyle(style: unknown): Record<string, unknown> {
+  const styles = Array.isArray(style) ? style : [style];
+  return styles.reduce<Record<string, unknown>>((merged, item) => {
+    if (!item || Array.isArray(item) || typeof item !== "object") {
+      return merged;
+    }
+    return { ...merged, ...(item as Record<string, unknown>) };
+  }, {});
+}
+
+function modalContainerStyle(renderer: ReactTestRenderer): Record<string, unknown> {
+  const modal = (renderer.root.findAllByType("Modal") as TestInstance[]).find((item) => (item.props as { visible?: boolean }).visible === true);
+  const container = modal?.findAllByType("KeyboardAvoidingView")[0];
+  const style = flattenStyle((container?.props as { style?: unknown } | undefined)?.style);
+  if (Object.keys(style).length === 0) {
+    throw new Error("Quick check modal did not expose a container style.");
+  }
+  return style;
+}
+
+function quickCheckPanelStyle(renderer: ReactTestRenderer): Record<string, unknown> {
+  const panel = (renderer.root.findAllByType("View") as TestInstance[]).find((item) => (item.props as { testID?: string }).testID === "today-quick-check-modal");
+  const style = flattenStyle((panel?.props as { style?: unknown } | undefined)?.style);
+  if (Object.keys(style).length === 0) {
+    throw new Error("Quick check panel did not expose a style.");
+  }
+  return style;
 }
 
 function pressableLabels(renderer: ReactTestRenderer): string[] {
@@ -1759,7 +1797,7 @@ describe("minimal app screens", () => {
 
   it("TodayScreen renders view model fields", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
-    const tree = render(
+    const renderer = render(
       React.createElement(TodayScreen, {
         viewModel: todayViewModel,
         recentLogs: recentLogsViewModel,
@@ -1774,8 +1812,18 @@ describe("minimal app screens", () => {
         onOpenFuelLog: vi.fn(),
         onOpenTrainWorkout: vi.fn()
       })
-    ).toJSON();
+    );
+    const tree = renderer.toJSON();
     const output = JSON.stringify(tree);
+    const trainingStatusTile = (renderer.root.findAllByType("View") as TestInstance[]).find((item) =>
+      String((item.props as { accessibilityLabel?: string }).accessibilityLabel ?? "").startsWith("Training: ")
+    );
+    if (!trainingStatusTile) {
+      throw new Error("Today key status row did not render the training tile.");
+    }
+    const trainingStatusStyle = flattenStyle((trainingStatusTile.props as { style?: unknown }).style);
+    expect(trainingStatusStyle.borderLeftWidth).toBeUndefined();
+    expect(trainingStatusStyle.borderColor).toBe("rgba(172, 215, 231, 0.16)");
     expect(output).toContain("Today's Check-In");
     expect(output).toContain("Check in");
     expect(output).toContain("Log food");
@@ -1856,6 +1904,9 @@ describe("minimal app screens", () => {
     expect(quickCheckOutput).toContain("today-quick-check-modal");
     expect(quickCheckOutput).toContain("today-quick-check-section");
     expect(quickCheckOutput).toContain("Quick check");
+    expect(modalContainerStyle(renderer).justifyContent).toBe("flex-start");
+    expect(quickCheckPanelStyle(renderer).maxHeight).toBeGreaterThanOrEqual(760);
+    expect(quickCheckPanelStyle(renderer).maxHeight).toBeLessThanOrEqual(820);
     expect(quickCheckOutput.indexOf("today-check-in-card")).toBeLessThan(quickCheckOutput.indexOf("today-quick-check-modal"));
 
     expect(markFoodNotTrackingToday).not.toHaveBeenCalled();
@@ -1944,8 +1995,10 @@ describe("minimal app screens", () => {
     expect(bodyMassOutput.indexOf("today-check-in-card")).toBeLessThan(bodyMassOutput.indexOf("today-quick-check-modal"));
   });
 
-  it("TodayScreen keeps risk, why, and no-shame missing-log copy visible", async () => {
+  it("TodayScreen keeps safety text from becoming a blocking review banner", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const onOpenTrainWorkout = vi.fn();
+    const playableTrainViewModel = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate }).viewModels.train;
     const renderer = render(
       React.createElement(TodayScreen, {
         viewModel: {
@@ -1959,22 +2012,27 @@ describe("minimal app screens", () => {
         cycleTrackingStatus: "disabled",
         cycleSymptomOptions: ["cramps"],
         busy: false,
-        message: "Engine state resolved, but persistence failed"
+        message: "Engine state resolved, but persistence failed",
+        onOpenTrainWorkout,
+        trainViewModel: playableTrainViewModel
       })
     );
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Review needed before hard training");
-    expect(output).toContain("Review needed: fainting requires no training today.");
+    expect(output).not.toContain("Review needed");
+    expect(output).not.toContain("fainting requires no training today");
     expect(output).not.toContain("Safety stop");
     expect(output).not.toContain("That lowers confidence because the engine has less context");
     expect(output).toContain("Existing plan stays visible");
-    expect(output.indexOf("Review needed before hard training")).toBeLessThan(output.indexOf("Today's Check-In"));
+    expect(output).toContain("Today's Check-In");
+    expect(output).toContain("Start workout");
     expect(output).not.toContain("Show Why this plan?");
   });
 
-  it("TodayScreen gives mixed warnings both readiness and Fuel review paths", async () => {
+  it("TodayScreen keeps readiness and fuel notes informational without review actions", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const onOpenFuelSafety = vi.fn();
+    const onOpenTrainWorkout = vi.fn();
+    const playableTrainViewModel = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate }).viewModels.train;
     const renderer = render(
       React.createElement(TodayScreen, {
         viewModel: {
@@ -1998,23 +2056,203 @@ describe("minimal app screens", () => {
         cycleSymptomOptions: ["cramps"],
         busy: false,
         message: null,
-        onOpenFuelSafety
+        onOpenFuelSafety,
+        onOpenTrainWorkout,
+        trainViewModel: playableTrainViewModel
       })
     );
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Review readiness");
-    expect(output).toContain("Open Fuel review");
-    expect(output).not.toContain("Review today");
-    expect(output).toContain("Readiness warning: fainting requires no hard training today.");
-    expect(output).toContain("Fuel warning: too little food for the work today.");
+    expect(output).toContain("Start workout");
+    expect(output).not.toContain("Review needed");
+    expect(output).not.toContain("Review readiness");
+    expect(output).not.toContain("Open Fuel review");
+    expect(output).not.toContain("Fuel review needed");
+    expect(output).not.toContain("Training: Review");
+    expect(output).not.toContain("Readiness warning: fainting requires no hard training today.");
+    expect(output).not.toContain("Fuel review needed");
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Open Fuel review"));
+      await press(pressableWithText(renderer, "Check in"));
     });
-    expect(onOpenFuelSafety).toHaveBeenCalled();
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("today-quick-check-modal");
+    expect(output).toContain("Readiness first");
+    expect(onOpenFuelSafety).not.toHaveBeenCalled();
+  });
+
+  it("TodayScreen explains fuel-only review gates without pausing training actions", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const onOpenFuelSafety = vi.fn();
+    const onOpenTrainWorkout = vi.fn();
+    const playableTrainViewModel = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate }).viewModels.train;
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: {
+          ...todayViewModel,
+          riskSummary: []
+        },
+        fuelViewModel: {
+          ...fuelViewModel,
+          nutritionSafetyReview: {
+            ...fuelViewModel.nutritionSafetyReview,
+            required: true,
+            reasons: ["Current body mass is unknown, so weight-class feasibility cannot be confirmed."],
+            blockingFlags: [],
+            suggestedNextSteps: ["Add a manual body weight log if it feels safe and useful."],
+            professionalReviewCopy: "Outside support is required before this plan can continue."
+          },
+          weightClassStatus: {
+            ...fuelViewModel.weightClassStatus,
+            status: "unknown"
+          },
+          riskSummary: []
+        },
+        recentLogs: recentLogsViewModel,
+        cycleContext: null,
+        quickLogs: quickLogActions,
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: null,
+        onOpenFuelSafety,
+        onOpenTrainWorkout,
+        trainViewModel: playableTrainViewModel
+      })
+    );
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Fuel guidance is active. Eat and hydrate normally.");
+    expect(output).toContain("Start workout");
+    expect(output).not.toContain("Fuel review needed");
+    expect(output).not.toContain("Open Fuel review");
+    expect(output).not.toContain("Review readiness");
+    expect(output).not.toContain("Something needs attention");
+    expect(output).not.toContain("Training: Review");
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Review readiness"));
+      await press(pressableWithText(renderer, "Start workout"));
+    });
+    expect(onOpenFuelSafety).not.toHaveBeenCalled();
+    expect(onOpenTrainWorkout).toHaveBeenCalled();
+  });
+
+  it("TodayScreen keeps missing food advisory-only even on high-demand days", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const onOpenTrainWorkout = vi.fn();
+    const playableTrainViewModel = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate }).viewModels.train;
+    const noFoodLogStatus: FuelViewModel["foodLogStatus"] = {
+      ...dailyFoodLogSummary,
+      status: "no_log",
+      totalCaloriesLogged: 0,
+      proteinGramsLogged: 0,
+      carbohydrateGramsLogged: 0,
+      fatGramsLogged: 0,
+      mealTagsLogged: [],
+      entryCount: 0,
+      completionSource: null,
+      confidence: { level: "low", score: 0.24, reasons: ["No food log today."], missingInputs: ["food logs"] },
+      coverageScore: 0,
+      macroCompletenessScore: 0,
+      targetComparisonAllowed: false,
+      underFuelingEvidenceAllowed: false,
+      missingMealHints: [],
+      athleteFacingSummary: "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
+      engineInterpretation: "Food status is advisory/execution-only and cannot create under-fueling evidence."
+    };
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: {
+          ...todayViewModel,
+          riskSummary: []
+        },
+        fuelViewModel: {
+          ...fuelViewModel,
+          foodLogStatus: noFoodLogStatus,
+          trainingDemandHandoff: {
+            ...fuelViewModel.trainingDemandHandoff,
+            todayTrainingDemand: "high",
+            todayTrainingDemandTier: "mixed_high_day",
+            missingFoodLogAdvisory: "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback."
+          },
+          riskSummary: [],
+          underFuelingRisk: null
+        },
+        recentLogs: recentLogsViewModel,
+        cycleContext: null,
+        quickLogs: quickLogActions,
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: null,
+        onOpenTrainWorkout,
+        trainViewModel: playableTrainViewModel
+      })
+    );
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Start workout");
+    expect(output).toContain("Log if useful");
+    expect(output).not.toContain("Review needed");
+    expect(output).not.toContain("Fuel review needed");
+    expect(output).not.toContain("Fuel first");
+    expect(output).not.toContain("Training: Review");
+  });
+
+  it("TodayScreen makes readiness the only required check before starting", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const onOpenTrain = vi.fn();
+    const onOpenTrainWorkout = vi.fn();
+    const missingReadinessLogs: RecentLogsViewModel = {
+      ...recentLogsViewModel,
+      readinessToday: {
+        loggedToday: false,
+        actionLabel: "Log readiness",
+        statusLabel: "Not logged today",
+        summary: "No readiness check-in logged today.",
+        why: "Readiness can change training safety, so missing data stays unknown."
+      }
+    };
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: {
+          ...todayViewModel,
+          riskSummary: []
+        },
+        fuelViewModel: {
+          ...fuelViewModel,
+          riskSummary: [],
+          underFuelingRisk: null
+        },
+        recentLogs: missingReadinessLogs,
+        cycleContext: null,
+        quickLogs: quickLogActions,
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: null,
+        onOpenTrain,
+        onOpenTrainWorkout,
+        trainViewModel
+      })
+    );
+
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Log today's readiness first");
+    expect(output).toContain("View workout");
+    expect(output).not.toContain("Start workout");
+    expect(output).not.toContain("Review needed");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "View workout"));
+    });
+    expect(onOpenTrain).toHaveBeenCalled();
+    expect(onOpenTrainWorkout).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Check in"));
     });
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("today-quick-check-modal");
@@ -2716,7 +2954,7 @@ describe("minimal app screens", () => {
     expect(taperOutput).toContain("Fight-week sharpness");
     expect(taperOutput).toContain("Fight-week day");
     expect(tournamentOutput).toContain("Tournament day: no extra hard conditioning.");
-    expect(redOutput).toContain("Before you train");
+    expect(redOutput).not.toContain("Before you train");
   });
 
   it("TrainScreen puts primary detail before history and opens completion controls", async () => {
@@ -2828,7 +3066,7 @@ describe("minimal app screens", () => {
     expect(onResumeWorkout).toHaveBeenCalled();
   });
 
-  it("TrainScreen labels primary action by playable, preview, blocked, and no-player states", async () => {
+  it("TrainScreen labels primary action by playable, preview, safety-adjusted, and no-player states", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const playable = render(
@@ -2867,8 +3105,8 @@ describe("minimal app screens", () => {
     });
     const blockedRenderer = render(React.createElement(TrainScreen, { busy: false, onStartWorkout: vi.fn(), quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: blocked.viewModels.train }));
     const blockedOutput = JSON.stringify(blockedRenderer.toJSON());
-    expect(blockedOutput).toContain("Review first");
-    expect(pressableLabels(blockedRenderer).some((label) => label === "Start workout")).toBe(false);
+    expect(blockedOutput).not.toContain("Review first");
+    expect(blockedOutput).not.toContain("Start workout is unavailable");
 
     const noPlayerViewModel: TrainViewModel = {
       ...state.viewModels.train,
@@ -3436,6 +3674,27 @@ describe("minimal app screens", () => {
     }
   });
 
+  it("PlanScreen groups same-day boxing and app work into one upcoming row", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+    const output = JSON.stringify(renderer.toJSON());
+    const upcomingRowCount = output.match(/plan-upcoming-session-row/g)?.length ?? 0;
+
+    expect(upcomingRowCount).toBe(1);
+    expect(output).toContain("Sparring + 1 app session");
+    expect(output).toContain("Sparring 75 min + App session 30 min");
+  });
+
   it("PlanScreen moves selected workflows into the active workspace", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const renderPlan = () =>
@@ -3459,17 +3718,23 @@ describe("minimal app screens", () => {
 
     const goalRenderer = renderPlan();
     await switchSection(goalRenderer, "Change goal or schedule");
-    expectActiveWorkspaceBeforeOverview(JSON.stringify(goalRenderer.toJSON()), "plan-generation-wizard");
+    let output = JSON.stringify(goalRenderer.toJSON());
+    expect(visibleModalCount(goalRenderer)).toBe(1);
+    expect(output).toContain("plan-goal-wizard-modal");
+    expect(output).toContain("plan-generation-wizard");
+    expect(output).not.toContain("plan-active-workspace");
 
     const previewRenderer = renderPlan();
     await switchSection(previewRenderer, "Preview next week");
-    let output = JSON.stringify(previewRenderer.toJSON());
+    output = JSON.stringify(previewRenderer.toJSON());
+    expect(visibleModalCount(previewRenderer)).toBe(0);
     expectActiveWorkspaceBeforeOverview(output, "plan-generated-support-summary-card");
     expect(output).toContain("build strength - progress");
 
     const scheduleRenderer = renderPlan();
     await switchSection(scheduleRenderer, "Edit boxing schedule");
     output = JSON.stringify(scheduleRenderer.toJSON());
+    expect(visibleModalCount(scheduleRenderer)).toBe(0);
     expectActiveWorkspaceBeforeOverview(output, "fixed-boxing-schedule-card");
     expect(output).toContain("Add one-off session");
 
@@ -4960,7 +5225,7 @@ describe("minimal app screens", () => {
       await press(pressableWithText(readiness, "Log readiness"));
     });
     expect(actions.logReadiness).not.toHaveBeenCalled();
-    expect(JSON.stringify(readiness.toJSON())).toContain("Open More signals");
+    expect(JSON.stringify(readiness.toJSON())).toContain("Choose sleep quality, stress, and mood");
 
     const food = render(React.createElement(FoodQuickLogCard, { actions, busy: false }));
     await act(async () => {
@@ -5006,13 +5271,11 @@ describe("minimal app screens", () => {
     expect(output).not.toMatch(/cheat|bad|failed athlete|noncompliant/);
 
     const readiness = render(React.createElement(ReadinessCheckInCard, { actions, busy: false }));
-    let readinessOutput = JSON.stringify(readiness.toJSON());
-    expect(readinessOutput).toContain("More signals");
-    expect(readinessOutput).not.toContain("Pain notes optional");
-    await act(async () => {
-      await press(pressableWithText(readiness, "More signals"));
-    });
-    readinessOutput = JSON.stringify(readiness.toJSON());
+    const readinessOutput = JSON.stringify(readiness.toJSON());
+    expect(readinessOutput).not.toContain("More signals");
+    expect(readinessOutput).toContain("Sleep quality");
+    expect(readinessOutput).toContain("Stress");
+    expect(readinessOutput).toContain("Mood");
     expect(readinessOutput).toContain("Use a 1-5 scale");
     expect(readinessOutput).toContain("For soreness/stress: 1 = none/easy, 5 = very high.");
     expect(readinessOutput).toContain("Pain notes optional");

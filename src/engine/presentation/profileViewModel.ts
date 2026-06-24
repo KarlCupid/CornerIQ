@@ -253,8 +253,8 @@ function buildHealthWarning(state: PerformanceState): ProfileHealthWarningViewMo
     ? {
         active: true,
         detail: "Get outside support if symptoms are urgent.",
-        statusLabel: "Review needed",
-        summary: "Review before pushing training or weight.",
+        statusLabel: "Health note",
+        summary: "Use caution before pushing training or weight.",
         title: "Health warning active",
         tone: "red"
       }
@@ -276,7 +276,7 @@ function buildAthleteSetup(state: PerformanceState, healthWarning: ProfileHealth
   } else if (state.fightContext) {
     contextParts.push("Bout active");
   }
-  const statusLabel = healthWarning.active ? "Review needed" : missing.length > 0 ? "Needs details" : "Ready";
+  const statusLabel = healthWarning.active ? "Health note" : missing.length > 0 ? "Needs details" : "Ready";
   return {
     contextLabel: contextParts.join(" - "),
     explanation:

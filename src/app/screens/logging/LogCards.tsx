@@ -1,5 +1,5 @@
 ﻿import React, { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View, type ViewStyle } from "react-native";
 import { useFormMessage } from "../../forms/useFormMessage";
 import {
   parseOptionalNonNegativeNumber,
@@ -161,15 +161,17 @@ function ScaleSegmentedControl({
   busy,
   label,
   onChange,
+  style,
   value
 }: {
   busy: boolean;
   label: string;
   onChange: (value: ScaleValue) => void;
+  style?: ViewStyle | undefined;
   value: string;
 }) {
   return (
-    <View style={{ gap: spacing.xs }}>
+    <View style={[{ gap: spacing.xs }, style]}>
       <InputLabel>{label}</InputLabel>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
         {scaleValues.map((option) => {
@@ -298,9 +300,10 @@ export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status 
   const [illness, setIllness] = useState(false);
   const [dizziness, setDizziness] = useState(false);
   const [fainting, setFainting] = useState(false);
-  const [moreSignalsOpen, setMoreSignalsOpen] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Readiness log failed.");
   const [success, setSuccess] = useState<string | null>(null);
+  const compactLayout = framed === false;
+  const requiredScaleStyle: ViewStyle = { flexBasis: 152, flexGrow: 1, minWidth: 146 };
 
   const clear = () => {
     setSleepHours("");
@@ -313,77 +316,60 @@ export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status 
     setIllness(false);
     setDizziness(false);
     setFainting(false);
-    setMoreSignalsOpen(false);
   };
 
   return (
     <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title={status?.loggedToday ? "Readiness summary" : "Readiness check due"}>
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
-        <InputLabel>Sleep hours</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setSleepHours} placeholder="Sleep hours" placeholderTextColor={colors.wrap} style={screenStyles.input} value={sleepHours} />
-        <ScaleSegmentedControl busy={busy} label="Energy (1-5)" onChange={setEnergy} value={energy} />
-        <ScaleSegmentedControl busy={busy} label="Soreness (1-5)" onChange={setSoreness} value={soreness} />
+        {compactLayout ? null : <QuickLogHelp />}
+        {compactLayout ? null : <ReadinessScaleHelp />}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <Pressable
-            accessibilityLabel={busy ? "Saving readiness log" : status?.loggedToday ? "Update readiness" : "Log readiness"}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy }}
-            disabled={busy}
-            onPress={() =>
-              runWithMessage(async () => {
-                setSuccess(null);
-                if (!sleepQuality.trim() || !stress.trim() || !mood.trim()) {
-                  setMoreSignalsOpen(true);
-                  throw new Error("Open More signals and choose sleep quality, stress, and mood before logging readiness.");
-                }
-                await actions.logReadiness({
-                  sleepHours: parseRequiredNonNegativeNumber(sleepHours, "Sleep hours", { example: "7.5" }),
-                  sleepQuality1To5: validateOneToFive(sleepQuality, "Sleep quality"),
-                  energy1To5: validateOneToFive(energy, "Energy"),
-                  soreness1To5: validateOneToFive(soreness, "Soreness"),
-                  stress1To5: validateOneToFive(stress, "Stress"),
-                  mood1To5: validateOneToFive(mood, "Mood"),
-                  painNotes: painNotes.trim() ? [painNotes.trim()] : [],
-                  illnessSymptoms: illness ? ["illness"] : [],
-                  dizziness,
-                  fainting
-                });
-                clear();
-                setSuccess("Readiness logged. CornerIQ has more confidence for today's training call.");
-              })
-            }
-            style={[screenStyles.button, { flexBasis: 220, flexGrow: 1 }]}
-          >
-            <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : status?.loggedToday ? "Update readiness" : "Log readiness"}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel={moreSignalsOpen ? "Hide More signals" : "Show More signals"}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: moreSignalsOpen }}
-            disabled={busy}
-            onPress={() => setMoreSignalsOpen((value) => !value)}
-            style={[screenStyles.quietButton, { flexBasis: 150, flexGrow: 1 }]}
-          >
-            <Text style={screenStyles.quietButtonText}>{moreSignalsOpen ? "Hide More signals" : "More signals"}</Text>
-          </Pressable>
+          <CompactField keyboardType="decimal-pad" label="Sleep hours" onChangeText={setSleepHours} placeholder="Sleep hours" value={sleepHours} />
+          <ScaleSegmentedControl busy={busy} label="Energy (1-5)" onChange={setEnergy} style={requiredScaleStyle} value={energy} />
+          <ScaleSegmentedControl busy={busy} label="Soreness (1-5)" onChange={setSoreness} style={requiredScaleStyle} value={soreness} />
+          <ScaleSegmentedControl busy={busy} label="Sleep quality (1-5)" onChange={setSleepQuality} style={requiredScaleStyle} value={sleepQuality} />
+          <ScaleSegmentedControl busy={busy} label="Stress (1-5)" onChange={setStress} style={requiredScaleStyle} value={stress} />
+          <ScaleSegmentedControl busy={busy} label="Mood (1-5)" onChange={setMood} style={requiredScaleStyle} value={mood} />
         </View>
-        {moreSignalsOpen ? (
-          <View style={{ gap: spacing.sm }}>
-            <QuickLogHelp />
-            <ReadinessScaleHelp />
-            <ScaleSegmentedControl busy={busy} label="Sleep quality (1-5)" onChange={setSleepQuality} value={sleepQuality} />
-            <ScaleSegmentedControl busy={busy} label="Stress (1-5)" onChange={setStress} value={stress} />
-            <ScaleSegmentedControl busy={busy} label="Mood (1-5)" onChange={setMood} value={mood} />
-            <InputLabel>Pain notes (optional)</InputLabel>
-            <TextInput onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              <ToggleButton active={illness} busy={busy} label="Illness" onPress={() => setIllness((value) => !value)} />
-              <ToggleButton active={dizziness} busy={busy} label="Dizziness" onPress={() => setDizziness((value) => !value)} />
-              <ToggleButton active={fainting} busy={busy} label="Fainting" onPress={() => setFainting((value) => !value)} />
-            </View>
-          </View>
-        ) : null}
+        <InputLabel>Pain notes (optional)</InputLabel>
+        <TextInput onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <ToggleButton active={illness} busy={busy} label="Illness" onPress={() => setIllness((value) => !value)} />
+          <ToggleButton active={dizziness} busy={busy} label="Dizziness" onPress={() => setDizziness((value) => !value)} />
+          <ToggleButton active={fainting} busy={busy} label="Fainting" onPress={() => setFainting((value) => !value)} />
+        </View>
+        <Pressable
+          accessibilityLabel={busy ? "Saving readiness log" : status?.loggedToday ? "Update readiness" : "Log readiness"}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={() =>
+            runWithMessage(async () => {
+              setSuccess(null);
+              if (!sleepQuality.trim() || !stress.trim() || !mood.trim()) {
+                throw new Error("Choose sleep quality, stress, and mood before logging readiness.");
+              }
+              await actions.logReadiness({
+                sleepHours: parseRequiredNonNegativeNumber(sleepHours, "Sleep hours", { example: "7.5" }),
+                sleepQuality1To5: validateOneToFive(sleepQuality, "Sleep quality"),
+                energy1To5: validateOneToFive(energy, "Energy"),
+                soreness1To5: validateOneToFive(soreness, "Soreness"),
+                stress1To5: validateOneToFive(stress, "Stress"),
+                mood1To5: validateOneToFive(mood, "Mood"),
+                painNotes: painNotes.trim() ? [painNotes.trim()] : [],
+                illnessSymptoms: illness ? ["illness"] : [],
+                dizziness,
+                fainting
+              });
+              clear();
+              setSuccess("Readiness logged. CornerIQ has more confidence for today's training call.");
+            })
+          }
+          style={screenStyles.button}
+        >
+          <Text style={screenStyles.buttonText}>{busy ? "Saving readiness..." : status?.loggedToday ? "Update readiness" : "Log readiness"}</Text>
+        </Pressable>
     </DailyLogFrame>
   );
 }

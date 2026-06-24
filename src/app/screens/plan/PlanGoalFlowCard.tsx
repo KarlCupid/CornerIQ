@@ -44,6 +44,7 @@ export interface PlanGoalFlowCardProps {
   currentModeLabel: PlanViewModel["modeLabel"];
   existingFixedSchedule: readonly FixedSession[];
   existingWeeklyAnchors: readonly WeeklyAnchor[];
+  framed?: boolean | undefined;
   initialAvailableDays: readonly GeneratedSupportDay[];
   isMinor: boolean;
   onCancel: () => void;
@@ -53,6 +54,7 @@ export interface PlanGoalFlowCardProps {
   onSaveRecurringProtectedAnchor?: ((anchorId: string | null, draft: RecurringProtectedWorkoutAnchorDraft) => Promise<void>) | undefined;
   onSaveRecoveryGoal: (draft: RecoveryGoalDraft) => Promise<void>;
   onSaveTournamentSetup: (draft: TournamentSetupDraft) => Promise<void>;
+  showCloseButton?: boolean | undefined;
 }
 
 const wizardSteps: readonly { key: WizardStep; label: string }[] = [
@@ -222,6 +224,7 @@ export function PlanGoalFlowCard({
   currentModeLabel,
   existingFixedSchedule,
   existingWeeklyAnchors,
+  framed = true,
   initialAvailableDays,
   isMinor,
   onCancel,
@@ -230,7 +233,8 @@ export function PlanGoalFlowCard({
   onSaveProtectedSession,
   onSaveRecurringProtectedAnchor,
   onSaveRecoveryGoal,
-  onSaveTournamentSetup
+  onSaveTournamentSetup,
+  showCloseButton = false
 }: PlanGoalFlowCardProps) {
   const defaultFight = createDefaultFightDraft(asOfDate);
   const defaultTournament = createDefaultTournamentDraft(asOfDate);
@@ -559,13 +563,25 @@ export function PlanGoalFlowCard({
     return [`Primary focus: ${titleCase(primaryFocus)}`, `Training dose: ${titleCase(trainingDose)}`];
   }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
 
-  return (
-    <EngineCard>
-      <View accessibilityLabel="Plan generation wizard" style={{ gap: spacing.md }} testID="plan-generation-wizard">
-        <View style={{ gap: spacing.xs }}>
+  const content = (
+    <View accessibilityLabel="Plan generation wizard" style={{ gap: spacing.md }} testID="plan-generation-wizard">
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
           <Text style={screenStyles.sectionTitle}>Generate new plan</Text>
           <Text style={screenStyles.body}>A guided setup keeps the plan goal, availability, and details clear before saving.</Text>
         </View>
+        {showCloseButton ? (
+          <Pressable
+            accessibilityLabel="Close plan wizard"
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={onCancel}
+            style={[screenStyles.quietButton, { minHeight: 44, minWidth: 76, paddingHorizontal: spacing.md }]}
+          >
+            <Text style={screenStyles.quietButtonText}>Close</Text>
+          </Pressable>
+        ) : null}
+      </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
           {wizardSteps.map((item, index) => {
             const active = item.key === step;
@@ -871,7 +887,8 @@ export function PlanGoalFlowCard({
         <Pressable accessibilityRole="button" disabled={busy} onPress={onCancel} style={screenStyles.quietButton}>
           <Text style={screenStyles.quietButtonText}>Keep current plan</Text>
         </Pressable>
-      </View>
-    </EngineCard>
+    </View>
   );
+
+  return framed ? <EngineCard>{content}</EngineCard> : content;
 }

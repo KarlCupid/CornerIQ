@@ -6,7 +6,6 @@ import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, Recent
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart, WeeklyLoadBars } from "../../design/components/PerformanceVisuals";
-import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
 import { buildTodayDashboardVisual, type TodayDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
@@ -44,11 +43,12 @@ export interface TodayScreenProps {
 type TodaySecondaryAction = TodayViewModel["secondaryActions"][number]["action"];
 type TodayQuickCheckFocus = "readiness" | "body_mass" | "hydration";
 type TodayQuickCheckPlacement = "top" | "readiness_card" | "body_mass_card" | "hydration_card" | "manual";
-type TodayStatusLabel = "Ready" | "Check in" | "Fuel first" | "Easy day" | "Recovery day" | "Review needed";
-type ReadinessValue = "Good" | "Caution" | "Low" | "Stop";
+type TodayStatusLabel = "Ready" | "Check in" | "Fuel first" | "Easy day" | "Recovery day";
+type ReadinessValue = "Good" | "Caution" | "Low";
 type WeightValue = "On pace" | "Tight" | "Behind" | "No active cut" | "Paused";
 type FuelValue = "Eat before" | "Normal" | "Log if useful" | "Hydrate first";
-type TrainingValue = "Start" | "Easy" | "Recovery" | "No workout" | "Review";
+type TrainingValue = "Start" | "Easy" | "Recovery" | "No workout";
+type TodayFoodLogStatus = FuelViewModel["foodLogStatus"]["status"];
 
 interface PlainStatus<TValue extends string> {
   tone: VisualTone;
@@ -91,6 +91,36 @@ interface WeekTodayModel {
   }[];
 }
 
+const todayPalette = {
+  actionBorder: "rgba(142, 205, 224, 0.48)",
+  actionFill: "rgba(43, 137, 166, 0.34)",
+  actionFillPressed: "rgba(52, 158, 190, 0.44)",
+  actionShadow: "rgba(24, 102, 137, 0.26)",
+  cardLine: "rgba(172, 215, 231, 0.16)",
+  controlFill: "rgba(224, 244, 252, 0.062)",
+  controlFillPressed: "rgba(224, 244, 252, 0.1)",
+  controlLine: "rgba(172, 215, 231, 0.18)",
+  textBody: "#D7E7F4",
+  textMuted: "#A9BDD0",
+  textPrimary: "#F6FBFF",
+  toneBlue: "#8ECDE0",
+  toneGold: "#D0BC78",
+  toneGreen: "#8BC6A7",
+  toneMuted: "#A9BDD0",
+  toneOrange: "#C9956D",
+  tonePurple: "#B0A3D4",
+  toneRed: "#D87B88"
+} as const;
+
+const advisoryFoodLogStatuses = new Set<TodayFoodLogStatus>([
+  "no_log",
+  "quick_fuel_check_only",
+  "not_tracking_today",
+  "partial_day",
+  "likely_partial",
+  "auto_closed_incomplete"
+]);
+
 function plainTodayCopy(value: string): string {
   return value
     .replace(/\bGenerated support\b/g, "App work")
@@ -102,12 +132,12 @@ function plainTodayCopy(value: string): string {
     .replace(/\bprotected sparring\b/gi, "fixed sparring")
     .replace(/\bexecution readiness\b/gi, "readiness")
     .replace(/\btraining demand\b/gi, "training need")
-    .replace(/\bsafety override\b/gi, "review note")
-    .replace(/\bsafety stops\b/gi, "review notes")
-    .replace(/\bsafety stop\b/gi, "review needed")
-    .replace(/\bhard stops\b/gi, "review notes")
-    .replace(/\bhard stop\b/gi, "review needed")
-    .replace(/\brisk domain\b/gi, "review area")
+    .replace(/\bsafety override\b/gi, "safety note")
+    .replace(/\bsafety stops\b/gi, "safety notes")
+    .replace(/\bsafety stop\b/gi, "safety note")
+    .replace(/\bhard stops\b/gi, "safety notes")
+    .replace(/\bhard stop\b/gi, "safety note")
+    .replace(/\brisk domain\b/gi, "safety area")
     .replace(/\bdecision trace\b/gi, "decision notes")
     .replace(/\bbody check\b/gi, "body status")
     .replace(/\bdashboard\b/gi, "overview")
@@ -121,20 +151,41 @@ function accentForTone(tone: VisualTone): "blue" | "green" | "orange" | "purple"
 function colorForTone(tone: VisualTone): string {
   switch (tone) {
     case "green":
-      return colors.readyGreen;
+      return todayPalette.toneGreen;
     case "orange":
-      return colors.amberCaution;
+      return todayPalette.toneOrange;
     case "purple":
-      return colors.powerPurple;
+      return todayPalette.tonePurple;
     case "gold":
-      return colors.gold;
+      return todayPalette.toneGold;
     case "red":
-      return colors.redCorner;
+      return todayPalette.toneRed;
     case "muted":
-      return colors.mutedText;
+      return todayPalette.toneMuted;
     case "blue":
     default:
-      return colors.blueIQ;
+      return todayPalette.toneBlue;
+  }
+}
+
+function todayTint(tone: VisualTone, alpha: string): string {
+  return `${colorForTone(tone)}${alpha}`;
+}
+
+function compactStatusValue(value: string): string {
+  switch (value) {
+    case "Eat before":
+      return "Eat first";
+    case "Hydrate first":
+      return "Hydrate";
+    case "Log if useful":
+      return "Optional";
+    case "No active cut":
+      return "No cut";
+    case "No workout":
+      return "None";
+    default:
+      return value;
   }
 }
 
@@ -282,10 +333,10 @@ function TodayQuickCheckModal({
   }
 
   const compact = width < 520;
-  const maxPanelHeight = Math.max(
-    320,
-    Math.min(height * (compact ? 0.72 : 0.84), compact ? 560 : 720)
-  );
+  const modalPaddingBottom = Math.max(insets.bottom + spacing.md, spacing.lg);
+  const modalPaddingTop = Math.max(insets.top + spacing.md, spacing.lg);
+  const availablePanelHeight = Math.max(320, height - modalPaddingTop - modalPaddingBottom);
+  const maxPanelHeight = Math.min(availablePanelHeight, 820);
   const includeOtherLogs = !compact && (quickCheck.placement === "top" || quickCheck.placement === "manual");
   const modalShadowStyle: ViewStyle =
     Platform.OS === "web"
@@ -311,10 +362,10 @@ function TodayQuickCheckModal({
         style={{
           alignItems: "center",
           flex: 1,
-          justifyContent: compact ? "flex-end" : "center",
-          paddingBottom: Math.max(insets.bottom + spacing.md, spacing.lg),
+          justifyContent: "flex-start",
+          paddingBottom: modalPaddingBottom,
           paddingHorizontal: spacing.lg,
-          paddingTop: Math.max(insets.top, spacing.lg)
+          paddingTop: modalPaddingTop
         }}
       >
         <Pressable
@@ -342,7 +393,7 @@ function TodayQuickCheckModal({
               maxHeight: maxPanelHeight,
               maxWidth: 640,
               overflow: "hidden",
-              padding: compact ? spacing.md : spacing.lg,
+              padding: compact ? spacing.sm : spacing.lg,
               width: "100%"
             },
             modalShadowStyle
@@ -414,8 +465,6 @@ function TodayButton({
 }) {
   const theme = useLuminousScreenTheme();
   const toneColor = colorForTone(tone);
-  const primaryColor = tone === "red" ? colors.redCorner : theme.accentColor;
-  const primaryForeground = tone === "red" ? colors.canvas : colors.cornerBlack;
   return (
     <Pressable
       accessibilityLabel={label}
@@ -441,19 +490,24 @@ function TodayButton({
         },
         primary
           ? {
-              backgroundColor: disabled ? theme.control : pressed ? `${primaryColor}C7` : `${primaryColor}E0`,
-              borderColor: disabled ? theme.controlBorder : `${primaryColor}70`,
-              boxShadow: disabled ? "none" : `0 10px 24px ${theme.strongGlow}`
+              backgroundColor: disabled
+                ? todayPalette.controlFill
+                : tone === "blue"
+                  ? pressed ? todayPalette.actionFillPressed : todayPalette.actionFill
+                  : pressed ? todayTint(tone, "44") : todayTint(tone, "34"),
+              borderColor: disabled ? todayPalette.controlLine : tone === "blue" ? todayPalette.actionBorder : todayTint(tone, "66"),
+              boxShadow: disabled ? "none" : `0 10px 24px ${tone === "blue" ? todayPalette.actionShadow : `${toneColor}26`}`
             }
           : {
-              backgroundColor: pressed ? theme.tile : theme.control,
-              borderColor: theme.controlBorder
+              backgroundColor: pressed ? todayPalette.controlFillPressed : todayPalette.controlFill,
+              borderColor: todayPalette.controlLine,
+              boxShadow: `0 6px 16px ${theme.strongGlow}`
             }
       ]}
       testID={testID}
     >
-      <Ionicons color={primary && !disabled ? primaryForeground : disabled ? colors.mutedText : toneColor} name={icon} size={18} />
-      <Text style={{ color: primary && !disabled ? primaryForeground : colors.canvas, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+      <Ionicons color={disabled ? todayPalette.textMuted : primary ? todayPalette.textPrimary : toneColor} name={icon} size={18} />
+      <Text style={{ color: primary ? todayPalette.textPrimary : todayPalette.textBody, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
     </Pressable>
@@ -469,29 +523,31 @@ function TodayStatusTile({
   tone: VisualTone;
   value: string;
 }) {
-  const theme = useLuminousScreenTheme();
+  const { width } = useWindowDimensions();
+  const compact = width < 430;
+  const compactTileBasis = width < 360 ? 64 : 78;
+  const compactValueFontSize = width < 360 ? 14 : 15;
   const color = colorForTone(tone);
+  const displayValue = compact ? compactStatusValue(value) : value;
   return (
     <View
       accessibilityLabel={`${label}: ${value}`}
       style={{
         ...glassStyles.tile,
-        backgroundColor: theme.tile,
-        borderColor: theme.tileBorder,
-        borderLeftColor: tone === "muted" ? theme.hairline : color,
-        borderLeftWidth: 2,
-        flexBasis: 132,
+        backgroundColor: todayPalette.controlFill,
+        borderColor: todayPalette.cardLine,
+        flexBasis: compact ? compactTileBasis : 132,
         flexGrow: 1,
         gap: spacing.xs,
-        minHeight: 74,
-        padding: spacing.md
+        minHeight: compact ? 68 : 74,
+        padding: compact ? spacing.sm : spacing.md
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
+      <Text numberOfLines={1} style={{ color: todayPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
         {label}
       </Text>
-      <Text adjustsFontSizeToFit minimumFontScale={0.74} numberOfLines={1} style={{ color, fontSize: 19, fontWeight: "900", lineHeight: 24 }}>
-        {value}
+      <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={{ color, fontSize: compact ? compactValueFontSize : 19, fontWeight: "900", lineHeight: compact ? 19 : 24 }}>
+        {displayValue}
       </Text>
     </View>
   );
@@ -590,10 +646,7 @@ function TodayDetailRow({
   );
 }
 
-function readinessStatus(dashboard: TodayDashboardVisual, recentLogs: RecentLogsViewModel, warningActive: boolean): PlainStatus<ReadinessValue> {
-  if (warningActive || dashboard.readiness.tone === "red") {
-    return { tone: "red", value: "Stop" };
-  }
+function readinessStatus(dashboard: TodayDashboardVisual, recentLogs: RecentLogsViewModel): PlainStatus<ReadinessValue> {
   if (!recentLogs.readinessToday.loggedToday || dashboard.readiness.score === null) {
     return { tone: "orange", value: "Caution" };
   }
@@ -606,9 +659,8 @@ function readinessStatus(dashboard: TodayDashboardVisual, recentLogs: RecentLogs
   return { tone: "red", value: "Low" };
 }
 
-function weightStatus(fuel: FuelViewModel | undefined, warningActive: boolean): PlainStatus<WeightValue> {
+function weightStatus(fuel: FuelViewModel | undefined): PlainStatus<WeightValue> {
   if (
-    warningActive ||
     fuel?.underFuelingRisk ||
     fuel?.nutritionSafetyReview.required ||
     (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0 ||
@@ -637,12 +689,12 @@ function weightStatus(fuel: FuelViewModel | undefined, warningActive: boolean): 
   }
 }
 
-function fuelStatus(dashboard: TodayDashboardVisual, fuel: FuelViewModel | undefined, warningActive: boolean): PlainStatus<FuelValue> {
+function fuelStatus(dashboard: TodayDashboardVisual, fuel: FuelViewModel | undefined): PlainStatus<FuelValue> {
   const hydration = dashboard.fuel.find((item) => /hydration/i.test(item.label));
   const carbs = dashboard.fuel.find((item) => /carb/i.test(item.label));
   const highFuelNeed = fuel?.trainingDemandHandoff.todayTrainingDemand === "high";
-  if (warningActive) {
-    return { tone: "orange", value: "Hydrate first" };
+  if (!fuel || fuel.foodLogStatus.entryCount === 0 || advisoryFoodLogStatuses.has(fuel.foodLogStatus.status)) {
+    return { tone: "muted", value: "Log if useful" };
   }
   if (hydration && hydration.ratio > 0 && hydration.ratio < 0.55) {
     return { tone: "blue", value: "Hydrate first" };
@@ -650,18 +702,12 @@ function fuelStatus(dashboard: TodayDashboardVisual, fuel: FuelViewModel | undef
   if (highFuelNeed || (carbs && carbs.ratio > 0 && carbs.ratio < 0.55)) {
     return { tone: "orange", value: "Eat before" };
   }
-  if (!fuel || fuel.foodLogStatus.entryCount === 0) {
-    return { tone: "muted", value: "Log if useful" };
-  }
   return { tone: "green", value: "Normal" };
 }
 
-function trainingStatus(train: TrainViewModel | undefined, warningActive: boolean): PlainStatus<TrainingValue> {
+function trainingStatus(train: TrainViewModel | undefined): PlainStatus<TrainingValue> {
   const session = train?.todayGeneratedSessions[0] ?? train?.nextGeneratedSession;
   const intensity = train?.sessionCards[0]?.intensity ?? session?.intensity;
-  if (warningActive) {
-    return { tone: "red", value: "Review" };
-  }
   if (!session && (train?.sessionCards.length ?? 0) === 0) {
     return { tone: "muted", value: "No workout" };
   }
@@ -676,16 +722,24 @@ function trainingStatus(train: TrainViewModel | undefined, warningActive: boolea
 
 function buildCheckInModel(input: {
   fuel: PlainStatus<FuelValue>;
+  readinessLogged: boolean;
   readiness: PlainStatus<ReadinessValue>;
   training: PlainStatus<TrainingValue>;
-  warningActive: boolean;
 }): TodayCheckInModel {
-  if (input.warningActive || input.training.value === "Review" || input.readiness.value === "Stop") {
+  if (!input.readinessLogged) {
     return {
       focus: "readiness",
-      sentence: "Something needs attention before you push training or weight.",
-      status: "Review needed",
-      tone: "red"
+      sentence: "Log today's readiness first. Fuel, water, and body weight can wait unless they help you.",
+      status: "Check in",
+      tone: "blue"
+    };
+  }
+  if (input.readiness.value === "Low") {
+    return {
+      focus: "readiness",
+      sentence: "Readiness is low, so keep the work controlled and stop if symptoms show up.",
+      status: input.training.value === "Recovery" ? "Recovery day" : "Easy day",
+      tone: "orange"
     };
   }
   if (input.fuel.value === "Eat before" || input.fuel.value === "Hydrate first") {
@@ -733,7 +787,7 @@ function buildCheckInModel(input: {
 function trainingHumanLine(input: {
   card: TrainViewModel["sessionCards"][number] | null;
   generated: NonNullable<TrainViewModel["nextGeneratedSession"]> | null;
-  hasWarning: boolean;
+  readinessLogged: boolean;
   session: TrainViewModel["detailedTodaySessions"][number]["detail"] | null;
   viewModel: TrainViewModel | undefined;
 }): string {
@@ -743,11 +797,11 @@ function trainingHumanLine(input: {
     ""
   );
   const lowerSource = source.toLowerCase();
-  if (input.hasWarning) {
-    return "Today should stay easy. Stop if symptoms return.";
-  }
   if (!input.session && !input.card && !input.generated) {
     return "No app workout is set for today. Log real boxing if training changes.";
+  }
+  if (!input.readinessLogged) {
+    return "Today's workout is ready. Log readiness first, then start if the warm-up feels right.";
   }
   if (intensity === "recovery" || intensity === "easy") {
     return "Today is a lighter session. Move well and leave some gas in the tank.";
@@ -764,7 +818,7 @@ function trainingHumanLine(input: {
   return "Use the workout to stay sharp without adding extra fatigue.";
 }
 
-function buildTrainingTodayModel(train: TrainViewModel | undefined, warningActive: boolean, hasStartHandler: boolean): TrainingTodayModel {
+function buildTrainingTodayModel(train: TrainViewModel | undefined, readinessLogged: boolean, hasStartHandler: boolean): TrainingTodayModel {
   const session = train?.detailedTodaySessions.find((item) => item.detail !== null)?.detail ?? null;
   const card = train?.sessionCards[0] ?? null;
   const generated = train?.todayGeneratedSessions[0] ?? train?.nextGeneratedSession ?? null;
@@ -778,30 +832,30 @@ function buildTrainingTodayModel(train: TrainViewModel | undefined, warningActiv
   const durationMinutes = session?.durationMinutes ?? card?.durationMinutes ?? generated?.durationMinutes ?? 0;
   const intensity = session?.intensity ?? card?.intensity ?? generated?.intensity ?? "moderate";
   const hasWorkout = Boolean(session || card || generated);
-  const canStartPlayableSession = Boolean(session && hasStartHandler && !warningActive);
+  const canStartPlayableSession = Boolean(session && hasStartHandler && readinessLogged);
   return {
     buttonLabel: canStartPlayableSession ? "Start workout" : hasWorkout ? "View workout" : "Open Train",
     disabled: false,
     durationLabel: durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD",
     intensityLabel: sentenceCase(plainIntensityLabel(intensity)),
-    sentence: trainingHumanLine({ card, generated, hasWarning: warningActive, session, viewModel: train }),
+    sentence: trainingHumanLine({ card, generated, readinessLogged, session, viewModel: train }),
     title,
-    tone: warningActive ? "red" : toneForIntensity(intensity)
+    tone: toneForIntensity(intensity)
   };
 }
 
 function buildFuelTodayModel(input: {
   fuel: FuelViewModel | undefined;
   fuelStatus: PlainStatus<FuelValue>;
-  warningActive: boolean;
   weightStatus: PlainStatus<WeightValue>;
 }): FuelTodayModel {
-  if (input.warningActive || input.weightStatus.value === "Paused") {
+  if (input.weightStatus.value === "Paused" || fuelWarningIsActive(input.fuel)) {
+    const reviewRequired = input.fuel?.nutritionSafetyReview.required || (input.fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0;
     return {
-      note: "Cut paused today. Eat and hydrate normally.",
-      status: "Paused",
-      tone: "red",
-      why: "Weight pressure should not drive training today."
+      note: reviewRequired ? "Fuel guidance is active. Eat and hydrate normally." : "Weight pressure stays off today. Eat and hydrate normally.",
+      status: reviewRequired ? "Guidance" : "Weight pressure off",
+      tone: "orange",
+      why: "Fuel and weight notes do not block the workout."
     };
   }
   if (input.fuelStatus.value === "Hydrate first") {
@@ -928,18 +982,6 @@ function buildWeekModel(plan: PlanViewModel | undefined, asOfDate?: string | und
   };
 }
 
-function warningIsActive(fuel: FuelViewModel | undefined, today: TodayViewModel): boolean {
-  return Boolean(
-    today.riskSummary.length > 0 ||
-      fuel?.nutritionSafetyReview.required ||
-      (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0 ||
-      (fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0 ||
-      fuel?.underFuelingRisk ||
-      (fuel?.riskSummary.length ?? 0) > 0 ||
-      (fuel?.weightClassStatus.safetyFlags.length ?? 0) > 0
-  );
-}
-
 function fuelWarningIsActive(fuel: FuelViewModel | undefined): boolean {
   return Boolean(
     fuel?.nutritionSafetyReview.required ||
@@ -949,24 +991,6 @@ function fuelWarningIsActive(fuel: FuelViewModel | undefined): boolean {
       (fuel?.riskSummary.length ?? 0) > 0 ||
       (fuel?.weightClassStatus.safetyFlags.length ?? 0) > 0
   );
-}
-
-function warningSource(fuel: FuelViewModel | undefined, today: TodayViewModel): "fuel" | "readiness" | "mixed" {
-  const fuelActive = fuelWarningIsActive(fuel);
-  const readinessActive = today.riskSummary.length > 0;
-  if (fuelActive && readinessActive) {
-    return "mixed";
-  }
-  return fuelActive ? "fuel" : "readiness";
-}
-
-function warningLines(fuel: FuelViewModel | undefined, today: TodayViewModel): readonly string[] {
-  return [
-    ...today.riskSummary,
-    ...(fuel?.underFuelingRisk ? [fuel.underFuelingRisk.summary] : []),
-    ...(fuel?.riskSummary ?? []),
-    ...(fuel?.weightClassStatus.safetyFlags ?? [])
-  ].map((item) => sentenceCase(firstSentence(item))).filter(Boolean).slice(0, 4);
 }
 
 function logRows(recentLogs: RecentLogsViewModel): readonly string[] {
@@ -1047,7 +1071,7 @@ function TrainingTodayCard({
 }) {
   return (
     <TodaySectionCard
-      action={<TodayButton disabled={busy || !onOpen || model.disabled} icon={model.buttonLabel === "Start workout" ? "play-outline" : "barbell-outline"} label={model.buttonLabel} onPress={onOpen} primary tone={model.tone} />}
+      action={<TodayButton disabled={busy || !onOpen || model.disabled} icon={model.buttonLabel === "Start workout" ? "play-outline" : "barbell-outline"} label={model.buttonLabel} onPress={onOpen} primary tone="blue" />}
       label={model.intensityLabel}
       sentence={model.sentence}
       testID="today-training-card"
@@ -1075,7 +1099,7 @@ function FuelTodayCard({
 }) {
   return (
     <TodaySectionCard
-      action={<TodayButton disabled={busy || !onOpenFuel} icon="flame-outline" label="Open Fuel" onPress={onOpenFuel} primary tone={model.tone} />}
+      action={<TodayButton disabled={busy || !onOpenFuel} icon="flame-outline" label="Open Fuel" onPress={onOpenFuel} primary tone="blue" />}
       label={model.status}
       sentence={model.note}
       testID="today-fuel-card"
@@ -1096,7 +1120,6 @@ function ThisWeekCard({
   model: WeekTodayModel;
   onOpenPlan?: (() => void) | undefined;
 }) {
-  const theme = useLuminousScreenTheme();
   return (
     <TodaySectionCard
       action={<TodayButton disabled={busy || !onOpenPlan} icon="calendar-outline" label="View Plan" onPress={onOpenPlan} tone="green" />}
@@ -1111,10 +1134,8 @@ function ThisWeekCard({
           <View
             key={`today-week-session:${session.id}`}
             style={{
-              backgroundColor: theme.tile,
-              borderColor: theme.tileBorder,
-              borderLeftColor: colorForTone(session.tone),
-              borderLeftWidth: 3,
+              backgroundColor: todayPalette.controlFill,
+              borderColor: todayPalette.cardLine,
               borderRadius: radii.tile,
               borderWidth: 1,
               gap: spacing.xs,
@@ -1237,7 +1258,6 @@ export function TodayScreen({
   preferredUnits = "metric",
   onOpenFuel,
   onOpenFuelLog,
-  onOpenFuelSafety,
   onOpenPlan,
   onOpenTrain,
   onOpenTrainWorkout
@@ -1267,57 +1287,21 @@ export function TodayScreen({
     today: viewModel,
     train: trainViewModel
   });
-  const hasWarning = warningIsActive(fuelViewModel, viewModel);
-  const readiness = readinessStatus(dashboard, recentLogs, hasWarning);
-  const weight = weightStatus(fuelViewModel, hasWarning);
-  const fuel = fuelStatus(dashboard, fuelViewModel, hasWarning);
-  const training = trainingStatus(trainViewModel, hasWarning);
-  const checkIn = buildCheckInModel({ fuel, readiness, training, warningActive: hasWarning });
-  const trainingToday = buildTrainingTodayModel(trainViewModel, hasWarning, Boolean(onOpenTrainWorkout));
-  const fuelToday = buildFuelTodayModel({ fuel: fuelViewModel, fuelStatus: fuel, warningActive: hasWarning, weightStatus: weight });
+  const readinessLogged = recentLogs.readinessToday.loggedToday;
+  const readiness = readinessStatus(dashboard, recentLogs);
+  const weight = weightStatus(fuelViewModel);
+  const fuel = fuelStatus(dashboard, fuelViewModel);
+  const training = trainingStatus(trainViewModel);
+  const checkIn = buildCheckInModel({ fuel, readiness, readinessLogged, training });
+  const trainingToday = buildTrainingTodayModel(trainViewModel, readinessLogged, Boolean(onOpenTrainWorkout));
+  const fuelToday = buildFuelTodayModel({ fuel: fuelViewModel, fuelStatus: fuel, weightStatus: weight });
   const weekToday = buildWeekModel(planViewModel, asOfDate);
   const foodAction = onOpenFuelLog ?? onOpenFuel;
   const workoutAction = trainingToday.buttonLabel === "Start workout" ? onOpenTrainWorkout : onOpenTrain;
-  const activeWarningSource = warningSource(fuelViewModel, viewModel);
-  const fuelWarningAction = onOpenFuelSafety ?? onOpenFuel;
-  const readinessWarningAction = () => openQuickCheck("readiness", "top");
-  const warningActions =
-    activeWarningSource === "mixed"
-      ? [
-          { icon: "pulse-outline" as const, label: "Review readiness", onPress: readinessWarningAction },
-          { icon: "shield-checkmark-outline" as const, label: "Open Fuel review", onPress: fuelWarningAction }
-        ]
-      : activeWarningSource === "fuel"
-        ? [{ icon: "shield-checkmark-outline" as const, label: "Open Fuel review", onPress: fuelWarningAction }]
-        : [{ icon: "pulse-outline" as const, label: "Review readiness", onPress: readinessWarningAction }];
-  const warningText = fuelViewModel && weight.value === "Paused"
-    ? "Cut paused. Eat and hydrate normally."
-    : training.value === "Review"
-      ? "Review needed before hard training."
-      : "Hard training is not recommended today.";
   return (
     <>
       <LuminousScreen accent="blue" backgroundImage={tabScreenBackgrounds.today} testID="today-screen">
         <ScreenHeader {...tabHeroHeaders.today} />
-        {hasWarning ? (
-          <RiskBanner title="Review needed before hard training" message={warningText} statusLabel="Review needed" tone="critical">
-            <View style={{ gap: spacing.sm }}>
-              {warningLines(fuelViewModel, viewModel).map((risk, index) => <Text key={`today-risk:${index}`} style={screenStyles.body}>{risk}</Text>)}
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                {warningActions.map((action) => (
-                  <TodayButton
-                    disabled={busy || !action.onPress}
-                    icon={action.icon}
-                    key={`today-warning-action:${action.label}`}
-                    label={action.label}
-                    onPress={action.onPress}
-                    tone="red"
-                  />
-                ))}
-              </View>
-            </View>
-          </RiskBanner>
-        ) : null}
         <TodayCheckInCard
           busy={busy}
           checkIn={checkIn}
@@ -1335,7 +1319,7 @@ export function TodayScreen({
           cycleContext={cycleContext}
           cycleTrackingStatus={cycleTrackingStatus}
           dashboard={dashboard}
-          hasWarning={hasWarning}
+          hasWarning={false}
           onOpenBodyMass={() => openQuickCheck("body_mass", "body_mass_card")}
           onOpenReadiness={() => openQuickCheck("readiness", "readiness_card")}
           recentLogs={recentLogs}
@@ -1343,7 +1327,7 @@ export function TodayScreen({
         />
         {message ? (
           <EngineCard>
-            <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>App note: {message}. Existing plan stays visible unless a review note changes it.</Text>
+            <Text style={[screenStyles.subtle, { color: todayPalette.toneOrange }]}>App note: {message}. Existing plan stays visible.</Text>
           </EngineCard>
         ) : null}
       </LuminousScreen>

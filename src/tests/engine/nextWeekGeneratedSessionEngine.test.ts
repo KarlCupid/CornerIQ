@@ -276,7 +276,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
     expect(sessions.some((session) => session.durationMinutes === 22)).toBe(false);
   });
 
-  it("under-fueling blocks progression and high fuel-demand sessions", () => {
+  it("under-fueling does not block progression or high fuel-demand sessions", () => {
     const state = stateFixture();
     const sessions = materializeGeneratedSessionsFromPreview(
       inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
@@ -285,8 +285,8 @@ describe("nextWeekGeneratedSessionEngine", () => {
     );
 
     expect(sessions.length).toBeGreaterThan(1);
-    expect(sessions.every((session) => session.fuelDemand === "low" && !["strength_full_body", "power_rotational", "roadwork_intervals"].includes(session.family))).toBe(true);
-    expect(sessions.every((session) => session.modifications.some((modification) => modification.includes("Under-fueling risk")))).toBe(true);
+    expect(sessions.some((session) => session.fuelDemand !== "low" || ["strength_full_body", "power_rotational", "roadwork_intervals"].includes(session.family))).toBe(true);
+    expect(sessions.every((session) => session.modifications.every((modification) => !modification.includes("Under-fueling risk")))).toBe(true);
   });
 
   it("missing food logs do not remap strength or conditioning into trunk-only work", () => {
@@ -366,7 +366,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
     expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fuel data is low-confidence")))).toBe(false);
   });
 
-  it("severe fueling risk still caps generated support volume", () => {
+  it("severe fueling risk stays guidance-only for generated support volume", () => {
     const state = stateFixture();
     const sessions = materializeGeneratedSessionsFromPreview(
       inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
@@ -374,9 +374,9 @@ describe("nextWeekGeneratedSessionEngine", () => {
       })
     );
 
-    expect(sessions).toHaveLength(1);
-    expect(sessions.every((session) => session.fuelDemand === "low" && session.intensity !== "hard")).toBe(true);
-    expect(sessions.every((session) => session.durationPolicyCategory === "safety_capped")).toBe(true);
+    expect(sessions.length).toBeGreaterThan(1);
+    expect(sessions.every((session) => session.fuelDemand === "low")).toBe(false);
+    expect(sessions.every((session) => session.durationPolicyCategory === "safety_capped")).toBe(false);
   });
 
   it("high cycle symptoms trim optional volume", () => {
@@ -475,6 +475,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
           {
             ...severeFuelingFlag(),
             id: "risk_hard_stop",
+            domain: "medical",
             hardStop: true,
             message: "Hard stop test flag."
           }
@@ -492,7 +493,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
         const text = outputText(sessions).toLowerCase();
 
         expect(text, `${strategy}:${safetyCase.label}`).not.toMatch(/\b(sparring|contact|fight simulation|sauna|sweat\s*suit|laxative|diuretic)\b/);
-        if (safetyCase.label !== "clear" || strategy === "reduce_volume" || strategy === "deload" || strategy === "taper" || strategy === "tournament_conserve" || strategy === "hold_for_review") {
+        if (safetyCase.label === "hard_stop" || strategy === "reduce_volume" || strategy === "deload" || strategy === "taper" || strategy === "tournament_conserve" || strategy === "hold_for_review") {
           expect(sessions.every((session) => session.intensity !== "hard"), `${strategy}:${safetyCase.label}`).toBe(true);
         }
       }

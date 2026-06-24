@@ -1,10 +1,16 @@
-import type { CycleTrainingDecisionViewModel, PerformanceState, TrainViewModel, TrainingDayPlan } from "../core/types";
+import type { CycleTrainingDecisionViewModel, PerformanceState, RiskDomain, RiskFlag, TrainViewModel, TrainingDayPlan } from "../core/types";
 import { buildDetailedTrainingSession } from "../training/detailedSessionEngine";
 import { resolveGeneratedSessionStatus } from "../training/generatedSessionStatus";
 import { buildTrainingAnalytics } from "../training/trainingAnalytics";
 import { buildExerciseHistoryViewModel } from "./exerciseHistoryViewModel";
 import { riskSummary } from "./explanationCopy";
 import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainIntensityLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
+
+const TRAIN_VIEW_SAFETY_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
+
+function trainingSafetyFlag(flag: RiskFlag): boolean {
+  return flag.status === "active" && TRAIN_VIEW_SAFETY_DOMAINS.has(flag.domain);
+}
 
 function todayPlan(state: PerformanceState): TrainingDayPlan | null {
   return state.training.dayPlans.find((plan) => plan.date === state.asOfDate) ?? null;
@@ -353,17 +359,18 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const trainingRiskSummary = riskSummary(state.safety.riskFlags.filter((flag) => flag.domain === "training" || flag.domain === "readiness"));
   const workoutLooseEnds = looseEndCards(state, currentWeekGeneratedSessionsRaw);
   const preSessionGate = preSessionReadinessGate(state, todayGeneratedSessionsRaw[0] ?? null, trainingRiskSummary);
+  const trainingHardStops = state.safety.hardStops.filter(trainingSafetyFlag);
   const generationExplanation =
-    state.safety.hardStops.length > 0
-      ? "Safety stops are active; recovery only today."
+    trainingHardStops.length > 0
+      ? "Safety signs are active; use recovery-focused guidance today."
       : state.training.executionReadiness.readinessStatus === "red_hard_stop"
-        ? "Stop-for-safety symptoms are active. Recovery only."
+        ? "Hard-stop readiness symptoms are active. Use recovery-focused guidance."
         : state.training.executionReadiness.readinessStatus === "red_non_hard_stop"
           ? "Readiness is red, so keep training conservative."
         : plainTrainingCopy(plan?.explanation ?? state.training.explanation);
   const primaryTrainingAction =
-    state.safety.hardStops.length > 0
-      ? "Follow the safety stop. No extra support workout."
+    trainingHardStops.length > 0
+      ? "Use recovery-focused guidance and skip extra hard work."
       : todayGeneratedSessions.length > 0
         ? "Start today's support workout when ready."
         : "No support workout is due. Log boxing if it happens.";

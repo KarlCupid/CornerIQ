@@ -200,15 +200,13 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
           ? trainingHardStop
             ? "recovery"
             : "deload"
-          : underFueling
-            ? "hold"
-            : progression.status === "can_progress"
+          : progression.status === "can_progress"
               ? "build"
               : "hold";
   const progressionRecommendation =
     repeatedPain || progression.status === "coach_review"
       ? "coach_review"
-      : underFueling || progression.status === "deload"
+      : progression.status === "deload"
         ? "deload"
         : progression.status === "can_progress"
           ? "progress"
@@ -216,7 +214,7 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
             ? progression.status
             : "unknown";
   const warnings = [
-    ...(underFueling ? ["Under-fueling risk blocks aggressive progression."] : []),
+    ...(underFueling ? ["Under-fueling evidence adds fuel guidance, but it does not block workout generation."] : []),
     ...(input.cycle.symptomBurden === "high" ? ["High cycle symptoms trim optional volume."] : []),
     ...(input.safetyFlags.some((flag) => flag.code === "heavy_bleeding_with_dizziness") ? ["Heavy bleeding with dizziness needs safety review before hard work."] : []),
     ...(phase === "tournament_week" ? ["Tournament week avoids extra hard conditioning and weight pressure."] : [])
@@ -243,7 +241,7 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
       weekIndex: weekIndexFor(input),
       status: progressionStatus,
       progressionRecommendation,
-      reason: underFueling ? "Under-fueling risk is active, so progression is held." : progression.why
+      reason: progression.why
     },
     warnings
   };

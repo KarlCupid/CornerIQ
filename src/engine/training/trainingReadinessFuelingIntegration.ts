@@ -142,13 +142,10 @@ function impactFromReadiness(status: TrainingExecutionReadinessStatus): Training
 
 function impactFromFueling(status: TrainingExecutionFuelingStatus): TrainingGenerationImpact {
   switch (status) {
-    case "severe_underfueling_hard_stop":
-      return "hard_block";
     case "repeated_low_complete_evidence":
     case "underfueling_evidence":
-      return "load_downshift";
+    case "severe_underfueling_hard_stop":
     case "complete_low_advisory":
-      return "execution_adjustment";
     case "quick_fuel_check_supported":
     case "not_tracking_today":
     case "partial_day":
@@ -195,7 +192,7 @@ function warmupGateFor(status: TrainingExecutionReadinessStatus): string {
     case "red_non_hard_stop":
       return "Red readiness without hard-stop symptoms: keep the planned session available, but start conservatively and downshift if quality or symptoms worsen.";
     case "red_hard_stop":
-      return "Readiness hard stop: do not start hard training. Use recovery-only guidance and seek qualified support when symptoms require it.";
+      return "Readiness hard-stop symptoms are active. Use recovery-only guidance and seek qualified support when symptoms require it.";
   }
 }
 
@@ -216,11 +213,11 @@ function fuelingGateFor(status: TrainingExecutionFuelingStatus): string {
     case "complete_low_advisory":
       return "One complete low intake day adds caution. Fuel before training, protect recovery fuel, and trim optional finishers if quality drops.";
     case "repeated_low_complete_evidence":
-      return "Repeated complete low intake evidence is active. Downshift high-demand work and protect recovery fuel.";
+      return "Repeated complete low intake evidence is active. Training stays generated; fuel before hard work when possible and protect recovery fuel.";
     case "underfueling_evidence":
-      return "Under-fueling evidence is active. Downshift high-demand work and protect recovery fuel.";
+      return "Under-fueling evidence is active. Training stays generated; fuel before hard work when possible and protect recovery fuel.";
     case "severe_underfueling_hard_stop":
-      return "Severe under-fueling evidence is active. Block high-demand training and use recovery-only guidance until reviewed.";
+      return "Severe under-fueling evidence is active. Training remains available, but fuel and recovery guidance should be treated seriously.";
   }
 }
 
@@ -233,7 +230,7 @@ function hydrationGateFor(status: TrainingExecutionHydrationStatus): string {
     case "advisory":
       return "Hydration confidence is advisory. Bring fluid, avoid plain-water extremes, and downshift if dizziness or very dark urine appears.";
     case "hard_stop":
-      return "Hydration hard stop is active. Pause hard training and follow safety guidance before continuing.";
+      return "Hydration hard-stop symptoms are active. Use recovery-only guidance and follow safety guidance before continuing.";
   }
 }
 
@@ -265,15 +262,17 @@ export function resolveTrainingReadinessFuelingIntegration(
     ...(resolvedFuelingStatus === "partial_day" || resolvedFuelingStatus === "likely_partial" ? ["partial food log kept advisory"] : []),
     ...(resolvedFuelingStatus === "not_tracking_today" ? ["not-tracking food status kept advisory"] : []),
     ...(resolvedFuelingStatus === "complete_low_advisory" ? ["one complete low intake day caution"] : []),
-    ...(resolvedFuelingStatus === "repeated_low_complete_evidence" ? ["load downshift for repeated complete low intake"] : []),
-    ...(resolvedFuelingStatus === "underfueling_evidence" ? ["load downshift for under-fueling evidence"] : []),
+    ...(resolvedFuelingStatus === "repeated_low_complete_evidence" ? ["fuel guidance for repeated complete low intake"] : []),
+    ...(resolvedFuelingStatus === "underfueling_evidence" ? ["fuel guidance for under-fueling evidence"] : []),
     ...(resolvedHydrationStatus === "advisory" || resolvedHydrationStatus === "unknown" ? ["hydration prompt"] : [])
   ];
   const hardStopReasons = activeHardStopFlags(input.safetyFlags).map((flag) => flag.message);
   const underfuelingReasons = activeUnderfuelingEvidenceFlags(input.safetyFlags).map((flag) => flag.message);
   const trainingImplications = unique([
     generationImpact === "hard_block" ? "Hard safety evidence blocks baseline execution." : "Baseline prescription stays available unless explicit evidence overrides it.",
-    generationImpact === "load_downshift" ? "Fueling evidence can reduce load while preserving useful training structure." : "",
+    resolvedFuelingStatus === "repeated_low_complete_evidence" || resolvedFuelingStatus === "underfueling_evidence" || resolvedFuelingStatus === "severe_underfueling_hard_stop"
+      ? "Fueling evidence stays in execution guidance and does not reduce workout generation."
+      : "",
     missingLogsAffectedExecutionOnly ? "Missing logs affect confidence and execution guidance only." : "",
     fuelStatusIsExecutionOnly && !missingFuel ? "Incomplete or not-tracking food status cannot create under-fueling evidence." : "",
     ...executionAdjustmentsApplied.map((item) => `Execution layer: ${item}.`)
@@ -287,7 +286,7 @@ export function resolveTrainingReadinessFuelingIntegration(
     "Downshift if dizziness, fainting, chest pain, unusual pain, coordination drop, or abnormal fatigue appears.",
     resolvedReadinessStatus === "amber" || resolvedReadinessStatus === "red_non_hard_stop" ? "Cap RPE, extend recovery between intervals, and cut the final interval or optional finisher if quality drops." : "",
     resolvedFuelingStatus === "unknown" ? "If the session is hard or high fuel-demand and pre-session fuel is not possible, keep quality work and remove all-out finishers." : "",
-    resolvedFuelingStatus === "underfueling_evidence" ? "Remove high-demand finishers and keep recovery fuel protected." : "",
+    resolvedFuelingStatus === "underfueling_evidence" ? "Keep recovery fuel protected and trim optional finishers only if quality drops." : "",
     resolvedHydrationStatus === "advisory" || resolvedHydrationStatus === "unknown" ? "Bring fluid and downshift if very dark urine, dizziness, or heat stress shows up." : ""
   ]);
   const auditReasons = unique([
@@ -378,7 +377,7 @@ export function applyTrainingExecutionGuidance(
       ? ["One complete low intake day: keep the planned session, protect recovery fuel, and trim optional finishers if quality drops."]
       : []),
     ...(integration.fuelingStatus === "underfueling_evidence" || integration.fuelingStatus === "repeated_low_complete_evidence"
-      ? ["Under-fueling evidence: remove all-out finishers and protect recovery fuel."]
+      ? ["Under-fueling evidence: training stays planned; protect recovery fuel and trim optional finishers only if quality drops."]
       : []),
     ...(integration.generationImpact === "hard_block" ? ["Hard-stop evidence: do not turn this into hard training."] : [])
   ]);

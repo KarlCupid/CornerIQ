@@ -369,7 +369,7 @@ function acwrFromPlan(plan: PlanViewModel | undefined): { label: string; state: 
 }
 
 function readinessScore(today: TodayViewModel, recentLogs: RecentLogsViewModel): ReadinessDashboardVisual {
-  const hasCriticalRisk = today.riskSummary.length > 0 || /red|stop|risk/i.test(today.statusSnapshot.readinessStatus);
+  const hasCriticalRisk = /red|stop|risk/i.test(today.statusSnapshot.readinessStatus);
   const logged = recentLogs.readinessToday.loggedToday;
   const score = logged ? (hasCriticalRisk ? 42 : /caution|low|red/i.test(today.readinessContext) ? 61 : 78) : null;
   const tone: VisualTone = score === null ? "orange" : score >= 72 ? "green" : score >= 55 ? "orange" : "red";
@@ -439,10 +439,7 @@ function todayFuelRows(fuel: FuelViewModel | undefined): readonly ProgressVisual
   return [...macroRows, hydration, sodium];
 }
 
-function decisionSubtitle(intensity: string | undefined, hasRisk: boolean): string {
-  if (hasRisk) {
-    return "Safety changes the work before performance.";
-  }
+function decisionSubtitle(intensity: string | undefined): string {
   if (intensity === "hard" || intensity === "max") {
     return "Hard support today. Check readiness and fuel first.";
   }
@@ -456,31 +453,26 @@ function topSummaryForToday(input: {
   hasWorkout: boolean;
   lowFuel: boolean;
   needsReadiness: boolean;
-  riskActive: boolean;
 }): string {
-  if (input.riskActive) {
-    return "Safety owns the day. Log what you know before pushing.";
-  }
-  if (input.lowFuel) {
-    return "Fuel is the cleanest next input. Training stays planned.";
-  }
   if (input.needsReadiness) {
-    return "A quick readiness log sharpens today's training call.";
+    return "Log readiness first. Everything else can wait until it helps.";
   }
   if (input.hasWorkout) {
     return "The workout is ready. Use quick logs only if they help.";
   }
-  return "Review the plan and adjust only what changed.";
+  if (input.lowFuel) {
+    return "Fuel is useful context. Training stays planned.";
+  }
+  return "Open the plan and adjust only what changed.";
 }
 
 function primaryTodayCta(input: {
   hasWorkout: boolean;
   lowFuel: boolean;
   needsReadiness: boolean;
-  riskActive: boolean;
 }): { ctaAction: TodayPrimaryActionKind; ctaLabel: string } {
-  if (input.riskActive) {
-    return { ctaAction: "open_fuel_safety", ctaLabel: "Review safety" };
+  if (input.needsReadiness) {
+    return { ctaAction: "log_readiness", ctaLabel: "Log readiness" };
   }
   if (input.hasWorkout) {
     return { ctaAction: "open_workout", ctaLabel: "Open training" };
@@ -488,33 +480,28 @@ function primaryTodayCta(input: {
   if (input.lowFuel) {
     return { ctaAction: "log_food", ctaLabel: "Open Fuel" };
   }
-  if (input.needsReadiness) {
-    return { ctaAction: "log_readiness", ctaLabel: "Log readiness" };
-  }
   return { ctaAction: "open_plan", ctaLabel: "Adjust plan" };
 }
 
 function decisionVisual(today: TodayViewModel, readiness: ReadinessDashboardVisual, train: TrainViewModel | undefined): DecisionDashboardVisual {
-  const riskRatio = today.riskSummary.length > 0 ? 0.25 : 0.82;
+  const noteRatio = today.riskSummary.length > 0 ? 0.56 : 0.82;
   const intensity = train?.sessionCards[0]?.intensity ?? "moderate";
-  const score = readiness.score ?? (today.riskSummary.length > 0 ? 38 : 56);
+  const score = readiness.score ?? 56;
   const title =
-    today.riskSummary.length > 0
-      ? "Recover first"
-      : intensity === "hard"
-        ? "Push today"
-        : intensity === "recovery" || intensity === "easy"
-          ? "Keep it light"
-          : "Sharp but controlled";
+    intensity === "hard"
+      ? "Push today"
+      : intensity === "recovery" || intensity === "easy"
+        ? "Keep it light"
+        : "Sharp but controlled";
   return {
     title,
-    subtitle: decisionSubtitle(intensity, today.riskSummary.length > 0),
+    subtitle: decisionSubtitle(intensity),
     score,
-    tone: today.riskSummary.length > 0 ? "red" : intensity === "hard" ? "orange" : "blue",
+    tone: intensity === "hard" ? "orange" : "blue",
     tags: [
       { label: "Intensity", value: plainIntensityLabel(intensity), ratio: intensityRatio(intensity), tone: toneForIntensity(intensity) },
       { label: "Readiness to load", value: readiness.statusLabel, ratio: readiness.score === null ? 0.28 : readiness.score / 100, tone: readiness.tone },
-      { label: "Risk", value: today.riskSummary.length > 0 ? "High" : "Low", ratio: riskRatio, tone: today.riskSummary.length > 0 ? "red" : "green" }
+      { label: "Notes", value: today.riskSummary.length > 0 ? "Active" : "Clear", ratio: noteRatio, tone: today.riskSummary.length > 0 ? "orange" : "green" }
     ]
   };
 }
@@ -554,8 +541,7 @@ export function buildTodayDashboardVisual(input: {
   const needsReadiness = readiness.score === null;
   const fuelRows = todayFuelRows(input.fuel);
   const lowFuel = fuelRows.some((item) => item.ratio < 0.45 && /carb|hydration/i.test(item.label));
-  const riskActive = input.today.riskSummary.length > 0;
-  const cta = primaryTodayCta({ hasWorkout, lowFuel, needsReadiness, riskActive });
+  const cta = primaryTodayCta({ hasWorkout, lowFuel, needsReadiness });
   return {
     readiness,
     weeklyLoad: barsFromPlan(input.plan, input.asOfDate),
@@ -568,8 +554,7 @@ export function buildTodayDashboardVisual(input: {
     topSummary: topSummaryForToday({
       hasWorkout,
       lowFuel,
-      needsReadiness,
-      riskActive
+      needsReadiness
     }),
     ctaLabel: cta.ctaLabel,
     ctaAction: cta.ctaAction

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { addDays } from "../core/dates";
 import type { Confidence, ISODateString } from "../core/sharedTypes";
-import type { CycleState, FightOpportunity, ReadinessState, RiskFlag, TournamentDetails } from "../core/types";
+import type { CycleState, FightOpportunity, ReadinessState, RiskDomain, RiskFlag, TournamentDetails } from "../core/types";
 import type { CompletedTrainingSession, ExerciseResultRecord, GeneratedSessionFamily, ProtectedWorkout } from "./types";
 import type { TrainingBlock, TrainingBlockPhase, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 import type { TrainingProgressionDecision, TrainingProgressionDecisionValue, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
@@ -151,23 +151,23 @@ export interface NextWeekMaterializationInput {
 }
 
 const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
-
-function activeUnderfueling(flags: readonly RiskFlag[], summary: TrainingWeekSummary | null): boolean {
-  return Boolean(
-    flags.some((flag) => flag.status === "active" && UNDERFUELING_EVIDENCE_CODES.has(flag.code)) ||
-      (summary?.underfuelingFlag === true && flags.some((flag) => flag.status === "active" && (flag.hardStop || flag.requiresProfessionalReview)))
-  );
-}
+const NEXT_WEEK_GENERATION_STOP_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function activeHardStop(flags: readonly RiskFlag[], readiness: ReadinessState): boolean {
-  return readinessHasHardStop(readiness, flags) || flags.some((flag) => flag.status === "active" && flag.hardStop);
+  return readinessHasHardStop(readiness, flags) || flags.some((flag) => flag.status === "active" && flag.hardStop && NEXT_WEEK_GENERATION_STOP_DOMAINS.has(flag.domain));
 }
 
 function painOrReview(input: Pick<NextWeekMaterializationInput, "latestTrainingWeekSummary" | "completedTrainingSessions" | "exerciseResults" | "safetyFlags">): boolean {
   const summaryPain = (input.latestTrainingWeekSummary?.painFlagCount ?? 0) > 0;
   const sessionPain = input.completedTrainingSessions.some((session) => session.painNotes.length > 0);
   const exercisePain = input.exerciseResults.some((result) => result.painFlag);
-  const reviewFlag = input.safetyFlags.some((flag) => flag.status === "active" && !UNDERFUELING_EVIDENCE_CODES.has(flag.code) && (flag.requiresProfessionalReview || flag.code === "pain_logged"));
+  const reviewFlag = input.safetyFlags.some(
+    (flag) =>
+      flag.status === "active" &&
+      NEXT_WEEK_GENERATION_STOP_DOMAINS.has(flag.domain) &&
+      !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
+      (flag.requiresProfessionalReview || flag.code === "pain_logged")
+  );
   return summaryPain || sessionPain || exercisePain || reviewFlag;
 }
 
@@ -213,7 +213,6 @@ function materializedPhase(input: NextWeekMaterializationInput, nextWeekStartDat
 
 function strategyFor(input: NextWeekMaterializationInput, nextWeekStartDate: ISODateString, nextWeekEndDate: ISODateString): NextWeekTrainingVolumeStrategy {
   const decision = input.latestTrainingProgressionDecision?.decision;
-  const underfueling = activeUnderfueling(input.safetyFlags, input.latestTrainingWeekSummary);
   const hardStop = activeHardStop(input.safetyFlags, input.readiness);
   const pain = painOrReview(input);
   const cycleTrim = highCycleSymptoms(input.cycle, input.latestTrainingWeekSummary);
@@ -230,7 +229,7 @@ function strategyFor(input: NextWeekMaterializationInput, nextWeekStartDate: ISO
   if (decision === "coach_review" || pain) {
     return "hold_for_review";
   }
-  if (underfueling || decision === "regress" || (decision === "progress" && cycleTrim)) {
+  if (decision === "regress" || (decision === "progress" && cycleTrim)) {
     return "reduce_volume";
   }
   if (!decision) {
@@ -337,9 +336,6 @@ function blockedProgressionReasons(input: NextWeekMaterializationInput, strategy
   if (!input.latestTrainingProgressionDecision) {
     reasons.push("No persisted progression decision exists yet, so next week starts conservative instead of being capped to one workout.");
   }
-  if (activeUnderfueling(input.safetyFlags, input.latestTrainingWeekSummary)) {
-    reasons.push("Under-fueling risk blocks progression.");
-  }
   if (activeHardStop(input.safetyFlags, input.readiness)) {
     reasons.push("Readiness hard-stop symptoms or a hard-stop safety flag block generated hard work.");
   }
@@ -419,7 +415,6 @@ function safetyNotes(input: NextWeekMaterializationInput, strategy: NextWeekTrai
     "Only non-partner support work is previewed.",
     "Free-text load logs are notes only; numeric load progression is not inferred.",
     ...(strategy === "conservative_start" ? ["Missing progression history creates a conservative full-week support preview, not a one-workout cap."] : []),
-    ...(activeUnderfueling(input.safetyFlags, input.latestTrainingWeekSummary) ? ["Under-fueling risk blocks progress until fuel and recovery are steadier."] : []),
     ...(highCycleSymptoms(input.cycle, input.latestTrainingWeekSummary) ? ["High cycle symptoms trim optional volume without forcing an automatic deload."] : []),
     ...(strategy === "tournament_conserve" ? ["Tournament week stays near weight without hard-conditioning pressure."] : []),
     ...(strategy === "taper" ? ["Fight week preserves speed while reducing volume."] : [])
@@ -454,7 +449,7 @@ function dayPlanPreview(input: NextWeekMaterializationInput, output: Pick<NextWe
       safetyNotes: output.safetyNotes,
       explanation:
         output.materializedVolumeStrategy === "progress_small"
-          ? "Progression stays small, boxing-specific, and conditional on no pain, no under-fueling, and green readiness."
+          ? "Progression stays small, boxing-specific, and conditional on no pain and green readiness."
           : output.materializedVolumeStrategy === "conservative_start"
             ? "Missing progression history starts a conservative full-week support shape without treating the athlete as blocked."
           : output.materializedVolumeStrategy === "repeat_same"
@@ -517,7 +512,7 @@ export function materializeNextWeekTrainingPlan(input: NextWeekMaterializationIn
     safetyNotes: notes,
     explanation:
       strategy === "progress_small"
-        ? "Persisted progression supports a small next-week increase only because safety, pain, fueling, and readiness checks allow it."
+        ? "Persisted progression supports a small next-week increase only because safety, pain, and readiness checks allow it."
         : strategy === "conservative_start"
           ? "No persisted progression decision exists yet, so next week is previewed as conservative full-week support instead of being capped to one workout."
         : blocked.length > 0

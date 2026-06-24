@@ -1,13 +1,13 @@
 import type { CycleState } from "../cycle/types";
 import type { DailyFoodLogSummary, NutritionState } from "../nutrition/types";
 import type { ReadinessState } from "../readiness/types";
-import type { RiskFlag } from "../safety/types";
+import type { RiskDomain, RiskFlag } from "../safety/types";
 import type { ProtectedWorkout, TrainingGenerationConstraintAuditItem, TrainingGenerationConstraintSummaryAudit } from "./types";
 
 type NutritionTrainingContext = Pick<NutritionState, "actualIntakeSummary" | "confidence">;
 
 export const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
-export const FUELING_COUNT_CAP_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+const GENERATION_HARD_STOP_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function activeFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
   return flags?.filter((flag) => flag.status === "active") ?? [];
@@ -25,41 +25,28 @@ export function activeHardStopFlags(flags: readonly RiskFlag[] | undefined): rea
   return activeFlags(flags).filter((flag) => flag.hardStop);
 }
 
+function generationHardStopFlag(flag: RiskFlag): boolean {
+  return flag.hardStop && GENERATION_HARD_STOP_DOMAINS.has(flag.domain);
+}
+
 export function severeFuelingRisk(flags: readonly RiskFlag[] | undefined): boolean {
-  return activeUnderfuelingEvidenceFlags(flags).some((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
+  void flags;
+  return false;
 }
 
 export function pairedFuelingSafetyRisk(flags: readonly RiskFlag[] | undefined): boolean {
-  if (!activeUnderfuelingEvidence(flags)) {
-    return false;
-  }
-  return activeFlags(flags).some(
-    (flag) =>
-      !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
-      (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
-  );
+  void flags;
+  return false;
 }
 
 export function fuelingRiskCapsGeneratedCount(flags: readonly RiskFlag[] | undefined): boolean {
-  return severeFuelingRisk(flags) || pairedFuelingSafetyRisk(flags);
+  void flags;
+  return false;
 }
 
 export function supportCountFuelCapFlags(flags: readonly RiskFlag[] | undefined): readonly RiskFlag[] {
-  const underFuelingFlags = activeUnderfuelingEvidenceFlags(flags);
-  const severeFuelingFlags = underFuelingFlags.filter((flag) => flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code));
-  const pairedSafetyFlags =
-    underFuelingFlags.length > 0
-      ? activeFlags(flags).filter(
-          (flag) =>
-            !UNDERFUELING_EVIDENCE_CODES.has(flag.code) &&
-            (flag.hardStop || flag.severity === "critical" || flag.requiresProfessionalReview)
-        )
-      : [];
-  const byId = new Map<string, RiskFlag>();
-  for (const flag of [...severeFuelingFlags, ...pairedSafetyFlags]) {
-    byId.set(flag.id, flag);
-  }
-  return [...byId.values()];
+  void flags;
+  return [];
 }
 
 export function missingNutritionData(nutrition: NutritionTrainingContext | undefined): boolean {
@@ -164,19 +151,13 @@ export function classifyTrainingGenerationConstraints(input: {
   const foodLogMissing = input.foodLogSummary ? input.foodLogSummary.status === "no_log" : missingNutritionData(input.nutrition) || input.foodLogCount === 0;
   const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags ?? []);
   const hardSafetyConstraints: TrainingGenerationConstraintAuditItem[] = [
-    ...activeHardStopFlags(input.safetyFlags).map((flag) => item("hardSafetyConstraint", flag.code, "safety", flag.message)),
+    ...activeHardStopFlags(input.safetyFlags).filter(generationHardStopFlag).map((flag) => item("hardSafetyConstraint", flag.code, "safety", flag.message)),
     ...(redReadinessHardStop
       ? [item("hardSafetyConstraint", "red_readiness_hard_stop", "readiness", "Readiness hard-stop symptoms block generated hard work.")]
-      : []),
-    ...(severeFuelingRisk(input.safetyFlags)
-      ? [item("hardSafetyConstraint", "severe_underfueling_evidence", "nutrition", "Severe under-fueling evidence limits generated training to low-demand recovery.")]
       : []),
     ...constraintsForAnchors(input.protectedAnchors, input.date).filter((constraint) => constraint.category === "hardSafetyConstraint")
   ];
   const evidenceBasedLoadConstraints: TrainingGenerationConstraintAuditItem[] = [
-    ...activeUnderfuelingEvidenceFlags(input.safetyFlags)
-      .filter((flag) => !(flag.hardStop || flag.severity === "critical" || FUELING_COUNT_CAP_CODES.has(flag.code)))
-      .map((flag) => item("evidenceBasedLoadConstraint", flag.code, "nutrition", flag.message)),
     ...(input.readiness.color === "red" && !redReadinessHardStop
       ? [item("evidenceBasedLoadConstraint", "red_readiness_without_hard_stop", "readiness", "Red readiness score without hard-stop symptoms adjusts execution before blocking the plan.")]
       : []),

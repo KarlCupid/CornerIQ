@@ -117,7 +117,7 @@ export function summarizeTrainingWeek(input: TrainingWeekSummaryInput): Training
     skippedSessions.length > 0 ? "Skipped sessions block automatic progression." : "No skipped sessions were found in the week window.",
     prescribedOnlyCount > 0 ? "Prescribed-only exercise rows were audited but not treated as completed actuals." : "Exercise actuals did not rely on prescribed-only rows.",
     sessionPainCount + exercisePainCount > 0 ? "Pain notes or exercise pain flags require conservative review." : "No pain notes or exercise pain flags were found.",
-    underfuelingFlag ? "Under-fueling risk was active, so progression pressure stays conservative." : "No under-fueling flag was active.",
+    underfuelingFlag ? "Under-fueling risk was active, so fuel guidance stays visible without reducing workout generation." : "No under-fueling flag was active.",
     highCycleSymptomFlag ? "High cycle symptoms are tracked as a volume-trim signal, not an automatic deload." : "No high cycle symptom flag was active."
   ];
 

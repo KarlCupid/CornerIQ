@@ -392,7 +392,7 @@ describe("training block and microcycle engine", () => {
     expect(pain.training.blockRecommendation.reason).toContain("qualified review");
   });
 
-  it("protected sparring owns the day and under-fueling reduces progression", () => {
+  it("protected sparring owns the day and under-fueling stays fuel guidance only", () => {
     const sparring = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const underFueling = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
     const repeatedLowIntakeOnly = resolvePerformanceState({
@@ -420,15 +420,18 @@ describe("training block and microcycle engine", () => {
     expect(sparring.training.dayPlans[0]?.protectedAnchors.some((anchor) => anchor.type === "sparring")).toBe(true);
     expect(sparring.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
     expect(underFueling.training.blockRecommendation.warnings.join(" ")).toContain("Under-fueling");
-    expect(underFueling.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
-    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("fueling safety risk capped generated support count");
-    expect(underFueling.training.executionReadiness.fuelingStatus).toBe("severe_underfueling_hard_stop");
-    expect(underFueling.training.supportGenerationAudit.nutritionGenerationImpact).toBe("hard_block");
-    expect(underFueling.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).toContain("Severe fueling evidence");
+    expect(underFueling.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(underFueling.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
+    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).not.toContain("fueling");
+    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).not.toContain("Under-fueling");
+    expect(underFueling.training.executionReadiness.fuelingStatus).toBe("underfueling_evidence");
+    expect(underFueling.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(underFueling.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).not.toContain("Severe fueling evidence");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).not.toContain("rapid_weight_loss");
     expect(repeatedLowIntakeOnly.training.generatedSessions.length).toBeGreaterThan(1);
-    expect(repeatedLowIntakeOnly.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
+    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
+    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
   });
 
   it("places generated support only on athlete schedule availability days", () => {

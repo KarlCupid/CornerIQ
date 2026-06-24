@@ -1,20 +1,29 @@
-import type { PerformanceState, TodayViewModel } from "../core/types";
+import type { PerformanceState, RiskDomain, RiskFlag, TodayViewModel } from "../core/types";
 import { riskSummary } from "./explanationCopy";
 import { plainFuelCopy } from "./fuelCopy";
 import { plainTrainingCopy } from "./trainingCopy";
 
+const TODAY_TRAINING_REVIEW_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
+
+function todayTrainingReviewFlag(flag: RiskFlag): boolean {
+  return flag.status === "active" && TODAY_TRAINING_REVIEW_DOMAINS.has(flag.domain);
+}
+
 export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   const hasSparring = state.training.protectedAnchors.some((anchor) => anchor.date === state.asOfDate && anchor.type === "sparring");
-  const title = state.safety.hardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: keep sparring quality" : "Today: build the boxer";
-  const safetySeverity = state.safety.hardStops[0]?.severity ?? (state.safety.riskFlags.length > 0 ? "caution" : "info");
+  const trainingReviewFlags = state.safety.riskFlags.filter(todayTrainingReviewFlag);
+  const trainingHardStops = state.safety.hardStops.filter(todayTrainingReviewFlag);
+  const title = trainingHardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: keep sparring quality" : "Today: build the boxer";
+  const safetySeverity = trainingHardStops[0]?.severity ?? (trainingReviewFlags.length > 0 ? "caution" : "info");
+  const safetyWhy = trainingHardStops[0]?.explanation ?? trainingReviewFlags[0]?.explanation ?? "Fuel and weight notes stay in their own cards; no active training safety note is changing today.";
   const cycleRelevant = state.cycle.trackingEnabled || state.athlete.cycleTrackingPreference === "undecided";
   const firstAppAction =
-    state.safety.hardStops.length > 0
-      ? "Review the safety note, then log readiness or body weight if you have it."
+    trainingHardStops.length > 0
+      ? "Log today's readiness, then use the safety-adjusted workout guidance."
       : "Log readiness or body weight if you have it.";
   const firstTrainingAction =
-    state.safety.hardStops.length > 0
-      ? "Pause hard training and resolve safety first."
+    trainingHardStops.length > 0
+      ? "Use recovery-only guidance and keep symptoms in view."
       : hasSparring
         ? "Keep the support workout short around boxing you added."
         : "Complete today's support workout.";
@@ -22,8 +31,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     {
       label: "Primary action",
       summary: firstTrainingAction,
-      why: plainTrainingCopy(state.safety.hardStops[0]?.explanation ?? state.training.explanation),
-      severity: state.safety.hardStops.length > 0 ? safetySeverity : "info",
+      why: plainTrainingCopy(trainingHardStops[0]?.explanation ?? state.training.explanation),
+      severity: trainingHardStops.length > 0 ? safetySeverity : "info",
       confidence: state.confidence.level
     },
     {
@@ -60,8 +69,8 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
       : []),
     {
       label: "Safety",
-      summary: state.safety.hardStops.length > 0 ? state.safety.hardStops[0]?.message ?? "Safety flag blocks the plan." : "No active safety stops.",
-      why: state.safety.explanation,
+      summary: trainingHardStops.length > 0 ? trainingHardStops[0]?.message ?? "Safety note changes today's guidance." : "No active training safety notes.",
+      why: safetyWhy,
       severity: safetySeverity,
       confidence: state.confidence.level
     }
@@ -89,21 +98,21 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
       primaryAction: plainTrainingCopy(state.training.dailyOperatingMode.primaryAction),
       why:
         plainTrainingCopy(
-          state.safety.hardStops[0]?.explanation ??
+          trainingHardStops[0]?.explanation ??
             (hasSparring ? "Boxing you added owns the day, so support work stays secondary." : state.training.explanation)
         ),
       optional: "Food, water, pain, and cycle notes add context. Workout-only use still gets useful training."
     },
     whatChanged:
-      state.safety.hardStops.length > 0
-        ? "Safety flags changed the plan."
+      trainingHardStops.length > 0
+        ? "Safety signs changed today's workout guidance."
         : state.cycle.trackingEnabled && state.cycle.symptomBurden === "high"
           ? "Cycle symptoms trimmed optional work."
           : hasSparring
             ? "Scheduled sparring moved support work down."
             : "CornerIQ built today's workout from current logs.",
     primaryAction:
-      state.safety.hardStops.length > 0 ? "Pause hard training and weight-pressure guidance." : firstTrainingAction,
+      trainingHardStops.length > 0 ? "Use today's safety-adjusted workout guidance." : firstTrainingAction,
     firstAppAction,
     firstTrainingAction,
     decisionStack,
@@ -112,7 +121,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     bodyMassStatus: plainFuelCopy(state.bodyMass.feasibility.explanation),
     cycleContext: state.cycle.trackingEnabled && state.cycle.symptomBurden !== "none" ? state.cycle.trainingAdjustment : null,
     readinessContext: state.readiness.explanation,
-    riskSummary: riskSummary(state.safety.riskFlags).map(plainFuelCopy),
+    riskSummary: riskSummary(trainingReviewFlags).map(plainFuelCopy),
     confidenceLabel: state.confidence.level,
     why: state.decisionTrace.at(-1)?.rationale ?? "CornerIQ resolved today from current athlete state.",
     quickLogs: ["Readiness", "Body weight", "Food", "Water", "Training RPE", state.cycle.trackingEnabled ? "Cycle symptoms" : "Pain note"].filter(Boolean)

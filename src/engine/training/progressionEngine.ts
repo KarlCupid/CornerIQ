@@ -1,4 +1,4 @@
-import type { CompletedTrainingSession, ExerciseResultRecord, JourneyEvent, ProgressionRecommendation, ReadinessState, RiskFlag } from "../core/types";
+import type { CompletedTrainingSession, ExerciseResultRecord, JourneyEvent, ProgressionRecommendation, ReadinessState, RiskDomain, RiskFlag } from "../core/types";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 
 export interface ProgressionEngineInput {
@@ -9,6 +9,8 @@ export interface ProgressionEngineInput {
   journeyEvents?: readonly JourneyEvent[] | undefined;
   safetyFlags?: readonly RiskFlag[] | undefined;
 }
+
+const PROGRESSION_HARD_STOP_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function textIncludesConcern(value: string): boolean {
   const normalized = value.toLowerCase();
@@ -58,7 +60,10 @@ export function recommendTrainingProgression(input: ProgressionEngineInput): Pro
     };
   }
 
-  if (readinessHasHardStop(input.readiness, input.safetyFlags ?? []) || input.safetyFlags?.some((flag) => flag.hardStop)) {
+  if (
+    readinessHasHardStop(input.readiness, input.safetyFlags ?? []) ||
+    input.safetyFlags?.some((flag) => flag.status === "active" && flag.hardStop && PROGRESSION_HARD_STOP_DOMAINS.has(flag.domain))
+  ) {
     return {
       status: "deload",
       summary: "Deload today.",

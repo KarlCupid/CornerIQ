@@ -6,6 +6,7 @@ import type {
   ProtectedWorkout,
   ProtectedWorkoutType,
   RecurringProtectedWorkoutAnchor,
+  RiskDomain,
   SessionIntensity,
   TrainingBlockHistoryDetailViewModel,
   TrainingBlockTimelineEvent,
@@ -17,6 +18,7 @@ import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainTrainingCo
 
 const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
 const SEVERE_FUELING_RISK_CODES = new Set<string>(["rapid_weight_loss", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+const PLAN_VIEW_SAFETY_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
@@ -139,6 +141,60 @@ function compactMetricForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "p
     return "Rest";
   }
   return "No session";
+}
+
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function generatedSessionTypeLabel(session: TrainingDayPlan["generatedSessions"][number]): string {
+  return session.sessionTypeLabel ?? plainGeneratedSessionFamilyLabel(session.family);
+}
+
+function workSummaryForDay(day: TrainingDayPlan): PlanViewModel["dayPlans"][number]["workSummary"] {
+  const boxingCount = day.protectedAnchors.length;
+  const appWorkCount = day.generatedSessions.length;
+  if (boxingCount === 0 && appWorkCount === 0) {
+    return null;
+  }
+
+  const firstAnchor = day.protectedAnchors[0] ?? null;
+  const firstSession = day.generatedSessions[0] ?? null;
+  const boxingMinutes = day.protectedAnchors.reduce((total, anchor) => total + anchor.durationMinutes, 0);
+  const appWorkMinutes = day.generatedSessions.reduce((total, session) => total + session.durationMinutes, 0);
+  const totalMinutes = boxingMinutes + appWorkMinutes;
+  const boxingTitle = boxingCount === 1 && firstAnchor ? protectedTypeLabel(firstAnchor.type) : countLabel(boxingCount, "boxing session");
+  const appWorkTitle = appWorkCount === 1 && firstSession ? plainWorkoutTitle(firstSession.title, firstSession.family) : countLabel(appWorkCount, "app session");
+  const title =
+    boxingCount > 0 && appWorkCount > 0
+      ? `${boxingTitle} + ${countLabel(appWorkCount, "app session")}`
+      : boxingCount > 0
+        ? boxingTitle
+        : appWorkTitle;
+  const detailParts = [
+    boxingCount > 0
+      ? boxingCount === 1 && firstAnchor
+        ? `${protectedTypeLabel(firstAnchor.type)} ${firstAnchor.durationMinutes} min`
+        : `${countLabel(boxingCount, "boxing session")} ${boxingMinutes} min`
+      : null,
+    appWorkCount > 0
+      ? appWorkCount === 1 && firstSession
+        ? `${generatedSessionTypeLabel(firstSession)} ${firstSession.durationMinutes} min`
+        : `${countLabel(appWorkCount, "app session")} ${appWorkMinutes} min`
+      : null
+  ].filter((part): part is string => Boolean(part));
+  const totalSuffix = detailParts.length > 1 && totalMinutes > 0 ? ` (${totalMinutes} min total)` : "";
+  const supportAim = firstSession?.boxingSkillTheme ?? firstSession?.technicalEmphasis?.[0] ?? null;
+
+  return {
+    id: `day-work:${day.date}`,
+    title,
+    detail: `${detailParts.join(" + ")}${totalSuffix}`,
+    aim: plainTrainingCopy(supportAim ?? day.explanation),
+    workCount: boxingCount + appWorkCount,
+    hasBoxing: boxingCount > 0,
+    hasAppWork: appWorkCount > 0
+  };
 }
 
 function compactTagForPreviewDay(day: {
@@ -361,7 +417,7 @@ function buildNextWeekPreview(state: PerformanceState): NextWeekPreviewViewModel
 }
 
 function activeHardStop(state: PerformanceState): boolean {
-  return state.readiness.color === "red" || state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop);
+  return state.readiness.color === "red" || state.safety.riskFlags.some((flag) => flag.status === "active" && flag.hardStop && PLAN_VIEW_SAFETY_DOMAINS.has(flag.domain));
 }
 
 function fuelRiskClassification(state: PerformanceState): FuelRiskClassification {
@@ -703,6 +759,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       compactSummary: compactSummaryForDay(day),
       compactTag: compactTagForDay(day),
       compactMetric: compactMetricForDay(day),
+      workSummary: workSummaryForDay(day),
       generatedSessions: day.generatedSessions.map((session) => ({
         id: session.id,
         title: plainWorkoutTitle(session.title, session.family),

@@ -19,6 +19,8 @@ const COLORS = {
   panelBorder: 'rgba(214, 224, 242, 0.16)',
   blue: '#27cef1',
   blueSoft: 'rgba(39, 206, 241, 0.22)',
+  green: '#38e28a',
+  orange: '#c78355',
   red: '#ff4f62',
   gold: '#ffd25a',
   text: '#f8fbff',

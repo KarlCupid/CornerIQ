@@ -8,6 +8,7 @@ import type {
   NutritionState,
   ProtectedWorkout,
   ReadinessState,
+  RiskDomain,
   RiskFlag,
   TournamentDetails
 } from "../core/types";
@@ -17,14 +18,11 @@ import type { TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 import { durationPolicyModifications, resolveSessionDurationPolicy, type SessionDurationPolicyResult } from "./sessionDurationPolicy";
 import { generatedSupportAllowedOnDate } from "./supportAvailability";
 import {
-  activeUnderfuelingEvidence,
   classifyTrainingGenerationConstraints,
-  fuelingRiskCapsGeneratedCount,
   fuelingUncertaintyAdvisory,
   highCycleSymptoms,
   lowNutritionConfidence,
-  missingNutritionData,
-  severeFuelingRisk
+  missingNutritionData
 } from "./trainingGenerationConstraints";
 import { generatedSessionLabels } from "./trainingStimulus";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
@@ -69,17 +67,17 @@ const TOURNAMENT_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "
 const HOLD_FAMILIES = new Set<GeneratedSessionFamily>(["recovery_reset", "trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility"]);
 const PROHIBITED_OUTPUT = /\b(sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight)\b/i;
 const NOVICE_LEVELS = new Set(["aspiring_boxer", "amateur_novice"]);
+const NEXT_WEEK_GENERATION_STOP_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function isNovice(athlete: AthleteProfile): boolean {
   return NOVICE_LEVELS.has(athlete.boxingLevel);
 }
 
-function conservativeFuelingContext(input: Pick<NextWeekGeneratedSessionMaterializationInput, "nutrition" | "safetyFlags">): boolean {
-  return activeUnderfuelingEvidence(input.safetyFlags);
-}
-
 function activeHardStop(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness" | "safetyFlags">): boolean {
-  return readinessHasHardStop(input.readiness, input.safetyFlags) || input.safetyFlags.some((flag) => flag.status === "active" && flag.hardStop);
+  return (
+    readinessHasHardStop(input.readiness, input.safetyFlags) ||
+    input.safetyFlags.some((flag) => flag.status === "active" && flag.hardStop && NEXT_WEEK_GENERATION_STOP_DOMAINS.has(flag.domain))
+  );
 }
 
 function redReadiness(input: Pick<NextWeekGeneratedSessionMaterializationInput, "readiness">): boolean {
@@ -151,7 +149,6 @@ function familyBiases(input: NextWeekGeneratedSessionMaterializationInput): read
 
 function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput): number {
   const hardStop = activeHardStop(input);
-  const fuelCountCap = fuelingRiskCapsGeneratedCount(input.safetyFlags);
   const cycleTrim = highCycleSymptoms(input.cycle);
   if (hardStop || redReadiness(input)) {
     return 1;
@@ -168,14 +165,12 @@ function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput)
         : input.materialization.materializedVolumeStrategy === "hold_for_review"
         ? 2
         : 2;
-  const trimmedForFuel = fuelCountCap ? Math.min(base, 1) : base;
-  return Math.max(1, cycleTrim ? trimmedForFuel - 1 : trimmedForFuel);
+  return Math.max(1, cycleTrim ? base - 1 : base);
 }
 
 function allowedFamilyForContext(input: NextWeekGeneratedSessionMaterializationInput, family: GeneratedSessionFamily, protectedHard: boolean): GeneratedSessionFamily {
   const strategy = input.materialization.materializedVolumeStrategy;
   const hardStop = activeHardStop(input);
-  const fuelConservative = conservativeFuelingContext(input);
   const cycleTrim = highCycleSymptoms(input.cycle);
   if (hardStop || redReadiness(input)) {
     return "recovery_reset";
@@ -191,9 +186,6 @@ function allowedFamilyForContext(input: NextWeekGeneratedSessionMaterializationI
   }
   if (strategy === "hold_for_review") {
     return HOLD_FAMILIES.has(family) ? family : "recovery_reset";
-  }
-  if (fuelConservative && HIGH_DEMAND_FAMILIES.has(family)) {
-    return "trunk_durability";
   }
   if ((cycleTrim || protectedHard) && HIGH_DEMAND_FAMILIES.has(family)) {
     return "shoulder_scap_durability";
@@ -230,7 +222,6 @@ function adjustedShape(
 ): { shape: SessionShape; templateId: string; durationPolicy: SessionDurationPolicyResult } {
   const hardStop = activeHardStop(input);
   const readinessRed = redReadiness(input);
-  const underfueling = activeUnderfuelingEvidence(input.safetyFlags);
   const uncertainFueling = fuelingUncertaintyAdvisory({ nutrition: input.nutrition, safetyFlags: input.safetyFlags });
   const cycleTrim = highCycleSymptoms(input.cycle);
   const restrictiveStrategy =
@@ -253,7 +244,7 @@ function adjustedShape(
     readinessColor: input.readiness.color,
     highCycleSymptoms: cycleTrim,
     protectedHard,
-    conservativeFueling: conservativeFuelingContext(input),
+    conservativeFueling: input.readiness.color === "red",
     volumeStrategy: input.materialization.materializedVolumeStrategy,
     usedTemplateIds
   });
@@ -266,8 +257,6 @@ function adjustedShape(
     protectedHard,
     highCycleSymptoms: cycleTrim,
     hardStopActive: hardStop,
-    underfuelingRisk: underfueling,
-    severeFuelingRisk: severeFuelingRisk(input.safetyFlags),
     uncertainFueling,
     weekIndex: input.materialization.nextWeekIndex,
     volumeStrategy: input.materialization.materializedVolumeStrategy
@@ -285,14 +274,13 @@ function adjustedShape(
         ...shape.modifications,
         ...durationPolicyModifications(durationPolicy),
         ...constraints.missingDataAdvisories,
-        ...(underfueling ? ["Under-fueling risk: progression and high fuel-demand work removed."] : []),
         ...(uncertainFueling && !missingNutritionData(input.nutrition) && lowNutritionConfidence(input.nutrition) ? ["Fueling data is low-confidence; use the pre-session fuel check and log meals to personalize tomorrow."] : []),
         ...(cycleTrim ? ["High cycle symptoms: optional volume trimmed."] : []),
         ...(hardStop ? ["Safety hard stop active: recovery only."] : []),
         ...(readinessRed && !hardStop ? ["Readiness is red without hard-stop symptoms, so next-week work uses conservative execution gates."] : []),
         ...(protectedHard ? ["Protected hard boxing anchor owns the stress; generated work stays easy."] : [])
       ],
-      fuelDemand: underfueling || restrictiveStrategy || hardStop ? "low" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
+      fuelDemand: restrictiveStrategy || hardStop ? "low" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand
     }
   };
 }

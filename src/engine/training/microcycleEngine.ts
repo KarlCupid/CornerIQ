@@ -5,6 +5,7 @@ import type {
   GeneratedTrainingSession,
   ProtectedWorkout,
   ReadinessState,
+  RiskDomain,
   RiskFlag,
   TrainingDayPlan,
   TrainingBlockPhase,
@@ -14,6 +15,8 @@ import type {
 import { anchorsForDate } from "./protectedAnchors";
 import { BOXING_SKILL_GENERATED_FAMILIES, isHighStimulusTrainingDay } from "./trainingStimulus";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
+
+const MICROCYCLE_TRAINING_SAFETY_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 export interface WeeklyMicrocycleInput {
   asOfDate: string;
@@ -83,7 +86,11 @@ function recoveryPriority(input: {
   readiness: ReadinessState;
   safetyFlags: readonly RiskFlag[];
 }): TrainingDayPlan["recoveryPriority"] {
-  if (input.date === input.asOfDate && (readinessHasHardStop(input.readiness, input.safetyFlags) || input.safetyFlags.some((flag) => flag.hardStop))) {
+  if (
+    input.date === input.asOfDate &&
+    (readinessHasHardStop(input.readiness, input.safetyFlags) ||
+      input.safetyFlags.some((flag) => flag.status === "active" && flag.hardStop && MICROCYCLE_TRAINING_SAFETY_DOMAINS.has(flag.domain)))
+  ) {
     return "hard_stop";
   }
   if (input.blockPhase === "recovery_deload" || input.generated.some((session) => session.family === "recovery_reset")) {
@@ -105,9 +112,11 @@ function daySafetyFlags(input: {
   asOfDate: string;
   readiness: ReadinessState;
 }): readonly string[] {
-  const messages = input.safetyFlags.filter((flag) => flag.blocksPlan || flag.domain === "training" || flag.domain === "nutrition" || flag.domain === "cycle").map((flag) => flag.message);
+  const messages = input.safetyFlags
+    .filter((flag) => flag.status === "active" && MICROCYCLE_TRAINING_SAFETY_DOMAINS.has(flag.domain) && (flag.blocksPlan || flag.hardStop || flag.domain === "training" || flag.domain === "cycle"))
+    .map((flag) => flag.message);
   if (input.underFuelingRisk) {
-    messages.push("Under-fueling risk blocks aggressive progression this week.");
+    messages.push("Under-fueling evidence adds fuel guidance this week; workout generation stays available.");
   }
   if (input.date === input.asOfDate && readinessHasHardStop(input.readiness, input.safetyFlags)) {
     messages.push("Readiness hard-stop symptoms override block goals today.");
@@ -228,7 +237,7 @@ export function buildWeeklyMicrocycle(input: WeeklyMicrocycleInput): {
   const notes = [
     `${plannedHardDays}/${hardDayCap} hard days planned.`,
     `${protectedAnchorCount} protected anchors remain primary.`,
-    ...(input.underFuelingRisk ? ["Under-fueling risk holds or reduces generated progression."] : []),
+    ...(input.underFuelingRisk ? ["Under-fueling evidence stays in fuel guidance and does not reduce generated progression."] : []),
     ...(input.cycle.symptomBurden === "high" ? ["High cycle symptoms trim optional volume."] : [])
   ];
   const weeklyStructure: WeeklyTrainingStructure = {

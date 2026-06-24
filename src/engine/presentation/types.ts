@@ -695,6 +695,15 @@ export interface PlanViewModel {
     compactSummary: string;
     compactTag: "Protected" | "Support" | "Recovery" | "Open";
     compactMetric: string;
+    workSummary: {
+      id: string;
+      title: string;
+      detail: string;
+      aim: string;
+      workCount: number;
+      hasBoxing: boolean;
+      hasAppWork: boolean;
+    } | null;
     generatedSessions: readonly {
       id: string;
       title: string;
@@ -926,7 +935,7 @@ export interface ProfileAthleteSetupViewModel {
   contextLabel: string;
   explanation: string;
   primaryActionLabel: string;
-  statusLabel: "Ready" | "Needs details" | "Review needed";
+  statusLabel: "Ready" | "Needs details" | "Health note";
   statusTone: ProfileVisualTone;
   summaryLines: readonly string[];
 }
@@ -946,7 +955,7 @@ export interface ProfileAppInputViewModel {
 export interface ProfileHealthWarningViewModel {
   active: boolean;
   detail: string;
-  statusLabel: "Ready" | "Review needed";
+  statusLabel: "Ready" | "Health note";
   summary: string;
   title: string;
   tone: ProfileVisualTone;

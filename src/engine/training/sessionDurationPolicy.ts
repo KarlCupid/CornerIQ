@@ -19,8 +19,6 @@ export interface ResolveSessionDurationPolicyInput {
   protectedHard: boolean;
   highCycleSymptoms: boolean;
   hardStopActive?: boolean | undefined;
-  underfuelingRisk?: boolean | undefined;
-  severeFuelingRisk?: boolean | undefined;
   uncertainFueling?: boolean | undefined;
   primaryFocus?: PlanGenerationPrimaryFocus | undefined;
   trainingDose?: PlanGenerationTrainingDose | undefined;
@@ -198,21 +196,19 @@ export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicy
   let range = normal;
   let category: GeneratedSessionDurationPolicyCategory = "normal_support";
 
-  const hardSafety = Boolean(input.hardStopActive) || Boolean(input.severeFuelingRisk);
+  const hardSafety = Boolean(input.hardStopActive);
   const workloadModerated = Boolean(
       input.protectedHard ||
       input.readinessColor === "red" ||
       input.highCycleSymptoms ||
-      input.underfuelingRisk ||
       input.volumeStrategy === "reduce_volume" ||
       input.volumeStrategy === "hold_for_review"
   );
 
   if (hardSafety) {
     category = "safety_capped";
-    range = { min: 15, max: input.family === "recovery_reset" ? 25 : 20, target: input.hardStopActive ? 16 : 20 };
+    range = { min: 15, max: input.family === "recovery_reset" ? 25 : 20, target: 16 };
     withReason(reasons, Boolean(input.hardStopActive), "Safety hard-stop limited generated work to recovery duration.");
-    withReason(reasons, Boolean(input.severeFuelingRisk), "Severe fueling risk limited generated work to low-demand recovery duration.");
   } else if (taperContext(input)) {
     category = "taper";
     range = { min: 15, max: 30, target: input.family === "reaction_rhythm" ? 24 : 22 };
@@ -227,7 +223,6 @@ export function resolveSessionDurationPolicy(input: ResolveSessionDurationPolicy
     withReason(reasons, input.protectedHard, "Protected hard boxing anchor owns the main stress, so generated support uses moderated duration.");
     withReason(reasons, input.readinessColor === "red", "Red readiness without a hard-stop symptom uses conservative execution duration instead of recovery-only generation.");
     withReason(reasons, input.highCycleSymptoms, "High cycle symptoms reduced optional generated volume while keeping support useful.");
-    withReason(reasons, Boolean(input.underfuelingRisk), "Under-fueling evidence removed high fuel-demand duration.");
     withReason(reasons, input.volumeStrategy === "reduce_volume", "Reduce-volume strategy lowered optional generated duration.");
     withReason(reasons, input.volumeStrategy === "hold_for_review", "Review-hold strategy limited generated support to easy duration.");
   } else if (input.volumeStrategy === "conservative_start") {

@@ -143,6 +143,45 @@ describe("kernel immutability, view models, and persistence schema", () => {
     expect(materialized.lastAutoRollForwardMessage).toContain("Support workouts: 2");
   });
 
+  it("PlanViewModel summarizes boxing and app work on the same day as one upcoming work item", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const anchorDay = state.training.dayPlans.find((day) => day.protectedAnchors.length > 0);
+    const supportDay = state.training.dayPlans.find((day) => day.generatedSessions.length > 0);
+    const generatedSession = supportDay?.generatedSessions[0];
+    if (!anchorDay || !generatedSession) {
+      throw new Error("fixture must include a protected boxing day and generated support work");
+    }
+
+    const plan = buildPlanViewModel({
+      ...state,
+      training: {
+        ...state.training,
+        dayPlans: state.training.dayPlans.map((day) =>
+          day.date === anchorDay.date
+            ? {
+                ...day,
+                generatedSessions: [generatedSession],
+                hardDay: true,
+                fuelDemand: "high"
+              }
+            : day
+        )
+      }
+    });
+    const mergedDay = plan.dayPlans.find((day) => day.date === anchorDay.date);
+
+    expect(mergedDay?.workSummary).toEqual(
+      expect.objectContaining({
+        hasAppWork: true,
+        hasBoxing: true,
+        title: "Sparring + 1 app session",
+        workCount: 2
+      })
+    );
+    expect(mergedDay?.workSummary?.detail).toContain("Sparring 75 min");
+    expect(mergedDay?.workSummary?.detail).toContain(`${generatedSession.durationMinutes} min`);
+  });
+
   it("migrations contain RLS, owner policies, indexes, comments, and exercise results", () => {
     const sql = [
       readFileSync("supabase/migrations/001_core_schema.sql", "utf8"),

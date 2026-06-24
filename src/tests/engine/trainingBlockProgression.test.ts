@@ -346,7 +346,7 @@ describe("training week summary and roll-forward engines", () => {
     ).toBe("decision_active_newer");
   });
 
-  it("uses safety, fueling, fight week, tournament week, high cycle symptoms, and missing history conservatively", () => {
+  it("uses safety, fight week, tournament week, high cycle symptoms, and missing history conservatively while fuel stays non-blocking", () => {
     const red = resolvePerformanceState({
       journey: {
         ...pro_4_round_build_strength,
@@ -375,7 +375,7 @@ describe("training week summary and roll-forward engines", () => {
     const noHistory = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
 
     expect(rollForward(red, summarize(red, [completedSession], [completedExercise])).decision.decision).toBe("recovery");
-    expect(rollForward(underfueling, { ...summarize(underfueling, [completedSession], [completedExercise]), underfuelingFlag: true }).decision.decision).toBe("hold");
+    expect(rollForward(underfueling, { ...summarize(underfueling, [completedSession], [completedExercise]), underfuelingFlag: true }).decision.decision).toBe("progress");
     expect(rollForward(fightWeek, summarize(fightWeek, [completedSession], [completedExercise])).decision.decision).toBe("taper");
     expect(rollForward(tournament, summarize(tournament, [completedSession], [completedExercise])).reason).toContain("conserves");
     expect(rollForward(symptomOnlyCycle, { ...summarize(symptomOnlyCycle, [completedSession], [completedExercise]), highCycleSymptomFlag: true }).decision.decision).toBe("hold");

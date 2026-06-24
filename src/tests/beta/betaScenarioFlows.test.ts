@@ -20,6 +20,7 @@ type LaunchScenario = {
 
 const unsafeFuelCopy = /\b(sauna|sweat\s*suit|sweatsuit|laxative|diuretic|extreme dehydration|make weight at all costs|water cut|dehydrate to)\b/i;
 const generatedContactCopy = /\b(sparring|contact|fight simulation|partner drill)\b/i;
+const trainingStopDomains = new Set(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function redReadinessScenario(): AthleteJourney {
   const todayReadiness = no_wearable_manual_only.readinessHistory[0];
@@ -93,9 +94,9 @@ function assertSharedLaunchStructure(state: PerformanceState) {
     expect(state.wearable.explanation).toContain("No wearable needed");
   }
 
-  if (state.safety.hardStops.length > 0 || state.readiness.color === "red") {
+  if (state.safety.hardStops.some((flag) => trainingStopDomains.has(flag.domain)) || state.readiness.color === "red") {
     expect(state.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
-    expect(state.viewModels.today.primaryAction.toLowerCase()).toMatch(/pause|safety|hard training/);
+    expect(state.viewModels.today.primaryAction.toLowerCase()).not.toMatch(/pause|review needed/);
   }
 }
 

@@ -34,7 +34,7 @@ describe("profile view model", () => {
 
     expect(profile.healthWarning.active).toBe(true);
     expect(profile.healthWarning.title).toBe("Health warning active");
-    expect(profile.athleteSetup.statusLabel).toBe("Review needed");
+    expect(profile.athleteSetup.statusLabel).toBe("Health note");
     expect(profile.healthSafetyItems.find((item) => item.label === "Fuel safety history")?.value).toBe("Cut paused");
     expect(profile.safetyLedger[0]?.title).toMatch(/safety stop/i);
     expect(profile.safetyLedger.find((item) => item.label === "Fuel")?.subtitle).toContain("app will not let an athlete resolve");

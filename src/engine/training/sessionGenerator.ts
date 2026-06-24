@@ -41,11 +41,11 @@ function noEquipmentAccess(equipmentAccess: readonly string[]): boolean {
 function phaseOverride(
   input: Pick<
     GenerateSupportSessionInput,
-    "avoidHighStimulus" | "hasProtectedBoxingSkill" | "hasSparring" | "hardStopActive" | "highCycleSymptoms" | "phase" | "readiness" | "severeFuelingRisk" | "underFuelingRisk"
+    "avoidHighStimulus" | "hasProtectedBoxingSkill" | "hasSparring" | "hardStopActive" | "highCycleSymptoms" | "phase" | "readiness"
   >,
   family: GeneratedSessionFamily
 ): GeneratedSessionFamily {
-  if (input.hardStopActive || input.severeFuelingRisk) {
+  if (input.hardStopActive) {
     return "recovery_reset";
   }
   if (input.hasSparring) {
@@ -67,9 +67,6 @@ function phaseOverride(
     return "trunk_durability";
   }
   if (input.avoidHighStimulus && HIGH_DEMAND_FAMILIES.has(family)) {
-    return "trunk_durability";
-  }
-  if (input.underFuelingRisk && HIGH_DEMAND_FAMILIES.has(family)) {
     return "trunk_durability";
   }
   return family;
@@ -224,8 +221,6 @@ export interface GenerateSupportSessionInput {
   originalPlannedDate?: string | undefined;
   currentScheduledDate?: string | undefined;
   hardStopActive?: boolean | undefined;
-  underFuelingRisk?: boolean | undefined;
-  severeFuelingRisk?: boolean | undefined;
   uncertainFueling?: boolean | undefined;
   avoidHighStimulus?: boolean | undefined;
   familySequence?: readonly GeneratedSessionFamily[] | undefined;
@@ -247,7 +242,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     readinessColor: input.readiness.color,
     highCycleSymptoms: input.highCycleSymptoms,
     protectedHard,
-    conservativeFueling: input.readiness.color === "red" || input.underFuelingRisk || input.severeFuelingRisk,
+    conservativeFueling: input.readiness.color === "red",
     trainingDose: input.trainingDose,
     volumeStrategy: input.phase.phase === "fight_week" ? "taper" : input.phase.phase === "tournament" ? "tournament_conserve" : undefined
   });
@@ -260,8 +255,6 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     protectedHard,
     highCycleSymptoms: input.highCycleSymptoms,
     hardStopActive: input.hardStopActive,
-    underfuelingRisk: input.underFuelingRisk,
-    severeFuelingRisk: input.severeFuelingRisk,
     uncertainFueling: input.uncertainFueling,
     primaryFocus: input.primaryFocus,
     trainingDose: input.trainingDose,
@@ -296,13 +289,12 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
       ...(input.readiness.color === "red" && !input.hardStopActive ? ["Readiness is red without hard-stop symptoms: keep execution conservative and use downshift gates."] : []),
       ...(input.hardStopActive ? ["Safety hard-stop active: generated work is recovery only."] : []),
       ...(input.avoidHighStimulus ? ["Recent actual hard work reserved this date for lower-stress support."] : []),
-      ...(input.underFuelingRisk ? ["Under-fueling evidence removes high fuel-demand generated work."] : []),
       ...(input.highCycleSymptoms ? ["High cycle symptoms: optional volume trimmed."] : []),
       ...(protectedHard ? ["Protected hard boxing owns the stress; generated work stays easy."] : []),
       ...(noEquipment ? ["No-equipment substitution used"] : []),
       ...(novice ? ["Lower complexity for novice track"] : [])
     ],
-    fuelDemand: recoveryOnly || input.underFuelingRisk || input.severeFuelingRisk ? "low" : protectedHard || prescribedHard ? "high" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand,
+    fuelDemand: recoveryOnly ? "low" : protectedHard || prescribedHard ? "high" : workloadModerated && shape.fuelDemand === "high" ? "moderate" : shape.fuelDemand,
     ...generatedSessionLabels(family),
     ...(template.boxingSkillTheme ? { boxingSkillTheme: template.boxingSkillTheme } : {}),
     ...(template.tacticalTheme ? { tacticalTheme: template.tacticalTheme } : {}),

@@ -47,7 +47,7 @@ describe("dashboardVisualData", () => {
     expect(plan.anchors.length).toBeGreaterThan(0);
   });
 
-  it("makes active safety own the Today CTA before opening a workout", () => {
+  it("keeps active safety text from overriding a ready workout CTA", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const today = buildTodayDashboardVisual({
       asOfDate: fixtureAsOfDate,
@@ -62,8 +62,9 @@ describe("dashboardVisualData", () => {
     });
 
     expect(state.viewModels.train.todayGeneratedSessions.length).toBeGreaterThan(0);
-    expect(today.ctaAction).toBe("open_fuel_safety");
-    expect(today.ctaLabel).toBe("Review safety");
+    expect(today.ctaAction).toBe("open_workout");
+    expect(today.ctaLabel).toBe("Open training");
+    expect(today.decision.tags).toContainEqual(expect.objectContaining({ label: "Notes", value: "Active" }));
   });
 
   it("derives workout section duration proportions from real session sections", () => {

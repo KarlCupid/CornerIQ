@@ -158,7 +158,7 @@ describe("next week materialization engine", () => {
     expect(preview.nextWeekDayPlanPreview.filter((day) => day.generatedSupport.includes("Conservative")).length).toBeGreaterThan(1);
   });
 
-  it("blocks progress for under-fueling, fight week, and tournament context", () => {
+  it("keeps under-fueling out of progression blocking while fight week and tournament context still override", () => {
     const underfueling = withRiskFlag(resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate }), repeatedLowIntakeFlag());
     const fightWeek = resolvePerformanceState({
       journey: {
@@ -205,7 +205,7 @@ describe("next week materialization engine", () => {
     const fightSummary = summaryFor(fightWeek);
     const tournamentSummary = summaryFor(tournament);
 
-    expect(materialize(underfueling, underSummary, decisionFor(underfueling, underSummary, { decision: "progress" })).materializedVolumeStrategy).toBe("reduce_volume");
+    expect(materialize(underfueling, underSummary, decisionFor(underfueling, underSummary, { decision: "progress" })).materializedVolumeStrategy).toBe("progress_small");
     expect(materialize(fightWeek, fightSummary, decisionFor(fightWeek, fightSummary, { decision: "progress" })).materializedVolumeStrategy).toBe("taper");
     expect(materialize(tournament, tournamentSummary, decisionFor(tournament, tournamentSummary, { decision: "progress" })).materializedVolumeStrategy).toBe("tournament_conserve");
   });

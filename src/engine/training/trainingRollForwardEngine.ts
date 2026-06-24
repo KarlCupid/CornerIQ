@@ -1,5 +1,5 @@
 import { addDays, daysBetween } from "../core/dates";
-import type { CycleState, FightOpportunity, ReadinessState, RiskFlag, TournamentDetails } from "../core/types";
+import type { CycleState, FightOpportunity, ReadinessState, RiskDomain, RiskFlag, TournamentDetails } from "../core/types";
 import type { ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import type { TrainingBlock, TrainingBlockPhase, TrainingMicrocycle } from "./trainingBlockTypes";
@@ -21,18 +21,8 @@ export interface TrainingRollForwardInput {
   planRevisionId?: string | undefined;
 }
 
-function activeUnderfueling(flags: readonly RiskFlag[], summary: TrainingWeekSummary): boolean {
-  return (
-    summary.underfuelingFlag ||
-    flags.some(
-      (flag) =>
-        flag.code === "rapid_weight_loss" ||
-        flag.code === "repeated_low_intake" ||
-        flag.code === "missed_period_underfueling_risk" ||
-        flag.code === "high_underfueling_blocks_deficit"
-    )
-  );
-}
+const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
+const ROLL_FORWARD_SAFETY_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function fightWeekApproaching(fight: FightOpportunity | null, asOfDate: ISODateString): boolean {
   return Boolean(fight && fight.status !== "canceled" && daysBetween(asOfDate, fight.boutDate) >= 0 && daysBetween(asOfDate, fight.boutDate) <= 7);
@@ -43,13 +33,22 @@ function tournamentWeekActive(tournament: TournamentDetails | null, asOfDate: IS
 }
 
 function hardStopActive(input: Pick<TrainingRollForwardInput, "readiness" | "safetyFlags">): boolean {
-  return readinessHasHardStop(input.readiness, input.safetyFlags) || input.safetyFlags.some((flag) => flag.hardStop && flag.status === "active");
+  return (
+    readinessHasHardStop(input.readiness, input.safetyFlags) ||
+    input.safetyFlags.some((flag) => flag.hardStop && flag.status === "active" && ROLL_FORWARD_SAFETY_DOMAINS.has(flag.domain))
+  );
 }
 
 function coachReviewNeeded(input: TrainingRollForwardInput): boolean {
   return (
     input.weekSummary.painFlagCount > 0 ||
-    input.safetyFlags.some((flag) => flag.requiresProfessionalReview && flag.status === "active") ||
+    input.safetyFlags.some(
+      (flag) =>
+        flag.requiresProfessionalReview &&
+        flag.status === "active" &&
+        ROLL_FORWARD_SAFETY_DOMAINS.has(flag.domain) &&
+        !UNDERFUELING_EVIDENCE_CODES.has(flag.code)
+    ) ||
     input.activeAdjustments.some((adjustment) => adjustment.status === "requested" && adjustment.adjustmentType === "coach_note")
   );
 }
@@ -114,9 +113,6 @@ export function decideNextWeekProgression(input: TrainingRollForwardInput): Trai
   } else if (coachReviewNeeded(input)) {
     decision = "coach_review";
     reason = "Pain flags or professional-review signals require qualified review before progression.";
-  } else if (activeUnderfueling(input.safetyFlags, input.weekSummary)) {
-    decision = input.weekSummary.safetyFlagCount > 0 ? "deload" : "hold";
-    reason = "Under-fueling risk is active, so the engine holds or reduces training pressure instead of progressing.";
   } else if (input.weekSummary.skippedCount > 0) {
     decision = "repeat";
     reason = "Skipped sessions mean the next week should repeat the last safe prescription rather than fake progress.";

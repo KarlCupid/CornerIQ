@@ -264,13 +264,15 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(fightWeek.nutrition.dailyCaloriesTarget).toBeGreaterThan(1800);
   });
 
-  it("under-fueling risk blocks deficit", () => {
+  it("under-fueling risk blocks deficit without reducing workout generation", () => {
     const state = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
 
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("rapid_weight_loss");
     expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("severe_fueling_risk");
-    expect(state.viewModels.plan.generationAudit?.reducedBy).toContain("nutrition");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
   });
 
   it("recent repeated low intake raises under-fueling risk even with older normal logs", () => {

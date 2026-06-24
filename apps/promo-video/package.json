@@ -7,6 +7,7 @@
     "generate:music": "node scripts/generate-music-bed.mjs",
     "preview": "remotion studio src/index.jsx",
     "render": "remotion render src/index.jsx CornerIQPromo out/corneriq-promo.mp4 --codec=h264 --pixel-format=yuv420p --overwrite",
+    "render:instagram-aura": "remotion render src/index.jsx CornerIQInstagramAuraTeaser out/corneriq-instagram-aura-teaser.raw.mp4 --codec=h264 --pixel-format=yuv420p --overwrite && remotion ffmpeg -y -i out/corneriq-instagram-aura-teaser.raw.mp4 -map 0:v:0 -c:v copy -an ../../corneriq-instagram-aura-teaser.mp4",
     "still": "remotion still src/index.jsx CornerIQPromo out/preview-frame.png --frame=150 --scale=0.25 --overwrite"
   },
   "dependencies": {
