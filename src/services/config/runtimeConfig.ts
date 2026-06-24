@@ -2,9 +2,18 @@ export const PUBLIC_SUPABASE_URL_ENV = "EXPO_PUBLIC_SUPABASE_URL";
 export const PUBLIC_SUPABASE_ANON_KEY_ENV = "EXPO_PUBLIC_SUPABASE_ANON_KEY";
 export const PUBLIC_PRIVACY_POLICY_URL_ENV = "EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL";
 export const PUBLIC_SUPPORT_URL_ENV = "EXPO_PUBLIC_CORNERIQ_SUPPORT_URL";
+export const PUBLIC_PAYWALL_ENABLED_ENV = "EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED";
+export const PUBLIC_REVENUECAT_IOS_API_KEY_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY";
+export const PUBLIC_REVENUECAT_ANDROID_API_KEY_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY";
+export const PUBLIC_REVENUECAT_ENTITLEMENT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_ENTITLEMENT_ID";
+export const PUBLIC_MONTHLY_PRODUCT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_MONTHLY_PRODUCT_ID";
+export const PUBLIC_ANNUAL_PRODUCT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID";
 export const CORNERIQ_PRIVACY_POLICY_URL = "https://sites.google.com/view/corneriq/privacy-policy";
 export const CORNERIQ_SUPPORT_URL = "https://sites.google.com/view/corneriq/support";
 export const PLACEHOLDER_PRIVACY_POLICY_URL = "https://example.com/corneriq/privacy-policy";
+export const CORNERIQ_REVENUECAT_ENTITLEMENT_ID = "corneriq_pro";
+export const CORNERIQ_MONTHLY_PRODUCT_ID = "com.corneriq.pro.monthly";
+export const CORNERIQ_ANNUAL_PRODUCT_ID = "com.corneriq.pro.annual";
 
 export type PublicRuntimeEnvName = typeof PUBLIC_SUPABASE_URL_ENV | typeof PUBLIC_SUPABASE_ANON_KEY_ENV;
 
@@ -21,6 +30,16 @@ export interface ReleaseLinkConfig {
   privacyPolicyUrl: string | null;
   privacyPolicyUrlIsPlaceholder: boolean;
   supportUrl: string | null;
+}
+
+export interface SubscriptionRuntimeConfig {
+  annualProductId: string;
+  enabled: boolean;
+  entitlementId: string;
+  monthlyProductId: string;
+  revenueCatAndroidApiKey: string | null;
+  revenueCatIosApiKey: string | null;
+  setupBlockedReason: string | null;
 }
 
 type RuntimeEnv = Record<string, string | undefined>;
@@ -96,5 +115,36 @@ export function getReleaseLinkConfig(env: RuntimeEnv = readRuntimeEnv()): Releas
     privacyPolicyUrl,
     privacyPolicyUrlIsPlaceholder,
     supportUrl
+  };
+}
+
+function cleanOptionalEnvValue(value: string | undefined): string | null {
+  const cleaned = value?.trim();
+  return cleaned ? cleaned : null;
+}
+
+function cleanConfigValue(value: string | undefined, fallback: string): string {
+  return cleanOptionalEnvValue(value) ?? fallback;
+}
+
+export function getSubscriptionRuntimeConfig(env: RuntimeEnv = readRuntimeEnv()): SubscriptionRuntimeConfig {
+  const revenueCatIosApiKey = cleanOptionalEnvValue(env[PUBLIC_REVENUECAT_IOS_API_KEY_ENV]);
+  const revenueCatAndroidApiKey = cleanOptionalEnvValue(env[PUBLIC_REVENUECAT_ANDROID_API_KEY_ENV]);
+  const explicitlyDisabled = env[PUBLIC_PAYWALL_ENABLED_ENV] === "0";
+  const explicitlyEnabled = env[PUBLIC_PAYWALL_ENABLED_ENV] === "1";
+  const enabled = !explicitlyDisabled && (explicitlyEnabled || Boolean(revenueCatIosApiKey || revenueCatAndroidApiKey));
+  const setupBlockedReason =
+    enabled && !revenueCatIosApiKey && !revenueCatAndroidApiKey
+      ? "Subscription gate is enabled but the RevenueCat public API key is not configured."
+      : null;
+
+  return {
+    annualProductId: cleanConfigValue(env[PUBLIC_ANNUAL_PRODUCT_ID_ENV], CORNERIQ_ANNUAL_PRODUCT_ID),
+    enabled,
+    entitlementId: cleanConfigValue(env[PUBLIC_REVENUECAT_ENTITLEMENT_ID_ENV], CORNERIQ_REVENUECAT_ENTITLEMENT_ID),
+    monthlyProductId: cleanConfigValue(env[PUBLIC_MONTHLY_PRODUCT_ID_ENV], CORNERIQ_MONTHLY_PRODUCT_ID),
+    revenueCatAndroidApiKey,
+    revenueCatIosApiKey,
+    setupBlockedReason
   };
 }

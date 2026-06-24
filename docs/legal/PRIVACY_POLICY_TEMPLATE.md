@@ -22,6 +22,7 @@ CornerIQ provides educational boxing performance planning support. The app is ma
 - Cycle data and symptoms: optional cycle tracking preference, cycle logs, symptoms, and symptom-aware context.
 - Training plans and workout history: generated support workouts, fixed boxing sessions, protected schedule entries, workout completions, exercise results, weekly summaries, plan adjustments, training block history, and engine decision traces.
 - Wearable/manual preference: whether the athlete prefers manual-only logging, may connect a wearable later, or is undecided. Wearable data is optional and used only when fresh and consistent.
+- Subscription and purchase entitlement data: App Store subscription status, RevenueCat app user identifier, product identifiers, entitlement status, purchase/renewal/expiration status, and restore-purchase results. Do not include full payment card details; payment is handled by Apple.
 - Exports/deletions: export previews, portable export bundle contents, app-data deletion actions, and account deletion requests handled through the server-side account deletion function.
 
 ## How Data Is Used
@@ -37,6 +38,8 @@ No external analytics package is connected in the MVP. If analytics are added la
 ## Third-Party Processors
 
 CornerIQ uses Supabase for authentication, database storage, Row Level Security, and Edge Functions. Supabase processes account and app data needed to operate the service.
+
+CornerIQ uses RevenueCat to process subscription entitlement status and App Store purchase/restore events needed to unlock paid access. Apple handles App Store payment processing.
 
 ## Data Retention And Deletion
 

@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   CORNERIQ_PRIVACY_POLICY_URL,
+  CORNERIQ_ANNUAL_PRODUCT_ID,
+  CORNERIQ_MONTHLY_PRODUCT_ID,
+  CORNERIQ_REVENUECAT_ENTITLEMENT_ID,
   CORNERIQ_SUPPORT_URL,
+  getSubscriptionRuntimeConfig,
   getPublicRuntimeConfig,
   getReleaseLinkConfig,
   PLACEHOLDER_PRIVACY_POLICY_URL,
+  PUBLIC_ANNUAL_PRODUCT_ID_ENV,
+  PUBLIC_MONTHLY_PRODUCT_ID_ENV,
   PUBLIC_PRIVACY_POLICY_URL_ENV,
+  PUBLIC_REVENUECAT_ENTITLEMENT_ID_ENV,
+  PUBLIC_REVENUECAT_IOS_API_KEY_ENV,
   PUBLIC_SUPPORT_URL_ENV
 } from "../../services/config/runtimeConfig";
 
@@ -82,5 +90,29 @@ describe("runtimeConfig", () => {
     expect(configured.supportUrl).toBe("https://corneriq.example/support");
     expect(configured.privacyPolicyUrlIsPlaceholder).toBe(false);
     expect(configured.appleSubmissionBlockedReason).toBeNull();
+  });
+
+  it("keeps subscription setup public and configurable", () => {
+    const defaults = getSubscriptionRuntimeConfig({});
+    const configured = getSubscriptionRuntimeConfig({
+      EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED: "1",
+      [PUBLIC_REVENUECAT_IOS_API_KEY_ENV]: "appl_do_not_print",
+      [PUBLIC_REVENUECAT_ENTITLEMENT_ID_ENV]: "corneriq_paid",
+      [PUBLIC_MONTHLY_PRODUCT_ID_ENV]: "com.corneriq.test.monthly",
+      [PUBLIC_ANNUAL_PRODUCT_ID_ENV]: "com.corneriq.test.annual"
+    });
+    const blocked = getSubscriptionRuntimeConfig({ EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED: "1" });
+
+    expect(defaults.enabled).toBe(false);
+    expect(defaults.entitlementId).toBe(CORNERIQ_REVENUECAT_ENTITLEMENT_ID);
+    expect(defaults.monthlyProductId).toBe(CORNERIQ_MONTHLY_PRODUCT_ID);
+    expect(defaults.annualProductId).toBe(CORNERIQ_ANNUAL_PRODUCT_ID);
+    expect(configured.enabled).toBe(true);
+    expect(configured.entitlementId).toBe("corneriq_paid");
+    expect(configured.monthlyProductId).toBe("com.corneriq.test.monthly");
+    expect(configured.annualProductId).toBe("com.corneriq.test.annual");
+    expect(configured.revenueCatIosApiKey).toBe("appl_do_not_print");
+    expect(configured.setupBlockedReason).toBeNull();
+    expect(blocked.setupBlockedReason).toContain("RevenueCat public API key");
   });
 });

@@ -12,6 +12,7 @@ Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers 
 - Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy and support metadata.
 - Support URL: published at `https://sites.google.com/view/corneriq/support` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override it if the release owner moves support.
 - Reviewer credentials: review account prepared on 2026-06-19. Provide credentials only in App Store Connect Review Notes. Do not commit credentials.
+- Subscriptions: APPLE_SUBMISSION_BLOCKED until Apple Developer Program enrollment, Paid Apps Agreement, tax/banking, App Store Connect subscription products, RevenueCat project/products/entitlement/offering, and a TestFlight purchase/restore smoke are complete. App code expects `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1`, `EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY`, entitlement `corneriq_pro`, monthly product `com.corneriq.pro.monthly`, and annual product `com.corneriq.pro.annual`.
 
 ## Reviewer Access
 
@@ -62,7 +63,23 @@ Profile > Data includes:
 - Delete account, confirmed with DELETE ACCOUNT, which signs the user out after server-side account deletion
 
 The app is manual-first and does not require a wearable.
+
+CornerIQ uses auto-renewable in-app purchase subscriptions after onboarding.
+- Monthly: CA$15/month
+- Annual: CA$100/year
+- No free trial
+Users can create/sign in to an account and complete onboarding without purchase. After onboarding, app product features require subscription. Restore purchase, Privacy Policy, Support, sign out, export, and delete account remain available from the paywall without purchase.
 ```
+
+## Subscription Notes
+
+- Product features are subscription-gated after onboarding.
+- Account, privacy, support, export, restore purchase, sign-out, and delete-account controls remain available without purchase.
+- Pricing decision: `CA$15/month` or `CA$100/year`, no free trial.
+- Planned product IDs: `com.corneriq.pro.monthly` and `com.corneriq.pro.annual`.
+- Planned RevenueCat entitlement: `corneriq_pro`.
+- Setup checklist: `docs/release/APPLE_SUBSCRIPTION_SETUP.md`.
+- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` blocks until `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1` and `EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY` are set.
 
 ## Account Deletion Notes
 
@@ -135,6 +152,7 @@ Do not claim:
 - Final app icon is not wired.
 - Final splash image is not wired.
 - `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` must fail until final icon/splash and any remaining release-owner blockers are ready.
+- The same Apple-submission preflight must fail until the subscription gate is explicitly enabled and the public RevenueCat iOS SDK key is configured.
 
 ## Production E2E/Demo Mode Guard
 
@@ -155,5 +173,10 @@ Do not claim:
 - [x] Preload a safe adult boxer profile or verify onboarding from empty profile.
 - [ ] Capture screenshots.
 - [ ] Fill App Store Connect Support URL with `https://sites.google.com/view/corneriq/support`.
+- [ ] Enroll in the Apple Developer Program.
+- [ ] Accept the Paid Apps Agreement and complete tax/banking in App Store Connect.
+- [ ] Create App Store Connect subscriptions for `com.corneriq.pro.monthly` and `com.corneriq.pro.annual`.
+- [ ] Configure RevenueCat entitlement `corneriq_pro`, products, offering, and public iOS SDK key.
+- [ ] Verify purchase and restore in a development/TestFlight build.
 - [ ] Put credentials only in App Store Connect Review Notes.
 - [ ] Run `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` and resolve blockers.

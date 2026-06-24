@@ -8,10 +8,12 @@ import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
+import { PaywallScreen } from "./screens/PaywallScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions, type NextWeekPreviewActionsHook } from "../hooks/useNextWeekPreviewActions";
 import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
+import { useSubscription } from "../hooks/useSubscription";
 import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
 import { useWorkoutCompletion, type WorkoutCompletionActions } from "../hooks/useWorkoutCompletion";
@@ -26,6 +28,7 @@ import { colors, spacing } from "../design/theme";
 function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupabaseClient; onSignOut: () => Promise<void>; session: Session }) {
   const [signingOut, setSigningOut] = useState(false);
   const performance = usePerformanceState({ client, session });
+  const subscription = useSubscription({ appUserId: session.user.id });
   const quickLogs = useQuickLogs({
     asOfDate: performance.asOfDate,
     onRefresh: performance.refresh,
@@ -64,6 +67,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
         : nextWeekPreviewActions.generationStatus;
   const busy =
     signingOut ||
+    subscription.busy ||
     performance.loading ||
     quickLogs.busy ||
     workoutCompletion.busy ||
@@ -110,6 +114,18 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
 
   if (!performance.result || performance.result.status !== "ready") {
     return <AppErrorState message="Engine state is unavailable." onRetry={() => void performance.refresh()} onSignOut={() => void guardedSignOut()} />;
+  }
+
+  if (subscription.enabled && !subscription.active) {
+    return (
+      <AppErrorBoundary signedIn>
+        <PaywallScreen
+          onSignOut={guardedSignOut}
+          subscription={subscription}
+          userDataControls={userDataControls}
+        />
+      </AppErrorBoundary>
+    );
   }
 
   return (
