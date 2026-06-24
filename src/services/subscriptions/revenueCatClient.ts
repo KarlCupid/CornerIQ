@@ -1,156 +1,259 @@
 import { Platform } from "react-native";
-import type { CustomerInfo, PurchasesOffering, PurchasesPackage } from "react-native-purchases";
-import type { SubscriptionEntitlementStatus, SubscriptionPlanPeriod, SubscriptionPlanViewModel } from "../../engine/subscription/paywallEngine";
+import type {
+  CustomerInfo,
+  CustomerInfoUpdateListener,
+  LogInResult,
+  MakePurchaseResult,
+  PurchasesConfiguration,
+  PurchasesOfferings,
+  PurchasesPackage
+} from "react-native-purchases";
 import { getSubscriptionRuntimeConfig, type SubscriptionRuntimeConfig } from "../config/runtimeConfig";
+import {
+  emptySubscriptionSnapshot,
+  markSubscriptionOfferingsUnavailable,
+  mergeOfferingIntoSubscriptionSnapshot,
+  subscriptionSnapshotFromCustomerInfo,
+  type SubscriptionSnapshot
+} from "./subscriptionState";
 
 type PurchasesModule = typeof import("react-native-purchases").default;
+export type RevenueCatRuntimePlatform = "android" | "ios" | "unsupported";
 
-export interface SubscriptionSnapshot {
-  annualPackage: PurchasesPackage | null;
-  annualPlan: Partial<SubscriptionPlanViewModel>;
-  entitlementStatus: SubscriptionEntitlementStatus;
-  expirationDate: string | null;
-  monthlyPackage: PurchasesPackage | null;
-  monthlyPlan: Partial<SubscriptionPlanViewModel>;
+export interface RevenueCatSdk {
+  addCustomerInfoUpdateListener?: ((customerInfoUpdateListener: CustomerInfoUpdateListener) => void) | undefined;
+  configure: (configuration: PurchasesConfiguration) => void;
+  getCustomerInfo: () => Promise<CustomerInfo>;
+  getOfferings: () => Promise<PurchasesOfferings>;
+  logIn: (appUserID: string) => Promise<LogInResult>;
+  purchasePackage: (aPackage: PurchasesPackage) => Promise<MakePurchaseResult>;
+  removeCustomerInfoUpdateListener?: ((listenerToRemove: CustomerInfoUpdateListener) => boolean) | undefined;
+  restorePurchases: () => Promise<CustomerInfo>;
 }
 
 export interface SubscriptionClientInput {
   appUserId: string;
   config?: SubscriptionRuntimeConfig | undefined;
+  platform?: RevenueCatRuntimePlatform | string | undefined;
+  sdk?: RevenueCatSdk | undefined;
 }
 
-let configuredKey: string | null = null;
+export interface StartRevenueCatSessionInput extends SubscriptionClientInput {
+  onCustomerInfoUpdate?: ((customerInfo: CustomerInfo) => void) | undefined;
+}
+
+export interface RevenueCatSession {
+  customerInfo: CustomerInfo | null;
+  removeListener: () => void;
+}
+
+export interface RevenueCatPlatformCredential {
+  platform: RevenueCatRuntimePlatform;
+  publicCredential: string;
+  status: "available";
+}
+
+export interface RevenueCatPlatformBlocked {
+  platform: RevenueCatRuntimePlatform;
+  reason: string;
+  status: "blocked";
+}
+
+export interface RevenueCatPlatformDisabled {
+  platform: RevenueCatRuntimePlatform;
+  status: "disabled";
+}
+
+export type RevenueCatPlatformResolution = RevenueCatPlatformCredential | RevenueCatPlatformBlocked | RevenueCatPlatformDisabled;
+
+export interface SubscriptionClient {
+  loadSnapshot: (input: SubscriptionClientInput) => Promise<SubscriptionSnapshot>;
+  purchasePackage: (input: SubscriptionClientInput & { aPackage: PurchasesPackage }) => Promise<CustomerInfo>;
+  restore: (input: SubscriptionClientInput) => Promise<CustomerInfo>;
+  snapshotFromCustomerInfo: typeof subscriptionSnapshotFromCustomerInfo;
+  startSession: (input: StartRevenueCatSessionInput) => Promise<RevenueCatSession>;
+}
+
+let configuredPlatformCredential: string | null = null;
+let configuredSdk: RevenueCatSdk | null = null;
+let currentRevenueCatAppUserId: string | null = null;
 
 async function loadPurchases(): Promise<PurchasesModule> {
   const module = await import("react-native-purchases");
   return module.default;
 }
 
-function apiKeyForPlatform(config: SubscriptionRuntimeConfig): string | null {
-  if (Platform.OS === "android") {
-    return config.revenueCatAndroidApiKey ?? config.revenueCatIosApiKey;
+function normalizePlatform(platform: RevenueCatRuntimePlatform | string | undefined): RevenueCatRuntimePlatform {
+  if (platform === "ios" || platform === "android") {
+    return platform;
   }
-  return config.revenueCatIosApiKey ?? config.revenueCatAndroidApiKey;
+  return "unsupported";
 }
 
-async function configurePurchases(input: SubscriptionClientInput): Promise<PurchasesModule> {
-  const config = input.config ?? getSubscriptionRuntimeConfig();
-  const publicCredential = apiKeyForPlatform(config);
-  if (!publicCredential) {
-    throw new Error(config.setupBlockedReason ?? "RevenueCat public API key is not configured.");
-  }
-
-  const Purchases = await loadPurchases();
-  const nextConfiguredKey = `${publicCredential}:${input.appUserId}`;
-  if (configuredKey !== nextConfiguredKey) {
-    const configuration = { ["api" + "Key"]: publicCredential, appUserID: input.appUserId } as unknown as Parameters<typeof Purchases.configure>[0];
-    Purchases.configure(configuration);
-    configuredKey = nextConfiguredKey;
-  }
-  return Purchases;
+function currentRuntimePlatform(): RevenueCatRuntimePlatform {
+  return normalizePlatform(Platform.OS);
 }
 
-function entitlementStatusFromCustomerInfo(customerInfo: CustomerInfo, entitlementId: string): { expirationDate: string | null; status: SubscriptionEntitlementStatus } {
-  const entitlement = customerInfo.entitlements.active[entitlementId];
-  return {
-    expirationDate: entitlement?.expirationDate ?? null,
-    status: entitlement?.isActive ? "active" : "inactive"
-  };
+function purchaseConfiguration(publicCredential: string, appUserId: string): PurchasesConfiguration {
+  return { ["api" + "Key"]: publicCredential, appUserID: appUserId } as unknown as PurchasesConfiguration;
 }
 
-function packagePeriod(aPackage: PurchasesPackage, config: SubscriptionRuntimeConfig): SubscriptionPlanPeriod | null {
-  if (aPackage.product.identifier === config.annualProductId || aPackage.packageType === "ANNUAL") {
-    return "annual";
+function requireAvailableCredential(resolution: RevenueCatPlatformResolution): RevenueCatPlatformCredential {
+  if (resolution.status !== "available") {
+    throw new Error(resolution.status === "blocked" ? resolution.reason : "RevenueCat subscriptions are disabled.");
   }
-  if (aPackage.product.identifier === config.monthlyProductId || aPackage.packageType === "MONTHLY") {
-    return "monthly";
-  }
-  return null;
+  return resolution;
 }
 
-function packageForPeriod(offering: PurchasesOffering | null, period: SubscriptionPlanPeriod, config: SubscriptionRuntimeConfig): PurchasesPackage | null {
-  if (!offering) {
-    return null;
-  }
-  const configuredProductId = period === "annual" ? config.annualProductId : config.monthlyProductId;
-  const preferred = period === "annual" ? offering.annual : offering.monthly;
-  return preferred ?? offering.availablePackages.find((aPackage) => aPackage.product.identifier === configuredProductId || packagePeriod(aPackage, config) === period) ?? null;
-}
-
-function planFromPackage(aPackage: PurchasesPackage | null, period: SubscriptionPlanPeriod, config: SubscriptionRuntimeConfig): Partial<SubscriptionPlanViewModel> {
-  const fallbackProductId = period === "annual" ? config.annualProductId : config.monthlyProductId;
-  if (!aPackage) {
+export function resolveRevenueCatPlatformCredential(
+  config: SubscriptionRuntimeConfig,
+  platform: RevenueCatRuntimePlatform | string | undefined = currentRuntimePlatform()
+): RevenueCatPlatformResolution {
+  const runtimePlatform = normalizePlatform(platform);
+  if (!config.enabled) {
     return {
-      productId: fallbackProductId
+      platform: runtimePlatform,
+      status: "disabled"
     };
   }
 
-  const periodLabel = period === "annual" ? "year" : "month";
-  const annualValue = aPackage.product.pricePerMonthString ? `${aPackage.product.pricePerMonthString}/month equivalent` : "Save CA$80 versus monthly";
+  if (runtimePlatform === "ios") {
+    return config.revenueCatIosApiKey
+      ? {
+          platform: runtimePlatform,
+          publicCredential: config.revenueCatIosApiKey,
+          status: "available"
+        }
+      : {
+          platform: runtimePlatform,
+          reason: "RevenueCat iOS public API key is required for iOS subscriptions.",
+          status: "blocked"
+        };
+  }
+
+  if (runtimePlatform === "android") {
+    return config.revenueCatAndroidApiKey
+      ? {
+          platform: runtimePlatform,
+          publicCredential: config.revenueCatAndroidApiKey,
+          status: "available"
+        }
+      : {
+          platform: runtimePlatform,
+          reason: "RevenueCat Android public API key is required for Android subscriptions.",
+          status: "blocked"
+        };
+  }
+
   return {
-    description: aPackage.product.description || (period === "annual" ? "Twelve months of CornerIQ access." : "Monthly CornerIQ access."),
-    id: aPackage.identifier,
-    priceLabel: `${aPackage.product.priceString}/${periodLabel}`,
-    productId: aPackage.product.identifier,
-    valueLabel: period === "annual" ? annualValue : "Billed monthly"
+    platform: runtimePlatform,
+    reason: "RevenueCat subscriptions are unavailable on this platform.",
+    status: "blocked"
   };
 }
 
-function emptySnapshot(config: SubscriptionRuntimeConfig, status: SubscriptionEntitlementStatus): SubscriptionSnapshot {
+async function resolveSdk(input: SubscriptionClientInput): Promise<RevenueCatSdk> {
+  if (input.sdk) {
+    return input.sdk;
+  }
+  return loadPurchases();
+}
+
+export async function ensureRevenueCatSession(input: SubscriptionClientInput): Promise<{ customerInfo: CustomerInfo | null; sdk: RevenueCatSdk }> {
+  const config = input.config ?? getSubscriptionRuntimeConfig();
+  const credential = requireAvailableCredential(resolveRevenueCatPlatformCredential(config, input.platform));
+  const sdk = await resolveSdk(input);
+
+  const nextConfiguredPlatformCredential = `${credential.platform}:${credential.publicCredential}`;
+  if (configuredSdk !== sdk || configuredPlatformCredential !== nextConfiguredPlatformCredential) {
+    sdk.configure(purchaseConfiguration(credential.publicCredential, input.appUserId));
+    configuredSdk = sdk;
+    configuredPlatformCredential = nextConfiguredPlatformCredential;
+    currentRevenueCatAppUserId = input.appUserId;
+    return {
+      customerInfo: null,
+      sdk
+    };
+  }
+
+  if (currentRevenueCatAppUserId !== input.appUserId) {
+    const loginResult = await sdk.logIn(input.appUserId);
+    currentRevenueCatAppUserId = input.appUserId;
+    return {
+      customerInfo: loginResult.customerInfo,
+      sdk
+    };
+  }
+
   return {
-    annualPackage: null,
-    annualPlan: planFromPackage(null, "annual", config),
-    entitlementStatus: status,
-    expirationDate: null,
-    monthlyPackage: null,
-    monthlyPlan: planFromPackage(null, "monthly", config)
+    customerInfo: null,
+    sdk
+  };
+}
+
+export async function startRevenueCatSession(input: StartRevenueCatSessionInput): Promise<RevenueCatSession> {
+  const session = await ensureRevenueCatSession(input);
+  const listener = input.onCustomerInfoUpdate;
+
+  if (!listener || !session.sdk.addCustomerInfoUpdateListener) {
+    return {
+      customerInfo: session.customerInfo,
+      removeListener: () => undefined
+    };
+  }
+
+  session.sdk.addCustomerInfoUpdateListener(listener);
+  return {
+    customerInfo: session.customerInfo,
+    removeListener: () => {
+      session.sdk.removeCustomerInfoUpdateListener?.(listener);
+    }
   };
 }
 
 export async function loadSubscriptionSnapshot(input: SubscriptionClientInput): Promise<SubscriptionSnapshot> {
   const config = input.config ?? getSubscriptionRuntimeConfig();
   if (!config.enabled) {
-    return emptySnapshot(config, "active");
-  }
-  if (config.setupBlockedReason) {
-    return emptySnapshot(config, "unavailable");
+    return emptySubscriptionSnapshot(config, "active");
   }
 
-  const Purchases = await configurePurchases({ ...input, config });
-  const [customerInfo, offerings] = await Promise.all([Purchases.getCustomerInfo(), Purchases.getOfferings()]);
-  const currentOffering = offerings.current;
-  const monthlyPackage = packageForPeriod(currentOffering, "monthly", config);
-  const annualPackage = packageForPeriod(currentOffering, "annual", config);
-  const entitlement = entitlementStatusFromCustomerInfo(customerInfo, config.entitlementId);
+  const session = await ensureRevenueCatSession({ ...input, config });
+  const customerInfo = session.customerInfo ?? (await session.sdk.getCustomerInfo());
+  const entitlementSnapshot = subscriptionSnapshotFromCustomerInfo(customerInfo, emptySubscriptionSnapshot(config, "inactive"), config);
 
-  return {
-    annualPackage,
-    annualPlan: planFromPackage(annualPackage, "annual", config),
-    entitlementStatus: entitlement.status,
-    expirationDate: entitlement.expirationDate,
-    monthlyPackage,
-    monthlyPlan: planFromPackage(monthlyPackage, "monthly", config)
-  };
+  try {
+    const offerings = await session.sdk.getOfferings();
+    return mergeOfferingIntoSubscriptionSnapshot(entitlementSnapshot, offerings.current, config);
+  } catch (offeringsError) {
+    return markSubscriptionOfferingsUnavailable(entitlementSnapshot, offeringsError);
+  }
 }
 
 export async function purchaseSubscriptionPackage(input: SubscriptionClientInput & { aPackage: PurchasesPackage }): Promise<CustomerInfo> {
   const config = input.config ?? getSubscriptionRuntimeConfig();
-  const Purchases = await configurePurchases({ ...input, config });
-  const result = await Purchases.purchasePackage(input.aPackage);
+  const session = await ensureRevenueCatSession({ ...input, config });
+  const result = await session.sdk.purchasePackage(input.aPackage);
   return result.customerInfo;
 }
 
 export async function restoreSubscriptionPurchases(input: SubscriptionClientInput): Promise<CustomerInfo> {
   const config = input.config ?? getSubscriptionRuntimeConfig();
-  const Purchases = await configurePurchases({ ...input, config });
-  return Purchases.restorePurchases();
+  const session = await ensureRevenueCatSession({ ...input, config });
+  return session.sdk.restorePurchases();
 }
 
-export function subscriptionSnapshotFromCustomerInfo(customerInfo: CustomerInfo, current: SubscriptionSnapshot, config: SubscriptionRuntimeConfig): SubscriptionSnapshot {
-  const entitlement = entitlementStatusFromCustomerInfo(customerInfo, config.entitlementId);
-  return {
-    ...current,
-    entitlementStatus: entitlement.status,
-    expirationDate: entitlement.expirationDate
-  };
+export const revenueCatSubscriptionClient: SubscriptionClient = {
+  loadSnapshot: loadSubscriptionSnapshot,
+  purchasePackage: purchaseSubscriptionPackage,
+  restore: restoreSubscriptionPurchases,
+  snapshotFromCustomerInfo: subscriptionSnapshotFromCustomerInfo,
+  startSession: startRevenueCatSession
+};
+
+export function resetRevenueCatClientForTests(): void {
+  configuredPlatformCredential = null;
+  configuredSdk = null;
+  currentRevenueCatAppUserId = null;
 }
+
+export { subscriptionSnapshotFromCustomerInfo };

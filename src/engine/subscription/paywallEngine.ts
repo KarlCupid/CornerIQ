@@ -43,7 +43,7 @@ function planWithDefaults(period: SubscriptionPlanPeriod, override: Partial<Subs
     period,
     priceLabel: monthly ? "CA$15/month" : "CA$100/year",
     productId: monthly ? "com.corneriq.pro.monthly" : "com.corneriq.pro.annual",
-    valueLabel: monthly ? "Billed monthly" : "Save CA$80 versus monthly",
+    valueLabel: monthly ? "Billed monthly" : "Lower yearly total",
     ...override
   };
 }

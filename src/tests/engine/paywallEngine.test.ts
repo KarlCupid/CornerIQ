@@ -17,7 +17,7 @@ describe("paywallEngine", () => {
       period: "annual",
       priceLabel: "CA$100/year",
       productId: "com.corneriq.pro.annual",
-      valueLabel: "Save CA$80 versus monthly"
+      valueLabel: "Lower yearly total"
     });
     expect(viewModel.accountAccessCopy).toContain("delete-account controls stay available");
     expect(JSON.stringify(viewModel).toLowerCase()).not.toMatch(/sparring|contact drills|weight-class pressure wins/);

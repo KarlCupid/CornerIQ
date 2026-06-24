@@ -129,6 +129,7 @@ export function PaywallScreen({ onSignOut, subscription, userDataControls }: Pay
   const releaseLinks = React.useMemo(() => getReleaseLinkConfig(), []);
   const viewModel = subscription.viewModel;
   const actionsDisabled = subscription.busy || subscription.loading || Boolean(viewModel.setupBlockedReason);
+  const planActionsDisabled = actionsDisabled || !subscription.purchaseAvailable;
 
   const openPrivacyPolicy = React.useCallback(() => {
     if (releaseLinks.privacyPolicyUrl) {
@@ -157,12 +158,13 @@ export function PaywallScreen({ onSignOut, subscription, userDataControls }: Pay
             <Text style={{ ...screenStyles.callout, color: colors.amberCaution }}>{viewModel.setupBlockedReason}</Text>
           ) : null}
           {subscription.error ? <Text style={{ ...screenStyles.callout, color: colors.amberCaution }}>{subscription.error}</Text> : null}
+          {subscription.purchaseUnavailableReason ? <Text style={{ ...screenStyles.callout, color: colors.amberCaution }}>{subscription.purchaseUnavailableReason}</Text> : null}
           {subscription.message ? <Text style={screenStyles.successText}>{subscription.message}</Text> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
             {viewModel.plans.map((plan) => (
               <PlanCard
                 busy={subscription.busy}
-                disabled={actionsDisabled}
+                disabled={planActionsDisabled}
                 key={`paywall-plan:${plan.period}`}
                 onPress={(period) => void subscription.purchasePlan(period)}
                 plan={plan}

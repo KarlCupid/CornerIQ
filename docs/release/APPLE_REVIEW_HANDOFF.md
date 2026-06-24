@@ -12,7 +12,7 @@ Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers 
 - Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy and support metadata.
 - Support URL: published at `https://sites.google.com/view/corneriq/support` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override it if the release owner moves support.
 - Reviewer credentials: review account prepared on 2026-06-19. Provide credentials only in App Store Connect Review Notes. Do not commit credentials.
-- Subscriptions: APPLE_SUBMISSION_BLOCKED until Apple Developer Program enrollment, Paid Apps Agreement, tax/banking, App Store Connect subscription products, RevenueCat project/products/entitlement/offering, and a TestFlight purchase/restore smoke are complete. App code expects `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1`, `EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY`, entitlement `corneriq_pro`, monthly product `com.corneriq.pro.monthly`, and annual product `com.corneriq.pro.annual`.
+- Subscriptions: APPLE_SUBMISSION_BLOCKED until Apple Developer Program enrollment, Paid Apps Agreement, tax/banking, App Store Connect subscription products, RevenueCat project/products/entitlement/offering, and a TestFlight purchase/restore smoke are complete. App code expects `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1`, platform-specific RevenueCat public SDK keys, entitlement `corneriq_pro`, monthly product `com.corneriq.pro.monthly`, and annual product `com.corneriq.pro.annual`. Mocked automated coverage is in place, but no live purchase or restore has passed yet.
 
 ## Reviewer Access
 
@@ -78,8 +78,10 @@ Users can create/sign in to an account and complete onboarding without purchase.
 - Pricing decision: `CA$15/month` or `CA$100/year`, no free trial.
 - Planned product IDs: `com.corneriq.pro.monthly` and `com.corneriq.pro.annual`.
 - Planned RevenueCat entitlement: `corneriq_pro`.
+- RevenueCat identity uses the signed-in Supabase `session.user.id`; the app must not use email addresses or shared IDs as RevenueCat App User IDs.
+- Mocked automated coverage verifies RevenueCat identity lifecycle, strict platform keys, entitlement-vs-offerings handling, purchase/restore entitlement checks, listener updates, foreground refresh, stale-result guards, disabled-paywall bypass, and cancellation messaging. This is not live App Store purchase evidence.
 - Setup checklist: `docs/release/APPLE_SUBSCRIPTION_SETUP.md`.
-- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` blocks until `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1` and `EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY` are set.
+- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` blocks until `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1` and `EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY` are set for the Apple submission path.
 
 ## Account Deletion Notes
 

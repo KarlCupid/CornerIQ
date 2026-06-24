@@ -11,6 +11,7 @@ import {
   PLACEHOLDER_PRIVACY_POLICY_URL,
   PUBLIC_ANNUAL_PRODUCT_ID_ENV,
   PUBLIC_MONTHLY_PRODUCT_ID_ENV,
+  PUBLIC_REVENUECAT_ANDROID_API_KEY_ENV,
   PUBLIC_PRIVACY_POLICY_URL_ENV,
   PUBLIC_REVENUECAT_ENTITLEMENT_ID_ENV,
   PUBLIC_REVENUECAT_IOS_API_KEY_ENV,
@@ -96,6 +97,7 @@ describe("runtimeConfig", () => {
     const defaults = getSubscriptionRuntimeConfig({});
     const configured = getSubscriptionRuntimeConfig({
       EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED: "1",
+      [PUBLIC_REVENUECAT_ANDROID_API_KEY_ENV]: "goog_do_not_print",
       [PUBLIC_REVENUECAT_IOS_API_KEY_ENV]: "appl_do_not_print",
       [PUBLIC_REVENUECAT_ENTITLEMENT_ID_ENV]: "corneriq_paid",
       [PUBLIC_MONTHLY_PRODUCT_ID_ENV]: "com.corneriq.test.monthly",
@@ -111,6 +113,7 @@ describe("runtimeConfig", () => {
     expect(configured.entitlementId).toBe("corneriq_paid");
     expect(configured.monthlyProductId).toBe("com.corneriq.test.monthly");
     expect(configured.annualProductId).toBe("com.corneriq.test.annual");
+    expect(configured.revenueCatAndroidApiKey).toBe("goog_do_not_print");
     expect(configured.revenueCatIosApiKey).toBe("appl_do_not_print");
     expect(configured.setupBlockedReason).toBeNull();
     expect(blocked.setupBlockedReason).toContain("RevenueCat public API key");

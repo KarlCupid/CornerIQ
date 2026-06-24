@@ -22,11 +22,28 @@ Public Expo variables:
 
 - `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED=1`
 - `EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY=<RevenueCat public iOS SDK key>`
+- `EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY=<RevenueCat public Android SDK key>`
 - `EXPO_PUBLIC_CORNERIQ_REVENUECAT_ENTITLEMENT_ID=corneriq_pro`
 - `EXPO_PUBLIC_CORNERIQ_MONTHLY_PRODUCT_ID=com.corneriq.pro.monthly`
 - `EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID=com.corneriq.pro.annual`
 
-Android is not the current App Store submission path, but the app also declares `EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY` for a future Play build.
+The app fails closed per platform when the paywall is enabled: iOS requires the iOS public SDK key, Android requires the Android public SDK key, and unsupported/web/test platforms do not unlock paid features. Local development can still run without RevenueCat keys when the paywall is disabled.
+
+## Current Code Coverage
+
+RevenueCat/App Store live setup is still pending. There is no RevenueCat account, Apple Developer Program enrollment, App Store product, TestFlight build, or live purchase/restore evidence yet.
+
+Mocked automated coverage is in place for the subscription integration:
+
+- Supabase `session.user.id` is used as the RevenueCat App User ID.
+- Same-user refresh does not repeatedly configure or log in.
+- Authenticated user changes use RevenueCat `logIn(newUserId)` and never `logOut()`.
+- Stale subscription results cannot overwrite a newer authenticated user.
+- iOS and Android public keys are required for their own platforms with no fallback.
+- Active `corneriq_pro` entitlement unlocks access even if offerings fail.
+- Offerings failures keep inactive users locked but mark purchase options unavailable.
+- Purchase and restore only unlock when returned `CustomerInfo` contains the active entitlement.
+- Listener updates, foreground refresh, active-access preservation on refresh failure, disabled-paywall bypass, and purchase cancellation messaging are covered with fakes.
 
 ## Release Owner Apple Tasks
 
