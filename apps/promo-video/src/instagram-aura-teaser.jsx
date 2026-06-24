@@ -81,6 +81,49 @@ const FEATURES = [
   },
 ];
 
+const DETAILS = [
+  {
+    height: 240,
+    left: 36,
+    objectPosition: 'center 45%',
+    rotate: -5.5,
+    top: 430,
+    width: 360,
+  },
+  {
+    height: 250,
+    left: 690,
+    objectPosition: 'center 50%',
+    rotate: 5,
+    top: 455,
+    width: 350,
+  },
+  {
+    height: 320,
+    left: 32,
+    objectPosition: 'center 43%',
+    rotate: -4,
+    top: 372,
+    width: 352,
+  },
+  {
+    height: 280,
+    left: 694,
+    objectPosition: 'center 47%',
+    rotate: 4.5,
+    top: 440,
+    width: 344,
+  },
+  {
+    height: 270,
+    left: 36,
+    objectPosition: 'center 42%',
+    rotate: -4,
+    top: 474,
+    width: 364,
+  },
+];
+
 const clamp = {
   extrapolateLeft: 'clamp',
   extrapolateRight: 'clamp',
@@ -101,6 +144,23 @@ function fadeWindow(frame, start, end, fade = 24) {
   const fadeIn = start === 0 ? 1 : progress(frame, start, fade, easeInOut);
   const fadeOut = progress(frame, end - fade, fade, easeInOut);
   return Math.max(0, Math.min(1, fadeIn * (1 - fadeOut)));
+}
+
+function hitPulse(frame, start, duration = 24) {
+  const local = frame - start;
+
+  if (local < 0 || local > duration) {
+    return 0;
+  }
+
+  return Math.sin((local / duration) * Math.PI);
+}
+
+function transitionPulse(showcaseFrame) {
+  return [0, 123, 246, 369, 492].reduce(
+    (maxPulse, hit) => Math.max(maxPulse, hitPulse(showcaseFrame, hit, 26)),
+    0,
+  );
 }
 
 function Background({accent, frame, warmth = 0.2}) {
@@ -284,30 +344,194 @@ function activeFeatureIndex(showcaseFrame) {
   );
 }
 
+function ScreenBackdrop({showcaseFrame}) {
+  return (
+    <AbsoluteFill style={{overflow: 'hidden', zIndex: 2}}>
+      {FEATURES.map((feature, index) => {
+        const opacity = featureOpacity(showcaseFrame, index);
+        const local = showcaseFrame - index * SCREEN_HOLD_FRAMES;
+        const driftY = interpolate(local, [0, SCREEN_HOLD_FRAMES], [-52, 44], clamp);
+        const driftX = interpolate(local, [0, SCREEN_HOLD_FRAMES], [26, -22], clamp);
+        const scale = interpolate(local, [0, SCREEN_HOLD_FRAMES], [1.42, 1.5], clamp);
+
+        if (opacity <= 0.01) {
+          return null;
+        }
+
+        return (
+          <Img
+            key={`backdrop-${feature.src}`}
+            src={staticFile(feature.src)}
+            style={{
+              filter: 'blur(26px) saturate(1.16) brightness(0.55)',
+              height: '100%',
+              left: 0,
+              objectFit: 'cover',
+              opacity: opacity * 0.28,
+              position: 'absolute',
+              top: 0,
+              transform: `translate(${driftX}px, ${driftY}px) scale(${scale}) rotate(${index % 2 === 0 ? -2 : 2}deg)`,
+              width: '100%',
+            }}
+          />
+        );
+      })}
+      <AbsoluteFill
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(2,5,14,0.42) 0%, rgba(2,5,14,0.12) 38%, rgba(2,5,14,0.78) 100%)',
+        }}
+      />
+      <div
+        style={{
+          background:
+            'radial-gradient(circle at 50% 44%, rgba(255,255,255,0.09), transparent 54%)',
+          inset: 0,
+          opacity: 0.42,
+          position: 'absolute',
+        }}
+      />
+    </AbsoluteFill>
+  );
+}
+
+function MotionStreaks({accent, frame}) {
+  return (
+    <AbsoluteFill style={{overflow: 'hidden', zIndex: 5}}>
+      {[0, 1, 2, 3].map((item) => {
+        const travel = ((frame * (8 + item * 1.2) + item * 220) % 1440) - 260;
+        const top = 360 + item * 260 + Math.sin((frame + item * 31) / 42) * 18;
+
+        return (
+          <div
+            key={item}
+            style={{
+              background: `linear-gradient(90deg, transparent, ${accent}${item % 2 === 0 ? '38' : '24'}, transparent)`,
+              filter: 'blur(1px)',
+              height: item % 2 === 0 ? 3 : 2,
+              left: -220,
+              opacity: 0.34,
+              position: 'absolute',
+              top,
+              transform: `translateX(${travel}px) rotate(-15deg)`,
+              width: 720,
+            }}
+          />
+        );
+      })}
+    </AbsoluteFill>
+  );
+}
+
+function TransitionFlash({accent, showcaseFrame}) {
+  const pulse = transitionPulse(showcaseFrame);
+
+  if (pulse <= 0.01) {
+    return null;
+  }
+
+  return (
+    <AbsoluteFill style={{opacity: pulse * 0.42, overflow: 'hidden', zIndex: 11}}>
+      <div
+        style={{
+          background: `linear-gradient(105deg, transparent 18%, ${accent}42 48%, rgba(255,255,255,0.18) 52%, transparent 82%)`,
+          height: 520,
+          left: -280,
+          position: 'absolute',
+          top: 468,
+          transform: `translateX(${interpolate(pulse, [0, 1], [-160, 210], clamp)}px) rotate(-12deg)`,
+          width: 1380,
+        }}
+      />
+    </AbsoluteFill>
+  );
+}
+
+function DetailCrops({showcaseFrame}) {
+  return (
+    <>
+      {FEATURES.map((feature, index) => {
+        const local = showcaseFrame - index * SCREEN_HOLD_FRAMES;
+        const opacity = featureOpacity(showcaseFrame, index);
+        const detail = DETAILS[index];
+        const inProgress = progress(local, 18, 36, settleEase);
+        const outProgress = progress(local, SCREEN_HOLD_FRAMES - 36, 26, easeInOut);
+        const cardOpacity = opacity * inProgress * (1 - outProgress) * 0.82;
+        const side = detail.left > VIDEO.width / 2 ? 1 : -1;
+        const float = Math.sin((showcaseFrame + index * 37) / 38) * 5;
+
+        if (cardOpacity <= 0.01) {
+          return null;
+        }
+
+        return (
+          <div
+            key={`detail-${feature.label}`}
+            style={{
+              background: '#050914',
+              border: `1px solid ${feature.accent}55`,
+              borderRadius: 32,
+              boxShadow: `0 32px 92px rgba(0,0,0,0.54), 0 0 54px ${feature.accent}22`,
+              height: detail.height,
+              left: detail.left,
+              opacity: cardOpacity,
+              overflow: 'hidden',
+              position: 'absolute',
+              top: detail.top,
+              transform: `translateX(${interpolate(inProgress, [0, 1], [side * 64, 0], clamp)}px) translateY(${float}px) rotate(${detail.rotate}deg) scale(${interpolate(inProgress, [0, 1], [0.94, 1], clamp)})`,
+              transformOrigin: 'center center',
+              width: detail.width,
+              zIndex: 7,
+            }}
+          >
+            <Img
+              src={staticFile(feature.src)}
+              style={{
+                filter: 'saturate(1.06) contrast(1.02)',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: detail.objectPosition,
+                width: '100%',
+              }}
+            />
+            <AbsoluteFill
+              style={{
+                background: `linear-gradient(135deg, rgba(255,255,255,0.13), transparent 38%, ${feature.accent}14)`,
+              }}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function ShowcasePhone({frame, showcaseFrame}) {
   const enter = progress(showcaseFrame, 0, 52, settleEase);
   const phoneWidth = 650;
   const phoneHeight = phoneWidth * PHONE_RATIO;
+  const pulse = transitionPulse(showcaseFrame);
   const driftX = interpolate(
     showcaseFrame,
     [0, 123, 246, 369, 492, 615],
-    [0, -24, 20, -18, 22, 0],
+    [18, -58, 46, -48, 38, 0],
     clamp,
   );
   const driftY = interpolate(showcaseFrame, [0, 615], [22, -12], clamp);
   const rotate = interpolate(
     showcaseFrame,
     [0, 123, 246, 369, 492, 615],
-    [-0.45, 0.35, -0.25, 0.28, -0.32, 0],
+    [-1.05, 0.84, -0.74, 0.88, -0.64, 0],
     clamp,
   );
   const scale = interpolate(
     showcaseFrame,
     [0, 246, 369, 615],
-    [0.982, 1.012, 1.035, 1],
+    [0.984, 1.028, 1.05, 1.01],
     clamp,
   );
   const floatY = Math.sin((frame + 18) / 52) * 4;
+  const active = activeFeatureIndex(showcaseFrame);
 
   return (
     <div
@@ -322,7 +546,7 @@ function ShowcasePhone({frame, showcaseFrame}) {
         overflow: 'hidden',
         position: 'absolute',
         top: 118,
-        transform: `translateX(${driftX}px) translateY(${driftY + floatY}px) rotate(${rotate}deg) scale(${scale})`,
+        transform: `translateX(${driftX}px) translateY(${driftY + floatY - pulse * 10}px) rotate(${rotate + pulse * (active % 2 === 0 ? 0.32 : -0.32)}deg) scale(${scale + pulse * 0.018})`,
         transformOrigin: 'center center',
         width: phoneWidth,
         zIndex: 8,
@@ -333,7 +557,7 @@ function ShowcasePhone({frame, showcaseFrame}) {
         const screenShift = interpolate(
           showcaseFrame,
           [index * SCREEN_HOLD_FRAMES - 36, index * SCREEN_HOLD_FRAMES + SCREEN_HOLD_FRAMES + 36],
-          [10, -10],
+          [24, -22],
           clamp,
         );
 
@@ -349,7 +573,7 @@ function ShowcasePhone({frame, showcaseFrame}) {
               opacity,
               position: 'absolute',
               top: 0,
-              transform: `translateY(${screenShift}px) scale(${1 + opacity * 0.012})`,
+              transform: `translateY(${screenShift}px) scale(${1.012 + opacity * 0.018})`,
               width: '100%',
             }}
           />
@@ -368,7 +592,9 @@ function ShowcasePhone({frame, showcaseFrame}) {
   );
 }
 
-function FeatureChip({accent, opacity, text}) {
+function FeatureChip({accent, index, localFrame, opacity, text}) {
+  const chipIn = progress(localFrame, 18 + index * 3, 16, settleEase);
+
   return (
     <div
       style={{
@@ -382,8 +608,9 @@ function FeatureChip({accent, opacity, text}) {
         fontWeight: 850,
         letterSpacing: 0,
         lineHeight: 1,
-        opacity,
+        opacity: opacity * chipIn,
         padding: '15px 21px',
+        transform: `translateY(${interpolate(chipIn, [0, 1], [14, 0], clamp)}px)`,
         whiteSpace: 'nowrap',
       }}
     >
@@ -465,10 +692,12 @@ function FeatureCopy({showcaseFrame}) {
                 maxWidth: 900,
               }}
             >
-              {feature.support.map((item) => (
+              {feature.support.map((item, chipIndex) => (
                 <FeatureChip
                   accent={feature.accent}
+                  index={chipIndex}
                   key={item}
+                  localFrame={local}
                   opacity={0.92}
                   text={item}
                 />
@@ -497,8 +726,12 @@ function AppShowcase({frame}) {
         frame={frame}
         warmth={active.accent === COLORS.amber ? 0.58 : 0.24}
       />
+      <ScreenBackdrop showcaseFrame={showcaseFrame} />
+      <MotionStreaks accent={active.accent} frame={frame} />
+      <DetailCrops showcaseFrame={showcaseFrame} />
       <ShowcasePhone frame={frame} showcaseFrame={showcaseFrame} />
       <FeatureCopy showcaseFrame={showcaseFrame} />
+      <TransitionFlash accent={active.accent} showcaseFrame={showcaseFrame} />
     </AbsoluteFill>
   );
 }
