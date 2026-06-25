@@ -28,6 +28,7 @@ const PlanLifecycleActionSchema = z.enum(["start_new_plan", "amend_current_plan"
 const TrainingDoseSchema = z.enum(["minimal", "standard", "serious", "high"]);
 const ProtectedScheduleChoiceSchema = z.enum(["has_anchors", "no_anchors"]);
 const PlanProtectedScheduleModeSchema = z.enum(["keep_existing", "replace_for_plan", "clear_for_plan"]);
+const GENERATED_SUPPORT_WEEKDAY_SET = new Set<string>(GENERATED_SUPPORT_WEEKDAYS);
 
 export const MVP_MINIMUM_AGE_YEARS = 18;
 export const MVP_MAXIMUM_AGE_YEARS = 80;
@@ -356,6 +357,12 @@ function scheduleAvailabilityFromDraft(draft: {
   scheduleAvailability?: readonly GeneratedSupportWeekday[] | undefined;
 }): readonly GeneratedSupportWeekday[] | undefined {
   return draft.scheduleAvailability ?? draft.generatedSupportAvailableDays;
+}
+
+function onboardingGeneratedSupportDays(draft: OnboardingDraft): readonly GeneratedSupportWeekday[] {
+  return normalizeGeneratedSupportWeekdays(
+    draft.trainingAccess.scheduleAvailability.filter((day): day is GeneratedSupportWeekday => GENERATED_SUPPORT_WEEKDAY_SET.has(day))
+  );
 }
 
 function planLifecycleSource(action: PlanLifecycleAction | undefined): "plan_wizard_new_plan" | "plan_wizard_amendment" | "plan" {
@@ -697,11 +704,45 @@ export async function completeOnboarding(input: {
   }
 
   if (draft.goal.phase === "build") {
-    await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", { source: "onboarding" });
+    const scheduleAvailability = onboardingGeneratedSupportDays(draft);
+    const planPayload = planGenerationPayload({
+      userId,
+      action: "start_new_plan",
+      goalMode: "build",
+      planStartDate: input.asOfDate,
+      primaryFocus: "balanced",
+      protectedScheduleMode: "keep_existing",
+      scheduleAvailability
+    });
+    await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
+      primaryFocus: "balanced",
+      supportPrescription: "engine_owned",
+      generatedSupportAvailableDays: scheduleAvailability,
+      scheduleAvailability,
+      ...planPayload,
+      protectedScheduleMode: "keep_existing",
+      source: "onboarding"
+    });
   }
 
   if (draft.goal.phase === "maintenance_recovery") {
-    await input.repositories.journey.appendEvent(userId, "RecoveryStarted", { source: "onboarding" });
+    const scheduleAvailability = onboardingGeneratedSupportDays(draft);
+    const planPayload = planGenerationPayload({
+      userId,
+      action: "start_new_plan",
+      goalMode: "recovery",
+      planStartDate: input.asOfDate,
+      protectedScheduleMode: "keep_existing",
+      scheduleAvailability
+    });
+    await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
+      focus: "general",
+      generatedSupportAvailableDays: scheduleAvailability,
+      scheduleAvailability,
+      ...planPayload,
+      protectedScheduleMode: "keep_existing",
+      source: "onboarding"
+    });
   }
 
   await input.repositories.journey.appendEvent(userId, "OnboardingCompleted", {

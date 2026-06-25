@@ -244,6 +244,42 @@ describe("next week materialization engine", () => {
     expect(preview.nextWeekDayPlanPreview.filter((day) => day.generatedSupport.includes("Conservative")).length).toBeGreaterThan(1);
   });
 
+  it("keeps a first-week missing-history hold conservative instead of treating it as a health warning", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        trainingWeekSummaries: [],
+        trainingProgressionDecisions: [],
+        safetyFlags: [],
+        completedTrainingSessions: [],
+        exerciseResults: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const summary = summarizeTrainingWeek({
+      asOfDate: state.asOfDate,
+      trainingBlock: state.training.activeBlock,
+      trainingBlockId: "training_block_1",
+      microcycle: state.training.currentMicrocycle,
+      dayPlans: state.training.dayPlans,
+      completedSessions: [],
+      exerciseResults: [],
+      safetyFlags: [],
+      cycle: state.cycle,
+      nutrition: state.nutrition,
+      protectedWorkouts: state.training.protectedAnchors,
+      weekIndex: state.training.activeBlock.progressionState.weekIndex
+    });
+    const decision = decisionFor(state, summary);
+    const preview = materialize(state, summary, decision);
+
+    expect(decision.decision).toBe("hold");
+    expect(decision.confidence.missingInputs).toContain("completed training sessions or exercise actuals");
+    expect(preview.materializedVolumeStrategy).toBe("conservative_start");
+    expect(preview.blockedProgressionReasons.join(" ")).toContain("Missing completion history");
+    expect(preview.nextWeekDayPlanPreview.map((day) => day.generatedSupport).join(" ")).not.toContain("qualified review");
+  });
+
   it("keeps under-fueling out of progression blocking while fight week and tournament context still override", () => {
     const underfueling = withRiskFlag(resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate }), repeatedLowIntakeFlag());
     const fightWeek = resolvePerformanceState({

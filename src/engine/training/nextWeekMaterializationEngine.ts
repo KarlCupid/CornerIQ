@@ -218,6 +218,15 @@ function highCycleSymptoms(cycle: CycleState, summary: TrainingWeekSummary | nul
   return Boolean(summary?.highCycleSymptomFlag || (cycle.trackingEnabled && cycle.symptomBurden === "high"));
 }
 
+function missingCompletionHistoryHold(input: NextWeekMaterializationInput): boolean {
+  const decision = input.latestTrainingProgressionDecision;
+  if (decision?.decision !== "hold") {
+    return false;
+  }
+  const missingCompletionHistory = decision.confidence.missingInputs.includes("completed training sessions or exercise actuals");
+  return missingCompletionHistory && !activeHardStop(input.safetyFlags, input.readiness) && !painOrReview(input) && !highCycleSymptoms(input.cycle, input.latestTrainingWeekSummary);
+}
+
 function nextWeekIndex(input: NextWeekMaterializationInput): number {
   return Math.max(
     input.currentTrainingBlock.progressionState.weekIndex,
@@ -274,6 +283,9 @@ function strategyFor(input: NextWeekMaterializationInput, nextWeekStartDate: ISO
   }
   if (decision === "regress" || (decision === "progress" && cycleTrim)) {
     return "reduce_volume";
+  }
+  if (missingCompletionHistoryHold(input)) {
+    return "conservative_start";
   }
   if (!decision) {
     return cycleTrim ? "reduce_volume" : "conservative_start";
@@ -378,6 +390,9 @@ function blockedProgressionReasons(input: NextWeekMaterializationInput, strategy
   const reasons: string[] = [];
   if (!input.latestTrainingProgressionDecision) {
     reasons.push("No persisted progression decision exists yet, so next week starts conservative instead of being capped to one workout.");
+  }
+  if (missingCompletionHistoryHold(input)) {
+    reasons.push("Missing completion history is unknown, so next week starts conservative instead of being held for review.");
   }
   if (activeHardStop(input.safetyFlags, input.readiness)) {
     reasons.push("Readiness hard-stop symptoms or a hard-stop safety flag block generated hard work.");
@@ -680,7 +695,9 @@ export function materializeNextWeekTrainingPlan(input: NextWeekMaterializationIn
       strategy === "progress_small"
         ? "Persisted progression supports a small next-week increase only because safety, pain, and readiness checks allow it."
         : strategy === "conservative_start"
-          ? "No persisted progression decision exists yet, so next week is previewed as conservative full-week support instead of being capped to one workout."
+          ? missingCompletionHistoryHold(input)
+            ? "The persisted hold only reflects missing completion history, so next week is previewed as conservative support instead of being blocked for review."
+            : "No persisted progression decision exists yet, so next week is previewed as conservative full-week support instead of being capped to one workout."
         : blocked.length > 0
           ? blocked.join(" ")
           : `Persisted ${decision.replaceAll("_", " ")} decision shapes next week without changing the current week.`,

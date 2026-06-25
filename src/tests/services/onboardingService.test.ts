@@ -27,7 +27,7 @@ import { fixtureAsOfDate } from "../fixtures/engineFixtures";
 function createOnboardingRepositories() {
   const store = {
     bodyMass: [] as { date: string; bodyMassKg: number; source: "manual" }[],
-    events: [] as { type: string; payload: Record<string, unknown> }[],
+    events: [] as { id: string; type: string; occurredAt: string; payload: Record<string, unknown> }[],
     fights: [] as FightOpportunity[],
     profile: null as AthleteProfile | null,
     protectedWorkouts: [] as ProtectedWorkout[],
@@ -158,10 +158,16 @@ function createOnboardingRepositories() {
       upsertRun: vi.fn(async () => ({ id: "run_1" }))
     },
     journey: {
-      listEvents: vi.fn(async () => []),
+      listEvents: vi.fn(async () => store.events as never),
       appendEvent: vi.fn(async (_userId: string, type: string, payload: Record<string, unknown>) => {
-        store.events.push({ type, payload });
-        return { id: `event_${store.events.length}` };
+        const id = `event_${store.events.length + 1}`;
+        store.events.push({
+          id,
+          type,
+          occurredAt: `2026-05-19T00:00:${String(store.events.length).padStart(2, "0")}.000Z`,
+          payload
+        });
+        return { id };
       })
     }
   } as unknown as AthleteJourneyRepositories;
@@ -197,11 +203,48 @@ describe("onboardingService", () => {
     expect(store.profile?.recurringProtectedAnchors).toEqual([]);
     expect(store.events.map((event) => event.type)).toContain("OnboardingCompleted");
     expect(repositories.athlete.upsertProfile).toHaveBeenCalledWith("user_1", expect.objectContaining({ wearablePreference: "manual_only" }));
+    const buildEvent = store.events.find((event) => event.type === "BuildPhaseStarted");
+    expect(buildEvent?.payload).toEqual(
+      expect.objectContaining({
+        primaryFocus: "balanced",
+        supportPrescription: "engine_owned",
+        generatedSupportAvailableDays: ["monday", "wednesday", "saturday"],
+        scheduleAvailability: ["monday", "wednesday", "saturday"],
+        trainingDose: "standard",
+        selectedTrainingDose: "standard",
+        selectedSupportDays: ["monday", "wednesday", "saturday"],
+        planStartDate: fixtureAsOfDate,
+        protectedScheduleMode: "keep_existing",
+        source: "onboarding",
+        planRevisionId: expect.stringMatching(/^plan:user_1:/),
+        planGenerationIntent: expect.objectContaining({
+          action: "start_new_plan",
+          goalMode: "build",
+          primaryFocus: "balanced",
+          trainingDose: "standard",
+          selectedSupportDays: ["monday", "wednesday", "saturday"],
+          planStartDate: fixtureAsOfDate,
+          protectedScheduleMode: "keep_existing",
+          status: "active"
+        })
+      })
+    );
     const result = await resolveFromStore(repositories);
     expect(result.status).toBe("ready");
     if (result.status === "ready") {
       expect(result.state.training.currentMicrocycle.protectedAnchorCount).toBe(0);
       expect(result.state.training.protectedAnchors).toEqual([]);
+      expect(result.state.training.planGenerationIntent).toEqual(
+        expect.objectContaining({
+          action: "start_new_plan",
+          goalMode: "build",
+          primaryFocus: "balanced",
+          trainingDose: "standard",
+          selectedSupportDays: ["monday", "wednesday", "saturday"],
+          planStartDate: fixtureAsOfDate
+        })
+      );
+      expect(result.state.training.supportGenerationAudit.planRevisionId).not.toMatch(/^projection:/);
     }
   });
 
