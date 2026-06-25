@@ -332,9 +332,10 @@ function preSessionReadinessGate(
 export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const todayAnchors = state.training.protectedAnchors.filter((anchor) => anchor.date === state.asOfDate);
   const plan = todayPlan(state);
-  const currentWeekGeneratedSessionsRaw = state.training.generatedSessions
+  const allCurrentWeekGeneratedSessionsRaw = state.training.generatedSessions
     .filter((session) => session.date >= state.training.currentMicrocycle.weekStartDate && session.date <= state.training.currentMicrocycle.weekEndDate)
     .sort((left, right) => left.date.localeCompare(right.date));
+  const currentWeekGeneratedSessionsRaw = allCurrentWeekGeneratedSessionsRaw.filter((session) => session.date >= state.asOfDate);
   const todayGeneratedSessionsRaw = currentWeekGeneratedSessionsRaw.filter((session) => session.date === state.asOfDate);
   const currentWeekGeneratedSessions = currentWeekGeneratedSessionsRaw.map(compactSession);
   const todayGeneratedSessions = todayGeneratedSessionsRaw.map(compactSession);
@@ -358,7 +359,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const exerciseHistory = buildExerciseHistoryViewModel(state.training.recentExerciseResults);
   const hints = fuelHints(state, plan);
   const trainingRiskSummary = riskSummary(state.safety.riskFlags.filter((flag) => flag.domain === "training" || flag.domain === "readiness"));
-  const workoutLooseEnds = looseEndCards(state, currentWeekGeneratedSessionsRaw);
+  const workoutLooseEnds = looseEndCards(state, allCurrentWeekGeneratedSessionsRaw);
   const preSessionGate = preSessionReadinessGate(state, todayGeneratedSessionsRaw[0] ?? null, trainingRiskSummary);
   const trainingHardStops = state.safety.hardStops.filter(trainingSafetyFlag);
   const generationExplanation =
@@ -435,7 +436,7 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       remainingGeneratedSupportTarget: state.training.supportGenerationAudit.remainingGeneratedSupportTarget,
       remainingUnfilledPrescriptionSlots: state.training.supportGenerationAudit.remainingUnfilledPrescriptionSlots,
       generatedSessionDates: state.training.supportGenerationAudit.generatedSessionDates,
-      generatedSessionResolutions: generatedSessionResolutionDebug(state, currentWeekGeneratedSessionsRaw),
+      generatedSessionResolutions: generatedSessionResolutionDebug(state, allCurrentWeekGeneratedSessionsRaw),
       persistedGeneratedSessionsConsidered: state.training.supportGenerationAudit.persistedGeneratedSessionsConsidered.map((session) => `${session.date}: ${plainWorkoutTitle(session.title, session.family)}`),
       persistedGeneratedSessionsIgnored: state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.map((session) => `${session.date}: ${plainWorkoutTitle(session.title, session.family)} - ${plainTrainingCopy(session.reason)}`),
       plannedLoadLedger: state.training.plannedLoadLedger,

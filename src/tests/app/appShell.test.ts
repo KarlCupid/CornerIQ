@@ -23,6 +23,7 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { catalogToPrescription, findCatalogExercise } from "../../engine/training/exerciseCatalog";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
+import { trainPalette } from "../../app/screens/train/trainPalette";
 
 vi.mock("expo-status-bar", () => ({
   StatusBar: () => React.createElement("StatusBar")
@@ -2393,6 +2394,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("FLOW");
     expect(output).toContain("DO THIS");
     expect(output).toContain("Show Exercise details");
+    expect(output).toContain(trainPalette.actionFill);
+    expect(output).toContain(trainPalette.textPrimary);
     expect(output).not.toContain("Session flow");
     expect(output).not.toContain("Coach note");
     expect(output).not.toContain("LIVE WORKOUT");
@@ -5916,7 +5919,7 @@ describe("minimal app screens", () => {
           expect.objectContaining({
             code: "external_safety_flag",
             domain: "plan_integrity",
-            blocksPlan: true
+            blocksPlan: false
           })
         ])
       );

@@ -1,6 +1,9 @@
 import type { AthleteJourney, ISODateString, PerformanceState, ProtectedWorkout, ReadinessCheckIn, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { defaultTrainingDoseForSupportDays } from "../../engine/training/planGenerationIntent";
+import { normalizeGeneratedSupportWeekdays } from "../../engine/training/supportAvailability";
 import { buildDemoAthleteProfile } from "../supabase/demoDataService";
+import type { BuildGoalDraft } from "../supabase/onboardingService";
 
 export const LOCAL_E2E_AS_OF_DATE: ISODateString = "2026-05-19";
 export const LOCAL_E2E_DUE_WORKOUT_AS_OF_DATE: ISODateString = "2026-05-18";
@@ -19,6 +22,7 @@ export function localE2EDefaultAsOfDateForScenario(scenario: LocalE2EScenario): 
 
 export function buildLocalE2EPerformanceState(input: {
   asOfDate?: ISODateString | undefined;
+  buildGoalDraft?: BuildGoalDraft | null | undefined;
   protectedWorkouts?: readonly ProtectedWorkout[] | undefined;
   recurringProtectedAnchors?: readonly RecurringProtectedWorkoutAnchor[] | undefined;
   scenario?: LocalE2EScenario | undefined;
@@ -27,8 +31,15 @@ export function buildLocalE2EPerformanceState(input: {
   const scenario = input.scenario ?? "default";
   const asOfDate = input.asOfDate ?? localE2EDefaultAsOfDateForScenario(scenario);
   const userId = input.userId ?? LOCAL_E2E_USER_ID;
+  const selectedSupportDays = normalizeGeneratedSupportWeekdays(input.buildGoalDraft?.scheduleAvailability ?? input.buildGoalDraft?.generatedSupportAvailableDays ?? []);
+  const trainingDose = input.buildGoalDraft?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedSupportDays.length);
+  const planStartDate = input.buildGoalDraft?.planStartDate ?? asOfDate;
+  const localPlanIntentId = input.buildGoalDraft
+    ? `local-plan:${userId}:${input.buildGoalDraft.primaryFocus}:${trainingDose}:${planStartDate}:${selectedSupportDays.join("-") || "default"}`
+    : null;
   const athlete = {
     ...buildDemoAthleteProfile(userId),
+    ...(selectedSupportDays.length > 0 ? { scheduleAvailability: selectedSupportDays } : {}),
     recurringProtectedAnchors: input.recurringProtectedAnchors ?? []
   };
   const readiness: ReadinessCheckIn = {
@@ -97,13 +108,43 @@ export function buildLocalE2EPerformanceState(input: {
         type: "OnboardingCompleted",
         occurredAt: `${asOfDate}T12:00:00.000Z`,
         payload: { source: "local_e2e_demo" }
-      }
+      },
+      ...(input.buildGoalDraft && localPlanIntentId
+        ? [
+            {
+              id: `${localPlanIntentId}:event`,
+              type: "BuildPhaseStarted" as const,
+              occurredAt: `${asOfDate}T12:05:00.000Z`,
+              payload: {
+                primaryFocus: input.buildGoalDraft.primaryFocus,
+                source: "plan_wizard_new_plan",
+                supportPrescription: "engine_owned",
+                generatedSupportAvailableDays: selectedSupportDays,
+                scheduleAvailability: selectedSupportDays,
+                planGenerationIntent: {
+                  id: localPlanIntentId,
+                  userId,
+                  action: input.buildGoalDraft.planAction ?? "start_new_plan",
+                  goalMode: "build",
+                  primaryFocus: input.buildGoalDraft.primaryFocus,
+                  trainingDose,
+                  selectedSupportDays,
+                  planStartDate,
+                  requestedAt: `${asOfDate}T12:05:00.000Z`,
+                  seed: localPlanIntentId,
+                  source: "plan_wizard",
+                  status: "active"
+                }
+              }
+            }
+          ]
+        : [])
     ]
   };
 
   return resolvePerformanceState({
     journey,
     asOfDate,
-    generatedAt: `${asOfDate}T12:00:00.000Z`
+    generatedAt: input.buildGoalDraft ? `${asOfDate}T12:10:00.000Z` : `${asOfDate}T12:00:00.000Z`
   });
 }

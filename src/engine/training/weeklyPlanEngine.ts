@@ -364,6 +364,7 @@ function lowerStimulusSession(session: GeneratedTrainingSession): GeneratedTrain
 }
 
 function selectionScore(input: {
+  preferredBuckets: ReadonlySet<string>;
   requiredBuckets: ReadonlySet<string>;
   selected: readonly GeneratedTrainingSession[];
   session: GeneratedTrainingSession;
@@ -378,6 +379,7 @@ function selectionScore(input: {
     (isHighStimulusGeneratedSession(input.session) && selectedHighStimulusDays < input.targetGeneratedHighStimulusDays ? 120 : 0) +
     (surplusHighStimulus ? -120 : 0) +
     (input.requiredBuckets.has(bucket) && !selectedBuckets.has(bucket) ? 80 : 0) +
+    (input.preferredBuckets.has(bucket) && !selectedBuckets.has(bucket) ? 45 : 0) +
     (input.session.durationMinutes >= 60 ? 30 : 0) +
     (input.session.fuelDemand === "high" ? 8 : 0)
   );
@@ -396,6 +398,7 @@ function selectGeneratedSessions(input: {
   }
   const selected: GeneratedTrainingSession[] = [];
   const repairActions: string[] = [];
+  const preferredBuckets = new Set(input.policy.preferredFamilyBuckets);
   const requiredBuckets = new Set(input.policy.requiredFamilyBuckets);
   const add = (session: GeneratedTrainingSession) => {
     if (selected.length < targetCount && !selected.some((item) => item.id === session.id)) {
@@ -430,7 +433,7 @@ function selectGeneratedSessions(input: {
   while (selected.length < targetCount) {
     const next = sorted
       .filter((session) => !selected.some((item) => item.id === session.id))
-      .sort((left, right) => selectionScore({ requiredBuckets, selected, session: right, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }) - selectionScore({ requiredBuckets, selected, session: left, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }))[0];
+      .sort((left, right) => selectionScore({ preferredBuckets, requiredBuckets, selected, session: right, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }) - selectionScore({ preferredBuckets, requiredBuckets, selected, session: left, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }))[0];
     if (!next) {
       break;
     }
@@ -796,8 +799,9 @@ export function resolveWeeklyTrainingPlan(input: {
     }).status;
     return status === "completed" || status === "skipped" || status === "moved";
   }).length;
-  const remainingGeneratedSupportTarget = Math.max(0, targetSessions - pastGeneratedSupportCount);
-  const remainingUnfilledPrescriptionSlots = Math.max(0, targetSessions - pastGeneratedSupportCount - futureScopedPersistedSessions.length);
+  const pastGeneratedSupportSlotsConsumed = resolvedPastGeneratedSupportCount;
+  const remainingGeneratedSupportTarget = Math.max(0, targetSessions - pastGeneratedSupportSlotsConsumed);
+  const remainingUnfilledPrescriptionSlots = Math.max(0, targetSessions - pastGeneratedSupportSlotsConsumed - futureScopedPersistedSessions.length);
   const looseEndSessionIds = pastScopedPersistedSessions
     .filter(
       (session) =>
@@ -1214,7 +1218,7 @@ export function resolveWeeklyTrainingPlan(input: {
     ...(executionReadiness.fuelingStatus === "underfueling_evidence" ? ["Under-fueling evidence stayed in fuel guidance and did not reduce generated load."] : []),
     ...(executionReadiness.fuelingStatus === "severe_underfueling_hard_stop" ? ["Severe under-fueling evidence stayed in fuel guidance and did not cap workout generation."] : [])
   ];
-  const autoRollForwardPrevented = unresolvedPastGeneratedSupportCount > 0 && remainingGeneratedSupportTarget < targetSessions;
+  const autoRollForwardPrevented = unresolvedPastGeneratedSupportCount > 0;
   const autoRollForwardExplanation = "Past workouts remain on their original dates. CornerIQ does not silently move missed or unresolved workouts forward.";
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,

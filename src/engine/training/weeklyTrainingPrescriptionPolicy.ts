@@ -95,11 +95,11 @@ function focusFromPhase(phase: PhaseState): PlanGenerationPrimaryFocus {
 export function familySequenceForTrainingFocus(focus: PlanGenerationPrimaryFocus): readonly GeneratedSessionFamily[] {
   switch (focus) {
     case "strength":
-      return ["strength_full_body", "boxing_technical_shadowboxing", "power_rotational", "strength_lower", "roadwork_zone2", "boxing_jab_entry_exit", "strength_upper", "trunk_durability"];
+      return ["strength_full_body", "boxing_technical_shadowboxing", "strength_lower", "power_rotational", "roadwork_zone2", "boxing_jab_entry_exit", "strength_upper", "trunk_durability"];
     case "conditioning":
       return ["roadwork_tempo", "boxing_round_skill_circuit", "roadwork_zone2", "boxing_technical_shadowboxing", "strength_full_body", "agility_reactive_footwork", "trunk_durability"];
     case "power":
-      return ["power_rotational", "boxing_counter_timing", "alactic_sprints", "boxing_footwork_ringcraft", "roadwork_zone2", "strength_full_body", "reaction_rhythm"];
+      return ["power_rotational", "boxing_counter_timing", "power_lower", "alactic_sprints", "boxing_footwork_ringcraft", "roadwork_zone2", "strength_full_body", "reaction_rhythm"];
     case "mobility":
       return ["mobility_recovery_flow", "movement_quality_prep", "boxing_technical_shadowboxing", "hip_ankle_mobility", "strength_full_body", "roadwork_zone2", "shoulder_scap_durability"];
     case "balanced":
@@ -363,7 +363,7 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
   const targetHardDayCount = Math.min(maxHardDayCount, targetHardDays(input, focus));
   const targetGeneratedHardDayCount = Math.max(0, targetHardDayCount - input.protectedHardDayCount);
   const targetStrengthExposures =
-    focus === "strength" ? 2 : focus === "conditioning" ? (targetSessionCount >= 4 ? 1 : 0) : targetSessionCount >= 2 ? 1 : 0;
+    focus === "strength" ? 2 : focus === "conditioning" ? (targetSessionCount >= 4 ? 1 : 0) : focus === "mobility" ? 0 : targetSessionCount >= 2 ? 1 : 0;
   const targetConditioningExposures = focus === "conditioning" ? 2 : targetSessionCount >= 2 && focus !== "mobility" ? 1 : 0;
   const targetPowerExposures = focus === "power" ? 2 : targetSessionCount >= 4 ? 1 : 0;
   const targetDurabilityRecoveryExposures = Math.max(0, targetSessionCount - targetStrengthExposures - targetConditioningExposures - targetPowerExposures);

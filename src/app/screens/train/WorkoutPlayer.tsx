@@ -1,6 +1,6 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ImageBackground, Pressable, ScrollView, Text, TextInput, View, type ImageSourcePropType } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DetailedTrainingSession, ExercisePrescription, ExerciseSubstitution } from "../../../engine/core/types";
 import { buildWorkoutPlayerTimeline } from "../../../engine/presentation/workoutPlayerTimeline";
@@ -16,15 +16,20 @@ import {
 } from "../../../engine/presentation/trainingCopy";
 import { recipeEquipmentLabel, recipeFlowLines, recipeQuickLogContext, recipeTitle, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
 import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
-import { accentColor, accentWash, LuminousProgressBar, type LuminousAccent } from "../../../design/components/LuminousScreen";
+import { LuminousProgressBar } from "../../../design/components/LuminousScreen";
+import { accentColor, accentWash, LuminousScreenThemeContext, luminousScreenThemes, type LuminousAccent } from "../../../design/luminousTheme";
 import { glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { clearWorkoutPlayerState, loadWorkoutPlayerState, saveWorkoutPlayerState, type PersistedWorkoutPlayerState, type PersistedWorkoutPlayerStatus } from "../../../services/workout/workoutPlayerPersistence";
 import { screenStyles } from "../screenStyles";
+import { tabScreenBackgrounds } from "../tabHeroConfig";
+import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./trainPalette";
 import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 
 export type WorkoutPlayerStatus = "not_started" | "active" | "paused" | "finishing" | "completed" | "skipped";
+type PlayerVisualTheme = "player" | "train";
+type PreviewPillTone = Parameters<typeof trainColorForTone>[0] | "quiet";
 
 function isPersistableWorkoutStatus(status: WorkoutPlayerStatus): status is PersistedWorkoutPlayerStatus {
   return status === "active" || status === "paused" || status === "finishing";
@@ -149,15 +154,55 @@ function PlayerButton({
   disabled = false,
   label,
   onPress,
-  tone = "quiet"
+  tone = "quiet",
+  visualTheme = "player"
 }: {
   disabled?: boolean | undefined;
   label: string;
   onPress: () => void;
   tone?: "primary" | "quiet" | "warning" | undefined;
+  visualTheme?: PlayerVisualTheme | undefined;
 }) {
   const primary = tone === "primary";
   const warning = tone === "warning";
+  const trainTheme = visualTheme === "train";
+  const backgroundColor = trainTheme
+    ? disabled
+      ? "rgba(255, 255, 255, 0.1)"
+      : primary
+        ? trainPalette.actionFill
+        : warning
+          ? trainTint("orange", "16")
+          : trainPalette.controlFill
+    : primary
+      ? "rgba(39, 206, 241, 0.86)"
+      : warning
+        ? "rgba(255, 148, 72, 0.14)"
+        : "rgba(255, 255, 255, 0.095)";
+  const borderColor = trainTheme
+    ? disabled
+      ? "rgba(255, 255, 255, 0.16)"
+      : primary
+        ? trainPalette.actionBorder
+        : warning
+          ? trainTint("orange", "44")
+          : trainPalette.controlLine
+    : primary
+      ? colors.blueIQ
+      : warning
+        ? "rgba(255, 148, 72, 0.42)"
+        : colors.line;
+  const textColor = trainTheme
+    ? disabled
+      ? trainPalette.textMuted
+      : primary
+        ? trainPalette.textPrimary
+        : warning
+          ? trainColorForTone("orange")
+          : trainPalette.textBody
+    : primary
+      ? colors.cornerBlack
+      : colors.canvas;
   return (
     <Pressable
       accessibilityRole="button"
@@ -168,9 +213,10 @@ function PlayerButton({
         ...(primary ? glassStyles.primaryControl : glassStyles.control),
         alignItems: "center",
         alignSelf: "stretch",
-        backgroundColor: primary ? "rgba(39, 206, 241, 0.86)" : warning ? "rgba(255, 148, 72, 0.14)" : "rgba(255, 255, 255, 0.095)",
-        borderColor: primary ? colors.blueIQ : warning ? "rgba(255, 148, 72, 0.42)" : colors.line,
+        backgroundColor,
+        borderColor,
         borderRadius: 20,
+        boxShadow: trainTheme && primary ? `0 12px 28px ${trainPalette.actionShadow}` : primary ? glassStyles.primaryControl.boxShadow : glassStyles.control.boxShadow,
         justifyContent: "center",
         minHeight: primary ? 56 : 48,
         minWidth: primary ? 180 : 128,
@@ -179,7 +225,7 @@ function PlayerButton({
         paddingVertical: spacing.sm
       }}
     >
-      <Text style={{ color: primary ? colors.cornerBlack : colors.canvas, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{label}</Text>
+      <Text style={{ color: textColor, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -192,12 +238,24 @@ function DetailPill({ label }: { label: string }) {
   );
 }
 
-function GlassPanel({ children, testID }: { children: React.ReactNode; testID?: string | undefined }) {
+function GlassPanel({
+  children,
+  testID,
+  visualTheme = "player"
+}: {
+  children: React.ReactNode;
+  testID?: string | undefined;
+  visualTheme?: PlayerVisualTheme | undefined;
+}) {
+  const trainTheme = visualTheme === "train";
   return (
     <View
       style={{
         ...glassStyles.card,
-        borderRadius: 28,
+        backgroundColor: trainTheme ? luminousScreenThemes.purple.cardDeep : glassStyles.card.backgroundColor,
+        borderColor: trainTheme ? luminousScreenThemes.purple.cardBorder : glassStyles.card.borderColor,
+        borderRadius: trainTheme ? radii.card : 28,
+        boxShadow: trainTheme ? `0 18px 42px rgba(0, 0, 0, 0.34), 0 0 22px ${luminousScreenThemes.purple.strongGlow}` : glassStyles.card.boxShadow,
         gap: spacing.md,
         padding: spacing.lg
       }}
@@ -217,6 +275,7 @@ function ScreenIconButton({
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }) {
+  const theme = React.useContext(LuminousScreenThemeContext);
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
@@ -225,6 +284,8 @@ function ScreenIconButton({
       style={{
         ...glassStyles.control,
         alignItems: "center",
+        backgroundColor: theme.control,
+        borderColor: theme.controlBorder,
         borderRadius: 16,
         height: 40,
         justifyContent: "center",
@@ -237,6 +298,8 @@ function ScreenIconButton({
 }
 
 function WorkoutScreenFrame({
+  accent = "blue",
+  backgroundImage,
   children,
   footer,
   mode,
@@ -244,6 +307,8 @@ function WorkoutScreenFrame({
   scrollResetKey,
   testID = "workout-player-screen"
 }: {
+  accent?: LuminousAccent | undefined;
+  backgroundImage?: ImageSourcePropType | undefined;
   children: React.ReactNode;
   footer?: React.ReactNode | undefined;
   mode: string;
@@ -253,45 +318,69 @@ function WorkoutScreenFrame({
 }) {
   const insets = useSafeAreaInsets();
   const scrollRef = React.useRef<ScrollView>(null);
+  const theme = luminousScreenThemes[accent];
+  const showBackdrop = Boolean(backgroundImage) || accent !== "blue";
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ animated: false, y: 0 });
   }, [scrollResetKey]);
 
   return (
-    <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }} testID={testID}>
-      <ScrollView
-        contentContainerStyle={{
-          gap: spacing.md,
-          paddingBottom: footer ? spacing.lg : Math.max(insets.bottom, spacing.xl) + spacing.xl,
-          paddingHorizontal: spacing.lg,
-          paddingTop: Math.max(insets.top, spacing.md) + spacing.md
-        }}
-        ref={scrollRef}
-        style={{ flex: 1, overflow: "hidden" }}
-      >
-        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-          <ScreenIconButton accessibilityLabel="Close workout player" icon="chevron-back" onPress={onClose} />
-          <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "900", letterSpacing: 1.4, lineHeight: 18 }}>{mode}</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        {children}
-      </ScrollView>
-      {footer ? (
-        <View
-          style={{
-            paddingBottom: Math.max(insets.bottom, spacing.md),
+    <LuminousScreenThemeContext.Provider value={theme}>
+      <View style={{ backgroundColor: showBackdrop ? theme.background : colors.cornerBlack, flex: 1 }} testID={testID}>
+        {backgroundImage ? (
+          <View pointerEvents="none" style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}>
+            <ImageBackground importantForAccessibility="no-hide-descendants" resizeMode="cover" source={backgroundImage} style={{ flex: 1 }}>
+              <View style={{ backgroundColor: "rgba(1, 4, 10, 0.36)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }} />
+              <View style={{ backgroundColor: "rgba(0, 0, 0, 0.24)", bottom: 0, height: "64%", left: 0, position: "absolute", right: 0 }} />
+            </ImageBackground>
+          </View>
+        ) : null}
+        {showBackdrop ? (
+          <View pointerEvents="none" style={{ bottom: 0, left: 0, overflow: "hidden", position: "absolute", right: 0, top: 0 }}>
+            <View style={{ backgroundColor: theme.topWash, height: 330, left: 0, opacity: backgroundImage ? 0.24 : 0.82, position: "absolute", right: 0, top: 0 }} />
+            <View style={{ backgroundColor: theme.midWash, height: 420, left: 0, opacity: backgroundImage ? 0.18 : 0.58, position: "absolute", right: 0, top: 258 }} />
+            <View style={{ backgroundColor: theme.bottomWash, bottom: 0, height: "55%", left: 0, opacity: backgroundImage ? 0.24 : 1, position: "absolute", right: 0 }} />
+          </View>
+        ) : null}
+        <ScrollView
+          contentContainerStyle={{
+            alignSelf: "center",
+            gap: spacing.md,
+            maxWidth: 1120,
+            paddingBottom: footer ? spacing.lg : Math.max(insets.bottom, spacing.xl) + spacing.xl,
             paddingHorizontal: spacing.lg,
-            paddingTop: spacing.sm
+            paddingTop: Math.max(insets.top, spacing.md) + spacing.md,
+            width: "100%"
           }}
+          ref={scrollRef}
+          style={{ flex: 1, overflow: "hidden" }}
         >
-          {footer}
-        </View>
-      ) : null}
-    </View>
+          <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+            <ScreenIconButton accessibilityLabel="Close workout player" icon="chevron-back" onPress={onClose} />
+            <Text style={{ color: theme.accentColor, fontSize: 13, fontWeight: "900", letterSpacing: 1.4, lineHeight: 18 }}>{mode}</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          {children}
+        </ScrollView>
+        {footer ? (
+          <View
+            style={{
+              paddingBottom: Math.max(insets.bottom, spacing.md),
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.sm
+            }}
+          >
+            {footer}
+          </View>
+        ) : null}
+      </View>
+    </LuminousScreenThemeContext.Provider>
   );
 }
 
-function PreviewPill({ label, tone: _tone = "blue" }: { label: string; tone?: "blue" | "green" | "orange" | "quiet" | undefined }) {
+function PreviewPill({ label, tone = "purple" }: { label: string; tone?: PreviewPillTone | undefined }) {
+  const quiet = tone === "quiet";
+  const accentTone = quiet ? "muted" : tone;
   return (
     <View
       style={{
@@ -304,7 +393,7 @@ function PreviewPill({ label, tone: _tone = "blue" }: { label: string; tone?: "b
         paddingVertical: spacing.xs
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 17 }}>{label}</Text>
+      <Text numberOfLines={1} style={{ color: quiet ? trainPalette.textBody : trainColorForTone(accentTone), fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 17 }}>{label}</Text>
     </View>
   );
 }
@@ -345,6 +434,31 @@ function SegmentedTimerRing({
           />
         );
       })}
+    </View>
+  );
+}
+
+function TrainPreviewInfoPanel({
+  children,
+  label,
+  tone
+}: React.PropsWithChildren<{
+  label: string;
+  tone: Parameters<typeof trainColorForTone>[0];
+}>) {
+  return (
+    <View
+      style={{
+        backgroundColor: trainTint(tone, "10"),
+        borderColor: trainTint(tone, "34"),
+        borderRadius: radii.card,
+        borderWidth: 1,
+        gap: spacing.sm,
+        padding: spacing.md
+      }}
+    >
+      <Text style={{ color: trainColorForTone(tone), fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{label}</Text>
+      {children}
     </View>
   );
 }
@@ -786,11 +900,11 @@ export function WorkoutPlayer({
 
   if (!currentTimelineStep || !currentSection || !currentExercise || steps.length === 0) {
     return (
-      <WorkoutScreenFrame mode="WORKOUT PREVIEW" onClose={onClose}>
-        <GlassPanel>
-          <Text style={screenStyles.sectionTitle}>Workout player unavailable</Text>
-          <Text style={screenStyles.body}>No exercise steps are available for this support workout.</Text>
-          <PlayerButton label="Close" onPress={onClose} />
+      <WorkoutScreenFrame accent="purple" backgroundImage={tabScreenBackgrounds.train} mode="WORKOUT PREVIEW" onClose={onClose}>
+        <GlassPanel visualTheme="train">
+          <Text style={trainTextStyles.sectionTitle}>Workout player unavailable</Text>
+          <Text style={trainTextStyles.body}>No exercise steps are available for this support workout.</Text>
+          <PlayerButton label="Close" onPress={onClose} visualTheme="train" />
         </GlassPanel>
       </WorkoutScreenFrame>
     );
@@ -880,36 +994,36 @@ export function WorkoutPlayer({
 
   if (status === "not_started") {
     return (
-      <WorkoutScreenFrame mode="WORKOUT PREVIEW" onClose={onClose}>
-        <GlassPanel testID="workout-player-preview">
+      <WorkoutScreenFrame accent="purple" backgroundImage={tabScreenBackgrounds.train} mode="WORKOUT PREVIEW" onClose={onClose}>
+        <GlassPanel testID="workout-player-preview" visualTheme="train">
           {resumeState ? (
             <View
               style={{
-                backgroundColor: "rgba(39, 206, 241, 0.1)",
-                borderColor: "rgba(39, 206, 241, 0.32)",
-                borderRadius: 18,
+                backgroundColor: trainTint("purple", "12"),
+                borderColor: trainTint("purple", "3D"),
+                borderRadius: radii.card,
                 borderWidth: 1,
                 gap: spacing.sm,
                 padding: spacing.md
               }}
               testID="workout-player-resume-card"
             >
-              <Text style={screenStyles.sectionTitle}>Saved workout found</Text>
-              <Text style={screenStyles.body}>Resume from {formatElapsed(resumeState.elapsedSeconds)} elapsed, or start this workout from the top.</Text>
+              <Text style={trainTextStyles.sectionTitle}>Saved workout found</Text>
+              <Text style={trainTextStyles.body}>Resume from {formatElapsed(resumeState.elapsedSeconds)} elapsed, or start this workout from the top.</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                <PlayerButton label="Resume workout" onPress={() => restoreWorkoutState(resumeState)} tone="primary" />
-                <PlayerButton label="Start over" onPress={startWorkoutFresh} />
+                <PlayerButton label="Resume workout" onPress={() => restoreWorkoutState(resumeState)} tone="primary" visualTheme="train" />
+                <PlayerButton label="Start over" onPress={startWorkoutFresh} visualTheme="train" />
                 <PlayerButton label="Discard saved progress" onPress={() => {
                   void clearWorkoutPlayerState(session.generatedSessionId);
                   setResumeState(null);
-                }} tone="warning" />
+                }} tone="warning" visualTheme="train" />
               </View>
             </View>
           ) : null}
           <View style={{ alignItems: "center", gap: spacing.md }}>
-            <Text style={{ color: colors.blueIQ, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>WORKOUT PREVIEW</Text>
-            <Text style={{ color: colors.canvas, fontSize: 34, fontWeight: "900", lineHeight: 38, textAlign: "center" }}>{recipeTitle(session)}</Text>
-            <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{plainTrainingCopy(previewStartLine)}</Text>
+            <Text style={{ color: trainColorForTone("purple"), fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16 }}>WORKOUT PREVIEW</Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 34, fontWeight: "900", letterSpacing: 0, lineHeight: 38, textAlign: "center" }}>{recipeTitle(session)}</Text>
+            <Text style={{ color: trainPalette.textBody, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{plainTrainingCopy(previewStartLine)}</Text>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
@@ -920,56 +1034,27 @@ export function WorkoutPlayer({
             <PreviewPill label={fuelLabel} tone={session.fuelDemand === "high" ? "orange" : "green"} />
           </View>
 
-          <View
-            style={{
-              backgroundColor: "rgba(56, 226, 138, 0.1)",
-              borderColor: "rgba(56, 226, 138, 0.3)",
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.sm,
-              padding: spacing.md
-            }}
-          >
-            <Text style={{ color: colors.readyGreen, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>WHY</Text>
-            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{previewWhy}</Text>
-          </View>
+          <TrainPreviewInfoPanel label="WHY" tone="green">
+            <Text style={{ color: trainPalette.textBody, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{previewWhy}</Text>
+          </TrainPreviewInfoPanel>
 
-          <View
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.055)",
-              borderColor: colors.line,
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-          >
-            <Text style={{ color: colors.blueIQ, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>FLOW</Text>
-            {previewFlowLines.map((line) => <Text key={`preview-flow:${line}`} style={{ color: colors.wrap, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{line}</Text>)}
-          </View>
+          <TrainPreviewInfoPanel label="FLOW" tone="blue">
+            {previewFlowLines.map((line) => <Text key={`preview-flow:${line}`} style={{ color: trainPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{line}</Text>)}
+          </TrainPreviewInfoPanel>
 
-          <View
-            style={{
-              backgroundColor: "rgba(56, 226, 138, 0.1)",
-              borderColor: "rgba(56, 226, 138, 0.3)",
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.sm,
-              padding: spacing.md
-            }}
-          >
-            <Text style={{ color: colors.readyGreen, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>DO THIS</Text>
-            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{plainTrainingCopy(coachNote)}</Text>
-          </View>
+          <TrainPreviewInfoPanel label="DO THIS" tone="gold">
+            <Text style={{ color: trainPalette.textBody, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>{plainTrainingCopy(coachNote)}</Text>
+          </TrainPreviewInfoPanel>
 
           <PlayerButton
             disabled={busy}
             label="Start workout"
             onPress={startWorkoutFresh}
             tone="primary"
+            visualTheme="train"
           />
-          <PlayerButton label="Back to Train" onPress={onClose} />
-          <Text style={screenStyles.subtle}>After starting, this device can offer to resume the workout if the same session is still available. Discard clears saved progress.</Text>
+          <PlayerButton label="Back to Train" onPress={onClose} visualTheme="train" />
+          <Text style={trainTextStyles.subtle}>After starting, this device can offer to resume the workout if the same session is still available. Discard clears saved progress.</Text>
         </GlassPanel>
 
         <CollapsedDetailDisclosure title="Exercise details" summary="Exact movements, dose, cues, and help stay available before you start." testID="workout-player-preview-detail">

@@ -449,7 +449,8 @@ async function openLiveWorkoutPlayer(page: Page) {
   await expect(page.getByTestId("workout-player-do-this-card")).toContainText("DO THIS");
   await expect(page.getByTestId("workout-player-coach-cue")).toContainText("COACH CUE");
   await expect(page.getByTestId("workout-player-next-card")).toContainText("NEXT");
-  await expect(page.getByRole("button", { name: "Workout details" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "How to" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Need help?" })).toBeVisible();
   await expect(page.getByTestId("workout-player-control-dock")).toBeVisible();
 }
 

@@ -167,12 +167,12 @@ function degradedJourneySafetyFlags(issues: readonly JourneyLoadIssue[]) {
     createReviewFlag(
       "plan_integrity",
       "external_safety_flag",
-      "Some account history could not refresh, so CornerIQ kept guidance conservative until the next successful sync.",
+      "Some account history could not refresh, so CornerIQ marked history confidence low until the next successful sync.",
       {
         sources: issues.map((issue) => issue.source),
         messages: loadWarningsFor(issues)
       },
-      true
+      false
     )
   ];
 }

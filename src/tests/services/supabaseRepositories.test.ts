@@ -1654,7 +1654,7 @@ describe("Supabase repositories", () => {
           expect.objectContaining({
             code: "external_safety_flag",
             domain: "plan_integrity",
-            blocksPlan: true,
+            blocksPlan: false,
             hardStop: false
           })
         ])

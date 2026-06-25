@@ -19,7 +19,7 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
 import { applyTrainingPlanAdjustment } from "../../engine/training/planAdjustmentEngine";
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
-import { isHighStimulusGeneratedSession } from "../../engine/training/trainingStimulus";
+import { isHighStimulusGeneratedSession, trainingStimulusForFamily } from "../../engine/training/trainingStimulus";
 import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
 import {
   amateur_novice_build,
@@ -43,6 +43,14 @@ const generatedBoxingSkillFamilies = new Set<string>([
   "boxing_round_skill_circuit"
 ]);
 const phaseVariantTemplateIds = new Set(workoutTemplateCatalog.filter((template) => template.safetyTags.includes("phase_variant")).map((template) => template.templateId));
+
+function generatedStimulusCounts(sessions: readonly GeneratedTrainingSession[]): Record<string, number> {
+  return sessions.reduce<Record<string, number>>((counts, session) => {
+    const stimulus = trainingStimulusForFamily(session.family);
+    counts[stimulus] = (counts[stimulus] ?? 0) + 1;
+    return counts;
+  }, {});
+}
 
 function generatedSessionSafetyText(sessions: readonly GeneratedTrainingSession[]): string {
   return sessions
@@ -523,7 +531,7 @@ describe("training block and microcycle engine", () => {
   });
 
   it("keeps an unlogged generated workout as a loose end when asOfDate advances", () => {
-    const selectedDays = ["monday", "tuesday", "wednesday"] as const;
+    const selectedDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
     const planEvent = planWizardBuildEvent({
       focus: "balanced",
       id: "plan_loose_end_stability",
@@ -568,12 +576,14 @@ describe("training block and microcycle engine", () => {
     ]);
     expect(tuesday.training.todaySessions.map((session) => session.id)).not.toContain(mondaySession!.id);
     expect(tuesday.viewModels.train.todayGeneratedSessions.map((session) => session.id)).not.toContain(mondaySession!.id);
-    expect(tuesday.training.generatedSessions.length).toBe(monday.training.generatedSessions.length);
+    expect(tuesday.viewModels.train.currentWeekGeneratedSessions.map((session) => session.id)).not.toContain(mondaySession!.id);
+    expect(tuesday.viewModels.train.weeklyWorkoutCards.map((session) => session.id)).not.toContain(mondaySession!.id);
+    expect(tuesday.viewModels.train.detailedWeeklySessions.map((session) => session.generatedSessionId)).not.toContain(mondaySession!.id);
     expect(futureOrTodaySessions).toHaveLength(audit.remainingGeneratedSupportTarget);
     expect(audit.pastGeneratedSupportCount).toBe(1);
     expect(audit.unresolvedPastGeneratedSupportCount).toBe(1);
     expect(audit.resolvedPastGeneratedSupportCount).toBe(0);
-    expect(audit.remainingGeneratedSupportTarget).toBe(Math.max(0, audit.targetGeneratedSupportCount - 1));
+    expect(audit.remainingGeneratedSupportTarget).toBe(audit.targetGeneratedSupportCount);
     expect(audit.looseEndSessionIds).toContain(mondaySession!.id);
     expect(audit.autoRollForwardPrevented).toBe(true);
     expect(audit.autoRollForwardExplanation).toContain("does not silently move");
@@ -1493,20 +1503,28 @@ describe("training block and microcycle engine", () => {
     const strength = stateForFocus("strength", "plan_strength_week_1");
     const power = stateForFocus("power", "plan_power_week_1");
     const conditioning = stateForFocus("conditioning", "plan_conditioning_week_1");
+    const mobility = stateForFocus("mobility", "plan_mobility_week_1");
+    const strengthCounts = generatedStimulusCounts(strength.training.generatedSessions);
+    const powerCounts = generatedStimulusCounts(power.training.generatedSessions);
+    const conditioningCounts = generatedStimulusCounts(conditioning.training.generatedSessions);
+    const mobilityCounts = generatedStimulusCounts(mobility.training.generatedSessions);
 
     expect(strength.training.generatedSessions.map((session) => session.family)).not.toEqual(conditioning.training.generatedSessions.map((session) => session.family));
     expect(power.training.generatedSessions.map((session) => session.family)).not.toEqual(conditioning.training.generatedSessions.map((session) => session.family));
-    expect(strength.training.generatedSessions.some((session) => session.family.startsWith("strength"))).toBe(true);
+    expect(mobility.training.generatedSessions.map((session) => session.family)).not.toEqual(strength.training.generatedSessions.map((session) => session.family));
+    expect(strengthCounts.strength).toBeGreaterThanOrEqual(2);
     expect(strength.training.generatedSessions.some((session) => session.family.startsWith("strength") && session.intensity === "hard")).toBe(true);
     expect(strength.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(strength.training.supportGenerationAudit.minHardDayCount);
     expect(strength.training.supportGenerationAudit.actualWeeklyGeneratedMinutes).toBeGreaterThanOrEqual(strength.training.supportGenerationAudit.targetWeeklyGeneratedMinutes);
-    expect(power.training.generatedSessions.some((session) => session.family.startsWith("power") || session.family === "reaction_rhythm")).toBe(true);
+    expect(powerCounts.power).toBeGreaterThanOrEqual(2);
     expect(power.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(power.training.supportGenerationAudit.minHardDayCount);
-    expect(conditioning.training.generatedSessions.some((session) => session.family.startsWith("roadwork") || session.family === "round_based_conditioning")).toBe(true);
+    expect(conditioningCounts.conditioning).toBeGreaterThanOrEqual(2);
     expect(conditioning.training.generatedSessions.some((session) => session.family === "roadwork_zone2")).toBe(true);
     expect(conditioning.training.generatedSessions.some((session) => ["roadwork_tempo", "roadwork_intervals", "round_based_conditioning"].includes(session.family))).toBe(true);
     expect(conditioning.training.generatedSessions.some((session) => session.durationMinutes >= 35)).toBe(true);
     expect(conditioning.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(conditioning.training.supportGenerationAudit.minHardDayCount);
+    expect((mobilityCounts.mobility ?? 0) + (mobilityCounts.recovery ?? 0)).toBeGreaterThanOrEqual(2);
+    expect(mobilityCounts.strength ?? 0).toBe(0);
   });
 
   it("six available days with serious build dose generates a full useful week", () => {
