@@ -1,21 +1,13 @@
 import type { ExercisePrescription, ExerciseSubstitution } from "./types";
 import { catalogToPrescription, findCatalogExercise, type CatalogExercise } from "./exerciseCatalog";
-
-function normalizedEquipment(equipmentAccess: readonly string[]): Set<string> {
-  return new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
-}
+import { hasAllEquipmentCapabilities, hasNoKnownRealEquipment } from "../athlete/equipmentAccess";
 
 export function hasNoEquipment(equipmentAccess: readonly string[]): boolean {
-  const equipment = normalizedEquipment(equipmentAccess);
-  return equipment.size === 0 || equipment.has("none") || equipment.has("bodyweight");
+  return hasNoKnownRealEquipment(equipmentAccess);
 }
 
 function equipmentAvailable(required: readonly string[], equipmentAccess: readonly string[]): boolean {
-  if (required.length === 0) {
-    return true;
-  }
-  const equipment = normalizedEquipment(equipmentAccess);
-  return required.every((item) => equipment.has(item.toLowerCase()));
+  return hasAllEquipmentCapabilities(equipmentAccess, required);
 }
 
 function substitutionAvailable(substitution: ExerciseSubstitution, equipmentAccess: readonly string[]): boolean {
@@ -42,6 +34,31 @@ function baseToSubstitution(item: CatalogExercise): ExerciseSubstitution {
   };
 }
 
+function originalExerciseAvailable(item: CatalogExercise, input: { equipmentAccess: readonly string[]; novice: boolean }): boolean {
+  return (!input.novice || item.noviceEligible) && equipmentAvailable(item.requiredEquipment, input.equipmentAccess);
+}
+
+export function canPrescribeExercise(input: {
+  exerciseId: string;
+  equipmentAccess: readonly string[];
+  novice: boolean;
+}): boolean {
+  const item = findCatalogExercise(input.exerciseId);
+  return originalExerciseAvailable(item, input) || item.substitutions.some((substitution) => substitutionAvailable(substitution, input.equipmentAccess));
+}
+
+function safeEquipmentFallback(item: CatalogExercise): ExercisePrescription {
+  const replacement = catalogToPrescription(findCatalogExercise("movement_prep_flow"));
+  return {
+    ...replacement,
+    substitutions: [baseToSubstitution(item), ...replacement.substitutions.filter((candidate) => candidate.exerciseId !== item.exerciseId)],
+    safetyNotes: [
+      ...replacement.safetyNotes,
+      `Equipment fallback: ${item.name} was not prescribed because the required equipment is unavailable.`
+    ]
+  };
+}
+
 export function prescribeExercise(input: {
   exerciseId: string;
   equipmentAccess: readonly string[];
@@ -49,7 +66,7 @@ export function prescribeExercise(input: {
 }): ExercisePrescription {
   const item = findCatalogExercise(input.exerciseId);
   const base = catalogToPrescription(item);
-  if ((!input.novice || item.noviceEligible) && equipmentAvailable(item.requiredEquipment, input.equipmentAccess)) {
+  if (originalExerciseAvailable(item, input)) {
     return base;
   }
   const preferred = item.substitutions.find((substitution) => substitutionAvailable(substitution, input.equipmentAccess));
@@ -57,5 +74,5 @@ export function prescribeExercise(input: {
     return substitutedPrescription(item, preferred);
   }
   const noEquipment = item.substitutions.find((substitution) => substitution.equipmentNeeded.length === 0);
-  return noEquipment ? substitutedPrescription(item, noEquipment) : base;
+  return noEquipment ? substitutedPrescription(item, noEquipment) : safeEquipmentFallback(item);
 }

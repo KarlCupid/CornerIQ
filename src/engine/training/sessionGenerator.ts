@@ -3,6 +3,7 @@ import { stableHash } from "../core/stableHash";
 import type { PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, TrainingGenerationConstraintSummaryAudit } from "./types";
 import { addOnBlockFromLibrary } from "./addOnBlocks";
 import { durationPolicyModifications, resolveSessionDurationPolicy } from "./sessionDurationPolicy";
+import { hasNoKnownRealEquipment, hasEquipmentCapability } from "../athlete/equipmentAccess";
 import { BOXING_SKILL_GENERATED_FAMILIES, generatedSessionLabels } from "./trainingStimulus";
 import { familySequenceForTrainingFocus } from "./weeklyTrainingPrescriptionPolicy";
 import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
@@ -34,8 +35,7 @@ function isNovice(boxingLevel: BoxingLevel): boolean {
 }
 
 function noEquipmentAccess(equipmentAccess: readonly string[]): boolean {
-  const normalized = new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
-  return normalized.size === 0 || normalized.has("none") || normalized.has("bodyweight");
+  return hasNoKnownRealEquipment(equipmentAccess);
 }
 
 function phaseOverride(
@@ -83,11 +83,10 @@ function skillLevelFor(boxingLevel: BoxingLevel): "novice" | "intermediate" | "a
 }
 
 function inferredEquipmentMode(family: GeneratedSessionFamily, equipmentAccess: readonly string[]): GeneratedSessionEquipmentMode {
-  const equipment = new Set(equipmentAccess.map((item) => item.trim().toLowerCase()));
-  if (family === "boxing_bag_skill" && equipment.has("bag")) {
+  if (family === "boxing_bag_skill" && hasEquipmentCapability(equipmentAccess, "bag")) {
     return "bag";
   }
-  if (family === "boxing_counter_timing" && equipment.has("mirror")) {
+  if (family === "boxing_counter_timing" && hasEquipmentCapability(equipmentAccess, "mirror")) {
     return "mirror";
   }
   if (family === "boxing_footwork_ringcraft" || family === "agility_reactive_footwork") {
@@ -229,14 +228,14 @@ export interface GenerateSupportSessionInput {
 }
 
 export function generateSupportSession(input: GenerateSupportSessionInput): GeneratedTrainingSession {
-  const family = chooseFamily(input);
+  const requestedFamily = chooseFamily(input);
   const originalPlannedDate = input.originalPlannedDate ?? input.date;
   const currentScheduledDate = input.currentScheduledDate ?? input.date;
   const novice = isNovice(input.boxingLevel);
   const noEquipment = noEquipmentAccess(input.equipmentAccess);
   const protectedHard = input.hasSparring;
   const template = selectWorkoutTemplate({
-    family,
+    family: requestedFamily,
     equipmentAccess: input.equipmentAccess,
     novice,
     readinessColor: input.readiness.color,
@@ -246,6 +245,13 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     trainingDose: input.trainingDose,
     volumeStrategy: input.phase.phase === "fight_week" ? "taper" : input.phase.phase === "tournament" ? "tournament_conserve" : undefined
   });
+  const family = template.family;
+  const equipmentFallbackReason =
+    family !== requestedFamily
+      ? `Equipment-compatible fallback used: ${requestedFamily.replaceAll("_", " ")} had no compatible template for the saved equipment.`
+      : template.fallback
+        ? `Equipment-compatible fallback template selected for ${requestedFamily.replaceAll("_", " ")}.`
+        : null;
   const durationPolicy = resolveSessionDurationPolicy({
     family,
     template,
@@ -285,6 +291,7 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
       ...(!input.generationConstraints && input.readiness.color === "unknown" ? ["No readiness check-in today: use the warm-up gate and downshift if symptoms appear."] : []),
       ...(!input.generationConstraints && input.uncertainFueling ? ["No food log today: fuel this session normally and log meals to personalize recovery guidance."] : []),
       ...(input.primaryFocus ? [`Plan focus: ${input.primaryFocus.replaceAll("_", " ")}.`] : []),
+      ...(equipmentFallbackReason ? [equipmentFallbackReason] : []),
       ...(prescribedHard ? ["Weekly prescription: this is a hard/high-stimulus training day."] : []),
       ...(input.readiness.color === "red" && !input.hardStopActive ? ["Readiness is red without hard-stop symptoms: keep execution conservative and use downshift gates."] : []),
       ...(input.hardStopActive ? ["Safety hard-stop active: generated work is recovery only."] : []),

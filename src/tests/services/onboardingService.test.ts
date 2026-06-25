@@ -653,7 +653,7 @@ describe("onboardingService", () => {
     );
   });
 
-  it("plan goal saves can update generated support availability without changing callbacks", async () => {
+  it("plan goal saves update plan support days without mutating profile availability", async () => {
     const { repositories, store } = createOnboardingRepositories();
     await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
 
@@ -666,10 +666,16 @@ describe("onboardingService", () => {
       repositories
     });
 
-    expect(store.profile?.scheduleAvailability).toEqual(["tuesday", "thursday"]);
+    expect(store.profile?.scheduleAvailability).toEqual(["monday", "wednesday", "saturday"]);
     expect(store.events).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ generatedSupportAvailableDays: ["tuesday", "thursday"] }) })
+        expect.objectContaining({
+          type: "BuildPhaseStarted",
+          payload: expect.objectContaining({
+            generatedSupportAvailableDays: ["tuesday", "thursday"],
+            planGenerationIntent: expect.objectContaining({ selectedSupportDays: ["tuesday", "thursday"] })
+          })
+        })
       ])
     );
   });
@@ -691,7 +697,7 @@ describe("onboardingService", () => {
       repositories
     });
 
-    expect(store.profile?.scheduleAvailability).toEqual(["tuesday", "thursday"]);
+    expect(store.profile?.scheduleAvailability).toEqual(["monday", "wednesday", "saturday"]);
     expect(repositories.trainingProgression.insertTrainingBlockTimelineEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         trainingBlockId: "training_block_active",
@@ -700,6 +706,7 @@ describe("onboardingService", () => {
           payload: expect.objectContaining({
             source: "plan_wizard_amendment",
             goalMode: "build",
+            selectedSupportDays: ["tuesday", "thursday"],
             scheduleAvailability: ["tuesday", "thursday"]
           })
         })
@@ -707,7 +714,7 @@ describe("onboardingService", () => {
     );
     expect(store.events).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ type: "TrainingPlanAdjusted", payload: expect.objectContaining({ source: "plan_wizard_amendment", scheduleAvailability: ["tuesday", "thursday"] }) }),
+        expect.objectContaining({ type: "TrainingPlanAdjusted", payload: expect.objectContaining({ source: "plan_wizard_amendment", selectedSupportDays: ["tuesday", "thursday"] }) }),
         expect.objectContaining({ type: "BuildPhaseStarted", payload: expect.objectContaining({ supportPrescription: "engine_owned", source: "plan_wizard_amendment" }) })
       ])
     );
@@ -829,12 +836,14 @@ describe("onboardingService", () => {
 
     expect(repositories.trainingBlock.supersedeActiveTrainingBlock).toHaveBeenCalledWith("user_1", "training_block_old");
     expect(repositories.trainingNextWeekPreview.supersedePreviewsForBlock).toHaveBeenCalledWith("user_1", "training_block_old");
-    expect(store.profile?.scheduleAvailability).toEqual(["tuesday", "thursday", "saturday"]);
+    expect(store.profile?.scheduleAvailability).toEqual(["monday", "wednesday", "saturday"]);
     expect(result.status).toBe("ready");
     if (result.status === "ready") {
+      const selectedPlanSupportDays = ["tuesday", "thursday", "saturday"];
+      expect(result.state.training.planGenerationIntent?.selectedSupportDays).toEqual(selectedPlanSupportDays);
       expect(result.state.training.generatedSessions.length).toBeGreaterThan(1);
       expect(result.state.training.generatedSessions.map((session) => session.title)).not.toContain("Old block only support");
-      expect(result.state.training.generatedSessions.every((session) => store.profile?.scheduleAvailability.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
+      expect(result.state.training.generatedSessions.every((session) => selectedPlanSupportDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
       expect(result.state.training.adjustmentHistory).toEqual([]);
       expect(result.state.viewModels.plan.planLifecycleLabel).toContain("Week 1");
       expect(result.state.viewModels.plan.planLifecycleLabel).toContain("New plan");

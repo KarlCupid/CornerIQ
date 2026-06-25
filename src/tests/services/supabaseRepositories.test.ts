@@ -33,7 +33,7 @@ import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
-import { createEngineRunRepository } from "../../services/supabase/engineRunRepository";
+import { createEngineRunRepository, mapGeneratedSessionToRow } from "../../services/supabase/engineRunRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 
 function createInsertClient(options: { existingCompletedSessionId?: string | null; existingCompletedSessionStatus?: "completed" | "skipped"; completedTrainingConflict?: boolean } = {}) {
@@ -388,6 +388,73 @@ function createGeneratedSessionListClient(rows: readonly ReturnType<typeof gener
     }
   };
   return { calls, client: client as unknown as CornerSupabaseClient };
+}
+
+function createGeneratedSessionSlotPersistenceClient(existing: {
+  id: string;
+  current_scheduled_date: string | null;
+  generated_session_lifecycle: string;
+  session_payload: unknown;
+} | null) {
+  const calls: { method: string; table?: string; column?: string; value?: unknown; options?: unknown }[] = [];
+  const inserted: { table: string; record: unknown }[] = [];
+  const updated: { table: string; record: unknown }[] = [];
+  const upserted: { table: string; record: unknown; options?: unknown }[] = [];
+  const selectQuery = {
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return selectQuery;
+    },
+    in(column: string, value: unknown) {
+      calls.push({ method: "in", column, value });
+      return selectQuery;
+    },
+    order(column: string, options?: unknown) {
+      calls.push({ method: "order", column, options });
+      return selectQuery;
+    },
+    limit(value: unknown) {
+      calls.push({ method: "limit", value });
+      return selectQuery;
+    },
+    maybeSingle: async () => ({ data: existing, error: null })
+  };
+  const mutationQuery = (id: string) => ({
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return mutationQuery(id);
+    },
+    select(column: string) {
+      calls.push({ method: "select", column });
+      return {
+        single: async () => ({ data: { id }, error: null })
+      };
+    }
+  });
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", table });
+      return {
+        select(column: string) {
+          calls.push({ method: "select", column });
+          return selectQuery;
+        },
+        update(record: unknown) {
+          updated.push({ table, record });
+          return mutationQuery(existing?.id ?? `${table}_updated`);
+        },
+        insert(record: unknown) {
+          inserted.push({ table, record });
+          return mutationQuery(`${table}_inserted`);
+        },
+        upsert(record: unknown, options?: unknown) {
+          upserted.push({ table, record, options });
+          return { data: [], error: null };
+        }
+      };
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient, inserted, updated, upserted };
 }
 
 function riskFlagRow(flag: ReturnType<typeof createRiskFlag>, payload: Record<string, unknown>) {
@@ -928,7 +995,7 @@ describe("Supabase repositories", () => {
       expect.arrayContaining([
         { method: "from", value: "generated_training_sessions" },
         { method: "eq", column: "user_id", value: "user_1" },
-        { method: "gte", column: "planned_date", value: fixtureAsOfDate }
+        { method: "gte", column: "current_scheduled_date", value: fixtureAsOfDate }
       ])
     );
   });
@@ -947,8 +1014,8 @@ describe("Supabase repositories", () => {
     expect(sessions.map((session) => session.title)).toEqual(["Monday scoped support", "Tuesday scoped support"]);
     expect(calls).toEqual(
       expect.arrayContaining([
-        { method: "gte", column: "planned_date", value: "2026-05-18" },
-        { method: "lte", column: "planned_date", value: "2026-05-24" }
+        { method: "gte", column: "current_scheduled_date", value: "2026-05-18" },
+        { method: "lte", column: "current_scheduled_date", value: "2026-05-24" }
       ])
     );
   });
@@ -1032,6 +1099,78 @@ describe("Supabase repositories", () => {
     expect(source).not.toContain("async saveGeneratedSessions");
   });
 
+  it("engineRunRepository preserves moved scheduled dates when an active slot is regenerated", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = state.training.generatedSessions[0]!;
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash");
+    const { calls, client, inserted, updated, upserted } = createGeneratedSessionSlotPersistenceClient({
+      id: "db_generated_1",
+      current_scheduled_date: "2026-05-26",
+      generated_session_lifecycle: "moved",
+      session_payload: {
+        id: generated.id,
+        date: "2026-05-26",
+        currentScheduledDate: "2026-05-26",
+        generatedSessionLifecycle: "moved"
+      }
+    });
+
+    await createEngineRunRepository(client).upsertGeneratedSessions([record]);
+
+    const updatedRecord = updated[0]?.record as {
+      current_scheduled_date?: string;
+      generated_session_lifecycle?: string;
+      session_payload?: Record<string, unknown>;
+    };
+    expect(inserted).toEqual([]);
+    expect(upserted).toEqual([]);
+    expect(updatedRecord).toMatchObject({
+      current_scheduled_date: "2026-05-26",
+      generated_session_lifecycle: "moved"
+    });
+    expect(updatedRecord.session_payload).toMatchObject({
+      date: "2026-05-26",
+      currentScheduledDate: "2026-05-26",
+      generatedSessionLifecycle: "moved",
+      movedDatePreservedBySlotReconciliation: true
+    });
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "eq", column: "prescription_slot_id", value: record.prescription_slot_id },
+        { method: "in", column: "generated_session_lifecycle", value: ["active", "moved", "completed", "skipped", "unresolved"] },
+        { method: "eq", column: "id", value: "db_generated_1" }
+      ])
+    );
+  });
+
+  it("engineRunRepository does not resurrect completed or skipped generated slots", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = state.training.generatedSessions[0]!;
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash");
+    const completed = createGeneratedSessionSlotPersistenceClient({
+      id: "completed_generated_1",
+      current_scheduled_date: fixtureAsOfDate,
+      generated_session_lifecycle: "completed",
+      session_payload: { id: generated.id, generatedSessionLifecycle: "completed" }
+    });
+    const skipped = createGeneratedSessionSlotPersistenceClient({
+      id: "skipped_generated_1",
+      current_scheduled_date: fixtureAsOfDate,
+      generated_session_lifecycle: "skipped",
+      session_payload: { id: generated.id, generatedSessionLifecycle: "skipped" }
+    });
+
+    await createEngineRunRepository(completed.client).upsertGeneratedSessions([record]);
+    await createEngineRunRepository(skipped.client).upsertGeneratedSessions([record]);
+
+    expect(completed.updated).toEqual([]);
+    expect(completed.inserted).toEqual([]);
+    expect(completed.upserted).toEqual([]);
+    expect(skipped.updated).toEqual([]);
+    expect(skipped.inserted).toEqual([]);
+    expect(skipped.upserted).toEqual([]);
+  });
+
   it("database types include 003 projection columns", () => {
     const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
 
@@ -1055,6 +1194,16 @@ describe("Supabase repositories", () => {
     expect(source).toContain("duplicate_generated_session_identity_reconciled");
     expect(source).toContain("generated_training_sessions_user_active_slot_uidx");
     expect(source).toContain("generated_session_lifecycle in ('active', 'moved')");
+  });
+
+  it("20260625080657 migration supports generated-session slot reconciliation without treating completed history as active", () => {
+    const source = readFileSync("supabase/migrations/20260625080657_generated_session_active_slot_reconciliation.sql", "utf8");
+
+    expect(source).toContain("generated_training_sessions_user_engine_slot_lifecycle_idx");
+    expect(source).toContain("generated_training_sessions_user_block_current_original_idx");
+    expect(source).toContain("generated_session_lifecycle in ('active', 'moved', 'completed', 'skipped', 'unresolved')");
+    expect(source).toContain("current_scheduled_date, original_planned_date");
+    expect(source).not.toContain("service_role");
   });
 
   it("database types include 005 training progression tables", () => {
@@ -1581,8 +1730,6 @@ describe("Supabase repositories", () => {
     await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
 
     expect(repositories.training.listGeneratedSessions).toHaveBeenCalledWith("user_1", {
-      startDate: "2026-05-18",
-      endDate: "2026-05-24",
       trainingBlockId: "training_block_current"
     });
     expect(repositories.exerciseResult.listExerciseResultsForDateRange).toHaveBeenCalledWith("user_1", {

@@ -39,7 +39,6 @@ export function buildLocalE2EPerformanceState(input: {
     : null;
   const athlete = {
     ...buildDemoAthleteProfile(userId),
-    ...(selectedSupportDays.length > 0 ? { scheduleAvailability: selectedSupportDays } : {}),
     recurringProtectedAnchors: input.recurringProtectedAnchors ?? []
   };
   const readiness: ReadinessCheckIn = {

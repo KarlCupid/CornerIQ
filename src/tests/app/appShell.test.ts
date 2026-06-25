@@ -959,6 +959,12 @@ const profileViewModel: ProfileViewModel = {
     { label: "Equipment", value: "Jump Rope", tone: "green" },
     { label: "Units", value: "Metric", tone: "muted" }
   ],
+  schedulePresentation: [
+    { label: "General availability", value: "3 available days", detail: "Monday, Wednesday, Friday", tone: "green" },
+    { label: "Plan support days", value: "2 plan support days", detail: "Tuesday, Thursday", tone: "blue" },
+    { label: "Weekly boxing sessions", value: "2 weekly boxing sessions", detail: "Counted by unique recurring boxing anchor identity.", tone: "green" },
+    { label: "Upcoming dated sessions", value: "1 upcoming dated session", detail: "Dated boxing commitments on or after 2026-05-19.", tone: "green" }
+  ],
   appInputs: [
     { label: "Training", detail: "Schedule, equipment, and goal shape the weekly plan.", tone: "green" },
     { label: "Fuel", detail: "Weight, units, and fight details shape cut and fuel guidance.", tone: "green" },

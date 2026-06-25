@@ -249,8 +249,6 @@ export async function loadAthleteJourney(input: {
     const [trainingHistory, trainingPlanAdjustments, trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
           readJourneyData(issues, "training.listGeneratedSessions", [], () => input.repositories.training.listGeneratedSessions(userId, {
-            startDate: activeWeekWindow?.startDate,
-            endDate: activeWeekWindow?.endDate,
             trainingBlockId: activeTrainingBlock.id
           })),
           readJourneyData(issues, "trainingBlock.listTrainingPlanAdjustments", [], () => input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id)),

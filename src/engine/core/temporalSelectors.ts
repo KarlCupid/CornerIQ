@@ -404,12 +404,14 @@ export function selectAsOfTrainingPlanAdjustments(
 
 export function selectAsOfGeneratedTrainingSessions(
   sessions: readonly GeneratedTrainingSession[],
-  visibleAdjustments: readonly PersistedTrainingPlanAdjustment[]
+  visibleAdjustments: readonly PersistedTrainingPlanAdjustment[],
+  generatedAt?: string | undefined
 ): readonly GeneratedTrainingSession[] {
   return sessions.map((session) => {
     const originalDate = session.originalPlannedDate ?? session.date;
     const currentDate = session.currentScheduledDate ?? session.date;
     if (
+      generatedAt !== undefined &&
       session.generatedSessionLifecycle === "moved" &&
       originalDate !== currentDate &&
       !moveAdjustmentVisibleForSession(session.id, visibleAdjustments)
@@ -508,7 +510,7 @@ export function buildAthleteJourneySnapshot(
     wearableSignalHistory: selectAsOfWearableSignals(journey.wearableSignalHistory, asOfDate, generatedAt),
     completedTrainingSessions,
     exerciseResults: selectAsOfExerciseResults(journey.exerciseResults, asOfDate, generatedAt, completedTrainingSessions),
-    trainingHistory: selectAsOfGeneratedTrainingSessions(journey.trainingHistory, trainingPlanAdjustments),
+    trainingHistory: selectAsOfGeneratedTrainingSessions(journey.trainingHistory, trainingPlanAdjustments, generatedAt),
     trainingPlanAdjustments,
     protectedWorkouts: selectAsOfProtectedWorkouts(journey.protectedWorkouts, generatedAt),
     safetyFlags: selectAsOfRiskFlags(journey.safetyFlags, asOfDate, generatedAt),

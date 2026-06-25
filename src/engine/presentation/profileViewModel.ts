@@ -8,11 +8,16 @@ import type {
   ProfileHealthWarningViewModel,
   ProfileLedgerItemViewModel,
   ProfileMetricViewModel,
+  ProfileScheduleItemViewModel,
   ProfileSetupFactViewModel,
   ProfileSignalViewModel,
   ProfileVisualTone,
+  ProtectedWorkout,
+  ProtectedWorkoutType,
   ProfileViewModel
 } from "../core/types";
+import { formatEquipmentAccessLabel } from "../athlete/equipmentAccess";
+import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
 import { plainFuelCopy } from "./fuelCopy";
 import { plainTrainingCopy } from "./trainingCopy";
 
@@ -102,8 +107,7 @@ function hasScheduleKnown(state: PerformanceState): boolean {
   return (
     scheduleAvailability.length > 0 ||
     protectedBoxingSchedule.length > 0 ||
-    (state.athlete.recurringProtectedAnchors?.length ?? 0) > 0 ||
-    state.training.protectedAnchors.length > 0
+    (state.athlete.recurringProtectedAnchors?.length ?? 0) > 0
   );
 }
 
@@ -177,25 +181,57 @@ function goalLabel(state: PerformanceState): string {
   return titleCase(state.objective);
 }
 
-function activeBoxingScheduleCount(state: PerformanceState): number {
-  return (
-    (state.athlete.protectedBoxingSchedule?.length ?? 0) +
-    (state.athlete.recurringProtectedAnchors?.length ?? 0) +
-    state.training.protectedAnchors.length
-  );
+const boxingCommitmentTypes = new Set<ProtectedWorkoutType>(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "competition"]);
+
+function boxingCommitment(workout: Pick<ProtectedWorkout, "type">): boolean {
+  return boxingCommitmentTypes.has(workout.type);
+}
+
+function recurringBoxingAnchorCount(state: PerformanceState): number {
+  const ids = new Set<string>();
+  for (const anchor of state.athlete.recurringProtectedAnchors ?? []) {
+    if (boxingCommitment(anchor)) {
+      ids.add(anchor.id);
+    }
+  }
+  for (const workout of state.training.protectedAnchors) {
+    if (workout.recurringAnchorId && boxingCommitment(workout)) {
+      ids.add(workout.recurringAnchorId);
+    }
+  }
+  return ids.size;
+}
+
+function datedWorkoutIdentity(workout: ProtectedWorkout): string {
+  return workout.id || `${workout.type}:${workout.date}:${workout.localStartTime ?? workout.startTime ?? "time_unknown"}:${workout.durationMinutes}`;
+}
+
+function upcomingDatedBoxingCommitmentCount(state: PerformanceState): number {
+  const ids = new Set<string>();
+  const datedWorkouts = [
+    ...(state.athlete.protectedBoxingSchedule ?? []),
+    ...state.training.protectedAnchors
+  ];
+  for (const workout of datedWorkouts) {
+    if (workout.date < state.asOfDate || workout.recurringAnchorId || !boxingCommitment(workout)) {
+      continue;
+    }
+    ids.add(datedWorkoutIdentity(workout));
+  }
+  return ids.size;
 }
 
 function scheduleLabel(state: PerformanceState): string {
-  const boxingDays = activeBoxingScheduleCount(state);
-  if (boxingDays > 0) {
-    return plural(boxingDays, "boxing day");
+  const availableDays = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability).length;
+  if (availableDays > 0) {
+    return plural(availableDays, "available day");
   }
-  const availableDays = state.athlete.scheduleAvailability?.length ?? 0;
-  return availableDays > 0 ? plural(availableDays, "available day") : "Needs details";
+  const boxingCommitments = recurringBoxingAnchorCount(state) + upcomingDatedBoxingCommitmentCount(state);
+  return boxingCommitments > 0 ? plural(boxingCommitments, "boxing session") : "Needs details";
 }
 
 function equipmentLabel(state: PerformanceState): string {
-  const equipment = state.athlete.equipmentAccess.map(titleCase);
+  const equipment = state.athlete.equipmentAccess.map(formatEquipmentAccessLabel);
   if (equipment.length === 0) {
     return "Needs details";
   }
@@ -203,6 +239,56 @@ function equipmentLabel(state: PerformanceState): string {
     return "Full gym";
   }
   return shortList(equipment, "Needs details");
+}
+
+function supportDaysDetail(state: PerformanceState): { detail: string; tone: ProfileVisualTone; value: string } {
+  const activePlanDays = state.training.planGenerationIntent?.selectedSupportDays ?? [];
+  if (activePlanDays.length > 0) {
+    return {
+      value: plural(activePlanDays.length, "plan support day"),
+      detail: formatGeneratedSupportWeekdays(activePlanDays),
+      tone: "blue"
+    };
+  }
+  const fallbackDays = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability);
+  return {
+    value: fallbackDays.length > 0 ? plural(fallbackDays.length, "plan support day") : "No active support days",
+    detail: fallbackDays.length > 0 ? `No active plan intent; support days are using the profile fallback: ${formatGeneratedSupportWeekdays(fallbackDays)}.` : "No active plan intent is saved.",
+    tone: fallbackDays.length > 0 ? "orange" : "muted"
+  };
+}
+
+function buildSchedulePresentation(state: PerformanceState): readonly ProfileScheduleItemViewModel[] {
+  const generalAvailability = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability);
+  const supportDays = supportDaysDetail(state);
+  const recurringCount = recurringBoxingAnchorCount(state);
+  const upcomingDatedCount = upcomingDatedBoxingCommitmentCount(state);
+  return [
+    {
+      label: "General availability",
+      value: generalAvailability.length > 0 ? plural(generalAvailability.length, "available day") : "Availability unknown",
+      detail: generalAvailability.length > 0 ? formatGeneratedSupportWeekdays(generalAvailability) : "Saved profile availability is empty.",
+      tone: generalAvailability.length > 0 ? "green" : "orange"
+    },
+    {
+      label: "Plan support days",
+      value: supportDays.value,
+      detail: supportDays.detail,
+      tone: supportDays.tone
+    },
+    {
+      label: "Weekly boxing sessions",
+      value: plural(recurringCount, "weekly boxing session"),
+      detail: "Counted by unique recurring boxing anchor identity.",
+      tone: recurringCount > 0 ? "green" : "muted"
+    },
+    {
+      label: "Upcoming dated sessions",
+      value: plural(upcomingDatedCount, "upcoming dated session"),
+      detail: `Dated boxing commitments on or after ${state.asOfDate}.`,
+      tone: upcomingDatedCount > 0 ? "green" : "muted"
+    }
+  ];
 }
 
 function buildKeySetup(state: PerformanceState): readonly ProfileSetupFactViewModel[] {
@@ -602,6 +688,7 @@ export function buildProfileViewModel(state: PerformanceState): ProfileViewModel
     summary: `${state.athlete.boxingLevel.replaceAll("_", " ")} - ${state.athlete.amateurOrPro}`,
     athleteSetup: buildAthleteSetup(state, healthWarning),
     keySetup: buildKeySetup(state),
+    schedulePresentation: buildSchedulePresentation(state),
     appInputs: buildAppInputs(state),
     healthWarning,
     healthSafetyItems: buildHealthSafetyItems(state, healthWarning),

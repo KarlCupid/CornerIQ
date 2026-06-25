@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeEquipmentAccess } from "../../engine/athlete/equipmentAccess";
 import { AthleteProfileSchema, FightOpportunitySchema, ProtectedWorkoutSchema, RecurringProtectedWorkoutAnchorSchema, TournamentDetailsSchema } from "../../engine/core/schemas";
 import { stableHash } from "../../engine/core/stableHash";
 import type {
@@ -317,7 +318,7 @@ function athleteProfileFromDraft(userId: string, draft: OnboardingDraft): Athlet
     coachInvolved: false,
     dietitianInvolved: false,
     medicalProfessionalInvolved: draft.safety.medicalFlags.length > 0,
-    equipmentAccess: draft.trainingAccess.equipmentAccess,
+    equipmentAccess: normalizeEquipmentAccess(draft.trainingAccess.equipmentAccess),
     scheduleAvailability: draft.trainingAccess.scheduleAvailability,
     protectedBoxingSchedule: protectedWorkouts,
     recurringProtectedAnchors,
@@ -350,24 +351,6 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-async function saveGeneratedSupportAvailability(input: {
-  userId: string;
-  days: readonly GeneratedSupportWeekday[] | undefined;
-  repositories: AthleteJourneyRepositories;
-}): Promise<void> {
-  if (!input.days) {
-    return;
-  }
-  const profile = await input.repositories.athlete.getProfile(input.userId);
-  if (!profile) {
-    return;
-  }
-  await input.repositories.athlete.upsertProfile(input.userId, {
-    ...profile,
-    scheduleAvailability: [...input.days]
-  });
-}
-
 function scheduleAvailabilityFromDraft(draft: {
   generatedSupportAvailableDays?: readonly GeneratedSupportWeekday[] | undefined;
   scheduleAvailability?: readonly GeneratedSupportWeekday[] | undefined;
@@ -395,17 +378,18 @@ function planGenerationPayload(input: {
   trainingDose?: PlanGenerationTrainingDose | undefined;
   userId: string;
 }): Record<string, unknown> {
-  if (!input.action) {
+  const action = input.action ?? (input.scheduleAvailability ? "start_new_plan" : undefined);
+  if (!action) {
     return {};
   }
   const requestedAt = nowIso();
   const selectedSupportDays = input.scheduleAvailability ? [...input.scheduleAvailability] : [];
   const trainingDose = input.trainingDose ?? (selectedSupportDays.length >= 5 ? "serious" : selectedSupportDays.length >= 3 ? "standard" : "minimal");
-  const id = `plan:${input.userId}:${stableHash({ action: input.action, goalMode: input.goalMode, planStartDate: input.planStartDate, primaryFocus: input.primaryFocus, requestedAt, selectedSupportDays, trainingDose })}`;
+  const id = `plan:${input.userId}:${stableHash({ action, goalMode: input.goalMode, planStartDate: input.planStartDate, primaryFocus: input.primaryFocus, requestedAt, selectedSupportDays, trainingDose })}`;
   const intent = {
     id,
     userId: input.userId,
-    action: input.action,
+    action,
     goalMode: input.goalMode,
     ...(input.primaryFocus ? { primaryFocus: input.primaryFocus } : {}),
     trainingDose,
@@ -459,6 +443,7 @@ async function appendPlanLifecycleAudit(input: {
           blockId: block.id,
           blockKey: block.blockKey,
           protectedScheduleMode: input.protectedScheduleMode ?? null,
+          selectedSupportDays: input.scheduleAvailability ?? null,
           scheduleAvailability: input.scheduleAvailability ?? null
         }
       }
@@ -475,6 +460,7 @@ async function appendPlanLifecycleAudit(input: {
     goalMode: input.goalMode,
     activeBlockCount: activeBlocks.length,
     protectedScheduleMode: input.protectedScheduleMode ?? null,
+    selectedSupportDays: input.scheduleAvailability ?? null,
     scheduleAvailability: input.scheduleAvailability ?? null
   });
 }
@@ -739,7 +725,6 @@ export async function saveFightSetup(input: {
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
   const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "fight", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
-  await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "fight", protectedScheduleMode, scheduleAvailability });
   const fight = fightOpportunityFromDraft(draft);
   const existing = await input.repositories.fight.listFightOpportunities(userId);
@@ -773,7 +758,6 @@ export async function saveTournamentSetup(input: {
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
   const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "tournament", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
-  await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "tournament", protectedScheduleMode, scheduleAvailability });
   const tournament = tournamentDetailsFromDraft(draft);
   const result = draft.id ? await input.repositories.tournament.updateTournamentPlan(userId, draft.id, tournament) : await input.repositories.tournament.insertTournamentPlan(userId, tournament, { supersedesExisting: true });
@@ -801,7 +785,6 @@ export async function saveBuildGoal(input: {
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
   const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "build", planStartDate: draft.planStartDate, primaryFocus: draft.primaryFocus, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
-  await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
@@ -826,7 +809,6 @@ export async function saveRecoveryGoal(input: {
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
   const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "recovery", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
-  await saveGeneratedSupportAvailability({ userId, days: scheduleAvailability, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "recovery", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
     durationDays: draft.durationDays,
@@ -995,7 +977,7 @@ export async function updateProfileSettings(input: {
     ...input.currentProfile,
     cycleTrackingPreference: draft.cycleTrackingPreference ?? input.currentProfile.cycleTrackingPreference,
     wearablePreference: draft.wearablePreference ?? input.currentProfile.wearablePreference,
-    equipmentAccess: draft.equipmentAccess ?? input.currentProfile.equipmentAccess,
+    equipmentAccess: normalizeEquipmentAccess(draft.equipmentAccess ?? input.currentProfile.equipmentAccess),
     preferredUnits: draft.preferredUnits ?? input.currentProfile.preferredUnits
   };
   let profileSaved = false;

@@ -1,5 +1,6 @@
 import { AthleteProfileSchema } from "../../engine/core/schemas";
 import type { AthleteProfile } from "../../engine/core/types";
+import { normalizeEquipmentAccess } from "../../engine/athlete/equipmentAccess";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { RepositoryError, assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
@@ -78,9 +79,7 @@ function normalizeLegacyAthleteProfilePayload(payload: Record<string, unknown>):
   profile.coachInvolved = booleanValue(profile.coachInvolved);
   profile.dietitianInvolved = booleanValue(profile.dietitianInvolved);
   profile.medicalProfessionalInvolved = booleanValue(profile.medicalProfessionalInvolved);
-  if (!Array.isArray(profile.equipmentAccess)) {
-    profile.equipmentAccess = [];
-  }
+  profile.equipmentAccess = normalizeEquipmentAccess(stringArray(profile.equipmentAccess));
   if (!Array.isArray(profile.scheduleAvailability)) {
     profile.scheduleAvailability = [];
   }
@@ -123,7 +122,7 @@ export function createAthleteRepository(client: CornerSupabaseClient) {
 
     async upsertProfile(userId: string, profile: AthleteProfile): Promise<{ id: string }> {
       const safeUserId = assertUserId(userId, "athlete_profiles.upsertProfile");
-      const validated = parseWithSchema(AthleteProfileSchema, profile, "athlete_profiles.upsertProfile");
+      const validated = parseWithSchema(AthleteProfileSchema, { ...profile, equipmentAccess: normalizeEquipmentAccess(profile.equipmentAccess) }, "athlete_profiles.upsertProfile");
       const existingResponse = await client.from("athlete_profiles").select("id").eq("user_id", safeUserId).limit(1).maybeSingle();
       if (existingResponse.error) {
         throw new RepositoryError("remote_error", "athlete_profiles.upsertProfile.findExisting", existingResponse.error.message);

@@ -1,11 +1,12 @@
 import { RiskFlagSchema } from "../../engine/core/schemas";
 import type { DecisionTrace, GeneratedTrainingSession, ISODateString, PerformanceState, RiskFlag } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
-import type { TableInsert, TableRow } from "./repositoryTypes";
+import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
 import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
 export type RiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" | "severity" | "status" | "flag_payload">;
 type ActiveEngineRiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" | "flag_payload">;
+type GeneratedSessionSlotRow = Pick<TableRow<"generated_training_sessions">, "id" | "current_scheduled_date" | "generated_session_lifecycle" | "session_payload">;
 
 export interface ListActiveRiskFlagsOptions {
   asOfDate?: ISODateString | undefined;
@@ -140,6 +141,8 @@ export function generatedTrainingSessionKey(session: GeneratedTrainingSession): 
   return session.prescriptionSlotId ?? session.id;
 }
 
+const RECONCILED_GENERATED_SESSION_LIFECYCLES = ["active", "moved", "completed", "skipped", "unresolved"] as const;
+
 const EXECUTION_OVERLAY_MODIFICATION_MARKERS = [
   "No readiness check-in",
   "No food log today",
@@ -174,6 +177,34 @@ function baseGeneratedSessionForPersistence(session: GeneratedTrainingSession): 
 
 function riskFlagPersistenceKey(record: Pick<TableInsert<"risk_flags">, "code" | "domain">): string {
   return `${record.domain}:${record.code}`;
+}
+
+function generatedSessionRecordWithPreservedMovedDate(
+  record: TableInsert<"generated_training_sessions">,
+  existing: GeneratedSessionSlotRow
+): TableInsert<"generated_training_sessions"> & TableUpdate<"generated_training_sessions"> {
+  if (existing.generated_session_lifecycle !== "moved" || record.generated_session_lifecycle !== "active") {
+    return record;
+  }
+  const existingPayload = payloadObject(existing.session_payload, "generated_training_sessions.preserveMoved.existing");
+  const nextPayload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.preserveMoved.next");
+  const currentScheduledDate =
+    existing.current_scheduled_date ??
+    (typeof existingPayload.currentScheduledDate === "string" ? existingPayload.currentScheduledDate : null) ??
+    record.current_scheduled_date ??
+    record.planned_date;
+  return {
+    ...record,
+    current_scheduled_date: currentScheduledDate,
+    generated_session_lifecycle: "moved",
+    session_payload: toJson({
+      ...nextPayload,
+      date: currentScheduledDate,
+      currentScheduledDate,
+      generatedSessionLifecycle: "moved",
+      movedDatePreservedBySlotReconciliation: true
+    })
+  };
 }
 
 export function mapGeneratedSessionToRow(
@@ -349,10 +380,47 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
         return;
       }
       records.forEach((record) => assertUserId(record.user_id, "generated_training_sessions.upsertGeneratedSessions"));
-      const response = await client
-        .from("generated_training_sessions")
-        .upsert([...records], { onConflict: "user_id,planned_date,engine_version,generated_session_key" });
-      readDataOrThrow({ data: response.data ?? [], error: response.error }, "generated_training_sessions.upsertGeneratedSessions");
+      const legacyRecords: TableInsert<"generated_training_sessions">[] = [];
+      for (const record of records) {
+        if (!record.prescription_slot_id) {
+          legacyRecords.push(record);
+          continue;
+        }
+        const existingResponse = await client
+          .from("generated_training_sessions")
+          .select("id, current_scheduled_date, generated_session_lifecycle, session_payload")
+          .eq("user_id", record.user_id)
+          .eq("engine_version", record.engine_version)
+          .eq("prescription_slot_id", record.prescription_slot_id)
+          .in("generated_session_lifecycle", RECONCILED_GENERATED_SESSION_LIFECYCLES)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const existing = readMaybeDataOrThrow(existingResponse, "generated_training_sessions.upsertGeneratedSessions.findExistingSlot");
+        if (existing?.generated_session_lifecycle === "completed" || existing?.generated_session_lifecycle === "skipped") {
+          continue;
+        }
+        if (existing) {
+          const update = generatedSessionRecordWithPreservedMovedDate(record, existing);
+          const updateResponse = await client
+            .from("generated_training_sessions")
+            .update(update)
+            .eq("id", existing.id)
+            .eq("user_id", record.user_id)
+            .select("id")
+            .single();
+          readDataOrThrow(updateResponse, "generated_training_sessions.upsertGeneratedSessions.updateSlot");
+          continue;
+        }
+        const insertResponse = await client.from("generated_training_sessions").insert(record).select("id").single();
+        readDataOrThrow(insertResponse, "generated_training_sessions.upsertGeneratedSessions.insertSlot");
+      }
+      if (legacyRecords.length > 0) {
+        const response = await client
+          .from("generated_training_sessions")
+          .upsert(legacyRecords, { onConflict: "user_id,planned_date,engine_version,generated_session_key" });
+        readDataOrThrow({ data: response.data ?? [], error: response.error }, "generated_training_sessions.upsertGeneratedSessions.legacyUpsert");
+      }
     }
   };
   return repository;

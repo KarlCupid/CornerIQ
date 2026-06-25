@@ -635,8 +635,13 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const blockHistoryDetail = buildBlockHistoryDetail(state, nextWeekPreview);
   const currentWeekGeneratedSupportCount = state.training.dayPlans.reduce((count, day) => count + day.generatedSessions.length, 0);
   const generatedSupportDayCount = state.training.dayPlans.filter((day) => day.generatedSessions.length > 0).length;
-  const generatedSupportAvailableDays = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability);
-  const scheduleAvailabilitySummary = formatGeneratedSupportWeekdays(generatedSupportAvailableDays);
+  const generalAvailabilityDays = normalizeGeneratedSupportWeekdays(state.athlete.scheduleAvailability);
+  const generatedSupportAvailableDays =
+    state.training.supportGenerationAudit.selectedSupportDays.length > 0
+      ? state.training.supportGenerationAudit.selectedSupportDays
+      : generalAvailabilityDays;
+  const scheduleAvailabilitySummary = formatGeneratedSupportWeekdays(generalAvailabilityDays);
+  const generatedSupportAvailabilitySummary = formatGeneratedSupportWeekdays(generatedSupportAvailableDays);
   const fixedSchedule = upcomingFixedSchedule(state);
   const weeklyAnchors = weeklyAnchorSchedule(state);
   const recoveryDayCount = state.training.dayPlans.filter(
@@ -720,9 +725,9 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
     generatedSupportSessionCount: currentWeekGeneratedSupportCount,
     generatedSupportAvailability: {
       selectedDays: generatedSupportAvailableDays,
-      summary: scheduleAvailabilitySummary
+      summary: generatedSupportAvailabilitySummary
     },
-    scheduleAvailability: generatedSupportAvailableDays,
+    scheduleAvailability: generalAvailabilityDays,
     scheduleAvailabilitySummary,
     recoveryDayCount,
     recoveryDays: state.training.activeBlock.weeklyStructure.recoveryDays,

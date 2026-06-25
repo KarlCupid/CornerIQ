@@ -210,6 +210,21 @@ function SetupFactTile({ item }: { item: ProfileSetupFactViewModel }) {
   );
 }
 
+function SchedulePresentationRow({ item }: { item: ProfileViewModel["schedulePresentation"][number] }) {
+  const color = profileColorForTone(item.tone);
+  return (
+    <View style={{ borderBottomColor: profilePalette.cardLine, borderBottomWidth: 1, gap: spacing.xs, paddingBottom: spacing.sm }}>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
+        <Text style={{ color, fontSize: 12, fontWeight: "900", lineHeight: 16, minWidth: 118 }}>{item.label}</Text>
+        <Text numberOfLines={1} style={{ color: profilePalette.textPrimary, flex: 1, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>
+          {item.value}
+        </Text>
+      </View>
+      <Text style={profileTextStyles.subtle}>{item.detail}</Text>
+    </View>
+  );
+}
+
 function AppInputRow({ item }: { item: ProfileAppInputViewModel }) {
   const color = profileColorForTone(item.tone);
   return (
@@ -416,6 +431,11 @@ export function ProfileScreen({
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="profile-key-setup-row">
           {viewModel.keySetup.map((item) => <SetupFactTile item={item} key={`profile-key-setup:${item.label}`} />)}
         </View>
+        <DashboardCard testID="profile-schedule-breakdown-card" title="Schedule">
+          <View style={{ gap: spacing.md }}>
+            {viewModel.schedulePresentation.map((item) => <SchedulePresentationRow item={item} key={`profile-schedule:${item.label}`} />)}
+          </View>
+        </DashboardCard>
         <DashboardCard testID="profile-app-inputs-card" title="App inputs">
           <View style={{ gap: spacing.md }}>
             {viewModel.appInputs.map((item) => <AppInputRow item={item} key={`profile-app-input:${item.label}`} />)}

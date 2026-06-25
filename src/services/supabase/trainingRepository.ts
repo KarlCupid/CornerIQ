@@ -231,6 +231,31 @@ function rowMatchesGeneratedSessionScope(row: GeneratedTrainingSessionRow, optio
   return (typeof payload.trainingBlockId === "string" && payload.trainingBlockId === options.trainingBlockId) || row.block_id === options.trainingBlockId;
 }
 
+function rowGeneratedSessionCurrentDate(row: GeneratedTrainingSessionRow): ISODateString {
+  const payload = payloadObject(row.session_payload, "generated_training_sessions.session_payload");
+  return row.current_scheduled_date ?? (typeof payload.currentScheduledDate === "string" ? payload.currentScheduledDate : row.planned_date);
+}
+
+function rowGeneratedSessionOriginalDate(row: GeneratedTrainingSessionRow): ISODateString {
+  const payload = payloadObject(row.session_payload, "generated_training_sessions.session_payload");
+  return row.original_planned_date ?? (typeof payload.originalPlannedDate === "string" ? payload.originalPlannedDate : row.planned_date);
+}
+
+function dateInWindow(date: ISODateString, options: ListGeneratedSessionsOptions): boolean {
+  const startDate = options.startDate ?? options.asOfDate;
+  return (!startDate || date >= startDate) && (!options.endDate || date <= options.endDate);
+}
+
+function rowMatchesGeneratedSessionDateWindow(row: GeneratedTrainingSessionRow, options: ListGeneratedSessionsOptions): boolean {
+  if (!options.startDate && !options.asOfDate && !options.endDate) {
+    return true;
+  }
+  if (dateInWindow(rowGeneratedSessionCurrentDate(row), options)) {
+    return true;
+  }
+  return Boolean(options.trainingBlockId) && dateInWindow(rowGeneratedSessionOriginalDate(row), options);
+}
+
 export function createTrainingRepository(client: CornerSupabaseClient) {
   async function findCurrentGeneratedSessionResolution(
     safeUserId: string,
@@ -323,11 +348,12 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
         .select("id, block_id, planned_date, original_planned_date, current_scheduled_date, plan_revision_id, week_id, week_index, prescription_slot_id, generated_session_lifecycle, session_payload")
         .eq("user_id", safeUserId);
       const startDate = options.startDate ?? options.asOfDate;
-      let scopedQuery = startDate ? query.gte("planned_date", startDate) : query;
-      scopedQuery = options.endDate ? scopedQuery.lte("planned_date", options.endDate) : scopedQuery;
-      const response = await scopedQuery.order("planned_date", { ascending: true });
+      let scopedQuery = startDate ? query.gte("current_scheduled_date", startDate) : query;
+      scopedQuery = options.endDate ? scopedQuery.lte("current_scheduled_date", options.endDate) : scopedQuery;
+      const response = await scopedQuery.order("current_scheduled_date", { ascending: true });
       return readDataOrThrow(response, "generated_training_sessions.listGeneratedSessions")
         .filter((row) => rowMatchesGeneratedSessionScope(row, options))
+        .filter((row) => rowMatchesGeneratedSessionDateWindow(row, options))
         .map(mapGeneratedTrainingSessionRow);
     },
 

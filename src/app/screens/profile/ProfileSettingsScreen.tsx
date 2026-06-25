@@ -3,6 +3,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { useFormMessage } from "../../forms/useFormMessage";
 import { DashboardCard } from "../../../design/components/PerformanceVisuals";
 import { colors, spacing } from "../../../design/theme";
+import { formatEquipmentAccessLabel } from "../../../engine/athlete/equipmentAccess";
 import type { ISODateString } from "../../../engine/core/types";
 import type { ProfileSettingsDraft } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
@@ -27,10 +28,7 @@ function OptionButton({ active, busy, label, onPress }: { active: boolean; busy:
 }
 
 function equipmentLabel(item: string): string {
-  return item
-    .split("_")
-    .join(" ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return formatEquipmentAccessLabel(item);
 }
 
 function SettingsGroup({ children, subtitle, title }: React.PropsWithChildren<{ subtitle?: string | undefined; title: string }>) {

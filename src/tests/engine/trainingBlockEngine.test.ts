@@ -1121,6 +1121,58 @@ describe("training block and microcycle engine", () => {
     expect(completedState.viewModels.train.workoutLooseEnds.map((item) => item.generatedSessionId)).not.toContain(session.id);
   });
 
+  it("does not replace an active prescription slot after the persisted row moves out of the current week", () => {
+    const selectedDays = ["tuesday", "wednesday", "thursday"];
+    const baseJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: selectedDays
+      },
+      journeyEvents: [
+        planWizardBuildEvent({
+          focus: "strength",
+          id: "plan_moved_out_of_week_identity",
+          planStartDate: "2026-05-18",
+          selectedSupportDays: selectedDays
+        })
+      ],
+      readinessHistory: [readinessForDate("2026-05-19"), readinessForDate("2026-05-20")],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    };
+    const initial = resolvePerformanceState({ journey: baseJourney, asOfDate: "2026-05-19" });
+    const session = initial.training.generatedSessions.find((item) => item.originalPlannedDate === "2026-05-21")!;
+    const persistedMoved: GeneratedTrainingSession = {
+      ...session,
+      date: "2026-05-26",
+      currentScheduledDate: "2026-05-26",
+      generatedSessionLifecycle: "moved",
+      trainingBlockId: initial.training.activeBlock.id
+    };
+    const replay = resolvePerformanceState({
+      journey: {
+        ...baseJourney,
+        currentTrainingBlock: initial.training.activeBlock.id,
+        activeTrainingBlock: initial.training.activeBlock,
+        trainingHistory: initial.training.generatedSessions.map((item) => ({
+          ...item,
+          trainingBlockId: initial.training.activeBlock.id,
+          ...(item.id === session.id ? persistedMoved : {})
+        })),
+        trainingPlanAdjustments: []
+      },
+      asOfDate: "2026-05-19"
+    });
+
+    expect(replay.training.supportGenerationAudit.targetGeneratedSupportCount).toBe(3);
+    expect(replay.training.supportGenerationAudit.remainingUnfilledPrescriptionSlots).toBe(0);
+    expect(replay.training.generatedSessions.map((item) => item.date)).toEqual(["2026-05-19", "2026-05-20"]);
+    expect(replay.training.generatedSessions.map((item) => item.prescriptionSlotId)).not.toContain(session.prescriptionSlotId);
+    expect(replay.training.dayPlans.find((day) => day.date === "2026-05-21")?.generatedSessions).toEqual([]);
+  });
+
   it("rejects stale client moves for superseded generated-session rows", () => {
     const initial = resolvePerformanceState({
       journey: {

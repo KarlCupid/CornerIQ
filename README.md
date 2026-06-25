@@ -17,7 +17,7 @@ Implemented so far:
 - Domain-split engine type exports with compatibility barrel at `src/engine/core/types.ts`.
 - First deterministic performance kernel vertical slice.
 - Body-mass trend, cycle context, readiness, wearable confidence, safety flags, weigh-in eligibility, tournament strategy, nutrition targets, structured rehydration, training support generation, and presentation view models.
-- Supabase migration files through `20260620000100_workout_completion_retry_integrity.sql`; remote migration status is tracked in `docs/11_SUPABASE_REMOTE_STATUS.md`.
+- Supabase migration files through `20260625080657_generated_session_active_slot_reconciliation.sql`; remote migration status is tracked in `docs/11_SUPABASE_REMOTE_STATUS.md`.
 - Engine fixtures and tests for safety, cycle, wearable/manual, nutrition, training, body mass, validation, and persistence schema checks.
 - Engine evidence registry in `docs/25_ENGINE_EVIDENCE_REGISTRY.md` and `src/engine/evidence/evidenceRegistry.ts`.
 

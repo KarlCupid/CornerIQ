@@ -946,6 +946,13 @@ export interface ProfileSetupFactViewModel {
   value: string;
 }
 
+export interface ProfileScheduleItemViewModel {
+  label: string;
+  value: string;
+  detail: string;
+  tone: ProfileVisualTone;
+}
+
 export interface ProfileAppInputViewModel {
   detail: string;
   label: string;
@@ -974,6 +981,7 @@ export interface ProfileViewModel {
   summary: string;
   athleteSetup: ProfileAthleteSetupViewModel;
   keySetup: readonly ProfileSetupFactViewModel[];
+  schedulePresentation: readonly ProfileScheduleItemViewModel[];
   appInputs: readonly ProfileAppInputViewModel[];
   healthWarning: ProfileHealthWarningViewModel;
   healthSafetyItems: readonly ProfileHealthSafetyItemViewModel[];

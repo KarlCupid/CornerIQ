@@ -17,6 +17,7 @@ import type {
   TrainingBlock,
   TrainingBlockHistory,
   TrainingDayPlan,
+  GeneratedSessionLifecycle,
   GeneratedSessionFamily,
   GeneratedTrainingSession,
   GeneratedSessionDurationAuditItem,
@@ -236,6 +237,66 @@ function generatedSessionDurationAuditItem(session: GeneratedTrainingSession): G
   };
 }
 
+function generatedSessionLifecycle(session: GeneratedTrainingSession): GeneratedSessionLifecycle {
+  return session.generatedSessionLifecycle ?? "active";
+}
+
+function generatedSessionSlotIdentity(session: GeneratedTrainingSession): string {
+  return session.prescriptionSlotId ?? `legacy:${session.id}`;
+}
+
+function generatedSessionLifecycleAuthorityRank(session: GeneratedTrainingSession): number {
+  switch (generatedSessionLifecycle(session)) {
+    case "completed":
+      return 6;
+    case "skipped":
+      return 5;
+    case "moved":
+      return 4;
+    case "active":
+      return 3;
+    case "unresolved":
+      return 2;
+    case "superseded":
+    case "canceled":
+      return 0;
+  }
+}
+
+function compareGeneratedSessionAuthority(left: GeneratedTrainingSession, right: GeneratedTrainingSession): number {
+  const rankDelta = generatedSessionLifecycleAuthorityRank(right) - generatedSessionLifecycleAuthorityRank(left);
+  if (rankDelta !== 0) {
+    return rankDelta;
+  }
+  const dateDelta = right.date.localeCompare(left.date);
+  if (dateDelta !== 0) {
+    return dateDelta;
+  }
+  return right.id.localeCompare(left.id);
+}
+
+function reconcileGeneratedSessionSlotAuthorities(sessions: readonly GeneratedTrainingSession[]): readonly GeneratedTrainingSession[] {
+  const grouped = new Map<string, GeneratedTrainingSession[]>();
+  for (const session of sessions) {
+    if (generatedSessionLifecycle(session) === "superseded" || generatedSessionLifecycle(session) === "canceled") {
+      continue;
+    }
+    const identity = generatedSessionSlotIdentity(session);
+    grouped.set(identity, [...(grouped.get(identity) ?? []), session]);
+  }
+  return [...grouped.values()]
+    .map((items) => [...items].sort(compareGeneratedSessionAuthority)[0])
+    .filter((session): session is GeneratedTrainingSession => Boolean(session))
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function activeScheduledGeneratedSessions(sessions: readonly GeneratedTrainingSession[]): readonly GeneratedTrainingSession[] {
+  return sessions.filter((session) => {
+    const lifecycle = generatedSessionLifecycle(session);
+    return lifecycle === "active" || lifecycle === "moved";
+  });
+}
+
 function scopedPersistedGeneratedSessions(input: {
   activeTrainingBlock?: TrainingBlock | null | undefined;
   activeTrainingBlockId?: string | null | undefined;
@@ -256,7 +317,15 @@ function scopedPersistedGeneratedSessions(input: {
   const ignored: PersistedGeneratedSessionAuditItem[] = [];
 
   for (const session of input.persistedSessions) {
-    if (session.date < input.weekStartDate || session.date > input.weekEndDate) {
+    const lifecycle = generatedSessionLifecycle(session);
+    if (lifecycle === "superseded" || lifecycle === "canceled") {
+      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because generated-session lifecycle is ${lifecycle}.`));
+      continue;
+    }
+    const originalDate = session.originalPlannedDate ?? session.date;
+    const currentDateInsideWeek = session.date >= input.weekStartDate && session.date <= input.weekEndDate;
+    const originalDateInsideWeek = originalDate >= input.weekStartDate && originalDate <= input.weekEndDate;
+    if (!currentDateInsideWeek && !originalDateInsideWeek) {
       ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because the persisted generated session is outside the active week ${input.weekStartDate} to ${input.weekEndDate}.`));
       continue;
     }
@@ -281,16 +350,16 @@ function scopedPersistedGeneratedSessions(input: {
     considered.push(persistedGeneratedSessionAuditItem(session, "Considered because it is inside the active week and matches the active generated-session block scope."));
   }
 
-  return { considered, ignored, sessions };
+  return { considered, ignored, sessions: reconcileGeneratedSessionSlotAuthorities(sessions) };
 }
 
 function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSession[], persistedSessions: readonly GeneratedTrainingSession[]): readonly GeneratedTrainingSession[] {
   const merged = new Map<string, GeneratedTrainingSession>();
   for (const session of engineSessions) {
-    merged.set(session.id, session);
+    merged.set(generatedSessionSlotIdentity(session), session);
   }
   for (const session of persistedSessions) {
-    merged.set(session.id, session);
+    merged.set(generatedSessionSlotIdentity(session), session);
   }
   return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
@@ -768,7 +837,9 @@ export function resolveWeeklyTrainingPlan(input: {
     weekEndDate: planWeekEndDate
   });
   const pastScopedPersistedSessions = scopedPersistedSessions.sessions.filter((session) => session.date < input.asOfDate);
-  const futureScopedPersistedSessions = scopedPersistedSessions.sessions.filter((session) => session.date >= input.asOfDate);
+  const futureScopedPersistedSessions = activeScheduledGeneratedSessions(
+    scopedPersistedSessions.sessions.filter((session) => session.date >= input.asOfDate && session.date <= planWeekEndDate)
+  );
   const movedSessionIds = appliedMovedGeneratedSessionIds(input.trainingPlanAdjustments ?? []);
   const pastGeneratedSupportCount = pastScopedPersistedSessions.length;
   const pastStatusResolutions = pastScopedPersistedSessions.map((session) =>
@@ -799,7 +870,11 @@ export function resolveWeeklyTrainingPlan(input: {
     }).status;
     return status === "completed" || status === "skipped" || status === "moved";
   }).length;
-  const pastGeneratedSupportSlotsConsumed = resolvedPastGeneratedSupportCount;
+  const movedOutOfWeekGeneratedSupportCount = scopedPersistedSessions.sessions.filter((session) => {
+    const lifecycle = generatedSessionLifecycle(session);
+    return lifecycle === "moved" && session.date >= input.asOfDate && (session.date < planStartDate || session.date > planWeekEndDate);
+  }).length;
+  const pastGeneratedSupportSlotsConsumed = resolvedPastGeneratedSupportCount + movedOutOfWeekGeneratedSupportCount;
   const remainingGeneratedSupportTarget = Math.max(0, targetSessions - pastGeneratedSupportSlotsConsumed);
   const remainingUnfilledPrescriptionSlots = Math.max(0, targetSessions - pastGeneratedSupportSlotsConsumed - futureScopedPersistedSessions.length);
   const looseEndSessionIds = pastScopedPersistedSessions
@@ -910,7 +985,7 @@ export function resolveWeeklyTrainingPlan(input: {
     trainingDose: selectedTrainingDose
   });
   const generated = generatedSelection.sessions;
-  const preAdjustmentGeneratedSessions = mergeGeneratedSessions(generated, scopedPersistedSessions.sessions);
+  const preAdjustmentGeneratedSessions = mergeGeneratedSessions(generated, activeScheduledGeneratedSessions(scopedPersistedSessions.sessions.filter((session) => session.date <= planWeekEndDate)));
 
   const todayAnchors = anchorsForDate(input.anchors, input.asOfDate);
   const block = resolveTrainingBlock({

@@ -9,6 +9,8 @@ import type {
 } from "./types";
 import type { NextWeekTrainingVolumeStrategy } from "./nextWeekMaterializationEngine";
 import { addOnBlockFromLibrary } from "./addOnBlocks";
+import { hasAllEquipmentCapabilities, hasAnyEquipmentCapability, hasEquipmentCapability, hasNoKnownRealEquipment } from "../athlete/equipmentAccess";
+import { canPrescribeExercise } from "./substitutionEngine";
 import { plainSectionIntent, plainSectionName, plainWorkoutTitle } from "../presentation/trainingCopy";
 
 export const GENERATED_SESSION_FAMILIES = [
@@ -53,6 +55,12 @@ export interface WorkoutTemplateSection {
   exerciseIds: readonly string[];
 }
 
+export interface WorkoutTemplateEquipmentRequirements {
+  requiredAll: readonly string[];
+  requiredAny: readonly string[];
+  optionalPreferred: readonly string[];
+}
+
 export interface WorkoutTemplate {
   templateId: string;
   family: GeneratedSessionFamily;
@@ -65,6 +73,7 @@ export interface WorkoutTemplate {
   protects: readonly string[];
   noviceEligible: boolean;
   equipmentTags: readonly string[];
+  equipmentRequirements: WorkoutTemplateEquipmentRequirements;
   contraindications: readonly string[];
   safetyTags: readonly string[];
   preferredWhen: readonly string[];
@@ -96,10 +105,11 @@ export interface WorkoutTemplateSelectionInput {
   usedTemplateIds?: readonly string[] | undefined;
 }
 
-type TemplateDraft = Omit<WorkoutTemplate, "contraindications" | "progressionNotes" | "regressionNotes" | "safetyNotes" | "stopConditions"> &
-  Partial<Pick<WorkoutTemplate, "contraindications" | "progressionNotes" | "regressionNotes" | "safetyNotes" | "stopConditions">>;
+type TemplateDraft = Omit<WorkoutTemplate, "contraindications" | "equipmentRequirements" | "progressionNotes" | "regressionNotes" | "safetyNotes" | "stopConditions"> &
+  Partial<Pick<WorkoutTemplate, "contraindications" | "progressionNotes" | "regressionNotes" | "safetyNotes" | "stopConditions">> & {
+    equipmentRequirements?: Partial<WorkoutTemplateEquipmentRequirements> | undefined;
+  };
 
-const EQUIPMENT_REQUIREMENT_TAGS = new Set(["bag", "bands", "bench", "bike", "dumbbells", "landmine", "medicine_ball", "rower", "trap_bar"]);
 const CONSERVATIVE_STRATEGIES = new Set<NextWeekTrainingVolumeStrategy>(["conservative_start", "reduce_volume", "deload", "taper", "tournament_conserve", "hold_for_review"]);
 const SECTION_DURATION_WEIGHTS: Record<WorkoutTemplateSectionKind, number> = {
   warmup: 1.2,
@@ -168,11 +178,18 @@ function defaultRegressionNotesForFamily(family: GeneratedSessionFamily): readon
 }
 
 function template(input: TemplateDraft): WorkoutTemplate {
+  const inferredRequiredAll = input.equipmentMode === "bag" ? ["bag"] : [];
+  const equipmentRequirements: WorkoutTemplateEquipmentRequirements = {
+    requiredAll: input.equipmentRequirements?.requiredAll ?? inferredRequiredAll,
+    requiredAny: input.equipmentRequirements?.requiredAny ?? [],
+    optionalPreferred: input.equipmentRequirements?.optionalPreferred ?? input.equipmentTags
+  };
   return {
     contraindications: ["Active hard-stop safety flag", "Pain or symptoms that change movement quality"],
     safetyNotes: ["Manual readiness is enough; do not require a wearable.", "Keep the session secondary to protected boxing work."],
     stopConditions: ["Stop if pain, dizziness, faintness, chest pain, or unusual symptoms appear.", "Stop when speed, posture, timing, or breathing quality clearly drops."],
     ...input,
+    equipmentRequirements,
     progressionNotes: input.progressionNotes ?? defaultProgressionNotesForFamily(input.family),
     regressionNotes: input.regressionNotes ?? defaultRegressionNotesForFamily(input.family)
   };
@@ -2280,26 +2297,35 @@ export const workoutTemplateCatalog: readonly WorkoutTemplate[] = [
   })
 ];
 
-function normalizedEquipment(equipmentAccess: readonly string[]): Set<string> {
-  return new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
-}
-
 function noEquipmentAccess(equipmentAccess: readonly string[]): boolean {
-  const equipment = normalizedEquipment(equipmentAccess);
-  return equipment.size === 0 || equipment.has("none") || equipment.has("bodyweight");
-}
-
-function templateRequiredEquipment(templateItem: WorkoutTemplate): readonly string[] {
-  return templateItem.equipmentTags.filter((tag) => EQUIPMENT_REQUIREMENT_TAGS.has(tag));
+  return hasNoKnownRealEquipment(equipmentAccess);
 }
 
 function equipmentFits(templateItem: WorkoutTemplate, equipmentAccess: readonly string[]): boolean {
-  const required = templateRequiredEquipment(templateItem);
-  if (required.length === 0) {
-    return true;
+  return (
+    hasAllEquipmentCapabilities(equipmentAccess, templateItem.equipmentRequirements.requiredAll) &&
+    hasAnyEquipmentCapability(equipmentAccess, templateItem.equipmentRequirements.requiredAny)
+  );
+}
+
+function selectedExerciseIds(templateItem: WorkoutTemplate): readonly string[] {
+  return [
+    ...templateItem.sections.flatMap((workoutSection) => workoutSection.exerciseIds),
+    ...(templateItem.addOnBlocks ?? []).filter((block) => block.priority === "required").flatMap((block) => block.exerciseIds ?? [])
+  ];
+}
+
+export function workoutTemplateCompatibleWithEquipment(templateItem: WorkoutTemplate, input: Pick<WorkoutTemplateSelectionInput, "equipmentAccess" | "novice">): boolean {
+  if (!equipmentFits(templateItem, input.equipmentAccess)) {
+    return false;
   }
-  const equipment = normalizedEquipment(equipmentAccess);
-  return required.every((item) => equipment.has(item));
+  return selectedExerciseIds(templateItem).every((exerciseId) =>
+    canPrescribeExercise({
+      exerciseId,
+      equipmentAccess: input.equipmentAccess,
+      novice: input.novice
+    })
+  );
 }
 
 function conservativeContext(input: WorkoutTemplateSelectionInput): boolean {
@@ -2317,15 +2343,12 @@ function scoreTemplate(templateItem: WorkoutTemplate, input: WorkoutTemplateSele
   const conservative = conservativeContext(input);
   const phaseDosePreferred = input.trainingDose === "serious" || input.trainingDose === "high";
   const used = new Set(input.usedTemplateIds ?? []);
-  const required = templateRequiredEquipment(templateItem);
   const requiredEquipmentAvailable = equipmentFits(templateItem, input.equipmentAccess);
+  const preferredAvailableCount = templateItem.equipmentRequirements.optionalPreferred.filter((item) => hasEquipmentCapability(input.equipmentAccess, item)).length;
   let score = 0;
 
   if (used.has(templateItem.templateId)) {
     score -= 80;
-  }
-  if (required.includes("bag") && !requiredEquipmentAvailable) {
-    score -= 120;
   }
   if (input.novice) {
     score += templateItem.noviceEligible ? 40 : -100;
@@ -2335,7 +2358,7 @@ function scoreTemplate(templateItem: WorkoutTemplate, input: WorkoutTemplateSele
   if (noEquipment) {
     score += templateItem.equipmentTags.includes("no_equipment") ? 40 : -25;
   } else if (requiredEquipmentAvailable) {
-    score += 12;
+    score += 12 + Math.min(18, preferredAvailableCount * 4);
   }
   if (conservative) {
     score += templateItem.defaultFuelDemand === "low" ? 30 : -30;
@@ -2424,11 +2447,19 @@ export function selectWorkoutTemplate(input: WorkoutTemplateSelectionInput): Wor
   if (candidates.length === 0) {
     throw new Error(`No workout templates exist for generated family: ${input.family}`);
   }
-  return candidates.reduce((best, candidate) => {
+  const compatibleCandidates = candidates.filter((candidate) => workoutTemplateCompatibleWithEquipment(candidate, input));
+  const selectableCandidates =
+    compatibleCandidates.length > 0
+      ? compatibleCandidates
+      : templatesForFamily("recovery_reset").filter((candidate) => workoutTemplateCompatibleWithEquipment(candidate, input));
+  if (selectableCandidates.length === 0) {
+    throw new Error(`No equipment-compatible workout template exists for generated family: ${input.family}`);
+  }
+  return selectableCandidates.reduce((best, candidate) => {
     const candidateScore = scoreTemplate(candidate, input);
     const bestScore = scoreTemplate(best, input);
     return candidateScore > bestScore ? candidate : best;
-  }, candidates[0]!);
+  }, selectableCandidates[0]!);
 }
 
 export function generatedSessionShapeFromTemplate(
@@ -2458,6 +2489,9 @@ export function workoutTemplateText(templateItem: WorkoutTemplate): string {
     templateItem.intent,
     ...templateItem.protects,
     ...templateItem.equipmentTags,
+    ...templateItem.equipmentRequirements.requiredAll,
+    ...templateItem.equipmentRequirements.requiredAny,
+    ...templateItem.equipmentRequirements.optionalPreferred,
     ...templateItem.contraindications,
     ...templateItem.safetyTags,
     ...templateItem.preferredWhen,

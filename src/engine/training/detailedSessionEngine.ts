@@ -15,7 +15,16 @@ import type {
 } from "../core/types";
 import { buildGuidedWorkoutSections, guidedProfileForExercise } from "./guidedExerciseCatalog";
 import { prescribeExercise } from "./substitutionEngine";
-import { findWorkoutTemplateByTitle, sectionDurationPlan, selectWorkoutTemplate, type WorkoutTemplate, type WorkoutTemplateSection } from "./workoutTemplateCatalog";
+import { hasAllEquipmentCapabilities } from "../athlete/equipmentAccess";
+import {
+  findWorkoutTemplate,
+  findWorkoutTemplateByTitle,
+  sectionDurationPlan,
+  selectWorkoutTemplate,
+  workoutTemplateCompatibleWithEquipment,
+  type WorkoutTemplate,
+  type WorkoutTemplateSection
+} from "./workoutTemplateCatalog";
 import { resolveWorkoutRecipe } from "./workoutRecipeCatalog";
 import { plainGeneratedSessionFamilyWhy, plainSectionIntent, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "../presentation/trainingCopy";
 
@@ -146,11 +155,7 @@ function addOnSectionType(block: GeneratedSessionAddOnBlock): WorkoutTemplateSec
 }
 
 function equipmentAvailable(required: readonly string[] | undefined, equipmentAccess: readonly string[]): boolean {
-  if (!required || required.length === 0) {
-    return true;
-  }
-  const available = new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
-  return required.every((item) => available.has(item.toLowerCase()));
+  return hasAllEquipmentCapabilities(equipmentAccess, required);
 }
 
 function addOnAllowed(input: {
@@ -271,8 +276,20 @@ function familyOverride(input: BuildDetailedTrainingSessionInput): GeneratedSess
 }
 
 function templateForDetail(input: BuildDetailedTrainingSessionInput, family: GeneratedSessionFamily, hardAnchor: boolean): WorkoutTemplate {
+  const selectedTemplateId = input.generatedSession.selectedTemplateId ?? input.generatedSession.templateId;
+  let selected: WorkoutTemplate | null = null;
+  if (selectedTemplateId) {
+    try {
+      selected = findWorkoutTemplate(selectedTemplateId);
+    } catch {
+      selected = null;
+    }
+  }
+  if (selected && selected.family === family && workoutTemplateCompatibleWithEquipment(selected, { equipmentAccess: input.equipmentAccess, novice: isNovice(input.athlete) })) {
+    return selected;
+  }
   const byTitle = family === input.generatedSession.family ? findWorkoutTemplateByTitle(family, input.generatedSession.title) : null;
-  if (byTitle) {
+  if (byTitle && workoutTemplateCompatibleWithEquipment(byTitle, { equipmentAccess: input.equipmentAccess, novice: isNovice(input.athlete) })) {
     return byTitle;
   }
   return selectWorkoutTemplate({

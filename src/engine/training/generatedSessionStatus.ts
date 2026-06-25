@@ -61,6 +61,22 @@ export function resolveGeneratedSessionStatus(input: {
     };
   }
 
+  if (input.session.generatedSessionLifecycle === "completed" || input.session.generatedSessionLifecycle === "skipped") {
+    return {
+      completedSession: null,
+      moveAdjustment: null,
+      status: input.session.generatedSessionLifecycle
+    };
+  }
+
+  if (input.session.generatedSessionLifecycle === "moved") {
+    return {
+      completedSession: null,
+      moveAdjustment: appliedMoveAdjustmentForSession(input.session.id, input.trainingPlanAdjustments),
+      status: "moved"
+    };
+  }
+
   const moveAdjustment = appliedMoveAdjustmentForSession(input.session.id, input.trainingPlanAdjustments);
   if (moveAdjustment) {
     return {
