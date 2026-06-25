@@ -3,6 +3,7 @@ import { buildDetailedTrainingSession } from "../training/detailedSessionEngine"
 import { resolveGeneratedSessionStatus } from "../training/generatedSessionStatus";
 import { buildTrainingAnalytics } from "../training/trainingAnalytics";
 import { buildExerciseHistoryViewModel } from "./exerciseHistoryViewModel";
+import { withMovementFamiliarity } from "./movementFamiliarity";
 import { riskSummary } from "./explanationCopy";
 import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainIntensityLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
@@ -184,7 +185,7 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
 function detailedSessionCard(state: PerformanceState, session: PerformanceState["training"]["generatedSessions"][number]) {
   const protectedWorkouts = state.training.protectedAnchors.filter((anchor) => anchor.date === session.date);
   try {
-    const detail = buildDetailedTrainingSession({
+    const detail = withMovementFamiliarity(buildDetailedTrainingSession({
       generatedSession: session,
       athlete: state.athlete,
       readiness: state.readiness,
@@ -192,7 +193,7 @@ function detailedSessionCard(state: PerformanceState, session: PerformanceState[
       phase: state.phase,
       protectedWorkouts,
       equipmentAccess: state.athlete.equipmentAccess
-    });
+    }), state.training.recentExerciseResults);
     return {
       generatedSessionId: detail.generatedSessionId,
       date: detail.date,

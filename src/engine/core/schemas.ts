@@ -18,6 +18,7 @@ const TrainingExecutionReadinessStatusSchema = z.enum(["unknown", "green", "ambe
 const GeneratedSessionLifecycleSchema = z.enum(["active", "completed", "skipped", "unresolved", "moved", "superseded", "canceled"]);
 const GeneratedSessionAddOnPrioritySchema = z.enum(["required", "recommended", "optional"]);
 const GeneratedSessionAddOnPlacementTypeSchema = z.enum(["primer", "finisher", "recovery", "mobility", "durability", "technical_touch"]);
+const WorkoutTemplateSectionRoleSchema = z.enum(["prepare", "primary", "companion", "accessory", "reset"]);
 const ExerciseResultLoadUnitSchema = z.enum(["kg", "lb", "bodyweight", "band", "other"]);
 const ExerciseResultSideSchema = z.enum(["left", "right", "bilateral", "alternating", "not_applicable"]);
 const ExerciseResultTechnicalQualitySchema = z.enum(["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"]);
@@ -46,6 +47,12 @@ export const GeneratedSessionAddOnBlockSchema = z.object({
   durationMinutes: z.number().int().positive(),
   intent: z.string().min(1),
   cues: z.array(z.string()),
+  exerciseIds: z.array(z.string().min(1)).optional(),
+  sectionRole: WorkoutTemplateSectionRoleSchema.optional(),
+  compatibleFamilies: z.array(z.string().min(1)).optional(),
+  requiredEquipment: z.array(z.string()).optional(),
+  fatigueCost: z.enum(["none", "low", "moderate"]).optional(),
+  contraindications: z.array(z.string()).optional(),
   optional: z.boolean(),
   priority: GeneratedSessionAddOnPrioritySchema,
   placementType: GeneratedSessionAddOnPlacementTypeSchema,

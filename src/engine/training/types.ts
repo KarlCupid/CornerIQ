@@ -213,6 +213,7 @@ export type GeneratedSessionPriority = "primary" | "secondary" | "add_on";
 export type GeneratedSessionLifecycle = "active" | "completed" | "skipped" | "unresolved" | "moved" | "superseded" | "canceled";
 export type GeneratedSessionAddOnPriority = "required" | "recommended" | "optional";
 export type GeneratedSessionAddOnPlacementType = "primer" | "finisher" | "recovery" | "mobility" | "durability" | "technical_touch";
+export type WorkoutTemplateSectionRole = "prepare" | "primary" | "companion" | "accessory" | "reset";
 
 export interface GeneratedSessionAddOnBlock {
   id: string;
@@ -220,6 +221,12 @@ export interface GeneratedSessionAddOnBlock {
   durationMinutes: number;
   intent: string;
   cues: readonly string[];
+  exerciseIds?: readonly string[] | undefined;
+  sectionRole?: WorkoutTemplateSectionRole | undefined;
+  compatibleFamilies?: readonly string[] | undefined;
+  requiredEquipment?: readonly string[] | undefined;
+  fatigueCost?: "none" | "low" | "moderate" | undefined;
+  contraindications?: readonly string[] | undefined;
   optional: boolean;
   priority: GeneratedSessionAddOnPriority;
   placementType: GeneratedSessionAddOnPlacementType;
@@ -327,6 +334,30 @@ export interface ExerciseSubstitution {
   coachingNotes: readonly string[];
 }
 
+export interface MovementTeachingProfile {
+  actionSentence: string;
+  setupSteps: readonly string[];
+  executionSteps: readonly string[];
+  breathing?: string | undefined;
+  shouldFeel?: string | undefined;
+  shouldNotFeel?: string | undefined;
+  commonMistake: {
+    problem: string;
+    fix: string;
+  };
+  easierOption: {
+    label: string;
+    exerciseId?: string | undefined;
+    instruction: string;
+  };
+  liveCue: string;
+  safetyStop: string;
+  demoAssetKey?: string | undefined;
+  thumbnailAssetKey?: string | undefined;
+}
+
+export type MovementFamiliarity = "new" | "familiar" | "needs_support";
+
 export type GuidedStepKind =
   | "setup"
   | "work"
@@ -363,6 +394,7 @@ export interface GuidedExerciseProfile {
   exerciseId: string;
   beginnerName: string;
   oneLineGoal: string;
+  teaching?: MovementTeachingProfile | undefined;
   setup: readonly GuidedWorkoutStep[];
   work: readonly GuidedWorkoutStep[];
   cooldown?: readonly GuidedWorkoutStep[] | undefined;
@@ -376,6 +408,7 @@ export interface ExercisePrescription {
   exerciseId: string;
   name: string;
   category: ExerciseCategory;
+  movementFamiliarity?: MovementFamiliarity | undefined;
   sets: readonly ExerciseSetPrescription[];
   repsText?: string | undefined;
   durationText?: string | undefined;

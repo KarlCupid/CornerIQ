@@ -1,4 +1,4 @@
-import type { GeneratedSessionAddOnBlock, GeneratedSessionAddOnPlacementType, GeneratedSessionAddOnPriority } from "./types";
+import type { GeneratedSessionAddOnBlock, GeneratedSessionAddOnPlacementType, GeneratedSessionAddOnPriority, GeneratedSessionFamily, WorkoutTemplateSectionRole } from "./types";
 
 export interface GeneratedSessionAddOnBlockInput {
   id: string;
@@ -6,6 +6,12 @@ export interface GeneratedSessionAddOnBlockInput {
   durationMinutes: number;
   intent: string;
   cues: readonly string[];
+  exerciseIds?: readonly string[] | undefined;
+  sectionRole?: WorkoutTemplateSectionRole | undefined;
+  compatibleFamilies?: readonly GeneratedSessionFamily[] | undefined;
+  requiredEquipment?: readonly string[] | undefined;
+  fatigueCost?: "none" | "low" | "moderate" | undefined;
+  contraindications?: readonly string[] | undefined;
   optional?: boolean | undefined;
   priority: GeneratedSessionAddOnPriority;
   placementType: GeneratedSessionAddOnPlacementType;
@@ -14,9 +20,34 @@ export interface GeneratedSessionAddOnBlockInput {
   safetyBoundary: string;
 }
 
+const EXECUTABLE_ADD_ON_DEFAULTS: Record<string, { exerciseIds: readonly string[]; sectionRole: WorkoutTemplateSectionRole; fatigueCost: "none" | "low" | "moderate" }> = {
+  required_movement_prep_8: { exerciseIds: ["movement_prep_flow"], sectionRole: "prepare", fatigueCost: "low" },
+  required_conditioning_cooldown_8: { exerciseIds: ["recovery_breathing_mobility", "mobility_reset_flow"], sectionRole: "reset", fatigueCost: "none" },
+  required_technical_quality_gate_5: { exerciseIds: ["technical_quality_gate"], sectionRole: "prepare", fatigueCost: "low" },
+  required_power_reset_6: { exerciseIds: ["recovery_breathing_mobility"], sectionRole: "reset", fatigueCost: "none" },
+  recommended_shoulder_guard_durability_10: { exerciseIds: ["serratus_wall_slide", "band_external_rotation", "push_up_plus"], sectionRole: "accessory", fatigueCost: "low" },
+  recommended_hip_ankle_reset_8: { exerciseIds: ["hip_switch_step", "calf_ankle_capacity", "mobility_reset_flow"], sectionRole: "reset", fatigueCost: "low" },
+  recommended_trunk_transfer_10: { exerciseIds: ["pallof_press", "dead_bug_anti_extension"], sectionRole: "accessory", fatigueCost: "low" },
+  recommended_reactive_footwork_primer_8: { exerciseIds: ["reaction_cue_step", "pivot_reaction_pairing", "low_impact_agility_clock"], sectionRole: "companion", fatigueCost: "low" },
+  optional_easy_shadow_touch_10: { exerciseIds: ["stance_guard_reset", "single_jab_exit_reset"], sectionRole: "companion", fatigueCost: "low" },
+  optional_film_self_check_5: { exerciseIds: ["optional_film_self_check"], sectionRole: "reset", fatigueCost: "none" },
+  optional_breathing_reset_5: { exerciseIds: ["recovery_breathing_mobility"], sectionRole: "reset", fatigueCost: "none" },
+  movement_prep_required_10: { exerciseIds: ["movement_prep_flow"], sectionRole: "prepare", fatigueCost: "low" },
+  technical_shadow_primer_10: { exerciseIds: ["stance_guard_reset", "single_jab_exit_reset"], sectionRole: "companion", fatigueCost: "low" },
+  hip_ankle_reset_8: { exerciseIds: ["hip_switch_step", "calf_ankle_capacity", "mobility_reset_flow"], sectionRole: "reset", fatigueCost: "low" },
+  shoulder_durability_10: { exerciseIds: ["serratus_wall_slide", "band_external_rotation", "push_up_plus"], sectionRole: "accessory", fatigueCost: "low" },
+  trunk_durability_10: { exerciseIds: ["pallof_press", "dead_bug_anti_extension"], sectionRole: "accessory", fatigueCost: "low" },
+  mobility_cooldown_required_10: { exerciseIds: ["recovery_breathing_mobility", "mobility_reset_flow"], sectionRole: "reset", fatigueCost: "none" },
+  reactive_footwork_primer_8: { exerciseIds: ["reaction_cue_step", "pivot_reaction_pairing", "low_impact_agility_clock"], sectionRole: "companion", fatigueCost: "low" },
+  wrist_hand_flush_8: { exerciseIds: ["open_close_hand_pump", "wrist_pronation_supination", "towel_squeeze_breathing"], sectionRole: "reset", fatigueCost: "none" },
+  easy_shadow_touch_10: { exerciseIds: ["stance_guard_reset", "single_jab_exit_reset"], sectionRole: "companion", fatigueCost: "low" },
+  athlete_quality_note_3: { exerciseIds: ["optional_film_self_check"], sectionRole: "reset", fatigueCost: "none" }
+};
+
 export function addOnBlock(input: GeneratedSessionAddOnBlockInput): GeneratedSessionAddOnBlock {
   const optional = input.priority === "required" ? false : input.priority === "optional" ? true : input.optional ?? false;
   const countsTowardTarget = input.priority === "required" ? true : input.priority === "optional" ? false : input.countsTowardTarget ?? true;
+  const executable = EXECUTABLE_ADD_ON_DEFAULTS[input.id] ?? { exerciseIds: [], sectionRole: "accessory" as const, fatigueCost: "low" as const };
 
   return {
     id: input.id,
@@ -24,6 +55,12 @@ export function addOnBlock(input: GeneratedSessionAddOnBlockInput): GeneratedSes
     durationMinutes: input.durationMinutes,
     intent: input.intent,
     cues: input.cues,
+    exerciseIds: input.exerciseIds ?? executable.exerciseIds,
+    sectionRole: input.sectionRole ?? executable.sectionRole,
+    ...(input.compatibleFamilies ? { compatibleFamilies: input.compatibleFamilies } : {}),
+    ...(input.requiredEquipment ? { requiredEquipment: input.requiredEquipment } : {}),
+    fatigueCost: input.fatigueCost ?? executable.fatigueCost,
+    ...(input.contraindications ? { contraindications: input.contraindications } : {}),
     optional,
     priority: input.priority,
     placementType: input.placementType,

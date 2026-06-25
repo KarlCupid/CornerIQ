@@ -1,11 +1,13 @@
 import type {
   ExerciseCategory,
   ExercisePrescription,
+  ExerciseSubstitution,
   ExerciseSetPrescription,
   GuidedExerciseProfile,
   GuidedTimerBehavior,
   GuidedWorkoutSection,
   GuidedWorkoutStep,
+  MovementTeachingProfile,
   WorkoutSection
 } from "./types";
 
@@ -22,6 +24,7 @@ interface GuidedExerciseSource {
   boxingTransfer: string;
   safetyNotes: readonly string[];
   stopConditions: readonly string[];
+  substitutions?: readonly ExerciseSubstitution[] | undefined;
   sets?: readonly ExerciseSetPrescription[] | undefined;
 }
 
@@ -60,6 +63,17 @@ function sentence(value: string): string {
   }
   const normalized = `${cleaned.slice(0, 1).toUpperCase()}${cleaned.slice(1)}`;
   return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`;
+}
+
+function firstSentences(value: string | undefined, fallback: string, limit: number): string {
+  const cleaned = sentence(clean(value, fallback));
+  const matches = cleaned.match(/[^.!?]+[.!?]/g);
+  return (matches && matches.length > 0 ? matches.slice(0, limit).join(" ") : cleaned).replace(/\s+/g, " ").trim();
+}
+
+function conciseCue(value: string | undefined, fallback: string): string {
+  const words = clean(value, fallback).replace(/[.!?]+$/g, "").split(/\s+/).filter(Boolean).slice(0, 10);
+  return sentence(words.join(" "));
 }
 
 function compactName(name: string): string {
@@ -411,7 +425,7 @@ function deriveWorkSteps(source: GuidedExerciseSource, behavior: GuidedTimerBeha
 }
 
 function profileFromOverride(source: GuidedExerciseSource, override: GuidedProfileOverride): GuidedExerciseProfile {
-  return {
+  const profile: GuidedExerciseProfile = {
     exerciseId: source.exerciseId,
     beginnerName: clean(override.beginnerName, source.name),
     oneLineGoal: sentence(clean(override.oneLineGoal, source.boxingTransfer)),
@@ -422,6 +436,39 @@ function profileFromOverride(source: GuidedExerciseSource, override: GuidedProfi
     safetyStops: override.safetyStops ?? source.stopConditions,
     timerBehavior: override.timerBehavior ?? timerBehaviorFor(source),
     beginnerEligible: override.beginnerEligible ?? source.noviceEligible ?? true
+  };
+  return { ...profile, teaching: teachingFromProfile(source, profile) };
+}
+
+function teachingFromProfile(source: GuidedExerciseSource, profile: GuidedExerciseProfile): MovementTeachingProfile {
+  const firstSetup = profile.setup[0];
+  const firstWork = profile.work[0];
+  const firstSubstitution = source.substitutions?.[0];
+  const safetyStop = firstWork?.safetyStop ?? profile.safetyStops[0] ?? source.stopConditions[0] ?? "Stop if pain, dizziness, or unusual symptoms appear.";
+  const easierInstruction = firstSubstitution
+    ? firstSentences(firstSubstitution.loadGuidance, firstWork?.regression ?? defaultRegression(source), 1)
+    : firstSentences(firstWork?.regression, defaultRegression(source), 1);
+
+  return {
+    actionSentence: firstSentences(firstWork?.beginnerInstruction, `${source.name}. ${source.loadGuidance}`, 2),
+    setupSteps: profile.setup.slice(0, 2).map((step) => firstSentences(step.beginnerInstruction, source.loadGuidance, 1)),
+    executionSteps: profile.work.slice(0, 3).map((step) => firstSentences(step.beginnerInstruction, source.loadGuidance, 1)),
+    breathing: "Breathe through the effort and avoid breath-holding.",
+    shouldFeel: firstWork?.successCheck ? firstSentences(firstWork.successCheck, defaultSuccessCheck(source), 1) : firstSentences(defaultSuccessCheck(source), defaultSuccessCheck(source), 1),
+    shouldNotFeel: firstSentences(safetyStop, safetyStop, 1),
+    commonMistake: {
+      problem: firstSentences(firstWork?.commonMistake ?? profile.commonMistakes[0], defaultCommonMistake(source), 1),
+      fix: firstSentences(firstWork?.regression, defaultRegression(source), 1)
+    },
+    easierOption: {
+      label: firstSubstitution?.name ?? "Easier option",
+      ...(firstSubstitution?.exerciseId ? { exerciseId: firstSubstitution.exerciseId } : {}),
+      instruction: easierInstruction
+    },
+    liveCue: conciseCue(firstWork?.cue ?? source.coachingNotes[0], source.coachingNotes[0] ?? "Move smoothly and breathe"),
+    safetyStop: firstSentences(safetyStop, safetyStop, 1),
+    ...(firstWork?.demoAssetKey ?? firstSetup?.demoAssetKey ? { demoAssetKey: firstWork?.demoAssetKey ?? firstSetup?.demoAssetKey } : {}),
+    ...(firstWork?.thumbnailAssetKey ?? firstSetup?.thumbnailAssetKey ? { thumbnailAssetKey: firstWork?.thumbnailAssetKey ?? firstSetup?.thumbnailAssetKey } : {})
   };
 }
 
@@ -793,7 +840,7 @@ export function guidedProfileForSource(source: GuidedExerciseSource): GuidedExer
   }
   const behavior = timerBehaviorFor(source);
   const cooldown = defaultCooldownStep(source);
-  return {
+  const profile: GuidedExerciseProfile = {
     exerciseId: source.exerciseId,
     beginnerName: clean(source.name, source.exerciseId),
     oneLineGoal: sentence(source.boxingTransfer),
@@ -805,10 +852,11 @@ export function guidedProfileForSource(source: GuidedExerciseSource): GuidedExer
     timerBehavior: behavior,
     beginnerEligible: source.noviceEligible ?? true
   };
+  return { ...profile, teaching: teachingFromProfile(source, profile) };
 }
 
 export function guidedProfileForExercise(exercise: ExercisePrescription): GuidedExerciseProfile {
-  return exercise.guidedProfile ?? guidedProfileForSource({
+  const source = {
     exerciseId: exercise.exerciseId,
     name: exercise.name,
     category: exercise.category,
@@ -820,8 +868,34 @@ export function guidedProfileForExercise(exercise: ExercisePrescription): Guided
     boxingTransfer: exercise.boxingTransfer,
     safetyNotes: exercise.safetyNotes,
     stopConditions: exercise.stopConditions,
+    substitutions: exercise.substitutions,
     sets: exercise.sets
-  });
+  };
+  if (exercise.guidedProfile) {
+    return exercise.guidedProfile.teaching ? exercise.guidedProfile : { ...exercise.guidedProfile, teaching: teachingFromProfile(source, exercise.guidedProfile) };
+  }
+  return guidedProfileForSource(source);
+}
+
+export function movementTeachingForExercise(exercise: ExercisePrescription): MovementTeachingProfile {
+  return guidedProfileForExercise(exercise).teaching ?? teachingFromProfile(
+    {
+      exerciseId: exercise.exerciseId,
+      name: exercise.name,
+      category: exercise.category,
+      loadGuidance: exercise.loadGuidance,
+      repsText: exercise.repsText,
+      durationText: exercise.durationText,
+      restText: exercise.restText,
+      coachingNotes: exercise.coachingNotes,
+      boxingTransfer: exercise.boxingTransfer,
+      safetyNotes: exercise.safetyNotes,
+      stopConditions: exercise.stopConditions,
+      substitutions: exercise.substitutions,
+      sets: exercise.sets
+    },
+    guidedProfileForExercise(exercise)
+  );
 }
 
 function cloneStepForWorkout(step: GuidedWorkoutStep, input: { sectionIndex: number; exerciseIndex: number; exerciseId: string; localIndex: number }): GuidedWorkoutStep {

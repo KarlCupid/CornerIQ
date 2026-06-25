@@ -1,6 +1,5 @@
 import type { ExercisePrescription, ExerciseSubstitution } from "./types";
 import { catalogToPrescription, findCatalogExercise, type CatalogExercise } from "./exerciseCatalog";
-import { guidedProfileForSource } from "./guidedExerciseCatalog";
 
 function normalizedEquipment(equipmentAccess: readonly string[]): Set<string> {
   return new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
@@ -24,22 +23,11 @@ function substitutionAvailable(substitution: ExerciseSubstitution, equipmentAcce
 }
 
 function substitutedPrescription(item: CatalogExercise, substitution: ExerciseSubstitution): ExercisePrescription {
-  const base = catalogToPrescription(item);
+  const replacement = catalogToPrescription(findCatalogExercise(substitution.exerciseId));
   return {
-    ...base,
-    exerciseId: substitution.exerciseId,
-    name: substitution.name,
-    loadGuidance: substitution.loadGuidance,
-    coachingNotes: substitution.coachingNotes,
-    substitutions: [baseToSubstitution(item), ...item.substitutions.filter((candidate) => candidate.exerciseId !== substitution.exerciseId)],
-    safetyNotes: [...base.safetyNotes, `Substitution reason: ${substitution.reason}.`],
-    guidedProfile: guidedProfileForSource({
-      ...item,
-      exerciseId: substitution.exerciseId,
-      name: substitution.name,
-      loadGuidance: substitution.loadGuidance,
-      coachingNotes: substitution.coachingNotes
-    })
+    ...replacement,
+    substitutions: [baseToSubstitution(item), ...replacement.substitutions.filter((candidate) => candidate.exerciseId !== item.exerciseId)],
+    safetyNotes: [...replacement.safetyNotes, `Substitution reason: ${substitution.reason}.`]
   };
 }
 

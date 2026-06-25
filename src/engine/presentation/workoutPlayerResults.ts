@@ -24,6 +24,23 @@ function substitutionNote(substitution: ExerciseSubstitution | undefined): strin
   return `Substitution used: ${substitution.name}. Reason: ${substitution.reason}. Equipment: ${equipment}. Load guidance: ${substitution.loadGuidance}.${coaching}`;
 }
 
+function prescribedForResult(
+  exercise: DetailedTrainingSession["sections"][number]["exercises"][number],
+  substitution: ExerciseSubstitution | undefined
+): DetailedTrainingSession["sections"][number]["exercises"][number] {
+  if (!substitution) {
+    return exercise;
+  }
+  return {
+    ...exercise,
+    exerciseId: substitution.exerciseId,
+    name: substitution.name,
+    loadGuidance: substitution.loadGuidance,
+    coachingNotes: substitution.coachingNotes,
+    safetyNotes: [...exercise.safetyNotes, `Original prescription: ${exercise.name} (${exercise.exerciseId}).`]
+  };
+}
+
 export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSession, state: WorkoutPlayerExerciseResultState): ExerciseResultDraft[] {
   const skipped = new Set(state.skippedExerciseIds);
   const painFlags = new Set(state.painFlagExerciseIds);
@@ -31,6 +48,8 @@ export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSessi
 
   return session.sections.flatMap((section) =>
     section.exercises.map((exercise) => {
+      const substitution = state.substitutionByExerciseId?.[exercise.exerciseId];
+      const resultPrescription = prescribedForResult(exercise, substitution);
       const completedSets = Math.max(0, state.completedSetsByExerciseId[exercise.exerciseId] ?? 0);
       const setCount = Math.max(1, state.prescribedSetsByExerciseId?.[exercise.exerciseId] ?? prescribedSetCount(exercise));
       const skippedSets = Math.max(0, state.skippedSetsByExerciseId?.[exercise.exerciseId] ?? 0);
@@ -39,7 +58,7 @@ export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSessi
       const painFlag = painFlags.has(exercise.exerciseId);
       const touchedExercise = touched.has(exercise.exerciseId) || completedSets > 0 || skippedSets > 0 || skippedExercise || painFlag;
       const notes = [
-        substitutionNote(state.substitutionByExerciseId?.[exercise.exerciseId]),
+        substitutionNote(substitution),
         skippedSets > 0 ? `Skipped work steps: ${skippedSets}.` : undefined
       ].filter((item): item is string => Boolean(item));
       const resultStatus: ExerciseResultDraft["resultStatus"] = skippedExercise || (allWorkSkipped && !painFlag)
@@ -51,10 +70,10 @@ export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSessi
             : "prescribed_only";
 
       return {
-        exerciseId: exercise.exerciseId,
-        exerciseName: exercise.name,
+        exerciseId: resultPrescription.exerciseId,
+        exerciseName: resultPrescription.name,
         section: section.name,
-        prescribed: exercise,
+        prescribed: resultPrescription,
         resultStatus,
         ...(resultStatus === "prescribed_only" ? {} : { completedSets }),
         ...(notes.length > 0 ? { notes: notes.join(" ") } : {}),

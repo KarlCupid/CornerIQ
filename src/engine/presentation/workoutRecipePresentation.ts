@@ -30,11 +30,6 @@ function nonEmpty(value: string | undefined): string | undefined {
   return copy.length > 0 ? copy : undefined;
 }
 
-function durationLabelFromSeconds(seconds: number): string {
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  return `${minutes} min`;
-}
-
 function uniqueGuidance(items: readonly WorkoutGuidanceItem[], limit: number): readonly WorkoutGuidanceItem[] {
   const seen = new Set<string>();
   const output: WorkoutGuidanceItem[] = [];
@@ -50,14 +45,6 @@ function uniqueGuidance(items: readonly WorkoutGuidanceItem[], limit: number): r
     }
   }
   return output;
-}
-
-function lowerFirst(value: string): string {
-  return value.length === 0 ? value : `${value.slice(0, 1).toLowerCase()}${value.slice(1)}`;
-}
-
-function compactStepTitle(title: string): string {
-  return lowerFirst(title.replace(/^(Round|Movement|Set|Segment|Interval)\s+\d+:\s*/i, "").replace(/^(Rest)\s+\d+:\s*/i, "$1 ").replace(/\s+/g, " ").trim());
 }
 
 export function recipeTitle(session: DetailedTrainingSession): string {
@@ -76,16 +63,6 @@ export function recipeEquipmentLabel(recipe: WorkoutRecipe | undefined): string 
 }
 
 export function recipeFlowLines(session: DetailedTrainingSession): readonly string[] {
-  const recipe = session.recipe;
-  if (recipe?.previewFlow?.length) {
-    return recipe.previewFlow.map((line, index) => `${index + 1}. ${plainTrainingCopy(line)}`);
-  }
-  if (recipe) {
-    return recipe.blocks.map((block, index) => {
-      const stepTitles = block.steps.slice(0, 5).map((step) => compactStepTitle(step.title)).join(", ");
-      return `${index + 1}. ${block.title}${stepTitles ? ` - ${stepTitles}` : ""}`;
-    });
-  }
   return session.walkthrough.steps.map((step, index) => {
     const itemTitles = step.items.slice(0, 4).map((item) => plainWorkoutTitle(item.title)).join(", ");
     return `${index + 1}. ${step.title}${itemTitles ? ` - ${itemTitles}` : ""}`;
@@ -113,19 +90,6 @@ export function recipeQuickLogContext(session: DetailedTrainingSession): { whatT
 }
 
 export function recipePlanSummaryBlocks(session: DetailedTrainingSession): readonly WorkoutPlanSummaryBlock[] {
-  if (session.recipe?.blocks.length) {
-    return session.recipe.blocks.map((block, index) => ({
-      detail: firstSentence(block.why),
-      durationLabel: durationLabelFromSeconds(block.steps.reduce((total, step) => total + step.durationSeconds, 0)),
-      label: String(index + 1).padStart(2, "0"),
-      steps: block.steps
-        .filter((step) => step.type !== "rest" && step.type !== "transition")
-        .slice(0, 3)
-        .map((step) => plainWorkoutTitle(step.title)),
-      title: plainWorkoutTitle(block.title),
-      tone: block.accent
-    }));
-  }
   return session.sections.map((section, index) => ({
     detail: firstSentence(plainSectionIntent(section.intent)),
     durationLabel: section.durationMinutes > 0 ? `${section.durationMinutes} min` : `${section.exercises.length} move${section.exercises.length === 1 ? "" : "s"}`,

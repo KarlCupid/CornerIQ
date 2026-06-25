@@ -1,4 +1,4 @@
-import type { DetailedTrainingSession, ExercisePrescription, GuidedWorkoutStep, WorkoutBlockAccent, WorkoutRecipeStep, WorkoutSection } from "../core/types";
+import type { DetailedTrainingSession, ExercisePrescription, GuidedWorkoutStep, WorkoutBlockAccent, WorkoutSection } from "../core/types";
 import { buildGuidedStepsForExercise, buildGuidedWorkoutSections, guidedProfileForExercise, parseGuidedTimerSeconds } from "../training/guidedExerciseCatalog";
 import { plainSectionIntent, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
@@ -267,129 +267,6 @@ function timerLabel(step: GuidedWorkoutStep, label: string): string {
   return `${sentenceCase(label)} timer`;
 }
 
-function recipeKind(step: WorkoutRecipeStep): GuidedWorkoutStep["kind"] {
-  switch (step.type) {
-    case "rest":
-      return "rest";
-    case "transition":
-      return "transition";
-    case "cooldown":
-      return "cooldown";
-    case "movement":
-    case "round":
-    case "set":
-      return "work";
-  }
-}
-
-function recipeActionLabel(step: WorkoutRecipeStep, typeIndex: number): string {
-  if (step.type === "rest") {
-    return "rest";
-  }
-  if (step.type === "transition") {
-    return "transition";
-  }
-  if (step.type === "cooldown") {
-    return "cooldown";
-  }
-  const numbered = step.title.match(/^(Round|Set|Movement)\s+(\d+)/i);
-  if (numbered?.[1] && numbered[2]) {
-    return `${numbered[1].toLowerCase()} ${numbered[2]}`;
-  }
-  return `${step.type} ${typeIndex}`;
-}
-
-function recipeExerciseForStep(
-  session: DetailedTrainingSession,
-  sectionIndex: number,
-  step: WorkoutRecipeStep
-): { exercise: ExercisePrescription | undefined; exerciseIndex: number; exerciseId: string } {
-  const section = session.sections[sectionIndex] ?? session.sections[0];
-  const exerciseIndex = step.exerciseId ? section?.exercises.findIndex((exercise) => exercise.exerciseId === step.exerciseId) ?? -1 : -1;
-  const resolvedIndex = exerciseIndex >= 0 ? exerciseIndex : 0;
-  const exercise = section?.exercises[resolvedIndex] ?? session.sections.flatMap((item) => item.exercises)[0];
-  return {
-    exercise,
-    exerciseIndex: resolvedIndex,
-    exerciseId: step.exerciseId ?? exercise?.exerciseId ?? `recipe:${step.stepId}`
-  };
-}
-
-function buildRecipeTimeline(session: DetailedTrainingSession): WorkoutPlayerTimeline | null {
-  const recipe = session.recipe;
-  if (!recipe) {
-    return null;
-  }
-  const typeCountsByBlock = recipe.blocks.map((recipeBlock) => {
-    const counts: Record<string, number> = {};
-    return recipeBlock.steps.map((recipeStep) => {
-      const count = (counts[recipeStep.type] ?? 0) + 1;
-      counts[recipeStep.type] = count;
-      return count;
-    });
-  });
-  const trackableByExercise: Record<string, number> = {};
-  for (const [blockIndex, recipeBlock] of recipe.blocks.entries()) {
-    for (const recipeStep of recipeBlock.steps) {
-      const kind = recipeKind(recipeStep);
-      if (kind === "work") {
-        const { exerciseId } = recipeExerciseForStep(session, blockIndex, recipeStep);
-        trackableByExercise[exerciseId] = (trackableByExercise[exerciseId] ?? 0) + 1;
-      }
-    }
-  }
-  const seenByExercise: Record<string, number> = {};
-  const steps = recipe.blocks.flatMap((recipeBlock, blockIndex) => {
-    const sectionDurationSeconds = recipeBlock.steps.reduce((sum, recipeStep) => sum + recipeStep.durationSeconds, 0);
-    return recipeBlock.steps.map((recipeStep, stepIndex): WorkoutPlayerTimelineStep => {
-      const kind = recipeKind(recipeStep);
-      const { exercise, exerciseId, exerciseIndex } = recipeExerciseForStep(session, blockIndex, recipeStep);
-      const typeIndex = typeCountsByBlock[blockIndex]?.[stepIndex] ?? stepIndex + 1;
-      const actionLabel = recipeActionLabel(recipeStep, typeIndex);
-      const tracksCompletion = kind === "work";
-      const seen = seenByExercise[exerciseId] ?? 0;
-      const setIndex = tracksCompletion ? seen : Math.max(0, seen - 1);
-      if (tracksCompletion) {
-        seenByExercise[exerciseId] = seen + 1;
-      }
-      return {
-        actionLabel,
-        autoAdvance: recipeStep.autoAdvance,
-        ...(recipeStep.audioCueKey ? { audioCueKey: recipeStep.audioCueKey } : {}),
-        blockAccent: recipeBlock.accent,
-        cue: plainTrainingCopy(recipeStep.coachCue),
-        dose: `${formatDurationLabel(recipeStep.durationSeconds)} timer`,
-        durationLabel: formatDurationLabel(recipeStep.durationSeconds),
-        durationSeconds: recipeStep.durationSeconds,
-        exerciseId,
-        exerciseIndex,
-        guidedStepId: `recipe:${recipe.recipeId}:${recipeBlock.blockId}:${recipeStep.stepId}`,
-        id: `recipe:${recipe.recipeId}:${blockIndex}:${stepIndex}:${recipeStep.stepId}`,
-        instruction: plainTrainingCopy(recipeStep.doThis),
-        intent: plainTrainingCopy(recipeBlock.why),
-        kind,
-        ...(recipeStep.microCues && recipeStep.microCues.length > 0 ? { microCues: recipeStep.microCues.map(plainTrainingCopy) } : {}),
-        rest: kind === "rest" ? plainTrainingCopy(recipeStep.doThis) : exercise ? plainTrainingCopy(exercise.restText) : "Move to the next step when ready.",
-        ...(recipeStep.safetyStop ? { safetyStop: plainTrainingCopy(recipeStep.safetyStop) } : {}),
-        sectionDurationSeconds,
-        sectionIndex: blockIndex,
-        sectionIntent: plainTrainingCopy(recipeBlock.why),
-        sectionName: plainSectionName(recipeBlock.title),
-        setIndex,
-        timerLabel: `${sentenceCase(actionLabel)} timer`,
-        title: plainWorkoutTitle(recipeStep.title),
-        totalExerciseSets: Math.max(1, trackableByExercise[exerciseId] ?? 1),
-        tracksCompletion
-      };
-    });
-  });
-  return {
-    blockCount: recipe.blocks.length,
-    steps,
-    totalSeconds: steps.reduce((sum, step) => sum + step.durationSeconds, 0)
-  };
-}
-
 function autoAdvance(entry: GuidedStepEntry): boolean {
   if (entry.step.kind === "rest" || entry.step.kind === "transition" || entry.step.kind === "cooldown") {
     return true;
@@ -459,10 +336,6 @@ function buildEntriesForSection(session: DetailedTrainingSession, section: Worko
 }
 
 export function buildWorkoutPlayerTimeline(session: DetailedTrainingSession): WorkoutPlayerTimeline {
-  const recipeTimeline = buildRecipeTimeline(session);
-  if (recipeTimeline) {
-    return recipeTimeline;
-  }
   const fallbackSectionSeconds = Math.max(60, Math.round((session.durationMinutes * 60) / Math.max(1, session.sections.length)));
   const steps = session.sections.flatMap((section, sectionIndex) => {
     const sectionDurationSeconds = section.durationMinutes > 0 ? section.durationMinutes * 60 : fallbackSectionSeconds;

@@ -207,6 +207,8 @@ describe("detailed training session engine", () => {
     });
     const recipe = detail.recipe;
     const timeline = buildWorkoutPlayerTimeline(detail);
+    const finalExerciseIds = new Set(detail.sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId)));
+    const timelineExerciseIds = new Set(timeline.steps.map((step) => step.exerciseId));
 
     expect(recipe?.title).toBe("Jab-Focused Shadowboxing");
     expect(recipe?.blocks.map((block) => `${block.title}:${block.accent}`)).toEqual(["Warm-up:blue", "Boxing rounds:red", "Cooldown:green"]);
@@ -232,8 +234,10 @@ describe("detailed training session engine", () => {
       "Round 6: Best clean jab round - 180"
     ]);
     expect(recipe?.totalDurationSeconds).toBeGreaterThanOrEqual(32 * 60);
-    expect(timeline.totalSeconds).toBe(recipe?.totalDurationSeconds);
-    expect(timeline.steps.find((step) => step.title === "Round 3: Sharp jab focused round")?.microCues).toContain("Make sure hands are coming back.");
+    expect(timeline.totalSeconds).toBe(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0));
+    expect([...finalExerciseIds].every((exerciseId) => timelineExerciseIds.has(exerciseId))).toBe(true);
+    expect(timeline.steps.every((step) => !step.guidedStepId.startsWith("recipe:"))).toBe(true);
+    expect(timeline.steps.some((step) => step.microCues?.includes("Make sure hands are coming back."))).toBe(true);
     expect(timeline.steps.filter((step) => step.kind === "rest").every((step) => step.autoAdvance)).toBe(true);
     expect(timeline.steps.find((step) => step.title === "Set 1: Goblet squat to box")).toBeUndefined();
     expect(recipeUserFacingText(detail)).not.toMatch(/readiness gate|movement prep|durability|T-spine|quality-capped|technical constraint|open hips/i);
@@ -260,11 +264,15 @@ describe("detailed training session engine", () => {
       });
       const recipe = detail.recipe;
       const timeline = buildWorkoutPlayerTimeline(detail);
+      const finalExerciseIds = new Set(detail.sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId)));
+      const timelineExerciseIds = new Set(timeline.steps.map((step) => step.exerciseId));
       const rounds = recipe?.blocks.find((block) => block.type === "boxing_rounds")?.steps.filter((step) => step.type === "round") ?? [];
       const stepTotal = recipe?.blocks.flatMap((block) => block.steps).reduce((sum, step) => sum + step.durationSeconds, 0);
 
       expect(recipe?.totalDurationSeconds, scenario.title).toBe(stepTotal);
-      expect(timeline.totalSeconds, scenario.title).toBe(recipe?.totalDurationSeconds);
+      expect(timeline.totalSeconds, scenario.title).toBe(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0));
+      expect([...finalExerciseIds].every((exerciseId) => timelineExerciseIds.has(exerciseId)), scenario.title).toBe(true);
+      expect(timeline.steps.every((step) => !step.guidedStepId.startsWith("recipe:")), scenario.title).toBe(true);
       expect(recipe?.totalDurationSeconds, scenario.title).toBeGreaterThanOrEqual(scenario.minMinutes * 60);
       expect(recipe?.totalDurationSeconds, scenario.title).toBeLessThanOrEqual(scenario.maxMinutes * 60);
       expect(rounds.length, scenario.title).toBeGreaterThanOrEqual(6);

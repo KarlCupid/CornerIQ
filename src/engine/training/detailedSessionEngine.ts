@@ -3,6 +3,8 @@ import type {
   CycleState,
   DetailedTrainingSession,
   ExercisePrescription,
+  GeneratedSessionAddOnBlock,
+  GeneratedSessionDurationPolicyCategory,
   GeneratedSessionFamily,
   GeneratedTrainingSession,
   PhaseState,
@@ -78,6 +80,180 @@ function section(name: string, intent: string, durationMinutes: number, exercise
   return { name, intent, durationMinutes, exercises };
 }
 
+type PlannedTemplateSection = WorkoutTemplateSection & {
+  sourceAddOnBlockId?: string | undefined;
+};
+
+const COMPANION_SECTION_TYPES = new Set<WorkoutTemplateSection["sectionType"]>(["support"]);
+const ACCESSORY_SECTION_TYPES = new Set<WorkoutTemplateSection["sectionType"]>(["accessory"]);
+
+function isRestrictiveDurationCategory(category: GeneratedSessionDurationPolicyCategory | undefined): boolean {
+  return category === "safety_capped" || category === "recovery" || category === "taper" || category === "workload_moderated";
+}
+
+function isProtectiveContext(input: BuildDetailedTrainingSessionInput, family: GeneratedSessionFamily, hardAnchor: boolean): boolean {
+  return (
+    isRestrictiveDurationCategory(input.generatedSession.durationPolicyCategory) ||
+    family === "recovery_reset" ||
+    family === "taper_maintenance" ||
+    hardAnchor ||
+    input.phase?.phase === "fight_week" ||
+    input.phase?.phase === "tournament" ||
+    input.cycle.symptomBurden === "high" ||
+    input.generatedSession.executionReadinessStatus === "red_hard_stop"
+  );
+}
+
+function selectedTemplateSections(
+  templateItem: WorkoutTemplate,
+  targetDurationMinutes: number,
+  protectiveContext: boolean
+): readonly WorkoutTemplateSection[] {
+  const sections = templateItem.sections;
+  const primary = sections.filter((item) => item.sectionType === "main");
+  const prepare = sections.filter((item) => item.sectionType === "warmup");
+  const reset = sections.filter((item) => item.sectionType === "cooldown" || item.sectionType === "reset");
+  const companionOrAccessory = sections.filter((item) => COMPANION_SECTION_TYPES.has(item.sectionType) || ACCESSORY_SECTION_TYPES.has(item.sectionType));
+
+  if (sections.length <= 2 || primary.length === 0) {
+    return sections;
+  }
+  if (protectiveContext || targetDurationMinutes < 30) {
+    return [...prepare, ...primary, ...reset].filter((item, index, list) => list.indexOf(item) === index);
+  }
+  if (targetDurationMinutes < 45) {
+    return [...prepare, ...primary, ...companionOrAccessory.slice(0, 1), ...reset].filter((item, index, list) => list.indexOf(item) === index);
+  }
+  const companion = sections.find((item) => COMPANION_SECTION_TYPES.has(item.sectionType));
+  const accessory = sections.find((item) => ACCESSORY_SECTION_TYPES.has(item.sectionType));
+  return [...prepare, ...primary, ...[companion, accessory].filter((item): item is WorkoutTemplateSection => Boolean(item)), ...reset].filter((item, index, list) => list.indexOf(item) === index);
+}
+
+function addOnSectionType(block: GeneratedSessionAddOnBlock): WorkoutTemplateSection["sectionType"] {
+  switch (block.sectionRole) {
+    case "prepare":
+      return "warmup";
+    case "primary":
+      return "main";
+    case "companion":
+      return "support";
+    case "accessory":
+      return "accessory";
+    case "reset":
+    default:
+      return block.placementType === "recovery" ? "cooldown" : "reset";
+  }
+}
+
+function equipmentAvailable(required: readonly string[] | undefined, equipmentAccess: readonly string[]): boolean {
+  if (!required || required.length === 0) {
+    return true;
+  }
+  const available = new Set(equipmentAccess.map((item) => item.trim().toLowerCase()).filter(Boolean));
+  return required.every((item) => available.has(item.toLowerCase()));
+}
+
+function addOnAllowed(input: {
+  block: GeneratedSessionAddOnBlock;
+  equipmentAccess: readonly string[];
+  family: GeneratedSessionFamily;
+  protectiveContext: boolean;
+  targetDurationMinutes: number;
+}): boolean {
+  const { block, equipmentAccess, family, protectiveContext, targetDurationMinutes } = input;
+  if (!block.exerciseIds || block.exerciseIds.length === 0) {
+    return false;
+  }
+  if (block.compatibleFamilies && !block.compatibleFamilies.includes(family)) {
+    return false;
+  }
+  if (!equipmentAvailable(block.requiredEquipment, equipmentAccess)) {
+    return false;
+  }
+  if (protectiveContext) {
+    return block.priority === "required" && (block.sectionRole === "prepare" || block.sectionRole === "reset");
+  }
+  if (targetDurationMinutes < 30) {
+    return block.priority === "required" && (block.sectionRole === "prepare" || block.sectionRole === "reset");
+  }
+  if (targetDurationMinutes < 45 && block.priority === "optional") {
+    return false;
+  }
+  return true;
+}
+
+function materializedAddOnSections(input: {
+  addOnBlocks: readonly GeneratedSessionAddOnBlock[];
+  equipmentAccess: readonly string[];
+  existingExerciseIds: Set<string>;
+  family: GeneratedSessionFamily;
+  protectiveContext: boolean;
+  targetDurationMinutes: number;
+}): readonly PlannedTemplateSection[] {
+  const seen = new Set(input.existingExerciseIds);
+  return input.addOnBlocks
+    .filter((block) => addOnAllowed({ ...input, block }))
+    .map((block): PlannedTemplateSection | null => {
+      const exerciseIds = (block.exerciseIds ?? []).filter((exerciseId) => {
+        if (seen.has(exerciseId)) {
+          return false;
+        }
+        seen.add(exerciseId);
+        return true;
+      });
+      if (exerciseIds.length === 0) {
+        return null;
+      }
+      return {
+        sectionType: addOnSectionType(block),
+        name: block.label,
+        intent: block.athleteFacingPurpose,
+        exerciseIds,
+        sourceAddOnBlockId: block.id
+      };
+    })
+    .filter((item): item is PlannedTemplateSection => item !== null);
+}
+
+function composePlannedSections(baseSections: readonly WorkoutTemplateSection[], addOnSections: readonly PlannedTemplateSection[]): readonly PlannedTemplateSection[] {
+  const prepare = addOnSections.filter((item) => item.sectionType === "warmup");
+  const companion = addOnSections.filter((item) => item.sectionType === "support");
+  const accessory = addOnSections.filter((item) => item.sectionType === "accessory");
+  const reset = addOnSections.filter((item) => item.sectionType === "cooldown" || item.sectionType === "reset");
+  const output: PlannedTemplateSection[] = [];
+  let insertedPrepare = false;
+  let insertedMiddle = false;
+
+  for (const base of baseSections) {
+    if (!insertedPrepare && base.sectionType !== "warmup") {
+      output.push(...prepare);
+      insertedPrepare = true;
+    }
+    if (!insertedMiddle && (base.sectionType === "cooldown" || base.sectionType === "reset")) {
+      output.push(...companion, ...accessory);
+      insertedMiddle = true;
+    }
+    output.push(base);
+    if (!insertedPrepare && base.sectionType === "warmup") {
+      output.push(...prepare);
+      insertedPrepare = true;
+    }
+    if (!insertedMiddle && base.sectionType === "main") {
+      output.push(...companion, ...accessory);
+      insertedMiddle = true;
+    }
+  }
+
+  if (!insertedPrepare) {
+    output.unshift(...prepare);
+  }
+  if (!insertedMiddle) {
+    output.push(...companion, ...accessory);
+  }
+  output.push(...reset);
+  return output;
+}
+
 function familyOverride(input: BuildDetailedTrainingSessionInput): GeneratedSessionFamily {
   if (input.generatedSession.executionReadinessStatus === "red_hard_stop" || (input.readiness.color === "red" && input.readiness.hardStops.length > 0)) {
     return "recovery_reset";
@@ -122,9 +298,22 @@ function exerciseForSection(input: BuildDetailedTrainingSessionInput, templateSe
   return base;
 }
 
-function sectionsFromTemplate(input: BuildDetailedTrainingSessionInput, templateItem: WorkoutTemplate, targetDurationMinutes: number): readonly WorkoutSection[] {
-  const durations = sectionDurationPlan(templateItem, targetDurationMinutes);
-  return templateItem.sections.map((templateSection, index) =>
+function sectionsFromTemplate(input: BuildDetailedTrainingSessionInput, templateItem: WorkoutTemplate, family: GeneratedSessionFamily, targetDurationMinutes: number, hardAnchor: boolean): readonly WorkoutSection[] {
+  const protectiveContext = isProtectiveContext(input, family, hardAnchor);
+  const addOnBlocks = input.generatedSession.addOnBlocks ?? templateItem.addOnBlocks ?? [];
+  const baseSections = selectedTemplateSections(templateItem, targetDurationMinutes, protectiveContext);
+  const existingExerciseIds = new Set(baseSections.flatMap((templateSection) => templateSection.exerciseIds));
+  const addOnSections = materializedAddOnSections({
+    addOnBlocks,
+    equipmentAccess: input.equipmentAccess,
+    existingExerciseIds,
+    family,
+    protectiveContext,
+    targetDurationMinutes
+  });
+  const plannedSections = composePlannedSections(baseSections, addOnSections);
+  const durations = sectionDurationPlan({ ...templateItem, sections: plannedSections }, targetDurationMinutes);
+  return plannedSections.map((templateSection, index) =>
     section(
       plainSectionName(templateSection.name),
       plainSectionIntent(templateSection.intent),
@@ -388,7 +577,7 @@ export function buildDetailedTrainingSession(input: BuildDetailedTrainingSession
             : input.cycle.symptomBurden === "high"
               ? Math.min(input.generatedSession.durationMinutes, 35)
               : input.generatedSession.durationMinutes;
-  const rawSections = sectionsFromTemplate(input, templateItem, durationMinutes);
+  const rawSections = sectionsFromTemplate(input, templateItem, family, durationMinutes, hardAnchor);
   const guidedSections = buildGuidedWorkoutSections(rawSections);
   const sections = rawSections.map((workoutSection, index) => ({
     ...workoutSection,

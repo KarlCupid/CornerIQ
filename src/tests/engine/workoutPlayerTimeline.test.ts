@@ -217,10 +217,14 @@ describe("workout player timeline", () => {
     const detail = detailedFixture();
     const timeline = buildWorkoutPlayerTimeline(detail);
     const allStepText = timeline.steps.map((step) => `${step.title} ${step.instruction} ${step.intent} ${step.cue}`).join(" ");
+    const finalExerciseIds = new Set(detail.sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId)));
+    const timelineExerciseIds = new Set(timeline.steps.map((step) => step.exerciseId));
 
     expect(detail.recipe).toBeTruthy();
     expect(detail.guidedSections?.length).toBeGreaterThan(0);
-    expect(timeline.steps.every((step) => step.guidedStepId.startsWith("recipe:"))).toBe(true);
+    expect([...finalExerciseIds].every((exerciseId) => timelineExerciseIds.has(exerciseId))).toBe(true);
+    expect(timeline.steps.every((step) => !step.guidedStepId.startsWith("recipe:"))).toBe(true);
+    expect(timeline.totalSeconds).toBe(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0));
     expect(timeline.steps.every((step) => step.instruction.length > 20 && step.intent.length > 20 && step.cue.length > 8)).toBe(true);
     expect(allStepText).not.toMatch(/\b(base shape|primary action|quality round|clean repeat|guard return rounds|shadowboxing rounds|defense round|rhythm round|technical round|execute cleanly|focus on quality|reset shape)\b/i);
     expect(timeline.steps.filter((step) => step.kind === "work").every((step) => step.safetyStop)).toBe(true);

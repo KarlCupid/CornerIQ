@@ -1,6 +1,8 @@
 import { exerciseCatalog, type CatalogExercise } from "./exerciseCatalog";
 import { guidedProfileForSource } from "./guidedExerciseCatalog";
-import type { GuidedWorkoutStep } from "./types";
+import { ADD_ON_BLOCK_LIBRARY } from "./addOnBlocks";
+import type { GuidedWorkoutStep, MovementTeachingProfile } from "./types";
+import { workoutTemplateCatalog } from "./workoutTemplateCatalog";
 
 export interface ExerciseCatalogValidationResult {
   valid: boolean;
@@ -23,6 +25,22 @@ const vagueTitlePatterns = [
   /\breset shape\b/i
 ];
 const setupOptionalCategories = new Set<CatalogExercise["category"]>(["mobility", "recovery", "warm_up"]);
+const genericInstructionPatterns = [
+  /\bbodyweight control variation\b/i,
+  /\bcontrol work\b/i,
+  /\bexecute cleanly\b/i,
+  /\bfocus on quality\b/i,
+  /\bmove well\b/i,
+  /\bprimary action\b/i
+];
+
+function wordCount(value: string): number {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function sentenceCount(value: string): number {
+  return value.match(/[.!?](?:\s|$)/g)?.length ?? (value.trim() ? 1 : 0);
+}
 
 function exerciseText(exercise: CatalogExercise): string {
   const profile = guidedProfileForSource(exercise);
@@ -114,11 +132,53 @@ function validateGuidedProfile(exercise: CatalogExercise, errors: string[]): voi
     errors.push(`${exercise.exerciseId} guided profile is missing safety stops.`);
   }
   [...profile.setup, ...profile.work, ...(profile.cooldown ?? [])].forEach((step) => validateGuidedStep({ exerciseId: exercise.exerciseId, step, errors }));
+  validateTeachingProfile(exercise, profile.teaching, errors);
+}
+
+function validateTeachingProfile(exercise: CatalogExercise, teaching: MovementTeachingProfile | undefined, errors: string[]): void {
+  if (!teaching) {
+    errors.push(`${exercise.exerciseId} is missing movement teaching content.`);
+    return;
+  }
+  if (!teaching.actionSentence.trim()) {
+    errors.push(`${exercise.exerciseId} teaching action sentence is empty.`);
+  }
+  if (sentenceCount(teaching.actionSentence) > 2 || teaching.actionSentence.length > 240) {
+    errors.push(`${exercise.exerciseId} teaching action sentence is too long.`);
+  }
+  if (!teaching.liveCue.trim() || wordCount(teaching.liveCue) > 10) {
+    errors.push(`${exercise.exerciseId} teaching live cue is empty or too long.`);
+  }
+  if (teaching.setupSteps.length > 2 || teaching.executionSteps.length > 3) {
+    errors.push(`${exercise.exerciseId} teaching has too many setup or execution steps.`);
+  }
+  if (!setupOptionalCategories.has(exercise.category) && teaching.setupSteps.length === 0) {
+    errors.push(`${exercise.exerciseId} teaching is missing setup steps.`);
+  }
+  if (teaching.executionSteps.length === 0 || teaching.executionSteps.some((step) => !step.trim())) {
+    errors.push(`${exercise.exerciseId} teaching is missing execution steps.`);
+  }
+  if (!teaching.commonMistake.problem.trim() || !teaching.commonMistake.fix.trim()) {
+    errors.push(`${exercise.exerciseId} teaching common mistake needs a fix.`);
+  }
+  if (!teaching.easierOption.label.trim() || !teaching.easierOption.instruction.trim()) {
+    errors.push(`${exercise.exerciseId} teaching is missing an easier option.`);
+  }
+  if (!teaching.safetyStop.trim()) {
+    errors.push(`${exercise.exerciseId} teaching is missing a concise safety stop.`);
+  }
+  const athleteInstruction = `${teaching.actionSentence} ${teaching.liveCue} ${teaching.executionSteps.join(" ")}`;
+  for (const pattern of genericInstructionPatterns) {
+    if (pattern.test(athleteInstruction)) {
+      errors.push(`${exercise.exerciseId} teaching uses generic athlete-facing instruction.`);
+    }
+  }
 }
 
 export function validateExerciseCatalog(catalog: readonly CatalogExercise[] = exerciseCatalog): ExerciseCatalogValidationResult {
   const errors: string[] = [];
   const seen = new Set<string>();
+  const catalogIds = new Set(catalog.map((exercise) => exercise.exerciseId));
   for (const exercise of catalog) {
     if (seen.has(exercise.exerciseId)) {
       errors.push(`Duplicate exerciseId: ${exercise.exerciseId}`);
@@ -142,6 +202,14 @@ export function validateExerciseCatalog(catalog: readonly CatalogExercise[] = ex
     if (exercise.coachingNotes.length === 0 || exercise.coachingNotes.some((note) => !note.trim())) {
       errors.push(`${exercise.exerciseId} has empty coaching notes.`);
     }
+    for (const substitution of exercise.substitutions) {
+      if (!catalogIds.has(substitution.exerciseId)) {
+        errors.push(`${exercise.exerciseId} substitution references unknown exercise: ${substitution.exerciseId}.`);
+      }
+      if (/bodyweight control variation|control work/i.test(`${substitution.name} ${substitution.loadGuidance}`)) {
+        errors.push(`${exercise.exerciseId} substitution resolves to generic control work instead of a named movement.`);
+      }
+    }
     validateGuidedProfile(exercise, errors);
     const text = exerciseText(exercise);
     for (const term of prohibitedTerms) {
@@ -151,6 +219,24 @@ export function validateExerciseCatalog(catalog: readonly CatalogExercise[] = ex
     }
     if (exercise.noviceEligible && /\b(olympic|snatch|jerk)\b/i.test(`${exercise.name} ${exercise.substitutions.map((substitution) => substitution.name).join(" ")}`)) {
       errors.push(`${exercise.exerciseId} exposes novice Olympic derivatives.`);
+    }
+  }
+  const templateExerciseIds = workoutTemplateCatalog.flatMap((template) => template.sections.flatMap((section) => section.exerciseIds));
+  for (const exerciseId of templateExerciseIds) {
+    if (!catalogIds.has(exerciseId)) {
+      errors.push(`Generated template references unknown exercise: ${exerciseId}.`);
+    }
+  }
+  const allAddOnBlocks = [...Object.values(ADD_ON_BLOCK_LIBRARY), ...workoutTemplateCatalog.flatMap((template) => template.addOnBlocks ?? [])];
+  for (const block of allAddOnBlocks) {
+    if (!block.exerciseIds || block.exerciseIds.length === 0) {
+      errors.push(`Add-on block ${block.id} has no exact exercises.`);
+      continue;
+    }
+    for (const exerciseId of block.exerciseIds) {
+      if (!catalogIds.has(exerciseId)) {
+        errors.push(`Add-on block ${block.id} references unknown exercise: ${exerciseId}.`);
+      }
     }
   }
   return { valid: errors.length === 0, errors };

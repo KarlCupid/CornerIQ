@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DetailedTrainingSession, ExercisePrescription, ExerciseSubstitution } from "../../../engine/core/types";
 import { buildWorkoutPlayerTimeline } from "../../../engine/presentation/workoutPlayerTimeline";
 import { buildWorkoutPlayerExerciseResults } from "../../../engine/presentation/workoutPlayerResults";
+import { movementTeachingForExercise } from "../../../engine/presentation/workoutMovementTeaching";
 import {
   plainFuelDemandLabel,
   plainIntensityLabel,
-  plainMovementWhy,
   plainSectionIntent,
   plainSectionName,
   plainTrainingCopy,
@@ -652,7 +652,7 @@ export function WorkoutPlayer({
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const [detailMode, setDetailMode] = React.useState<"how" | "help" | "swap" | null>(null);
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
   const [resumeState, setResumeState] = React.useState<PersistedWorkoutPlayerState | null>(null);
@@ -674,7 +674,7 @@ export function WorkoutPlayer({
     setElapsedSeconds(0);
     setLocalError(null);
     setSubmitting(false);
-    setDetailsOpen(false);
+    setDetailMode(null);
     setDiscardConfirm(false);
     setSkipConfirm(false);
     setResumeState(null);
@@ -780,7 +780,7 @@ export function WorkoutPlayer({
     currentSection?.exercises[currentTimelineStep?.exerciseIndex ?? 0];
 
   React.useEffect(() => {
-    setDetailsOpen(false);
+    setDetailMode(null);
     setSkipConfirm(false);
   }, [currentTimelineStep?.id]);
 
@@ -802,6 +802,7 @@ export function WorkoutPlayer({
   const setCount = currentTimelineStep.totalExerciseSets;
   const completedSets = completedSetMap[activeExerciseId] ?? [];
   const selectedSubstitution = substitutionMap[activeExerciseId];
+  const exerciseNameById = new Map(session.sections.flatMap((section) => section.exercises.map((exercise) => [exercise.exerciseId, exercise.name] as const)));
   const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentTimelineStep.loadGuidance ?? currentTimelineStep.instruction ?? currentExercise.loadGuidance);
   const displayNotes = (selectedSubstitution?.coachingNotes ?? currentExercise.coachingNotes).map(plainTrainingCopy);
   const progress = steps.length > 0 ? Math.max(0, currentStepIndex) / steps.length : 0;
@@ -858,7 +859,7 @@ export function WorkoutPlayer({
     setSessionRpe(persisted.sessionRpe);
     setNotes(persisted.notes);
     setLocalError(null);
-    setDetailsOpen(false);
+    setDetailMode(null);
     setDiscardConfirm(false);
     setSkipConfirm(false);
     setResumeState(null);
@@ -971,7 +972,7 @@ export function WorkoutPlayer({
           <Text style={screenStyles.subtle}>After starting, this device can offer to resume the workout if the same session is still available. Discard clears saved progress.</Text>
         </GlassPanel>
 
-        <CollapsedDetailDisclosure title="Workout recipe" summary="Blocks, timed steps, cues, swaps, and stop rules." testID="workout-player-preview-detail">
+        <CollapsedDetailDisclosure title="Exercise details" summary="Exact movements, dose, cues, and help stay available before you start." testID="workout-player-preview-detail">
           <WorkoutExerciseDetails session={session} title={null} />
         </CollapsedDetailDisclosure>
       </WorkoutScreenFrame>
@@ -1194,15 +1195,15 @@ export function WorkoutPlayer({
   const liveCues = [currentTimelineStep.cue, ...displayNotes, ...(session.selfCheckCues ?? []).map(plainTrainingCopy)];
   const blockAccent = currentTimelineStep.blockAccent as LuminousAccent;
   const blockColor = accentColor[blockAccent];
-  const blockWash = accentWash[blockAccent];
   const activeMicroCue =
     currentTimelineStep.microCues && currentTimelineStep.microCues.length > 0
       ? currentTimelineStep.microCues[Math.floor((currentTimelineStep.durationSeconds - stepRemainingSeconds) / 30) % currentTimelineStep.microCues.length]
       : undefined;
-  const primaryCue = activeMicroCue ?? currentTimelineStep.cue ?? liveCues[0] ?? "Keep shoulders loose and breathe calmly.";
+  const teaching = movementTeachingForExercise(currentExercise);
+  const primaryCue = activeMicroCue ?? teaching.liveCue ?? currentTimelineStep.cue ?? liveCues[0] ?? "Keep shoulders loose and breathe calmly.";
   const stepKind = stepKindTitle(currentTimelineStep.kind);
   const nextStepLabel = nextStep ? `${nextStep.title} - ${nextStep.durationLabel}` : "Finish summary";
-  const liveDoThis = firstSentence(currentTimelineStep.instruction);
+  const liveDoThis = firstSentence(teaching.actionSentence || currentTimelineStep.instruction);
   const liveSafetyLine = painFlagMap[activeExerciseId] && currentTimelineStep.safetyStop
     ? currentTimelineStep.safetyStop
     : "Stop if pain, dizziness, or balance keeps breaking.";
@@ -1271,18 +1272,14 @@ export function WorkoutPlayer({
 
       {shouldShowPrimaryDone ? <PlayerButton disabled={busy || status === "paused"} label={doneButtonLabel(currentTimelineStep)} onPress={markDone} tone="primary" /> : null}
 
-      <Pressable
-        accessibilityLabel={detailsOpen ? "Hide workout details" : "Workout details"}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: detailsOpen }}
-        onPress={() => setDetailsOpen((value) => !value)}
-        style={{ alignItems: "center", flexDirection: "row", gap: spacing.xs, justifyContent: "center", minHeight: 44 }}
-      >
-        <Text style={{ color: blockColor, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{detailsOpen ? "Hide details" : "Details"}</Text>
-        <Ionicons color={blockColor} name={detailsOpen ? "chevron-down" : "chevron-forward"} size={17} />
-      </Pressable>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
+        {teaching.demoAssetKey ? <PlayerButton label="Show demo" onPress={() => setDetailMode("how")} /> : null}
+        <PlayerButton label="How to" onPress={() => setDetailMode((value) => value === "how" ? null : "how")} />
+        <PlayerButton label="Need help?" onPress={() => setDetailMode((value) => value === "help" ? null : "help")} />
+        {currentExercise.substitutions.length > 0 ? <PlayerButton label="Swap" onPress={() => setDetailMode((value) => value === "swap" ? null : "swap")} /> : null}
+      </View>
 
-      {detailsOpen ? (
+      {detailMode ? (
         <GlassPanel testID="workout-player-more-detail">
           <View style={{ gap: spacing.sm }}>
             <SetTracker activeSetIndex={activeSetIndex} completedSetIndices={completedSets} setCount={setCount} />
@@ -1292,70 +1289,41 @@ export function WorkoutPlayer({
               {exerciseTargetText(currentExercise, activeSetIndex).map((target) => <DetailPill key={`target:${target}`} label={target} />)}
             </View>
           </View>
-          <View
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.055)",
-              borderColor: colors.line,
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-            testID="workout-player-why-detail"
-          >
-            <Text style={screenStyles.fieldLabel}>Why this block</Text>
-            <Text style={screenStyles.body}>{currentTimelineStep.intent}</Text>
-          </View>
-          <View
-            style={{
-              backgroundColor: blockWash,
-              borderColor: `${blockColor}66`,
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-            testID="workout-player-full-instruction"
-          >
-            <Text style={screenStyles.fieldLabel}>Full instruction</Text>
-            <Text style={screenStyles.body}>{currentTimelineStep.instruction}</Text>
-            {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop if: {currentTimelineStep.safetyStop}</Text> : null}
-          </View>
-          <View
-            style={{
-              backgroundColor: "rgba(39, 206, 241, 0.11)",
-              borderColor: "rgba(39, 206, 241, 0.38)",
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-            testID="workout-player-timer-card"
-          >
-            <Text style={screenStyles.fieldLabel}>Current timer</Text>
-            <Text style={{ color: colors.canvas, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34 }}>{formatTimer(stepRemainingSeconds)}</Text>
-            <Text style={screenStyles.subtle}>{currentTimelineStep.sectionName}: {currentTimelineStep.durationLabel} for {currentTimelineStep.title}.</Text>
-            <Text style={screenStyles.subtle}>Rest after: {currentTimelineStep.rest}</Text>
-            <Text style={screenStyles.subtle}>Timer mode: {stepKind}. {currentTimelineStep.autoAdvance ? "This timed step can advance when the timer ends." : "This step waits for your tap."}</Text>
-          </View>
-          <View
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.055)",
-              borderColor: colors.line,
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-            testID="workout-player-guided-copy"
-          >
-            <Text style={screenStyles.fieldLabel}>Guided check</Text>
-            {currentTimelineStep.successCheck ? <Text style={screenStyles.subtle}>Success: {currentTimelineStep.successCheck}</Text> : null}
-            {currentTimelineStep.commonMistake ? <Text style={screenStyles.subtle}>Avoid: {currentTimelineStep.commonMistake}</Text> : null}
-            {currentTimelineStep.microCues?.length ? <Text style={screenStyles.subtle}>Coach reminders: {currentTimelineStep.microCues.join(" ")}</Text> : null}
-            {currentTimelineStep.regression ? <Text style={screenStyles.subtle}>Easier: {currentTimelineStep.regression}</Text> : null}
-            {currentTimelineStep.safetyStop ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {currentTimelineStep.safetyStop}</Text> : null}
-          </View>
+          {detailMode === "how" ? (
+            <View style={{ gap: spacing.sm }} testID="workout-player-how-to">
+              <Text style={screenStyles.fieldLabel}>How to</Text>
+              {teaching.setupSteps.map((item, index) => <Text key={`setup:${index}`} style={screenStyles.body}>Setup {index + 1}: {plainTrainingCopy(item)}</Text>)}
+              {teaching.executionSteps.map((item, index) => <Text key={`execution:${index}`} style={screenStyles.body}>Step {index + 1}: {plainTrainingCopy(item)}</Text>)}
+              {teaching.breathing ? <Text style={screenStyles.subtle}>Breathing: {plainTrainingCopy(teaching.breathing)}</Text> : null}
+              {teaching.demoAssetKey ? <Text style={screenStyles.subtle}>Demo: {teaching.demoAssetKey}</Text> : null}
+              <Text style={screenStyles.subtle}>Rest after: {currentTimelineStep.rest}</Text>
+            </View>
+          ) : null}
+          {detailMode === "help" ? (
+            <View style={{ gap: spacing.sm }} testID="workout-player-need-help">
+              <Text style={screenStyles.fieldLabel}>Need help?</Text>
+              <Text style={screenStyles.body}>Common mistake: {plainTrainingCopy(teaching.commonMistake.problem)}</Text>
+              <Text style={screenStyles.body}>Fix: {plainTrainingCopy(teaching.commonMistake.fix)}</Text>
+              <Text style={screenStyles.body}>Easier: {plainWorkoutTitle(teaching.easierOption.label)} - {plainTrainingCopy(teaching.easierOption.instruction)}</Text>
+              {teaching.shouldFeel ? <Text style={screenStyles.subtle}>Should feel: {plainTrainingCopy(teaching.shouldFeel)}</Text> : null}
+              {teaching.shouldNotFeel ? <Text style={screenStyles.subtle}>Should not feel: {plainTrainingCopy(teaching.shouldNotFeel)}</Text> : null}
+              <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {plainTrainingCopy(teaching.safetyStop)}</Text>
+              <SafetyStack exercise={currentExercise} session={session} />
+            </View>
+          ) : null}
+          {detailMode === "swap" ? (
+            <View style={{ gap: spacing.sm }} testID="workout-player-swap-panel">
+              <Text style={screenStyles.fieldLabel}>Swap</Text>
+              <SubstitutionChooser
+                exercise={currentExercise}
+                onChoose={(substitution) => {
+                  touchExercise();
+                  setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
+                }}
+                selected={selectedSubstitution}
+              />
+            </View>
+          ) : null}
           <View style={{ gap: spacing.xs }}>
             <Text style={screenStyles.fieldLabel}>Load guidance</Text>
             <Text style={screenStyles.body}>{displayLoad}</Text>
@@ -1364,21 +1332,6 @@ export function WorkoutPlayer({
             <Text style={screenStyles.fieldLabel}>Section purpose</Text>
             <Text style={screenStyles.body}>{plainSectionIntent(currentSection.intent)}</Text>
           </View>
-          <SafetyStack exercise={currentExercise} session={session} />
-          <SubstitutionChooser
-            exercise={currentExercise}
-            onChoose={(substitution) => {
-              touchExercise();
-              setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
-            }}
-            selected={selectedSubstitution}
-          />
-          <CollapsedDetailDisclosure framed={false} title="Coaching notes" summary={displayNotes[0] ?? "Cues are available when you need them."} testID="workout-player-coaching-notes">
-            {displayNotes.map((note, index) => <Text key={`coach-note:${index}`} style={screenStyles.subtle}>Cue: {note}</Text>)}
-          </CollapsedDetailDisclosure>
-          <CollapsedDetailDisclosure framed={false} title="Boxing transfer" summary="How this support work carries into boxing." testID="workout-player-boxing-transfer">
-            <Text style={screenStyles.body}>{plainMovementWhy(currentExercise.boxingTransfer)}</Text>
-          </CollapsedDetailDisclosure>
           {painFlagMap[activeExerciseId] ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Pain flagged. Finish summary will keep progression conservative.</Text> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             <PlayerButton label="Back" onPress={moveBack} />
@@ -1395,7 +1348,9 @@ export function WorkoutPlayer({
           {(session.selfCheckCues ?? []).slice(0, 2).map((item, index) => <Text key={`self-check:${index}`} style={screenStyles.subtle}>Self-check: {plainTrainingCopy(item)}</Text>)}
           {(session.sessionQualityCheckpoints ?? []).slice(0, 3).map((item, index) => <Text key={`quality:${index}`} style={screenStyles.subtle}>Quality: {plainTrainingCopy(item)}</Text>)}
           {(session.addOnBlocks ?? []).slice(0, 3).map((block) => (
-            <Text key={block.id} style={screenStyles.subtle}>Add-on: {plainWorkoutTitle(block.label)} ({block.durationMinutes} min) - {plainTrainingCopy(block.athleteFacingPurpose)}</Text>
+            <Text key={block.id} style={screenStyles.subtle}>
+              Add-on: {plainWorkoutTitle(block.label)} ({block.durationMinutes} min) - {(block.exerciseIds ?? []).map((exerciseId) => plainWorkoutTitle(exerciseNameById.get(exerciseId) ?? exerciseId.replaceAll("_", " "))).join(", ")}
+            </Text>
           ))}
           {session.fuelAfter ? <Text style={screenStyles.subtle}>After: {plainTrainingCopy(session.fuelAfter)}</Text> : null}
         </View>
