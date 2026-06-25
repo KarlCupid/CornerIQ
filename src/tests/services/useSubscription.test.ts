@@ -251,15 +251,47 @@ describe("useSubscription", () => {
     expect(harness.hook().message).toContain("unlocked");
   });
 
-  it("preserves current active access when customer info refresh fails", async () => {
+  it("locks and clears unlocked copy when the customer info listener updates active to inactive", async () => {
     const config = subscriptionConfig();
-    const client = createClient(snapshotFor(true, config, { packages: true }));
+    const client = createClient(snapshotFor(false, config, { packages: true }));
     const harness = await renderSubscription({
       appUserId: "user-a",
       client,
       config,
       platform: "ios"
     });
+
+    await act(async () => {
+      client.listeners[0]?.(customerInfo(true, config.entitlementId));
+    });
+    await flushEffects();
+    expect(harness.hook().active).toBe(true);
+    expect(harness.hook().message).toContain("unlocked");
+
+    await act(async () => {
+      client.listeners[0]?.(customerInfo(false, config.entitlementId));
+    });
+    await flushEffects();
+
+    expect(harness.hook().active).toBe(false);
+    expect(harness.hook().message).toBeNull();
+  });
+
+  it("preserves current active access when customer info refresh fails", async () => {
+    const config = subscriptionConfig();
+    const client = createClient(snapshotFor(false, config, { packages: true }));
+    const harness = await renderSubscription({
+      appUserId: "user-a",
+      client,
+      config,
+      platform: "ios"
+    });
+    await act(async () => {
+      client.listeners[0]?.(customerInfo(true, config.entitlementId));
+    });
+    await flushEffects();
+    expect(harness.hook().message).toContain("unlocked");
+
     client.loadSnapshot = vi.fn(async () => {
       throw new Error("customer info unavailable");
     });
@@ -271,6 +303,40 @@ describe("useSubscription", () => {
     expect(harness.hook().active).toBe(true);
     expect(harness.hook().error).toBeNull();
     expect(harness.hook().message).toContain("preserved");
+  });
+
+  it("foreground refresh active to inactive clears unlocked copy and locks", async () => {
+    const config = subscriptionConfig();
+    let foregroundListener: ((state: string) => void) | null = null;
+    const appState = {
+      addEventListener: vi.fn((_type: "change", listener: (state: string) => void) => {
+        foregroundListener = listener;
+        return { remove: vi.fn() };
+      })
+    };
+    const client = createClient(snapshotFor(false, config, { packages: true }));
+    const harness = await renderSubscription({
+      appState,
+      appUserId: "user-a",
+      client,
+      config,
+      platform: "ios"
+    });
+    await act(async () => {
+      client.listeners[0]?.(customerInfo(true, config.entitlementId));
+    });
+    await flushEffects();
+    expect(harness.hook().active).toBe(true);
+    expect(harness.hook().message).toContain("unlocked");
+    client.loadSnapshot = vi.fn(async () => snapshotFor(false, config, { packages: true }));
+
+    await act(async () => {
+      foregroundListener?.("active");
+    });
+    await flushEffects();
+
+    expect(harness.hook().active).toBe(false);
+    expect(harness.hook().message).toBeNull();
   });
 
   it("unlocks only when purchase returns the active entitlement", async () => {
@@ -313,6 +379,35 @@ describe("useSubscription", () => {
     expect(harness.hook().message).toBeNull();
   });
 
+  it("does not keep previous purchase success copy when a later purchase has no active entitlement", async () => {
+    const config = subscriptionConfig();
+    const client = createClient(snapshotFor(false, config, { packages: true }));
+    client.purchasePackage = vi
+      .fn()
+      .mockResolvedValueOnce(customerInfo(true, config.entitlementId))
+      .mockResolvedValueOnce(customerInfo(false, config.entitlementId));
+    const harness = await renderSubscription({
+      appUserId: "user-a",
+      client,
+      config,
+      platform: "ios"
+    });
+
+    await act(async () => {
+      await harness.hook().purchasePlan("monthly");
+    });
+    expect(harness.hook().active).toBe(true);
+    expect(harness.hook().message).toContain("unlocked");
+
+    await act(async () => {
+      await harness.hook().purchasePlan("monthly");
+    });
+
+    expect(harness.hook().active).toBe(false);
+    expect(harness.hook().message).toBeNull();
+    expect(harness.hook().error).toContain("not active yet");
+  });
+
   it("unlocks when restore returns the active entitlement", async () => {
     const config = subscriptionConfig();
     const client = createClient(snapshotFor(false, config, { packages: true }));
@@ -350,6 +445,36 @@ describe("useSubscription", () => {
 
     expect(harness.hook().active).toBe(false);
     expect(harness.hook().message).toContain("No active CornerIQ subscription");
+  });
+
+  it("does not keep previous restore success copy when a later restore has no active entitlement", async () => {
+    const config = subscriptionConfig();
+    const client = createClient(snapshotFor(false, config, { packages: true }));
+    client.restore = vi
+      .fn()
+      .mockResolvedValueOnce(customerInfo(true, config.entitlementId))
+      .mockResolvedValueOnce(customerInfo(false, config.entitlementId));
+    const harness = await renderSubscription({
+      appUserId: "user-a",
+      client,
+      config,
+      platform: "ios"
+    });
+
+    await act(async () => {
+      await harness.hook().restore();
+    });
+    expect(harness.hook().active).toBe(true);
+    expect(harness.hook().message).toContain("restored");
+
+    await act(async () => {
+      await harness.hook().restore();
+    });
+
+    expect(harness.hook().active).toBe(false);
+    expect(harness.hook().message).toContain("No active CornerIQ subscription");
+    expect(harness.hook().message).not.toContain("unlocked");
+    expect(harness.hook().message).not.toContain("restored");
   });
 
   it("bypasses the gate intentionally when the paywall is disabled", async () => {

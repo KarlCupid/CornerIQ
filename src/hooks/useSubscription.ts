@@ -99,11 +99,10 @@ export function useSubscription(input: UseSubscriptionInput): SubscriptionHook {
       if (!isCurrentGeneration(generation)) {
         return;
       }
+      const entitlementActive = customerInfoHasActiveEntitlement(customerInfo, config.entitlementId);
       setSnapshot((current) => client.snapshotFromCustomerInfo(customerInfo, current, config));
       setError(null);
-      if (customerInfoHasActiveEntitlement(customerInfo, config.entitlementId)) {
-        setMessage("Subscription active. CornerIQ is unlocked.");
-      }
+      setMessage(entitlementActive ? "Subscription active. CornerIQ is unlocked." : null);
     },
     [client, config, isCurrentGeneration, setSnapshot]
   );

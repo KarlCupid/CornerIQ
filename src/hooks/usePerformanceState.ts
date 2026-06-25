@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { AthleteProfile, ISODateString } from "../engine/core/types";
 import { useAutoRollForward } from "./useAutoRollForward";
+import { useTodayLocalDate, type TodayLocalDateAppStateLike } from "./useTodayLocalDate";
 import { resolveAndPersistPerformanceState, type ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import { acknowledgeNutritionSafetyReview as acknowledgeNutritionSafetyReviewService } from "../services/nutrition/requestNutritionSafetyReview";
 import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
@@ -38,6 +39,7 @@ export interface UsePerformanceStateInput {
   asOfDate?: ISODateString;
   autoRollForwardEnabled?: boolean | undefined;
   client: CornerSupabaseClient;
+  localDateAppState?: TodayLocalDateAppStateLike | undefined;
   repositories?: AthleteJourneyRepositories;
   session: Session;
 }
@@ -64,12 +66,7 @@ export interface PerformanceStateHook {
   updateProfileSettings: (draft: ProfileSettingsDraft) => Promise<void>;
 }
 
-export function todayLocalISODate(): ISODateString {
-  const now = new Date();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
+export { todayLocalISODate } from "./useTodayLocalDate";
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -93,7 +90,11 @@ function retainedReadyRefreshMessage(result: Extract<ResolveAndPersistPerformanc
 }
 
 export function usePerformanceState(input: UsePerformanceStateInput): PerformanceStateHook {
-  const asOfDate = input.asOfDate ?? todayLocalISODate();
+  const localAsOfDate = useTodayLocalDate({
+    appState: input.localDateAppState,
+    enabled: input.asOfDate === undefined
+  });
+  const asOfDate = input.asOfDate ?? localAsOfDate;
   const userId = input.session.user.id;
   const repositories = useMemo(() => input.repositories ?? createAthleteJourneyRepositories(input.client), [input.client, input.repositories]);
   const { runAutoRollForward } = useAutoRollForward({ asOfDate, enabled: input.autoRollForwardEnabled ?? true, repositories, userId });
@@ -118,7 +119,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       mountedRef.current = false;
       refreshRunIdRef.current += 1;
     };
-  }, [userId]);
+  }, [asOfDate, userId]);
 
   const refresh = useCallback(async (status: EngineGenerationStatus = "generating_workout") => {
     const runId = refreshRunIdRef.current + 1;
