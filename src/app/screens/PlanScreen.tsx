@@ -1219,7 +1219,7 @@ export function PlanScreen({
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
   const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession || !onSaveRecurringProtectedAnchor || !onDeleteRecurringProtectedAnchor;
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
-  const effectiveWorkspace = workspaceForGenerationStatus(generationStatus) ?? activeWorkspace;
+  const effectiveWorkspace = workspaceForGenerationStatus(generationStatus) ?? (viewModel.requiresPlanGeneration ? "goal_wizard" : activeWorkspace);
   const goalWizardOpen = effectiveWorkspace === "goal_wizard";
   const nextWeekActionsAvailable = Boolean(nextWeekPreviewActions);
 

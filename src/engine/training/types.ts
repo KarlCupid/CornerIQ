@@ -921,6 +921,7 @@ export interface TrainingState {
   plannedLoadLedger: PlannedTrainingLoad;
   actualLoadLedger: ActualTrainingLoad;
   planGenerationIntent?: PlanGenerationIntent | undefined;
+  requiresPlanGeneration?: boolean | undefined;
   supportGenerationAudit: TrainingSupportGenerationAudit;
   executionReadiness: TrainingReadinessFuelingIntegration;
   dailyOperatingMode: DailyOperatingModeView;

@@ -17,6 +17,7 @@ import type {
   TrainingBlock,
   TrainingBlockHistory,
   TrainingDayPlan,
+  TrainingMicrocycle,
   GeneratedSessionLifecycle,
   GeneratedSessionFamily,
   GeneratedTrainingSession,
@@ -81,6 +82,7 @@ function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
 }
 
 const WORKOUT_GENERATION_STOP_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
+const PLAN_GENERATION_REQUIRED_REASON = "Plan generation has not been requested yet. Use Plan to choose focus, dose, and support days before CornerIQ creates app workouts.";
 
 function workoutGenerationStopFlag(flag: RiskFlag): boolean {
   return flag.status === "active" && flag.hardStop && WORKOUT_GENERATION_STOP_DOMAINS.has(flag.domain);
@@ -118,6 +120,417 @@ function goalModeForPrescriptionContract(input: {
 
 function isProtectedBoxingSkillAnchor(anchor: ProtectedWorkout): boolean {
   return anchor.type === "boxing_class" || anchor.type === "technical_session" || anchor.type === "pads_mitts" || anchor.type === "bag_work" || anchor.type === "footwork_session" || anchor.type === "sparring";
+}
+
+function zeroStimulusMix() {
+  return {
+    strength: 0,
+    conditioning: 0,
+    power: 0,
+    durability: 0,
+    mobility: 0,
+    recovery: 0,
+    taper: 0,
+    boxing_skill: 0,
+    technical: 0,
+    agility: 0,
+    tactical: 0
+  } as const;
+}
+
+function pendingBlockPhase(phase: PhaseState): TrainingBlock["phase"] {
+  switch (phase.phase) {
+    case "tournament":
+      return "tournament_week";
+    case "camp":
+    case "short_notice_camp":
+      return "camp_support";
+    case "fight_week":
+    case "weigh_in_day":
+    case "post_weigh_in":
+    case "bout_day":
+      return "fight_week_taper";
+    case "recovery":
+    case "deload":
+      return "recovery_deload";
+    default:
+      return "build_strength";
+  }
+}
+
+function pendingBlockGoal(phase: TrainingBlock["phase"]): TrainingBlock["primaryGoal"] {
+  switch (phase) {
+    case "tournament_week":
+      return "tournament_conservation";
+    case "camp_support":
+      return "boxing_camp_support";
+    case "fight_week_taper":
+      return "speed_preservation";
+    case "recovery_deload":
+      return "recovery";
+    case "maintenance":
+      return "maintenance";
+    case "build_power":
+      return "power_quality";
+    case "aerobic_base":
+      return "aerobic_capacity";
+    case "build_strength":
+      return "strength_base";
+  }
+}
+
+function pendingPlanDayPlans(input: {
+  anchors: readonly ProtectedWorkout[];
+  asOfDate: ISODateString;
+  completedSessions: readonly CompletedTrainingSession[];
+}): readonly TrainingDayPlan[] {
+  return Array.from({ length: 7 }, (_, index): TrainingDayPlan => {
+    const date = addDays(input.asOfDate, index);
+    const protectedAnchors = anchorsForDate(input.anchors, date);
+    const hardDay = protectedAnchors.some(isHighStimulusProtectedWorkout);
+    return {
+      date,
+      protectedAnchors,
+      generatedSessions: [],
+      completedSessions: input.completedSessions.filter((session) => (session.plannedDate ?? session.date) === date),
+      hardDay,
+      role: hardDay ? "hard_day" : "support_day",
+      recoveryPriority: hardDay ? "moderate" : "low",
+      fuelDemand: hardDay ? "high" : protectedAnchors.length > 0 ? "moderate" : "low",
+      cycleAdjustment: null,
+      safetyFlags: [],
+      explanation: protectedAnchors.length > 0 ? "Boxing you added stays visible. Generate an app support plan from Plan when ready." : PLAN_GENERATION_REQUIRED_REASON
+    };
+  });
+}
+
+function pendingNextWeekMaterialization(input: {
+  athlete: AthleteProfile;
+  currentBlock: TrainingBlock;
+  currentMicrocycle: TrainingMicrocycle;
+  engineVersion: string;
+}): TrainingState["nextWeekMaterialization"] {
+  const nextWeekStartDate = addDays(input.currentMicrocycle.weekEndDate, 1);
+  const nextWeekEndDate = addDays(nextWeekStartDate, 6);
+  const planRevisionId = `plan_required:${input.athlete.athleteId}:${input.currentMicrocycle.weekStartDate}`;
+  return {
+    nextWeekIndex: input.currentBlock.progressionState.weekIndex + 1,
+    nextWeekStartDate,
+    nextWeekEndDate,
+    engineVersion: input.engineVersion,
+    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION,
+    planRevisionId,
+    planFingerprint: planRevisionId,
+    primaryFocus: "balanced",
+    trainingDose: "minimal",
+    selectedSupportDays: [],
+    targetGeneratedSupportCount: 0,
+    targetWeeklyGeneratedMinutes: 0,
+    materializedPhase: input.currentBlock.phase,
+    materializedDecision: "hold",
+    materializedVolumeStrategy: "conservative_start",
+    targetHardDayCap: 0,
+    generatedSupportBias: "durability",
+    sessionFamilyBiases: [],
+    blockedProgressionReasons: [PLAN_GENERATION_REQUIRED_REASON],
+    safetyNotes: ["No future app workouts are generated until a plan is requested from Plan."],
+    explanation: PLAN_GENERATION_REQUIRED_REASON,
+    confidence: {
+      level: "low",
+      score: 0.3,
+      reasons: ["Plan generation is explicitly deferred after onboarding."],
+      missingInputs: ["plan focus", "training dose", "support days"]
+    },
+    nextWeekDayPlanPreview: Array.from({ length: 7 }, (_, index) => ({
+      date: addDays(nextWeekStartDate, index),
+      role: "support_day" as const,
+      protectedAnchors: [],
+      generatedSupport: "No generated support.",
+      hardDay: false,
+      fuelDemand: "low" as const,
+      safetyNotes: ["Generate a plan before previewing next-week app workouts."],
+      explanation: PLAN_GENERATION_REQUIRED_REASON
+    }))
+  };
+}
+
+function planGenerationRequiredState(input: {
+  athlete: AthleteProfile;
+  anchors: readonly ProtectedWorkout[];
+  asOfDate: ISODateString;
+  phase: PhaseState;
+  readiness: ReadinessState;
+  cycle: CycleState;
+  completedSessions?: readonly CompletedTrainingSession[] | undefined;
+  recentExerciseResults?: readonly ExerciseResultRecord[] | undefined;
+  safetyFlags?: readonly RiskFlag[] | undefined;
+  engineVersion?: string | undefined;
+  blockHistory?: TrainingBlockHistory | undefined;
+  foodLogSummary: DailyFoodLogSummary;
+  foodLogCount?: number | undefined;
+  hydrationLogCount?: number | undefined;
+  electrolyteLogCount?: number | undefined;
+}): TrainingState {
+  const engineVersion = input.engineVersion ?? "unversioned";
+  const weekEndDate = addDays(input.asOfDate, 6);
+  const dayPlans = pendingPlanDayPlans({
+    anchors: input.anchors,
+    asOfDate: input.asOfDate,
+    completedSessions: input.completedSessions ?? []
+  });
+  const protectedHardDayCount = dayPlans.filter((day) => day.hardDay).length;
+  const recoveryDays = dayPlans.filter((day) => day.protectedAnchors.length === 0).map((day) => day.date);
+  const phase = pendingBlockPhase(input.phase);
+  const primaryGoal = pendingBlockGoal(phase);
+  const progressionState = {
+    weekIndex: 1,
+    status: "hold" as const,
+    progressionRecommendation: "unknown" as const,
+    reason: PLAN_GENERATION_REQUIRED_REASON
+  };
+  const weeklyStructure = {
+    weekStartDate: input.asOfDate,
+    weekEndDate,
+    hardDayCap: 0,
+    plannedHardDays: protectedHardDayCount,
+    protectedAnchorCount: input.anchors.length,
+    generatedSupportCount: 0,
+    recoveryDays,
+    dayPlans,
+    summary: "No app support workouts yet. Generate a plan from Plan to choose focus, dose, and support days."
+  };
+  const blockRecommendation = {
+    phase,
+    primaryGoal,
+    secondaryGoals: [] as const,
+    summary: "Plan setup required before app workouts are generated.",
+    reason: PLAN_GENERATION_REQUIRED_REASON,
+    progressionState,
+    warnings: [] as const
+  };
+  const activeBlock = {
+    id: `plan_setup_required:${input.athlete.athleteId}:${input.asOfDate}`,
+    athleteId: input.athlete.athleteId,
+    startDate: input.asOfDate,
+    endDate: weekEndDate,
+    phase,
+    primaryGoal,
+    secondaryGoals: [] as const,
+    weeklyStructure,
+    progressionState,
+    createdBy: "engine" as const,
+    engineVersion
+  };
+  const currentMicrocycle = {
+    weekStartDate: input.asOfDate,
+    weekEndDate,
+    hardDayCap: 0,
+    plannedHardDays: protectedHardDayCount,
+    protectedAnchorCount: input.anchors.length,
+    generatedSupportCount: 0,
+    recoveryDays,
+    notes: ["Plan generation is deferred until the athlete chooses focus, dose, and support days in Plan."]
+  };
+  const generationConstraints = classifyTrainingGenerationConstraints({
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags ?? [],
+    foodLogCount: input.foodLogCount,
+    foodLogSummary: input.foodLogSummary,
+    cycle: input.cycle,
+    protectedAnchors: input.anchors,
+    date: input.asOfDate
+  });
+  const executionReadiness = resolveTrainingReadinessFuelingIntegration({
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags ?? [],
+    foodLogSummary: input.foodLogSummary,
+    hydrationLogCount: input.hydrationLogCount ?? 0,
+    electrolyteLogCount: input.electrolyteLogCount ?? 0
+  });
+  const plannedLoadLedger = buildPlannedLoadLedger(input.anchors, []);
+  const actualLoadLedger = buildActualLoadLedger(input.completedSessions ?? [], input.asOfDate, input.recentExerciseResults ?? []);
+  const selectedDays: readonly GeneratedSupportWeekday[] = [];
+  const planRevisionId = `plan_required:${input.athlete.athleteId}:${input.asOfDate}`;
+  const zeroMix = zeroStimulusMix();
+  const todayPlan = dayPlans.find((day) => day.date === input.asOfDate) ?? null;
+  const baseOperatingMode = resolveDailyOperatingMode({
+    integration: executionReadiness,
+    safetyFlags: input.safetyFlags ?? [],
+    todayPlan,
+    todaySessions: [],
+    phase: input.phase
+  });
+  const dailyOperatingMode = {
+    ...baseOperatingMode,
+    title: "Plan setup required",
+    athleteFacingSummary: "No app support workout is generated yet. Use Plan to choose focus, dose, and support days first.",
+    primaryAction: "Generate a plan from Plan before starting app workouts.",
+    secondaryAction: "Log boxing manually if it happens before your app plan is ready.",
+    missingDataImpact: "Missing logs do not create app workouts. Plan choices are required first."
+  };
+  const supportGenerationAudit: TrainingState["supportGenerationAudit"] = {
+    asOfDate: input.asOfDate,
+    planStartDate: input.asOfDate,
+    planRevisionId,
+    engineVersion,
+    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION,
+    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+    planFingerprint: planRevisionId,
+    planFingerprintMaterial: { reason: "plan_generation_required", asOfDate: input.asOfDate, athleteId: input.athlete.athleteId },
+    prescriptionValidationPassed: true,
+    prescriptionValidationFailures: [],
+    activeTrainingBlockId: activeBlock.id,
+    weekIndex: 1,
+    selectedSupportDays: selectedDays,
+    selectedTrainingDose: "minimal",
+    selectedSupportDayCount: 0,
+    requestedSupportDayCount: 0,
+    targetSessionCountReason: PLAN_GENERATION_REQUIRED_REASON,
+    unusedAvailableDays: normalizeGeneratedSupportWeekdays(input.athlete.scheduleAvailability).map((weekday) => weekday),
+    unusedAvailableDayReasons: [PLAN_GENERATION_REQUIRED_REASON],
+    targetGeneratedSupportCount: 0,
+    originalTargetGeneratedSupportCount: 0,
+    pastGeneratedSupportCount: 0,
+    pastPlacedGeneratedSupportCount: 0,
+    completedPastGeneratedSupportCount: 0,
+    skippedPastGeneratedSupportCount: 0,
+    unresolvedPastGeneratedSupportCount: 0,
+    resolvedPastGeneratedSupportCount: 0,
+    futurePersistedGeneratedSupportCount: 0,
+    remainingGeneratedSupportTarget: 0,
+    remainingUnfilledPrescriptionSlots: 0,
+    looseEndSessionIds: [],
+    autoRollForwardPrevented: false,
+    autoRollForwardExplanation: "No app support plan exists yet.",
+    scheduleRevisionChanged: false,
+    scheduleChangeReasons: [],
+    actualGeneratedSupportCount: 0,
+    todayGeneratedSupportCount: 0,
+    generatedSessionDates: [],
+    generatedSessionTitles: [],
+    generatedSessionFamilies: [],
+    generatedSessionDurationAudit: [],
+    persistedGeneratedSessionsConsidered: [],
+    persistedGeneratedSessionsIgnored: [],
+    candidateAllowedDays: 0,
+    activeAdjustmentCount: 0,
+    activeRiskFlagCodes: (input.safetyFlags ?? []).filter((flag) => flag.status === "active").map((flag) => flag.code),
+    baselinePrescriptionTargets: { targetGeneratedSupportCount: 0, targetHardDayCount: 0, targetWeeklyGeneratedMinutes: 0 },
+    readinessGenerationImpact: "none",
+    nutritionGenerationImpact: "none",
+    hydrationGenerationImpact: "none",
+    missingLogsAffectedExecutionOnly: true,
+    executionAdjustmentsApplied: executionReadiness.sessionExecutionGuidance,
+    evidenceBasedOverridesApplied: [],
+    readinessDownshiftReasons: [],
+    nutritionDownshiftReasons: [],
+    plannedVsFinalTrainingDelta: { targetGeneratedSupportCount: 0, actualGeneratedSupportCount: 0, targetHardDayCount: 0, actualHardDayCount: protectedHardDayCount, targetWeeklyGeneratedMinutes: 0, actualWeeklyGeneratedMinutes: 0 },
+    generationConstraintSummary: generationConstraints,
+    hardSafetyConstraints: generationConstraints.hardSafetyConstraints,
+    evidenceBasedLoadConstraints: generationConstraints.evidenceBasedLoadConstraints,
+    advisoryUncertainty: generationConstraints.advisoryUncertainty,
+    missingDataAdvisories: ["Plan focus, training dose, and support days are required before app workouts are generated."],
+    plannedTrainingStimulusMix: zeroMix,
+    actualTrainingStimulusMix: zeroMix,
+    targetHardDayCount: 0,
+    minHardDayCount: 0,
+    maxHardDayCount: 0,
+    actualHardDayCount: protectedHardDayCount,
+    targetHighStimulusDayCount: 0,
+    actualHighStimulusDayCount: protectedHardDayCount,
+    protectedHardDayCount,
+    generatedHardDayCount: 0,
+    targetWeeklyGeneratedMinutes: 0,
+    actualWeeklyGeneratedMinutes: 0,
+    longestSessionMinutes: 0,
+    sessionsOver60Minutes: 0,
+    minimumUsefulSessionDuration: 0,
+    targetStimulusMix: zeroMix,
+    actualStimulusMix: zeroMix,
+    unmetPrescriptionTargets: [],
+    whyHardDaysWereReduced: [PLAN_GENERATION_REQUIRED_REASON],
+    whyVolumeWasReduced: [PLAN_GENERATION_REQUIRED_REASON],
+    whyOnlyFourSessionsIfSixDaysAvailable: [],
+    whyOnlyTwoHardDaysIfTargetWasThree: [],
+    whyAllSessionsUnder60IfSeriousOrHigh: [],
+    repairActionsApplied: [],
+    targetStrengthExposures: 0,
+    actualStrengthExposures: 0,
+    targetConditioningExposures: 0,
+    actualConditioningExposures: 0,
+    targetPowerExposures: 0,
+    actualPowerExposures: 0,
+    targetBoxingSkillExposures: 0,
+    actualBoxingSkillExposures: 0,
+    targetTechnicalExposures: 0,
+    actualTechnicalExposures: 0,
+    targetAgilityFootworkExposures: 0,
+    actualAgilityFootworkExposures: 0,
+    targetMobilityRecoveryExposures: 0,
+    actualMobilityRecoveryExposures: 0,
+    targetAddOnBlocks: 0,
+    actualAddOnBlocks: 0,
+    targetRequiredAddOnBlocks: 0,
+    actualRequiredAddOnBlocks: 0,
+    targetRecommendedAddOnBlocks: 0,
+    actualRecommendedAddOnBlocks: 0,
+    targetOptionalAddOnBlocks: 0,
+    actualOptionalAddOnBlocks: 0,
+    optionalAddOnBlocks: [],
+    targetAthleteQualityCheckpoints: 0,
+    actualAthleteQualityCheckpoints: 0,
+    athleteQualityCues: [],
+    sessionQualityCheckpoints: [],
+    selfCheckCues: [],
+    boxingDevelopmentThemeId: "plan_generation_required",
+    boxingDevelopmentThemeTitle: "Plan setup required",
+    athleteFacingThemePurpose: "Choose the actual training focus and dose before app workouts exist.",
+    targetSkillProgression: [],
+    athleteFacingWeekSummary: "Generate a plan from Plan to create app support workouts around your boxing schedule.",
+    boxingDevelopmentTheme: "Plan setup required",
+    protectedAnchorsCountedAsSkill: 0,
+    generatedSkillSessions: [],
+    skillExposureMissingReasons: [],
+    addOnPlacementReasons: [],
+    missingLogsAffectedGeneration: false,
+    protectedAnchorsSuppliedHardWork: protectedHardDayCount > 0,
+    familySelectionReasons: [],
+    downshiftReasons: [],
+    missingLogsDidNotReduceTraining: true,
+    generatedSupportPlacementReasons: [],
+    blockedGenerationReasons: [PLAN_GENERATION_REQUIRED_REASON],
+    reducedBy: []
+  };
+
+  return {
+    protectedAnchors: input.anchors,
+    completedSessions: input.completedSessions ?? [],
+    recentExerciseResults: input.recentExerciseResults ?? [],
+    generatedSessions: [],
+    todaySessions: [],
+    activeBlock,
+    currentMicrocycle,
+    dayPlans,
+    blockRecommendation,
+    adjustmentHistory: [],
+    activeAdjustments: [],
+    adjustmentDecisions: [],
+    blockHistory: input.blockHistory ?? { blockId: null, summaries: [], decisions: [], timelineEvents: [], latestWeekIndex: 0 },
+    currentWeekSummary: null,
+    latestProgressionDecision: null,
+    nextWeekMaterialization: pendingNextWeekMaterialization({ athlete: input.athlete, currentBlock: activeBlock, currentMicrocycle, engineVersion }),
+    timelineEvents: [],
+    plannedLoadLedger,
+    actualLoadLedger,
+    requiresPlanGeneration: true,
+    supportGenerationAudit,
+    executionReadiness,
+    dailyOperatingMode,
+    explanation: PLAN_GENERATION_REQUIRED_REASON,
+    confidence: makeConfidence(0.35, ["Plan generation is deferred until Plan captures focus, dose, and support days."], ["plan focus", "training dose", "support days"])
+  };
 }
 
 function protectedBoxingSkillOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
@@ -832,6 +1245,7 @@ export function resolveWeeklyTrainingPlan(input: {
   activeTrainingBlockId?: string | null | undefined;
   blockHistory?: TrainingBlockHistory | undefined;
   planGenerationIntent?: PlanGenerationIntent | undefined;
+  requiresPlanGeneration?: boolean | undefined;
   persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
 }): TrainingState {
   const generationConstraints = classifyTrainingGenerationConstraints({
@@ -850,6 +1264,9 @@ export function resolveWeeklyTrainingPlan(input: {
     hydrationLogCount: input.hydrationLogCount ?? 0,
     electrolyteLogCount: input.electrolyteLogCount ?? 0
   });
+  if (input.requiresPlanGeneration) {
+    return planGenerationRequiredState(input);
+  }
   const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags ?? []);
   const hardStopOrRedReadiness = redReadinessHardStop || hardStopSafetyActive(input.safetyFlags);
   const hardStopFlags = activeHardStopFlags(input.safetyFlags).filter(workoutGenerationStopFlag);

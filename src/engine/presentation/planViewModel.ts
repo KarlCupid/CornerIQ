@@ -445,6 +445,14 @@ function rollForwardStatus(
   state: PerformanceState,
   preview: NextWeekPreviewViewModel
 ): Pick<PlanViewModel, "rollForwardStatus" | "rollForwardMessage" | "rollForwardRiskLabel" | "rollForwardRiskTone"> {
+  if (state.training.requiresPlanGeneration) {
+    return {
+      rollForwardStatus: "not_available",
+      rollForwardMessage: "Generate your first plan before previewing next week.",
+      rollForwardRiskLabel: "Notice",
+      rollForwardRiskTone: "info"
+    };
+  }
   if (preview.persistedStatus === "materialized") {
     return {
       rollForwardStatus: "materialized",
@@ -544,6 +552,9 @@ function latestLifecycleSource(state: PerformanceState): string | null {
 }
 
 function planLifecycleLabel(state: PerformanceState): string {
+  if (state.training.requiresPlanGeneration) {
+    return "Plan setup required";
+  }
   const week = state.training.activeBlock.progressionState.weekIndex;
   const source = latestLifecycleSource(state);
   if (source === "plan_wizard_new_plan") {
@@ -655,7 +666,9 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       .filter((adjustment) => adjustment.planDate === date)
       .map((adjustment) => `${adjustment.adjustmentType.replaceAll("_", " ")} ${adjustment.status}: ${adjustment.engineResponse.explanation}`);
   const topActionPrimary =
-    nextWeekPreview.canAccept
+    state.training.requiresPlanGeneration
+      ? "Generate your first app workout plan by choosing focus, dose, and support days."
+      : nextWeekPreview.canAccept
       ? "Preview next week is ready when you want to review it."
       : "Change goal or update boxing sessions you added when your schedule changes.";
   return {
@@ -664,15 +677,18 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       title: "Plan action",
       purpose: "CornerIQ adds support workouts around boxing sessions you added.",
       primaryAction: topActionPrimary,
-      why: currentWeekSummary?.summary ?? state.training.activeBlock.weeklyStructure.summary,
-      optional: "Safety notes stay visible if review is needed."
+      why: state.training.requiresPlanGeneration ? "Onboarding saved your boxer profile. App workouts wait until Plan captures actual programming choices." : currentWeekSummary?.summary ?? state.training.activeBlock.weeklyStructure.summary,
+      optional: state.training.requiresPlanGeneration ? "Boxing you added can still be logged manually." : "Safety notes stay visible if review is needed."
     },
+    requiresPlanGeneration: state.training.requiresPlanGeneration,
     modeLabel: modeLabel(state),
     goalSummary: state.fightContext
       ? `${state.fightContext.status.replaceAll("_", " ")} bout on ${state.fightContext.boutDate}.`
       : state.tournamentContext
         ? `${state.tournamentContext.tournamentStartDate} to ${state.tournamentContext.tournamentEndDate}.`
-        : `${state.training.activeBlock.primaryGoal.replaceAll("_", " ")} focus.`,
+        : state.training.requiresPlanGeneration
+          ? "Choose a build, camp, tournament, or recovery plan in Plan."
+          : `${state.training.activeBlock.primaryGoal.replaceAll("_", " ")} focus.`,
     acceptedPreviewStatus: nextWeekPreview.persistedStatus,
     boundaryDate: nextWeekPreview.weekStartDate,
     weeklySummary: state.training.supportGenerationAudit.athleteFacingWeekSummary,

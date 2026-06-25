@@ -618,6 +618,7 @@ export interface TrainingBlockHistoryDetailViewModel {
 export interface PlanViewModel {
   title: string;
   topAction: TopActionViewModel;
+  requiresPlanGeneration?: boolean | undefined;
   modeLabel: "Build phase" | "Fight camp" | "Tournament mode" | "Recovery";
   goalSummary: string;
   acceptedPreviewStatus: NextWeekPreviewViewModel["persistedStatus"];

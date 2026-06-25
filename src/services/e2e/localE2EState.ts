@@ -10,6 +10,15 @@ export const LOCAL_E2E_DUE_WORKOUT_AS_OF_DATE: ISODateString = "2026-05-18";
 export const LOCAL_E2E_DUE_WORKOUT_SCENARIO = "due_workout_today";
 export const LOCAL_E2E_USER_ID = "local-e2e-athlete";
 
+const LOCAL_E2E_DEFAULT_BUILD_GOAL: BuildGoalDraft = {
+  primaryFocus: "balanced",
+  trainingDose: "standard",
+  scheduleAvailability: ["monday", "wednesday", "saturday"],
+  planStartDate: LOCAL_E2E_DUE_WORKOUT_AS_OF_DATE,
+  planAction: "start_new_plan",
+  protectedScheduleMode: "keep_existing"
+};
+
 export type LocalE2EScenario = "default" | typeof LOCAL_E2E_DUE_WORKOUT_SCENARIO;
 
 export function normalizeLocalE2EScenario(value: string | null | undefined): LocalE2EScenario {
@@ -31,11 +40,12 @@ export function buildLocalE2EPerformanceState(input: {
   const scenario = input.scenario ?? "default";
   const asOfDate = input.asOfDate ?? localE2EDefaultAsOfDateForScenario(scenario);
   const userId = input.userId ?? LOCAL_E2E_USER_ID;
-  const selectedSupportDays = normalizeGeneratedSupportWeekdays(input.buildGoalDraft?.scheduleAvailability ?? input.buildGoalDraft?.generatedSupportAvailableDays ?? []);
-  const trainingDose = input.buildGoalDraft?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedSupportDays.length);
-  const planStartDate = input.buildGoalDraft?.planStartDate ?? asOfDate;
-  const localPlanIntentId = input.buildGoalDraft
-    ? `local-plan:${userId}:${input.buildGoalDraft.primaryFocus}:${trainingDose}:${planStartDate}:${selectedSupportDays.join("-") || "default"}`
+  const buildGoalDraft = input.buildGoalDraft === undefined ? LOCAL_E2E_DEFAULT_BUILD_GOAL : input.buildGoalDraft;
+  const selectedSupportDays = normalizeGeneratedSupportWeekdays(buildGoalDraft?.scheduleAvailability ?? buildGoalDraft?.generatedSupportAvailableDays ?? []);
+  const trainingDose = buildGoalDraft?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedSupportDays.length);
+  const planStartDate = buildGoalDraft?.planStartDate ?? asOfDate;
+  const localPlanIntentId = buildGoalDraft
+    ? `local-plan:${userId}:${buildGoalDraft.primaryFocus}:${trainingDose}:${planStartDate}:${selectedSupportDays.join("-") || "default"}`
     : null;
   const athlete = {
     ...buildDemoAthleteProfile(userId),
@@ -108,14 +118,14 @@ export function buildLocalE2EPerformanceState(input: {
         occurredAt: `${asOfDate}T12:00:00.000Z`,
         payload: { source: "local_e2e_demo" }
       },
-      ...(input.buildGoalDraft && localPlanIntentId
+      ...(buildGoalDraft && localPlanIntentId
         ? [
             {
               id: `${localPlanIntentId}:event`,
               type: "BuildPhaseStarted" as const,
               occurredAt: `${asOfDate}T12:05:00.000Z`,
               payload: {
-                primaryFocus: input.buildGoalDraft.primaryFocus,
+                primaryFocus: buildGoalDraft.primaryFocus,
                 source: "plan_wizard_new_plan",
                 supportPrescription: "engine_owned",
                 generatedSupportAvailableDays: selectedSupportDays,
@@ -123,9 +133,9 @@ export function buildLocalE2EPerformanceState(input: {
                 planGenerationIntent: {
                   id: localPlanIntentId,
                   userId,
-                  action: input.buildGoalDraft.planAction ?? "start_new_plan",
+                  action: buildGoalDraft.planAction ?? "start_new_plan",
                   goalMode: "build",
-                  primaryFocus: input.buildGoalDraft.primaryFocus,
+                  primaryFocus: buildGoalDraft.primaryFocus,
                   trainingDose,
                   selectedSupportDays,
                   planStartDate,
@@ -144,6 +154,6 @@ export function buildLocalE2EPerformanceState(input: {
   return resolvePerformanceState({
     journey,
     asOfDate,
-    generatedAt: input.buildGoalDraft ? `${asOfDate}T12:10:00.000Z` : `${asOfDate}T12:00:00.000Z`
+    generatedAt: buildGoalDraft ? `${asOfDate}T12:10:00.000Z` : `${asOfDate}T12:00:00.000Z`
   });
 }

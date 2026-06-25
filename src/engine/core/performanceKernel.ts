@@ -124,6 +124,10 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   });
   const blockHistory = trainingBlockHistoryFor(journey);
   const planGenerationIntent = resolveActivePlanGenerationIntent(journey, input.asOfDate);
+  const requiresPlanGeneration =
+    !planGenerationIntent &&
+    !journey.activeTrainingBlock &&
+    journey.journeyEvents.some((event) => event.type === "OnboardingCompleted");
   const persistedGeneratedSessions = journey.trainingHistory;
   const foodLogCountToday = nutritionHistory.filter((log) => log.date === input.asOfDate).length;
   const foodStatusEvents = foodStatusEventsFromJourneyEvents(journey.journeyEvents);
@@ -152,6 +156,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     activeTrainingBlock: journey.activeTrainingBlock,
     activeTrainingBlockId: journey.currentTrainingBlock,
     blockHistory,
+    requiresPlanGeneration,
     ...(planGenerationIntent ? { planGenerationIntent } : {}),
     persistedGeneratedSessions
   });
@@ -220,6 +225,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     activeTrainingBlock: journey.activeTrainingBlock,
     activeTrainingBlockId: journey.currentTrainingBlock,
     blockHistory,
+    requiresPlanGeneration,
     ...(planGenerationIntent ? { planGenerationIntent } : {}),
     persistedGeneratedSessions
   });

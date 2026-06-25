@@ -4437,6 +4437,41 @@ describe("minimal app screens", () => {
     expect(trainOutput).toContain("Building a conservative session from what we know today.");
   });
 
+  it("PlanScreen opens first-plan generation after onboarding before app workouts exist", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal: vi.fn(),
+        onSaveFightSetup: vi.fn(),
+        onSaveRecoveryGoal: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: {
+          ...planViewModel,
+          requiresPlanGeneration: true,
+          topAction: {
+            ...planViewModel.topAction,
+            primaryAction: "Generate your first app workout plan by choosing focus, dose, and support days."
+          }
+        }
+      })
+    );
+
+    const output = JSON.stringify(renderer.toJSON());
+    const wizardModal = (renderer.root.findAllByType("View") as TestInstance[]).find((item) => (item.props as { testID?: string }).testID === "plan-goal-wizard-modal");
+    if (!wizardModal) {
+      throw new Error("Plan goal wizard modal was not rendered.");
+    }
+    const wizardOutput = JSON.stringify(wizardModal.findAllByType("Text").map((label) => label.props.children));
+    expect(output).toContain("Plan generation wizard");
+    expect(output).toContain("Generate new plan");
+    expect(wizardOutput).toContain("Step 1: Goal type");
+    expect(wizardOutput).not.toContain("Change goal or schedule");
+  });
+
   it("PlanScreen surfaces review notes when app sessions are capped", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const renderer = render(

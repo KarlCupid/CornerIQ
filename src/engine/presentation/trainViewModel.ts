@@ -363,7 +363,9 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   const preSessionGate = preSessionReadinessGate(state, todayGeneratedSessionsRaw[0] ?? null, trainingRiskSummary);
   const trainingHardStops = state.safety.hardStops.filter(trainingSafetyFlag);
   const generationExplanation =
-    trainingHardStops.length > 0
+    state.training.requiresPlanGeneration
+      ? "No app support workout exists yet. Generate a plan from Plan before starting app workouts."
+      : trainingHardStops.length > 0
       ? "Safety signs are active; use recovery-focused guidance today."
       : state.training.executionReadiness.readinessStatus === "red_hard_stop"
         ? "Hard-stop readiness symptoms are active. Use recovery-focused guidance."
@@ -371,7 +373,9 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
           ? "Readiness is red, so keep training conservative."
         : plainTrainingCopy(plan?.explanation ?? state.training.explanation);
   const primaryTrainingAction =
-    trainingHardStops.length > 0
+    state.training.requiresPlanGeneration
+      ? "Go to Plan and generate your first workout plan."
+      : trainingHardStops.length > 0
       ? "Use recovery-focused guidance and skip extra hard work."
       : todayGeneratedSessions.length > 0
         ? "Start today's support workout when ready."
@@ -395,7 +399,9 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
   return {
     title: "Train",
     executionOverlay: {
-      plannedTraining: todayGeneratedSessions.length > 0
+      plannedTraining: state.training.requiresPlanGeneration
+        ? "No app support workout yet. Generate a plan from Plan first."
+        : todayGeneratedSessions.length > 0
         ? todayGeneratedSessions.map((session) => `${plainWorkoutTitle(session.title, session.family)} (${session.durationMinutes} min)`).join(", ")
         : upcomingSummary(upcomingGeneratedSessions),
       executionGuidance: state.training.dailyOperatingMode.executionGuidance,
@@ -409,7 +415,9 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       why: generationExplanation,
       optional: "Session RPE is enough when time is tight."
     },
-    todaySummary: todayGeneratedSessions.length > 0
+    todaySummary: state.training.requiresPlanGeneration
+      ? "No app support workout yet. Generate a plan from Plan first."
+      : todayGeneratedSessions.length > 0
       ? todayGeneratedSessions.map((session) => plainWorkoutTitle(session.title, session.family)).join(", ")
       : upcomingSummary(upcomingGeneratedSessions),
     todayGeneratedSessions,

@@ -206,46 +206,29 @@ describe("onboardingService", () => {
     const buildEvent = store.events.find((event) => event.type === "BuildPhaseStarted");
     expect(buildEvent?.payload).toEqual(
       expect.objectContaining({
-        primaryFocus: "balanced",
-        supportPrescription: "engine_owned",
-        generatedSupportAvailableDays: ["monday", "wednesday", "saturday"],
-        scheduleAvailability: ["monday", "wednesday", "saturday"],
-        trainingDose: "standard",
-        selectedTrainingDose: "standard",
-        selectedSupportDays: ["monday", "wednesday", "saturday"],
-        planStartDate: fixtureAsOfDate,
-        protectedScheduleMode: "keep_existing",
         source: "onboarding",
-        planRevisionId: expect.stringMatching(/^plan:user_1:/),
-        planGenerationIntent: expect.objectContaining({
-          action: "start_new_plan",
-          goalMode: "build",
-          primaryFocus: "balanced",
-          trainingDose: "standard",
-          selectedSupportDays: ["monday", "wednesday", "saturday"],
-          planStartDate: fixtureAsOfDate,
-          protectedScheduleMode: "keep_existing",
-          status: "active"
-        })
+        planGenerationDeferred: true
       })
     );
+    expect(buildEvent?.payload).not.toHaveProperty("planGenerationIntent");
     const result = await resolveFromStore(repositories);
     expect(result.status).toBe("ready");
     if (result.status === "ready") {
+      expect(result.state.training.requiresPlanGeneration).toBe(true);
+      expect(result.state.training.generatedSessions).toEqual([]);
+      expect(result.state.training.todaySessions).toEqual([]);
       expect(result.state.training.currentMicrocycle.protectedAnchorCount).toBe(0);
       expect(result.state.training.protectedAnchors).toEqual([]);
-      expect(result.state.training.planGenerationIntent).toEqual(
-        expect.objectContaining({
-          action: "start_new_plan",
-          goalMode: "build",
-          primaryFocus: "balanced",
-          trainingDose: "standard",
-          selectedSupportDays: ["monday", "wednesday", "saturday"],
-          planStartDate: fixtureAsOfDate
-        })
-      );
-      expect(result.state.training.supportGenerationAudit.planRevisionId).not.toMatch(/^projection:/);
+      expect(result.state.training.planGenerationIntent).toBeUndefined();
+      expect(result.state.training.supportGenerationAudit.planRevisionId).toMatch(/^plan_required:/);
+      expect(result.state.viewModels.plan.requiresPlanGeneration).toBe(true);
+      expect(result.state.viewModels.plan.topAction.primaryAction).toContain("Generate");
+      expect(result.state.viewModels.train.topAction.primaryAction).toContain("Go to Plan");
     }
+    expect(repositories.trainingBlock.upsertActiveTrainingBlock).not.toHaveBeenCalled();
+    expect(repositories.trainingBlock.upsertTrainingMicrocycle).not.toHaveBeenCalled();
+    expect(repositories.trainingBlock.upsertTrainingDayPlans).not.toHaveBeenCalled();
+    expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });
 
   it("cycle enabled and manual-only wearable preferences write to athlete profile", async () => {

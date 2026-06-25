@@ -763,6 +763,12 @@ async function persistPerformanceState(
   }
   await repositories.engineRun.upsertNutritionTarget(mapNutritionTargetToRow(userId, state, inputHash));
   const reviewPersistence = await persistNutritionSafetyReviewProjection(userId, inputHash, state, repositories);
+  if (state.training.requiresPlanGeneration) {
+    return {
+      state: reviewPersistence.state,
+      persistenceWarning: reviewPersistence.persistenceWarning
+    };
+  }
   const blockPersistence = await persistTrainingBlockProjection(userId, inputHash, state, repositories, lifecycleSource);
   await repositories.engineRun.upsertGeneratedSessions(
     state.training.generatedSessions.map((session) =>
