@@ -1,15 +1,70 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import type { CycleState, PerformanceState, ProtectedWorkout, RiskFlag } from "../../engine/core/types";
+import type { CycleState, JourneyEvent, PerformanceState, PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, ProtectedWorkout, RiskFlag } from "../../engine/core/types";
 import { materializeGeneratedSessionsFromPreview } from "../../engine/training/nextWeekGeneratedSessionEngine";
 import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationEngine";
 import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
+import { generatedSupportWeekdayForDate, type GeneratedSupportWeekday } from "../../engine/training/supportAvailability";
 import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
 import { plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
 import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function stateFixture(): PerformanceState {
   return resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+}
+
+function planWizardBuildEvent(input: {
+  focus: PlanGenerationPrimaryFocus;
+  id: string;
+  selectedSupportDays: readonly GeneratedSupportWeekday[];
+  trainingDose: PlanGenerationTrainingDose;
+}): JourneyEvent {
+  return {
+    id: `event_${input.id}`,
+    type: "BuildPhaseStarted",
+    occurredAt: "2026-05-19T09:00:00.000Z",
+    payload: {
+      primaryFocus: input.focus,
+      source: "plan_wizard_new_plan",
+      scheduleAvailability: input.selectedSupportDays,
+      planGenerationIntent: {
+        id: input.id,
+        userId: pro_4_round_build_strength.athlete.athleteId,
+        action: "start_new_plan",
+        goalMode: "build",
+        primaryFocus: input.focus,
+        trainingDose: input.trainingDose,
+        selectedSupportDays: input.selectedSupportDays,
+        planStartDate: "2026-05-18",
+        requestedAt: "2026-05-19T09:00:00.000Z",
+        seed: input.id,
+        source: "plan_wizard",
+        status: "active"
+      }
+    }
+  };
+}
+
+function planState(input: {
+  focus: PlanGenerationPrimaryFocus;
+  id: string;
+  selectedSupportDays: readonly GeneratedSupportWeekday[];
+  trainingDose: PlanGenerationTrainingDose;
+}): PerformanceState {
+  return resolvePerformanceState({
+    journey: {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+      },
+      journeyEvents: [planWizardBuildEvent(input)],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    },
+    asOfDate: fixtureAsOfDate
+  });
 }
 
 function materializationFixture(state: PerformanceState, overrides: Partial<NextWeekTrainingMaterialization> = {}): NextWeekTrainingMaterialization {
@@ -136,6 +191,19 @@ function outputText(sessions: readonly ReturnType<typeof materializeGeneratedSes
 }
 
 describe("nextWeekGeneratedSessionEngine", () => {
+  it("uses selected support days and policy target count from the active plan contract", () => {
+    const selectedSupportDays: readonly GeneratedSupportWeekday[] = ["monday", "wednesday", "friday"];
+    const state = planState({ focus: "strength", id: "next_week_generated_selected_days", selectedSupportDays, trainingDose: "serious" });
+    const materialization = state.training.nextWeekMaterialization;
+    const sessions = materializeGeneratedSessionsFromPreview(inputFor(state, materialization));
+
+    expect(materialization.selectedSupportDays).toEqual(selectedSupportDays);
+    expect(sessions.length).toBe(Math.min(materialization.targetGeneratedSupportCount, selectedSupportDays.length));
+    expect(sessions.every((session) => selectedSupportDays.includes(generatedSupportWeekdayForDate(session.date)))).toBe(true);
+    expect(sessions.every((session) => session.planFingerprint === materialization.planFingerprint)).toBe(true);
+    expect(sessions.every((session) => session.prescriptionContractVersion === "athlete_prescription_contract_v1")).toBe(true);
+  });
+
   it("progress_small creates safe generated support sessions with stable ids", () => {
     const state = stateFixture();
     const materialization = materializationFixture(state, { materializedVolumeStrategy: "progress_small" });
@@ -348,7 +416,7 @@ describe("nextWeekGeneratedSessionEngine", () => {
     );
 
     expect(sessions.length).toBeGreaterThan(1);
-    expect(sessions.every((session) => session.fuelDemand === "low" || session.fuelDemand === "moderate")).toBe(true);
+    expect(sessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
     expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Food log is incomplete")))).toBe(true);
     expect(sessions.some((session) => session.modifications.some((modification) => modification.includes("Fueling data is low-confidence")))).toBe(true);
   });
@@ -392,8 +460,9 @@ describe("nextWeekGeneratedSessionEngine", () => {
 
   it("selected availability constrains generated session placement", () => {
     const state = stateFixture();
+    const selectedSupportDays: readonly GeneratedSupportWeekday[] = ["tuesday", "thursday", "saturday"];
     const sessions = materializeGeneratedSessionsFromPreview(
-      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small" }), {
+      inputFor(state, materializationFixture(state, { materializedVolumeStrategy: "progress_small", selectedSupportDays }), {
         athlete: { ...state.athlete, scheduleAvailability: ["tuesday", "thursday", "saturday"] }
       })
     );

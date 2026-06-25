@@ -285,6 +285,11 @@ export interface GeneratedTrainingSession {
   generatedSessionLifecycle?: GeneratedSessionLifecycle | undefined;
   planStartDate?: ISODateString | undefined;
   source?: "active_plan_generation" | "engine_projection" | "next_week_preview_materialization" | undefined;
+  engineVersion?: string | undefined;
+  prescriptionContractVersion?: string | undefined;
+  planIntentVersion?: string | undefined;
+  generatedSessionSchemaVersion?: string | undefined;
+  planFingerprint?: string | undefined;
   templateId?: string | undefined;
   targetDurationMinutes?: number | undefined;
   durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
@@ -745,6 +750,14 @@ export interface TrainingSupportGenerationAudit {
   asOfDate: ISODateString;
   planStartDate: ISODateString;
   planRevisionId: string;
+  engineVersion: string;
+  prescriptionContractVersion: string;
+  planIntentVersion: string;
+  generatedSessionSchemaVersion: string;
+  planFingerprint: string;
+  planFingerprintMaterial: Record<string, unknown>;
+  prescriptionValidationPassed: boolean;
+  prescriptionValidationFailures: readonly string[];
   activeTrainingBlockId: string;
   weekIndex: number;
   selectedSupportDays: readonly GeneratedSupportWeekday[];

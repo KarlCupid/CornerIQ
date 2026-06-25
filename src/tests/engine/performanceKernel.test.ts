@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 import type { GeneratedTrainingSession, JourneyEvent, PersistedTrainingPlanAdjustment, ReadinessCheckIn } from "../../engine/core/types";
+import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "../../engine/training/athletePrescriptionContract";
 import {
   apple_health_wearable_enhanced,
   fixtureAsOfDate,
@@ -207,6 +208,11 @@ describe("Corner Engine performance kernel", () => {
       protects: ["boxing quality"],
       modifications: [],
       fuelDemand: "moderate",
+      engineVersion: "test",
+      prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+      planIntentVersion: PLAN_INTENT_VERSION,
+      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+      planFingerprint: "fixture_fingerprint:moved_replay",
       prescriptionSlotId: "projection:athlete_base:2026-05-19:w1:slot1:2026-05-20",
       generatedSessionLifecycle: "moved"
     };

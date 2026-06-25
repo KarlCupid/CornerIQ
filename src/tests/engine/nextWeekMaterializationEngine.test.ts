@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import type { CompletedTrainingSession, ExerciseResultRecord, PerformanceState, RiskFlag, TrainingProgressionDecision, TrainingWeekSummary } from "../../engine/core/types";
+import type {
+  CompletedTrainingSession,
+  ExerciseResultRecord,
+  JourneyEvent,
+  PerformanceState,
+  PlanGenerationPrimaryFocus,
+  PlanGenerationTrainingDose,
+  RiskFlag,
+  TrainingProgressionDecision,
+  TrainingWeekSummary
+} from "../../engine/core/types";
 import { materializeNextWeekTrainingPlan } from "../../engine/training/nextWeekMaterializationEngine";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
@@ -109,9 +119,12 @@ function decisionFor(state: PerformanceState, summary: TrainingWeekSummary, over
 
 function materialize(state: PerformanceState, summary: TrainingWeekSummary | null, decision: TrainingProgressionDecision | null) {
   return materializeNextWeekTrainingPlan({
+    athlete: state.athlete,
     currentTrainingBlock: state.training.activeBlock,
     currentMicrocycle: state.training.currentMicrocycle,
     currentTrainingDayPlans: state.training.dayPlans,
+    planGenerationIntent: state.training.planGenerationIntent,
+    activePlanFingerprint: state.training.supportGenerationAudit.planFingerprint,
     latestTrainingWeekSummary: summary,
     latestTrainingProgressionDecision: decision,
     completedTrainingSessions: state.training.completedSessions,
@@ -127,7 +140,80 @@ function materialize(state: PerformanceState, summary: TrainingWeekSummary | nul
   });
 }
 
+function planWizardBuildEvent(input: {
+  focus: PlanGenerationPrimaryFocus;
+  id: string;
+  selectedSupportDays: readonly string[];
+  trainingDose: PlanGenerationTrainingDose;
+}): JourneyEvent {
+  return {
+    id: `event_${input.id}`,
+    type: "BuildPhaseStarted",
+    occurredAt: "2026-05-19T09:00:00.000Z",
+    payload: {
+      primaryFocus: input.focus,
+      source: "plan_wizard_new_plan",
+      scheduleAvailability: input.selectedSupportDays,
+      planGenerationIntent: {
+        id: input.id,
+        userId: pro_4_round_build_strength.athlete.athleteId,
+        action: "start_new_plan",
+        goalMode: "build",
+        primaryFocus: input.focus,
+        trainingDose: input.trainingDose,
+        selectedSupportDays: input.selectedSupportDays,
+        planStartDate: "2026-05-18",
+        requestedAt: "2026-05-19T09:00:00.000Z",
+        seed: input.id,
+        source: "plan_wizard",
+        status: "active"
+      }
+    }
+  };
+}
+
+function planState(input: {
+  focus: PlanGenerationPrimaryFocus;
+  id: string;
+  selectedSupportDays: readonly string[];
+  trainingDose: PlanGenerationTrainingDose;
+}): PerformanceState {
+  return resolvePerformanceState({
+    journey: {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        scheduleAvailability: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+      },
+      journeyEvents: [planWizardBuildEvent(input)],
+      trainingHistory: [],
+      trainingPlanAdjustments: [],
+      safetyFlags: []
+    },
+    asOfDate: fixtureAsOfDate
+  });
+}
+
 describe("next week materialization engine", () => {
+  it("preserves active plan focus, dose, selected support days, and fingerprint in the preview", () => {
+    const selectedSupportDays = ["monday", "wednesday", "friday"] as const;
+    const strength = planState({ focus: "strength", id: "next_week_strength_plan", selectedSupportDays, trainingDose: "serious" });
+    const conditioning = planState({ focus: "conditioning", id: "next_week_conditioning_plan", selectedSupportDays, trainingDose: "serious" });
+    const strengthPreview = strength.training.nextWeekMaterialization;
+    const conditioningPreview = conditioning.training.nextWeekMaterialization;
+
+    expect(strengthPreview.primaryFocus).toBe("strength");
+    expect(strengthPreview.trainingDose).toBe("serious");
+    expect(strengthPreview.selectedSupportDays).toEqual(selectedSupportDays);
+    expect(strengthPreview.prescriptionContractVersion).toBe("athlete_prescription_contract_v1");
+    expect(strengthPreview.planIntentVersion).toBe("plan_generation_intent_v1");
+    expect(strengthPreview.planRevisionId).toBe(strength.training.supportGenerationAudit.planRevisionId);
+    expect(strengthPreview.targetGeneratedSupportCount).toBeGreaterThan(2);
+    expect(strengthPreview.targetWeeklyGeneratedMinutes).toBeGreaterThan(0);
+    expect(strengthPreview.sessionFamilyBiases).not.toEqual(conditioningPreview.sessionFamilyBiases);
+    expect(strengthPreview.planFingerprint).not.toBe(conditioningPreview.planFingerprint);
+  });
+
   it("materializes progress, repeat, deload, and qualified review decisions into conservative strategies", () => {
     const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
     const summary = summaryFor(state);

@@ -693,9 +693,12 @@ async function persistTrainingBlockProjection(
   }
 
   const nextWeekMaterialization = buildNextWeekTrainingPreview({
+    athlete: state.athlete,
     currentTrainingBlock: state.training.activeBlock,
     currentMicrocycle: state.training.currentMicrocycle,
     currentTrainingDayPlans: state.training.dayPlans,
+    planGenerationIntent: state.training.planGenerationIntent,
+    activePlanFingerprint: state.training.supportGenerationAudit.planFingerprint,
     latestTrainingWeekSummary: weekSummary,
     latestTrainingProgressionDecision: rollForward.decision,
     completedTrainingSessions: state.training.completedSessions,

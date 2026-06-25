@@ -1,11 +1,18 @@
 import { z } from "zod";
 import { addDays } from "../core/dates";
 import type { Confidence, ISODateString } from "../core/sharedTypes";
+import { stableHash } from "../core/stableHash";
+import type { AthleteProfile } from "../athlete/types";
 import type { CycleState, FightOpportunity, ReadinessState, RiskDomain, RiskFlag, TournamentDetails } from "../core/types";
-import type { CompletedTrainingSession, ExerciseResultRecord, GeneratedSessionFamily, ProtectedWorkout } from "./types";
+import type { CompletedTrainingSession, ExerciseResultRecord, GeneratedSessionFamily, PlanGenerationIntent, PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, ProtectedWorkout } from "./types";
 import type { TrainingBlock, TrainingBlockPhase, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
 import type { TrainingProgressionDecision, TrainingProgressionDecisionValue, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
+import { defaultTrainingDoseForSupportDays } from "./planGenerationIntent";
+import { generatedSupportAllowedOnDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
+import { classifyTrainingGenerationConstraints } from "./trainingGenerationConstraints";
+import { resolveWeeklyTrainingPrescriptionPolicy } from "./weeklyTrainingPrescriptionPolicy";
+import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, PLAN_INTENT_VERSION } from "./athletePrescriptionContract";
 
 export type NextWeekTrainingVolumeStrategy =
   | "conservative_start"
@@ -47,6 +54,9 @@ const trainingBlockPhaseSchema = z.enum([
 
 const trainingProgressionDecisionValueSchema = z.enum(["progress", "repeat", "regress", "deload", "taper", "recovery", "coach_review", "hold"]);
 const trainingDayRoleSchema = z.enum(["hard_day", "recovery_day", "support_day", "taper_day", "tournament_conservation_day"]);
+const primaryFocusSchema = z.enum(["balanced", "power", "conditioning", "strength", "mobility"]);
+const trainingDoseSchema = z.enum(["minimal", "standard", "serious", "high"]);
+const generatedSupportWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const generatedSessionFamilySchema = z.enum([
   "strength_lower",
   "strength_upper",
@@ -59,13 +69,23 @@ const generatedSessionFamilySchema = z.enum([
   "roadwork_tempo",
   "roadwork_intervals",
   "round_based_conditioning",
+  "boxing_technical_shadowboxing",
+  "boxing_bag_skill",
+  "boxing_footwork_ringcraft",
+  "boxing_defense_movement",
+  "boxing_jab_entry_exit",
+  "boxing_counter_timing",
+  "boxing_round_skill_circuit",
   "footwork_agility",
+  "agility_reactive_footwork",
   "reaction_rhythm",
   "trunk_durability",
   "shoulder_scap_durability",
   "neck_trap_durability",
   "wrist_hand_durability",
   "hip_ankle_mobility",
+  "mobility_recovery_flow",
+  "movement_quality_prep",
   "recovery_reset",
   "taper_maintenance"
 ]);
@@ -91,6 +111,16 @@ export const NextWeekTrainingMaterializationSchema = z.object({
   nextWeekIndex: z.number().int().positive(),
   nextWeekStartDate: isoDateSchema,
   nextWeekEndDate: isoDateSchema,
+  engineVersion: z.string().min(1),
+  prescriptionContractVersion: z.string().min(1),
+  planIntentVersion: z.string().min(1),
+  planRevisionId: z.string().min(1),
+  planFingerprint: z.string().min(1),
+  primaryFocus: primaryFocusSchema,
+  trainingDose: trainingDoseSchema,
+  selectedSupportDays: z.array(generatedSupportWeekdaySchema),
+  targetGeneratedSupportCount: z.number().int().nonnegative(),
+  targetWeeklyGeneratedMinutes: z.number().int().nonnegative(),
   materializedPhase: trainingBlockPhaseSchema,
   materializedDecision: trainingProgressionDecisionValueSchema,
   materializedVolumeStrategy: NextWeekTrainingVolumeStrategySchema,
@@ -119,6 +149,16 @@ export interface NextWeekTrainingMaterialization {
   nextWeekIndex: number;
   nextWeekStartDate: ISODateString;
   nextWeekEndDate: ISODateString;
+  engineVersion: string;
+  prescriptionContractVersion: string;
+  planIntentVersion: string;
+  planRevisionId: string;
+  planFingerprint: string;
+  primaryFocus: PlanGenerationPrimaryFocus;
+  trainingDose: PlanGenerationTrainingDose;
+  selectedSupportDays: readonly GeneratedSupportWeekday[];
+  targetGeneratedSupportCount: number;
+  targetWeeklyGeneratedMinutes: number;
   materializedPhase: TrainingBlockPhase;
   materializedDecision: TrainingProgressionDecisionValue;
   materializedVolumeStrategy: NextWeekTrainingVolumeStrategy;
@@ -133,9 +173,12 @@ export interface NextWeekTrainingMaterialization {
 }
 
 export interface NextWeekMaterializationInput {
+  athlete: AthleteProfile;
   currentTrainingBlock: TrainingBlock;
   currentMicrocycle: TrainingMicrocycle;
   currentTrainingDayPlans: readonly TrainingDayPlan[];
+  planGenerationIntent?: PlanGenerationIntent | undefined;
+  activePlanFingerprint?: string | undefined;
   latestTrainingWeekSummary: TrainingWeekSummary | null;
   latestTrainingProgressionDecision: TrainingProgressionDecision | null;
   completedTrainingSessions: readonly CompletedTrainingSession[];
@@ -365,6 +408,114 @@ function protectedHard(anchors: readonly ProtectedWorkout[], date: ISODateString
   return anchors.some((anchor) => anchor.date === date && (anchor.type === "sparring" || anchor.type === "competition" || anchor.intensity === "hard" || anchor.intensity === "max"));
 }
 
+function competitionOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
+  return anchors.some((anchor) => anchor.date === date && anchor.type === "competition");
+}
+
+function focusFromPhase(phase: TrainingBlockPhase): PlanGenerationPrimaryFocus {
+  switch (phase) {
+    case "build_power":
+      return "power";
+    case "aerobic_base":
+      return "conditioning";
+    case "recovery_deload":
+      return "mobility";
+    case "build_strength":
+    case "camp_support":
+    case "fight_week_taper":
+    case "maintenance":
+    case "tournament_week":
+      return "balanced";
+  }
+}
+
+function selectedSupportDaysFor(input: NextWeekMaterializationInput): readonly GeneratedSupportWeekday[] {
+  const fromIntent = input.planGenerationIntent?.selectedSupportDays ?? [];
+  if (fromIntent.length > 0) {
+    return fromIntent;
+  }
+  return normalizeGeneratedSupportWeekdays(input.athlete.scheduleAvailability);
+}
+
+function supportBiasForPlan(phase: TrainingBlockPhase, strategy: NextWeekTrainingVolumeStrategy, focus: PlanGenerationPrimaryFocus): NextWeekGeneratedSupportBias {
+  if (strategy === "deload" || strategy === "hold_for_review" || strategy === "reduce_volume" || strategy === "taper" || strategy === "tournament_conserve") {
+    return supportBias(phase, strategy);
+  }
+  switch (focus) {
+    case "strength":
+      return "strength";
+    case "power":
+      return "power";
+    case "conditioning":
+      return "aerobic_base";
+    case "mobility":
+      return "recovery";
+    case "balanced":
+      return supportBias(phase, strategy);
+  }
+}
+
+function policyPhaseState(phase: TrainingBlockPhase) {
+  return {
+    phase: phase === "fight_week_taper" ? "fight_week" : phase === "tournament_week" ? "tournament" : phase === "recovery_deload" ? "recovery" : phase === "maintenance" ? "maintenance" : "build",
+    daysUntilBout: null,
+    daysUntilWeighIn: null,
+    reason: "Next-week prescription policy derived from active training block.",
+    confidence: { level: "medium", score: 0.7, reasons: ["active training block"], missingInputs: [] }
+  } as const;
+}
+
+function nextWeekPrescription(input: NextWeekMaterializationInput, phase: TrainingBlockPhase, nextWeekStartDate: ISODateString, nextWeekEndDate: ISODateString) {
+  const selectedSupportDays = selectedSupportDaysFor(input);
+  const primaryFocus = input.planGenerationIntent?.primaryFocus ?? focusFromPhase(phase);
+  const trainingDose = input.planGenerationIntent?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedSupportDays.length);
+  const candidateDates = Array.from({ length: 7 }, (_, index) => addDays(nextWeekStartDate, index));
+  const candidateAllowedDays = candidateDates.filter((date) => generatedSupportAllowedOnDate(selectedSupportDays, date) && !competitionOnDate(input.protectedWorkouts, date)).length;
+  const protectedHardDayCount = candidateDates.filter((date) => protectedHard(input.protectedWorkouts, date)).length;
+  const generationConstraints = classifyTrainingGenerationConstraints({
+    readiness: input.readiness,
+    safetyFlags: input.safetyFlags,
+    cycle: input.cycle,
+    protectedAnchors: input.protectedWorkouts,
+    date: nextWeekStartDate
+  });
+  const policy = resolveWeeklyTrainingPrescriptionPolicy({
+    athlete: input.athlete,
+    candidateAllowedDays,
+    generationConstraints,
+    phase: policyPhaseState(phase),
+    primaryFocus,
+    protectedHardDayCount,
+    selectedSupportDayCount: selectedSupportDays.length || candidateAllowedDays,
+    trainingDose
+  });
+
+  return {
+    candidateAllowedDays,
+    policy,
+    primaryFocus,
+    selectedSupportDays,
+    trainingDose,
+    fingerprintMaterial: {
+      activePlanFingerprint: input.activePlanFingerprint ?? null,
+      engineVersion: input.engineVersion,
+      planRevisionId: input.planGenerationIntent?.id ?? input.currentTrainingBlock.id,
+      nextWeekStartDate,
+      nextWeekEndDate,
+      primaryFocus,
+      trainingDose,
+      selectedSupportDays,
+      targetGeneratedSupportCount: policy.targetSessionCount,
+      targetWeeklyGeneratedMinutes: policy.targetWeeklyGeneratedMinutes,
+      sessionFamilyBiases: policy.familySequence,
+      safetyOverlay: {
+        hardSafetyConstraintCodes: generationConstraints.hardSafetyConstraints.map((item) => item.code),
+        evidenceBasedLoadConstraintCodes: generationConstraints.evidenceBasedLoadConstraints.map((item) => item.code)
+      }
+    }
+  };
+}
+
 function generatedSupportCopy(strategy: NextWeekTrainingVolumeStrategy, bias: NextWeekGeneratedSupportBias, currentDay: TrainingDayPlan | undefined): string {
   const currentCount = currentDay?.generatedSessions.length ?? 0;
   switch (strategy) {
@@ -494,20 +645,35 @@ export function materializeNextWeekTrainingPlan(input: NextWeekMaterializationIn
   const phase = materializedPhase(input, nextWeekStartDate, nextWeekEndDate);
   const strategy = strategyFor(input, nextWeekStartDate, nextWeekEndDate);
   const targetHardDayCap = hardDayCap(input.currentMicrocycle.hardDayCap, strategy);
-  const generatedSupportBias = supportBias(phase, strategy);
+  const prescription = nextWeekPrescription(input, phase, nextWeekStartDate, nextWeekEndDate);
+  const generatedSupportBias = supportBiasForPlan(phase, strategy, prescription.primaryFocus);
   const blocked = blockedProgressionReasons(input, strategy);
   const notes = safetyNotes(input, strategy);
   const decision = input.latestTrainingProgressionDecision?.decision ?? "hold";
+  const planRevisionId = input.planGenerationIntent?.id ?? input.currentTrainingBlock.id;
+  const planFingerprint = stableHash(prescription.fingerprintMaterial);
   const output = {
     nextWeekIndex: nextWeekIndex(input),
     nextWeekStartDate,
     nextWeekEndDate,
+    engineVersion: input.engineVersion,
+    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION,
+    planRevisionId,
+    planFingerprint,
+    primaryFocus: prescription.primaryFocus,
+    trainingDose: prescription.trainingDose,
+    selectedSupportDays: prescription.selectedSupportDays,
+    targetGeneratedSupportCount: prescription.policy.targetSessionCount,
+    targetWeeklyGeneratedMinutes: prescription.policy.targetWeeklyGeneratedMinutes,
     materializedPhase: phase,
     materializedDecision: decision,
     materializedVolumeStrategy: strategy,
     targetHardDayCap,
     generatedSupportBias,
-    sessionFamilyBiases: familyBiases(generatedSupportBias),
+    sessionFamilyBiases: strategy === "deload" || strategy === "hold_for_review" || strategy === "reduce_volume" || strategy === "taper" || strategy === "tournament_conserve"
+      ? familyBiases(generatedSupportBias)
+      : prescription.policy.familySequence,
     blockedProgressionReasons: blocked,
     safetyNotes: notes,
     explanation:

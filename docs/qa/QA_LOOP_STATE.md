@@ -10,6 +10,7 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | Last commit tested | 2026-06-25 uncommitted worktree fix pass based on HEAD `2690e56aaa757286993b5ae7e2e54a353592528d` (`2690e56`). The QA scripts report the HEAD SHA; source, migration, and test changes in this worktree were verified before commit. |
 | Last QA run result | 2026-06-25 big-fix verification: profile availability and active plan support days are separated; equipment access is canonicalized; workout template selection and substitution now fail closed on unavailable equipment; generated-session slot/lifecycle reconciliation preserves moved dates, refuses completed/skipped resurrection, and excludes superseded/canceled rows from active generation. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:beta`, `cmd /c npm run qa:engine:review`, and `cmd /c npm run qa:agent:ci` passed. A first full `cmd /c npm test` rerun after the fix hit a single app-shell 5000 ms timeout; the focused test passed and the subsequent full ordered gate passed cleanly. Routine agent QA remained local-only. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
+| Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |

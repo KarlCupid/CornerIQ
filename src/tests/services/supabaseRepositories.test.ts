@@ -35,6 +35,7 @@ import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixt
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
 import { createEngineRunRepository, mapGeneratedSessionToRow } from "../../services/supabase/engineRunRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
+import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "../../engine/training/athletePrescriptionContract";
 
 function createInsertClient(options: { existingCompletedSessionId?: string | null; existingCompletedSessionStatus?: "completed" | "skipped"; completedTrainingConflict?: boolean } = {}) {
   const inserted: { table: string; record: unknown }[] = [];
@@ -320,7 +321,7 @@ function createNutritionReviewEventListClient() {
   return { calls, client: client as unknown as CornerSupabaseClient };
 }
 
-function generatedSessionRow(input: { id: string; date: string; title: string; trainingBlockId?: string | undefined }) {
+function generatedSessionRow(input: { id: string; date: string; title: string; trainingBlockId?: string | undefined; payload?: Record<string, unknown> | undefined }) {
   return {
     id: input.id,
     block_id: input.trainingBlockId ?? null,
@@ -351,7 +352,8 @@ function generatedSessionRow(input: { id: string; date: string; title: string; t
       protects: ["boxing quality"],
       modifications: [],
       fuelDemand: "moderate",
-      ...(input.trainingBlockId ? { trainingBlockId: input.trainingBlockId } : {})
+      ...(input.trainingBlockId ? { trainingBlockId: input.trainingBlockId } : {}),
+      ...(input.payload ?? {})
     }
   };
 }
@@ -1018,6 +1020,37 @@ describe("Supabase repositories", () => {
         { method: "lte", column: "current_scheduled_date", value: "2026-05-24" }
       ])
     );
+  });
+
+  it("generated training session reads preserve compiler contract metadata", async () => {
+    const { client } = createGeneratedSessionListClient([
+      generatedSessionRow({
+        id: "contract_scoped",
+        date: fixtureAsOfDate,
+        title: "Current contract support",
+        trainingBlockId: "training_block_current",
+        payload: {
+          engineVersion: "test-engine",
+          prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+          planIntentVersion: PLAN_INTENT_VERSION,
+          generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+          planFingerprint: "fingerprint_current_contract"
+        }
+      })
+    ]);
+
+    const sessions = await createTrainingRepository(client).listGeneratedSessions("user_1", {
+      asOfDate: fixtureAsOfDate,
+      trainingBlockId: "training_block_current"
+    });
+
+    expect(sessions[0]).toMatchObject({
+      engineVersion: "test-engine",
+      prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+      planIntentVersion: PLAN_INTENT_VERSION,
+      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+      planFingerprint: "fingerprint_current_contract"
+    });
   });
 
   it("active risk flag reads drop stale engine projections but keep current and external active rules", async () => {

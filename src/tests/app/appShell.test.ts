@@ -20,6 +20,7 @@ import { CORNERIQ_PRIVACY_POLICY_URL, CORNERIQ_SUPPORT_URL } from "../../service
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "../../engine/training/athletePrescriptionContract";
 import { catalogToPrescription, findCatalogExercise } from "../../engine/training/exerciseCatalog";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
@@ -2883,7 +2884,12 @@ describe("minimal app screens", () => {
       rationale: "Persisted next-week support stays date-scoped.",
       protects: ["trunk control"],
       modifications: [],
-      fuelDemand: "low"
+      fuelDemand: "low",
+      engineVersion: "test",
+      prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+      planIntentVersion: PLAN_INTENT_VERSION,
+      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+      planFingerprint: "fixture_fingerprint:materialized_future"
     };
     const before = resolvePerformanceState({
       journey: { ...no_wearable_manual_only, trainingHistory: [persistedSession] },

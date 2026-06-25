@@ -27,6 +27,7 @@ import {
 import { generatedSessionLabels } from "./trainingStimulus";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
 import { generatedSessionShapeFromTemplate, selectWorkoutTemplate } from "./workoutTemplateCatalog";
+import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "./athletePrescriptionContract";
 
 export interface NextWeekGeneratedSessionMaterializationInput {
   materialization: NextWeekTrainingMaterialization;
@@ -153,18 +154,16 @@ function targetSessionCount(input: NextWeekGeneratedSessionMaterializationInput)
   if (hardStop || redReadiness(input)) {
     return 1;
   }
+  const policyTarget = input.materialization.targetGeneratedSupportCount;
   const base =
-    input.materialization.materializedVolumeStrategy === "progress_small"
-      ? 3
-      : input.materialization.materializedVolumeStrategy === "conservative_start"
-        ? isNovice(input.athlete)
-          ? 2
-          : 3
-      : input.materialization.materializedVolumeStrategy === "repeat_same"
-        ? 2
-        : input.materialization.materializedVolumeStrategy === "hold_for_review"
-        ? 2
-        : 2;
+    input.materialization.materializedVolumeStrategy === "reduce_volume"
+      ? Math.max(1, policyTarget - 1)
+      : input.materialization.materializedVolumeStrategy === "deload" ||
+          input.materialization.materializedVolumeStrategy === "taper" ||
+          input.materialization.materializedVolumeStrategy === "tournament_conserve" ||
+          input.materialization.materializedVolumeStrategy === "hold_for_review"
+        ? Math.min(2, Math.max(1, policyTarget))
+        : Math.max(1, policyTarget);
   return Math.max(1, cycleTrim ? base - 1 : base);
 }
 
@@ -200,7 +199,11 @@ function eligibleDays(input: NextWeekGeneratedSessionMaterializationInput): read
   const strategy = input.materialization.materializedVolumeStrategy;
   const days = input.dayPlans
     .filter((day) => day.date >= input.microcycle.weekStartDate && day.date <= input.microcycle.weekEndDate)
-    .filter((day) => generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, day.date))
+    .filter((day) =>
+      input.materialization.selectedSupportDays.length > 0
+        ? generatedSupportAllowedOnDate(input.materialization.selectedSupportDays, day.date)
+        : generatedSupportAllowedOnDate(input.athlete.scheduleAvailability, day.date)
+    )
     .filter((day) => !hasCompetitionAnchor(anchorsForDate([...input.protectedWorkouts, ...day.protectedAnchors], day.date)));
   const preferred = days.filter((day) => {
     if (strategy === "progress_small" || strategy === "repeat_same" || strategy === "conservative_start") {
@@ -211,7 +214,8 @@ function eligibleDays(input: NextWeekGeneratedSessionMaterializationInput): read
     }
     return day.role === "taper_day" || day.role === "tournament_conservation_day" || day.role === "recovery_day" || day.role === "support_day";
   });
-  return preferred.length > 0 ? preferred : days;
+  const targetCount = Math.min(targetSessionCount(input), days.length);
+  return preferred.length >= targetCount ? preferred : days;
 }
 
 function adjustedShape(
@@ -362,6 +366,11 @@ export function materializeGeneratedSessionsFromPreview(input: NextWeekGenerated
         prescriptionSlotId: slotId,
         generatedSessionLifecycle: "active",
         source: "next_week_preview_materialization",
+        engineVersion: input.engineVersion,
+        prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+        planIntentVersion: PLAN_INTENT_VERSION,
+        generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+        planFingerprint: input.materialization.planFingerprint,
         templateId: adjusted.templateId,
         targetDurationMinutes: adjusted.durationPolicy.targetDurationMinutes,
         durationPolicyCategory: adjusted.durationPolicy.durationPolicyCategory,

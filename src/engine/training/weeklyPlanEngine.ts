@@ -30,7 +30,8 @@ import type {
   TrainingState,
   PlanGenerationIntent,
   PlanGenerationTrainingDose,
-  PlanGenerationPrimaryFocus
+  PlanGenerationPrimaryFocus,
+  PlanGenerationGoalMode
 } from "../core/types";
 import { buildActualLoadLedger, buildPlannedLoadLedger, completedSessionActualDate, isCurrentCompletedSession } from "./loadLedger";
 import { generateSupportSession } from "./sessionGenerator";
@@ -66,6 +67,14 @@ import {
 import { defaultTrainingDoseForSupportDays } from "./planGenerationIntent";
 import { resolveDailyOperatingMode } from "./dailyOperatingMode";
 import { resolveWeeklyTrainingPrescriptionPolicy, type WeeklyTrainingPrescriptionPolicy } from "./weeklyTrainingPrescriptionPolicy";
+import {
+  ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+  GENERATED_SESSION_SCHEMA_VERSION,
+  PLAN_INTENT_VERSION,
+  buildAthletePrescriptionContractV1,
+  materialPlanFingerprint,
+  validateAthletePrescriptionOutput
+} from "./athletePrescriptionContract";
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(flags?.some(workoutGenerationStopFlag));
@@ -86,6 +95,25 @@ function flagReasonSummary(flags: readonly RiskFlag[]): string {
 
 function protectedHardOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
   return anchorsForDate(anchors, date).some(isHighStimulusProtectedWorkout);
+}
+
+function goalModeForPrescriptionContract(input: {
+  phase: PhaseState;
+  planGenerationIntent?: PlanGenerationIntent | undefined;
+}): PlanGenerationGoalMode {
+  if (input.planGenerationIntent) {
+    return input.planGenerationIntent.goalMode;
+  }
+  if (input.phase.phase === "tournament") {
+    return "tournament";
+  }
+  if (input.phase.phase === "camp" || input.phase.phase === "short_notice_camp" || input.phase.phase === "fight_week") {
+    return "fight";
+  }
+  if (input.phase.phase === "recovery" || input.phase.phase === "deload") {
+    return "recovery";
+  }
+  return "build";
 }
 
 function isProtectedBoxingSkillAnchor(anchor: ProtectedWorkout): boolean {
@@ -297,6 +325,20 @@ function activeScheduledGeneratedSessions(sessions: readonly GeneratedTrainingSe
   });
 }
 
+function generatedSessionUsesCurrentPrescriptionContract(session: GeneratedTrainingSession): boolean {
+  return (
+    session.prescriptionContractVersion === ATHLETE_PRESCRIPTION_CONTRACT_VERSION &&
+    session.planIntentVersion === PLAN_INTENT_VERSION &&
+    session.generatedSessionSchemaVersion === GENERATED_SESSION_SCHEMA_VERSION &&
+    typeof session.planFingerprint === "string" &&
+    session.planFingerprint.length > 0
+  );
+}
+
+function requiresCurrentPrescriptionContract(lifecycle: GeneratedSessionLifecycle): boolean {
+  return lifecycle === "active" || lifecycle === "moved";
+}
+
 function scopedPersistedGeneratedSessions(input: {
   activeTrainingBlock?: TrainingBlock | null | undefined;
   activeTrainingBlockId?: string | null | undefined;
@@ -327,6 +369,15 @@ function scopedPersistedGeneratedSessions(input: {
     const originalDateInsideWeek = originalDate >= input.weekStartDate && originalDate <= input.weekEndDate;
     if (!currentDateInsideWeek && !originalDateInsideWeek) {
       ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because the persisted generated session is outside the active week ${input.weekStartDate} to ${input.weekEndDate}.`));
+      continue;
+    }
+    if (requiresCurrentPrescriptionContract(lifecycle) && !generatedSessionUsesCurrentPrescriptionContract(session)) {
+      ignored.push(
+        persistedGeneratedSessionAuditItem(
+          session,
+          `Ignored because active generated sessions must carry ${ATHLETE_PRESCRIPTION_CONTRACT_VERSION}, ${PLAN_INTENT_VERSION}, ${GENERATED_SESSION_SCHEMA_VERSION}, and a material plan fingerprint before they can override the current compiler output.`
+        )
+      );
       continue;
     }
     if (blockScopeIds.size > 0 && (!session.trainingBlockId || !blockScopeIds.has(session.trainingBlockId))) {
@@ -378,6 +429,18 @@ function isPersistedMaterializedSession(session: GeneratedTrainingSession): bool
 
 function generatedFamilyCount(sessions: readonly GeneratedTrainingSession[], families: ReadonlySet<GeneratedSessionFamily>): number {
   return sessions.filter((session) => families.has(session.family)).length;
+}
+
+function usefulStimulusExposureCount(sessions: readonly GeneratedTrainingSession[], stimulus: "strength" | "conditioning" | "power"): number {
+  return sessions.filter((session) => {
+    if (trainingStimulusForFamily(session.family) !== stimulus) {
+      return false;
+    }
+    if (stimulus === "strength" || stimulus === "conditioning") {
+      return session.durationMinutes >= 35;
+    }
+    return session.durationMinutes >= 30;
+  }).length;
 }
 
 function generatedAddOnCount(sessions: readonly GeneratedTrainingSession[]): number {
@@ -519,6 +582,48 @@ function selectGeneratedSessions(input: {
     repairActions.push(`Swapped ${repaired[replaceIndex]!.family} for ${replacement.family} to meet the hard/high-stimulus target.`);
     repaired = repaired.map((session, index) => (index === replaceIndex ? replacement : session));
   }
+
+  const repairStimulusExposure = (stimulus: "strength" | "conditioning" | "power", target: number) => {
+    while (target > 0 && usefulStimulusExposureCount(repaired, stimulus) < target) {
+      const replacement = sorted.find(
+        (session) =>
+          trainingStimulusForFamily(session.family) === stimulus &&
+          usefulStimulusExposureCount([session], stimulus) > 0 &&
+          !repaired.some((item) => item.id === session.id)
+      );
+      if (!replacement) {
+        break;
+      }
+      const replaceIndex = repaired.findIndex((session) => {
+        if (isPersistedMaterializedSession(session)) {
+          return false;
+        }
+        const currentStimulus = trainingStimulusForFamily(session.family);
+        if (currentStimulus === stimulus) {
+          return false;
+        }
+        if (currentStimulus === "strength") {
+          return usefulStimulusExposureCount(repaired, "strength") > input.policy.targetStrengthExposures;
+        }
+        if (currentStimulus === "conditioning") {
+          return usefulStimulusExposureCount(repaired, "conditioning") > input.policy.targetConditioningExposures;
+        }
+        if (currentStimulus === "power") {
+          return usefulStimulusExposureCount(repaired, "power") > input.policy.targetPowerExposures;
+        }
+        return true;
+      });
+      if (replaceIndex < 0) {
+        break;
+      }
+      repairActions.push(`Swapped ${repaired[replaceIndex]!.family} for ${replacement.family} to meet the ${stimulus} exposure target.`);
+      repaired = repaired.map((session, index) => (index === replaceIndex ? replacement : session));
+    }
+  };
+
+  repairStimulusExposure("strength", input.policy.targetStrengthExposures);
+  repairStimulusExposure("conditioning", input.policy.targetConditioningExposures);
+  repairStimulusExposure("power", input.policy.targetPowerExposures);
 
   const targetMinutes = input.policy.targetWeeklyGeneratedMinutes;
   let currentMinutes = repaired.reduce((total, session) => total + session.durationMinutes, 0);
@@ -943,6 +1048,7 @@ export function resolveWeeklyTrainingPlan(input: {
             seed: input.planGenerationIntent?.seed ?? planRevision,
             supportDayIndex: supportDateOrder.get(date) ?? index,
             weekIndex: planWeekIndex,
+            ...(input.engineVersion ? { engineVersion: input.engineVersion } : {}),
             hardStopActive: hardStopSafetyActive(input.safetyFlags) || (date === input.asOfDate && redReadinessHardStop),
             familySequence: prescriptionPolicy.familySequence,
             generationConstraints,
@@ -969,6 +1075,7 @@ export function resolveWeeklyTrainingPlan(input: {
       seed: input.planGenerationIntent?.seed ?? planRevision,
       supportDayIndex: supportDateOrder.get(date) ?? index,
       weekIndex: planWeekIndex,
+      ...(input.engineVersion ? { engineVersion: input.engineVersion } : {}),
       hardStopActive: hardStopSafetyActive(input.safetyFlags) || (date === input.asOfDate && redReadinessHardStop),
       familySequence: prescriptionPolicy.familySequence,
       generationConstraints,
@@ -1046,7 +1153,39 @@ export function resolveWeeklyTrainingPlan(input: {
     targetSessions: finalFutureSelectionTarget,
     trainingDose: selectedTrainingDose
   });
-  const mergedGeneratedSessions = mergeGeneratedSessions(adjustedPastGeneratedSessions, mergedSelection.sessions).map((session) => applyTrainingExecutionGuidance(session, executionReadiness));
+  const engineVersion = input.engineVersion ?? "unversioned";
+  const mergedGeneratedSessionsBeforeContract = mergeGeneratedSessions(adjustedPastGeneratedSessions, mergedSelection.sessions).map((session) => applyTrainingExecutionGuidance(session, executionReadiness));
+  const prescriptionContract = buildAthletePrescriptionContractV1({
+    asOfDate: input.asOfDate,
+    athlete: input.athlete,
+    engineVersion,
+    generationConstraints,
+    goalMode: goalModeForPrescriptionContract({ phase: input.phase, planGenerationIntent: input.planGenerationIntent }),
+    phase: input.phase,
+    planStartDate,
+    primaryFocus,
+    selectedSupportDays: selectedDays,
+    trainingDose: selectedTrainingDose,
+    weekIndex: planWeekIndex,
+    policy: actualLoadAdaptedPrescriptionPolicy,
+    protectedAnchors: input.anchors.filter((anchor) => anchor.date >= planStartDate && anchor.date <= planWeekEndDate)
+  });
+  const planFingerprint = materialPlanFingerprint({
+    contract: prescriptionContract,
+    sessions: mergedGeneratedSessionsBeforeContract
+  });
+  const mergedGeneratedSessions = mergedGeneratedSessionsBeforeContract.map((session) => ({
+    ...session,
+    engineVersion,
+    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION,
+    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+    planFingerprint: planFingerprint.hash
+  }));
+  const prescriptionValidation = validateAthletePrescriptionOutput({
+    contract: prescriptionContract,
+    sessions: mergedGeneratedSessions
+  });
   const actualLoadReservationReasons =
     actualHardDatesReservedForGenerationTarget.size > 0
       ? [
@@ -1124,9 +1263,9 @@ export function resolveWeeklyTrainingPlan(input: {
   const actualStimulusMix = trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family));
   const longestSessionMinutes = mergedGeneratedSessions.reduce((longest, session) => Math.max(longest, session.durationMinutes), 0);
   const sessionsOver60Minutes = mergedGeneratedSessions.filter((session) => session.durationMinutes >= 60).length;
-  const actualStrengthExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "strength").length;
-  const actualConditioningExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "conditioning").length;
-  const actualPowerExposures = mergedGeneratedSessions.filter((session) => trainingStimulusForFamily(session.family) === "power").length;
+  const actualStrengthExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "strength");
+  const actualConditioningExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "conditioning");
+  const actualPowerExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "power");
   const protectedAnchorsCountedAsSkill = protectedBoxingSkillCount(input.anchors, candidateDates, input.asOfDate);
   const generatedBoxingSkillExposures = generatedFamilyCount(mergedGeneratedSessions, BOXING_SKILL_GENERATED_FAMILIES);
   const generatedTechnicalExposures = generatedFamilyCount(mergedGeneratedSessions, TECHNICAL_BOXING_GENERATED_FAMILIES);
@@ -1226,6 +1365,15 @@ export function resolveWeeklyTrainingPlan(input: {
       ? ["Serious/high generated week has no session at or above 60 minutes without a real safety constraint."]
       : []),
     ...(onlyDurabilityOrRecovery && !realLoadConstraintActive ? ["Normal week resolved to only durability, mobility, or recovery families without a real safety constraint."] : []),
+    ...(actualStrengthExposures < prescriptionPolicy.targetStrengthExposures && !realLoadConstraintActive
+      ? [`Strength exposures ${actualStrengthExposures}/${prescriptionPolicy.targetStrengthExposures} target without a real safety constraint.`]
+      : []),
+    ...(actualConditioningExposures < prescriptionPolicy.targetConditioningExposures && !realLoadConstraintActive
+      ? [`Conditioning exposures ${actualConditioningExposures}/${prescriptionPolicy.targetConditioningExposures} target without a real safety constraint.`]
+      : []),
+    ...(actualPowerExposures < prescriptionPolicy.targetPowerExposures && !realLoadConstraintActive
+      ? [`Power exposures ${actualPowerExposures}/${prescriptionPolicy.targetPowerExposures} target without a real safety constraint.`]
+      : []),
     ...(actualBoxingSkillExposures < prescriptionPolicy.targetBoxingSkillExposures && !realLoadConstraintActive
       ? [`Boxing skill exposures ${actualBoxingSkillExposures}/${prescriptionPolicy.targetBoxingSkillExposures} target without a real safety constraint.`]
       : []),
@@ -1299,6 +1447,14 @@ export function resolveWeeklyTrainingPlan(input: {
     asOfDate: input.asOfDate,
     planStartDate,
     planRevisionId: planRevision,
+    engineVersion,
+    prescriptionContractVersion: prescriptionContract.version,
+    planIntentVersion: prescriptionContract.planIntentVersion,
+    generatedSessionSchemaVersion: prescriptionContract.generatedSessionSchemaVersion,
+    planFingerprint: planFingerprint.hash,
+    planFingerprintMaterial: planFingerprint.material as unknown as Record<string, unknown>,
+    prescriptionValidationPassed: prescriptionValidation.passed,
+    prescriptionValidationFailures: prescriptionValidation.failures,
     activeTrainingBlockId: adjustmentApplication.activeBlock.id,
     weekIndex: adjustmentApplication.activeBlock.progressionState.weekIndex,
     selectedSupportDays: selectedDays,
@@ -1485,9 +1641,12 @@ export function resolveWeeklyTrainingPlan(input: {
   const latestWeekSummary = selectAuthoritativeTrainingWeekSummary(blockHistory.summaries, { activePlanRevisionId: planRevision });
   const latestProgressionDecision = selectAuthoritativeTrainingProgressionDecision(blockHistory.decisions, { activePlanRevisionId: planRevision });
   const nextWeekMaterialization = materializeNextWeekTrainingPlan({
+    athlete: input.athlete,
     currentTrainingBlock: adjustmentApplication.activeBlock,
     currentMicrocycle: adjustedMicrocycle,
     currentTrainingDayPlans: adjustedDayPlans,
+    planGenerationIntent: input.planGenerationIntent,
+    activePlanFingerprint: planFingerprint.hash,
     latestTrainingWeekSummary: latestWeekSummary,
     latestTrainingProgressionDecision: latestProgressionDecision,
     completedTrainingSessions: input.completedSessions ?? [],

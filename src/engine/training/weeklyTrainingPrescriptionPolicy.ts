@@ -237,13 +237,13 @@ function targetHardDays(input: WeeklyTrainingPrescriptionPolicyInput, focus: Pla
   if ((input.phase.phase === "camp" || input.phase.phase === "short_notice_camp") && supportDays >= 5 && seriousOrHigh) {
     return 3;
   }
-  if (seriousOrHigh && supportDays >= 6) {
-    return 3;
-  }
   if ((focus === "strength" || focus === "power") && seriousOrHigh && supportDays >= 5 && (isAdvanced(input.athlete) || input.athlete.trainingAgeYears >= 3)) {
-    return 3;
+    return 2;
   }
   if (focus === "conditioning" && seriousOrHigh && supportDays >= 5 && isAdvanced(input.athlete)) {
+    return 2;
+  }
+  if (focus === "balanced" && seriousOrHigh && supportDays >= 6) {
     return 3;
   }
   return 2;
@@ -363,12 +363,36 @@ export function resolveWeeklyTrainingPrescriptionPolicy(input: WeeklyTrainingPre
   const targetHardDayCount = Math.min(maxHardDayCount, targetHardDays(input, focus));
   const targetGeneratedHardDayCount = Math.max(0, targetHardDayCount - input.protectedHardDayCount);
   const targetStrengthExposures =
-    focus === "strength" ? 2 : focus === "conditioning" ? (targetSessionCount >= 4 ? 1 : 0) : focus === "mobility" ? 0 : targetSessionCount >= 2 ? 1 : 0;
-  const targetConditioningExposures = focus === "conditioning" ? 2 : targetSessionCount >= 2 && focus !== "mobility" ? 1 : 0;
-  const targetPowerExposures = focus === "power" ? 2 : targetSessionCount >= 4 ? 1 : 0;
+    focus === "strength"
+      ? 2
+      : focus === "conditioning"
+        ? targetSessionCount >= 4
+          ? 1
+          : 0
+        : focus === "power"
+          ? targetSessionCount >= 3
+            ? 1
+            : 0
+          : focus === "mobility"
+            ? 0
+            : targetSessionCount >= 2
+              ? 1
+              : 0;
+  const targetConditioningExposures =
+    focus === "conditioning"
+      ? 2
+      : focus === "balanced" && targetSessionCount >= 2
+        ? 1
+        : focus === "strength" && targetSessionCount >= 4
+          ? 1
+          : 0;
+  const targetPowerExposures = focus === "power" ? 2 : focus === "balanced" && targetSessionCount >= 4 ? 1 : 0;
   const targetDurabilityRecoveryExposures = Math.max(0, targetSessionCount - targetStrengthExposures - targetConditioningExposures - targetPowerExposures);
-  const targetBoxingSkillExposureCount = targetBoxingSkillExposures(input, targetSessionCount);
-  const targetTechnicalExposureCount = targetTechnicalExposures(input, targetSessionCount);
+  const baseBoxingSkillExposureCount = targetBoxingSkillExposures(input, targetSessionCount);
+  const baseTechnicalExposureCount = targetTechnicalExposures(input, targetSessionCount);
+  const focusCapsBoxingSkill = focus === "strength" || focus === "conditioning" || focus === "power";
+  const targetBoxingSkillExposureCount = focusCapsBoxingSkill ? Math.min(1, baseBoxingSkillExposureCount) : baseBoxingSkillExposureCount;
+  const targetTechnicalExposureCount = focusCapsBoxingSkill ? Math.min(1, baseTechnicalExposureCount) : baseTechnicalExposureCount;
   const targetAgilityFootworkExposureCount = targetAgilityFootworkExposures(input, targetSessionCount);
   const targetMobilityRecoveryExposureCount = targetMobilityRecoveryExposures(input, targetSessionCount);
   const theme = selectBoxingDevelopmentCurriculumTheme({ athlete: input.athlete, phase: input.phase, primaryFocus: focus });

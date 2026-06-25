@@ -1,6 +1,7 @@
 import type { BoxingLevel, GeneratedSessionAddOnBlock, GeneratedSessionEquipmentMode, GeneratedSessionFamily, GeneratedSessionPriority, GeneratedTrainingSession, PhaseState, ReadinessState } from "../core/types";
 import { stableHash } from "../core/stableHash";
 import type { PlanGenerationPrimaryFocus, PlanGenerationTrainingDose, TrainingGenerationConstraintSummaryAudit } from "./types";
+import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "./athletePrescriptionContract";
 import { addOnBlockFromLibrary } from "./addOnBlocks";
 import { durationPolicyModifications, resolveSessionDurationPolicy } from "./sessionDurationPolicy";
 import { hasNoKnownRealEquipment, hasEquipmentCapability } from "../athlete/equipmentAccess";
@@ -225,6 +226,7 @@ export interface GenerateSupportSessionInput {
   familySequence?: readonly GeneratedSessionFamily[] | undefined;
   generationConstraints?: TrainingGenerationConstraintSummaryAudit | undefined;
   prescriptionHard?: boolean | undefined;
+  engineVersion?: string | undefined;
 }
 
 export function generateSupportSession(input: GenerateSupportSessionInput): GeneratedTrainingSession {
@@ -318,6 +320,10 @@ export function generateSupportSession(input: GenerateSupportSessionInput): Gene
     generatedSessionLifecycle: "active",
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
     source: "active_plan_generation",
+    engineVersion: input.engineVersion ?? "unversioned",
+    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION,
+    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
     templateId: template.templateId,
     targetDurationMinutes: durationPolicy.targetDurationMinutes,
     durationPolicyCategory: durationPolicy.durationPolicyCategory,

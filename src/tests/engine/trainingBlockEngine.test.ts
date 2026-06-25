@@ -21,6 +21,7 @@ import { applyTrainingPlanAdjustment } from "../../engine/training/planAdjustmen
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
 import { isHighStimulusGeneratedSession, trainingStimulusForFamily } from "../../engine/training/trainingStimulus";
 import { workoutTemplateCatalog } from "../../engine/training/workoutTemplateCatalog";
+import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "../../engine/training/athletePrescriptionContract";
 import {
   amateur_novice_build,
   amateur_open_tournament,
@@ -308,6 +309,11 @@ function materializedGeneratedSession(input: {
     protects: ["boxing quality"],
     modifications: [],
     fuelDemand: input.fuelDemand,
+    engineVersion: "test",
+    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION,
+    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+    planFingerprint: `fixture_fingerprint:${input.planRevisionId}:${input.id}`,
     planRevisionId: input.planRevisionId,
     planStartDate: input.date,
     source: "next_week_preview_materialization"
@@ -1494,6 +1500,11 @@ describe("training block and microcycle engine", () => {
       protects: ["aerobic base"],
       modifications: [],
       fuelDemand: "moderate",
+      engineVersion: "test",
+      prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
+      planIntentVersion: PLAN_INTENT_VERSION,
+      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+      planFingerprint: "fixture_fingerprint:old_plan",
       planRevisionId: "old_plan",
       trainingBlockId: "training_block_old",
       weekIndex: 4,
@@ -1530,6 +1541,64 @@ describe("training block and microcycle engine", () => {
         expect.objectContaining({
           id: staleRoadwork.id,
           reason: expect.stringContaining("plan revision")
+        })
+      ])
+    );
+  });
+
+  it("ignores legacy active generated sessions from the active revision when contract metadata is missing", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const legacyActiveSession: GeneratedTrainingSession = {
+      id: "generated:plan_strength_week_1:1:2026-05-19:roadwork_zone2",
+      date: fixtureAsOfDate,
+      family: "roadwork_zone2",
+      title: "Legacy talk-test roadwork",
+      durationMinutes: 30,
+      intensity: "easy",
+      prescription: ["Repeat the old support session."],
+      rationale: "Legacy generated output from before the prescription contract.",
+      protects: ["aerobic base"],
+      modifications: [],
+      fuelDemand: "moderate",
+      planRevisionId: "plan_strength_week_1",
+      weekIndex: 1,
+      weekId: "week:plan_strength_week_1:1",
+      prescriptionSlotId: "slot:plan_strength_week_1:1",
+      planStartDate: "2026-05-18",
+      generatedSessionLifecycle: "active",
+      source: "active_plan_generation"
+    };
+
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        journeyEvents: [
+          planWizardBuildEvent({
+            focus: "strength",
+            id: "plan_strength_week_1",
+            planStartDate: "2026-05-18",
+            selectedSupportDays: selectedDays
+          })
+        ],
+        trainingHistory: [legacyActiveSession],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.generatedSessions.map((session) => session.title)).not.toContain("Legacy talk-test roadwork");
+    expect(state.training.generatedSessions.every((session) => session.planFingerprint === state.training.supportGenerationAudit.planFingerprint)).toBe(true);
+    expect(state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: legacyActiveSession.id,
+          planRevisionId: "plan_strength_week_1",
+          reason: expect.stringContaining("active generated sessions must carry")
         })
       ])
     );
@@ -1577,6 +1646,58 @@ describe("training block and microcycle engine", () => {
     expect(conditioning.training.supportGenerationAudit.actualHardDayCount).toBeGreaterThanOrEqual(conditioning.training.supportGenerationAudit.minHardDayCount);
     expect((mobilityCounts.mobility ?? 0) + (mobilityCounts.recovery ?? 0)).toBeGreaterThanOrEqual(2);
     expect(mobilityCounts.strength ?? 0).toBe(0);
+  });
+
+  it("emits stable material plan fingerprints that change with focus and dose", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const stateForFocus = (focus: PlanGenerationPrimaryFocus, id: string) =>
+      resolvePerformanceState({
+        journey: {
+          ...pro_4_round_build_strength,
+          athlete: {
+            ...pro_4_round_build_strength.athlete,
+            scheduleAvailability: selectedDays
+          },
+          journeyEvents: [planWizardBuildEvent({ focus, id, planStartDate: "2026-05-18", selectedSupportDays: selectedDays })],
+          trainingHistory: [],
+          trainingPlanAdjustments: [],
+          safetyFlags: []
+        },
+        asOfDate: fixtureAsOfDate
+      });
+    const strength = stateForFocus("strength", "plan_strength_fingerprint");
+    const strengthReplay = stateForFocus("strength", "plan_strength_fingerprint_replay");
+    const conditioning = stateForFocus("conditioning", "plan_conditioning_fingerprint");
+    const power = stateForFocus("power", "plan_power_fingerprint");
+    const mobility = stateForFocus("mobility", "plan_mobility_fingerprint");
+    const seriousStrength = seriousSixDayState({ focus: "strength", id: "plan_strength_fingerprint_serious", trainingDose: "serious" });
+    const minimalStrength = seriousSixDayState({ focus: "strength", id: "plan_strength_fingerprint_minimal", trainingDose: "minimal" });
+    const strengthMaterial = strength.training.supportGenerationAudit.planFingerprintMaterial as {
+      primaryFocus: PlanGenerationPrimaryFocus;
+      trainingDose: PlanGenerationTrainingDose;
+      weeklyAdaptationTargets: { targetStrengthExposures: number; targetWeeklyGeneratedMinutes: number };
+      sessionFamilies: readonly string[];
+      templateIds: readonly (string | null)[];
+      durations: readonly number[];
+    };
+
+    expect(strength.training.supportGenerationAudit.prescriptionContractVersion).toBe("athlete_prescription_contract_v1");
+    expect(strength.training.supportGenerationAudit.prescriptionValidationPassed).toBe(true);
+    expect(strength.training.supportGenerationAudit.prescriptionValidationFailures).toEqual([]);
+    expect(strength.training.generatedSessions.every((session) => session.planFingerprint === strength.training.supportGenerationAudit.planFingerprint)).toBe(true);
+    expect(strength.training.generatedSessions.every((session) => session.prescriptionContractVersion === "athlete_prescription_contract_v1")).toBe(true);
+    expect(strength.training.supportGenerationAudit.planFingerprint).toBe(strengthReplay.training.supportGenerationAudit.planFingerprint);
+    expect(strength.training.supportGenerationAudit.planFingerprint).not.toBe(conditioning.training.supportGenerationAudit.planFingerprint);
+    expect(strength.training.supportGenerationAudit.planFingerprint).not.toBe(power.training.supportGenerationAudit.planFingerprint);
+    expect(strength.training.supportGenerationAudit.planFingerprint).not.toBe(mobility.training.supportGenerationAudit.planFingerprint);
+    expect(seriousStrength.training.supportGenerationAudit.planFingerprint).not.toBe(minimalStrength.training.supportGenerationAudit.planFingerprint);
+    expect(strengthMaterial.primaryFocus).toBe("strength");
+    expect(strengthMaterial.trainingDose).toBe("standard");
+    expect(strengthMaterial.weeklyAdaptationTargets.targetStrengthExposures).toBeGreaterThan(0);
+    expect(strengthMaterial.weeklyAdaptationTargets.targetWeeklyGeneratedMinutes).toBeGreaterThan(0);
+    expect(strengthMaterial.sessionFamilies.length).toBe(strength.training.generatedSessions.length);
+    expect(strengthMaterial.templateIds.some(Boolean)).toBe(true);
+    expect(strengthMaterial.durations.every((duration) => duration >= 35)).toBe(true);
   });
 
   it("six available days with serious build dose generates a full useful week", () => {
