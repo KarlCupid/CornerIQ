@@ -16,7 +16,7 @@ This document is for future Codex/ChatGPT audits of CornerIQ's weekly boxing pro
 ## Current Week Generation
 
 1. `resolvePerformanceState` builds a `TrainingState` from the athlete journey.
-2. `resolveWeeklyTrainingPlan` creates generated support sessions around protected boxing anchors.
+2. `resolveCompiledTrainingState` creates compiler-projected support sessions around protected boxing anchors.
 3. `trainingBlockEngine` resolves or preserves the active `TrainingBlock`.
 4. `microcycleEngine` builds the current `TrainingMicrocycle` and seven `TrainingDayPlan` rows.
 5. `planAdjustmentEngine` applies active/requested adjustments through engine-owned commands.
@@ -154,7 +154,7 @@ Boundary finalization is resumable. If a retry or crash leaves a final summary w
 
 ## Next-Week Preview Persistence
 
-`resolveWeeklyTrainingPlan` now carries the compiler-projected `NextWeekTrainingMaterialization` on `state.training.nextWeekMaterialization`. `resolveAndPersistPerformanceState` persists that V2 preview payload directly; it no longer rebuilds next week from a summary-only materializer.
+`resolveCompiledTrainingState` now carries the compiler-projected `NextWeekTrainingMaterialization` on `state.training.nextWeekMaterialization`. `resolveAndPersistPerformanceState` persists that V2 preview payload directly; it no longer rebuilds next week from a summary-only materializer.
 
 The persisted row stores:
 - user and training block ids;

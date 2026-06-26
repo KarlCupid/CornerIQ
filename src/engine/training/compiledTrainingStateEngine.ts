@@ -704,7 +704,7 @@ function compilerTrainingDoseForPhase(input: { phase: PhaseState; selectedTraini
   return input.selectedTrainingDose;
 }
 
-interface ResolveWeeklyTrainingPlanInput {
+interface ResolveCompiledTrainingStateInput {
   athlete: AthleteProfile;
   anchors: readonly ProtectedWorkout[];
   asOfDate: ISODateString;
@@ -732,7 +732,7 @@ interface ResolveWeeklyTrainingPlanInput {
   persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
 }
 
-function resolveWeeklyTrainingPlanWithCompiler(input: ResolveWeeklyTrainingPlanInput & {
+function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTrainingStateInput & {
   generationConstraints: ReturnType<typeof classifyTrainingGenerationConstraints>;
   executionReadiness: ReturnType<typeof resolveTrainingReadinessFuelingIntegration>;
   redReadinessHardStop: boolean;
@@ -1294,7 +1294,7 @@ function recentTrainingEvidence(input: {
   };
 }
 
-export function resolveWeeklyTrainingPlan(input: ResolveWeeklyTrainingPlanInput): TrainingState {
+export function resolveCompiledTrainingState(input: ResolveCompiledTrainingStateInput): TrainingState {
   const generationConstraints = classifyTrainingGenerationConstraints({
     readiness: input.readiness,
     safetyFlags: input.safetyFlags ?? [],
@@ -1359,7 +1359,7 @@ export function resolveWeeklyTrainingPlan(input: ResolveWeeklyTrainingPlanInput)
     weekEndDate: planWeekEndDate
   });
   const selectedTrainingDose = input.planGenerationIntent?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedDays.length || candidateAllowedDays);
-  return resolveWeeklyTrainingPlanWithCompiler({
+  return resolveCompiledTrainingStateWithCompiler({
     ...input,
     generationConstraints,
     executionReadiness,

@@ -11,7 +11,7 @@ import { resolveWearableState } from "../readiness/wearableSignals";
 import { resolveBodyMassState, resolveBodyMassTrend } from "../bodyMass/bodyMassTrend";
 import { resolveAcuteProtocolEligibility, resolveWeighInContext, resolveWeightClassFeasibility } from "../fight/weighInRules";
 import { resolveTournamentStrategy } from "../fight/tournamentEngine";
-import { resolveWeeklyTrainingPlan } from "../training/weeklyPlanEngine";
+import { resolveCompiledTrainingState } from "../training/compiledTrainingStateEngine";
 import { materializeProtectedWorkoutAnchors } from "../training/protectedAnchors";
 import { resolveActivePlanGenerationIntent } from "../training/planGenerationIntent";
 import { resolveNutrition } from "../nutrition/nutritionEngine";
@@ -55,7 +55,7 @@ function underFuelingCalorieTargets(input: {
   athlete: ResolvePerformanceStateInput["journey"]["athlete"];
   phase: ReturnType<typeof resolvePhase>;
   readiness: ReturnType<typeof resolveReadiness>;
-  training: ReturnType<typeof resolveWeeklyTrainingPlan>;
+  training: ReturnType<typeof resolveCompiledTrainingState>;
   foodLogs: ResolvePerformanceStateInput["journey"]["nutritionHistory"];
   asOfDate: string;
 }): UnderFuelingCalorieTargets {
@@ -134,7 +134,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   const dailyFoodLogSummary = resolveDailyFoodLogSummary(nutritionHistory, foodStatusEvents, input.asOfDate, undefined, generatedAt);
   const hydrationLogCountToday = hydrationHistory.filter((log) => log.date === input.asOfDate).length;
   const electrolyteLogCountToday = electrolyteHistory.filter((log) => log.date === input.asOfDate).length;
-  const initialTraining = resolveWeeklyTrainingPlan({
+  const initialTraining = resolveCompiledTrainingState({
     athlete: journey.athlete,
     anchors,
     asOfDate: input.asOfDate,
@@ -202,7 +202,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   });
   const safetyFlags = [...earlySafetyFlags, ...feasibility.riskFlags];
   const safety = resolveSafety(safetyFlags);
-  const training = resolveWeeklyTrainingPlan({
+  const training = resolveCompiledTrainingState({
     athlete: journey.athlete,
     anchors,
     asOfDate: input.asOfDate,

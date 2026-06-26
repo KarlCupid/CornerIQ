@@ -354,6 +354,8 @@ describe("training compiler V2 architecture", () => {
       join(process.cwd(), "src", "engine", "training", "nextWeekGeneratedSessionEngine.ts"),
       join(process.cwd(), "src", "engine", "training", "nextWeekMaterializationEngine.ts"),
       join(process.cwd(), "src", "engine", "training", "sessionGenerator.ts"),
+      join(process.cwd(), "src", "engine", "training", "weeklyPlanEngine.ts"),
+      join(process.cwd(), "src", "engine", "training", "boxingTrainingEngine.ts"),
       join(process.cwd(), "src", "engine", "training", "weeklyTrainingPrescriptionPolicy.ts"),
       join(process.cwd(), "src", "engine", "training", "weeklyTrainingCompositionPolicy.ts"),
       join(process.cwd(), "src", "engine", "training", "athletePrescriptionContract.ts"),

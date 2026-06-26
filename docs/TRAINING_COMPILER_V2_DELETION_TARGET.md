@@ -4,9 +4,8 @@ CornerIQ is pre-production, so the V2 workout-generation reset is allowed to del
 
 ## Current Legacy And Interim Entry Points
 
-- `src/engine/core/performanceKernel.ts` calls `resolveWeeklyTrainingPlan`.
-- `src/engine/training/boxingTrainingEngine.ts` re-exports `resolveWeeklyTrainingPlan`.
-- `src/engine/training/weeklyPlanEngine.ts` is still the exported orchestration file, but its active resolver delegates current-week and future-week projections through the V2 compiler projection. The file still contains legacy V1 code and imports that must be deleted before completion.
+- `src/engine/core/performanceKernel.ts` calls `resolveCompiledTrainingState`.
+- `src/engine/training/compiledTrainingStateEngine.ts` is the remaining compatibility bridge from compiler output to the existing `TrainingState`, Plan, Train, persistence, and audit shapes. It delegates current-week and future-week projections through the V2 compiler projection. The bridge still contains compatibility audit fields that must be replaced before final completion.
 - `src/engine/training/nextWeekMaterializationContract.ts` owns only the preview payload contract/schema needed by existing persistence while the final persistence model is being built.
 - `src/engine/training/compiledWeekProjection.ts` is now the bridge that projects compiled V2 current and future weeks into existing persistence/view-model shapes while the final persistence model is being built.
 
@@ -17,6 +16,8 @@ CornerIQ is pre-production, so the V2 workout-generation reset is allowed to del
 - `src/engine/training/nextWeekMaterializationEngine.ts`
 - `src/tests/engine/nextWeekMaterializationEngine.test.ts`
 - `src/engine/training/sessionGenerator.ts`
+- `src/engine/training/weeklyPlanEngine.ts`
+- `src/engine/training/boxingTrainingEngine.ts`
 - `src/engine/training/weeklyTrainingPrescriptionPolicy.ts`
 - `src/engine/training/weeklyTrainingCompositionPolicy.ts`
 - `src/engine/training/athletePrescriptionContract.ts`
@@ -34,6 +35,7 @@ CornerIQ is pre-production, so the V2 workout-generation reset is allowed to del
 The accepted next-week preview now carries compiler-projected `generatedSessions`, `src/services/training/materializeNextWeekTrainingPlan.ts` persists those sessions directly instead of regenerating future workouts from family bias, and `src/services/engine/resolveAndPersistPerformanceState.ts` persists the V2 preview already on `state.training.nextWeekMaterialization` instead of rebuilding it from summaries.
 The legacy family-first generated-session entry point, family-sequence prescription policies, V1 athlete-prescription contract, family-duration policy, and old template/catalog validation moat have also been removed from the active tree; V2 session intents, structured blocks, validation, and compiler fingerprints now own workout placement and dose allocation.
 The template catalog, static exercise catalog, substitution wrapper, add-on block library, and template-catalog test have also been removed. Detailed workout rendering now refuses generated rows that do not carry a compiled V2 structured prescription instead of falling back to templates.
+The old weekly-plan module name and unused boxing-training re-export have also been removed; `performanceKernel` now calls `resolveCompiledTrainingState` from the compiler-state bridge.
 
 ## Deletion Targets Before Completion
 

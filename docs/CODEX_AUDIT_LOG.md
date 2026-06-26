@@ -781,7 +781,7 @@ Key changes:
 - Updated `resolveAndPersistPerformanceState` to persist block/microcycle/day plans after engine resolution and return ready state with warning if persistence fails.
 - Added `TrainingBlockStarted`, `TrainingBlockSuperseded`, `TrainingPlanAdjusted`, and `TrainingDeloadRequested` journey event types.
 - Added `planAdjustmentTypes`, `planAdjustmentEngine`, and `applyTrainingPlanAdjustmentService`.
-- Loaded persisted training plan adjustments into `AthleteJourney` and applied active/requested adjustments during `resolveWeeklyTrainingPlan`.
+- Loaded persisted training plan adjustments into `AthleteJourney` and applied active/requested adjustments during `resolveCompiledTrainingState`.
 - Added Plan adjustment audit view-model fields and a simple `PlanAdjustmentControls` UI for protect day, mark unavailable, request deload, restore engine plan, and basic generated-session moves.
 - Extended live smoke to verify remote block/microcycle/day-plan persistence and one persisted coach-note adjustment.
 
@@ -818,7 +818,7 @@ Goal summary:
 Key changes:
 - Added `TrainingBlock`, `TrainingMicrocycle`, `WeeklyTrainingStructure`, `TrainingDayPlan`, and block recommendation/progression types.
 - Added `trainingBlockEngine` and `microcycleEngine`.
-- Integrated block/microcycle/day-plan context into `TrainingState` through `resolveWeeklyTrainingPlan` and `performanceKernel`.
+- Integrated block/microcycle/day-plan context into `TrainingState` through `resolveCompiledTrainingState` and `performanceKernel`.
 - Added Plan weekly command-center cards and Train block context, day role, fuel handoff, cycle decision, and richer analytics.
 - Deepened training analytics from exercise results without inventing numeric load progression from free-text loads.
 - Added exercise catalog validation for uniqueness, safety, transfer, substitutions, power quality stops, prohibited terms, and novice Olympic derivative avoidance.
