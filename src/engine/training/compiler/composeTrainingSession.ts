@@ -4,6 +4,7 @@ import { resolveConditioningDose } from "./resolveConditioningDose";
 import { resolveExerciseDose } from "./resolveExerciseDose";
 import { fillWorkoutTemplate } from "./templates/fillWorkoutTemplate";
 import { getWorkoutTemplate } from "./templates/workoutTemplates";
+import { blockDurationFromExercises, exerciseDoseAdjustment, roundMinutes, selectedExerciseHistoryNotes } from "./workoutPrescriptionHelpers";
 import type { ExerciseDefinition } from "../library/exerciseDefinitions";
 import type { ExerciseResultRecord } from "../types";
 import type {
@@ -14,30 +15,6 @@ import type {
   SessionIntent,
   TrainingSessionBlock
 } from "./types";
-
-function roundMinutes(seconds: number): number {
-  return Math.round((seconds / 60) * 10) / 10;
-}
-
-function prescriptionWorkSeconds(prescription: ExercisePrescriptionV2): number {
-  if (typeof prescription.durationSeconds === "number") {
-    return prescription.durationSeconds;
-  }
-  return (prescription.sets ?? 1) * (prescription.reps ?? 1) * (prescription.adaptation === "power" ? 3 : 4);
-}
-
-function prescriptionDurationMinutes(prescription: ExercisePrescriptionV2): number {
-  const sets = prescription.sets ?? 1;
-  const totalRest = prescription.restSeconds * Math.max(0, sets - 1);
-  const transitionSeconds = sets * 20;
-  return roundMinutes(prescriptionWorkSeconds(prescription) + totalRest + transitionSeconds);
-}
-
-function blockDurationFromExercises(exercises: readonly ExercisePrescriptionV2[], minimumMinutes: number): number {
-  const exerciseMinutes = exercises.reduce((sum, exercise) => sum + prescriptionDurationMinutes(exercise), 0);
-  const transitionMinutes = exercises.length > 0 ? exercises.length * 1.5 : 0;
-  return Math.max(minimumMinutes, Math.round((exerciseMinutes + transitionMinutes) * 10) / 10);
-}
 
 function totalDuration(blocks: readonly TrainingSessionBlock[]): number {
   return Math.round(blocks.reduce((sum, block) => sum + block.durationMinutes, 0));
@@ -172,97 +149,6 @@ function distributePowerSets(totalRepetitions: number, definitions: readonly Exe
     const sets = Math.min(definition.setRange.max, Math.max(definition.setRange.min, targetSets));
     remainingRepetitions = Math.max(0, remainingRepetitions - sets * repetitionsPerSet);
     return sets;
-  });
-}
-
-function resultRecordedAt(result: ExerciseResultRecord): string {
-  return result.completedAt ?? result.recordedAt;
-}
-
-function resultsForDefinition(input: {
-  definition: ExerciseDefinition;
-  history: readonly ExerciseResultRecord[];
-}): readonly ExerciseResultRecord[] {
-  return input.history
-    .filter((result) => result.exerciseId === input.definition.id)
-    .filter((result) => result.resultStatus !== "prescribed_only")
-    .sort((left, right) => resultRecordedAt(left).localeCompare(resultRecordedAt(right)));
-}
-
-function resultsForPattern(input: {
-  definition: ExerciseDefinition;
-  history: readonly ExerciseResultRecord[];
-}): readonly ExerciseResultRecord[] {
-  return input.history
-    .filter((result) => {
-      const prescribed = result.prescribed as { movementPattern?: unknown };
-      return prescribed.movementPattern === input.definition.movementPattern || result.exerciseId === input.definition.id;
-    })
-    .filter((result) => result.resultStatus !== "prescribed_only")
-    .sort((left, right) => resultRecordedAt(left).localeCompare(resultRecordedAt(right)));
-}
-
-function exerciseDoseAdjustment(input: {
-  definition: ExerciseDefinition;
-  intent: SessionIntent;
-  history: readonly ExerciseResultRecord[];
-}): { setDelta: number; repDelta: number; durationDeltaSeconds: number } {
-  const ownHistory = resultsForDefinition({ definition: input.definition, history: input.history });
-  const patternHistory = resultsForPattern({ definition: input.definition, history: input.history });
-  const latestOwn = ownHistory.at(-1);
-  const latestPattern = patternHistory.at(-1);
-  const issue = latestOwn ?? latestPattern;
-  if (issue?.painFlag || issue?.technicalQuality === "technical_breakdown" || issue?.technicalQuality === "stopped_for_pain") {
-    return { setDelta: -1, repDelta: -2, durationDeltaSeconds: -180 };
-  }
-  if (latestOwn?.resultStatus === "partial") {
-    return { setDelta: -1, repDelta: -1, durationDeltaSeconds: -120 };
-  }
-  if (typeof latestOwn?.rpe === "number" && latestOwn.rpe >= 8.5) {
-    return { setDelta: 0, repDelta: -1, durationDeltaSeconds: 0 };
-  }
-  if (
-    input.intent.progressionIntent === "progress" &&
-    latestOwn?.resultStatus === "completed" &&
-    !latestOwn.painFlag &&
-    (latestOwn.technicalQuality === undefined || latestOwn.technicalQuality === "clean" || latestOwn.technicalQuality === "mostly_clean") &&
-    (latestOwn.rpe === undefined || latestOwn.rpe < 8.5)
-  ) {
-    return input.definition.supportedAdaptations.includes("mobility")
-      ? { setDelta: 0, repDelta: 0, durationDeltaSeconds: 300 }
-      : { setDelta: 0, repDelta: 1, durationDeltaSeconds: 0 };
-  }
-  return { setDelta: 0, repDelta: 0, durationDeltaSeconds: 0 };
-}
-
-function selectedExerciseHistoryNotes(input: {
-  definitions: readonly ExerciseDefinition[];
-  history: readonly ExerciseResultRecord[];
-}): readonly string[] {
-  return input.definitions.flatMap((definition) => {
-    const latest = resultsForDefinition({ definition, history: input.history }).at(-1);
-    if (!latest) {
-      return [];
-    }
-    if (latest.painFlag || latest.technicalQuality === "stopped_for_pain") {
-      return [`${definition.name} is simplified because recent pain was logged for this exercise.`];
-    }
-    if (latest.technicalQuality === "technical_breakdown") {
-      return [`${definition.name} is simplified because recent technique broke down.`];
-    }
-    if (typeof latest.rpe === "number" && latest.rpe >= 8.5) {
-      return [`${definition.name} repeats intentionally because recent RPE was high.`];
-    }
-    if (latest.resultStatus === "completed") {
-      return [`${definition.name} repeats intentionally with one small progression variable after clean completion.`];
-    }
-    if (latest.resultStatus === "partial") {
-      return [`${definition.name} is trimmed because recent work was partial.`];
-    }
-    if (latest.resultStatus === "skipped") {
-      return [`${definition.name} repeats because skipped relevant work is not treated as completed adaptation.`];
-    }
-    return [];
   });
 }
 
@@ -456,6 +342,8 @@ function blocksForIntent(input: { athlete: AthleteTrainingProfile; intent: Sessi
 export function composeTrainingSession(input: { athlete: AthleteTrainingProfile; intent: SessionIntent; exerciseHistory?: readonly ExerciseResultRecord[] | undefined }): CompiledTrainingSession {
   const exerciseHistory = input.exerciseHistory ?? [];
   const template = getWorkoutTemplate(input.intent.templateId);
+  // Template-backed sessions are the V2 path. The role composer below remains only as a fallback
+  // for old intents that do not carry a templateId yet.
   const blocks = template
     ? fillWorkoutTemplate({
         athlete: input.athlete,

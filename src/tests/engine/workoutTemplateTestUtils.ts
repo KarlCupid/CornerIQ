@@ -1,4 +1,6 @@
 import type { AthleteProfile } from "../../engine/athlete/types";
+import type { CycleState } from "../../engine/cycle/types";
+import type { ReadinessState } from "../../engine/readiness/types";
 import type { ExerciseResultRecord, ProtectedWorkout } from "../../engine/training/types";
 import {
   compileTrainingWeek,
@@ -60,6 +62,43 @@ export function templateAnchor(overrides: Partial<ProtectedWorkout>): ProtectedW
     intensity: "hard",
     protected: true,
     rounds: 6,
+    ...overrides
+  };
+}
+
+export function templateReadiness(overrides: Partial<ReadinessState> = {}): ReadinessState {
+  return {
+    score: 85,
+    color: "green",
+    drivers: [],
+    hardStops: [],
+    confidence: { level: "high", score: 0.9, reasons: ["test fixture"], missingInputs: [] },
+    explanation: "Green readiness.",
+    ...overrides
+  };
+}
+
+export function templateCycle(overrides: Partial<CycleState> = {}): CycleState {
+  return {
+    trackingEnabled: false,
+    userConsentVersion: null,
+    lastBleedStartDate: null,
+    lastBleedEndDate: null,
+    estimatedCycleDay: null,
+    estimatedPhase: "unknown",
+    confidence: { level: "unknown", score: 0.4, reasons: ["disabled"], missingInputs: [] },
+    cycleLengthEstimate: null,
+    cycleRegularity: "unknown",
+    hormonalContraception: "unknown",
+    symptoms: [],
+    flowLevel: "unknown",
+    symptomBurden: "none",
+    cycleRelatedWeightNoiseRisk: "unknown",
+    trainingAdjustment: "No cycle adjustment.",
+    nutritionAdjustment: "No cycle nutrition adjustment.",
+    bodyMassInterpretation: "No cycle context.",
+    safetyFlags: [],
+    explanation: "Cycle tracking disabled.",
     ...overrides
   };
 }

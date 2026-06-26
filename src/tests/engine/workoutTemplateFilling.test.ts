@@ -81,7 +81,7 @@ describe("workout template filling", () => {
 
     expect(exercises.some((exercise) => exercise.exerciseId === "bodyweight_squat")).toBe(true);
     expect(exercises.find((exercise) => exercise.exerciseId === "push_up")?.reps).toBeLessThan(10);
-    expect(week.compiledSessions.flatMap((session) => session.blocks.flatMap((block) => block.coachingNotes)).join(" ")).toMatch(/simplified|trimmed/);
+    expect(week.compiledSessions.flatMap((session) => session.blocks.flatMap((block) => block.coachingNotes)).join(" ")).toMatch(/easier version|little less/);
   });
 
   it("detail and player timelines use compiled exercises instead of recipe substitutions", () => {

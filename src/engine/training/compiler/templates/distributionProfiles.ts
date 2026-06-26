@@ -1,4 +1,4 @@
-import type { TrainingDose, TrainingPrimaryFocus } from "../types";
+import type { TrainingDose, TrainingGoalMode, TrainingPrimaryFocus } from "../types";
 import type { TemplateDistributionConstraints, TemplateDistributionItem, WorkoutTemplateDistributionProfile } from "./templateTypes";
 
 const defaultConstraints: TemplateDistributionConstraints = {
@@ -19,7 +19,7 @@ function targetCount(focus: TrainingPrimaryFocus, dose: TrainingDose): number {
     case "standard":
       return focus === "balanced" ? 4 : 3;
     case "serious":
-      return 4;
+      return 5;
     case "high":
       return 6;
   }
@@ -36,19 +36,21 @@ function item(templateId: string, index: number, overrides: Partial<TemplateDist
 
 function profile(input: {
   id: string;
+  goalMode?: TrainingGoalMode | undefined;
   primaryFocus: TrainingPrimaryFocus;
   trainingDose: TrainingDose;
   templates: readonly string[];
   rationale: readonly string[];
   maxGeneratedHardDays?: number | undefined;
+  targetSessionCount?: number | undefined;
 }): WorkoutTemplateDistributionProfile {
   return {
     id: input.id,
-    goalMode: "build",
+    goalMode: input.goalMode ?? "build",
     primaryFocus: input.primaryFocus,
     trainingDose: input.trainingDose,
     supportDayCountRange: { min: 1, max: 7 },
-    targetSessionCount: targetCount(input.primaryFocus, input.trainingDose),
+    targetSessionCount: input.targetSessionCount ?? targetCount(input.primaryFocus, input.trainingDose),
     templateWeights: input.templates.map((templateId, index) => item(templateId, index)),
     constraints: {
       ...defaultConstraints,
@@ -59,6 +61,7 @@ function profile(input: {
 }
 
 const doseOrder: readonly TrainingDose[] = ["minimal", "standard", "serious", "high"];
+const focusOrder: readonly TrainingPrimaryFocus[] = ["balanced", "strength", "conditioning", "power", "boxing_skill", "mobility_recovery"];
 
 function templatesForBalanced(dose: TrainingDose): readonly string[] {
   switch (dose) {
@@ -155,7 +158,7 @@ function templatesForFocus(focus: TrainingPrimaryFocus, dose: TrainingDose): rea
 }
 
 export const workoutTemplateDistributionProfiles: readonly WorkoutTemplateDistributionProfile[] = [
-  ...(["balanced", "strength", "conditioning", "power", "boxing_skill", "mobility_recovery"] as const).flatMap((focus) =>
+  ...focusOrder.flatMap((focus) =>
     doseOrder.map((dose) =>
       profile({
         id: `build_${focus}_${dose}`,
@@ -169,20 +172,74 @@ export const workoutTemplateDistributionProfiles: readonly WorkoutTemplateDistri
             : [`Use ${focus.replaceAll("_", " ")} templates first, then add support that protects boxing quality.`]
       })
     )
+  ),
+  ...focusOrder.flatMap((focus) =>
+    doseOrder.map((dose) =>
+      profile({
+        id: `fight_camp_${focus}_${dose}`,
+        goalMode: "fight_camp",
+        primaryFocus: focus,
+        trainingDose: dose,
+        targetSessionCount: 2,
+        templates: templatesForFocus(focus, dose),
+        maxGeneratedHardDays: 1,
+        rationale: ["Fight camp support is capped so fixed boxing work stays primary."]
+      })
+    )
+  ),
+  ...focusOrder.flatMap((focus) =>
+    doseOrder.map((dose) =>
+      profile({
+        id: `tournament_${focus}_${dose}`,
+        goalMode: "tournament",
+        primaryFocus: focus,
+        trainingDose: dose,
+        targetSessionCount: 3,
+        templates: ["mobility_recovery_reset", "fight_week_sharpness", preferredTournamentMobilityTemplate(focus, dose)],
+        maxGeneratedHardDays: 0,
+        rationale: ["Tournament support stays easy and taper-biased."]
+      })
+    )
+  ),
+  ...focusOrder.flatMap((focus) =>
+    doseOrder.map((dose) =>
+      profile({
+        id: `recovery_reset_${focus}_${dose}`,
+        goalMode: "recovery_reset",
+        primaryFocus: focus,
+        trainingDose: dose,
+        targetSessionCount: targetCount("mobility_recovery", dose),
+        templates: templatesForMobility(dose),
+        maxGeneratedHardDays: 0,
+        rationale: ["Recovery reset uses recovery, mobility, and easy support only."]
+      })
+    )
   )
 ];
 
+function preferredTournamentMobilityTemplate(focus: TrainingPrimaryFocus, dose: TrainingDose): string {
+  const mobilityTemplates = templatesForMobility(dose);
+  return focus === "mobility_recovery" ? (mobilityTemplates[1] ?? "mobility_recovery_reset") : "mobility_recovery_reset";
+}
+
 export function findWorkoutTemplateDistributionProfile(input: {
+  goalMode?: TrainingGoalMode | undefined;
   primaryFocus: TrainingPrimaryFocus;
   trainingDose: TrainingDose;
   supportDayCount: number;
 }): WorkoutTemplateDistributionProfile {
+  const goalMode = input.goalMode ?? "build";
   const profileMatch = workoutTemplateDistributionProfiles.find(
     (candidate) =>
+      candidate.goalMode === goalMode &&
       candidate.primaryFocus === input.primaryFocus &&
       candidate.trainingDose === input.trainingDose &&
       input.supportDayCount >= candidate.supportDayCountRange.min &&
       input.supportDayCount <= candidate.supportDayCountRange.max
   );
-  return profileMatch ?? workoutTemplateDistributionProfiles.find((candidate) => candidate.primaryFocus === "balanced" && candidate.trainingDose === "standard")!;
+  return (
+    profileMatch ??
+    workoutTemplateDistributionProfiles.find((candidate) => candidate.goalMode === "build" && candidate.primaryFocus === input.primaryFocus && candidate.trainingDose === input.trainingDose) ??
+    workoutTemplateDistributionProfiles.find((candidate) => candidate.goalMode === "build" && candidate.primaryFocus === "balanced" && candidate.trainingDose === "standard")!
+  );
 }

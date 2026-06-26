@@ -1,11 +1,73 @@
 import { describe, expect, it } from "vitest";
-import { compileTemplateCase, templateAnchor } from "./workoutTemplateTestUtils";
+import { projectCompiledWeekToGeneratedSessions } from "../../engine/training/compiledWeekProjection";
+import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
+import { getWorkoutTemplate, type TrainingDose, type TrainingPrimaryFocus } from "../../engine/training/compiler";
+import { compileTemplateCase, templateAnchor, templateAthlete, templateCycle, templateReadiness } from "./workoutTemplateTestUtils";
 
 function templateIds(week: ReturnType<typeof compileTemplateCase>): readonly string[] {
   return week.sessionIntents.map((intent) => intent.templateId ?? "none");
 }
 
+const matrixFocuses: readonly TrainingPrimaryFocus[] = ["balanced", "strength", "conditioning", "power", "boxing_skill", "mobility_recovery"];
+const matrixDoses: readonly TrainingDose[] = ["minimal", "standard", "serious", "high"];
+
 describe("workout template distribution", () => {
+  it.each(matrixFocuses.flatMap((focus) => matrixDoses.map((dose) => ({ focus, dose }))))(
+    "keeps template and canonical contracts stable for $focus / $dose",
+    ({ focus, dose }) => {
+      const hardFixedBoxing = templateAnchor({
+        id: `hard_boxing_${focus}_${dose}`,
+        type: "sparring",
+        date: "2026-06-03",
+        intensity: "hard"
+      });
+      const athlete = templateAthlete({
+        equipmentAccess: ["bodyweight", "dumbbells", "bands", "bike", "medicine_ball", "bag"],
+        protectedBoxingSchedule: [hardFixedBoxing]
+      });
+      const week = compileTemplateCase({
+        focus,
+        dose,
+        supportDays: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
+        fixed: [hardFixedBoxing],
+        equipment: athlete.equipmentAccess
+      });
+      const generated = projectCompiledWeekToGeneratedSessions({
+        week,
+        source: "active_plan_generation"
+      });
+
+      expect(generated.length).toBeGreaterThan(0);
+
+      for (const session of generated) {
+        expect(session.templateId).toEqual(expect.any(String));
+        expect(getWorkoutTemplate(session.templateId!)).toBeDefined();
+        expect(session.structuredPrescriptionV2?.canonicalWorkoutSession).toBeDefined();
+        expect(session.structuredPrescriptionV2?.canonicalWorkoutSession?.templateId).toBe(session.templateId);
+
+        const detail = buildDetailedTrainingSession({
+          generatedSession: session,
+          athlete,
+          readiness: templateReadiness(),
+          cycle: templateCycle(),
+          protectedWorkouts: [hardFixedBoxing],
+          equipmentAccess: athlete.equipmentAccess
+        });
+
+        expect(detail.recipe?.quickLog?.whatToDo).toMatch(/compiled dose/i);
+        expect(detail.recipe?.quickLog?.mainJob).toMatch(/compiled dose/i);
+      }
+
+      expect(generated.filter((session) => session.date === hardFixedBoxing.date).every((session) => session.intensity !== "hard")).toBe(true);
+      expect(week.sessionIntents.filter((intent) => intent.date === hardFixedBoxing.date).every((intent) => intent.hardness !== "hard")).toBe(true);
+
+      if (focus === "mobility_recovery") {
+        expect(generated.every((session) => session.intensity !== "hard")).toBe(true);
+        expect(week.sessionIntents.every((intent) => intent.hardness !== "hard")).toBe(true);
+      }
+    }
+  );
+
   it("strength standard support is strength-led without boxing-heavy filler", () => {
     const week = compileTemplateCase({
       focus: "strength",

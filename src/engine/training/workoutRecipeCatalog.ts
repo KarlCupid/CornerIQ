@@ -898,7 +898,7 @@ function compiledRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe | nu
     blocks,
     safetyStops: input.safetyStops.length > 0 ? input.safetyStops : [DEFAULT_STOP],
     previewFlow: input.sections.map((sectionItem) => `${sectionItem.name} - ${sectionItem.durationMinutes} min`),
-    quickLog: quickLog("Complete the listed blocks, then log completed, partial, or skipped.", "Follow the compiled dose. No extra sets or rounds.")
+    quickLog: quickLog("Follow the compiled dose, then log completed, partial, or skipped.", "Follow the compiled dose. No extra sets or rounds.")
   });
 }
 

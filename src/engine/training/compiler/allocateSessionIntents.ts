@@ -2,7 +2,7 @@ import { addDays, daysBetween } from "../../core/dates";
 import type { ISODateString } from "../../core/sharedTypes";
 import { generatedSupportWeekdayForDate } from "../supportAvailability";
 import type { ProtectedWorkout } from "../types";
-import { remainingTarget, targetMovementPatternsForStrengthBudget } from "./resolveWeeklyAdaptationBudget";
+import { remainingTarget } from "./resolveWeeklyAdaptationBudget";
 import { selectWorkoutTemplates, type SelectedWorkoutTemplate } from "./templates/selectWorkoutTemplates";
 import type {
   AthleteTrainingProfile,
@@ -88,99 +88,6 @@ function selectedSupportDates(planIntent: PlanIntent, weekStartDate: ISODateStri
   return weekDates(weekStartDate).filter((date) => selected.has(generatedSupportWeekdayForDate(date)));
 }
 
-function doseIndex(dose: PlanIntent["trainingDose"]): number {
-  switch (dose) {
-    case "minimal":
-      return 0;
-    case "standard":
-      return 1;
-    case "serious":
-      return 2;
-    case "high":
-      return 3;
-  }
-}
-
-function exposureByDose(dose: PlanIntent["trainingDose"], values: readonly [number, number, number, number]): number {
-  return values[doseIndex(dose)] ?? values[1];
-}
-
-function roleDuration(planIntent: PlanIntent, role: SessionRole): number {
-  const preferred = planIntent.preferredSessionDurationMinutes;
-  const max = planIntent.maxSessionDurationMinutes;
-  const bounded = (minutes: number) => Math.min(max, Math.max(20, minutes));
-  const doseOffset = exposureByDose(planIntent.trainingDose, [-10, 0, 10, 15]);
-  const doseAdjustedPreferred = preferred + doseOffset;
-  const strengthFloor = exposureByDose(planIntent.trainingDose, [35, 45, 60, 65]);
-  const secondaryStrengthFloor = exposureByDose(planIntent.trainingDose, [35, 40, 45, 50]);
-  switch (role) {
-    case "primary_strength":
-      return bounded(Math.max(strengthFloor, doseAdjustedPreferred));
-    case "secondary_strength":
-      return bounded(Math.max(secondaryStrengthFloor, preferred + Math.max(0, doseOffset)));
-    case "strength_maintenance":
-      return bounded(Math.max(35, Math.min(preferred, 50)));
-    case "power_quality":
-      return bounded(Math.max(38, Math.min(preferred, 55)));
-    case "aerobic_conditioning":
-      return bounded(Math.max(35, preferred));
-    case "tempo_conditioning":
-    case "interval_conditioning":
-    case "boxing_conditioning":
-      return bounded(Math.max(40, Math.min(preferred, 60)));
-    case "alactic_conditioning":
-      return bounded(Math.max(35, Math.min(preferred, 50)));
-    case "boxing_skill":
-      return bounded(Math.max(35, Math.min(preferred, 55)));
-    case "mobility_recovery":
-      return bounded(Math.max(25, Math.min(preferred, 40)));
-    case "durability_support":
-      return bounded(Math.max(25, Math.min(preferred, 35)));
-  }
-}
-
-function boxingTheme(planIntent: PlanIntent): BoxingSkillSubFocus {
-  const validThemes: readonly string[] = [
-    "jab_system",
-    "entries_exits",
-    "defense_after_punching",
-    "footwork_ringcraft",
-    "counter_timing",
-    "pressure_control",
-    "outside_movement",
-    "bag_skill",
-    "shadowboxing_mechanics"
-  ];
-  return validThemes.includes(planIntent.subFocus) ? (planIntent.subFocus as BoxingSkillSubFocus) : "jab_system";
-}
-
-function targetRoleCount(planIntent: PlanIntent): number {
-  const selected = Math.max(1, planIntent.selectedSupportDays.length);
-  if (planIntent.goalMode === "fight_camp") {
-    return Math.min(selected, 2);
-  }
-  if (planIntent.goalMode === "tournament") {
-    return Math.min(selected, 3);
-  }
-  if (planIntent.goalMode === "recovery_reset" || planIntent.primaryFocus === "mobility_recovery") {
-    return Math.min(selected, planIntent.trainingDose === "minimal" ? 1 : planIntent.trainingDose === "standard" ? 2 : 3);
-  }
-  switch (planIntent.trainingDose) {
-    case "minimal":
-      return 1;
-    case "standard":
-      return Math.min(selected, planIntent.primaryFocus === "balanced" ? 4 : 3);
-    case "serious":
-      return Math.min(selected, Math.max(4, selected - 1));
-    case "high":
-      return selected;
-  }
-}
-
-function hasRole(roles: readonly RolePlan[], role: SessionRole): boolean {
-  return roles.some((item) => item.role === role);
-}
-
 function rolePlanFromSelectedTemplate(selection: SelectedWorkoutTemplate): RolePlan {
   return {
     role: selection.role,
@@ -196,327 +103,30 @@ function rolePlanFromSelectedTemplate(selection: SelectedWorkoutTemplate): RoleP
   };
 }
 
-function supplementalRoleFor(input: {
-  planIntent: PlanIntent;
-  budget: WeeklyAdaptationBudget;
-  roles: readonly RolePlan[];
-  strengthPatterns: readonly MovementPattern[];
-}): RolePlan | null {
-  const { planIntent, roles } = input;
-  if (planIntent.primaryFocus === "strength" && !hasRole(roles, "aerobic_conditioning")) {
-    return {
-      role: "aerobic_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["mobility"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(planIntent, "aerobic_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "aerobic_base"
-    };
-  }
-  if (planIntent.primaryFocus === "conditioning" && !hasRole(roles, "boxing_conditioning")) {
-    return {
-      role: "boxing_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["boxing_skill"],
-      hardness: "hard",
-      targetDurationMinutes: roleDuration(planIntent, "boxing_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "boxing_round_conditioning",
-      boxingTheme: boxingTheme(planIntent)
-    };
-  }
-  if (planIntent.primaryFocus === "balanced" && !hasRole(roles, "power_quality") && (planIntent.trainingDose === "serious" || planIntent.trainingDose === "high")) {
-    return {
-      role: "power_quality",
-      primaryAdaptation: "power",
-      secondaryAdaptations: ["strength"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(planIntent, "power_quality"),
-      movementPatterns: ["rotation", "unilateral", "ankle_tendon"]
-    };
-  }
-  if (!hasRole(roles, "durability_support") && input.budget.durability.sets > 0) {
-    return {
-      role: "durability_support",
-      primaryAdaptation: "durability",
-      secondaryAdaptations: ["mobility"],
-      hardness: "easy",
-      targetDurationMinutes: roleDuration(planIntent, "durability_support"),
-      movementPatterns: ["anti_extension", "anti_rotation"]
-    };
-  }
-  if (!hasRole(roles, "boxing_skill") && planIntent.primaryFocus !== "strength") {
-    return {
-      role: "boxing_skill",
-      primaryAdaptation: "boxing_skill",
-      secondaryAdaptations: ["mobility"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(planIntent, "boxing_skill"),
-      movementPatterns: ["locomotion"],
-      boxingTheme: boxingTheme(planIntent)
-    };
-  }
-  return {
-    role: "mobility_recovery",
-    primaryAdaptation: "mobility",
-    secondaryAdaptations: ["recovery"],
-    hardness: "recovery",
-    targetDurationMinutes: roleDuration(planIntent, "mobility_recovery"),
-    movementPatterns: ["mobility"]
-  };
-}
-
-function _desiredRoles(input: { planIntent: PlanIntent; budget: WeeklyAdaptationBudget }): readonly RolePlan[] {
-  const roles: RolePlan[] = [];
-  const supportSlotCount = input.planIntent.selectedSupportDays.length;
-  const strengthPatterns = targetMovementPatternsForStrengthBudget(input.budget);
-  const strengthRemaining = remainingTarget(input.budget, "strength_sets");
-  const aerobicRemaining = remainingTarget(input.budget, "aerobic_minutes");
-  const tempoRemaining = remainingTarget(input.budget, "tempo_minutes");
-  const intervalRemaining = remainingTarget(input.budget, "interval_repetitions");
-  const alacticRemaining = remainingTarget(input.budget, "alactic_efforts");
-  const boxingConditioningRemaining = remainingTarget(input.budget, "boxing_conditioning_rounds");
-  const boxingSkillRemaining = remainingTarget(input.budget, "boxing_technical_rounds");
-  const mobilityRemaining = remainingTarget(input.budget, "mobility_minutes");
-  const explosiveRemaining = remainingTarget(input.budget, "explosive_repetitions");
-
-  if (input.planIntent.primaryFocus === "mobility_recovery" || input.planIntent.goalMode === "recovery_reset") {
-    const recoveryCount = Math.min(input.planIntent.selectedSupportDays.length, Math.max(1, input.budget.mobility.exposures));
-    for (let index = 0; index < recoveryCount; index += 1) {
-      roles.push({
-        role: "mobility_recovery",
-        primaryAdaptation: "mobility",
-        secondaryAdaptations: ["recovery"],
-        hardness: "recovery",
-        targetDurationMinutes: roleDuration(input.planIntent, "mobility_recovery"),
-        movementPatterns: ["mobility"]
-      });
-    }
-    return roles;
-  }
-
-  if (input.planIntent.primaryFocus === "strength" && strengthRemaining > 0) {
-    roles.push({
-      role: "primary_strength",
-      primaryAdaptation: "strength",
-      secondaryAdaptations: ["durability"],
-      hardness: "hard",
-      targetDurationMinutes: roleDuration(input.planIntent, "primary_strength"),
-      movementPatterns: strengthPatterns
-    });
-    if (input.budget.strength.exposures >= 2) {
-      roles.push({
-        role: "secondary_strength",
-        primaryAdaptation: "strength",
-        secondaryAdaptations: ["mobility"],
-        hardness: "moderate",
-        targetDurationMinutes: roleDuration(input.planIntent, "secondary_strength"),
-        movementPatterns: strengthPatterns
-      });
-    }
-    if (input.budget.strength.exposures >= 3) {
-      roles.push({
-        role: "secondary_strength",
-        primaryAdaptation: "strength",
-        secondaryAdaptations: ["mobility"],
-        hardness: "moderate",
-        targetDurationMinutes: roleDuration(input.planIntent, "secondary_strength"),
-        movementPatterns: strengthPatterns
-      });
-    }
-  }
-
-  if (input.planIntent.primaryFocus === "power" && (explosiveRemaining > 0 || input.budget.power.exposures > 0)) {
-    const powerExposures = Math.min(input.planIntent.selectedSupportDays.length, Math.max(1, input.budget.power.exposures));
-    for (let index = 0; index < powerExposures; index += 1) {
-      roles.push({
-        role: "power_quality",
-        primaryAdaptation: "power",
-        secondaryAdaptations: ["strength"],
-        hardness: input.planIntent.goalMode === "fight_camp" || input.planIntent.subFocus === "power_maintenance" ? "moderate" : "hard",
-        targetDurationMinutes: roleDuration(input.planIntent, "power_quality"),
-        movementPatterns: ["rotation", "unilateral", "ankle_tendon"]
-      });
-    }
-  }
-
-  if (intervalRemaining > 0) {
-    roles.push({
-      role: "interval_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["mobility"],
-      hardness: "hard",
-      targetDurationMinutes: roleDuration(input.planIntent, "interval_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "intervals"
-    });
-  } else if (tempoRemaining > 0) {
-    roles.push({
-      role: "tempo_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["mobility"],
-      hardness: "hard",
-      targetDurationMinutes: roleDuration(input.planIntent, "tempo_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "tempo"
-    });
-  } else if (alacticRemaining > 0) {
-    roles.push({
-      role: "alactic_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["power"],
-      hardness: "hard",
-      targetDurationMinutes: roleDuration(input.planIntent, "alactic_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "alactic"
-    });
-  } else if (boxingConditioningRemaining > 0) {
-    roles.push({
-      role: "boxing_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["boxing_skill"],
-      hardness: "hard",
-      targetDurationMinutes: roleDuration(input.planIntent, "boxing_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "boxing_round_conditioning",
-      boxingTheme: boxingTheme(input.planIntent)
-    });
-  } else if (aerobicRemaining > 0) {
-    roles.push({
-      role: "aerobic_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["mobility"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(input.planIntent, "aerobic_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "aerobic_base"
-    });
-  }
-
-  if (
-    input.planIntent.primaryFocus === "conditioning" &&
-    aerobicRemaining > 0 &&
-    !roles.some((role) => role.role === "aerobic_conditioning") &&
-    roles.length < supportSlotCount
-  ) {
-    roles.push({
-      role: "aerobic_conditioning",
-      primaryAdaptation: "conditioning",
-      secondaryAdaptations: ["mobility"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(input.planIntent, "aerobic_conditioning"),
-      movementPatterns: ["locomotion"],
-      energySystemIntent: "aerobic_base"
-    });
-  }
-
-  if (input.planIntent.primaryFocus === "balanced") {
-    if (strengthRemaining > 0) {
-      roles.unshift({
-        role: "primary_strength",
-        primaryAdaptation: "strength",
-        secondaryAdaptations: ["durability"],
-        hardness: "moderate",
-        targetDurationMinutes: roleDuration(input.planIntent, "primary_strength"),
-        movementPatterns: strengthPatterns
-      });
-    }
-    if (boxingSkillRemaining > 0) {
-      roles.push({
-        role: "boxing_skill",
-        primaryAdaptation: "boxing_skill",
-        secondaryAdaptations: ["mobility"],
-        hardness: "moderate",
-        targetDurationMinutes: roleDuration(input.planIntent, "boxing_skill"),
-        movementPatterns: ["locomotion"],
-        boxingTheme: boxingTheme(input.planIntent)
-      });
-    }
-  }
-
-  if (input.planIntent.primaryFocus === "conditioning" && strengthRemaining > 0 && roles.length < input.planIntent.selectedSupportDays.length) {
-    roles.push({
-      role: "strength_maintenance",
-      primaryAdaptation: "strength",
-      secondaryAdaptations: ["durability"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(input.planIntent, "strength_maintenance"),
-      movementPatterns: strengthPatterns
-    });
-  }
-
-  if (input.planIntent.primaryFocus === "power" && input.planIntent.goalMode !== "fight_camp" && strengthRemaining > 0 && roles.length < input.planIntent.selectedSupportDays.length) {
-    roles.push({
-      role: "strength_maintenance",
-      primaryAdaptation: "strength",
-      secondaryAdaptations: ["durability"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(input.planIntent, "strength_maintenance"),
-      movementPatterns: strengthPatterns
-    });
-  }
-
-  if (boxingSkillRemaining > 0 && input.planIntent.primaryFocus === "boxing_skill") {
-    roles.push({
-      role: "boxing_skill",
-      primaryAdaptation: "boxing_skill",
-      secondaryAdaptations: ["mobility"],
-      hardness: "moderate",
-      targetDurationMinutes: roleDuration(input.planIntent, "boxing_skill"),
-      movementPatterns: ["locomotion"],
-      boxingTheme: boxingTheme(input.planIntent)
-    });
-  }
-
-  if (mobilityRemaining > 0 || roles.length === 0) {
-    roles.push({
-      role: "mobility_recovery",
-      primaryAdaptation: "mobility",
-      secondaryAdaptations: ["recovery"],
-      hardness: "recovery",
-      targetDurationMinutes: roleDuration(input.planIntent, "mobility_recovery"),
-      movementPatterns: ["mobility"]
-    });
-  }
-
-  const targetCount = targetRoleCount(input.planIntent);
-  while (roles.length < targetCount) {
-    const nextRole = supplementalRoleFor({
-      planIntent: input.planIntent,
-      budget: input.budget,
-      roles,
-      strengthPatterns
-    });
-    if (!nextRole) {
-      break;
-    }
-    roles.push(nextRole);
-  }
-
-  return roles.slice(0, Math.max(1, Math.min(targetCount, input.planIntent.selectedSupportDays.length)));
-}
-
 function hardRole(role: RolePlan): boolean {
   return role.hardness === "hard";
 }
 
-function hardBoxingSupportRole(input: { role: RolePlan; planIntent: PlanIntent }): RolePlan {
+function recoveryDurationForHardBoxingDay(role: RolePlan): number {
+  return Math.max(20, Math.min(role.targetDurationMinutes, 40));
+}
+
+function hardBoxingSupportRole(role: RolePlan): RolePlan {
   return {
     role: "mobility_recovery",
     primaryAdaptation: "mobility",
-    secondaryAdaptations: ["recovery", input.role.primaryAdaptation],
+    secondaryAdaptations: ["recovery", role.primaryAdaptation],
     templateId: "mobility_recovery_reset",
     templateTitle: "Recovery mobility reset",
     hardness: "easy",
-    targetDurationMinutes: Math.min(input.role.targetDurationMinutes, roleDuration(input.planIntent, "mobility_recovery")),
+    targetDurationMinutes: recoveryDurationForHardBoxingDay(role),
     movementPatterns: ["mobility"]
   };
 }
 
-function roleForDate(input: { role: RolePlan; date: ISODateString; anchors: readonly ProtectedWorkout[]; planIntent: PlanIntent }): RolePlan {
+function roleForDate(input: { role: RolePlan; date: ISODateString; anchors: readonly ProtectedWorkout[] }): RolePlan {
   if (input.role.hardness !== "recovery" && hasHardBoxing(input.anchors, input.date)) {
-    return hardBoxingSupportRole({ role: input.role, planIntent: input.planIntent });
+    return hardBoxingSupportRole(input.role);
   }
   return input.role;
 }
@@ -664,8 +274,7 @@ export function allocateSessionIntents(input: {
     const placedRole = roleForDate({
       role,
       date: selected,
-      anchors: input.athlete.fixedBoxingSchedule,
-      planIntent: input.planIntent
+      anchors: input.athlete.fixedBoxingSchedule
     });
     const carryMobilityMinutes =
       hasDedicatedMobilityRole || mobilityCarryAssigned || placedRole.primaryAdaptation === "mobility" ? 0 : remainingTarget(input.budget, "mobility_minutes");

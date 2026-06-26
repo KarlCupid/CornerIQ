@@ -14,7 +14,7 @@ import type {
   WeeklyAdaptationBudget
 } from "../types";
 import { findWorkoutTemplateDistributionProfile } from "./distributionProfiles";
-import type { WorkoutTemplate } from "./templateTypes";
+import type { WorkoutTemplate, WorkoutTemplateDistributionProfile } from "./templateTypes";
 import { getWorkoutTemplate, templatePrimaryAdaptation, templatePrimaryMovementPatterns } from "./workoutTemplates";
 
 export interface SelectedWorkoutTemplate {
@@ -45,29 +45,6 @@ function doseIndex(dose: PlanIntent["trainingDose"]): number {
 
 function exposureByDose(dose: PlanIntent["trainingDose"], values: readonly [number, number, number, number]): number {
   return values[doseIndex(dose)] ?? values[1];
-}
-
-function targetTemplateCount(planIntent: PlanIntent): number {
-  const selected = Math.max(1, planIntent.selectedSupportDays.length);
-  if (planIntent.goalMode === "fight_camp") {
-    return Math.min(selected, 2);
-  }
-  if (planIntent.goalMode === "tournament") {
-    return Math.min(selected, 3);
-  }
-  if (planIntent.goalMode === "recovery_reset" || planIntent.primaryFocus === "mobility_recovery") {
-    return Math.min(selected, planIntent.trainingDose === "minimal" ? 1 : planIntent.trainingDose === "standard" ? 2 : 3);
-  }
-  switch (planIntent.trainingDose) {
-    case "minimal":
-      return 1;
-    case "standard":
-      return Math.min(selected, planIntent.primaryFocus === "balanced" ? 4 : 3);
-    case "serious":
-      return Math.min(selected, Math.max(4, selected - 1));
-    case "high":
-      return selected;
-  }
 }
 
 function boundedDuration(planIntent: PlanIntent, templateItem: WorkoutTemplate, role: SessionRole): number {
@@ -195,20 +172,17 @@ function focusAdjustedTemplateIds(input: {
   athlete: AthleteTrainingProfile;
   planIntent: PlanIntent;
   budget: WeeklyAdaptationBudget;
+  profile: WorkoutTemplateDistributionProfile;
+  targetCount: number;
 }): readonly string[] {
+  let templateIds: readonly string[] = input.profile.templateWeights.map((item) => item.templateId);
+
   if (input.planIntent.goalMode === "recovery_reset") {
-    return [preferredMobilityTemplate(input.planIntent), "mobility_recovery_reset", "durability_support_layer"];
+    return replaceFirst(templateIds, (templateId) => templateId.includes("mobility") || templateId.includes("recovery"), preferredMobilityTemplate(input.planIntent));
   }
   if (input.planIntent.goalMode === "tournament") {
-    return ["mobility_recovery_reset", "fight_week_sharpness", preferredMobilityTemplate(input.planIntent)];
+    return templateIds;
   }
-
-  const profile = findWorkoutTemplateDistributionProfile({
-    primaryFocus: input.planIntent.primaryFocus,
-    trainingDose: input.planIntent.trainingDose,
-    supportDayCount: input.planIntent.selectedSupportDays.length
-  });
-  let templateIds: readonly string[] = profile.templateWeights.map((item) => item.templateId);
 
   if (input.planIntent.primaryFocus === "strength") {
     templateIds = replaceFirst(templateIds, (templateId) => templateId.includes("strength") && templateId !== "strength_maintenance", preferredStrengthTemplate(input.planIntent));
@@ -243,11 +217,10 @@ function focusAdjustedTemplateIds(input: {
   }
 
   if (hasHardFixedBoxingOnSelectedSupportDay(input)) {
-    const targetCount = targetTemplateCount(input.planIntent);
-    const leadingTemplates = templateIds.slice(0, targetCount);
+    const leadingTemplates = templateIds.slice(0, input.targetCount);
     const hasRecovery = leadingTemplates.some((templateId) => templateId.includes("mobility") || templateId.includes("recovery"));
-    if (!hasRecovery && targetCount > 0) {
-      templateIds = templateIds.map((templateId, index) => (index === targetCount - 1 ? "mobility_recovery_reset" : templateId));
+    if (!hasRecovery && input.targetCount > 0) {
+      templateIds = templateIds.map((templateId, index) => (index === input.targetCount - 1 ? "mobility_recovery_reset" : templateId));
     }
   }
 
@@ -398,18 +371,23 @@ function selectedTemplate(input: {
   };
 }
 
+function cappedProfileTargetCount(profile: WorkoutTemplateDistributionProfile, supportDayCount: number): number {
+  return Math.max(1, Math.min(Math.max(1, supportDayCount), profile.targetSessionCount));
+}
+
 export function selectWorkoutTemplates(input: {
   athlete: AthleteTrainingProfile;
   planIntent: PlanIntent;
   budget: WeeklyAdaptationBudget;
 }): readonly SelectedWorkoutTemplate[] {
-  const targetCount = targetTemplateCount(input.planIntent);
   const profile = findWorkoutTemplateDistributionProfile({
+    goalMode: input.planIntent.goalMode,
     primaryFocus: input.planIntent.primaryFocus,
     trainingDose: input.planIntent.trainingDose,
     supportDayCount: input.planIntent.selectedSupportDays.length
   });
-  const templateIds = focusAdjustedTemplateIds(input);
+  const targetCount = cappedProfileTargetCount(profile, input.planIntent.selectedSupportDays.length);
+  const templateIds = focusAdjustedTemplateIds({ ...input, profile, targetCount });
   const selected: SelectedWorkoutTemplate[] = [];
 
   for (const templateId of templateIds) {

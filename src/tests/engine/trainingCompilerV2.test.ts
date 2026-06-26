@@ -288,7 +288,7 @@ describe("training compiler V2 architecture", () => {
     const cleanGoblet = allExercises(primaryStrengthSession(clean)).find((exercise) => exercise.exerciseId === "goblet_squat");
     expect(cleanIntent?.progressionIntent).toBe("progress");
     expect(cleanGoblet?.reps).toBe((baselineGoblet?.reps ?? 0) + 1);
-    expect(primaryStrengthSession(clean).blocks.flatMap((block) => block.coachingNotes).join(" ")).toContain("repeats intentionally");
+    expect(primaryStrengthSession(clean).blocks.flatMap((block) => block.coachingNotes).join(" ")).toContain("one small step");
 
     const highRpe = compileCase({
       focus: "strength",

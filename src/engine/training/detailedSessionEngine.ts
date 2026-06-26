@@ -18,6 +18,7 @@ import type {
 import { buildGuidedStepsForExercise, guidedProfileForExercise } from "./guidedExerciseCatalog";
 import { resolveWorkoutRecipe } from "./workoutRecipeCatalog";
 import { plainGeneratedSessionFamilyWhy, plainSectionIntent, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "../presentation/trainingCopy";
+import type { CanonicalWorkoutBlock } from "./compiler/canonicalWorkout";
 
 export interface BuildDetailedTrainingSessionInput {
   generatedSession: GeneratedTrainingSession;
@@ -271,6 +272,24 @@ function buildWorkoutWalkthrough(input: {
 type StructuredPrescriptionV2 = NonNullable<GeneratedTrainingSession["structuredPrescriptionV2"]>;
 type StructuredBlockV2 = StructuredPrescriptionV2["compiledSession"]["blocks"][number];
 type StructuredExerciseV2 = StructuredBlockV2["exercises"][number];
+
+function structuredBlockFromCanonicalBlock(block: CanonicalWorkoutBlock): StructuredBlockV2 {
+  const exercises = block.slots.flatMap((slot) => (slot.exercise ? [slot.exercise] : []));
+  const conditioning = block.slots.find((slot) => slot.conditioning)?.conditioning;
+  const boxingRounds = block.slots.find((slot) => slot.boxingRounds)?.boxingRounds;
+  return {
+    id: block.id,
+    ...(block.templateBlockId ? { templateBlockId: block.templateBlockId } : {}),
+    role: block.role,
+    title: block.title,
+    adaptation: block.adaptation,
+    durationMinutes: block.durationMinutes,
+    exercises,
+    ...(conditioning ? { conditioning } : {}),
+    ...(boxingRounds ? { boxingRounds } : {}),
+    coachingNotes: block.coachingNotes
+  };
+}
 
 function detailSlug(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64) || "v2";
@@ -652,8 +671,13 @@ function v2GuidedSections(sections: readonly WorkoutSection[]): readonly GuidedW
 function buildStructuredV2DetailedTrainingSession(input: BuildDetailedTrainingSessionInput): DetailedTrainingSession {
   const structured = input.generatedSession.structuredPrescriptionV2!;
   const compiledSession = structured.compiledSession;
+  const canonicalSession = structured.canonicalWorkoutSession;
+  // Detail screens read the canonical workout first. The compiled blocks stay as a compatibility
+  // fallback until every display mapper consumes canonical blocks directly.
+  const structuredBlocks = canonicalSession ? canonicalSession.blocks.map(structuredBlockFromCanonicalBlock) : compiledSession.blocks;
+  const displayDurationMinutes = canonicalSession?.durationMinutes ?? compiledSession.displayedDurationMinutes;
   const family = input.generatedSession.family;
-  const rawSections = compiledSession.blocks.map(v2SectionFromBlock);
+  const rawSections = structuredBlocks.map(v2SectionFromBlock);
   const guidedSections = v2GuidedSections(rawSections);
   const sections = rawSections.map((workoutSection, index) => ({
     ...workoutSection,
@@ -661,9 +685,9 @@ function buildStructuredV2DetailedTrainingSession(input: BuildDetailedTrainingSe
   }));
   const stopConditions = [
     ...new Set([
-      ...compiledSession.blocks.flatMap((block) => block.exercises.flatMap((exercise) => exercise.stopConditions)),
-      ...compiledSession.blocks.flatMap((block) => (block.conditioning ? [block.conditioning.stopCondition] : [])),
-      ...compiledSession.blocks.flatMap((block) => (block.boxingRounds ? [block.boxingRounds.stopRule] : [])),
+      ...structuredBlocks.flatMap((block) => block.exercises.flatMap((exercise) => exercise.stopConditions)),
+      ...structuredBlocks.flatMap((block) => (block.conditioning ? [block.conditioning.stopCondition] : [])),
+      ...structuredBlocks.flatMap((block) => (block.boxingRounds ? [block.boxingRounds.stopRule] : [])),
       "Stop if dizziness, fainting, chest pain, or unusual pain appears."
     ])
   ];
@@ -683,22 +707,22 @@ function buildStructuredV2DetailedTrainingSession(input: BuildDetailedTrainingSe
       : input.cycle.trackingEnabled
         ? [input.cycle.trainingAdjustment]
         : [];
-  const title = plainWorkoutTitle(input.generatedSession.title, family);
+  const title = plainWorkoutTitle(canonicalSession?.title ?? input.generatedSession.title, family);
   const recipe = resolveWorkoutRecipe({
     family,
     title,
-    durationMinutes: compiledSession.displayedDurationMinutes,
+    durationMinutes: displayDurationMinutes,
     sections,
     safetyStops: stopConditions,
     skillLevel: input.generatedSession.skillLevel,
-    templateId: compiledSession.templateId ?? input.generatedSession.templateId,
-    templateTitle: compiledSession.templateTitle,
+    templateId: canonicalSession?.templateId ?? compiledSession.templateId ?? input.generatedSession.templateId,
+    templateTitle: canonicalSession?.templateTitle ?? compiledSession.templateTitle,
     equipmentMode: input.generatedSession.equipmentMode
   });
   const walkthrough = buildWorkoutWalkthrough({
     title,
     family,
-    durationMinutes: compiledSession.displayedDurationMinutes,
+    durationMinutes: displayDurationMinutes,
     sections,
     roundStructure: input.generatedSession.roundStructure,
     technicalEmphasis: input.generatedSession.technicalEmphasis,
@@ -713,7 +737,7 @@ function buildStructuredV2DetailedTrainingSession(input: BuildDetailedTrainingSe
     date: input.generatedSession.date,
     family,
     title,
-    durationMinutes: compiledSession.displayedDurationMinutes,
+    durationMinutes: displayDurationMinutes,
     intensity: input.generatedSession.intensity,
     sections,
     guidedSections,
@@ -722,7 +746,7 @@ function buildStructuredV2DetailedTrainingSession(input: BuildDetailedTrainingSe
     fuelDemand: input.generatedSession.fuelDemand,
     readinessModifications,
     cycleModifications,
-    whyThisMattersForBoxing: compiledSession.rationale.join(" ") || whyForFamily(family),
+    whyThisMattersForBoxing: (canonicalSession?.rationale ?? compiledSession.rationale).join(" ") || whyForFamily(family),
     stopConditions,
     safetyNotes,
     noGeneratedSparring: true,
