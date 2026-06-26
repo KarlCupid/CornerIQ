@@ -21,6 +21,7 @@ import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
+import type { PlanGenerationIntent } from "../../engine/training/types";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 import { trainPalette } from "../../app/screens/train/trainPalette";
@@ -1478,6 +1479,7 @@ function expectActiveWorkspaceBeforeOverview(output: string, focusedTestId: stri
 
 function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"): AthleteJourneyRepositories {
   const journey = no_wearable_manual_only;
+  let planIntents: PlanGenerationIntent[] = [];
   return {
     athlete: {
       getProfile: vi.fn(async () => {
@@ -1490,7 +1492,7 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
     },
     fight: { listFightOpportunities: vi.fn(async () => []) },
     tournament: { listTournamentPlans: vi.fn(async () => []) },
-    protectedWorkout: { listProtectedWorkouts: vi.fn(async () => journey.protectedWorkouts), insertProtectedWorkout: vi.fn() },
+    protectedWorkout: { listProtectedWorkouts: vi.fn(async () => journey.protectedWorkouts), insertProtectedWorkout: vi.fn(), deleteProtectedWorkout: vi.fn(async (_userId: string, workoutId: string) => ({ id: workoutId })) },
     bodyMass: { listLogs: vi.fn(async () => journey.bodyMassHistory), insertManualLog: vi.fn() },
     nutrition: { listFoodLogs: vi.fn(async () => journey.nutritionHistory) },
     nutritionSafetyReview: {
@@ -1609,6 +1611,42 @@ function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"
       upsertNutritionTarget: vi.fn(),
       upsertRiskFlags: vi.fn(),
       upsertRun: vi.fn(async () => ({ id: "run_1" }))
+    },
+    trainingPlanIntent: {
+      upsertPlanIntent: vi.fn(async (_userId: string, intent: PlanGenerationIntent) => {
+        if (intent.status === "active") {
+          planIntents = planIntents.map((item) => (item.status === "active" && item.id !== intent.id ? { ...item, status: "superseded" } : item));
+        }
+        const existingIndex = planIntents.findIndex((item) => item.id === intent.id);
+        if (existingIndex >= 0) {
+          planIntents[existingIndex] = intent;
+        } else {
+          planIntents.push(intent);
+        }
+        return { id: `plan_intent_${planIntents.length}`, planRevisionId: intent.id };
+      }),
+      getActivePlanIntent: vi.fn(async () => {
+        const intent = [...planIntents].filter((item) => item.status === "active").sort((left, right) => left.requestedAt.localeCompare(right.requestedAt)).at(-1);
+        return intent
+          ? {
+              ...intent,
+              rowId: `plan_intent_${planIntents.findIndex((item) => item.id === intent.id) + 1}`,
+              planRevisionId: intent.id,
+              createdAt: intent.requestedAt,
+              updatedAt: intent.requestedAt
+            }
+          : null;
+      }),
+      listPlanIntents: vi.fn(async () =>
+        planIntents.map((intent, index) => ({
+          ...intent,
+          rowId: `plan_intent_${index + 1}`,
+          planRevisionId: intent.id,
+          createdAt: intent.requestedAt,
+          updatedAt: intent.requestedAt
+        }))
+      ),
+      supersedePlanIntent: vi.fn()
     },
     journey: { listEvents: vi.fn(async () => journey.journeyEvents), appendEvent: vi.fn() }
   } as unknown as AthleteJourneyRepositories;
@@ -4322,8 +4360,19 @@ describe("minimal app screens", () => {
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
-    expect(onSaveRecurringProtectedAnchor).toHaveBeenCalledWith(
-      null,
+    expect(onSaveRecurringProtectedAnchor).not.toHaveBeenCalled();
+    expect(onSaveProtectedSession).not.toHaveBeenCalled();
+    const savedBuildDraft = onSaveBuildGoal.mock.calls[0]?.[0];
+    if (!savedBuildDraft) {
+      throw new Error("Wizard did not save the build goal.");
+    }
+    expect(savedBuildDraft.scheduleAvailability).toEqual(["monday", "wednesday", "friday", "saturday"]);
+    expect(savedBuildDraft.scheduleAvailability).not.toContain("tuesday");
+    expect(savedBuildDraft.primaryFocus).toBe("conditioning");
+    expect(savedBuildDraft.subFocus).toBe("intervals");
+    expect(savedBuildDraft.planAction).toBe("start_new_plan");
+    expect(savedBuildDraft.protectedScheduleMode).toBe("replace_for_plan");
+    expect(savedBuildDraft.pendingRecurringProtectedAnchors).toEqual([
       expect.objectContaining({
         durationMinutes: 60,
         intensity: "moderate",
@@ -4333,22 +4382,8 @@ describe("minimal app screens", () => {
         type: "technical_session",
         weekday: "monday"
       })
-    );
-    expect(onSaveProtectedSession).not.toHaveBeenCalled();
-    const savedBuildDraft = onSaveBuildGoal.mock.calls[0]?.[0];
-    const anchorSaveOrder = onSaveRecurringProtectedAnchor.mock.invocationCallOrder[0];
-    const buildSaveOrder = onSaveBuildGoal.mock.invocationCallOrder[0];
-    if (!savedBuildDraft || anchorSaveOrder === undefined || buildSaveOrder === undefined) {
-      throw new Error("Wizard did not save anchors and the build goal.");
-    }
-    expect(savedBuildDraft.scheduleAvailability).toEqual(["monday", "wednesday", "friday", "saturday"]);
-    expect(savedBuildDraft.scheduleAvailability).not.toContain("tuesday");
-    expect(savedBuildDraft.primaryFocus).toBe("conditioning");
-    expect(savedBuildDraft.subFocus).toBe("intervals");
-    expect(savedBuildDraft.planAction).toBe("start_new_plan");
-    expect(savedBuildDraft.protectedScheduleMode).toBe("replace_for_plan");
+    ]);
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
-    expect(buildSaveOrder).toBeLessThan(anchorSaveOrder);
   });
 
   it("Plan generation wizard keeps one-off dated anchors explicit", async () => {
@@ -4395,7 +4430,8 @@ describe("minimal app screens", () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
     });
 
-    expect(onSaveProtectedSession).toHaveBeenCalledWith(null, expect.objectContaining({ date: fixtureAsOfDate, type: "competition" }));
+    expect(onSaveBuildGoal).toHaveBeenCalledWith(expect.objectContaining({ pendingProtectedSessions: [expect.objectContaining({ date: fixtureAsOfDate, type: "competition" })] }));
+    expect(onSaveProtectedSession).not.toHaveBeenCalled();
     expect(onSaveRecurringProtectedAnchor).not.toHaveBeenCalled();
   });
 
@@ -4442,6 +4478,91 @@ describe("minimal app screens", () => {
     expect(savedBuildDraft?.generatedSupportAvailableDays).toHaveLength(6);
     expect(savedBuildDraft?.scheduleAvailability).toHaveLength(6);
     expect(savedBuildDraft?.planAction).toBe("amend_current_plan");
+  });
+
+  it("Plan generation wizard shows an in-flight new-plan state and disables controls", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    let resolveSave: (() => void) | undefined;
+    const savePromise = new Promise<void>((resolve) => {
+      resolveSave = resolve;
+    });
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(() => savePromise);
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    await switchSection(renderer, "Change goal or schedule");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      void press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+      await Promise.resolve();
+    });
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("plan-wizard-generating-state");
+    expect(output).toContain("Generating your new plan...");
+    expect(output).toContain("Rebuilding this week from your new goal, support days, and fixed boxing schedule.");
+    expect(pressableWithAccessibilityLabel(renderer, "Save build goal")?.props.disabled).toBe(true);
+
+    await act(async () => {
+      resolveSave?.();
+      await savePromise;
+    });
+  });
+
+  it("Plan generation wizard stays open and shows an error when plan save fails", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveBuildGoal = vi.fn<(draft: BuildGoalDraft) => Promise<void>>(async () => {
+      throw new Error("The new plan could not be saved. Your old plan is still active.");
+    });
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveBuildGoal,
+        onSaveFightSetup: vi.fn(),
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    await switchSection(renderer, "Change goal or schedule");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save build goal"));
+    });
+
+    const output = JSON.stringify(renderer.toJSON());
+    expect(visibleModalCount(renderer)).toBe(1);
+    expect(output).toContain("plan-generation-wizard");
+    expect(output).toContain("The new plan could not be saved. Your old plan is still active.");
   });
 
   it("PlanScreen opens the guided goal flow for build, fight camp, tournament, and recovery", async () => {
@@ -4577,7 +4698,8 @@ describe("minimal app screens", () => {
     const planOutput = JSON.stringify(planRenderer.toJSON());
     const trainOutput = JSON.stringify(trainRenderer.toJSON());
     expect(planOutput).toContain("plan-generation-pending");
-    expect(planOutput).toContain("Building your plan");
+    expect(planOutput).toContain("Generating your new plan...");
+    expect(planOutput).toContain("Rebuilding this week from your new goal, support days, and fixed boxing schedule.");
     expect(trainOutput).toContain("workout-generation-pending");
     expect(trainOutput).toContain("Building a conservative session from what we know today.");
   });
@@ -5921,6 +6043,42 @@ describe("minimal app screens", () => {
     expect(snapshot.current?.authMessage).toContain("Check your email");
   });
 
+  it("useSupabaseSession treats invalid saved refresh tokens as signed out", async () => {
+    const fakeAuth = {
+      exchangeCodeForSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      getSession: vi.fn(async () => ({
+        data: { session: null },
+        error: { message: "Invalid Refresh Token: Refresh Token Not Found", name: "AuthApiError" }
+      })),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      requestPasswordReset: vi.fn(async () => ({ data: {}, error: null })),
+      setSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      signOut: vi.fn(async () => ({ error: null })),
+      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      updatePassword: vi.fn(async () => ({ data: { user: null }, error: null }))
+    };
+    const fakeClientFactory = () => ({ auth: {} }) as unknown as CornerSupabaseClient;
+    const fakeAuthServiceFactory = () => fakeAuth as unknown as ReturnType<typeof createAuthService>;
+    const snapshot: { current: SupabaseSessionState | null } = { current: null };
+    function Probe() {
+      snapshot.current = useSupabaseSession({
+        authServiceFactory: fakeAuthServiceFactory,
+        clientFactory: fakeClientFactory
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => undefined);
+
+    expect(fakeAuth.getSession).toHaveBeenCalled();
+    expect(snapshot.current?.status).toBe("ready");
+    expect(snapshot.current?.session).toBeNull();
+    expect(snapshot.current?.authError).toBeNull();
+    expect(snapshot.current?.authMessage).toContain("Sign in again");
+  });
+
   it("useSupabaseSession handles password reset success, failure, signed-in state, and missing config", async () => {
     const signedInSession = { user: { id: "user_1", email: "boxer@example.com" } } as unknown as Session;
     const reactNative = (await import("react-native")) as unknown as {
@@ -6267,6 +6425,88 @@ describe("minimal app screens", () => {
 
     expect(repositories.athlete.upsertProfile).toHaveBeenCalled();
     expect(repositories.athlete.getProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it("usePerformanceState reports plan regeneration success after the refreshed revision is active", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        autoRollForwardEnabled: false,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+    const previousRevision = snapshot.current?.result?.status === "ready" ? snapshot.current.result.state.training.supportGenerationAudit.planRevisionId : null;
+    await act(async () => {
+      await snapshot.current?.saveBuildGoal({
+        primaryFocus: "conditioning",
+        subFocus: "intervals",
+        trainingDose: "serious",
+        planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["tuesday", "thursday", "saturday"]
+      });
+    });
+
+    expect(snapshot.current?.message).toContain("New plan generated.");
+    expect(snapshot.current?.message).toContain("Focus: Conditioning");
+    expect(snapshot.current?.message).toContain("Support days: Tuesday, Thursday, Saturday");
+    expect(snapshot.current?.result?.status).toBe("ready");
+    if (snapshot.current?.result?.status === "ready") {
+      expect(snapshot.current.result.state.training.supportGenerationAudit.planRevisionId).not.toBe(previousRevision);
+      expect(snapshot.current.result.state.training.planGenerationIntent?.primaryFocus).toBe("conditioning");
+    }
+  });
+
+  it("usePerformanceState rejects failed plan intent persistence instead of closing the wizard path", async () => {
+    const session = { user: { id: "user_1" } } as unknown as Session;
+    const repositories = createPerformanceRepositories("ready");
+    repositories.trainingPlanIntent!.upsertPlanIntent = vi.fn(async () => {
+      throw new Error("intent write failed");
+    }) as NonNullable<AthleteJourneyRepositories["trainingPlanIntent"]>["upsertPlanIntent"];
+    const snapshot: { current: PerformanceStateHook | null } = { current: null };
+    function Probe() {
+      snapshot.current = usePerformanceState({
+        asOfDate: fixtureAsOfDate,
+        autoRollForwardEnabled: false,
+        client: {} as unknown as CornerSupabaseClient,
+        repositories,
+        session
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => {
+      await snapshot.current?.refresh();
+    });
+    let thrown: unknown;
+    await act(async () => {
+      try {
+        await snapshot.current?.saveBuildGoal({
+          primaryFocus: "conditioning",
+          planAction: "start_new_plan",
+          planStartDate: fixtureAsOfDate,
+          scheduleAvailability: ["tuesday", "thursday"]
+        });
+      } catch (error) {
+        thrown = error;
+      }
+    });
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown instanceof Error ? thrown.message : "").toContain("The new plan could not be saved. Your old plan is still active.");
+    expect(snapshot.current?.message).toContain("The new plan could not be saved. Your old plan is still active.");
+    expect(snapshot.current?.message).toContain("intent write failed");
   });
 
   it("usePerformanceState keeps passive persistence warnings out of global app notes", async () => {

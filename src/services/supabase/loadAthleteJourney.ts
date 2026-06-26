@@ -25,6 +25,7 @@ import { createTrainingProgressionRepository } from "./trainingProgressionReposi
 import { createTrainingRepository } from "./trainingRepository";
 import { createWearableRepository } from "./wearableRepository";
 import { resolveActivePlanGenerationIntentFromContext } from "../../engine/training/planGenerationIntent";
+import type { PlanGenerationIntent } from "../../engine/training/types";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
 import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
 
@@ -183,6 +184,52 @@ function degradedJourneySafetyFlags(issues: readonly JourneyLoadIssue[]) {
   ];
 }
 
+function planIntentEventType(intent: PlanGenerationIntent): AthleteJourney["journeyEvents"][number]["type"] {
+  if (intent.goalMode === "fight") {
+    return "CampStarted";
+  }
+  if (intent.goalMode === "tournament") {
+    return "TournamentStarted";
+  }
+  if (intent.goalMode === "recovery") {
+    return "RecoveryStarted";
+  }
+  return "BuildPhaseStarted";
+}
+
+function planLifecycleSource(intent: PlanGenerationIntent): "plan_wizard_new_plan" | "plan_wizard_amendment" {
+  return intent.action === "start_new_plan" ? "plan_wizard_new_plan" : "plan_wizard_amendment";
+}
+
+function journeyEventsWithPersistedPlanIntent(
+  journeyEvents: AthleteJourney["journeyEvents"],
+  activePlanIntent: PlanGenerationIntent | null
+): AthleteJourney["journeyEvents"] {
+  if (!activePlanIntent) {
+    return journeyEvents;
+  }
+  return [
+    ...journeyEvents,
+    {
+      id: `training_plan_intent:${activePlanIntent.id}`,
+      type: planIntentEventType(activePlanIntent),
+      occurredAt: activePlanIntent.requestedAt,
+      payload: {
+        source: planLifecycleSource(activePlanIntent),
+        planIntentSource: "training_plan_intents",
+        planRevisionId: activePlanIntent.id,
+        planGenerationIntent: activePlanIntent,
+        primaryFocus: activePlanIntent.primaryFocus ?? null,
+        subFocus: activePlanIntent.subFocus ?? null,
+        trainingDose: activePlanIntent.trainingDose,
+        selectedSupportDays: activePlanIntent.selectedSupportDays,
+        scheduleAvailability: activePlanIntent.selectedSupportDays,
+        generatedSupportAvailableDays: activePlanIntent.selectedSupportDays
+      }
+    }
+  ];
+}
+
 export async function loadAthleteJourney(input: {
   userId: string;
   asOfDate: ISODateString;
@@ -218,7 +265,8 @@ export async function loadAthleteJourney(input: {
       wearableSignalHistory,
       completedTrainingSessions,
       persistedSafetyFlags,
-      journeyEvents
+      persistedActivePlanIntent,
+      persistedJourneyEvents
     ] = await Promise.all([
       readJourneyData(issues, "fight.listFightOpportunities", [], () => input.repositories.fight.listFightOpportunities(userId)),
       readJourneyData(issues, "tournament.listTournamentPlans", [], () => input.repositories.tournament.listTournamentPlans(userId)),
@@ -239,23 +287,28 @@ export async function loadAthleteJourney(input: {
       readJourneyData(issues, "wearable.listSignals", [], () => input.repositories.wearable.listSignals(userId)),
       readJourneyData(issues, "training.listCompletedTrainingSessions", [], () => input.repositories.training.listCompletedTrainingSessions(userId)),
       readJourneyData(issues, "engineRun.listActiveRiskFlags", [], () => input.repositories.engineRun.listActiveRiskFlags(userId, { asOfDate: input.asOfDate })),
+      input.repositories.trainingPlanIntent
+        ? readJourneyData(issues, "trainingPlanIntent.getActivePlanIntent", null, () => input.repositories.trainingPlanIntent!.getActivePlanIntent(userId))
+        : Promise.resolve(null),
       readJourneyData(issues, "journey.listEvents", [], () => input.repositories.journey.listEvents(userId))
     ]);
 
-    const activePlanIntent = resolveActivePlanGenerationIntentFromContext(
+    const legacyActivePlanIntent = resolveActivePlanGenerationIntentFromContext(
       {
         athlete,
         activeTrainingBlock: null,
-        journeyEvents
+        journeyEvents: persistedJourneyEvents
       },
       input.asOfDate
     );
+    const activePlanIntent = persistedActivePlanIntent ?? legacyActivePlanIntent;
     const activeTrainingBlock = await readJourneyData(issues, "trainingBlock.getActiveTrainingBlockForDate", null, () =>
       input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate, activePlanIntent?.id)
     );
 
     const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
     const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
+    const journeyEvents = journeyEventsWithPersistedPlanIntent(persistedJourneyEvents, persistedActivePlanIntent);
     const activePhase = activeFightOpportunity || activeTournament ? null : activePhaseFromEvents(journeyEvents);
     const cycleHistory = [...cycleLogs, ...cycleSymptomLogs].sort((left, right) => left.date.localeCompare(right.date));
     const activeWeekWindow = activeTrainingBlock ? activeTrainingWeekWindow(activeTrainingBlock.block, input.asOfDate) : null;

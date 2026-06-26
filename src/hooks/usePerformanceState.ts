@@ -89,6 +89,70 @@ function retainedReadyRefreshMessage(result: Extract<ResolveAndPersistPerformanc
   return `CornerIQ could not refresh your account just now. Keeping the last loaded view visible.${detail}`;
 }
 
+function titleCase(value: string): string {
+  return value
+    .replaceAll("_", " ")
+    .split(" ")
+    .map((part) => (part ? `${part[0]!.toUpperCase()}${part.slice(1)}` : part))
+    .join(" ");
+}
+
+function planActionFromDraft(draft: {
+  generatedSupportAvailableDays?: readonly unknown[] | undefined;
+  planAction?: "start_new_plan" | "amend_current_plan" | undefined;
+  scheduleAvailability?: readonly unknown[] | undefined;
+}): "start_new_plan" | "amend_current_plan" | undefined {
+  return draft.planAction ?? (draft.scheduleAvailability || draft.generatedSupportAvailableDays ? "start_new_plan" : undefined);
+}
+
+function planGenerationStatusForAction(action: "start_new_plan" | "amend_current_plan" | undefined): EngineGenerationStatus {
+  return action === "amend_current_plan" ? "amending_plan" : "generating_plan";
+}
+
+function planSaveFailureMessage(action: "start_new_plan" | "amend_current_plan" | undefined, error: unknown): string {
+  const prefix =
+    action === undefined
+      ? "Plan changes could not be saved. Existing plan stays visible."
+      : action === "amend_current_plan"
+        ? "The plan update could not be saved. Your old plan is still active."
+        : "The new plan could not be saved. Your old plan is still active.";
+  const detail = error instanceof Error ? error.message : "";
+  return detail ? `${prefix} Detail: ${detail}` : prefix;
+}
+
+function planSaveSuccessMessage(state: ReadyPerformanceStateResult["state"], action: "start_new_plan" | "amend_current_plan" | undefined): string {
+  const audit = state.training.supportGenerationAudit;
+  const intent = state.training.planGenerationIntent;
+  const summary = [
+    audit.primaryFocus ? `Focus: ${titleCase(audit.primaryFocus)}` : intent?.primaryFocus ? `Focus: ${titleCase(intent.primaryFocus)}` : null,
+    audit.subFocus ? `Sub-focus: ${titleCase(audit.subFocus)}` : intent?.subFocus ? `Sub-focus: ${titleCase(intent.subFocus)}` : null,
+    audit.selectedTrainingDose ? `Dose: ${titleCase(audit.selectedTrainingDose)}` : intent?.trainingDose ? `Dose: ${titleCase(intent.trainingDose)}` : null,
+    audit.selectedSupportDays.length > 0 ? `Support days: ${audit.selectedSupportDays.map(titleCase).join(", ")}` : null,
+    `Generated sessions: ${audit.actualGeneratedSupportCount}`
+  ].filter(Boolean);
+  const headline = action === "amend_current_plan" ? "Plan updated." : "New plan generated.";
+  const body =
+    action === "amend_current_plan"
+      ? "Your board has been updated from your latest goal and schedule."
+      : "Your board has been rebuilt from your updated goal and schedule.";
+  return `${headline} ${body} ${summary.join(". ")}.`;
+}
+
+function assertPlanRefreshReady(input: {
+  action: "start_new_plan" | "amend_current_plan" | undefined;
+  previousPlanRevisionId: string | undefined;
+  refreshed: ResolveAndPersistPerformanceStateResult;
+}): ReadyPerformanceStateResult {
+  if (input.refreshed.status !== "ready") {
+    throw new Error("The refreshed board could not load after saving the plan.");
+  }
+  const refreshedRevision = input.refreshed.state.training.supportGenerationAudit.planRevisionId;
+  if (input.action === "start_new_plan" && input.previousPlanRevisionId && refreshedRevision === input.previousPlanRevisionId) {
+    throw new Error("The refreshed board still reflects the previous plan revision.");
+  }
+  return input.refreshed;
+}
+
 export function usePerformanceState(input: UsePerformanceStateInput): PerformanceStateHook {
   const localAsOfDate = useTodayLocalDate({
     appState: input.localDateAppState,
@@ -228,78 +292,110 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
 
   const saveFight = useCallback(
     async (draft: FightSetupDraft) => {
+      const action = planActionFromDraft(draft);
+      const status = planGenerationStatusForAction(action);
+      const previousPlanRevisionId =
+        latestReadyResultRef.current?.state.training.supportGenerationAudit.planRevisionId ??
+        (result?.status === "ready" ? result.state.training.supportGenerationAudit.planRevisionId : undefined);
       setLoading(true);
-      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
+      setGenerationStatus(status);
       setMessage(null);
-      invalidateInFlightRefreshForPlanAction(draft.planAction);
+      invalidateInFlightRefreshForPlanAction(action);
       try {
         await saveFightSetup({ userId, draft, repositories });
-        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
-        setMessage(draft.weighInType === "unknown" ? "Fight saved. Weigh-in timing still needs confirmation." : "Fight saved.");
+        const refreshed = await refresh(status);
+        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        setMessage(action ? planSaveSuccessMessage(ready.state, action) : draft.weighInType === "unknown" ? "Fight saved. Weigh-in timing still needs confirmation." : "Fight saved.");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Fight setup failed.");
+        const message = planSaveFailureMessage(action, error);
+        setMessage(message);
         setLoading(false);
         setGenerationStatus("idle");
+        throw new Error(message);
       }
     },
-    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, result, userId]
   );
 
   const saveBuild = useCallback(
     async (draft: BuildGoalDraft) => {
+      const action = planActionFromDraft(draft);
+      const status = planGenerationStatusForAction(action);
+      const previousPlanRevisionId =
+        latestReadyResultRef.current?.state.training.supportGenerationAudit.planRevisionId ??
+        (result?.status === "ready" ? result.state.training.supportGenerationAudit.planRevisionId : undefined);
       setLoading(true);
-      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
+      setGenerationStatus(status);
       setMessage(null);
-      invalidateInFlightRefreshForPlanAction(draft.planAction);
+      invalidateInFlightRefreshForPlanAction(action);
       try {
         await saveBuildGoal({ userId, draft, repositories });
-        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
-        setMessage("Build phase saved. Preview next week when you are ready.");
+        const refreshed = await refresh(status);
+        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        setMessage(action ? planSaveSuccessMessage(ready.state, action) : "Build phase saved. Preview next week when you are ready.");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Build goal failed.");
+        const message = planSaveFailureMessage(action, error);
+        setMessage(message);
         setLoading(false);
         setGenerationStatus("idle");
+        throw new Error(message);
       }
     },
-    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, result, userId]
   );
 
   const saveRecovery = useCallback(
     async (draft: RecoveryGoalDraft) => {
+      const action = planActionFromDraft(draft);
+      const status = planGenerationStatusForAction(action);
+      const previousPlanRevisionId =
+        latestReadyResultRef.current?.state.training.supportGenerationAudit.planRevisionId ??
+        (result?.status === "ready" ? result.state.training.supportGenerationAudit.planRevisionId : undefined);
       setLoading(true);
-      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
+      setGenerationStatus(status);
       setMessage(null);
-      invalidateInFlightRefreshForPlanAction(draft.planAction);
+      invalidateInFlightRefreshForPlanAction(action);
       try {
         await saveRecoveryGoal({ userId, draft, repositories });
-        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
-        setMessage("Recovery goal saved. CornerIQ will keep support conservative.");
+        const refreshed = await refresh(status);
+        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        setMessage(action ? planSaveSuccessMessage(ready.state, action) : "Recovery goal saved. CornerIQ will keep support conservative.");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Recovery goal failed.");
+        const message = planSaveFailureMessage(action, error);
+        setMessage(message);
         setLoading(false);
         setGenerationStatus("idle");
+        throw new Error(message);
       }
     },
-    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, result, userId]
   );
 
   const saveTournament = useCallback(
     async (draft: TournamentSetupDraft) => {
+      const action = planActionFromDraft(draft);
+      const status = planGenerationStatusForAction(action);
+      const previousPlanRevisionId =
+        latestReadyResultRef.current?.state.training.supportGenerationAudit.planRevisionId ??
+        (result?.status === "ready" ? result.state.training.supportGenerationAudit.planRevisionId : undefined);
       setLoading(true);
-      setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
+      setGenerationStatus(status);
       setMessage(null);
-      invalidateInFlightRefreshForPlanAction(draft.planAction);
+      invalidateInFlightRefreshForPlanAction(action);
       try {
         await saveTournamentSetup({ userId, draft, repositories });
-        await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
-        setMessage("Tournament setup saved.");
+        const refreshed = await refresh(status);
+        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        setMessage(action ? planSaveSuccessMessage(ready.state, action) : "Tournament setup saved.");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Tournament setup failed.");
+        const message = planSaveFailureMessage(action, error);
+        setMessage(message);
         setLoading(false);
         setGenerationStatus("idle");
+        throw new Error(message);
       }
     },
-    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, result, userId]
   );
 
   const saveProtectedSession = useCallback(

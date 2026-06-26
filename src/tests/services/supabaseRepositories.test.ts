@@ -2045,6 +2045,115 @@ describe("Supabase repositories", () => {
     expect(repositories.exerciseResult.listRecentExerciseResults).not.toHaveBeenCalled();
   });
 
+  it("loadAthleteJourney prefers active persisted plan intents over newer journey-event inference", async () => {
+    const repositories = createJourneyRepositories();
+    const persistedIntent = planGenerationIntent({
+      id: "plan_persisted_conditioning",
+      primaryFocus: "conditioning",
+      subFocus: "intervals",
+      trainingDose: "serious",
+      selectedSupportDays: ["tuesday", "thursday"],
+      requestedAt: "2026-05-19T08:00:00.000Z"
+    });
+    const legacyIntent = planGenerationIntent({
+      id: "plan_legacy_strength",
+      primaryFocus: "strength",
+      selectedSupportDays: ["monday", "wednesday", "friday"],
+      requestedAt: "2026-05-19T10:00:00.000Z"
+    });
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    repositories.trainingPlanIntent = {
+      upsertPlanIntent: vi.fn(),
+      getActivePlanIntent: vi.fn(async () => ({
+        ...persistedIntent,
+        rowId: "plan_intent_row_persisted",
+        planRevisionId: persistedIntent.id,
+        createdAt: persistedIntent.requestedAt,
+        updatedAt: persistedIntent.requestedAt
+      })),
+      listPlanIntents: vi.fn(),
+      supersedePlanIntent: vi.fn()
+    } as NonNullable<AthleteJourneyRepositories["trainingPlanIntent"]>;
+    repositories.journey.listEvents = vi.fn(async () => [
+      {
+        id: "legacy_plan_event",
+        type: "BuildPhaseStarted",
+        occurredAt: legacyIntent.requestedAt,
+        payload: {
+          source: "plan_wizard_new_plan",
+          planGenerationIntent: legacyIntent
+        }
+      }
+    ] as never);
+    repositories.trainingBlock.getActiveTrainingBlockForDate = vi.fn(async () => ({
+      id: "training_block_persisted",
+      userId: "user_1",
+      blockKey: "block:user_1:plan_persisted_conditioning",
+      status: "active" as const,
+      planRevisionId: persistedIntent.id,
+      inputHash: "input_hash",
+      outputHash: "output_hash",
+      block: {
+        ...state.training.activeBlock,
+        id: "training_block_persisted",
+        planRevisionId: persistedIntent.id,
+        startDate: "2026-05-18",
+        endDate: "2026-06-14"
+      },
+      createdAt: "2026-05-18T00:00:00.000Z",
+      updatedAt: "2026-05-18T00:00:00.000Z"
+    }));
+
+    const result = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(repositories.trainingBlock.getActiveTrainingBlockForDate).toHaveBeenCalledWith("user_1", fixtureAsOfDate, persistedIntent.id);
+    expect(repositories.training.listGeneratedSessions).toHaveBeenCalledWith("user_1", {
+      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
+      prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+      planRevisionId: persistedIntent.id,
+      trainingBlockId: "training_block_persisted",
+      weekId: `week:${persistedIntent.id}:2026-05-18`
+    });
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      const resolved = resolvePerformanceState({ journey: result.journey, asOfDate: fixtureAsOfDate });
+      expect(resolved.training.planGenerationIntent?.id).toBe(persistedIntent.id);
+      expect(resolved.training.planGenerationIntent?.primaryFocus).toBe("conditioning");
+    }
+  });
+
+  it("loadAthleteJourney falls back to journey-event plan inference when no persisted intent is active", async () => {
+    const repositories = createJourneyRepositories();
+    const legacyIntent = planGenerationIntent({
+      id: "plan_legacy_conditioning",
+      primaryFocus: "conditioning",
+      selectedSupportDays: ["tuesday", "thursday"],
+      requestedAt: "2026-05-19T10:00:00.000Z"
+    });
+    repositories.trainingPlanIntent = {
+      upsertPlanIntent: vi.fn(),
+      getActivePlanIntent: vi.fn(async () => null),
+      listPlanIntents: vi.fn(),
+      supersedePlanIntent: vi.fn()
+    } as NonNullable<AthleteJourneyRepositories["trainingPlanIntent"]>;
+    repositories.journey.listEvents = vi.fn(async () => [
+      {
+        id: "legacy_plan_event",
+        type: "BuildPhaseStarted",
+        occurredAt: legacyIntent.requestedAt,
+        payload: {
+          source: "plan_wizard_new_plan",
+          planGenerationIntent: legacyIntent
+        }
+      }
+    ] as never);
+
+    await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(repositories.trainingPlanIntent.getActivePlanIntent).toHaveBeenCalledWith("user_1");
+    expect(repositories.trainingBlock.getActiveTrainingBlockForDate).toHaveBeenCalledWith("user_1", fixtureAsOfDate, legacyIntent.id);
+  });
+
   it("loadAthleteJourney includes active persisted nutrition safety reviews and recent events when available", async () => {
     const repositories = createJourneyRepositories();
     const activeReview = persistedNutritionSafetyReview();

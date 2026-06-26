@@ -249,8 +249,13 @@ function planIntentOrderingTimestamp(event: JourneyEvent): string {
   return stringValue(intentPayload?.requestedAt) ?? stringValue(payload.requestedAt) ?? event.occurredAt;
 }
 
+function planIntentAuthorityRank(event: JourneyEvent): number {
+  return stringValue(event.payload.planIntentSource) === "training_plan_intents" ? 1 : 0;
+}
+
 function comparePlanIntentEvents(left: JourneyEvent, right: JourneyEvent): number {
   return (
+    planIntentAuthorityRank(left) - planIntentAuthorityRank(right) ||
     planIntentOrderingTimestamp(left).localeCompare(planIntentOrderingTimestamp(right)) ||
     left.occurredAt.localeCompare(right.occurredAt) ||
     left.id.localeCompare(right.id)

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AthleteProfile, FightOpportunity, GeneratedTrainingSession, ProtectedWorkout, TournamentDetails } from "../../engine/core/types";
 import type { PersistedTrainingPlanAdjustment } from "../../engine/training/planAdjustmentTypes";
+import type { PlanGenerationIntent } from "../../engine/training/types";
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
 import { resolveAndPersistPerformanceState } from "../../services/engine/resolveAndPersistPerformanceState";
 import { loadAthleteJourney, type AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
@@ -30,6 +31,7 @@ function createOnboardingRepositories() {
     events: [] as { id: string; type: string; occurredAt: string; payload: Record<string, unknown> }[],
     fights: [] as FightOpportunity[],
     profile: null as AthleteProfile | null,
+    planIntents: [] as PlanGenerationIntent[],
     protectedWorkouts: [] as ProtectedWorkout[],
     supersededTournamentIds: new Set<string>(),
     timelineEvents: [] as unknown[],
@@ -151,6 +153,54 @@ function createOnboardingRepositories() {
       insertTrainingBlockTimelineEvent: vi.fn(async (record: unknown) => {
         store.timelineEvents.push(record);
         return { id: `timeline_event_${store.timelineEvents.length}` };
+      })
+    },
+    trainingPlanIntent: {
+      upsertPlanIntent: vi.fn(async (_userId: string, intent: PlanGenerationIntent) => {
+        if (intent.status === "active") {
+          store.planIntents = store.planIntents.map((item) =>
+            item.status === "active" && item.id !== intent.id
+              ? { ...item, status: "superseded", requestedAt: item.requestedAt }
+              : item
+          );
+        }
+        const existingIndex = store.planIntents.findIndex((item) => item.id === intent.id);
+        if (existingIndex >= 0) {
+          store.planIntents[existingIndex] = intent;
+        } else {
+          store.planIntents.push(intent);
+        }
+        return { id: `plan_intent_${store.planIntents.length}`, planRevisionId: intent.id };
+      }),
+      getActivePlanIntent: vi.fn(async () => {
+        const intent = [...store.planIntents].filter((item) => item.status === "active").sort((left, right) => left.requestedAt.localeCompare(right.requestedAt)).at(-1);
+        return intent
+          ? {
+              ...intent,
+              rowId: `plan_intent_${store.planIntents.findIndex((item) => item.id === intent.id) + 1}`,
+              planRevisionId: intent.id,
+              createdAt: intent.requestedAt,
+              updatedAt: intent.requestedAt
+            }
+          : null;
+      }),
+      listPlanIntents: vi.fn(async () =>
+        store.planIntents.map((intent, index) => ({
+          ...intent,
+          rowId: `plan_intent_${index + 1}`,
+          planRevisionId: intent.id,
+          createdAt: intent.requestedAt,
+          updatedAt: intent.requestedAt
+        }))
+      ),
+      supersedePlanIntent: vi.fn(async (_userId: string, planRevisionId: string, reason: string, supersededAt = "2026-05-19T00:00:00.000Z") => {
+        store.planIntents = store.planIntents.map((intent) => (intent.id === planRevisionId ? { ...intent, status: "superseded", requestedAt: intent.requestedAt } : intent));
+        store.events.push({
+          id: `event_${store.events.length + 1}`,
+          type: "TrainingPlanAdjusted",
+          occurredAt: supersededAt,
+          payload: { planRevisionId, reason }
+        });
       })
     },
     exerciseResult: { listRecentExerciseResults: vi.fn(async () => []), insertExerciseResult: vi.fn(), insertExerciseResults: vi.fn(), listExerciseResultsForCompletedSession: vi.fn() },
@@ -670,6 +720,66 @@ describe("onboardingService", () => {
     );
   });
 
+  it("plan save owns pending wizard anchors after replacing the fixed schedule", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+    if (!store.profile) {
+      throw new Error("profile missing");
+    }
+    await saveRecurringProtectedAnchor({
+      userId: "user_1",
+      currentProfile: store.profile,
+      anchor: {
+        type: "boxing_class",
+        weekday: "monday",
+        durationMinutes: 60,
+        intensity: "moderate",
+        activeFrom: fixtureAsOfDate
+      },
+      repositories,
+      source: "plan"
+    });
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "strength",
+        planAction: "start_new_plan",
+        protectedScheduleMode: "replace_for_plan",
+        scheduleAvailability: ["tuesday", "saturday"],
+        planStartDate: fixtureAsOfDate,
+        pendingRecurringProtectedAnchors: [
+          {
+            type: "pads_mitts",
+            weekday: "thursday",
+            localStartTime: "17:30",
+            durationMinutes: 50,
+            intensity: "hard",
+            activeFrom: fixtureAsOfDate
+          }
+        ],
+        pendingProtectedSessions: [
+          {
+            type: "technical_session",
+            date: "2026-05-23",
+            startTime: "10:00",
+            durationMinutes: 45,
+            intensity: "moderate"
+          }
+        ]
+      },
+      repositories
+    });
+
+    expect(store.profile?.recurringProtectedAnchors?.map((anchor) => anchor.weekday)).toEqual(["thursday"]);
+    expect(store.profile?.protectedBoxingSchedule).toEqual([expect.objectContaining({ date: "2026-05-23", type: "technical_session" })]);
+    expect(store.planIntents.at(-1)).toMatchObject({
+      primaryFocus: "strength",
+      selectedSupportDays: ["tuesday", "saturday"],
+      status: "active"
+    });
+  });
+
   it("plan build and recovery goal saves use existing journey event paths", async () => {
     const { repositories, store } = createOnboardingRepositories();
 
@@ -699,6 +809,15 @@ describe("onboardingService", () => {
     });
 
     expect(store.profile?.scheduleAvailability).toEqual(["monday", "wednesday", "saturday"]);
+    expect(repositories.trainingPlanIntent?.upsertPlanIntent).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({
+        primaryFocus: "conditioning",
+        subFocus: "intervals",
+        selectedSupportDays: ["tuesday", "thursday"],
+        status: "active"
+      })
+    );
     expect(store.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -720,6 +839,51 @@ describe("onboardingService", () => {
         })
       ])
     );
+  });
+
+  it("plan goal saves create a new active plan revision and supersede the previous intent", async () => {
+    const { repositories, store } = createOnboardingRepositories();
+    await completeOnboarding({ userId: "user_1", asOfDate: fixtureAsOfDate, draft: createDefaultOnboardingDraft(fixtureAsOfDate), repositories });
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "strength",
+        subFocus: "full_body_strength",
+        trainingDose: "standard",
+        planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["monday", "wednesday", "friday"]
+      },
+      repositories
+    });
+    const firstActiveIntent = await repositories.trainingPlanIntent?.getActivePlanIntent("user_1");
+
+    await saveBuildGoal({
+      userId: "user_1",
+      draft: {
+        primaryFocus: "conditioning",
+        subFocus: "intervals",
+        trainingDose: "serious",
+        planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
+        scheduleAvailability: ["tuesday", "thursday", "saturday"]
+      },
+      repositories
+    });
+    const secondActiveIntent = await repositories.trainingPlanIntent?.getActivePlanIntent("user_1");
+
+    expect(firstActiveIntent?.id).toBeDefined();
+    expect(secondActiveIntent?.id).toBeDefined();
+    expect(secondActiveIntent?.id).not.toBe(firstActiveIntent?.id);
+    expect(secondActiveIntent).toMatchObject({
+      primaryFocus: "conditioning",
+      subFocus: "intervals",
+      trainingDose: "serious",
+      selectedSupportDays: ["tuesday", "thursday", "saturday"],
+      status: "active"
+    });
+    expect(store.planIntents.find((intent) => intent.id === firstActiveIntent?.id)?.status).toBe("superseded");
   });
 
   it("plan goal saves normalize schedule availability and record amendment audit", async () => {
@@ -872,6 +1036,7 @@ describe("onboardingService", () => {
       draft: {
         primaryFocus: "balanced",
         planAction: "start_new_plan",
+        planStartDate: fixtureAsOfDate,
         scheduleAvailability: ["tuesday", "thursday", "saturday"]
       },
       repositories

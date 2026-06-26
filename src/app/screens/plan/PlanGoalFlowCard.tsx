@@ -258,8 +258,6 @@ export function PlanGoalFlowCard({
   onCancel,
   onSaveBuildGoal,
   onSaveFightSetup,
-  onSaveProtectedSession,
-  onSaveRecurringProtectedAnchor,
   onSaveRecoveryGoal,
   onSaveTournamentSetup,
   showCloseButton = false
@@ -314,7 +312,21 @@ export function PlanGoalFlowCard({
   const [anchorNote, setAnchorNote] = React.useState("");
   const [pendingWeeklyAnchors, setPendingWeeklyAnchors] = React.useState<RecurringProtectedWorkoutAnchorDraft[]>([]);
   const [pendingDatedAnchors, setPendingDatedAnchors] = React.useState<ProtectedWorkoutDraft[]>([]);
+  const [submittingPlanAction, setSubmittingPlanAction] = React.useState<PlanLifecycleAction | null>(null);
   const { message: formError, runWithMessage } = useFormMessage("Goal could not be saved.");
+  const controlsBusy = busy || submittingPlanAction !== null;
+  const submittingCopy =
+    submittingPlanAction === null
+      ? null
+      : submittingPlanAction === "amend_current_plan"
+        ? {
+            title: "Updating your plan...",
+            body: "Rebuilding this week from your updated goal, support days, and fixed boxing schedule."
+          }
+        : {
+            title: "Generating your new plan...",
+            body: "Rebuilding this week from your new goal, support days, and fixed boxing schedule."
+          };
 
   const toggleAvailableDay = (day: GeneratedSupportDay) => {
     setStepError(null);
@@ -430,33 +442,31 @@ export function PlanGoalFlowCard({
     setSubFocus(defaultSubFocusForBuildFocus(focus));
   };
 
-  const persistPendingAnchors = async () => {
-    if (protectedScheduleMode === "clear_for_plan") {
-      return;
-    }
-    if (pendingWeeklyAnchors.length > 0) {
-      if (!onSaveRecurringProtectedAnchor) {
-        throw new Error("Weekly session save is unavailable.");
+  const pendingProtectedScheduleDraft = () => ({
+    ...(protectedScheduleMode === "clear_for_plan" || pendingDatedAnchors.length === 0 ? {} : { pendingProtectedSessions: pendingDatedAnchors }),
+    ...(protectedScheduleMode === "clear_for_plan" || pendingWeeklyAnchors.length === 0 ? {} : { pendingRecurringProtectedAnchors: pendingWeeklyAnchors })
+  });
+
+  const saveWithPlanRegeneration = async (savePlan: () => Promise<void>) => {
+    const action = planAction;
+    await runWithMessage(async () => {
+      setSubmittingPlanAction(action);
+      try {
+        await savePlan();
+        setSubmittingPlanAction(null);
+        onCancel();
+      } catch (error) {
+        setSubmittingPlanAction(null);
+        throw error;
       }
-      for (const anchor of pendingWeeklyAnchors) {
-        await onSaveRecurringProtectedAnchor(null, anchor);
-      }
-    }
-    if (pendingDatedAnchors.length > 0) {
-      if (!onSaveProtectedSession) {
-        throw new Error("One-off session save is unavailable.");
-      }
-      for (const anchor of pendingDatedAnchors) {
-        await onSaveProtectedSession(null, anchor);
-      }
-    }
+    });
   };
 
   const saveBuild = async () => {
     if (!requireAvailability()) {
       return;
     }
-    await runWithMessage(async () => {
+    await saveWithPlanRegeneration(async () => {
       await onSaveBuildGoal({
         primaryFocus,
         subFocus,
@@ -465,10 +475,9 @@ export function PlanGoalFlowCard({
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
         planAction,
-        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined,
+        ...pendingProtectedScheduleDraft()
       });
-      await persistPendingAnchors();
-      onCancel();
     });
   };
 
@@ -476,7 +485,7 @@ export function PlanGoalFlowCard({
     if (!requireAvailability()) {
       return;
     }
-    await runWithMessage(async () => {
+    await saveWithPlanRegeneration(async () => {
       const cap = parseOptionalPositiveNumber(postWeighInWeightCapKg, "Post-weigh-in cap");
       const contractedKg = parseRequiredPositiveNumber(contractedWeightKg, "Contracted weight", { example: "64" });
       const parsedWeighInDateTime = parseOptionalISODateTime(weighInDateTime, "Weigh-in datetime");
@@ -501,10 +510,9 @@ export function PlanGoalFlowCard({
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
         planAction,
-        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined,
+        ...pendingProtectedScheduleDraft()
       });
-      await persistPendingAnchors();
-      onCancel();
     });
   };
 
@@ -512,7 +520,7 @@ export function PlanGoalFlowCard({
     if (!requireAvailability()) {
       return;
     }
-    await runWithMessage(async () => {
+    await saveWithPlanRegeneration(async () => {
       await onSaveTournamentSetup({
         tournamentStartDate: parseRequiredDateYYYYMMDD(tournamentStartDate, "Tournament start date"),
         tournamentEndDate: parseRequiredDateYYYYMMDD(tournamentEndDate, "Tournament end date"),
@@ -528,10 +536,9 @@ export function PlanGoalFlowCard({
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
         planAction,
-        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined,
+        ...pendingProtectedScheduleDraft()
       });
-      await persistPendingAnchors();
-      onCancel();
     });
   };
 
@@ -539,7 +546,7 @@ export function PlanGoalFlowCard({
     if (!requireAvailability()) {
       return;
     }
-    await runWithMessage(async () => {
+    await saveWithPlanRegeneration(async () => {
       const durationDays = parseOptionalPositiveInteger(recoveryDurationDays, "Recovery duration days");
       await onSaveRecoveryGoal({
         ...(durationDays === undefined ? {} : { durationDays }),
@@ -549,10 +556,9 @@ export function PlanGoalFlowCard({
         scheduleAvailability: selectedAvailableDays,
         planStartDate: asOfDate,
         planAction,
-        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined
+        protectedScheduleMode: planAction === "start_new_plan" ? protectedScheduleMode : undefined,
+        ...pendingProtectedScheduleDraft()
       });
-      await persistPendingAnchors();
-      onCancel();
     });
   };
 
@@ -609,7 +615,7 @@ export function PlanGoalFlowCard({
           <Pressable
             accessibilityLabel="Close plan wizard"
             accessibilityRole="button"
-            disabled={busy}
+            disabled={controlsBusy}
             onPress={onCancel}
             style={[screenStyles.quietButton, { minHeight: 44, minWidth: 76, paddingHorizontal: spacing.md }]}
           >
@@ -641,6 +647,12 @@ export function PlanGoalFlowCard({
         </View>
         {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
         {stepError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{stepError}</Text> : null}
+        {submittingCopy ? (
+          <View accessibilityRole="alert" style={{ gap: spacing.xs }} testID="plan-wizard-generating-state">
+            <Text style={screenStyles.callout}>{submittingCopy.title}</Text>
+            <Text style={screenStyles.body}>{submittingCopy.body}</Text>
+          </View>
+        ) : null}
         {isMinor ? <Text style={screenStyles.subtle}>Minor athletes stay safety-first; acute weight-class shortcuts stay blocked.</Text> : null}
 
         {step === "goal" ? (
@@ -648,7 +660,7 @@ export function PlanGoalFlowCard({
             <Text style={screenStyles.callout}>Step 1: Goal type</Text>
             <Text style={screenStyles.body}>Choose the boxing phase CornerIQ should plan around next.</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              {goalOptions.map((option) => <OptionButton active={mode === option.value} busy={busy} key={option.value} label={option.label} onPress={() => chooseMode(option.value)} />)}
+              {goalOptions.map((option) => <OptionButton active={mode === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => chooseMode(option.value)} />)}
             </View>
           </View>
         ) : null}
@@ -663,7 +675,7 @@ export function PlanGoalFlowCard({
             </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {availableDayOptions.map((option) => (
-                <OptionButton active={selectedAvailableDays.includes(option.value)} busy={busy} key={option.value} label={option.label} onPress={() => toggleAvailableDay(option.value)} />
+                <OptionButton active={selectedAvailableDays.includes(option.value)} busy={controlsBusy} key={option.value} label={option.label} onPress={() => toggleAvailableDay(option.value)} />
               ))}
             </View>
             <Text style={screenStyles.subtle}>Selected: {daySummary(selectedAvailableDays)}</Text>
@@ -671,9 +683,9 @@ export function PlanGoalFlowCard({
               <Text style={screenStyles.fieldLabel}>Fixed schedule for this plan</Text>
               <Text style={screenStyles.body}>Choose what happens to existing boxing sessions when this starts as a new plan.</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                <OptionButton active={protectedScheduleMode === "keep_existing"} busy={busy} label="Keep existing fixed schedule" onPress={() => selectProtectedScheduleMode("keep_existing")} />
-                <OptionButton active={protectedScheduleMode === "replace_for_plan"} busy={busy} label="Replace fixed schedule for this plan" onPress={() => selectProtectedScheduleMode("replace_for_plan")} />
-                <OptionButton active={protectedScheduleMode === "clear_for_plan"} busy={busy} label="Clear fixed schedule" onPress={() => selectProtectedScheduleMode("clear_for_plan")} />
+                <OptionButton active={protectedScheduleMode === "keep_existing"} busy={controlsBusy} label="Keep existing fixed schedule" onPress={() => selectProtectedScheduleMode("keep_existing")} />
+                <OptionButton active={protectedScheduleMode === "replace_for_plan"} busy={controlsBusy} label="Replace fixed schedule for this plan" onPress={() => selectProtectedScheduleMode("replace_for_plan")} />
+                <OptionButton active={protectedScheduleMode === "clear_for_plan"} busy={controlsBusy} label="Clear fixed schedule" onPress={() => selectProtectedScheduleMode("clear_for_plan")} />
               </View>
               <Text style={screenStyles.subtle}>
                 {protectedScheduleMode === "keep_existing"
@@ -689,7 +701,7 @@ export function PlanGoalFlowCard({
               {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => (
                 <View key={`pending-weekly-anchor:${index}`} style={{ gap: spacing.xs }}>
                   <Text style={screenStyles.body}>{weeklyAnchorSummary(anchor)}</Text>
-                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => removePendingWeeklyAnchor(index)} style={screenStyles.quietButton}>
+                  <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={() => removePendingWeeklyAnchor(index)} style={screenStyles.quietButton}>
                     <Text style={screenStyles.quietButtonText}>Remove draft weekly session</Text>
                   </Pressable>
                 </View>
@@ -697,14 +709,14 @@ export function PlanGoalFlowCard({
               {pendingDatedAnchors.length > 0 ? pendingDatedAnchors.map((anchor, index) => (
                 <View key={`pending-dated-anchor:${index}`} style={{ gap: spacing.xs }}>
                   <Text style={screenStyles.body}>{datedAnchorSummary(anchor)}</Text>
-                  <Pressable accessibilityRole="button" disabled={busy} onPress={() => removePendingDatedAnchor(index)} style={screenStyles.quietButton}>
+                  <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={() => removePendingDatedAnchor(index)} style={screenStyles.quietButton}>
                     <Text style={screenStyles.quietButtonText}>Remove draft one-off session</Text>
                   </Pressable>
                 </View>
               )) : null}
               {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={screenStyles.subtle}>No new boxing sessions added in this wizard yet.</Text> : null}
               {protectedScheduleMode !== "clear_for_plan" ? (
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: anchorEditorOpen }} disabled={busy} onPress={() => setAnchorEditorOpen((value) => !value)} style={screenStyles.quietButton}>
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: anchorEditorOpen }} disabled={controlsBusy} onPress={() => setAnchorEditorOpen((value) => !value)} style={screenStyles.quietButton}>
                   <Text style={screenStyles.quietButtonText}>{anchorEditorOpen ? "Hide session fields" : "Add weekly session"}</Text>
                 </Pressable>
               ) : null}
@@ -712,17 +724,17 @@ export function PlanGoalFlowCard({
                 <View style={{ gap: spacing.sm }}>
                   <Text style={screenStyles.fieldLabel}>Weekly recurring or one-off date?</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    <OptionButton active={anchorMode === "weekly"} busy={busy} label="Weekly recurring" onPress={() => setAnchorMode("weekly")} />
-                    <OptionButton active={anchorMode === "one_off"} busy={busy} label="One-off date" onPress={() => setAnchorMode("one_off")} />
+                    <OptionButton active={anchorMode === "weekly"} busy={controlsBusy} label="Weekly recurring" onPress={() => setAnchorMode("weekly")} />
+                    <OptionButton active={anchorMode === "one_off"} busy={controlsBusy} label="One-off date" onPress={() => setAnchorMode("one_off")} />
                   </View>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={busy} key={option.value} label={option.label} onPress={() => selectAnchorType(option.value)} />)}
+                    {anchorTypeOptions.map((option) => <OptionButton active={anchorType === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => selectAnchorType(option.value)} />)}
                   </View>
                   {anchorMode === "weekly" ? (
                     <View style={{ gap: spacing.xs }}>
                       <Text style={screenStyles.fieldLabel}>Which day does this usually happen?</Text>
                       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                        {weekdayOptions.map((option) => <OptionButton active={anchorWeekday === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setAnchorWeekday(option.value)} />)}
+                        {weekdayOptions.map((option) => <OptionButton active={anchorWeekday === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => setAnchorWeekday(option.value)} />)}
                       </View>
                     </View>
                   ) : (
@@ -731,11 +743,11 @@ export function PlanGoalFlowCard({
                   <TextInput keyboardType="number-pad" onChangeText={setAnchorStartTime} placeholder="Time optional HH:MM" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorStartTime} />
                   <TextInput keyboardType="number-pad" onChangeText={setAnchorDurationMinutes} placeholder="Duration minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorDurationMinutes} />
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                    {anchorIntensityOptions.map((option) => <OptionButton active={anchorIntensity === option.value} busy={busy} key={option.value} label={option.label} onPress={() => setAnchorIntensity(option.value)} />)}
+                    {anchorIntensityOptions.map((option) => <OptionButton active={anchorIntensity === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => setAnchorIntensity(option.value)} />)}
                   </View>
                   <TextInput keyboardType="number-pad" onChangeText={setAnchorRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorRounds} />
                   <TextInput onChangeText={setAnchorNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorNote} />
-                  <Pressable accessibilityRole="button" disabled={busy} onPress={addPendingAnchor} style={screenStyles.button}>
+                  <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={addPendingAnchor} style={screenStyles.button}>
                     <Text style={screenStyles.buttonText}>Add session to review</Text>
                   </Pressable>
                 </View>
@@ -752,7 +764,7 @@ export function PlanGoalFlowCard({
               <Text style={screenStyles.fieldLabel}>Support workout dose</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 {trainingDoseOptions.map((option) => (
-                  <OptionButton active={trainingDose === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setTrainingDose(option)} />
+                  <OptionButton active={trainingDose === option} busy={controlsBusy} key={option} label={titleCase(option)} onPress={() => setTrainingDose(option)} />
                 ))}
               </View>
             </View>
@@ -761,13 +773,13 @@ export function PlanGoalFlowCard({
                 <Text style={screenStyles.fieldLabel}>Primary focus</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {buildFocusOptions.map((option) => (
-                    <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => selectPrimaryFocus(option)} />
+                    <OptionButton active={primaryFocus === option} busy={controlsBusy} key={option} label={titleCase(option)} onPress={() => selectPrimaryFocus(option)} />
                   ))}
                 </View>
                 <Text style={screenStyles.fieldLabel}>Sub-focus</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {subFocusOptionsFor(primaryFocus).map((option) => (
-                    <OptionButton active={subFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setSubFocus(option)} />
+                    <OptionButton active={subFocus === option} busy={controlsBusy} key={option} label={titleCase(option)} onPress={() => setSubFocus(option)} />
                   ))}
                 </View>
               </View>
@@ -776,22 +788,22 @@ export function PlanGoalFlowCard({
             {mode === "fight" ? (
               <View style={{ gap: spacing.sm }}>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={status === "tentative"} busy={busy} label="Tentative" onPress={() => setStatus("tentative")} />
-                  <OptionButton active={status === "confirmed"} busy={busy} label="Confirmed" onPress={() => setStatus("confirmed")} />
-                  <OptionButton active={status === "short_notice"} busy={busy} label="Short notice" onPress={() => setStatus("short_notice")} />
+                  <OptionButton active={status === "tentative"} busy={controlsBusy} label="Tentative" onPress={() => setStatus("tentative")} />
+                  <OptionButton active={status === "confirmed"} busy={controlsBusy} label="Confirmed" onPress={() => setStatus("confirmed")} />
+                  <OptionButton active={status === "short_notice"} busy={controlsBusy} label="Short notice" onPress={() => setStatus("short_notice")} />
                 </View>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={amateurOrPro === "amateur"} busy={busy} label="Amateur" onPress={() => setAmateurOrPro("amateur")} />
-                  <OptionButton active={amateurOrPro === "pro"} busy={busy} label="Pro" onPress={() => setAmateurOrPro("pro")} />
+                  <OptionButton active={amateurOrPro === "amateur"} busy={controlsBusy} label="Amateur" onPress={() => setAmateurOrPro("amateur")} />
+                  <OptionButton active={amateurOrPro === "pro"} busy={controlsBusy} label="Pro" onPress={() => setAmateurOrPro("pro")} />
                 </View>
                 <TextInput onChangeText={setBoutDate} placeholder="Bout date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={boutDate} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={weighInType === "same_day"} busy={busy} label="Same day" onPress={() => setWeighInType("same_day")} />
-                  <OptionButton active={weighInType === "day_before"} busy={busy} label="Day before" onPress={() => setWeighInType("day_before")} />
-                  <OptionButton active={weighInType === "unknown"} busy={busy} label="Unknown" onPress={() => setWeighInType("unknown")} />
+                  <OptionButton active={weighInType === "same_day"} busy={controlsBusy} label="Same day" onPress={() => setWeighInType("same_day")} />
+                  <OptionButton active={weighInType === "day_before"} busy={controlsBusy} label="Day before" onPress={() => setWeighInType("day_before")} />
+                  <OptionButton active={weighInType === "unknown"} busy={controlsBusy} label="Unknown" onPress={() => setWeighInType("unknown")} />
                 </View>
                 {weighInType === "unknown" ? <Text style={screenStyles.callout}>Weight-class action is blocked until weigh-in timing is confirmed.</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: advancedOpen }} disabled={busy} onPress={() => setAdvancedOpen((value) => !value)} style={screenStyles.quietButton}>
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: advancedOpen }} disabled={controlsBusy} onPress={() => setAdvancedOpen((value) => !value)} style={screenStyles.quietButton}>
                   <Text style={screenStyles.quietButtonText}>{advancedOpen ? "Hide advanced fields" : "Advanced fields"}</Text>
                 </Pressable>
                 {advancedOpen ? (
@@ -803,7 +815,7 @@ export function PlanGoalFlowCard({
                     <TextInput keyboardType="decimal-pad" onChangeText={setAllowanceKg} placeholder="Allowance kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={allowanceKg} />
                     <TextInput onChangeText={setWeighInDateTime} placeholder="Weigh-in datetime optional ISO" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weighInDateTime} />
                     <TextInput keyboardType="decimal-pad" onChangeText={setPostWeighInWeightCapKg} placeholder="Post-weigh-in cap kg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={postWeighInWeightCapKg} />
-                    <OptionButton active={hydrationTestingRequired} busy={busy} label="Hydration testing required" onPress={() => setHydrationTestingRequired((value) => !value)} />
+                    <OptionButton active={hydrationTestingRequired} busy={controlsBusy} label="Hydration testing required" onPress={() => setHydrationTestingRequired((value) => !value)} />
                   </View>
                 ) : null}
               </View>
@@ -814,20 +826,20 @@ export function PlanGoalFlowCard({
                 <TextInput onChangeText={setTournamentStartDate} placeholder="Start date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={tournamentStartDate} />
                 <TextInput onChangeText={setTournamentEndDate} placeholder="End date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={tournamentEndDate} />
                 <TextInput onChangeText={setPossibleBoutDates} placeholder="Possible bout days, comma-separated" placeholderTextColor={colors.wrap} style={screenStyles.input} value={possibleBoutDates} />
-                <OptionButton active={dailyWeighIns} busy={busy} label="Daily weigh-ins" onPress={() => setDailyWeighIns((value) => !value)} />
+                <OptionButton active={dailyWeighIns} busy={controlsBusy} label="Daily weigh-ins" onPress={() => setDailyWeighIns((value) => !value)} />
                 <TextInput onChangeText={setWeighInTimeEachDay} placeholder="Weigh-in time" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weighInTimeEachDay} />
                 <TextInput keyboardType="number-pad" onChangeText={setNumberOfPotentialBouts} placeholder="Number of possible bouts" placeholderTextColor={colors.wrap} style={screenStyles.input} value={numberOfPotentialBouts} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={strategyMode === "stay_near_weight"} busy={busy} label="Stay near weight" onPress={() => setStrategyMode("stay_near_weight")} />
-                  <OptionButton active={strategyMode === "mild_daily_cut"} busy={busy} label="Mild daily cut" onPress={() => setStrategyMode("mild_daily_cut")} />
-                  <OptionButton active={strategyMode === "no_cut_recommended"} busy={busy} label="No cut recommended" onPress={() => setStrategyMode("no_cut_recommended")} />
+                  <OptionButton active={strategyMode === "stay_near_weight"} busy={controlsBusy} label="Stay near weight" onPress={() => setStrategyMode("stay_near_weight")} />
+                  <OptionButton active={strategyMode === "mild_daily_cut"} busy={controlsBusy} label="Mild daily cut" onPress={() => setStrategyMode("mild_daily_cut")} />
+                  <OptionButton active={strategyMode === "no_cut_recommended"} busy={controlsBusy} label="No cut recommended" onPress={() => setStrategyMode("no_cut_recommended")} />
                 </View>
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: advancedOpen }} disabled={busy} onPress={() => setAdvancedOpen((value) => !value)} style={screenStyles.quietButton}>
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: advancedOpen }} disabled={controlsBusy} onPress={() => setAdvancedOpen((value) => !value)} style={screenStyles.quietButton}>
                   <Text style={screenStyles.quietButtonText}>{advancedOpen ? "Hide advanced fields" : "Advanced fields"}</Text>
                 </Pressable>
                 {advancedOpen ? (
                   <View style={{ gap: spacing.sm }}>
-                    <OptionButton active={sameDayBoutLikely} busy={busy} label="Same-day bout likely" onPress={() => setSameDayBoutLikely((value) => !value)} />
+                    <OptionButton active={sameDayBoutLikely} busy={controlsBusy} label="Same-day bout likely" onPress={() => setSameDayBoutLikely((value) => !value)} />
                     <TextInput onChangeText={setRehydrationWindowHoursByDay} placeholder="Rehydration windows hours" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rehydrationWindowHoursByDay} />
                   </View>
                 ) : null}
@@ -840,7 +852,7 @@ export function PlanGoalFlowCard({
                 <TextInput keyboardType="number-pad" onChangeText={setRecoveryDurationDays} placeholder="Duration days optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={recoveryDurationDays} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {recoveryFocusOptions.map((option) => (
-                    <OptionButton active={recoveryFocus === option} busy={busy} key={option} label={option === "post_bout" ? "Post-bout" : titleCase(option)} onPress={() => setRecoveryFocus(option)} />
+                    <OptionButton active={recoveryFocus === option} busy={controlsBusy} key={option} label={option === "post_bout" ? "Post-bout" : titleCase(option)} onPress={() => setRecoveryFocus(option)} />
                   ))}
                 </View>
               </View>
@@ -855,8 +867,8 @@ export function PlanGoalFlowCard({
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Plan action</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                <OptionButton active={planAction === "start_new_plan"} busy={busy} label="Start new plan" onPress={() => setPlanAction("start_new_plan")} />
-                <OptionButton active={planAction === "amend_current_plan"} busy={busy} label="Amend current plan" onPress={() => setPlanAction("amend_current_plan")} />
+                <OptionButton active={planAction === "start_new_plan"} busy={controlsBusy} label="Start new plan" onPress={() => setPlanAction("start_new_plan")} />
+                <OptionButton active={planAction === "amend_current_plan"} busy={controlsBusy} label="Amend current plan" onPress={() => setPlanAction("amend_current_plan")} />
               </View>
               <Text style={screenStyles.subtle}>
                 {planAction === "start_new_plan" ? "Starts week 1 and supersedes the prior active block without deleting history." : "Keeps the current week index and records the current plan as amended."}
@@ -911,21 +923,21 @@ export function PlanGoalFlowCard({
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {step !== "goal" ? (
-            <Pressable accessibilityRole="button" disabled={busy} onPress={goBack} style={[screenStyles.quietButton, { flexBasis: 120, flexGrow: 1 }]}>
+            <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={goBack} style={[screenStyles.quietButton, { flexBasis: 120, flexGrow: 1 }]}>
               <Text style={screenStyles.quietButtonText}>Back</Text>
             </Pressable>
           ) : null}
           <Pressable
             accessibilityLabel={step === "review" ? finalAccessibilityLabel(mode) : "Next plan wizard step"}
             accessibilityRole="button"
-            disabled={busy}
+            disabled={controlsBusy}
             onPress={step === "review" ? () => void saveCurrentGoal() : goNext}
             style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}
           >
-            <Text style={screenStyles.buttonText}>{step === "review" ? "Generate plan" : step === "details" ? "Review plan" : "Next"}</Text>
+            <Text style={screenStyles.buttonText}>{submittingPlanAction === "start_new_plan" ? "Generating plan..." : submittingPlanAction === "amend_current_plan" ? "Updating plan..." : step === "review" ? "Generate plan" : step === "details" ? "Review plan" : "Next"}</Text>
           </Pressable>
         </View>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={onCancel} style={screenStyles.quietButton}>
+        <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={onCancel} style={screenStyles.quietButton}>
           <Text style={screenStyles.quietButtonText}>Keep current plan</Text>
         </Pressable>
     </View>
@@ -933,3 +945,4 @@ export function PlanGoalFlowCard({
 
   return framed ? <EngineCard>{content}</EngineCard> : content;
 }
+

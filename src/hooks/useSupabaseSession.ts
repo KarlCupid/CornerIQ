@@ -62,6 +62,26 @@ function authErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (error !== null && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return "";
+}
+
+export function isInvalidRefreshTokenError(error: unknown): boolean {
+  const message = errorMessage(error).toLowerCase();
+  return (
+    message.includes("invalid refresh token") ||
+    message.includes("refresh token not found") ||
+    message.includes("refresh_token_not_found") ||
+    message.includes("refresh_token_already_used")
+  );
+}
+
 function recoveryParamsFromUrl(url: string): URLSearchParams | null {
   if (!url.includes("auth/update-password") && !url.includes("type=recovery")) {
     return null;
@@ -129,15 +149,26 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
         setAuthError(null);
         void assertSupabaseAuthStorageAvailable()
           .then(() => nextAuth.getSession())
-          .then(({ data, error }) => {
+          .then(async ({ data, error }) => {
             if (!active) {
+              return;
+            }
+            if (isInvalidRefreshTokenError(error)) {
+              await clearSupabaseAuthStorage();
+              if (!active) {
+                return;
+              }
+              setAuthError(null);
+              setAuthMessage("Saved sign-in expired. Sign in again to continue.");
+              setSession(null);
+              setStatus("ready");
               return;
             }
             setAuthError(error?.message ?? null);
             setSession(data.session);
             setStatus("ready");
           })
-          .catch((error: unknown) => {
+          .catch(async (error: unknown) => {
             if (!active) {
               return;
             }
@@ -145,6 +176,17 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
               setStartupError(error.message);
               setSession(null);
               setStatus("error");
+              return;
+            }
+            if (isInvalidRefreshTokenError(error)) {
+              await clearSupabaseAuthStorage();
+              if (!active) {
+                return;
+              }
+              setAuthError(null);
+              setAuthMessage("Saved sign-in expired. Sign in again to continue.");
+              setSession(null);
+              setStatus("ready");
               return;
             }
             setAuthError(authErrorMessage(error, "Could not load the saved sign-in. Try signing in again."));

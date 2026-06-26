@@ -21,13 +21,13 @@ const copyByStatus: Record<Exclude<EngineGenerationStatus, "idle">, { title: str
     testID: "plan-generation-pending"
   },
   generating_plan: {
-    title: "Building your plan",
-    lines: ["Checking fixed boxing, availability, readiness, and safety.", "Placing support workouts around fixed boxing."],
+    title: "Generating your new plan...",
+    lines: ["Rebuilding this week from your new goal, support days, and fixed boxing schedule.", "Checking readiness and safety before the board changes."],
     testID: "plan-generation-pending"
   },
   amending_plan: {
-    title: "Updating your plan",
-    lines: ["Checking fixed boxing, availability, readiness, and safety.", "Keeping the current week index unless you start a new plan."],
+    title: "Updating your plan...",
+    lines: ["Rebuilding this week from your updated goal, support days, and fixed boxing schedule.", "Keeping the current week index unless you start a new plan."],
     testID: "plan-generation-pending"
   },
   previewing_next_week: {

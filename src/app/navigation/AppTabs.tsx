@@ -387,7 +387,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             <PlanScreen
               asOfDate={asOfDate}
               adjustmentActions={trainingPlanAdjustments?.actions}
-              adjustmentMessage={trainingPlanAdjustments?.message ?? nextWeekPreviewActions?.message}
+              adjustmentMessage={trainingPlanAdjustments?.message ?? nextWeekPreviewActions?.message ?? message}
               busy={busy || Boolean(trainingPlanAdjustments?.busy) || Boolean(nextWeekPreviewActions?.busy)}
               generationStatus={generationStatus}
               hasActiveFightOrTournament={Boolean(state.fightContext || state.tournamentContext)}
