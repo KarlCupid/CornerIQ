@@ -24,7 +24,7 @@ import {
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
 import { mapProtectedWorkoutRow } from "../../services/supabase/protectedWorkoutRepository";
 import { completionKeyForCompletedTrainingSession, createTrainingRepository, mapCompletedTrainingSessionRow } from "../../services/supabase/trainingRepository";
-import { createTrainingBlockRepository } from "../../services/supabase/trainingBlockRepository";
+import { createTrainingBlockRepository, mapTrainingBlockRow } from "../../services/supabase/trainingBlockRepository";
 import { createFightRepository, mapFightOpportunityRow } from "../../services/supabase/fightRepository";
 import { createJourneyRepository, mapJourneyEventRow } from "../../services/supabase/journeyRepository";
 import { createNutritionSafetyReviewRepository, mapNutritionSafetyReviewEventRow, mapNutritionSafetyReviewRow } from "../../services/supabase/nutritionSafetyReviewRepository";
@@ -1837,6 +1837,30 @@ describe("Supabase repositories", () => {
     expect(source).toContain("training_microcycle_id: input.trainingMicrocycleId");
     expect(source).toContain("async insertTrainingPlanAdjustment");
     expect(source).toContain("TrainingPlanAdjustmentCommandSchema");
+  });
+
+  it("trainingBlockRepository normalizes Postgres timestamps before validating persisted block payloads", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const mapped = mapTrainingBlockRow({
+      id: "training_block_1",
+      user_id: "user_1",
+      block_key: "block:user_1:plan_1",
+      status: "active",
+      plan_revision_id: "plan_1",
+      input_hash: "input_hash",
+      output_hash: "output_hash",
+      block_payload: {
+        ...state.training.activeBlock,
+        planRevisionId: "plan_1",
+        recordedAt: "2026-05-19"
+      } as unknown as Json,
+      created_at: "2026-05-20 02:48:34.495071+00",
+      updated_at: "2026-05-20 02:49:34.495071+00"
+    });
+
+    expect(mapped.block.recordedAt).toBe("2026-05-20T02:48:34.495Z");
+    expect(mapped.createdAt).toBe("2026-05-20T02:48:34.495Z");
+    expect(mapped.updatedAt).toBe("2026-05-20T02:49:34.495Z");
   });
 
   it("trainingProgressionRepository persists typed weekly summaries, decisions, timeline events, and latest week index", () => {

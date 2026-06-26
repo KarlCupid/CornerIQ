@@ -12,7 +12,7 @@ import {
 } from "../../engine/training/planAdjustmentTypes";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type TrainingBlockStatus = "active" | "superseded" | "completed" | "canceled";
 export type TrainingBlockLifecycle = "created" | "updated" | "superseded_previous";
@@ -95,8 +95,10 @@ function adjustmentStatusValue(value: string, context: string): PersistedTrainin
   throw new Error(`${context}: unknown training adjustment status ${value}`);
 }
 
-function mapTrainingBlockRow(row: TrainingBlockRow): PersistedTrainingBlock {
+export function mapTrainingBlockRow(row: TrainingBlockRow): PersistedTrainingBlock {
   const payload = payloadObject(row.block_payload, "training_blocks.block_payload");
+  const createdAt = isoDateTimeValue(row.created_at, "training_blocks.created_at");
+  const updatedAt = isoDateTimeValue(row.updated_at, "training_blocks.updated_at");
   return {
     id: row.id,
     userId: row.user_id,
@@ -110,12 +112,12 @@ function mapTrainingBlockRow(row: TrainingBlockRow): PersistedTrainingBlock {
       {
         ...payload,
         ...(row.plan_revision_id ? { planRevisionId: row.plan_revision_id } : {}),
-        recordedAt: row.created_at
+        recordedAt: createdAt
       },
       "training_blocks.block_payload"
     ),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    createdAt,
+    updatedAt
   };
 }
 
