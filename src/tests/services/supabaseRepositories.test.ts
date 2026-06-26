@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
+import type { Json } from "../../services/supabase/database.types";
 import { mapAthleteProfileRow } from "../../services/supabase/athleteRepository";
 import { createBodyMassRepository, mapBodyMassLogRow } from "../../services/supabase/bodyMassRepository";
 import { createCoachRelationshipRepository } from "../../services/supabase/coachRelationshipRepository";
@@ -34,9 +35,11 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
 import { createEngineRunRepository, mapGeneratedSessionToRow } from "../../services/supabase/engineRunRepository";
+import { createTrainingPlanIntentRepository, mapTrainingPlanIntentRow } from "../../services/supabase/trainingPlanIntentRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2, PLAN_INTENT_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
 import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
+import type { PlanGenerationIntent } from "../../engine/training/types";
 
 function createInsertClient(options: { existingCompletedSessionId?: string | null; existingCompletedSessionStatus?: "completed" | "skipped"; completedTrainingConflict?: boolean } = {}) {
   const inserted: { table: string; record: unknown }[] = [];
@@ -462,6 +465,135 @@ function createGeneratedSessionSlotPersistenceClient(existing: {
     }
   };
   return { calls, client: client as unknown as CornerSupabaseClient, inserted, updated, upserted };
+}
+
+function planGenerationIntent(overrides: Partial<PlanGenerationIntent> = {}): PlanGenerationIntent {
+  return {
+    id: "plan_strength_week_1",
+    userId: "user_1",
+    action: "start_new_plan",
+    goalMode: "build",
+    primaryFocus: "strength",
+    subFocus: "full_body_strength",
+    trainingDose: "standard",
+    selectedSupportDays: ["monday", "wednesday", "friday"],
+    preferredSessionDurationMinutes: 45,
+    maxSessionDurationMinutes: 70,
+    targetBlockLengthWeeks: 4,
+    equipment: ["dumbbells", "bands"],
+    modalityPreferences: ["strength"],
+    modalityAvoidances: ["long roadwork"],
+    currentLimitations: ["right shoulder caution"],
+    userPreferences: ["home gym"],
+    planStartDate: fixtureAsOfDate,
+    requestedAt: "2026-05-19T09:00:00.000Z",
+    seed: "plan_strength_week_1",
+    source: "plan_wizard",
+    status: "active",
+    ...overrides
+  };
+}
+
+function createTrainingPlanIntentClient(rows: readonly ReturnType<typeof trainingPlanIntentRow>[]) {
+  const calls: { method: string; table?: string; column?: string; value?: unknown; options?: unknown }[] = [];
+  const updated: { table: string; record: unknown }[] = [];
+  const upserted: { table: string; record: unknown; options?: unknown }[] = [];
+  const responseRows = [...rows];
+  const selectQuery = {
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return selectQuery;
+    },
+    order(column: string, options?: unknown) {
+      calls.push({ method: "order", column, options });
+      return selectQuery;
+    },
+    limit(value: unknown) {
+      calls.push({ method: "limit", value });
+      return selectQuery;
+    },
+    maybeSingle: async () => ({ data: responseRows[0] ?? null, error: null }),
+    then<TResult1 = { data: typeof responseRows; error: null }, TResult2 = never>(
+      onfulfilled?: ((value: { data: typeof responseRows; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
+      onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+    ) {
+      return Promise.resolve({ data: responseRows, error: null }).then(onfulfilled, onrejected);
+    }
+  };
+  const updateQuery = {
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return updateQuery;
+    },
+    neq(column: string, value: unknown) {
+      calls.push({ method: "neq", column, value });
+      return { data: [], error: null };
+    },
+    select(column: string) {
+      calls.push({ method: "select", column });
+      return {
+        single: async () => ({ data: { id: "plan_intent_row_1" }, error: null })
+      };
+    }
+  };
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", table });
+      return {
+        select(column: string) {
+          calls.push({ method: "select", column });
+          return selectQuery;
+        },
+        update(record: unknown) {
+          updated.push({ table, record });
+          return updateQuery;
+        },
+        upsert(record: unknown, options?: unknown) {
+          upserted.push({ table, record, options });
+          return {
+            select(column: string) {
+              calls.push({ method: "select", column });
+              return {
+                single: async () => ({ data: { id: "plan_intent_row_1", plan_revision_id: (record as { plan_revision_id?: string }).plan_revision_id }, error: null })
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient, updated, upserted };
+}
+
+function trainingPlanIntentRow(input: PlanGenerationIntent = planGenerationIntent()) {
+  return {
+    id: "plan_intent_row_1",
+    user_id: input.userId,
+    plan_revision_id: input.id,
+    status: input.status,
+    action: input.action,
+    goal_mode: input.goalMode,
+    primary_focus: input.primaryFocus ?? "balanced",
+    sub_focus: input.subFocus ?? null,
+    training_dose: input.trainingDose,
+    selected_support_days: [...input.selectedSupportDays],
+    preferred_session_duration_minutes: input.preferredSessionDurationMinutes ?? null,
+    max_session_duration_minutes: input.maxSessionDurationMinutes ?? null,
+    target_block_length_weeks: input.targetBlockLengthWeeks ?? null,
+    equipment: [...(input.equipment ?? [])],
+    modality_preferences: [...(input.modalityPreferences ?? [])],
+    modality_avoidances: [...(input.modalityAvoidances ?? [])],
+    current_limitations: [...(input.currentLimitations ?? [])],
+    user_preferences: [...(input.userPreferences ?? [])],
+    plan_start_date: input.planStartDate,
+    requested_at: input.requestedAt,
+    source: input.source,
+    intent_payload: input as unknown as Json,
+    superseded_at: input.status === "superseded" ? "2026-05-20T00:00:00.000Z" : null,
+    superseded_reason: input.status === "superseded" ? "new_active_plan_revision" : null,
+    created_at: "2026-05-19T09:00:00.000Z",
+    updated_at: "2026-05-19T09:00:00.000Z"
+  };
 }
 
 function riskFlagRow(flag: ReturnType<typeof createRiskFlag>, payload: Record<string, unknown>) {
@@ -1063,6 +1195,72 @@ describe("Supabase repositories", () => {
     });
   });
 
+  it("trainingPlanIntentRepository persists normalized plan intent fields and supersedes old active revisions", async () => {
+    const intent = planGenerationIntent();
+    const { calls, client, updated, upserted } = createTrainingPlanIntentClient([]);
+
+    const result = await createTrainingPlanIntentRepository(client).upsertPlanIntent("user_1", intent);
+
+    expect(result).toEqual({ id: "plan_intent_row_1", planRevisionId: "plan_strength_week_1" });
+    expect(updated).toEqual([
+      {
+        table: "training_plan_intents",
+        record: expect.objectContaining({
+          status: "superseded",
+          superseded_reason: "new_active_plan_revision"
+        })
+      }
+    ]);
+    expect(upserted).toEqual([
+      expect.objectContaining({
+        table: "training_plan_intents",
+        options: { onConflict: "user_id,plan_revision_id" },
+        record: expect.objectContaining({
+          user_id: "user_1",
+          plan_revision_id: intent.id,
+          status: "active",
+          goal_mode: "build",
+          primary_focus: "strength",
+          training_dose: "standard",
+          selected_support_days: intent.selectedSupportDays,
+          intent_payload: expect.objectContaining({
+            id: intent.id,
+            selectedSupportDays: intent.selectedSupportDays
+          })
+        })
+      })
+    ]);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "eq", column: "user_id", value: "user_1" },
+        { method: "eq", column: "status", value: "active" },
+        { method: "neq", column: "plan_revision_id", value: intent.id }
+      ])
+    );
+  });
+
+  it("trainingPlanIntentRepository maps active plan intent rows for compiler revision authority", async () => {
+    const intent = planGenerationIntent({ id: "plan_conditioning_week_1", primaryFocus: "conditioning", trainingDose: "serious" });
+    const row = trainingPlanIntentRow(intent);
+    const { client } = createTrainingPlanIntentClient([row]);
+
+    const active = await createTrainingPlanIntentRepository(client).getActivePlanIntent("user_1");
+
+    expect(active).toMatchObject({
+      id: "plan_conditioning_week_1",
+      planRevisionId: "plan_conditioning_week_1",
+      rowId: "plan_intent_row_1",
+      primaryFocus: "conditioning",
+      trainingDose: "serious",
+      selectedSupportDays: ["monday", "wednesday", "friday"],
+      equipment: ["dumbbells", "bands"]
+    });
+    expect(mapTrainingPlanIntentRow(row)).toMatchObject({
+      id: "plan_conditioning_week_1",
+      planRevisionId: "plan_conditioning_week_1"
+    });
+  });
+
   it("active risk flag reads drop stale engine projections but keep current and external active rules", async () => {
     const stale = createRiskFlag("readiness", "fainting", "critical", "Old fainting was logged.", { date: "2026-05-01" }, true);
     const current = createRiskFlag("readiness", "severe_dizziness", "critical", "Current dizziness was logged.", { date: fixtureAsOfDate }, true);
@@ -1145,7 +1343,7 @@ describe("Supabase repositories", () => {
   it("engineRunRepository preserves moved scheduled dates when an active slot is regenerated", async () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const generated = state.training.generatedSessions[0]!;
-    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash");
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash", { trainingBlockId: "training_block_1" });
     const { calls, client, inserted, updated, upserted } = createGeneratedSessionSlotPersistenceClient({
       id: "db_generated_1",
       current_scheduled_date: "2026-05-26",
@@ -1186,10 +1384,71 @@ describe("Supabase repositories", () => {
     );
   });
 
+  it("engineRunRepository rejects active V2 generated sessions without canonical workout content", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = state.training.generatedSessions[0]!;
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash", { trainingBlockId: "training_block_1" });
+    const payload = record.session_payload as Record<string, unknown>;
+    const structured = payload.structuredPrescriptionV2 as Record<string, unknown>;
+    const broken = {
+      ...record,
+      session_payload: {
+        ...payload,
+        structuredPrescriptionV2: {
+          ...structured,
+          canonicalWorkoutSession: undefined
+        }
+      }
+    };
+    const { client, inserted, updated, upserted } = createGeneratedSessionSlotPersistenceClient(null);
+
+    await expect(createEngineRunRepository(client).upsertGeneratedSessions([broken])).rejects.toBeInstanceOf(RepositoryError);
+
+    expect(inserted).toEqual([]);
+    expect(updated).toEqual([]);
+    expect(upserted).toEqual([]);
+  });
+
+  it("engineRunRepository does not replace canonical workout content during lifecycle reconciliation", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = state.training.generatedSessions[0]!;
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash_next", "output_hash_next", { trainingBlockId: "training_block_1" });
+    const recordPayload = record.session_payload as Record<string, unknown>;
+    const structured = recordPayload.structuredPrescriptionV2 as { canonicalWorkoutSession: Record<string, unknown> };
+    const existingPayload = {
+      ...recordPayload,
+      inputHash: "input_hash_existing",
+      outputHash: "output_hash_existing",
+      structuredPrescriptionV2: {
+        ...(recordPayload.structuredPrescriptionV2 as Record<string, unknown>),
+        canonicalWorkoutSession: {
+          ...structured.canonicalWorkoutSession,
+          title: "Existing canonical content stays put"
+        }
+      }
+    };
+    const { client, updated } = createGeneratedSessionSlotPersistenceClient({
+      id: "db_generated_1",
+      current_scheduled_date: fixtureAsOfDate,
+      generated_session_lifecycle: "active",
+      session_payload: existingPayload
+    });
+
+    await createEngineRunRepository(client).upsertGeneratedSessions([record]);
+
+    const updatedPayload = (updated[0]?.record as { session_payload?: Record<string, unknown> }).session_payload;
+    const updatedStructured = updatedPayload?.structuredPrescriptionV2 as { canonicalWorkoutSession?: { title?: string } } | undefined;
+    expect(updatedStructured?.canonicalWorkoutSession?.title).toBe("Existing canonical content stays put");
+    expect(updatedPayload).toMatchObject({
+      inputHash: "input_hash_next",
+      outputHash: "output_hash_next"
+    });
+  });
+
   it("engineRunRepository does not resurrect completed or skipped generated slots", async () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const generated = state.training.generatedSessions[0]!;
-    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash");
+    const record = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash", { trainingBlockId: "training_block_1" });
     const completed = createGeneratedSessionSlotPersistenceClient({
       id: "completed_generated_1",
       current_scheduled_date: fixtureAsOfDate,
@@ -1225,6 +1484,10 @@ describe("Supabase repositories", () => {
     expect(source).toContain("original_planned_date: string | null");
     expect(source).toContain("current_scheduled_date: string | null");
     expect(source).toContain("generated_session_lifecycle: string");
+    expect(source).toContain("training_plan_intents");
+    expect(source).toContain("template_slot_id: string | null");
+    expect(source).toContain("movement_pattern: string | null");
+    expect(source).toContain("adaptation: string | null");
   });
 
   it("20260619194631 migration adds generated-session schedule identity and reconciles duplicate active slots", () => {
@@ -1869,6 +2132,7 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("training_microcycles");
     expect(USER_OWNED_TABLES).toContain("training_day_plans");
     expect(USER_OWNED_TABLES).toContain("training_plan_adjustments");
+    expect(USER_OWNED_TABLES).toContain("training_plan_intents");
     expect(USER_OWNED_TABLES).toContain("training_week_summaries");
     expect(USER_OWNED_TABLES).toContain("training_progression_decisions");
     expect(USER_OWNED_TABLES).toContain("training_block_timeline_events");
@@ -1879,7 +2143,7 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
     expect(USER_OWNED_TABLES).toContain("workout_completion_operations");
-    expect(USER_OWNED_TABLES).toHaveLength(38);
+    expect(USER_OWNED_TABLES).toHaveLength(39);
   });
 
   it("userDataService deletion order keeps known child tables before parent tables", () => {
@@ -1894,6 +2158,7 @@ describe("Supabase repositories", () => {
     expect(index("training_progression_decisions")).toBeLessThan(index("training_blocks"));
     expect(index("training_week_summaries")).toBeLessThan(index("training_blocks"));
     expect(index("training_plan_adjustments")).toBeLessThan(index("training_blocks"));
+    expect(index("training_plan_intents")).toBeLessThan(index("training_blocks"));
     expect(index("decision_traces")).toBeLessThan(index("engine_runs"));
     expect(index("risk_flags")).toBeLessThan(index("engine_runs"));
     expect(index("athlete_profiles")).toBeLessThan(index("users_public"));
@@ -2046,6 +2311,7 @@ describe("Supabase repositories", () => {
       "src/services/supabase/coachRelationshipRepository.ts",
       "src/services/supabase/exerciseResultRepository.ts",
       "src/services/supabase/engineRunRepository.ts",
+      "src/services/supabase/trainingPlanIntentRepository.ts",
       "src/services/supabase/userDataService.ts"
     ];
 

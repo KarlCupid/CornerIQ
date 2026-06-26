@@ -31,6 +31,7 @@ Include every user-owned table:
 - `training_next_week_previews`
 - `training_block_timeline_events`
 - `training_plan_adjustments`
+- `training_plan_intents`
 - `workout_completion_operations`
 - `completed_training_sessions`
 - `exercise_results`
@@ -87,6 +88,8 @@ The script is `scripts/dev-reset-supabase.mjs`. It previews row counts first, de
 
 - Cycle data is optional, private, and symptom-aware. Export/delete must include `cycle_logs`, `cycle_symptom_logs`, and `athlete_profiles.sensitive_cycle`.
 - Medical and safety context must include `athlete_profiles.sensitive_medical`, `readiness_checkins`, and `risk_flags`.
+- Plan intent and workout snapshots must include `training_plan_intents`, `engine_runs`, and `decision_traces`; these may repeat equipment, limitations, readiness, cycle, and safety context in derived form.
+- Generated-session result feedback must include `exercise_results` template metadata (`template_id`, `template_block_id`, `template_slot_id`, `movement_pattern`, `adaptation`) because it is progression evidence.
 - Wearable data must include `wearable_connections` and `wearable_signal_logs`; wearable data should increase confidence only when fresh and consistent.
 - Engine projections and traces must be included because they may repeat sensitive inputs in derived form.
 

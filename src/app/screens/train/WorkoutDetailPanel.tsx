@@ -114,6 +114,24 @@ function parseTechnicalQuality(value: string, exerciseName: string): ExerciseRes
   return parseEnumValue(value, TECHNICAL_QUALITIES, "technical quality", exerciseName);
 }
 
+function canonicalResultMetadata(exercise: DetailedTrainingSession["sections"][number]["exercises"][number]) {
+  return {
+    ...(exercise.templateId === undefined ? {} : { templateId: exercise.templateId }),
+    ...(exercise.templateBlockId === undefined ? {} : { templateBlockId: exercise.templateBlockId }),
+    ...(exercise.templateSlotId === undefined ? {} : { templateSlotId: exercise.templateSlotId }),
+    ...(exercise.movementPattern === undefined ? {} : { movementPattern: exercise.movementPattern }),
+    ...(exercise.adaptation === undefined ? {} : { adaptation: exercise.adaptation }),
+    ...(exercise.canonicalSessionId === undefined ? {} : { canonicalSessionId: exercise.canonicalSessionId }),
+    ...(exercise.prescribedSets === undefined ? {} : { prescribedSets: exercise.prescribedSets }),
+    ...(exercise.prescribedReps === undefined ? {} : { prescribedReps: exercise.prescribedReps }),
+    ...(exercise.prescribedDurationSeconds === undefined ? {} : { prescribedDurationSeconds: exercise.prescribedDurationSeconds }),
+    ...(exercise.prescribedLoadTarget === undefined ? {} : { prescribedLoadTarget: exercise.prescribedLoadTarget }),
+    ...(exercise.prescribedRpe === undefined ? {} : { prescribedRpe: exercise.prescribedRpe }),
+    ...(exercise.prescribedRir === undefined ? {} : { prescribedRir: exercise.prescribedRir }),
+    ...(exercise.prescribedRestSeconds === undefined ? {} : { prescribedRestSeconds: exercise.prescribedRestSeconds })
+  };
+}
+
 function parseExerciseResult(session: DetailedTrainingSession, values: Record<string, ExerciseResultInputs>): ExerciseResultDraft[] {
   return session.sections.flatMap((section) =>
     section.exercises.map((exercise) => {
@@ -134,6 +152,7 @@ function parseExerciseResult(session: DetailedTrainingSession, values: Record<st
         exerciseId: exercise.exerciseId,
         exerciseName: exercise.name,
         section: section.name,
+        ...canonicalResultMetadata(exercise),
         prescribed: exercise,
         resultStatus: resultStatus(exercise.sets.length, input, completedSets),
         ...(completedSets === undefined ? {} : { completedSets }),

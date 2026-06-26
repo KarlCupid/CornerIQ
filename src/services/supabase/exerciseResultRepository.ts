@@ -1,5 +1,13 @@
 import { z } from "zod";
-import type { ExerciseResultDraft, ExerciseResultLoadUnit, ExerciseResultRecord, ExerciseResultSide, ExerciseResultStatus, ExerciseResultTechnicalQuality } from "../../engine/core/types";
+import type {
+  ExerciseResultDraft,
+  ExerciseResultLoadUnit,
+  ExerciseResultRecord,
+  ExerciseResultSide,
+  ExerciseResultStatus,
+  ExerciseResultTechnicalQuality
+} from "../../engine/core/types";
+import type { MovementPattern, TrainingAdaptation } from "../../engine/training/compiler/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
@@ -8,6 +16,19 @@ const ExerciseResultPayloadSchema = z.object({
   exerciseId: z.string().min(1),
   exerciseName: z.string().min(1),
   section: z.string().min(1),
+  templateId: z.string().min(1).optional(),
+  templateBlockId: z.string().min(1).optional(),
+  templateSlotId: z.string().min(1).optional(),
+  movementPattern: z.string().min(1).optional(),
+  adaptation: z.string().min(1).optional(),
+  canonicalSessionId: z.string().min(1).optional(),
+  prescribedSets: z.number().int().nonnegative().optional(),
+  prescribedReps: z.number().int().nonnegative().optional(),
+  prescribedDurationSeconds: z.number().nonnegative().optional(),
+  prescribedLoadTarget: z.string().min(1).optional(),
+  prescribedRpe: z.number().min(1).max(10).optional(),
+  prescribedRir: z.number().int().nonnegative().optional(),
+  prescribedRestSeconds: z.number().nonnegative().optional(),
   prescribed: z.record(z.unknown()),
   resultStatus: z.enum(["prescribed_only", "completed", "partial", "skipped"]).optional(),
   completedSets: z.number().int().nonnegative().optional(),
@@ -53,12 +74,17 @@ export type ExerciseResultRow = Pick<
   | "exercise_key"
   | "exercise_id"
   | "exercise_name"
+  | "adaptation"
   | "completed_training_session_id"
   | "generated_training_session_id"
+  | "movement_pattern"
   | "recorded_at"
   | "completed_at"
   | "result_key"
   | "source"
+  | "template_block_id"
+  | "template_id"
+  | "template_slot_id"
   | "result_payload"
 >;
 
@@ -70,6 +96,19 @@ export function mapExerciseResultRow(row: ExerciseResultRow): ExerciseResultReco
     exerciseId: payload.exerciseId,
     exerciseName: payload.exerciseName,
     section: payload.section,
+    ...(payload.templateId ?? row.template_id ? { templateId: payload.templateId ?? row.template_id ?? undefined } : {}),
+    ...(payload.templateBlockId ?? row.template_block_id ? { templateBlockId: payload.templateBlockId ?? row.template_block_id ?? undefined } : {}),
+    ...(payload.templateSlotId ?? row.template_slot_id ? { templateSlotId: payload.templateSlotId ?? row.template_slot_id ?? undefined } : {}),
+    ...(payload.movementPattern ?? row.movement_pattern ? { movementPattern: (payload.movementPattern ?? row.movement_pattern) as MovementPattern } : {}),
+    ...(payload.adaptation ?? row.adaptation ? { adaptation: (payload.adaptation ?? row.adaptation) as TrainingAdaptation } : {}),
+    ...(payload.canonicalSessionId === undefined ? {} : { canonicalSessionId: payload.canonicalSessionId }),
+    ...(payload.prescribedSets === undefined ? {} : { prescribedSets: payload.prescribedSets }),
+    ...(payload.prescribedReps === undefined ? {} : { prescribedReps: payload.prescribedReps }),
+    ...(payload.prescribedDurationSeconds === undefined ? {} : { prescribedDurationSeconds: payload.prescribedDurationSeconds }),
+    ...(payload.prescribedLoadTarget === undefined ? {} : { prescribedLoadTarget: payload.prescribedLoadTarget }),
+    ...(payload.prescribedRpe === undefined ? {} : { prescribedRpe: payload.prescribedRpe }),
+    ...(payload.prescribedRir === undefined ? {} : { prescribedRir: payload.prescribedRir }),
+    ...(payload.prescribedRestSeconds === undefined ? {} : { prescribedRestSeconds: payload.prescribedRestSeconds }),
     prescribed: payload.prescribed,
     resultStatus,
     ...(payload.completedSets === undefined ? {} : { completedSets: payload.completedSets }),
@@ -122,6 +161,19 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
       exerciseId: input.result.exerciseId,
       exerciseName: input.result.exerciseName,
       section: input.result.section,
+      ...(input.result.templateId === undefined ? {} : { templateId: input.result.templateId }),
+      ...(input.result.templateBlockId === undefined ? {} : { templateBlockId: input.result.templateBlockId }),
+      ...(input.result.templateSlotId === undefined ? {} : { templateSlotId: input.result.templateSlotId }),
+      ...(input.result.movementPattern === undefined ? {} : { movementPattern: input.result.movementPattern }),
+      ...(input.result.adaptation === undefined ? {} : { adaptation: input.result.adaptation }),
+      ...(input.result.canonicalSessionId === undefined ? {} : { canonicalSessionId: input.result.canonicalSessionId }),
+      ...(input.result.prescribedSets === undefined ? {} : { prescribedSets: input.result.prescribedSets }),
+      ...(input.result.prescribedReps === undefined ? {} : { prescribedReps: input.result.prescribedReps }),
+      ...(input.result.prescribedDurationSeconds === undefined ? {} : { prescribedDurationSeconds: input.result.prescribedDurationSeconds }),
+      ...(input.result.prescribedLoadTarget === undefined ? {} : { prescribedLoadTarget: input.result.prescribedLoadTarget }),
+      ...(input.result.prescribedRpe === undefined ? {} : { prescribedRpe: input.result.prescribedRpe }),
+      ...(input.result.prescribedRir === undefined ? {} : { prescribedRir: input.result.prescribedRir }),
+      ...(input.result.prescribedRestSeconds === undefined ? {} : { prescribedRestSeconds: input.result.prescribedRestSeconds }),
       prescribed: input.result.prescribed,
       resultStatus: input.result.resultStatus,
       ...(input.result.completedSets === undefined ? {} : { completedSets: input.result.completedSets }),
@@ -146,7 +198,8 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
 }
 
 export function createExerciseResultRepository(client: CornerSupabaseClient) {
-  const exerciseResultSelect = "id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, recorded_at, completed_at, result_key, source, result_payload";
+  const exerciseResultSelect =
+    "id, exercise_key, exercise_id, exercise_name, completed_training_session_id, generated_training_session_id, template_id, template_block_id, template_slot_id, movement_pattern, adaptation, recorded_at, completed_at, result_key, source, result_payload";
   return {
     async insertExerciseResult(input: InsertExerciseResultInput): Promise<{ id: string }> {
       const safeUserId = assertUserId(input.userId, "exercise_results.insertExerciseResult");
@@ -158,6 +211,11 @@ export function createExerciseResultRepository(client: CornerSupabaseClient) {
         exercise_key: payload.exerciseId,
         exercise_id: payload.exerciseId,
         exercise_name: payload.exerciseName,
+        template_id: payload.templateId ?? null,
+        template_block_id: payload.templateBlockId ?? null,
+        template_slot_id: payload.templateSlotId ?? null,
+        movement_pattern: payload.movementPattern ?? null,
+        adaptation: payload.adaptation ?? null,
         result_key: input.resultKey ?? null,
         recorded_at: input.recordedAt ?? new Date().toISOString(),
         completed_at: input.completedAt ?? new Date().toISOString(),

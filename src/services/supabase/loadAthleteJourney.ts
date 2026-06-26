@@ -20,6 +20,7 @@ import { assertUserId, parseWithSchema } from "./repositoryTypes";
 import { createTournamentRepository } from "./tournamentRepository";
 import { createTrainingBlockRepository } from "./trainingBlockRepository";
 import { createTrainingNextWeekPreviewRepository } from "./trainingNextWeekPreviewRepository";
+import { createTrainingPlanIntentRepository } from "./trainingPlanIntentRepository";
 import { createTrainingProgressionRepository } from "./trainingProgressionRepository";
 import { createTrainingRepository } from "./trainingRepository";
 import { createWearableRepository } from "./wearableRepository";
@@ -47,6 +48,7 @@ export interface AthleteJourneyRepositories {
   training: ReturnType<typeof createTrainingRepository>;
   trainingBlock: ReturnType<typeof createTrainingBlockRepository>;
   trainingNextWeekPreview: ReturnType<typeof createTrainingNextWeekPreviewRepository>;
+  trainingPlanIntent?: ReturnType<typeof createTrainingPlanIntentRepository> | undefined;
   trainingProgression: ReturnType<typeof createTrainingProgressionRepository>;
   engineRun: ReturnType<typeof createEngineRunRepository>;
   exerciseResult: ReturnType<typeof createExerciseResultRepository>;
@@ -70,6 +72,7 @@ export function createAthleteJourneyRepositories(client: CornerSupabaseClient): 
     training: createTrainingRepository(client),
     trainingBlock: createTrainingBlockRepository(client),
     trainingNextWeekPreview: createTrainingNextWeekPreviewRepository(client),
+    trainingPlanIntent: createTrainingPlanIntentRepository(client),
     trainingProgression: createTrainingProgressionRepository(client),
     engineRun: createEngineRunRepository(client),
     exerciseResult: createExerciseResultRepository(client),

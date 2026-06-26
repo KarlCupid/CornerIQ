@@ -89,6 +89,10 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; genera
   const upsertNutritionTarget = vi.fn(async (record: unknown) => {
     nutritionTargets.push(record);
   });
+  const upsertPlanIntent = vi.fn(async (_userId: string, intent: { id: string }) => ({
+    id: `plan_intent_${intent.id}`,
+    planRevisionId: intent.id
+  }));
   const upsertNutritionSafetyReview = vi.fn(async (request: NutritionSafetyReviewRequest) => {
     if (options.reviewPersistenceFailure) {
       throw new Error("nutrition review projection failed");
@@ -322,6 +326,12 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; genera
       upsertNutritionTarget,
       upsertGeneratedSessions
     },
+    trainingPlanIntent: {
+      upsertPlanIntent,
+      getActivePlanIntent: vi.fn(),
+      listPlanIntents: vi.fn(),
+      supersedePlanIntent: vi.fn()
+    },
     journey: { listEvents: vi.fn(async () => journey.journeyEvents), appendEvent: vi.fn(async () => ({ id: "event_1" })) }
   } as unknown as AthleteJourneyRepositories;
 
@@ -335,6 +345,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; genera
       upsertActiveTrainingBlock,
       upsertGeneratedSessions,
       upsertNutritionTarget,
+      upsertPlanIntent,
       upsertRiskFlags,
       syncEngineRiskFlags,
       upsertRun,
@@ -384,6 +395,39 @@ describe("resolveAndPersistPerformanceState", () => {
       expect(result.inputHash).not.toBe("");
     }
     expect(calls.upsertRun).toHaveBeenCalledTimes(1);
+    const engineRunRecord = calls.upsertRun.mock.calls[0]?.[0] as unknown as {
+      input_hash: string;
+      output_hash: string;
+      run_payload: {
+        workoutEngineInputSnapshot?: {
+          inputHash?: string;
+          planIntent?: { activeRevisionId?: string };
+          athleteTrainingProfile?: { athleteId?: string };
+          sourceRecordIds?: { protectedWorkoutIds?: readonly string[]; exerciseResultIds?: readonly string[] };
+        };
+        workoutEngineOutputSnapshot?: {
+          outputHash?: string;
+          generatedSessionIds?: readonly string[];
+          canonicalWorkoutSessionIds?: readonly string[];
+          validationPassed?: boolean;
+        };
+      };
+    };
+    expect(engineRunRecord.run_payload.workoutEngineInputSnapshot).toMatchObject({
+      inputHash: engineRunRecord.input_hash,
+      athleteTrainingProfile: expect.objectContaining({ athleteId: no_wearable_manual_only.athlete.athleteId }),
+      sourceRecordIds: expect.objectContaining({
+        protectedWorkoutIds: expect.any(Array),
+        exerciseResultIds: expect.any(Array)
+      })
+    });
+    expect(engineRunRecord.run_payload.workoutEngineInputSnapshot?.planIntent?.activeRevisionId).toBe(result.status === "ready" ? result.state.training.supportGenerationAudit.planRevisionId : undefined);
+    expect(engineRunRecord.run_payload.workoutEngineOutputSnapshot).toMatchObject({
+      outputHash: engineRunRecord.output_hash,
+      generatedSessionIds: expect.any(Array),
+      canonicalWorkoutSessionIds: expect.any(Array),
+      validationPassed: expect.any(Boolean)
+    });
     expect(calls.saveDecisionTracesForRun).toHaveBeenCalledTimes(1);
     expect(calls.upsertNutritionTarget).toHaveBeenCalledTimes(1);
     expect(calls.upsertGeneratedSessions).toHaveBeenCalledTimes(1);
@@ -606,6 +650,7 @@ describe("resolveAndPersistPerformanceState", () => {
       error: "Workout regeneration could not be saved. Stale workouts were not shown as regenerated output.",
       cause: expect.stringContaining("generated-session projection failed")
     });
+    expect(calls.upsertPlanIntent).toHaveBeenCalledWith("user_1", expect.objectContaining({ id: "plan_regeneration_generated_session_failure" }));
     expect(calls.upsertGeneratedSessions).toHaveBeenCalledTimes(1);
   });
 

@@ -272,6 +272,10 @@ function buildWorkoutWalkthrough(input: {
 type StructuredPrescriptionV2 = NonNullable<GeneratedTrainingSession["structuredPrescriptionV2"]>;
 type StructuredBlockV2 = StructuredPrescriptionV2["compiledSession"]["blocks"][number];
 type StructuredExerciseV2 = StructuredBlockV2["exercises"][number];
+interface V2CanonicalMetadata {
+  canonicalSessionId?: string | undefined;
+  templateId?: string | undefined;
+}
 
 function structuredBlockFromCanonicalBlock(block: CanonicalWorkoutBlock): StructuredBlockV2 {
   const exercises = block.slots.flatMap((slot) => (slot.exercise ? [slot.exercise] : []));
@@ -391,11 +395,29 @@ function v2GuidedProfileForExercise(exercise: StructuredExerciseV2): GuidedExerc
   };
 }
 
-function v2ExercisePrescription(exercise: StructuredExerciseV2): ExercisePrescription {
+function v2ExercisePrescription(input: {
+  block: StructuredBlockV2;
+  exercise: StructuredExerciseV2;
+  metadata: V2CanonicalMetadata;
+}): ExercisePrescription {
+  const { block, exercise, metadata } = input;
   const durationText = v2DurationText(exercise.durationSeconds);
   return {
     exerciseId: exercise.exerciseId,
     name: exercise.name,
+    ...(metadata.templateId ? { templateId: metadata.templateId } : {}),
+    ...(block.templateBlockId ? { templateBlockId: block.templateBlockId } : {}),
+    ...(exercise.templateSlotId ? { templateSlotId: exercise.templateSlotId } : {}),
+    movementPattern: exercise.movementPattern,
+    adaptation: exercise.adaptation,
+    ...(metadata.canonicalSessionId ? { canonicalSessionId: metadata.canonicalSessionId } : {}),
+    ...(exercise.sets === undefined ? {} : { prescribedSets: exercise.sets }),
+    ...(exercise.reps === undefined ? {} : { prescribedReps: exercise.reps }),
+    ...(exercise.durationSeconds === undefined ? {} : { prescribedDurationSeconds: exercise.durationSeconds }),
+    ...(exercise.loadTarget === undefined ? {} : { prescribedLoadTarget: exercise.loadTarget }),
+    ...(exercise.rpe === undefined ? {} : { prescribedRpe: exercise.rpe }),
+    ...(exercise.rir === undefined ? {} : { prescribedRir: exercise.rir }),
+    prescribedRestSeconds: exercise.restSeconds,
     category: v2CategoryForExercise(exercise),
     sets: v2SetPrescriptions(exercise),
     ...(exercise.reps ? { repsText: `${exercise.reps} reps` } : {}),
@@ -425,6 +447,17 @@ function v2PseudoExercise(input: {
   id: string;
   name: string;
   category: ExerciseCategory;
+  metadata?: {
+    adaptation?: ExercisePrescription["adaptation"] | undefined;
+    canonicalSessionId?: string | undefined;
+    movementPattern?: ExercisePrescription["movementPattern"] | undefined;
+    prescribedDurationSeconds?: number | undefined;
+    prescribedRestSeconds?: number | undefined;
+    prescribedRpe?: number | undefined;
+    templateBlockId?: string | undefined;
+    templateId?: string | undefined;
+    templateSlotId?: string | undefined;
+  } | undefined;
   loadGuidance: string;
   durationText?: string | undefined;
   repsText?: string | undefined;
@@ -438,6 +471,15 @@ function v2PseudoExercise(input: {
   return {
     exerciseId: input.id,
     name: input.name,
+    ...(input.metadata?.templateId ? { templateId: input.metadata.templateId } : {}),
+    ...(input.metadata?.templateBlockId ? { templateBlockId: input.metadata.templateBlockId } : {}),
+    ...(input.metadata?.templateSlotId ? { templateSlotId: input.metadata.templateSlotId } : {}),
+    ...(input.metadata?.movementPattern ? { movementPattern: input.metadata.movementPattern } : {}),
+    ...(input.metadata?.adaptation ? { adaptation: input.metadata.adaptation } : {}),
+    ...(input.metadata?.canonicalSessionId ? { canonicalSessionId: input.metadata.canonicalSessionId } : {}),
+    ...(input.metadata?.prescribedDurationSeconds === undefined ? {} : { prescribedDurationSeconds: input.metadata.prescribedDurationSeconds }),
+    ...(input.metadata?.prescribedRpe === undefined ? {} : { prescribedRpe: input.metadata.prescribedRpe }),
+    ...(input.metadata?.prescribedRestSeconds === undefined ? {} : { prescribedRestSeconds: input.metadata.prescribedRestSeconds }),
     category: input.category,
     sets: [
       {
@@ -473,7 +515,7 @@ function v2PseudoExercise(input: {
   };
 }
 
-function v2ConditioningExercise(block: StructuredBlockV2): ExercisePrescription | null {
+function v2ConditioningExercise(block: StructuredBlockV2, metadata: V2CanonicalMetadata): ExercisePrescription | null {
   const conditioning = block.conditioning;
   if (!conditioning) {
     return null;
@@ -485,6 +527,16 @@ function v2ConditioningExercise(block: StructuredBlockV2): ExercisePrescription 
     id: exerciseId,
     name: `${conditioning.modality.replaceAll("_", " ")} ${conditioning.energySystem.replaceAll("_", " ")}`,
     category,
+    metadata: {
+      adaptation: "conditioning",
+      canonicalSessionId: metadata.canonicalSessionId,
+      prescribedDurationSeconds: conditioning.repetitions * conditioning.workSeconds,
+      prescribedRestSeconds: conditioning.restSeconds,
+      prescribedRpe: conditioning.rpe,
+      templateBlockId: block.templateBlockId,
+      templateId: metadata.templateId,
+      templateSlotId: conditioning.templateSlotId
+    },
     loadGuidance: `Hold RPE ${conditioning.rpe}; ${conditioning.substitution}`,
     durationText: v2DurationText(mainSeconds),
     repsText: `${conditioning.repetitions} x ${v2DurationText(conditioning.workSeconds)}`,
@@ -534,7 +586,7 @@ function v2ConditioningSteps(block: StructuredBlockV2, sectionIndex: number): re
   return steps;
 }
 
-function v2BoxingExercise(block: StructuredBlockV2): ExercisePrescription | null {
+function v2BoxingExercise(block: StructuredBlockV2, metadata: V2CanonicalMetadata): ExercisePrescription | null {
   const boxing = block.boxingRounds;
   if (!boxing) {
     return null;
@@ -544,6 +596,16 @@ function v2BoxingExercise(block: StructuredBlockV2): ExercisePrescription | null
     id: `v2_${detailSlug(boxing.modality)}_${detailSlug(boxing.purpose)}`,
     name: `${boxing.modality.replaceAll("_", " ")} ${boxing.purpose.replaceAll("_", " ")}`,
     category: boxing.purpose === "boxing_conditioning" ? "conditioning" : "boxing_skill",
+    metadata: {
+      adaptation: block.adaptation,
+      canonicalSessionId: metadata.canonicalSessionId,
+      prescribedDurationSeconds: boxing.rounds.reduce((sum, round) => sum + round.durationSeconds, 0),
+      prescribedRestSeconds: firstRound?.restSeconds,
+      prescribedRpe: boxing.rpe,
+      templateBlockId: block.templateBlockId,
+      templateId: metadata.templateId,
+      templateSlotId: boxing.templateSlotId
+    },
     loadGuidance: `RPE ${boxing.rpe}; ${boxing.technicalQualityCheckpoint}`,
     durationText: v2DurationText(block.durationMinutes * 60),
     repsText: `${boxing.rounds.length} rounds x ${v2DurationText(firstRound?.durationSeconds ?? 0)}`,
@@ -594,12 +656,19 @@ function v2BoxingSteps(block: StructuredBlockV2, sectionIndex: number): readonly
   return steps;
 }
 
-function v2BlockOnlyExercise(block: StructuredBlockV2): ExercisePrescription {
+function v2BlockOnlyExercise(block: StructuredBlockV2, metadata: V2CanonicalMetadata): ExercisePrescription {
   const category: ExerciseCategory = block.role === "warm_up" ? "warm_up" : block.adaptation === "mobility" ? "mobility" : block.adaptation === "recovery" ? "recovery" : "durability";
   return v2PseudoExercise({
     id: `v2_${detailSlug(block.id)}`,
     name: block.title,
     category,
+    metadata: {
+      adaptation: block.adaptation,
+      canonicalSessionId: metadata.canonicalSessionId,
+      prescribedDurationSeconds: Math.round(block.durationMinutes * 60),
+      templateBlockId: block.templateBlockId,
+      templateId: metadata.templateId
+    },
     loadGuidance: block.coachingNotes[0] ?? "Keep this easy and technical.",
     durationText: v2DurationText(block.durationMinutes * 60),
     restText: "Move continuously and calmly.",
@@ -634,12 +703,12 @@ function v2BlockOnlySteps(block: StructuredBlockV2, sectionIndex: number): reado
   ];
 }
 
-function v2SectionFromBlock(block: StructuredBlockV2, sectionIndex: number): WorkoutSection {
-  const directExercises = block.exercises.map(v2ExercisePrescription);
-  const conditioningExercise = v2ConditioningExercise(block);
-  const boxingExercise = v2BoxingExercise(block);
+function v2SectionFromBlock(block: StructuredBlockV2, sectionIndex: number, metadata: V2CanonicalMetadata): WorkoutSection {
+  const directExercises = block.exercises.map((exercise) => v2ExercisePrescription({ block, exercise, metadata }));
+  const conditioningExercise = v2ConditioningExercise(block, metadata);
+  const boxingExercise = v2BoxingExercise(block, metadata);
   const exercises = directExercises.length > 0 ? directExercises : [conditioningExercise, boxingExercise].filter((item): item is ExercisePrescription => item !== null);
-  const fallbackExercises = exercises.length > 0 ? exercises : [v2BlockOnlyExercise(block)];
+  const fallbackExercises = exercises.length > 0 ? exercises : [v2BlockOnlyExercise(block, metadata)];
   const guidedSteps = block.conditioning
     ? v2ConditioningSteps(block, sectionIndex)
     : block.boxingRounds
@@ -677,7 +746,12 @@ function buildStructuredV2DetailedTrainingSession(input: BuildDetailedTrainingSe
   const structuredBlocks = canonicalSession ? canonicalSession.blocks.map(structuredBlockFromCanonicalBlock) : compiledSession.blocks;
   const displayDurationMinutes = canonicalSession?.durationMinutes ?? compiledSession.displayedDurationMinutes;
   const family = input.generatedSession.family;
-  const rawSections = structuredBlocks.map(v2SectionFromBlock);
+  const rawSections = structuredBlocks.map((block, index) =>
+    v2SectionFromBlock(block, index, {
+      canonicalSessionId: canonicalSession?.id,
+      templateId: canonicalSession?.templateId
+    })
+  );
   const guidedSections = v2GuidedSections(rawSections);
   const sections = rawSections.map((workoutSection, index) => ({
     ...workoutSection,

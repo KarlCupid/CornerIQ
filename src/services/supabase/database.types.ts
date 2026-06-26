@@ -377,6 +377,7 @@ export type Database = {
       }
       exercise_results: {
         Row: {
+          adaptation: string | null
           completed_at: string | null
           completed_training_session_id: string | null
           created_at: string
@@ -385,14 +386,19 @@ export type Database = {
           exercise_name: string | null
           generated_training_session_id: string | null
           id: string
+          movement_pattern: string | null
           recorded_at: string
           result_key: string | null
           result_payload: Json
           source: string | null
+          template_block_id: string | null
+          template_id: string | null
+          template_slot_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          adaptation?: string | null
           completed_at?: string | null
           completed_training_session_id?: string | null
           created_at?: string
@@ -401,14 +407,19 @@ export type Database = {
           exercise_name?: string | null
           generated_training_session_id?: string | null
           id?: string
+          movement_pattern?: string | null
           recorded_at?: string
           result_key?: string | null
           result_payload?: Json
           source?: string | null
+          template_block_id?: string | null
+          template_id?: string | null
+          template_slot_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          adaptation?: string | null
           completed_at?: string | null
           completed_training_session_id?: string | null
           created_at?: string
@@ -417,10 +428,14 @@ export type Database = {
           exercise_name?: string | null
           generated_training_session_id?: string | null
           id?: string
+          movement_pattern?: string | null
           recorded_at?: string
           result_key?: string | null
           result_payload?: Json
           source?: string | null
+          template_block_id?: string | null
+          template_id?: string | null
+          template_slot_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1270,6 +1285,93 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      training_plan_intents: {
+        Row: {
+          action: string
+          created_at: string
+          current_limitations: Json
+          equipment: Json
+          goal_mode: string
+          id: string
+          intent_payload: Json
+          max_session_duration_minutes: number | null
+          modality_avoidances: Json
+          modality_preferences: Json
+          plan_revision_id: string
+          plan_start_date: string
+          preferred_session_duration_minutes: number | null
+          primary_focus: string
+          requested_at: string
+          selected_support_days: Json
+          source: string
+          status: string
+          sub_focus: string | null
+          superseded_at: string | null
+          superseded_reason: string | null
+          target_block_length_weeks: number | null
+          training_dose: string
+          updated_at: string
+          user_id: string
+          user_preferences: Json
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          current_limitations?: Json
+          equipment?: Json
+          goal_mode: string
+          id?: string
+          intent_payload?: Json
+          max_session_duration_minutes?: number | null
+          modality_avoidances?: Json
+          modality_preferences?: Json
+          plan_revision_id: string
+          plan_start_date: string
+          preferred_session_duration_minutes?: number | null
+          primary_focus: string
+          requested_at: string
+          selected_support_days?: Json
+          source?: string
+          status?: string
+          sub_focus?: string | null
+          superseded_at?: string | null
+          superseded_reason?: string | null
+          target_block_length_weeks?: number | null
+          training_dose: string
+          updated_at?: string
+          user_id: string
+          user_preferences?: Json
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          current_limitations?: Json
+          equipment?: Json
+          goal_mode?: string
+          id?: string
+          intent_payload?: Json
+          max_session_duration_minutes?: number | null
+          modality_avoidances?: Json
+          modality_preferences?: Json
+          plan_revision_id?: string
+          plan_start_date?: string
+          preferred_session_duration_minutes?: number | null
+          primary_focus?: string
+          requested_at?: string
+          selected_support_days?: Json
+          source?: string
+          status?: string
+          sub_focus?: string | null
+          superseded_at?: string | null
+          superseded_reason?: string | null
+          target_block_length_weeks?: number | null
+          training_dose?: string
+          updated_at?: string
+          user_id?: string
+          user_preferences?: Json
+        }
+        Relationships: []
       }
       training_progression_decisions: {
         Row: {

@@ -27,6 +27,19 @@ function firstExerciseResult(session: DetailedTrainingSession): ExerciseResultDr
     exerciseId: firstExercise.exerciseId,
     exerciseName: firstExercise.name,
     section: firstSection.name,
+    ...(firstExercise.templateId === undefined ? {} : { templateId: firstExercise.templateId }),
+    ...(firstExercise.templateBlockId === undefined ? {} : { templateBlockId: firstExercise.templateBlockId }),
+    ...(firstExercise.templateSlotId === undefined ? {} : { templateSlotId: firstExercise.templateSlotId }),
+    ...(firstExercise.movementPattern === undefined ? {} : { movementPattern: firstExercise.movementPattern }),
+    ...(firstExercise.adaptation === undefined ? {} : { adaptation: firstExercise.adaptation }),
+    ...(firstExercise.canonicalSessionId === undefined ? {} : { canonicalSessionId: firstExercise.canonicalSessionId }),
+    ...(firstExercise.prescribedSets === undefined ? {} : { prescribedSets: firstExercise.prescribedSets }),
+    ...(firstExercise.prescribedReps === undefined ? {} : { prescribedReps: firstExercise.prescribedReps }),
+    ...(firstExercise.prescribedDurationSeconds === undefined ? {} : { prescribedDurationSeconds: firstExercise.prescribedDurationSeconds }),
+    ...(firstExercise.prescribedLoadTarget === undefined ? {} : { prescribedLoadTarget: firstExercise.prescribedLoadTarget }),
+    ...(firstExercise.prescribedRpe === undefined ? {} : { prescribedRpe: firstExercise.prescribedRpe }),
+    ...(firstExercise.prescribedRir === undefined ? {} : { prescribedRir: firstExercise.prescribedRir }),
+    ...(firstExercise.prescribedRestSeconds === undefined ? {} : { prescribedRestSeconds: firstExercise.prescribedRestSeconds }),
     prescribed: firstExercise,
     resultStatus: "completed",
     completedSets: 2,
@@ -542,13 +555,27 @@ describe("exerciseResultRepository", () => {
     });
 
     expect(inserted[0]?.table).toBe("exercise_results");
-    expect(inserted[0]?.record).toMatchObject({ user_id: "user_1", completed_training_session_id: "completed_1", exercise_key: result.exerciseId });
+    expect(inserted[0]?.record).toMatchObject({
+      user_id: "user_1",
+      completed_training_session_id: "completed_1",
+      exercise_key: result.exerciseId,
+      template_id: result.templateId ?? null,
+      template_block_id: result.templateBlockId ?? null,
+      template_slot_id: result.templateSlotId ?? null,
+      movement_pattern: result.movementPattern ?? null,
+      adaptation: result.adaptation ?? null
+    });
 
     const mapped = mapExerciseResultRow({
       id: "exercise_result_1",
       exercise_key: result.exerciseId,
       exercise_id: result.exerciseId,
       exercise_name: result.exerciseName,
+      template_id: result.templateId ?? null,
+      template_block_id: result.templateBlockId ?? null,
+      template_slot_id: result.templateSlotId ?? null,
+      movement_pattern: result.movementPattern ?? null,
+      adaptation: result.adaptation ?? null,
       completed_training_session_id: "completed_1",
       generated_training_session_id: null,
       recorded_at: "2026-05-19 12:00:00+00",
@@ -559,6 +586,19 @@ describe("exerciseResultRepository", () => {
         exerciseId: result.exerciseId,
         exerciseName: result.exerciseName,
         section: result.section,
+        templateId: result.templateId,
+        templateBlockId: result.templateBlockId,
+        templateSlotId: result.templateSlotId,
+        movementPattern: result.movementPattern,
+        adaptation: result.adaptation,
+        canonicalSessionId: result.canonicalSessionId,
+        prescribedSets: result.prescribedSets,
+        prescribedReps: result.prescribedReps,
+        prescribedDurationSeconds: result.prescribedDurationSeconds,
+        prescribedLoadTarget: result.prescribedLoadTarget,
+        prescribedRpe: result.prescribedRpe,
+        prescribedRir: result.prescribedRir,
+        prescribedRestSeconds: result.prescribedRestSeconds,
         prescribed: result.prescribed,
         completedSets: 2,
         loadValue: 20,
@@ -576,6 +616,9 @@ describe("exerciseResultRepository", () => {
     expect(mapped.recordedAt).toBe("2026-05-19T12:00:00.000Z");
     expect(mapped.generatedSessionId).toBe(session.generatedSessionId);
     expect(mapped.resultStatus).toBe("partial");
+    expect(mapped.templateSlotId).toBe(result.templateSlotId);
+    expect(mapped.movementPattern).toBe(result.movementPattern);
+    expect(mapped.adaptation).toBe(result.adaptation);
     expect(mapped.loadValue).toBe(20);
     expect(mapped.loadUnit).toBe("kg");
     expect(mapped.repsCompleted).toBe(8);
@@ -601,7 +644,11 @@ describe("exerciseResultRepository", () => {
       result_payload: expect.objectContaining({
         resultStatus: "partial",
         painFlag: true,
-        smokeRunId: "smoke_1"
+        smokeRunId: "smoke_1",
+        templateId: result.templateId,
+        templateBlockId: result.templateBlockId,
+        adaptation: result.adaptation,
+        canonicalSessionId: result.canonicalSessionId
       })
     });
   });

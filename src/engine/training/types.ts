@@ -3,7 +3,7 @@ import type { GeneratedSupportWeekday } from "./supportAvailability";
 import type { DailyOperatingModeView } from "./dailyOperatingMode";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationContract";
 import type { CanonicalWorkoutSession } from "./compiler/canonicalWorkout";
-import type { CompiledTrainingSession, PlanSubFocus, SessionIntent, WeeklyAdaptationBudget } from "./compiler/types";
+import type { CompiledTrainingSession, MovementPattern, PlanSubFocus, SessionIntent, TrainingAdaptation, WeeklyAdaptationBudget } from "./compiler/types";
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import type { TrainingBlock, TrainingBlockRecommendation, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
@@ -268,7 +268,7 @@ export interface PlanGenerationIntent {
   requestedAt: string;
   seed: string;
   source: "plan_wizard";
-  status: "active" | "superseded" | "completed";
+  status: "active" | "superseded" | "completed" | "canceled";
 }
 
 export interface GeneratedTrainingSession {
@@ -432,6 +432,19 @@ export interface GuidedExerciseProfile {
 export interface ExercisePrescription {
   exerciseId: string;
   name: string;
+  templateId?: string | undefined;
+  templateBlockId?: string | undefined;
+  templateSlotId?: string | undefined;
+  movementPattern?: MovementPattern | undefined;
+  adaptation?: TrainingAdaptation | undefined;
+  canonicalSessionId?: string | undefined;
+  prescribedSets?: number | undefined;
+  prescribedReps?: number | undefined;
+  prescribedDurationSeconds?: number | undefined;
+  prescribedLoadTarget?: string | undefined;
+  prescribedRpe?: number | undefined;
+  prescribedRir?: number | undefined;
+  prescribedRestSeconds?: number | undefined;
   category: ExerciseCategory;
   movementFamiliarity?: MovementFamiliarity | undefined;
   sets: readonly ExerciseSetPrescription[];
@@ -601,6 +614,19 @@ export interface ExerciseResultDraft {
   exerciseId: string;
   exerciseName: string;
   section: string;
+  templateId?: string | undefined;
+  templateBlockId?: string | undefined;
+  templateSlotId?: string | undefined;
+  movementPattern?: MovementPattern | undefined;
+  adaptation?: TrainingAdaptation | undefined;
+  canonicalSessionId?: string | undefined;
+  prescribedSets?: number | undefined;
+  prescribedReps?: number | undefined;
+  prescribedDurationSeconds?: number | undefined;
+  prescribedLoadTarget?: string | undefined;
+  prescribedRpe?: number | undefined;
+  prescribedRir?: number | undefined;
+  prescribedRestSeconds?: number | undefined;
   prescribed: ExercisePrescription;
   resultStatus: ExerciseResultStatus;
   completedSets?: number | undefined;
@@ -622,6 +648,19 @@ export interface ExerciseResultRecord {
   exerciseId: string;
   exerciseName: string;
   section: string;
+  templateId?: string | undefined;
+  templateBlockId?: string | undefined;
+  templateSlotId?: string | undefined;
+  movementPattern?: MovementPattern | undefined;
+  adaptation?: TrainingAdaptation | undefined;
+  canonicalSessionId?: string | undefined;
+  prescribedSets?: number | undefined;
+  prescribedReps?: number | undefined;
+  prescribedDurationSeconds?: number | undefined;
+  prescribedLoadTarget?: string | undefined;
+  prescribedRpe?: number | undefined;
+  prescribedRir?: number | undefined;
+  prescribedRestSeconds?: number | undefined;
   prescribed: Record<string, unknown>;
   resultStatus: ExerciseResultStatus;
   completedSets?: number | undefined;

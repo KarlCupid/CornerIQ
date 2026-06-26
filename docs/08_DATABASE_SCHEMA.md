@@ -66,7 +66,9 @@ Public mirror for app-owned display state:
 
 ### generated_training_sessions
 
-- block id, session family, planned date, prescription, fuel demand handoff, decision trace id
+- block id, planned date, original/current scheduled dates, plan revision, week id, prescription slot, lifecycle, engine version
+- V2 workout content authority lives in `session_payload.structuredPrescriptionV2.canonicalWorkoutSession`
+- scheduling/lifecycle metadata may change after creation; canonical workout content must not be mutated in place
 
 ### completed_training_sessions
 
@@ -77,6 +79,8 @@ Public mirror for app-owned display state:
 
 - session id, exercise id, sets, reps, load, RPE/RIR, pain
 - `result_key text` optional idempotency key for retry-safe generated-session completion result writes
+- template feedback metadata: `template_id`, `template_block_id`, `template_slot_id`, `movement_pattern`, `adaptation`
+- result payload also stores prescribed dose and completed dose so progression can reason by template slot
 
 ### workout_completion_operations
 
@@ -144,6 +148,13 @@ Public mirror for app-owned display state:
 
 - domain, code, severity, status, evidence, blocks plan, hard stop, review required
 
+### training_plan_intents
+
+- source fact for plan generation intent and active plan revision identity
+- queryable columns: status, action, goal, focus, dose, support days, durations, equipment, preferences, limitations, plan start, requested time
+- `intent_payload jsonb` stores the full validated plan intent payload
+- one active plan intent per user; new active revisions explicitly supersede older active intents
+
 ### decision_traces
 
 - engine, step, input summary, selected decision, rejected alternatives, rationale, confidence, timestamp
@@ -151,7 +162,9 @@ Public mirror for app-owned display state:
 ### engine_runs
 
 - engine version, as_of_date, input hash, output hash, generated_at, invalidated_at, invalidation reason
+- `run_payload.workoutEngineInputSnapshot` stores normalized plan intent, athlete training profile, fixed training, readiness/cycle/nutrition/safety context, recent completions/results, source ids, and input hash
+- `run_payload.workoutEngineOutputSnapshot` stores output hash, generated session ids, canonical workout session ids, fingerprints, and validation status
 
 ## Sensitive Data
 
-Cycle, medical, pregnancy, medication, ED risk, and symptoms require explicit privacy docs, export support, and delete support.
+Cycle, medical, pregnancy, medication, ED risk, symptoms, plan intent, engine snapshots, and exercise-result template metadata require explicit privacy docs, export support, and delete support.

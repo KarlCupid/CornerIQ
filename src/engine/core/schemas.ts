@@ -14,6 +14,23 @@ const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const GeneratedSessionDurationPolicyCategorySchema = z.enum(["normal_support", "workload_moderated", "recovery", "taper", "microdose", "safety_capped"]);
 const TrainingStimulusSchema = z.enum(["strength", "conditioning", "power", "durability", "mobility", "recovery", "taper", "boxing_skill", "technical", "agility", "tactical"]);
+const TrainingAdaptationSchema = z.enum(["strength", "conditioning", "power", "boxing_skill", "mobility", "durability", "recovery"]);
+const MovementPatternSchema = z.enum([
+  "squat",
+  "hinge",
+  "unilateral",
+  "push",
+  "pull",
+  "carry",
+  "anti_extension",
+  "anti_rotation",
+  "rotation",
+  "ankle_tendon",
+  "scapular_control",
+  "neck_trap",
+  "locomotion",
+  "mobility"
+]);
 const TrainingExecutionReadinessStatusSchema = z.enum(["unknown", "green", "amber", "red_non_hard_stop", "red_hard_stop"]);
 const GeneratedSessionLifecycleSchema = z.enum(["active", "completed", "skipped", "unresolved", "moved", "superseded", "canceled"]);
 const GeneratedSessionAddOnPrioritySchema = z.enum(["required", "recommended", "optional"]);
@@ -525,6 +542,19 @@ export const ExerciseResultRecordSchema = z.object({
   exerciseId: z.string().min(1),
   exerciseName: z.string().min(1),
   section: z.string().min(1),
+  templateId: z.string().min(1).optional(),
+  templateBlockId: z.string().min(1).optional(),
+  templateSlotId: z.string().min(1).optional(),
+  movementPattern: MovementPatternSchema.optional(),
+  adaptation: TrainingAdaptationSchema.optional(),
+  canonicalSessionId: z.string().min(1).optional(),
+  prescribedSets: z.number().int().nonnegative().optional(),
+  prescribedReps: z.number().int().nonnegative().optional(),
+  prescribedDurationSeconds: z.number().nonnegative().optional(),
+  prescribedLoadTarget: z.string().min(1).optional(),
+  prescribedRpe: z.number().min(1).max(10).optional(),
+  prescribedRir: z.number().int().nonnegative().optional(),
+  prescribedRestSeconds: z.number().nonnegative().optional(),
   prescribed: z.record(z.unknown()),
   resultStatus: z.enum(["prescribed_only", "completed", "partial", "skipped"]),
   completedSets: z.number().int().nonnegative().optional(),

@@ -41,6 +41,24 @@ function prescribedForResult(
   };
 }
 
+function canonicalResultMetadata(exercise: DetailedTrainingSession["sections"][number]["exercises"][number]) {
+  return {
+    ...(exercise.templateId === undefined ? {} : { templateId: exercise.templateId }),
+    ...(exercise.templateBlockId === undefined ? {} : { templateBlockId: exercise.templateBlockId }),
+    ...(exercise.templateSlotId === undefined ? {} : { templateSlotId: exercise.templateSlotId }),
+    ...(exercise.movementPattern === undefined ? {} : { movementPattern: exercise.movementPattern }),
+    ...(exercise.adaptation === undefined ? {} : { adaptation: exercise.adaptation }),
+    ...(exercise.canonicalSessionId === undefined ? {} : { canonicalSessionId: exercise.canonicalSessionId }),
+    ...(exercise.prescribedSets === undefined ? {} : { prescribedSets: exercise.prescribedSets }),
+    ...(exercise.prescribedReps === undefined ? {} : { prescribedReps: exercise.prescribedReps }),
+    ...(exercise.prescribedDurationSeconds === undefined ? {} : { prescribedDurationSeconds: exercise.prescribedDurationSeconds }),
+    ...(exercise.prescribedLoadTarget === undefined ? {} : { prescribedLoadTarget: exercise.prescribedLoadTarget }),
+    ...(exercise.prescribedRpe === undefined ? {} : { prescribedRpe: exercise.prescribedRpe }),
+    ...(exercise.prescribedRir === undefined ? {} : { prescribedRir: exercise.prescribedRir }),
+    ...(exercise.prescribedRestSeconds === undefined ? {} : { prescribedRestSeconds: exercise.prescribedRestSeconds })
+  };
+}
+
 export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSession, state: WorkoutPlayerExerciseResultState): ExerciseResultDraft[] {
   const skipped = new Set(state.skippedExerciseIds);
   const painFlags = new Set(state.painFlagExerciseIds);
@@ -73,6 +91,7 @@ export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSessi
         exerciseId: resultPrescription.exerciseId,
         exerciseName: resultPrescription.name,
         section: section.name,
+        ...canonicalResultMetadata(resultPrescription),
         prescribed: resultPrescription,
         resultStatus,
         ...(resultStatus === "prescribed_only" ? {} : { completedSets }),

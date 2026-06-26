@@ -8,7 +8,8 @@ const launchMigrationNames = [
   "20260619190201_training_week_finalization_authority.sql",
   "20260619194631_generated_session_identity_lifecycle.sql",
   "20260620000100_workout_completion_retry_integrity.sql",
-  "20260626062900_revision_isolated_plan_lifecycle.sql"
+  "20260626062900_revision_isolated_plan_lifecycle.sql",
+  "20260626120000_outside_engine_workout_support.sql"
 ] as const;
 
 function readSource(path: string): string {
@@ -119,6 +120,32 @@ describe("Supabase migration static checks", () => {
     }
   });
 
+  it("preserves outside-engine workout support persistence contracts", () => {
+    const source = readMigration("20260626120000_outside_engine_workout_support.sql");
+
+    for (const requiredFragment of [
+      "create table if not exists public.training_plan_intents",
+      "training_plan_intents_status_known",
+      "training_plan_intents_user_active_uidx",
+      "training_plan_intents_user_revision_uidx",
+      "alter table public.training_plan_intents enable row level security",
+      "grant all on table public.training_plan_intents to authenticated",
+      "generated_training_sessions_v2_canonical_content_required",
+      "structuredPrescriptionV2",
+      "canonicalWorkoutSession",
+      "template_id text",
+      "template_block_id text",
+      "template_slot_id text",
+      "movement_pattern text",
+      "adaptation text",
+      "exercise_results_user_template_slot_idx",
+      "exercise_results_user_movement_adaptation_idx",
+      "engine_runs_workout_snapshot_payload_object"
+    ]) {
+      expect(source).toContain(requiredFragment);
+    }
+  });
+
   it("requires RLS and Data API grant review for new public tables in launch migrations", () => {
     for (const migrationName of launchMigrationNames) {
       const source = readMigration(migrationName);
@@ -144,6 +171,12 @@ describe("Supabase migration static checks", () => {
       "result_key: string | null",
       "workout_completion_operations",
       "operation_status: string",
+      "training_plan_intents",
+      "plan_revision_id: string",
+      "intent_payload: Json",
+      "template_slot_id: string | null",
+      "movement_pattern: string | null",
+      "adaptation: string | null",
       "summary_authority_key: string",
       "summary_lifecycle: string",
       "summary_generated_at: string | null",
@@ -158,6 +191,21 @@ describe("Supabase migration static checks", () => {
       "original_planned_date: string | null",
       "current_scheduled_date: string | null",
       "generated_session_lifecycle: string"
+    ]) {
+      expect(source).toContain(requiredFragment);
+    }
+  });
+
+  it("documents non-workout feature influence boundaries", () => {
+    const source = readSource("docs/WORKOUT_ENGINE_FEATURE_INFLUENCE.md");
+
+    for (const requiredFragment of [
+      "Readiness | No, unless safety flag | Yes | Same-day execution overlay only",
+      "Nutrition | No | Yes | Fueling gate and advisory only",
+      "Cycle symptoms | Usually no | Yes | Same-day downshift overlay",
+      "Wearables | Usually no | Yes | Readiness/confidence signal only when fresh and consistent",
+      "Generated workout content is immutable after creation",
+      "exercise_results"
     ]) {
       expect(source).toContain(requiredFragment);
     }

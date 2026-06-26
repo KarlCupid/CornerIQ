@@ -1,5 +1,7 @@
 import { RiskFlagSchema } from "../../engine/core/schemas";
 import type { DecisionTrace, GeneratedTrainingSession, ISODateString, PerformanceState, RiskFlag } from "../../engine/core/types";
+import { normalizeAthleteTrainingProfile, normalizePlanIntent } from "../../engine/training/compiler/normalizePlanInputs";
+import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
 import { RepositoryError, assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
@@ -8,8 +10,94 @@ export type RiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" 
 type ActiveEngineRiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" | "flag_payload">;
 type GeneratedSessionSlotRow = Pick<TableRow<"generated_training_sessions">, "id" | "current_scheduled_date" | "generated_session_lifecycle" | "session_payload">;
 
+const GENERATED_SESSION_SCHEMA_VERSION_V2 = "generated_training_session_v2";
+const V2_MUTABLE_GENERATED_SESSION_LIFECYCLES = new Set(["active", "moved", "unresolved"]);
+
 export interface ListActiveRiskFlagsOptions {
   asOfDate?: ISODateString | undefined;
+}
+
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function requiredObjectValue(value: unknown, context: string): Record<string, unknown> {
+  const parsed = objectValue(value);
+  if (!parsed) {
+    throw new RepositoryError("malformed_payload", context, "expected a JSON object");
+  }
+  return parsed;
+}
+
+function trimmedStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function sourceRecordIdsFor(state: PerformanceState) {
+  return {
+    athleteProfileId: state.athlete.athleteId,
+    ...(state.training.planGenerationIntent?.id ? { planIntentId: state.training.planGenerationIntent.id } : {}),
+    protectedWorkoutIds: state.training.protectedAnchors.map((workout) => workout.id).sort(),
+    completedSessionIds: state.training.completedSessions.map((session) => session.id).sort(),
+    exerciseResultIds: state.training.recentExerciseResults.map((result) => result.id).sort(),
+    readinessCheckinIds: [],
+    nutritionLogIds: [],
+    hydrationLogIds: [],
+    electrolyteLogIds: [],
+    cycleLogIds: [],
+    riskFlagIds: state.safety.riskFlags.map((flag) => flag.id).sort()
+  };
+}
+
+function workoutEngineInputSnapshot(userId: string, inputHash: string, state: PerformanceState) {
+  const planIntent = normalizePlanIntent({
+    legacyIntent: state.training.planGenerationIntent,
+    userId,
+    requestedStartDate: state.training.planGenerationIntent?.planStartDate ?? state.training.activeBlock.startDate,
+    activeRevisionId: state.training.supportGenerationAudit.planRevisionId
+  });
+  const athleteTrainingProfile = normalizeAthleteTrainingProfile({
+    athlete: state.athlete,
+    equipment: planIntent.equipment.length > 0 ? planIntent.equipment : state.athlete.equipmentAccess,
+    fixedBoxingSchedule: state.training.protectedAnchors,
+    modalityAvoidances: planIntent.modalityAvoidances,
+    modalityPreferences: planIntent.modalityPreferences,
+    currentLimitations: planIntent.currentLimitations,
+    userPreferences: planIntent.userPreferences,
+    preferredSessionDurationMinutes: planIntent.preferredSessionDurationMinutes
+  });
+  return {
+    contractVersion: `${TRAINING_COMPILER_CONTRACT_VERSION}.outside_engine_snapshot.v1`,
+    asOfDate: state.asOfDate,
+    planIntent,
+    athleteTrainingProfile,
+    fixedTraining: state.training.protectedAnchors,
+    recentCompletedSessions: state.training.completedSessions,
+    recentExerciseResults: state.training.recentExerciseResults,
+    readiness: state.readiness,
+    cycle: state.cycle,
+    foodLogSummary: state.nutrition.dailyFoodLogSummary,
+    hydrationLogCount: undefined,
+    electrolyteLogCount: undefined,
+    riskFlags: state.safety.riskFlags,
+    sourceRecordIds: sourceRecordIdsFor(state),
+    inputHash
+  };
+}
+
+function workoutEngineOutputSnapshot(state: PerformanceState) {
+  return {
+    outputHash: state.outputHash,
+    planInstanceFingerprint: state.training.supportGenerationAudit.planInstanceFingerprint,
+    contentFingerprint: state.training.supportGenerationAudit.contentFingerprint,
+    generatedSessionIds: state.training.generatedSessions.map((session) => session.id).sort(),
+    canonicalWorkoutSessionIds: state.training.generatedSessions
+      .map((session) => session.structuredPrescriptionV2?.canonicalWorkoutSession?.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+      .sort(),
+    validationPassed: state.training.supportGenerationAudit.prescriptionValidationPassed,
+    validationFailures: state.training.supportGenerationAudit.prescriptionValidationFailures
+  };
 }
 
 export function mapPerformanceStateToEngineRun(userId: string, inputHash: string, state: PerformanceState): TableInsert<"engine_runs"> {
@@ -24,7 +112,9 @@ export function mapPerformanceStateToEngineRun(userId: string, inputHash: string
       objective: state.objective,
       confidence: state.confidence.level,
       outputHash: state.outputHash,
-      riskCount: state.safety.riskFlags.length
+      riskCount: state.safety.riskFlags.length,
+      workoutEngineInputSnapshot: workoutEngineInputSnapshot(userId, inputHash, state),
+      workoutEngineOutputSnapshot: workoutEngineOutputSnapshot(state)
     })
   };
 }
@@ -179,30 +269,86 @@ function riskFlagPersistenceKey(record: Pick<TableInsert<"risk_flags">, "code" |
   return `${record.domain}:${record.code}`;
 }
 
-function generatedSessionRecordWithPreservedMovedDate(
+function assertV2GeneratedSessionAuthority(record: TableInsert<"generated_training_sessions">): void {
+  const payload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.validateV2.session_payload");
+  if (payload.generatedSessionSchemaVersion !== GENERATED_SESSION_SCHEMA_VERSION_V2) {
+    return;
+  }
+  const structured = requiredObjectValue(payload.structuredPrescriptionV2, "generated_training_sessions.validateV2.structuredPrescriptionV2");
+  requiredObjectValue(structured.sessionIntent, "generated_training_sessions.validateV2.sessionIntent");
+  requiredObjectValue(structured.compiledSession, "generated_training_sessions.validateV2.compiledSession");
+  const canonical = requiredObjectValue(structured.canonicalWorkoutSession, "generated_training_sessions.validateV2.canonicalWorkoutSession");
+  requiredObjectValue(structured.adaptationBudget, "generated_training_sessions.validateV2.adaptationBudget");
+
+  const templateId = trimmedStringValue(payload.templateId);
+  if (!templateId) {
+    throw new RepositoryError("missing_required_data", "generated_training_sessions.validateV2", "templateId is required for V2 generated sessions");
+  }
+  const canonicalTemplateId = trimmedStringValue(canonical.templateId);
+  if (canonicalTemplateId && canonicalTemplateId !== templateId) {
+    throw new RepositoryError("malformed_payload", "generated_training_sessions.validateV2", "canonical templateId must match top-level templateId");
+  }
+  const recordSlotId = trimmedStringValue(record.prescription_slot_id);
+  const payloadSlotId = trimmedStringValue(payload.prescriptionSlotId);
+  const sessionIntentId = trimmedStringValue((structured.sessionIntent as Record<string, unknown>).id);
+  const sessionIntentPayloadId = trimmedStringValue(payload.sessionIntentId);
+  if (!recordSlotId || (recordSlotId !== payloadSlotId && recordSlotId !== sessionIntentId && recordSlotId !== sessionIntentPayloadId)) {
+    throw new RepositoryError(
+      "malformed_payload",
+      "generated_training_sessions.validateV2",
+      "prescription_slot_id must match the V2 session intent or payload slot id"
+    );
+  }
+  if (V2_MUTABLE_GENERATED_SESSION_LIFECYCLES.has(record.generated_session_lifecycle ?? "active") && (!record.plan_revision_id || !record.week_id || !record.block_id)) {
+    throw new RepositoryError("missing_required_data", "generated_training_sessions.validateV2", "plan_revision_id, week_id, and block_id are required for active V2 sessions");
+  }
+}
+
+function assertGeneratedContentNotMutated(record: TableInsert<"generated_training_sessions">, existing: GeneratedSessionSlotRow): void {
+  const nextPayload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.immutability.next");
+  const existingPayload = payloadObject(existing.session_payload, "generated_training_sessions.immutability.existing");
+  if (nextPayload.generatedSessionSchemaVersion !== GENERATED_SESSION_SCHEMA_VERSION_V2 || existingPayload.generatedSessionSchemaVersion !== GENERATED_SESSION_SCHEMA_VERSION_V2) {
+    return;
+  }
+  const nextContentFingerprint = trimmedStringValue(nextPayload.contentFingerprint);
+  const existingContentFingerprint = trimmedStringValue(existingPayload.contentFingerprint);
+  if (nextContentFingerprint && existingContentFingerprint && nextContentFingerprint !== existingContentFingerprint) {
+    throw new RepositoryError(
+      "malformed_payload",
+      "generated_training_sessions.upsertGeneratedSessions.immutableContent",
+      "generated workout content is immutable for an existing generated-session slot; create a new plan revision or supersede the old session"
+    );
+  }
+}
+
+function generatedSessionScheduleAuditUpdate(
   record: TableInsert<"generated_training_sessions">,
   existing: GeneratedSessionSlotRow
-): TableInsert<"generated_training_sessions"> & TableUpdate<"generated_training_sessions"> {
-  if (existing.generated_session_lifecycle !== "moved" || record.generated_session_lifecycle !== "active") {
-    return record;
-  }
+): TableUpdate<"generated_training_sessions"> {
   const existingPayload = payloadObject(existing.session_payload, "generated_training_sessions.preserveMoved.existing");
   const nextPayload = payloadObject(record.session_payload ?? toJson({}), "generated_training_sessions.preserveMoved.next");
+  const preserveMovedDate = existing.generated_session_lifecycle === "moved" && record.generated_session_lifecycle === "active";
+  const lifecycle = preserveMovedDate ? "moved" : record.generated_session_lifecycle ?? existing.generated_session_lifecycle;
   const currentScheduledDate =
-    existing.current_scheduled_date ??
-    (typeof existingPayload.currentScheduledDate === "string" ? existingPayload.currentScheduledDate : null) ??
+    (preserveMovedDate
+      ? existing.current_scheduled_date ?? (typeof existingPayload.currentScheduledDate === "string" ? existingPayload.currentScheduledDate : null)
+      : null) ??
     record.current_scheduled_date ??
     record.planned_date;
   return {
-    ...record,
+    planned_date: record.planned_date,
+    ...(record.original_planned_date === undefined ? {} : { original_planned_date: record.original_planned_date }),
     current_scheduled_date: currentScheduledDate,
-    generated_session_lifecycle: "moved",
+    generated_session_lifecycle: lifecycle,
     session_payload: toJson({
-      ...nextPayload,
+      ...existingPayload,
       date: currentScheduledDate,
       currentScheduledDate,
-      generatedSessionLifecycle: "moved",
-      movedDatePreservedBySlotReconciliation: true
+      generatedSessionLifecycle: lifecycle,
+      inputHash: nextPayload.inputHash ?? existingPayload.inputHash,
+      outputHash: nextPayload.outputHash ?? existingPayload.outputHash,
+      projectionSource: "engine_projection",
+      ...(preserveMovedDate ? { movedDatePreservedBySlotReconciliation: true } : {})
     })
   };
 }
@@ -379,7 +525,10 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
       if (records.length === 0) {
         return;
       }
-      records.forEach((record) => assertUserId(record.user_id, "generated_training_sessions.upsertGeneratedSessions"));
+      records.forEach((record) => {
+        assertUserId(record.user_id, "generated_training_sessions.upsertGeneratedSessions");
+        assertV2GeneratedSessionAuthority(record);
+      });
       const legacyRecords: TableInsert<"generated_training_sessions">[] = [];
       for (const record of records) {
         if (!record.prescription_slot_id) {
@@ -414,7 +563,8 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
           continue;
         }
         if (existing) {
-          const update = generatedSessionRecordWithPreservedMovedDate(record, existing);
+          assertGeneratedContentNotMutated(record, existing);
+          const update = generatedSessionScheduleAuditUpdate(record, existing);
           const updateResponse = await client
             .from("generated_training_sessions")
             .update(update)

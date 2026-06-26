@@ -763,6 +763,9 @@ async function persistPerformanceState(
 ): Promise<{ state: PerformanceState; persistenceWarning?: string | undefined }> {
   const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
   await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
+  if (state.training.planGenerationIntent && repositories.trainingPlanIntent) {
+    await repositories.trainingPlanIntent.upsertPlanIntent(userId, state.training.planGenerationIntent);
+  }
   const riskFlagRows = state.safety.riskFlags.map((flag) => mapRiskFlagToRow(userId, flag, inputHash, state.asOfDate));
   const syncEngineRiskFlags = repositories.engineRun.syncEngineRiskFlags;
   if (typeof syncEngineRiskFlags === "function") {
