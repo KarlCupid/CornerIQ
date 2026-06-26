@@ -810,7 +810,103 @@ function genericBoxingRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe
   return jabFocusedRecipe(input);
 }
 
+function compiledRecipeBlockType(section: DetailedTrainingSession["sections"][number]): WorkoutRecipeBlockType {
+  const searchable = `${section.name} ${section.intent} ${section.exercises.map((exercise) => exercise.category).join(" ")}`.toLowerCase();
+  if (searchable.includes("warm")) {
+    return "warmup";
+  }
+  if (searchable.includes("cool") || searchable.includes("recovery")) {
+    return "cooldown";
+  }
+  if (searchable.includes("round") || searchable.includes("boxing")) {
+    return "boxing_rounds";
+  }
+  if (searchable.includes("condition") || searchable.includes("roadwork")) {
+    return "conditioning";
+  }
+  if (searchable.includes("strength") || searchable.includes("power")) {
+    return "strength";
+  }
+  if (searchable.includes("mobility")) {
+    return "mobility";
+  }
+  return "support";
+}
+
+function compiledStepType(section: DetailedTrainingSession["sections"][number]): WorkoutRecipeStepType {
+  const blockType = compiledRecipeBlockType(section);
+  if (blockType === "cooldown") {
+    return "cooldown";
+  }
+  if (blockType === "boxing_rounds") {
+    return "round";
+  }
+  if (blockType === "strength") {
+    return "set";
+  }
+  return "movement";
+}
+
+function compiledRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe | null {
+  if (!input.templateId || input.sections.length === 0) {
+    return null;
+  }
+  const blocks = input.sections.map((sectionItem, sectionIndex) => {
+    const stepSeconds = Math.max(30, Math.round((sectionItem.durationMinutes * 60) / Math.max(1, sectionItem.exercises.length)));
+    const steps = sectionItem.exercises.map((exercise, exerciseIndex) =>
+      step({
+        type: compiledStepType(sectionItem),
+        title: exercise.name,
+        durationSeconds: stepSeconds,
+        doThis: exercise.loadGuidance,
+        coachCue: exercise.coachingNotes[0] ?? exercise.stopConditions[0] ?? "Keep the work clean.",
+        safetyStop: exercise.stopConditions[0] ?? DEFAULT_STOP,
+        autoAdvance: compiledStepType(sectionItem) !== "set",
+        exerciseId: exercise.exerciseId,
+        stepId: `compiled_${sectionIndex}_${exerciseIndex}_${slug(exercise.exerciseId)}`
+      })
+    );
+    return block({
+      blockId: `compiled_${sectionIndex}_${slug(sectionItem.name)}`,
+      title: sectionItem.name,
+      type: compiledRecipeBlockType(sectionItem),
+      accent: compiledRecipeBlockType(sectionItem) === "cooldown" ? "green" : compiledRecipeBlockType(sectionItem) === "boxing_rounds" || compiledRecipeBlockType(sectionItem) === "conditioning" ? "red" : compiledRecipeBlockType(sectionItem) === "strength" ? "orange" : "blue",
+      why: "Follow this block as written. Do not add extra work.",
+      steps:
+        steps.length > 0
+          ? steps
+          : [
+              step({
+                type: "movement",
+                title: sectionItem.name,
+                durationSeconds: Math.max(60, Math.round(sectionItem.durationMinutes * 60)),
+                doThis: sectionItem.intent,
+                coachCue: "Keep it easy enough to stay clean.",
+                safetyStop: DEFAULT_STOP,
+                stepId: `compiled_${sectionIndex}_${slug(sectionItem.name)}`
+              })
+            ]
+    });
+  });
+  return recipe({
+    recipeId: `compiled_${slug(input.templateId)}`,
+    title: input.title,
+    family: input.family,
+    ...(input.skillLevel ? { level: input.skillLevel } : {}),
+    why: "This recipe follows the compiled workout exactly.",
+    equipment: equipmentForMode(input.equipmentMode),
+    blocks,
+    safetyStops: input.safetyStops.length > 0 ? input.safetyStops : [DEFAULT_STOP],
+    previewFlow: input.sections.map((sectionItem) => `${sectionItem.name} - ${sectionItem.durationMinutes} min`),
+    quickLog: quickLog("Complete the listed blocks, then log completed, partial, or skipped.", "Follow the compiled dose. No extra sets or rounds.")
+  });
+}
+
 export function resolveWorkoutRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe {
+  const compiled = compiledRecipe(input);
+  if (compiled) {
+    return compiled;
+  }
   const searchable = `${input.templateId ?? ""} ${input.templateTitle ?? ""} ${input.title}`.toLowerCase();
   if (input.family === "boxing_bag_skill") {
     return searchable.includes("combo") || searchable.includes("combination") || searchable.includes("exit") ? bagRecipe(input, "combo") : bagRecipe(input, "jab");

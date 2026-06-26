@@ -67,7 +67,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["bodyweight_squat", "split_squat"],
     progressionVariants: ["front_squat", "double_db_front_squat"],
     regressionVariants: ["bodyweight_squat"],
-    coachingCues: ["Brace before each descent.", "Keep elbows tucked and ribs quiet."],
+    coachingCues: ["Brace before each descent.", "Keep elbows close and torso steady."],
     stopConditions: ["Stop if depth requires back rounding."]
   },
   {
@@ -88,7 +88,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["reverse_lunge", "supported_split_squat"],
     progressionVariants: ["db_split_squat"],
     regressionVariants: ["supported_split_squat"],
-    coachingCues: ["Own the front-foot pressure.", "Keep the back knee quiet and controlled."],
+    coachingCues: ["Keep your front foot planted.", "Lower and stand with control."],
     stopConditions: ["Stop if the front knee caves or pain rises."]
   },
   {
@@ -109,7 +109,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["hip_hinge_reach", "band_good_morning"],
     progressionVariants: ["single_leg_rdl", "trap_bar_deadlift"],
     regressionVariants: ["hip_hinge_reach"],
-    coachingCues: ["Push hips back without losing ribs.", "Feel hamstrings before load increases."],
+    coachingCues: ["Push hips back and keep your torso steady.", "Use a load you can control."],
     stopConditions: ["Stop if the back takes over or hamstring tension disappears."]
   },
   {
@@ -130,7 +130,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["glute_bridge"],
     progressionVariants: ["db_romanian_deadlift"],
     regressionVariants: ["wall_hip_hinge"],
-    coachingCues: ["Reach hips back like closing a door.", "Keep shins quiet."],
+    coachingCues: ["Reach hips back like closing a door.", "Keep knees only slightly bent."],
     stopConditions: ["Stop if the movement becomes a squat or back bend."]
   },
   {
@@ -172,7 +172,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["towel_row", "db_row"],
     progressionVariants: ["single_arm_band_row"],
     regressionVariants: ["scapular_retraction"],
-    coachingCues: ["Pull elbows toward pockets.", "Finish with the ribs down."],
+    coachingCues: ["Pull elbows toward your sides.", "Finish with your torso steady."],
     stopConditions: ["Stop if shoulder pain changes the pull path."]
   },
   {
@@ -214,7 +214,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["front_plank"],
     progressionVariants: ["band_dead_bug"],
     regressionVariants: ["heel_tap"],
-    coachingCues: ["Exhale before the reach.", "Keep the low back quiet."],
+    coachingCues: ["Exhale before the reach.", "Keep your low back steady."],
     stopConditions: ["Stop if the back arches or hip flexors take over."]
   },
   {
@@ -235,7 +235,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["side_plank"],
     progressionVariants: ["split_stance_pallof_press"],
     regressionVariants: ["side_plank"],
-    coachingCues: ["Press without letting the ribs rotate.", "Keep stance quiet."],
+    coachingCues: ["Press without letting your torso turn.", "Keep your stance steady."],
     stopConditions: ["Stop if back or shoulder discomfort appears."]
   },
   {
@@ -256,7 +256,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["pallof_press"],
     progressionVariants: ["long_lever_side_plank"],
     regressionVariants: ["kneeling_side_plank"],
-    coachingCues: ["Stack ribs and pelvis.", "Breathe behind the shield."],
+    coachingCues: ["Keep shoulders and hips lined up.", "Keep breathing while you hold."],
     stopConditions: ["Stop if shoulder discomfort changes the position."]
   },
   {
@@ -277,7 +277,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["band_rotational_snap"],
     progressionVariants: ["step_behind_rotational_throw"],
     regressionVariants: ["band_rotational_snap"],
-    coachingCues: ["Move fast, stop before fatigue.", "Rotate from the floor."],
+    coachingCues: ["Move fast, then stop before fatigue.", "Turn from your feet and hips."],
     stopConditions: ["Stop when speed drops or the back feels loaded."]
   },
   {
@@ -319,7 +319,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["bike_spin_up"],
     progressionVariants: ["hill_first_step_acceleration"],
     regressionVariants: ["march_to_first_step"],
-    coachingCues: ["One clean push, then shut it down.", "Full recovery before the next rep."],
+    coachingCues: ["One clean push, then stop.", "Recover fully before the next rep."],
     stopConditions: ["Stop if foot strike gets loud or knee discomfort appears."]
   },
   {
@@ -382,7 +382,7 @@ export const exerciseDefinitions: readonly ExerciseDefinition[] = [
     substitutions: ["mobility_hip_ankle_flow"],
     progressionVariants: ["longer_reach_exhale"],
     regressionVariants: ["smaller_range_flow"],
-    coachingCues: ["Keep the neck easy.", "Open the upper back without forcing the shoulder."],
+    coachingCues: ["Keep your neck relaxed.", "Move your upper back without forcing the shoulder."],
     stopConditions: ["Stop if shoulder symptoms sharpen."]
   }
 ];

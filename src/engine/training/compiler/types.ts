@@ -221,6 +221,8 @@ export interface SessionIntent {
   role: SessionRole;
   primaryAdaptation: TrainingAdaptation;
   secondaryAdaptations: readonly TrainingAdaptation[];
+  templateId?: string | undefined;
+  templateTitle?: string | undefined;
   targetDurationMinutes: number;
   hardness: SessionHardness;
   doseAllocation: {
@@ -249,6 +251,7 @@ export interface SessionIntent {
 export interface ExercisePrescriptionV2 {
   exerciseId: string;
   name: string;
+  templateSlotId?: string | undefined;
   movementPattern: MovementPattern;
   adaptation: TrainingAdaptation;
   sets?: number | undefined;
@@ -268,6 +271,7 @@ export interface ExercisePrescriptionV2 {
 }
 
 export interface ConditioningDose {
+  templateSlotId?: string | undefined;
   modality: "run" | "bike" | "rower" | "incline_walk" | "heavy_bag" | "shadowboxing" | "jump_rope";
   energySystem: EnergySystemIntent;
   warmupSeconds: number;
@@ -282,6 +286,7 @@ export interface ConditioningDose {
 }
 
 export interface BoxingRoundPrescription {
+  templateSlotId?: string | undefined;
   modality: BoxingModality;
   purpose: "skill_acquisition" | "technical_consolidation" | "boxing_conditioning" | "speed_timing" | "footwork_ringcraft" | "taper_sharpness" | "recovery_technical_touch";
   rounds: readonly {
@@ -299,6 +304,7 @@ export interface BoxingRoundPrescription {
 
 export interface TrainingSessionBlock {
   id: string;
+  templateBlockId?: string | undefined;
   role: "warm_up" | "primary" | "secondary" | "accessory" | "conditioning" | "boxing_rounds" | "mobility" | "cooldown";
   title: string;
   adaptation: TrainingAdaptation;
@@ -325,6 +331,8 @@ export interface CompiledTrainingSession {
   role: SessionRole;
   primaryAdaptation: TrainingAdaptation;
   title: string;
+  templateId?: string | undefined;
+  templateTitle?: string | undefined;
   targetDurationMinutes: number;
   structuredDurationMinutes: number;
   displayedDurationMinutes: number;

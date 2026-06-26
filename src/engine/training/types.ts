@@ -2,6 +2,7 @@ import type { Confidence, ISODateString, ISODateTimeString } from "../core/share
 import type { GeneratedSupportWeekday } from "./supportAvailability";
 import type { DailyOperatingModeView } from "./dailyOperatingMode";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationContract";
+import type { CanonicalWorkoutSession } from "./compiler/canonicalWorkout";
 import type { CompiledTrainingSession, PlanSubFocus, SessionIntent, WeeklyAdaptationBudget } from "./compiler/types";
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
@@ -333,6 +334,7 @@ export interface GeneratedTrainingSession {
   structuredPrescriptionV2?: {
     sessionIntent: SessionIntent;
     compiledSession: CompiledTrainingSession;
+    canonicalWorkoutSession?: CanonicalWorkoutSession | undefined;
     adaptationBudget: WeeklyAdaptationBudget;
   } | undefined;
 }

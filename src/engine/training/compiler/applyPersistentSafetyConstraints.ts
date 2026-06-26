@@ -133,6 +133,8 @@ function constrainedBlock(input: {
       notes.push(`Persistent ${constraint.affectedBodyRegion} constraint removed bag volume.`);
     }
     if (block.exercises.length > 0) {
+      let removedStrengthSets = 0;
+      const affectedExerciseIds = new Set<string>();
       const nextExercises = block.exercises.map((exercise) => {
         const lowerPatternAffected =
           (exercise.movementPattern === "squat" && affects(constraint, "squatting")) ||
@@ -143,16 +145,44 @@ function constrainedBlock(input: {
           return exercise;
         }
         notes.push(`Persistent ${constraint.affectedBodyRegion} constraint reduced ${exercise.name}.`);
+        const currentSets = typeof exercise.sets === "number" ? exercise.sets : undefined;
+        const nextSets = currentSets === undefined ? undefined : Math.max(1, currentSets - 1);
+        if (exercise.adaptation === "strength" && currentSets !== undefined && nextSets !== undefined) {
+          removedStrengthSets += Math.max(0, currentSets - nextSets);
+          affectedExerciseIds.add(exercise.exerciseId);
+        }
         return {
           ...exercise,
-          sets: typeof exercise.sets === "number" ? Math.max(1, exercise.sets - 1) : exercise.sets,
+          sets: nextSets,
           rpe: typeof exercise.rpe === "number" ? Math.min(exercise.rpe, 6) : exercise.rpe,
           stopConditions: [...exercise.stopConditions, `Stop immediately if the active ${constraint.affectedBodyRegion} constraint is provoked.`]
         };
       });
+      let setsToRebalance = removedStrengthSets;
+      const rebalancedExercises = nextExercises.map((exercise) => {
+        if (setsToRebalance <= 0 || exercise.adaptation !== "strength" || affectedExerciseIds.has(exercise.exerciseId) || typeof exercise.sets !== "number") {
+          return exercise;
+        }
+        const addedSets = Math.min(setsToRebalance, Math.max(0, 6 - exercise.sets));
+        if (addedSets === 0) {
+          return exercise;
+        }
+        setsToRebalance -= addedSets;
+        return {
+          ...exercise,
+          sets: exercise.sets + addedSets,
+          adaptationContribution: {
+            ...exercise.adaptationContribution,
+            strength: (exercise.adaptationContribution.strength ?? exercise.sets) + addedSets
+          }
+        };
+      });
+      if (removedStrengthSets > setsToRebalance) {
+        notes.push(`Persistent ${constraint.affectedBodyRegion} constraint moved reduced strength volume to unaffected work.`);
+      }
       block = {
         ...block,
-        exercises: nextExercises
+        exercises: rebalancedExercises
       };
     }
   }

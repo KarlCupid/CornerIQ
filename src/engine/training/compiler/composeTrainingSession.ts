@@ -2,6 +2,8 @@ import { selectExercises, selectFirstAvailableExercise } from "./selectExercises
 import { resolveBoxingRoundDose } from "./resolveBoxingRoundDose";
 import { resolveConditioningDose } from "./resolveConditioningDose";
 import { resolveExerciseDose } from "./resolveExerciseDose";
+import { fillWorkoutTemplate } from "./templates/fillWorkoutTemplate";
+import { getWorkoutTemplate } from "./templates/workoutTemplates";
 import type { ExerciseDefinition } from "../library/exerciseDefinitions";
 import type { ExerciseResultRecord } from "../types";
 import type {
@@ -453,7 +455,15 @@ function blocksForIntent(input: { athlete: AthleteTrainingProfile; intent: Sessi
 
 export function composeTrainingSession(input: { athlete: AthleteTrainingProfile; intent: SessionIntent; exerciseHistory?: readonly ExerciseResultRecord[] | undefined }): CompiledTrainingSession {
   const exerciseHistory = input.exerciseHistory ?? [];
-  const blocks = blocksForIntent({ ...input, exerciseHistory });
+  const template = getWorkoutTemplate(input.intent.templateId);
+  const blocks = template
+    ? fillWorkoutTemplate({
+        athlete: input.athlete,
+        template,
+        intent: input.intent,
+        exerciseHistory
+      })
+    : blocksForIntent({ ...input, exerciseHistory });
   const structuredDurationMinutes = totalDuration(blocks);
   return {
     id: `session:${input.intent.id}`,
@@ -461,7 +471,9 @@ export function composeTrainingSession(input: { athlete: AthleteTrainingProfile;
     date: input.intent.date,
     role: input.intent.role,
     primaryAdaptation: input.intent.primaryAdaptation,
-    title: titleFor(input.intent),
+    title: template?.title ?? input.intent.templateTitle ?? titleFor(input.intent),
+    ...(template?.id || input.intent.templateId ? { templateId: template?.id ?? input.intent.templateId } : {}),
+    ...(template?.title || input.intent.templateTitle ? { templateTitle: template?.title ?? input.intent.templateTitle } : {}),
     targetDurationMinutes: input.intent.targetDurationMinutes,
     structuredDurationMinutes,
     displayedDurationMinutes: structuredDurationMinutes,

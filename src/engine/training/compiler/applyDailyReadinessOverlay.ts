@@ -74,6 +74,8 @@ function recoveryOnlySession(session: CompiledTrainingSession, readiness: Readin
     role: "mobility_recovery",
     primaryAdaptation: "recovery",
     title: "Readiness recovery-only prescription",
+    templateId: "mobility_recovery_reset",
+    templateTitle: "Recovery mobility reset",
     structuredDurationMinutes: 20,
     displayedDurationMinutes: 20,
     hardness: "recovery",
@@ -81,6 +83,7 @@ function recoveryOnlySession(session: CompiledTrainingSession, readiness: Readin
     blocks: [
       {
         id: `${session.id}:readiness-recovery`,
+        templateBlockId: "readiness_recovery",
         role: "mobility",
         title: "Recovery-only readiness bridge",
         adaptation: "recovery",

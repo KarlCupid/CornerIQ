@@ -67,6 +67,8 @@ export function materialForCompiledWeek(week: CompiledWeekWithoutFingerprints): 
       role: intent.role,
       primaryAdaptation: intent.primaryAdaptation,
       secondaryAdaptations: intent.secondaryAdaptations,
+      templateId: intent.templateId ?? null,
+      templateTitle: intent.templateTitle ?? null,
       targetDurationMinutes: intent.targetDurationMinutes,
       hardness: intent.hardness,
       doseAllocation: intent.doseAllocation,
@@ -79,16 +81,20 @@ export function materialForCompiledWeek(week: CompiledWeekWithoutFingerprints): 
     sessions: week.compiledSessions.map((session) => ({
       role: session.role,
       primaryAdaptation: session.primaryAdaptation,
+      templateId: session.templateId ?? null,
+      templateTitle: session.templateTitle ?? null,
       targetDurationMinutes: session.targetDurationMinutes,
       structuredDurationMinutes: session.structuredDurationMinutes,
       displayedDurationMinutes: session.displayedDurationMinutes,
       hardness: session.hardness,
       blocks: session.blocks.map((block) => ({
         role: block.role,
+        templateBlockId: block.templateBlockId ?? null,
         adaptation: block.adaptation,
         durationMinutes: block.durationMinutes,
         conditioning: block.conditioning
           ? {
+              templateSlotId: block.conditioning.templateSlotId ?? null,
               modality: block.conditioning.modality,
               energySystem: block.conditioning.energySystem,
               warmupSeconds: block.conditioning.warmupSeconds,
@@ -104,6 +110,7 @@ export function materialForCompiledWeek(week: CompiledWeekWithoutFingerprints): 
           : null,
         boxingRounds: block.boxingRounds
           ? {
+              templateSlotId: block.boxingRounds.templateSlotId ?? null,
               modality: block.boxingRounds.modality,
               purpose: block.boxingRounds.purpose,
               rounds: block.boxingRounds.rounds.map((round) => ({
@@ -122,6 +129,7 @@ export function materialForCompiledWeek(week: CompiledWeekWithoutFingerprints): 
         exercises: block.exercises.map((exercise) => ({
           exerciseId: exercise.exerciseId,
           name: exercise.name,
+          templateSlotId: exercise.templateSlotId ?? null,
           movementPattern: exercise.movementPattern,
           adaptation: exercise.adaptation,
           sets: exercise.sets ?? null,

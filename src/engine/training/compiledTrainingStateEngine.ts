@@ -840,6 +840,18 @@ function compilerTrainingDoseForPhase(input: { phase: PhaseState; selectedTraini
   return input.selectedTrainingDose;
 }
 
+function applyCycleSymptomDownshift(session: GeneratedTrainingSession, highCycleSymptoms: boolean): GeneratedTrainingSession {
+  if (!highCycleSymptoms || session.intensity !== "hard") {
+    return session;
+  }
+  return {
+    ...session,
+    intensity: session.family.startsWith("power") || session.family.startsWith("strength") ? "moderate" : "easy",
+    fuelDemand: session.fuelDemand === "high" ? "moderate" : session.fuelDemand,
+    modifications: [...session.modifications, "High cycle symptoms trim optional hard work today. Keep the plan available, but do not chase top intensity."]
+  };
+}
+
 interface ResolveCompiledTrainingStateInput {
   athlete: AthleteProfile;
   anchors: readonly ProtectedWorkout[];
@@ -1005,7 +1017,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
   const adjustedGeneratedBeforeGuidance = adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions);
   const mergedGeneratedSessions = adjustedGeneratedBeforeGuidance.map((session) =>
     applyTrainingExecutionGuidance(
-      {
+      applyCycleSymptomDownshift({
         ...session,
         trainingBlockId: adjustmentApplication.activeBlock.id,
         engineVersion: TRAINING_COMPILER_CONTRACT_VERSION,
@@ -1015,7 +1027,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
         planFingerprint: compilerResult.currentWeek.planInstanceFingerprint,
         contentFingerprint: compilerResult.currentWeek.contentFingerprint,
         planInstanceFingerprint: compilerResult.currentWeek.planInstanceFingerprint
-      },
+      }, input.highCycleSymptoms),
       input.executionReadiness
     )
   );

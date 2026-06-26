@@ -3,6 +3,7 @@ import type { ISODateString } from "../../core/sharedTypes";
 import { generatedSupportWeekdayForDate } from "../supportAvailability";
 import type { ProtectedWorkout } from "../types";
 import { remainingTarget, targetMovementPatternsForStrengthBudget } from "./resolveWeeklyAdaptationBudget";
+import { selectWorkoutTemplates, type SelectedWorkoutTemplate } from "./templates/selectWorkoutTemplates";
 import type {
   AthleteTrainingProfile,
   BoxingSkillSubFocus,
@@ -20,6 +21,8 @@ interface RolePlan {
   role: SessionRole;
   primaryAdaptation: TrainingAdaptation;
   secondaryAdaptations: readonly TrainingAdaptation[];
+  templateId?: string | undefined;
+  templateTitle?: string | undefined;
   hardness: SessionHardness;
   targetDurationMinutes: number;
   movementPatterns: readonly MovementPattern[];
@@ -54,6 +57,14 @@ function hardAnchor(anchor: ProtectedWorkout): boolean {
 
 function hasHardBoxing(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
   return anchorsForDate(anchors, date).some(hardAnchor);
+}
+
+function fixedBoxingSkillAnchor(anchor: ProtectedWorkout): boolean {
+  return anchor.type === "boxing_class" || anchor.type === "technical_session" || anchor.type === "pads_mitts" || anchor.type === "bag_work" || anchor.type === "footwork_session" || anchor.type === "sparring";
+}
+
+function hasFixedBoxingSkill(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
+  return anchorsForDate(anchors, date).some(fixedBoxingSkillAnchor);
 }
 
 function nearSparring(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
@@ -170,6 +181,21 @@ function hasRole(roles: readonly RolePlan[], role: SessionRole): boolean {
   return roles.some((item) => item.role === role);
 }
 
+function rolePlanFromSelectedTemplate(selection: SelectedWorkoutTemplate): RolePlan {
+  return {
+    role: selection.role,
+    primaryAdaptation: selection.primaryAdaptation,
+    secondaryAdaptations: selection.secondaryAdaptations,
+    templateId: selection.template.id,
+    templateTitle: selection.template.title,
+    hardness: selection.hardness,
+    targetDurationMinutes: selection.targetDurationMinutes,
+    movementPatterns: selection.movementPatterns,
+    energySystemIntent: selection.energySystemIntent,
+    boxingTheme: selection.boxingTheme
+  };
+}
+
 function supplementalRoleFor(input: {
   planIntent: PlanIntent;
   budget: WeeklyAdaptationBudget;
@@ -241,7 +267,7 @@ function supplementalRoleFor(input: {
   };
 }
 
-function desiredRoles(input: { planIntent: PlanIntent; budget: WeeklyAdaptationBudget }): readonly RolePlan[] {
+function _desiredRoles(input: { planIntent: PlanIntent; budget: WeeklyAdaptationBudget }): readonly RolePlan[] {
   const roles: RolePlan[] = [];
   const supportSlotCount = input.planIntent.selectedSupportDays.length;
   const strengthPatterns = targetMovementPatternsForStrengthBudget(input.budget);
@@ -480,6 +506,8 @@ function hardBoxingSupportRole(input: { role: RolePlan; planIntent: PlanIntent }
     role: "mobility_recovery",
     primaryAdaptation: "mobility",
     secondaryAdaptations: ["recovery", input.role.primaryAdaptation],
+    templateId: "mobility_recovery_reset",
+    templateTitle: "Recovery mobility reset",
     hardness: "easy",
     targetDurationMinutes: Math.min(input.role.targetDurationMinutes, roleDuration(input.planIntent, "mobility_recovery")),
     movementPatterns: ["mobility"]
@@ -498,9 +526,12 @@ function scoreDate(input: { role: RolePlan; date: ISODateString; anchors: readon
     return Number.NEGATIVE_INFINITY;
   }
   if (hasCompetition(input.anchors, input.date)) {
-    return input.role.hardness === "recovery" ? 10 : Number.NEGATIVE_INFINITY;
+    return Number.NEGATIVE_INFINITY;
   }
   let score = 100 - input.dateIndex;
+  if (input.role.primaryAdaptation === "boxing_skill" && hasFixedBoxingSkill(input.anchors, input.date)) {
+    score -= 120;
+  }
   if (input.role.role === "mobility_recovery" && dayAfterHardBoxing(input.anchors, input.date)) {
     score += 60;
   }
@@ -510,7 +541,7 @@ function scoreDate(input: { role: RolePlan; date: ISODateString; anchors: readon
   if (hardRole(input.role) && hasHardBoxing(input.anchors, input.date)) {
     score -= 80;
   }
-  if ((input.role.role === "primary_strength" || input.role.role === "secondary_strength") && nearSparring(input.anchors, input.date)) {
+  if (input.role.primaryAdaptation === "strength" && nearSparring(input.anchors, input.date)) {
     score -= 70;
   }
   if (input.role.role === "power_quality") {
@@ -567,7 +598,7 @@ function allocationFor(input: {
       break;
     case "power_quality":
       allocation.explosiveRepetitions = Math.max(18, Math.ceil(remainingTarget(input.budget, "explosive_repetitions") / Math.max(1, input.sameRoleCount)));
-      allocation.alacticEfforts = Math.max(0, remainingTarget(input.budget, "alactic_efforts"));
+      allocation.alacticEfforts = Math.max(0, Math.ceil(remainingTarget(input.budget, "alactic_efforts") / Math.max(1, input.sameRoleCount)));
       break;
     case "boxing_skill":
       allocation.boxingTechnicalRounds = Math.max(4, remainingTarget(input.budget, "boxing_technical_rounds"));
@@ -592,7 +623,13 @@ export function allocateSessionIntents(input: {
   weekStartDate: ISODateString;
 }): readonly SessionIntent[] {
   const candidates = selectedSupportDates(input.planIntent, input.weekStartDate);
-  const roles = desiredRoles({ planIntent: input.planIntent, budget: input.budget });
+  const templateSelections = selectWorkoutTemplates({
+    athlete: input.athlete,
+    planIntent: input.planIntent,
+    budget: input.budget
+  });
+  const selectionRationaleByTemplate = new Map(templateSelections.map((selection) => [selection.template.id, selection.rationale]));
+  const roles = templateSelections.map(rolePlanFromSelectedTemplate);
   const usedDates = new Set<ISODateString>();
   const intents: SessionIntent[] = [];
   const roleCounts = roles.reduce<Map<SessionRole, number>>((counts, role) => {
@@ -636,6 +673,7 @@ export function allocateSessionIntents(input: {
       mobilityCarryAssigned = true;
     }
     const rationale = [
+      ...(placedRole.templateId ? (selectionRationaleByTemplate.get(placedRole.templateId) ?? []) : []),
       `${placedRole.role.replaceAll("_", " ")} placed on ${selected}.`,
       ...(placedRole.role !== role.role ? [`Hard fixed boxing on ${selected} changed ${role.role.replaceAll("_", " ")} into easy recovery support.`] : []),
       ...(dayAfterHardBoxing(input.athlete.fixedBoxingSchedule, selected) ? ["This date follows hard fixed boxing, so recovery-biased work receives priority."] : []),
@@ -651,6 +689,8 @@ export function allocateSessionIntents(input: {
       role: placedRole.role,
       primaryAdaptation: placedRole.primaryAdaptation,
       secondaryAdaptations: placedRole.secondaryAdaptations,
+      ...(placedRole.templateId ? { templateId: placedRole.templateId } : {}),
+      ...(placedRole.templateTitle ? { templateTitle: placedRole.templateTitle } : {}),
       targetDurationMinutes: placedRole.targetDurationMinutes,
       hardness: hasCompetition(input.athlete.fixedBoxingSchedule, selected) && hardRole(placedRole) ? "recovery" : placedRole.hardness,
       doseAllocation: allocationFor({

@@ -593,14 +593,22 @@ function v2BlockOnlyExercise(block: StructuredBlockV2): ExercisePrescription {
 
 function v2BlockOnlySteps(block: StructuredBlockV2, sectionIndex: number): readonly GuidedWorkoutStep[] {
   const exerciseId = `v2_${detailSlug(block.id)}`;
+  const intent =
+    block.role === "warm_up"
+      ? "Prepare the body and check how you feel before the main work."
+      : block.role === "cooldown"
+        ? "Bring breathing down and check how you feel before logging."
+        : `Keep the ${block.adaptation.replaceAll("_", " ")} block controlled and useful for boxing.`;
+  const instruction = block.coachingNotes[0] ?? (block.role === "cooldown" ? "Finish easy, breathe down, and do not add extra work." : "Move calmly and keep quality high.");
+  const cue = block.coachingNotes[0] ?? (block.role === "cooldown" ? "Leave calmer than you started." : "Keep it easy enough to stay clean.");
   return [
     {
       id: `guided:${sectionIndex}:0:${exerciseId}:0:block`,
       kind: block.role === "cooldown" ? "cooldown" : block.role === "warm_up" ? "setup" : "work",
       title: block.title,
-      beginnerInstruction: block.coachingNotes[0] ?? "Move calmly and keep quality high.",
-      intent: block.adaptation.replaceAll("_", " "),
-      cue: block.coachingNotes[0] ?? "Keep it easy enough to stay clean.",
+      beginnerInstruction: instruction,
+      intent,
+      cue,
       durationSeconds: Math.max(60, Math.round(block.durationMinutes * 60)),
       safetyStop: "Stop if symptoms increase or movement quality gets worse."
     }
@@ -683,6 +691,8 @@ function buildStructuredV2DetailedTrainingSession(input: BuildDetailedTrainingSe
     sections,
     safetyStops: stopConditions,
     skillLevel: input.generatedSession.skillLevel,
+    templateId: compiledSession.templateId ?? input.generatedSession.templateId,
+    templateTitle: compiledSession.templateTitle,
     equipmentMode: input.generatedSession.equipmentMode
   });
   const walkthrough = buildWorkoutWalkthrough({

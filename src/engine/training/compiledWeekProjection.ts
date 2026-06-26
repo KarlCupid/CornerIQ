@@ -2,7 +2,9 @@ import { addDays } from "../core/dates";
 import type { ISODateString } from "../core/sharedTypes";
 import type { CompileTrainingWeekInput, CompiledTrainingSession, CompiledTrainingWeek, SessionIntent } from "./compiler/types";
 import { TRAINING_COMPILER_CONTRACT_VERSION } from "./compiler/types";
+import { canonicalWorkoutSessionFromCompiledSession } from "./compiler/canonicalWorkoutAdapter";
 import { compileTrainingWeek } from "./compiler/compileTrainingWeek";
+import { getWorkoutTemplate } from "./compiler/templates/workoutTemplates";
 import type { NextWeekGeneratedSupportBias, NextWeekTrainingMaterialization, NextWeekTrainingVolumeStrategy } from "./nextWeekMaterializationContract";
 import type {
   GeneratedSessionFamily,
@@ -134,6 +136,9 @@ function intensityForSession(session: CompiledTrainingSession): GeneratedSession
 }
 
 function fuelDemandForSession(session: CompiledTrainingSession): GeneratedTrainingSession["fuelDemand"] {
+  if (session.hardness === "recovery" || session.primaryAdaptation === "recovery" || session.primaryAdaptation === "mobility") {
+    return "low";
+  }
   if (session.hardness === "hard" || session.structuredDurationMinutes >= 55) {
     return "high";
   }
@@ -267,6 +272,8 @@ export function projectCompiledWeekToGeneratedSessions(input: {
 }): readonly GeneratedTrainingSession[] {
   return input.week.compiledSessions.map((session, index) => {
     const intent = input.week.sessionIntents.find((item) => item.id === session.sessionIntentId) ?? input.week.sessionIntents[index]!;
+    const canonicalWorkoutSession = canonicalWorkoutSessionFromCompiledSession({ session, intent });
+    const selectedTemplate = getWorkoutTemplate(canonicalWorkoutSession.templateId);
     const family = familyForProjectedSession(intent, session);
     return {
       id: `generated:${input.week.planRevisionId}:${input.week.weekStartDate}:${index}:${session.date}`,
@@ -299,7 +306,9 @@ export function projectCompiledWeekToGeneratedSessions(input: {
       planFingerprint: input.week.planInstanceFingerprint,
       contentFingerprint: input.week.contentFingerprint,
       planInstanceFingerprint: input.week.planInstanceFingerprint,
+      ...(canonicalWorkoutSession.templateId ? { templateId: canonicalWorkoutSession.templateId, selectedTemplateId: canonicalWorkoutSession.templateId } : {}),
       targetDurationMinutes: session.targetDurationMinutes,
+      ...(selectedTemplate ? { selectedTemplateDefaultDuration: selectedTemplate.defaultDurationMinutes } : {}),
       finalDurationMinutes: session.displayedDurationMinutes,
       minDurationMinutes: Math.max(20, session.targetDurationMinutes - 15),
       maxDurationMinutes: session.targetDurationMinutes + 15,
@@ -316,6 +325,7 @@ export function projectCompiledWeekToGeneratedSessions(input: {
       structuredPrescriptionV2: {
         sessionIntent: intent,
         compiledSession: session,
+        canonicalWorkoutSession,
         adaptationBudget: input.week.adaptationBudget
       }
     };
