@@ -446,6 +446,11 @@ type PlanGenerationPayload = Record<string, unknown> & {
   planGenerationIntent?: PlanGenerationIntent | undefined;
 };
 
+export interface PlanSaveResult {
+  planAction?: PlanLifecycleAction | undefined;
+  planRevisionId?: string | undefined;
+}
+
 function uniqueStrings(values: readonly string[]): readonly string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
@@ -605,15 +610,16 @@ async function persistPlanGenerationIntent(input: {
   payload: PlanGenerationPayload;
   repositories: AthleteJourneyRepositories;
   userId: string;
-}): Promise<void> {
+}): Promise<string | undefined> {
   const intent = input.payload.planGenerationIntent;
   if (!intent) {
-    return;
+    return undefined;
   }
   if (!input.repositories.trainingPlanIntent) {
     throw new RepositoryError("missing_required_data", "training_plan_intents.upsertPlanIntent", "trainingPlanIntent repository is required for plan generation");
   }
-  await input.repositories.trainingPlanIntent.upsertPlanIntent(input.userId, intent);
+  const saved = await input.repositories.trainingPlanIntent.upsertPlanIntent(input.userId, intent);
+  return saved.planRevisionId;
 }
 
 async function appendPlanLifecycleAudit(input: {
@@ -970,7 +976,7 @@ export async function saveFightSetup(input: {
   draft: FightSetupDraft;
   repositories: AthleteJourneyRepositories;
   source?: "onboarding" | "settings" | "plan";
-}): Promise<void> {
+}): Promise<PlanSaveResult> {
   const userId = assertUserId(input.userId, "fightSetup.saveFightSetup");
   const draft = parseWithSchema(FightSetupDraftSchema, input.draft, "fightSetup.saveFightSetup");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
@@ -997,7 +1003,7 @@ export async function saveFightSetup(input: {
     currentLimitations: draft.currentLimitations,
     userPreferences: draft.userPreferences
   });
-  await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
+  const planRevisionId = await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "fight", protectedScheduleMode, scheduleAvailability });
   const fight = fightOpportunityFromDraft(draft);
   const existing = await input.repositories.fight.listFightOpportunities(userId);
@@ -1017,6 +1023,7 @@ export async function saveFightSetup(input: {
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
   await input.repositories.journey.appendEvent(userId, "CampStarted", { boutDate: fight.boutDate, status: fight.status, generatedSupportAvailableDays: scheduleAvailability, scheduleAvailability, ...planPayload, protectedScheduleMode, source: input.source ?? planLifecycleSource(draft.planAction) });
+  return { planAction: planPayload.planGenerationIntent?.action, planRevisionId };
 }
 
 export async function saveTournamentSetup(input: {
@@ -1024,7 +1031,7 @@ export async function saveTournamentSetup(input: {
   draft: TournamentSetupDraft;
   repositories: AthleteJourneyRepositories;
   source?: "onboarding" | "settings" | "plan";
-}): Promise<void> {
+}): Promise<PlanSaveResult> {
   const userId = assertUserId(input.userId, "fightSetup.saveTournamentSetup");
   const draft = parseWithSchema(TournamentSetupDraftSchema, input.draft, "fightSetup.saveTournamentSetup");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
@@ -1051,7 +1058,7 @@ export async function saveTournamentSetup(input: {
     currentLimitations: draft.currentLimitations,
     userPreferences: draft.userPreferences
   });
-  await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
+  const planRevisionId = await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "tournament", protectedScheduleMode, scheduleAvailability });
   const tournament = tournamentDetailsFromDraft(draft);
   const result = draft.id ? await input.repositories.tournament.updateTournamentPlan(userId, draft.id, tournament) : await input.repositories.tournament.insertTournamentPlan(userId, tournament, { supersedesExisting: true });
@@ -1065,6 +1072,7 @@ export async function saveTournamentSetup(input: {
     protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
+  return { planAction: planPayload.planGenerationIntent?.action, planRevisionId };
 }
 
 export async function saveBuildGoal(input: {
@@ -1072,7 +1080,7 @@ export async function saveBuildGoal(input: {
   draft: BuildGoalDraft;
   repositories: AthleteJourneyRepositories;
   source?: "onboarding" | "settings" | "plan";
-}): Promise<void> {
+}): Promise<PlanSaveResult> {
   const userId = assertUserId(input.userId, "planGoal.saveBuildGoal");
   const draft = parseWithSchema(BuildGoalDraftSchema, input.draft, "planGoal.saveBuildGoal");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
@@ -1100,7 +1108,7 @@ export async function saveBuildGoal(input: {
     currentLimitations: draft.currentLimitations,
     userPreferences: draft.userPreferences
   });
-  await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
+  const planRevisionId = await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
@@ -1111,6 +1119,7 @@ export async function saveBuildGoal(input: {
     protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
+  return { planAction: planPayload.planGenerationIntent?.action, planRevisionId };
 }
 
 export async function saveRecoveryGoal(input: {
@@ -1118,7 +1127,7 @@ export async function saveRecoveryGoal(input: {
   draft: RecoveryGoalDraft;
   repositories: AthleteJourneyRepositories;
   source?: "onboarding" | "settings" | "plan";
-}): Promise<void> {
+}): Promise<PlanSaveResult> {
   const userId = assertUserId(input.userId, "planGoal.saveRecoveryGoal");
   const draft = parseWithSchema(RecoveryGoalDraftSchema, input.draft, "planGoal.saveRecoveryGoal");
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
@@ -1145,7 +1154,7 @@ export async function saveRecoveryGoal(input: {
     currentLimitations: draft.currentLimitations,
     userPreferences: draft.userPreferences
   });
-  await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
+  const planRevisionId = await persistPlanGenerationIntent({ userId, payload: planPayload, repositories: input.repositories });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "recovery", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
     durationDays: draft.durationDays,
@@ -1156,6 +1165,7 @@ export async function saveRecoveryGoal(input: {
     protectedScheduleMode,
     source: input.source ?? planLifecycleSource(draft.planAction)
   });
+  return { planAction: planPayload.planGenerationIntent?.action, planRevisionId };
 }
 
 export async function saveProtectedSession(input: {

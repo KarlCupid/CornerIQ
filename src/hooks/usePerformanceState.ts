@@ -140,14 +140,24 @@ function planSaveSuccessMessage(state: ReadyPerformanceStateResult["state"], act
 
 function assertPlanRefreshReady(input: {
   action: "start_new_plan" | "amend_current_plan" | undefined;
+  expectedPlanRevisionId?: string | undefined;
   previousPlanRevisionId: string | undefined;
   refreshed: ResolveAndPersistPerformanceStateResult;
 }): ReadyPerformanceStateResult {
   if (input.refreshed.status !== "ready") {
     throw new Error("The refreshed board could not load after saving the plan.");
   }
-  const refreshedRevision = input.refreshed.state.training.supportGenerationAudit.planRevisionId;
-  if (input.action === "start_new_plan" && input.previousPlanRevisionId && refreshedRevision === input.previousPlanRevisionId) {
+  const audit = input.refreshed.state.training.supportGenerationAudit;
+  const refreshedRevisionIds = new Set([
+    input.refreshed.state.training.planGenerationIntent?.id,
+    audit.requestedPlanIntentId,
+    audit.resolvedPlanIntentId,
+    audit.planRevisionId
+  ].filter((value): value is string => Boolean(value)));
+  if (input.expectedPlanRevisionId && !refreshedRevisionIds.has(input.expectedPlanRevisionId)) {
+    throw new Error("The refreshed board did not activate the saved plan revision.");
+  }
+  if (!input.expectedPlanRevisionId && input.action === "start_new_plan" && input.previousPlanRevisionId && audit.planRevisionId === input.previousPlanRevisionId) {
     throw new Error("The refreshed board still reflects the previous plan revision.");
   }
   return input.refreshed;
@@ -302,9 +312,9 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setMessage(null);
       invalidateInFlightRefreshForPlanAction(action);
       try {
-        await saveFightSetup({ userId, draft, repositories });
+        const saved = await saveFightSetup({ userId, draft, repositories });
         const refreshed = await refresh(status);
-        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        const ready = assertPlanRefreshReady({ action, expectedPlanRevisionId: saved.planRevisionId, previousPlanRevisionId, refreshed });
         setMessage(action ? planSaveSuccessMessage(ready.state, action) : draft.weighInType === "unknown" ? "Fight saved. Weigh-in timing still needs confirmation." : "Fight saved.");
       } catch (error) {
         const message = planSaveFailureMessage(action, error);
@@ -329,9 +339,9 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setMessage(null);
       invalidateInFlightRefreshForPlanAction(action);
       try {
-        await saveBuildGoal({ userId, draft, repositories });
+        const saved = await saveBuildGoal({ userId, draft, repositories });
         const refreshed = await refresh(status);
-        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        const ready = assertPlanRefreshReady({ action, expectedPlanRevisionId: saved.planRevisionId, previousPlanRevisionId, refreshed });
         setMessage(action ? planSaveSuccessMessage(ready.state, action) : "Build phase saved. Preview next week when you are ready.");
       } catch (error) {
         const message = planSaveFailureMessage(action, error);
@@ -356,9 +366,9 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setMessage(null);
       invalidateInFlightRefreshForPlanAction(action);
       try {
-        await saveRecoveryGoal({ userId, draft, repositories });
+        const saved = await saveRecoveryGoal({ userId, draft, repositories });
         const refreshed = await refresh(status);
-        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        const ready = assertPlanRefreshReady({ action, expectedPlanRevisionId: saved.planRevisionId, previousPlanRevisionId, refreshed });
         setMessage(action ? planSaveSuccessMessage(ready.state, action) : "Recovery goal saved. CornerIQ will keep support conservative.");
       } catch (error) {
         const message = planSaveFailureMessage(action, error);
@@ -383,9 +393,9 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setMessage(null);
       invalidateInFlightRefreshForPlanAction(action);
       try {
-        await saveTournamentSetup({ userId, draft, repositories });
+        const saved = await saveTournamentSetup({ userId, draft, repositories });
         const refreshed = await refresh(status);
-        const ready = assertPlanRefreshReady({ action, previousPlanRevisionId, refreshed });
+        const ready = assertPlanRefreshReady({ action, expectedPlanRevisionId: saved.planRevisionId, previousPlanRevisionId, refreshed });
         setMessage(action ? planSaveSuccessMessage(ready.state, action) : "Tournament setup saved.");
       } catch (error) {
         const message = planSaveFailureMessage(action, error);
