@@ -5,24 +5,18 @@ import type {
   DetailedTrainingSession,
   ExerciseResultRecord,
   FoodLog,
-  GeneratedSessionFamily,
-  GeneratedTrainingSession,
   JourneyEvent,
   ReadinessState
 } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import { exerciseCatalog } from "../../engine/training/exerciseCatalog";
 import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
-import { GENERATED_SESSION_FAMILIES } from "../../engine/training/workoutTemplateCatalog";
 import { buildWorkoutPlayerTimeline } from "../../engine/presentation/workoutPlayerTimeline";
 import { buildTrainingAnalytics } from "../../engine/training/trainingAnalytics";
 import { recommendTrainingProgression } from "../../engine/training/progressionEngine";
 import { summarizeFoodLogs } from "../../engine/nutrition/foodLogSummary";
 import { createHardStopFlag } from "../../engine/safety/riskSafetyEngine";
 import {
-  amateur_novice_build,
   fixtureAsOfDate,
-  menstruating_athlete_camp_heavy_symptoms,
   no_wearable_manual_only,
   pro_12_round_taper,
   pro_4_round_build_strength
@@ -103,253 +97,76 @@ const completedSession: CompletedTrainingSession = {
   note: "Session RPE: 7"
 };
 
-function generatedSession(family: GeneratedSessionFamily, overrides: Partial<GeneratedTrainingSession> = {}): GeneratedTrainingSession {
-  return {
-    id: `generated:${fixtureAsOfDate}:${family}`,
-    date: fixtureAsOfDate,
-    family,
-    title: family.replaceAll("_", " "),
-    durationMinutes: 35,
-    intensity: family.includes("recovery") ? "recovery" : "hard",
-    prescription: ["test"],
-    rationale: "test",
-    protects: ["boxing quality"],
-    modifications: [],
-    fuelDemand: "moderate",
-    ...overrides
-  };
-}
-
-function buildFamilyDetail(family: GeneratedSessionFamily, journey = pro_4_round_build_strength, overrides: Partial<Parameters<typeof buildDetailedTrainingSession>[0]> = {}): DetailedTrainingSession {
-  const state = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate });
-  return buildDetailedTrainingSession({
-    generatedSession: generatedSession(family),
-    athlete: state.athlete,
-    readiness: state.readiness,
-    cycle: state.cycle,
-    phase: state.phase,
-    protectedWorkouts: [],
-    equipmentAccess: state.athlete.equipmentAccess,
-    ...overrides
-  });
-}
-
-describe("exercise catalog safety", () => {
-  it("catalog has broad boxer-specific coverage with transfer and stop conditions", () => {
-    expect(exerciseCatalog.length).toBeGreaterThanOrEqual(25);
-    expect(exerciseCatalog.every((exercise) => exercise.boxingTransfer.length > 0 && exercise.stopConditions.length > 0)).toBe(true);
-
-    const allText = exerciseCatalog
-      .flatMap((exercise) => [
-        exercise.name,
-        exercise.loadGuidance,
-        exercise.boxingTransfer,
-        ...exercise.coachingNotes,
-        ...exercise.safetyNotes,
-        ...exercise.stopConditions,
-        ...exercise.substitutions.flatMap((substitution) => [substitution.name, substitution.reason, substitution.loadGuidance, ...substitution.coachingNotes])
-      ])
-      .join(" ")
-      .toLowerCase();
-    expect(allText).not.toMatch(/sparring|contact|neck bridge|olympic|snatch|jerk/);
-  });
-
-  it("catalog avoids generated partner-impact instruction and novice Olympic derivatives", () => {
-    const catalogInstructionText = exerciseCatalog
-      .flatMap((exercise) => [exercise.name, exercise.boxingTransfer, ...exercise.coachingNotes, ...exercise.substitutions.map((substitution) => substitution.name)])
-      .join(" ")
-      .toLowerCase();
-
-    expect(catalogInstructionText).not.toMatch(/sparring|contact/);
-    expect(exerciseCatalog.filter((exercise) => exercise.noviceEligible).map((exercise) => exercise.name).join(" ").toLowerCase()).not.toMatch(/clean|snatch|jerk|olympic/);
-  });
-
-  it("catalog provides no-equipment options, talk-test roadwork, and power quality stops", () => {
-    const loadedExercises = exerciseCatalog.filter((exercise) => exercise.requiredEquipment.length > 0);
-    expect(loadedExercises.every((exercise) => exercise.substitutions.some((substitution) => substitution.equipmentNeeded.length === 0))).toBe(true);
-
-    const roadwork = exerciseCatalog.filter((exercise) => exercise.category === "roadwork");
-    expect(roadwork.length).toBeGreaterThan(0);
-    expect(roadwork.every((exercise) => `${exercise.loadGuidance} ${exercise.coachingNotes.join(" ")}`.toLowerCase().includes("talk-test") && exercise.rpeTarget !== undefined)).toBe(true);
-
-    const power = exerciseCatalog.filter((exercise) => exercise.category === "power");
-    expect(power.length).toBeGreaterThan(0);
-    expect(power.every((exercise) => exercise.stopConditions.join(" ").toLowerCase().includes("speed drops"))).toBe(true);
-  });
-});
-
 describe("detailed training session engine", () => {
-  it("attaches a v2 recipe to every generated family without banned athlete-facing copy", () => {
+  it("renders compiler-generated V2 details and player steps without banned athlete-facing copy", () => {
     const bannedRecipeCopy = /\b(readiness gate|movement prep|durability|T-spine|quality-capped|technical constraint|open hips|skill acquisition block|secondary support block|restore range|activate trunk|prep shoulders)\b/i;
     const safetyBannedCopy = /\b(sparring|contact|partner drill|sauna|sweat\s*suit|sweatsuit|weight\s*cut|coach review dependency)\b/i;
+    const details = [detailForFixture(pro_4_round_build_strength), detailForFixture(no_wearable_manual_only), detailForFixture(pro_12_round_taper)];
 
-    for (const family of GENERATED_SESSION_FAMILIES) {
-      const detail = buildFamilyDetail(family);
+    for (const detail of details) {
       const text = recipeUserFacingText(detail);
-
-      expect(detail.recipe, family).toBeTruthy();
-      expect(detail.recipe?.blocks.length, family).toBeGreaterThan(0);
-      expect(detail.recipe?.blocks.every((block) => block.steps.length > 0), family).toBe(true);
-      expect(text, family).not.toMatch(bannedRecipeCopy);
-      expect(text, family).not.toMatch(safetyBannedCopy);
-    }
-  });
-
-  it("builds the flagship jab-focused recipe as colored timed blocks", () => {
-    const detail = buildFamilyDetail("boxing_technical_shadowboxing", pro_4_round_build_strength, {
-      generatedSession: generatedSession("boxing_technical_shadowboxing", {
-        title: "Jab-Focused Shadowboxing",
-        durationMinutes: 35,
-        intensity: "moderate",
-        templateId: "boxing_shadowboxing_jab_entry_rounds",
-        equipmentMode: "none"
-      })
-    });
-    const recipe = detail.recipe;
-    const timeline = buildWorkoutPlayerTimeline(detail);
-    const finalExerciseIds = new Set(detail.sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId)));
-    const timelineExerciseIds = new Set(timeline.steps.map((step) => step.exerciseId));
-
-    expect(recipe?.title).toBe("Jab-Focused Shadowboxing");
-    expect(recipe?.blocks.map((block) => `${block.title}:${block.accent}`)).toEqual(["Warm-up:blue", "Boxing rounds:red", "Cooldown:green"]);
-    expect(recipe?.blocks[0]?.steps.slice(0, 6).map((step) => `${step.title} - ${step.durationSeconds}`)).toEqual([
-      "Shoulder circles forward - 15",
-      "Shoulder circles backward - 15",
-      "Punch and twist - 15",
-      "Scoops left - 15",
-      "Scoops right - 15",
-      "Hip hinges - 15"
-    ]);
-    expect(recipe?.blocks[1]?.steps.map((step) => `${step.title} - ${step.durationSeconds}`)).toEqual([
-      "Round 1: Low and slow shadow - 180",
-      "Rest 1 - 60",
-      "Round 2: Jab shape and guard home - 180",
-      "Rest 2 - 60",
-      "Round 3: Sharp jab focused round - 180",
-      "Rest 3 - 60",
-      "Round 4: Double jab rhythm - 180",
-      "Rest 4 - 60",
-      "Round 5: Jab entry and exit - 180",
-      "Rest 5 - 60",
-      "Round 6: Best clean jab round - 180"
-    ]);
-    expect(recipe?.totalDurationSeconds).toBeGreaterThanOrEqual(32 * 60);
-    expect(timeline.totalSeconds).toBe(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0));
-    expect([...finalExerciseIds].every((exerciseId) => timelineExerciseIds.has(exerciseId))).toBe(true);
-    expect(timeline.steps.every((step) => !step.guidedStepId.startsWith("recipe:"))).toBe(true);
-    expect(timeline.steps.some((step) => step.microCues?.includes("Make sure hands are coming back."))).toBe(true);
-    expect(timeline.steps.filter((step) => step.kind === "rest").every((step) => step.autoAdvance)).toBe(true);
-    expect(timeline.steps.find((step) => step.title === "Set 1: Goblet squat to box")).toBeUndefined();
-    expect(recipeUserFacingText(detail)).not.toMatch(/readiness gate|movement prep|durability|T-spine|quality-capped|technical constraint|open hips/i);
-  });
-
-  it("keeps standard and serious boxing recipes in useful duration tiers", () => {
-    const standardScenarios: readonly { family: GeneratedSessionFamily; title: string; maxMinutes: number; minMinutes: number; equipmentMode?: "bag" | "line" | "mirror" | "none" | undefined }[] = [
-      { family: "boxing_technical_shadowboxing", title: "Jab-Focused Shadowboxing", minMinutes: 32, maxMinutes: 40, equipmentMode: "none" },
-      { family: "boxing_jab_entry_exit", title: "Jab entry and exit system", minMinutes: 32, maxMinutes: 40, equipmentMode: "none" },
-      { family: "boxing_defense_movement", title: "Defense movement day", minMinutes: 32, maxMinutes: 40, equipmentMode: "line" },
-      { family: "boxing_footwork_ringcraft", title: "Ringcraft and footwork day", minMinutes: 32, maxMinutes: 40, equipmentMode: "line" },
-      { family: "boxing_counter_timing", title: "Counter-timing solo day", minMinutes: 32, maxMinutes: 40, equipmentMode: "mirror" },
-      { family: "boxing_bag_skill", title: "Technical bag skill rounds", minMinutes: 35, maxMinutes: 45, equipmentMode: "bag" }
-    ];
-
-    for (const scenario of standardScenarios) {
-      const detail = buildFamilyDetail(scenario.family, pro_4_round_build_strength, {
-        generatedSession: generatedSession(scenario.family, {
-          durationMinutes: 35,
-          equipmentMode: scenario.equipmentMode,
-          intensity: "moderate",
-          title: scenario.title
-        })
-      });
-      const recipe = detail.recipe;
       const timeline = buildWorkoutPlayerTimeline(detail);
       const finalExerciseIds = new Set(detail.sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId)));
       const timelineExerciseIds = new Set(timeline.steps.map((step) => step.exerciseId));
-      const rounds = recipe?.blocks.find((block) => block.type === "boxing_rounds")?.steps.filter((step) => step.type === "round") ?? [];
-      const stepTotal = recipe?.blocks.flatMap((block) => block.steps).reduce((sum, step) => sum + step.durationSeconds, 0);
 
-      expect(recipe?.totalDurationSeconds, scenario.title).toBe(stepTotal);
-      expect(timeline.totalSeconds, scenario.title).toBe(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0));
-      expect([...finalExerciseIds].every((exerciseId) => timelineExerciseIds.has(exerciseId)), scenario.title).toBe(true);
-      expect(timeline.steps.every((step) => !step.guidedStepId.startsWith("recipe:")), scenario.title).toBe(true);
-      expect(recipe?.totalDurationSeconds, scenario.title).toBeGreaterThanOrEqual(scenario.minMinutes * 60);
-      expect(recipe?.totalDurationSeconds, scenario.title).toBeLessThanOrEqual(scenario.maxMinutes * 60);
-      expect(rounds.length, scenario.title).toBeGreaterThanOrEqual(6);
-      expect(rounds.length === 4 && rounds.every((step) => step.durationSeconds === 120), scenario.title).toBe(false);
-    }
-
-    const serious = buildFamilyDetail("boxing_technical_shadowboxing", pro_4_round_build_strength, {
-      generatedSession: generatedSession("boxing_technical_shadowboxing", {
-        durationMinutes: 55,
-        equipmentMode: "none",
-        intensity: "moderate",
-        skillLevel: "advanced",
-        title: "Advanced tactical shadow rounds"
-      })
-    });
-    const seriousRecipe = serious.recipe;
-    const seriousRounds = seriousRecipe?.blocks.find((block) => block.type === "boxing_rounds")?.steps.filter((step) => step.type === "round") ?? [];
-
-    expect(seriousRecipe?.totalDurationSeconds).toBeGreaterThanOrEqual(42 * 60);
-    expect(seriousRecipe?.totalDurationSeconds).toBeLessThanOrEqual(55 * 60);
-    expect(seriousRounds).toHaveLength(8);
-    expect(seriousRounds.every((step) => step.durationSeconds === 180)).toBe(true);
-  });
-
-  it("builds detailed sessions for expanded families", () => {
-    const families: readonly GeneratedSessionFamily[] = [
-      "strength_lower",
-      "strength_upper",
-      "power_lower",
-      "power_upper",
-      "roadwork_tempo",
-      "roadwork_intervals",
-      "alactic_sprints",
-      "round_based_conditioning",
-      "boxing_technical_shadowboxing",
-      "boxing_bag_skill",
-      "boxing_footwork_ringcraft",
-      "boxing_defense_movement",
-      "boxing_jab_entry_exit",
-      "boxing_counter_timing",
-      "boxing_round_skill_circuit",
-      "agility_reactive_footwork",
-      "mobility_recovery_flow",
-      "movement_quality_prep",
-      "trunk_durability",
-      "wrist_hand_durability",
-      "hip_ankle_mobility"
-    ];
-
-    for (const family of families) {
-      const detail = buildFamilyDetail(family);
-      expect(detail.sections.length).toBeGreaterThan(0);
-      expect(detail.sections.flatMap((section) => section.exercises).length).toBeGreaterThan(0);
-      expect(exercisePrescriptionText(detail).toLowerCase()).not.toMatch(/sparring|contact/);
+      expect(detail.recipe, detail.title).toBeTruthy();
+      expect(detail.sections.length, detail.title).toBeGreaterThan(0);
+      expect(detail.recipe?.blocks.length, detail.title).toBeGreaterThan(0);
+      expect(detail.recipe?.blocks.every((block) => block.steps.length > 0), detail.title).toBe(true);
+      expect([...finalExerciseIds].every((exerciseId) => timelineExerciseIds.has(exerciseId)), detail.title).toBe(true);
+      expect(timeline.steps.every((step) => !step.guidedStepId.startsWith("recipe:")), detail.title).toBe(true);
+      expect(timeline.totalSeconds, detail.title).toBe(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0));
+      expect(text, detail.title).not.toMatch(bannedRecipeCopy);
+      expect(text, detail.title).not.toMatch(safetyBannedCopy);
     }
   });
 
-  it("boxing technical detail uses round structure, constraints, quality stops, and review cues", () => {
-    const detail = buildFamilyDetail("boxing_technical_shadowboxing", pro_4_round_build_strength, {
-      generatedSession: generatedSession("boxing_technical_shadowboxing", {
-        title: "Shadowboxing technical rounds",
-        durationMinutes: 55,
-        intensity: "moderate",
-        boxingSkillTheme: "Build jab entries from stance and guard",
-        tacticalTheme: "Win center-line position before exiting",
-        roundStructure: "5 x 3:00 technical rounds, 1:00 rest",
-        technicalEmphasis: ["jab-only guard return", "double-jab entry", "pivot exit"],
-        equipmentMode: "none"
-      })
+  it("boxing detail uses compiled round structure, constraints, quality stops, and review cues", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: { ...pro_4_round_build_strength.athlete, equipmentAccess: ["bag"] },
+        journeyEvents: [
+          {
+            id: "boxing_skill_plan",
+            type: "BuildPhaseStarted",
+            occurredAt: "2026-05-19T09:00:00.000Z",
+            payload: {
+              primaryFocus: "balanced",
+              source: "plan_wizard_new_plan",
+              scheduleAvailability: ["tuesday", "thursday", "saturday"],
+              planGenerationIntent: {
+                id: "boxing_skill_plan",
+                userId: pro_4_round_build_strength.athlete.athleteId,
+                action: "start_new_plan",
+                goalMode: "build",
+                primaryFocus: "boxing_skill",
+                subFocus: "jab_system",
+                trainingDose: "standard",
+                selectedSupportDays: ["tuesday", "thursday", "saturday"],
+                planStartDate: fixtureAsOfDate,
+                requestedAt: "2026-05-19T09:00:00.000Z",
+                seed: "boxing_skill_plan",
+                source: "plan_wizard",
+                status: "active"
+              }
+            }
+          }
+        ]
+      },
+      asOfDate: "2026-05-23"
     });
+    const detail = state.viewModels.train.detailedTodaySessions.find((session) => session.detail?.family.startsWith("boxing_"))?.detail;
+    if (!detail) {
+      throw new Error("fixture did not produce boxing detail");
+    }
     const walkthroughText = `${detail.walkthrough.summary} ${detail.walkthrough.roundPlan?.format ?? ""} ${detail.walkthrough.roundPlan?.instructions.join(" ") ?? ""} ${detail.walkthrough.steps.flatMap((step) => [step.instruction, step.checkpoint, ...step.items.flatMap((item) => [item.dose, item.instruction, item.rest, item.cue])]).join(" ")}`;
     const text = `${exercisePrescriptionText(detail)} ${detail.roundStructure ?? ""} ${(detail.athleteQualityCues ?? []).join(" ")} ${(detail.sessionQualityCheckpoints ?? []).join(" ")} ${(detail.selfCheckCues ?? []).join(" ")} ${detail.filmCue ?? ""} ${walkthroughText}`.toLowerCase();
 
-    expect(detail.boxingSkillTheme).toContain("jab");
-    expect(detail.roundStructure).toContain("round");
+    expect(detail.boxingSkillTheme?.toLowerCase()).toContain("jab");
+    expect(detail.roundStructure).toMatch(/4 x 2:30/);
     expect(detail.walkthrough.summary).toContain("Follow the blocks in order");
-    expect(detail.walkthrough.roundPlan?.format).toContain("5 rounds: work 3 min each");
+    expect(detail.walkthrough.roundPlan?.format).toContain("round");
     expect(detail.walkthrough.roundPlan?.instructions.join(" ")).toContain("Start each round in stance");
     expect(detail.walkthrough.steps[0]?.items[0]?.dose).toMatch(/set|sec|rep/i);
     expect(text).toContain("jab");
@@ -362,65 +179,7 @@ describe("detailed training session engine", () => {
     expect(detail.noGeneratedSparring).toBe(true);
   });
 
-  it("downgrades hard families for hard boxing days, tournament mode, fight week, and high cycle symptoms", () => {
-    const sparringDay = buildFamilyDetail("alactic_sprints", no_wearable_manual_only, {
-      protectedWorkouts: no_wearable_manual_only.protectedWorkouts
-    });
-    expect(sparringDay.family).toBe("shoulder_scap_durability");
-    expect(sparringDay.intensity).toBe("easy");
-
-    const tournamentState = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
-    const tournament = buildFamilyDetail("round_based_conditioning", pro_4_round_build_strength, {
-      phase: { ...tournamentState.phase, phase: "tournament" }
-    });
-    expect(tournament.family).toBe("hip_ankle_mobility");
-    expect(tournament.readinessModifications.join(" ")).toContain("Tournament mode");
-
-    const fightWeek = buildFamilyDetail("strength_lower", pro_4_round_build_strength, {
-      phase: { ...tournamentState.phase, phase: "fight_week" }
-    });
-    expect(fightWeek.family).toBe("taper_maintenance");
-    expect(fightWeek.durationMinutes).toBeLessThanOrEqual(30);
-
-    const highSymptoms = buildFamilyDetail("strength_lower", menstruating_athlete_camp_heavy_symptoms, { readiness: greenReadiness });
-    expect(highSymptoms.cycleModifications.join(" ")).toContain("High cycle symptoms");
-    expect(highSymptoms.sections.flatMap((section) => section.exercises).some((exercise) => exercise.safetyNotes.join(" ").includes("Optional volume trimmed"))).toBe(true);
-  });
-
-  it("full-body strength detail has warm-up, main, accessory, and cooldown sections", () => {
-    const detail = buildFamilyDetail("strength_full_body", pro_4_round_build_strength);
-    const names = detail.sections.map((section) => section.name).join(" ");
-
-    expect(detail.family).toBe("strength_full_body");
-    expect(names).toContain("Warm-up");
-    expect(names).toContain("Main strength");
-    expect(names).toContain("Secondary");
-    expect(names).toContain("Cooldown");
-    expect(detail.sections.reduce((sum, section) => sum + section.durationMinutes, 0)).toBe(detail.durationMinutes);
-    expect(detail.whyThisMattersForBoxing).toContain("boxing");
-  });
-
-  it("novice and no-equipment detail avoids complex lifts and uses substitutions", () => {
-    const detail = buildFamilyDetail("strength_full_body", {
-      ...amateur_novice_build,
-      athlete: { ...amateur_novice_build.athlete, equipmentAccess: ["none"] }
-    });
-    const text = exercisePrescriptionText(detail);
-
-    expect(text).not.toContain("Trap bar deadlift");
-    expect(text).toContain("Tempo bodyweight squat");
-  });
-
-  it("hard boxing support stays short and easy", () => {
-    const detail = detailForFixture(no_wearable_manual_only);
-
-    expect(["easy", "recovery"]).toContain(detail.intensity);
-    expect(detail.durationMinutes).toBeGreaterThanOrEqual(25);
-    expect(detail.durationMinutes).toBeLessThanOrEqual(35);
-    expect(detail.sections.length).toBeGreaterThan(0);
-  });
-
-  it("red readiness becomes recovery detail", () => {
+  it("red readiness becomes a same-day V2 recovery detail", () => {
     const state = resolvePerformanceState({
       journey: {
         ...no_wearable_manual_only,
@@ -438,19 +197,9 @@ describe("detailed training session engine", () => {
       equipmentAccess: state.athlete.equipmentAccess
     });
 
-    expect(["mobility_recovery_flow", "recovery_reset"]).toContain(detail.family);
+    expect(session.structuredPrescriptionV2?.compiledSession.readinessOverlay?.status).toBe("recovery_only");
     expect(detail.intensity).toBe("recovery");
-  });
-
-  it("fight-week taper preserves speed but drops volume", () => {
-    const baseState = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
-    const detail = buildFamilyDetail("strength_lower", pro_4_round_build_strength, {
-      phase: { ...baseState.phase, phase: "fight_week" }
-    });
-
-    expect(detail.family).toBe("taper_maintenance");
-    expect(detail.whyThisMattersForBoxing).toContain("preserves speed");
-    expect(detail.sections.flatMap((section) => section.exercises).some((exercise) => exercise.coachingNotes.join(" ").includes("Fight week"))).toBe(true);
+    expect(detail.readinessModifications.join(" ")).toMatch(/hard-stop symptoms/i);
   });
 
   it("detailed exercise prescriptions contain no generated partner-impact prescription", () => {
@@ -464,6 +213,34 @@ describe("detailed training session engine", () => {
       expect(detail.noGeneratedSparring).toBe(true);
       expect(detail.whyThisMattersForBoxing.length).toBeGreaterThan(10);
     }
+  });
+
+  it("refuses to render uncompiled generated rows through a template fallback", () => {
+    const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+
+    expect(() =>
+      buildDetailedTrainingSession({
+        generatedSession: {
+          id: "legacy_template_row",
+          date: fixtureAsOfDate,
+          family: "strength_full_body",
+          title: "Legacy full-body template",
+          durationMinutes: 45,
+          intensity: "moderate",
+          prescription: ["Legacy template prescription."],
+          rationale: "Old generated row.",
+          protects: ["boxing quality"],
+          modifications: [],
+          fuelDemand: "moderate"
+        },
+        athlete: state.athlete,
+        readiness: state.readiness,
+        cycle: state.cycle,
+        phase: state.phase,
+        protectedWorkouts: [],
+        equipmentAccess: state.athlete.equipmentAccess
+      })
+    ).toThrow(/compiled V2 structured prescription/);
   });
 });
 

@@ -339,7 +339,7 @@ describe("training compiler V2 architecture", () => {
 
   it("keeps the V2 compiler free of V1 generation imports", () => {
     const compilerDir = join(process.cwd(), "src", "engine", "training", "compiler");
-    const prohibited = /\b(weeklyPlanEngine|sessionGenerator|weeklyTrainingPrescriptionPolicy|nextWeekMaterializationEngine|nextWeekGeneratedSessionEngine|athletePrescriptionContract|workoutTemplateCatalog|exerciseCatalog|trainingBlockEngine)\b/;
+    const prohibited = /\b(weeklyPlanEngine|sessionGenerator|weeklyTrainingPrescriptionPolicy|nextWeekMaterializationEngine|nextWeekGeneratedSessionEngine|athletePrescriptionContract|workoutTemplateCatalog|exerciseCatalog|substitutionEngine|addOnBlocks|trainingBlockEngine)\b/;
     const files = readdirSync(compilerDir).filter((file) => file.endsWith(".ts"));
 
     expect(files.length).toBeGreaterThan(0);
@@ -358,7 +358,12 @@ describe("training compiler V2 architecture", () => {
       join(process.cwd(), "src", "engine", "training", "weeklyTrainingCompositionPolicy.ts"),
       join(process.cwd(), "src", "engine", "training", "athletePrescriptionContract.ts"),
       join(process.cwd(), "src", "engine", "training", "sessionDurationPolicy.ts"),
-      join(process.cwd(), "src", "engine", "training", "exerciseCatalogValidation.ts")
+      join(process.cwd(), "src", "engine", "training", "exerciseCatalogValidation.ts"),
+      join(process.cwd(), "src", "engine", "training", "workoutTemplateCatalog.ts"),
+      join(process.cwd(), "src", "engine", "training", "exerciseCatalog.ts"),
+      join(process.cwd(), "src", "engine", "training", "substitutionEngine.ts"),
+      join(process.cwd(), "src", "engine", "training", "addOnBlocks.ts"),
+      join(process.cwd(), "src", "tests", "engine", "workoutTemplateCatalog.test.ts")
     ];
     const persistenceSource = readFileSync(join(process.cwd(), "src", "services", "engine", "resolveAndPersistPerformanceState.ts"), "utf8");
 

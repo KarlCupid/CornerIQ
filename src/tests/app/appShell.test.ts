@@ -3,7 +3,7 @@ import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
-import type { CycleSymptom, DetailedTrainingSession, ExercisePrescription, FuelViewModel, GeneratedTrainingSession, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
+import type { CycleSymptom, DetailedTrainingSession, ExercisePrescription, FuelViewModel, GeneratedTrainingSession, GuidedWorkoutStep, PlanViewModel, ProfileViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import type { AthleteJourneyRepositories } from "../../services/supabase/loadAthleteJourney";
 import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
@@ -21,7 +21,6 @@ import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
-import { catalogToPrescription, findCatalogExercise } from "../../engine/training/exerciseCatalog";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 import { trainPalette } from "../../app/screens/train/trainPalette";
@@ -1314,6 +1313,113 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
   };
 }
 
+function playerGuidedStep(input: Omit<GuidedWorkoutStep, "id"> & { id?: string | undefined }): GuidedWorkoutStep {
+  return {
+    ...input,
+    id: input.id ?? `${input.kind}:${input.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
+  };
+}
+
+function boxingPlayerExercise(input: {
+  exerciseId: string;
+  name: string;
+  durationText: string;
+  restText: string;
+  timerBehavior: NonNullable<ExercisePrescription["guidedProfile"]>["timerBehavior"];
+  work: readonly GuidedWorkoutStep[];
+  setupTitle: string;
+  beginnerName: string;
+}): ExercisePrescription {
+  return {
+    exerciseId: input.exerciseId,
+    name: input.name,
+    category: "boxing_skill",
+    durationText: input.durationText,
+    loadGuidance: "Move at a controlled pace with clean stance and guard.",
+    rpeTarget: 5,
+    restText: input.restText,
+    sets: [{ setLabel: "Block 1", durationText: input.durationText, loadGuidance: "Controlled and technical.", rpeTarget: 5, restText: input.restText }],
+    coachingNotes: ["Keep the work solo and stop when quality drops."],
+    boxingTransfer: "Builds cleaner solo boxing positions.",
+    substitutions: [],
+    safetyNotes: ["Solo boxing only."],
+    stopConditions: ["Stop if pain, dizziness, or sloppy guard returns appear."],
+    guidedProfile: {
+      exerciseId: input.exerciseId,
+      beginnerName: input.beginnerName,
+      oneLineGoal: `Practice ${input.beginnerName} with clean mechanics.`,
+      setup: [
+        playerGuidedStep({
+          kind: "setup",
+          title: input.setupTitle,
+          beginnerInstruction: `Set your space for ${input.beginnerName} and start in a balanced stance.`,
+          intent: "Prepare the position before the timed boxing work starts.",
+          cue: "Breathe out, soften the shoulders, and check your stance.",
+          durationSeconds: 30,
+          safetyStop: "Stop if setup creates pain or dizziness."
+        })
+      ],
+      work: input.work,
+      commonMistakes: ["Rushing the pattern before stance and guard are set."],
+      safetyStops: ["Stop if pain, dizziness, or technique breakdown appears."],
+      timerBehavior: input.timerBehavior,
+      beginnerEligible: true
+    }
+  };
+}
+
+function stanceGuardResetPlayerExercise(): ExercisePrescription {
+  const titles = ["Stance base", "Guard home", "Step and reset", "Jab shape to guard"];
+  return boxingPlayerExercise({
+    exerciseId: "stance_guard_reset",
+    name: "Stance and guard reset",
+    durationText: "4 x 45 sec segments",
+    restText: "20 sec",
+    timerBehavior: "continuous",
+    setupTitle: "Set up Stance and guard reset",
+    beginnerName: "Stance and guard reset",
+    work: titles.map((title, index) =>
+      playerGuidedStep({
+        kind: "work",
+        title,
+        beginnerInstruction: index === 0 ? "Stand in boxing stance with soft knees, chin tucked, and quiet shoulders." : "Move just enough to reset stance and bring both hands back home.",
+        intent: "Rehearse stance and guard positions as solo work.",
+        cue: index === 1 ? "Hands return to cheekbone height before you move again." : "Keep feet under hips and shoulders quiet.",
+        durationSeconds: 45,
+        restAfterSeconds: index < titles.length - 1 ? 20 : undefined,
+        repsText: "45 sec segment",
+        safetyStop: "Stop if posture or balance breaks down."
+      })
+    )
+  });
+}
+
+function technicalShadowboxingPlayerExercise(): ExercisePrescription {
+  const titles = ["Low and slow shadow", "Sharp jab focused round", "Jab entry and exit", "Best clean jab round"];
+  return boxingPlayerExercise({
+    exerciseId: "shadowboxing_technical_rounds",
+    name: "Technical shadowboxing",
+    durationText: "4 x 2 min rounds",
+    restText: "60 sec",
+    timerBehavior: "rounds",
+    setupTitle: "Set up Technical shadowboxing",
+    beginnerName: "Jab-Focused Shadowboxing",
+    work: titles.map((title, index) =>
+      playerGuidedStep({
+        kind: "work",
+        title,
+        beginnerInstruction: index === 0 ? "Start easy, feel your feet, and let the jab come back to guard." : "Keep the jab sharp while the feet stay underneath you.",
+        intent: "Build clean jab rhythm with solo round structure.",
+        cue: index === 0 ? "Feel your feet." : "Hands return to guard after every jab.",
+        durationSeconds: 120,
+        restAfterSeconds: index < titles.length - 1 ? 60 : undefined,
+        repsText: "2 min round",
+        safetyStop: "Stop if speed creates sloppy guard returns."
+      })
+    )
+  });
+}
+
 function boxingRoundPlayerTestSession(): DetailedTrainingSession {
   const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
   const detail = state.viewModels.train.detailedTodaySessions[0]?.detail;
@@ -1334,10 +1440,7 @@ function boxingRoundPlayerTestSession(): DetailedTrainingSession {
         intent: "Run stance, guard, and technical rounds with clear timer goals.",
         durationMinutes: 12,
         guidedSteps: undefined,
-        exercises: [
-          catalogToPrescription(findCatalogExercise("stance_guard_reset")),
-          catalogToPrescription(findCatalogExercise("shadowboxing_technical_rounds"))
-        ]
+        exercises: [stanceGuardResetPlayerExercise(), technicalShadowboxingPlayerExercise()]
       }
     ]
   };

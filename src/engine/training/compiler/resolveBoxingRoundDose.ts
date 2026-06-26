@@ -43,14 +43,14 @@ function roundIntent(theme: BoxingSkillSubFocus | undefined, roundNumber: number
 
 function roundCue(theme: BoxingSkillSubFocus | undefined, roundNumber: number): string {
   const cues: Record<BoxingSkillSubFocus, readonly string[]> = {
-    jab_system: ["Jab returns first.", "Step with the jab.", "Breathe on contact."],
+    jab_system: ["Jab returns first.", "Step with the jab.", "Breathe on the jab."],
     entries_exits: ["Exit after the final punch.", "Feet move before the head lifts.", "Do not cross stance."],
     defense_after_punching: ["Punch, defend, reset.", "Chin hidden on the exit.", "Defense is part of the combination."],
     footwork_ringcraft: ["Own the stance.", "Win the angle.", "No tall exits."],
     counter_timing: ["See it first.", "One answer, then reset.", "Do not chase the cue."],
     pressure_control: ["Close behind the jab.", "Stay compact.", "Angle after pressure."],
     outside_movement: ["Long guard, long step.", "Touch and leave.", "Circle with balance."],
-    bag_skill: ["Shape before power.", "Hands return home.", "Move after contact."],
+    bag_skill: ["Shape before power.", "Hands return home.", "Move after each punch."],
     shadowboxing_mechanics: ["Film-clean rhythm.", "Relax jaw and hands.", "Reset the stance."]
   };
   const themeCues = cues[theme ?? "jab_system"];
@@ -78,7 +78,7 @@ export function resolveBoxingRoundDose(input: { athlete: AthleteTrainingProfile;
     }),
     rpe: conditioning ? 7 : 5,
     technicalQualityCheckpoint: conditioning ? "Round output is only valid while guard return, stance, and breathing stay organized." : "A round counts only if the technical cue remains visible at the end.",
-    stopRule: "Stop or downshift if dizziness, sharp pain, partner-impact work, or uncontrolled fatigue appears.",
+    stopRule: "Stop or downshift if dizziness, sharp pain, cue control breaks, or uncontrolled fatigue appears.",
     progressionRule: conditioning ? "Add one round before increasing intensity." : "Add one constraint or one round only after the cue is stable."
   };
 }

@@ -25,13 +25,18 @@ CornerIQ is pre-production, so the V2 workout-generation reset is allowed to del
 - `src/tests/engine/sessionDurationPolicy.test.ts`
 - `src/engine/training/exerciseCatalogValidation.ts`
 - `src/tests/engine/exerciseCatalogValidation.test.ts`
+- `src/engine/training/workoutTemplateCatalog.ts`
+- `src/tests/engine/workoutTemplateCatalog.test.ts`
+- `src/engine/training/exerciseCatalog.ts`
+- `src/engine/training/substitutionEngine.ts`
+- `src/engine/training/addOnBlocks.ts`
 
 The accepted next-week preview now carries compiler-projected `generatedSessions`, `src/services/training/materializeNextWeekTrainingPlan.ts` persists those sessions directly instead of regenerating future workouts from family bias, and `src/services/engine/resolveAndPersistPerformanceState.ts` persists the V2 preview already on `state.training.nextWeekMaterialization` instead of rebuilding it from summaries.
 The legacy family-first generated-session entry point, family-sequence prescription policies, V1 athlete-prescription contract, family-duration policy, and old template/catalog validation moat have also been removed from the active tree; V2 session intents, structured blocks, validation, and compiler fingerprints now own workout placement and dose allocation.
+The template catalog, static exercise catalog, substitution wrapper, add-on block library, and template-catalog test have also been removed. Detailed workout rendering now refuses generated rows that do not carry a compiled V2 structured prescription instead of falling back to templates.
 
 ## Deletion Targets Before Completion
 
-- Remaining template-first detailed-session rendering and template-order fallback selection.
 - `selectionScore` as the primary plan-construction mechanism.
 - Remaining tests or fixtures that simulate stale V1 generated rows must keep those strings local to the test and cannot import a runtime V1 contract.
 - Legacy preview payload compatibility that remains until the final compiler persistence model replaces `nextWeekMaterializationContract.ts`.
