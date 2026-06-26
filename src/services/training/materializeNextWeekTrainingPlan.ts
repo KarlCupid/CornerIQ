@@ -1,5 +1,4 @@
-import type { ISODateString, PerformanceState } from "../../engine/core/types";
-import { materializeGeneratedSessionsFromPreview } from "../../engine/training/nextWeekGeneratedSessionEngine";
+import type { GeneratedTrainingSession, ISODateString, PerformanceState } from "../../engine/core/types";
 import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
 import { isHighStimulusTrainingDay } from "../../engine/training/trainingStimulus";
 import type { TrainingBlockTimelineEvent } from "../../engine/training/types";
@@ -93,7 +92,7 @@ function serviceError(error: unknown): MaterializeNextWeekTrainingPlanResult {
 function attachGeneratedSessions(input: {
   microcycle: TrainingMicrocycle;
   dayPlans: readonly TrainingDayPlan[];
-  sessions: ReturnType<typeof materializeGeneratedSessionsFromPreview>;
+  sessions: readonly GeneratedTrainingSession[];
 }): { microcycle: TrainingMicrocycle; dayPlans: readonly TrainingDayPlan[] } {
   const dayPlans = input.dayPlans.map((dayPlan) => {
     const generatedSessions = input.sessions.filter((session) => session.date === dayPlan.date);
@@ -122,6 +121,22 @@ function attachGeneratedSessions(input: {
       ]
     }
   };
+}
+
+function generatedSessionsFromPreview(input: {
+  preview: PersistedTrainingNextWeekPreview;
+  trainingBlockId: string;
+}): readonly GeneratedTrainingSession[] {
+  return input.preview.preview.generatedSessions.map((session): GeneratedTrainingSession => ({
+    ...session,
+    date: session.currentScheduledDate ?? session.date,
+    originalPlannedDate: session.originalPlannedDate ?? session.date,
+    currentScheduledDate: session.currentScheduledDate ?? session.date,
+    trainingBlockId: input.trainingBlockId,
+    weekIndex: input.preview.weekIndex,
+    source: "next_week_preview_materialization",
+    generatedSessionLifecycle: "active"
+  }));
 }
 
 function timelineEvent(input: {
@@ -266,22 +281,7 @@ export async function materializeNextWeekTrainingPlan(input: MaterializeNextWeek
       protectedWorkouts: input.current.training.protectedAnchors,
       asOfDate: input.asOfDate
     });
-    const generatedSessions = materializeGeneratedSessionsFromPreview({
-      materialization: preview.preview,
-      microcycle: projection.microcycle,
-      dayPlans: projection.dayPlans,
-      athlete: input.current.athlete,
-      protectedWorkouts: input.current.training.protectedAnchors,
-      readiness: input.current.readiness,
-      cycle: input.current.cycle,
-      nutrition: input.current.nutrition,
-      safetyFlags: input.current.safety.riskFlags,
-      fight: input.current.fightContext,
-      tournament: input.current.tournamentContext,
-      engineVersion: input.current.engineVersion,
-      previewId: preview.id,
-      previewHash: preview.outputHash
-    });
+    const generatedSessions = generatedSessionsFromPreview({ preview, trainingBlockId });
     const materializedProjection = attachGeneratedSessions({
       microcycle: projection.microcycle,
       dayPlans: projection.dayPlans,

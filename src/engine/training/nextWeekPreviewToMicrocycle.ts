@@ -1,5 +1,5 @@
 import type { ISODateString } from "../core/sharedTypes";
-import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
+import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationContract";
 import type { ProtectedWorkout } from "./types";
 import type { RecoveryPriority, TrainingBlock, TrainingDayPlan, TrainingDayRole, TrainingMicrocycle } from "./trainingBlockTypes";
 

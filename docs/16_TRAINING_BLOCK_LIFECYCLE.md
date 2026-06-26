@@ -154,7 +154,7 @@ Boundary finalization is resumable. If a retry or crash leaves a final summary w
 
 ## Next-Week Preview Persistence
 
-`materializeNextWeekTrainingPlan` in `src/engine/training/nextWeekMaterializationEngine.ts` produces a `NextWeekTrainingMaterialization` from the latest persisted summary/decision.
+`resolveWeeklyTrainingPlan` now carries the compiler-projected `NextWeekTrainingMaterialization` on `state.training.nextWeekMaterialization`. `resolveAndPersistPerformanceState` persists that V2 preview payload directly; it no longer rebuilds next week from a summary-only materializer.
 
 The persisted row stores:
 - user and training block ids;
@@ -176,6 +176,8 @@ Repository rules:
 
 Primary files:
 - `supabase/migrations/007_training_next_week_previews.sql`
+- `src/engine/training/compiledWeekProjection.ts`
+- `src/engine/training/nextWeekMaterializationContract.ts`
 - `src/services/supabase/trainingNextWeekPreviewRepository.ts`
 - `src/services/engine/resolveAndPersistPerformanceState.ts`
 
@@ -194,13 +196,13 @@ Safety gates:
 - A preview must be accepted before materialization.
 - `hold_for_review` requires explicit review approval.
 - Hard-stop safety blocks materialization.
-- Tournament/fight-week strategies remain conservative because the preview engine created them conservatively.
+- Tournament/fight-week strategies remain conservative because the compiler preview created them conservatively.
 - The service does not infer numeric load progression.
 - No generated sparring/contact is created.
 
 Materialization output:
 - `nextWeekPreviewToMicrocycle` converts preview rows into a persisted next-week microcycle and day plans.
-- `nextWeekGeneratedSessionEngine` converts summary-only generated support into deterministic, non-contact future support sessions.
+- The accepted V2 preview already carries compiler-projected generated sessions; `materializeNextWeekTrainingPlan` persists those structured sessions directly instead of regenerating from family bias.
 - Protected anchors remain attached.
 - Hard-day cap is enforced.
 - `generated_training_sessions` are upserted with deterministic keys and smoke/audit metadata where supplied.
@@ -210,7 +212,7 @@ Materialization output:
 
 Primary files:
 - `src/engine/training/nextWeekPreviewToMicrocycle.ts`
-- `src/engine/training/nextWeekGeneratedSessionEngine.ts`
+- `src/engine/training/compiledWeekProjection.ts`
 - `src/services/training/materializeNextWeekTrainingPlan.ts`
 - `src/hooks/useNextWeekPreviewActions.ts`
 - `src/app/screens/PlanScreen.tsx`
@@ -342,7 +344,7 @@ No destructive remote migration command was run in this pass. Live Supabase smok
 5. `src/hooks/usePerformanceState.ts`
 6. `src/services/engine/resolveAndPersistPerformanceState.ts`
 7. `src/services/training/materializeNextWeekTrainingPlan.ts`
-8. `src/engine/training/nextWeekGeneratedSessionEngine.ts`
+8. `src/engine/training/compiledWeekProjection.ts`
 9. `src/engine/training/nextWeekPreviewToMicrocycle.ts`
 10. `src/engine/presentation/planViewModel.ts`
 11. `src/app/screens/plan/TrainingBlockHistoryPanel.tsx`

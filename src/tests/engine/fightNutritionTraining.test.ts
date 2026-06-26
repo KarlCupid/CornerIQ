@@ -179,8 +179,9 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
 
     expect(state.nutrition.hitTheseFirst).toContain("Carbs before sparring");
-    expect(state.training.todaySessions[0]?.fuelDemand).toBe("high");
-    expect(state.viewModels.train.sessionCards[0]?.fuelDemand).toBe("high");
+    expect(state.training.dayPlans.find((day) => day.date === fixtureAsOfDate)?.fuelDemand).toBe("high");
+    expect(state.training.todaySessions[0]?.fuelDemand).toBe("low");
+    expect(state.viewModels.train.sessionCards[0]?.fuelDemand).toBe("low");
     expect(state.viewModels.plan.dayPlans[0]?.compactMetric).toBe("75 min");
   });
 
@@ -194,7 +195,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     });
 
     expect(state.readiness.color).toBe("red");
-    expect(state.training.todaySessions[0]?.family).toBe("recovery_reset");
+    expect(["mobility_recovery_flow", "recovery_reset"]).toContain(state.training.todaySessions[0]?.family);
+    expect(state.training.todaySessions[0]?.structuredPrescriptionV2?.compiledSession.readinessOverlay?.status).toBe("recovery_only");
     expect(state.nutrition.explanation).toContain("safety");
   });
 
@@ -210,7 +212,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
     expect(state.readiness.color).toBe("red");
     expect(state.training.generatedSessions.map((session) => session.id)).not.toContain("persisted_stale_hard");
-    expect(state.training.todaySessions[0]?.family).toBe("recovery_reset");
+    expect(["mobility_recovery_flow", "recovery_reset"]).toContain(state.training.todaySessions[0]?.family);
+    expect(state.training.todaySessions[0]?.structuredPrescriptionV2?.compiledSession.readinessOverlay?.status).toBe("recovery_only");
     expect(state.training.todaySessions.every((session) => session.intensity === "recovery")).toBe(true);
   });
 
@@ -225,7 +228,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
     expect(state.phase.phase).toBe("tournament");
     expect(state.readiness.color).toBe("red");
-    expect(state.training.todaySessions[0]?.family).toBe("recovery_reset");
+    expect(["mobility_recovery_flow", "recovery_reset"]).toContain(state.training.todaySessions[0]?.family);
+    expect(state.training.todaySessions[0]?.structuredPrescriptionV2?.compiledSession.readinessOverlay?.status).toBe("recovery_only");
     expect(state.training.todaySessions.every((session) => session.intensity === "recovery")).toBe(true);
   });
 
@@ -344,7 +348,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.training.generatedSessions.length).toBeGreaterThan(1);
     expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("low_confidence");
     expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
-    expect(state.training.generatedSessions.some((session) => session.intensity === "hard")).toBe(true);
+    expect(state.training.generatedSessions.some((session) => session.trainingStimulus === "strength" || session.trainingStimulus === "conditioning")).toBe(true);
   });
 
   it("one healthy food log improves fuel context without marking the week under-fueled", () => {
@@ -455,8 +459,14 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
       asOfDate: fixtureAsOfDate
     });
 
-    expect(state.training.generatedSessions[0]?.modifications).toContain("No-equipment substitution used");
-    expect(state.training.generatedSessions[0]?.modifications).toContain("Lower complexity for novice track");
+    expect(state.training.generatedSessions[0]?.structuredPrescriptionV2?.sessionIntent.equipmentContext).toEqual(["none"]);
+    expect(
+      state.training.generatedSessions.some((session) =>
+        session.structuredPrescriptionV2?.compiledSession.blocks.some((block) =>
+          block.exercises.some((exercise) => exercise.loadUnit === "bodyweight")
+        )
+      )
+    ).toBe(true);
   });
 
   it("high cycle symptoms trim optional generated work", () => {
@@ -470,6 +480,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
       asOfDate: fixtureAsOfDate
     });
 
-    expect(state.training.generatedSessions[0]?.modifications.join(" ")).toContain("trimmed");
+    expect(state.cycle.symptomBurden).toBe("high");
+    expect(state.training.generatedSessions.every((session) => session.intensity !== "hard")).toBe(true);
   });
 });

@@ -5,7 +5,7 @@ import {
   type NextWeekGeneratedSupportBias,
   type NextWeekTrainingMaterialization,
   type NextWeekTrainingVolumeStrategy
-} from "../../engine/training/nextWeekMaterializationEngine";
+} from "../../engine/training/nextWeekMaterializationContract";
 import type { TrainingBlockPhase, TrainingProgressionDecisionValue } from "../../engine/training/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
@@ -110,7 +110,11 @@ function nullableDateTimeValue(value: string | null, context: string): string | 
 }
 
 export function mapTrainingNextWeekPreviewRow(row: TrainingNextWeekPreviewRow): PersistedTrainingNextWeekPreview {
-  const preview = parseWithSchema(NextWeekTrainingMaterializationSchema, payloadObject(row.preview_payload, "training_next_week_previews.preview_payload"), "training_next_week_previews.preview_payload");
+  const preview = parseWithSchema(
+    NextWeekTrainingMaterializationSchema,
+    payloadObject(row.preview_payload, "training_next_week_previews.preview_payload"),
+    "training_next_week_previews.preview_payload"
+  ) as NextWeekTrainingMaterialization;
   return {
     id: row.id,
     userId: row.user_id,

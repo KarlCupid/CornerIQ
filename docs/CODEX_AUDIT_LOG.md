@@ -598,7 +598,7 @@ Goal summary:
 - Extend live smoke and update auditor docs for ChatGPT.
 
 Key changes:
-- Added `nextWeekGeneratedSessionEngine` with strategy-aware support mappings for progress, repeat, reduce, deload, taper, tournament conserve, and hold-for-review.
+- Added a separate next-week generated-session helper with strategy-aware support mappings for progress, repeat, reduce, deload, taper, tournament conserve, and hold-for-review; this was pre-V2 reset architecture and is no longer current materialization authority.
 - Updated `materializeNextWeekTrainingPlan` to persist generated sessions at the week boundary, return `generatedSessionIds`, include `generatedSessionCount` in timeline events, and avoid marking previews materialized if generated-session persistence fails.
 - Updated generated-session repository mapping so materialization can attach preview/smoke metadata while preserving deterministic upsert keys.
 - Merged persisted generated sessions into the training plan by planned date so future sessions do not appear as today's work until their date.
@@ -686,7 +686,7 @@ Goal summary:
 - Apply and verify additive Supabase migration 006 remotely.
 
 Key changes:
-- Added `nextWeekMaterializationEngine` and `NextWeekTrainingMaterialization` types.
+- Added a summary-based next-week materialization engine and `NextWeekTrainingMaterialization` types; that pre-V2 materializer has since been deleted and replaced by compiler-projected preview persistence.
 - Wired `TrainingState.nextWeekMaterialization` and `PlanViewModel.nextWeekPreview`.
 - Recomputed next-week materialization after week-summary/progression persistence so the preview uses the latest persisted decision.
 - Added `TrainingBlockHistoryPanel` on Plan with active block summary, week summaries, progression decisions, timeline events, adjustment events, safety flags, and latest preview context.

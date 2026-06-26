@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { nextWeekPreviewToMicrocycle } from "../../engine/training/nextWeekPreviewToMicrocycle";
-import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationEngine";
+import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationContract";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 
 function stateFixture() {

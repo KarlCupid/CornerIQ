@@ -7,7 +7,7 @@ import type {
   GeneratedTrainingSession,
   PlanGenerationTrainingDose
 } from "./types";
-import type { NextWeekTrainingVolumeStrategy } from "./nextWeekMaterializationEngine";
+import type { NextWeekTrainingVolumeStrategy } from "./nextWeekMaterializationContract";
 import { addOnBlockFromLibrary } from "./addOnBlocks";
 import { hasAllEquipmentCapabilities, hasAnyEquipmentCapability, hasEquipmentCapability, hasNoKnownRealEquipment } from "../athlete/equipmentAccess";
 import { canPrescribeExercise } from "./substitutionEngine";

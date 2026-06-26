@@ -1,7 +1,8 @@
 import type { Confidence, ISODateString, ISODateTimeString } from "../core/sharedTypes";
 import type { GeneratedSupportWeekday } from "./supportAvailability";
 import type { DailyOperatingModeView } from "./dailyOperatingMode";
-import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationEngine";
+import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationContract";
+import type { CompiledTrainingSession, SessionIntent, WeeklyAdaptationBudget } from "./compiler/types";
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import type { TrainingBlock, TrainingBlockRecommendation, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
@@ -30,10 +31,9 @@ export type {
 export type {
   NextWeekDayPlanPreview,
   NextWeekGeneratedSupportBias,
-  NextWeekMaterializationInput,
   NextWeekTrainingMaterialization,
   NextWeekTrainingVolumeStrategy
-} from "./nextWeekMaterializationEngine";
+} from "./nextWeekMaterializationContract";
 export type {
   PersistedTrainingPlanAdjustment,
   PersistedTrainingPlanAdjustmentStatus,
@@ -317,6 +317,13 @@ export interface GeneratedTrainingSession {
   fuelAfter?: string | undefined;
   confidenceImpact?: string | undefined;
   missingDataAdvisories?: readonly string[] | undefined;
+  compilerContractVersion?: string | undefined;
+  sessionIntentId?: string | undefined;
+  structuredPrescriptionV2?: {
+    sessionIntent: SessionIntent;
+    compiledSession: CompiledTrainingSession;
+    adaptationBudget: WeeklyAdaptationBudget;
+  } | undefined;
 }
 
 export interface ExerciseSetPrescription {

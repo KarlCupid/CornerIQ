@@ -35,7 +35,8 @@ import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixt
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
 import { createEngineRunRepository, mapGeneratedSessionToRow } from "../../services/supabase/engineRunRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
-import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "../../engine/training/athletePrescriptionContract";
+import { GENERATED_SESSION_SCHEMA_VERSION_V2, PLAN_INTENT_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
+import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
 
 function createInsertClient(options: { existingCompletedSessionId?: string | null; existingCompletedSessionStatus?: "completed" | "skipped"; completedTrainingConflict?: boolean } = {}) {
   const inserted: { table: string; record: unknown }[] = [];
@@ -1031,9 +1032,9 @@ describe("Supabase repositories", () => {
         trainingBlockId: "training_block_current",
         payload: {
           engineVersion: "test-engine",
-          prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-          planIntentVersion: PLAN_INTENT_VERSION,
-          generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+          prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+          planIntentVersion: PLAN_INTENT_VERSION_V2,
+          generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
           planFingerprint: "fingerprint_current_contract"
         }
       })
@@ -1046,9 +1047,9 @@ describe("Supabase repositories", () => {
 
     expect(sessions[0]).toMatchObject({
       engineVersion: "test-engine",
-      prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-      planIntentVersion: PLAN_INTENT_VERSION,
-      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+      prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+      planIntentVersion: PLAN_INTENT_VERSION_V2,
+      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
       planFingerprint: "fingerprint_current_contract"
     });
   });

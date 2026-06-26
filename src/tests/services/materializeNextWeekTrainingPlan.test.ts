@@ -183,20 +183,21 @@ describe("materializeNextWeekTrainingPlan service", () => {
       expect.arrayContaining([
         expect.objectContaining({
           user_id: "user_1",
-          generated_session_key: expect.stringContaining("slot:preview:preview_1:"),
+          generated_session_key: expect.stringContaining("intent:"),
           original_planned_date: expect.any(String),
           current_scheduled_date: expect.any(String),
-          prescription_slot_id: expect.stringContaining("slot:preview:preview_1:"),
+          prescription_slot_id: expect.stringContaining("intent:"),
           generated_session_lifecycle: "active",
           session_payload: expect.objectContaining({
-            id: expect.stringContaining("next-week:"),
+            id: expect.stringContaining("generated:"),
             originalPlannedDate: expect.any(String),
             currentScheduledDate: expect.any(String),
-            prescriptionSlotId: expect.stringContaining("slot:preview:preview_1:"),
+            prescriptionSlotId: expect.stringContaining("intent:"),
             generatedSessionLifecycle: "active",
             projectionSource: "next_week_preview_materialization",
             previewId: "preview_1",
-            materializedFromPreview: true
+            materializedFromPreview: true,
+            structuredPrescriptionV2: expect.any(Object)
           })
         })
       ])
@@ -279,7 +280,7 @@ describe("materializeNextWeekTrainingPlan service", () => {
     expect(repositories.engineRun.upsertGeneratedSessions).not.toHaveBeenCalled();
   });
 
-  it("red readiness without a medical hard stop materializes planned work with execution gates", async () => {
+  it("red readiness without a medical hard stop does not rewrite next-week preview sessions", async () => {
     const base = stateFixture();
     const state = stateFixture({
       readiness: {
@@ -315,8 +316,9 @@ describe("materializeNextWeekTrainingPlan service", () => {
     expect(result.status).toBe("materialized");
     const generatedRows = (repositories.engineRun.upsertGeneratedSessions as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] ?? [];
     const generatedText = JSON.stringify(generatedRows);
-    expect(generatedText).toContain("Readiness is red without hard-stop symptoms");
-    expect(generatedText).toContain("conservative execution gates");
+    expect(generatedText).not.toContain("Readiness is red without hard-stop symptoms");
+    expect(generatedRows.length).toBe(basePreview.preview.generatedSessions.length);
+    expect(generatedRows.every((row: { session_payload: { structuredPrescriptionV2?: unknown } }) => row.session_payload.structuredPrescriptionV2)).toBe(true);
     expect(generatedText).not.toContain("Safety hard stop active: recovery only");
   });
 
@@ -375,7 +377,7 @@ describe("materializeNextWeekTrainingPlan service", () => {
     expect(firstKeys).toEqual(secondKeys);
   });
 
-  it("hold_for_review with review approval materializes recovery only", async () => {
+  it("hold_for_review with review approval persists the accepted V2 preview sessions without regenerating families", async () => {
     const state = stateFixture();
     const base = previewFixture(state);
     const preview = previewFixture(state, {
@@ -396,13 +398,14 @@ describe("materializeNextWeekTrainingPlan service", () => {
       mode: "materialize_if_week_boundary",
       reviewApproved: true
     });
-    const rows = (repositories.engineRun.upsertGeneratedSessions as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { session_payload: { intensity: string; fuelDemand: string } }[];
+    const rows = (repositories.engineRun.upsertGeneratedSessions as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { session_payload: { id: string; structuredPrescriptionV2?: unknown } }[];
 
     expect(result.status).toBe("materialized");
-    expect(rows.every((row) => row.session_payload.intensity !== "hard" && row.session_payload.fuelDemand === "low")).toBe(true);
+    expect(rows.map((row) => row.session_payload.id)).toEqual(base.preview.generatedSessions.map((session) => session.id));
+    expect(rows.every((row) => row.session_payload.structuredPrescriptionV2)).toBe(true);
   });
 
-  it("tournament_conserve creates only conservative generated sessions", async () => {
+  it("tournament_conserve summary does not regenerate accepted V2 preview session families", async () => {
     const state = stateFixture();
     const base = previewFixture(state);
     const preview = previewFixture(state, {
@@ -422,11 +425,11 @@ describe("materializeNextWeekTrainingPlan service", () => {
       asOfDate: preview.weekStartDate,
       mode: "materialize_if_week_boundary"
     });
-    const rows = (repositories.engineRun.upsertGeneratedSessions as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { session_payload: { family: string; intensity: string } }[];
+    const rows = (repositories.engineRun.upsertGeneratedSessions as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as { session_payload: { family: string; structuredPrescriptionV2?: unknown } }[];
 
     expect(result.status).toBe("materialized");
-    expect(rows.every((row) => row.session_payload.family === "recovery_reset" || row.session_payload.family === "taper_maintenance")).toBe(true);
-    expect(rows.every((row) => row.session_payload.intensity !== "hard")).toBe(true);
+    expect(rows.map((row) => row.session_payload.family)).toEqual(base.preview.generatedSessions.map((session) => session.family));
+    expect(rows.every((row) => row.session_payload.structuredPrescriptionV2)).toBe(true);
   });
 
   it("does not mark preview materialized if generated session persistence fails", async () => {

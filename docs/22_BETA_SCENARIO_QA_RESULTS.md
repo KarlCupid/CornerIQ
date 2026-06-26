@@ -91,5 +91,6 @@ These remain deferred and were not added or covered as product flows in this pas
 6. `src/app/components/BetaFeedbackPanel.tsx`
 7. `src/app/components/AppErrorBoundary.tsx`
 8. `src/app/components/BetaHealthPanel.tsx`
-9. `src/engine/training/sessionGenerator.ts`
-10. `src/tests/app/appShell.test.ts`
+9. `src/engine/training/compiler/compileTrainingWeek.ts`
+10. `src/tests/engine/trainingCompilerV2.test.ts`
+11. `src/tests/app/appShell.test.ts`

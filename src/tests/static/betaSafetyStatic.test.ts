@@ -68,9 +68,8 @@ describe("beta safety static scans", () => {
 
   it("keeps generated contact-work language out of generated support output", () => {
     const files = [
-      "src/engine/training/sessionGenerator.ts",
       "src/engine/training/detailedSessionEngine.ts",
-      "src/engine/training/nextWeekGeneratedSessionEngine.ts",
+      "src/engine/training/compiledWeekProjection.ts",
       "src/app/screens/TrainScreen.tsx",
       "src/app/screens/train/WorkoutDetailPanel.tsx",
       "src/app/screens/train/ExercisePrescriptionCard.tsx"

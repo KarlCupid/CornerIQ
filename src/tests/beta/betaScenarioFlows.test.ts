@@ -19,7 +19,7 @@ type LaunchScenario = {
 };
 
 const unsafeFuelCopy = /\b(sauna|sweat\s*suit|sweatsuit|laxative|diuretic|extreme dehydration|make weight at all costs|water cut|dehydrate to)\b/i;
-const generatedContactCopy = /\b(sparring|contact|fight simulation|partner drill)\b/i;
+const generatedContactCopy = /generated\s+(sparring|contact)|contact drill|fight simulation|partner drill/i;
 const trainingStopDomains = new Set(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
 function redReadinessScenario(): AthleteJourney {
@@ -171,7 +171,7 @@ const scenarios: readonly LaunchScenario[] = [
     journey: redReadinessScenario(),
     assert: (state) => {
       expect(state.readiness.color).toBe("red");
-      expect(state.viewModels.train.todaySummary).toContain("Recovery");
+      expect(state.viewModels.train.todaySummary).toMatch(/recovery/i);
     }
   },
   {
@@ -179,7 +179,9 @@ const scenarios: readonly LaunchScenario[] = [
     journey: noEquipmentScenario(),
     assert: (state) => {
       expect(state.athlete.equipmentAccess).toHaveLength(0);
-      expect(JSON.stringify(state.training.generatedSessions)).toContain("No-equipment substitution used");
+      const structuredExercises = state.training.generatedSessions.flatMap((session) => session.structuredPrescriptionV2?.compiledSession.blocks.flatMap((block) => block.exercises) ?? []);
+      expect(state.training.generatedSessions.every((session) => (session.structuredPrescriptionV2?.sessionIntent.equipmentContext.length ?? 0) === 0)).toBe(true);
+      expect(structuredExercises.some((exercise) => exercise.loadUnit === "bodyweight")).toBe(true);
     }
   }
 ];

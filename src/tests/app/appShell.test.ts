@@ -20,11 +20,15 @@ import { CORNERIQ_PRIVACY_POLICY_URL, CORNERIQ_SUPPORT_URL } from "../../service
 import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { amateur_open_tournament, fixtureAsOfDate, no_wearable_manual_only, pro_12_round_taper, pro_4_round_build_strength, pro_8_round_camp_day_before_weigh_in, short_notice_unsafe_cut } from "../fixtures/engineFixtures";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "../../engine/training/athletePrescriptionContract";
+import { GENERATED_SESSION_SCHEMA_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
 import { catalogToPrescription, findCatalogExercise } from "../../engine/training/exerciseCatalog";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 import { trainPalette } from "../../app/screens/train/trainPalette";
+
+const LEGACY_PRESCRIPTION_CONTRACT_VERSION = "athlete_prescription_contract_v1";
+const LEGACY_PLAN_INTENT_VERSION = "plan_generation_intent_v1";
+const LEGACY_GENERATED_SESSION_SCHEMA_VERSION = "generated_training_session_v1";
 
 vi.mock("expo-status-bar", () => ({
   StatusBar: () => React.createElement("StatusBar")
@@ -2870,7 +2874,7 @@ describe("minimal app screens", () => {
     expect(onInitialSectionApplied).toHaveBeenCalled();
   });
 
-  it("TrainScreen does not show future materialized sessions early but loads them on their date", async () => {
+  it("TrainScreen ignores legacy future generated rows and loads V2 support on the date", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const persistedSession: GeneratedTrainingSession = {
@@ -2886,9 +2890,9 @@ describe("minimal app screens", () => {
       modifications: [],
       fuelDemand: "low",
       engineVersion: "test",
-      prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-      planIntentVersion: PLAN_INTENT_VERSION,
-      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+      prescriptionContractVersion: LEGACY_PRESCRIPTION_CONTRACT_VERSION,
+      planIntentVersion: LEGACY_PLAN_INTENT_VERSION,
+      generatedSessionSchemaVersion: LEGACY_GENERATED_SESSION_SCHEMA_VERSION,
       planFingerprint: "fixture_fingerprint:materialized_future"
     };
     const before = resolvePerformanceState({
@@ -2904,7 +2908,14 @@ describe("minimal app screens", () => {
     const onDateOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: onDate.viewModels.train })).toJSON());
 
     expect(beforeOutput).not.toContain("Materialized future support");
-    expect(onDateOutput).toContain("Materialized future support");
+    expect(onDateOutput).not.toContain("Materialized future support");
+    expect(before.training.todaySessions.every((session) => session.date !== "2026-05-26")).toBe(true);
+    expect(onDate.training.todaySessions.some((session) => session.date === "2026-05-26")).toBe(true);
+    expect(onDate.training.todaySessions.every((session) => session.generatedSessionSchemaVersion === GENERATED_SESSION_SCHEMA_VERSION_V2)).toBe(true);
+    expect(onDate.training.todaySessions.every((session) => session.structuredPrescriptionV2)).toBe(true);
+    expect(
+      onDate.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.some((session) => session.id === "next-week:materialized")
+    ).toBe(true);
     expect(onDate.viewModels.train.detailedTodaySessions[0]?.canOpenDetail).toBe(true);
     expect(onDate.viewModels.train.detailedTodaySessions[0]?.detail?.noGeneratedSparring).toBe(true);
     const planRenderer = render(
@@ -2967,7 +2978,7 @@ describe("minimal app screens", () => {
     const tournamentOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: tournament.viewModels.train })).toJSON());
     const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
 
-    expect(taperOutput).toContain("Fight-week sharpness");
+    expect(taperOutput).toContain("Power quality prescription");
     expect(taperOutput).toContain("Fight-week day");
     expect(tournamentOutput).toContain("Tournament day: no extra hard conditioning.");
     expect(redOutput).not.toContain("Before you train");
@@ -3006,7 +3017,7 @@ describe("minimal app screens", () => {
     });
     const planDetailOutput = JSON.stringify(renderer.toJSON());
     expect(planDetailOutput).toContain("Workout recipe");
-    expect(planDetailOutput).toContain("Shoulder Support");
+    expect(planDetailOutput).toMatch(/Hip and ankle mobility flow|Mobility and recovery prescription/);
     expect(planDetailOutput).toContain("Show full exercise rows");
     expect(planDetailOutput).not.toContain("TIMER");
     expect(planDetailOutput).not.toContain("DO THIS");

@@ -7,10 +7,7 @@ import { buildFuelViewModel } from "../../engine/presentation/fuelViewModel";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import { buildProfileViewModel } from "../../engine/presentation/profileViewModel";
 import type { PersistedNutritionSafetyReview } from "../../engine/nutrition/nutritionSafetyReviewTypes";
-import {
-  materializeNextWeekTrainingPlan as buildNextWeekTrainingPreview,
-  type NextWeekTrainingMaterialization
-} from "../../engine/training/nextWeekMaterializationEngine";
+import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationContract";
 import { latestPlanWizardIntentSource } from "../../engine/training/planGenerationIntent";
 import { rollForwardTrainingBlock } from "../../engine/training/trainingRollForwardEngine";
 import { selectAuthoritativeTrainingProgressionDecision, selectAuthoritativeTrainingWeekSummary } from "../../engine/training/trainingHistoryAuthority";
@@ -692,26 +689,7 @@ async function persistTrainingBlockProjection(
     });
   }
 
-  const nextWeekMaterialization = buildNextWeekTrainingPreview({
-    athlete: state.athlete,
-    currentTrainingBlock: state.training.activeBlock,
-    currentMicrocycle: state.training.currentMicrocycle,
-    currentTrainingDayPlans: state.training.dayPlans,
-    planGenerationIntent: state.training.planGenerationIntent,
-    activePlanFingerprint: state.training.supportGenerationAudit.planFingerprint,
-    latestTrainingWeekSummary: weekSummary,
-    latestTrainingProgressionDecision: rollForward.decision,
-    completedTrainingSessions: state.training.completedSessions,
-    exerciseResults: state.training.recentExerciseResults,
-    protectedWorkouts: state.training.protectedAnchors,
-    fight: state.fightContext,
-    tournament: state.tournamentContext,
-    readiness: state.readiness,
-    cycle: state.cycle,
-    safetyFlags: state.safety.riskFlags,
-    asOfDate: state.asOfDate,
-    engineVersion: state.engineVersion
-  });
+  const nextWeekMaterialization = state.training.nextWeekMaterialization;
   let nextWeekPreviewPersistenceStatus: NextWeekPreviewPersistenceStatus | undefined;
   let previewPersistenceWarning: string | undefined;
   try {

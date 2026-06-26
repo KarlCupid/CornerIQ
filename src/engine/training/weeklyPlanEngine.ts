@@ -18,16 +18,13 @@ import type {
   TrainingBlockHistory,
   TrainingDayPlan,
   TrainingMicrocycle,
-  GeneratedSessionLifecycle,
   GeneratedSessionFamily,
   GeneratedTrainingSession,
   GeneratedSessionDurationAuditItem,
   PersistedGeneratedSessionAuditItem,
   TrainingGenerationReductionSource,
-  TrainingExecutionBaselineTargets,
   TrainingLoadComparison,
   RecentTrainingEvidence,
-  PrescriptionAdaptationDecision,
   TrainingState,
   PlanGenerationIntent,
   PlanGenerationTrainingDose,
@@ -35,26 +32,19 @@ import type {
   PlanGenerationGoalMode
 } from "../core/types";
 import { buildActualLoadLedger, buildPlannedLoadLedger, completedSessionActualDate, isCurrentCompletedSession } from "./loadLedger";
-import { generateSupportSession } from "./sessionGenerator";
 import { anchorsForDate, hasProtectedCompetition, hasProtectedSparring } from "./protectedAnchors";
 import { applyTrainingPlanAdjustments } from "./planAdjustmentEngine";
 import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
-import { materializeNextWeekTrainingPlan } from "./nextWeekMaterializationEngine";
-import { selectAuthoritativeTrainingProgressionDecision, selectAuthoritativeTrainingWeekSummary } from "./trainingHistoryAuthority";
+import { selectAuthoritativeTrainingProgressionDecision } from "./trainingHistoryAuthority";
 import { generatedSupportAllowedOnDate, generatedSupportWeekdayForDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
-import { appliedMovedGeneratedSessionIds, resolveGeneratedSessionStatus } from "./generatedSessionStatus";
-import {
-  activeHardStopFlags,
-  classifyTrainingGenerationConstraints
-} from "./trainingGenerationConstraints";
+import { classifyTrainingGenerationConstraints } from "./trainingGenerationConstraints";
 import {
   applyTrainingExecutionGuidance,
   readinessHasHardStop,
   resolveTrainingReadinessFuelingIntegration
 } from "./trainingReadinessFuelingIntegration";
 import {
-  isHighStimulusFamily,
   isHighStimulusGeneratedSession,
   isHighStimulusProtectedWorkout,
   isHighStimulusTrainingDay,
@@ -67,15 +57,17 @@ import {
 } from "./trainingStimulus";
 import { defaultTrainingDoseForSupportDays } from "./planGenerationIntent";
 import { resolveDailyOperatingMode } from "./dailyOperatingMode";
-import { resolveWeeklyTrainingPrescriptionPolicy, type WeeklyTrainingPrescriptionPolicy } from "./weeklyTrainingPrescriptionPolicy";
 import {
-  ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-  GENERATED_SESSION_SCHEMA_VERSION,
-  PLAN_INTENT_VERSION,
-  buildAthletePrescriptionContractV1,
-  materialPlanFingerprint,
-  validateAthletePrescriptionOutput
-} from "./athletePrescriptionContract";
+  compileCurrentAndNextTrainingWeeks,
+  GENERATED_SESSION_SCHEMA_VERSION_V2,
+  PLAN_INTENT_VERSION_V2
+} from "./compiledWeekProjection";
+import { normalizeAthleteTrainingProfile, normalizePlanIntent } from "./compiler/normalizePlanInputs";
+import {
+  TRAINING_COMPILER_CONTRACT_VERSION,
+  type PersistentSafetyConstraint,
+  type PersistentSafetyDomain
+} from "./compiler/types";
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
   return Boolean(flags?.some(workoutGenerationStopFlag));
@@ -86,13 +78,6 @@ const PLAN_GENERATION_REQUIRED_REASON = "Plan generation has not been requested 
 
 function workoutGenerationStopFlag(flag: RiskFlag): boolean {
   return flag.status === "active" && flag.hardStop && WORKOUT_GENERATION_STOP_DOMAINS.has(flag.domain);
-}
-
-function flagReasonSummary(flags: readonly RiskFlag[]): string {
-  if (flags.length === 0) {
-    return "";
-  }
-  return ` Active rule${flags.length === 1 ? "" : "s"}: ${flags.map((flag) => `${flag.code} - ${flag.message}`).join("; ")}.`;
 }
 
 function protectedHardOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
@@ -218,8 +203,8 @@ function pendingNextWeekMaterialization(input: {
     nextWeekStartDate,
     nextWeekEndDate,
     engineVersion: input.engineVersion,
-    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-    planIntentVersion: PLAN_INTENT_VERSION,
+    prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION_V2,
     planRevisionId,
     planFingerprint: planRevisionId,
     primaryFocus: "balanced",
@@ -242,6 +227,7 @@ function pendingNextWeekMaterialization(input: {
       reasons: ["Plan generation is explicitly deferred after onboarding."],
       missingInputs: ["plan focus", "training dose", "support days"]
     },
+    generatedSessions: [],
     nextWeekDayPlanPreview: Array.from({ length: 7 }, (_, index) => ({
       date: addDays(nextWeekStartDate, index),
       role: "support_day" as const,
@@ -374,9 +360,9 @@ function planGenerationRequiredState(input: {
     planStartDate: input.asOfDate,
     planRevisionId,
     engineVersion,
-    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-    planIntentVersion: PLAN_INTENT_VERSION,
-    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+    prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION_V2,
+    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
     planFingerprint: planRevisionId,
     planFingerprintMaterial: { reason: "plan_generation_required", asOfDate: input.asOfDate, athleteId: input.athlete.athleteId },
     prescriptionValidationPassed: true,
@@ -533,59 +519,12 @@ function planGenerationRequiredState(input: {
   };
 }
 
-function protectedBoxingSkillOnDate(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
-  return anchorsForDate(anchors, date).some(isProtectedBoxingSkillAnchor);
-}
-
 function protectedBoxingSkillCount(anchors: readonly ProtectedWorkout[], dates: readonly ISODateString[], asOfDate: ISODateString): number {
   return anchors.filter((anchor) => anchor.date >= asOfDate && dates.includes(anchor.date) && isProtectedBoxingSkillAnchor(anchor)).length;
 }
 
 function protectedHardDayCount(anchors: readonly ProtectedWorkout[], dates: readonly ISODateString[], asOfDate: ISODateString): number {
   return dates.filter((date) => date >= asOfDate && protectedHardOnDate(anchors, date)).length;
-}
-
-function blockedByActualHardDate(date: ISODateString, actualHardDates: ReadonlySet<ISODateString>): boolean {
-  return actualHardDates.has(date) || actualHardDates.has(addDays(date, -1)) || actualHardDates.has(addDays(date, 1));
-}
-
-function selectGeneratedHardDates(input: {
-  candidateDates: readonly ISODateString[];
-  count: number;
-  familySequence: readonly GeneratedSessionFamily[];
-  occupiedHardDates?: ReadonlySet<ISODateString> | undefined;
-  protectedAnchors: readonly ProtectedWorkout[];
-}): ReadonlySet<ISODateString> {
-  if (input.count <= 0) {
-    return new Set();
-  }
-  const occupiedHardDates = input.occupiedHardDates ?? new Set<ISODateString>();
-  const eligible = input.candidateDates
-    .map((date, index) => ({
-      date,
-      hardCapable: isHighStimulusFamily(input.familySequence[index % input.familySequence.length] ?? "trunk_durability")
-    }))
-    .filter(
-      (candidate) =>
-        !protectedHardOnDate(input.protectedAnchors, candidate.date) &&
-        !blockedByActualHardDate(candidate.date, occupiedHardDates)
-    );
-  const selected: ISODateString[] = [];
-  for (const candidate of eligible.filter((item) => item.hardCapable)) {
-    selected.push(candidate.date);
-    if (selected.length >= input.count) {
-      return new Set(selected);
-    }
-  }
-  for (const candidate of eligible) {
-    if (!selected.includes(candidate.date)) {
-      selected.push(candidate.date);
-    }
-    if (selected.length >= input.count) {
-      break;
-    }
-  }
-  return new Set(selected);
 }
 
 function currentWeekActualHardDates(input: {
@@ -601,6 +540,632 @@ function currentWeekActualHardDates(input: {
       .map(completedSessionActualDate)
       .filter((date) => date >= input.weekStartDate && date <= input.weekEndDate)
   );
+}
+
+function anchorsForWeek(anchors: readonly ProtectedWorkout[], weekStartDate: ISODateString): readonly ProtectedWorkout[] {
+  const weekEndDate = addDays(weekStartDate, 6);
+  return anchors.filter((anchor) => anchor.date >= weekStartDate && anchor.date <= weekEndDate);
+}
+
+function evidenceDate(flag: RiskFlag, fallbackDate: ISODateString): ISODateString {
+  const value = flag.evidence.date;
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallbackDate;
+}
+
+function safetySeverity(flag: RiskFlag): PersistentSafetyConstraint["severity"] {
+  if (flag.severity === "critical") {
+    return "critical";
+  }
+  if (flag.severity === "high") {
+    return "high";
+  }
+  return "caution";
+}
+
+function affectedBodyRegion(flag: RiskFlag): PersistentSafetyConstraint["affectedBodyRegion"] {
+  const text = `${flag.code} ${flag.message} ${flag.explanation}`.toLowerCase();
+  if (/knee|patella|acl|mcl/.test(text)) {
+    return "knee";
+  }
+  if (/shoulder|rotator|scap|upper arm/.test(text)) {
+    return "shoulder";
+  }
+  if (/back|spine|lumbar/.test(text)) {
+    return "back";
+  }
+  if (/neck|cervical/.test(text)) {
+    return "neck";
+  }
+  if (/hand|wrist|thumb|finger/.test(text)) {
+    return "hand_wrist";
+  }
+  if (/ankle|achilles|calf/.test(text)) {
+    return "ankle";
+  }
+  if (/illness|sick|fever|infection/.test(text)) {
+    return "illness";
+  }
+  if (/dizz|faint|bleeding|migraine|medical|cycle|hydration/.test(text)) {
+    return "systemic";
+  }
+  return "unknown";
+}
+
+function affectedTrainingDomains(flag: RiskFlag): readonly PersistentSafetyDomain[] {
+  const region = affectedBodyRegion(flag);
+  if (flag.hardStop || flag.domain === "readiness" || flag.domain === "medical" || flag.domain === "cycle") {
+    return ["all_hard_work"];
+  }
+  if (region === "knee" || region === "ankle") {
+    return ["running", "jumping", "squatting", "lunging", "hard_conditioning"];
+  }
+  if (region === "shoulder" || region === "hand_wrist") {
+    return ["pressing", "bag_work"];
+  }
+  if (region === "back") {
+    return ["hinging", "squatting", "hard_conditioning"];
+  }
+  return ["hard_conditioning"];
+}
+
+function transientSameDayCheckInHardStop(flag: RiskFlag, asOfDate: ISODateString): boolean {
+  return flag.domain === "medical" && ["fainting", "severe_dizziness", "acute_illness"].includes(flag.code) && evidenceDate(flag, asOfDate) === asOfDate;
+}
+
+function persistentSafetyConstraintsFromRiskFlags(flags: readonly RiskFlag[], asOfDate: ISODateString): readonly PersistentSafetyConstraint[] {
+  return flags
+    .filter((flag) => flag.status === "active")
+    .filter((flag) => flag.domain === "training" || flag.domain === "medical" || flag.domain === "cycle")
+    .filter((flag) => !transientSameDayCheckInHardStop(flag, asOfDate))
+    .map((flag): PersistentSafetyConstraint => {
+      const observedDate = evidenceDate(flag, asOfDate);
+      const allTrainingHardStop = flag.hardStop && (flag.domain === "medical" || flag.domain === "cycle");
+      return {
+        id: `risk:${flag.id}`,
+        source: "app_review",
+        observedDate,
+        lastConfirmedDate: asOfDate,
+        status: flag.requiresProfessionalReview ? "review_required" : "active",
+        severity: safetySeverity(flag),
+        affectedBodyRegion: affectedBodyRegion(flag),
+        affectedTrainingDomains: affectedTrainingDomains(flag),
+        hardStopScope: allTrainingHardStop ? "all_training" : flag.hardStop || flag.blocksPlan ? "affected_domain" : "none",
+        reassessmentRequirement: flag.requiresProfessionalReview ? "Qualified review required before progressing affected work." : "Re-check symptoms and movement quality before progressing affected work.",
+        reviewDate: addDays(asOfDate, 7),
+        returnToTrainingStage: flag.hardStop ? "not_started" : "intro"
+      };
+    });
+}
+
+function finalDayPlansWithGeneratedSessions(input: {
+  dayPlans: readonly TrainingDayPlan[];
+  generatedSessions: readonly GeneratedTrainingSession[];
+}): readonly TrainingDayPlan[] {
+  return input.dayPlans.map((dayPlan) => {
+    const generatedSessions = input.generatedSessions.filter((session) => session.date === dayPlan.date);
+    const hardDay = isHighStimulusTrainingDay({ protectedAnchors: dayPlan.protectedAnchors, generatedSessions });
+    const role =
+      dayPlan.role === "taper_day" || dayPlan.role === "tournament_conservation_day"
+        ? dayPlan.role
+        : hardDay
+          ? "hard_day"
+          : dayPlan.role === "hard_day"
+            ? "support_day"
+            : dayPlan.role;
+    return {
+      ...dayPlan,
+      generatedSessions,
+      hardDay,
+      role,
+      fuelDemand:
+        hardDay || generatedSessions.some((session) => session.fuelDemand === "high")
+          ? "high"
+          : generatedSessions.some((session) => session.fuelDemand === "moderate")
+            ? "moderate"
+            : dayPlan.fuelDemand
+    };
+  });
+}
+
+function blockWithDayPlans(activeBlock: TrainingBlock, dayPlans: readonly TrainingDayPlan[]): TrainingBlock {
+  const plannedHardDays = dayPlans.filter((day) => day.hardDay).length;
+  const generatedSupportCount = dayPlans.reduce((count, day) => count + day.generatedSessions.length, 0);
+  return {
+    ...activeBlock,
+    weeklyStructure: {
+      ...activeBlock.weeklyStructure,
+      plannedHardDays,
+      generatedSupportCount,
+      recoveryDays: dayPlans.filter((day) => day.role === "recovery_day" || day.recoveryPriority === "high" || day.recoveryPriority === "hard_stop").map((day) => day.date),
+      dayPlans,
+      summary: `${generatedSupportCount} compiler-generated support sessions around ${activeBlock.weeklyStructure.protectedAnchorCount} protected anchors, with ${plannedHardDays}/${activeBlock.weeklyStructure.hardDayCap} hard days.`
+    }
+  };
+}
+
+function compilerPlannedStimulusMix(sessions: readonly GeneratedTrainingSession[]) {
+  return trainingStimulusMix(sessions.map((session) => session.family));
+}
+
+function compilerSupportDaysForPhase(input: { phase: PhaseState; selectedDays: readonly GeneratedSupportWeekday[] }): readonly GeneratedSupportWeekday[] {
+  if (input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day" || input.phase.phase === "bout_day") {
+    return input.selectedDays.slice(0, Math.min(2, input.selectedDays.length));
+  }
+  if (input.phase.phase === "tournament") {
+    return input.selectedDays.slice(0, Math.min(3, input.selectedDays.length));
+  }
+  return input.selectedDays;
+}
+
+function compilerTrainingDoseForPhase(input: { phase: PhaseState; selectedTrainingDose: PlanGenerationTrainingDose }): PlanGenerationTrainingDose {
+  if (input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day" || input.phase.phase === "bout_day") {
+    return "minimal";
+  }
+  return input.selectedTrainingDose;
+}
+
+interface ResolveWeeklyTrainingPlanInput {
+  athlete: AthleteProfile;
+  anchors: readonly ProtectedWorkout[];
+  asOfDate: ISODateString;
+  phase: PhaseState;
+  readiness: ReadinessState;
+  cycle: CycleState;
+  fight?: FightOpportunity | null | undefined;
+  tournament?: TournamentDetails | null | undefined;
+  completedSessions?: readonly CompletedTrainingSession[] | undefined;
+  recentExerciseResults?: readonly ExerciseResultRecord[] | undefined;
+  highCycleSymptoms: boolean;
+  safetyFlags?: readonly RiskFlag[] | undefined;
+  safetyBlocks?: boolean;
+  foodLogSummary: DailyFoodLogSummary;
+  foodLogCount?: number | undefined;
+  hydrationLogCount?: number | undefined;
+  electrolyteLogCount?: number | undefined;
+  engineVersion?: string | undefined;
+  trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
+  activeTrainingBlock?: TrainingBlock | null | undefined;
+  activeTrainingBlockId?: string | null | undefined;
+  blockHistory?: TrainingBlockHistory | undefined;
+  planGenerationIntent?: PlanGenerationIntent | undefined;
+  requiresPlanGeneration?: boolean | undefined;
+  persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
+}
+
+function resolveWeeklyTrainingPlanWithCompiler(input: ResolveWeeklyTrainingPlanInput & {
+  generationConstraints: ReturnType<typeof classifyTrainingGenerationConstraints>;
+  executionReadiness: ReturnType<typeof resolveTrainingReadinessFuelingIntegration>;
+  redReadinessHardStop: boolean;
+  hardStopOrRedReadiness: boolean;
+  planStartDate: ISODateString;
+  planRevision: string;
+  selectedDays: readonly GeneratedSupportWeekday[];
+  selectedTrainingDose: PlanGenerationTrainingDose;
+  primaryFocus?: PlanGenerationPrimaryFocus | undefined;
+  planWeekIndex: number;
+  candidateDates: readonly ISODateString[];
+  candidateAllowedDays: number;
+  protectedHardDays: number;
+  actualCurrentWeekHardDates: ReadonlySet<ISODateString>;
+  blockedByAnchors: boolean;
+}): TrainingState {
+  const engineVersion = input.engineVersion ?? "unversioned";
+  const nextWeekStartDate = addDays(input.planStartDate, 7);
+  const compilerGoalMode = goalModeForPrescriptionContract({
+    phase: input.phase,
+    planGenerationIntent: input.planGenerationIntent
+  });
+  const compilerPrimaryFocus =
+    input.primaryFocus ??
+    (compilerGoalMode === "fight"
+      ? "power"
+      : compilerGoalMode === "tournament" || compilerGoalMode === "recovery"
+        ? "mobility"
+        : undefined);
+  const compilerSelectedDays = compilerSupportDaysForPhase({ phase: input.phase, selectedDays: input.selectedDays });
+  const compilerTrainingDose = compilerTrainingDoseForPhase({ phase: input.phase, selectedTrainingDose: input.selectedTrainingDose });
+  const planIntent = normalizePlanIntent({
+    legacyIntent: input.planGenerationIntent,
+    userId: input.athlete.athleteId,
+    requestedStartDate: input.planStartDate,
+    activeRevisionId: input.planRevision,
+    goalMode: compilerGoalMode,
+    primaryFocus: compilerPrimaryFocus,
+    trainingDose: compilerTrainingDose,
+    selectedSupportDays: compilerSelectedDays
+  });
+  const persistentSafetyConstraints = persistentSafetyConstraintsFromRiskFlags(input.safetyFlags ?? [], input.asOfDate);
+  const readiness = input.readiness.color === "unknown"
+    ? undefined
+    : {
+        date: input.asOfDate,
+        color: input.readiness.color,
+        hardStop: input.redReadinessHardStop,
+        drivers: input.readiness.drivers
+      };
+  const currentAthlete = normalizeAthleteTrainingProfile({
+    athlete: input.athlete,
+    fixedBoxingSchedule: anchorsForWeek(input.anchors, input.planStartDate),
+    userPreferences: planIntent.userPreferences,
+    preferredSessionDurationMinutes: planIntent.preferredSessionDurationMinutes
+  });
+  const nextAthlete = normalizeAthleteTrainingProfile({
+    athlete: input.athlete,
+    fixedBoxingSchedule: anchorsForWeek(input.anchors, nextWeekStartDate),
+    userPreferences: planIntent.userPreferences,
+    preferredSessionDurationMinutes: planIntent.preferredSessionDurationMinutes
+  });
+  const compilerResult = compileCurrentAndNextTrainingWeeks({
+    current: {
+      athlete: currentAthlete,
+      planIntent,
+      weekStartDate: input.planStartDate,
+      persistentSafetyConstraints,
+      ...(readiness ? { readiness } : {})
+    },
+    next: {
+      athlete: nextAthlete
+    },
+    currentWeekIndex: input.planWeekIndex,
+    nextWeekStartDate,
+    engineVersion,
+    nextWeekIndex: input.planWeekIndex + 1
+  });
+  const generatedForBlock = compilerResult.currentGeneratedSessions;
+  const block = resolveTrainingBlock({
+    athlete: input.athlete,
+    currentPhase: input.phase,
+    fight: input.fight ?? null,
+    tournament: input.tournament ?? null,
+    protectedWorkouts: input.anchors,
+    completedSessions: input.completedSessions ?? [],
+    exerciseResults: input.recentExerciseResults ?? [],
+    generatedSessions: generatedForBlock,
+    readiness: input.readiness,
+    cycle: input.cycle,
+    safetyFlags: input.safetyFlags ?? [],
+    asOfDate: input.asOfDate,
+    engineVersion,
+    activeTrainingBlock: input.activeTrainingBlock ?? null,
+    blockHistory: input.blockHistory,
+    planRevisionId: input.planRevision,
+    planStartDate: input.planStartDate,
+    primaryFocus: input.primaryFocus,
+    weekStartDate: input.planStartDate
+  });
+  const generatedWithBlockId = generatedForBlock.map((session) => ({
+    ...session,
+    trainingBlockId: block.activeBlock.id
+  }));
+  const baseDayPlans = finalDayPlansWithGeneratedSessions({
+    dayPlans: block.dayPlans,
+    generatedSessions: generatedWithBlockId
+  });
+  const baseBlock = blockWithDayPlans(block.activeBlock, baseDayPlans);
+  const adjustmentApplication = applyTrainingPlanAdjustments({
+    activeBlock: baseBlock,
+    dayPlans: baseDayPlans,
+    adjustments: input.trainingPlanAdjustments ?? []
+  });
+  const adjustedGeneratedBeforeGuidance = adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions);
+  const mergedGeneratedSessions = adjustedGeneratedBeforeGuidance.map((session) =>
+    applyTrainingExecutionGuidance(
+      {
+        ...session,
+        trainingBlockId: adjustmentApplication.activeBlock.id,
+        engineVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+        prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+        planIntentVersion: PLAN_INTENT_VERSION_V2,
+        generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
+        planFingerprint: compilerResult.currentWeek.materialFingerprint
+      },
+      input.executionReadiness
+    )
+  );
+  const adjustedDayPlans = finalDayPlansWithGeneratedSessions({
+    dayPlans: adjustmentApplication.dayPlans,
+    generatedSessions: mergedGeneratedSessions
+  });
+  const activeBlock = blockWithDayPlans(adjustmentApplication.activeBlock, adjustedDayPlans);
+  const currentMicrocycle = {
+    ...block.currentMicrocycle,
+    plannedHardDays: adjustedDayPlans.filter((day) => day.hardDay).length,
+    generatedSupportCount: mergedGeneratedSessions.length,
+    recoveryDays: adjustedDayPlans.filter((day) => day.role === "recovery_day" || day.recoveryPriority === "high" || day.recoveryPriority === "hard_stop").map((day) => day.date),
+    notes: [...block.currentMicrocycle.notes, "Current week app workouts were compiled by the V2 athlete-prescription compiler."]
+  };
+  const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
+  const todayPlanForOperatingMode = adjustedDayPlans.find((dayPlan) => dayPlan.date === input.asOfDate) ?? null;
+  const dailyOperatingMode = resolveDailyOperatingMode({
+    integration: input.executionReadiness,
+    safetyFlags: input.safetyFlags ?? [],
+    todayPlan: todayPlanForOperatingMode,
+    todaySessions,
+    phase: input.phase
+  });
+  const plannedLoadLedger = buildPlannedLoadLedger(input.anchors, mergedGeneratedSessions);
+  const actualLoadLedger = buildActualLoadLedger(input.completedSessions ?? [], input.asOfDate, input.recentExerciseResults ?? []);
+  const loadComparison: TrainingLoadComparison = {
+    planned: plannedLoadLedger,
+    actual: actualLoadLedger,
+    missingActualMetrics: actualLoadLedger.unknownMetrics
+  };
+  const recentEvidence = recentTrainingEvidence({
+    actualLoadLedger,
+    completedSessions: input.completedSessions ?? [],
+    exerciseResults: input.recentExerciseResults ?? []
+  });
+  const protectedHardDayDates = new Set(input.candidateDates.filter((date) => date >= input.asOfDate && protectedHardOnDate(input.anchors, date)));
+  const generatedHardDayDates = new Set(mergedGeneratedSessions.filter(isHighStimulusGeneratedSession).map((session) => session.date));
+  const actualHardDayDates = new Set([...input.actualCurrentWeekHardDates, ...protectedHardDayDates, ...generatedHardDayDates]);
+  const actualWeeklyGeneratedMinutes = mergedGeneratedSessions.reduce((total, session) => total + session.durationMinutes, 0);
+  const actualStimulusMix = trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family));
+  const plannedStimulusMix = compilerPlannedStimulusMix(compilerResult.currentGeneratedSessions);
+  const longestSessionMinutes = mergedGeneratedSessions.reduce((longest, session) => Math.max(longest, session.durationMinutes), 0);
+  const sessionsOver60Minutes = mergedGeneratedSessions.filter((session) => session.durationMinutes >= 60).length;
+  const actualStrengthExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "strength");
+  const actualConditioningExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "conditioning");
+  const actualPowerExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "power");
+  const protectedAnchorsCountedAsSkill = protectedBoxingSkillCount(input.anchors, input.candidateDates, input.asOfDate);
+  const generatedBoxingSkillExposures = generatedFamilyCount(mergedGeneratedSessions, BOXING_SKILL_GENERATED_FAMILIES);
+  const generatedTechnicalExposures = generatedFamilyCount(mergedGeneratedSessions, TECHNICAL_BOXING_GENERATED_FAMILIES);
+  const generatedAgilityFootworkExposures = generatedFamilyCount(mergedGeneratedSessions, AGILITY_FOOTWORK_GENERATED_FAMILIES);
+  const generatedMobilityRecoveryExposures = generatedFamilyCount(mergedGeneratedSessions, MOBILITY_RECOVERY_GENERATED_FAMILIES);
+  const actualBoxingSkillExposures = generatedBoxingSkillExposures + protectedAnchorsCountedAsSkill;
+  const actualTechnicalExposures = generatedTechnicalExposures + protectedAnchorsCountedAsSkill;
+  const actualAgilityFootworkExposures = generatedAgilityFootworkExposures + input.anchors.filter((anchor) => anchor.date >= input.asOfDate && input.candidateDates.includes(anchor.date) && anchor.type === "footwork_session").length;
+  const actualMobilityRecoveryExposures = generatedMobilityRecoveryExposures;
+  const actualAddOnBlocks = generatedAddOnCount(mergedGeneratedSessions);
+  const actualRequiredAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "required");
+  const actualRecommendedAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "recommended");
+  const actualOptionalAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "optional");
+  const optionalAddOns = optionalAddOnLabels(mergedGeneratedSessions);
+  const actualAthleteQualityCheckpoints = generatedAthleteQualityCheckpointCount(mergedGeneratedSessions) + protectedAnchorsCountedAsSkill;
+  const athleteCueAudit = athleteQualityCues(mergedGeneratedSessions);
+  const qualityCheckpointAudit = sessionQualityCheckpoints(mergedGeneratedSessions);
+  const selfCheckCueAudit = selfCheckCues(mergedGeneratedSessions);
+  const unusedAvailableDays = input.candidateDates.filter(
+    (date) =>
+      date >= input.asOfDate &&
+      generatedSupportAllowedOnDate(input.selectedDays, date) &&
+      !mergedGeneratedSessions.some((session) => session.date === date) &&
+      !hasProtectedCompetition(input.anchors, date)
+  );
+  const unresolvedTargetReasons = compilerResult.currentWeek.unresolvedTargetDeficits.map((deficit) => `${deficit.label}: ${deficit.unresolvedDeficit} ${deficit.unit} unresolved${deficit.deficitReason ? ` (${deficit.deficitReason})` : ""}.`);
+  const validationFailures = compilerResult.currentWeek.validation.failures;
+  const validationWarnings = compilerResult.currentWeek.validation.warnings;
+  const readinessDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.structuredPrescriptionV2?.compiledSession.readinessOverlay?.rationale ?? []);
+  const evidenceBasedOverridesApplied = [
+    ...persistentSafetyConstraints.map((constraint) => `Active ${constraint.affectedBodyRegion} safety constraint scoped to ${constraint.affectedTrainingDomains.join(", ")}.`),
+    ...(input.redReadinessHardStop ? ["Same-day readiness hard-stop changed only today's matching compiled session."] : [])
+  ];
+  const executionAdjustmentsApplied = [
+    ...input.executionReadiness.sessionExecutionGuidance,
+    ...input.executionReadiness.trainingImplications
+  ];
+  const scheduleChangeReasons = [
+    ...adjustmentApplication.decisions.map((decision) => decision.explanation),
+    ...evidenceBasedOverridesApplied
+  ];
+  const targetStrengthExposures = compilerResult.currentWeek.adaptationBudget.strength.exposures;
+  const targetConditioningExposures = compilerResult.currentWeek.sessionIntents.filter((intent) => intent.primaryAdaptation === "conditioning").length;
+  const targetPowerExposures = compilerResult.currentWeek.adaptationBudget.power.exposures;
+  const targetBoxingSkillExposures = compilerResult.currentWeek.sessionIntents.filter((intent) => intent.primaryAdaptation === "boxing_skill").length;
+  const targetMobilityRecoveryExposures = compilerResult.currentWeek.adaptationBudget.mobility.exposures;
+  const targetGeneratedSupportCount = compilerResult.currentWeek.compiledSessions.length;
+  const targetWeeklyGeneratedMinutes = compilerResult.currentWeek.adaptationBudget.totalGeneratedMinutes;
+  const reducedBy: TrainingGenerationReductionSource[] = [
+    ...(input.hardStopOrRedReadiness ? (["readiness"] as const) : []),
+    ...(persistentSafetyConstraints.length > 0 ? (["safety"] as const) : []),
+    ...(input.highCycleSymptoms ? (["cycle"] as const) : []),
+    ...(input.candidateAllowedDays < targetGeneratedSupportCount ? (["availability"] as const) : []),
+    ...(input.blockedByAnchors ? (["anchors"] as const) : [])
+  ];
+  const blockHistory =
+    input.blockHistory ?? {
+      blockId: null,
+      summaries: [],
+      decisions: [],
+      timelineEvents: [],
+      latestWeekIndex: 0
+    };
+  const latestProgressionDecision = selectAuthoritativeTrainingProgressionDecision(blockHistory.decisions, { activePlanRevisionId: input.planRevision });
+  const supportGenerationAudit = {
+    asOfDate: input.asOfDate,
+    planStartDate: input.planStartDate,
+    planRevisionId: input.planRevision,
+    engineVersion,
+    prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+    planIntentVersion: PLAN_INTENT_VERSION_V2,
+    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
+    planFingerprint: compilerResult.currentWeek.materialFingerprint,
+    planFingerprintMaterial: {
+      contractVersion: compilerResult.currentWeek.contractVersion,
+      planIntent: compilerResult.currentWeek.planIntent,
+      athleteNeeds: compilerResult.currentWeek.athleteNeeds,
+      adaptationBudget: compilerResult.currentWeek.adaptationBudget,
+      sessionIntents: compilerResult.currentWeek.sessionIntents,
+      compiledSessions: compilerResult.currentWeek.compiledSessions
+    },
+    prescriptionValidationPassed: compilerResult.currentWeek.validation.passed,
+    prescriptionValidationFailures: validationFailures,
+    activeTrainingBlockId: activeBlock.id,
+    weekIndex: input.planWeekIndex,
+    selectedSupportDays: input.selectedDays,
+    selectedTrainingDose: input.selectedTrainingDose,
+    selectedSupportDayCount: input.selectedDays.length || input.candidateAllowedDays,
+    requestedSupportDayCount: input.selectedDays.length || input.candidateAllowedDays,
+    targetSessionCountReason: `V2 compiler allocated ${targetGeneratedSupportCount} session${targetGeneratedSupportCount === 1 ? "" : "s"} from the adaptation budget before projection.`,
+    unusedAvailableDays,
+    unusedAvailableDayReasons: unusedAvailableDays.map((date) => `${date}: V2 adaptation budget did not require an app session on this available day.`),
+    targetGeneratedSupportCount,
+    originalTargetGeneratedSupportCount: targetGeneratedSupportCount,
+    pastGeneratedSupportCount: 0,
+    pastPlacedGeneratedSupportCount: 0,
+    completedPastGeneratedSupportCount: 0,
+    skippedPastGeneratedSupportCount: 0,
+    unresolvedPastGeneratedSupportCount: 0,
+    resolvedPastGeneratedSupportCount: 0,
+    futurePersistedGeneratedSupportCount: 0,
+    remainingGeneratedSupportTarget: targetGeneratedSupportCount,
+    remainingUnfilledPrescriptionSlots: Math.max(0, targetGeneratedSupportCount - mergedGeneratedSessions.length),
+    looseEndSessionIds: [],
+    autoRollForwardPrevented: false,
+    autoRollForwardExplanation: "V2 recompiles future generated sessions from source plan intent; old generated-session rows are not active prescription authority.",
+    scheduleRevisionChanged: adjustmentApplication.activeAdjustments.length > 0 || scheduleChangeReasons.length > 0,
+    scheduleChangeReasons,
+    actualGeneratedSupportCount: mergedGeneratedSessions.length,
+    todayGeneratedSupportCount: todaySessions.length,
+    generatedSessionDates: mergedGeneratedSessions.map((session) => session.date),
+    generatedSessionTitles: mergedGeneratedSessions.map((session) => session.title),
+    generatedSessionFamilies: mergedGeneratedSessions.map((session) => session.family),
+    generatedSessionDurationAudit: mergedGeneratedSessions.map(generatedSessionDurationAuditItem),
+    persistedGeneratedSessionsConsidered: [],
+    persistedGeneratedSessionsIgnored: (input.persistedGeneratedSessions ?? []).map((session): PersistedGeneratedSessionAuditItem => ({
+      id: session.id,
+      date: session.date,
+      title: session.title,
+      family: session.family,
+      ...(session.planRevisionId ? { planRevisionId: session.planRevisionId } : {}),
+      ...(session.trainingBlockId ? { trainingBlockId: session.trainingBlockId } : {}),
+      reason: "Ignored as legacy generated-session state; V2 compiler owns active and future prescriptions."
+    })),
+    candidateAllowedDays: input.candidateAllowedDays,
+    activeAdjustmentCount: adjustmentApplication.activeAdjustments.length,
+    activeRiskFlagCodes: (input.safetyFlags ?? []).filter((flag) => flag.status === "active").map((flag) => flag.code),
+    baselinePrescriptionTargets: {
+      targetGeneratedSupportCount,
+      targetHardDayCount: compilerResult.currentWeek.adaptationBudget.hardDayCap,
+      targetWeeklyGeneratedMinutes
+    },
+    readinessGenerationImpact: input.executionReadiness.readinessGenerationImpact,
+    nutritionGenerationImpact: input.executionReadiness.nutritionGenerationImpact,
+    hydrationGenerationImpact: input.executionReadiness.hydrationGenerationImpact,
+    missingLogsAffectedExecutionOnly: input.executionReadiness.missingLogsAffectedExecutionOnly,
+    executionAdjustmentsApplied,
+    evidenceBasedOverridesApplied,
+    readinessDownshiftReasons,
+    nutritionDownshiftReasons: input.executionReadiness.trainingImplications.filter((item) => /fuel|food|hydration|electrolyte/i.test(item)),
+    plannedVsFinalTrainingDelta: {
+      targetGeneratedSupportCount,
+      actualGeneratedSupportCount: mergedGeneratedSessions.length,
+      targetHardDayCount: compilerResult.currentWeek.adaptationBudget.hardDayCap,
+      actualHardDayCount: actualHardDayDates.size,
+      targetWeeklyGeneratedMinutes,
+      actualWeeklyGeneratedMinutes
+    },
+    loadComparison,
+    recentTrainingEvidence: recentEvidence,
+    generationConstraintSummary: input.generationConstraints,
+    hardSafetyConstraints: input.generationConstraints.hardSafetyConstraints,
+    evidenceBasedLoadConstraints: input.generationConstraints.evidenceBasedLoadConstraints,
+    advisoryUncertainty: input.generationConstraints.advisoryUncertainty,
+    missingDataAdvisories: input.generationConstraints.missingDataAdvisories,
+    plannedTrainingStimulusMix: plannedStimulusMix,
+    actualTrainingStimulusMix: actualStimulusMix,
+    targetHardDayCount: compilerResult.currentWeek.adaptationBudget.hardDayCap,
+    minHardDayCount: Math.min(compilerResult.currentWeek.adaptationBudget.hardDayCap, mergedGeneratedSessions.filter(isHighStimulusGeneratedSession).length),
+    maxHardDayCount: compilerResult.currentWeek.adaptationBudget.hardDayCap,
+    actualHardDayCount: actualHardDayDates.size,
+    targetHighStimulusDayCount: compilerResult.currentWeek.adaptationBudget.hardDayCap,
+    actualHighStimulusDayCount: actualHardDayDates.size,
+    protectedHardDayCount: input.protectedHardDays,
+    generatedHardDayCount: generatedHardDayDates.size,
+    targetWeeklyGeneratedMinutes,
+    actualWeeklyGeneratedMinutes,
+    longestSessionMinutes,
+    sessionsOver60Minutes,
+    minimumUsefulSessionDuration: Math.min(25, ...mergedGeneratedSessions.map((session) => session.durationMinutes)),
+    targetStimulusMix: plannedStimulusMix,
+    actualStimulusMix,
+    unmetPrescriptionTargets: [...validationFailures, ...unresolvedTargetReasons],
+    whyHardDaysWereReduced: generatedHardDayDates.size < compilerResult.currentWeek.adaptationBudget.hardDayCap ? validationWarnings : [],
+    whyVolumeWasReduced: actualWeeklyGeneratedMinutes < targetWeeklyGeneratedMinutes ? [...validationWarnings, ...unresolvedTargetReasons] : [],
+    whyOnlyFourSessionsIfSixDaysAvailable: input.candidateAllowedDays >= 6 && mergedGeneratedSessions.length <= 4 ? ["V2 adaptation budget allocates sessions by required dose rather than filling every available day."] : [],
+    whyOnlyTwoHardDaysIfTargetWasThree: compilerResult.currentWeek.adaptationBudget.hardDayCap >= 3 && actualHardDayDates.size <= 2 ? validationWarnings : [],
+    whyAllSessionsUnder60IfSeriousOrHigh: (input.selectedTrainingDose === "serious" || input.selectedTrainingDose === "high") && sessionsOver60Minutes === 0 ? validationWarnings : [],
+    repairActionsApplied: [],
+    targetStrengthExposures,
+    actualStrengthExposures,
+    targetConditioningExposures,
+    actualConditioningExposures,
+    targetPowerExposures,
+    actualPowerExposures,
+    targetBoxingSkillExposures,
+    actualBoxingSkillExposures,
+    targetTechnicalExposures: targetBoxingSkillExposures,
+    actualTechnicalExposures,
+    targetAgilityFootworkExposures: compilerResult.currentWeek.sessionIntents.filter((intent) => intent.boxingTheme === "footwork_ringcraft" || intent.boxingTheme === "outside_movement").length,
+    actualAgilityFootworkExposures,
+    targetMobilityRecoveryExposures,
+    actualMobilityRecoveryExposures,
+    targetAddOnBlocks: 0,
+    actualAddOnBlocks,
+    targetRequiredAddOnBlocks: 0,
+    actualRequiredAddOnBlocks,
+    targetRecommendedAddOnBlocks: 0,
+    actualRecommendedAddOnBlocks,
+    targetOptionalAddOnBlocks: 0,
+    actualOptionalAddOnBlocks,
+    optionalAddOnBlocks: optionalAddOns,
+    targetAthleteQualityCheckpoints: compilerResult.currentWeek.compiledSessions.length,
+    actualAthleteQualityCheckpoints,
+    athleteQualityCues: athleteCueAudit,
+    sessionQualityCheckpoints: qualityCheckpointAudit,
+    selfCheckCues: selfCheckCueAudit,
+    boxingDevelopmentThemeId: compilerResult.currentWeek.planIntent.subFocus,
+    boxingDevelopmentThemeTitle: compilerResult.currentWeek.planIntent.subFocus.replaceAll("_", " "),
+    athleteFacingThemePurpose: `Build ${compilerResult.currentWeek.planIntent.primaryFocus.replaceAll("_", " ")} through exact V2 prescriptions.`,
+    targetSkillProgression: compilerResult.currentWeek.decisionTrace,
+    athleteFacingWeekSummary: `V2 compiler built ${targetGeneratedSupportCount} app session${targetGeneratedSupportCount === 1 ? "" : "s"} for ${compilerResult.currentWeek.planIntent.primaryFocus.replaceAll("_", " ")} / ${compilerResult.currentWeek.planIntent.subFocus.replaceAll("_", " ")}.`,
+    boxingDevelopmentTheme: compilerResult.currentWeek.planIntent.subFocus.replaceAll("_", " "),
+    protectedAnchorsCountedAsSkill,
+    generatedSkillSessions: mergedGeneratedSessions.filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family)).map((session) => `${session.date}: ${session.title}`),
+    skillExposureMissingReasons: validationWarnings.filter((warning) => /boxing|skill|round/i.test(warning)),
+    addOnPlacementReasons: [],
+    missingLogsAffectedGeneration: false,
+    protectedAnchorsSuppliedHardWork: protectedHardDayDates.size > 0,
+    familySelectionReasons: compilerResult.currentWeek.decisionTrace,
+    downshiftReasons: [...readinessDownshiftReasons, ...validationWarnings, ...evidenceBasedOverridesApplied],
+    missingLogsDidNotReduceTraining: true,
+    generatedSupportPlacementReasons: mergedGeneratedSessions.map((session) => {
+      const compiled = session.structuredPrescriptionV2?.compiledSession;
+      return `${session.date}: V2 placed ${session.title} for ${compiled?.primaryAdaptation ?? session.trainingStimulus ?? "support"} with ${compiled?.displayedDurationMinutes ?? session.durationMinutes} structured minutes.`;
+    }),
+    blockedGenerationReasons: [...validationFailures, ...unresolvedTargetReasons],
+    reducedBy
+  };
+  return {
+    protectedAnchors: input.anchors,
+    completedSessions: input.completedSessions ?? [],
+    recentExerciseResults: input.recentExerciseResults ?? [],
+    generatedSessions: mergedGeneratedSessions,
+    todaySessions,
+    activeBlock,
+    currentMicrocycle,
+    dayPlans: adjustedDayPlans,
+    blockRecommendation: block.blockRecommendation,
+    adjustmentHistory: input.trainingPlanAdjustments ?? [],
+    activeAdjustments: adjustmentApplication.activeAdjustments,
+    adjustmentDecisions: adjustmentApplication.decisions,
+    blockHistory,
+    currentWeekSummary: null,
+    latestProgressionDecision,
+    nextWeekMaterialization: compilerResult.nextWeekMaterialization,
+    timelineEvents: blockHistory.timelineEvents,
+    plannedLoadLedger,
+    actualLoadLedger,
+    ...(input.planGenerationIntent ? { planGenerationIntent: input.planGenerationIntent } : {}),
+    supportGenerationAudit,
+    executionReadiness: input.executionReadiness,
+    dailyOperatingMode,
+    explanation: `Training week compiled by V2 from adaptation budget, session intents, and structured prescriptions. ${compilerResult.currentWeek.validation.passed ? "Structured validation passed." : "Structured validation found deficits."}`,
+    confidence: makeConfidence(
+      compilerResult.currentWeek.validation.passed ? 0.78 : 0.52,
+      compilerResult.currentWeek.validation.passed ? ["V2 compiler generated exact structured prescriptions."] : compilerResult.currentWeek.validation.failures,
+      compilerResult.currentWeek.athleteNeeds.reviewFlags
+    )
+  };
 }
 
 function activeWeekStartDate(input: {
@@ -643,25 +1208,6 @@ function supportAllowedOnDate(selectedDays: readonly GeneratedSupportWeekday[], 
   return selectedDays.length > 0 ? selectedDays.includes(generatedSupportWeekdayForDate(date)) : generatedSupportAllowedOnDate(athleteScheduleAvailability, date);
 }
 
-function activeTrainingBlockScopeIds(input: {
-  activeTrainingBlock?: TrainingBlock | null | undefined;
-  activeTrainingBlockId?: string | null | undefined;
-}): ReadonlySet<string> {
-  return new Set([input.activeTrainingBlock?.id, input.activeTrainingBlockId].filter((value): value is string => typeof value === "string" && value.length > 0));
-}
-
-function persistedGeneratedSessionAuditItem(session: GeneratedTrainingSession, reason: string): PersistedGeneratedSessionAuditItem {
-  return {
-    id: session.id,
-    date: session.date,
-    title: session.title,
-    family: session.family,
-    ...(session.planRevisionId ? { planRevisionId: session.planRevisionId } : {}),
-    ...(session.trainingBlockId ? { trainingBlockId: session.trainingBlockId } : {}),
-    reason
-  };
-}
-
 function generatedSessionDurationAuditItem(session: GeneratedTrainingSession): GeneratedSessionDurationAuditItem {
   return {
     id: session.id,
@@ -676,168 +1222,6 @@ function generatedSessionDurationAuditItem(session: GeneratedTrainingSession): G
     selectedTemplateDefaultDuration: session.selectedTemplateDefaultDuration ?? session.durationMinutes,
     finalDurationMinutes: session.finalDurationMinutes ?? session.durationMinutes
   };
-}
-
-function generatedSessionLifecycle(session: GeneratedTrainingSession): GeneratedSessionLifecycle {
-  return session.generatedSessionLifecycle ?? "active";
-}
-
-function generatedSessionSlotIdentity(session: GeneratedTrainingSession): string {
-  return session.prescriptionSlotId ?? `legacy:${session.id}`;
-}
-
-function generatedSessionLifecycleAuthorityRank(session: GeneratedTrainingSession): number {
-  switch (generatedSessionLifecycle(session)) {
-    case "completed":
-      return 6;
-    case "skipped":
-      return 5;
-    case "moved":
-      return 4;
-    case "active":
-      return 3;
-    case "unresolved":
-      return 2;
-    case "superseded":
-    case "canceled":
-      return 0;
-  }
-}
-
-function compareGeneratedSessionAuthority(left: GeneratedTrainingSession, right: GeneratedTrainingSession): number {
-  const rankDelta = generatedSessionLifecycleAuthorityRank(right) - generatedSessionLifecycleAuthorityRank(left);
-  if (rankDelta !== 0) {
-    return rankDelta;
-  }
-  const dateDelta = right.date.localeCompare(left.date);
-  if (dateDelta !== 0) {
-    return dateDelta;
-  }
-  return right.id.localeCompare(left.id);
-}
-
-function reconcileGeneratedSessionSlotAuthorities(sessions: readonly GeneratedTrainingSession[]): readonly GeneratedTrainingSession[] {
-  const grouped = new Map<string, GeneratedTrainingSession[]>();
-  for (const session of sessions) {
-    if (generatedSessionLifecycle(session) === "superseded" || generatedSessionLifecycle(session) === "canceled") {
-      continue;
-    }
-    const identity = generatedSessionSlotIdentity(session);
-    grouped.set(identity, [...(grouped.get(identity) ?? []), session]);
-  }
-  return [...grouped.values()]
-    .map((items) => [...items].sort(compareGeneratedSessionAuthority)[0])
-    .filter((session): session is GeneratedTrainingSession => Boolean(session))
-    .sort((left, right) => left.date.localeCompare(right.date));
-}
-
-function activeScheduledGeneratedSessions(sessions: readonly GeneratedTrainingSession[]): readonly GeneratedTrainingSession[] {
-  return sessions.filter((session) => {
-    const lifecycle = generatedSessionLifecycle(session);
-    return lifecycle === "active" || lifecycle === "moved";
-  });
-}
-
-function generatedSessionUsesCurrentPrescriptionContract(session: GeneratedTrainingSession): boolean {
-  return (
-    session.prescriptionContractVersion === ATHLETE_PRESCRIPTION_CONTRACT_VERSION &&
-    session.planIntentVersion === PLAN_INTENT_VERSION &&
-    session.generatedSessionSchemaVersion === GENERATED_SESSION_SCHEMA_VERSION &&
-    typeof session.planFingerprint === "string" &&
-    session.planFingerprint.length > 0
-  );
-}
-
-function requiresCurrentPrescriptionContract(lifecycle: GeneratedSessionLifecycle): boolean {
-  return lifecycle === "active" || lifecycle === "moved";
-}
-
-function scopedPersistedGeneratedSessions(input: {
-  activeTrainingBlock?: TrainingBlock | null | undefined;
-  activeTrainingBlockId?: string | null | undefined;
-  asOfDate: ISODateString;
-  persistedSessions: readonly GeneratedTrainingSession[];
-  planGenerationIntent?: PlanGenerationIntent | undefined;
-  planRevisionId: string;
-  weekEndDate: ISODateString;
-  weekStartDate: ISODateString;
-}): {
-  considered: readonly PersistedGeneratedSessionAuditItem[];
-  ignored: readonly PersistedGeneratedSessionAuditItem[];
-  sessions: readonly GeneratedTrainingSession[];
-} {
-  const blockScopeIds = activeTrainingBlockScopeIds(input);
-  const sessions: GeneratedTrainingSession[] = [];
-  const considered: PersistedGeneratedSessionAuditItem[] = [];
-  const ignored: PersistedGeneratedSessionAuditItem[] = [];
-
-  for (const session of input.persistedSessions) {
-    const lifecycle = generatedSessionLifecycle(session);
-    if (lifecycle === "superseded" || lifecycle === "canceled") {
-      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because generated-session lifecycle is ${lifecycle}.`));
-      continue;
-    }
-    const originalDate = session.originalPlannedDate ?? session.date;
-    const currentDateInsideWeek = session.date >= input.weekStartDate && session.date <= input.weekEndDate;
-    const originalDateInsideWeek = originalDate >= input.weekStartDate && originalDate <= input.weekEndDate;
-    if (!currentDateInsideWeek && !originalDateInsideWeek) {
-      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because the persisted generated session is outside the active week ${input.weekStartDate} to ${input.weekEndDate}.`));
-      continue;
-    }
-    if (requiresCurrentPrescriptionContract(lifecycle) && !generatedSessionUsesCurrentPrescriptionContract(session)) {
-      ignored.push(
-        persistedGeneratedSessionAuditItem(
-          session,
-          `Ignored because active generated sessions must carry ${ATHLETE_PRESCRIPTION_CONTRACT_VERSION}, ${PLAN_INTENT_VERSION}, ${GENERATED_SESSION_SCHEMA_VERSION}, and a material plan fingerprint before they can override the current compiler output.`
-        )
-      );
-      continue;
-    }
-    if (blockScopeIds.size > 0 && (!session.trainingBlockId || !blockScopeIds.has(session.trainingBlockId))) {
-      if (session.planRevisionId !== input.planRevisionId) {
-        ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because training block ${session.trainingBlockId ?? "unknown"} is outside the active training block scope.`));
-        continue;
-      }
-      considered.push(persistedGeneratedSessionAuditItem(session, "Considered because it is a legacy unscoped generated session with the active plan revision."));
-      sessions.push(session);
-      continue;
-    }
-    if (blockScopeIds.size === 0 && input.planGenerationIntent && session.planRevisionId !== input.planRevisionId) {
-      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because plan revision ${session.planRevisionId ?? "unknown"} does not match active plan revision ${input.planRevisionId}.`));
-      continue;
-    }
-    if (blockScopeIds.size === 0 && !input.planGenerationIntent && session.planRevisionId && session.planRevisionId !== input.planRevisionId) {
-      ignored.push(persistedGeneratedSessionAuditItem(session, `Ignored because plan revision ${session.planRevisionId} does not match active plan revision ${input.planRevisionId}.`));
-      continue;
-    }
-    sessions.push(session);
-    considered.push(persistedGeneratedSessionAuditItem(session, "Considered because it is inside the active week and matches the active generated-session block scope."));
-  }
-
-  return { considered, ignored, sessions: reconcileGeneratedSessionSlotAuthorities(sessions) };
-}
-
-function mergeGeneratedSessions(engineSessions: readonly GeneratedTrainingSession[], persistedSessions: readonly GeneratedTrainingSession[]): readonly GeneratedTrainingSession[] {
-  const merged = new Map<string, GeneratedTrainingSession>();
-  for (const session of engineSessions) {
-    merged.set(generatedSessionSlotIdentity(session), session);
-  }
-  for (const session of persistedSessions) {
-    merged.set(generatedSessionSlotIdentity(session), session);
-  }
-  return [...merged.values()].sort((left, right) => left.date.localeCompare(right.date));
-}
-
-function stimulusBucketForFamily(family: GeneratedSessionFamily): string {
-  return trainingStimulusForFamily(family);
-}
-
-function generatedHighStimulusDateCount(sessions: readonly GeneratedTrainingSession[]): number {
-  return new Set(sessions.filter(isHighStimulusGeneratedSession).map((session) => session.date)).size;
-}
-
-function isPersistedMaterializedSession(session: GeneratedTrainingSession): boolean {
-  return session.id.startsWith("next-week:") || session.source === "next_week_preview_materialization";
 }
 
 function generatedFamilyCount(sessions: readonly GeneratedTrainingSession[], families: ReadonlySet<GeneratedSessionFamily>): number {
@@ -893,274 +1277,6 @@ function selfCheckCues(sessions: readonly GeneratedTrainingSession[]): readonly 
     .map((session) => `${session.date}: what stayed clean, what broke first, and what should stay simple next time?`);
 }
 
-function lowerStimulusSession(session: GeneratedTrainingSession): GeneratedTrainingSession {
-  const stimulus = trainingStimulusForFamily(session.family);
-  const maxUsefulDuration = stimulus === "strength" ? 59 : stimulus === "power" ? 49 : stimulus === "conditioning" ? 44 : session.durationMinutes;
-  const nextDuration = Math.min(session.durationMinutes, maxUsefulDuration);
-  return {
-    ...session,
-    durationMinutes: nextDuration,
-    finalDurationMinutes: Math.min(session.finalDurationMinutes ?? session.durationMinutes, nextDuration),
-    targetDurationMinutes: Math.min(session.targetDurationMinutes ?? session.durationMinutes, nextDuration),
-    intensity: session.intensity === "hard" ? "moderate" : session.intensity,
-    fuelDemand: session.fuelDemand === "high" ? "moderate" : session.fuelDemand,
-    modifications: [...session.modifications, "Prescription repair: kept this useful but below hard/high-stimulus stress because protected or generated hard work already met the target."]
-  };
-}
-
-function selectionScore(input: {
-  preferredBuckets: ReadonlySet<string>;
-  requiredBuckets: ReadonlySet<string>;
-  selected: readonly GeneratedTrainingSession[];
-  session: GeneratedTrainingSession;
-  targetGeneratedHighStimulusDays: number;
-}): number {
-  const selectedHighStimulusDays = generatedHighStimulusDateCount(input.selected);
-  const bucket = stimulusBucketForFamily(input.session.family);
-  const selectedBuckets = new Set(input.selected.map((session) => stimulusBucketForFamily(session.family)));
-  const surplusHighStimulus = isHighStimulusGeneratedSession(input.session) && selectedHighStimulusDays >= input.targetGeneratedHighStimulusDays;
-  return (
-    (isPersistedMaterializedSession(input.session) ? 1000 : 0) +
-    (isHighStimulusGeneratedSession(input.session) && selectedHighStimulusDays < input.targetGeneratedHighStimulusDays ? 120 : 0) +
-    (surplusHighStimulus ? -120 : 0) +
-    (input.requiredBuckets.has(bucket) && !selectedBuckets.has(bucket) ? 80 : 0) +
-    (input.preferredBuckets.has(bucket) && !selectedBuckets.has(bucket) ? 45 : 0) +
-    (input.session.durationMinutes >= 60 ? 30 : 0) +
-    (input.session.fuelDemand === "high" ? 8 : 0)
-  );
-}
-
-function selectGeneratedSessions(input: {
-  candidates: readonly GeneratedTrainingSession[];
-  policy: WeeklyTrainingPrescriptionPolicy;
-  targetSessions: number;
-  trainingDose: PlanGenerationTrainingDose;
-}): { sessions: readonly GeneratedTrainingSession[]; repairActionsApplied: readonly string[] } {
-  const targetCount = Math.min(input.targetSessions, input.candidates.length);
-  const sorted = [...input.candidates].sort((left, right) => left.date.localeCompare(right.date));
-  if (targetCount <= 0 || sorted.length === 0) {
-    return { sessions: [], repairActionsApplied: [] };
-  }
-  const selected: GeneratedTrainingSession[] = [];
-  const repairActions: string[] = [];
-  const preferredBuckets = new Set(input.policy.preferredFamilyBuckets);
-  const requiredBuckets = new Set(input.policy.requiredFamilyBuckets);
-  const add = (session: GeneratedTrainingSession) => {
-    if (selected.length < targetCount && !selected.some((item) => item.id === session.id)) {
-      selected.push(session);
-    }
-  };
-
-  for (const session of sorted.filter(isPersistedMaterializedSession)) {
-    add(session);
-  }
-  for (const session of sorted.filter(isHighStimulusGeneratedSession)) {
-    if (generatedHighStimulusDateCount(selected) >= input.policy.targetGeneratedHardDayCount) {
-      break;
-    }
-    add(session);
-  }
-  for (const bucket of requiredBuckets) {
-    if (selected.some((session) => stimulusBucketForFamily(session.family) === bucket)) {
-      continue;
-    }
-    const candidate = sorted.find((session) => stimulusBucketForFamily(session.family) === bucket && !selected.some((item) => item.id === session.id));
-    if (candidate) {
-      add(candidate);
-    }
-  }
-  if ((input.trainingDose === "serious" || input.trainingDose === "high") && !selected.some((session) => session.durationMinutes >= 60)) {
-    const longest = [...sorted].sort((left, right) => right.durationMinutes - left.durationMinutes)[0];
-    if (longest) {
-      add(longest);
-    }
-  }
-  while (selected.length < targetCount) {
-    const next = sorted
-      .filter((session) => !selected.some((item) => item.id === session.id))
-      .sort((left, right) => selectionScore({ preferredBuckets, requiredBuckets, selected, session: right, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }) - selectionScore({ preferredBuckets, requiredBuckets, selected, session: left, targetGeneratedHighStimulusDays: input.policy.targetGeneratedHardDayCount }))[0];
-    if (!next) {
-      break;
-    }
-    add(next);
-  }
-
-  let repaired = [...selected];
-  while (generatedHighStimulusDateCount(repaired) < input.policy.targetGeneratedHardDayCount) {
-    const replacement = sorted.find((session) => isHighStimulusGeneratedSession(session) && !repaired.some((item) => item.id === session.id));
-    const replaceIndex = repaired.findIndex((session) => !isHighStimulusGeneratedSession(session));
-    if (!replacement || replaceIndex < 0) {
-      break;
-    }
-    repairActions.push(`Swapped ${repaired[replaceIndex]!.family} for ${replacement.family} to meet the hard/high-stimulus target.`);
-    repaired = repaired.map((session, index) => (index === replaceIndex ? replacement : session));
-  }
-
-  const repairStimulusExposure = (stimulus: "strength" | "conditioning" | "power", target: number) => {
-    while (target > 0 && usefulStimulusExposureCount(repaired, stimulus) < target) {
-      const replacement = sorted.find(
-        (session) =>
-          trainingStimulusForFamily(session.family) === stimulus &&
-          usefulStimulusExposureCount([session], stimulus) > 0 &&
-          !repaired.some((item) => item.id === session.id)
-      );
-      if (!replacement) {
-        break;
-      }
-      const replaceIndex = repaired.findIndex((session) => {
-        if (isPersistedMaterializedSession(session)) {
-          return false;
-        }
-        const currentStimulus = trainingStimulusForFamily(session.family);
-        if (currentStimulus === stimulus) {
-          return false;
-        }
-        if (currentStimulus === "strength") {
-          return usefulStimulusExposureCount(repaired, "strength") > input.policy.targetStrengthExposures;
-        }
-        if (currentStimulus === "conditioning") {
-          return usefulStimulusExposureCount(repaired, "conditioning") > input.policy.targetConditioningExposures;
-        }
-        if (currentStimulus === "power") {
-          return usefulStimulusExposureCount(repaired, "power") > input.policy.targetPowerExposures;
-        }
-        return true;
-      });
-      if (replaceIndex < 0) {
-        break;
-      }
-      repairActions.push(`Swapped ${repaired[replaceIndex]!.family} for ${replacement.family} to meet the ${stimulus} exposure target.`);
-      repaired = repaired.map((session, index) => (index === replaceIndex ? replacement : session));
-    }
-  };
-
-  repairStimulusExposure("strength", input.policy.targetStrengthExposures);
-  repairStimulusExposure("conditioning", input.policy.targetConditioningExposures);
-  repairStimulusExposure("power", input.policy.targetPowerExposures);
-
-  const targetMinutes = input.policy.targetWeeklyGeneratedMinutes;
-  let currentMinutes = repaired.reduce((total, session) => total + session.durationMinutes, 0);
-  if (targetCount >= input.policy.targetSessionCount && currentMinutes < targetMinutes) {
-    repaired = repaired.map((session) => {
-      if (currentMinutes >= targetMinutes || session.durationPolicyCategory !== "normal_support") {
-        return session;
-      }
-      const maxDuration = session.maxDurationMinutes ?? session.durationMinutes;
-      const extra = Math.min(maxDuration - session.durationMinutes, targetMinutes - currentMinutes);
-      if (extra <= 0) {
-        return session;
-      }
-      currentMinutes += extra;
-      repairActions.push(`Lengthened ${session.family} on ${session.date} by ${extra} minute${extra === 1 ? "" : "s"} to meet the generated-minute target.`);
-      return {
-        ...session,
-        durationMinutes: session.durationMinutes + extra,
-        finalDurationMinutes: (session.finalDurationMinutes ?? session.durationMinutes) + extra,
-        targetDurationMinutes: (session.targetDurationMinutes ?? session.durationMinutes) + extra,
-        modifications: [...session.modifications, `Prescription repair: duration extended by ${extra} minute${extra === 1 ? "" : "s"} to meet the weekly generated-minute target.`]
-      };
-    });
-  }
-
-  while (generatedHighStimulusDateCount(repaired) > input.policy.targetGeneratedHardDayCount) {
-    const replaceIndex = [...repaired]
-      .map((session, index) => ({ index, session }))
-      .reverse()
-      .find((item) => isHighStimulusGeneratedSession(item.session) && !isPersistedMaterializedSession(item.session))?.index;
-    if (replaceIndex === undefined) {
-      break;
-    }
-    repairActions.push(`Downshifted surplus high-stimulus ${repaired[replaceIndex]!.family} on ${repaired[replaceIndex]!.date} because the hard-day target was already met.`);
-    repaired = repaired.map((session, index) => (index === replaceIndex ? lowerStimulusSession(session) : session));
-  }
-
-  return {
-    sessions: repaired.sort((left, right) => left.date.localeCompare(right.date)),
-    repairActionsApplied: [...new Set(repairActions)]
-  };
-}
-
-function generatedSessionAllowedByCurrentSafety(input: {
-  anchors: readonly ProtectedWorkout[];
-  asOfDate: ISODateString;
-  athleteScheduleAvailability: readonly string[];
-  selectedSupportDays: readonly GeneratedSupportWeekday[];
-  highCycleSymptoms: boolean;
-  readiness: ReadinessState;
-  redReadinessHardStop: boolean;
-  safetyBlocks?: boolean | undefined;
-  session: GeneratedTrainingSession;
-  explicitMove?: boolean | undefined;
-}): boolean {
-  if (input.session.date < input.asOfDate) {
-    return false;
-  }
-  if (hasProtectedCompetition(input.anchors, input.session.date)) {
-    return false;
-  }
-  if (!input.explicitMove && !supportAllowedOnDate(input.selectedSupportDays, input.athleteScheduleAvailability, input.session.date)) {
-    return false;
-  }
-  if (input.redReadinessHardStop) {
-    return input.session.intensity === "recovery";
-  }
-  if (input.safetyBlocks && input.session.intensity === "hard") {
-    return false;
-  }
-  if (input.highCycleSymptoms && input.session.intensity === "hard") {
-    return false;
-  }
-  if (hasProtectedSparring(input.anchors, input.session.date) && input.session.intensity === "hard") {
-    return false;
-  }
-  return true;
-}
-
-function generationReductionSources(input: {
-  baseTargetSessions: number;
-  targetSessions: number;
-  hardStopOrRedReadiness: boolean;
-  highCycleSymptoms: boolean;
-  readiness: ReadinessState;
-  generatedSessionCount: number;
-  candidateAllowedDays: number;
-  blockedByAnchors: boolean;
-  phase: PhaseState;
-  actualLoadReducedHardDays?: boolean | undefined;
-}): readonly TrainingGenerationReductionSource[] {
-  const sources = new Set<TrainingGenerationReductionSource>();
-  if (input.targetSessions < input.baseTargetSessions && input.hardStopOrRedReadiness) {
-    sources.add("readiness");
-  }
-  if (input.hardStopOrRedReadiness) {
-    sources.add("safety");
-  }
-  if (input.highCycleSymptoms) {
-    sources.add("cycle");
-  }
-  if (input.candidateAllowedDays < input.targetSessions || input.generatedSessionCount < input.targetSessions) {
-    sources.add("availability");
-  }
-  if (input.blockedByAnchors) {
-    sources.add("anchors");
-  }
-  if (input.phase.phase === "tournament" || input.phase.phase === "fight_week") {
-    sources.add("phase");
-  }
-  if (input.actualLoadReducedHardDays) {
-    sources.add("actual_load");
-  }
-  return [...sources];
-}
-
-function prescriptionTargetSnapshot(policy: WeeklyTrainingPrescriptionPolicy): TrainingExecutionBaselineTargets {
-  return {
-    targetGeneratedSupportCount: policy.targetSessionCount,
-    targetHardDayCount: policy.targetHardDayCount,
-    targetWeeklyGeneratedMinutes: policy.targetWeeklyGeneratedMinutes
-  };
-}
-
 function recentTrainingEvidence(input: {
   actualLoadLedger: { evidenceIds: readonly string[] };
   completedSessions: readonly CompletedTrainingSession[];
@@ -1178,76 +1294,7 @@ function recentTrainingEvidence(input: {
   };
 }
 
-function prescriptionAdaptationDecision(input: {
-  afterGeneratedHardDayTarget: number;
-  actualLoadReservationReasons: readonly string[];
-  beforeGeneratedHardDayTarget: number;
-  comparison: TrainingLoadComparison;
-  evidence: RecentTrainingEvidence;
-  policy: WeeklyTrainingPrescriptionPolicy;
-}): PrescriptionAdaptationDecision {
-  const actualLoadChangedPrescription = input.afterGeneratedHardDayTarget < input.beforeGeneratedHardDayTarget;
-  const painEvidence = input.evidence.painEvidenceIds.length > 0;
-  const highRpeEvidence = input.evidence.highRpeSessionIds.length > 0;
-  const missingActualMetrics = input.comparison.missingActualMetrics;
-  return {
-    decision: painEvidence ? "coach_review" : actualLoadChangedPrescription || highRpeEvidence || missingActualMetrics.length > 0 ? "hold" : "progress",
-    evidenceIds: [...new Set([...input.comparison.actual.evidenceIds, ...input.evidence.painEvidenceIds, ...input.evidence.highRpeSessionIds])].sort(),
-    beforePrescription: prescriptionTargetSnapshot(input.policy),
-    afterPrescription: prescriptionTargetSnapshot(input.policy),
-    beforeGeneratedHardDayTarget: input.beforeGeneratedHardDayTarget,
-    afterGeneratedHardDayTarget: input.afterGeneratedHardDayTarget,
-    reason: painEvidence
-      ? "Pain evidence requires coach review before adapting prescription upward."
-      : actualLoadChangedPrescription
-        ? input.actualLoadReservationReasons.join(" ")
-        : highRpeEvidence
-          ? "Recent high RPE holds future prescription steady."
-          : missingActualMetrics.length > 0
-            ? `Missing actual metrics lower confidence without fabricating load: ${missingActualMetrics.join(", ")}.`
-            : "Actual evidence supports the planned prescription without additional downshift.",
-    confidence: makeConfidence(
-      missingActualMetrics.length > 0 ? 0.56 : input.evidence.completedSessionIds.length + input.evidence.exerciseResultIds.length > 0 ? 0.78 : 0.62,
-      ["planned and actual load compared with current completion evidence"],
-      missingActualMetrics
-    ),
-    safetyImplications: [
-      ...(painEvidence ? ["Pain evidence blocks automatic progression."] : []),
-      ...(highRpeEvidence ? ["High RPE keeps the next prescription stable."] : []),
-      ...input.actualLoadReservationReasons,
-      ...missingActualMetrics.map((metric) => `${metric} remains unknown; no load was inferred.`)
-    ],
-    revisionRequired: actualLoadChangedPrescription || painEvidence || highRpeEvidence
-  };
-}
-
-export function resolveWeeklyTrainingPlan(input: {
-  athlete: AthleteProfile;
-  anchors: readonly ProtectedWorkout[];
-  asOfDate: ISODateString;
-  phase: PhaseState;
-  readiness: ReadinessState;
-  cycle: CycleState;
-  fight?: FightOpportunity | null | undefined;
-  tournament?: TournamentDetails | null | undefined;
-  completedSessions?: readonly CompletedTrainingSession[];
-  recentExerciseResults?: readonly ExerciseResultRecord[];
-  highCycleSymptoms: boolean;
-  safetyFlags?: readonly RiskFlag[] | undefined;
-  safetyBlocks?: boolean;
-  foodLogSummary: DailyFoodLogSummary;
-  foodLogCount?: number | undefined;
-  hydrationLogCount?: number | undefined;
-  electrolyteLogCount?: number | undefined;
-  engineVersion?: string | undefined;
-  trainingPlanAdjustments?: readonly PersistedTrainingPlanAdjustment[] | undefined;
-  activeTrainingBlock?: TrainingBlock | null | undefined;
-  activeTrainingBlockId?: string | null | undefined;
-  blockHistory?: TrainingBlockHistory | undefined;
-  planGenerationIntent?: PlanGenerationIntent | undefined;
-  requiresPlanGeneration?: boolean | undefined;
-  persistedGeneratedSessions?: readonly GeneratedTrainingSession[] | undefined;
-}): TrainingState {
+export function resolveWeeklyTrainingPlan(input: ResolveWeeklyTrainingPlanInput): TrainingState {
   const generationConstraints = classifyTrainingGenerationConstraints({
     readiness: input.readiness,
     safetyFlags: input.safetyFlags ?? [],
@@ -1269,7 +1316,6 @@ export function resolveWeeklyTrainingPlan(input: {
   }
   const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags ?? []);
   const hardStopOrRedReadiness = redReadinessHardStop || hardStopSafetyActive(input.safetyFlags);
-  const hardStopFlags = activeHardStopFlags(input.safetyFlags).filter(workoutGenerationStopFlag);
   const planStartDate = activeWeekStartDate({
     activeTrainingBlock: input.activeTrainingBlock,
     asOfDate: input.asOfDate,
@@ -1305,13 +1351,6 @@ export function resolveWeeklyTrainingPlan(input: {
       !hasProtectedCompetition(input.anchors, date) &&
       !(index > 0 && hasProtectedSparring(input.anchors, date))
   ).length;
-  const allowedSupportDates = candidateDates.filter(
-    (date, index) =>
-      date >= input.asOfDate &&
-      supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) &&
-      !hasProtectedCompetition(input.anchors, date) &&
-      !(index > 0 && hasProtectedSparring(input.anchors, date))
-  );
   const protectedHardDays = protectedHardDayCount(input.anchors, candidateDates, input.asOfDate);
   const actualCurrentWeekHardDates = currentWeekActualHardDates({
     asOfDate: input.asOfDate,
@@ -1319,807 +1358,23 @@ export function resolveWeeklyTrainingPlan(input: {
     weekStartDate: planStartDate,
     weekEndDate: planWeekEndDate
   });
-  const actualHardDatesReservedForGenerationTarget = new Set(
-    [...actualCurrentWeekHardDates].filter((date) => !(date >= input.asOfDate && protectedHardOnDate(input.anchors, date)))
-  );
   const selectedTrainingDose = input.planGenerationIntent?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedDays.length || candidateAllowedDays);
-  const prescriptionPolicy = resolveWeeklyTrainingPrescriptionPolicy({
-    athlete: input.athlete,
-    candidateAllowedDays,
-    phase: input.phase,
-    primaryFocus,
-    protectedHardDayCount: protectedHardDays,
-    selectedSupportDayCount: selectedDays.length || candidateAllowedDays,
-    trainingDose: selectedTrainingDose,
-    generationConstraints
-  });
-  const adaptedGeneratedHardDayTarget = Math.max(0, prescriptionPolicy.targetGeneratedHardDayCount - actualHardDatesReservedForGenerationTarget.size);
-  const actualLoadAdaptedPrescriptionPolicy: WeeklyTrainingPrescriptionPolicy = {
-    ...prescriptionPolicy,
-    targetGeneratedHardDayCount: adaptedGeneratedHardDayTarget,
-    intensityDistribution: {
-      ...prescriptionPolicy.intensityDistribution,
-      hard: adaptedGeneratedHardDayTarget,
-      moderate: Math.max(0, prescriptionPolicy.targetSessionCount - adaptedGeneratedHardDayTarget - prescriptionPolicy.intensityDistribution.easyRecovery)
-    }
-  };
-  const baseTargetSessions = prescriptionPolicy.unconstrainedTargetSessionCount;
-  const targetSessions = prescriptionPolicy.targetSessionCount;
-  if (targetSessions === 1 && !hardStopOrRedReadiness && generationConstraints.hardSafetyConstraints.length === 0) {
-    throw new Error("Unexpected one-session generated support cap without readiness or hard-stop safety reason.");
-  }
-  const scopedPersistedSessions = scopedPersistedGeneratedSessions({
-    activeTrainingBlock: input.activeTrainingBlock,
-    activeTrainingBlockId: input.activeTrainingBlockId,
-    asOfDate: input.asOfDate,
-    persistedSessions: input.persistedGeneratedSessions ?? [],
-    planGenerationIntent: input.planGenerationIntent,
-    planRevisionId: planRevision,
-    weekStartDate: planStartDate,
-    weekEndDate: planWeekEndDate
-  });
-  const pastScopedPersistedSessions = scopedPersistedSessions.sessions.filter((session) => session.date < input.asOfDate);
-  const futureScopedPersistedSessions = activeScheduledGeneratedSessions(
-    scopedPersistedSessions.sessions.filter((session) => session.date >= input.asOfDate && session.date <= planWeekEndDate)
-  );
-  const movedSessionIds = appliedMovedGeneratedSessionIds(input.trainingPlanAdjustments ?? []);
-  const pastGeneratedSupportCount = pastScopedPersistedSessions.length;
-  const pastStatusResolutions = pastScopedPersistedSessions.map((session) =>
-    resolveGeneratedSessionStatus({
-      asOfDate: input.asOfDate,
-      completedSessions: input.completedSessions ?? [],
-      session,
-      trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
-    }).status
-  );
-  const completedPastGeneratedSupportCount = pastStatusResolutions.filter((status) => status === "completed").length;
-  const skippedPastGeneratedSupportCount = pastStatusResolutions.filter((status) => status === "skipped").length;
-  const unresolvedPastGeneratedSupportCount = pastScopedPersistedSessions.filter(
-    (session) =>
-      resolveGeneratedSessionStatus({
-        asOfDate: input.asOfDate,
-        completedSessions: input.completedSessions ?? [],
-        session,
-        trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
-      }).status === "unresolved_past"
-  ).length;
-  const resolvedPastGeneratedSupportCount = pastScopedPersistedSessions.filter((session) => {
-    const status = resolveGeneratedSessionStatus({
-      asOfDate: input.asOfDate,
-      completedSessions: input.completedSessions ?? [],
-      session,
-      trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
-    }).status;
-    return status === "completed" || status === "skipped" || status === "moved";
-  }).length;
-  const movedOutOfWeekGeneratedSupportCount = scopedPersistedSessions.sessions.filter((session) => {
-    const lifecycle = generatedSessionLifecycle(session);
-    return lifecycle === "moved" && session.date >= input.asOfDate && (session.date < planStartDate || session.date > planWeekEndDate);
-  }).length;
-  const pastGeneratedSupportSlotsConsumed = resolvedPastGeneratedSupportCount + movedOutOfWeekGeneratedSupportCount;
-  const remainingGeneratedSupportTarget = Math.max(0, targetSessions - pastGeneratedSupportSlotsConsumed);
-  const remainingUnfilledPrescriptionSlots = Math.max(0, targetSessions - pastGeneratedSupportSlotsConsumed - futureScopedPersistedSessions.length);
-  const looseEndSessionIds = pastScopedPersistedSessions
-    .filter(
-      (session) =>
-        resolveGeneratedSessionStatus({
-          asOfDate: input.asOfDate,
-          completedSessions: input.completedSessions ?? [],
-          session,
-          trainingPlanAdjustments: input.trainingPlanAdjustments ?? []
-        }).status === "unresolved_past"
-    )
-    .map((session) => session.id);
-  const initialFutureSelectionTarget = Math.max(remainingGeneratedSupportTarget, futureScopedPersistedSessions.length);
-  const generatedHardDates = selectGeneratedHardDates({
-    candidateDates: allowedSupportDates,
-    count: adaptedGeneratedHardDayTarget,
-    familySequence: prescriptionPolicy.familySequence,
-    occupiedHardDates: actualCurrentWeekHardDates,
-    protectedAnchors: input.anchors
-  });
-  const fullWeekSupportDates = candidateDates.filter(
-    (date, index) =>
-      supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date) &&
-      !hasProtectedCompetition(input.anchors, date) &&
-      !(index > 0 && hasProtectedSparring(input.anchors, date))
-  );
-  const supportDateOrder = new Map(
-    fullWeekSupportDates.map((date, index) => [date, index] as const)
-  );
-
-  const recentFamilies = input.persistedGeneratedSessions?.map((session) => session.family) ?? [];
-  const generatedCandidates = candidateDates.map((date, index) => {
-    const hasSparring = hasProtectedSparring(input.anchors, date);
-    const hasCompetition = hasProtectedCompetition(input.anchors, date);
-    const hasProtectedBoxingSkill = protectedBoxingSkillOnDate(input.anchors, date);
-    if (date < input.asOfDate) {
-      return null;
-    }
-    if (!supportAllowedOnDate(selectedDays, input.athlete.scheduleAvailability, date)) {
-      return null;
-    }
-    if (hasCompetition) {
-      return null;
-    }
-    if (index > 0 && hasSparring) {
-      return null;
-    }
-    if (input.phase.phase === "tournament") {
-      return index === 0 || index % 3 === 0
-        ? generateSupportSession({
-            date,
-            phase: input.phase,
-            readiness: input.readiness,
-            hasSparring: false,
-            hasProtectedBoxingSkill,
-            highCycleSymptoms: input.highCycleSymptoms,
-            index: 1,
-            boxingLevel: input.athlete.boxingLevel,
-            equipmentAccess: input.athlete.equipmentAccess,
-            planRevisionId: planRevision,
-            planStartDate,
-            primaryFocus,
-            trainingDose: selectedTrainingDose,
-            recentFamilies,
-            seed: input.planGenerationIntent?.seed ?? planRevision,
-            supportDayIndex: supportDateOrder.get(date) ?? index,
-            weekIndex: planWeekIndex,
-            ...(input.engineVersion ? { engineVersion: input.engineVersion } : {}),
-            hardStopActive: hardStopSafetyActive(input.safetyFlags) || (date === input.asOfDate && redReadinessHardStop),
-            familySequence: prescriptionPolicy.familySequence,
-            generationConstraints,
-            avoidHighStimulus: blockedByActualHardDate(date, actualCurrentWeekHardDates),
-            prescriptionHard: generatedHardDates.has(date)
-          })
-        : null;
-    }
-    return generateSupportSession({
-      date,
-      phase: input.phase,
-      readiness: index === 0 ? input.readiness : { ...input.readiness, color: input.readiness.color === "red" ? "amber" : input.readiness.color },
-      hasSparring,
-      hasProtectedBoxingSkill,
-      highCycleSymptoms: input.highCycleSymptoms,
-      index,
-      boxingLevel: input.athlete.boxingLevel,
-      equipmentAccess: input.athlete.equipmentAccess,
-      planRevisionId: planRevision,
-      planStartDate,
-      primaryFocus,
-      trainingDose: selectedTrainingDose,
-      recentFamilies,
-      seed: input.planGenerationIntent?.seed ?? planRevision,
-      supportDayIndex: supportDateOrder.get(date) ?? index,
-      weekIndex: planWeekIndex,
-      ...(input.engineVersion ? { engineVersion: input.engineVersion } : {}),
-      hardStopActive: hardStopSafetyActive(input.safetyFlags) || (date === input.asOfDate && redReadinessHardStop),
-      familySequence: prescriptionPolicy.familySequence,
-      generationConstraints,
-      avoidHighStimulus: blockedByActualHardDate(date, actualCurrentWeekHardDates),
-      prescriptionHard: generatedHardDates.has(date)
-    });
-  })
-    .filter((session) => session !== null)
-    .filter((session) => input.phase.phase === "tournament" || session.intensity !== "hard" || !input.highCycleSymptoms);
-  const generatedSelection = selectGeneratedSessions({
-    candidates: generatedCandidates,
-    policy: actualLoadAdaptedPrescriptionPolicy,
-    targetSessions: initialFutureSelectionTarget,
-    trainingDose: selectedTrainingDose
-  });
-  const generated = generatedSelection.sessions;
-  const preAdjustmentGeneratedSessions = mergeGeneratedSessions(generated, activeScheduledGeneratedSessions(scopedPersistedSessions.sessions.filter((session) => session.date <= planWeekEndDate)));
-
-  const todayAnchors = anchorsForDate(input.anchors, input.asOfDate);
-  const block = resolveTrainingBlock({
-    athlete: input.athlete,
-    currentPhase: input.phase,
-    fight: input.fight ?? null,
-    tournament: input.tournament ?? null,
-    protectedWorkouts: input.anchors,
-    completedSessions: input.completedSessions ?? [],
-    exerciseResults: input.recentExerciseResults ?? [],
-    generatedSessions: preAdjustmentGeneratedSessions,
-    readiness: input.readiness,
-    cycle: input.cycle,
-    safetyFlags: input.safetyFlags ?? [],
-    asOfDate: input.asOfDate,
-    engineVersion: input.engineVersion ?? "unversioned",
-    activeTrainingBlock: input.activeTrainingBlock ?? null,
-    blockHistory: input.blockHistory,
-    planRevisionId: planRevision,
-    planStartDate,
-    primaryFocus,
-    weekStartDate: planStartDate
-  });
-  const adjustmentApplication = applyTrainingPlanAdjustments({
-    activeBlock: block.activeBlock,
-    dayPlans: block.dayPlans,
-    adjustments: input.trainingPlanAdjustments ?? []
-  });
-  const adjustedGeneratedSessions =
-    adjustmentApplication.activeAdjustments.length > 0
-      ? adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions)
-      : preAdjustmentGeneratedSessions;
-  const adjustedPastGeneratedSessions = adjustedGeneratedSessions
-    .filter((session) => session.date < input.asOfDate)
-    .filter((session) => !movedSessionIds.has(session.id));
-  const adjustedFutureGeneratedSessions = adjustedGeneratedSessions.filter((session) => session.date >= input.asOfDate);
-  const futurePersistedSessionsForMerge = futureScopedPersistedSessions.filter((session) => !movedSessionIds.has(session.id));
-  const mergedFutureGeneratedCandidates = mergeGeneratedSessions(adjustedFutureGeneratedSessions, futurePersistedSessionsForMerge)
-    .filter((session) =>
-      generatedSessionAllowedByCurrentSafety({
-        anchors: input.anchors,
-        asOfDate: input.asOfDate,
-        athleteScheduleAvailability: input.athlete.scheduleAvailability,
-        selectedSupportDays: selectedDays,
-        highCycleSymptoms: input.highCycleSymptoms,
-        readiness: input.readiness,
-        redReadinessHardStop,
-        safetyBlocks: input.safetyBlocks,
-        session,
-        explicitMove: movedSessionIds.has(session.id)
-      })
-    );
-  const movedIntoCurrentOrFutureCount = new Set(mergedFutureGeneratedCandidates.filter((session) => movedSessionIds.has(session.id)).map((session) => session.id)).size;
-  const finalFutureSelectionTarget = Math.max(remainingGeneratedSupportTarget + movedIntoCurrentOrFutureCount, futurePersistedSessionsForMerge.length + movedIntoCurrentOrFutureCount);
-  const mergedSelection = selectGeneratedSessions({
-    candidates: mergedFutureGeneratedCandidates,
-    policy: actualLoadAdaptedPrescriptionPolicy,
-    targetSessions: finalFutureSelectionTarget,
-    trainingDose: selectedTrainingDose
-  });
-  const engineVersion = input.engineVersion ?? "unversioned";
-  const mergedGeneratedSessionsBeforeContract = mergeGeneratedSessions(adjustedPastGeneratedSessions, mergedSelection.sessions).map((session) => applyTrainingExecutionGuidance(session, executionReadiness));
-  const prescriptionContract = buildAthletePrescriptionContractV1({
-    asOfDate: input.asOfDate,
-    athlete: input.athlete,
-    engineVersion,
+  return resolveWeeklyTrainingPlanWithCompiler({
+    ...input,
     generationConstraints,
-    goalMode: goalModeForPrescriptionContract({ phase: input.phase, planGenerationIntent: input.planGenerationIntent }),
-    phase: input.phase,
-    planStartDate,
-    primaryFocus,
-    selectedSupportDays: selectedDays,
-    trainingDose: selectedTrainingDose,
-    weekIndex: planWeekIndex,
-    policy: actualLoadAdaptedPrescriptionPolicy,
-    protectedAnchors: input.anchors.filter((anchor) => anchor.date >= planStartDate && anchor.date <= planWeekEndDate)
-  });
-  const planFingerprint = materialPlanFingerprint({
-    contract: prescriptionContract,
-    sessions: mergedGeneratedSessionsBeforeContract
-  });
-  const mergedGeneratedSessions = mergedGeneratedSessionsBeforeContract.map((session) => ({
-    ...session,
-    engineVersion,
-    prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-    planIntentVersion: PLAN_INTENT_VERSION,
-    generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
-    planFingerprint: planFingerprint.hash
-  }));
-  const prescriptionValidation = validateAthletePrescriptionOutput({
-    contract: prescriptionContract,
-    sessions: mergedGeneratedSessions
-  });
-  const actualLoadReservationReasons =
-    actualHardDatesReservedForGenerationTarget.size > 0
-      ? [
-          `Actual completed hard work on ${[...actualHardDatesReservedForGenerationTarget].sort().join(", ")} reserved hard-day capacity before future generated prescription.`
-        ]
-      : [];
-  const repairActionsApplied = [...new Set([...actualLoadReservationReasons, ...generatedSelection.repairActionsApplied, ...mergedSelection.repairActionsApplied])];
-  const adjustedDayPlans: readonly TrainingDayPlan[] = adjustmentApplication.dayPlans.map((dayPlan) => {
-    const generatedSessions = mergedGeneratedSessions.filter((session) => session.date === dayPlan.date);
-    const hardDay = isHighStimulusTrainingDay({ protectedAnchors: dayPlan.protectedAnchors, generatedSessions });
-    const role: TrainingDayPlan["role"] = hardDay ? "hard_day" : dayPlan.role === "hard_day" ? "support_day" : dayPlan.role;
-    return {
-      ...dayPlan,
-      generatedSessions,
-      hardDay,
-      role,
-      fuelDemand: hardDay || generatedSessions.some((session) => session.fuelDemand === "high") ? "high" : generatedSessions.some((session) => session.fuelDemand === "moderate") ? "moderate" : dayPlan.fuelDemand
-    };
-  });
-  const todaySessions = mergedGeneratedSessions.filter((session) => session.date === input.asOfDate);
-  const todayPlanForOperatingMode = adjustedDayPlans.find((dayPlan) => dayPlan.date === input.asOfDate) ?? null;
-  const dailyOperatingMode = resolveDailyOperatingMode({
-    integration: executionReadiness,
-    safetyFlags: input.safetyFlags ?? [],
-    todayPlan: todayPlanForOperatingMode,
-    todaySessions,
-    phase: input.phase
-  });
-  const plannedLoadLedger = buildPlannedLoadLedger(input.anchors, mergedGeneratedSessions);
-  const actualLoadLedger = buildActualLoadLedger(input.completedSessions ?? [], input.asOfDate, input.recentExerciseResults ?? []);
-  const loadComparison: TrainingLoadComparison = {
-    planned: plannedLoadLedger,
-    actual: actualLoadLedger,
-    missingActualMetrics: actualLoadLedger.unknownMetrics
-  };
-  const recentEvidence = recentTrainingEvidence({
-    actualLoadLedger,
-    completedSessions: input.completedSessions ?? [],
-    exerciseResults: input.recentExerciseResults ?? []
-  });
-  const adaptationDecision = prescriptionAdaptationDecision({
-    afterGeneratedHardDayTarget: adaptedGeneratedHardDayTarget,
-    actualLoadReservationReasons,
-    beforeGeneratedHardDayTarget: prescriptionPolicy.targetGeneratedHardDayCount,
-    comparison: loadComparison,
-    evidence: recentEvidence,
-    policy: prescriptionPolicy
-  });
-  const adjustmentBlockedReasons = adjustmentApplication.decisions
-    .filter((decision) => decision.status === "applied" && decision.modifiedDayPlans.some((day) => day.generatedSessions.length === 0))
-    .map((decision) => decision.explanation);
-  const reducedBy = generationReductionSources({
-    baseTargetSessions,
-    targetSessions,
-    hardStopOrRedReadiness,
-    highCycleSymptoms: input.highCycleSymptoms,
-    readiness: input.readiness,
-    generatedSessionCount: mergedGeneratedSessions.length,
-    candidateAllowedDays,
-    blockedByAnchors,
-    phase: input.phase,
-    actualLoadReducedHardDays: adaptedGeneratedHardDayTarget < prescriptionPolicy.targetGeneratedHardDayCount
-  });
-  const missingLogsDidNotReduceTraining =
-    generationConstraints.advisoryUncertainty.length > 0 &&
-    generationConstraints.hardSafetyConstraints.length === 0 &&
-    targetSessions === baseTargetSessions &&
-    !reducedBy.includes("readiness") &&
-    !reducedBy.includes("nutrition");
-  const durationDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.durationReductionReasons ?? []);
-  const protectedHardDayDates = new Set(candidateDates.filter((date) => date >= input.asOfDate && protectedHardOnDate(input.anchors, date)));
-  const generatedHardDayDates = new Set(mergedGeneratedSessions.filter(isHighStimulusGeneratedSession).map((session) => session.date));
-  const actualHardDayDates = new Set([...actualCurrentWeekHardDates, ...protectedHardDayDates, ...generatedHardDayDates]);
-  const actualWeeklyGeneratedMinutes = mergedGeneratedSessions.reduce((total, session) => total + session.durationMinutes, 0);
-  const actualStimulusMix = trainingStimulusMix(mergedGeneratedSessions.map((session) => session.family));
-  const longestSessionMinutes = mergedGeneratedSessions.reduce((longest, session) => Math.max(longest, session.durationMinutes), 0);
-  const sessionsOver60Minutes = mergedGeneratedSessions.filter((session) => session.durationMinutes >= 60).length;
-  const actualStrengthExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "strength");
-  const actualConditioningExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "conditioning");
-  const actualPowerExposures = usefulStimulusExposureCount(mergedGeneratedSessions, "power");
-  const protectedAnchorsCountedAsSkill = protectedBoxingSkillCount(input.anchors, candidateDates, input.asOfDate);
-  const generatedBoxingSkillExposures = generatedFamilyCount(mergedGeneratedSessions, BOXING_SKILL_GENERATED_FAMILIES);
-  const generatedTechnicalExposures = generatedFamilyCount(mergedGeneratedSessions, TECHNICAL_BOXING_GENERATED_FAMILIES);
-  const generatedAgilityFootworkExposures = generatedFamilyCount(mergedGeneratedSessions, AGILITY_FOOTWORK_GENERATED_FAMILIES);
-  const generatedMobilityRecoveryExposures = generatedFamilyCount(mergedGeneratedSessions, MOBILITY_RECOVERY_GENERATED_FAMILIES);
-  const actualBoxingSkillExposures = generatedBoxingSkillExposures + protectedAnchorsCountedAsSkill;
-  const actualTechnicalExposures = generatedTechnicalExposures + protectedAnchorsCountedAsSkill;
-  const actualAgilityFootworkExposures = generatedAgilityFootworkExposures + input.anchors.filter((anchor) => anchor.date >= input.asOfDate && candidateDates.includes(anchor.date) && anchor.type === "footwork_session").length;
-  const actualMobilityRecoveryExposures = generatedMobilityRecoveryExposures;
-  const actualAddOnBlocks = generatedAddOnCount(mergedGeneratedSessions);
-  const actualRequiredAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "required");
-  const actualRecommendedAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "recommended");
-  const actualOptionalAddOnBlocks = generatedAddOnCountByPriority(mergedGeneratedSessions, "optional");
-  const optionalAddOns = optionalAddOnLabels(mergedGeneratedSessions);
-  const actualAthleteQualityCheckpoints = generatedAthleteQualityCheckpointCount(mergedGeneratedSessions) + protectedAnchorsCountedAsSkill;
-  const athleteCueAudit = athleteQualityCues(mergedGeneratedSessions);
-  const qualityCheckpointAudit = sessionQualityCheckpoints(mergedGeneratedSessions);
-  const selfCheckCueAudit = selfCheckCues(mergedGeneratedSessions);
-  const athleteFacingWeekSummary = `This week develops ${prescriptionPolicy.boxingDevelopmentThemeTitle.toLowerCase()}, supported by ${prescriptionPolicy.targetStrengthExposures} strength, ${prescriptionPolicy.targetConditioningExposures} conditioning, ${prescriptionPolicy.targetPowerExposures} power, and ${prescriptionPolicy.targetMobilityRecoveryExposures} mobility/recovery exposure${prescriptionPolicy.targetMobilityRecoveryExposures === 1 ? "" : "s"}.`;
-  const generatedSkillSessions = mergedGeneratedSessions
-    .filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family))
-    .map((session) => `${session.date}: ${session.title}`);
-  const skillExposureMissingReasons = [
-    ...(actualBoxingSkillExposures < prescriptionPolicy.targetBoxingSkillExposures
-      ? [`Boxing skill exposure ${actualBoxingSkillExposures}/${prescriptionPolicy.targetBoxingSkillExposures} after generated sessions and protected anchors.`]
-      : []),
-    ...(actualTechnicalExposures < prescriptionPolicy.targetTechnicalExposures
-      ? [`Technical exposure ${actualTechnicalExposures}/${prescriptionPolicy.targetTechnicalExposures} after generated sessions and protected anchors.`]
-      : [])
-  ];
-  const addOnPlacementReasons = [
-    ...mergedGeneratedSessions.flatMap((session) =>
-      (session.addOnBlocks ?? []).map((block) => `${session.date}: ${block.priority} ${block.placementType.replaceAll("_", " ")} add-on ${block.label} supports ${block.athleteFacingPurpose.toLowerCase()}`)
-    ),
-    ...input.anchors
-      .filter((anchor) => anchor.date >= input.asOfDate && candidateDates.includes(anchor.date) && isProtectedBoxingSkillAnchor(anchor))
-      .map((anchor) => `${anchor.date}: protected ${anchor.type.replaceAll("_", " ")} counted as skill; generated work should prep or consolidate away from overload.`)
-  ];
-  const unusedAvailableDays = allowedSupportDates.filter((date) => !mergedGeneratedSessions.some((session) => session.date === date));
-  const unusedAvailableDayReasons = unusedAvailableDays.map((date) =>
-    mergedGeneratedSessions.length >= targetSessions
-      ? `${date} remained open because the ${selectedTrainingDose} dose target was already filled.`
-      : `${date} was available, but generation or safety filters did not leave a usable support session.`
-  );
-  const readinessExecutionDownshift = executionReadiness.readinessStatus === "amber" || executionReadiness.readinessStatus === "red_non_hard_stop";
-  const realLoadConstraintActive =
-    generationConstraints.hardSafetyConstraints.length > 0 ||
-    generationConstraints.evidenceBasedLoadConstraints.length > 0 ||
-    input.highCycleSymptoms ||
-    redReadinessHardStop ||
-    readinessExecutionDownshift;
-  const whyHardDaysWereReduced = [
-    ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && protectedHardDayDates.size >= prescriptionPolicy.targetHardDayCount
-      ? ["Protected hard boxing already filled the hard-day target."]
-      : []),
-    ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && realLoadConstraintActive
-      ? [
-          ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
-          ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
-          ...(input.highCycleSymptoms ? ["High cycle symptoms reduced hard generated work."] : []),
-          ...(redReadinessHardStop ? ["Readiness hard-stop symptoms blocked hard generated work."] : []),
-          ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Red readiness score without hard-stop symptoms changed execution targets before blocking the plan."] : [])
-        ]
-      : []),
-    ...(prescriptionPolicy.targetHardDayCount > actualHardDayDates.size && !realLoadConstraintActive && candidateAllowedDays < targetSessions
-      ? [`Only ${candidateAllowedDays} selected available day${candidateAllowedDays === 1 ? "" : "s"} remained for ${targetSessions} target sessions.`]
-      : [])
-  ];
-  const whyVolumeWasReduced = [
-    ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && realLoadConstraintActive
-      ? [
-          ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
-          ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
-          ...(input.highCycleSymptoms ? ["High cycle symptoms reduced generated volume."] : []),
-          ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Red readiness score without hard-stop symptoms reduced execution intensity before volume was removed."] : [])
-        ]
-      : []),
-    ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && candidateAllowedDays < targetSessions
-      ? [`Availability allowed ${candidateAllowedDays}/${targetSessions} target generated sessions.`]
-      : [])
-  ];
-  const generatedFamilies = mergedGeneratedSessions.map((session) => session.family);
-  const onlyDurabilityOrRecovery =
-    generatedFamilies.length > 0 &&
-    generatedFamilies.every((family) => ["trunk_durability", "shoulder_scap_durability", "hip_ankle_mobility", "recovery_reset"].includes(family));
-  const unmetPrescriptionTargets = [
-    ...(mergedGeneratedSessions.length < targetSessions && !realLoadConstraintActive && candidateAllowedDays >= targetSessions
-      ? [`Generated support count ${mergedGeneratedSessions.length}/${targetSessions} target without a real safety constraint.`]
-      : []),
-    ...(actualHardDayDates.size < prescriptionPolicy.minHardDayCount && !realLoadConstraintActive
-      ? [`Actual hard/high-stimulus days ${actualHardDayDates.size}/${prescriptionPolicy.minHardDayCount} minimum without a real safety constraint.`]
-      : []),
-    ...(actualWeeklyGeneratedMinutes < prescriptionPolicy.targetWeeklyGeneratedMinutes && !realLoadConstraintActive && candidateAllowedDays >= targetSessions
-      ? [`Generated weekly minutes ${actualWeeklyGeneratedMinutes}/${prescriptionPolicy.targetWeeklyGeneratedMinutes} target without a real safety constraint.`]
-      : []),
-    ...((selectedTrainingDose === "serious" || selectedTrainingDose === "high") && sessionsOver60Minutes === 0 && mergedGeneratedSessions.length > 0 && !realLoadConstraintActive
-      ? ["Serious/high generated week has no session at or above 60 minutes without a real safety constraint."]
-      : []),
-    ...(onlyDurabilityOrRecovery && !realLoadConstraintActive ? ["Normal week resolved to only durability, mobility, or recovery families without a real safety constraint."] : []),
-    ...(actualStrengthExposures < prescriptionPolicy.targetStrengthExposures && !realLoadConstraintActive
-      ? [`Strength exposures ${actualStrengthExposures}/${prescriptionPolicy.targetStrengthExposures} target without a real safety constraint.`]
-      : []),
-    ...(actualConditioningExposures < prescriptionPolicy.targetConditioningExposures && !realLoadConstraintActive
-      ? [`Conditioning exposures ${actualConditioningExposures}/${prescriptionPolicy.targetConditioningExposures} target without a real safety constraint.`]
-      : []),
-    ...(actualPowerExposures < prescriptionPolicy.targetPowerExposures && !realLoadConstraintActive
-      ? [`Power exposures ${actualPowerExposures}/${prescriptionPolicy.targetPowerExposures} target without a real safety constraint.`]
-      : []),
-    ...(actualBoxingSkillExposures < prescriptionPolicy.targetBoxingSkillExposures && !realLoadConstraintActive
-      ? [`Boxing skill exposures ${actualBoxingSkillExposures}/${prescriptionPolicy.targetBoxingSkillExposures} target without a real safety constraint.`]
-      : []),
-    ...(actualAddOnBlocks < prescriptionPolicy.targetAddOnBlocks && !realLoadConstraintActive
-      ? [`Add-on blocks ${actualAddOnBlocks}/${prescriptionPolicy.targetAddOnBlocks} target without a real safety constraint.`]
-      : []),
-    ...(actualRequiredAddOnBlocks < prescriptionPolicy.targetRequiredAddOnBlocks && !realLoadConstraintActive
-      ? [`Required add-on blocks ${actualRequiredAddOnBlocks}/${prescriptionPolicy.targetRequiredAddOnBlocks} target without a real safety constraint.`]
-      : []),
-    ...(actualAthleteQualityCheckpoints < prescriptionPolicy.targetAthleteQualityCheckpoints && !realLoadConstraintActive
-      ? [`Athlete quality checkpoints ${actualAthleteQualityCheckpoints}/${prescriptionPolicy.targetAthleteQualityCheckpoints} target without a real safety constraint.`]
-      : [])
-  ];
-  const whyOnlyFourSessionsIfSixDaysAvailable =
-    (selectedDays.length || candidateAllowedDays) >= 6 && mergedGeneratedSessions.length <= 4
-      ? [
-          ...whyVolumeWasReduced,
-          ...(selectedTrainingDose === "minimal" || selectedTrainingDose === "standard" ? [`${selectedTrainingDose} dose intentionally targets a smaller support week.`] : []),
-          ...(realLoadConstraintActive ? ["Safety or evidence-based load constraints reduced the generated-support count."] : []),
-          ...(candidateAllowedDays < targetSessions ? [`Only ${candidateAllowedDays} candidate days remained after protected-anchor placement.`] : [])
-        ].filter((reason, index, list) => reason.length > 0 && list.indexOf(reason) === index)
-      : [];
-  const whyOnlyTwoHardDaysIfTargetWasThree =
-    prescriptionPolicy.targetHardDayCount >= 3 && actualHardDayDates.size <= 2
-      ? [
-          ...whyHardDaysWereReduced,
-          ...(realLoadConstraintActive ? ["Safety or load constraints reduced hard/high-stimulus work."] : []),
-          ...(candidateAllowedDays < targetSessions ? [`Only ${candidateAllowedDays} candidate days remained after protected-anchor placement.`] : [])
-        ].filter((reason, index, list) => reason.length > 0 && list.indexOf(reason) === index)
-      : [];
-  const whyAllSessionsUnder60IfSeriousOrHigh =
-    (selectedTrainingDose === "serious" || selectedTrainingDose === "high") && mergedGeneratedSessions.length > 0 && sessionsOver60Minutes === 0
-      ? [
-          ...whyVolumeWasReduced,
-          ...(realLoadConstraintActive ? ["Safety, taper, recovery, or load constraints kept every generated session below 60 minutes."] : [])
-        ].filter((reason, index, list) => reason.length > 0 && list.indexOf(reason) === index)
-      : [];
-  const executionAdjustmentsApplied = [
-    ...executionReadiness.sessionExecutionGuidance,
-    ...executionReadiness.trainingImplications
-  ];
-  const evidenceBasedOverridesApplied = [
-    ...generationConstraints.hardSafetyConstraints.map((item) => item.message),
-    ...generationConstraints.evidenceBasedLoadConstraints.map((item) => item.message),
-    ...actualLoadReservationReasons,
-    ...(redReadinessHardStop ? ["Readiness hard-stop symptoms blocked hard generated work."] : [])
-  ];
-  const readinessDownshiftReasons = [
-    ...(executionReadiness.readinessStatus === "unknown" ? ["Missing readiness added a warm-up gate only."] : []),
-    ...(executionReadiness.readinessStatus === "amber" ? ["Amber readiness added RPE, warm-up, and recovery execution caps."] : []),
-    ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Red readiness score without hard-stop symptoms triggered execution downshift, not automatic hard block."] : []),
-    ...(executionReadiness.readinessStatus === "red_hard_stop" ? ["Readiness hard-stop symptoms blocked hard training."] : [])
-  ];
-  const scheduleChangeReasons = [
-    ...adjustmentApplication.decisions.map((decision) => decision.explanation),
-    ...evidenceBasedOverridesApplied
-  ];
-  const nutritionDownshiftReasons = [
-    ...(executionReadiness.fuelingStatus === "unknown" ? ["Missing food log added a fuel prompt only."] : []),
-    ...(executionReadiness.fuelingStatus === "quick_fuel_check_supported" ? ["Quick fuel check improved execution confidence only."] : []),
-    ...(executionReadiness.fuelingStatus === "not_tracking_today" ? ["Food marked not tracking today; no under-fueling evidence was inferred."] : []),
-    ...(executionReadiness.fuelingStatus === "partial_day" || executionReadiness.fuelingStatus === "likely_partial" ? ["Partial food log stayed advisory and did not reduce generated training."] : []),
-    ...(executionReadiness.fuelingStatus === "complete_low_advisory" ? ["One complete low intake day added caution only."] : []),
-    ...(executionReadiness.fuelingStatus === "repeated_low_complete_evidence" ? ["Repeated complete low intake added fuel guidance only."] : []),
-    ...(executionReadiness.fuelingStatus === "underfueling_evidence" ? ["Under-fueling evidence stayed in fuel guidance and did not reduce generated load."] : []),
-    ...(executionReadiness.fuelingStatus === "severe_underfueling_hard_stop" ? ["Severe under-fueling evidence stayed in fuel guidance and did not cap workout generation."] : [])
-  ];
-  const autoRollForwardPrevented = unresolvedPastGeneratedSupportCount > 0;
-  const autoRollForwardExplanation = "Past workouts remain on their original dates. CornerIQ does not silently move missed or unresolved workouts forward.";
-  const supportGenerationAudit = {
-    asOfDate: input.asOfDate,
-    planStartDate,
-    planRevisionId: planRevision,
-    engineVersion,
-    prescriptionContractVersion: prescriptionContract.version,
-    planIntentVersion: prescriptionContract.planIntentVersion,
-    generatedSessionSchemaVersion: prescriptionContract.generatedSessionSchemaVersion,
-    planFingerprint: planFingerprint.hash,
-    planFingerprintMaterial: planFingerprint.material as unknown as Record<string, unknown>,
-    prescriptionValidationPassed: prescriptionValidation.passed,
-    prescriptionValidationFailures: prescriptionValidation.failures,
-    activeTrainingBlockId: adjustmentApplication.activeBlock.id,
-    weekIndex: adjustmentApplication.activeBlock.progressionState.weekIndex,
-    selectedSupportDays: selectedDays,
-    selectedTrainingDose,
-    selectedSupportDayCount: selectedDays.length || candidateAllowedDays,
-    requestedSupportDayCount: selectedDays.length || candidateAllowedDays,
-    targetSessionCountReason: prescriptionPolicy.targetSessionCountReason,
-    unusedAvailableDays,
-    unusedAvailableDayReasons,
-    targetGeneratedSupportCount: targetSessions,
-    originalTargetGeneratedSupportCount: targetSessions,
-    pastGeneratedSupportCount,
-    pastPlacedGeneratedSupportCount: pastGeneratedSupportCount,
-    completedPastGeneratedSupportCount,
-    skippedPastGeneratedSupportCount,
-    unresolvedPastGeneratedSupportCount,
-    resolvedPastGeneratedSupportCount,
-    futurePersistedGeneratedSupportCount: futureScopedPersistedSessions.length,
-    remainingGeneratedSupportTarget,
-    remainingUnfilledPrescriptionSlots,
-    looseEndSessionIds,
-    autoRollForwardPrevented,
-    autoRollForwardExplanation,
-    scheduleRevisionChanged: adjustmentApplication.activeAdjustments.length > 0 || scheduleChangeReasons.length > 0,
-    scheduleChangeReasons,
-    actualGeneratedSupportCount: mergedGeneratedSessions.length,
-    todayGeneratedSupportCount: mergedGeneratedSessions.filter((session) => session.date === input.asOfDate).length,
-    generatedSessionDates: mergedGeneratedSessions.map((session) => session.date),
-    generatedSessionTitles: mergedGeneratedSessions.map((session) => session.title),
-    generatedSessionFamilies: mergedGeneratedSessions.map((session) => session.family),
-    generatedSessionDurationAudit: mergedGeneratedSessions.map(generatedSessionDurationAuditItem),
-    persistedGeneratedSessionsConsidered: scopedPersistedSessions.considered,
-    persistedGeneratedSessionsIgnored: scopedPersistedSessions.ignored,
-    candidateAllowedDays,
-    activeAdjustmentCount: adjustmentApplication.activeAdjustments.length,
-    activeRiskFlagCodes: (input.safetyFlags ?? []).filter((flag) => flag.status === "active").map((flag) => flag.code),
-    baselinePrescriptionTargets: {
-      targetGeneratedSupportCount: targetSessions,
-      targetHardDayCount: prescriptionPolicy.targetHardDayCount,
-      targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes
-    },
-    readinessGenerationImpact: executionReadiness.readinessGenerationImpact,
-    nutritionGenerationImpact: executionReadiness.nutritionGenerationImpact,
-    hydrationGenerationImpact: executionReadiness.hydrationGenerationImpact,
-    missingLogsAffectedExecutionOnly: executionReadiness.missingLogsAffectedExecutionOnly,
-    executionAdjustmentsApplied,
-    evidenceBasedOverridesApplied,
-    readinessDownshiftReasons,
-    nutritionDownshiftReasons,
-    plannedVsFinalTrainingDelta: {
-      targetGeneratedSupportCount: targetSessions,
-      actualGeneratedSupportCount: mergedGeneratedSessions.length,
-      targetHardDayCount: prescriptionPolicy.targetHardDayCount,
-      actualHardDayCount: actualHardDayDates.size,
-      targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes,
-      actualWeeklyGeneratedMinutes
-    },
-    loadComparison,
-    recentTrainingEvidence: recentEvidence,
-    prescriptionAdaptationDecision: adaptationDecision,
-    generationConstraintSummary: generationConstraints,
-    hardSafetyConstraints: generationConstraints.hardSafetyConstraints,
-    evidenceBasedLoadConstraints: generationConstraints.evidenceBasedLoadConstraints,
-    advisoryUncertainty: generationConstraints.advisoryUncertainty,
-    missingDataAdvisories: generationConstraints.missingDataAdvisories,
-    plannedTrainingStimulusMix: prescriptionPolicy.targetStimulusMix,
-    actualTrainingStimulusMix: actualStimulusMix,
-    targetHardDayCount: prescriptionPolicy.targetHardDayCount,
-    minHardDayCount: prescriptionPolicy.minHardDayCount,
-    maxHardDayCount: prescriptionPolicy.maxHardDayCount,
-    actualHardDayCount: actualHardDayDates.size,
-    targetHighStimulusDayCount: prescriptionPolicy.targetHardDayCount,
-    actualHighStimulusDayCount: actualHardDayDates.size,
-    protectedHardDayCount: protectedHardDayDates.size,
-    generatedHardDayCount: generatedHardDayDates.size,
-    targetWeeklyGeneratedMinutes: prescriptionPolicy.targetWeeklyGeneratedMinutes,
-    actualWeeklyGeneratedMinutes,
-    longestSessionMinutes,
-    sessionsOver60Minutes,
-    minimumUsefulSessionDuration: prescriptionPolicy.minimumUsefulSessionDuration,
-    targetStimulusMix: prescriptionPolicy.targetStimulusMix,
-    actualStimulusMix,
-    unmetPrescriptionTargets,
-    whyHardDaysWereReduced,
-    whyVolumeWasReduced,
-    whyOnlyFourSessionsIfSixDaysAvailable,
-    whyOnlyTwoHardDaysIfTargetWasThree,
-    whyAllSessionsUnder60IfSeriousOrHigh,
-    repairActionsApplied,
-    targetStrengthExposures: prescriptionPolicy.targetStrengthExposures,
-    actualStrengthExposures,
-    targetConditioningExposures: prescriptionPolicy.targetConditioningExposures,
-    actualConditioningExposures,
-    targetPowerExposures: prescriptionPolicy.targetPowerExposures,
-    actualPowerExposures,
-    targetBoxingSkillExposures: prescriptionPolicy.targetBoxingSkillExposures,
-    actualBoxingSkillExposures,
-    targetTechnicalExposures: prescriptionPolicy.targetTechnicalExposures,
-    actualTechnicalExposures,
-    targetAgilityFootworkExposures: prescriptionPolicy.targetAgilityFootworkExposures,
-    actualAgilityFootworkExposures,
-    targetMobilityRecoveryExposures: prescriptionPolicy.targetMobilityRecoveryExposures,
-    actualMobilityRecoveryExposures,
-    targetAddOnBlocks: prescriptionPolicy.targetAddOnBlocks,
-    actualAddOnBlocks,
-    targetRequiredAddOnBlocks: prescriptionPolicy.targetRequiredAddOnBlocks,
-    actualRequiredAddOnBlocks,
-    targetRecommendedAddOnBlocks: prescriptionPolicy.targetRecommendedAddOnBlocks,
-    actualRecommendedAddOnBlocks,
-    targetOptionalAddOnBlocks: prescriptionPolicy.targetOptionalAddOnBlocks,
-    actualOptionalAddOnBlocks,
-    optionalAddOnBlocks: optionalAddOns,
-    targetAthleteQualityCheckpoints: prescriptionPolicy.targetAthleteQualityCheckpoints,
-    actualAthleteQualityCheckpoints,
-    athleteQualityCues: athleteCueAudit,
-    sessionQualityCheckpoints: qualityCheckpointAudit,
-    selfCheckCues: selfCheckCueAudit,
-    boxingDevelopmentThemeId: prescriptionPolicy.boxingDevelopmentThemeId,
-    boxingDevelopmentThemeTitle: prescriptionPolicy.boxingDevelopmentThemeTitle,
-    athleteFacingThemePurpose: prescriptionPolicy.athleteFacingThemePurpose,
-    targetSkillProgression: prescriptionPolicy.targetSkillProgression,
-    athleteFacingWeekSummary,
-    boxingDevelopmentTheme: prescriptionPolicy.boxingDevelopmentTheme,
-    protectedAnchorsCountedAsSkill,
-    generatedSkillSessions,
-    skillExposureMissingReasons,
-    addOnPlacementReasons,
-    missingLogsAffectedGeneration: generationConstraints.advisoryUncertainty.length > 0 && !missingLogsDidNotReduceTraining,
-    protectedAnchorsSuppliedHardWork: protectedHardDayDates.size > 0,
-    familySelectionReasons: [...prescriptionPolicy.athleteFacingReasons, ...prescriptionPolicy.reasons],
-    downshiftReasons: [
-      ...durationDownshiftReasons,
-      ...prescriptionPolicy.downshiftConstraints,
-      ...whyHardDaysWereReduced,
-      ...whyVolumeWasReduced,
-      ...skillExposureMissingReasons,
-      ...repairActionsApplied,
-      ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated training."] : []),
-      ...readinessDownshiftReasons,
-      ...nutritionDownshiftReasons,
-      ...(missingLogsDidNotReduceTraining ? ["Missing logs did not reduce target count or remove strength and conditioning families."] : [])
-    ],
-    missingLogsDidNotReduceTraining,
-    generatedSupportPlacementReasons: mergedGeneratedSessions.map(
-      (session) =>
-        `${session.date}: placed ${session.title} as ${session.intensity} ${session.sessionTypeLabel ?? session.family.replaceAll("_", " ")} generated training${
-          session.boxingSkillTheme ? ` for ${session.boxingSkillTheme}` : ""
-        }${(session.addOnBlocks ?? []).length > 0 ? ` with ${(session.addOnBlocks ?? []).length} add-on block${(session.addOnBlocks ?? []).length === 1 ? "" : "s"}` : ""}.`
-    ),
-    blockedGenerationReasons: [
-      ...(candidateAllowedDays < targetSessions
-        ? [`Only ${candidateAllowedDays} selected available day${candidateAllowedDays === 1 ? "" : "s"} remained after protected-anchor placement.`]
-        : []),
-      ...(redReadinessHardStop ? ["Readiness hard-stop symptoms blocked hard generated support."] : []),
-      ...(executionReadiness.readinessStatus === "red_non_hard_stop" ? ["Readiness is red without hard-stop symptoms, so execution guidance downshifts before the plan is blocked."] : []),
-      ...(hardStopFlags.length > 0 ? [`Hard-stop safety limited generated support.${flagReasonSummary(hardStopFlags)}`] : []),
-      ...(input.highCycleSymptoms ? ["High cycle symptoms trimmed optional generated work."] : []),
-      ...(blockedByAnchors ? ["Protected boxing or competition anchors blocked one or more generated-support placements."] : []),
-      ...adjustmentBlockedReasons,
-      ...(mergedGeneratedSessions.length < targetSessions && candidateAllowedDays >= targetSessions
-        ? [`Generated support resolved to ${mergedGeneratedSessions.length}/${targetSessions} after active plan adjustments and current safety filters.`]
-        : [])
-    ],
-    reducedBy
-  };
-  const adjustedMicrocycle = {
-    ...block.currentMicrocycle,
-    plannedHardDays: adjustedDayPlans.filter((day) => isHighStimulusTrainingDay({ protectedAnchors: day.protectedAnchors, generatedSessions: day.generatedSessions })).length,
-    generatedSupportCount: mergedGeneratedSessions.length,
-    recoveryDays: adjustedDayPlans.filter((day) => day.role === "recovery_day" || day.recoveryPriority === "high" || day.recoveryPriority === "hard_stop").map((day) => day.date),
-    notes:
-      adjustmentApplication.decisions.length > 0
-        ? [...block.currentMicrocycle.notes, `${adjustmentApplication.decisions.length} engine-owned adjustment decision(s) applied or reviewed.`]
-        : block.currentMicrocycle.notes
-  };
-  const blockHistory =
-    input.blockHistory ?? {
-      blockId: null,
-      summaries: [],
-      decisions: [],
-      timelineEvents: [],
-      latestWeekIndex: 0
-    };
-  const latestWeekSummary = selectAuthoritativeTrainingWeekSummary(blockHistory.summaries, { activePlanRevisionId: planRevision });
-  const latestProgressionDecision = selectAuthoritativeTrainingProgressionDecision(blockHistory.decisions, { activePlanRevisionId: planRevision });
-  const nextWeekMaterialization = materializeNextWeekTrainingPlan({
-    athlete: input.athlete,
-    currentTrainingBlock: adjustmentApplication.activeBlock,
-    currentMicrocycle: adjustedMicrocycle,
-    currentTrainingDayPlans: adjustedDayPlans,
-    planGenerationIntent: input.planGenerationIntent,
-    activePlanFingerprint: planFingerprint.hash,
-    latestTrainingWeekSummary: latestWeekSummary,
-    latestTrainingProgressionDecision: latestProgressionDecision,
-    completedTrainingSessions: input.completedSessions ?? [],
-    exerciseResults: input.recentExerciseResults ?? [],
-    protectedWorkouts: input.anchors,
-    fight: input.fight ?? null,
-    tournament: input.tournament ?? null,
-    readiness: input.readiness,
-    cycle: input.cycle,
-    safetyFlags: input.safetyFlags ?? [],
-    asOfDate: input.asOfDate,
-    engineVersion: input.engineVersion ?? "unversioned"
-  });
-
-  return {
-    protectedAnchors: input.anchors,
-    completedSessions: input.completedSessions ?? [],
-    recentExerciseResults: input.recentExerciseResults ?? [],
-    generatedSessions: mergedGeneratedSessions,
-    todaySessions,
-    activeBlock: adjustmentApplication.activeBlock,
-    currentMicrocycle: adjustedMicrocycle,
-    dayPlans: adjustedDayPlans,
-    blockRecommendation: block.blockRecommendation,
-    adjustmentHistory: input.trainingPlanAdjustments ?? [],
-    activeAdjustments: adjustmentApplication.activeAdjustments,
-    adjustmentDecisions: adjustmentApplication.decisions,
-    blockHistory,
-    currentWeekSummary: null,
-    latestProgressionDecision,
-    nextWeekMaterialization,
-    timelineEvents: blockHistory.timelineEvents,
-    plannedLoadLedger,
-    actualLoadLedger,
-    ...(input.planGenerationIntent ? { planGenerationIntent: input.planGenerationIntent } : {}),
-    supportGenerationAudit,
-    dailyOperatingMode,
-    explanation:
-      todayAnchors.some((anchor) => anchor.type === "sparring")
-        ? "Protected sparring owns today's hard stress. Generated support stays easy."
-        : redReadinessHardStop
-          ? "Readiness hard-stop symptoms are active, so hard generated work is blocked."
-          : executionReadiness.readinessStatus === "red_non_hard_stop"
-            ? "Readiness is red without hard-stop symptoms, so the plan stays useful with conservative execution gates."
-          : "Generated support develops technical boxing, strength, roadwork, power, agility, durability, and recovery gaps.",
     executionReadiness,
-    confidence: makeConfidence(
-      executionReadiness.confidenceScore,
-      ["protected anchors, prescription targets, readiness, fueling, and hydration execution context resolved"],
-      [
-        ...(input.anchors.length > 0 ? [] : ["protected boxing schedule"]),
-        ...(executionReadiness.readinessStatus === "unknown" ? ["readiness check-in"] : []),
-        ...(executionReadiness.fuelingStatus === "unknown" ? ["food logs"] : []),
-        ...(executionReadiness.fuelingStatus === "partial_day" || executionReadiness.fuelingStatus === "likely_partial" ? ["complete food log"] : []),
-        ...(executionReadiness.hydrationStatus === "advisory" ? ["hydration logs"] : [])
-      ]
-    )
-  };
+    redReadinessHardStop,
+    hardStopOrRedReadiness,
+    planStartDate,
+    planRevision,
+    selectedDays,
+    selectedTrainingDose,
+    primaryFocus,
+    planWeekIndex,
+    candidateDates,
+    candidateAllowedDays,
+    protectedHardDays,
+    actualCurrentWeekHardDates,
+    blockedByAnchors
+  });
 }

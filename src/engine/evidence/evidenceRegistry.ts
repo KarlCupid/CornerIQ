@@ -153,11 +153,16 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
   {
     id: "training-duration-and-load-gates",
     title: "Generated support duration and load gates",
-    files: ["src/engine/training/sessionDurationPolicy.ts", "src/engine/training/trainingGenerationConstraints.ts", "src/engine/training/progressionEngine.ts"],
-    functions: ["resolveSessionDurationPolicy", "classifyTrainingGenerationConstraints", "recommendTrainingProgression"],
-    thresholds: ["family-specific min/target/max duration profiles", "red readiness or severe fueling risk caps generated work", "hard protected boxing anchors own the stress"],
+    files: [
+      "src/engine/training/compiler/composeTrainingSession.ts",
+      "src/engine/training/compiler/validateCompiledWeek.ts",
+      "src/engine/training/trainingGenerationConstraints.ts",
+      "src/engine/training/progressionEngine.ts"
+    ],
+    functions: ["composeTrainingSession", "validateCompiledWeek", "classifyTrainingGenerationConstraints", "recommendTrainingProgression"],
+    thresholds: ["structured block durations must match displayed duration", "red readiness overlays today only", "hard protected boxing anchors own the stress"],
     rationale:
-      "Generated sessions are conservative boxing support. Duration gates protect training quality without creating contact work, coach replacement, or numeric load progression claims.",
+      "Generated sessions are conservative boxing support. V2 duration and load gates come from structured blocks and validation rather than family-duration profiles, protecting training quality without creating contact work, coach replacement, or unsupported numeric load claims.",
     sourcePosture: "internal_conservative_policy",
     owner: "training_safety",
     reviewCadence: "after_calibration_data",
@@ -166,6 +171,53 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     sources: [
       { kind: "internal_policy", label: "Boxing-only generated support; no sparring, contact drills, or unsupervised fight simulation." },
       { kind: "internal_policy", label: "Numeric load progression remains deferred until structured load data exists." }
+    ]
+  },
+  {
+    id: "training-compiler-v2-adaptation-budget",
+    title: "Training compiler V2 adaptation budgets and structured prescriptions",
+    files: [
+      "src/engine/training/compiler/compileTrainingWeek.ts",
+      "src/engine/training/compiler/resolveWeeklyAdaptationBudget.ts",
+      "src/engine/training/compiler/allocateSessionIntents.ts",
+      "src/engine/training/compiler/composeTrainingSession.ts",
+      "src/engine/training/compiler/validateCompiledWeek.ts",
+      "src/engine/training/compiler/planFingerprint.ts",
+      "src/engine/training/compiler/applyDailyReadinessOverlay.ts",
+      "src/engine/training/compiler/applyPersistentSafetyConstraints.ts"
+    ],
+    functions: [
+      "compileTrainingWeek",
+      "resolveWeeklyAdaptationBudget",
+      "allocateSessionIntents",
+      "composeTrainingSession",
+      "validateCompiledWeek",
+      "planFingerprint",
+      "applyDailyReadinessOverlay",
+      "applyPersistentSafetyConstraints"
+    ],
+    thresholds: [
+      "weekly adaptation budget resolved before session selection",
+      "allocated generated dose must be present in structured sessions",
+      "readiness overlay applies only when readiness.date matches session.date",
+      "future hard-stop constraints require explicit active persistent safety state",
+      "fingerprint includes exercise-level dose and session intent"
+    ],
+    rationale:
+      "The V2 compiler treats generated training as a structured boxer-support prescription: goals become measurable dose budgets, fixed boxing contributes first, and validation fails when the compiled workout does not contain the allocated work.",
+    sourcePosture: "calibration_required",
+    owner: "training_safety",
+    reviewCadence: "after_calibration_data",
+    knownLimitations: [
+      "Set, rep, round, and minute ranges are conservative product thresholds until reviewed by qualified boxing and strength-and-conditioning experts.",
+      "The compiler is not yet the only active app planning path; V1 deletion and persistence reset remain required before launch."
+    ],
+    betaCalibrationPlan:
+      "Run the golden output matrix with boxer, coach, and S&C review; compare completed-session RPE, substitutions, and comprehension before loosening or increasing dose rules.",
+    sources: [
+      { kind: "internal_policy", label: "CornerIQ V2 rule: plan from adaptation budgets, not workout-family ordering." },
+      { kind: "internal_policy", label: "Safety beats performance; missing data stays unknown and daily readiness is same-day only." },
+      { kind: "calibration_required", label: "Exact weekly dose ranges require expert review and beta calibration before expansion." }
     ]
   },
   {
@@ -212,13 +264,13 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     id: "generated-session-active-block-scope",
     title: "Generated session active block and preview scope",
     files: [
-      "src/engine/training/nextWeekGeneratedSessionEngine.ts",
+      "src/engine/training/compiledWeekProjection.ts",
       "src/services/training/materializeNextWeekTrainingPlan.ts",
       "src/services/supabase/trainingRepository.ts",
       "supabase/migrations/010_generated_sessions_training_block_scope.sql"
     ],
-    functions: ["materializeGeneratedSessionsFromPreview", "materializeNextWeekTrainingPlan", "listGeneratedSessions"],
-    thresholds: ["preview must be accepted before materialization", "week-boundary materialization unless test override", "generated rows include active block id", "stale block sessions ignored when block scope is requested"],
+    functions: ["projectCompiledWeekToGeneratedSessions", "materializeNextWeekTrainingPlan", "listGeneratedSessions"],
+    thresholds: ["preview must be accepted before materialization", "week-boundary materialization unless test override", "V2 preview generated sessions include active block id at save time", "stale block sessions ignored when block scope is requested"],
     rationale:
       "Future generated support must not leak from stale previews, old blocks, or superseded revisions. Persistence scope is a safety rule because stale hard work can become unsafe when current readiness or fueling changed.",
     sourcePosture: "internal_conservative_policy",

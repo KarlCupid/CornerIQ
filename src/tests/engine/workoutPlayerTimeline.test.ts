@@ -3,10 +3,10 @@ import type { DetailedTrainingSession, ExercisePrescription } from "../../engine
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../engine/presentation/workoutPlayerTimeline";
 import { catalogToPrescription, findCatalogExercise } from "../../engine/training/exerciseCatalog";
-import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
+import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function detailedFixture(): DetailedTrainingSession {
-  const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+  const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
   const detail = state.viewModels.train.detailedTodaySessions[0]?.detail;
   if (!detail) {
     throw new Error("fixture did not produce detailed session");
@@ -31,8 +31,8 @@ describe("workout player timeline", () => {
     expect(timeline.totalSeconds).toBeGreaterThan(0);
     expect(warmupTimelineExerciseIds).toEqual(warmupExerciseIds);
     expect(warmupSteps.every((step) => step.durationSeconds > 0 && step.timerLabel.toLowerCase().includes("timer"))).toBe(true);
-    expect(warmupSteps.some((step) => step.kind === "work")).toBe(true);
-    expect(warmupSteps.some((step) => step.title === "Shoulder circles forward")).toBe(true);
+    expect(warmupSteps.some((step) => step.kind === "setup")).toBe(true);
+    expect(warmupSteps.some((step) => step.title === "Preparation")).toBe(true);
     expect(warmupSteps.every((step) => step.blockAccent === "blue")).toBe(true);
     expect(JSON.stringify(timeline).toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
   });
@@ -225,7 +225,8 @@ describe("workout player timeline", () => {
     expect([...finalExerciseIds].every((exerciseId) => timelineExerciseIds.has(exerciseId))).toBe(true);
     expect(timeline.steps.every((step) => !step.guidedStepId.startsWith("recipe:"))).toBe(true);
     expect(timeline.totalSeconds).toBe(timeline.steps.reduce((sum, step) => sum + step.durationSeconds, 0));
-    expect(timeline.steps.every((step) => step.instruction.length > 20 && step.intent.length > 20 && step.cue.length > 8)).toBe(true);
+    expect(timeline.steps.every((step) => step.instruction.length > 20 && step.cue.length > 8)).toBe(true);
+    expect(timeline.steps.filter((step) => step.kind !== "setup").every((step) => step.intent.length > 20)).toBe(true);
     expect(allStepText).not.toMatch(/\b(base shape|primary action|quality round|clean repeat|guard return rounds|shadowboxing rounds|defense round|rhythm round|technical round|execute cleanly|focus on quality|reset shape)\b/i);
     expect(timeline.steps.filter((step) => step.kind === "work").every((step) => step.safetyStop)).toBe(true);
   });

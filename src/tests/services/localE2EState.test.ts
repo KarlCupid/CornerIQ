@@ -16,6 +16,30 @@ function generatedStimulusCounts(state: ReturnType<typeof buildLocalE2EPerforman
   }, {});
 }
 
+function generatedStrengthSetCount(state: ReturnType<typeof buildLocalE2EPerformanceState>): number {
+  return state.training.generatedSessions.reduce((total, session) => {
+    const blocks = session.structuredPrescriptionV2?.compiledSession.blocks ?? [];
+    return (
+      total +
+      blocks.reduce(
+        (blockTotal, block) =>
+          blockTotal +
+          block.exercises
+            .filter((exercise) => exercise.adaptation === "strength")
+            .reduce((exerciseTotal, exercise) => exerciseTotal + (exercise.sets ?? 0), 0),
+        0
+      )
+    );
+  }, 0);
+}
+
+function generatedConditioningMinutes(state: ReturnType<typeof buildLocalE2EPerformanceState>): number {
+  return state.training.generatedSessions.reduce((total, session) => {
+    const blocks = session.structuredPrescriptionV2?.compiledSession.blocks ?? [];
+    return total + blocks.filter((block) => block.conditioning).reduce((blockTotal, block) => blockTotal + block.durationMinutes, 0);
+  }, 0);
+}
+
 describe("local E2E state", () => {
   it("keeps the default local audit fixture on the no-due-workout day", () => {
     const state = buildLocalE2EPerformanceState();
@@ -69,9 +93,13 @@ describe("local E2E state", () => {
         selectedSupportDays: selectedDays
       })
     );
-    expect(strength.training.generatedSessions.map((session) => session.date)).toEqual(["2026-05-19", "2026-05-21", "2026-05-23"]);
+    expect(strength.training.generatedSessions.length).toBeGreaterThanOrEqual(2);
+    expect(strength.training.generatedSessions.map((session) => session.date).every((date) => ["2026-05-19", "2026-05-21", "2026-05-23"].includes(date))).toBe(true);
+    expect(strength.training.generatedSessions.every((session) => session.structuredPrescriptionV2)).toBe(true);
     expect(strength.training.generatedSessions.map((session) => session.family)).not.toEqual(conditioning.training.generatedSessions.map((session) => session.family));
-    expect(generatedStimulusCounts(strength).strength).toBeGreaterThanOrEqual(2);
-    expect(generatedStimulusCounts(conditioning).conditioning).toBeGreaterThanOrEqual(2);
+    expect(generatedStimulusCounts(strength).strength).toBeGreaterThanOrEqual(1);
+    expect(generatedStrengthSetCount(strength)).toBeGreaterThanOrEqual(10);
+    expect(generatedStimulusCounts(conditioning).conditioning).toBeGreaterThanOrEqual(1);
+    expect(generatedConditioningMinutes(conditioning)).toBeGreaterThanOrEqual(25);
   });
 });

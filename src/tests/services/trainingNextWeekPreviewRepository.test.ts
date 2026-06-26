@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
-import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationEngine";
+import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationContract";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { TableInsert, TableRow, TableUpdate } from "../../services/supabase/repositoryTypes";
 import { RepositoryError } from "../../services/supabase/repositoryTypes";

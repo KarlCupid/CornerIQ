@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ExerciseResultRecord } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { movementFamiliarityForExercise, withMovementFamiliarity } from "../../engine/presentation/movementFamiliarity";
-import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
+import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function result(overrides: Partial<ExerciseResultRecord>): ExerciseResultRecord {
   return {
@@ -44,7 +44,7 @@ describe("movement familiarity", () => {
   });
 
   it("annotates detailed session exercises without treating missing history as safe", () => {
-    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const state = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
     const detail = state.viewModels.train.detailedTodaySessions[0]?.detail;
     const exercises = detail?.sections.flatMap((section) => section.exercises) ?? [];
     const [first, second, third] = exercises;

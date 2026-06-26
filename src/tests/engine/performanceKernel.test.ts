@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 import type { GeneratedTrainingSession, JourneyEvent, PersistedTrainingPlanAdjustment, ReadinessCheckIn } from "../../engine/core/types";
-import { ATHLETE_PRESCRIPTION_CONTRACT_VERSION, GENERATED_SESSION_SCHEMA_VERSION, PLAN_INTENT_VERSION } from "../../engine/training/athletePrescriptionContract";
+import { GENERATED_SESSION_SCHEMA_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
+import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
 import {
   apple_health_wearable_enhanced,
   fixtureAsOfDate,
@@ -14,6 +15,10 @@ import {
   no_wearable_manual_only,
   short_notice_unsafe_cut
 } from "../fixtures/engineFixtures";
+
+const LEGACY_PRESCRIPTION_CONTRACT_VERSION = "athlete_prescription_contract_v1";
+const LEGACY_PLAN_INTENT_VERSION = "plan_generation_intent_v1";
+const LEGACY_GENERATED_SESSION_SCHEMA_VERSION = "generated_training_session_v1";
 
 describe("Corner Engine performance kernel", () => {
   it("blocks unsafe short-notice same-day weight cuts", () => {
@@ -57,7 +62,19 @@ describe("Corner Engine performance kernel", () => {
     expect(state.wearable.hasWearable).toBe(false);
     expect(state.wearable.explanation).toContain("No wearable needed");
     expect(state.viewModels.today.title).toBe("Today: keep sparring quality");
-    expect(state.training.todaySessions[0]?.intensity).toBe("easy");
+    expect(state.training.todaySessions[0]?.intensity).toBe("recovery");
+  });
+
+  it("uses the V2 compiler as the active generated-session authority", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+
+    expect(state.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(state.training.generatedSessions.every((session) => session.generatedSessionSchemaVersion === GENERATED_SESSION_SCHEMA_VERSION_V2)).toBe(true);
+    expect(state.training.generatedSessions.every((session) => session.structuredPrescriptionV2?.compiledSession.blocks.length)).toBe(true);
+    expect(state.training.supportGenerationAudit.prescriptionContractVersion).toBe(TRAINING_COMPILER_CONTRACT_VERSION);
+    expect(state.training.supportGenerationAudit.planIntentVersion).toBe("plan_intent_v2");
+    expect(state.training.supportGenerationAudit.planFingerprint).toBe(state.training.generatedSessions[0]?.planFingerprint);
+    expect(state.training.nextWeekMaterialization.prescriptionContractVersion).toBe(TRAINING_COMPILER_CONTRACT_VERSION);
   });
 
   it("raises confidence when wearable signals are available but keeps symptoms authoritative", () => {
@@ -191,7 +208,7 @@ describe("Corner Engine performance kernel", () => {
     expect(afterFlag.training.supportGenerationAudit.activeRiskFlagCodes).toContain("severe_dizziness");
   });
 
-  it("replays persisted generated-session moves only after their adjustment exists", () => {
+  it("ignores legacy generated-session rows instead of replaying them as active prescriptions", () => {
     const movedSession: GeneratedTrainingSession = {
       id: "generated_replay_slot_1",
       date: "2026-05-21",
@@ -209,9 +226,9 @@ describe("Corner Engine performance kernel", () => {
       modifications: [],
       fuelDemand: "moderate",
       engineVersion: "test",
-      prescriptionContractVersion: ATHLETE_PRESCRIPTION_CONTRACT_VERSION,
-      planIntentVersion: PLAN_INTENT_VERSION,
-      generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION,
+      prescriptionContractVersion: LEGACY_PRESCRIPTION_CONTRACT_VERSION,
+      planIntentVersion: LEGACY_PLAN_INTENT_VERSION,
+      generatedSessionSchemaVersion: LEGACY_GENERATED_SESSION_SCHEMA_VERSION,
       planFingerprint: "fixture_fingerprint:moved_replay",
       prescriptionSlotId: "projection:athlete_base:2026-05-19:w1:slot1:2026-05-20",
       generatedSessionLifecycle: "moved"
@@ -250,10 +267,13 @@ describe("Corner Engine performance kernel", () => {
     const beforeMove = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T10:00:00.000Z" });
     const afterMove = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: "2026-05-19T16:00:00.000Z" });
 
-    expect(beforeMove.training.generatedSessions.find((session) => session.id === movedSession.id)?.date).toBe("2026-05-20");
+    expect(beforeMove.training.generatedSessions.find((session) => session.id === movedSession.id)).toBeUndefined();
+    expect(beforeMove.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.map((session) => session.id)).toContain(movedSession.id);
     expect(beforeMove.training.activeAdjustments.map((item) => item.id)).not.toContain(adjustment.id);
-    expect(afterMove.training.generatedSessions.find((session) => session.id === movedSession.id)?.date).toBe("2026-05-21");
+    expect(afterMove.training.generatedSessions.find((session) => session.id === movedSession.id)).toBeUndefined();
+    expect(afterMove.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.map((session) => session.id)).toContain(movedSession.id);
     expect(afterMove.training.activeAdjustments.map((item) => item.id)).toContain(adjustment.id);
+    expect(afterMove.training.adjustmentDecisions.find((decision) => decision.persistedAdjustmentPayload.command === adjustment.command)?.status).toBe("rejected");
   });
 
   it("uses latest same-day readiness hard-stop symptoms for today's overlay", () => {

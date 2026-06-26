@@ -203,8 +203,8 @@ describe("Fuel Command Center engine", () => {
   it("high fuel-demand sessions show carb and fluid priority", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
 
-    expect(state.nutrition.commandCenter.sessionFuelAction).toContain("carbs");
-    expect(state.nutrition.commandCenter.sessionFuelAction).toContain("fluids");
+    expect(state.nutrition.commandCenter.sessionFuelAction.toLowerCase()).toContain("carbs");
+    expect(state.nutrition.commandCenter.sessionFuelAction.toLowerCase()).toContain("fluids");
   });
 
   it("labels fuel targets by confidence before precise numbers", () => {
