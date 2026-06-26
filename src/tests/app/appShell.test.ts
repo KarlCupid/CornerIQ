@@ -1471,10 +1471,11 @@ function boxingRoundPlayerTestSession(): DetailedTrainingSession {
 function expectActiveWorkspaceBeforeOverview(output: string, focusedTestId: string): void {
   const activeIndex = output.indexOf("plan-active-workspace");
   const focusedIndex = output.indexOf(focusedTestId);
-  const overviewIndex = output.indexOf("plan-detail-rows");
+  const roadmapIndex = output.indexOf("plan-roadmap");
+  expect(roadmapIndex).toBeGreaterThan(-1);
   expect(activeIndex).toBeGreaterThan(-1);
   expect(focusedIndex).toBeGreaterThan(activeIndex);
-  expect(overviewIndex).toBeGreaterThan(focusedIndex);
+  expect(activeIndex).toBeGreaterThan(roadmapIndex);
 }
 
 function createPerformanceRepositories(mode: "ready" | "needs_profile" | "error"): AthleteJourneyRepositories {
@@ -2990,17 +2991,25 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Today's Training Plan");
     expect(output).toContain("Your job today");
-    expect(output).toContain("Workout Flow");
-    expect(output).toContain("Before You Start");
+    expect(output).toContain("train-workout-flow-collapsed");
+    expect(output).toContain("train-before-start-collapsed");
+    expect(output).not.toContain("Workout Flow");
+    expect(output).not.toContain("Before You Start");
     expect(output).not.toContain("Show Execution guidance");
     expect(output).toContain("Strength support");
     expect(output).toContain("35");
     expect(output).toContain("Moderate");
-    expect(output).toContain("This Week");
-    expect(output).toContain("Log Other Training");
+    expect(output).not.toContain("This Week");
+    expect(output).not.toContain("Log Other Training");
     expect(output).not.toContain("Training overview");
     expect(output).not.toContain("Workout preview");
     expect(output).not.toContain("Training action");
+    await switchSection(renderer, "View details");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Workout Flow");
+    expect(output).toContain("Before You Start");
+    expect(output).toContain("This Week");
+    expect(output).toContain("Log Other Training");
     await switchSection(renderer, "Show training log");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Training log");
@@ -3010,10 +3019,18 @@ describe("minimal app screens", () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const renderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
-    const output = JSON.stringify(renderer.toJSON());
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("train-today-plan-card");
+    expect(output).toContain("train-compact-stats");
+    expect(output).not.toContain("train-workout-section");
+    expect(output).not.toContain("Quick Log");
+    expect(output).not.toContain("Show Exercise Details");
+    await switchSection(renderer, "View details");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("train-workout-section");
     expect(output).toContain("Quick Log");
-    expect(output).toContain("Show Exercise Details");
+    expect(output).toContain("Workout Details");
+    expect(output).toContain("Hide Exercise Details");
     expect(output).toContain("Show Why This Session");
     expect(output).toContain("Show Adjust Today");
     expect(output).toContain("This Week");
@@ -3148,19 +3165,25 @@ describe("minimal app screens", () => {
     expect(taperOutput).toContain("Power quality exposure");
     expect(taperOutput).toContain("Fight-week day");
     expect(tournamentOutput).toContain("Tournament day: no extra hard conditioning.");
-    expect(redOutput).not.toContain("Before you train");
+    expect(redOutput).toContain("Before you train");
   });
 
   it("TrainScreen puts primary detail before history and opens completion controls", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const renderer = render(React.createElement(TrainScreen, { busy: false, completionActions: { complete: vi.fn(), skip: vi.fn() }, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.train }));
-    const closedOutput = JSON.stringify(renderer.toJSON());
-    expect(closedOutput).toContain("Quick Log");
+    let closedOutput = JSON.stringify(renderer.toJSON());
+    expect(closedOutput).not.toContain("Quick Log");
     expect(closedOutput).not.toContain("Recent training");
     expect(closedOutput).not.toContain("Session plan");
     expect(closedOutput).not.toContain("Quality checkpoints");
-    expect(closedOutput).toContain("Show Exercise Details");
+    expect(closedOutput).not.toContain("Show Exercise Details");
+    expect(closedOutput).not.toContain("Show Why This Session");
+    expect(closedOutput).not.toContain("Show Adjust Today");
+    await switchSection(renderer, "View details");
+    closedOutput = JSON.stringify(renderer.toJSON());
+    expect(closedOutput).toContain("Quick Log");
+    expect(closedOutput).toContain("Hide Exercise Details");
     expect(closedOutput).toContain("Show Why This Session");
     expect(closedOutput).toContain("Show Adjust Today");
     await act(async () => {
@@ -3179,9 +3202,6 @@ describe("minimal app screens", () => {
     const safetyOutput = JSON.stringify(renderer.toJSON());
     expect(safetyOutput).toContain("Quality cue");
     expect(safetyOutput).toContain("Stop rule");
-    await act(async () => {
-      await press(pressableWithAccessibilityLabel(renderer, "Show Exercise Details"));
-    });
     const planDetailOutput = JSON.stringify(renderer.toJSON());
     expect(planDetailOutput).toContain("Workout recipe");
     expect(planDetailOutput).toMatch(/Hip and ankle mobility flow|Mobility and recovery prescription/);
@@ -3827,17 +3847,26 @@ describe("minimal app screens", () => {
     expect(state.viewModels.plan.dayPlans).toHaveLength(7);
     expect(output).toContain("This Week's Plan");
     expect(output).toContain("This week's job");
-    expect(output).toContain("Upcoming Sessions");
+    expect(output).toContain("plan-week-strip-card");
+    expect(output).toContain("Next up");
     expect(output).toContain("Next Week");
-    expect(output).toContain("Change Plan");
+    expect(output).toContain("Change plan");
+    expect(output).toContain("Preview next week");
+    expect(output).toContain("plan-details-collapsed");
+    expect(output).not.toContain("Week Details");
+    expect(output).not.toContain("Review Notes");
+    expect(output).not.toContain("Week Shape");
+    expect(output).not.toContain("Plan History");
+    expect(output).not.toContain("Planning Notes");
+    expect(output).not.toContain("Week at a Glance");
+    expect(output).not.toContain("Built Around");
+    expect(output).not.toContain("Edit boxing schedule");
+    await switchSection(renderer, "Plan details");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Week Details");
     expect(output).toContain("Review Notes");
     expect(output).toContain("Week Shape");
     expect(output).toContain("Plan History");
-    expect(output).not.toContain("Week at a Glance");
-    expect(output).not.toContain("Built Around");
-    expect(output).toContain("Preview next week");
-    expect(output).toContain("Change goal or schedule");
     expect(output).toContain("Edit boxing schedule");
     await switchSection(renderer, "Week Shape");
     output = JSON.stringify(renderer.toJSON());
@@ -3918,7 +3947,7 @@ describe("minimal app screens", () => {
       );
 
     const goalRenderer = renderPlan();
-    await switchSection(goalRenderer, "Change goal or schedule");
+    await switchSection(goalRenderer, "Change plan");
     let output = JSON.stringify(goalRenderer.toJSON());
     expect(visibleModalCount(goalRenderer)).toBe(1);
     expect(output).toContain("plan-goal-wizard-modal");
@@ -3933,6 +3962,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("build strength - progress");
 
     const scheduleRenderer = renderPlan();
+    await switchSection(scheduleRenderer, "Plan details");
     await switchSection(scheduleRenderer, "Edit boxing schedule");
     output = JSON.stringify(scheduleRenderer.toJSON());
     expect(visibleModalCount(scheduleRenderer)).toBe(0);
@@ -3941,7 +3971,8 @@ describe("minimal app screens", () => {
 
     const detailsRenderer = renderPlan();
     await switchSection(detailsRenderer, "Plan details");
-    expectActiveWorkspaceBeforeOverview(JSON.stringify(detailsRenderer.toJSON()), "plan-details-workspace");
+    expect(JSON.stringify(detailsRenderer.toJSON())).toContain("plan-detail-rows");
+    expect(JSON.stringify(detailsRenderer.toJSON())).toContain("Planning Notes");
   });
 
   it("Plan and Train agree on generated support count, dates, and titles", async () => {
@@ -3986,6 +4017,7 @@ describe("minimal app screens", () => {
     expect(planOutput).not.toContain("Input hash:");
     expect(planOutput).not.toContain(audit.planRevisionId);
     planOutput = JSON.stringify(planRenderer.toJSON());
+    await switchSection(trainRenderer, "View details");
     const trainOutput = JSON.stringify(trainRenderer.toJSON());
     expect(audit.actualGeneratedSupportCount).toBe(state.viewModels.train.supportGenerationSummary.actualGeneratedSupportCount);
     expect(audit.generatedSessionDates).toEqual(state.viewModels.train.supportGenerationSummary.currentWeekGeneratedSessionDates);
@@ -4207,7 +4239,7 @@ describe("minimal app screens", () => {
     );
 
     expect(redOutput).toContain("Recovery");
-    expect(tournamentOutput).toContain("Tournament week conserves legs");
+    expect(tournamentOutput).toContain("Tournament mode keeps you near weight");
     expect(tournamentOutput).toContain("Tournament mode");
   });
 
@@ -4233,6 +4265,8 @@ describe("minimal app screens", () => {
       })
     );
 
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Edit boxing schedule");
+    await switchSection(renderer, "Plan details");
     expect(JSON.stringify(renderer.toJSON())).toContain("Edit boxing schedule");
     await act(async () => {
       await press(pressableWithText(renderer, "Edit boxing schedule"));
@@ -4307,7 +4341,7 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     expect(JSON.stringify(renderer.toJSON())).toContain("plan-generation-wizard");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -4406,7 +4440,7 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -4451,7 +4485,7 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -4500,7 +4534,7 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -4545,7 +4579,7 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -4585,7 +4619,7 @@ describe("minimal app screens", () => {
       })
     );
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     expect(JSON.stringify(renderer.toJSON())).toContain("Generate new plan");
     expect(JSON.stringify(renderer.toJSON())).toContain("Build general boxing fitness");
     await act(async () => {
@@ -4621,7 +4655,7 @@ describe("minimal app screens", () => {
     expect(savedBuildDraft).toEqual(expect.objectContaining({ primaryFocus: "balanced", generatedSupportAvailableDays: ["tuesday"], scheduleAvailability: ["tuesday"], planAction: "start_new_plan" }));
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     await switchSection(renderer, "Enter fight camp");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -4637,7 +4671,7 @@ describe("minimal app screens", () => {
     });
     expect(onSaveFightSetup).toHaveBeenCalledWith(expect.objectContaining({ boutDate: fixtureAsOfDate }));
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     await switchSection(renderer, "Enter tournament mode");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -4653,7 +4687,7 @@ describe("minimal app screens", () => {
     });
     expect(onSaveTournamentSetup).toHaveBeenCalledWith(expect.objectContaining({ tournamentStartDate: fixtureAsOfDate }));
 
-    await switchSection(renderer, "Change goal or schedule");
+    await switchSection(renderer, "Change plan");
     await switchSection(renderer, "Recovery / maintenance");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -4736,7 +4770,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Plan generation wizard");
     expect(output).toContain("Generate new plan");
     expect(wizardOutput).toContain("Step 1: Goal type");
-    expect(wizardOutput).not.toContain("Change goal or schedule");
+    expect(wizardOutput).not.toContain("Change plan");
   });
 
   it("PlanScreen surfaces review notes when app sessions are capped", async () => {
@@ -5285,9 +5319,16 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Add water");
 
     const trainRenderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
-    expect(["Today's Training Plan", "Workout Flow", "This Week"].every((label) => JSON.stringify(trainRenderer.toJSON()).includes(label))).toBe(true);
-    expect(JSON.stringify(trainRenderer.toJSON())).not.toContain("Exercise History");
-    expect(JSON.stringify(trainRenderer.toJSON())).not.toContain("Progression");
+    let trainOutput = JSON.stringify(trainRenderer.toJSON());
+    expect(["Today's Training Plan", "train-workout-flow-collapsed", "train-before-start-collapsed"].every((label) => trainOutput.includes(label))).toBe(true);
+    expect(trainOutput).not.toContain("Workout Flow");
+    expect(trainOutput).not.toContain("This Week");
+    expect(trainOutput).not.toContain("Exercise History");
+    expect(trainOutput).not.toContain("Progression");
+    await switchSection(trainRenderer, "View details");
+    trainOutput = JSON.stringify(trainRenderer.toJSON());
+    expect(trainOutput).toContain("Workout Flow");
+    expect(trainOutput).toContain("This Week");
 
     const planRenderer = render(
       React.createElement(PlanScreen, {

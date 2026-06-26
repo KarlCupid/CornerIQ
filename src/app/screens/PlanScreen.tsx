@@ -727,6 +727,30 @@ function PlanButton({
   );
 }
 
+function PlanStatTile({ label, tone, value }: { label: string; tone: PlanTone; value: string }) {
+  return (
+    <View
+      style={{
+        ...glassStyles.tile,
+        backgroundColor: planTint(tone, "10"),
+        borderColor: planTint(tone, "36"),
+        flexBasis: 136,
+        flexGrow: 1,
+        gap: spacing.xs,
+        minHeight: 64,
+        padding: spacing.md
+      }}
+    >
+      <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
+        {label}
+      </Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: planToneColors[tone], fontSize: 18, fontWeight: "900", lineHeight: 23 }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 function WeekReviewStrip({ viewModel }: { viewModel: PlanViewModel }) {
   if (viewModel.rollForwardStatus !== "blocked" && viewModel.warnings.length === 0) {
     return null;
@@ -765,9 +789,10 @@ function ThisWeeksPlanCard({
   onPreviewNextWeek: () => void;
   viewModel: PlanViewModel;
 }) {
+  const fixedBoxingCount = viewModel.weeklyAnchors.length + viewModel.fixedSchedule.length;
   return (
     <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-this-weeks-plan-card">
+      <View style={{ gap: spacing.md }} testID="plan-hero-card">
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 230, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={{ color: planPalette.textPrimary, fontSize: 22, fontWeight: "900", letterSpacing: 0, lineHeight: 27 }}>
@@ -801,7 +826,11 @@ function ThisWeeksPlanCard({
           </Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <PlanButton disabled={busy} icon="create-outline" label="Change goal or schedule" onPress={onChangeGoal} primary />
+          <PlanStatTile label="App sessions" tone="purple" value={`${viewModel.generatedSupportSessionCount}`} />
+          <PlanStatTile label="Boxing you added" tone="green" value={fixedBoxingCount > 0 ? `${fixedBoxingCount}` : "None"} />
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <PlanButton disabled={busy} icon="create-outline" label="Change plan" onPress={onChangeGoal} primary />
           <PlanButton disabled={busy} icon="calendar-outline" label="Preview next week" onPress={onPreviewNextWeek} />
         </View>
       </View>
@@ -848,6 +877,17 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
         );
       })}
     </View>
+  );
+}
+
+function WeekAtAGlanceCard({ viewModel }: { viewModel: PlanViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="plan-week-strip-card">
+        <Text style={planTextStyles.sectionTitle}>This week</Text>
+        <WeekAtAGlanceContent viewModel={viewModel} />
+      </View>
+    </EngineCard>
   );
 }
 
@@ -928,7 +968,7 @@ function upcomingPlanSessions(viewModel: PlanViewModel, asOfDate: ISODateString)
       });
     }
   }
-  return rows.slice(0, 4);
+  return rows.slice(0, 2);
 }
 
 function UpcomingSessionsCard({ asOfDate, viewModel }: { asOfDate: ISODateString; viewModel: PlanViewModel }) {
@@ -936,7 +976,7 @@ function UpcomingSessionsCard({ asOfDate, viewModel }: { asOfDate: ISODateString
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="plan-upcoming-sessions-card">
-        <Text style={planTextStyles.sectionTitle}>Upcoming Sessions</Text>
+        <Text style={planTextStyles.sectionTitle}>Next up</Text>
         {sessions.length > 0 ? sessions.map((session) => (
           <View
             key={`upcoming:${session.id}`}
@@ -955,7 +995,6 @@ function UpcomingSessionsCard({ asOfDate, viewModel }: { asOfDate: ISODateString
               <PlanTonePill label={session.intensity} tone={session.tone} />
             </View>
             <Text style={planTextStyles.subtle}>{session.type}</Text>
-            <Text style={planTextStyles.body}>Aim: {plainPlanRiskCopy(session.aim)}</Text>
           </View>
         )) : (
           <Text style={planTextStyles.subtle}>No upcoming app sessions are scheduled. Keep boxing logs manual if training happens outside the app.</Text>
@@ -995,22 +1034,21 @@ function nextWeekAction(viewModel: PlanViewModel): { label: string; kind: "accep
 function NextWeekCard({
   busy,
   nextWeekActionsAvailable,
-  onAcceptPreview,
   onPreviewNextWeek,
   onStartNextWeekPlan,
   viewModel
 }: {
   busy: boolean;
   nextWeekActionsAvailable: boolean;
-  onAcceptPreview: () => void;
   onPreviewNextWeek: () => void;
   onStartNextWeekPlan: () => void;
   viewModel: PlanViewModel;
 }) {
   const status = previewStatusCopy(viewModel);
   const action = nextWeekAction(viewModel);
-  const actionDisabled = busy || (action.kind !== "preview" && !nextWeekActionsAvailable) || (action.kind === "start" && viewModel.nextWeekPreview.requiresReview);
-  const onPress = action.kind === "accept" ? onAcceptPreview : action.kind === "start" ? onStartNextWeekPlan : onPreviewNextWeek;
+  const showStartAction = action.kind === "start";
+  const actionDisabled = busy || (showStartAction && (!nextWeekActionsAvailable || viewModel.nextWeekPreview.requiresReview));
+  const onPress = showStartAction ? onStartNextWeekPlan : onPreviewNextWeek;
   return (
     <EngineCard>
       <View style={{ gap: spacing.md }} testID="plan-next-week-card">
@@ -1023,36 +1061,69 @@ function NextWeekCard({
         </View>
         <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <PlanButton disabled={actionDisabled} icon={action.kind === "accept" ? "checkmark-outline" : "calendar-outline"} label={action.label} onPress={onPress} primary={action.kind !== "preview"} />
-          {action.kind !== "preview" ? <PlanButton disabled={busy} icon="eye-outline" label="Preview next week" onPress={onPreviewNextWeek} /> : null}
+          <PlanButton disabled={actionDisabled} icon={showStartAction ? "checkmark-outline" : "calendar-outline"} label={showStartAction ? action.label : "Preview next week"} onPress={onPress} primary={showStartAction} />
+          {showStartAction ? <PlanButton disabled={busy} icon="eye-outline" label="Preview next week" onPress={onPreviewNextWeek} /> : null}
         </View>
       </View>
     </EngineCard>
   );
 }
 
-function ChangePlanCard({
+function CollapsedPlanDetails({
   busy,
-  onOpenWorkspace
+  onOpenWorkspace,
+  viewModel
 }: {
   busy: boolean;
   onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
+  viewModel: PlanViewModel;
 }) {
+  const [open, setOpen] = React.useState(false);
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-change-plan-card">
-        <View style={{ gap: spacing.xs }}>
-          <Text style={planTextStyles.sectionTitle}>Change Plan</Text>
-          <Text style={planTextStyles.body}>Update the goal, boxing schedule, or plan changes when real life moves the week.</Text>
+    <View style={{ gap: spacing.sm }} testID="plan-details-collapsed">
+      <EngineCard>
+        <View style={{ gap: spacing.md }}>
+          <Pressable
+            accessibilityLabel={open ? "Hide plan details" : "Plan details"}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            onPress={() => setOpen((value) => !value)}
+            style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 54 }}
+            testID="plan-details-toggle"
+          >
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: planTint("blue", "16"),
+                borderColor: planTint("blue", "42"),
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                height: 38,
+                justifyContent: "center",
+                width: 38
+              }}
+            >
+              <Ionicons color={planToneColors.blue} name="list-outline" size={18} />
+            </View>
+            <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+              <Text style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Plan details</Text>
+              <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
+                Week notes, schedule edits, history, and planning details.
+              </Text>
+            </View>
+            <Ionicons color={planPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
+          </Pressable>
+          {open ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <PlanButton disabled={busy} icon="calendar-outline" label="Edit boxing schedule" onPress={() => onOpenWorkspace("fixed_schedule")} />
+              <PlanButton disabled={busy} icon="options-outline" label="Plan changes" onPress={() => onOpenWorkspace("adjustments")} />
+              <PlanButton disabled={busy} icon="time-outline" label="Plan history" onPress={() => onOpenWorkspace("block_history")} />
+            </View>
+          ) : null}
         </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <PlanButton disabled={busy} icon="create-outline" label="Change goal or schedule" onPress={() => onOpenWorkspace("goal_wizard")} primary />
-          <PlanButton disabled={busy} icon="calendar-outline" label="Edit boxing schedule" onPress={() => onOpenWorkspace("fixed_schedule")} />
-          <PlanButton disabled={busy} icon="options-outline" label="Plan changes" onPress={() => onOpenWorkspace("adjustments")} />
-          <PlanButton disabled={busy} icon="list-outline" label="Plan details" onPress={() => onOpenWorkspace("plan_details")} />
-        </View>
-      </View>
-    </EngineCard>
+      </EngineCard>
+      {open ? <PlanDetailRows startOpen viewModel={viewModel} /> : null}
+    </View>
   );
 }
 
@@ -1164,7 +1235,6 @@ function PlanRoadmap({
   asOfDate,
   busy,
   nextWeekActionsAvailable,
-  onAcceptPreview,
   onOpenWorkspace,
   onPreviewNextWeek,
   onStartNextWeekPlan,
@@ -1173,7 +1243,6 @@ function PlanRoadmap({
   asOfDate: ISODateString;
   busy: boolean;
   nextWeekActionsAvailable: boolean;
-  onAcceptPreview: () => void;
   onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
   onPreviewNextWeek: () => void;
   onStartNextWeekPlan: () => void;
@@ -1182,16 +1251,16 @@ function PlanRoadmap({
   return (
     <View style={{ gap: spacing.md }} testID="plan-roadmap">
       <ThisWeeksPlanCard busy={busy} onChangeGoal={() => onOpenWorkspace("goal_wizard")} onPreviewNextWeek={onPreviewNextWeek} viewModel={viewModel} />
+      <WeekAtAGlanceCard viewModel={viewModel} />
       <UpcomingSessionsCard asOfDate={asOfDate} viewModel={viewModel} />
       <NextWeekCard
         busy={busy}
         nextWeekActionsAvailable={nextWeekActionsAvailable}
-        onAcceptPreview={onAcceptPreview}
         onPreviewNextWeek={onPreviewNextWeek}
         onStartNextWeekPlan={onStartNextWeekPlan}
         viewModel={viewModel}
       />
-      <ChangePlanCard busy={busy} onOpenWorkspace={onOpenWorkspace} />
+      <CollapsedPlanDetails busy={busy} onOpenWorkspace={onOpenWorkspace} viewModel={viewModel} />
     </View>
   );
 }
@@ -1321,14 +1390,12 @@ export function PlanScreen({
         asOfDate={asOfDate}
         busy={busy}
         nextWeekActionsAvailable={nextWeekActionsAvailable}
-        onAcceptPreview={acceptNextWeekPreview}
         onOpenWorkspace={openWorkspace}
         onPreviewNextWeek={openNextWeekPreview}
         onStartNextWeekPlan={startNextWeekPlan}
         viewModel={viewModel}
       />
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>
-      <PlanDetailRows viewModel={viewModel} />
       <PlanGoalWizardModal busy={goalBusy} onClose={closeActiveWorkspace} visible={goalWizardOpen}>
         {goalWizardContent}
       </PlanGoalWizardModal>

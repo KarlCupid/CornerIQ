@@ -331,6 +331,14 @@ function playerStatusIsInProgress(status: WorkoutPlayerStatus): boolean {
   return status === "active" || status === "paused" || status === "finishing";
 }
 
+function criticalTrainingRisk(viewModel: TrainViewModel): string | undefined {
+  return viewModel.riskSummary.find((risk) => /safety stop|hard stop|hard-stop|no training|fainting/i.test(risk));
+}
+
+function cycleDecisionIsDefaultVisible(viewModel: TrainViewModel): boolean {
+  return viewModel.cycleTrainingDecision.status === "safety_review" || viewModel.cycleTrainingDecision.status === "symptom_trim";
+}
+
 function currentWeekDays(viewModel: TrainViewModel, asOfDate?: ISODateString | undefined): readonly TrainWeekDayVisual[] {
   const seedDate =
     asOfDate ??
@@ -749,6 +757,8 @@ function TodayTrainingPlanCard({
               ? { label: "Log outside player", onPress: onOpenTrainingLog, tone: primaryTone }
               : { label: "Log other training", onPress: onOpenTrainingLog, tone: "blue" as const };
   const disabled = busy || !primaryAction.onPress;
+  const showDetailsAction = Boolean(onViewDetails && primaryAction.label !== "View details");
+  const showTrainingLogAction = primaryAction.label !== "Log other training" && primaryAction.label !== "Log outside player";
   const dayNote = viewModel.todayRole.status === "support_day" ? null : firstSentence(viewModel.todayRole.summary);
   return (
     <DashboardCard
@@ -799,6 +809,20 @@ function TodayTrainingPlanCard({
         >
           <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{primaryAction.label}</Text>
         </Pressable>
+        {showDetailsAction || showTrainingLogAction ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            {showDetailsAction ? (
+              <View style={{ flexBasis: 150, flexGrow: 1 }}>
+                <TrainQuietButton onPress={onViewDetails}>View details</TrainQuietButton>
+              </View>
+            ) : null}
+            {showTrainingLogAction ? (
+              <View style={{ flexBasis: 150, flexGrow: 1 }}>
+                <TrainQuietButton onPress={onOpenTrainingLog}>Log other training</TrainQuietButton>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
         {startBlockedReason ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{startBlockedReason}</Text> : null}
         {previewOnlyReason ? <Text style={trainTextStyles.subtle}>{previewOnlyReason}</Text> : null}
         {!session && !generated && !card ? <Text style={trainTextStyles.subtle}>Log boxing class, roadwork, lifting, or anything you complete outside the player.</Text> : null}
@@ -829,7 +853,7 @@ function QuickStatsRow({
     { label: "Readiness", tone: readinessTone(readiness), value: readiness }
   ];
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="train-quick-stats">
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="train-compact-stats">
       {items.map((item) => (
         <View
           key={`train-stat:${item.label}`}
@@ -852,6 +876,41 @@ function QuickStatsRow({
           </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+function CompactTrainDetailRow({
+  label,
+  testID,
+  tone,
+  value
+}: {
+  label: string;
+  testID: string;
+  tone: VisualTone;
+  value: string;
+}) {
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: trainTint(tone, "0E"),
+        borderColor: trainTint(tone, "32"),
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        minHeight: 46,
+        padding: spacing.md
+      }}
+      testID={testID}
+    >
+      <View style={{ backgroundColor: trainColorForTone(tone), borderRadius: radii.pill, height: 8, width: 8 }} />
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <Text style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}</Text>
+        <Text numberOfLines={1} style={trainTextStyles.subtle}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -958,6 +1017,106 @@ function WeekContextCard({ asOfDate, viewModel }: { asOfDate?: ISODateString | u
   );
 }
 
+function CycleContextCard({ viewModel }: { viewModel: TrainViewModel }) {
+  if (viewModel.cycleTrainingDecision.status === "none") {
+    return null;
+  }
+  return (
+    <DashboardCard testID="train-cycle-context-card" title="Cycle context">
+      <Text style={trainTextStyles.body}>{plainTrainCopy(viewModel.cycleTrainingDecision.summary)}</Text>
+      <Text style={trainTextStyles.subtle}>{plainTrainCopy(viewModel.cycleTrainingDecision.action)}</Text>
+    </DashboardCard>
+  );
+}
+
+function CollapsibleTrainDetails({
+  asOfDate,
+  busy,
+  card,
+  completionActions,
+  completionMessage,
+  detailsOpen,
+  generated,
+  onOpenFuelAfterWorkout,
+  onToggleDetails,
+  planOpenRequestKey,
+  previewOnlyReason,
+  primarySessionBlockedReason,
+  quickLogOpenRequestKey,
+  quickLogs,
+  session,
+  trainingLogOpenRequestKey,
+  viewModel
+}: {
+  asOfDate?: ISODateString | undefined;
+  busy: boolean;
+  card: TrainSessionCard | null;
+  completionActions?: WorkoutCompletionActions | undefined;
+  completionMessage?: string | null | undefined;
+  detailsOpen: boolean;
+  generated: CompactGeneratedSession | null;
+  onOpenFuelAfterWorkout?: (() => void) | undefined;
+  onToggleDetails: () => void;
+  planOpenRequestKey: number;
+  previewOnlyReason: string | undefined;
+  primarySessionBlockedReason: string | undefined;
+  quickLogOpenRequestKey: number;
+  quickLogs: QuickLogActions;
+  session: DetailedTrainingSession | null;
+  trainingLogOpenRequestKey: number;
+  viewModel: TrainViewModel;
+}) {
+  const prep = prepRows(session, card, viewModel);
+  const fuel = prep.find((row) => row.label === "Fuel check")?.value ?? "Fuel unknown";
+  const readiness = prep.find((row) => row.label === "Readiness")?.value ?? "Readiness unknown";
+  const stop = prep.find((row) => row.label === "Stop if")?.value ?? "Stop if symptoms appear.";
+  const hasWorkoutSummary = Boolean(viewModel.sessionCards.length > 0 || viewModel.todayGeneratedSessions.length > 0 || viewModel.nextGeneratedSession || generated);
+  return (
+    <View style={{ gap: spacing.md }} testID="train-collapsible-details">
+      <DashboardCard title="Details">
+        <View style={{ gap: spacing.sm }}>
+          <CompactTrainDetailRow label="Workout flow" testID="train-workout-flow-collapsed" tone="blue" value="Warm-up -> Main -> Cooldown" />
+          <CompactTrainDetailRow label="Before you start" testID="train-before-start-collapsed" tone={readinessValue(session, viewModel) === "Stop" ? "red" : "gold"} value={`${fuel} / ${readiness} / ${stop}`} />
+          <TrainQuietButton expanded={detailsOpen} onPress={onToggleDetails}>{detailsOpen ? "Hide details" : "View details"}</TrainQuietButton>
+        </View>
+      </DashboardCard>
+      {detailsOpen ? (
+        <>
+          <WorkoutFlowCard card={card} session={session} />
+          <BeforeYouStartCard card={card} session={session} viewModel={viewModel} />
+          {session ? (
+            <View testID="train-workout-section">
+              <WorkoutDetailPanel
+                busy={busy}
+                completionActions={completionActions}
+                completionMessage={completionMessage}
+                onOpenFuel={onOpenFuelAfterWorkout}
+                planOpenRequestKey={planOpenRequestKey}
+                previewOnlyReason={previewOnlyReason}
+                quickLogOpenRequestKey={quickLogOpenRequestKey}
+                startWorkoutDisabledReason={primarySessionBlockedReason}
+                session={session}
+              />
+            </View>
+          ) : hasWorkoutSummary ? (
+            <View testID="train-workout-section">
+              <DashboardCard testID="train-workout-summary-card" title="Exercise Details">
+                <Text style={trainTextStyles.body}>The player details are not available for this session. Use Log Other Training if you complete it outside the player.</Text>
+              </DashboardCard>
+            </View>
+          ) : (
+            <EmptyState title="No player workout today" message={plainTrainCopy(viewModel.todaySummary)} />
+          )}
+          <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
+          {!cycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
+          <ManualTrainingLoggerSection busy={busy} openRequestKey={trainingLogOpenRequestKey} quickLogs={quickLogs} />
+          <TrainingScheduleDebugCard viewModel={viewModel} />
+        </>
+      ) : null}
+    </View>
+  );
+}
+
 export function TrainScreen({
   activeWorkout,
   adjustmentActions,
@@ -979,6 +1138,7 @@ export function TrainScreen({
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
   const [dismissedLooseEndIds, setDismissedLooseEndIds] = React.useState<ReadonlySet<string>>(new Set());
   const [controlledStartSessionIds, setControlledStartSessionIds] = React.useState<ReadonlySet<string>>(new Set());
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [planOpenRequestKey, setPlanOpenRequestKey] = React.useState(0);
   const [trainingLogOpenRequestKey, setTrainingLogOpenRequestKey] = React.useState(0);
   const quickLogOpenRequestKey = 0;
@@ -986,6 +1146,7 @@ export function TrainScreen({
   React.useEffect(() => {
     if (initialSection) {
       if (initialSection === "workout") {
+        setDetailsOpen(true);
         setPlanOpenRequestKey((value) => value + 1);
       }
       onInitialSectionApplied?.();
@@ -1032,16 +1193,25 @@ export function TrainScreen({
     primarySession && !previewOnlyWeeklySession
       ? () => startWorkout(primarySession)
       : undefined;
-  const openPrimaryDetails = primarySession ? () => setPlanOpenRequestKey((value) => value + 1) : undefined;
-  const openTrainingLog = () => setTrainingLogOpenRequestKey((value) => value + 1);
-  const showSafety = Boolean(primarySessionBlockedReason);
+  const openPrimaryDetails = primarySession
+    ? () => {
+        setDetailsOpen(true);
+        setPlanOpenRequestKey((value) => value + 1);
+      }
+    : undefined;
+  const openTrainingLog = () => {
+    setDetailsOpen(true);
+    setTrainingLogOpenRequestKey((value) => value + 1);
+  };
+  const criticalRisk = criticalTrainingRisk(viewModel);
+  const showSafety = Boolean(primarySessionBlockedReason || criticalRisk);
 
   return (
     <LuminousScreen accent="purple" backgroundImage={tabScreenBackgrounds.train} testID="train-screen">
       <ScreenHeader {...tabHeroHeaders.train} />
       {showSafety ? (
         <RiskBanner
-          message={primarySessionBlockedReason ?? "Use today's recovery-focused guidance."}
+          message={primarySessionBlockedReason ?? firstSentence(criticalRisk ?? "Use today's recovery-focused guidance.")}
           title="Before you train"
           tone="critical"
         >
@@ -1070,6 +1240,17 @@ export function TrainScreen({
           }
         }}
       />
+      {playerInProgress && activeWorkout ? (
+        <WorkoutInProgressCard
+          onDiscard={() => {
+            setPendingStartSessionId(null);
+            onDiscardWorkout?.();
+          }}
+          onResume={() => onResumeWorkout?.()}
+          sessionTitle={activeWorkout.title}
+          status={activeWorkout.status}
+        />
+      ) : null}
       <TodayTrainingPlanCard
         busy={busy}
         card={primaryCard}
@@ -1084,8 +1265,6 @@ export function TrainScreen({
       />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <QuickStatsRow card={primaryCard} generated={generatedSummary} session={primarySession} viewModel={viewModel} />
-      <WorkoutFlowCard card={primaryCard} session={primarySession} />
-      <BeforeYouStartCard card={primaryCard} session={primarySession} viewModel={viewModel} />
       {pendingStartSession && activeWorkout ? (
         <EngineCard>
           <View style={{ gap: spacing.sm }} testID="train-start-conflict-card">
@@ -1116,49 +1295,26 @@ export function TrainScreen({
           </View>
         </EngineCard>
       ) : null}
-      {playerInProgress && activeWorkout ? (
-        <WorkoutInProgressCard
-          onDiscard={() => {
-            setPendingStartSessionId(null);
-            onDiscardWorkout?.();
-          }}
-          onResume={() => onResumeWorkout?.()}
-          sessionTitle={activeWorkout.title}
-          status={activeWorkout.status}
-        />
-      ) : null}
-      {primarySession ? (
-        <View testID="train-workout-section">
-          <WorkoutDetailPanel
-            busy={busy}
-            completionActions={completionActions}
-            completionMessage={completionMessage}
-            onOpenFuel={onOpenFuelAfterWorkout}
-            planOpenRequestKey={planOpenRequestKey}
-            previewOnlyReason={previewOnlyReason}
-            quickLogOpenRequestKey={quickLogOpenRequestKey}
-            startWorkoutDisabledReason={primarySessionBlockedReason}
-            session={primarySession}
-          />
-        </View>
-      ) : viewModel.sessionCards.length > 0 || viewModel.todayGeneratedSessions.length > 0 || viewModel.nextGeneratedSession ? (
-        <View testID="train-workout-section">
-          <DashboardCard testID="train-workout-summary-card" title="Exercise Details">
-            <Text style={trainTextStyles.body}>The player details are not available for this session. Use Log Other Training if you complete it outside the player.</Text>
-          </DashboardCard>
-        </View>
-      ) : (
-        <EmptyState title="No player workout today" message={plainTrainCopy(viewModel.todaySummary)} />
-      )}
-      <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
-      <TrainingScheduleDebugCard viewModel={viewModel} />
-      {viewModel.cycleTrainingDecision.status !== "none" ? (
-        <DashboardCard title="Cycle context">
-          <Text style={trainTextStyles.body}>{plainTrainCopy(viewModel.cycleTrainingDecision.summary)}</Text>
-          <Text style={trainTextStyles.subtle}>{plainTrainCopy(viewModel.cycleTrainingDecision.action)}</Text>
-        </DashboardCard>
-      ) : null}
-      <ManualTrainingLoggerSection busy={busy} openRequestKey={trainingLogOpenRequestKey} quickLogs={quickLogs} />
+      {cycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
+      <CollapsibleTrainDetails
+        asOfDate={asOfDate}
+        busy={busy}
+        card={primaryCard}
+        completionActions={completionActions}
+        completionMessage={completionMessage}
+        detailsOpen={detailsOpen}
+        generated={generatedSummary}
+        onOpenFuelAfterWorkout={onOpenFuelAfterWorkout}
+        onToggleDetails={() => setDetailsOpen((value) => !value)}
+        planOpenRequestKey={planOpenRequestKey}
+        previewOnlyReason={previewOnlyReason}
+        primarySessionBlockedReason={primarySessionBlockedReason}
+        quickLogOpenRequestKey={quickLogOpenRequestKey}
+        quickLogs={quickLogs}
+        session={primarySession}
+        trainingLogOpenRequestKey={trainingLogOpenRequestKey}
+        viewModel={viewModel}
+      />
       {completionMessage ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{completionMessage}</Text> : null}
     </LuminousScreen>
   );
