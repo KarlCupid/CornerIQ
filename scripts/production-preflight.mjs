@@ -16,6 +16,7 @@ const REVENUECAT_ANDROID_API_KEY_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_
 const REVENUECAT_ENTITLEMENT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_REVENUECAT_ENTITLEMENT_ID";
 const MONTHLY_PRODUCT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_MONTHLY_PRODUCT_ID";
 const ANNUAL_PRODUCT_ID_ENV = "EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID";
+const PLAN_INTEGRITY_SCHEMA_ERROR = "Workout regeneration cannot be trusted because revision-isolated lifecycle migration is missing.";
 const PUBLIC_ENV_NAMES = [
   "EXPO_PUBLIC_SUPABASE_URL",
   "EXPO_PUBLIC_SUPABASE_ANON_KEY",
@@ -117,6 +118,35 @@ function checkSensitiveConfigMarkers() {
   }
 }
 
+function readTextIfExists(path) {
+  const fullPath = pathFromRoot(path);
+  return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
+}
+
+function checkRevisionIsolatedLifecycleSchema() {
+  const migrationSource = [
+    "supabase/migrations/20260619194631_generated_session_identity_lifecycle.sql",
+    "supabase/migrations/20260626062900_revision_isolated_plan_lifecycle.sql"
+  ].map(readTextIfExists).join("\n");
+  const databaseTypes = readTextIfExists("src/services/supabase/database.types.ts");
+  const combined = `${migrationSource}\n${databaseTypes}`;
+  const requiredFragments = [
+    "training_blocks",
+    "plan_revision_id",
+    "generated_training_sessions",
+    "week_id",
+    "prescription_slot_id",
+    "generated_training_sessions_user_active_revision_slot_uidx",
+    "on public.generated_training_sessions(user_id, engine_version, plan_revision_id, block_id, week_id, prescription_slot_id)",
+    "training_blocks_user_active_revision_uidx",
+    "on public.training_blocks(user_id, plan_revision_id)"
+  ];
+  const missing = requiredFragments.filter((fragment) => !combined.includes(fragment));
+  if (missing.length > 0) {
+    failures.push(`${PLAN_INTEGRITY_SCHEMA_ERROR} Missing schema fragment(s): ${missing.join(", ")}`);
+  }
+}
+
 function isPlaceholderPrivacyUrl(value) {
   if (!value) {
     return true;
@@ -181,6 +211,7 @@ checkEasProfiles();
 checkAppConfig();
 checkPublicEnvDeclarations();
 checkSensitiveConfigMarkers();
+checkRevisionIsolatedLifecycleSchema();
 checkAppleSubmissionReadiness();
 
 if (failures.length > 0) {
@@ -193,7 +224,7 @@ if (failures.length > 0) {
 
 console.log("Production preflight passed.");
 console.log(`Checked public env declarations: ${PUBLIC_ENV_NAMES.join(", ")}.`);
-console.log("Checked package scripts, EAS profiles, app config, client config markers, and launch docs.");
+console.log("Checked package scripts, EAS profiles, app config, client config markers, revision-isolated plan lifecycle schema, and launch docs.");
 if (warnings.length > 0) {
   console.log(`Apple submission checks are warnings unless ${APPLE_SUBMISSION_MODE_ENV}=1.`);
   for (const warning of warnings) {

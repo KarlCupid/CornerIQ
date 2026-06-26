@@ -368,7 +368,11 @@ function planGenerationRequiredState(input: {
   const supportGenerationAudit: TrainingState["supportGenerationAudit"] = {
     asOfDate: input.asOfDate,
     planStartDate: input.asOfDate,
+    requestedPlanIntentId: planRevisionId,
+    resolvedPlanIntentId: planRevisionId,
     planRevisionId,
+    trainingBlockId: activeBlock.id,
+    weekId: `week:${planRevisionId}:${input.asOfDate}`,
     engineVersion,
     prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
     planIntentVersion: PLAN_INTENT_VERSION_V2,
@@ -382,6 +386,10 @@ function planGenerationRequiredState(input: {
     activeTrainingBlockId: activeBlock.id,
     weekIndex: 1,
     selectedSupportDays: selectedDays,
+    goalMode: "build",
+    primaryFocus: "plan_generation_required",
+    subFocus: "plan_generation_required",
+    trainingDose: "minimal",
     selectedTrainingDose: "minimal",
     selectedSupportDayCount: 0,
     requestedSupportDayCount: 0,
@@ -409,6 +417,12 @@ function planGenerationRequiredState(input: {
     generatedSessionDates: [],
     generatedSessionTitles: [],
     generatedSessionFamilies: [],
+    firstSessionId: null,
+    firstSessionIntentId: null,
+    firstSessionRole: null,
+    firstSessionPrimaryAdaptation: null,
+    firstSessionExerciseIds: [],
+    firstSessionSetsRepsDurations: [],
     generatedSessionDurationAudit: [],
     persistedGeneratedSessionsConsidered: [],
     persistedGeneratedSessionsIgnored: [],
@@ -499,6 +513,7 @@ function planGenerationRequiredState(input: {
     missingLogsDidNotReduceTraining: true,
     generatedSupportPlacementReasons: [],
     blockedGenerationReasons: [PLAN_GENERATION_REQUIRED_REASON],
+    persistenceWarning: "",
     reducedBy: []
   };
 
@@ -1004,6 +1019,22 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       input.executionReadiness
     )
   );
+  const requestedPlanIntentId = input.planGenerationIntent?.id ?? input.planRevision;
+  const resolvedPlanIntentId = compilerResult.currentWeek.planIntent.activeRevisionId;
+  const activeCompiledWeekId = `week:${resolvedPlanIntentId}:${compilerResult.currentWeek.weekStartDate}`;
+  assertGeneratedSessionIdentity({
+    requestedPlanIntentId,
+    resolvedPlanIntentId,
+    sessions: mergedGeneratedSessions,
+    weekId: activeCompiledWeekId
+  });
+  assertChangedRequestProducesDifferentContent({
+    currentContentFingerprint: compilerResult.currentWeek.contentFingerprint,
+    currentPrimaryFocus: compilerResult.currentWeek.planIntent.primaryFocus,
+    currentSubFocus: compilerResult.currentWeek.planIntent.subFocus,
+    currentTrainingDose: compilerResult.currentWeek.planIntent.trainingDose,
+    persistedGeneratedSessions: input.persistedGeneratedSessions ?? []
+  });
   const adjustedDayPlans = finalDayPlansWithGeneratedSessions({
     dayPlans: adjustmentApplication.dayPlans,
     generatedSessions: mergedGeneratedSessions
@@ -1112,10 +1143,16 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       latestWeekIndex: 0
     };
   const latestProgressionDecision = selectAuthoritativeTrainingProgressionDecision(blockHistory.decisions, { activePlanRevisionId: input.planRevision });
+  const firstGeneratedSession = mergedGeneratedSessions[0] ?? null;
+  const firstCompiledSession = firstGeneratedSession?.structuredPrescriptionV2?.compiledSession ?? null;
   const supportGenerationAudit = {
     asOfDate: input.asOfDate,
     planStartDate: input.planStartDate,
+    requestedPlanIntentId,
+    resolvedPlanIntentId,
     planRevisionId: input.planRevision,
+    trainingBlockId: activeBlock.id,
+    weekId: activeCompiledWeekId,
     engineVersion,
     prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
     planIntentVersion: PLAN_INTENT_VERSION_V2,
@@ -1138,6 +1175,10 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
     activeTrainingBlockId: activeBlock.id,
     weekIndex: input.planWeekIndex,
     selectedSupportDays: input.selectedDays,
+    goalMode: compilerResult.currentWeek.planIntent.goalMode,
+    primaryFocus: compilerResult.currentWeek.planIntent.primaryFocus,
+    subFocus: compilerResult.currentWeek.planIntent.subFocus,
+    trainingDose: compilerResult.currentWeek.planIntent.trainingDose,
     selectedTrainingDose: input.selectedTrainingDose,
     selectedSupportDayCount: input.selectedDays.length || input.candidateAllowedDays,
     requestedSupportDayCount: input.selectedDays.length || input.candidateAllowedDays,
@@ -1165,6 +1206,12 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
     generatedSessionDates: mergedGeneratedSessions.map((session) => session.date),
     generatedSessionTitles: mergedGeneratedSessions.map((session) => session.title),
     generatedSessionFamilies: mergedGeneratedSessions.map((session) => session.family),
+    firstSessionId: firstGeneratedSession?.id ?? null,
+    firstSessionIntentId: firstGeneratedSession?.sessionIntentId ?? null,
+    firstSessionRole: firstCompiledSession?.role ?? null,
+    firstSessionPrimaryAdaptation: firstCompiledSession?.primaryAdaptation ?? null,
+    firstSessionExerciseIds: firstSessionExerciseIds(firstGeneratedSession ?? undefined),
+    firstSessionSetsRepsDurations: firstSessionSetsRepsDurations(firstGeneratedSession ?? undefined),
     generatedSessionDurationAudit: mergedGeneratedSessions.map(generatedSessionDurationAuditItem),
     persistedGeneratedSessionsConsidered: [],
     persistedGeneratedSessionsIgnored: (input.persistedGeneratedSessions ?? []).map((session): PersistedGeneratedSessionAuditItem => ({
@@ -1263,7 +1310,9 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
     boxingDevelopmentThemeTitle: compilerResult.currentWeek.planIntent.subFocus.replaceAll("_", " "),
     athleteFacingThemePurpose: `Build ${compilerResult.currentWeek.planIntent.primaryFocus.replaceAll("_", " ")} through exact V2 prescriptions.`,
     targetSkillProgression: compilerResult.currentWeek.decisionTrace,
-    athleteFacingWeekSummary: `V2 compiler built ${targetGeneratedSupportCount} app session${targetGeneratedSupportCount === 1 ? "" : "s"} for ${compilerResult.currentWeek.planIntent.primaryFocus.replaceAll("_", " ")} / ${compilerResult.currentWeek.planIntent.subFocus.replaceAll("_", " ")}.`,
+    athleteFacingWeekSummary: `V2 compiler built ${targetGeneratedSupportCount} app session${targetGeneratedSupportCount === 1 ? "" : "s"} for ${
+      compilerResult.currentWeek.planIntent.trainingDose
+    } ${compilerResult.currentWeek.planIntent.primaryFocus.replaceAll("_", " ")} / ${compilerResult.currentWeek.planIntent.subFocus.replaceAll("_", " ")}.`,
     boxingDevelopmentTheme: compilerResult.currentWeek.planIntent.subFocus.replaceAll("_", " "),
     protectedAnchorsCountedAsSkill,
     generatedSkillSessions: mergedGeneratedSessions.filter((session) => BOXING_SKILL_GENERATED_FAMILIES.has(session.family)).map((session) => `${session.date}: ${session.title}`),
@@ -1279,6 +1328,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       return `${session.date}: V2 placed ${session.title} for ${compiled?.primaryAdaptation ?? session.trainingStimulus ?? "support"} with ${compiled?.displayedDurationMinutes ?? session.durationMinutes} structured minutes.`;
     }),
     blockedGenerationReasons: [...validationFailures, ...unresolvedTargetReasons],
+    persistenceWarning: "",
     reducedBy
   };
   return {
@@ -1371,6 +1421,99 @@ function generatedSessionDurationAuditItem(session: GeneratedTrainingSession): G
     selectedTemplateDefaultDuration: session.selectedTemplateDefaultDuration ?? session.durationMinutes,
     finalDurationMinutes: session.finalDurationMinutes ?? session.durationMinutes
   };
+}
+
+function firstSessionExerciseIds(session: GeneratedTrainingSession | undefined): readonly string[] {
+  return session?.structuredPrescriptionV2?.compiledSession.blocks.flatMap((block) => block.exercises.map((exercise) => exercise.exerciseId)) ?? [];
+}
+
+function firstSessionSetsRepsDurations(session: GeneratedTrainingSession | undefined): readonly string[] {
+  return (
+    session?.structuredPrescriptionV2?.compiledSession.blocks.flatMap((block) => [
+      ...block.exercises.map((exercise) =>
+        [
+          exercise.exerciseId,
+          typeof exercise.sets === "number" ? `${exercise.sets} sets` : null,
+          typeof exercise.reps === "number" ? `${exercise.reps} reps` : null,
+          typeof exercise.durationSeconds === "number" ? `${exercise.durationSeconds}s` : null,
+          `rest ${exercise.restSeconds}s`,
+          typeof exercise.rpe === "number" ? `RPE ${exercise.rpe}` : null,
+          typeof exercise.rir === "number" ? `RIR ${exercise.rir}` : null
+        ]
+          .filter(Boolean)
+          .join(" / ")
+      ),
+      ...(block.conditioning
+        ? [
+            `${block.conditioning.energySystem}: ${block.conditioning.repetitions} x ${block.conditioning.workSeconds}s / ${block.conditioning.restSeconds}s, RPE ${block.conditioning.rpe}`
+          ]
+        : []),
+      ...(block.boxingRounds
+        ? [
+            `${block.boxingRounds.purpose}: ${block.boxingRounds.rounds.length} rounds x ${block.boxingRounds.rounds[0]?.durationSeconds ?? 0}s / ${
+              block.boxingRounds.rounds[0]?.restSeconds ?? 0
+            }s, RPE ${block.boxingRounds.rpe}`
+          ]
+        : [])
+    ]) ?? []
+  );
+}
+
+function assertGeneratedSessionIdentity(input: {
+  requestedPlanIntentId: string;
+  resolvedPlanIntentId: string;
+  sessions: readonly GeneratedTrainingSession[];
+  weekId: string;
+}): void {
+  if (input.requestedPlanIntentId !== input.resolvedPlanIntentId) {
+    throw new Error(
+      `Plan integrity error: requested plan intent ${input.requestedPlanIntentId} resolved as ${input.resolvedPlanIntentId}. Regeneration cannot be trusted.`
+    );
+  }
+  for (const session of input.sessions) {
+    if (session.planRevisionId !== input.resolvedPlanIntentId) {
+      throw new Error(`Plan integrity error: generated session ${session.id} belongs to ${session.planRevisionId ?? "unknown"} instead of ${input.resolvedPlanIntentId}.`);
+    }
+    if (session.weekId !== input.weekId) {
+      throw new Error(`Plan integrity error: generated session ${session.id} belongs to week ${session.weekId ?? "unknown"} instead of ${input.weekId}.`);
+    }
+    if (!session.structuredPrescriptionV2) {
+      throw new Error(`Plan integrity error: generated session ${session.id} is missing structuredPrescriptionV2.`);
+    }
+    if (session.compilerContractVersion !== TRAINING_COMPILER_CONTRACT_VERSION) {
+      throw new Error(`Plan integrity error: generated session ${session.id} has stale compiler contract ${session.compilerContractVersion ?? "unknown"}.`);
+    }
+  }
+}
+
+function explicitEquivalenceReason(session: GeneratedTrainingSession): string | null {
+  const value = (session as GeneratedTrainingSession & { explicitEquivalenceReason?: unknown }).explicitEquivalenceReason;
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function assertChangedRequestProducesDifferentContent(input: {
+  currentContentFingerprint: string;
+  currentPrimaryFocus: string;
+  currentSubFocus: string;
+  currentTrainingDose: string;
+  persistedGeneratedSessions: readonly GeneratedTrainingSession[];
+}): void {
+  for (const session of input.persistedGeneratedSessions) {
+    const previousIntent = session.structuredPrescriptionV2?.sessionIntent;
+    if (!previousIntent) {
+      continue;
+    }
+    const changed =
+      previousIntent.primaryFocus !== input.currentPrimaryFocus ||
+      previousIntent.planSubFocus !== input.currentSubFocus ||
+      previousIntent.trainingDose !== input.currentTrainingDose;
+    if (!changed || session.contentFingerprint !== input.currentContentFingerprint || explicitEquivalenceReason(session)) {
+      continue;
+    }
+    throw new Error(
+      `Plan integrity error: focus, sub-focus, or dose changed but content fingerprint stayed ${input.currentContentFingerprint}. Regeneration cannot be trusted.`
+    );
+  }
 }
 
 function generatedFamilyCount(sessions: readonly GeneratedTrainingSession[], families: ReadonlySet<GeneratedSessionFamily>): number {

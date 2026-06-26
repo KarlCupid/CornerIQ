@@ -384,6 +384,10 @@ export interface TrainViewModel {
     selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
   supportGenerationSummary: {
+    requestedPlanIntentId: string;
+    resolvedPlanIntentId: string;
+    contentFingerprint: string;
+    planInstanceFingerprint: string;
     targetGeneratedSupportCount: number;
     actualGeneratedSupportCount: number;
     todayGeneratedSupportCount: number;
@@ -402,8 +406,24 @@ export interface TrainViewModel {
   scheduleDebug: {
     asOfDate: string;
     planStartDate: string;
+    requestedPlanIntentId: string;
+    resolvedPlanIntentId: string;
     weekEndDate: string;
     planRevisionId: string;
+    trainingBlockId: string;
+    weekId: string;
+    contentFingerprint: string;
+    planInstanceFingerprint: string;
+    goalMode: string;
+    primaryFocus: string;
+    subFocus: string;
+    trainingDose: string;
+    firstSessionId: string | null;
+    firstSessionIntentId: string | null;
+    firstSessionRole: string | null;
+    firstSessionPrimaryAdaptation: string | null;
+    firstSessionExerciseIds: readonly string[];
+    firstSessionSetsRepsDurations: readonly string[];
     targetGeneratedSupportCount: number;
     originalTargetGeneratedSupportCount: number;
     pastGeneratedSupportCount: number;
@@ -427,6 +447,7 @@ export interface TrainViewModel {
     scheduleRevisionChanged: boolean;
     scheduleChangeReasons: readonly string[];
     looseEndSessionIds: readonly string[];
+    persistenceWarning: string;
   };
   blockPhase: TrainingBlockPhase;
   blockGoal: string;
@@ -725,7 +746,17 @@ export interface PlanViewModel {
   generationAudit?: {
     asOfDate: string;
     planStartDate: string;
+    requestedPlanIntentId: string;
+    resolvedPlanIntentId: string;
     planRevisionId: string;
+    trainingBlockId: string;
+    weekId: string;
+    contentFingerprint: string;
+    planInstanceFingerprint: string;
+    goalMode: string;
+    primaryFocus: string;
+    subFocus: string;
+    trainingDose: string;
     activeTrainingBlockId: string;
     weekIndex: number;
     selectedSupportDays: readonly GeneratedSupportWeekday[];
@@ -748,6 +779,12 @@ export interface PlanViewModel {
     generatedSessionDates: readonly string[];
     generatedSessionTitles: readonly string[];
     generatedSessionFamilies: readonly string[];
+    firstSessionId: string | null;
+    firstSessionIntentId: string | null;
+    firstSessionRole: string | null;
+    firstSessionPrimaryAdaptation: string | null;
+    firstSessionExerciseIds: readonly string[];
+    firstSessionSetsRepsDurations: readonly string[];
     generatedSessionDurationAudit?: readonly GeneratedSessionDurationAuditItem[] | undefined;
     persistedGeneratedSessionsConsidered: readonly {
       id: string;
@@ -857,6 +894,7 @@ export interface PlanViewModel {
     generatedSupportPlacementReasons: readonly string[];
     blockedGenerationReasons: readonly string[];
     fuelRiskClassification: FuelRiskClassification;
+    persistenceWarning: string;
     reducedBy: readonly TrainingGenerationReductionSource[];
   };
   hardDaySummary: string;

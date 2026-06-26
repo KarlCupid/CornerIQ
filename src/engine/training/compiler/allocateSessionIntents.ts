@@ -77,17 +77,36 @@ function selectedSupportDates(planIntent: PlanIntent, weekStartDate: ISODateStri
   return weekDates(weekStartDate).filter((date) => selected.has(generatedSupportWeekdayForDate(date)));
 }
 
+function doseIndex(dose: PlanIntent["trainingDose"]): number {
+  switch (dose) {
+    case "minimal":
+      return 0;
+    case "standard":
+      return 1;
+    case "serious":
+      return 2;
+    case "high":
+      return 3;
+  }
+}
+
+function exposureByDose(dose: PlanIntent["trainingDose"], values: readonly [number, number, number, number]): number {
+  return values[doseIndex(dose)] ?? values[1];
+}
+
 function roleDuration(planIntent: PlanIntent, role: SessionRole): number {
   const preferred = planIntent.preferredSessionDurationMinutes;
   const max = planIntent.maxSessionDurationMinutes;
   const bounded = (minutes: number) => Math.min(max, Math.max(20, minutes));
-  const strengthFloor = planIntent.trainingDose === "high" ? 65 : planIntent.trainingDose === "serious" ? 60 : 45;
-  const secondaryStrengthFloor = planIntent.trainingDose === "high" ? 50 : planIntent.trainingDose === "serious" ? 45 : 40;
+  const doseOffset = exposureByDose(planIntent.trainingDose, [-10, 0, 10, 15]);
+  const doseAdjustedPreferred = preferred + doseOffset;
+  const strengthFloor = exposureByDose(planIntent.trainingDose, [35, 45, 60, 65]);
+  const secondaryStrengthFloor = exposureByDose(planIntent.trainingDose, [35, 40, 45, 50]);
   switch (role) {
     case "primary_strength":
-      return bounded(Math.max(strengthFloor, preferred));
+      return bounded(Math.max(strengthFloor, doseAdjustedPreferred));
     case "secondary_strength":
-      return bounded(Math.max(secondaryStrengthFloor, preferred));
+      return bounded(Math.max(secondaryStrengthFloor, preferred + Math.max(0, doseOffset)));
     case "strength_maintenance":
       return bounded(Math.max(35, Math.min(preferred, 50)));
     case "power_quality":
@@ -449,7 +468,7 @@ function desiredRoles(input: { planIntent: PlanIntent; budget: WeeklyAdaptationB
     roles.push(nextRole);
   }
 
-  return roles.slice(0, Math.max(1, input.planIntent.selectedSupportDays.length));
+  return roles.slice(0, Math.max(1, Math.min(targetCount, input.planIntent.selectedSupportDays.length)));
 }
 
 function hardRole(role: RolePlan): boolean {
@@ -508,7 +527,14 @@ function scoreDate(input: { role: RolePlan; date: ISODateString; anchors: readon
   return score;
 }
 
-function allocationFor(input: { role: RolePlan; budget: WeeklyAdaptationBudget; roleIndex: number; sameRoleCount: number; sameAdaptationCount: number }): SessionIntent["doseAllocation"] {
+function allocationFor(input: {
+  role: RolePlan;
+  budget: WeeklyAdaptationBudget;
+  roleIndex: number;
+  sameRoleCount: number;
+  sameAdaptationCount: number;
+  carryMobilityMinutes: number;
+}): SessionIntent["doseAllocation"] {
   const allocation = { ...emptyDoseAllocation };
   const strengthRemaining = remainingTarget(input.budget, "strength_sets");
   switch (input.role.role) {
@@ -553,6 +579,9 @@ function allocationFor(input: { role: RolePlan; budget: WeeklyAdaptationBudget; 
       allocation.durabilitySets = Math.max(3, input.budget.durability.sets);
       break;
   }
+  if (input.carryMobilityMinutes > 0 && input.role.primaryAdaptation !== "mobility") {
+    allocation.mobilityMinutes = Math.max(allocation.mobilityMinutes, input.carryMobilityMinutes);
+  }
   return allocation;
 }
 
@@ -570,6 +599,8 @@ export function allocateSessionIntents(input: {
     counts.set(role.role, (counts.get(role.role) ?? 0) + 1);
     return counts;
   }, new Map<SessionRole, number>());
+  const hasDedicatedMobilityRole = roles.some((role) => role.role === "mobility_recovery");
+  let mobilityCarryAssigned = false;
   const adaptationCounts = roles.reduce<Map<TrainingAdaptation, number>>((counts, role) => {
     counts.set(role.primaryAdaptation, (counts.get(role.primaryAdaptation) ?? 0) + 1);
     return counts;
@@ -599,6 +630,11 @@ export function allocateSessionIntents(input: {
       anchors: input.athlete.fixedBoxingSchedule,
       planIntent: input.planIntent
     });
+    const carryMobilityMinutes =
+      hasDedicatedMobilityRole || mobilityCarryAssigned || placedRole.primaryAdaptation === "mobility" ? 0 : remainingTarget(input.budget, "mobility_minutes");
+    if (carryMobilityMinutes > 0) {
+      mobilityCarryAssigned = true;
+    }
     const rationale = [
       `${placedRole.role.replaceAll("_", " ")} placed on ${selected}.`,
       ...(placedRole.role !== role.role ? [`Hard fixed boxing on ${selected} changed ${role.role.replaceAll("_", " ")} into easy recovery support.`] : []),
@@ -609,6 +645,9 @@ export function allocateSessionIntents(input: {
     intents.push({
       id: `intent:${input.planIntent.activeRevisionId}:${selected}:${placedRole.role}`,
       date: selected,
+      goalMode: input.planIntent.goalMode,
+      primaryFocus: input.planIntent.primaryFocus,
+      trainingDose: input.planIntent.trainingDose,
       role: placedRole.role,
       primaryAdaptation: placedRole.primaryAdaptation,
       secondaryAdaptations: placedRole.secondaryAdaptations,
@@ -619,7 +658,8 @@ export function allocateSessionIntents(input: {
         budget: input.budget,
         roleIndex,
         sameRoleCount: roleCounts.get(placedRole.role) ?? 1,
-        sameAdaptationCount: adaptationCounts.get(placedRole.primaryAdaptation) ?? 1
+        sameAdaptationCount: adaptationCounts.get(placedRole.primaryAdaptation) ?? 1,
+        carryMobilityMinutes
       }),
       movementPatterns: placedRole.movementPatterns,
       ...(placedRole.energySystemIntent ? { energySystemIntent: placedRole.energySystemIntent } : {}),

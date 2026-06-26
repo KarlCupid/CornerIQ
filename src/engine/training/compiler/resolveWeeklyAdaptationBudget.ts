@@ -63,6 +63,26 @@ function exposureByDose(dose: PlanIntent["trainingDose"], values: readonly [numb
   return values[doseIndex(dose)] ?? values[1];
 }
 
+function fullBodyStrengthDistribution(dose: PlanIntent["trainingDose"]): {
+  squat: number;
+  hinge: number;
+  unilateral: number;
+  push: number;
+  pull: number;
+  trunk: number;
+} {
+  switch (dose) {
+    case "minimal":
+      return { squat: 1, hinge: 1, unilateral: 1, push: 1, pull: 1, trunk: 2 };
+    case "standard":
+      return { squat: 2, hinge: 2, unilateral: 2, push: 2, pull: 2, trunk: 2 };
+    case "serious":
+      return { squat: 3, hinge: 2, unilateral: 3, push: 2, pull: 2, trunk: 3 };
+    case "high":
+      return { squat: 4, hinge: 3, unilateral: 4, push: 3, pull: 3, trunk: 4 };
+  }
+}
+
 function roundAnchorCount(anchor: ProtectedWorkout): number {
   return anchor.rounds ?? Math.max(1, Math.round(anchor.durationMinutes / 3));
 }
@@ -225,12 +245,15 @@ function applyStrengthSubFocus(budget: MutableBudgetCore, subFocus: StrengthSubF
       budget.strength.trunkSets += Math.max(2, exposureCount * 2);
       break;
     case "full_body_strength":
-      budget.strength.squatSets += Math.round(setUnit * 0.18);
-      budget.strength.hingeSets += Math.round(setUnit * 0.18);
-      budget.strength.unilateralSets += Math.round(setUnit * 0.18);
-      budget.strength.pushSets += Math.round(setUnit * 0.18);
-      budget.strength.pullSets += Math.round(setUnit * 0.18);
-      budget.strength.trunkSets += Math.max(2, Math.round(setUnit * 0.16));
+      {
+        const distribution = fullBodyStrengthDistribution(dose);
+        budget.strength.squatSets += distribution.squat;
+        budget.strength.hingeSets += distribution.hinge;
+        budget.strength.unilateralSets += distribution.unilateral;
+        budget.strength.pushSets += distribution.push;
+        budget.strength.pullSets += distribution.pull;
+        budget.strength.trunkSets += Math.max(2, distribution.trunk);
+      }
       break;
   }
 }
@@ -336,16 +359,21 @@ function applyFocusBudget(budget: MutableBudgetCore, input: { planIntent: PlanIn
       budget.totalGeneratedMinutes += exposureByDose(planIntent.trainingDose, [30, 45, 75, 105]);
       break;
     case "balanced":
-      applyStrengthSubFocus(budget, "full_body_strength", 1, "standard");
-      budget.conditioning.aerobicMinutes += exposureByDose(planIntent.trainingDose, [20, 35, 45, 60]);
-      budget.boxingSkill.technicalRounds += exposureByDose(planIntent.trainingDose, [3, 4, 6, 8]);
+      applyStrengthSubFocus(
+        budget,
+        "full_body_strength",
+        Math.min(supportDays, exposureByDose(planIntent.trainingDose, [1, 1, 1, 2])),
+        planIntent.trainingDose
+      );
+      budget.conditioning.aerobicMinutes += exposureByDose(planIntent.trainingDose, [12, 35, 50, 70]);
+      budget.boxingSkill.technicalRounds += exposureByDose(planIntent.trainingDose, [2, 4, 6, 9]);
       budget.boxingSkill.themeIds = [themeFor(planIntent)];
-      budget.power.exposures += planIntent.trainingDose === "high" ? 1 : 0;
-      budget.power.explosiveRepetitions += planIntent.trainingDose === "high" ? 24 : 0;
-      budget.mobility.exposures += 1;
-      budget.mobility.targetMinutes += exposureByDose(planIntent.trainingDose, [10, 15, 25, 35]);
-      budget.durability.sets += exposureByDose(planIntent.trainingDose, [2, 3, 4, 5]);
-      budget.totalGeneratedMinutes += exposureByDose(planIntent.trainingDose, [35, 55, 90, 125]);
+      budget.power.exposures += exposureByDose(planIntent.trainingDose, [0, 0, 1, 1]);
+      budget.power.explosiveRepetitions += exposureByDose(planIntent.trainingDose, [0, 0, 18, 30]);
+      budget.mobility.exposures += exposureByDose(planIntent.trainingDose, [0, 1, 1, 2]);
+      budget.mobility.targetMinutes += exposureByDose(planIntent.trainingDose, [6, 15, 25, 40]);
+      budget.durability.sets += exposureByDose(planIntent.trainingDose, [1, 3, 5, 7]);
+      budget.totalGeneratedMinutes += exposureByDose(planIntent.trainingDose, [28, 55, 105, 155]);
       break;
   }
 }

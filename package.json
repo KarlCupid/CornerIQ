@@ -35,6 +35,7 @@
     "ci:agent-bundle": "node scripts/run-agent-qa-ci.mjs --gate ci:agent-bundle",
     "release:evidence": "node scripts/generate-release-evidence.mjs",
     "release:quality": "node scripts/release-quality-gate.mjs",
+    "cleanup:training-derived-state": "node scripts/cleanup-regeneration-derived-state.mjs",
     "dev:reset:supabase": "node scripts/dev-reset-supabase.mjs",
     "preflight:production": "node scripts/production-preflight.mjs",
     "preflight:beta": "npm run preflight:production",

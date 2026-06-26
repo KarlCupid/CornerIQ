@@ -247,6 +247,30 @@ describe("training compiler V2 architecture", () => {
     expect(high.materialFingerprint).not.toBe(minimal.materialFingerprint);
   });
 
+  it("keeps balanced dose changes visible in the first week and first strength workout", () => {
+    const doses = ["minimal", "standard", "serious", "high"] as const;
+    const weeks = doses.map((dose) =>
+      compileCase({
+        focus: "balanced",
+        dose,
+        equipment: ["dumbbells", "bands", "medicine_ball", "bench"],
+        supportDays: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+      })
+    );
+    const firstStrengthSessions = weeks.map(primaryStrengthSession);
+
+    expect(new Set(weeks.map((week) => week.contentFingerprint)).size).toBe(doses.length);
+    expect(new Set(weeks.map((week) => totalPlannedStrengthSets(week.adaptationBudget))).size).toBe(doses.length);
+    expect(new Set(weeks.map((week) => week.adaptationBudget.totalGeneratedMinutes)).size).toBe(doses.length);
+    expect(new Set(firstStrengthSessions.map((session) => session.targetDurationMinutes)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(firstStrengthSessions.map((session) => allExercises(session).reduce((sum, exercise) => sum + (exercise.sets ?? 0), 0))).size).toBeGreaterThanOrEqual(3);
+    expect(firstStrengthSessions.map((session) => session.title)).not.toContain("Primary strength prescription");
+    expect(firstStrengthSessions.every((session) => !/prescription/i.test(session.title))).toBe(true);
+    expect(weeks[0]?.compiledSessions.length).toBe(1);
+    expect((weeks[1]?.compiledSessions.length ?? 0)).toBeGreaterThan(weeks[0]?.compiledSessions.length ?? 0);
+    expect((weeks[3]?.compiledSessions.length ?? 0)).toBeGreaterThan(weeks[1]?.compiledSessions.length ?? 0);
+  });
+
   it("uses recent structured history for conservative progression and pattern-scoped pain", () => {
     const baseline = compileCase({ focus: "strength", subFocus: "full_body_strength", dose: "serious", equipment: ["dumbbells", "bands"] });
     const baselineExercises = allExercises(primaryStrengthSession(baseline));

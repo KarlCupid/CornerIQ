@@ -215,6 +215,9 @@ export interface AthleteNeedsAssessment {
 export interface SessionIntent {
   id: string;
   date: ISODateString;
+  goalMode: TrainingGoalMode;
+  primaryFocus: TrainingPrimaryFocus;
+  trainingDose: TrainingDose;
   role: SessionRole;
   primaryAdaptation: TrainingAdaptation;
   secondaryAdaptations: readonly TrainingAdaptation[];

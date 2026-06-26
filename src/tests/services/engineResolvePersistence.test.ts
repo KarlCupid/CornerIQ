@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AthleteJourney, ISODateString, PersistedNutritionSafetyReview } from "../../engine/core/types";
+import type { AthleteJourney, ISODateString, JourneyEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
 import { addDays } from "../../engine/core/dates";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
@@ -34,7 +34,7 @@ function persistedNutritionSafetyReview(overrides: Partial<PersistedNutritionSaf
   };
 }
 
-function createRepositories(options: { blockPersistenceFailure?: boolean; journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; previewPersistenceFailure?: boolean; repositoryFailure?: boolean; reviewPersistenceFailure?: boolean } = {}) {
+function createRepositories(options: { blockPersistenceFailure?: boolean; generatedSessionPersistenceFailure?: boolean; journey?: AthleteJourney; missingProfile?: boolean; persistenceFailure?: boolean; previewPersistenceFailure?: boolean; repositoryFailure?: boolean; reviewPersistenceFailure?: boolean } = {}) {
   const journey = options.journey ?? no_wearable_manual_only;
   const runStore = new Map<string, string>();
   const generatedSessionStore = new Map<string, unknown>();
@@ -131,6 +131,9 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
     };
   });
   const upsertGeneratedSessions = vi.fn(async (records: readonly { engine_version: string; generated_session_key?: string | null; planned_date: string; user_id: string }[]) => {
+    if (options.generatedSessionPersistenceFailure) {
+      throw new Error("generated-session projection failed");
+    }
     for (const record of records) {
       generatedSessionStore.set(`${record.user_id}:${record.planned_date}:${record.engine_version}:${record.generated_session_key ?? ""}`, record);
     }
@@ -338,6 +341,34 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
       upsertTrainingDayPlans,
       upsertTrainingMicrocycle,
       upsertTrainingNextWeekPreview
+    }
+  };
+}
+
+function planWizardBuildEvent(id: string, trainingDose = "standard"): JourneyEvent {
+  return {
+    id: `event_${id}`,
+    type: "BuildPhaseStarted",
+    occurredAt: "2026-05-19T09:00:00.000Z",
+    payload: {
+      source: "plan_wizard_new_plan",
+      primaryFocus: "balanced",
+      selectedSupportDays: ["tuesday", "thursday", "saturday"],
+      trainingDose,
+      planGenerationIntent: {
+        id,
+        userId: no_wearable_manual_only.athlete.athleteId,
+        action: "start_new_plan",
+        goalMode: "build",
+        primaryFocus: "balanced",
+        trainingDose,
+        selectedSupportDays: ["tuesday", "thursday", "saturday"],
+        planStartDate: fixtureAsOfDate,
+        requestedAt: "2026-05-19T09:00:00.000Z",
+        seed: id,
+        source: "plan_wizard",
+        status: "active"
+      }
     }
   };
 }
@@ -560,6 +591,22 @@ describe("resolveAndPersistPerformanceState", () => {
       expect(result.state.viewModels.plan.nextWeekPreview.persistedStatus).toBe("not_persisted");
       expect(result.state.viewModels.plan.nextWeekPreview.dayPlanPreview.length).toBeGreaterThan(0);
     }
+  });
+
+  it("blocks regenerated workout output when generated-session persistence fails after a plan wizard request", async () => {
+    const journey: AthleteJourney = {
+      ...no_wearable_manual_only,
+      journeyEvents: [planWizardBuildEvent("plan_regeneration_generated_session_failure", "minimal")]
+    };
+    const { repositories, calls } = createRepositories({ journey, generatedSessionPersistenceFailure: true });
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("error");
+    expect(result).toMatchObject({
+      error: "Workout regeneration could not be saved. Stale workouts were not shown as regenerated output.",
+      cause: expect.stringContaining("generated-session projection failed")
+    });
+    expect(calls.upsertGeneratedSessions).toHaveBeenCalledTimes(1);
   });
 
   it("does not call repositories with an undefined userId", async () => {

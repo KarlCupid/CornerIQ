@@ -41,32 +41,57 @@ function totalDuration(blocks: readonly TrainingSessionBlock[]): number {
   return Math.round(blocks.reduce((sum, block) => sum + block.durationMinutes, 0));
 }
 
+function strengthTitleFor(intent: SessionIntent): string {
+  if (intent.trainingDose === "high" && intent.role === "primary_strength") {
+    return "High-dose strength exposure 1";
+  }
+  if (intent.trainingDose === "high" && intent.role === "secondary_strength") {
+    return "High-dose strength exposure 2";
+  }
+  switch (intent.planSubFocus) {
+    case "lower_body_strength":
+      return "Lower-body strength builder";
+    case "posterior_chain_strength":
+      return "Posterior-chain strength builder";
+    case "upper_body_trunk_strength":
+      return "Upper-body trunk strength";
+    case "unilateral_control":
+      return "Unilateral control strength";
+    case "stance_posture_strength":
+      return "Stance and posture strength";
+    case "strength_maintenance":
+      return "Strength maintenance exposure";
+    case "full_body_strength":
+    default:
+      return intent.trainingDose === "minimal" ? "Compact full-body strength base" : "Full-body strength base";
+  }
+}
+
 function titleFor(intent: SessionIntent): string {
   switch (intent.role) {
     case "primary_strength":
-      return "Primary strength prescription";
     case "secondary_strength":
-      return "Secondary strength prescription";
+      return strengthTitleFor(intent);
     case "strength_maintenance":
-      return "Strength maintenance prescription";
+      return "Strength maintenance exposure";
     case "aerobic_conditioning":
-      return "Aerobic base prescription";
+      return "Aerobic base support";
     case "tempo_conditioning":
-      return "Tempo conditioning prescription";
+      return "Tempo conditioning day";
     case "interval_conditioning":
-      return "Interval conditioning prescription";
+      return "Interval conditioning day";
     case "alactic_conditioning":
-      return "Alactic speed prescription";
+      return "Alactic speed day";
     case "boxing_conditioning":
-      return "Boxing-round conditioning prescription";
+      return "Boxing-round conditioning day";
     case "power_quality":
-      return "Power quality prescription";
+      return intent.planSubFocus === "rotational_power" ? "Rotational power quality" : "Power quality exposure";
     case "boxing_skill":
-      return "Boxing skill prescription";
+      return intent.boxingTheme ? `${intent.boxingTheme.replaceAll("_", " ")} skill rounds` : "Boxing skill rounds";
     case "mobility_recovery":
-      return "Mobility and recovery prescription";
+      return "Recovery mobility reset";
     case "durability_support":
-      return "Durability support prescription";
+      return "Durability support layer";
   }
 }
 
@@ -277,7 +302,7 @@ function composeStrength(input: { athlete: AthleteTrainingProfile; intent: Sessi
     });
   });
   const warmupMinutes = input.intent.role === "primary_strength" ? 10 : 8;
-  const cooldownMinutes = 7;
+  const cooldownMinutes = Math.max(7, input.intent.doseAllocation.mobilityMinutes);
   const mainMinimum = Math.max(input.intent.role === "primary_strength" ? 28 : 22, input.intent.targetDurationMinutes - warmupMinutes - cooldownMinutes);
   const mainDuration = blockDurationFromExercises(exercises, mainMinimum);
   return [
@@ -342,7 +367,7 @@ function composePower(input: { athlete: AthleteTrainingProfile; intent: SessionI
         ...selectedExerciseHistoryNotes({ definitions, history: input.exerciseHistory })
       ]
     },
-    mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: 6 })
+    mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: Math.max(6, input.intent.doseAllocation.mobilityMinutes) })
   ];
 }
 
@@ -361,7 +386,7 @@ function composeConditioning(input: { athlete: AthleteTrainingProfile; intent: S
       conditioning: dose,
       coachingNotes: [`Modality: ${dose.modality.replaceAll("_", " ")}.`, dose.progressionTrigger, dose.stopCondition]
     },
-    mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: roundMinutes(dose.cooldownSeconds) })
+    mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: Math.max(roundMinutes(dose.cooldownSeconds), input.intent.doseAllocation.mobilityMinutes) })
   ];
 }
 
@@ -380,7 +405,7 @@ function composeBoxing(input: { athlete: AthleteTrainingProfile; intent: Session
       boxingRounds: rounds,
       coachingNotes: [rounds.technicalQualityCheckpoint, rounds.stopRule, rounds.progressionRule]
     },
-    mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: 6 })
+    mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: Math.max(6, input.intent.doseAllocation.mobilityMinutes) })
   ];
 }
 

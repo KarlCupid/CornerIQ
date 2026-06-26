@@ -523,6 +523,10 @@ const trainViewModel: TrainViewModel = {
     }
   ],
   supportGenerationSummary: {
+    requestedPlanIntentId: "plan:test",
+    resolvedPlanIntentId: "plan:test",
+    contentFingerprint: "content:test",
+    planInstanceFingerprint: "instance:test",
     targetGeneratedSupportCount: 3,
     actualGeneratedSupportCount: 1,
     todayGeneratedSupportCount: 1,
@@ -564,8 +568,24 @@ const trainViewModel: TrainViewModel = {
   scheduleDebug: {
     asOfDate: "2026-05-19",
     planStartDate: "2026-05-19",
+    requestedPlanIntentId: "plan:test",
+    resolvedPlanIntentId: "plan:test",
     weekEndDate: "2026-05-25",
     planRevisionId: "plan:test",
+    trainingBlockId: "training_block_1",
+    weekId: "week:plan:test:2026-05-19",
+    contentFingerprint: "content:test",
+    planInstanceFingerprint: "instance:test",
+    goalMode: "build",
+    primaryFocus: "balanced",
+    subFocus: "full_body_strength",
+    trainingDose: "standard",
+    firstSessionId: "generated_1",
+    firstSessionIntentId: "intent:plan:test:2026-05-19:primary_strength",
+    firstSessionRole: "primary_strength",
+    firstSessionPrimaryAdaptation: "strength",
+    firstSessionExerciseIds: ["push_up"],
+    firstSessionSetsRepsDurations: ["push_up / 3 sets / 8 reps / rest 90s / RPE 7 / RIR 2"],
     targetGeneratedSupportCount: 3,
     originalTargetGeneratedSupportCount: 3,
     pastGeneratedSupportCount: 0,
@@ -613,7 +633,8 @@ const trainViewModel: TrainViewModel = {
     autoRollForwardPrevented: false,
     scheduleRevisionChanged: false,
     scheduleChangeReasons: [],
-    looseEndSessionIds: []
+    looseEndSessionIds: [],
+    persistenceWarning: ""
   },
   blockPhase: "build_strength",
   blockGoal: "strength base",
@@ -3086,7 +3107,7 @@ describe("minimal app screens", () => {
     const tournamentOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: tournament.viewModels.train })).toJSON());
     const redOutput = JSON.stringify(render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: red.viewModels.train })).toJSON());
 
-    expect(taperOutput).toContain("Power quality prescription");
+    expect(taperOutput).toContain("Power quality exposure");
     expect(taperOutput).toContain("Fight-week day");
     expect(tournamentOutput).toContain("Tournament day: no extra hard conditioning.");
     expect(redOutput).not.toContain("Before you train");
@@ -4611,7 +4632,17 @@ describe("minimal app screens", () => {
           generationAudit: {
             asOfDate: fixtureAsOfDate,
             planStartDate: fixtureAsOfDate,
+            requestedPlanIntentId: "plan:test",
+            resolvedPlanIntentId: "plan:test",
             planRevisionId: "plan:test",
+            trainingBlockId: "training_block_1",
+            weekId: `week:plan:test:${fixtureAsOfDate}`,
+            contentFingerprint: "content:test",
+            planInstanceFingerprint: "instance:test",
+            goalMode: "build",
+            primaryFocus: "balanced",
+            subFocus: "full_body_strength",
+            trainingDose: "standard",
             activeTrainingBlockId: "training_block_1",
             weekIndex: 1,
             selectedSupportDays: ["tuesday"],
@@ -4621,6 +4652,12 @@ describe("minimal app screens", () => {
             generatedSessionDates: [],
             generatedSessionTitles: [],
             generatedSessionFamilies: [],
+            firstSessionId: null,
+            firstSessionIntentId: null,
+            firstSessionRole: null,
+            firstSessionPrimaryAdaptation: null,
+            firstSessionExerciseIds: [],
+            firstSessionSetsRepsDurations: [],
             persistedGeneratedSessionsConsidered: [],
             persistedGeneratedSessionsIgnored: [],
             candidateAllowedDays: 1,
@@ -4631,6 +4668,7 @@ describe("minimal app screens", () => {
             generatedSupportPlacementReasons: [],
             blockedGenerationReasons: ["Fuel safety capped support workout count."],
             fuelRiskClassification: "severe_fueling_risk",
+            persistenceWarning: "",
             reducedBy: ["nutrition"]
           }
         }

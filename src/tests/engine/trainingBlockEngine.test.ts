@@ -22,6 +22,7 @@ import { generatedSupportWeekdayForDate } from "../../engine/training/supportAva
 import { isHighStimulusGeneratedSession, trainingStimulusForFamily } from "../../engine/training/trainingStimulus";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2, PLAN_INTENT_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
 import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
+import type { PlanSubFocus } from "../../engine/training/compiler/types";
 import {
   amateur_novice_build,
   amateur_open_tournament,
@@ -113,6 +114,7 @@ function planWizardBuildEvent(input: {
   planStartDate?: string | undefined;
   requestedAt?: string | undefined;
   selectedSupportDays?: readonly string[] | undefined;
+  subFocus?: PlanSubFocus | undefined;
   trainingDose?: PlanGenerationTrainingDose | undefined;
 }): JourneyEvent {
   const selectedSupportDays = input.selectedSupportDays ?? ["tuesday", "thursday", "saturday"];
@@ -126,12 +128,14 @@ function planWizardBuildEvent(input: {
       primaryFocus: input.focus,
       source: "plan_wizard_new_plan",
       scheduleAvailability: selectedSupportDays,
+      ...(input.subFocus ? { subFocus: input.subFocus } : {}),
       planGenerationIntent: {
         id: input.id,
         userId: pro_4_round_build_strength.athlete.athleteId,
         action: "start_new_plan",
         goalMode: "build",
         primaryFocus: input.focus,
+        ...(input.subFocus ? { subFocus: input.subFocus } : {}),
         trainingDose: input.trainingDose ?? "standard",
         selectedSupportDays,
         planStartDate: input.planStartDate ?? fixtureAsOfDate,
@@ -1674,6 +1678,107 @@ describe("training block and microcycle engine", () => {
     expect(planB.training.generatedSessions.every((session) => session.trainingBlockId === planB.training.activeBlock.id)).toBe(true);
     expect(planB.training.generatedSessions.some((session) => session.trainingStimulus === "conditioning")).toBe(true);
     expect(planB.training.supportGenerationAudit.targetConditioningExposures).toBeGreaterThan(planA.training.supportGenerationAudit.targetConditioningExposures);
+  });
+
+  it("karllager-style regeneration changes dose, focus, sub-focus, and stale-row authority after reload", () => {
+    const events = [
+      planWizardBuildEvent({
+        focus: "balanced",
+        id: "plan_karllager_balanced_standard",
+        occurredAt: "2026-05-19T09:00:00.000Z",
+        requestedAt: "2026-05-19T09:00:00.000Z",
+        selectedSupportDays: sixSupportDays,
+        trainingDose: "standard"
+      }),
+      planWizardBuildEvent({
+        focus: "balanced",
+        id: "plan_karllager_balanced_minimal",
+        occurredAt: "2026-05-19T10:00:00.000Z",
+        requestedAt: "2026-05-19T10:00:00.000Z",
+        selectedSupportDays: sixSupportDays,
+        trainingDose: "minimal"
+      }),
+      planWizardBuildEvent({
+        focus: "balanced",
+        id: "plan_karllager_balanced_high",
+        occurredAt: "2026-05-19T11:00:00.000Z",
+        requestedAt: "2026-05-19T11:00:00.000Z",
+        selectedSupportDays: sixSupportDays,
+        trainingDose: "high"
+      }),
+      planWizardBuildEvent({
+        focus: "conditioning",
+        id: "plan_karllager_conditioning_intervals_serious",
+        occurredAt: "2026-05-19T12:00:00.000Z",
+        requestedAt: "2026-05-19T12:00:00.000Z",
+        selectedSupportDays: sixSupportDays,
+        subFocus: "intervals",
+        trainingDose: "serious"
+      })
+    ];
+    const states = events.reduce<ReturnType<typeof resolvePerformanceState>[]>((resolved, _event, index) => {
+      const previous = resolved.at(-1);
+      resolved.push(
+        resolvePerformanceState({
+          journey: {
+            ...pro_4_round_build_strength,
+            athlete: {
+              ...pro_4_round_build_strength.athlete,
+              boxingLevel: "amateur_open",
+              amateurOrPro: "amateur",
+              trainingAgeYears: 4,
+              scheduleAvailability: sixSupportDays,
+              equipmentAccess: ["dumbbells", "bands", "medicine_ball", "trap_bar", "bench"]
+            },
+            currentTrainingBlock: previous?.training.activeBlock.id ?? null,
+            activeTrainingBlock: previous?.training.activeBlock ?? null,
+            journeyEvents: events.slice(0, index + 1),
+            trainingHistory: previous?.training.generatedSessions ?? [],
+            trainingPlanAdjustments: [],
+            safetyFlags: []
+          },
+          asOfDate: fixtureAsOfDate
+        })
+      );
+      return resolved;
+    }, []);
+    const firstWorkoutSignatures = states.map((state) => {
+      const first = state.training.generatedSessions[0];
+      return `${first?.title}|${first?.durationMinutes}|${first?.prescription.join("|")}`;
+    });
+
+    expect(new Set(states.map((state) => state.training.supportGenerationAudit.planRevisionId)).size).toBe(states.length);
+    expect(new Set(states.map((state) => state.training.activeBlock.id)).size).toBe(states.length);
+    expect(new Set(states.map((state) => state.training.supportGenerationAudit.contentFingerprint)).size).toBe(states.length);
+    expect(new Set(firstWorkoutSignatures).size).toBe(states.length);
+    for (const [index, state] of states.entries()) {
+      const expectedIntent = events[index]!.payload.planGenerationIntent as { id: string; primaryFocus: string; subFocus?: string; trainingDose: string };
+      const audit = state.training.supportGenerationAudit;
+      const first = state.training.generatedSessions[0];
+      expect(audit.requestedPlanIntentId).toBe(expectedIntent.id);
+      expect(audit.resolvedPlanIntentId).toBe(expectedIntent.id);
+      expect(audit.planRevisionId).toBe(expectedIntent.id);
+      expect(audit.primaryFocus).toBe(expectedIntent.primaryFocus);
+      expect(audit.trainingDose).toBe(expectedIntent.trainingDose);
+      expect(audit.persistenceWarning).toBe("");
+      expect(first?.planRevisionId).toBe(expectedIntent.id);
+      expect(first?.trainingBlockId).toBe(state.training.activeBlock.id);
+      expect(first?.weekId).toBe(audit.weekId);
+      expect(first?.structuredPrescriptionV2).toBeDefined();
+      expect(first?.compilerContractVersion).toBe(TRAINING_COMPILER_CONTRACT_VERSION);
+      expect(state.viewModels.plan.generationAudit?.trainingDose).toBe(expectedIntent.trainingDose);
+      expect(state.viewModels.plan.generationAudit?.primaryFocus).toBe(expectedIntent.primaryFocus);
+      expect(state.viewModels.plan.athleteFacingWeekSummary).toContain(expectedIntent.trainingDose);
+      expect(state.training.supportGenerationAudit.persistedGeneratedSessionsConsidered).toEqual([]);
+      if (index > 0) {
+        expect(state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.length).toBeGreaterThan(0);
+        expect(state.training.supportGenerationAudit.persistedGeneratedSessionsIgnored.every((session) => session.planRevisionId !== expectedIntent.id)).toBe(true);
+      }
+    }
+    expect(states[1]!.training.supportGenerationAudit.targetGeneratedSupportCount).toBeLessThan(states[0]!.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(states[2]!.training.supportGenerationAudit.targetGeneratedSupportCount).toBeGreaterThan(states[0]!.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(states[3]!.training.generatedSessions.some((session) => session.trainingStimulus === "conditioning")).toBe(true);
+    expect(states[3]!.training.supportGenerationAudit.subFocus).toBe("intervals");
   });
 
   it("ignores legacy active generated sessions from the active revision when contract metadata is missing", () => {

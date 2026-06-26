@@ -7,7 +7,8 @@ const launchMigrationNames = [
   "014_temporal_integrity_session_resolution.sql",
   "20260619190201_training_week_finalization_authority.sql",
   "20260619194631_generated_session_identity_lifecycle.sql",
-  "20260620000100_workout_completion_retry_integrity.sql"
+  "20260620000100_workout_completion_retry_integrity.sql",
+  "20260626062900_revision_isolated_plan_lifecycle.sql"
 ] as const;
 
 function readSource(path: string): string {
@@ -79,6 +80,24 @@ describe("Supabase migration static checks", () => {
       "generated_training_sessions_user_revision_week_slot_idx",
       "generated_training_sessions_user_active_slot_uidx",
       "'active', 'completed', 'skipped', 'unresolved', 'moved', 'superseded', 'canceled'"
+    ]) {
+      expect(source).toContain(requiredFragment);
+    }
+  });
+
+  it("preserves revision-isolated active plan lifecycle authority", () => {
+    const source = readMigration("20260626062900_revision_isolated_plan_lifecycle.sql");
+
+    for (const requiredFragment of [
+      "training_blocks",
+      "plan_revision_id",
+      "generated_training_sessions",
+      "week_id",
+      "prescription_slot_id",
+      "generated_training_sessions_user_active_revision_slot_uidx",
+      "on public.generated_training_sessions(user_id, engine_version, plan_revision_id, block_id, week_id, prescription_slot_id)",
+      "training_blocks_user_active_revision_uidx",
+      "on public.training_blocks(user_id, plan_revision_id)"
     ]) {
       expect(source).toContain(requiredFragment);
     }

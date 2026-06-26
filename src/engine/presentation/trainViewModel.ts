@@ -381,6 +381,10 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
         ? "Start today's support workout when ready."
         : "No support workout is due. Log boxing if it happens.";
   const supportGenerationSummary = {
+    requestedPlanIntentId: state.training.supportGenerationAudit.requestedPlanIntentId,
+    resolvedPlanIntentId: state.training.supportGenerationAudit.resolvedPlanIntentId,
+    contentFingerprint: state.training.supportGenerationAudit.contentFingerprint,
+    planInstanceFingerprint: state.training.supportGenerationAudit.planInstanceFingerprint,
     targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
     actualGeneratedSupportCount: state.training.supportGenerationAudit.actualGeneratedSupportCount,
     todayGeneratedSupportCount: todayGeneratedSessions.length,
@@ -431,8 +435,24 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
     scheduleDebug: {
       asOfDate: state.training.supportGenerationAudit.asOfDate,
       planStartDate: state.training.supportGenerationAudit.planStartDate,
+      requestedPlanIntentId: state.training.supportGenerationAudit.requestedPlanIntentId,
+      resolvedPlanIntentId: state.training.supportGenerationAudit.resolvedPlanIntentId,
       weekEndDate: state.training.currentMicrocycle.weekEndDate,
       planRevisionId: state.training.supportGenerationAudit.planRevisionId,
+      trainingBlockId: state.training.supportGenerationAudit.trainingBlockId,
+      weekId: state.training.supportGenerationAudit.weekId,
+      contentFingerprint: state.training.supportGenerationAudit.contentFingerprint,
+      planInstanceFingerprint: state.training.supportGenerationAudit.planInstanceFingerprint,
+      goalMode: state.training.supportGenerationAudit.goalMode,
+      primaryFocus: state.training.supportGenerationAudit.primaryFocus,
+      subFocus: state.training.supportGenerationAudit.subFocus,
+      trainingDose: state.training.supportGenerationAudit.trainingDose,
+      firstSessionId: state.training.supportGenerationAudit.firstSessionId,
+      firstSessionIntentId: state.training.supportGenerationAudit.firstSessionIntentId,
+      firstSessionRole: state.training.supportGenerationAudit.firstSessionRole,
+      firstSessionPrimaryAdaptation: state.training.supportGenerationAudit.firstSessionPrimaryAdaptation,
+      firstSessionExerciseIds: state.training.supportGenerationAudit.firstSessionExerciseIds,
+      firstSessionSetsRepsDurations: state.training.supportGenerationAudit.firstSessionSetsRepsDurations,
       targetGeneratedSupportCount: state.training.supportGenerationAudit.targetGeneratedSupportCount,
       originalTargetGeneratedSupportCount: state.training.supportGenerationAudit.originalTargetGeneratedSupportCount,
       pastGeneratedSupportCount: state.training.supportGenerationAudit.pastGeneratedSupportCount,
@@ -457,7 +477,8 @@ export function buildTrainViewModel(state: PerformanceState): TrainViewModel {
       autoRollForwardPrevented: state.training.supportGenerationAudit.autoRollForwardPrevented,
       scheduleRevisionChanged: state.training.supportGenerationAudit.scheduleRevisionChanged,
       scheduleChangeReasons: state.training.supportGenerationAudit.scheduleChangeReasons,
-      looseEndSessionIds: state.training.supportGenerationAudit.looseEndSessionIds
+      looseEndSessionIds: state.training.supportGenerationAudit.looseEndSessionIds,
+      persistenceWarning: state.training.supportGenerationAudit.persistenceWarning
     },
     blockPhase: state.training.activeBlock.phase,
     blockGoal: state.training.activeBlock.primaryGoal.replaceAll("_", " "),

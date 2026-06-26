@@ -6,6 +6,7 @@ import type { ISODateString, PerformanceState } from "../../engine/core/types";
 import { buildFuelViewModel } from "../../engine/presentation/fuelViewModel";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import { buildProfileViewModel } from "../../engine/presentation/profileViewModel";
+import { buildTrainViewModel } from "../../engine/presentation/trainViewModel";
 import type { PersistedNutritionSafetyReview } from "../../engine/nutrition/nutritionSafetyReviewTypes";
 import type { NextWeekTrainingMaterialization } from "../../engine/training/nextWeekMaterializationContract";
 import { latestPlanWizardIntentSource } from "../../engine/training/planGenerationIntent";
@@ -69,6 +70,10 @@ function degradedLoadWarning(journeyResult: LoadAthleteJourneyResult): string | 
   return journeyResult.status === "ready" && journeyResult.loadWarnings?.length
     ? `Account data loaded with degraded remote reads: ${journeyResult.loadWarnings.join(" | ")}`
     : undefined;
+}
+
+function planRegenerationPersistenceIsBlocking(source: "plan_wizard_new_plan" | "plan_wizard_amendment" | null): boolean {
+  return source === "plan_wizard_new_plan" || source === "plan_wizard_amendment";
 }
 
 function mergedSummaries(existing: readonly TrainingWeekSummary[], summary: TrainingWeekSummary): readonly TrainingWeekSummary[] {
@@ -287,6 +292,7 @@ function withTrainingPersistenceStatus(input: {
       },
       supportGenerationAudit: {
         ...input.state.training.supportGenerationAudit,
+        trainingBlockId: input.trainingBlockId,
         activeTrainingBlockId: input.trainingBlockId
       }
     }
@@ -296,6 +302,7 @@ function withTrainingPersistenceStatus(input: {
     viewModels: {
       ...nextState.viewModels,
       plan: buildPlanViewModel(nextState),
+      train: buildTrainViewModel(nextState),
       profile: buildProfileViewModel(nextState)
     }
   };
@@ -338,6 +345,30 @@ function withPersistedNutritionSafetyReview(state: PerformanceState, review: Per
     viewModels: {
       ...nextState.viewModels,
       fuel: buildFuelViewModel(nextState)
+    }
+  };
+}
+
+function withSupportGenerationPersistenceWarning(state: PerformanceState, persistenceWarning: string | undefined): PerformanceState {
+  if (!persistenceWarning || state.training.requiresPlanGeneration) {
+    return state;
+  }
+  const nextState = {
+    ...state,
+    training: {
+      ...state.training,
+      supportGenerationAudit: {
+        ...state.training.supportGenerationAudit,
+        persistenceWarning
+      }
+    }
+  };
+  return {
+    ...nextState,
+    viewModels: {
+      ...nextState.viewModels,
+      plan: buildPlanViewModel(nextState),
+      train: buildTrainViewModel(nextState)
     }
   };
 }
@@ -831,15 +862,23 @@ export async function resolveAndPersistPerformanceState(input: {
     const persistenceWarning = combinedWarning([loadWarning, persisted.persistenceWarning]);
     return {
       status: "ready",
-      state: persisted.state,
+      state: withSupportGenerationPersistenceWarning(persisted.state, persistenceWarning),
       inputHash,
       ...(persistenceWarning ? { persistenceWarning } : {})
     };
   } catch (error) {
+    const lifecycleSource = journeyResult.status === "ready" ? latestPlanWizardIntentSource(journeyResult.journey) : null;
+    if (planRegenerationPersistenceIsBlocking(lifecycleSource)) {
+      return {
+        status: "error",
+        error: "Workout regeneration could not be saved. Stale workouts were not shown as regenerated output.",
+        cause: errorMessage(error)
+      };
+    }
     const persistenceWarning = combinedWarning([loadWarning, `Engine state resolved, but persistence failed: ${errorMessage(error)}`]);
     return {
       status: "ready",
-      state,
+      state: withSupportGenerationPersistenceWarning(state, persistenceWarning),
       inputHash,
       ...(persistenceWarning ? { persistenceWarning } : {})
     };

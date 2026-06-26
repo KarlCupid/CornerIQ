@@ -767,7 +767,11 @@ export interface GeneratedSessionDurationAuditItem extends GeneratedSessionDurat
 export interface TrainingSupportGenerationAudit {
   asOfDate: ISODateString;
   planStartDate: ISODateString;
+  requestedPlanIntentId: string;
+  resolvedPlanIntentId: string;
   planRevisionId: string;
+  trainingBlockId: string;
+  weekId: string;
   engineVersion: string;
   prescriptionContractVersion: string;
   planIntentVersion: string;
@@ -781,6 +785,10 @@ export interface TrainingSupportGenerationAudit {
   activeTrainingBlockId: string;
   weekIndex: number;
   selectedSupportDays: readonly GeneratedSupportWeekday[];
+  goalMode: string;
+  primaryFocus: string;
+  subFocus: string;
+  trainingDose: PlanGenerationTrainingDose;
   selectedTrainingDose: PlanGenerationTrainingDose;
   selectedSupportDayCount: number;
   requestedSupportDayCount: number;
@@ -808,6 +816,12 @@ export interface TrainingSupportGenerationAudit {
   generatedSessionDates: readonly ISODateString[];
   generatedSessionTitles: readonly string[];
   generatedSessionFamilies: readonly GeneratedSessionFamily[];
+  firstSessionId: string | null;
+  firstSessionIntentId: string | null;
+  firstSessionRole: string | null;
+  firstSessionPrimaryAdaptation: string | null;
+  firstSessionExerciseIds: readonly string[];
+  firstSessionSetsRepsDurations: readonly string[];
   generatedSessionDurationAudit: readonly GeneratedSessionDurationAuditItem[];
   persistedGeneratedSessionsConsidered: readonly PersistedGeneratedSessionAuditItem[];
   persistedGeneratedSessionsIgnored: readonly PersistedGeneratedSessionAuditItem[];
@@ -901,6 +915,7 @@ export interface TrainingSupportGenerationAudit {
   missingLogsDidNotReduceTraining: boolean;
   generatedSupportPlacementReasons: readonly string[];
   blockedGenerationReasons: readonly string[];
+  persistenceWarning: string;
   reducedBy: readonly TrainingGenerationReductionSource[];
 }
 
