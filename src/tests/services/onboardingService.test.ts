@@ -687,6 +687,7 @@ describe("onboardingService", () => {
       userId: "user_1",
       draft: {
         primaryFocus: "conditioning",
+        subFocus: "intervals",
         generatedSupportAvailableDays: ["tuesday", "thursday"]
       },
       repositories
@@ -699,7 +700,17 @@ describe("onboardingService", () => {
           type: "BuildPhaseStarted",
           payload: expect.objectContaining({
             generatedSupportAvailableDays: ["tuesday", "thursday"],
-            planGenerationIntent: expect.objectContaining({ selectedSupportDays: ["tuesday", "thursday"] })
+            planGenerationIntent: expect.objectContaining({
+              primaryFocus: "conditioning",
+              subFocus: "intervals",
+              trainingDose: "minimal",
+              selectedSupportDays: ["tuesday", "thursday"],
+              preferredSessionDurationMinutes: 45,
+              maxSessionDurationMinutes: 70,
+              targetBlockLengthWeeks: 4,
+              equipment: expect.arrayContaining(["jump_rope"]),
+              currentLimitations: []
+            })
           })
         })
       ])

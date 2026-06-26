@@ -624,6 +624,7 @@ export function allocateSessionIntents(input: {
       movementPatterns: placedRole.movementPatterns,
       ...(placedRole.energySystemIntent ? { energySystemIntent: placedRole.energySystemIntent } : {}),
       ...(placedRole.boxingTheme ? { boxingTheme: placedRole.boxingTheme } : {}),
+      planSubFocus: input.planIntent.subFocus,
       equipmentContext: input.athlete.equipment,
       fixedBoxingContext,
       progressionIntent: roleIndex === 0 ? "introduce" : "maintain",

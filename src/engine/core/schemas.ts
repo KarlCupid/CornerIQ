@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PersistedTrainingPlanAdjustment } from "../training/types";
+import type { GeneratedTrainingSession, PersistedTrainingPlanAdjustment } from "../training/types";
 import { validateFoodLogEnergy } from "../nutrition/foodLogEnergyValidation";
 import { NutritionSafetyReviewEventSchema, PersistedNutritionSafetyReviewSchema } from "../nutrition/nutritionSafetyReviewTypes";
 import { TrainingBlockTimelineEventSchema, TrainingProgressionDecisionSchema, TrainingWeekSummarySchema } from "../training/trainingBlockHistoryTypes";
@@ -22,6 +22,9 @@ const WorkoutTemplateSectionRoleSchema = z.enum(["prepare", "primary", "companio
 const ExerciseResultLoadUnitSchema = z.enum(["kg", "lb", "bodyweight", "band", "other"]);
 const ExerciseResultSideSchema = z.enum(["left", "right", "bilateral", "alternating", "not_applicable"]);
 const ExerciseResultTechnicalQualitySchema = z.enum(["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"]);
+const StructuredPrescriptionV2Schema: z.ZodType<NonNullable<GeneratedTrainingSession["structuredPrescriptionV2"]>> = z.custom(
+  (value) => value !== null && typeof value === "object" && !Array.isArray(value)
+);
 const GeneratedSessionTypeLabelSchema = z.enum([
   "Lift",
   "Strength",
@@ -448,6 +451,8 @@ export const GeneratedTrainingSessionSchema = z.object({
   planIntentVersion: z.string().min(1).optional(),
   generatedSessionSchemaVersion: z.string().min(1).optional(),
   planFingerprint: z.string().min(1).optional(),
+  contentFingerprint: z.string().min(1).optional(),
+  planInstanceFingerprint: z.string().min(1).optional(),
   planRevisionId: z.string().min(1).optional(),
   trainingBlockId: z.string().min(1).optional(),
   weekId: z.string().min(1).optional(),
@@ -482,8 +487,11 @@ export const GeneratedTrainingSessionSchema = z.object({
   fuelBefore: z.string().min(1).optional(),
   fuelAfter: z.string().min(1).optional(),
   confidenceImpact: z.string().min(1).optional(),
-  missingDataAdvisories: z.array(z.string()).optional()
-});
+  missingDataAdvisories: z.array(z.string()).optional(),
+  compilerContractVersion: z.string().min(1).optional(),
+  sessionIntentId: z.string().min(1).optional(),
+  structuredPrescriptionV2: StructuredPrescriptionV2Schema.optional()
+}).passthrough();
 
 export const CompletedTrainingSessionSchema = z.object({
   id: z.string().min(1),

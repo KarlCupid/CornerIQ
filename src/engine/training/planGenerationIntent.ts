@@ -2,11 +2,50 @@ import type { AthleteJourney, JourneyEvent } from "../athlete/types";
 import type { ISODateString } from "../core/sharedTypes";
 import { stableHash } from "../core/stableHash";
 import type { PlanGenerationAction, PlanGenerationGoalMode, PlanGenerationIntent, PlanGenerationPrimaryFocus, PlanGenerationTrainingDose } from "./types";
+import { defaultSubFocusFor } from "./compiler/normalizePlanInputs";
+import type { PlanSubFocus, TrainingGoalMode, TrainingPrimaryFocus } from "./compiler/types";
 import { normalizeGeneratedSupportWeekdays } from "./supportAvailability";
 
 const PLAN_WIZARD_SOURCES = new Set(["plan_wizard_new_plan", "plan_wizard_amendment"]);
-const PRIMARY_FOCUS_VALUES = new Set(["balanced", "power", "conditioning", "strength", "mobility"]);
+const PRIMARY_FOCUS_VALUES = new Set(["balanced", "power", "conditioning", "strength", "mobility", "boxing_skill"]);
 const TRAINING_DOSE_VALUES = new Set(["minimal", "standard", "serious", "high"]);
+const PLAN_SUB_FOCUS_VALUES = new Set<PlanSubFocus>([
+  "full_body_strength",
+  "lower_body_strength",
+  "posterior_chain_strength",
+  "upper_body_trunk_strength",
+  "unilateral_control",
+  "stance_posture_strength",
+  "strength_maintenance",
+  "rotational_power",
+  "first_step_explosiveness",
+  "alactic_speed",
+  "reaction_timing",
+  "power_maintenance",
+  "aerobic_base",
+  "repeatable_rounds",
+  "tempo",
+  "intervals",
+  "sprint_alactic_conditioning",
+  "boxing_specific_conditioning",
+  "recovery_conditioning",
+  "jab_system",
+  "entries_exits",
+  "defense_after_punching",
+  "footwork_ringcraft",
+  "counter_timing",
+  "pressure_control",
+  "outside_movement",
+  "bag_skill",
+  "shadowboxing_mechanics",
+  "hips_ankles",
+  "shoulders_thoracic",
+  "trunk_guard_posture",
+  "general_recovery",
+  "post_bout",
+  "travel",
+  "soreness_management"
+]);
 const USER_PLAN_EVENT_TYPES = new Set<JourneyEvent["type"]>([
   "BuildPhaseStarted",
   "CampStarted",
@@ -23,6 +62,27 @@ function objectValue(value: unknown): Record<string, unknown> | null {
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function numberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function positiveIntegerValue(value: unknown): number | null {
+  const parsed = numberValue(value);
+  return parsed !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function stringArrayValue(...candidates: readonly unknown[]): readonly string[] {
+  for (const value of candidates) {
+    if (Array.isArray(value)) {
+      const normalized = [...new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))];
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    }
+  }
+  return [];
 }
 
 function isoDateValue(value: unknown): ISODateString | null {
@@ -70,6 +130,48 @@ function goalModeFromEvent(event: JourneyEvent, intentPayload: Record<string, un
 function primaryFocusFromPayload(payload: Record<string, unknown>, intentPayload: Record<string, unknown> | null): PlanGenerationPrimaryFocus | undefined {
   const value = stringValue(intentPayload?.primaryFocus) ?? stringValue(payload.primaryFocus);
   return value && PRIMARY_FOCUS_VALUES.has(value) ? (value as PlanGenerationPrimaryFocus) : undefined;
+}
+
+function compilerGoalMode(goalMode: PlanGenerationGoalMode): TrainingGoalMode {
+  switch (goalMode) {
+    case "fight":
+      return "fight_camp";
+    case "tournament":
+      return "tournament";
+    case "recovery":
+      return "recovery_reset";
+    case "build":
+      return "build";
+  }
+}
+
+function compilerPrimaryFocus(focus: PlanGenerationPrimaryFocus | undefined, goalMode: PlanGenerationGoalMode): TrainingPrimaryFocus {
+  if (focus === "mobility") {
+    return "mobility_recovery";
+  }
+  if (focus) {
+    return focus;
+  }
+  if (goalMode === "fight") {
+    return "power";
+  }
+  if (goalMode === "tournament" || goalMode === "recovery") {
+    return "mobility_recovery";
+  }
+  return "balanced";
+}
+
+function subFocusFromPayload(input: {
+  goalMode: PlanGenerationGoalMode;
+  intentPayload: Record<string, unknown> | null;
+  payload: Record<string, unknown>;
+  primaryFocus: PlanGenerationPrimaryFocus | undefined;
+}): PlanSubFocus {
+  const value = stringValue(input.intentPayload?.subFocus) ?? stringValue(input.payload.subFocus);
+  if (value && PLAN_SUB_FOCUS_VALUES.has(value as PlanSubFocus)) {
+    return value as PlanSubFocus;
+  }
+  return defaultSubFocusFor(compilerPrimaryFocus(input.primaryFocus, input.goalMode), compilerGoalMode(input.goalMode));
 }
 
 export function defaultTrainingDoseForSupportDays(selectedSupportDayCount: number): PlanGenerationTrainingDose {
@@ -158,6 +260,9 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
   }
   const selectedSupportDays = selectedSupportDaysFromPayload(journey, payload, intentPayload);
   const trainingDose = trainingDoseFromPayload(payload, intentPayload, selectedSupportDays.length);
+  const goalMode = goalModeFromEvent(event, intentPayload);
+  const primaryFocus = primaryFocusFromPayload(payload, intentPayload);
+  const subFocus = subFocusFromPayload({ goalMode, intentPayload, payload, primaryFocus });
   const requestedAt = stringValue(intentPayload?.requestedAt) ?? event.occurredAt;
   const id =
     stringValue(intentPayload?.id) ??
@@ -175,10 +280,19 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
     id,
     userId: stringValue(intentPayload?.userId) ?? journey.athlete.athleteId,
     action,
-    goalMode: goalModeFromEvent(event, intentPayload),
-    primaryFocus: primaryFocusFromPayload(payload, intentPayload),
+    goalMode,
+    primaryFocus,
+    subFocus,
     trainingDose,
     selectedSupportDays,
+    preferredSessionDurationMinutes: positiveIntegerValue(intentPayload?.preferredSessionDurationMinutes) ?? positiveIntegerValue(payload.preferredSessionDurationMinutes) ?? 45,
+    maxSessionDurationMinutes: positiveIntegerValue(intentPayload?.maxSessionDurationMinutes) ?? positiveIntegerValue(payload.maxSessionDurationMinutes) ?? 70,
+    targetBlockLengthWeeks: positiveIntegerValue(intentPayload?.targetBlockLengthWeeks) ?? positiveIntegerValue(payload.targetBlockLengthWeeks) ?? 4,
+    equipment: stringArrayValue(intentPayload?.equipment, payload.equipment, journey.athlete.equipmentAccess),
+    modalityPreferences: stringArrayValue(intentPayload?.modalityPreferences, payload.modalityPreferences, payload.userPreferences),
+    modalityAvoidances: stringArrayValue(intentPayload?.modalityAvoidances, payload.modalityAvoidances),
+    currentLimitations: stringArrayValue(intentPayload?.currentLimitations, payload.currentLimitations, [...journey.athlete.injuryHistory, ...journey.athlete.medicalFlags]),
+    userPreferences: stringArrayValue(intentPayload?.userPreferences, payload.userPreferences, payload.modalityPreferences),
     planStartDate,
     requestedAt,
     seed,

@@ -6,6 +6,7 @@ import type {
   PlanGenerationPrimaryFocus,
   PlanGenerationTrainingDose
 } from "./types";
+import type { PlanSubFocus } from "./compiler/types";
 import type { GeneratedSupportWeekday } from "./supportAvailability";
 import type { TrainingBlockPhase, TrainingDayPlan } from "./trainingBlockTypes";
 import type { TrainingProgressionDecisionValue } from "./trainingBlockHistoryTypes";
@@ -50,7 +51,8 @@ const trainingBlockPhaseSchema = z.enum([
 
 const trainingProgressionDecisionValueSchema = z.enum(["progress", "repeat", "regress", "deload", "taper", "recovery", "coach_review", "hold"]);
 const trainingDayRoleSchema = z.enum(["hard_day", "recovery_day", "support_day", "taper_day", "tournament_conservation_day"]);
-const primaryFocusSchema = z.enum(["balanced", "power", "conditioning", "strength", "mobility"]);
+const primaryFocusSchema = z.enum(["balanced", "power", "conditioning", "strength", "mobility", "boxing_skill"]);
+const planSubFocusSchema: z.ZodType<PlanSubFocus> = z.string().min(1) as z.ZodType<PlanSubFocus>;
 const trainingDoseSchema = z.enum(["minimal", "standard", "serious", "high"]);
 const generatedSupportWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const generatedSessionFamilySchema = z.enum([
@@ -122,6 +124,8 @@ const generatedTrainingSessionPreviewSchema = z.object({
   planIntentVersion: z.string().optional(),
   generatedSessionSchemaVersion: z.string().optional(),
   planFingerprint: z.string().optional(),
+  contentFingerprint: z.string().optional(),
+  planInstanceFingerprint: z.string().optional(),
   sessionIntentId: z.string().optional(),
   structuredPrescriptionV2: z.unknown().optional()
 }).passthrough();
@@ -146,9 +150,19 @@ export const NextWeekTrainingMaterializationSchema = z.object({
   planIntentVersion: z.string().min(1),
   planRevisionId: z.string().min(1),
   planFingerprint: z.string().min(1),
+  contentFingerprint: z.string().min(1),
+  planInstanceFingerprint: z.string().min(1),
   primaryFocus: primaryFocusSchema,
+  subFocus: planSubFocusSchema,
   trainingDose: trainingDoseSchema,
   selectedSupportDays: z.array(generatedSupportWeekdaySchema),
+  preferredSessionDurationMinutes: z.number().int().positive(),
+  maxSessionDurationMinutes: z.number().int().positive(),
+  targetBlockLengthWeeks: z.number().int().positive(),
+  equipment: z.array(z.string()),
+  modalityPreferences: z.array(z.string()),
+  modalityAvoidances: z.array(z.string()),
+  currentLimitations: z.array(z.string()),
   targetGeneratedSupportCount: z.number().int().nonnegative(),
   targetWeeklyGeneratedMinutes: z.number().int().nonnegative(),
   materializedPhase: trainingBlockPhaseSchema,
@@ -185,9 +199,19 @@ export interface NextWeekTrainingMaterialization {
   planIntentVersion: string;
   planRevisionId: string;
   planFingerprint: string;
+  contentFingerprint: string;
+  planInstanceFingerprint: string;
   primaryFocus: PlanGenerationPrimaryFocus;
+  subFocus: PlanSubFocus;
   trainingDose: PlanGenerationTrainingDose;
   selectedSupportDays: readonly GeneratedSupportWeekday[];
+  preferredSessionDurationMinutes: number;
+  maxSessionDurationMinutes: number;
+  targetBlockLengthWeeks: number;
+  equipment: readonly string[];
+  modalityPreferences: readonly string[];
+  modalityAvoidances: readonly string[];
+  currentLimitations: readonly string[];
   targetGeneratedSupportCount: number;
   targetWeeklyGeneratedMinutes: number;
   materializedPhase: TrainingBlockPhase;

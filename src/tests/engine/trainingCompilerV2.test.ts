@@ -2,19 +2,21 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AthleteProfile } from "../../engine/athlete/types";
-import type { CycleState, PhaseState, ReadinessState } from "../../engine/core/types";
+import type { CycleState, PhaseState, ReadinessState, RiskFlag } from "../../engine/core/types";
 import { buildWorkoutPlayerTimeline } from "../../engine/presentation/workoutPlayerTimeline";
 import {
   GENERATED_SESSION_SCHEMA_VERSION_V2,
   PLAN_INTENT_VERSION_V2,
   compileCurrentAndNextTrainingWeeks
 } from "../../engine/training/compiledWeekProjection";
+import { persistentSafetyConstraintsFromRiskFlags } from "../../engine/training/compiledTrainingStateEngine";
 import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
-import type { ProtectedWorkout } from "../../engine/training/types";
+import type { ExerciseResultRecord, ProtectedWorkout } from "../../engine/training/types";
 import {
   compileTrainingWeek,
   normalizeAthleteTrainingProfile,
   normalizePlanIntent,
+  planInstanceFingerprintForCompiledWeek,
   planFingerprint,
   remainingTarget,
   totalPlannedStrengthSets,
@@ -126,6 +128,7 @@ function compileCase(input: {
   preferences?: readonly string[] | undefined;
   limitations?: readonly string[] | undefined;
   safety?: readonly PersistentSafetyConstraint[] | undefined;
+  history?: readonly ExerciseResultRecord[] | undefined;
   weekStart?: string | undefined;
 }): CompiledTrainingWeek {
   const fixed = input.fixed ?? [];
@@ -154,12 +157,61 @@ function compileCase(input: {
     athlete: normalizedAthlete,
     planIntent,
     weekStartDate: input.weekStart ?? weekStartDate,
+    exerciseHistory: input.history,
     persistentSafetyConstraints: input.safety
   });
 }
 
 function allExercises(session: CompiledTrainingSession) {
   return session.blocks.flatMap((block) => block.exercises);
+}
+
+function exerciseResult(overrides: Partial<ExerciseResultRecord>): ExerciseResultRecord {
+  return {
+    id: "result_1",
+    exerciseId: "goblet_squat",
+    exerciseName: "Goblet squat",
+    section: "Strength work",
+    prescribed: { movementPattern: "squat", adaptation: "strength" },
+    resultStatus: "completed",
+    completedSets: 3,
+    repsCompleted: 8,
+    technicalQuality: "clean",
+    rpe: 6,
+    source: "generated_session_completion",
+    engineVersion: "test",
+    completedTrainingSessionId: null,
+    generatedTrainingSessionDbId: null,
+    recordedAt: "2026-05-29T18:00:00.000Z",
+    completedAt: "2026-05-29T18:00:00.000Z",
+    ...overrides
+  };
+}
+
+function riskFlag(overrides: Partial<RiskFlag> = {}): RiskFlag {
+  return {
+    id: "risk_flag_1",
+    domain: "training",
+    code: "pain_logged",
+    severity: "high",
+    status: "active",
+    message: "Pain was logged.",
+    evidence: { date: weekStartDate },
+    blocksPlan: true,
+    hardStop: false,
+    requiresProfessionalReview: true,
+    confidence: { level: "high", score: 0.9, reasons: ["test"], missingInputs: [] },
+    explanation: "Pain requires a scoped training constraint.",
+    ...overrides
+  };
+}
+
+function primaryStrengthSession(week: CompiledTrainingWeek): CompiledTrainingSession {
+  const session = week.compiledSessions.find((item) => item.role === "primary_strength");
+  if (!session) {
+    throw new Error("missing primary strength session");
+  }
+  return session;
 }
 
 describe("training compiler V2 architecture", () => {
@@ -193,6 +245,73 @@ describe("training compiler V2 architecture", () => {
     expect(intervals.adaptationBudget.conditioning.intervalRepetitions).toBeGreaterThan(aerobic.adaptationBudget.conditioning.intervalRepetitions);
     expect(totalPlannedStrengthSets(high.adaptationBudget)).toBeGreaterThan(totalPlannedStrengthSets(minimal.adaptationBudget));
     expect(high.materialFingerprint).not.toBe(minimal.materialFingerprint);
+  });
+
+  it("uses recent structured history for conservative progression and pattern-scoped pain", () => {
+    const baseline = compileCase({ focus: "strength", subFocus: "full_body_strength", dose: "serious", equipment: ["dumbbells", "bands"] });
+    const baselineExercises = allExercises(primaryStrengthSession(baseline));
+    const baselineGoblet = baselineExercises.find((exercise) => exercise.exerciseId === "goblet_squat");
+    const baselinePush = baselineExercises.find((exercise) => exercise.exerciseId === "push_up");
+
+    const clean = compileCase({
+      focus: "strength",
+      subFocus: "full_body_strength",
+      dose: "serious",
+      equipment: ["dumbbells", "bands"],
+      history: [exerciseResult({ id: "clean_goblet" })]
+    });
+    const cleanIntent = clean.sessionIntents.find((intent) => intent.role === "primary_strength");
+    const cleanGoblet = allExercises(primaryStrengthSession(clean)).find((exercise) => exercise.exerciseId === "goblet_squat");
+    expect(cleanIntent?.progressionIntent).toBe("progress");
+    expect(cleanGoblet?.reps).toBe((baselineGoblet?.reps ?? 0) + 1);
+    expect(primaryStrengthSession(clean).blocks.flatMap((block) => block.coachingNotes).join(" ")).toContain("repeats intentionally");
+
+    const highRpe = compileCase({
+      focus: "strength",
+      subFocus: "full_body_strength",
+      dose: "serious",
+      equipment: ["dumbbells", "bands"],
+      history: [exerciseResult({ id: "high_rpe_goblet", rpe: 9 })]
+    });
+    const highRpeGoblet = allExercises(primaryStrengthSession(highRpe)).find((exercise) => exercise.exerciseId === "goblet_squat");
+    expect(highRpe.sessionIntents.find((intent) => intent.role === "primary_strength")?.progressionIntent).toBe("repeat");
+    expect(highRpeGoblet?.reps).toBeLessThanOrEqual(baselineGoblet?.reps ?? 0);
+
+    const partial = compileCase({
+      focus: "strength",
+      subFocus: "full_body_strength",
+      dose: "serious",
+      equipment: ["dumbbells", "bands"],
+      history: [exerciseResult({ id: "partial_goblet", resultStatus: "partial", completedSets: 1 })]
+    });
+    const partialExercises = allExercises(primaryStrengthSession(partial));
+    const partialRegression = partialExercises.find((exercise) => exercise.exerciseId === "bodyweight_squat");
+    expect(partial.sessionIntents.find((intent) => intent.role === "primary_strength")?.progressionIntent).toBe("regress");
+    expect(partialRegression?.movementPattern).toBe("squat");
+    expect(partialExercises.some((exercise) => exercise.exerciseId === "goblet_squat")).toBe(false);
+
+    const pushPain = compileCase({
+      focus: "strength",
+      subFocus: "full_body_strength",
+      dose: "serious",
+      equipment: ["dumbbells", "bands"],
+      history: [
+        exerciseResult({
+          id: "push_pain",
+          exerciseId: "push_up",
+          exerciseName: "Push-up",
+          prescribed: { movementPattern: "push", adaptation: "strength" },
+          painFlag: true,
+          technicalQuality: "stopped_for_pain"
+        })
+      ]
+    });
+    const pushPainExercises = allExercises(primaryStrengthSession(pushPain));
+    const pushPainGoblet = pushPainExercises.find((exercise) => exercise.exerciseId === "goblet_squat");
+    const pushPainPush = pushPainExercises.find((exercise) => exercise.exerciseId === "push_up");
+    expect(pushPain.sessionIntents.find((intent) => intent.role === "primary_strength")?.progressionIntent).toBe("maintain");
+    expect(pushPainGoblet?.reps).toBe(baselineGoblet?.reps);
+    expect(pushPainPush?.reps).toBeLessThan(baselinePush?.reps ?? 0);
   });
 
   it("places intents around fixed boxing instead of using family order", () => {
@@ -273,6 +392,7 @@ describe("training compiler V2 architecture", () => {
 
     expect(sameDay.compiledSessions[0]?.readinessOverlay?.status).toBe("recovery_only");
     expect(sameDay.compiledSessions.slice(1).every((session) => !session.readinessOverlay)).toBe(true);
+    expect(sameDay.materialFingerprint).not.toBe(base.materialFingerprint);
     expect(futureWeek.materialFingerprint).toBe(futureWeekNoReadiness.materialFingerprint);
   });
 
@@ -317,23 +437,124 @@ describe("training compiler V2 architecture", () => {
     expect(intervalBlock?.conditioning?.modality).toBe("bike");
     expect(week.compiledSessions.some((session) => session.safetyConstraintIds.includes("knee_active"))).toBe(true);
     expect(staleWeek.compiledSessions.every((session) => !session.safetyConstraintIds.includes("old_back_note"))).toBe(true);
+
+    const lowerBodyConstraint: PersistentSafetyConstraint = {
+      ...kneeConstraint,
+      id: "knee_strength_active",
+      affectedTrainingDomains: ["squatting", "lunging"],
+      hardStopScope: "affected_domain",
+      reassessmentRequirement: "Pain-free knee warm-up before squats or lunges progress."
+    };
+    const baselineStrength = compileCase({
+      focus: "strength",
+      subFocus: "lower_body_strength",
+      dose: "serious",
+      equipment: ["dumbbells", "bands"]
+    });
+    const constrainedStrength = compileCase({
+      focus: "strength",
+      subFocus: "lower_body_strength",
+      dose: "serious",
+      equipment: ["dumbbells", "bands"],
+      safety: [lowerBodyConstraint]
+    });
+    const constrainedSession = constrainedStrength.compiledSessions.find((session) => session.safetyConstraintIds.includes("knee_strength_active"))!;
+    const baselineSession = baselineStrength.compiledSessions.find((session) => session.sessionIntentId === constrainedSession.sessionIntentId)!;
+    const affectedLowerBodyExercises = constrainedSession.blocks
+      .flatMap((block) => block.exercises)
+      .filter((exercise) => exercise.movementPattern === "squat" || exercise.movementPattern === "unilateral");
+
+    expect(constrainedStrength.validation.passed).toBe(true);
+    expect(constrainedSession.structuredDurationMinutes).toBe(Math.round(constrainedSession.blocks.reduce((sum, block) => sum + block.durationMinutes, 0)));
+    expect(constrainedSession.displayedDurationMinutes).toBe(constrainedSession.structuredDurationMinutes);
+    expect(constrainedSession.structuredDurationMinutes).toBeLessThanOrEqual(baselineSession.structuredDurationMinutes);
+    expect(affectedLowerBodyExercises.length).toBeGreaterThan(0);
+    expect(affectedLowerBodyExercises.every((exercise) => exercise.rpe === undefined || exercise.rpe <= 6)).toBe(true);
   });
 
-  it("fingerprints exercise-level dose and not titles", () => {
+  it("converts active persistent risk evidence into scoped compiler safety constraints", () => {
+    const active = riskFlag({
+      id: "shoulder_review",
+      evidence: {
+        observedDate: "2026-05-20T08:00:00.000Z",
+        lastConfirmedDate: "2026-06-04",
+        reviewDate: "2026-06-15",
+        resolutionDate: "2026-07-01",
+        affectedBodyRegion: "shoulder",
+        affectedTrainingDomains: ["pressing", "bag_work", "not_a_domain"],
+        hardStopScope: "affected_domain",
+        returnToTrainingStage: "building",
+        reassessmentRequirement: "Clinician review before pressing or bag work progresses.",
+        persistentSafetyStatus: "review_required",
+        persistentSafetySource: "clinician"
+      }
+    });
+    const stale = riskFlag({
+      id: "stale_knee",
+      evidence: {
+        affectedBodyRegion: "knee",
+        affectedTrainingDomains: ["running"],
+        persistentSafetyStatus: "stale"
+      }
+    });
+    const resolved = riskFlag({
+      id: "resolved_back",
+      status: "resolved",
+      evidence: {
+        affectedBodyRegion: "back",
+        affectedTrainingDomains: ["hinging"],
+        resolvedAt: "2026-06-01"
+      }
+    });
+
+    const constraints = persistentSafetyConstraintsFromRiskFlags([active, stale, resolved], "2026-06-10");
+
+    expect(constraints).toHaveLength(1);
+    expect(constraints[0]).toMatchObject({
+      id: "risk:shoulder_review",
+      source: "clinician",
+      observedDate: "2026-05-20",
+      lastConfirmedDate: "2026-06-04",
+      status: "review_required",
+      affectedBodyRegion: "shoulder",
+      affectedTrainingDomains: ["pressing", "bag_work"],
+      hardStopScope: "affected_domain",
+      reassessmentRequirement: "Clinician review before pressing or bag work progresses.",
+      reviewDate: "2026-06-15",
+      resolutionDate: "2026-07-01",
+      returnToTrainingStage: "building"
+    });
+  });
+
+  it("fingerprints exercise-level content separately from dated plan instances", () => {
     const strength = compileCase({ focus: "strength", subFocus: "full_body_strength", dose: "serious", equipment: ["dumbbells", "bands"] });
+    const shiftedWeek = compileCase({ focus: "strength", subFocus: "full_body_strength", dose: "serious", equipment: ["dumbbells", "bands"], weekStart: "2026-06-08" });
     const conditioning = compileCase({ focus: "conditioning", subFocus: "intervals", dose: "serious", equipment: ["bike"] });
     const aerobic = compileCase({ focus: "conditioning", subFocus: "aerobic_base", dose: "serious", equipment: ["bike"] });
     const rotational = compileCase({ focus: "power", subFocus: "rotational_power", dose: "high", equipment: ["medicine_ball", "bands"] });
     const firstStep = compileCase({ focus: "power", subFocus: "first_step_explosiveness", dose: "high", equipment: ["bike", "bands"] });
     const renamed = {
       ...strength,
-      compiledSessions: strength.compiledSessions.map((session) => ({ ...session, title: `Renamed ${session.title}` }))
+      planRevisionId: "renamed_revision",
+      planIntent: { ...strength.planIntent, id: "renamed_plan_intent", activeRevisionId: "renamed_revision" },
+      sessionIntents: strength.sessionIntents.map((intent, index) => ({ ...intent, id: `renamed_intent_${index}` })),
+      compiledSessions: strength.compiledSessions.map((session, index) => ({
+        ...session,
+        id: `renamed_session_${index}`,
+        sessionIntentId: `renamed_intent_${index}`,
+        title: `Renamed ${session.title}`,
+        blocks: session.blocks.map((block) => ({ ...block, id: `renamed_${block.id}`, title: `Renamed ${block.title}` }))
+      }))
     };
 
+    expect(strength.materialFingerprint).toBe(strength.contentFingerprint);
+    expect(strength.contentFingerprint).toBe(shiftedWeek.contentFingerprint);
+    expect(strength.planInstanceFingerprint).not.toBe(shiftedWeek.planInstanceFingerprint);
     expect(strength.materialFingerprint).not.toBe(conditioning.materialFingerprint);
     expect(aerobic.materialFingerprint).not.toBe(conditioning.materialFingerprint);
     expect(rotational.materialFingerprint).not.toBe(firstStep.materialFingerprint);
-    expect(planFingerprint(renamed)).toBe(strength.materialFingerprint);
+    expect(planFingerprint(renamed)).toBe(strength.contentFingerprint);
+    expect(planInstanceFingerprintForCompiledWeek(renamed)).not.toBe(strength.planInstanceFingerprint);
     expect(remainingTarget(strength.adaptationBudget, "strength_sets")).toBeGreaterThan(0);
   });
 
@@ -410,10 +631,70 @@ describe("training compiler V2 architecture", () => {
     expect(result.currentGeneratedSessions.every((session) => session.planIntentVersion === PLAN_INTENT_VERSION_V2)).toBe(true);
     expect(result.currentGeneratedSessions.every((session) => session.structuredPrescriptionV2?.compiledSession.sessionIntentId === session.sessionIntentId)).toBe(true);
     expect(result.currentGeneratedSessions.some((session) => session.structuredPrescriptionV2?.compiledSession.readinessOverlay?.status === "recovery_only")).toBe(true);
-    expect(result.nextWeekMaterialization.planFingerprint).toBe(result.nextWeek.materialFingerprint);
+    expect(result.nextWeekMaterialization.contentFingerprint).toBe(result.nextWeek.contentFingerprint);
+    expect(result.nextWeekMaterialization.planInstanceFingerprint).toBe(result.nextWeek.planInstanceFingerprint);
+    expect(result.nextWeekMaterialization.planFingerprint).toBe(result.nextWeek.planInstanceFingerprint);
     expect(result.nextWeekMaterialization.nextWeekStartDate).toBe("2026-06-08");
     expect(result.nextWeekMaterialization.nextWeekDayPlanPreview.some((day) => day.generatedSupport !== "No generated support.")).toBe(true);
     expect(result.nextWeek.compiledSessions.every((session) => !session.readinessOverlay)).toBe(true);
+
+    const leakageProbe = compileCurrentAndNextTrainingWeeks({
+      current: {
+        athlete: normalizedAthlete,
+        planIntent,
+        weekStartDate,
+        readiness: { date: "2026-06-08", color: "red", hardStop: true, drivers: ["would match next week if inherited"] }
+      },
+      nextWeekStartDate: "2026-06-08",
+      nextWeekIndex: 2
+    });
+
+    expect(leakageProbe.currentWeek.compiledSessions.every((session) => !session.readinessOverlay)).toBe(true);
+    expect(leakageProbe.nextWeek.compiledSessions.every((session) => !session.readinessOverlay)).toBe(true);
+  });
+
+  it("feeds structured progression history into next week without carrying today's readiness", () => {
+    const normalizedAthlete = normalizeAthleteTrainingProfile({
+      athlete: athlete({ equipmentAccess: ["dumbbells", "bands"] })
+    });
+    const planIntent = normalizePlanIntent({
+      userId: "user_v2",
+      requestedStartDate: weekStartDate,
+      primaryFocus: "strength",
+      subFocus: "full_body_strength",
+      trainingDose: "serious",
+      selectedSupportDays: ["monday", "wednesday", "friday"],
+      preferredSessionDurationMinutes: 50,
+      maxSessionDurationMinutes: 65,
+      activeRevisionId: "projection_history_progression"
+    });
+    const history = [exerciseResult({ id: "clean_goblet_projection" })];
+    const withHistory = compileCurrentAndNextTrainingWeeks({
+      current: {
+        athlete: normalizedAthlete,
+        planIntent,
+        weekStartDate,
+        exerciseHistory: history,
+        readiness: { date: weekStartDate, color: "red", hardStop: true, drivers: ["same-day only"] }
+      },
+      nextWeekStartDate: "2026-06-08",
+      nextWeekIndex: 2
+    });
+    const withoutHistory = compileCurrentAndNextTrainingWeeks({
+      current: {
+        athlete: normalizedAthlete,
+        planIntent,
+        weekStartDate,
+        readiness: { date: weekStartDate, color: "red", hardStop: true, drivers: ["same-day only"] }
+      },
+      nextWeekStartDate: "2026-06-08",
+      nextWeekIndex: 2
+    });
+
+    expect(withHistory.currentWeek.sessionIntents.find((intent) => intent.role === "primary_strength")?.progressionIntent).toBe("progress");
+    expect(withHistory.nextWeek.sessionIntents.find((intent) => intent.role === "primary_strength")?.progressionIntent).toBe("progress");
+    expect(withHistory.nextWeek.contentFingerprint).not.toBe(withoutHistory.nextWeek.contentFingerprint);
+    expect(withHistory.nextWeek.compiledSessions.every((session) => !session.readinessOverlay)).toBe(true);
   });
 
   it("renders V2 structured prescriptions into detailed workout and player output without template substitution", () => {

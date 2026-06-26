@@ -2,7 +2,7 @@ import type { AthleteProfile, BoxingLevel } from "../../athlete/types";
 import type { ISODateString } from "../../core/sharedTypes";
 import type { ReadinessColor } from "../../readiness/types";
 import type { GeneratedSupportWeekday } from "../supportAvailability";
-import type { ProtectedWorkout } from "../types";
+import type { ExerciseResultRecord, ProtectedWorkout } from "../types";
 
 export const TRAINING_COMPILER_CONTRACT_VERSION = "training_compiler_v2";
 
@@ -124,6 +124,10 @@ export interface PlanIntent {
   preferredSessionDurationMinutes: number;
   maxSessionDurationMinutes: number;
   targetBlockLengthWeeks: number;
+  equipment: readonly string[];
+  modalityPreferences: readonly string[];
+  modalityAvoidances: readonly string[];
+  currentLimitations: readonly string[];
   requestedStartDate: ISODateString;
   userPreferences: readonly string[];
   activeRevisionId: string;
@@ -231,6 +235,7 @@ export interface SessionIntent {
   movementPatterns: readonly MovementPattern[];
   energySystemIntent?: EnergySystemIntent | undefined;
   boxingTheme?: BoxingSkillSubFocus | undefined;
+  planSubFocus?: PlanSubFocus | undefined;
   equipmentContext: readonly string[];
   fixedBoxingContext: readonly ProtectedWorkout[];
   progressionIntent: "introduce" | "repeat" | "progress" | "maintain" | "regress";
@@ -366,6 +371,8 @@ export interface CompiledTrainingWeek {
   unresolvedTargetDeficits: readonly AdaptationTargetLedger[];
   decisionTrace: readonly string[];
   validation: WeeklyValidationResult;
+  contentFingerprint: string;
+  planInstanceFingerprint: string;
   materialFingerprint: string;
 }
 
@@ -373,6 +380,7 @@ export interface CompileTrainingWeekInput {
   athlete: AthleteTrainingProfile;
   planIntent: PlanIntent;
   weekStartDate: ISODateString;
+  exerciseHistory?: readonly ExerciseResultRecord[] | undefined;
   persistentSafetyConstraints?: readonly PersistentSafetyConstraint[] | undefined;
   readiness?: {
     date: ISODateString;

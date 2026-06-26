@@ -105,6 +105,8 @@ function buildPhaseForFocus(input: TrainingBlockEngineInput): TrainingBlockPhase
       return "build_power";
     case "strength":
       return "build_strength";
+    case "boxing_skill":
+      return "maintenance";
     case "mobility":
       return "aerobic_base";
     case "balanced":

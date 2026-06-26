@@ -14,6 +14,8 @@ import type {
   TournamentDetails,
   WearablePreference
 } from "../../engine/core/types";
+import { defaultSubFocusFor } from "../../engine/training/compiler/normalizePlanInputs";
+import type { PlanSubFocus, TrainingGoalMode, TrainingPrimaryFocus } from "../../engine/training/compiler/types";
 import type { AthleteJourneyRepositories } from "./loadAthleteJourney";
 import { assertUserId, parseWithSchema } from "./repositoryTypes";
 import { GENERATED_SUPPORT_WEEKDAYS, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "../../engine/training/supportAvailability";
@@ -28,6 +30,54 @@ const PlanLifecycleActionSchema = z.enum(["start_new_plan", "amend_current_plan"
 const TrainingDoseSchema = z.enum(["minimal", "standard", "serious", "high"]);
 const ProtectedScheduleChoiceSchema = z.enum(["has_anchors", "no_anchors"]);
 const PlanProtectedScheduleModeSchema = z.enum(["keep_existing", "replace_for_plan", "clear_for_plan"]);
+const PlanSubFocusSchema = z.enum([
+  "full_body_strength",
+  "lower_body_strength",
+  "posterior_chain_strength",
+  "upper_body_trunk_strength",
+  "unilateral_control",
+  "stance_posture_strength",
+  "strength_maintenance",
+  "rotational_power",
+  "first_step_explosiveness",
+  "alactic_speed",
+  "reaction_timing",
+  "power_maintenance",
+  "aerobic_base",
+  "repeatable_rounds",
+  "tempo",
+  "intervals",
+  "sprint_alactic_conditioning",
+  "boxing_specific_conditioning",
+  "recovery_conditioning",
+  "jab_system",
+  "entries_exits",
+  "defense_after_punching",
+  "footwork_ringcraft",
+  "counter_timing",
+  "pressure_control",
+  "outside_movement",
+  "bag_skill",
+  "shadowboxing_mechanics",
+  "hips_ankles",
+  "shoulders_thoracic",
+  "trunk_guard_posture",
+  "general_recovery",
+  "post_bout",
+  "travel",
+  "soreness_management"
+]);
+const V2PlanDraftFields = {
+  subFocus: PlanSubFocusSchema.optional(),
+  preferredSessionDurationMinutes: z.number().int().positive().optional(),
+  maxSessionDurationMinutes: z.number().int().positive().optional(),
+  targetBlockLengthWeeks: z.number().int().positive().optional(),
+  equipment: z.array(z.string().min(1)).optional(),
+  modalityPreferences: z.array(z.string().min(1)).optional(),
+  modalityAvoidances: z.array(z.string().min(1)).optional(),
+  currentLimitations: z.array(z.string().min(1)).optional(),
+  userPreferences: z.array(z.string().min(1)).optional()
+};
 
 export const MVP_MINIMUM_AGE_YEARS = 18;
 export const MVP_MAXIMUM_AGE_YEARS = 80;
@@ -88,7 +138,8 @@ export const FightSetupDraftSchema = z.object({
   trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
-  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional(),
+  ...V2PlanDraftFields
 });
 
 export const TournamentSetupDraftSchema = z.object({
@@ -107,7 +158,8 @@ export const TournamentSetupDraftSchema = z.object({
   trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
-  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional(),
+  ...V2PlanDraftFields
 });
 
 export const OnboardingDraftSchema = z.object({
@@ -167,14 +219,15 @@ export const ProfileSettingsDraftSchema = z.object({
 });
 
 export const BuildGoalDraftSchema = z.object({
-  primaryFocus: z.enum(["balanced", "power", "conditioning", "strength", "mobility"]),
+  primaryFocus: z.enum(["balanced", "power", "conditioning", "strength", "mobility", "boxing_skill"]),
   supportDaysPerWeek: z.number().int().min(1).max(6).optional(),
   generatedSupportAvailableDays: GeneratedSupportAvailableDaysSchema.optional(),
   scheduleAvailability: GeneratedSupportAvailableDaysSchema.optional(),
   trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
-  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional(),
+  ...V2PlanDraftFields
 });
 
 export const RecoveryGoalDraftSchema = z.object({
@@ -185,7 +238,8 @@ export const RecoveryGoalDraftSchema = z.object({
   trainingDose: TrainingDoseSchema.optional(),
   planStartDate: ISODateSchema.optional(),
   planAction: PlanLifecycleActionSchema.optional(),
-  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional()
+  protectedScheduleMode: PlanProtectedScheduleModeSchema.optional(),
+  ...V2PlanDraftFields
 });
 
 export type ProtectedWorkoutDraft = z.infer<typeof ProtectedWorkoutDraftSchema>;
@@ -368,14 +422,89 @@ function planLifecycleSource(action: PlanLifecycleAction | undefined): "plan_wiz
   return "plan";
 }
 
+type PlanPayloadPrimaryFocus = BuildGoalDraft["primaryFocus"];
+
+interface V2PlanSnapshotDefaults {
+  equipment: readonly string[];
+  modalityPreferences: readonly string[];
+  modalityAvoidances: readonly string[];
+  currentLimitations: readonly string[];
+  userPreferences: readonly string[];
+}
+
+function uniqueStrings(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+async function planSnapshotDefaults(input: { repositories: AthleteJourneyRepositories; userId: string }): Promise<V2PlanSnapshotDefaults> {
+  const profile = await input.repositories.athlete.getProfile(input.userId);
+  if (!profile) {
+    return {
+      equipment: [],
+      modalityPreferences: [],
+      modalityAvoidances: [],
+      currentLimitations: [],
+      userPreferences: []
+    };
+  }
+  const currentLimitations = uniqueStrings([...(profile.injuryHistory ?? []), ...(profile.medicalFlags ?? [])]);
+  return {
+    equipment: normalizeEquipmentAccess(profile.equipmentAccess ?? []),
+    modalityPreferences: [],
+    modalityAvoidances: [],
+    currentLimitations,
+    userPreferences: []
+  };
+}
+
+function primaryFocusForPlanPayload(goalMode: "build" | "fight" | "tournament" | "recovery", primaryFocus: PlanPayloadPrimaryFocus | undefined): PlanPayloadPrimaryFocus {
+  if (primaryFocus) {
+    return primaryFocus;
+  }
+  if (goalMode === "fight") {
+    return "power";
+  }
+  if (goalMode === "tournament" || goalMode === "recovery") {
+    return "mobility";
+  }
+  return "balanced";
+}
+
+function compilerGoalModeForPlanPayload(goalMode: "build" | "fight" | "tournament" | "recovery"): TrainingGoalMode {
+  switch (goalMode) {
+    case "fight":
+      return "fight_camp";
+    case "tournament":
+      return "tournament";
+    case "recovery":
+      return "recovery_reset";
+    case "build":
+      return "build";
+  }
+}
+
+function compilerPrimaryFocusForPlanPayload(primaryFocus: PlanPayloadPrimaryFocus): TrainingPrimaryFocus {
+  return primaryFocus === "mobility" ? "mobility_recovery" : primaryFocus;
+}
+
 function planGenerationPayload(input: {
   action: PlanLifecycleAction | undefined;
+  defaults: V2PlanSnapshotDefaults;
+  equipment?: readonly string[] | undefined;
   goalMode: "build" | "fight" | "tournament" | "recovery";
+  currentLimitations?: readonly string[] | undefined;
+  maxSessionDurationMinutes?: number | undefined;
+  modalityAvoidances?: readonly string[] | undefined;
+  modalityPreferences?: readonly string[] | undefined;
   planStartDate?: ISODateString | undefined;
   primaryFocus?: BuildGoalDraft["primaryFocus"] | undefined;
   protectedScheduleMode?: PlanProtectedScheduleMode | undefined;
   scheduleAvailability?: readonly GeneratedSupportWeekday[] | undefined;
+  subFocus?: PlanSubFocus | undefined;
+  preferredSessionDurationMinutes?: number | undefined;
+  targetBlockLengthWeeks?: number | undefined;
   trainingDose?: PlanGenerationTrainingDose | undefined;
+  userPreferences?: readonly string[] | undefined;
   userId: string;
 }): Record<string, unknown> {
   const action = input.action ?? (input.scheduleAvailability ? "start_new_plan" : undefined);
@@ -385,15 +514,51 @@ function planGenerationPayload(input: {
   const requestedAt = nowIso();
   const selectedSupportDays = input.scheduleAvailability ? [...input.scheduleAvailability] : [];
   const trainingDose = input.trainingDose ?? (selectedSupportDays.length >= 5 ? "serious" : selectedSupportDays.length >= 3 ? "standard" : "minimal");
-  const id = `plan:${input.userId}:${stableHash({ action, goalMode: input.goalMode, planStartDate: input.planStartDate, primaryFocus: input.primaryFocus, requestedAt, selectedSupportDays, trainingDose })}`;
+  const primaryFocus = primaryFocusForPlanPayload(input.goalMode, input.primaryFocus);
+  const subFocus = input.subFocus ?? defaultSubFocusFor(compilerPrimaryFocusForPlanPayload(primaryFocus), compilerGoalModeForPlanPayload(input.goalMode));
+  const preferredSessionDurationMinutes = input.preferredSessionDurationMinutes ?? 45;
+  const maxSessionDurationMinutes = input.maxSessionDurationMinutes ?? 70;
+  const targetBlockLengthWeeks = input.targetBlockLengthWeeks ?? 4;
+  const equipment = uniqueStrings(input.equipment ?? input.defaults.equipment);
+  const modalityPreferences = uniqueStrings(input.modalityPreferences ?? input.defaults.modalityPreferences);
+  const modalityAvoidances = uniqueStrings(input.modalityAvoidances ?? input.defaults.modalityAvoidances);
+  const currentLimitations = uniqueStrings(input.currentLimitations ?? input.defaults.currentLimitations);
+  const userPreferences = uniqueStrings(input.userPreferences ?? input.defaults.userPreferences);
+  const id = `plan:${input.userId}:${stableHash({
+    action,
+    equipment,
+    goalMode: input.goalMode,
+    currentLimitations,
+    maxSessionDurationMinutes,
+    modalityAvoidances,
+    modalityPreferences,
+    planStartDate: input.planStartDate,
+    preferredSessionDurationMinutes,
+    primaryFocus,
+    requestedAt,
+    selectedSupportDays,
+    subFocus,
+    targetBlockLengthWeeks,
+    trainingDose,
+    userPreferences
+  })}`;
   const intent = {
     id,
     userId: input.userId,
     action,
     goalMode: input.goalMode,
-    ...(input.primaryFocus ? { primaryFocus: input.primaryFocus } : {}),
+    primaryFocus,
+    subFocus,
     trainingDose,
     selectedSupportDays,
+    preferredSessionDurationMinutes,
+    maxSessionDurationMinutes,
+    targetBlockLengthWeeks,
+    equipment,
+    modalityPreferences,
+    modalityAvoidances,
+    currentLimitations,
+    userPreferences,
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
     ...(input.protectedScheduleMode ? { protectedScheduleMode: input.protectedScheduleMode } : {}),
     requestedAt,
@@ -404,9 +569,19 @@ function planGenerationPayload(input: {
   return {
     planGenerationIntent: intent,
     planRevisionId: id,
+    primaryFocus,
+    subFocus,
     selectedSupportDays,
     trainingDose,
     selectedTrainingDose: trainingDose,
+    preferredSessionDurationMinutes,
+    maxSessionDurationMinutes,
+    targetBlockLengthWeeks,
+    equipment,
+    modalityPreferences,
+    modalityAvoidances,
+    currentLimitations,
+    userPreferences,
     ...(input.planStartDate ? { planStartDate: input.planStartDate } : {}),
     ...(input.protectedScheduleMode ? { protectedScheduleMode: input.protectedScheduleMode } : {})
   };
@@ -730,7 +905,26 @@ export async function saveFightSetup(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "fight", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
+  const defaults = await planSnapshotDefaults({ repositories: input.repositories, userId });
+  const planPayload = planGenerationPayload({
+    userId,
+    action: draft.planAction,
+    defaults,
+    goalMode: "fight",
+    planStartDate: draft.planStartDate,
+    protectedScheduleMode,
+    scheduleAvailability,
+    trainingDose: draft.trainingDose,
+    subFocus: draft.subFocus,
+    preferredSessionDurationMinutes: draft.preferredSessionDurationMinutes,
+    maxSessionDurationMinutes: draft.maxSessionDurationMinutes,
+    targetBlockLengthWeeks: draft.targetBlockLengthWeeks,
+    equipment: draft.equipment,
+    modalityPreferences: draft.modalityPreferences,
+    modalityAvoidances: draft.modalityAvoidances,
+    currentLimitations: draft.currentLimitations,
+    userPreferences: draft.userPreferences
+  });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "fight", protectedScheduleMode, scheduleAvailability });
   const fight = fightOpportunityFromDraft(draft);
   const existing = await input.repositories.fight.listFightOpportunities(userId);
@@ -763,7 +957,26 @@ export async function saveTournamentSetup(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "tournament", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
+  const defaults = await planSnapshotDefaults({ repositories: input.repositories, userId });
+  const planPayload = planGenerationPayload({
+    userId,
+    action: draft.planAction,
+    defaults,
+    goalMode: "tournament",
+    planStartDate: draft.planStartDate,
+    protectedScheduleMode,
+    scheduleAvailability,
+    trainingDose: draft.trainingDose,
+    subFocus: draft.subFocus,
+    preferredSessionDurationMinutes: draft.preferredSessionDurationMinutes,
+    maxSessionDurationMinutes: draft.maxSessionDurationMinutes,
+    targetBlockLengthWeeks: draft.targetBlockLengthWeeks,
+    equipment: draft.equipment,
+    modalityPreferences: draft.modalityPreferences,
+    modalityAvoidances: draft.modalityAvoidances,
+    currentLimitations: draft.currentLimitations,
+    userPreferences: draft.userPreferences
+  });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "tournament", protectedScheduleMode, scheduleAvailability });
   const tournament = tournamentDetailsFromDraft(draft);
   const result = draft.id ? await input.repositories.tournament.updateTournamentPlan(userId, draft.id, tournament) : await input.repositories.tournament.insertTournamentPlan(userId, tournament, { supersedesExisting: true });
@@ -790,7 +1003,27 @@ export async function saveBuildGoal(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "build", planStartDate: draft.planStartDate, primaryFocus: draft.primaryFocus, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
+  const defaults = await planSnapshotDefaults({ repositories: input.repositories, userId });
+  const planPayload = planGenerationPayload({
+    userId,
+    action: draft.planAction,
+    defaults,
+    goalMode: "build",
+    planStartDate: draft.planStartDate,
+    primaryFocus: draft.primaryFocus,
+    protectedScheduleMode,
+    scheduleAvailability,
+    trainingDose: draft.trainingDose,
+    subFocus: draft.subFocus,
+    preferredSessionDurationMinutes: draft.preferredSessionDurationMinutes,
+    maxSessionDurationMinutes: draft.maxSessionDurationMinutes,
+    targetBlockLengthWeeks: draft.targetBlockLengthWeeks,
+    equipment: draft.equipment,
+    modalityPreferences: draft.modalityPreferences,
+    modalityAvoidances: draft.modalityAvoidances,
+    currentLimitations: draft.currentLimitations,
+    userPreferences: draft.userPreferences
+  });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "build", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "BuildPhaseStarted", {
     primaryFocus: draft.primaryFocus,
@@ -814,7 +1047,26 @@ export async function saveRecoveryGoal(input: {
   const scheduleAvailability = scheduleAvailabilityFromDraft(draft);
   const protectedScheduleMode = protectedScheduleModeForNewPlan(draft);
   await applyProtectedScheduleModeForPlan({ userId, mode: protectedScheduleMode, planStartDate: draft.planStartDate, repositories: input.repositories });
-  const planPayload = planGenerationPayload({ userId, action: draft.planAction, goalMode: "recovery", planStartDate: draft.planStartDate, protectedScheduleMode, scheduleAvailability, trainingDose: draft.trainingDose });
+  const defaults = await planSnapshotDefaults({ repositories: input.repositories, userId });
+  const planPayload = planGenerationPayload({
+    userId,
+    action: draft.planAction,
+    defaults,
+    goalMode: "recovery",
+    planStartDate: draft.planStartDate,
+    protectedScheduleMode,
+    scheduleAvailability,
+    trainingDose: draft.trainingDose,
+    subFocus: draft.subFocus,
+    preferredSessionDurationMinutes: draft.preferredSessionDurationMinutes,
+    maxSessionDurationMinutes: draft.maxSessionDurationMinutes,
+    targetBlockLengthWeeks: draft.targetBlockLengthWeeks,
+    equipment: draft.equipment,
+    modalityPreferences: draft.modalityPreferences,
+    modalityAvoidances: draft.modalityAvoidances,
+    currentLimitations: draft.currentLimitations,
+    userPreferences: draft.userPreferences
+  });
   await appendPlanLifecycleAudit({ userId, action: draft.planAction, repositories: input.repositories, goalMode: "recovery", protectedScheduleMode, scheduleAvailability });
   await input.repositories.journey.appendEvent(userId, "RecoveryStarted", {
     durationDays: draft.durationDays,

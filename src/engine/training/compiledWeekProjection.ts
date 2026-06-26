@@ -23,7 +23,7 @@ function primaryFocusForLegacy(focus: CompiledTrainingWeek["planIntent"]["primar
     return "mobility";
   }
   if (focus === "boxing_skill") {
-    return "balanced";
+    return "boxing_skill";
   }
   return focus;
 }
@@ -296,7 +296,9 @@ export function projectCompiledWeekToGeneratedSessions(input: {
       prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
       planIntentVersion: PLAN_INTENT_VERSION_V2,
       generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
-      planFingerprint: input.week.materialFingerprint,
+      planFingerprint: input.week.planInstanceFingerprint,
+      contentFingerprint: input.week.contentFingerprint,
+      planInstanceFingerprint: input.week.planInstanceFingerprint,
       targetDurationMinutes: session.targetDurationMinutes,
       finalDurationMinutes: session.displayedDurationMinutes,
       minDurationMinutes: Math.max(20, session.targetDurationMinutes - 15),
@@ -366,10 +368,20 @@ export function projectCompiledWeekToNextWeekMaterialization(input: {
     prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
     planIntentVersion: PLAN_INTENT_VERSION_V2,
     planRevisionId: input.week.planRevisionId,
-    planFingerprint: input.week.materialFingerprint,
+    planFingerprint: input.week.planInstanceFingerprint,
+    contentFingerprint: input.week.contentFingerprint,
+    planInstanceFingerprint: input.week.planInstanceFingerprint,
     primaryFocus: primaryFocusForLegacy(input.week.planIntent.primaryFocus),
+    subFocus: input.week.planIntent.subFocus,
     trainingDose: trainingDoseForLegacy(input.week.planIntent.trainingDose),
     selectedSupportDays: input.week.planIntent.selectedSupportDays,
+    preferredSessionDurationMinutes: input.week.planIntent.preferredSessionDurationMinutes,
+    maxSessionDurationMinutes: input.week.planIntent.maxSessionDurationMinutes,
+    targetBlockLengthWeeks: input.week.planIntent.targetBlockLengthWeeks,
+    equipment: input.week.athleteProfile.equipment,
+    modalityPreferences: input.week.athleteProfile.modalityPreferences,
+    modalityAvoidances: input.week.athleteProfile.modalityAvoidances,
+    currentLimitations: input.week.athleteProfile.currentLimitations,
     targetGeneratedSupportCount: input.week.compiledSessions.length,
     targetWeeklyGeneratedMinutes: input.week.compiledSessions.reduce((sum, session) => sum + session.displayedDurationMinutes, 0),
     materializedPhase: materializedPhaseFor(input.week),
@@ -409,7 +421,7 @@ export function projectCompiledWeekToNextWeekMaterialization(input: {
 
 export function compileCurrentAndNextTrainingWeeks(input: {
   current: CompileTrainingWeekInput;
-  next?: Partial<Pick<CompileTrainingWeekInput, "athlete" | "planIntent" | "persistentSafetyConstraints" | "readiness">> | undefined;
+  next?: Partial<Pick<CompileTrainingWeekInput, "athlete" | "planIntent" | "persistentSafetyConstraints" | "readiness" | "exerciseHistory">> | undefined;
   currentWeekIndex?: number | undefined;
   nextWeekStartDate?: ISODateString | undefined;
   engineVersion?: string | undefined;
@@ -425,7 +437,8 @@ export function compileCurrentAndNextTrainingWeeks(input: {
   const nextWeek = compileTrainingWeek({
     ...input.current,
     ...input.next,
-    weekStartDate: input.nextWeekStartDate ?? addDays(input.current.weekStartDate, 7)
+    weekStartDate: input.nextWeekStartDate ?? addDays(input.current.weekStartDate, 7),
+    readiness: input.next?.readiness
   });
   const currentGeneratedSessions = projectCompiledWeekToGeneratedSessions({
     week: currentWeek,

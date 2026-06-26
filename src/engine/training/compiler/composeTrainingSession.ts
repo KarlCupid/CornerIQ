@@ -3,6 +3,7 @@ import { resolveBoxingRoundDose } from "./resolveBoxingRoundDose";
 import { resolveConditioningDose } from "./resolveConditioningDose";
 import { resolveExerciseDose } from "./resolveExerciseDose";
 import type { ExerciseDefinition } from "../library/exerciseDefinitions";
+import type { ExerciseResultRecord } from "../types";
 import type {
   AthleteTrainingProfile,
   CompiledTrainingSession,
@@ -147,6 +148,97 @@ function distributePowerSets(totalRepetitions: number, definitions: readonly Exe
   });
 }
 
+function resultRecordedAt(result: ExerciseResultRecord): string {
+  return result.completedAt ?? result.recordedAt;
+}
+
+function resultsForDefinition(input: {
+  definition: ExerciseDefinition;
+  history: readonly ExerciseResultRecord[];
+}): readonly ExerciseResultRecord[] {
+  return input.history
+    .filter((result) => result.exerciseId === input.definition.id)
+    .filter((result) => result.resultStatus !== "prescribed_only")
+    .sort((left, right) => resultRecordedAt(left).localeCompare(resultRecordedAt(right)));
+}
+
+function resultsForPattern(input: {
+  definition: ExerciseDefinition;
+  history: readonly ExerciseResultRecord[];
+}): readonly ExerciseResultRecord[] {
+  return input.history
+    .filter((result) => {
+      const prescribed = result.prescribed as { movementPattern?: unknown };
+      return prescribed.movementPattern === input.definition.movementPattern || result.exerciseId === input.definition.id;
+    })
+    .filter((result) => result.resultStatus !== "prescribed_only")
+    .sort((left, right) => resultRecordedAt(left).localeCompare(resultRecordedAt(right)));
+}
+
+function exerciseDoseAdjustment(input: {
+  definition: ExerciseDefinition;
+  intent: SessionIntent;
+  history: readonly ExerciseResultRecord[];
+}): { setDelta: number; repDelta: number; durationDeltaSeconds: number } {
+  const ownHistory = resultsForDefinition({ definition: input.definition, history: input.history });
+  const patternHistory = resultsForPattern({ definition: input.definition, history: input.history });
+  const latestOwn = ownHistory.at(-1);
+  const latestPattern = patternHistory.at(-1);
+  const issue = latestOwn ?? latestPattern;
+  if (issue?.painFlag || issue?.technicalQuality === "technical_breakdown" || issue?.technicalQuality === "stopped_for_pain") {
+    return { setDelta: -1, repDelta: -2, durationDeltaSeconds: -180 };
+  }
+  if (latestOwn?.resultStatus === "partial") {
+    return { setDelta: -1, repDelta: -1, durationDeltaSeconds: -120 };
+  }
+  if (typeof latestOwn?.rpe === "number" && latestOwn.rpe >= 8.5) {
+    return { setDelta: 0, repDelta: -1, durationDeltaSeconds: 0 };
+  }
+  if (
+    input.intent.progressionIntent === "progress" &&
+    latestOwn?.resultStatus === "completed" &&
+    !latestOwn.painFlag &&
+    (latestOwn.technicalQuality === undefined || latestOwn.technicalQuality === "clean" || latestOwn.technicalQuality === "mostly_clean") &&
+    (latestOwn.rpe === undefined || latestOwn.rpe < 8.5)
+  ) {
+    return input.definition.supportedAdaptations.includes("mobility")
+      ? { setDelta: 0, repDelta: 0, durationDeltaSeconds: 300 }
+      : { setDelta: 0, repDelta: 1, durationDeltaSeconds: 0 };
+  }
+  return { setDelta: 0, repDelta: 0, durationDeltaSeconds: 0 };
+}
+
+function selectedExerciseHistoryNotes(input: {
+  definitions: readonly ExerciseDefinition[];
+  history: readonly ExerciseResultRecord[];
+}): readonly string[] {
+  return input.definitions.flatMap((definition) => {
+    const latest = resultsForDefinition({ definition, history: input.history }).at(-1);
+    if (!latest) {
+      return [];
+    }
+    if (latest.painFlag || latest.technicalQuality === "stopped_for_pain") {
+      return [`${definition.name} is simplified because recent pain was logged for this exercise.`];
+    }
+    if (latest.technicalQuality === "technical_breakdown") {
+      return [`${definition.name} is simplified because recent technique broke down.`];
+    }
+    if (typeof latest.rpe === "number" && latest.rpe >= 8.5) {
+      return [`${definition.name} repeats intentionally because recent RPE was high.`];
+    }
+    if (latest.resultStatus === "completed") {
+      return [`${definition.name} repeats intentionally with one small progression variable after clean completion.`];
+    }
+    if (latest.resultStatus === "partial") {
+      return [`${definition.name} is trimmed because recent work was partial.`];
+    }
+    if (latest.resultStatus === "skipped") {
+      return [`${definition.name} repeats because skipped relevant work is not treated as completed adaptation.`];
+    }
+    return [];
+  });
+}
+
 function strengthPatterns(intent: SessionIntent): readonly MovementPattern[] {
   const patterns = [...intent.movementPatterns];
   if (!patterns.includes("anti_rotation")) {
@@ -158,25 +250,32 @@ function strengthPatterns(intent: SessionIntent): readonly MovementPattern[] {
   return patterns.slice(0, intent.role === "strength_maintenance" ? 4 : 5);
 }
 
-function composeStrength(input: { athlete: AthleteTrainingProfile; intent: SessionIntent }): readonly TrainingSessionBlock[] {
+function composeStrength(input: { athlete: AthleteTrainingProfile; intent: SessionIntent; exerciseHistory: readonly ExerciseResultRecord[] }): readonly TrainingSessionBlock[] {
   const definitions = selectExercises({
     adaptation: "strength",
     movementPatterns: strengthPatterns(input.intent),
     equipment: input.athlete.equipment,
     trainingLevel: input.athlete.trainingLevel,
     currentLimitations: input.athlete.currentLimitations,
+    subFocus: input.intent.planSubFocus,
+    preferences: input.athlete.modalityPreferences,
+    avoidances: input.athlete.modalityAvoidances,
+    recentExerciseResults: input.exerciseHistory,
+    progressionIntent: input.intent.progressionIntent,
+    fixedBoxingContext: input.intent.fixedBoxingContext,
     maxExercises: input.intent.role === "strength_maintenance" ? 4 : 5
   });
   const setTotal = Math.max(input.intent.role === "strength_maintenance" ? 5 : 8, input.intent.doseAllocation.strengthSets);
   const setDistribution = distributeSets(setTotal, definitions.length);
-  const exercises = definitions.map((definition, index) =>
-    resolveExerciseDose({
+  const exercises = definitions.map((definition, index) => {
+    const adjustment = exerciseDoseAdjustment({ definition, intent: input.intent, history: input.exerciseHistory });
+    return resolveExerciseDose({
       definition,
       intent: input.intent,
-      setTarget: setDistribution[index] ?? 2,
-      repTarget: input.intent.role === "primary_strength" ? 8 : 10
-    })
-  );
+      setTarget: (setDistribution[index] ?? 2) + adjustment.setDelta,
+      repTarget: (input.intent.role === "primary_strength" ? 8 : 10) + adjustment.repDelta
+    });
+  });
   const warmupMinutes = input.intent.role === "primary_strength" ? 10 : 8;
   const cooldownMinutes = 7;
   const mainMinimum = Math.max(input.intent.role === "primary_strength" ? 28 : 22, input.intent.targetDurationMinutes - warmupMinutes - cooldownMinutes);
@@ -190,33 +289,44 @@ function composeStrength(input: { athlete: AthleteTrainingProfile; intent: Sessi
       adaptation: "strength",
       durationMinutes: mainDuration,
       exercises,
-      coachingNotes: ["Keep two clean reps in reserve unless the set target says otherwise.", "Rest long enough that the next set looks like training, not survival."]
+      coachingNotes: [
+        "Keep two clean reps in reserve unless the set target says otherwise.",
+        "Rest long enough that the next set looks like training, not survival.",
+        ...selectedExerciseHistoryNotes({ definitions, history: input.exerciseHistory })
+      ]
     },
     mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: cooldownMinutes })
   ];
 }
 
-function composePower(input: { athlete: AthleteTrainingProfile; intent: SessionIntent }): readonly TrainingSessionBlock[] {
-  const patterns: readonly MovementPattern[] = ["rotation", "ankle_tendon", "locomotion"];
+function composePower(input: { athlete: AthleteTrainingProfile; intent: SessionIntent; exerciseHistory: readonly ExerciseResultRecord[] }): readonly TrainingSessionBlock[] {
+  const patterns: readonly MovementPattern[] = input.intent.movementPatterns.length > 0 ? input.intent.movementPatterns : ["rotation", "ankle_tendon", "locomotion"];
   const definitions = selectExercises({
     adaptation: "power",
     movementPatterns: patterns,
     equipment: input.athlete.equipment,
     trainingLevel: input.athlete.trainingLevel,
     currentLimitations: input.athlete.currentLimitations,
+    subFocus: input.intent.planSubFocus,
+    preferences: input.athlete.modalityPreferences,
+    avoidances: input.athlete.modalityAvoidances,
+    recentExerciseResults: input.exerciseHistory,
+    progressionIntent: input.intent.progressionIntent,
+    fixedBoxingContext: input.intent.fixedBoxingContext,
     maxExercises: 3
   });
   const repsTotal = Math.max(18, input.intent.doseAllocation.explosiveRepetitions);
   const setDistribution = distributePowerSets(repsTotal, definitions);
-  const exercises = definitions.map((definition, index) =>
-    resolveExerciseDose({
+  const exercises = definitions.map((definition, index) => {
+    const adjustment = exerciseDoseAdjustment({ definition, intent: input.intent, history: input.exerciseHistory });
+    return resolveExerciseDose({
       definition,
       intent: input.intent,
       adaptation: "power",
-      setTarget: setDistribution[index],
+      setTarget: (setDistribution[index] ?? 1) + adjustment.setDelta,
       repTarget: definition.repRange.max
-    })
-  );
+    });
+  });
   return [
     warmupBlock(input.intent, 12),
     {
@@ -226,7 +336,11 @@ function composePower(input: { athlete: AthleteTrainingProfile; intent: SessionI
       adaptation: "power",
       durationMinutes: blockDurationFromExercises(exercises, 22),
       exercises,
-      coachingNotes: ["Every rep should look fast.", "End the block before fatigue becomes the training effect."]
+      coachingNotes: [
+        "Every rep should look fast.",
+        "End the block before fatigue becomes the training effect.",
+        ...selectedExerciseHistoryNotes({ definitions, history: input.exerciseHistory })
+      ]
     },
     mobilityCooldownBlock({ athlete: input.athlete, intent: input.intent, minutes: 6 })
   ];
@@ -295,7 +409,7 @@ function composeMobility(input: { athlete: AthleteTrainingProfile; intent: Sessi
   ];
 }
 
-function blocksForIntent(input: { athlete: AthleteTrainingProfile; intent: SessionIntent }): readonly TrainingSessionBlock[] {
+function blocksForIntent(input: { athlete: AthleteTrainingProfile; intent: SessionIntent; exerciseHistory: readonly ExerciseResultRecord[] }): readonly TrainingSessionBlock[] {
   switch (input.intent.primaryAdaptation) {
     case "strength":
       return composeStrength(input);
@@ -312,8 +426,9 @@ function blocksForIntent(input: { athlete: AthleteTrainingProfile; intent: Sessi
   }
 }
 
-export function composeTrainingSession(input: { athlete: AthleteTrainingProfile; intent: SessionIntent }): CompiledTrainingSession {
-  const blocks = blocksForIntent(input);
+export function composeTrainingSession(input: { athlete: AthleteTrainingProfile; intent: SessionIntent; exerciseHistory?: readonly ExerciseResultRecord[] | undefined }): CompiledTrainingSession {
+  const exerciseHistory = input.exerciseHistory ?? [];
+  const blocks = blocksForIntent({ ...input, exerciseHistory });
   const structuredDurationMinutes = totalDuration(blocks);
   return {
     id: `session:${input.intent.id}`,

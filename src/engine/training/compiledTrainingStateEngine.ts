@@ -207,9 +207,19 @@ function pendingNextWeekMaterialization(input: {
     planIntentVersion: PLAN_INTENT_VERSION_V2,
     planRevisionId,
     planFingerprint: planRevisionId,
+    contentFingerprint: planRevisionId,
+    planInstanceFingerprint: planRevisionId,
     primaryFocus: "balanced",
+    subFocus: "full_body_strength",
     trainingDose: "minimal",
     selectedSupportDays: [],
+    preferredSessionDurationMinutes: 45,
+    maxSessionDurationMinutes: 70,
+    targetBlockLengthWeeks: 4,
+    equipment: input.athlete.equipmentAccess,
+    modalityPreferences: [],
+    modalityAvoidances: [],
+    currentLimitations: [...input.athlete.injuryHistory, ...input.athlete.medicalFlags],
     targetGeneratedSupportCount: 0,
     targetWeeklyGeneratedMinutes: 0,
     materializedPhase: input.currentBlock.phase,
@@ -364,6 +374,8 @@ function planGenerationRequiredState(input: {
     planIntentVersion: PLAN_INTENT_VERSION_V2,
     generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
     planFingerprint: planRevisionId,
+    contentFingerprint: planRevisionId,
+    planInstanceFingerprint: planRevisionId,
     planFingerprintMaterial: { reason: "plan_generation_required", asOfDate: input.asOfDate, athleteId: input.athlete.athleteId },
     prescriptionValidationPassed: true,
     prescriptionValidationFailures: [],
@@ -552,6 +564,57 @@ function evidenceDate(flag: RiskFlag, fallbackDate: ISODateString): ISODateStrin
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallbackDate;
 }
 
+function structuredSafetyEvidence(flag: RiskFlag): Record<string, unknown> {
+  const nested = flag.evidence.persistentSafetyConstraint;
+  return nested && typeof nested === "object" && !Array.isArray(nested)
+    ? { ...flag.evidence, ...(nested as Record<string, unknown>) }
+    : flag.evidence;
+}
+
+function isoDateValue(value: unknown): ISODateString | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const date = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+}
+
+function evidenceIsoDate(flag: RiskFlag, keys: readonly string[], fallbackDate?: ISODateString | undefined): ISODateString | null {
+  const evidence = structuredSafetyEvidence(flag);
+  for (const key of keys) {
+    const date = isoDateValue(evidence[key]);
+    if (date) {
+      return date;
+    }
+  }
+  return fallbackDate ?? null;
+}
+
+function evidenceString(flag: RiskFlag, keys: readonly string[]): string | null {
+  const evidence = structuredSafetyEvidence(flag);
+  for (const key of keys) {
+    const value = evidence[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function evidenceStringArray(flag: RiskFlag, keys: readonly string[]): readonly string[] {
+  const evidence = structuredSafetyEvidence(flag);
+  for (const key of keys) {
+    const value = evidence[key];
+    if (Array.isArray(value)) {
+      const strings = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim());
+      if (strings.length > 0) {
+        return strings;
+      }
+    }
+  }
+  return [];
+}
+
 function safetySeverity(flag: RiskFlag): PersistentSafetyConstraint["severity"] {
   if (flag.severity === "critical") {
     return "critical";
@@ -562,7 +625,18 @@ function safetySeverity(flag: RiskFlag): PersistentSafetyConstraint["severity"] 
   return "caution";
 }
 
+const PERSISTENT_SAFETY_STATUSES = new Set<PersistentSafetyConstraint["status"]>(["active", "monitoring", "stale", "resolved", "expired", "review_required"]);
+const PERSISTENT_SAFETY_REGIONS = new Set<PersistentSafetyConstraint["affectedBodyRegion"]>(["knee", "shoulder", "back", "neck", "hand_wrist", "ankle", "illness", "systemic", "unknown"]);
+const PERSISTENT_SAFETY_DOMAINS = new Set<PersistentSafetyDomain>(["running", "jumping", "squatting", "lunging", "hinging", "pressing", "bag_work", "hard_conditioning", "all_hard_work"]);
+const PERSISTENT_SAFETY_SOURCES = new Set<PersistentSafetyConstraint["source"]>(["manual", "clinician", "coach", "app_review", "completion_evidence"]);
+const PERSISTENT_SAFETY_HARD_STOP_SCOPES = new Set<PersistentSafetyConstraint["hardStopScope"]>(["none", "affected_domain", "all_training"]);
+const PERSISTENT_SAFETY_RETURN_STAGES = new Set<PersistentSafetyConstraint["returnToTrainingStage"]>(["not_started", "intro", "building", "full", "not_applicable"]);
+
 function affectedBodyRegion(flag: RiskFlag): PersistentSafetyConstraint["affectedBodyRegion"] {
+  const evidenceRegion = evidenceString(flag, ["affectedBodyRegion", "bodyRegion", "region"]);
+  if (evidenceRegion && PERSISTENT_SAFETY_REGIONS.has(evidenceRegion as PersistentSafetyConstraint["affectedBodyRegion"])) {
+    return evidenceRegion as PersistentSafetyConstraint["affectedBodyRegion"];
+  }
   const text = `${flag.code} ${flag.message} ${flag.explanation}`.toLowerCase();
   if (/knee|patella|acl|mcl/.test(text)) {
     return "knee";
@@ -592,6 +666,12 @@ function affectedBodyRegion(flag: RiskFlag): PersistentSafetyConstraint["affecte
 }
 
 function affectedTrainingDomains(flag: RiskFlag): readonly PersistentSafetyDomain[] {
+  const evidenceDomains = evidenceStringArray(flag, ["affectedTrainingDomains", "trainingDomains", "domains"]).filter((domain): domain is PersistentSafetyDomain =>
+    PERSISTENT_SAFETY_DOMAINS.has(domain as PersistentSafetyDomain)
+  );
+  if (evidenceDomains.length > 0) {
+    return [...new Set(evidenceDomains)];
+  }
   const region = affectedBodyRegion(flag);
   if (flag.hardStop || flag.domain === "readiness" || flag.domain === "medical" || flag.domain === "cycle") {
     return ["all_hard_work"];
@@ -608,32 +688,73 @@ function affectedTrainingDomains(flag: RiskFlag): readonly PersistentSafetyDomai
   return ["hard_conditioning"];
 }
 
+function persistentSafetyStatus(flag: RiskFlag): PersistentSafetyConstraint["status"] {
+  if (flag.status === "resolved") {
+    return "resolved";
+  }
+  const evidenceStatus = evidenceString(flag, ["persistentSafetyStatus", "safetyStatus", "constraintStatus", "status"]);
+  if (evidenceStatus && PERSISTENT_SAFETY_STATUSES.has(evidenceStatus as PersistentSafetyConstraint["status"])) {
+    return evidenceStatus as PersistentSafetyConstraint["status"];
+  }
+  return flag.requiresProfessionalReview ? "review_required" : "active";
+}
+
+function persistentSafetySource(flag: RiskFlag): PersistentSafetyConstraint["source"] {
+  const source = evidenceString(flag, ["persistentSafetySource", "constraintSource", "source"]);
+  return source && PERSISTENT_SAFETY_SOURCES.has(source as PersistentSafetyConstraint["source"]) ? (source as PersistentSafetyConstraint["source"]) : "app_review";
+}
+
+function persistentSafetyHardStopScope(flag: RiskFlag): PersistentSafetyConstraint["hardStopScope"] {
+  const evidenceScope = evidenceString(flag, ["hardStopScope", "scope"]);
+  if (evidenceScope && PERSISTENT_SAFETY_HARD_STOP_SCOPES.has(evidenceScope as PersistentSafetyConstraint["hardStopScope"])) {
+    return evidenceScope as PersistentSafetyConstraint["hardStopScope"];
+  }
+  const allTrainingHardStop = flag.hardStop && (flag.domain === "medical" || flag.domain === "cycle");
+  return allTrainingHardStop ? "all_training" : flag.hardStop || flag.blocksPlan ? "affected_domain" : "none";
+}
+
+function persistentSafetyReturnStage(flag: RiskFlag): PersistentSafetyConstraint["returnToTrainingStage"] {
+  const stage = evidenceString(flag, ["returnToTrainingStage", "returnStage"]);
+  if (stage && PERSISTENT_SAFETY_RETURN_STAGES.has(stage as PersistentSafetyConstraint["returnToTrainingStage"])) {
+    return stage as PersistentSafetyConstraint["returnToTrainingStage"];
+  }
+  return flag.hardStop ? "not_started" : "intro";
+}
+
 function transientSameDayCheckInHardStop(flag: RiskFlag, asOfDate: ISODateString): boolean {
   return flag.domain === "medical" && ["fainting", "severe_dizziness", "acute_illness"].includes(flag.code) && evidenceDate(flag, asOfDate) === asOfDate;
 }
 
-function persistentSafetyConstraintsFromRiskFlags(flags: readonly RiskFlag[], asOfDate: ISODateString): readonly PersistentSafetyConstraint[] {
+export function persistentSafetyConstraintsFromRiskFlags(flags: readonly RiskFlag[], asOfDate: ISODateString): readonly PersistentSafetyConstraint[] {
   return flags
-    .filter((flag) => flag.status === "active")
     .filter((flag) => flag.domain === "training" || flag.domain === "medical" || flag.domain === "cycle")
     .filter((flag) => !transientSameDayCheckInHardStop(flag, asOfDate))
-    .map((flag): PersistentSafetyConstraint => {
-      const observedDate = evidenceDate(flag, asOfDate);
-      const allTrainingHardStop = flag.hardStop && (flag.domain === "medical" || flag.domain === "cycle");
-      return {
+    .flatMap((flag): readonly PersistentSafetyConstraint[] => {
+      const status = persistentSafetyStatus(flag);
+      if (status !== "active" && status !== "review_required") {
+        return [];
+      }
+      const observedDate = evidenceIsoDate(flag, ["observedDate", "date", "asOfDate", "activeFrom", "startedAt", "occurredAt", "recordedAt", "createdAt", "raisedAt"], asOfDate) ?? asOfDate;
+      const lastConfirmedDate = evidenceIsoDate(flag, ["lastConfirmedDate", "confirmedAt", "asOfDate", "recordedAt", "createdAt", "raisedAt"], asOfDate) ?? asOfDate;
+      const reviewDate = evidenceIsoDate(flag, ["reviewDate", "nextReviewDate", "reassessmentDate"], addDays(asOfDate, 7)) ?? addDays(asOfDate, 7);
+      const resolutionDate = evidenceIsoDate(flag, ["resolutionDate", "resolvedAt", "clearedAt", "endedAt", "activeUntil"]);
+      return [{
         id: `risk:${flag.id}`,
-        source: "app_review",
+        source: persistentSafetySource(flag),
         observedDate,
-        lastConfirmedDate: asOfDate,
-        status: flag.requiresProfessionalReview ? "review_required" : "active",
+        lastConfirmedDate,
+        status,
         severity: safetySeverity(flag),
         affectedBodyRegion: affectedBodyRegion(flag),
         affectedTrainingDomains: affectedTrainingDomains(flag),
-        hardStopScope: allTrainingHardStop ? "all_training" : flag.hardStop || flag.blocksPlan ? "affected_domain" : "none",
-        reassessmentRequirement: flag.requiresProfessionalReview ? "Qualified review required before progressing affected work." : "Re-check symptoms and movement quality before progressing affected work.",
-        reviewDate: addDays(asOfDate, 7),
-        returnToTrainingStage: flag.hardStop ? "not_started" : "intro"
-      };
+        hardStopScope: persistentSafetyHardStopScope(flag),
+        reassessmentRequirement:
+          evidenceString(flag, ["reassessmentRequirement", "reviewRequirement"]) ??
+          (flag.requiresProfessionalReview ? "Qualified review required before progressing affected work." : "Re-check symptoms and movement quality before progressing affected work."),
+        reviewDate,
+        ...(resolutionDate ? { resolutionDate } : {}),
+        returnToTrainingStage: persistentSafetyReturnStage(flag)
+      }];
     });
 }
 
@@ -771,8 +892,17 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
     activeRevisionId: input.planRevision,
     goalMode: compilerGoalMode,
     primaryFocus: compilerPrimaryFocus,
+    subFocus: input.planGenerationIntent?.subFocus,
     trainingDose: compilerTrainingDose,
-    selectedSupportDays: compilerSelectedDays
+    selectedSupportDays: compilerSelectedDays,
+    preferredSessionDurationMinutes: input.planGenerationIntent?.preferredSessionDurationMinutes,
+    maxSessionDurationMinutes: input.planGenerationIntent?.maxSessionDurationMinutes,
+    targetBlockLengthWeeks: input.planGenerationIntent?.targetBlockLengthWeeks,
+    equipment: input.planGenerationIntent?.equipment,
+    modalityPreferences: input.planGenerationIntent?.modalityPreferences,
+    modalityAvoidances: input.planGenerationIntent?.modalityAvoidances,
+    currentLimitations: input.planGenerationIntent?.currentLimitations,
+    userPreferences: input.planGenerationIntent?.userPreferences
   });
   const persistentSafetyConstraints = persistentSafetyConstraintsFromRiskFlags(input.safetyFlags ?? [], input.asOfDate);
   const readiness = input.readiness.color === "unknown"
@@ -785,13 +915,21 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       };
   const currentAthlete = normalizeAthleteTrainingProfile({
     athlete: input.athlete,
+    equipment: planIntent.equipment,
     fixedBoxingSchedule: anchorsForWeek(input.anchors, input.planStartDate),
+    modalityPreferences: planIntent.modalityPreferences,
+    modalityAvoidances: planIntent.modalityAvoidances,
+    currentLimitations: planIntent.currentLimitations,
     userPreferences: planIntent.userPreferences,
     preferredSessionDurationMinutes: planIntent.preferredSessionDurationMinutes
   });
   const nextAthlete = normalizeAthleteTrainingProfile({
     athlete: input.athlete,
+    equipment: planIntent.equipment,
     fixedBoxingSchedule: anchorsForWeek(input.anchors, nextWeekStartDate),
+    modalityPreferences: planIntent.modalityPreferences,
+    modalityAvoidances: planIntent.modalityAvoidances,
+    currentLimitations: planIntent.currentLimitations,
     userPreferences: planIntent.userPreferences,
     preferredSessionDurationMinutes: planIntent.preferredSessionDurationMinutes
   });
@@ -800,11 +938,13 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       athlete: currentAthlete,
       planIntent,
       weekStartDate: input.planStartDate,
+      exerciseHistory: input.recentExerciseResults ?? [],
       persistentSafetyConstraints,
       ...(readiness ? { readiness } : {})
     },
     next: {
-      athlete: nextAthlete
+      athlete: nextAthlete,
+      exerciseHistory: input.recentExerciseResults ?? []
     },
     currentWeekIndex: input.planWeekIndex,
     nextWeekStartDate,
@@ -857,7 +997,9 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
         prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
         planIntentVersion: PLAN_INTENT_VERSION_V2,
         generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
-        planFingerprint: compilerResult.currentWeek.materialFingerprint
+        planFingerprint: compilerResult.currentWeek.planInstanceFingerprint,
+        contentFingerprint: compilerResult.currentWeek.contentFingerprint,
+        planInstanceFingerprint: compilerResult.currentWeek.planInstanceFingerprint
       },
       input.executionReadiness
     )
@@ -978,8 +1120,12 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
     prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
     planIntentVersion: PLAN_INTENT_VERSION_V2,
     generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
-    planFingerprint: compilerResult.currentWeek.materialFingerprint,
+    planFingerprint: compilerResult.currentWeek.planInstanceFingerprint,
+    contentFingerprint: compilerResult.currentWeek.contentFingerprint,
+    planInstanceFingerprint: compilerResult.currentWeek.planInstanceFingerprint,
     planFingerprintMaterial: {
+      contentFingerprint: compilerResult.currentWeek.contentFingerprint,
+      planInstanceFingerprint: compilerResult.currentWeek.planInstanceFingerprint,
       contractVersion: compilerResult.currentWeek.contractVersion,
       planIntent: compilerResult.currentWeek.planIntent,
       athleteNeeds: compilerResult.currentWeek.athleteNeeds,

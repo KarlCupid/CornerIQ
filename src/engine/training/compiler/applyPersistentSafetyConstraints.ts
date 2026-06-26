@@ -1,10 +1,79 @@
 import { hasEquipmentCapability } from "../../athlete/equipmentAccess";
 import type {
   CompiledTrainingSession,
+  ExercisePrescriptionV2,
   PersistentSafetyConstraint,
   PersistentSafetyDomain,
   TrainingSessionBlock
 } from "./types";
+
+function roundMinutes(seconds: number): number {
+  return Math.round((seconds / 60) * 10) / 10;
+}
+
+function prescriptionWorkSeconds(prescription: ExercisePrescriptionV2): number {
+  if (typeof prescription.durationSeconds === "number") {
+    return prescription.durationSeconds;
+  }
+  return (prescription.sets ?? 1) * (prescription.reps ?? 1) * (prescription.adaptation === "power" ? 3 : 4);
+}
+
+function prescriptionDurationMinutes(prescription: ExercisePrescriptionV2): number {
+  const sets = prescription.sets ?? 1;
+  const totalRest = prescription.restSeconds * Math.max(0, sets - 1);
+  const transitionSeconds = sets * 20;
+  return roundMinutes(prescriptionWorkSeconds(prescription) + totalRest + transitionSeconds);
+}
+
+function minimumExerciseBlockMinutes(block: TrainingSessionBlock): number {
+  if (block.adaptation === "strength") {
+    return block.role === "primary" ? 22 : 18;
+  }
+  if (block.adaptation === "power") {
+    return 18;
+  }
+  if (block.adaptation === "mobility" || block.adaptation === "recovery") {
+    return 5;
+  }
+  return 8;
+}
+
+function exerciseBlockDurationMinutes(block: TrainingSessionBlock): number {
+  const exerciseMinutes = block.exercises.reduce((sum, exercise) => sum + prescriptionDurationMinutes(exercise), 0);
+  const transitionMinutes = block.exercises.length > 0 ? block.exercises.length * 1.5 : 0;
+  return Math.max(minimumExerciseBlockMinutes(block), Math.round((exerciseMinutes + transitionMinutes) * 10) / 10);
+}
+
+function conditioningBlockDurationMinutes(block: TrainingSessionBlock): number | null {
+  if (!block.conditioning) {
+    return null;
+  }
+  const mainSeconds = block.conditioning.repetitions * block.conditioning.workSeconds + Math.max(0, block.conditioning.repetitions - 1) * block.conditioning.restSeconds;
+  return roundMinutes(mainSeconds);
+}
+
+function boxingBlockDurationMinutes(block: TrainingSessionBlock): number | null {
+  if (!block.boxingRounds) {
+    return null;
+  }
+  const mainSeconds = block.boxingRounds.rounds.reduce((sum, round, index) => sum + round.durationSeconds + (index === block.boxingRounds!.rounds.length - 1 ? 0 : round.restSeconds), 0);
+  return roundMinutes(mainSeconds);
+}
+
+function recalculateBlockDuration(block: TrainingSessionBlock): TrainingSessionBlock {
+  const structuredDuration =
+    block.exercises.length > 0
+      ? exerciseBlockDurationMinutes(block)
+      : conditioningBlockDurationMinutes(block) ?? boxingBlockDurationMinutes(block) ?? block.durationMinutes;
+  return {
+    ...block,
+    durationMinutes: structuredDuration
+  };
+}
+
+function sessionDuration(blocks: readonly TrainingSessionBlock[]): number {
+  return Math.round(blocks.reduce((sum, block) => sum + block.durationMinutes, 0));
+}
 
 function activeConstraint(constraint: PersistentSafetyConstraint): boolean {
   return constraint.status === "active" || constraint.status === "review_required";
@@ -87,12 +156,13 @@ function constrainedBlock(input: {
       };
     }
   }
+  const recalculated = recalculateBlockDuration(block);
   return notes.length > 0
     ? {
-        ...block,
-        coachingNotes: [...block.coachingNotes, ...notes]
+        ...recalculated,
+        coachingNotes: [...recalculated.coachingNotes, ...notes]
       }
-    : block;
+    : recalculated;
 }
 
 export function applyPersistentSafetyConstraints(input: {
@@ -149,10 +219,14 @@ export function applyPersistentSafetyConstraints(input: {
     if (relevantConstraints.length === 0) {
       return session;
     }
+    const blocks = session.blocks.map((block) => constrainedBlock({ block, constraints: relevantConstraints, equipment: input.equipment }));
+    const durationMinutes = sessionDuration(blocks);
     return {
       ...session,
       safetyConstraintIds: [...new Set([...session.safetyConstraintIds, ...relevantConstraints.map((constraint) => constraint.id)])],
-      blocks: session.blocks.map((block) => constrainedBlock({ block, constraints: relevantConstraints, equipment: input.equipment })),
+      blocks,
+      structuredDurationMinutes: durationMinutes,
+      displayedDurationMinutes: durationMinutes,
       rationale: [...session.rationale, ...relevantConstraints.map((constraint) => `Persistent ${constraint.affectedBodyRegion} constraint applied to affected domains only.`)]
     };
   });

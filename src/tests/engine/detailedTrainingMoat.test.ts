@@ -154,7 +154,7 @@ describe("detailed training session engine", () => {
           }
         ]
       },
-      asOfDate: "2026-05-23"
+      asOfDate: fixtureAsOfDate
     });
     const detail = state.viewModels.train.detailedTodaySessions.find((session) => session.detail?.family.startsWith("boxing_"))?.detail;
     if (!detail) {
@@ -164,7 +164,7 @@ describe("detailed training session engine", () => {
     const text = `${exercisePrescriptionText(detail)} ${detail.roundStructure ?? ""} ${(detail.athleteQualityCues ?? []).join(" ")} ${(detail.sessionQualityCheckpoints ?? []).join(" ")} ${(detail.selfCheckCues ?? []).join(" ")} ${detail.filmCue ?? ""} ${walkthroughText}`.toLowerCase();
 
     expect(detail.boxingSkillTheme?.toLowerCase()).toContain("jab");
-    expect(detail.roundStructure).toMatch(/4 x 2:30/);
+    expect(detail.roundStructure).toMatch(/6 x 2:30/);
     expect(detail.walkthrough.summary).toContain("Follow the blocks in order");
     expect(detail.walkthrough.roundPlan?.format).toContain("round");
     expect(detail.walkthrough.roundPlan?.instructions.join(" ")).toContain("Start each round in stance");

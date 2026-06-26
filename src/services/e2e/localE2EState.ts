@@ -1,5 +1,7 @@
 import type { AthleteJourney, ISODateString, PerformanceState, ProtectedWorkout, ReadinessCheckIn, RecurringProtectedWorkoutAnchor } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { defaultSubFocusFor } from "../../engine/training/compiler/normalizePlanInputs";
+import type { PlanSubFocus, TrainingPrimaryFocus } from "../../engine/training/compiler/types";
 import { defaultTrainingDoseForSupportDays } from "../../engine/training/planGenerationIntent";
 import { normalizeGeneratedSupportWeekdays } from "../../engine/training/supportAvailability";
 import { buildDemoAthleteProfile } from "../supabase/demoDataService";
@@ -18,6 +20,14 @@ const LOCAL_E2E_DEFAULT_BUILD_GOAL: BuildGoalDraft = {
   planAction: "start_new_plan",
   protectedScheduleMode: "keep_existing"
 };
+
+function compilerPrimaryFocusForLocalDraft(primaryFocus: BuildGoalDraft["primaryFocus"]): TrainingPrimaryFocus {
+  return primaryFocus === "mobility" ? "mobility_recovery" : primaryFocus;
+}
+
+function defaultSubFocusForLocalDraft(primaryFocus: BuildGoalDraft["primaryFocus"]): PlanSubFocus {
+  return defaultSubFocusFor(compilerPrimaryFocusForLocalDraft(primaryFocus), "build");
+}
 
 export type LocalE2EScenario = "default" | typeof LOCAL_E2E_DUE_WORKOUT_SCENARIO;
 
@@ -43,9 +53,10 @@ export function buildLocalE2EPerformanceState(input: {
   const buildGoalDraft = input.buildGoalDraft === undefined ? LOCAL_E2E_DEFAULT_BUILD_GOAL : input.buildGoalDraft;
   const selectedSupportDays = normalizeGeneratedSupportWeekdays(buildGoalDraft?.scheduleAvailability ?? buildGoalDraft?.generatedSupportAvailableDays ?? []);
   const trainingDose = buildGoalDraft?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedSupportDays.length);
+  const subFocus = buildGoalDraft?.subFocus ?? (buildGoalDraft ? defaultSubFocusForLocalDraft(buildGoalDraft.primaryFocus) : "full_body_strength");
   const planStartDate = buildGoalDraft?.planStartDate ?? asOfDate;
   const localPlanIntentId = buildGoalDraft
-    ? `local-plan:${userId}:${buildGoalDraft.primaryFocus}:${trainingDose}:${planStartDate}:${selectedSupportDays.join("-") || "default"}`
+    ? `local-plan:${userId}:${buildGoalDraft.primaryFocus}:${subFocus}:${trainingDose}:${planStartDate}:${selectedSupportDays.join("-") || "default"}`
     : null;
   const athlete = {
     ...buildDemoAthleteProfile(userId),
@@ -136,8 +147,17 @@ export function buildLocalE2EPerformanceState(input: {
                   action: buildGoalDraft.planAction ?? "start_new_plan",
                   goalMode: "build",
                   primaryFocus: buildGoalDraft.primaryFocus,
+                  subFocus,
                   trainingDose,
                   selectedSupportDays,
+                  preferredSessionDurationMinutes: buildGoalDraft.preferredSessionDurationMinutes ?? 45,
+                  maxSessionDurationMinutes: buildGoalDraft.maxSessionDurationMinutes ?? 70,
+                  targetBlockLengthWeeks: buildGoalDraft.targetBlockLengthWeeks ?? 4,
+                  equipment: buildGoalDraft.equipment ?? athlete.equipmentAccess,
+                  modalityPreferences: buildGoalDraft.modalityPreferences ?? [],
+                  modalityAvoidances: buildGoalDraft.modalityAvoidances ?? [],
+                  currentLimitations: buildGoalDraft.currentLimitations ?? [...athlete.injuryHistory, ...athlete.medicalFlags],
+                  userPreferences: buildGoalDraft.userPreferences ?? [],
                   planStartDate,
                   requestedAt: `${asOfDate}T12:05:00.000Z`,
                   seed: localPlanIntentId,

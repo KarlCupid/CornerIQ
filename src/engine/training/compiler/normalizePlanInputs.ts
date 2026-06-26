@@ -16,6 +16,10 @@ import type {
 
 const DEFAULT_SUPPORT_DAYS: readonly GeneratedSupportWeekday[] = ["monday", "wednesday", "friday"];
 
+function uniqueStrings(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
 function trainingLevelFor(athlete: AthleteProfile): AthleteTrainingLevel {
   if (athlete.boxingLevel === "aspiring_boxer" || athlete.boxingLevel === "amateur_novice" || athlete.trainingAgeYears < 1) {
     return "novice";
@@ -143,12 +147,17 @@ function splitPreferenceTokens(values: readonly string[] | undefined): {
 
 export function normalizeAthleteTrainingProfile(input: {
   athlete: AthleteProfile;
+  equipment?: readonly string[] | undefined;
   fixedBoxingSchedule?: readonly ProtectedWorkout[] | undefined;
+  modalityAvoidances?: readonly string[] | undefined;
+  modalityPreferences?: readonly string[] | undefined;
+  currentLimitations?: readonly string[] | undefined;
   userPreferences?: readonly string[] | undefined;
   preferredSessionDurationMinutes?: number | undefined;
 }): AthleteTrainingProfile {
   const preferenceTokens = splitPreferenceTokens(input.userPreferences);
-  const equipment = normalizeEquipmentAccess(input.athlete.equipmentAccess ?? []);
+  const equipmentSource = input.equipment && input.equipment.length > 0 ? input.equipment : input.athlete.equipmentAccess ?? [];
+  const equipment = normalizeEquipmentAccess(equipmentSource);
   const preferredSessionDurationMinutes = input.preferredSessionDurationMinutes ?? 45;
   return {
     athleteId: input.athlete.athleteId,
@@ -158,10 +167,10 @@ export function normalizeAthleteTrainingProfile(input: {
     stance: input.athlete.stance ?? "unknown",
     equipment,
     preferredEnvironments: environmentsFor({ athlete: input.athlete, preferences: preferenceTokens.preferences }),
-    modalityPreferences: preferenceTokens.preferences,
-    modalityAvoidances: preferenceTokens.avoidances,
+    modalityPreferences: uniqueStrings([...(input.modalityPreferences ?? []), ...preferenceTokens.preferences]),
+    modalityAvoidances: uniqueStrings([...(input.modalityAvoidances ?? []), ...preferenceTokens.avoidances]),
     preferredSessionDurationMinutes,
-    currentLimitations: [...input.athlete.injuryHistory, ...input.athlete.medicalFlags, ...preferenceTokens.limitations],
+    currentLimitations: uniqueStrings([...(input.athlete.injuryHistory ?? []), ...(input.athlete.medicalFlags ?? []), ...(input.currentLimitations ?? []), ...preferenceTokens.limitations]),
     fixedBoxingSchedule: input.fixedBoxingSchedule ?? input.athlete.protectedBoxingSchedule
   };
 }
@@ -178,6 +187,10 @@ export function normalizePlanIntent(input: {
   preferredSessionDurationMinutes?: number | undefined;
   maxSessionDurationMinutes?: number | undefined;
   targetBlockLengthWeeks?: number | undefined;
+  equipment?: readonly string[] | undefined;
+  modalityPreferences?: readonly string[] | undefined;
+  modalityAvoidances?: readonly string[] | undefined;
+  currentLimitations?: readonly string[] | undefined;
   userPreferences?: readonly string[] | undefined;
   activeRevisionId?: string | undefined;
 }): PlanIntent {
@@ -185,19 +198,27 @@ export function normalizePlanIntent(input: {
   const primaryFocus = mapPrimaryFocus(input.primaryFocus ?? input.legacyIntent?.primaryFocus);
   const selectedSupportDays = normalizeGeneratedSupportWeekdays(input.selectedSupportDays ?? input.legacyIntent?.selectedSupportDays);
   const revisionId = input.activeRevisionId ?? input.legacyIntent?.id ?? `plan:${input.userId}:${input.requestedStartDate}`;
+  const equipment = uniqueStrings(input.equipment ?? input.legacyIntent?.equipment ?? []);
+  const modalityPreferences = uniqueStrings(input.modalityPreferences ?? input.legacyIntent?.modalityPreferences ?? []);
+  const modalityAvoidances = uniqueStrings(input.modalityAvoidances ?? input.legacyIntent?.modalityAvoidances ?? []);
+  const currentLimitations = uniqueStrings(input.currentLimitations ?? input.legacyIntent?.currentLimitations ?? []);
   return {
     id: input.legacyIntent?.id ?? revisionId,
     userId: input.userId,
     goalMode,
     primaryFocus,
-    subFocus: input.subFocus ?? defaultSubFocusFor(primaryFocus, goalMode),
+    subFocus: input.subFocus ?? input.legacyIntent?.subFocus ?? defaultSubFocusFor(primaryFocus, goalMode),
     trainingDose: mapDose(input.trainingDose ?? input.legacyIntent?.trainingDose),
     selectedSupportDays: selectedSupportDays.length > 0 ? selectedSupportDays : DEFAULT_SUPPORT_DAYS,
-    preferredSessionDurationMinutes: input.preferredSessionDurationMinutes ?? 45,
-    maxSessionDurationMinutes: input.maxSessionDurationMinutes ?? 70,
-    targetBlockLengthWeeks: input.targetBlockLengthWeeks ?? 4,
+    preferredSessionDurationMinutes: input.preferredSessionDurationMinutes ?? input.legacyIntent?.preferredSessionDurationMinutes ?? 45,
+    maxSessionDurationMinutes: input.maxSessionDurationMinutes ?? input.legacyIntent?.maxSessionDurationMinutes ?? 70,
+    targetBlockLengthWeeks: input.targetBlockLengthWeeks ?? input.legacyIntent?.targetBlockLengthWeeks ?? 4,
+    equipment,
+    modalityPreferences,
+    modalityAvoidances,
+    currentLimitations,
     requestedStartDate: input.legacyIntent?.planStartDate ?? input.requestedStartDate,
-    userPreferences: input.userPreferences ?? [],
+    userPreferences: uniqueStrings(input.userPreferences ?? input.legacyIntent?.userPreferences ?? [...modalityPreferences, ...modalityAvoidances, ...currentLimitations]),
     activeRevisionId: revisionId
   };
 }

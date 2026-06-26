@@ -4277,7 +4277,10 @@ describe("minimal app screens", () => {
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-details-step");
     expect(output).toContain("Support workout dose");
+    expect(output).toContain("Sub-focus");
     expect(output).not.toContain("Support days per week");
+    await switchSection(renderer, "Conditioning");
+    await switchSection(renderer, "Intervals");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -4314,6 +4317,8 @@ describe("minimal app screens", () => {
     }
     expect(savedBuildDraft.scheduleAvailability).toEqual(["monday", "wednesday", "friday", "saturday"]);
     expect(savedBuildDraft.scheduleAvailability).not.toContain("tuesday");
+    expect(savedBuildDraft.primaryFocus).toBe("conditioning");
+    expect(savedBuildDraft.subFocus).toBe("intervals");
     expect(savedBuildDraft.planAction).toBe("start_new_plan");
     expect(savedBuildDraft.protectedScheduleMode).toBe("replace_for_plan");
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");

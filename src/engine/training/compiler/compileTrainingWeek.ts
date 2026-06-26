@@ -3,8 +3,9 @@ import { applyDailyReadinessOverlay } from "./applyDailyReadinessOverlay";
 import { applyPersistentSafetyConstraints } from "./applyPersistentSafetyConstraints";
 import { allocateSessionIntents } from "./allocateSessionIntents";
 import { composeTrainingSession } from "./composeTrainingSession";
-import { planFingerprint } from "./planFingerprint";
+import { contentFingerprintForCompiledWeek, planInstanceFingerprintForCompiledWeek } from "./planFingerprint";
 import { resolveAthleteNeeds } from "./resolveAthleteNeeds";
+import { resolveProgression } from "./resolveProgression";
 import { resolveWeeklyAdaptationBudget } from "./resolveWeeklyAdaptationBudget";
 import { TRAINING_COMPILER_CONTRACT_VERSION, type CompileTrainingWeekInput, type CompiledTrainingWeek } from "./types";
 import { validateCompiledWeek } from "./validateCompiledWeek";
@@ -25,11 +26,22 @@ export function compileTrainingWeek(input: CompileTrainingWeekInput): CompiledTr
     planIntent: input.planIntent,
     budget: adaptationBudget,
     weekStartDate: input.weekStartDate
+  }).map((intent) => {
+    const progression = resolveProgression({
+      intent,
+      exerciseHistory: input.exerciseHistory
+    });
+    return {
+      ...intent,
+      progressionIntent: progression.intent,
+      rationale: [...intent.rationale, ...progression.rationale]
+    };
   });
   const composedSessions = sessionIntents.map((intent) =>
     composeTrainingSession({
       athlete: input.athlete,
-      intent
+      intent,
+      exerciseHistory: input.exerciseHistory ?? []
     })
   );
   const safetyAppliedSessions = applyPersistentSafetyConstraints({
@@ -37,7 +49,11 @@ export function compileTrainingWeek(input: CompileTrainingWeekInput): CompiledTr
     constraints: input.persistentSafetyConstraints ?? [],
     equipment: input.athlete.equipment
   });
-  const baseWeek: Omit<CompiledTrainingWeek, "validation" | "materialFingerprint"> = {
+  const readinessAppliedSessions = applyDailyReadinessOverlay({
+    sessions: safetyAppliedSessions,
+    readiness: input.readiness
+  });
+  const baseWeek: Omit<CompiledTrainingWeek, "validation" | "materialFingerprint" | "contentFingerprint" | "planInstanceFingerprint"> = {
     contractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
     planRevisionId: input.planIntent.activeRevisionId,
     weekStartDate: input.weekStartDate,
@@ -47,13 +63,14 @@ export function compileTrainingWeek(input: CompileTrainingWeekInput): CompiledTr
     athleteNeeds,
     adaptationBudget,
     sessionIntents,
-    compiledSessions: safetyAppliedSessions,
+    compiledSessions: readinessAppliedSessions,
     unresolvedTargetDeficits: adaptationBudget.unresolvedTargetDeficits,
     decisionTrace: [
       "Normalized athlete and plan inputs before compilation.",
       "Resolved athlete needs before selecting sessions.",
       "Resolved measurable weekly adaptation budget before exercise selection.",
       "Placed session intents around fixed boxing.",
+      "Resolved progression from recent structured exercise history before exercise dose selection.",
       "Composed sessions from structured exercise, conditioning, and boxing-round prescriptions.",
       "Applied explicit persistent safety constraints.",
       "Applied same-day readiness overlay only when readiness date matched a compiled session.",
@@ -65,13 +82,12 @@ export function compileTrainingWeek(input: CompileTrainingWeekInput): CompiledTr
     ...baseWeek,
     validation
   };
-  const readinessAppliedSessions = applyDailyReadinessOverlay({
-    sessions: safetyAppliedSessions,
-    readiness: input.readiness
-  });
+  const contentFingerprint = contentFingerprintForCompiledWeek(weekWithValidation);
+  const planInstanceFingerprint = planInstanceFingerprintForCompiledWeek(weekWithValidation);
   return {
     ...weekWithValidation,
-    compiledSessions: readinessAppliedSessions,
-    materialFingerprint: planFingerprint(weekWithValidation)
+    contentFingerprint,
+    planInstanceFingerprint,
+    materialFingerprint: contentFingerprint
   };
 }

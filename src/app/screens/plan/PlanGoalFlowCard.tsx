@@ -91,7 +91,14 @@ const weekdayOptions: readonly { label: string; value: RecurringProtectedWorkout
   { label: "Sunday", value: "sunday" }
 ];
 
-const buildFocusOptions: readonly BuildGoalDraft["primaryFocus"][] = ["balanced", "power", "conditioning", "strength", "mobility"];
+type BuildSubFocus = NonNullable<BuildGoalDraft["subFocus"]>;
+
+const buildFocusOptions: readonly BuildGoalDraft["primaryFocus"][] = ["balanced", "power", "conditioning", "strength", "boxing_skill", "mobility"];
+const strengthSubFocusOptions: readonly BuildSubFocus[] = ["full_body_strength", "lower_body_strength", "posterior_chain_strength", "upper_body_trunk_strength", "unilateral_control", "stance_posture_strength", "strength_maintenance"];
+const powerSubFocusOptions: readonly BuildSubFocus[] = ["rotational_power", "first_step_explosiveness", "alactic_speed", "reaction_timing", "power_maintenance"];
+const conditioningSubFocusOptions: readonly BuildSubFocus[] = ["aerobic_base", "repeatable_rounds", "tempo", "intervals", "sprint_alactic_conditioning", "boxing_specific_conditioning", "recovery_conditioning"];
+const boxingSkillSubFocusOptions: readonly BuildSubFocus[] = ["jab_system", "entries_exits", "defense_after_punching", "footwork_ringcraft", "counter_timing", "pressure_control", "outside_movement", "bag_skill", "shadowboxing_mechanics"];
+const mobilitySubFocusOptions: readonly BuildSubFocus[] = ["hips_ankles", "shoulders_thoracic", "trunk_guard_posture", "general_recovery", "post_bout", "travel", "soreness_management"];
 const trainingDoseOptions: readonly NonNullable<BuildGoalDraft["trainingDose"]>[] = ["minimal", "standard", "serious", "high"];
 const recoveryFocusOptions: readonly NonNullable<RecoveryGoalDraft["focus"]>[] = ["general", "soreness", "sleep", "travel", "post_bout"];
 const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
@@ -152,6 +159,27 @@ function defaultPlanAction(_currentModeLabel: PlanViewModel["modeLabel"], _nextM
 
 function defaultTrainingDose(selectedDayCount: number): NonNullable<BuildGoalDraft["trainingDose"]> {
   return selectedDayCount >= 5 ? "serious" : selectedDayCount >= 3 ? "standard" : "minimal";
+}
+
+function subFocusOptionsFor(primaryFocus: BuildGoalDraft["primaryFocus"]): readonly BuildSubFocus[] {
+  switch (primaryFocus) {
+    case "power":
+      return powerSubFocusOptions;
+    case "conditioning":
+      return conditioningSubFocusOptions;
+    case "strength":
+      return strengthSubFocusOptions;
+    case "boxing_skill":
+      return boxingSkillSubFocusOptions;
+    case "mobility":
+      return mobilitySubFocusOptions;
+    case "balanced":
+      return ["full_body_strength", "aerobic_base", "rotational_power", "jab_system", "general_recovery"];
+  }
+}
+
+function defaultSubFocusForBuildFocus(primaryFocus: BuildGoalDraft["primaryFocus"]): BuildSubFocus {
+  return subFocusOptionsFor(primaryFocus)[0] ?? "full_body_strength";
 }
 
 function daySummary(days: readonly GeneratedSupportDay[]): string {
@@ -246,6 +274,7 @@ export function PlanGoalFlowCard({
   const [stepError, setStepError] = React.useState<string | null>(null);
   const [selectedAvailableDays, setSelectedAvailableDays] = React.useState<GeneratedSupportDay[]>(() => [...initialAvailableDays]);
   const [primaryFocus, setPrimaryFocus] = React.useState<BuildGoalDraft["primaryFocus"]>("balanced");
+  const [subFocus, setSubFocus] = React.useState<BuildSubFocus>(() => defaultSubFocusForBuildFocus("balanced"));
   const [trainingDose, setTrainingDose] = React.useState<NonNullable<BuildGoalDraft["trainingDose"]>>(() => defaultTrainingDose(initialAvailableDays.length));
 
   const [status, setStatus] = React.useState<FightSetupDraft["status"]>(defaultFight.status);
@@ -396,6 +425,11 @@ export function PlanGoalFlowCard({
     }
   };
 
+  const selectPrimaryFocus = (focus: BuildGoalDraft["primaryFocus"]) => {
+    setPrimaryFocus(focus);
+    setSubFocus(defaultSubFocusForBuildFocus(focus));
+  };
+
   const persistPendingAnchors = async () => {
     if (protectedScheduleMode === "clear_for_plan") {
       return;
@@ -425,6 +459,7 @@ export function PlanGoalFlowCard({
     await runWithMessage(async () => {
       await onSaveBuildGoal({
         primaryFocus,
+        subFocus,
         trainingDose,
         generatedSupportAvailableDays: selectedAvailableDays,
         scheduleAvailability: selectedAvailableDays,
@@ -560,8 +595,8 @@ export function PlanGoalFlowCard({
         `Training dose: ${titleCase(trainingDose)}`
       ];
     }
-    return [`Primary focus: ${titleCase(primaryFocus)}`, `Training dose: ${titleCase(trainingDose)}`];
-  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
+    return [`Primary focus: ${titleCase(primaryFocus)}`, `Sub-focus: ${titleCase(subFocus)}`, `Training dose: ${titleCase(trainingDose)}`];
+  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, subFocus, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
 
   const content = (
     <View accessibilityLabel="Plan generation wizard" style={{ gap: spacing.md }} testID="plan-generation-wizard">
@@ -726,7 +761,13 @@ export function PlanGoalFlowCard({
                 <Text style={screenStyles.fieldLabel}>Primary focus</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {buildFocusOptions.map((option) => (
-                    <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setPrimaryFocus(option)} />
+                    <OptionButton active={primaryFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => selectPrimaryFocus(option)} />
+                  ))}
+                </View>
+                <Text style={screenStyles.fieldLabel}>Sub-focus</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                  {subFocusOptionsFor(primaryFocus).map((option) => (
+                    <OptionButton active={subFocus === option} busy={busy} key={option} label={titleCase(option)} onPress={() => setSubFocus(option)} />
                   ))}
                 </View>
               </View>

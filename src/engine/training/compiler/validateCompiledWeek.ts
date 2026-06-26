@@ -104,7 +104,7 @@ function hasBoxingRoundStructure(block: TrainingSessionBlock): boolean {
 }
 
 export function validateCompiledWeek(input: {
-  week: Omit<CompiledTrainingWeek, "validation" | "materialFingerprint">;
+  week: Omit<CompiledTrainingWeek, "validation" | "materialFingerprint" | "contentFingerprint" | "planInstanceFingerprint">;
 }): WeeklyValidationResult {
   const failures: string[] = [];
   const warnings: string[] = [];

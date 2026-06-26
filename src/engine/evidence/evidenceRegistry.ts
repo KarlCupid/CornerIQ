@@ -210,7 +210,7 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     reviewCadence: "after_calibration_data",
     knownLimitations: [
       "Set, rep, round, and minute ranges are conservative product thresholds until reviewed by qualified boxing and strength-and-conditioning experts.",
-      "The compiler is not yet the only active app planning path; V1 deletion and persistence reset remain required before launch."
+      "Some app-facing audit and presentation fields retain legacy-compatible names, but generated workout authority comes from persisted V2 structured prescriptions."
     ],
     betaCalibrationPlan:
       "Run the golden output matrix with boxer, coach, and S&C review; compare completed-session RPE, substitutions, and comprehension before loosening or increasing dose rules.",

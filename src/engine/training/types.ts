@@ -2,7 +2,7 @@ import type { Confidence, ISODateString, ISODateTimeString } from "../core/share
 import type { GeneratedSupportWeekday } from "./supportAvailability";
 import type { DailyOperatingModeView } from "./dailyOperatingMode";
 import type { NextWeekTrainingMaterialization } from "./nextWeekMaterializationContract";
-import type { CompiledTrainingSession, SessionIntent, WeeklyAdaptationBudget } from "./compiler/types";
+import type { CompiledTrainingSession, PlanSubFocus, SessionIntent, WeeklyAdaptationBudget } from "./compiler/types";
 import type { PersistedTrainingPlanAdjustment, TrainingPlanAdjustmentResult } from "./planAdjustmentTypes";
 import type { TrainingBlockHistory, TrainingBlockTimelineEvent, TrainingProgressionDecision, TrainingWeekSummary } from "./trainingBlockHistoryTypes";
 import type { TrainingBlock, TrainingBlockRecommendation, TrainingDayPlan, TrainingMicrocycle } from "./trainingBlockTypes";
@@ -186,7 +186,7 @@ export type GeneratedSessionFamily =
 export type GeneratedSessionIntensity = "recovery" | "easy" | "moderate" | "hard";
 export type PlanGenerationAction = "start_new_plan" | "amend_current_plan";
 export type PlanGenerationGoalMode = "build" | "fight" | "tournament" | "recovery";
-export type PlanGenerationPrimaryFocus = "balanced" | "power" | "conditioning" | "strength" | "mobility";
+export type PlanGenerationPrimaryFocus = "balanced" | "power" | "conditioning" | "strength" | "mobility" | "boxing_skill";
 export type PlanGenerationTrainingDose = "minimal" | "standard" | "serious" | "high";
 export type GeneratedSessionDurationPolicyCategory = "normal_support" | "workload_moderated" | "recovery" | "taper" | "microdose" | "safety_capped";
 export type TrainingStimulus = "strength" | "conditioning" | "power" | "durability" | "mobility" | "recovery" | "taper" | "boxing_skill" | "technical" | "agility" | "tactical";
@@ -252,8 +252,17 @@ export interface PlanGenerationIntent {
   action: PlanGenerationAction;
   goalMode: PlanGenerationGoalMode;
   primaryFocus?: PlanGenerationPrimaryFocus | undefined;
+  subFocus?: PlanSubFocus | undefined;
   trainingDose: PlanGenerationTrainingDose;
   selectedSupportDays: readonly GeneratedSupportWeekday[];
+  preferredSessionDurationMinutes?: number | undefined;
+  maxSessionDurationMinutes?: number | undefined;
+  targetBlockLengthWeeks?: number | undefined;
+  equipment?: readonly string[] | undefined;
+  modalityPreferences?: readonly string[] | undefined;
+  modalityAvoidances?: readonly string[] | undefined;
+  currentLimitations?: readonly string[] | undefined;
+  userPreferences?: readonly string[] | undefined;
   planStartDate: ISODateString;
   requestedAt: string;
   seed: string;
@@ -290,6 +299,8 @@ export interface GeneratedTrainingSession {
   planIntentVersion?: string | undefined;
   generatedSessionSchemaVersion?: string | undefined;
   planFingerprint?: string | undefined;
+  contentFingerprint?: string | undefined;
+  planInstanceFingerprint?: string | undefined;
   templateId?: string | undefined;
   targetDurationMinutes?: number | undefined;
   durationPolicyCategory?: GeneratedSessionDurationPolicyCategory | undefined;
@@ -762,6 +773,8 @@ export interface TrainingSupportGenerationAudit {
   planIntentVersion: string;
   generatedSessionSchemaVersion: string;
   planFingerprint: string;
+  contentFingerprint: string;
+  planInstanceFingerprint: string;
   planFingerprintMaterial: Record<string, unknown>;
   prescriptionValidationPassed: boolean;
   prescriptionValidationFailures: readonly string[];
