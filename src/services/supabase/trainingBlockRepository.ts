@@ -12,7 +12,7 @@ import {
 } from "../../engine/training/planAdjustmentTypes";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
+import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 export type TrainingBlockStatus = "active" | "superseded" | "completed" | "canceled";
 export type TrainingBlockLifecycle = "created" | "updated" | "superseded_previous";
@@ -22,6 +22,7 @@ export interface PersistedTrainingBlock {
   userId: string;
   blockKey: string;
   status: TrainingBlockStatus;
+  planRevisionId?: string | undefined;
   inputHash: string;
   outputHash: string;
   block: TrainingBlock;
@@ -65,7 +66,7 @@ export interface InsertTrainingPlanAdjustmentInput {
 
 type TrainingBlockRow = Pick<
   TableRow<"training_blocks">,
-  "id" | "user_id" | "block_key" | "status" | "input_hash" | "output_hash" | "block_payload" | "created_at" | "updated_at"
+  "id" | "user_id" | "block_key" | "status" | "plan_revision_id" | "input_hash" | "output_hash" | "block_payload" | "created_at" | "updated_at"
 >;
 
 type TrainingPlanAdjustmentRow = Pick<
@@ -74,6 +75,9 @@ type TrainingPlanAdjustmentRow = Pick<
 >;
 
 function blockKeyFor(block: TrainingBlock): string {
+  if (block.planRevisionId) {
+    return `block:${block.athleteId}:${block.planRevisionId}`;
+  }
   return `block:${block.athleteId}:${block.startDate}:${block.endDate}`;
 }
 
@@ -98,9 +102,18 @@ function mapTrainingBlockRow(row: TrainingBlockRow): PersistedTrainingBlock {
     userId: row.user_id,
     blockKey: row.block_key,
     status: statusValue(row.status, "training_blocks.status"),
+    ...(row.plan_revision_id ? { planRevisionId: row.plan_revision_id } : {}),
     inputHash: row.input_hash,
     outputHash: row.output_hash,
-    block: parseWithSchema(TrainingBlockSchema, { ...payload, recordedAt: row.created_at }, "training_blocks.block_payload"),
+    block: parseWithSchema(
+      TrainingBlockSchema,
+      {
+        ...payload,
+        ...(row.plan_revision_id ? { planRevisionId: row.plan_revision_id } : {}),
+        recordedAt: row.created_at
+      },
+      "training_blocks.block_payload"
+    ),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -140,6 +153,7 @@ function blockInsert(input: UpsertActiveTrainingBlockInput, blockKey: string): T
     block_key: blockKey,
     block_phase: block.phase,
     primary_goal: block.primaryGoal,
+    plan_revision_id: block.planRevisionId ?? null,
     start_date: block.startDate,
     end_date: block.endDate,
     linked_fight_id: block.linkedFightId ?? null,
@@ -151,6 +165,7 @@ function blockInsert(input: UpsertActiveTrainingBlockInput, blockKey: string): T
     block_payload: toJson({
       ...block,
       blockKey,
+      planRevisionId: block.planRevisionId,
       inputHash: input.inputHash,
       outputHash: input.outputHash,
       projectionSource: "engine_training_block"
@@ -172,9 +187,12 @@ export function createTrainingBlockRepository(client: CornerSupabaseClient) {
         .eq("user_id", safeUserId)
         .eq("block_key", blockKey)
         .eq("status", "active")
-        .limit(1)
-        .maybeSingle();
-      const existing = readMaybeDataOrThrow(existingResponse, "training_blocks.upsertActiveTrainingBlock.findExisting");
+        .order("updated_at", { ascending: false });
+      const existingRows = readDataOrThrow(existingResponse, "training_blocks.upsertActiveTrainingBlock.findExisting");
+      if (existingRows.length > 1) {
+        throw new Error("training_blocks.upsertActiveTrainingBlock: multiple active blocks share the same revision key");
+      }
+      const existing = existingRows[0];
 
       if (existing) {
         const updateResponse = await client.from("training_blocks").update(record).eq("id", existing.id).eq("user_id", safeUserId).select("id").single();
@@ -184,7 +202,15 @@ export function createTrainingBlockRepository(client: CornerSupabaseClient) {
 
       const response = await client.from("training_blocks").insert(record).select("id").single();
       const inserted = readDataOrThrow(response, "training_blocks.upsertActiveTrainingBlock.insert");
-      return { id: inserted.id, blockKey, lifecycle: "created" };
+      const supersededResponse = await client
+        .from("training_blocks")
+        .update({ status: "superseded", superseded_at: new Date().toISOString(), superseded_by: inserted.id })
+        .eq("user_id", safeUserId)
+        .eq("status", "active")
+        .neq("id", inserted.id)
+        .select("id");
+      const superseded = readDataOrThrow(supersededResponse, "training_blocks.upsertActiveTrainingBlock.supersedePreviousActive");
+      return { id: inserted.id, blockKey, lifecycle: superseded.length > 0 ? "superseded_previous" : "created" };
     },
 
     async upsertTrainingMicrocycle(input: UpsertTrainingMicrocycleInput): Promise<{ id: string }> {
@@ -246,27 +272,31 @@ export function createTrainingBlockRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "training_blocks.listActiveTrainingBlocks");
       const response = await client
         .from("training_blocks")
-        .select("id, user_id, block_key, status, input_hash, output_hash, block_payload, created_at, updated_at")
+        .select("id, user_id, block_key, status, plan_revision_id, input_hash, output_hash, block_payload, created_at, updated_at")
         .eq("user_id", safeUserId)
         .eq("status", "active")
         .order("start_date", { ascending: true });
       return readDataOrThrow(response, "training_blocks.listActiveTrainingBlocks").map(mapTrainingBlockRow);
     },
 
-    async getActiveTrainingBlockForDate(userId: string, asOfDate: ISODateString): Promise<PersistedTrainingBlock | null> {
+    async getActiveTrainingBlockForDate(userId: string, asOfDate: ISODateString, planRevisionId?: string | undefined): Promise<PersistedTrainingBlock | null> {
       const safeUserId = assertUserId(userId, "training_blocks.getActiveTrainingBlockForDate");
-      const response = await client
+      const query = client
         .from("training_blocks")
-        .select("id, user_id, block_key, status, input_hash, output_hash, block_payload, created_at, updated_at")
+        .select("id, user_id, block_key, status, plan_revision_id, input_hash, output_hash, block_payload, created_at, updated_at")
         .eq("user_id", safeUserId)
         .eq("status", "active")
         .lte("start_date", asOfDate)
-        .gte("end_date", asOfDate)
+        .gte("end_date", asOfDate);
+      const scopedQuery = planRevisionId ? query.eq("plan_revision_id", planRevisionId) : query;
+      const response = await scopedQuery
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const row = readMaybeDataOrThrow(response, "training_blocks.getActiveTrainingBlockForDate");
-      return row ? mapTrainingBlockRow(row) : null;
+        .limit(2);
+      const rows = readDataOrThrow(response, "training_blocks.getActiveTrainingBlockForDate");
+      if (rows.length > 1) {
+        throw new Error("training_blocks.getActiveTrainingBlockForDate: multiple active blocks match the active plan revision");
+      }
+      return rows[0] ? mapTrainingBlockRow(rows[0]) : null;
     },
 
     async supersedeActiveTrainingBlocks(userId: string, blockKey: string, supersededById: string): Promise<{ ids: readonly string[] }> {

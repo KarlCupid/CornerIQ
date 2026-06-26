@@ -116,7 +116,12 @@ function createOnboardingRepositories() {
     cycle: { listCycleLogs: vi.fn(async () => []), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn(), insertCycleLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => []), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => []) },
-    training: { listCompletedTrainingSessions: vi.fn(async () => []), listGeneratedSessions: vi.fn(async () => []), insertCompletedTrainingSession: vi.fn() },
+    training: {
+      listCompletedTrainingSessions: vi.fn(async () => []),
+      listGeneratedSessions: vi.fn(async () => []),
+      supersedeActiveGeneratedSessionsForBlock: vi.fn(async () => ({ ids: [] })),
+      insertCompletedTrainingSession: vi.fn()
+    },
     trainingBlock: {
       listTrainingPlanAdjustments: vi.fn(async () => []),
       upsertActiveTrainingBlock: vi.fn(async () => ({ id: "training_block_1", blockKey: "block:user_1", lifecycle: "created" })),
@@ -790,6 +795,8 @@ describe("onboardingService", () => {
 
     expect(repositories.trainingBlock.supersedeActiveTrainingBlock).toHaveBeenCalledWith("user_1", "training_block_old");
     expect(repositories.trainingNextWeekPreview.supersedePreviewsForBlock).toHaveBeenCalledWith("user_1", "training_block_old");
+    expect(repositories.training.supersedeActiveGeneratedSessionsForBlock).toHaveBeenCalledWith({ userId: "user_1", trainingBlockId: "training_block_old" });
+    expect(repositories.trainingBlock.supersedeTrainingPlanAdjustments).toHaveBeenCalledWith("user_1", "training_block_old", null);
     expect(repositories.trainingProgression.insertTrainingBlockTimelineEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         trainingBlockId: "training_block_old",
@@ -873,6 +880,8 @@ describe("onboardingService", () => {
 
     expect(repositories.trainingBlock.supersedeActiveTrainingBlock).toHaveBeenCalledWith("user_1", "training_block_old");
     expect(repositories.trainingNextWeekPreview.supersedePreviewsForBlock).toHaveBeenCalledWith("user_1", "training_block_old");
+    expect(repositories.training.supersedeActiveGeneratedSessionsForBlock).toHaveBeenCalledWith({ userId: "user_1", trainingBlockId: "training_block_old" });
+    expect(repositories.trainingBlock.supersedeTrainingPlanAdjustments).toHaveBeenCalledWith("user_1", "training_block_old", null);
     expect(store.profile?.scheduleAvailability).toEqual(["monday", "wednesday", "saturday"]);
     expect(result.status).toBe("ready");
     if (result.status === "ready") {

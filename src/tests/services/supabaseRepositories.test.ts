@@ -379,6 +379,10 @@ function createGeneratedSessionListClient(rows: readonly ReturnType<typeof gener
       calls.push({ method: "lte", column, value });
       return query;
     },
+    in(column: string, value: unknown) {
+      calls.push({ method: "in", column, value });
+      return query;
+    },
     order(column: string) {
       calls.push({ method: "order", column });
       return Promise.resolve(response);
@@ -517,7 +521,12 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
     cycle: { listCycleLogs: vi.fn(async () => journey.cycleHistory), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
-    training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    training: {
+      listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions),
+      listGeneratedSessions: vi.fn(async () => journey.trainingHistory),
+      supersedeActiveGeneratedSessionsForBlock: vi.fn(async () => ({ ids: [] })),
+      insertCompletedTrainingSession: vi.fn()
+    },
     trainingBlock: {
       listTrainingPlanAdjustments: vi.fn(async () => journey.trainingPlanAdjustments),
       upsertActiveTrainingBlock: vi.fn(),

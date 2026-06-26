@@ -56,6 +56,8 @@ const USER_PLAN_EVENT_TYPES = new Set<JourneyEvent["type"]>([
   "RecoveryStarted"
 ]);
 
+type PlanIntentJourneyContext = Pick<AthleteJourney, "athlete" | "activeTrainingBlock" | "journeyEvents">;
+
 function objectValue(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -188,7 +190,7 @@ function trainingDoseFromPayload(
 }
 
 function selectedSupportDaysFromPayload(
-  journey: AthleteJourney,
+  journey: PlanIntentJourneyContext,
   payload: Record<string, unknown>,
   intentPayload: Record<string, unknown> | null
 ): PlanGenerationIntent["selectedSupportDays"] {
@@ -232,8 +234,35 @@ function eventHasResolvablePlanIntent(event: JourneyEvent): boolean {
   return eventHasCanonicalPlanIntent(event) || eventHasLegacyUserPlanSource(event);
 }
 
+function eventPlanIntentStatus(event: JourneyEvent): string {
+  const intentPayload = objectValue(event.payload.planGenerationIntent);
+  return stringValue(intentPayload?.status) ?? stringValue(event.payload.planIntentStatus) ?? "active";
+}
+
+function eventHasActivePlanIntent(event: JourneyEvent): boolean {
+  return eventHasResolvablePlanIntent(event) && eventPlanIntentStatus(event) !== "superseded" && eventPlanIntentStatus(event) !== "canceled";
+}
+
+function planIntentOrderingTimestamp(event: JourneyEvent): string {
+  const payload = event.payload;
+  const intentPayload = objectValue(payload.planGenerationIntent);
+  return stringValue(intentPayload?.requestedAt) ?? stringValue(payload.requestedAt) ?? event.occurredAt;
+}
+
+function comparePlanIntentEvents(left: JourneyEvent, right: JourneyEvent): number {
+  return (
+    planIntentOrderingTimestamp(left).localeCompare(planIntentOrderingTimestamp(right)) ||
+    left.occurredAt.localeCompare(right.occurredAt) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function latestActivePlanIntentEvent(journey: PlanIntentJourneyContext): JourneyEvent | null {
+  return [...journey.journeyEvents].filter(eventHasActivePlanIntent).sort(comparePlanIntentEvents).at(-1) ?? null;
+}
+
 export function latestPlanWizardIntentSource(journey: AthleteJourney): "plan_wizard_new_plan" | "plan_wizard_amendment" | null {
-  const event = [...journey.journeyEvents].reverse().find(eventHasResolvablePlanIntent);
+  const event = latestActivePlanIntentEvent(journey);
   if (!event) {
     return null;
   }
@@ -247,8 +276,8 @@ export function latestPlanWizardIntentSource(journey: AthleteJourney): "plan_wiz
   return source === "plan_wizard_new_plan" || source === "plan_wizard_amendment" ? source : null;
 }
 
-export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfDate: ISODateString): PlanGenerationIntent | null {
-  const event = [...journey.journeyEvents].reverse().find(eventHasResolvablePlanIntent);
+export function resolveActivePlanGenerationIntentFromContext(journey: PlanIntentJourneyContext, asOfDate: ISODateString): PlanGenerationIntent | null {
+  const event = latestActivePlanIntentEvent(journey);
   if (!event) {
     return null;
   }
@@ -299,4 +328,8 @@ export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfD
     source: "plan_wizard",
     status: "active"
   };
+}
+
+export function resolveActivePlanGenerationIntent(journey: AthleteJourney, asOfDate: ISODateString): PlanGenerationIntent | null {
+  return resolveActivePlanGenerationIntentFromContext(journey, asOfDate);
 }

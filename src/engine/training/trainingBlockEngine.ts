@@ -149,7 +149,7 @@ function blockEndDate(input: TrainingBlockEngineInput): string {
   if (existing && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
     return existing.endDate;
   }
-  return addDays(input.asOfDate, 27);
+  return addDays(input.planStartDate ?? input.asOfDate, 27);
 }
 
 function weekIndexFor(input: TrainingBlockEngineInput): number {
@@ -272,8 +272,9 @@ export function resolveTrainingBlock(input: TrainingBlockEngineInput): {
   });
   return {
     activeBlock: {
-      id: input.activeTrainingBlock?.id ?? `block:${input.athlete.athleteId}:${input.planRevisionId ?? startDate}:${recommendation.phase}`,
+      id: input.activeTrainingBlock?.id ?? (input.planRevisionId ? `block:${input.athlete.athleteId}:${input.planRevisionId}` : `block:${input.athlete.athleteId}:${startDate}:${recommendation.phase}`),
       athleteId: input.athlete.athleteId,
+      ...(input.planRevisionId ? { planRevisionId: input.planRevisionId } : {}),
       startDate,
       endDate,
       phase: recommendation.phase,

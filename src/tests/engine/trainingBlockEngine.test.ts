@@ -107,17 +107,21 @@ const painExercise: ExerciseResultRecord = {
 };
 
 function planWizardBuildEvent(input: {
+  occurredAt?: string | undefined;
   focus: PlanGenerationPrimaryFocus;
   id: string;
   planStartDate?: string | undefined;
+  requestedAt?: string | undefined;
   selectedSupportDays?: readonly string[] | undefined;
   trainingDose?: PlanGenerationTrainingDose | undefined;
 }): JourneyEvent {
   const selectedSupportDays = input.selectedSupportDays ?? ["tuesday", "thursday", "saturday"];
+  const occurredAt = input.occurredAt ?? "2026-05-19T09:00:00.000Z";
+  const requestedAt = input.requestedAt ?? occurredAt;
   return {
     id: `event_${input.id}`,
     type: "BuildPhaseStarted",
-    occurredAt: "2026-05-19T09:00:00.000Z",
+    occurredAt,
     payload: {
       primaryFocus: input.focus,
       source: "plan_wizard_new_plan",
@@ -131,7 +135,7 @@ function planWizardBuildEvent(input: {
         trainingDose: input.trainingDose ?? "standard",
         selectedSupportDays,
         planStartDate: input.planStartDate ?? fixtureAsOfDate,
-        requestedAt: "2026-05-19T09:00:00.000Z",
+        requestedAt,
         seed: input.id,
         source: "plan_wizard",
         status: "active"
@@ -1570,6 +1574,106 @@ describe("training block and microcycle engine", () => {
         })
       ])
     );
+  });
+
+  it("selects the newest active plan intent by timestamp instead of loaded array order", () => {
+    const olderStrength = planWizardBuildEvent({
+      focus: "strength",
+      id: "plan_order_old_strength",
+      occurredAt: "2026-05-19T09:00:00.000Z",
+      requestedAt: "2026-05-19T09:00:00.000Z",
+      selectedSupportDays: ["tuesday", "thursday", "saturday"],
+      trainingDose: "standard"
+    });
+    const newerConditioning = planWizardBuildEvent({
+      focus: "conditioning",
+      id: "plan_order_new_conditioning",
+      occurredAt: "2026-05-19T10:00:00.000Z",
+      requestedAt: "2026-05-19T10:00:00.000Z",
+      selectedSupportDays: ["tuesday", "thursday", "saturday"],
+      trainingDose: "serious"
+    });
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        journeyEvents: [newerConditioning, olderStrength],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.training.planGenerationIntent?.id).toBe("plan_order_new_conditioning");
+    expect(state.training.planGenerationIntent?.primaryFocus).toBe("conditioning");
+    expect(state.training.supportGenerationAudit.planRevisionId).toBe("plan_order_new_conditioning");
+  });
+
+  it("start_new_plan creates an isolated block when a stale active block is still loaded", () => {
+    const selectedDays = ["tuesday", "thursday", "saturday"];
+    const planAEvent = planWizardBuildEvent({
+      focus: "strength",
+      id: "plan_lifecycle_a_strength",
+      occurredAt: "2026-05-19T09:00:00.000Z",
+      requestedAt: "2026-05-19T09:00:00.000Z",
+      selectedSupportDays: selectedDays,
+      trainingDose: "standard"
+    });
+    const planA = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        journeyEvents: [planAEvent],
+        trainingHistory: [],
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const stalePlanABlock: TrainingBlock = {
+      ...planA.training.activeBlock,
+      id: "training_block_plan_a"
+    };
+    const planBEvent = planWizardBuildEvent({
+      focus: "conditioning",
+      id: "plan_lifecycle_b_conditioning",
+      occurredAt: "2026-05-19T10:00:00.000Z",
+      requestedAt: "2026-05-19T10:00:00.000Z",
+      selectedSupportDays: selectedDays,
+      trainingDose: "serious"
+    });
+
+    const planB = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          scheduleAvailability: selectedDays
+        },
+        currentTrainingBlock: stalePlanABlock.id,
+        activeTrainingBlock: stalePlanABlock,
+        journeyEvents: [planAEvent, planBEvent],
+        trainingHistory: planA.training.generatedSessions.map((session) => ({
+          ...session,
+          trainingBlockId: stalePlanABlock.id
+        })),
+        trainingPlanAdjustments: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(planB.training.planGenerationIntent?.id).toBe("plan_lifecycle_b_conditioning");
+    expect(planB.training.activeBlock.id).not.toBe(stalePlanABlock.id);
+    expect(planB.training.activeBlock.planRevisionId).toBe("plan_lifecycle_b_conditioning");
+    expect(planB.training.supportGenerationAudit.contentFingerprint).not.toBe(planA.training.supportGenerationAudit.contentFingerprint);
+    expect(planB.training.generatedSessions.every((session) => session.planRevisionId === "plan_lifecycle_b_conditioning")).toBe(true);
+    expect(planB.training.generatedSessions.every((session) => session.trainingBlockId === planB.training.activeBlock.id)).toBe(true);
+    expect(planB.training.generatedSessions.some((session) => session.trainingStimulus === "conditioning")).toBe(true);
+    expect(planB.training.supportGenerationAudit.targetConditioningExposures).toBeGreaterThan(planA.training.supportGenerationAudit.targetConditioningExposures);
   });
 
   it("ignores legacy active generated sessions from the active revision when contract metadata is missing", () => {

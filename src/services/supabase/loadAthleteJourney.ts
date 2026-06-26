@@ -23,6 +23,9 @@ import { createTrainingNextWeekPreviewRepository } from "./trainingNextWeekPrevi
 import { createTrainingProgressionRepository } from "./trainingProgressionRepository";
 import { createTrainingRepository } from "./trainingRepository";
 import { createWearableRepository } from "./wearableRepository";
+import { resolveActivePlanGenerationIntentFromContext } from "../../engine/training/planGenerationIntent";
+import { GENERATED_SESSION_SCHEMA_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
+import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
 
 export type LoadAthleteJourneyResult =
   | { status: "ready"; journey: AthleteJourney; loadWarnings?: readonly string[] }
@@ -211,7 +214,6 @@ export async function loadAthleteJourney(input: {
       readinessHistory,
       wearableSignalHistory,
       completedTrainingSessions,
-      activeTrainingBlock,
       persistedSafetyFlags,
       journeyEvents
     ] = await Promise.all([
@@ -233,10 +235,21 @@ export async function loadAthleteJourney(input: {
       readJourneyData(issues, "readiness.listCheckIns", [], () => input.repositories.readiness.listCheckIns(userId)),
       readJourneyData(issues, "wearable.listSignals", [], () => input.repositories.wearable.listSignals(userId)),
       readJourneyData(issues, "training.listCompletedTrainingSessions", [], () => input.repositories.training.listCompletedTrainingSessions(userId)),
-      readJourneyData(issues, "trainingBlock.getActiveTrainingBlockForDate", null, () => input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate)),
       readJourneyData(issues, "engineRun.listActiveRiskFlags", [], () => input.repositories.engineRun.listActiveRiskFlags(userId, { asOfDate: input.asOfDate })),
       readJourneyData(issues, "journey.listEvents", [], () => input.repositories.journey.listEvents(userId))
     ]);
+
+    const activePlanIntent = resolveActivePlanGenerationIntentFromContext(
+      {
+        athlete,
+        activeTrainingBlock: null,
+        journeyEvents
+      },
+      input.asOfDate
+    );
+    const activeTrainingBlock = await readJourneyData(issues, "trainingBlock.getActiveTrainingBlockForDate", null, () =>
+      input.repositories.trainingBlock.getActiveTrainingBlockForDate(userId, input.asOfDate, activePlanIntent?.id)
+    );
 
     const activeFightOpportunity = activeFightForDate(fights, input.asOfDate);
     const activeTournament = activeTournamentForDate(tournaments, input.asOfDate);
@@ -249,6 +262,14 @@ export async function loadAthleteJourney(input: {
     const [trainingHistory, trainingPlanAdjustments, trainingWeekSummaries, trainingProgressionDecisions, trainingBlockTimelineEvents] = activeTrainingBlock
       ? await Promise.all([
           readJourneyData(issues, "training.listGeneratedSessions", [], () => input.repositories.training.listGeneratedSessions(userId, {
+            ...(activePlanIntent?.id ? { planRevisionId: activePlanIntent.id } : {}),
+            ...(activePlanIntent?.id && activeWeekWindow
+              ? {
+                  generatedSessionSchemaVersion: GENERATED_SESSION_SCHEMA_VERSION_V2,
+                  prescriptionContractVersion: TRAINING_COMPILER_CONTRACT_VERSION,
+                  weekId: `week:${activePlanIntent.id}:${activeWeekWindow.startDate}`
+                }
+              : {}),
             trainingBlockId: activeTrainingBlock.id
           })),
           readJourneyData(issues, "trainingBlock.listTrainingPlanAdjustments", [], () => input.repositories.trainingBlock.listTrainingPlanAdjustments(userId, activeTrainingBlock.id)),

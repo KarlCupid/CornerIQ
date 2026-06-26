@@ -133,7 +133,8 @@ function createRolloverRepositories(): AthleteJourneyRepositories {
     training: {
       insertCompletedTrainingSession: vi.fn(async (_userId: string, session: { id: string }) => ({ ...session, id: session.id })),
       listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions),
-      listGeneratedSessions: vi.fn(async () => journey.trainingHistory)
+      listGeneratedSessions: vi.fn(async () => journey.trainingHistory),
+      supersedeActiveGeneratedSessionsForBlock: vi.fn(async () => ({ ids: [] }))
     },
     trainingBlock: {
       getActiveTrainingBlockForDate: vi.fn(async () => null),

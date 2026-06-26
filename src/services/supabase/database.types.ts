@@ -969,6 +969,7 @@ export type Database = {
           linked_fight_id: string | null
           linked_tournament_id: string | null
           output_hash: string
+          plan_revision_id: string | null
           primary_goal: string
           start_date: string
           status: string
@@ -991,6 +992,7 @@ export type Database = {
           linked_fight_id?: string | null
           linked_tournament_id?: string | null
           output_hash: string
+          plan_revision_id?: string | null
           primary_goal: string
           start_date: string
           status?: string
@@ -1013,6 +1015,7 @@ export type Database = {
           linked_fight_id?: string | null
           linked_tournament_id?: string | null
           output_hash?: string
+          plan_revision_id?: string | null
           primary_goal?: string
           start_date?: string
           status?: string

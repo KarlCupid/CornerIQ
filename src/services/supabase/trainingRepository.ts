@@ -36,8 +36,12 @@ export type CompletedTrainingSessionRow = Pick<
 export interface ListGeneratedSessionsOptions {
   asOfDate?: ISODateString | undefined;
   endDate?: ISODateString | undefined;
+  generatedSessionSchemaVersion?: string | undefined;
+  planRevisionId?: string | undefined;
+  prescriptionContractVersion?: string | undefined;
   startDate?: ISODateString | undefined;
   trainingBlockId?: string | null | undefined;
+  weekId?: string | undefined;
 }
 
 export type WorkoutCompletionOperationStatus = "pending" | "completion_written" | "results_written" | "event_written" | "completed" | "failed_retryable";
@@ -52,6 +56,11 @@ export interface UpsertWorkoutCompletionOperationInput {
   resultKeys?: readonly string[] | undefined;
   recordedAt: string;
   operationPayload?: Record<string, unknown> | undefined;
+}
+
+export interface SupersedeActiveGeneratedSessionsForBlockInput {
+  userId: string;
+  trainingBlockId: string;
 }
 
 export function mapGeneratedTrainingSessionRow(row: GeneratedTrainingSessionRow): GeneratedTrainingSession {
@@ -224,10 +233,34 @@ function supersededSessionMutation(row: CompletedTrainingSessionRow, generatedSe
 }
 
 function rowMatchesGeneratedSessionScope(row: GeneratedTrainingSessionRow, options: ListGeneratedSessionsOptions): boolean {
+  const payload = payloadObject(row.session_payload, "generated_training_sessions.session_payload");
+  if (options.planRevisionId) {
+    const rowPlanRevision = row.plan_revision_id ?? (typeof payload.planRevisionId === "string" ? payload.planRevisionId : null);
+    if (rowPlanRevision !== options.planRevisionId) {
+      return false;
+    }
+  }
+  if (options.weekId) {
+    const rowWeekId = row.week_id ?? (typeof payload.weekId === "string" ? payload.weekId : null);
+    if (rowWeekId !== options.weekId) {
+      return false;
+    }
+  }
+  if (options.prescriptionContractVersion) {
+    const contractVersion = typeof payload.prescriptionContractVersion === "string" ? payload.prescriptionContractVersion : null;
+    if (contractVersion !== options.prescriptionContractVersion) {
+      return false;
+    }
+  }
+  if (options.generatedSessionSchemaVersion) {
+    const schemaVersion = typeof payload.generatedSessionSchemaVersion === "string" ? payload.generatedSessionSchemaVersion : null;
+    if (schemaVersion !== options.generatedSessionSchemaVersion) {
+      return false;
+    }
+  }
   if (options.trainingBlockId === undefined) {
     return true;
   }
-  const payload = payloadObject(row.session_payload, "generated_training_sessions.session_payload");
   return (typeof payload.trainingBlockId === "string" && payload.trainingBlockId === options.trainingBlockId) || row.block_id === options.trainingBlockId;
 }
 
@@ -350,6 +383,9 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
       const startDate = options.startDate ?? options.asOfDate;
       let scopedQuery = startDate ? query.gte("current_scheduled_date", startDate) : query;
       scopedQuery = options.endDate ? scopedQuery.lte("current_scheduled_date", options.endDate) : scopedQuery;
+      scopedQuery = options.planRevisionId ? scopedQuery.eq("plan_revision_id", options.planRevisionId) : scopedQuery;
+      scopedQuery = options.trainingBlockId ? scopedQuery.eq("block_id", options.trainingBlockId) : scopedQuery;
+      scopedQuery = scopedQuery.in("generated_session_lifecycle", ["active", "moved"]);
       const response = await scopedQuery.order("current_scheduled_date", { ascending: true });
       return readDataOrThrow(response, "generated_training_sessions.listGeneratedSessions")
         .filter((row) => rowMatchesGeneratedSessionScope(row, options))
@@ -365,6 +401,27 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
         .eq("user_id", safeUserId)
         .order("completed_date", { ascending: true });
       return readDataOrThrow(response, "completed_training_sessions.listCompletedTrainingSessions").map(mapCompletedTrainingSessionRow);
+    },
+
+    async supersedeActiveGeneratedSessionsForBlock(input: SupersedeActiveGeneratedSessionsForBlockInput): Promise<{ ids: readonly string[] }> {
+      const safeUserId = assertUserId(input.userId, "generated_training_sessions.supersedeActiveGeneratedSessionsForBlock");
+      const trainingBlockId = input.trainingBlockId.trim();
+      if (!trainingBlockId) {
+        throw new RepositoryError(
+          "missing_required_data",
+          "generated_training_sessions.supersedeActiveGeneratedSessionsForBlock",
+          "trainingBlockId is required"
+        );
+      }
+      const response = await client
+        .from("generated_training_sessions")
+        .update({ generated_session_lifecycle: "superseded" })
+        .eq("user_id", safeUserId)
+        .eq("block_id", trainingBlockId)
+        .in("generated_session_lifecycle", ["active", "moved", "unresolved"])
+        .select("id");
+      const rows = readDataOrThrow(response, "generated_training_sessions.supersedeActiveGeneratedSessionsForBlock");
+      return { ids: rows.map((row) => row.id) };
     },
 
     async insertCompletedTrainingSession(userId: string, session: CompletedTrainingSession): Promise<{ id: string; existing?: boolean | undefined; corrected?: boolean | undefined }> {

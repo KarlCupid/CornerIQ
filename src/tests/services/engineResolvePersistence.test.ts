@@ -253,7 +253,12 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; journe
     cycle: { listCycleLogs: vi.fn(async () => journey.cycleHistory), listSymptomLogs: vi.fn(async () => []), insertSymptomLog: vi.fn() },
     readiness: { listCheckIns: vi.fn(async () => journey.readinessHistory), insertCheckIn: vi.fn() },
     wearable: { listSignals: vi.fn(async () => journey.wearableSignalHistory) },
-    training: { listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions), listGeneratedSessions: vi.fn(async () => journey.trainingHistory), insertCompletedTrainingSession: vi.fn() },
+    training: {
+      listCompletedTrainingSessions: vi.fn(async () => journey.completedTrainingSessions),
+      listGeneratedSessions: vi.fn(async () => journey.trainingHistory),
+      supersedeActiveGeneratedSessionsForBlock: vi.fn(async () => ({ ids: [] })),
+      insertCompletedTrainingSession: vi.fn()
+    },
     trainingBlock: {
       listTrainingPlanAdjustments: vi.fn(async () => journey.trainingPlanAdjustments),
       upsertActiveTrainingBlock,

@@ -2,7 +2,7 @@ import { RiskFlagSchema } from "../../engine/core/schemas";
 import type { DecisionTrace, GeneratedTrainingSession, ISODateString, PerformanceState, RiskFlag } from "../../engine/core/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
-import { assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
+import { RepositoryError, assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
 
 export type RiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" | "severity" | "status" | "flag_payload">;
 type ActiveEngineRiskFlagRow = Pick<TableRow<"risk_flags">, "id" | "domain" | "code" | "flag_payload">;
@@ -386,11 +386,24 @@ export function createEngineRunRepository(client: CornerSupabaseClient) {
           legacyRecords.push(record);
           continue;
         }
+        const planRevisionId = typeof record.plan_revision_id === "string" && record.plan_revision_id.trim().length > 0 ? record.plan_revision_id : null;
+        const blockId = typeof record.block_id === "string" && record.block_id.trim().length > 0 ? record.block_id : null;
+        const weekId = typeof record.week_id === "string" && record.week_id.trim().length > 0 ? record.week_id : null;
+        if (!planRevisionId || !blockId || !weekId) {
+          throw new RepositoryError(
+            "missing_required_data",
+            "generated_training_sessions.upsertGeneratedSessions.findExistingSlot",
+            "plan_revision_id, block_id, and week_id are required for generated-session slot reconciliation"
+          );
+        }
         const existingResponse = await client
           .from("generated_training_sessions")
           .select("id, current_scheduled_date, generated_session_lifecycle, session_payload")
           .eq("user_id", record.user_id)
           .eq("engine_version", record.engine_version)
+          .eq("plan_revision_id", planRevisionId)
+          .eq("block_id", blockId)
+          .eq("week_id", weekId)
           .eq("prescription_slot_id", record.prescription_slot_id)
           .in("generated_session_lifecycle", RECONCILED_GENERATED_SESSION_LIFECYCLES)
           .order("updated_at", { ascending: false })

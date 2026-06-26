@@ -107,6 +107,12 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
   const mountedRef = useRef(true);
   const refreshRunIdRef = useRef(0);
 
+  const invalidateInFlightRefreshForPlanAction = useCallback((planAction: "start_new_plan" | "amend_current_plan" | undefined) => {
+    if (planAction === "start_new_plan") {
+      refreshRunIdRef.current += 1;
+    }
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     latestAthleteProfileRef.current = null;
@@ -225,6 +231,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setLoading(true);
       setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
+      invalidateInFlightRefreshForPlanAction(draft.planAction);
       try {
         await saveFightSetup({ userId, draft, repositories });
         await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
@@ -235,7 +242,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         setGenerationStatus("idle");
       }
     },
-    [refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
   );
 
   const saveBuild = useCallback(
@@ -243,6 +250,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setLoading(true);
       setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
+      invalidateInFlightRefreshForPlanAction(draft.planAction);
       try {
         await saveBuildGoal({ userId, draft, repositories });
         await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
@@ -253,7 +261,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         setGenerationStatus("idle");
       }
     },
-    [refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
   );
 
   const saveRecovery = useCallback(
@@ -261,6 +269,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setLoading(true);
       setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
+      invalidateInFlightRefreshForPlanAction(draft.planAction);
       try {
         await saveRecoveryGoal({ userId, draft, repositories });
         await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
@@ -271,7 +280,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         setGenerationStatus("idle");
       }
     },
-    [refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
   );
 
   const saveTournament = useCallback(
@@ -279,6 +288,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
       setLoading(true);
       setGenerationStatus(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
       setMessage(null);
+      invalidateInFlightRefreshForPlanAction(draft.planAction);
       try {
         await saveTournamentSetup({ userId, draft, repositories });
         await refresh(draft.planAction === "amend_current_plan" ? "amending_plan" : "generating_plan");
@@ -289,7 +299,7 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
         setGenerationStatus("idle");
       }
     },
-    [refresh, repositories, userId]
+    [invalidateInFlightRefreshForPlanAction, refresh, repositories, userId]
   );
 
   const saveProtectedSession = useCallback(

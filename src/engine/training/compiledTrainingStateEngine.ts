@@ -1320,7 +1320,10 @@ function activeWeekStartDate(input: {
   planGenerationIntent?: PlanGenerationIntent | undefined;
 }): ISODateString {
   const existing = input.activeTrainingBlock;
-  if (existing && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
+  const existingMatchesPlanRevision =
+    !input.planGenerationIntent ||
+    (existing?.planRevisionId ? existing.planRevisionId === input.planGenerationIntent.id : input.planGenerationIntent.action !== "start_new_plan");
+  if (existing && existingMatchesPlanRevision && existing.startDate <= input.asOfDate && existing.endDate >= input.asOfDate) {
     const elapsedDays = Math.max(0, daysBetween(existing.startDate, input.asOfDate));
     return addDays(existing.startDate, Math.floor(elapsedDays / 7) * 7);
   }
@@ -1477,9 +1480,13 @@ export function resolveCompiledTrainingState(input: ResolveCompiledTrainingState
     athlete: input.athlete,
     planGenerationIntent: input.planGenerationIntent
   });
+  const activeTrainingBlockForPlan =
+    input.planGenerationIntent?.action === "start_new_plan" && input.activeTrainingBlock?.planRevisionId !== input.planGenerationIntent.id
+      ? null
+      : input.activeTrainingBlock ?? null;
   const planWeekIndex =
-    input.activeTrainingBlock && input.activeTrainingBlock.startDate <= planStartDate
-      ? Math.max(1, Math.floor(daysBetween(input.activeTrainingBlock.startDate, planStartDate) / 7) + 1)
+    activeTrainingBlockForPlan && activeTrainingBlockForPlan.startDate <= planStartDate
+      ? Math.max(1, Math.floor(daysBetween(activeTrainingBlockForPlan.startDate, planStartDate) / 7) + 1)
       : 1;
   const primaryFocus: PlanGenerationPrimaryFocus | undefined =
     input.planGenerationIntent?.goalMode === "build" ? input.planGenerationIntent.primaryFocus ?? "balanced" : input.planGenerationIntent?.primaryFocus;
@@ -1507,6 +1514,7 @@ export function resolveCompiledTrainingState(input: ResolveCompiledTrainingState
   const selectedTrainingDose = input.planGenerationIntent?.trainingDose ?? defaultTrainingDoseForSupportDays(selectedDays.length || candidateAllowedDays);
   return resolveCompiledTrainingStateWithCompiler({
     ...input,
+    activeTrainingBlock: activeTrainingBlockForPlan,
     generationConstraints,
     executionReadiness,
     redReadinessHardStop,

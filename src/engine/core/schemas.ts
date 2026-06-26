@@ -628,6 +628,7 @@ export const TrainingBlockRecommendationSchema = z.object({
 export const TrainingBlockSchema = z.object({
   id: z.string().min(1),
   athleteId: z.string().min(1),
+  planRevisionId: z.string().min(1).optional(),
   startDate: ISODateSchema,
   endDate: ISODateSchema,
   recordedAt: ISODateTimeSchema.optional(),

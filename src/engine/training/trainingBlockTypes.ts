@@ -82,6 +82,7 @@ export interface TrainingBlockRecommendation {
 export interface TrainingBlock {
   id: string;
   athleteId: string;
+  planRevisionId?: string | undefined;
   startDate: ISODateString;
   endDate: ISODateString;
   recordedAt?: ISODateTimeString | undefined;
