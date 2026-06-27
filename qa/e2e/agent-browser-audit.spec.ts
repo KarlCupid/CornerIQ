@@ -718,9 +718,8 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("train-today-plan-card")).toContainText(/Your job today/i);
   await expect(page.getByTestId("train-compact-stats")).toContainText(/Duration/i);
   await expect(page.getByTestId("train-compact-stats")).toContainText(/Readiness/i);
-  await expect(page.getByTestId("train-collapsible-details")).toContainText(/Workout flow/i);
-  await expect(page.getByTestId("train-collapsible-details")).toContainText(/Before you start/i);
-  await page.getByTestId("train-collapsible-details").getByRole("button", { name: "View details" }).click();
+  await expect(page.getByTestId("train-collapsible-details")).toHaveCount(0);
+  await page.getByTestId("train-today-plan-card").getByRole("button", { name: "View details" }).click();
   await expect(page.getByTestId("train-workout-flow-card")).toContainText(/Workout Flow/i);
   await expect(page.getByTestId("train-before-start-card")).toContainText(/Before You Start/i);
   await expect(page.getByTestId("train-execution-overlay-card")).toHaveCount(0);

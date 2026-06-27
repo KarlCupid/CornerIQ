@@ -813,13 +813,13 @@ function TodayTrainingPlanCard({
     startBlockedReason
       ? { label: "View details", onPress: onViewDetails, tone: "orange" as const }
       : previewOnlyReason
-        ? { label: "View session", onPress: onViewDetails, tone: primaryTone }
-        : session && onStart
-          ? { label: "Start workout", onPress: onStart, tone: primaryTone }
-          : session
-            ? { label: "View details", onPress: onViewDetails, tone: primaryTone }
+          ? { label: "View session", onPress: onViewDetails, tone: primaryTone }
+          : session && onStart
+            ? { label: "Start workout", onPress: onStart, tone: primaryTone }
+            : session
+              ? { label: "View details", onPress: onViewDetails, tone: primaryTone }
             : hasSessionSummary
-              ? { label: "Log outside player", onPress: onOpenTrainingLog, tone: primaryTone }
+              ? { label: "View details", onPress: onViewDetails, tone: primaryTone }
               : { label: "Log other training", onPress: onOpenTrainingLog, tone: "blue" as const };
   const disabled = busy || !primaryAction.onPress;
   const showDetailsAction = Boolean(onViewDetails && primaryAction.label !== "View details");
@@ -941,41 +941,6 @@ function QuickStatsRow({
           </Text>
         </View>
       ))}
-    </View>
-  );
-}
-
-function CompactTrainDetailRow({
-  label,
-  testID,
-  tone,
-  value
-}: {
-  label: string;
-  testID: string;
-  tone: VisualTone;
-  value: string;
-}) {
-  return (
-    <View
-      style={{
-        alignItems: "center",
-        backgroundColor: trainTint(tone, "0E"),
-        borderColor: trainTint(tone, "32"),
-        borderRadius: radii.tile,
-        borderWidth: 1,
-        flexDirection: "row",
-        gap: spacing.md,
-        minHeight: 46,
-        padding: spacing.md
-      }}
-      testID={testID}
-    >
-      <View style={{ backgroundColor: trainColorForTone(tone), borderRadius: radii.pill, height: 8, width: 8 }} />
-      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-        <Text style={{ color: trainPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}</Text>
-        <Text numberOfLines={1} style={trainTextStyles.subtle}>{value}</Text>
-      </View>
     </View>
   );
 }
@@ -1131,20 +1096,15 @@ function CollapsibleTrainDetails({
   trainingLogOpenRequestKey: number;
   viewModel: TrainViewModel;
 }) {
-  const prep = prepRows(session, card, viewModel);
-  const fuel = prep.find((row) => row.label === "Fuel check")?.value ?? "Fuel unknown";
-  const readiness = prep.find((row) => row.label === "Readiness")?.value ?? "Readiness unknown";
-  const stop = prep.find((row) => row.label === "Stop if")?.value ?? "Stop if symptoms appear.";
   const hasWorkoutSummary = Boolean(viewModel.sessionCards.length > 0 || viewModel.todayGeneratedSessions.length > 0 || viewModel.nextGeneratedSession || generated);
+  if (!detailsOpen) {
+    return null;
+  }
   return (
     <View style={{ gap: spacing.md }} testID="train-collapsible-details">
-      <DashboardCard title="Details">
-        <View style={{ gap: spacing.sm }}>
-          <CompactTrainDetailRow label="Workout flow" testID="train-workout-flow-collapsed" tone="blue" value="Warm-up -> Main -> Cooldown" />
-          <CompactTrainDetailRow label="Before you start" testID="train-before-start-collapsed" tone={readinessValue(session, viewModel) === "Stop" ? "red" : "gold"} value={`${fuel} / ${readiness} / ${stop}`} />
-          <TrainQuietButton expanded={detailsOpen} onPress={onToggleDetails}>{detailsOpen ? "Hide details" : "View details"}</TrainQuietButton>
-        </View>
-      </DashboardCard>
+      <View style={{ alignItems: "flex-start" }}>
+        <TrainQuietButton expanded={detailsOpen} onPress={onToggleDetails}>Hide details</TrainQuietButton>
+      </View>
       {detailsOpen ? (
         <>
           <WorkoutFlowCard card={card} session={session} />
@@ -1259,7 +1219,7 @@ export function TrainScreen({
     primarySession && !previewOnlyWeeklySession
       ? () => startWorkout(primarySession)
       : undefined;
-  const openPrimaryDetails = primarySession
+  const openPrimaryDetails = primarySession || primaryCard || generatedSummary
     ? () => {
         setDetailsOpen(true);
         setPlanOpenRequestKey((value) => value + 1);

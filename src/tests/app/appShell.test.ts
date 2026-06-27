@@ -3162,8 +3162,9 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Today's Training Plan");
     expect(output).toContain("Your job today");
-    expect(output).toContain("train-workout-flow-collapsed");
-    expect(output).toContain("train-before-start-collapsed");
+    expect(output).not.toContain("train-collapsible-details");
+    expect(output).not.toContain("train-workout-flow-collapsed");
+    expect(output).not.toContain("train-before-start-collapsed");
     expect(output).not.toContain("Workout Flow");
     expect(output).not.toContain("Before You Start");
     expect(output).not.toContain("Show Execution guidance");
@@ -3193,6 +3194,7 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("train-today-plan-card");
     expect(output).toContain("train-compact-stats");
+    expect(output).not.toContain("train-collapsible-details");
     expect(output).not.toContain("train-workout-section");
     expect(output).not.toContain("Quick Log");
     expect(output).not.toContain("Show Exercise Details");
@@ -3580,9 +3582,15 @@ describe("minimal app screens", () => {
     };
     const noPlayer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: noPlayerViewModel }));
     let noPlayerOutput = JSON.stringify(noPlayer.toJSON());
-    expect(noPlayerOutput).toContain("Log outside player");
+    expect(noPlayerOutput).toContain("View details");
+    expect(noPlayerOutput).toContain("Log other training");
     await act(async () => {
-      await press(pressableWithText(noPlayer, "Log outside player"));
+      await press(pressableWithText(noPlayer, "View details"));
+    });
+    noPlayerOutput = JSON.stringify(noPlayer.toJSON());
+    expect(noPlayerOutput).toContain("The player details are not available");
+    await act(async () => {
+      await press(pressableWithText(noPlayer, "Show training log"));
     });
     noPlayerOutput = JSON.stringify(noPlayer.toJSON());
     expect(noPlayerOutput).toContain("Training log");
@@ -5740,7 +5748,10 @@ describe("minimal app screens", () => {
 
     const trainRenderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
     let trainOutput = JSON.stringify(trainRenderer.toJSON());
-    expect(["Today's Training Plan", "train-workout-flow-collapsed", "train-before-start-collapsed"].every((label) => trainOutput.includes(label))).toBe(true);
+    expect(trainOutput).toContain("Today's Training Plan");
+    expect(trainOutput).not.toContain("train-collapsible-details");
+    expect(trainOutput).not.toContain("train-workout-flow-collapsed");
+    expect(trainOutput).not.toContain("train-before-start-collapsed");
     expect(trainOutput).not.toContain("Workout Flow");
     expect(trainOutput).not.toContain("This Week");
     expect(trainOutput).not.toContain("Exercise History");
