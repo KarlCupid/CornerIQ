@@ -67,8 +67,8 @@ describe("nutritionReviewHistoryViewModel", () => {
 
   it("keeps acknowledged reviews active and still says the athlete cannot resolve them in app", () => {
     const viewModel = buildNutritionReviewHistoryViewModel({
-      activeReviews: [review({ status: "acknowledged" })],
-      reviewEvents: [event({ eventType: "acknowledged", actorType: "athlete", eventPayload: {} })],
+      activeReviews: [review({ status: "acknowledged_by_athlete" })],
+      reviewEvents: [event({ eventType: "acknowledged_by_athlete", actorType: "athlete", eventPayload: {} })],
       currentSafetyReview: {
         required: true,
         reasons: ["Review required."],

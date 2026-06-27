@@ -1,6 +1,7 @@
-import type { BodyMassTrend, CycleState, DailyFoodLogStatusEvent, FoodLog, RiskFlag, TrainingState } from "../core/types";
+import type { AthleteProfile, BodyMassTrend, CycleState, DailyFoodLogStatusEvent, FoodLog, ReadinessState, RiskFlag, TrainingState } from "../core/types";
 import { daysBetween } from "../core/dates";
 import { resolveDailyFoodLogSummary } from "../nutrition/foodLogSummary";
+import { assertFuelEvidenceIds } from "../nutrition/evidenceRegistry";
 import { createRiskFlag } from "./riskSafetyEngine";
 
 export interface UnderFuelingCalorieTarget {
@@ -14,6 +15,7 @@ export interface UnderFuelingCalorieTargets {
 }
 
 const TARGET_RELATIVE_LOW_INTAKE_RATIO = 0.75;
+const UNDER_FUELING_EVIDENCE_IDS = ["low_intake_repeated_3_days_below_75_percent", "rapid_loss_underfueling_risk_1_percent_per_week"] as const;
 
 function targetForDate(targets: UnderFuelingCalorieTargets, date: string): UnderFuelingCalorieTarget {
   return targets.byDate.find((target) => target.date === date) ?? targets.current;
@@ -36,6 +38,9 @@ function recentLowIntakeEvidence(
   return [...dates].flatMap((date) => {
     const summary = resolveDailyFoodLogSummary(foodLogs, statusEvents, date, undefined, now);
     const target = targetForDate(targets, date);
+    if (target.calories <= 0) {
+      return [];
+    }
     const threshold = target.calories * TARGET_RELATIVE_LOW_INTAKE_RATIO;
     return summary.underFuelingEvidenceAllowed && summary.totalCaloriesLogged < threshold && summary.confidence.score >= 0.55
       ? [
@@ -58,13 +63,26 @@ export function assessUnderFuelingRisk(
   training?: TrainingState,
   foodStatusEvents: readonly DailyFoodLogStatusEvent[] = [],
   now?: string,
-  calorieTargets?: UnderFuelingCalorieTargets
+  calorieTargets?: UnderFuelingCalorieTargets,
+  athlete?: AthleteProfile,
+  readiness?: ReadinessState
 ): readonly RiskFlag[] {
+  assertFuelEvidenceIds(UNDER_FUELING_EVIDENCE_IDS, "assessUnderFuelingRisk");
   const flags: RiskFlag[] = [];
   const lowIntakeEvidence = calorieTargets ? recentLowIntakeEvidence(foodLogs, asOfDate, calorieTargets, foodStatusEvents, now) : [];
   const recentLowIntakeDays = lowIntakeEvidence.length;
-  if (trend.trendKgPerWeek !== null && trend.trendKgPerWeek < -1.2) {
-    flags.push(createRiskFlag("nutrition", "rapid_weight_loss", "high", "Rapid body-mass loss raises under-fueling risk.", { trendKgPerWeek: trend.trendKgPerWeek }, true));
+  const weeklyLossPercent = trend.trendKgPerWeek !== null && trend.latestKg !== null && trend.latestKg > 0 ? Math.abs(trend.trendKgPerWeek / trend.latestKg) * 100 : null;
+  if (trend.trendKgPerWeek !== null && trend.trendKgPerWeek < 0 && weeklyLossPercent !== null && weeklyLossPercent > 1) {
+    flags.push(
+      createRiskFlag(
+        "nutrition",
+        "rapid_weight_loss",
+        "high",
+        "Rapid body-mass loss raises under-fueling risk.",
+        { trendKgPerWeek: trend.trendKgPerWeek, weeklyLossPercent: Number(weeklyLossPercent.toFixed(2)), evidenceIds: UNDER_FUELING_EVIDENCE_IDS },
+        true
+      )
+    );
   }
   if (recentLowIntakeDays >= 3) {
     flags.push(
@@ -76,8 +94,33 @@ export function assessUnderFuelingRisk(
         {
           days: recentLowIntakeDays,
           thresholdRatio: TARGET_RELATIVE_LOW_INTAKE_RATIO,
-          evidence: lowIntakeEvidence
+          evidence: lowIntakeEvidence,
+          evidenceIds: UNDER_FUELING_EVIDENCE_IDS
         },
+        true
+      )
+    );
+  }
+  if (athlete?.eatingDisorderRisk.activeConcern || athlete?.eatingDisorderRisk.severeRestrictionHistory || athlete?.eatingDisorderRisk.rapidWeightLossConcern) {
+    flags.push(
+      createRiskFlag(
+        "nutrition",
+        "high_underfueling_blocks_deficit",
+        "critical",
+        "Eating-disorder risk or severe restriction history blocks deficit pressure and acute protocol support.",
+        { eatingDisorderRisk: athlete.eatingDisorderRisk, evidenceIds: UNDER_FUELING_EVIDENCE_IDS },
+        true
+      )
+    );
+  }
+  if (readiness?.color === "red" && (training?.plannedLoadLedger.hardDayCount ?? 0) >= 3) {
+    flags.push(
+      createRiskFlag(
+        "nutrition",
+        "high_underfueling_blocks_deficit",
+        "high",
+        "Red readiness with high training load raises under-fueling concern and blocks deficit pressure.",
+        { hardDayCount: training?.plannedLoadLedger.hardDayCount ?? 0, evidenceIds: UNDER_FUELING_EVIDENCE_IDS },
         true
       )
     );

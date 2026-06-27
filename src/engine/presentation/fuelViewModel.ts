@@ -4,20 +4,25 @@ import { riskSummary } from "./explanationCopy";
 import { buildNutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
 import { compactFuelCopy, plainFuelCopy } from "./fuelCopy";
 
-function macroProgress(logged: number, target: number, unit: string): { logged: string; target: string } {
+function macroProgress(logged: number, target: string, unit: string): { logged: string; target: string } {
   return {
     logged: `${logged}${unit}`,
-    target: `${target}${unit}`
+    target
   };
+}
+
+function rangeLabel(range: { min: number; max: number } | null, unit: string): string {
+  if (!range) {
+    return "Unavailable";
+  }
+  return range.min === range.max ? `${range.min}${unit}` : `${range.min}-${range.max}${unit}`;
 }
 
 function displayActiveReviewStatus(
   review: PerformanceState["nutrition"]["activeNutritionSafetyReviews"][number]
 ): PerformanceState["nutrition"]["activeNutritionSafetyReviews"][number] {
   const status =
-    review.status === "acknowledged"
-      ? "acknowledged_by_athlete"
-      : review.status === "in_review" || review.status === "reviewer_reviewing" || review.status === "blocked" || review.status === "not_cleared"
+    review.status === "reviewer_reviewing" || review.status === "not_cleared"
         ? "requested"
         : review.status === "cleared_by_reviewer"
           ? "superseded"
@@ -102,7 +107,7 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     },
     hitTheseFirst: state.nutrition.hitTheseFirst.map(plainFuelCopy),
     macroTargets: {
-      why: `${plainFuelCopy(state.nutrition.targetConfidence.athleteFacingCopy)} Today: ${plainFuelCopy(state.nutrition.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " "))}.`,
+      why: `${plainFuelCopy(state.nutrition.fuelTargetRange.athleteFacingCopy)} Today: ${plainFuelCopy(state.nutrition.trainingDemandHandoff.todayTrainingDemandTier.replaceAll("_", " "))}.`,
       confidence: state.nutrition.confidence.level,
       targetConfidence: {
         ...state.nutrition.targetConfidence,
@@ -112,23 +117,23 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
       },
       logStatus: plainFuelCopy(state.nutrition.dailyFoodLogSummary.athleteFacingSummary),
       targets: [
-        { label: "Calories", value: `${state.nutrition.dailyCaloriesTarget} kcal` },
-        { label: "Protein", value: `${state.nutrition.proteinGrams}g` },
-        { label: "Carbs", value: `${state.nutrition.carbohydrateGrams}g` },
-        { label: "Fat", value: `${state.nutrition.fatGrams}g` },
-        { label: "Fiber", value: `${state.nutrition.fiberGrams}g` },
-        { label: "Water", value: `${state.nutrition.waterLiters}L` }
+        { label: "Calories", value: rangeLabel(state.nutrition.fuelTargetRange.caloriesKcal, " kcal") },
+        { label: "Protein", value: rangeLabel(state.nutrition.fuelTargetRange.proteinGrams, "g") },
+        { label: "Carbs", value: rangeLabel(state.nutrition.fuelTargetRange.carbohydrateGrams, "g") },
+        { label: "Fat", value: rangeLabel(state.nutrition.fuelTargetRange.fatGrams, "g") },
+        { label: "Fiber", value: rangeLabel(state.nutrition.fuelTargetRange.fiberGrams, "g") },
+        { label: "Water", value: rangeLabel(state.nutrition.fuelTargetRange.fluidLiters, "L") }
       ],
       progress: [
-        { label: "Calories", ...macroProgress(state.nutrition.actualIntakeSummary.caloriesLogged, state.nutrition.dailyCaloriesTarget, " kcal") },
-        { label: "Protein", ...macroProgress(state.nutrition.actualIntakeSummary.proteinLoggedGrams, state.nutrition.proteinGrams, "g") },
-        { label: "Carbs", ...macroProgress(state.nutrition.actualIntakeSummary.carbohydrateLoggedGrams, state.nutrition.carbohydrateGrams, "g") },
-        { label: "Fat", ...macroProgress(state.nutrition.actualIntakeSummary.fatLoggedGrams, state.nutrition.fatGrams, "g") }
+        { label: "Calories", ...macroProgress(state.nutrition.actualIntakeSummary.caloriesLogged, rangeLabel(state.nutrition.fuelTargetRange.caloriesKcal, " kcal"), " kcal") },
+        { label: "Protein", ...macroProgress(state.nutrition.actualIntakeSummary.proteinLoggedGrams, rangeLabel(state.nutrition.fuelTargetRange.proteinGrams, "g"), "g") },
+        { label: "Carbs", ...macroProgress(state.nutrition.actualIntakeSummary.carbohydrateLoggedGrams, rangeLabel(state.nutrition.fuelTargetRange.carbohydrateGrams, "g"), "g") },
+        { label: "Fat", ...macroProgress(state.nutrition.actualIntakeSummary.fatLoggedGrams, rangeLabel(state.nutrition.fuelTargetRange.fatGrams, "g"), "g") }
       ]
     },
-    calorieSummary: `${state.nutrition.dailyCaloriesTarget} kcal guide (${state.nutrition.calorieRange.min}-${state.nutrition.calorieRange.max})`,
-    macroSummary: `${state.nutrition.proteinGrams}g protein, ${state.nutrition.carbohydrateGrams}g carbs, ${state.nutrition.fatGrams}g fat`,
-    hydrationSummary: `${state.nutrition.waterLiters}L fluids. ${state.nutrition.sodiumGuidance}`,
+    calorieSummary: `${rangeLabel(state.nutrition.fuelTargetRange.caloriesKcal, " kcal")} range guide`,
+    macroSummary: `${rangeLabel(state.nutrition.fuelTargetRange.proteinGrams, "g")} protein, ${rangeLabel(state.nutrition.fuelTargetRange.carbohydrateGrams, "g")} carbs, ${rangeLabel(state.nutrition.fuelTargetRange.fatGrams, "g")} fat`,
+    hydrationSummary: `${rangeLabel(state.nutrition.hydrationPlanV2.dailyFluidLiters, "L")} fluids. ${state.nutrition.hydrationPlanV2.sodiumGuidance}`,
     actualIntakeSummary: {
       title: "Logged so far",
       summary: plainFuelCopy(state.nutrition.actualIntakeSummary.summaryCopy),

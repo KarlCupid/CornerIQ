@@ -17,9 +17,9 @@ import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from 
 export interface FoodLog {
   date: ISODateString;
   calories: number;
-  proteinGrams: number;
-  carbohydrateGrams: number;
-  fatGrams: number;
+  proteinGrams?: number | undefined;
+  carbohydrateGrams?: number | undefined;
+  fatGrams?: number | undefined;
   fiberGrams?: number | undefined;
   sodiumMg?: number | undefined;
   confidence: ConfidenceLevel;
@@ -27,10 +27,12 @@ export interface FoodLog {
   loggedAt?: ISODateTimeString | undefined;
   entryType?: FoodLogEntryType | undefined;
   sourceConfidence?: ConfidenceLevel | undefined;
+  source?: FoodLogSource | undefined;
 }
 
 export type MealTag = "breakfast" | "lunch" | "dinner" | "snack" | "pre_training" | "post_training" | "day_total" | "other";
 export type FoodLogEntryType = "meal" | "snack" | "day_total" | "quick_fuel_check";
+export type FoodLogSource = "manual" | "label" | "restaurant_estimate" | "import" | "unknown";
 export type DailyFoodLogStatus =
   | "no_log"
   | "quick_fuel_check_only"
@@ -52,6 +54,31 @@ export interface DailyFoodLogStatusEvent {
   occurredAt?: ISODateTimeString | undefined;
 }
 
+export interface FoodLogQuality {
+  status: "no_log" | "quick_fuel_check" | "calories_only" | "macro_partial" | "macro_complete" | "day_total" | "not_tracking_today";
+  source: FoodLogSource;
+  nutrientCompleteness: {
+    calories: boolean;
+    protein: boolean;
+    carbohydrate: boolean;
+    fat: boolean;
+    fiber: boolean;
+    sodium: boolean;
+  };
+  targetComparisonAllowedByNutrient: {
+    calories: boolean;
+    protein: boolean;
+    carbohydrate: boolean;
+    fat: boolean;
+    fiber: boolean;
+    sodium: boolean;
+  };
+  underFuelingEvidenceAllowed: boolean;
+  confidenceScore: number;
+  reasons: readonly string[];
+  evidenceIds: readonly string[];
+}
+
 export interface DailyFoodLogSummary {
   date: ISODateString;
   status: DailyFoodLogStatus;
@@ -71,7 +98,9 @@ export interface DailyFoodLogSummary {
   coverageScore: number;
   macroCompletenessScore: number;
   targetComparisonAllowed: boolean;
+  targetComparisonAllowedByNutrient: FoodLogQuality["targetComparisonAllowedByNutrient"];
   underFuelingEvidenceAllowed: boolean;
+  quality: FoodLogQuality;
   missingMealHints: readonly string[];
   athleteFacingSummary: string;
   engineInterpretation: string;
@@ -103,7 +132,7 @@ export interface RehydrationPlan {
   confidence: Confidence;
 }
 
-export type NutritionTargetConfidenceStatus = "confident" | "provisional" | "low_confidence" | "blocked_by_safety";
+export type NutritionTargetConfidenceStatus = "confident" | "provisional" | "low_confidence" | "numeric_unavailable" | "blocked_by_safety";
 
 export interface NutritionTargetConfidence {
   status: NutritionTargetConfidenceStatus;
@@ -128,6 +157,9 @@ export interface NutritionState {
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   nutritionSafetyReviewEvents: readonly NutritionSafetyReviewEvent[];
   waterLiters: number;
+  fuelTargetRange: FuelTargetRange;
+  energyAvailabilityEstimate: EnergyAvailabilityEstimate;
+  hydrationPlanV2: HydrationPlanV2;
   sodiumGuidance: string;
   sessionFueling: readonly string[];
   hitTheseFirst: readonly string[];
@@ -158,6 +190,52 @@ export interface HydrationState {
   electrolyteGuidance: string;
   riskFlags: readonly RiskFlag[];
   confidence: Confidence;
+}
+
+export type NumericRange = {
+  min: number;
+  max: number;
+};
+
+export interface FuelTargetRange {
+  status: "confident" | "provisional" | "low_confidence" | "numeric_unavailable" | "blocked_by_safety";
+  caloriesKcal: NumericRange | null;
+  proteinGrams: NumericRange | null;
+  carbohydrateGrams: NumericRange | null;
+  fatGrams: NumericRange | null;
+  fiberGrams: NumericRange | null;
+  fluidLiters: NumericRange | null;
+  sodiumGuidance: string;
+  reasons: readonly string[];
+  missingInputs: readonly string[];
+  evidenceIds: readonly string[];
+  athleteFacingCopy: string;
+}
+
+export interface EnergyAvailabilityEstimate {
+  status: "not_estimated" | "proxy_only" | "likely_adequate" | "watch" | "high_risk" | "blocked";
+  kcalPerKgFfm: number | null;
+  method: "measured_ffm" | "estimated_ffm" | "body_mass_proxy" | "not_available";
+  reasons: readonly string[];
+  missingInputs: readonly string[];
+  riskSignals: readonly string[];
+  blocksDeficitPressure: boolean;
+  blocksAcuteProtocol: boolean;
+  requiresQualifiedReview: boolean;
+  evidenceIds: readonly string[];
+}
+
+export interface HydrationPlanV2 {
+  status: "baseline_context" | "session_plan" | "sweat_rate_based" | "post_weigh_in" | "review_required" | "blocked";
+  dailyFluidLiters: NumericRange | null;
+  sessionFluidGuidance: string;
+  electrolyteGuidance: string;
+  sodiumGuidance: string;
+  overdrinkingWarning: string | null;
+  warningSymptoms: readonly string[];
+  reasons: readonly string[];
+  missingInputs: readonly string[];
+  evidenceIds: readonly string[];
 }
 
 export interface NutritionTrainingDemandHandoff {

@@ -1,8 +1,8 @@
 # Nutrition And Weight-Class Lifecycle
 
-Date: 2026-05-20
+Date: 2026-06-27
 
-This document describes the Fuel / Weight-Class Command Center after the eighteenth, nineteenth, twentieth, and app-functionality implementation passes. The eighteenth pass turned nutrition safety review from a journey-event skeleton into a persisted, auditable lifecycle. The nineteenth pass added view-model-driven review history, manual Fuel history, and body-mass trajectory detail panels. The twentieth pass made those surfaces easier to test by splitting Fuel into Command / History / Reviews / Body Mass sections. The app-functionality pass added target confidence/provisionality, stateful Fuel history detail, precise reviewer statuses, and a trusted-server reviewer skeleton without adding barcode scanning, full meal planning, a detailed food database, reviewer-clear UI, or unsafe weight-cut instructions.
+This document describes the Fuel / Weight-Class Command Center after the Fuel science overhaul. Fuel now resolves evidence-traceable target ranges, input-confidence states, food-log quality, energy-availability risk, Hydration V2, conservative fight-week/tournament behavior, and a canonical nutrition safety review lifecycle. It still does not add barcode scanning, full meal planning, a detailed food database, reviewer-clear UI, or unsafe weight-cut instructions.
 
 ## Engine Shape
 
@@ -12,8 +12,13 @@ Primary files:
 
 - `src/engine/nutrition/fuelCommandTypes.ts`
 - `src/engine/nutrition/fuelCommandEngine.ts`
+- `src/engine/nutrition/evidenceRegistry.ts`
 - `src/engine/nutrition/nutritionSafetyReviewTypes.ts`
 - `src/engine/nutrition/nutritionEngine.ts`
+- `src/engine/nutrition/macroTargets.ts`
+- `src/engine/nutrition/foodLogSummary.ts`
+- `src/engine/nutrition/energyAvailability.ts`
+- `src/engine/nutrition/hydrationEngine.ts`
 - `src/engine/nutrition/reviewerWorkflow.ts`
 - `src/engine/presentation/fuelViewModel.ts`
 - `src/engine/presentation/nutritionReviewHistoryViewModel.ts`
@@ -31,12 +36,12 @@ Primary files:
 
 ## Persisted Review Lifecycle
 
-Migration `008_nutrition_safety_reviews.sql` adds:
+Migration `008_nutrition_safety_reviews.sql` added:
 
 - `nutrition_safety_reviews`
 - `nutrition_safety_review_events`
 
-Both tables are owner-scoped with RLS using `auth.uid() = user_id`. No permissive coach, clinician, dietitian, admin, or reviewer write policy was added.
+Both tables are owner-scoped with RLS using `auth.uid() = user_id`. No permissive coach, clinician, dietitian, admin, or reviewer write policy was added. Migration `20260627090000_nutrition_safety_review_canonical_statuses.sql` canonicalizes old rows and tightens table constraints/policies.
 
 Review statuses:
 
@@ -46,7 +51,6 @@ Review statuses:
 - `cleared_by_reviewer`
 - `not_cleared`
 - `superseded`
-- legacy readable statuses `acknowledged`, `in_review`, and `blocked` are still mapped for existing rows
 
 `cleared_by_reviewer` exists in the schema and mappers for future permissioned workflows only. The current client exposes no athlete method or button that can set it.
 
@@ -55,6 +59,8 @@ Event types:
 - `requested`
 - `acknowledged_by_athlete`
 - `reviewer_reviewing`
+- `reviewer_assigned`
+- `reviewer_note`
 - `cleared_by_reviewer`
 - `not_cleared`
 - `superseded`
@@ -62,7 +68,7 @@ Event types:
 Current athlete actions:
 
 - Request a nutrition safety review when the engine says one is required.
-- Acknowledge an active requested or blocked review.
+- Acknowledge an active `requested` or `not_cleared` review.
 - See active review status, review id, reasons, blocking flags, and suggested next steps.
 
 Current athlete non-actions:
@@ -76,19 +82,36 @@ Hard stops remain active after request and acknowledgement. Reviewer transitions
 
 ## Target Confidence
 
-`nutrition.targetConfidence` and `FuelMacroTargetsViewModel.targetConfidence` surface whether macro targets are `confident`, `provisional`, `low_confidence`, or `blocked_by_safety`.
+`nutrition.fuelTargetRange`, `nutrition.targetConfidence`, and `FuelMacroTargetsViewModel.targetConfidence` surface whether Fuel targets are `confident`, `provisional`, `low_confidence`, `numeric_unavailable`, or `blocked_by_safety`.
 
 Factors include:
 
 - missing or stale body mass
 - low-confidence body-mass trend
-- missing, partial, or low-confidence food logs
+- missing, partial, calories-only, macro-partial, or low-confidence food logs
 - cycle-related scale noise
 - under-fueling evidence
 - hard-stop safety flags
 - active nutrition safety review
 
-Fuel UI shows this status before macro numbers so targets do not look more exact than the inputs support. Under-fueling and hard-stop states preserve useful fueling context but explicitly block deficit pressure.
+Fuel UI shows status and ranges before any midpoint-style numbers so targets do not look more exact than the inputs support. Under-fueling and hard-stop states preserve useful fueling context but explicitly block deficit pressure. Missing or stale body mass returns `numeric_unavailable`; it does not fall back to a default body weight.
+
+## Food-Log Quality
+
+Food logging accepts manual, calories-only, macro-partial, macro-complete, and day-total inputs. Calories are first-class; protein, carbohydrate, fat, fiber, and sodium can be unknown. The engine records:
+
+- per-nutrient completeness
+- `targetComparisonAllowedByNutrient`
+- whether the food log can create under-fueling evidence
+- confidence reasons and evidence ids
+
+Calories-only and macro-partial logs can guide execution for known nutrients. They cannot prove safety, cannot clear a review, and cannot create under-fueling evidence unless the day is complete enough and confidence is high enough.
+
+## Energy Availability And Hydration V2
+
+`energyAvailabilityEstimate` is exact only when complete intake, planned exercise energy, and fat-free mass are available. Otherwise it is `not_estimated` or `proxy_only`. Low energy availability or RED-S/ED risk blocks deficit pressure and acute protocol support.
+
+`hydrationPlanV2` uses body mass, manual water/electrolyte logs, training demand, phase, weigh-in context, warning symptoms, and medical flags. It returns baseline context, session plan, sweat-rate-based context, post-weigh-in context, review-required, or blocked. Baseline fluid ranges use 30-40 ml/kg context when body mass is current enough. Hydration testing, post-weigh-in fluid caps, warning symptoms, and overdrinking risk are review-gated; the app does not generate dehydration, water-loading, sodium-manipulation, or fluid-restriction protocols.
 
 ## Body-Weight Freshness
 
@@ -142,7 +165,7 @@ If an active nutrition review exists and the athlete switches away from Command 
 - Blocking flags.
 - Suggested next steps.
 - Request action when required but not yet persisted.
-- Acknowledge action for active requested or blocked reviews.
+- Acknowledge action for active `requested` or `not_cleared` reviews.
 - Hard-stop-remains copy.
 - "This does not clear the plan" copy.
 
@@ -243,9 +266,9 @@ The Fuel system does not show or prescribe:
 - barcode scanning
 - full meal planning
 
-## Smoke Status
+## Verification Status
 
-Latest live smoke passed after migration 008 remained applied remotely and no new migration was added.
+Historical live smoke passed after migration 008. The canonical-status migration requires the normal migration/lint/smoke lane before release. Live Supabase smoke remains explicit and opt-in; routine agent QA must not require real Supabase credentials.
 
 The smoke verifies:
 
@@ -257,17 +280,18 @@ The smoke verifies:
 - A `nutrition_safety_reviews` row is written.
 - A `nutrition_safety_review_events` requested event is written.
 - A `NutritionSafetyReviewRequested` journey event is written.
-- Athlete acknowledgement updates status to `acknowledged`.
+- Athlete acknowledgement updates persisted review rows to `acknowledged_by_athlete`.
 - No hard stop is cleared by request or acknowledgement.
 - Smoke-created review/event rows are cleaned up.
 
-Twentieth-pass local verification:
+Required local verification for Fuel changes:
 
+- `cmd /c npm install`: passed; npm reported dependencies up to date and the existing audit state of 18 vulnerabilities, 1 low and 17 moderate.
 - `cmd /c npm run typecheck`: passed.
-- `cmd /c npm test`: passed with `318` tests and `1` skipped.
-- `cmd /c npm run quality`: passed with typecheck plus tests; `318` tests and `1` skipped.
+- `cmd /c npm test`: passed with `791` tests and `1` skipped.
 - `cmd /c npm run lint`: passed.
-- Ignored `.env` loaded with `CORNERIQ_LIVE_DB_SMOKE=1`, then `cmd /c npm run smoke:live-db`: passed with `1` test, test body `13208ms`, duration `15.15s`.
+- `cmd /c npm run quality`: passed with typecheck plus tests; `791` tests and `1` skipped.
+- `cmd /c npm run preflight:beta`: passed via production preflight. Apple paid-submission checks remained warnings because `CORNERIQ_APPLE_SUBMISSION=1` was not set.
 
 ## Known Gaps
 

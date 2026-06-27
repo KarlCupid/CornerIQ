@@ -4,9 +4,9 @@ import type { ConfidenceLevel, ISODateString } from "../core/sharedTypes";
 interface FoodLogLike {
   date: ISODateString;
   calories: number;
-  proteinGrams: number;
-  carbohydrateGrams: number;
-  fatGrams: number;
+  proteinGrams?: number | undefined;
+  carbohydrateGrams?: number | undefined;
+  fatGrams?: number | undefined;
   fiberGrams?: number | undefined;
   sodiumMg?: number | undefined;
   confidence: ConfidenceLevel;
@@ -90,6 +90,10 @@ function sum(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 
+function knownMacro(value: number | undefined): number {
+  return value ?? 0;
+}
+
 function average(values: readonly number[]): number | null {
   return values.length === 0 ? null : sum(values) / values.length;
 }
@@ -150,9 +154,9 @@ function groupedDay(input: BuildFuelHistoryViewModelInput, date: ISODateString):
   return {
     date,
     calories: sum(food.map((log) => log.calories)),
-    protein: sum(food.map((log) => log.proteinGrams)),
-    carbs: sum(food.map((log) => log.carbohydrateGrams)),
-    fat: sum(food.map((log) => log.fatGrams)),
+    protein: sum(food.map((log) => knownMacro(log.proteinGrams))),
+    carbs: sum(food.map((log) => knownMacro(log.carbohydrateGrams))),
+    fat: sum(food.map((log) => knownMacro(log.fatGrams))),
     fiber: food.length > 0 ? sum(fiberValues) : null,
     sodium: food.length > 0 || electrolytes.length > 0 ? sum(foodSodiumValues) + electrolyteSodium : null,
     waterLiters: sum(water.map((log) => log.liters)),
@@ -172,16 +176,17 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
   const groupedDays = last7Dates(input.asOfDate).map((date) => groupedDay(input, date));
 
   const todayCalories = sum(foodToday.map((log) => log.calories));
-  const todayProtein = sum(foodToday.map((log) => log.proteinGrams));
-  const todayCarbs = sum(foodToday.map((log) => log.carbohydrateGrams));
-  const todayFat = sum(foodToday.map((log) => log.fatGrams));
+  const todayProtein = sum(foodToday.map((log) => knownMacro(log.proteinGrams)));
+  const todayCarbs = sum(foodToday.map((log) => knownMacro(log.carbohydrateGrams)));
+  const todayFat = sum(foodToday.map((log) => knownMacro(log.fatGrams)));
   const todayWater = sum(waterToday.map((log) => log.liters));
   const todaySodium = sum(foodToday.map((log) => log.sodiumMg ?? 0)) + sum(electrolytesToday.map((log) => log.sodiumMg));
   const todayFiber = sum(foodToday.map((log) => log.fiberGrams ?? 0));
 
   const avgCalories = average(food7Day.map((log) => log.calories));
-  const avgProtein = average(food7Day.map((log) => log.proteinGrams));
-  const avgCarbs = average(food7Day.map((log) => log.carbohydrateGrams));
+  const macroComplete7Day = food7Day.filter((log) => log.proteinGrams !== undefined && log.carbohydrateGrams !== undefined && log.fatGrams !== undefined);
+  const avgProtein = average(macroComplete7Day.map((log) => knownMacro(log.proteinGrams)));
+  const avgCarbs = average(macroComplete7Day.map((log) => knownMacro(log.carbohydrateGrams)));
   const avgWater = average(water7Day.map((log) => log.liters));
   const avgSodium = average([...food7Day.map((log) => log.sodiumMg ?? 0), ...electrolytes7Day.map((log) => log.sodiumMg)]);
   const avgFiber = average(food7Day.map((log) => log.fiberGrams ?? 0));
@@ -236,7 +241,7 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
             .slice()
             .sort((left, right) => right.date.localeCompare(left.date))
             .slice(0, 5)
-            .map((log) => `${log.date}: ${log.calories} kcal, ${log.proteinGrams}g protein, ${log.carbohydrateGrams}g carbs, confidence ${log.confidence}.`)
+            .map((log) => `${log.date}: ${log.calories} kcal, ${log.proteinGrams ?? "unknown"}g protein, ${log.carbohydrateGrams ?? "unknown"}g carbs, confidence ${log.confidence}.`)
         : ["No recent manual meals yet. Barcode scanning is not required."],
     macroTrend7Day:
       avgCalories === null || avgProtein === null || avgCarbs === null

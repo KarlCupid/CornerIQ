@@ -73,11 +73,18 @@ describe("Fuel Command Center engine", () => {
   });
 
   it("fight week low-residue guidance does not reduce calories", () => {
-    const state = resolvePerformanceState({ journey: pro_12_round_taper, asOfDate: fixtureAsOfDate });
+    const state = resolvePerformanceState({
+      journey: withFight(pro_12_round_taper, {
+        contractedWeightKg: 66.5,
+        targetWeightClass: { label: "66.5 kg", limitKg: 66.5 }
+      }),
+      asOfDate: fixtureAsOfDate
+    });
 
     expect(state.phase.phase).toBe("fight_week");
     expect(state.nutrition.fightWeekFuelPlan.fiberGuidance).toContain("do not cut calories");
     expect(state.nutrition.dailyCaloriesTarget).toBeGreaterThan(1800);
+    expect(state.nutrition.fuelTargetRange.caloriesKcal?.min).toBeGreaterThan(1800);
   });
 
   it("same-day aggressive acute cut is blocked", () => {
@@ -180,7 +187,14 @@ describe("Fuel Command Center engine", () => {
   });
 
   it("under-fueling blocks deficit pressure", () => {
-    const state = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
+    const state = resolvePerformanceState({
+      journey: withFight(underfueling_risk_camp, {
+        weighInType: "day_before",
+        contractedWeightKg: 66.5,
+        targetWeightClass: { label: "66.5 kg", limitKg: 66.5 }
+      }),
+      asOfDate: fixtureAsOfDate
+    });
 
     expect(state.nutrition.commandCenter.primaryFuelAction).toContain("Protect recovery fuel");
     expect(state.nutrition.nutritionSafetyReview.required).toBe(true);
@@ -290,7 +304,9 @@ describe("Fuel Command Center engine", () => {
     const underFueling = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
     const hardStop = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
 
-    expect(missingBodyMass.nutrition.targetConfidence.status).toBe("low_confidence");
+    expect(missingBodyMass.nutrition.targetConfidence.status).toBe("numeric_unavailable");
+    expect(missingBodyMass.nutrition.fuelTargetRange.caloriesKcal).toBeNull();
+    expect(missingBodyMass.viewModels.fuel.macroTargets.targets.find((item) => item.label === "Calories")?.value).toBe("Unavailable");
     expect(missingBodyMass.nutrition.targetConfidence.missingInputs.join(" ")).toContain("current body mass");
     expect(staleBodyMass.nutrition.targetConfidence.status).toBe("provisional");
     expect(staleBodyMass.nutrition.targetConfidence.reasons.join(" ")).toContain("stale");
@@ -304,6 +320,21 @@ describe("Fuel Command Center engine", () => {
     expect(hardStop.nutrition.targetConfidence.status).toBe("blocked_by_safety");
     expect(hardStop.viewModels.fuel.macroTargets.why).toContain("safety-gated");
     expect(JSON.stringify(complete.viewModels.fuel.macroTargets).toLowerCase()).not.toContain("exact");
+  });
+
+  it("stale fight-week body mass does not authorize numeric Fuel ranges", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_12_round_taper,
+        bodyMassHistory: [{ date: "2026-04-20", bodyMassKg: 66.4, source: "manual" }]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.phase.phase).toBe("fight_week");
+    expect(state.nutrition.fuelTargetRange.status).toBe("numeric_unavailable");
+    expect(state.nutrition.fuelTargetRange.caloriesKcal).toBeNull();
+    expect(state.viewModels.fuel.calorieSummary).toContain("Unavailable");
   });
 
   it("hydrates fuel-command confidence from hydration logs instead of body-mass confidence", () => {
@@ -330,6 +361,6 @@ describe("Fuel Command Center engine", () => {
       serializedFuel(underfueling_risk_camp)
     ].join(" ");
 
-    expect(combined).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/);
+    expect(combined).not.toMatch(/sauna cut|sweat suit|rubber suit|spit cup|diuretics|laxatives|self-induced vomiting|vomit to|purging|water loading protocol|sodium manipulation protocol|fluid restriction protocol|dehydration protocol|hot bath cut|make weight at all costs|starve|skip dinner to make weight|dry out/);
   });
 });

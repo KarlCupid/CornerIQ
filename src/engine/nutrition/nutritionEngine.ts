@@ -19,12 +19,13 @@ import type {
   WaterLog,
   WeighInContext
 } from "../core/types";
-import { toKg } from "../core/units";
 import { buildFuelHistoryViewModel } from "../presentation/fuelHistoryViewModel";
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 import { calculateMacroTargets, trainingDemandTierForDate, weeklyTrainingDemandTier } from "./macroTargets";
+import { resolveEnergyAvailabilityEstimate } from "./energyAvailability";
 import { resolveFuelCommandCenter } from "./fuelCommandEngine";
 import { resolveDailyFoodLogSummary, summarizeFoodLogs } from "./foodLogSummary";
+import { resolveHydrationPlanV2 } from "./hydrationEngine";
 import { resolveRehydrationPlan } from "./rehydrationEngine";
 import { sessionFuelingGuidance } from "./sessionFueling";
 import { sodiumFiberStrategy } from "./sodiumFiberStrategy";
@@ -155,6 +156,7 @@ function resolveNutritionTargetConfidence(input: {
   hardStop: boolean;
   underFuelingBlocked: boolean;
   asOfDate: string;
+  targetRangeStatus: NutritionState["fuelTargetRange"]["status"];
 }): NutritionState["targetConfidence"] {
   const reasons: string[] = [];
   const missingInputs = new Set<string>();
@@ -170,7 +172,7 @@ function resolveNutritionTargetConfidence(input: {
     reasons.push("A nutrition safety review is active.");
   }
   if (!input.athlete.currentBodyMass && input.bodyMass.trend.latestKg === null) {
-    reasons.push("Body mass is missing, so targets use conservative fallback context.");
+    reasons.push("Body mass is missing, so numeric targets are unavailable.");
     missingInputs.add("current body mass");
   }
   if (latestDate && daysBetween(latestDate, input.asOfDate) > 14) {
@@ -203,6 +205,8 @@ function resolveNutritionTargetConfidence(input: {
   const status =
     input.blocked || input.underFuelingBlocked
       ? "blocked_by_safety"
+      : input.targetRangeStatus === "numeric_unavailable"
+        ? "numeric_unavailable"
       : missingInputs.has("current body mass") || input.bodyMass.confidence.level === "unknown"
         ? "low_confidence"
         : reasons.length > 0 || missingInputs.size > 0
@@ -211,6 +215,8 @@ function resolveNutritionTargetConfidence(input: {
   const athleteFacingCopy =
     status === "blocked_by_safety"
       ? "Targets are safety-gated today. Do not use them to add deficit pressure."
+      : status === "numeric_unavailable"
+        ? "Numeric targets are unavailable because key body-mass data is missing or stale. Missing data stays unknown."
       : status === "low_confidence"
         ? "Targets are low-confidence because key inputs are missing or stale."
         : status === "provisional"
@@ -247,33 +253,74 @@ export function resolveNutrition(input: {
   asOfDate: string;
   generatedAt?: string | undefined;
 }): NutritionState {
-  const kg = toKg(input.athlete.currentBodyMass) ?? input.bodyMass.trend.latestKg ?? input.athlete.typicalWalkAroundWeightKg ?? 75;
   const activeReviewHardStop = input.activeNutritionSafetyReviews.some((review) => review.hardStop);
   const blocked = input.safetyFlags.some((flag) => flag.hardStop) || activeReviewHardStop;
-  const underFuelingBlocked = input.safetyFlags.some((flag) => flag.code === "rapid_weight_loss" || flag.code === "repeated_low_intake" || flag.code === "missed_period_underfueling_risk");
+  const initialUnderFuelingBlocked = input.safetyFlags.some((flag) =>
+    ["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit", "ed_risk_cut_blocked"].includes(flag.code)
+  );
   const cycleNoisy = input.bodyMass.feasibility.status === "cycle_noisy" || input.cycle.cycleRelatedWeightNoiseRisk === "high";
   const applyDeficit =
     !blocked &&
-    !underFuelingBlocked &&
+    !initialUnderFuelingBlocked &&
     !cycleNoisy &&
     input.readiness.color !== "red" &&
     (input.bodyMass.feasibility.status === "behind" || input.bodyMass.feasibility.status === "on_track") &&
     input.phase.phase !== "build";
 
-  const macros = calculateMacroTargets({
+  let macros = calculateMacroTargets({
     athlete: input.athlete,
     phase: input.phase,
     training: input.training,
     readiness: input.readiness,
-    applyDeficit
+    applyDeficit,
+    bodyMass: input.bodyMass,
+    safetyBlocked: blocked,
+    underFuelingBlocked: initialUnderFuelingBlocked,
+    activeFightContext: Boolean(input.fight),
+    asOfDate: input.asOfDate
   });
-  const dailyFoodLogSummary = resolveDailyFoodLogSummary(input.foodLogs, input.foodStatusEvents, input.asOfDate, {
+  let dailyFoodLogSummary = resolveDailyFoodLogSummary(input.foodLogs, input.foodStatusEvents, input.asOfDate, {
     calories: macros.calories,
     proteinGrams: macros.proteinGrams,
     carbohydrateGrams: macros.carbohydrateGrams,
     fatGrams: macros.fatGrams
   }, input.generatedAt);
   const riskFlags = input.safetyFlags.filter((flag) => flag.domain === "nutrition" || flag.domain === "hydration" || flag.domain === "body_mass");
+  let energyAvailabilityEstimate = resolveEnergyAvailabilityEstimate({
+    athlete: input.athlete,
+    foodLogSummary: dailyFoodLogSummary,
+    training: input.training,
+    readiness: input.readiness,
+    riskFlags
+  });
+  const underFuelingBlocked = initialUnderFuelingBlocked || energyAvailabilityEstimate.blocksDeficitPressure;
+  if (underFuelingBlocked !== initialUnderFuelingBlocked) {
+    macros = calculateMacroTargets({
+      athlete: input.athlete,
+      phase: input.phase,
+      training: input.training,
+      readiness: input.readiness,
+      applyDeficit: false,
+      bodyMass: input.bodyMass,
+      safetyBlocked: blocked,
+      underFuelingBlocked,
+      activeFightContext: Boolean(input.fight),
+      asOfDate: input.asOfDate
+    });
+    dailyFoodLogSummary = resolveDailyFoodLogSummary(input.foodLogs, input.foodStatusEvents, input.asOfDate, {
+      calories: macros.calories,
+      proteinGrams: macros.proteinGrams,
+      carbohydrateGrams: macros.carbohydrateGrams,
+      fatGrams: macros.fatGrams
+    }, input.generatedAt);
+    energyAvailabilityEstimate = resolveEnergyAvailabilityEstimate({
+      athlete: input.athlete,
+      foodLogSummary: dailyFoodLogSummary,
+      training: input.training,
+      readiness: input.readiness,
+      riskFlags
+    });
+  }
   const acuteProtocolStatus = input.acuteProtocolEligibility.status;
   const rehydrationPlan = resolveRehydrationPlan({
     fight: input.fight,
@@ -299,7 +346,18 @@ export function resolveNutrition(input: {
     input.foodStatusEvents,
     input.generatedAt
   );
-  const waterLiters = Number(Math.max(2.2, kg * 0.035).toFixed(1));
+  const hydrationPlanV2 = resolveHydrationPlanV2({
+    athlete: input.athlete,
+    bodyMass: input.bodyMass,
+    waterLogs: input.waterLogs,
+    electrolyteLogs: input.electrolyteLogs,
+    riskFlags,
+    training: input.training,
+    phase: input.phase,
+    weighInContext: input.weighInContext,
+    asOfDate: input.asOfDate
+  });
+  const waterLiters = hydrationPlanV2.dailyFluidLiters ? Number(((hydrationPlanV2.dailyFluidLiters.min + hydrationPlanV2.dailyFluidLiters.max) / 2).toFixed(1)) : 0;
   const hydrationConfidence = resolveHydrationConfidence(input.waterLogs, input.electrolyteLogs, input.asOfDate);
   const sodiumGuidance = riskFlags.some((flag) => flag.code === "excess_plain_water_low_sodium")
     ? "Do not keep adding plain water without sodium. Hydration needs electrolytes."
@@ -327,7 +385,8 @@ export function resolveNutrition(input: {
     dailyFoodLogSummary,
     hardStop: blocked,
     underFuelingBlocked,
-    asOfDate: input.asOfDate
+    asOfDate: input.asOfDate,
+    targetRangeStatus: macros.targetRange.status
   });
   const fuelHistory = buildFuelHistoryViewModel({
     asOfDate: input.asOfDate,
@@ -339,7 +398,7 @@ export function resolveNutrition(input: {
       proteinGrams: macros.proteinGrams,
       carbohydrateGrams: macros.carbohydrateGrams,
       fatGrams: macros.fatGrams,
-      fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
+      fiberGrams: macros.targetRange.fiberGrams ? Math.round((macros.targetRange.fiberGrams.min + macros.targetRange.fiberGrams.max) / 2) : 0,
       waterLiters
     },
     fightWeekActive: input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day",
@@ -355,7 +414,7 @@ export function resolveNutrition(input: {
     bodyMass: input.bodyMass,
     hydration: {
       waterLiters,
-      electrolyteGuidance: sodiumGuidance,
+      electrolyteGuidance: hydrationPlanV2.electrolyteGuidance,
       riskFlags,
       confidence: hydrationConfidence
     },
@@ -384,20 +443,20 @@ export function resolveNutrition(input: {
 
   return {
     dailyCaloriesTarget: macros.calories,
-    calorieRange: {
-      min: macros.calories - 150,
-      max: macros.calories + 150
-    },
+    calorieRange: macros.targetRange.caloriesKcal ?? { min: 0, max: 0 },
     proteinGrams: macros.proteinGrams,
     carbohydrateGrams: macros.carbohydrateGrams,
     fatGrams: macros.fatGrams,
-    fiberGrams: input.phase.phase === "fight_week" ? 18 : 28,
+    fiberGrams: macros.targetRange.fiberGrams ? Math.round((macros.targetRange.fiberGrams.min + macros.targetRange.fiberGrams.max) / 2) : 0,
     actualIntakeSummary,
     dailyFoodLogSummary,
     fuelHistory,
     activeNutritionSafetyReviews: input.activeNutritionSafetyReviews,
     nutritionSafetyReviewEvents: input.nutritionSafetyReviewEvents,
     waterLiters,
+    fuelTargetRange: macros.targetRange,
+    energyAvailabilityEstimate,
+    hydrationPlanV2,
     sodiumGuidance,
     sessionFueling,
     hitTheseFirst,

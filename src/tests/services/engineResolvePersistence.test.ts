@@ -253,7 +253,7 @@ function createRepositories(options: { blockPersistenceFailure?: boolean; genera
       getNutritionSafetyReviewById: vi.fn(async () => null),
       upsertNutritionSafetyReview,
       appendNutritionSafetyReviewEvent,
-      acknowledgeNutritionSafetyReview: vi.fn(async (_userId: string, reviewId: string) => persistedNutritionSafetyReview({ id: reviewId, status: "acknowledged" })),
+      acknowledgeNutritionSafetyReview: vi.fn(async (_userId: string, reviewId: string) => persistedNutritionSafetyReview({ id: reviewId, status: "acknowledged_by_athlete" })),
       supersedeNutritionSafetyReviews: vi.fn(async () => ({ ids: [] }))
     },
     hydration: { listWaterLogs: vi.fn(async () => journey.hydrationHistory), listElectrolyteLogs: vi.fn(async () => journey.electrolyteHistory), insertWaterLog: vi.fn() },
@@ -579,7 +579,7 @@ describe("resolveAndPersistPerformanceState", () => {
   });
 
   it("keeps a loaded hard-stop review active even after acknowledgement", async () => {
-    const acknowledgedReview = persistedNutritionSafetyReview({ status: "acknowledged" });
+    const acknowledgedReview = persistedNutritionSafetyReview({ status: "acknowledged_by_athlete" });
     const journey: AthleteJourney = {
       ...no_wearable_manual_only,
       nutritionSafetyReviews: [acknowledgedReview]

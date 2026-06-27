@@ -352,7 +352,7 @@ function tournamentPlanFrom(input: ResolveFuelCommandCenterInput, review: Nutrit
         ? input.tournamentStrategy.dailyPriorities
         : ["Morning body mass context", "Symptoms first", "Fuel the next bout"],
     betweenBoutPriorities: ["Small familiar carbs", "Fluids with electrolytes", "Keep the gut calm before warm-up"],
-    eveningMealGuidance: "Use a familiar carb-forward dinner with protein and sodium; do not skip dinner to chase morning scale noise.",
+    eveningMealGuidance: "Use a familiar carb-forward dinner with protein and sodium; evening fuel should not be reduced to chase morning scale noise.",
     travelFoodGuidance: "Pack familiar shelf-stable carbs, protein options, and electrolytes so hotel or venue food does not own the plan.",
     warningFlags: unique([...input.tournamentStrategy.riskFlags.map((flag) => flag.message), ...review.reasons]),
     explanation:
@@ -365,6 +365,12 @@ function tournamentPlanFrom(input: ResolveFuelCommandCenterInput, review: Nutrit
 function primaryFuelAction(input: ResolveFuelCommandCenterInput, review: NutritionSafetyReview, rehydration: RehydrationChecklist, tournament: TournamentFuelPlan): string {
   const phase = phaseForCommand(input.phase.phase);
   const trainingFirstCopy = "Fuel the boxing work first. Do not chase weight changes before training quality and safety are covered.";
+  const outsideSupportHardStopActive = input.safetyFlags.some(
+    (flag) => flag.hardStop && flag.domain !== "nutrition" && (flag.domain !== "body_mass" || flag.code !== "ed_risk_cut_blocked")
+  );
+  if (review.blockingFlags.length > 0 && outsideSupportHardStopActive) {
+    return "Outside support is required before weight-class pressure continues.";
+  }
   if (input.nutritionTargets.underFuelingRiskNote) {
     return "Protect recovery fuel; deficit pressure is blocked today.";
   }

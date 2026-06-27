@@ -183,7 +183,9 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
         training: initialTraining,
         foodLogs: nutritionHistory,
         asOfDate: input.asOfDate
-      })
+      }),
+      journey.athlete,
+      readiness
     )
   ];
   const feasibility = resolveWeightClassFeasibility({
@@ -239,7 +241,17 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     safetyFlags: safety.riskFlags,
     cycle
   });
-  const hydration = resolveHydration({ athlete: journey.athlete, riskFlags: safety.riskFlags });
+  const hydration = resolveHydration({
+    athlete: journey.athlete,
+    riskFlags: safety.riskFlags,
+    bodyMass,
+    waterLogs: hydrationHistory,
+    electrolyteLogs: electrolyteHistory,
+    training,
+    phase,
+    weighInContext,
+    asOfDate: input.asOfDate
+  });
   const nutrition = resolveNutrition({
     athlete: journey.athlete,
     phase,

@@ -238,17 +238,17 @@ function foodEnergyPreview(
   if (values.every((value) => value === null)) {
     return null;
   }
-  if (values.some((value) => value === null)) {
-    return { message: "Enter calories, protein, carbs, and fat to check the macro estimate.", valid: true };
+  if (parsed.calories === null) {
+    return { message: "Enter calories before saving food. Macros can stay blank when unknown.", valid: true };
   }
   if (!validateFoodEnergy) {
     return null;
   }
   const validation = validateFoodEnergy({
-    calories: parsed.calories ?? 0,
-    proteinGrams: parsed.proteinGrams ?? 0,
-    carbohydrateGrams: parsed.carbohydrateGrams ?? 0,
-    fatGrams: parsed.fatGrams ?? 0
+    calories: parsed.calories,
+    ...(parsed.proteinGrams === null ? {} : { proteinGrams: parsed.proteinGrams }),
+    ...(parsed.carbohydrateGrams === null ? {} : { carbohydrateGrams: parsed.carbohydrateGrams }),
+    ...(parsed.fatGrams === null ? {} : { fatGrams: parsed.fatGrams })
   });
   return { message: validation.athleteFacingMessage, valid: validation.valid };
 }
@@ -556,11 +556,14 @@ export function FoodQuickLogCard({ actions, busy, status, surface = "default" }:
             onPress={() =>
               runWithMessage(async () => {
                 setSuccess(null);
+                const proteinGrams = parseOptionalNonNegativeNumber(protein, "Protein");
+                const carbohydrateGrams = parseOptionalNonNegativeNumber(carbs, "Carbs");
+                const fatGrams = parseOptionalNonNegativeNumber(fat, "Fat");
                 const payload = {
                   calories: parseRequiredNonNegativeNumber(calories, "Calories"),
-                  proteinGrams: parseRequiredNonNegativeNumber(protein, "Protein"),
-                  carbohydrateGrams: parseRequiredNonNegativeNumber(carbs, "Carbs"),
-                  fatGrams: parseRequiredNonNegativeNumber(fat, "Fat")
+                  ...(proteinGrams === undefined ? {} : { proteinGrams }),
+                  ...(carbohydrateGrams === undefined ? {} : { carbohydrateGrams }),
+                  ...(fatGrams === undefined ? {} : { fatGrams })
                 };
                 const validation = actions.validateFoodEnergy?.(payload);
                 if (validation && !validation.valid) {

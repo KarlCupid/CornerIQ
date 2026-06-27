@@ -57,7 +57,6 @@ const activeSurfaceTestIds = [
   "plan-hero-card",
   "plan-roadmap",
   "plan-week-strip-card",
-  "plan-upcoming-sessions-card",
   "plan-details-collapsed",
   "plan-detail-rows",
   "plan-active-workspace",
@@ -811,7 +810,7 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-hero-card")).not.toContainText("This week's job");
   await expect(page.getByTestId("plan-hero-card")).not.toContainText(/V2 compiler/i);
   await expect(page.getByTestId("plan-week-strip-card")).toContainText("This week");
-  await expect(page.getByTestId("plan-upcoming-sessions-card")).toContainText("Next up");
+  await expect(page.getByTestId("plan-upcoming-sessions-card")).toHaveCount(0);
   await expect(page.getByTestId("plan-details-collapsed")).toContainText("Plan details");
   await expectVisibleText(page, /Preview next week/i);
   await expectVisibleText(page, "Change plan");

@@ -29,7 +29,7 @@ import {
 import { assertUserId, parseWithSchema } from "../supabase/repositoryTypes";
 import { buildNutritionSafetyReviewRequest } from "../nutrition/requestNutritionSafetyReview";
 
-const ACTIVE_NUTRITION_REVIEW_STATUSES = new Set(["requested", "acknowledged", "in_review", "blocked"]);
+const ACTIVE_NUTRITION_REVIEW_STATUSES = new Set(["requested", "acknowledged_by_athlete", "reviewer_reviewing", "not_cleared"]);
 
 export type ResolveAndPersistPerformanceStateResult =
   | {

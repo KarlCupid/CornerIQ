@@ -100,7 +100,7 @@ describe("requestNutritionSafetyReview", () => {
 
   it("returns already_active for idempotent duplicate requests", async () => {
     const repo = repositories({
-      upsertNutritionSafetyReview: vi.fn(async () => ({ lifecycle: "existing" as const, review: persistedReview({ status: "acknowledged" }) }))
+      upsertNutritionSafetyReview: vi.fn(async () => ({ lifecycle: "existing" as const, review: persistedReview({ status: "acknowledged_by_athlete" }) }))
     });
     const result = await requestNutritionSafetyReview({
       userId: "user_1",

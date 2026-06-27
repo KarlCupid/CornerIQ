@@ -151,7 +151,39 @@ const dailyFoodLogSummary: FuelViewModel["foodLogStatus"] = {
   coverageScore: 0.82,
   macroCompletenessScore: 0.58,
   targetComparisonAllowed: true,
+  targetComparisonAllowedByNutrient: {
+    calories: true,
+    protein: true,
+    carbohydrate: true,
+    fat: true,
+    fiber: true,
+    sodium: true
+  },
   underFuelingEvidenceAllowed: true,
+  quality: {
+    status: "day_total",
+    source: "manual",
+    nutrientCompleteness: {
+      calories: true,
+      protein: true,
+      carbohydrate: true,
+      fat: true,
+      fiber: true,
+      sodium: true
+    },
+    targetComparisonAllowedByNutrient: {
+      calories: true,
+      protein: true,
+      carbohydrate: true,
+      fat: true,
+      fiber: true,
+      sodium: true
+    },
+    underFuelingEvidenceAllowed: true,
+    confidenceScore: 0.82,
+    reasons: ["Day-total entry can support target comparison."],
+    evidenceIds: ["food_log_complete_confidence_0_55", "low_intake_repeated_3_days_below_75_percent"]
+  },
   missingMealHints: [],
   athleteFacingSummary: "Day marked complete. CornerIQ can compare intake to today's training demand.",
   engineInterpretation: "Complete food evidence can inform low-intake cautions and repeated-day safety evidence."
@@ -2419,7 +2451,39 @@ describe("minimal app screens", () => {
       coverageScore: 0,
       macroCompletenessScore: 0,
       targetComparisonAllowed: false,
+      targetComparisonAllowedByNutrient: {
+        calories: false,
+        protein: false,
+        carbohydrate: false,
+        fat: false,
+        fiber: false,
+        sodium: false
+      },
       underFuelingEvidenceAllowed: false,
+      quality: {
+        status: "no_log",
+        source: "unknown",
+        nutrientCompleteness: {
+          calories: false,
+          protein: false,
+          carbohydrate: false,
+          fat: false,
+          fiber: false,
+          sodium: false
+        },
+        targetComparisonAllowedByNutrient: {
+          calories: false,
+          protein: false,
+          carbohydrate: false,
+          fat: false,
+          fiber: false,
+          sodium: false
+        },
+        underFuelingEvidenceAllowed: false,
+        confidenceScore: 0.24,
+        reasons: ["No food log is present; missing data stays unknown."],
+        evidenceIds: ["food_log_complete_confidence_0_55", "low_intake_repeated_3_days_below_75_percent"]
+      },
       missingMealHints: [],
       athleteFacingSummary: "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
       engineInterpretation: "Food status is advisory/execution-only and cannot create under-fueling evidence."
@@ -3018,7 +3082,7 @@ describe("minimal app screens", () => {
           activeReviews: [
             {
               reviewId: "review_1",
-              status: "acknowledged",
+              status: "acknowledged_by_athlete",
               reviewType: "weight_class",
               severity: "critical",
               hardStop: true,
@@ -3033,8 +3097,8 @@ describe("minimal app screens", () => {
           historyEvents: [
             {
               date: "2026-05-19",
-              eventType: "acknowledged",
-              eventLabel: "acknowledged",
+              eventType: "acknowledged_by_athlete",
+              eventLabel: "acknowledged by athlete",
               actorType: "athlete",
               summary: "Acknowledged by athlete. This does not resolve the plan."
             }
@@ -4211,7 +4275,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("plan-week-strip-card");
     expect(output).toContain("plan-week-color-legend");
     expect(output).toContain("plan-calendar-icons");
-    expect(output).toContain("Next up");
+    expect(output).not.toContain("Next up");
+    expect(output).not.toContain("plan-upcoming-sessions-card");
     expect(output).toContain("Show calendar");
     expect(output).toContain("Change plan");
     expect(output).toContain("Preview next week");
@@ -4270,7 +4335,7 @@ describe("minimal app screens", () => {
     }
   });
 
-  it("PlanScreen groups same-day boxing and app work into one upcoming row", async () => {
+  it("PlanScreen groups same-day boxing and app work inside the calendar details", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const renderer = render(
       React.createElement(PlanScreen, {
@@ -4283,10 +4348,10 @@ describe("minimal app screens", () => {
         viewModel: planViewModel
       })
     );
-    const output = JSON.stringify(renderer.toJSON());
-    const upcomingRowCount = output.match(/plan-upcoming-session-row/g)?.length ?? 0;
-
-    expect(upcomingRowCount).toBe(1);
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).not.toContain("plan-upcoming-session-row");
+    await switchSection(renderer, "Show calendar");
+    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Sparring + 1 app session");
     expect(output).toContain("Sparring 75 min + App session 30 min");
   });

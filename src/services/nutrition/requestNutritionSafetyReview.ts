@@ -3,7 +3,7 @@ import type { NutritionSafetyReviewRequest, NutritionSafetyReviewType } from "..
 import type { AthleteJourneyRepositories } from "../supabase/loadAthleteJourney";
 import { assertUserId } from "../supabase/repositoryTypes";
 
-const ACTIVE_REVIEW_STATUSES = new Set(["requested", "acknowledged_by_athlete", "reviewer_reviewing", "not_cleared", "acknowledged", "in_review", "blocked"]);
+const ACTIVE_REVIEW_STATUSES = new Set(["requested", "acknowledged_by_athlete", "reviewer_reviewing", "not_cleared"]);
 
 export type NutritionSafetyReviewRequestResult =
   | {

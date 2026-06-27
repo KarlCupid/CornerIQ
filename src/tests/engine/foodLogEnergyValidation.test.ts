@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { AthleteJourney, JourneyEvent } from "../../engine/core/types";
 import { validateFoodLogEnergy } from "../../engine/nutrition/foodLogEnergyValidation";
+import { resolveDailyFoodLogSummary, summarizeFoodLogs } from "../../engine/nutrition/foodLogSummary";
 import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function foodLogCompleteEvent(date: string, id: string): JourneyEvent {
@@ -43,6 +44,35 @@ describe("food log energy validation", () => {
 
     expect(validation.valid).toBe(true);
     expect(validation.macroCalories).toBe(2190);
+  });
+
+  it("accepts calories-only entries and compares only calories", () => {
+    const validation = validateFoodLogEnergy({ calories: 600 });
+    const summary = summarizeFoodLogs([{ date: fixtureAsOfDate, calories: 600, confidence: "medium" }], fixtureAsOfDate, {
+      calories: 2400,
+      proteinGrams: 140,
+      carbohydrateGrams: 300,
+      fatGrams: 80
+    });
+
+    expect(validation.valid).toBe(true);
+    expect(validation.status).toBe("calories_only");
+    expect(summary.dailySummary.quality.status).toBe("calories_only");
+    expect(summary.calorieTargetPercent).toBe(25);
+    expect(summary.proteinTargetPercent).toBeNull();
+    expect(summary.dailySummary.targetComparisonAllowedByNutrient).toMatchObject({ calories: true, protein: false, carbohydrate: false, fat: false });
+    expect(summary.underFuelingEvidenceAllowed).toBe(false);
+  });
+
+  it("accepts macro-partial entries and keeps under-fueling evidence disabled", () => {
+    const validation = validateFoodLogEnergy({ calories: 500, proteinGrams: 35 });
+    const summary = resolveDailyFoodLogSummary([{ date: fixtureAsOfDate, calories: 500, proteinGrams: 35, confidence: "medium" }], [], fixtureAsOfDate, undefined);
+
+    expect(validation.valid).toBe(true);
+    expect(validation.status).toBe("macro_partial");
+    expect(summary.quality.status).toBe("macro_partial");
+    expect(summary.quality.targetComparisonAllowedByNutrient).toMatchObject({ calories: true, protein: true, carbohydrate: false, fat: false });
+    expect(summary.underFuelingEvidenceAllowed).toBe(false);
   });
 
   it("keeps inconsistent completed logs out of target comparison and under-fueling evidence", () => {

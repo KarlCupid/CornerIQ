@@ -16,10 +16,10 @@ Implemented so far:
 - Engine product/spec docs in `docs/`.
 - Domain-split engine type exports with compatibility barrel at `src/engine/core/types.ts`.
 - First deterministic performance kernel vertical slice.
-- Body-mass trend, cycle context, readiness, wearable confidence, safety flags, weigh-in eligibility, tournament strategy, nutrition targets, structured rehydration, training support generation, and presentation view models.
-- Supabase migration files through `20260626120000_outside_engine_workout_support.sql`; remote migration status is tracked in `docs/11_SUPABASE_REMOTE_STATUS.md`.
+- Body-mass trend, cycle context, readiness, wearable confidence, safety flags, weigh-in eligibility, tournament strategy, confidence-aware nutrition target ranges, structured rehydration, training support generation, and presentation view models.
+- Supabase migration files through `20260627090000_nutrition_safety_review_canonical_statuses.sql`; remote migration status is tracked in `docs/11_SUPABASE_REMOTE_STATUS.md`.
 - Engine fixtures and tests for safety, cycle, wearable/manual, nutrition, training, body mass, validation, and persistence schema checks.
-- Engine evidence registry in `docs/25_ENGINE_EVIDENCE_REGISTRY.md` and `src/engine/evidence/evidenceRegistry.ts`.
+- Engine evidence registry in `docs/25_ENGINE_EVIDENCE_REGISTRY.md`, `src/engine/evidence/evidenceRegistry.ts`, and `src/engine/nutrition/evidenceRegistry.ts`.
 
 ## Install
 

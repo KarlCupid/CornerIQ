@@ -155,7 +155,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
     actionLabel: "Add food entry",
     statusLabel: foodStatus.replaceAll("_", " "),
     summary: todayFoodCount > 0 ? `${todayFoodCount} food entr${todayFoodCount === 1 ? "y" : "ies"}; ${todayCalories} kcal logged so far. ${state.nutrition.dailyFoodLogSummary.athleteFacingSummary}` : state.nutrition.dailyFoodLogSummary.athleteFacingSummary,
-    addEntryCopy: "Use this for one meal/snack or a day total. Each entry must match its protein/carbs/fat calorie estimate."
+    addEntryCopy: "Use this for one meal/snack or a day total. Calories-only is okay; macro checks run only when protein, carbs, and fat are all known."
   };
 
   return {
@@ -166,7 +166,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
       trainingRecentSummary
     ],
     fuel: [
-      ...recentFood.map((log) => `${log.date}: ${log.calories} kcal, ${log.proteinGrams}g protein, ${log.carbohydrateGrams}g carbs.`),
+      ...recentFood.map((log) => `${log.date}: ${log.calories} kcal, ${log.proteinGrams ?? "unknown"}g protein, ${log.carbohydrateGrams ?? "unknown"}g carbs.`),
       lastElectrolytes ? `Last electrolytes: ${lastElectrolytes.sodiumMg} mg sodium on ${lastElectrolytes.date}.` : "No electrolyte log yet."
     ],
     training: recentTraining.length > 0 ? recentTraining.map((log) => `${log.date}: ${log.type.replace(/_/g, " ")} for ${log.durationMinutes} min.`) : ["No training log yet."],

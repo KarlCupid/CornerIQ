@@ -261,11 +261,18 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
   });
 
   it("low-residue guidance reduces fiber without reducing calories", () => {
-    const fightWeek = resolvePerformanceState({ journey: pro_12_round_taper, asOfDate: fixtureAsOfDate });
+    const fightWeek = resolvePerformanceState({
+      journey: withFight(pro_12_round_taper, {
+        contractedWeightKg: 66.5,
+        targetWeightClass: { label: "66.5 kg", limitKg: 66.5 }
+      }),
+      asOfDate: fixtureAsOfDate
+    });
 
     expect(fightWeek.phase.phase).toBe("fight_week");
     expect(fightWeek.nutrition.lowResidueGuidance).toContain("lower fiber");
     expect(fightWeek.nutrition.dailyCaloriesTarget).toBeGreaterThan(1800);
+    expect(fightWeek.nutrition.fuelTargetRange.caloriesKcal?.min).toBeGreaterThan(1800);
   });
 
   it("under-fueling risk blocks deficit without reducing workout generation", () => {

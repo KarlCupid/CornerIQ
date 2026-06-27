@@ -108,7 +108,8 @@ describe("beta safety static scans", () => {
 
     for (const file of athleteClientFiles) {
       const source = readFileSync(file, "utf8");
-      expect(source, file).not.toMatch(/cleared_by_reviewer|not_cleared|reviewer_reviewing/);
+      expect(source, file).not.toMatch(/cleared_by_reviewer|reviewer_reviewing/);
+      expect(source, file).not.toMatch(/(?:targetStatus|status)\s*[:=]\s*["']not_cleared["']/);
       expect(source, file).not.toMatch(/mark .*review(?:ed|ing)|resolve feedback|dismiss feedback/i);
     }
   });

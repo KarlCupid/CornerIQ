@@ -1,17 +1,15 @@
 import { z } from "zod";
 import type { ISODateString, ISODateTimeString } from "../core/sharedTypes";
 
-export const NutritionSafetyReviewStatusSchema = z.enum([
+export const NUTRITION_SAFETY_REVIEW_STATUSES = [
   "requested",
   "acknowledged_by_athlete",
   "reviewer_reviewing",
   "cleared_by_reviewer",
   "not_cleared",
-  "superseded",
-  "acknowledged",
-  "in_review",
-  "blocked"
-]);
+  "superseded"
+] as const;
+export const NutritionSafetyReviewStatusSchema = z.enum(NUTRITION_SAFETY_REVIEW_STATUSES);
 export type NutritionSafetyReviewStatus = z.infer<typeof NutritionSafetyReviewStatusSchema>;
 
 export const NutritionSafetyReviewTypeSchema = z.enum([
@@ -32,18 +30,17 @@ export type NutritionSafetyReviewSeverity = z.infer<typeof NutritionSafetyReview
 export const NutritionSafetyReviewerRoleSchema = z.enum(["coach", "clinician", "dietitian", "admin"]);
 export type NutritionSafetyReviewerRole = z.infer<typeof NutritionSafetyReviewerRoleSchema>;
 
-export const NutritionSafetyReviewEventTypeSchema = z.enum([
+export const NUTRITION_SAFETY_REVIEW_EVENT_TYPES = [
   "requested",
-  "acknowledged",
   "acknowledged_by_athlete",
   "reviewer_reviewing",
   "reviewer_assigned",
   "reviewer_note",
   "cleared_by_reviewer",
   "not_cleared",
-  "blocked",
   "superseded"
-]);
+] as const;
+export const NutritionSafetyReviewEventTypeSchema = z.enum(NUTRITION_SAFETY_REVIEW_EVENT_TYPES);
 export type NutritionSafetyReviewEventType = z.infer<typeof NutritionSafetyReviewEventTypeSchema>;
 
 export const NutritionSafetyReviewActorTypeSchema = z.enum(["athlete", "coach", "clinician", "dietitian", "admin", "engine"]);

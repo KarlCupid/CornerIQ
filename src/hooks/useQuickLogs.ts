@@ -65,9 +65,9 @@ export type CycleQuickLogInput = Omit<CycleLog, "date">;
 
 export interface FoodQuickLogInput {
   calories: number;
-  proteinGrams: number;
-  carbohydrateGrams: number;
-  fatGrams: number;
+  proteinGrams?: number;
+  carbohydrateGrams?: number;
+  fatGrams?: number;
   fiberGrams?: number;
   sodiumMg?: number;
 }

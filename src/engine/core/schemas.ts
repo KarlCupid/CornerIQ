@@ -9,6 +9,7 @@ const ISODateTimeSchema = z.string().datetime();
 const confidenceLevelSchema = z.enum(["high", "medium", "low", "unknown"]);
 const MealTagSchema = z.enum(["breakfast", "lunch", "dinner", "snack", "pre_training", "post_training", "day_total", "other"]);
 const FoodLogEntryTypeSchema = z.enum(["meal", "snack", "day_total", "quick_fuel_check"]);
+const FoodLogSourceSchema = z.enum(["manual", "label", "restaurant_estimate", "import", "unknown"]);
 const ProtectedWorkoutTypeSchema = z.enum(["boxing_class", "technical_session", "pads_mitts", "bag_work", "footwork_session", "sparring", "roadwork", "coach_assigned_strength", "competition", "travel", "recovery_day"]);
 const SessionIntensitySchema = z.enum(["easy", "moderate", "hard", "max"]);
 const WeeklyProtectedAnchorWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
@@ -130,6 +131,7 @@ export const AthleteProfileSchema = z.object({
   pronouns: z.string().optional(),
   height: HeightSchema,
   currentBodyMass: MassSchema.nullable(),
+  fatFreeMassKg: z.number().positive().optional(),
   preferredUnits: z.enum(["metric", "imperial"]),
   boxingLevel: z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]),
   amateurOrPro: z.enum(["amateur", "pro"]),
@@ -284,16 +286,17 @@ export const ReadinessCheckInSchema = z.object({
 export const FoodLogSchema = z.object({
   date: ISODateSchema,
   calories: z.number().nonnegative(),
-  proteinGrams: z.number().nonnegative(),
-  carbohydrateGrams: z.number().nonnegative(),
-  fatGrams: z.number().nonnegative(),
+  proteinGrams: z.number().nonnegative().optional(),
+  carbohydrateGrams: z.number().nonnegative().optional(),
+  fatGrams: z.number().nonnegative().optional(),
   fiberGrams: z.number().nonnegative().optional(),
   sodiumMg: z.number().nonnegative().optional(),
   confidence: confidenceLevelSchema,
   mealTag: MealTagSchema.optional(),
   loggedAt: ISODateTimeSchema.optional(),
   entryType: FoodLogEntryTypeSchema.optional(),
-  sourceConfidence: confidenceLevelSchema.optional()
+  sourceConfidence: confidenceLevelSchema.optional(),
+  source: FoodLogSourceSchema.optional()
 }).superRefine((log, context) => {
   const validation = validateFoodLogEnergy(log);
   if (!validation.valid) {

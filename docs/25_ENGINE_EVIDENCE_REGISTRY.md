@@ -2,7 +2,7 @@
 
 CornerIQ uses conservative deterministic rules, not a validated physiological model. This registry records the current threshold posture so engine rules are auditable, reviewable, and honest about uncertainty.
 
-The source of truth for threshold coverage is `src/engine/evidence/evidenceRegistry.ts`. Each entry lists affected files, functions, threshold values, rationale, source posture, owner, review cadence, known limitations, beta calibration plan, and sources or internal policy notes.
+The cross-engine source of truth for threshold coverage is `src/engine/evidence/evidenceRegistry.ts`. Fuel science thresholds also have a typed registry at `src/engine/nutrition/evidenceRegistry.ts`, which is referenced by nutrition target ranges, food-log quality, under-fueling risk, energy availability, and Hydration V2. Each entry lists affected files, functions, threshold values, rationale, source posture, owner, review cadence, known limitations, beta calibration plan, and sources or internal policy notes.
 
 This is not a clinical validation package. Current thresholds are conservative beta heuristics unless a future qualified review and calibration dataset says otherwise. The registry is meant to make the engine reviewable, not to make medical, dietetic, or coaching claims.
 
@@ -17,6 +17,10 @@ This is not a clinical validation package. Current thresholds are conservative b
 - Generated support duration and load gates.
 - Macro targets by body size and training demand.
 - Fight-week low-residue, tournament, and rehydration guidance.
+- Confidence-aware Fuel target ranges rather than exact prescriptions.
+- Food-log quality states, including calories-only and macro-partial manual logs.
+- Energy-availability exact/proxy/not-estimated states.
+- Hydration V2 baseline, warning-symptom, overdrinking, hydration-testing, and post-weigh-in review gates.
 - Generated session active block and preview scope.
 - Structured exercise actuals without load-note inference.
 - Nutrition target confidence/provisionality.
@@ -31,6 +35,8 @@ This is not a clinical validation package. Current thresholds are conservative b
 - No threshold should be marketed as a clinical diagnosis, medical advice, validated dietetic prescription, or guaranteed performance model.
 - Generated training should be described as boxing support, not coaching/programming replacement.
 - Low-residue and rehydration outputs are safety-oriented checklists, not weight-cut instructions.
+- Hydration output must never become water-loading, sodium-manipulation, dehydration, or fluid-restriction protocol generation.
+- Fuel targets are ranges with explicit confidence and can be unavailable when current body mass is missing or stale.
 - Missing data remains unknown, not safe.
 
 ## Source Anchors
@@ -42,4 +48,4 @@ This is not a clinical validation package. Current thresholds are conservative b
 
 ## Review Rule
 
-When a nontrivial threshold changes, update the registry and add or update an engine test before UI code relies on that behavior.
+When a nontrivial threshold changes, update the relevant registry and add or update an engine test before UI code relies on that behavior. Nutrition changes that cite fuel-science thresholds should call `assertFuelEvidenceIds` or otherwise be covered by the Fuel evidence registry tests.

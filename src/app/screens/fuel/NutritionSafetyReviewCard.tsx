@@ -44,7 +44,7 @@ export function NutritionSafetyReviewCard({
   const reasons = activeReview?.reasons.length ? activeReview.reasons : review.reasons;
   const blockingFlags = activeReview?.blockingFlags.length ? activeReview.blockingFlags : review.blockingFlags;
   const suggestedNextSteps = activeReview?.suggestedNextSteps.length ? activeReview.suggestedNextSteps : review.suggestedNextSteps;
-  const canAcknowledge = Boolean(activeReview && (activeReview.status === "requested" || activeReview.status === "blocked") && onAcknowledgeReview);
+  const canAcknowledge = Boolean(activeReview && (activeReview.status === "requested" || activeReview.status === "not_cleared") && onAcknowledgeReview);
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }}>

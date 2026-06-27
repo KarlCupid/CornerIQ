@@ -407,19 +407,6 @@ function dayMetricLabel(day: PlanDay): string {
   return day.compactMetric;
 }
 
-function sessionIntensityLabel(day: PlanDay): string {
-  if (day.marker === "Hard day" || day.fuelDemand === "high") {
-    return "Hard";
-  }
-  if (day.compactTag === "Recovery") {
-    return "Easy";
-  }
-  if (day.fuelDemand === "low") {
-    return "Easy";
-  }
-  return "Moderate";
-}
-
 function weekPlanSentence(viewModel: PlanViewModel): string {
   if (viewModel.rollForwardStatus === "blocked" || viewModel.warnings.length > 0) {
     return "This week stays conservative until the review notes clear.";
@@ -1358,70 +1345,6 @@ function BuiltAroundContent({ viewModel }: { viewModel: PlanViewModel }) {
   );
 }
 
-type UpcomingPlanSession = {
-  aim: string;
-  date: string;
-  id: string;
-  intensity: string;
-  title: string;
-  tone: PlanTone;
-  type: string;
-};
-
-function upcomingPlanSessions(viewModel: PlanViewModel, asOfDate: ISODateString): UpcomingPlanSession[] {
-  const rows: UpcomingPlanSession[] = [];
-  for (const day of sortedPlanDays(viewModel)) {
-    if (day.date < asOfDate) {
-      continue;
-    }
-    if (day.workSummary) {
-      rows.push({
-        aim: firstSentence(day.workSummary.aim) || "Keep the work useful for boxing.",
-        date: shortDateLabel(day.date, asOfDate),
-        id: day.workSummary.id,
-        intensity: sessionIntensityLabel(day),
-        title: plainPlanCopy(day.workSummary.title),
-        tone: toneForPlanDay(day),
-        type: plainPlanCopy(day.workSummary.detail)
-      });
-    }
-  }
-  return rows.slice(0, 2);
-}
-
-function UpcomingSessionsCard({ asOfDate, viewModel }: { asOfDate: ISODateString; viewModel: PlanViewModel }) {
-  const sessions = upcomingPlanSessions(viewModel, asOfDate);
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="plan-upcoming-sessions-card">
-        <Text style={planTextStyles.sectionTitle}>Next up</Text>
-        {sessions.length > 0 ? sessions.map((session) => (
-          <View
-            key={`upcoming:${session.id}`}
-            style={{
-              backgroundColor: planTint(session.tone, "10"),
-              borderColor: planTint(session.tone, "3D"),
-              borderRadius: radii.tile,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-            testID="plan-upcoming-session-row"
-          >
-            <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-              <Text style={{ color: planPalette.textPrimary, flex: 1, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{session.date} - {session.title}</Text>
-              <PlanTonePill label={session.intensity} tone={session.tone} />
-            </View>
-            <Text style={planTextStyles.subtle}>{session.type}</Text>
-          </View>
-        )) : (
-          <Text style={planTextStyles.subtle}>No upcoming app sessions are scheduled. Keep boxing logs manual if training happens outside the app.</Text>
-        )}
-      </View>
-    </EngineCard>
-  );
-}
-
 function previewStatusCopy(viewModel: PlanViewModel): { label: string; summary: string; tone: PlanTone } {
   const preview = viewModel.nextWeekPreview;
   if (viewModel.rollForwardStatus === ACTIVE_NEXT_WEEK_STATUS) {
@@ -1612,19 +1535,16 @@ function PlanDetailRows({
 }
 
 function PlanRoadmap({
-  asOfDate,
   busy,
   onOpenWorkspace,
   viewModel
 }: {
-  asOfDate: ISODateString;
   busy: boolean;
   onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
   viewModel: PlanViewModel;
 }) {
   return (
     <View style={{ gap: spacing.md }} testID="plan-roadmap">
-      <UpcomingSessionsCard asOfDate={asOfDate} viewModel={viewModel} />
       <CollapsedPlanDetails busy={busy} onOpenWorkspace={onOpenWorkspace} viewModel={viewModel} />
     </View>
   );
@@ -1776,7 +1696,6 @@ export function PlanScreen({
       {viewModel.lastAutoRollForwardMessage ? <RiskBanner title="Week boundary update" message={plainPlanRiskCopy(viewModel.lastAutoRollForwardMessage)} tone="info" /> : null}
       {adjustmentMessage ? <RiskBanner title="Plan update" message={plainPlanRiskCopy(adjustmentMessage)} tone="info" /> : null}
       <PlanRoadmap
-        asOfDate={asOfDate}
         busy={busy}
         onOpenWorkspace={openWorkspace}
         viewModel={viewModel}

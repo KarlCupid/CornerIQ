@@ -631,10 +631,10 @@ describeLive("live Supabase CRUD smoke", () => {
       }
       nutritionSafetyReviewEventIds.push(acknowledgeResult.eventId);
       const acknowledgedReview = await repositories.nutritionSafetyReview.getNutritionSafetyReviewById(userId, reviewResult.reviewId);
-      expect(acknowledgedReview?.status).toBe("acknowledged");
+      expect(acknowledgedReview?.status).toBe("acknowledged_by_athlete");
       expect(acknowledgedReview?.hardStop).toBe(false);
       const activeReviews = await repositories.nutritionSafetyReview.listActiveNutritionSafetyReviews(userId);
-      expect(activeReviews.some((review) => review.id === reviewResult.reviewId && review.status === "acknowledged")).toBe(true);
+      expect(activeReviews.some((review) => review.id === reviewResult.reviewId && review.status === "acknowledged_by_athlete")).toBe(true);
     } finally {
       for (const id of nutritionSafetyReviewEventIds) {
         await client.from("nutrition_safety_review_events").delete().eq("user_id", userId).eq("id", id);

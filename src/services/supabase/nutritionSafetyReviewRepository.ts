@@ -26,10 +26,7 @@ const ACTIVE_REVIEW_STATUSES: readonly NutritionSafetyReviewStatus[] = [
   "requested",
   "acknowledged_by_athlete",
   "reviewer_reviewing",
-  "not_cleared",
-  "acknowledged",
-  "in_review",
-  "blocked"
+  "not_cleared"
 ];
 
 type NutritionSafetyReviewRow = Pick<
@@ -168,7 +165,7 @@ function eventInsert(input: AppendNutritionSafetyReviewEventInput): TableInsert<
   const reviewId = assertReviewId(input.nutritionSafetyReviewId, "nutrition_safety_review_events.appendNutritionSafetyReviewEvent");
   const eventType = parseWithSchema(NutritionSafetyReviewEventTypeSchema, input.eventType, "nutrition_safety_review_events.event_type");
   const actorType = parseWithSchema(NutritionSafetyReviewActorTypeSchema, input.actorType ?? "athlete", "nutrition_safety_review_events.actor_type");
-  const athleteWritable = eventType === "requested" || eventType === "acknowledged" || eventType === "acknowledged_by_athlete";
+  const athleteWritable = eventType === "requested" || eventType === "acknowledged_by_athlete";
   const engineRequest = actorType === "engine" && eventType === "requested";
   if (!athleteWritable || (actorType !== "athlete" && !engineRequest)) {
     throw new RepositoryError(
@@ -315,7 +312,7 @@ export function createNutritionSafetyReviewRepository(client: CornerSupabaseClie
         .update({ status: "acknowledged_by_athlete" })
         .eq("user_id", safeUserId)
         .eq("id", reviewId)
-        .in("status", ["requested", "acknowledged", "blocked", "in_review"])
+        .in("status", ["requested", "not_cleared"])
         .select(reviewSelect)
         .single();
       return mapNutritionSafetyReviewRow(readDataOrThrow(response, "nutrition_safety_reviews.acknowledgeNutritionSafetyReview"));
@@ -331,7 +328,7 @@ export function createNutritionSafetyReviewRepository(client: CornerSupabaseClie
         .eq("user_id", safeUserId)
         .eq("review_type", safeReviewType)
         .eq("hard_stop", false)
-        .in("status", ["requested", "acknowledged", "acknowledged_by_athlete", "in_review", "reviewer_reviewing", "not_cleared"]);
+        .in("status", ["requested", "acknowledged_by_athlete", "reviewer_reviewing", "not_cleared"]);
       if (asOfDate) {
         query = query.lte("as_of_date", asOfDate);
       }

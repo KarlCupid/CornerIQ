@@ -1787,6 +1787,21 @@ describe("Supabase repositories", () => {
     expect(source).not.toContain("for all");
   });
 
+  it("20260627090000 migration canonicalizes nutrition review status and event contracts", () => {
+    const source = readFileSync("supabase/migrations/20260627090000_nutrition_safety_review_canonical_statuses.sql", "utf8");
+
+    expect(source).toContain("when 'acknowledged' then 'acknowledged_by_athlete'");
+    expect(source).toContain("when 'in_review' then 'reviewer_reviewing'");
+    expect(source).toContain("when 'blocked' then 'not_cleared'");
+    expect(source).toContain("'acknowledged_by_athlete'");
+    expect(source).toContain("'reviewer_reviewing'");
+    expect(source).toContain("'cleared_by_reviewer'");
+    expect(source).toContain("'not_cleared'");
+    expect(source).toContain("event_type in ('requested', 'acknowledged_by_athlete')");
+    expect(source).toContain("Acknowledgement does not clear hard_stop");
+    expect(source).not.toContain("status in ('acknowledged_by_athlete', 'acknowledged')");
+  });
+
   it("database types include coach relationship table", () => {
     const source = readFileSync("src/services/supabase/database.types.ts", "utf8");
 
@@ -1941,7 +1956,7 @@ describe("Supabase repositories", () => {
       repository.appendNutritionSafetyReviewEvent({
         userId: "user_1",
         nutritionSafetyReviewId: "review_1",
-        eventType: "acknowledged",
+        eventType: "reviewer_note",
         actorType: "dietitian",
         eventPayload: { forged: true }
       })

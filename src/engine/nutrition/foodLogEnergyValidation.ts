@@ -1,11 +1,11 @@
 export interface FoodLogEnergyInput {
   calories: number;
-  proteinGrams: number;
-  carbohydrateGrams: number;
-  fatGrams: number;
+  proteinGrams?: number | undefined;
+  carbohydrateGrams?: number | undefined;
+  fatGrams?: number | undefined;
 }
 
-export type FoodLogEnergyValidationStatus = "valid" | "empty" | "invalid_number" | "missing_macro_energy" | "inconsistent";
+export type FoodLogEnergyValidationStatus = "valid" | "empty" | "invalid_number" | "calories_only" | "macro_partial" | "inconsistent";
 
 export interface FoodLogEnergyValidationResult {
   status: FoodLogEnergyValidationStatus;
@@ -46,15 +46,18 @@ function toleranceForMacroCalories(macroCalories: number): number {
 
 export function estimateFoodLogMacroCalories(input: Pick<FoodLogEnergyInput, "proteinGrams" | "carbohydrateGrams" | "fatGrams">): number {
   return roundedKcal(
-    input.proteinGrams * FOOD_LOG_MACRO_KCAL_PER_GRAM.protein +
-      input.carbohydrateGrams * FOOD_LOG_MACRO_KCAL_PER_GRAM.carbohydrate +
-      input.fatGrams * FOOD_LOG_MACRO_KCAL_PER_GRAM.fat
+    (input.proteinGrams ?? 0) * FOOD_LOG_MACRO_KCAL_PER_GRAM.protein +
+      (input.carbohydrateGrams ?? 0) * FOOD_LOG_MACRO_KCAL_PER_GRAM.carbohydrate +
+      (input.fatGrams ?? 0) * FOOD_LOG_MACRO_KCAL_PER_GRAM.fat
   );
 }
 
 export function validateFoodLogEnergy(input: FoodLogEnergyInput): FoodLogEnergyValidationResult {
   const macroCalories = estimateFoodLogMacroCalories(input);
   const calories = roundedKcal(input.calories);
+  const macroValues = [input.proteinGrams, input.carbohydrateGrams, input.fatGrams];
+  const presentMacroValues = macroValues.filter((value): value is number => value !== undefined);
+  const allMacrosPresent = presentMacroValues.length === 3;
   const tolerance = toleranceForMacroCalories(macroCalories);
   const calorieRange = {
     min: macroCalories > 0 ? Math.max(1, roundedKcal(macroCalories - tolerance)) : 0,
@@ -62,7 +65,7 @@ export function validateFoodLogEnergy(input: FoodLogEnergyInput): FoodLogEnergyV
   };
   const calorieDelta = roundedKcal(input.calories - macroCalories);
 
-  if (![input.calories, input.proteinGrams, input.carbohydrateGrams, input.fatGrams].every(finiteNonNegative)) {
+  if (![input.calories, ...presentMacroValues].every(finiteNonNegative)) {
     return {
       status: "invalid_number",
       valid: false,
@@ -88,16 +91,29 @@ export function validateFoodLogEnergy(input: FoodLogEnergyInput): FoodLogEnergyV
     };
   }
 
-  if (input.calories > 0 && macroCalories === 0) {
+  if (input.calories > 0 && presentMacroValues.length === 0) {
     return {
-      status: "missing_macro_energy",
-      valid: false,
+      status: "calories_only",
+      valid: true,
       macroCalories,
       calorieDelta,
       tolerance,
       calorieRange,
-      athleteFacingMessage: "Food calories need matching protein, carbs, or fat grams before saving.",
-      engineReason: "Food log records calories without protein, carbohydrate, or fat grams."
+      athleteFacingMessage: "Calories-only food entry saved. CornerIQ will compare calories only, not macros.",
+      engineReason: "Food log records calories without macro grams; this is valid calories-only evidence."
+    };
+  }
+
+  if (!allMacrosPresent) {
+    return {
+      status: "macro_partial",
+      valid: true,
+      macroCalories,
+      calorieDelta,
+      tolerance,
+      calorieRange,
+      athleteFacingMessage: "Partial macro entry saved. CornerIQ compares only nutrients that are actually known.",
+      engineReason: "Food log has partial macro data; macro-energy validation is not applied until protein, carbohydrate, and fat are all present."
     };
   }
 

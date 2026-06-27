@@ -56,7 +56,7 @@ function eventSummary(event: NutritionSafetyReviewEvent): string {
   if (summary) {
     return `${event.eventType.replaceAll("_", " ")} by ${event.actorType}: ${summary}`;
   }
-  if (event.eventType === "acknowledged" || event.eventType === "acknowledged_by_athlete") {
+  if (event.eventType === "acknowledged_by_athlete") {
     return "Acknowledged by athlete. This does not resolve the plan.";
   }
   if (event.eventType === "reviewer_reviewing" || event.eventType === "reviewer_assigned" || event.eventType === "reviewer_note") {
@@ -69,10 +69,7 @@ function eventSummary(event: NutritionSafetyReviewEvent): string {
 }
 
 function statusDisplay(status: PersistedNutritionSafetyReview["status"]): PersistedNutritionSafetyReview["status"] {
-  if (status === "acknowledged") {
-    return "acknowledged_by_athlete";
-  }
-  if (status === "in_review" || status === "reviewer_reviewing" || status === "not_cleared" || status === "blocked") {
+  if (status === "reviewer_reviewing" || status === "not_cleared") {
     return "requested";
   }
   if (status === "cleared_by_reviewer") {
@@ -117,7 +114,7 @@ export function buildNutritionReviewHistoryViewModel(input: {
       blockingFlags: review.blockingFlags,
       suggestedNextSteps: review.suggestedNextSteps,
       requestedAt: review.createdAt,
-      canAcknowledge: review.status === "requested" || review.status === "blocked" || review.status === "not_cleared",
+      canAcknowledge: review.status === "requested" || review.status === "not_cleared",
       canSelfClear: false
     })),
     historyEvents: [...input.reviewEvents]

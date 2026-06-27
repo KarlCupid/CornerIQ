@@ -53,6 +53,7 @@ export interface AthleteProfile {
   pronouns?: string | undefined;
   height: Height;
   currentBodyMass: Mass | null;
+  fatFreeMassKg?: number | undefined;
   preferredUnits: UnitSystem;
   boxingLevel: BoxingLevel;
   amateurOrPro: AmateurOrPro;
