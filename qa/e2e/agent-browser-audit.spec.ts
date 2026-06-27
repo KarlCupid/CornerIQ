@@ -809,7 +809,8 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Plan");
   await expectVisibleText(page, "Build phase");
   await expect(page.getByTestId("plan-hero-card")).toContainText("This Week's Plan");
-  await expect(page.getByTestId("plan-hero-card")).toContainText("This week's job");
+  await expect(page.getByTestId("plan-hero-card")).not.toContainText("This week's job");
+  await expect(page.getByTestId("plan-hero-card")).not.toContainText(/V2 compiler/i);
   await expect(page.getByTestId("plan-week-strip-card")).toContainText("This week");
   await expect(page.getByTestId("plan-upcoming-sessions-card")).toContainText("Next up");
   await expect(page.getByTestId("plan-details-collapsed")).toContainText("Plan details");

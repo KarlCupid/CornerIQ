@@ -4198,7 +4198,8 @@ describe("minimal app screens", () => {
 
     expect(state.viewModels.plan.dayPlans).toHaveLength(7);
     expect(output).toContain("This Week's Plan");
-    expect(output).toContain("This week's job");
+    expect(output).not.toContain("This week's job");
+    expect(output).not.toMatch(/\bV2 compiler\b/i);
     expect(output).toContain("plan-week-strip-card");
     expect(output).toContain("plan-week-color-legend");
     expect(output).toContain("plan-calendar-icons");

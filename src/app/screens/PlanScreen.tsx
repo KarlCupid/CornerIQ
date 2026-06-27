@@ -102,6 +102,14 @@ function friendlySupportText(value: string): string {
 
 function plainPlanCopy(value: string): string {
   return value
+    .replace(/\bexact V2 prescriptions?\b/gi, "clear app-session targets")
+    .replace(/\bV2 prescriptions?\b/gi, "app-session targets")
+    .replace(/\bstructured prescriptions?\b/gi, "workout details")
+    .replace(/\bV2 compiler\b/gi, "Plan")
+    .replace(/\bcompiler-generated\b/gi, "planned")
+    .replace(/\bcompiler-projected\b/gi, "planned")
+    .replace(/\bcompiler\b/gi, "plan")
+    .replace(/\bprescriptions?\b/gi, "workout details")
     .replace(new RegExp("support generation", "gi"), "planning")
     .replace(new RegExp("support-generation", "gi"), "planning")
     .replace(new RegExp("Generated " + "sessions", "g"), "App sessions")
@@ -410,22 +418,6 @@ function sessionIntensityLabel(day: PlanDay): string {
     return "Easy";
   }
   return "Moderate";
-}
-
-function trainingAim(viewModel: PlanViewModel): string {
-  const audit = viewModel.generationAudit;
-  const theme = audit?.athleteFacingThemePurpose ?? audit?.boxingDevelopmentTheme ?? viewModel.weekDevelopmentTheme;
-  const copy = firstSentence(theme || viewModel.athleteFacingWeekSummary || viewModel.weeklySummary);
-  if (copy) {
-    return copy.replace(/^main focus:\s*/i, "");
-  }
-  if (viewModel.modeLabel === "Recovery") {
-    return "Reduce fatigue while keeping skill work sharp.";
-  }
-  if (viewModel.modeLabel === "Fight camp") {
-    return "Improve repeatable conditioning without losing shape.";
-  }
-  return "Keep strength work useful without crowding boxing.";
 }
 
 function weekPlanSentence(viewModel: PlanViewModel): string {
@@ -988,23 +980,6 @@ function ThisWeeksPlanCard({
           onToggleCalendar={onToggleCalendar}
           viewModel={viewModel}
         />
-        <View
-          style={{
-            backgroundColor: planTint("green", "12"),
-            borderColor: planTint("green", "3D"),
-            borderRadius: radii.tile,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-        >
-          <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
-            This week's job
-          </Text>
-          <Text style={{ color: planPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>
-            {trainingAim(viewModel)}
-          </Text>
-        </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <PlanStatTile label="App sessions" tone="purple" value={`${viewModel.generatedSupportSessionCount}`} />
           <PlanStatTile label="Boxing you added" tone="green" value={fixedBoxingCount > 0 ? `${fixedBoxingCount}` : "None"} />

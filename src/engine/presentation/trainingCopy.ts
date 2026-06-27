@@ -121,6 +121,14 @@ const TITLE_REPLACEMENTS: readonly [RegExp, string][] = [
 ];
 
 const COPY_REPLACEMENTS: readonly [RegExp, string][] = [
+  [/\bexact V2 prescriptions?\b/gi, "clear app-session targets"],
+  [/\bV2 prescriptions?\b/gi, "app-session targets"],
+  [/\bstructured prescriptions?\b/gi, "workout details"],
+  [/\bV2 compiler\b/gi, "Plan"],
+  [/\bcompiler-generated\b/gi, "planned"],
+  [/\bcompiler-projected\b/gi, "planned"],
+  [/\bcompiler\b/gi, "plan"],
+  [/\bprescriptions?\b/gi, "workout details"],
   [/\bgenerated boxing training\b/gi, "support workout"],
   [/\bgenerated training\b/gi, "support workout"],
   [/\bgenerated support\b/gi, "support work"],
