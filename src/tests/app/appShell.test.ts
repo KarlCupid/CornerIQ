@@ -3397,6 +3397,86 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("This Week");
   });
 
+  it("TrainScreen shows feedback when Still open actions are pressed", async () => {
+    const { TrainScreen } = await import("../../app/screens/TrainScreen");
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const todayDetail = state.viewModels.train.detailedTodaySessions[0];
+    if (!todayDetail?.detail) {
+      throw new Error("missing detailed session fixture");
+    }
+    const looseEnd: TrainViewModel["workoutLooseEnds"][number] = {
+      allowedActions: ["Did it", "Skipped", "Move to today", "Leave unknown"],
+      duration: todayDetail.duration,
+      family: todayDetail.detail.family,
+      generatedSessionId: todayDetail.generatedSessionId,
+      intensity: todayDetail.intensity,
+      originalDate: "2026-05-18",
+      prompt: "Did this happen?",
+      sessionTypeLabel: "Support workout",
+      status: "unresolved_past",
+      title: todayDetail.title
+    };
+    const viewModel: TrainViewModel = {
+      ...state.viewModels.train,
+      workoutLooseEnds: [looseEnd]
+    };
+    const complete = vi.fn(async () => undefined);
+    const skip = vi.fn(async () => undefined);
+    const moveGeneratedSession = vi.fn(async () => ({
+      status: "applied" as const,
+      explanation: "Moved to today.",
+      modifiedDayPlans: [],
+      safetyFlags: [],
+      persistedAdjustmentPayload: {
+        command: {
+          type: "move_generated_session" as const,
+          sessionId: looseEnd.generatedSessionId,
+          fromDate: looseEnd.originalDate,
+          toDate: fixtureAsOfDate,
+          reason: "Test move request.",
+          requestedBy: "user" as const,
+          actor: { actorType: "athlete" as const, actorId: "test-athlete" },
+          createdAt: "2026-05-19T00:00:00.000Z"
+        }
+      }
+    }));
+    const renderer = render(
+      React.createElement(TrainScreen, {
+        adjustmentActions: { moveGeneratedSession },
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        completionActions: { complete, skip },
+        quickLogs: quickLogActions,
+        recentLogs: recentLogsViewModel,
+        viewModel
+      })
+    );
+
+    expect(JSON.stringify(renderer.toJSON())).toContain("Still open");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Did it"));
+    });
+    expect(complete).toHaveBeenCalledWith(todayDetail.detail, {
+      painNotes: [],
+      notes: "Completed from loose-end resolution.",
+      exerciseResults: []
+    });
+    expect(JSON.stringify(renderer.toJSON())).toContain("Marked completed.");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Move to today"));
+    });
+    expect(moveGeneratedSession).toHaveBeenCalledWith(looseEnd.generatedSessionId, looseEnd.originalDate, fixtureAsOfDate);
+    expect(JSON.stringify(renderer.toJSON())).toContain("Move requested. Today's plan will refresh with the latest engine decision.");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Leave unknown"));
+    });
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).not.toContain("Still open");
+    expect(output).toContain("left unknown. Missing data stays unknown, not completed.");
+  });
+
   it("TrainScreen delegates workout player launch and keeps resume controls outside the player", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });

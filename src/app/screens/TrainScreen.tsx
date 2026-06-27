@@ -420,7 +420,7 @@ function TrainPrimaryButton({
   tone = "purple"
 }: React.PropsWithChildren<{
   disabled?: boolean | undefined;
-  onPress?: (() => void) | undefined;
+  onPress?: (() => Promise<void> | void) | undefined;
   tone?: VisualTone | undefined;
 }>) {
   const toneColor = trainColorForTone(tone);
@@ -448,27 +448,37 @@ function TrainPrimaryButton({
 
 function TrainQuietButton({
   children,
+  disabled,
   expanded,
   onPress
 }: React.PropsWithChildren<{
+  disabled?: boolean | undefined;
   expanded?: boolean | undefined;
-  onPress?: (() => void) | undefined;
+  onPress?: (() => Promise<void> | void) | undefined;
 }>) {
+  const accessibilityState =
+    expanded === undefined && disabled === undefined
+      ? undefined
+      : {
+          ...(expanded === undefined ? {} : { expanded }),
+          ...(disabled === undefined ? {} : { disabled })
+        };
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={expanded === undefined ? undefined : { expanded }}
+      accessibilityState={accessibilityState}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         screenStyles.quietButton,
         {
-          backgroundColor: pressed ? trainPalette.controlFillPressed : trainPalette.controlFill,
-          borderColor: trainPalette.controlLine,
-          boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
+          backgroundColor: disabled ? "rgba(255, 255, 255, 0.07)" : pressed ? trainPalette.controlFillPressed : trainPalette.controlFill,
+          borderColor: disabled ? "rgba(255, 255, 255, 0.14)" : trainPalette.controlLine,
+          boxShadow: disabled ? "none" : "0 8px 22px rgba(0, 0, 0, 0.18)"
         }
       ]}
     >
-      <Text style={{ color: trainPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textBody, fontSize: 15, fontWeight: "700", lineHeight: 20, textAlign: "center" }}>
         {children}
       </Text>
     </Pressable>
@@ -557,6 +567,7 @@ function WorkoutLooseEndsCard({
   completionActions,
   detailsById,
   looseEnds,
+  onActionFeedback,
   onLeaveUnknown
 }: {
   adjustmentActions?: Pick<TrainingPlanAdjustmentActions, "moveGeneratedSession"> | undefined;
@@ -565,15 +576,46 @@ function WorkoutLooseEndsCard({
   completionActions?: WorkoutCompletionActions | undefined;
   detailsById: ReadonlyMap<string, DetailedTrainingSession>;
   looseEnds: TrainViewModel["workoutLooseEnds"];
+  onActionFeedback?: ((message: string | null) => void) | undefined;
   onLeaveUnknown: (sessionId: string) => void;
 }) {
+  const [pendingAction, setPendingAction] = React.useState<string | null>(null);
+  const [feedback, setFeedback] = React.useState<{ message: string; tone: VisualTone } | null>(null);
+  const looseEnd = looseEnds[0] ?? null;
+  React.useEffect(() => {
+    setFeedback(null);
+    setPendingAction(null);
+  }, [looseEnd?.generatedSessionId]);
+
   if (looseEnds.length === 0) {
     return null;
   }
-  const looseEnd = looseEnds[0]!;
+  if (!looseEnd) {
+    return null;
+  }
   const detail = detailsById.get(looseEnd.generatedSessionId) ?? null;
   const canResolve = Boolean(detail && completionActions);
   const canMove = Boolean(adjustmentActions && asOfDate);
+  const actionBusy = busy || pendingAction !== null;
+  const publishFeedback = (message: string, tone: VisualTone) => {
+    setFeedback({ message, tone });
+    onActionFeedback?.(message);
+  };
+  const runAction = async (actionName: string, action: () => Promise<string>): Promise<void> => {
+    if (actionBusy) {
+      return;
+    }
+    setPendingAction(actionName);
+    setFeedback(null);
+    onActionFeedback?.(null);
+    try {
+      publishFeedback(await action(), "green");
+    } catch (error) {
+      publishFeedback(error instanceof Error ? error.message : "That Still open update could not be saved.", "red");
+    } finally {
+      setPendingAction(null);
+    }
+  };
   return (
     <DashboardCard testID="train-loose-end-card" title="Still open">
       <View style={{ gap: spacing.md }}>
@@ -585,50 +627,73 @@ function WorkoutLooseEndsCard({
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
             <TrainPrimaryButton
-              disabled={busy || !canResolve}
-              onPress={() => {
+              disabled={actionBusy || !canResolve}
+              onPress={() => runAction("did", async () => {
                 if (!detail || !completionActions) {
-                  return;
+                  throw new Error("Workout details are unavailable, so this cannot be marked complete here.");
                 }
-                void completionActions.complete(detail, {
+                await completionActions.complete(detail, {
                   painNotes: [],
                   notes: "Completed from loose-end resolution.",
                   exerciseResults: []
                 });
-              }}
+                return "Marked completed. The Still open card will refresh after the engine reloads.";
+              })}
               tone="green"
             >
-              Did it
+              {pendingAction === "did" ? "Saving..." : "Did it"}
             </TrainPrimaryButton>
           </View>
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
             <TrainQuietButton
-              onPress={() => {
+              disabled={actionBusy || !canResolve}
+              onPress={() => runAction("skipped", async () => {
                 if (!detail || !completionActions || busy) {
-                  return;
+                  throw new Error("Workout details are unavailable, so this cannot be skipped here.");
                 }
-                void completionActions.skip(detail, "Skipped from loose-end resolution.");
-              }}
+                await completionActions.skip(detail, "Skipped from loose-end resolution.");
+                return "Marked skipped. The Still open card will refresh after the engine reloads.";
+              })}
             >
-              Skipped
+              {pendingAction === "skipped" ? "Saving..." : "Skipped"}
             </TrainQuietButton>
           </View>
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
             <TrainQuietButton
-              onPress={() => {
+              disabled={actionBusy || !canMove}
+              onPress={() => runAction("move", async () => {
                 if (!adjustmentActions || !asOfDate || busy) {
-                  return;
+                  throw new Error("Move is available after the plan and date are loaded.");
                 }
-                void adjustmentActions.moveGeneratedSession(looseEnd.generatedSessionId, looseEnd.originalDate, asOfDate);
-              }}
+                const result = await adjustmentActions.moveGeneratedSession(looseEnd.generatedSessionId, looseEnd.originalDate, asOfDate);
+                if (result.status === "rejected") {
+                  throw new Error(result.explanation);
+                }
+                return result.status === "needs_review"
+                  ? result.explanation || "Move needs review before today's plan changes."
+                  : "Move requested. Today's plan will refresh with the latest engine decision.";
+              })}
             >
-              Move to today
+              {pendingAction === "move" ? "Moving..." : "Move to today"}
             </TrainQuietButton>
           </View>
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
-            <TrainQuietButton onPress={() => onLeaveUnknown(looseEnd.generatedSessionId)}>Leave unknown</TrainQuietButton>
+            <TrainQuietButton
+              disabled={actionBusy}
+              onPress={() => {
+                if (actionBusy) {
+                  return;
+                }
+                const message = `${looseEnd.title} left unknown. Missing data stays unknown, not completed.`;
+                publishFeedback(message, "orange");
+                onLeaveUnknown(looseEnd.generatedSessionId);
+              }}
+            >
+              Leave unknown
+            </TrainQuietButton>
           </View>
         </View>
+        {feedback ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone(feedback.tone) }]}>{feedback.message}</Text> : null}
         {!canResolve ? <Text style={trainTextStyles.subtle}>Exercise details are unavailable for quick resolution. Move it or leave it unknown.</Text> : null}
         {!canMove ? <Text style={trainTextStyles.subtle}>Move is available after the plan and date are loaded.</Text> : null}
         {looseEnds.length > 1 ? <Text style={trainTextStyles.subtle}>{looseEnds.length - 1} more open workout{looseEnds.length === 2 ? "" : "s"} after this.</Text> : null}
@@ -1137,6 +1202,7 @@ export function TrainScreen({
 }: TrainScreenProps) {
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
   const [dismissedLooseEndIds, setDismissedLooseEndIds] = React.useState<ReadonlySet<string>>(new Set());
+  const [looseEndFeedbackMessage, setLooseEndFeedbackMessage] = React.useState<string | null>(null);
   const [controlledStartSessionIds, setControlledStartSessionIds] = React.useState<ReadonlySet<string>>(new Set());
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [planOpenRequestKey, setPlanOpenRequestKey] = React.useState(0);
@@ -1228,8 +1294,10 @@ export function TrainScreen({
         completionActions={completionActions}
         detailsById={detailsById}
         looseEnds={visibleLooseEnds}
+        onActionFeedback={setLooseEndFeedbackMessage}
         onLeaveUnknown={(sessionId) => setDismissedLooseEndIds((current) => new Set([...current, sessionId]))}
       />
+      {looseEndFeedbackMessage && visibleLooseEnds.length === 0 ? <Text testID="train-loose-end-feedback" style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{looseEndFeedbackMessage}</Text> : null}
       <ReadinessGateCard
         acknowledged={readinessGateAcknowledged}
         gate={viewModel.preSessionReadinessGate}

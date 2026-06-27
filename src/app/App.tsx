@@ -134,7 +134,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       busy={busy}
       cycleSymptomOptions={quickLogs.cycleSymptomOptions}
       generationStatus={generationStatus}
-      message={quickLogs.message ?? workoutCompletion.message ?? performance.message}
+      message={quickLogs.message ?? workoutCompletion.message ?? trainingPlanAdjustments.message ?? nextWeekPreviewActions.message ?? performance.message}
       onAcknowledgeNutritionSafetyReview={performance.acknowledgeNutritionSafetyReview}
       onDeleteRecurringProtectedAnchor={performance.deleteRecurringProtectedAnchor}
       onDeleteProtectedSession={performance.deleteProtectedSession}
