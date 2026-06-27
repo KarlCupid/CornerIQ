@@ -7,15 +7,15 @@ This file is the persistent QA memory for CornerIQ launch readiness. Update it a
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 2026-06-25 uncommitted worktree fix pass based on HEAD `2690e56aaa757286993b5ae7e2e54a353592528d` (`2690e56`). The QA scripts report the HEAD SHA; source, migration, and test changes in this worktree were verified before commit. |
-| Last QA run result | 2026-06-25 big-fix verification: profile availability and active plan support days are separated; equipment access is canonicalized; workout template selection and substitution now fail closed on unavailable equipment; generated-session slot/lifecycle reconciliation preserves moved dates, refuses completed/skipped resurrection, and excludes superseded/canceled rows from active generation. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:beta`, `cmd /c npm run qa:engine:review`, and `cmd /c npm run qa:agent:ci` passed. A first full `cmd /c npm test` rerun after the fix hit a single app-shell 5000 ms timeout; the focused test passed and the subsequent full ordered gate passed cleanly. Routine agent QA remained local-only. |
+| Last commit tested | 2026-06-26 local automated hardening pass based on HEAD `703916c6d514aed251e3750d57163b4e39d48214` (`703916c`). The QA scripts report the HEAD SHA; code, test, browser-audit, and doc changes in this worktree were verified before commit. |
+| Last QA run result | 2026-06-26 local / 2026-06-27 UTC automated hardening verification: WorkoutPlayer resume now preserves a persisted mid-step timer instead of resetting to the full step duration; revision-isolated active plan lifecycle coverage now rejects duplicate active plan intents/blocks and prevents new revisions from reusing superseded generated state; cleanup derived-state guardrail tests cover dry-run-first behavior and preservation of completed sessions/exercise results. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:production`, `cmd /c npm run preflight:beta`, and `cmd /c npm run qa:agent:ci` passed. Routine agent QA remained local-only. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
 | Current required-medium count | 3 AI/human review limitations remain explicitly tracked |
-| Next recommended action | Send `qa-artifacts/corneriq-agent-qa-bundle.zip` for AI qualitative review, then schedule physical iPhone and live Supabase/release-owner checks. Apply `20260625080657_generated_session_active_slot_reconciliation.sql` in the target Supabase project before relying on active-slot reconciliation there. |
+| Next recommended action | Send `qa-artifacts/corneriq-agent-qa-bundle.zip` for AI qualitative review, then schedule physical iPhone, live Supabase, and release-owner checks. Apple paid-build warnings for paywall/RevenueCat iOS env remain intentionally uncleared in this automated pass. |
 | Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -28,16 +28,16 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-25; npm reported dependencies up to date and 18 existing audit advisories (1 low, 17 moderate). |
-| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-25 directly, inside `quality`, and inside `qa:agent:ci`. |
-| tests | automated_pass | `cmd /c npm test` passed on 2026-06-25 after `npm install`; 734 tests passed and 1 skipped. A prior full-suite rerun hit one 5000 ms app-shell timeout; focused rerun passed, then the ordered full gate passed cleanly. |
-| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-25 directly and inside `qa:agent:ci`. |
-| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-25; embedded typecheck and tests passed with 734 tests passed and 1 skipped. |
+| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-26; npm reported dependencies up to date and 18 existing audit advisories (1 low, 17 moderate). |
+| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-26 directly, inside `quality`, and inside `qa:agent:ci`. |
+| tests | automated_pass | `cmd /c npm test` passed on 2026-06-26 after focused regression runs; 773 tests passed and 1 skipped. Coverage added for WorkoutPlayer resume timer, revision-isolated active lifecycle duplicates, new-revision stale state isolation, and cleanup/preflight guardrails. |
+| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-26 directly and inside `qa:agent:ci`. |
+| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-26; embedded typecheck and tests passed with 773 tests passed and 1 skipped. |
 | coverage | automated_pass | `cmd /c npm run test:coverage` passed on 2026-06-19; statements 90.22, functions 90.51, lines 90.22, branches 85.38. |
-| production preflight | automated_pass | `cmd /c npm run preflight:beta` passed on 2026-06-25; Apple paid-build warnings remain for paywall and RevenueCat iOS env values. |
+| production preflight | automated_pass | `cmd /c npm run preflight:production` and `cmd /c npm run preflight:beta` passed on 2026-06-26; revision-isolated lifecycle schema fragments are checked, and Apple paid-build warnings remain for paywall and RevenueCat iOS env values. |
 | GitHub Actions quality | human_review_required | Exact Quality run evidence is required for the pushed commit. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-25: static, typecheck, unit, lint, preflight, 10 Playwright browser tests, engine-output review, deterministic analysis, contact sheet, and 199-file bundle generation all passed. |
+| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-26: static checks (46 tests), typecheck, full unit suite (773 passed, 1 skipped), lint, production preflight, 10 Playwright browser tests, engine-output review, deterministic analysis, contact sheet, AI brief, and bundle generation all passed. |
 
 ### B. Auth and account
 
@@ -111,7 +111,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
 | no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
 | fast workout completion path | automated_pass | Train audit checks "Open workout" and "Log result" before optional exercise details. |
-| workout-player controls and resume expectation | automated_pass | The full-screen player no longer exposes a dead options button, and Train/player copy states that active follow-along resume is app-session scoped while discard/reload can lose progress. |
+| workout-player controls and resume expectation | automated_pass | The full-screen player no longer exposes a dead options button, and Train/player copy states that active follow-along resume is app-session scoped while discard/reload can lose progress. The 2026-06-26 automated hardening pass fixed and regression-tested mid-step resume so persisted `activeStepIndex`, `stepRemainingSeconds`, elapsed time, maps, RPE, notes, and status are restored without resetting the timer to full duration. |
 | session RPE flow | automated_pass | Train audit checks protected logging RPE mapping plus generated workout completion RPE 1-10. |
 | one exercise row completion | automated_pass | Train audit checks optional row inputs stay behind the secondary exercise-details disclosure. |
 | Progress visible | automated_pass | Train audit checks the default Progress section is compact with latest workout/key change only, and dense rows stay behind "Show details". |
@@ -207,9 +207,9 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| migrations aligned | human_review_required | New local migration `20260625080657_generated_session_active_slot_reconciliation.sql` was added on 2026-06-25. Remote Supabase alignment was not run in this local pass and must be verified before release. |
-| dry run up to date | human_review_required | Rerun remote `db push --dry-run` after applying/confirming migration `20260625080657_generated_session_active_slot_reconciliation.sql`. |
-| local clean migration apply | human_review_required | Not rerun in the 2026-06-25 local fix pass; new migration is an index-only migration and still needs clean local/remote migration evidence before release. |
+| migrations aligned | human_review_required | Remote Supabase alignment was not run in the 2026-06-26 automated hardening pass and must be verified before release. Local tests now cover revision-isolated active lifecycle behavior around duplicate active plan intents, duplicate active blocks for a user/plan revision, date lookup ambiguity, and avoiding superseded generated state when a new revision has no active block. |
+| dry run up to date | human_review_required | Rerun remote `db push --dry-run` after applying/confirming the current migration set, including `20260625080657_generated_session_active_slot_reconciliation.sql`, `20260626062900_revision_isolated_plan_lifecycle.sql`, and `20260626120000_outside_engine_workout_support.sql`. |
+| local clean migration apply | human_review_required | Not rerun in the 2026-06-26 local automated hardening pass; current migration set still needs clean local/remote migration evidence before release. |
 | local schema lint | automated_pass | `cmd /c npm exec supabase -- db lint --local --level error --fail-on error` passed on 2026-06-19 after local database startup. |
 | generated database types | automated_pass | `cmd /c npm exec supabase -- gen types typescript --local` passed on 2026-06-19 and generated types matched `src/services/supabase/database.types.ts`. |
 | live smoke passes | blocked | `cmd /c npm run smoke:live-db` ran with live env names present after remote migration alignment, but Supabase sign-in failed with `invalid_credentials`; the configured smoke email/password pair must sign in before this gate can pass. |

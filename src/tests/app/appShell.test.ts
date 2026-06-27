@@ -8,6 +8,7 @@ import type { AthleteJourneyRepositories } from "../../services/supabase/loadAth
 import type { PersistedTrainingNextWeekPreview } from "../../services/supabase/trainingNextWeekPreviewRepository";
 import type { CornerSupabaseClient } from "../../services/supabase/client";
 import type { createAuthService } from "../../services/supabase/authService";
+import type { DeviceKeyValueStorage } from "../../services/storage/deviceStorage";
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
 import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionFormDraft } from "../../hooks/useWorkoutCompletion";
@@ -1137,6 +1138,22 @@ function render(element: React.ReactElement): ReactTestRenderer {
     throw new Error("render failed");
   }
   return renderer;
+}
+
+function createTestDeviceStorage(): DeviceKeyValueStorage & { state: Map<string, string> } {
+  const state = new Map<string, string>();
+  return {
+    state,
+    async getItem(key) {
+      return state.get(key) ?? null;
+    },
+    async removeItem(key) {
+      state.delete(key);
+    },
+    async setItem(key, value) {
+      state.set(key, value);
+    }
+  };
 }
 
 type TestInstance = {
@@ -3744,6 +3761,82 @@ describe("minimal app screens", () => {
       expect(output).toContain("Movement ");
       expect(output).toContain("Shoulder circles forward");
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("WorkoutPlayer resumes persisted mid-step remaining time without resetting to full duration", async () => {
+    vi.useFakeTimers();
+    const { setDeviceStorageOverrideForTests } = await import("../../services/storage/deviceStorage");
+    const storage = createTestDeviceStorage();
+    setDeviceStorageOverrideForTests(storage);
+    try {
+      const { buildWorkoutPlayerTimeline } = await import("../../engine/presentation/workoutPlayerTimeline");
+      const { saveWorkoutPlayerState } = await import("../../services/workout/workoutPlayerPersistence");
+      const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
+      const session = workoutPlayerTestSession();
+      const timeline = buildWorkoutPlayerTimeline(session);
+      const restStepIndex = timeline.steps.findIndex((step) => step.exerciseId === "player_tempo_squat" && step.kind === "rest");
+      expect(restStepIndex).toBeGreaterThan(-1);
+      const fullStepSeconds = timeline.steps[restStepIndex]?.durationSeconds ?? 0;
+      expect(fullStepSeconds).toBeGreaterThan(17);
+
+      await saveWorkoutPlayerState({
+        activeStepIndex: restStepIndex,
+        completedSetMap: { player_tempo_squat: [0] },
+        elapsedSeconds: 83,
+        painFlagMap: { player_tempo_squat: true },
+        sessionId: session.generatedSessionId,
+        sessionRpe: "7",
+        skippedExerciseMap: {},
+        skippedWorkStepMap: {},
+        status: "active",
+        stepRemainingSeconds: 17,
+        substitutionMap: {
+          player_tempo_squat: {
+            exerciseId: "player_chair_squat",
+            name: "Chair squat",
+            reason: "Use when depth or equipment is limited.",
+            equipmentNeeded: [],
+            loadGuidance: "Bodyweight only.",
+            coachingNotes: ["Sit lightly, then stand tall."]
+          }
+        },
+        touchedExerciseMap: { player_tempo_squat: true },
+        updatedAt: "2026-06-26T12:00:00.000Z",
+        notes: "Keep breathing steady."
+      });
+
+      const renderer = render(
+        React.createElement(WorkoutPlayer, {
+          busy: false,
+          completionActions: { complete: vi.fn(), skip: vi.fn() },
+          onClose: vi.fn(),
+          onDiscard: vi.fn(),
+          session
+        })
+      );
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(JSON.stringify(renderer.toJSON())).toContain("Saved workout found");
+      await act(async () => {
+        await press(pressableWithText(renderer, "Resume workout"));
+      });
+      let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Rest");
+      expect(output).toContain("0:17");
+      expect(output).toContain("Pause");
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("0:16");
+    } finally {
+      setDeviceStorageOverrideForTests(undefined);
       vi.useRealTimers();
     }
   });

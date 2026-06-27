@@ -329,9 +329,10 @@ describe("agent browser QA static checks", () => {
       "today-screen",
       "fuel-overview",
       "train-today-plan-card",
-      "train-quick-stats",
+      "train-compact-stats",
+      "plan-hero-card",
       "plan-roadmap",
-      "plan-this-weeks-plan-card",
+      "plan-week-strip-card",
       "plan-detail-rows",
       "profile-safety-section",
       "profile-data-section"

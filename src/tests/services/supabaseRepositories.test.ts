@@ -467,6 +467,123 @@ function createGeneratedSessionSlotPersistenceClient(existing: {
   return { calls, client: client as unknown as CornerSupabaseClient, inserted, updated, upserted };
 }
 
+function trainingBlockRow(input: { id: string; planRevisionId: string; startDate?: string; endDate?: string; updatedAt?: string }) {
+  const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+  const block = {
+    ...state.training.activeBlock,
+    id: input.id,
+    athleteId: "user_1",
+    planRevisionId: input.planRevisionId,
+    startDate: input.startDate ?? "2026-05-18",
+    endDate: input.endDate ?? "2026-06-14"
+  };
+  return {
+    id: input.id,
+    user_id: "user_1",
+    block_key: `block:user_1:${input.planRevisionId}`,
+    status: "active",
+    plan_revision_id: input.planRevisionId,
+    input_hash: "input_hash",
+    output_hash: "output_hash",
+    block_payload: block as unknown as Json,
+    created_at: "2026-05-18T00:00:00.000Z",
+    updated_at: input.updatedAt ?? "2026-05-18T00:00:00.000Z"
+  };
+}
+
+function createTrainingBlockUpsertClient(existingRows: readonly { id: string; input_hash: string; output_hash: string }[]) {
+  const calls: { method: string; table?: string; column?: string; value?: unknown; options?: unknown }[] = [];
+  const inserted: { table: string; record: unknown }[] = [];
+  const updated: { table: string; record: unknown }[] = [];
+  const selectQuery = {
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return selectQuery;
+    },
+    order(column: string, options?: unknown) {
+      calls.push({ method: "order", column, options });
+      return Promise.resolve({ data: existingRows, error: null });
+    }
+  };
+  const mutationQuery = (id: string, supersedeRows: readonly { id: string }[] | null) => ({
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return mutationQuery(id, supersedeRows);
+    },
+    neq(column: string, value: unknown) {
+      calls.push({ method: "neq", column, value });
+      return mutationQuery(id, supersedeRows);
+    },
+    select(column: string) {
+      calls.push({ method: "select", column });
+      return supersedeRows
+        ? Promise.resolve({ data: supersedeRows, error: null })
+        : {
+            single: async () => ({ data: { id }, error: null })
+          };
+    }
+  });
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", table });
+      return {
+        select(column: string) {
+          calls.push({ method: "select", column });
+          return selectQuery;
+        },
+        update(record: unknown) {
+          updated.push({ table, record });
+          const isSupersede = (record as { status?: string }).status === "superseded";
+          return mutationQuery(isSupersede ? "superseded_block_1" : existingRows[0]?.id ?? `${table}_updated`, isSupersede ? [{ id: "superseded_block_1" }] : null);
+        },
+        insert(record: unknown) {
+          inserted.push({ table, record });
+          return mutationQuery(`${table}_inserted`, null);
+        }
+      };
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient, inserted, updated };
+}
+
+function createTrainingBlockDateLookupClient(rows: readonly ReturnType<typeof trainingBlockRow>[]) {
+  const calls: { method: string; table?: string; column?: string; value?: unknown; options?: unknown }[] = [];
+  const query = {
+    eq(column: string, value: unknown) {
+      calls.push({ method: "eq", column, value });
+      return query;
+    },
+    lte(column: string, value: unknown) {
+      calls.push({ method: "lte", column, value });
+      return query;
+    },
+    gte(column: string, value: unknown) {
+      calls.push({ method: "gte", column, value });
+      return query;
+    },
+    order(column: string, options?: unknown) {
+      calls.push({ method: "order", column, options });
+      return query;
+    },
+    limit(value: unknown) {
+      calls.push({ method: "limit", value });
+      return Promise.resolve({ data: rows, error: null });
+    }
+  };
+  const client = {
+    from(table: string) {
+      calls.push({ method: "from", table });
+      return {
+        select(column: string) {
+          calls.push({ method: "select", column });
+          return query;
+        }
+      };
+    }
+  };
+  return { calls, client: client as unknown as CornerSupabaseClient };
+}
+
 function planGenerationIntent(overrides: Partial<PlanGenerationIntent> = {}): PlanGenerationIntent {
   return {
     id: "plan_strength_week_1",
@@ -1261,6 +1378,15 @@ describe("Supabase repositories", () => {
     });
   });
 
+  it("trainingPlanIntentRepository rejects duplicate active plan intents instead of choosing one", async () => {
+    const older = trainingPlanIntentRow(planGenerationIntent({ id: "plan_old_active", requestedAt: "2026-05-19T08:00:00.000Z" }));
+    const newer = trainingPlanIntentRow(planGenerationIntent({ id: "plan_new_active", requestedAt: "2026-05-19T10:00:00.000Z" }));
+    const { calls, client } = createTrainingPlanIntentClient([newer, older]);
+
+    await expect(createTrainingPlanIntentRepository(client).getActivePlanIntent("user_1")).rejects.toThrow("multiple active plan intents match the user");
+    expect(calls).toEqual(expect.arrayContaining([{ method: "limit", value: 2 }]));
+  });
+
   it("active risk flag reads drop stale engine projections but keep current and external active rules", async () => {
     const stale = createRiskFlag("readiness", "fainting", "critical", "Old fainting was logged.", { date: "2026-05-01" }, true);
     const current = createRiskFlag("readiness", "severe_dizziness", "critical", "Current dizziness was logged.", { date: fixtureAsOfDate }, true);
@@ -1863,6 +1989,98 @@ describe("Supabase repositories", () => {
     expect(mapped.updatedAt).toBe("2026-05-20T02:49:34.495Z");
   });
 
+  it("trainingBlockRepository inserts a revision-scoped active block and supersedes other active blocks", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const block = {
+      ...state.training.activeBlock,
+      athleteId: "user_1",
+      planRevisionId: "plan_revision_new"
+    };
+    const { calls, client, inserted, updated } = createTrainingBlockUpsertClient([]);
+
+    const result = await createTrainingBlockRepository(client).upsertActiveTrainingBlock({
+      userId: "user_1",
+      block,
+      inputHash: "input_new",
+      outputHash: "output_new"
+    });
+
+    expect(result).toEqual({
+      id: "training_blocks_inserted",
+      blockKey: "block:user_1:plan_revision_new",
+      lifecycle: "superseded_previous"
+    });
+    expect(inserted).toEqual([
+      expect.objectContaining({
+        table: "training_blocks",
+        record: expect.objectContaining({
+          user_id: "user_1",
+          block_key: "block:user_1:plan_revision_new",
+          plan_revision_id: "plan_revision_new",
+          status: "active"
+        })
+      })
+    ]);
+    expect(updated).toEqual([
+      expect.objectContaining({
+        table: "training_blocks",
+        record: expect.objectContaining({
+          status: "superseded",
+          superseded_by: "training_blocks_inserted"
+        })
+      })
+    ]);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "eq", column: "user_id", value: "user_1" },
+        { method: "eq", column: "block_key", value: "block:user_1:plan_revision_new" },
+        { method: "eq", column: "status", value: "active" },
+        { method: "neq", column: "id", value: "training_blocks_inserted" }
+      ])
+    );
+  });
+
+  it("trainingBlockRepository rejects duplicate active blocks for the same plan revision key", async () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const block = {
+      ...state.training.activeBlock,
+      athleteId: "user_1",
+      planRevisionId: "plan_revision_duplicate"
+    };
+    const { client, inserted, updated } = createTrainingBlockUpsertClient([
+      { id: "training_block_a", input_hash: "input_a", output_hash: "output_a" },
+      { id: "training_block_b", input_hash: "input_b", output_hash: "output_b" }
+    ]);
+
+    await expect(
+      createTrainingBlockRepository(client).upsertActiveTrainingBlock({
+        userId: "user_1",
+        block,
+        inputHash: "input_new",
+        outputHash: "output_new"
+      })
+    ).rejects.toThrow("multiple active blocks share the same revision key");
+    expect(inserted).toEqual([]);
+    expect(updated).toEqual([]);
+  });
+
+  it("trainingBlockRepository date lookup rejects duplicate active blocks instead of choosing one", async () => {
+    const { calls, client } = createTrainingBlockDateLookupClient([
+      trainingBlockRow({ id: "training_block_newer", planRevisionId: "plan_revision_active", updatedAt: "2026-05-19T00:00:00.000Z" }),
+      trainingBlockRow({ id: "training_block_older", planRevisionId: "plan_revision_active", updatedAt: "2026-05-18T00:00:00.000Z" })
+    ]);
+
+    await expect(createTrainingBlockRepository(client).getActiveTrainingBlockForDate("user_1", fixtureAsOfDate, "plan_revision_active")).rejects.toThrow(
+      "multiple active blocks match the active plan revision"
+    );
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { method: "eq", column: "plan_revision_id", value: "plan_revision_active" },
+        { method: "limit", value: 2 }
+      ])
+    );
+  });
+
   it("trainingProgressionRepository persists typed weekly summaries, decisions, timeline events, and latest week index", () => {
     const source = readFileSync("src/services/supabase/trainingProgressionRepository.ts", "utf8");
 
@@ -2143,6 +2361,59 @@ describe("Supabase repositories", () => {
       const resolved = resolvePerformanceState({ journey: result.journey, asOfDate: fixtureAsOfDate });
       expect(resolved.training.planGenerationIntent?.id).toBe(persistedIntent.id);
       expect(resolved.training.planGenerationIntent?.primaryFocus).toBe("conditioning");
+    }
+  });
+
+  it("loadAthleteJourney does not reuse superseded generated state when a new revision has no active block", async () => {
+    const repositories = createJourneyRepositories();
+    const activeIntent = planGenerationIntent({
+      id: "plan_revision_current",
+      primaryFocus: "conditioning",
+      requestedAt: "2026-05-20T08:00:00.000Z"
+    });
+    const supersededIntent = planGenerationIntent({
+      id: "plan_revision_superseded",
+      primaryFocus: "strength",
+      requestedAt: "2026-05-19T08:00:00.000Z"
+    });
+    repositories.trainingPlanIntent = {
+      upsertPlanIntent: vi.fn(),
+      getActivePlanIntent: vi.fn(async () => ({
+        ...activeIntent,
+        rowId: "plan_intent_row_current",
+        planRevisionId: activeIntent.id,
+        createdAt: activeIntent.requestedAt,
+        updatedAt: activeIntent.requestedAt
+      })),
+      listPlanIntents: vi.fn(),
+      supersedePlanIntent: vi.fn()
+    } as NonNullable<AthleteJourneyRepositories["trainingPlanIntent"]>;
+    repositories.journey.listEvents = vi.fn(async () => [
+      {
+        id: "superseded_plan_event",
+        type: "BuildPhaseStarted",
+        occurredAt: supersededIntent.requestedAt,
+        payload: {
+          source: "plan_wizard_new_plan",
+          planGenerationIntent: supersededIntent
+        }
+      }
+    ] as never);
+    repositories.trainingBlock.getActiveTrainingBlockForDate = vi.fn(async () => null);
+    repositories.training.listGeneratedSessions = vi.fn(async () => {
+      throw new Error("superseded generated sessions should not be loaded without a current active block");
+    });
+
+    const result = await loadAthleteJourney({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(repositories.trainingBlock.getActiveTrainingBlockForDate).toHaveBeenCalledWith("user_1", fixtureAsOfDate, activeIntent.id);
+    expect(repositories.training.listGeneratedSessions).not.toHaveBeenCalled();
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.journey.activeTrainingBlock).toBeNull();
+      expect(result.journey.trainingHistory).toEqual([]);
+      const resolved = resolvePerformanceState({ journey: result.journey, asOfDate: fixtureAsOfDate });
+      expect(resolved.training.planGenerationIntent?.id).toBe(activeIntent.id);
     }
   });
 

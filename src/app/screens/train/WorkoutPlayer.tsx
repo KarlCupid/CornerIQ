@@ -1249,6 +1249,7 @@ export function WorkoutPlayer({
   const [discardConfirm, setDiscardConfirm] = React.useState(false);
   const [skipConfirm, setSkipConfirm] = React.useState(false);
   const [resumeState, setResumeState] = React.useState<PersistedWorkoutPlayerState | null>(null);
+  const restoredStepTimerIndexRef = React.useRef<number | null>(null);
   const activeStepIndexRef = React.useRef(activeStepIndex);
   activeStepIndexRef.current = activeStepIndex;
 
@@ -1297,6 +1298,11 @@ export function WorkoutPlayer({
   }, [onStatusChange, status]);
 
   React.useEffect(() => {
+    if (restoredStepTimerIndexRef.current === activeStepIndex) {
+      restoredStepTimerIndexRef.current = null;
+      return;
+    }
+    restoredStepTimerIndexRef.current = null;
     setStepRemainingSeconds(timeline.steps[activeStepIndex]?.durationSeconds ?? 0);
   }, [activeStepIndex, timeline.steps]);
 
@@ -1476,6 +1482,9 @@ export function WorkoutPlayer({
 
   const restoreWorkoutState = (persisted: PersistedWorkoutPlayerState) => {
     const nextIndex = clampIndex(persisted.activeStepIndex, steps.length - 1);
+    if (nextIndex !== activeStepIndex) {
+      restoredStepTimerIndexRef.current = nextIndex;
+    }
     setActiveStepIndex(nextIndex);
     setStepRemainingSeconds(Math.max(0, Math.min(persisted.stepRemainingSeconds, steps[nextIndex]?.durationSeconds ?? persisted.stepRemainingSeconds)));
     setElapsedSeconds(persisted.elapsedSeconds);

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PlanGenerationIntent, PlanGenerationPrimaryFocus } from "../../engine/training/types";
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow, TableUpdate } from "./repositoryTypes";
-import { RepositoryError, assertUserId, parseWithSchema, payloadObject, readDataOrThrow, readMaybeDataOrThrow, toJson } from "./repositoryTypes";
+import { RepositoryError, assertUserId, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
 const SupportWeekdaySchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const PlanGenerationIntentPayloadSchema = z.object({
@@ -171,10 +171,12 @@ export function createTrainingPlanIntentRepository(client: CornerSupabaseClient)
         .eq("user_id", safeUserId)
         .eq("status", "active")
         .order("requested_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const row = readMaybeDataOrThrow(response, "training_plan_intents.getActivePlanIntent");
-      return row ? mapTrainingPlanIntentRow(row) : null;
+        .limit(2);
+      const rows = readDataOrThrow(response, "training_plan_intents.getActivePlanIntent");
+      if (rows.length > 1) {
+        throw new Error("training_plan_intents.getActivePlanIntent: multiple active plan intents match the user");
+      }
+      return rows[0] ? mapTrainingPlanIntentRow(rows[0]) : null;
     },
 
     async listPlanIntents(userId: string): Promise<PersistedTrainingPlanIntent[]> {
