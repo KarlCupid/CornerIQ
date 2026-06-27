@@ -1,7 +1,23 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View, type ImageSourcePropType, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import agilityLadderIcon from "../../../assets/plan-calendar-icons/agility-ladder.png";
+import barbellIcon from "../../../assets/plan-calendar-icons/barbell.png";
+import boxingGlovesIcon from "../../../assets/plan-calendar-icons/boxing-gloves.png";
+import coreIcon from "../../../assets/plan-calendar-icons/core.png";
+import focusMittsIcon from "../../../assets/plan-calendar-icons/focus-mitts.png";
+import heartRateIcon from "../../../assets/plan-calendar-icons/heart-rate.png";
+import heavyBagIcon from "../../../assets/plan-calendar-icons/heavy-bag.png";
+import highIntensityIcon from "../../../assets/plan-calendar-icons/high-intensity.png";
+import hydrationIcon from "../../../assets/plan-calendar-icons/hydration.png";
+import jumpRopeIcon from "../../../assets/plan-calendar-icons/jump-rope.png";
+import kettlebellIcon from "../../../assets/plan-calendar-icons/kettlebell.png";
+import mobilityIcon from "../../../assets/plan-calendar-icons/mobility.png";
+import recoveryNightIcon from "../../../assets/plan-calendar-icons/recovery-night.png";
+import runningShoeIcon from "../../../assets/plan-calendar-icons/running-shoe.png";
+import sparringIcon from "../../../assets/plan-calendar-icons/sparring.png";
+import stopwatchIcon from "../../../assets/plan-calendar-icons/stopwatch.png";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
@@ -50,6 +66,27 @@ type PlanActiveWorkspace =
   | "plan_details";
 
 const ACTIVE_NEXT_WEEK_STATUS = "mater" + "ialized";
+
+const planCalendarIcons = {
+  agilityLadder: agilityLadderIcon,
+  barbell: barbellIcon,
+  boxingGloves: boxingGlovesIcon,
+  core: coreIcon,
+  focusMitts: focusMittsIcon,
+  heartRate: heartRateIcon,
+  heavyBag: heavyBagIcon,
+  highIntensity: highIntensityIcon,
+  hydration: hydrationIcon,
+  jumpRope: jumpRopeIcon,
+  kettlebell: kettlebellIcon,
+  mobility: mobilityIcon,
+  recoveryNight: recoveryNightIcon,
+  runningShoe: runningShoeIcon,
+  sparring: sparringIcon,
+  stopwatch: stopwatchIcon
+} satisfies Record<string, ImageSourcePropType>;
+
+type PlanCalendarIconName = keyof typeof planCalendarIcons;
 
 function compactCount(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
@@ -115,6 +152,7 @@ function friendlyCompactTag(tag: "Protected" | "Support" | "Recovery" | "Open"):
 }
 
 type PlanDay = PlanViewModel["dayPlans"][number];
+type PreviewPlanDay = PlanViewModel["nextWeekPreview"]["dayPlanPreview"][number];
 
 function firstSentence(value: string | null | undefined): string {
   const copy = plainPlanRiskCopy(value ?? "").trim();
@@ -183,6 +221,140 @@ function toneForPlanDay(day: PlanDay): PlanTone {
     return "green";
   }
   return "muted";
+}
+
+function toneForPreviewPlanDay(day: PreviewPlanDay): PlanTone {
+  const summary = `${day.compactSummary} ${day.marker}`.toLowerCase();
+  if (/fight|bout|competition|hard/.test(summary) || day.fuelDemand === "high") {
+    return "orange";
+  }
+  if (day.compactTag === "Protected") {
+    return "gold";
+  }
+  if (day.compactTag === "Support") {
+    return "purple";
+  }
+  if (day.compactTag === "Recovery") {
+    return "green";
+  }
+  return "muted";
+}
+
+function planDayLoadWidth(compactTag: PlanDay["compactTag"], metric: string, fuelDemand?: "low" | "moderate" | "high" | undefined): ViewStyle["width"] {
+  if (compactTag === "Open") {
+    return "12%";
+  }
+  if (metric === "Hard" || fuelDemand === "high") {
+    return "88%";
+  }
+  if (compactTag === "Recovery") {
+    return "38%";
+  }
+  return "56%";
+}
+
+function calendarIconNameFromParts({
+  compactTag,
+  fuelDemand,
+  summary
+}: {
+  compactTag: PlanDay["compactTag"];
+  fuelDemand: "low" | "moderate" | "high";
+  summary: string;
+}): PlanCalendarIconName {
+  const copy = summary.toLowerCase();
+  if (/hydr|water/.test(copy)) {
+    return "hydration";
+  }
+  if (/spar|fight|bout/.test(copy)) {
+    return "sparring";
+  }
+  if (/mitt|pad/.test(copy)) {
+    return "focusMitts";
+  }
+  if (/bag/.test(copy)) {
+    return "heavyBag";
+  }
+  if (compactTag === "Protected") {
+    return "boxingGloves";
+  }
+  if (/agility|ladder|footwork|coordination/.test(copy)) {
+    return "agilityLadder";
+  }
+  if (/rope|skip/.test(copy)) {
+    return "jumpRope";
+  }
+  if (/road|run|aerobic|tempo|condition|conditioning/.test(copy)) {
+    return "runningShoe";
+  }
+  if (/core|trunk|brace|rotation|anti-rotation/.test(copy)) {
+    return "core";
+  }
+  if (/kettle/.test(copy)) {
+    return "kettlebell";
+  }
+  if (/strength|lift|squat|hinge|deadlift|press|pull/.test(copy)) {
+    return "barbell";
+  }
+  if (fuelDemand === "high" || /hard|interval|power|speed/.test(copy)) {
+    return "highIntensity";
+  }
+  if (/readiness|heart|pulse/.test(copy)) {
+    return "heartRate";
+  }
+  if (/mobility|stretch|range/.test(copy)) {
+    return "mobility";
+  }
+  if (compactTag === "Recovery") {
+    return "recoveryNight";
+  }
+  if (compactTag === "Support") {
+    return "stopwatch";
+  }
+  return "recoveryNight";
+}
+
+function iconForPlanDay(day: PlanDay): PlanCalendarIconName {
+  return calendarIconNameFromParts({
+    compactTag: day.compactTag,
+    fuelDemand: day.fuelDemand,
+    summary: [
+      day.compactSummary,
+      day.marker,
+      day.workSummary?.title,
+      day.workSummary?.detail,
+      day.workSummary?.aim,
+      day.protectedAnchors,
+      day.generatedSupport
+    ].filter(Boolean).join(" ")
+  });
+}
+
+function iconForPreviewPlanDay(day: PreviewPlanDay): PlanCalendarIconName {
+  return calendarIconNameFromParts({
+    compactTag: day.compactTag,
+    fuelDemand: day.fuelDemand,
+    summary: [day.compactSummary, day.marker, day.protectedAnchors, day.generatedSupport, day.explanation].join(" ")
+  });
+}
+
+function PlanCalendarIcon({
+  color,
+  name,
+  size = 34
+}: {
+  color: string;
+  name: PlanCalendarIconName;
+  size?: number | undefined;
+}) {
+  return (
+    <Image
+      accessibilityIgnoresInvertColors
+      resizeMode="contain"
+      source={planCalendarIcons[name]}
+      style={{ height: size, tintColor: color, width: size }}
+    />
+  );
 }
 
 function dayTypeLabel(day: PlanDay): string {
@@ -410,19 +582,7 @@ function GeneratedSupportSummaryCard({
           <Text style={planTextStyles.body}>{preview.goal}</Text>
           <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
           {preview.requiresReview ? <Text style={planTextStyles.subtle}>Health warnings need review before this plan can start.</Text> : null}
-          {preview.dayPlanPreview.map((day) => (
-            <View key={`next-preview:${day.date}`} style={{ gap: spacing.xs }}>
-              <Text style={planTextStyles.fieldLabel}>{day.date}</Text>
-              <Text style={planTextStyles.body}>{day.compactSummary}</Text>
-              <Text style={planTextStyles.subtle}>{friendlyCompactTag(day.compactTag)} / {day.compactMetric}</Text>
-            </View>
-          ))}
-          {preview.safetyNotes.map((note, index) => <Text key={`next-week-safety:${index}`} style={planTextStyles.subtle}>Review: {plainPlanRiskCopy(note)}</Text>)}
-          {preview.materializedGeneratedSessions.map((session) => (
-            <Text key={session.id} style={planTextStyles.subtle}>
-              Active next week: {session.date} - {session.title} ({session.durationMinutes} min)
-            </Text>
-          ))}
+          <NextWeekCalendarGrid viewModel={viewModel} />
         </DetailsToggle>
       </View>
     </EngineCard>
@@ -780,13 +940,23 @@ function WeekReviewStrip({ viewModel }: { viewModel: PlanViewModel }) {
 
 function ThisWeeksPlanCard({
   busy,
+  calendarOpen,
+  nextWeekActionsAvailable,
+  onAcceptPreview,
   onChangeGoal,
   onPreviewNextWeek,
+  onStartNextWeekPlan,
+  onToggleCalendar,
   viewModel
 }: {
   busy: boolean;
+  calendarOpen: boolean;
+  nextWeekActionsAvailable: boolean;
+  onAcceptPreview: () => void;
   onChangeGoal: () => void;
   onPreviewNextWeek: () => void;
+  onStartNextWeekPlan: () => void;
+  onToggleCalendar: () => void;
   viewModel: PlanViewModel;
 }) {
   const fixedBoxingCount = viewModel.weeklyAnchors.length + viewModel.fixedSchedule.length;
@@ -808,6 +978,16 @@ function ThisWeeksPlanCard({
           </View>
         </View>
         <WeekReviewStrip viewModel={viewModel} />
+        <PlanWeekTicker
+          busy={busy}
+          calendarOpen={calendarOpen}
+          nextWeekActionsAvailable={nextWeekActionsAvailable}
+          onAcceptPreview={onAcceptPreview}
+          onPreviewNextWeek={onPreviewNextWeek}
+          onStartNextWeekPlan={onStartNextWeekPlan}
+          onToggleCalendar={onToggleCalendar}
+          viewModel={viewModel}
+        />
         <View
           style={{
             backgroundColor: planTint("green", "12"),
@@ -845,6 +1025,7 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
       {days.map((day) => {
         const tone = toneForPlanDay(day);
         const color = planToneColors[tone];
+        const metric = dayMetricLabel(day);
         return (
           <View
             key={`plan-week-day:${day.date}`}
@@ -855,7 +1036,7 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
               flex: 1,
               gap: spacing.xs,
               justifyContent: "space-between",
-              minHeight: 88,
+              minHeight: 98,
               minWidth: 0,
               paddingHorizontal: 5,
               paddingVertical: spacing.sm
@@ -864,14 +1045,26 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
             <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
               {weekdayLabelFromDate(day.date, day.label)}
             </Text>
-            <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 10, fontWeight: "900", lineHeight: 13, textAlign: "center" }}>
-              {dayTypeLabel(day)}
-            </Text>
+            <View
+              accessibilityLabel={`${weekdayLabelFromDate(day.date, day.label)} ${dayTypeLabel(day)} ${metric}`}
+              style={{
+                alignItems: "center",
+                backgroundColor: tone === "muted" ? "rgba(255, 255, 255, 0.06)" : planTint(tone, "18"),
+                borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "36"),
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                height: 38,
+                justifyContent: "center",
+                width: "100%"
+              }}
+            >
+              <PlanCalendarIcon color={color} name={iconForPlanDay(day)} size={27} />
+            </View>
             <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[planTextStyles.subtle, { fontSize: 10, lineHeight: 12, textAlign: "center" }]}>
-              {dayMetricLabel(day)}
+              {metric}
             </Text>
             <View style={{ backgroundColor: planPalette.controlLine, borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
-              <View style={{ backgroundColor: color, height: "100%", width: day.compactTag === "Open" ? "12%" : dayMetricLabel(day) === "Hard" ? "88%" : "56%" }} />
+              <View style={{ backgroundColor: color, height: "100%", width: planDayLoadWidth(day.compactTag, metric, day.fuelDemand) }} />
             </View>
           </View>
         );
@@ -880,14 +1073,264 @@ function WeekAtAGlanceContent({ viewModel }: { viewModel: PlanViewModel }) {
   );
 }
 
-function WeekAtAGlanceCard({ viewModel }: { viewModel: PlanViewModel }) {
+function PlanCalendarDayTile({
+  date,
+  detail,
+  iconName,
+  loadWidth,
+  metric,
+  summary,
+  tone,
+  typeLabel
+}: {
+  date: string;
+  detail: string;
+  iconName: PlanCalendarIconName;
+  loadWidth: ViewStyle["width"];
+  metric: string;
+  summary: string;
+  tone: PlanTone;
+  typeLabel: string;
+}) {
+  const color = planToneColors[tone];
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="plan-week-strip-card">
-        <Text style={planTextStyles.sectionTitle}>This week</Text>
-        <WeekAtAGlanceContent viewModel={viewModel} />
+    <View
+      style={{
+        backgroundColor: tone === "muted" ? planPalette.controlFill : planTint(tone, "10"),
+        borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "3D"),
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexBasis: 132,
+        flexGrow: 1,
+        gap: spacing.sm,
+        minHeight: 142,
+        padding: spacing.md
+      }}
+    >
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.xs, justifyContent: "space-between" }}>
+        <Text numberOfLines={1} style={{ color, flex: 1, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+          {date}
+        </Text>
+        <View
+          accessibilityLabel={`${date} ${typeLabel} ${metric}`}
+          style={{
+            alignItems: "center",
+            backgroundColor: tone === "muted" ? "rgba(255, 255, 255, 0.06)" : planTint(tone, "18"),
+            borderColor: tone === "muted" ? planPalette.controlLine : planTint(tone, "3D"),
+            borderRadius: radii.pill,
+            borderWidth: 1,
+            height: 46,
+            justifyContent: "center",
+            width: 46
+          }}
+        >
+          <PlanCalendarIcon color={color} name={iconName} size={32} />
+        </View>
       </View>
-    </EngineCard>
+      <Text numberOfLines={2} style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 19 }}>
+        {summary}
+      </Text>
+      <Text numberOfLines={2} style={planTextStyles.subtle}>
+        {detail}
+      </Text>
+      <View style={{ backgroundColor: planPalette.controlLine, borderRadius: radii.pill, height: 7, marginTop: "auto", overflow: "hidden" }}>
+        <View style={{ backgroundColor: color, height: "100%", width: loadWidth }} />
+      </View>
+    </View>
+  );
+}
+
+function ThisWeekCalendarGrid({ viewModel }: { viewModel: PlanViewModel }) {
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="plan-calendar-this-week">
+      {sortedPlanDays(viewModel).slice(0, 7).map((day) => {
+        const tone = toneForPlanDay(day);
+        return (
+          <PlanCalendarDayTile
+            key={`calendar-this-week:${day.date}`}
+            date={shortDateLabel(day.date)}
+            detail={plainPlanCopy(day.workSummary?.detail ?? `${friendlyCompactTag(day.compactTag)} / ${dayMetricLabel(day)}`)}
+            iconName={iconForPlanDay(day)}
+            loadWidth={planDayLoadWidth(day.compactTag, dayMetricLabel(day), day.fuelDemand)}
+            metric={dayMetricLabel(day)}
+            summary={plainPlanCopy(day.workSummary?.title ?? day.compactSummary)}
+            tone={tone}
+            typeLabel={dayTypeLabel(day)}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function NextWeekCalendarGrid({ viewModel }: { viewModel: PlanViewModel }) {
+  const preview = viewModel.nextWeekPreview;
+  return (
+    <View style={{ gap: spacing.sm }} testID="plan-calendar-next-week">
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+          <Text style={planTextStyles.sectionTitle}>Next week preview</Text>
+          <Text style={planTextStyles.body}>{plainPlanCopy(preview.goal)}</Text>
+        </View>
+        <PlanTonePill label={previewStatusCopy(viewModel).label} tone={previewStatusCopy(viewModel).tone} />
+      </View>
+      <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(previewStatusCopy(viewModel).summary)}</Text>
+      {preview.actionCopy ? <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(preview.actionCopy)}</Text> : null}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        {preview.dayPlanPreview.map((day) => {
+          const tone = toneForPreviewPlanDay(day);
+          const typeLabel = friendlyCompactTag(day.compactTag);
+          return (
+            <PlanCalendarDayTile
+              key={`calendar-next-week:${day.date}`}
+              date={shortDateLabel(day.date, preview.weekStartDate)}
+              detail={`${typeLabel} / ${plainPlanCopy(day.compactMetric)}`}
+              iconName={iconForPreviewPlanDay(day)}
+              loadWidth={planDayLoadWidth(day.compactTag, day.compactMetric, day.fuelDemand)}
+              metric={day.compactMetric}
+              summary={plainPlanCopy(day.compactSummary)}
+              tone={tone}
+              typeLabel={typeLabel}
+            />
+          );
+        })}
+      </View>
+      <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
+      {preview.requiresReview ? <Text style={planTextStyles.subtle}>Health warnings need review before this plan can start.</Text> : null}
+      {preview.safetyNotes.map((note, index) => <Text key={`next-week-calendar-safety:${index}`} style={planTextStyles.subtle}>Review: {plainPlanRiskCopy(note)}</Text>)}
+      {preview.materializedGeneratedSessions.map((session) => (
+        <Text key={session.id} style={planTextStyles.subtle}>
+          Active next week: {shortDateLabel(session.date, preview.weekStartDate)} - {plainPlanCopy(session.title)} ({session.durationMinutes} min)
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function PlanWeekColorLegend() {
+  const items: { label: string; tone: PlanTone }[] = [
+    { label: "Boxing", tone: "gold" },
+    { label: "App", tone: "purple" },
+    { label: "Recovery", tone: "green" },
+    { label: "Hard", tone: "orange" },
+    { label: "Open", tone: "muted" }
+  ];
+  return (
+    <View
+      accessibilityLabel="Plan color legend"
+      style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}
+      testID="plan-week-color-legend"
+    >
+      {items.map((item) => (
+        <View key={`plan-color-legend:${item.label}`} style={{ alignItems: "center", flexDirection: "row", gap: 4, minHeight: 18 }}>
+          <View
+            style={{
+              backgroundColor: planToneColors[item.tone],
+              borderRadius: radii.pill,
+              height: 7,
+              opacity: item.tone === "muted" ? 0.62 : 1,
+              width: 7
+            }}
+          />
+          <Text style={{ color: planPalette.textMuted, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>
+            {item.label}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function PlanWeekTicker({
+  busy,
+  calendarOpen,
+  nextWeekActionsAvailable,
+  onAcceptPreview,
+  onPreviewNextWeek,
+  onStartNextWeekPlan,
+  onToggleCalendar,
+  viewModel
+}: {
+  busy: boolean;
+  calendarOpen: boolean;
+  nextWeekActionsAvailable: boolean;
+  onAcceptPreview: () => void;
+  onPreviewNextWeek: () => void;
+  onStartNextWeekPlan: () => void;
+  onToggleCalendar: () => void;
+  viewModel: PlanViewModel;
+}) {
+  const status = previewStatusCopy(viewModel);
+  const action = nextWeekAction(viewModel);
+  const actionDisabled = busy || (action.kind !== "preview" && !nextWeekActionsAvailable) || (action.kind === "start" && viewModel.nextWeekPreview.requiresReview);
+  const onNextWeekAction = action.kind === "accept" ? onAcceptPreview : action.kind === "start" ? onStartNextWeekPlan : onPreviewNextWeek;
+  return (
+    <View
+      style={{
+        backgroundColor: planPalette.controlFill,
+        borderColor: planPalette.controlLine,
+        borderRadius: radii.card,
+        borderWidth: 1,
+        gap: spacing.md,
+        padding: spacing.md
+      }}
+      testID="plan-week-strip-card"
+    >
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+          <Text style={planTextStyles.sectionTitle}>This week</Text>
+          <Text style={planTextStyles.subtle}>Tap the calendar to see what is already planned next.</Text>
+        </View>
+        <Pressable
+          accessibilityLabel={calendarOpen ? "Hide plan calendar" : "Show plan calendar"}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: calendarOpen }}
+          onPress={onToggleCalendar}
+          style={({ pressed }) => [
+            screenStyles.quietButton,
+            {
+              backgroundColor: pressed ? planPalette.controlFillPressed : planPalette.controlFill,
+              borderColor: planPalette.controlLine,
+              flexBasis: 132,
+              flexGrow: 0,
+              gap: spacing.xs,
+              minHeight: 44
+            }
+          ]}
+          testID="plan-week-ticker-toggle"
+        >
+          <Ionicons color={planPalette.textBody} name={calendarOpen ? "chevron-up" : "calendar-outline"} size={16} />
+          <Text style={{ color: planPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>
+            {calendarOpen ? "Hide calendar" : "Show calendar"}
+          </Text>
+        </Pressable>
+      </View>
+      <WeekAtAGlanceContent viewModel={viewModel} />
+      <PlanWeekColorLegend />
+      {calendarOpen ? (
+        <View style={{ gap: spacing.md }} testID="plan-calendar-expanded">
+          <View style={{ gap: spacing.xs }}>
+            <Text style={planTextStyles.sectionTitle}>Calendar</Text>
+            <Text style={planTextStyles.body}>This week and the next planned week, in one view.</Text>
+          </View>
+          <ThisWeekCalendarGrid viewModel={viewModel} />
+          <NextWeekCalendarGrid viewModel={viewModel} />
+          <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
+            <View style={{ flexBasis: 190, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
+              <Text style={planTextStyles.sectionTitle}>Next week</Text>
+              <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(status.summary)}</Text>
+            </View>
+            <PlanButton
+              disabled={actionDisabled}
+              icon={action.kind === "accept" ? "checkmark-outline" : action.kind === "start" ? "play-outline" : "calendar-outline"}
+              label={action.label}
+              onPress={onNextWeekAction}
+              primary={action.kind !== "preview"}
+            />
+          </View>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -1022,51 +1465,13 @@ function previewStatusCopy(viewModel: PlanViewModel): { label: string; summary: 
 }
 
 function nextWeekAction(viewModel: PlanViewModel): { label: string; kind: "accept" | "preview" | "start" } {
-  if (viewModel.nextWeekPreview.canAccept) {
-    return { kind: "accept", label: "Accept preview" };
-  }
   if (viewModel.nextWeekPreview.showMaterializeAction) {
     return { kind: "start", label: "Start next week plan" };
   }
+  if (viewModel.nextWeekPreview.canAccept) {
+    return { kind: "accept", label: "Accept preview" };
+  }
   return { kind: "preview", label: "Preview next week" };
-}
-
-function NextWeekCard({
-  busy,
-  nextWeekActionsAvailable,
-  onPreviewNextWeek,
-  onStartNextWeekPlan,
-  viewModel
-}: {
-  busy: boolean;
-  nextWeekActionsAvailable: boolean;
-  onPreviewNextWeek: () => void;
-  onStartNextWeekPlan: () => void;
-  viewModel: PlanViewModel;
-}) {
-  const status = previewStatusCopy(viewModel);
-  const action = nextWeekAction(viewModel);
-  const showStartAction = action.kind === "start";
-  const actionDisabled = busy || (showStartAction && (!nextWeekActionsAvailable || viewModel.nextWeekPreview.requiresReview));
-  const onPress = showStartAction ? onStartNextWeekPlan : onPreviewNextWeek;
-  return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-next-week-card">
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={planTextStyles.sectionTitle}>Next Week</Text>
-            <Text style={planTextStyles.body}>{status.summary}</Text>
-          </View>
-          <PlanTonePill label={status.label} tone={status.tone} />
-        </View>
-        <Text style={planTextStyles.subtle}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <PlanButton disabled={actionDisabled} icon={showStartAction ? "checkmark-outline" : "calendar-outline"} label={showStartAction ? action.label : "Preview next week"} onPress={onPress} primary={showStartAction} />
-          {showStartAction ? <PlanButton disabled={busy} icon="eye-outline" label="Preview next week" onPress={onPreviewNextWeek} /> : null}
-        </View>
-      </View>
-    </EngineCard>
-  );
 }
 
 function CollapsedPlanDetails({
@@ -1234,32 +1639,17 @@ function PlanDetailRows({
 function PlanRoadmap({
   asOfDate,
   busy,
-  nextWeekActionsAvailable,
   onOpenWorkspace,
-  onPreviewNextWeek,
-  onStartNextWeekPlan,
   viewModel
 }: {
   asOfDate: ISODateString;
   busy: boolean;
-  nextWeekActionsAvailable: boolean;
   onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
-  onPreviewNextWeek: () => void;
-  onStartNextWeekPlan: () => void;
   viewModel: PlanViewModel;
 }) {
   return (
     <View style={{ gap: spacing.md }} testID="plan-roadmap">
-      <ThisWeeksPlanCard busy={busy} onChangeGoal={() => onOpenWorkspace("goal_wizard")} onPreviewNextWeek={onPreviewNextWeek} viewModel={viewModel} />
-      <WeekAtAGlanceCard viewModel={viewModel} />
       <UpcomingSessionsCard asOfDate={asOfDate} viewModel={viewModel} />
-      <NextWeekCard
-        busy={busy}
-        nextWeekActionsAvailable={nextWeekActionsAvailable}
-        onPreviewNextWeek={onPreviewNextWeek}
-        onStartNextWeekPlan={onStartNextWeekPlan}
-        viewModel={viewModel}
-      />
       <CollapsedPlanDetails busy={busy} onOpenWorkspace={onOpenWorkspace} viewModel={viewModel} />
     </View>
   );
@@ -1285,6 +1675,7 @@ export function PlanScreen({
 }: PlanScreenProps) {
   const [activeWorkspace, setActiveWorkspace] = React.useState<PlanActiveWorkspace>("overview");
   const [previewDetailsOpen, setPreviewDetailsOpen] = React.useState(false);
+  const [planCalendarOpen, setPlanCalendarOpen] = React.useState(false);
   const showCriticalPlanRisk = viewModel.rollForwardStatus === "blocked" && viewModel.rollForwardRiskTone === "critical";
   const scheduleBusy = busy || !onSaveProtectedSession || !onDeleteProtectedSession || !onSaveRecurringProtectedAnchor || !onDeleteRecurringProtectedAnchor;
   const goalBusy = busy || !onSaveBuildGoal || !onSaveRecoveryGoal;
@@ -1299,7 +1690,17 @@ export function PlanScreen({
     }
   };
 
-  const openNextWeekPreview = () => openWorkspace("next_week_preview");
+  const openNextWeekPreview = () => {
+    setPlanCalendarOpen(true);
+    setPreviewDetailsOpen(true);
+    if (activeWorkspace === "next_week_preview") {
+      setActiveWorkspace("overview");
+    }
+  };
+
+  const togglePlanCalendar = () => {
+    setPlanCalendarOpen((open) => !open);
+  };
 
   const closeActiveWorkspace = () => {
     setActiveWorkspace("overview");
@@ -1307,12 +1708,14 @@ export function PlanScreen({
   };
 
   const acceptNextWeekPreview = () => {
-    openNextWeekPreview();
+    setPlanCalendarOpen(true);
+    setPreviewDetailsOpen(true);
     void nextWeekPreviewActions?.acceptPreview(viewModel.nextWeekPreview.previewId ?? undefined);
   };
 
   const startNextWeekPlan = () => {
-    openNextWeekPreview();
+    setPlanCalendarOpen(true);
+    setPreviewDetailsOpen(true);
     void nextWeekPreviewActions?.materializeNextWeek(viewModel.nextWeekPreview.previewId ?? undefined);
   };
 
@@ -1377,6 +1780,17 @@ export function PlanScreen({
   return (
     <LuminousScreen accent="green" backgroundImage={tabScreenBackgrounds.plan} testID="plan-screen">
       <ScreenHeader {...tabHeroHeaders.plan} />
+      <ThisWeeksPlanCard
+        busy={busy}
+        calendarOpen={planCalendarOpen}
+        nextWeekActionsAvailable={nextWeekActionsAvailable}
+        onAcceptPreview={acceptNextWeekPreview}
+        onChangeGoal={() => openWorkspace("goal_wizard")}
+        onPreviewNextWeek={openNextWeekPreview}
+        onStartNextWeekPlan={startNextWeekPlan}
+        onToggleCalendar={togglePlanCalendar}
+        viewModel={viewModel}
+      />
       {showCriticalPlanRisk ? (
         <RiskBanner title="Plan needs review" message={plainPlanRiskCopy(viewModel.rollForwardMessage)} statusLabel={plainPlanRiskCopy(viewModel.rollForwardRiskLabel)} tone={viewModel.rollForwardRiskTone}>
           <View style={{ gap: spacing.xs }}>
@@ -1389,10 +1803,7 @@ export function PlanScreen({
       <PlanRoadmap
         asOfDate={asOfDate}
         busy={busy}
-        nextWeekActionsAvailable={nextWeekActionsAvailable}
         onOpenWorkspace={openWorkspace}
-        onPreviewNextWeek={openNextWeekPreview}
-        onStartNextWeekPlan={startNextWeekPlan}
         viewModel={viewModel}
       />
       <PlanActiveWorkspaceFrame generationStatus={generationStatus}>{activeWorkspaceContent}</PlanActiveWorkspaceFrame>

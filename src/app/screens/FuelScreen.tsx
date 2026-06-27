@@ -473,13 +473,15 @@ function TodayFuelPlanCard({
 }) {
   return (
     <EngineCard>
-      <View style={{ gap: spacing.md }} testID="fuel-today-plan-card">
+      <View style={{ gap: spacing.md }} testID="fuel-hero-card">
+        <View testID="fuel-today-plan-card">
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 260, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={{ ...fuelTextStyles.sectionTitle, fontSize: 20, lineHeight: 25 }}>Today's Fuel Plan</Text>
             <Text style={fuelTextStyles.body}>{plan.sentence}</Text>
           </View>
           <FuelTonePill label={plan.label} tone={plan.tone} />
+        </View>
         </View>
         <View
           style={{
@@ -614,7 +616,7 @@ function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="fuel-do-not-miss-card">
-        <Text style={fuelTextStyles.sectionTitle}>Do Not Miss Today</Text>
+        <Text style={fuelTextStyles.sectionTitle}>Do not miss</Text>
         <PriorityRow icon="flash-outline" label="Before training" meta={guideValue(dashboard, /carb/i)} title="carbs" tone="orange" />
         <PriorityRow icon="restaurant-outline" label="After training" meta={guideValue(dashboard, /protein/i)} title="protein + meal" tone="purple" />
         <PriorityRow icon="water-outline" label="Fluids" meta={`${dashboard.hydration.targetLabel} guide`} title="water + electrolytes" tone="blue" />
@@ -867,6 +869,55 @@ function FuelCollapsedDetails({
   );
 }
 
+function FuelSafetyCard({
+  message,
+  onAcknowledgeNutritionSafetyReview,
+  safety,
+  viewModel
+}: {
+  message: string | null;
+  onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  safety: FuelSafetyState;
+  viewModel: FuelViewModel;
+}) {
+  if (!safety.active) {
+    return null;
+  }
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-safety-card">
+        <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flexBasis: 250, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={fuelTextStyles.sectionTitle}>{safety.reviewActive ? "Review safety" : "Fuel safety"}</Text>
+            <Text style={fuelTextStyles.body}>{safety.stripText}</Text>
+          </View>
+          <FuelTonePill label={safety.healthStatus} tone={safety.tone} />
+        </View>
+        {safety.reviewActive ? (
+          <NutritionSafetyReviewCard
+            activeReviews={viewModel.activeNutritionSafetyReviews}
+            onAcknowledgeReview={onAcknowledgeNutritionSafetyReview}
+            review={viewModel.nutritionSafetyReview}
+          />
+        ) : null}
+        {viewModel.underFuelingRisk ? (
+          <View style={{ gap: spacing.xs }}>
+            <Text style={[fuelTextStyles.callout, { color: colorForTone("orange") }]}>{viewModel.underFuelingRisk.title}</Text>
+            <DetailLine text={viewModel.underFuelingRisk.summary} tone="body" />
+          </View>
+        ) : null}
+        {viewModel.weightClassStatus.safetyFlags.slice(0, 2).map((flag, index) => (
+          <DetailLine key={`fuel-default-weight-flag:${index}`} text={flag} tone="body" />
+        ))}
+        {viewModel.riskSummary.slice(0, safety.reviewActive ? 1 : 2).map((risk, index) => (
+          <DetailLine key={`fuel-default-risk:${index}`} text={risk} tone="body" />
+        ))}
+        {message && !safety.reviewActive ? <DetailLine text={message} tone="callout" /> : null}
+      </View>
+    </EngineCard>
+  );
+}
+
 function FuelStatusStrip({
   safety
 }: {
@@ -889,6 +940,79 @@ function FuelStatusStrip({
       testID="fuel-status-strip"
     >
       <Text style={{ color, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{safety.stripText}</Text>
+    </View>
+  );
+}
+
+function FuelDetailsDisclosure({
+  dashboard,
+  detailsOpen,
+  message,
+  onAcknowledgeNutritionSafetyReview,
+  onToggleDetails,
+  plan,
+  safety,
+  trainingCopy,
+  viewModel
+}: {
+  dashboard: FuelDashboardVisual;
+  detailsOpen: boolean;
+  message: string | null;
+  onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  onToggleDetails: () => void;
+  plan: FuelPlanStatus;
+  safety: FuelSafetyState;
+  trainingCopy: string;
+  viewModel: FuelViewModel;
+}) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <EngineCard>
+        <Pressable
+          accessibilityLabel={detailsOpen ? "Hide Fuel details" : "Fuel details"}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: detailsOpen }}
+          onPress={onToggleDetails}
+          style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 54 }}
+          testID="fuel-details-toggle"
+        >
+          <View
+            style={{
+              alignItems: "center",
+              backgroundColor: fuelTint("orange", "16"),
+              borderColor: fuelTint("orange", "42"),
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              height: 38,
+              justifyContent: "center",
+              width: 38
+            }}
+          >
+            <Ionicons color={fuelPalette.toneOrange} name="list-outline" size={18} />
+          </View>
+          <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+            <Text style={{ color: fuelPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Fuel details</Text>
+            <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
+              Weight trend, training context, logs, safety history, and full fuel context.
+            </Text>
+          </View>
+          <Ionicons color={fuelPalette.textBody} name={detailsOpen ? "chevron-up" : "chevron-down"} size={18} />
+        </Pressable>
+      </EngineCard>
+      {detailsOpen ? (
+        <View style={{ gap: spacing.sm }} testID="fuel-details-section">
+          <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} />
+          <TrainingTodayCard plan={plan} trainingCopy={trainingCopy} viewModel={viewModel} />
+          <FuelCollapsedDetails
+            dashboard={dashboard}
+            message={message}
+            onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+            safety={safety}
+            viewModel={viewModel}
+          />
+          <FuelStatusStrip safety={safety} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1000,10 +1124,12 @@ function FuelLogActionSection({
 function FuelOverview({
   busy,
   dashboard,
+  detailsOpen,
   message,
   onAcknowledgeNutritionSafetyReview,
   onLogFood,
   onLogHydration,
+  onToggleDetails,
   plan,
   primaryLog,
   safety,
@@ -1012,10 +1138,12 @@ function FuelOverview({
 }: {
   busy: boolean;
   dashboard: FuelDashboardVisual;
+  detailsOpen: boolean;
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
   onLogFood: () => void;
   onLogHydration: () => void;
+  onToggleDetails: () => void;
   plan: FuelPlanStatus;
   primaryLog: "food" | "water";
   safety: FuelSafetyState;
@@ -1026,31 +1154,41 @@ function FuelOverview({
   return (
     <View style={{ gap: spacing.md }} testID="fuel-overview">
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
-      <DoNotMissTodayCard dashboard={dashboard} />
-      <TrainingTodayCard plan={plan} trainingCopy={trainingCopy} viewModel={viewModel} />
       <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} safety={safety} viewModel={viewModel} />
-      {hasActiveWeightTarget ? <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} /> : null}
-      <FuelCollapsedDetails
-        dashboard={dashboard}
+      <DoNotMissTodayCard dashboard={dashboard} />
+      <FuelSafetyCard
         message={message}
         onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
         safety={safety}
         viewModel={viewModel}
       />
-      {!hasActiveWeightTarget ? <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} /> : null}
-      <FuelStatusStrip safety={safety} />
+      <FuelDetailsDisclosure
+        dashboard={dashboard}
+        detailsOpen={detailsOpen}
+        message={message}
+        onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+        onToggleDetails={onToggleDetails}
+        plan={plan}
+        safety={safety}
+        trainingCopy={trainingCopy}
+        viewModel={viewModel}
+      />
     </View>
   );
 }
 
 export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   const [appliedFocusIntent, setAppliedFocusIntent] = React.useState<FuelFocusIntent | null>(null);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
   React.useEffect(() => {
     if (!focusIntent) {
       return;
     }
     setAppliedFocusIntent(focusIntent);
+    if (focusIntent === "safety_review") {
+      setDetailsOpen(true);
+    }
     onFocusIntentApplied?.();
   }, [focusIntent, onFocusIntentApplied]);
   const safety = buildFuelSafetyState(viewModel, message);
@@ -1082,10 +1220,12 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
         <FuelOverview
           busy={busy}
           dashboard={dashboard}
+          detailsOpen={detailsOpen}
           message={message}
           onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
           onLogFood={openLogFood}
           onLogHydration={openLogHydration}
+          onToggleDetails={() => setDetailsOpen((value) => !value)}
           plan={plan}
           primaryLog={primaryLog}
           safety={safety}

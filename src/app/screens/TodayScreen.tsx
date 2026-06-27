@@ -1009,6 +1009,7 @@ function TodayCheckInCard({
   checkIn,
   onCheckIn,
   onLogFood,
+  onLogHydration,
   onStartWorkout,
   workoutLabel
 }: {
@@ -1016,23 +1017,53 @@ function TodayCheckInCard({
   checkIn: TodayCheckInModel;
   onCheckIn: () => void;
   onLogFood?: (() => void) | undefined;
+  onLogHydration: () => void;
   onStartWorkout?: (() => void) | undefined;
   workoutLabel: string;
 }) {
+  const primaryAction =
+    checkIn.status === "Fuel first" && checkIn.focus === "hydration"
+      ? { icon: "water-outline" as const, label: "Add water", onPress: onLogHydration, tone: "blue" as const }
+      : checkIn.status === "Fuel first" && onLogFood
+        ? { icon: "restaurant-outline" as const, label: "Log food", onPress: onLogFood, tone: "orange" as const }
+        : checkIn.status === "Ready" && onStartWorkout
+          ? {
+              icon: workoutLabel === "Start workout" ? "play-outline" as const : "barbell-outline" as const,
+              label: workoutLabel,
+              onPress: onStartWorkout,
+              tone: "purple" as const
+            }
+          : { icon: "checkmark-circle-outline" as const, label: "Check in", onPress: onCheckIn, tone: "blue" as const };
+  const secondaryActions = [
+    primaryAction.label !== "Check in" ? { icon: "checkmark-circle-outline" as const, label: "Check in", onPress: onCheckIn, tone: "blue" as const } : null,
+    primaryAction.label !== "Log food" ? { icon: "restaurant-outline" as const, label: "Log food", onPress: onLogFood, tone: "orange" as const, disabled: !onLogFood } : null,
+    primaryAction.label !== workoutLabel
+      ? {
+          icon: workoutLabel === "Start workout" ? "play-outline" as const : "barbell-outline" as const,
+          label: workoutLabel,
+          onPress: onStartWorkout,
+          tone: "purple" as const,
+          disabled: !onStartWorkout
+        }
+      : null
+  ].filter((item): item is NonNullable<typeof item> => item !== null);
   return (
     <EngineCard>
-      <View style={{ gap: spacing.lg }} testID="today-check-in-card">
+      <View style={{ gap: spacing.lg }} testID="today-hero-card">
+        <View testID="today-check-in-card">
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 260, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: colors.canvas, fontSize: 23, fontWeight: "900", lineHeight: 29 }}>Today's Check-In</Text>
+            <Text style={{ color: colors.canvas, fontSize: 23, fontWeight: "900", lineHeight: 29 }}>Today</Text>
             <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "600", lineHeight: 23 }}>{checkIn.sentence}</Text>
           </View>
           <TodayTonePill label={checkIn.status} tone={checkIn.tone} />
         </View>
+        </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <TodayButton disabled={busy} icon="checkmark-circle-outline" label="Check in" onPress={onCheckIn} primary testID="today-primary-check-in-action" tone="blue" />
-          <TodayButton disabled={busy || !onLogFood} icon="restaurant-outline" label="Log food" onPress={onLogFood} tone="orange" />
-          <TodayButton disabled={busy || !onStartWorkout} icon={workoutLabel === "Start workout" ? "play-outline" : "barbell-outline"} label={workoutLabel} onPress={onStartWorkout} tone="purple" />
+          <TodayButton disabled={busy} icon={primaryAction.icon} label={primaryAction.label} onPress={primaryAction.onPress} primary testID="today-primary-check-in-action" tone={primaryAction.tone} />
+          {secondaryActions.map((action) => (
+            <TodayButton disabled={busy || action.disabled} icon={action.icon} key={`today-secondary-action:${action.label}`} label={action.label} onPress={action.onPress} tone={action.tone} />
+          ))}
         </View>
       </View>
     </EngineCard>
@@ -1051,12 +1082,115 @@ function KeyStatusRow({
   weight: PlainStatus<WeightValue>;
 }) {
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="today-key-status-row">
-      <TodayStatusTile label="Training" tone={training.tone} value={training.value} />
-      <TodayStatusTile label="Fuel" tone={fuel.tone} value={fuel.value} />
-      <TodayStatusTile label="Weight" tone={weight.tone} value={weight.value} />
-      <TodayStatusTile label="Readiness" tone={readiness.tone} value={readiness.value} />
+    <View testID="today-status-row">
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="today-key-status-row">
+        <TodayStatusTile label="Training" tone={training.tone} value={training.value} />
+        <TodayStatusTile label="Fuel" tone={fuel.tone} value={fuel.value} />
+        <TodayStatusTile label="Weight" tone={weight.tone} value={weight.value} />
+        <TodayStatusTile label="Readiness" tone={readiness.tone} value={readiness.value} />
+      </View>
     </View>
+  );
+}
+
+function TodayNextActionCard({
+  busy,
+  checkIn,
+  fuel,
+  fuelToday,
+  onCheckIn,
+  onLogFood,
+  onLogHydration,
+  onOpenFuel,
+  onOpenPlan,
+  onStartWorkout,
+  trainingToday
+}: {
+  busy: boolean;
+  checkIn: TodayCheckInModel;
+  fuel: PlainStatus<FuelValue>;
+  fuelToday: FuelTodayModel;
+  onCheckIn: () => void;
+  onLogFood?: (() => void) | undefined;
+  onLogHydration: () => void;
+  onOpenFuel?: (() => void) | undefined;
+  onOpenPlan?: (() => void) | undefined;
+  onStartWorkout?: (() => void) | undefined;
+  trainingToday: TrainingTodayModel;
+}) {
+  const next =
+    fuelToday.status === "Guidance" || fuelToday.status === "Weight pressure off"
+      ? {
+          actionIcon: "flame-outline" as const,
+          actionLabel: onOpenFuel ? "Open Fuel" : "Log food",
+          action: onOpenFuel ?? onLogFood,
+          label: fuelToday.status,
+          sentence: fuelToday.note,
+          title: "Fuel first",
+          tone: fuelToday.tone
+        }
+      : !/Ready|Easy day|Recovery day/.test(checkIn.status)
+        ? {
+            actionIcon: "checkmark-circle-outline" as const,
+            actionLabel: "Check in",
+            action: onCheckIn,
+            label: checkIn.status,
+            sentence: "Log readiness, then use the workout or fuel action that still matters.",
+            title: "Next up: Check in",
+            tone: checkIn.tone
+          }
+        : fuel.value === "Hydrate first"
+          ? {
+              actionIcon: "water-outline" as const,
+              actionLabel: "Add water",
+              action: onLogHydration,
+              label: "Hydrate",
+              sentence: "Hydrate first. Keep the session controlled if fluids are low.",
+              title: "Hydrate first",
+              tone: "blue" as const
+            }
+          : fuel.value === "Eat before"
+            ? {
+                actionIcon: "restaurant-outline" as const,
+                actionLabel: "Log food",
+                action: onLogFood,
+                label: "Fuel first",
+                sentence: "Eat before training. Do not turn this into a low-energy session.",
+                title: "Eat before training",
+                tone: "orange" as const
+              }
+            : trainingToday.buttonLabel !== "Open Train"
+              ? {
+                  actionIcon: trainingToday.buttonLabel === "Start workout" ? "play-outline" as const : "barbell-outline" as const,
+                  actionLabel: trainingToday.buttonLabel,
+                  action: onStartWorkout,
+                  label: trainingToday.intensityLabel,
+                  sentence: trainingToday.sentence,
+                  title: `Next up: ${trainingToday.buttonLabel}`,
+                  tone: trainingToday.tone
+                }
+              : {
+                  actionIcon: "calendar-outline" as const,
+                  actionLabel: "View plan",
+                  action: onOpenPlan,
+                  label: "Plan",
+                  sentence: "Open the plan when the week changes. Log if useful.",
+                  title: "Next up: View plan",
+                  tone: "green" as const
+                };
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="today-next-action-card">
+        <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flexBasis: 250, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{next.title}</Text>
+            <Text style={screenStyles.body}>{next.sentence}</Text>
+          </View>
+          <TodayTonePill label={next.label} tone={next.tone} />
+        </View>
+        <TodayButton disabled={busy || !next.action} icon={next.actionIcon} label={next.actionLabel} onPress={next.action} primary tone={next.tone} />
+      </View>
+    </EngineCard>
   );
 }
 
@@ -1243,6 +1377,78 @@ function TodayDetails({
   );
 }
 
+function TodayDetailsDisclosure({
+  busy,
+  children,
+  fuelToday,
+  onLogFood,
+  onOpenQuickCheck,
+  onOpenTraining,
+  onOpenFuel,
+  onOpenPlan,
+  trainingToday,
+  weekToday
+}: React.PropsWithChildren<{
+  busy: boolean;
+  fuelToday: FuelTodayModel;
+  onLogFood?: (() => void) | undefined;
+  onOpenQuickCheck: (focus: TodayQuickCheckFocus, placement: TodayQuickCheckPlacement) => void;
+  onOpenTraining?: (() => void) | undefined;
+  onOpenFuel?: (() => void) | undefined;
+  onOpenPlan?: (() => void) | undefined;
+  trainingToday: TrainingTodayModel;
+  weekToday: WeekTodayModel;
+}>) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <EngineCard>
+        <View style={{ gap: spacing.md }}>
+          <Pressable
+            accessibilityLabel={open ? "Hide More today" : "More today"}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            onPress={() => setOpen((value) => !value)}
+            style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 54 }}
+            testID="today-details-toggle"
+          >
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: todayTint("blue", "16"),
+                borderColor: todayTint("blue", "42"),
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                height: 38,
+                justifyContent: "center",
+                width: 38
+              }}
+            >
+              <Ionicons color={todayPalette.toneBlue} name="list-outline" size={18} />
+            </View>
+            <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+              <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>More today</Text>
+              <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
+                Training, fuel, week notes, quick logs, and recent logs.
+              </Text>
+            </View>
+            <Ionicons color={colors.wrap} name={open ? "chevron-up" : "chevron-down"} size={18} />
+          </Pressable>
+        </View>
+      </EngineCard>
+      {open ? (
+        <View style={{ gap: spacing.sm }} testID="today-details-section">
+          <TrainingTodayCard busy={busy} model={trainingToday} onOpen={onOpenTraining} />
+          <FuelTodayCard busy={busy} model={fuelToday} onOpenFuel={onOpenFuel} />
+          <ThisWeekCard busy={busy} model={weekToday} onOpenPlan={onOpenPlan} />
+          <QuickLogsCard busy={busy} onLogFood={onLogFood} onOpenQuickCheck={onOpenQuickCheck} />
+          {children}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function TodayScreen({
   asOfDate,
   viewModel,
@@ -1306,30 +1512,48 @@ export function TodayScreen({
           busy={busy}
           checkIn={checkIn}
           onCheckIn={() => openQuickCheck(checkIn.focus, "top")}
+          onLogHydration={() => openQuickCheck("hydration", "top")}
           onLogFood={foodAction}
           onStartWorkout={workoutAction}
           workoutLabel={trainingToday.buttonLabel}
         />
         <KeyStatusRow fuel={fuel} readiness={readiness} training={training} weight={weight} />
-        <TrainingTodayCard busy={busy} model={trainingToday} onOpen={workoutAction} />
-        <FuelTodayCard busy={busy} model={fuelToday} onOpenFuel={onOpenFuel ?? onOpenFuelLog} />
-        <ThisWeekCard busy={busy} model={weekToday} onOpenPlan={onOpenPlan} />
-        <QuickLogsCard busy={busy} onLogFood={foodAction} onOpenQuickCheck={openQuickCheck} />
-        <TodayDetails
-          cycleContext={cycleContext}
-          cycleTrackingStatus={cycleTrackingStatus}
-          dashboard={dashboard}
-          hasWarning={false}
-          onOpenBodyMass={() => openQuickCheck("body_mass", "body_mass_card")}
-          onOpenReadiness={() => openQuickCheck("readiness", "readiness_card")}
-          recentLogs={recentLogs}
-          showCycleImpact={showCycleImpact}
+        <TodayNextActionCard
+          busy={busy}
+          checkIn={checkIn}
+          fuel={fuel}
+          fuelToday={fuelToday}
+          onCheckIn={() => openQuickCheck(checkIn.focus, "top")}
+          onLogFood={foodAction}
+          onLogHydration={() => openQuickCheck("hydration", "top")}
+          onOpenFuel={onOpenFuel ?? onOpenFuelLog}
+          onOpenPlan={onOpenPlan}
+          onStartWorkout={workoutAction}
+          trainingToday={trainingToday}
         />
-        {message ? (
-          <EngineCard>
-            <Text style={[screenStyles.subtle, { color: todayPalette.toneOrange }]}>App note: {message}. Existing plan stays visible.</Text>
-          </EngineCard>
-        ) : null}
+        <TodayDetailsDisclosure
+          busy={busy}
+          fuelToday={fuelToday}
+          onLogFood={foodAction}
+          onOpenFuel={onOpenFuel ?? onOpenFuelLog}
+          onOpenPlan={onOpenPlan}
+          onOpenQuickCheck={openQuickCheck}
+          onOpenTraining={workoutAction}
+          trainingToday={trainingToday}
+          weekToday={weekToday}
+        >
+          <TodayDetails
+            cycleContext={cycleContext}
+            cycleTrackingStatus={cycleTrackingStatus}
+            dashboard={dashboard}
+            hasWarning={false}
+            onOpenBodyMass={() => openQuickCheck("body_mass", "body_mass_card")}
+            onOpenReadiness={() => openQuickCheck("readiness", "readiness_card")}
+            recentLogs={recentLogs}
+            showCycleImpact={showCycleImpact}
+          />
+        </TodayDetailsDisclosure>
+        {message ? <Text style={[screenStyles.subtle, { color: todayPalette.toneOrange }]} testID="today-app-note">App note: {message}. Existing plan stays visible.</Text> : null}
       </LuminousScreen>
       <TodayQuickCheckModal
         busy={busy}
