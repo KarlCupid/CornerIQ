@@ -1,9 +1,11 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ImageBackground, Pressable, ScrollView, Text, TextInput, View, type ImageSourcePropType } from "react-native";
+import { ImageBackground, Platform, Pressable, ScrollView, Text, TextInput, View, type ImageSourcePropType, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DetailedTrainingSession, ExercisePrescription, ExerciseSubstitution } from "../../../engine/core/types";
-import { buildWorkoutPlayerTimeline } from "../../../engine/presentation/workoutPlayerTimeline";
+import type { WorkoutPlayerMode } from "../../../engine/presentation/workoutPlayerMode";
+import { resolveExercisePlayerMode, resolveWorkoutPlayerMode } from "../../../engine/presentation/workoutPlayerMode";
+import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../../engine/presentation/workoutPlayerTimeline";
 import { buildWorkoutPlayerExerciseResults } from "../../../engine/presentation/workoutPlayerResults";
 import { movementTeachingForExercise } from "../../../engine/presentation/workoutMovementTeaching";
 import {
@@ -30,6 +32,7 @@ import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 export type WorkoutPlayerStatus = "not_started" | "active" | "paused" | "finishing" | "completed" | "skipped";
 type PlayerVisualTheme = "player" | "train";
 type PreviewPillTone = Parameters<typeof trainColorForTone>[0] | "quiet";
+type WorkoutTimelineStep = ReturnType<typeof buildWorkoutPlayerTimeline>["steps"][number];
 
 function isPersistableWorkoutStatus(status: WorkoutPlayerStatus): status is PersistedWorkoutPlayerStatus {
   return status === "active" || status === "paused" || status === "finishing";
@@ -88,6 +91,34 @@ function splitStepTitle(title: string): { heading: string; subheading?: string |
   };
 }
 
+function playerModeLabel(mode: WorkoutPlayerMode): string {
+  switch (mode) {
+    case "round_timer":
+      return "Round workout";
+    case "strength_sets":
+      return "Strength workout";
+    case "movement_flow":
+      return "Movement flow";
+    case "hybrid":
+      return "Hybrid workout";
+  }
+}
+
+function liveStepPlayerMode(
+  sessionMode: WorkoutPlayerMode,
+  exercise: ExercisePrescription,
+  step: ReturnType<typeof buildWorkoutPlayerTimeline>["steps"][number]
+): Exclude<WorkoutPlayerMode, "hybrid"> {
+  const exerciseMode = resolveExercisePlayerMode(exercise);
+  if (sessionMode === "round_timer") {
+    return "round_timer";
+  }
+  if (exerciseMode === "movement_flow" || step.kind === "cooldown") {
+    return "movement_flow";
+  }
+  return exerciseMode;
+}
+
 function exerciseTargetText(exercise: ExercisePrescription, setIndex: number): readonly string[] {
   const set = exercise.sets[setIndex] ?? exercise.sets[0];
   return [
@@ -96,6 +127,14 @@ function exerciseTargetText(exercise: ExercisePrescription, setIndex: number): r
     exercise.tempo ?? set?.tempo ? `Tempo ${plainTrainingCopy(exercise.tempo ?? set?.tempo ?? "")}` : null,
     exercise.restText ? `Rest ${plainTrainingCopy(exercise.restText)}` : null
   ].filter((item): item is string => item !== null);
+}
+
+function restGuidanceText(exercise: ExercisePrescription, setIndex: number, step: ReturnType<typeof buildWorkoutPlayerTimeline>["steps"][number]): string {
+  const set = exercise.sets[setIndex] ?? exercise.sets[0];
+  if (step.restAfterSeconds && step.restAfterSeconds > 0) {
+    return `Rest ${formatWorkoutLength(step.restAfterSeconds)} after this set`;
+  }
+  return plainTrainingCopy(set?.restText ?? exercise.restText);
 }
 
 function clampIndex(value: number, max: number): number {
@@ -151,14 +190,20 @@ function doneButtonLabel(step: ReturnType<typeof buildWorkoutPlayerTimeline>["st
 }
 
 function PlayerButton({
+  accent = "blue",
   disabled = false,
+  icon,
   label,
+  layout = "auto",
   onPress,
   tone = "quiet",
   visualTheme = "player"
 }: {
+  accent?: LuminousAccent | undefined;
   disabled?: boolean | undefined;
+  icon?: keyof typeof Ionicons.glyphMap | undefined;
   label: string;
+  layout?: "auto" | "full" | "half" | "compact" | undefined;
   onPress: () => void;
   tone?: "primary" | "quiet" | "warning" | undefined;
   visualTheme?: PlayerVisualTheme | undefined;
@@ -166,6 +211,18 @@ function PlayerButton({
   const primary = tone === "primary";
   const warning = tone === "warning";
   const trainTheme = visualTheme === "train";
+  const compact = layout === "compact";
+  const buttonAccent = accentColor[accent];
+  const buttonTheme = luminousScreenThemes[accent];
+  const labelVerticalOffset = Platform.OS === "web" ? -11 : -2;
+  const layoutStyle: ViewStyle =
+    layout === "full"
+      ? { alignSelf: "stretch", width: "100%" }
+      : layout === "half"
+        ? { flexBasis: "47%", flexGrow: 1, minWidth: 0 }
+        : layout === "compact"
+          ? { flexBasis: "47%", flexGrow: 0, minWidth: 0 }
+          : { alignSelf: "stretch" };
   const backgroundColor = trainTheme
     ? disabled
       ? "rgba(255, 255, 255, 0.1)"
@@ -175,10 +232,10 @@ function PlayerButton({
           ? trainTint("orange", "16")
           : trainPalette.controlFill
     : primary
-      ? "rgba(39, 206, 241, 0.86)"
+      ? buttonAccent
       : warning
-        ? "rgba(255, 148, 72, 0.14)"
-        : "rgba(255, 255, 255, 0.095)";
+        ? "rgba(255, 82, 101, 0.045)"
+        : "rgba(255, 255, 255, 0.035)";
   const borderColor = trainTheme
     ? disabled
       ? "rgba(255, 255, 255, 0.16)"
@@ -188,10 +245,10 @@ function PlayerButton({
           ? trainTint("orange", "44")
           : trainPalette.controlLine
     : primary
-      ? colors.blueIQ
+      ? buttonAccent
       : warning
-        ? "rgba(255, 148, 72, 0.42)"
-        : colors.line;
+        ? "rgba(255, 82, 101, 0.34)"
+        : buttonTheme.controlBorder;
   const textColor = trainTheme
     ? disabled
       ? trainPalette.textMuted
@@ -200,9 +257,11 @@ function PlayerButton({
         : warning
           ? trainColorForTone("orange")
           : trainPalette.textBody
-    : primary
+    : primary && accent !== "red" && accent !== "purple"
       ? colors.cornerBlack
-      : colors.canvas;
+      : warning
+        ? colors.redCorner
+        : colors.canvas;
   return (
     <Pressable
       accessibilityRole="button"
@@ -210,22 +269,52 @@ function PlayerButton({
       disabled={disabled}
       onPress={onPress}
       style={{
-        ...(primary ? glassStyles.primaryControl : glassStyles.control),
+        borderWidth: 1,
+        ...layoutStyle,
         alignItems: "center",
-        alignSelf: "stretch",
         backgroundColor,
         borderColor,
-        borderRadius: 20,
-        boxShadow: trainTheme && primary ? `0 12px 28px ${trainPalette.actionShadow}` : primary ? glassStyles.primaryControl.boxShadow : glassStyles.control.boxShadow,
+        borderRadius: compact ? 10 : 12,
+        boxShadow: trainTheme && primary ? `0 10px 22px ${trainPalette.actionShadow}` : "none",
         justifyContent: "center",
-        minHeight: primary ? 56 : 48,
-        minWidth: primary ? 180 : 128,
+        minHeight: compact ? 44 : primary ? 54 : 48,
+        minWidth: layout === "auto" ? primary ? 168 : 112 : 0,
         opacity: disabled ? 0.55 : 1,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm
+        paddingHorizontal: compact ? spacing.sm : spacing.md,
+        paddingVertical: 0,
+        position: "relative"
       }}
     >
-      <Text style={{ color: textColor, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{label}</Text>
+      <View
+        style={{
+          alignItems: "center",
+          alignSelf: "stretch",
+          justifyContent: "center",
+          minHeight: compact ? 42 : primary ? 52 : 46,
+          paddingHorizontal: 0,
+          position: "relative"
+        }}
+      >
+        {icon ? <Ionicons color={textColor} name={icon} size={compact ? 16 : 18} style={{ left: 0, position: "absolute" }} /> : null}
+        <Text
+          adjustsFontSizeToFit
+          minimumFontScale={0.78}
+          numberOfLines={1}
+          style={{
+            color: textColor,
+            fontSize: compact ? 13 : 15,
+            fontWeight: primary ? "900" : "800",
+            includeFontPadding: false,
+            lineHeight: compact ? 16 : 18,
+            textAlign: "center",
+            textAlignVertical: "center",
+            transform: [{ translateX: icon ? -5 : -3 }, { translateY: labelVerticalOffset }],
+            width: "100%"
+          }}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -234,6 +323,45 @@ function DetailPill({ label }: { label: string }) {
   return (
     <View style={[screenStyles.chip, { minHeight: 34, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }]}>
       <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{label}</Text>
+    </View>
+  );
+}
+
+function MovementMetaLine({
+  accent,
+  items
+}: {
+  accent: LuminousAccent;
+  items: readonly (string | null | undefined)[];
+}) {
+  const visibleItems = items.filter((item): item is string => Boolean(item));
+  const color = accentColor[accent];
+  if (visibleItems.length === 0) {
+    return null;
+  }
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        alignSelf: "stretch",
+        borderBottomColor: `${color}2F`,
+        borderBottomWidth: 1,
+        borderTopColor: `${color}2F`,
+        borderTopWidth: 1,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: spacing.xs,
+        justifyContent: "center",
+        paddingVertical: spacing.sm
+      }}
+      testID="workout-player-movement-meta"
+    >
+      {visibleItems.map((item, index) => (
+        <React.Fragment key={`movement-meta:${item}:${index}`}>
+          {index > 0 ? <Text style={{ color: `${color}88`, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>|</Text> : null}
+          <Text style={{ color: index === 0 ? color : colors.wrap, fontSize: 12, fontWeight: "900", lineHeight: 16, textAlign: "center" }}>{item}</Text>
+        </React.Fragment>
+      ))}
     </View>
   );
 }
@@ -266,13 +394,11 @@ function GlassPanel({
   );
 }
 
-function ScreenIconButton({
+function HeaderBackButton({
   accessibilityLabel,
-  icon,
   onPress
 }: {
   accessibilityLabel: string;
-  icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }) {
   const theme = React.useContext(LuminousScreenThemeContext);
@@ -282,17 +408,18 @@ function ScreenIconButton({
       accessibilityRole="button"
       onPress={onPress}
       style={{
-        ...glassStyles.control,
         alignItems: "center",
-        backgroundColor: theme.control,
+        backgroundColor: "transparent",
         borderColor: theme.controlBorder,
-        borderRadius: 16,
+        borderRadius: 12,
+        borderWidth: 1,
         height: 40,
         justifyContent: "center",
-        width: 40
+        minWidth: 64,
+        paddingHorizontal: spacing.sm
       }}
     >
-      <Ionicons color={colors.canvas} name={icon} size={20} />
+      <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "900", lineHeight: 18, textAlign: "center" }}>Back</Text>
     </Pressable>
   );
 }
@@ -356,9 +483,9 @@ function WorkoutScreenFrame({
           style={{ flex: 1, overflow: "hidden" }}
         >
           <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-            <ScreenIconButton accessibilityLabel="Close workout player" icon="chevron-back" onPress={onClose} />
+            <HeaderBackButton accessibilityLabel="Close workout player" onPress={onClose} />
             <Text style={{ color: theme.accentColor, fontSize: 13, fontWeight: "900", letterSpacing: 1.4, lineHeight: 18 }}>{mode}</Text>
-            <View style={{ width: 40 }} />
+            <View style={{ width: 64 }} />
           </View>
           {children}
         </ScrollView>
@@ -672,6 +799,338 @@ function SetTracker({
   );
 }
 
+function categoryLabel(exercise: ExercisePrescription): string {
+  switch (exercise.category) {
+    case "main_strength":
+      return "Main lift";
+    case "secondary_strength":
+      return "Support lift";
+    case "durability":
+      return "Durability";
+    case "power":
+      return "Power";
+    case "warm_up":
+      return "Warm-up";
+    case "mobility":
+      return "Mobility";
+    case "recovery":
+      return "Recovery";
+    case "conditioning":
+      return "Conditioning";
+    case "roadwork":
+      return "Roadwork";
+    case "boxing_skill":
+    case "technical":
+      return "Boxing";
+    case "agility":
+      return "Agility";
+  }
+}
+
+function setTargetText(exercise: ExercisePrescription, setIndex: number): string {
+  const set = exercise.sets[setIndex] ?? exercise.sets[0];
+  return plainTrainingCopy(set?.repsText ?? exercise.repsText ?? set?.durationText ?? exercise.durationText ?? "Work");
+}
+
+function setLoadText(exercise: ExercisePrescription, setIndex: number): string {
+  const set = exercise.sets[setIndex] ?? exercise.sets[0];
+  return plainTrainingCopy(set?.loadGuidance ?? exercise.loadGuidance);
+}
+
+function setRpeText(exercise: ExercisePrescription, setIndex: number): string {
+  const set = exercise.sets[setIndex] ?? exercise.sets[0];
+  const target = set?.rpeTarget ?? exercise.rpeTarget;
+  return target ? String(target) : "-";
+}
+
+function setSummaryText(exercise: ExercisePrescription): string {
+  const firstTarget = setTargetText(exercise, 0);
+  const setCount = Math.max(1, exercise.sets.length);
+  return `${setCount} set${setCount === 1 ? "" : "s"} x ${firstTarget}`;
+}
+
+function restSecondsForExercise(exercise: ExercisePrescription, setIndex: number, step?: WorkoutTimelineStep | undefined): number {
+  if (step?.kind === "rest") {
+    return step.durationSeconds;
+  }
+  if (step?.restAfterSeconds && step.restAfterSeconds > 0) {
+    return step.restAfterSeconds;
+  }
+  const set = exercise.sets[setIndex] ?? exercise.sets[0];
+  return parseWorkoutTimerSeconds(set?.restText ?? exercise.restText) ?? 0;
+}
+
+function CompactSegmentTimer({
+  accent,
+  label,
+  progress,
+  seconds,
+  sublabel
+}: {
+  accent: LuminousAccent;
+  label: string;
+  progress: number;
+  seconds: number;
+  sublabel: string;
+}) {
+  const color = accentColor[accent];
+  const size = 174;
+  return (
+    <View style={{ alignItems: "center", height: size, justifyContent: "center", position: "relative", width: size }}>
+      <View
+        style={{
+          backgroundColor: `${color}16`,
+          borderRadius: size / 2,
+          boxShadow: `0 0 28px ${color}3D`,
+          height: size - 28,
+          position: "absolute",
+          width: size - 28
+        }}
+      />
+      <SegmentedTimerRing accent={accent} progress={progress} size={size} />
+      <View style={{ alignItems: "center", gap: spacing.xs }}>
+        <Text style={{ color, fontSize: 11, fontWeight: "900", letterSpacing: 1.4, lineHeight: 15 }}>{label}</Text>
+        <Text style={{ color: colors.canvas, fontSize: 42, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 48 }}>{formatTimer(seconds)}</Text>
+        <View
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.32)",
+            borderColor: `${color}66`,
+            borderRadius: radii.pill,
+            borderWidth: 1,
+            paddingHorizontal: spacing.md,
+            paddingVertical: 3
+          }}
+        >
+          <Text style={{ color, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>{sublabel}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function StrengthStatusPill({ status }: { status: "active" | "done" | "skipped" | "up_next" }) {
+  const done = status === "done";
+  const active = status === "active";
+  const skipped = status === "skipped";
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: done ? "rgba(56, 226, 138, 0.12)" : active ? "rgba(255, 82, 101, 0.12)" : skipped ? "rgba(255, 179, 71, 0.12)" : "rgba(255, 255, 255, 0.055)",
+        borderColor: done ? "rgba(56, 226, 138, 0.56)" : active ? "rgba(255, 82, 101, 0.66)" : skipped ? "rgba(255, 179, 71, 0.48)" : "rgba(255, 255, 255, 0.2)",
+        borderRadius: 8,
+        borderWidth: 1,
+        justifyContent: "center",
+        minHeight: 30,
+        minWidth: 64,
+        paddingHorizontal: spacing.xs
+      }}
+    >
+      <Text style={{ color: done ? colors.readyGreen : active ? colors.redCorner : skipped ? colors.amberCaution : colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>
+        {done ? "DONE" : active ? "ACTIVE" : skipped ? "SKIP" : "UP NEXT"}
+      </Text>
+    </View>
+  );
+}
+
+function StrengthSetLogTable({
+  activeSetIndex,
+  completedSetIndices,
+  exercise,
+  skippedSetIndices
+}: {
+  activeSetIndex: number;
+  completedSetIndices: readonly number[];
+  exercise: ExercisePrescription;
+  skippedSetIndices: readonly number[];
+}) {
+  const completed = new Set(completedSetIndices);
+  const skipped = new Set(skippedSetIndices);
+  const setCount = Math.max(1, exercise.sets.length);
+  const headerStyle = { color: colors.wrap, fontSize: 10, fontWeight: "900" as const, letterSpacing: 0.4, lineHeight: 14 };
+  return (
+    <View style={{ gap: spacing.xs }} testID="workout-player-strength-log-table">
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.xs, paddingHorizontal: spacing.xs }}>
+        <Text style={[headerStyle, { flex: 0.65 }]}>SET</Text>
+        <Text style={[headerStyle, { flex: 1.1, textAlign: "center" }]}>TARGET</Text>
+        <Text style={[headerStyle, { flex: 1.25, textAlign: "center" }]}>LOAD</Text>
+        <Text style={[headerStyle, { flex: 1.05, textAlign: "center" }]}>DONE</Text>
+        <Text style={[headerStyle, { flex: 0.72, textAlign: "center" }]}>RPE</Text>
+        <Text style={[headerStyle, { flex: 1.12, textAlign: "right" }]}>STATUS</Text>
+      </View>
+      {Array.from({ length: setCount }).map((_, index) => {
+        const isCompleted = completed.has(index);
+        const isSkipped = skipped.has(index);
+        const isActive = index === activeSetIndex && !isCompleted && !isSkipped;
+        const rowColor = isCompleted ? "rgba(56, 226, 138, 0.05)" : isActive ? "rgba(255, 82, 101, 0.09)" : isSkipped ? "rgba(255, 179, 71, 0.06)" : "rgba(255, 255, 255, 0.035)";
+        const borderColor = isCompleted ? "rgba(56, 226, 138, 0.28)" : isActive ? "rgba(255, 82, 101, 0.62)" : isSkipped ? "rgba(255, 179, 71, 0.32)" : "rgba(255, 255, 255, 0.09)";
+        const textColor = isActive ? colors.redCorner : colors.canvas;
+        return (
+          <View
+            key={`strength-set-row:${exercise.exerciseId}:${index}`}
+            style={{
+              alignItems: "center",
+              backgroundColor: rowColor,
+              borderColor,
+              borderRadius: 10,
+              borderWidth: 1,
+              flexDirection: "row",
+              gap: spacing.xs,
+              minHeight: 44,
+              paddingHorizontal: spacing.xs,
+              paddingVertical: spacing.xs
+            }}
+          >
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: isActive ? "rgba(255, 82, 101, 0.12)" : "rgba(255, 255, 255, 0.04)",
+                borderColor,
+                borderRadius: 8,
+                borderWidth: 1,
+                flex: 0.65,
+                height: 32,
+                justifyContent: "center"
+              }}
+            >
+              <Text style={{ color: textColor, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{index + 1}</Text>
+            </View>
+            <Text numberOfLines={1} style={{ color: textColor, flex: 1.1, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{setTargetText(exercise, index)}</Text>
+            <Text numberOfLines={1} style={{ color: textColor, flex: 1.25, fontSize: 12, fontWeight: "800", lineHeight: 17, textAlign: "center" }}>{setLoadText(exercise, index)}</Text>
+            <Text numberOfLines={1} style={{ color: colors.wrap, flex: 1.05, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{isCompleted ? setTargetText(exercise, index) : "-"}</Text>
+            <Text style={{ color: colors.wrap, flex: 0.72, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{isCompleted ? setRpeText(exercise, index) : "-"}</Text>
+            <View style={{ alignItems: "flex-end", flex: 1.12 }}>
+              <StrengthStatusPill status={isCompleted ? "done" : isSkipped ? "skipped" : isActive ? "active" : "up_next"} />
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function StrengthAccordionRow({
+  completedSetIndices,
+  exercise,
+  index,
+  isActive,
+  onPress,
+  skipped,
+  skippedSetIndices
+}: {
+  completedSetIndices: readonly number[];
+  exercise: ExercisePrescription;
+  index: number;
+  isActive: boolean;
+  onPress: () => void;
+  skipped: boolean;
+  skippedSetIndices: readonly number[];
+}) {
+  const setCount = Math.max(1, exercise.sets.length);
+  const doneCount = completedSetIndices.length;
+  const skippedCount = skippedSetIndices.length;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: isActive }}
+      onPress={onPress}
+      style={{
+        alignItems: "center",
+        backgroundColor: isActive ? "rgba(255, 82, 101, 0.12)" : "rgba(255, 255, 255, 0.046)",
+        borderColor: isActive ? "rgba(255, 82, 101, 0.58)" : "rgba(255, 255, 255, 0.12)",
+        borderRadius: 12,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        minHeight: 72,
+        padding: spacing.md
+      }}
+      testID={isActive ? "workout-player-strength-active-accordion" : undefined}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: isActive ? "rgba(255, 82, 101, 0.12)" : "rgba(255, 255, 255, 0.05)",
+          borderColor: isActive ? "rgba(255, 82, 101, 0.7)" : "rgba(255, 255, 255, 0.2)",
+          borderRadius: 9,
+          borderWidth: 1,
+          height: 44,
+          justifyContent: "center",
+          width: 44
+        }}
+      >
+        <Text style={{ color: isActive ? colors.redCorner : colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{index + 1}</Text>
+      </View>
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>{plainWorkoutTitle(exercise.name)}</Text>
+        <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>
+          {skipped ? "Skipped" : `${categoryLabel(exercise)} - ${setSummaryText(exercise)}${doneCount > 0 || skippedCount > 0 ? ` - ${doneCount}/${setCount} logged` : ""}`}
+        </Text>
+      </View>
+      <Ionicons color={colors.wrap} name={isActive ? "chevron-up" : "chevron-down"} size={24} />
+    </Pressable>
+  );
+}
+
+function MovementUpNextList({
+  currentIndex,
+  steps
+}: {
+  currentIndex: number;
+  steps: readonly WorkoutTimelineStep[];
+}) {
+  const upcoming = steps.slice(currentIndex + 1, currentIndex + 4);
+  if (upcoming.length === 0) {
+    return null;
+  }
+  return (
+    <View style={{ gap: spacing.xs }} testID="workout-player-movement-up-next">
+      <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", letterSpacing: 2, lineHeight: 16 }}>UP NEXT</Text>
+      <View
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.035)",
+          borderColor: "rgba(255, 255, 255, 0.12)",
+          borderRadius: 14,
+          borderWidth: 1,
+          overflow: "hidden"
+        }}
+      >
+        {upcoming.map((step, index) => (
+          <View
+            key={`movement-up-next:${step.id}`}
+            style={{
+              alignItems: "center",
+              borderBottomColor: "rgba(255, 255, 255, 0.09)",
+              borderBottomWidth: index === upcoming.length - 1 ? 0 : 1,
+              flexDirection: "row",
+              gap: spacing.sm,
+              minHeight: 48,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm
+            }}
+          >
+            <View
+              style={{
+                alignItems: "center",
+                borderColor: "rgba(255, 255, 255, 0.22)",
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                height: 30,
+                justifyContent: "center",
+                width: 30
+              }}
+            >
+              <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "900", lineHeight: 17 }}>{currentIndex + index + 2}</Text>
+            </View>
+            <Text numberOfLines={1} style={{ color: colors.canvas, flex: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{step.title}</Text>
+            <DetailPill label={step.durationLabel} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function SafetyStack({ exercise, session }: { exercise: ExercisePrescription; session: DetailedTrainingSession }) {
   const stopConditions = [...session.stopConditions.slice(0, 2), ...exercise.stopConditions];
   const safetyNotes = [...session.safetyNotes.slice(0, 2), ...exercise.safetyNotes];
@@ -751,9 +1210,29 @@ export function WorkoutPlayer({
   session
 }: WorkoutPlayerProps) {
   const timeline = React.useMemo(() => buildWorkoutPlayerTimeline(session), [session]);
-  const firstStepSeconds = timeline.steps[0]?.durationSeconds ?? 0;
+  const playerMode = React.useMemo(() => resolveWorkoutPlayerMode(session), [session]);
+  const exerciseById = React.useMemo(
+    () => new Map(session.sections.flatMap((section) => section.exercises.map((exercise) => [exercise.exerciseId, exercise] as const))),
+    [session.sections]
+  );
+  const initialStepIndex = React.useMemo(() => {
+    if (playerMode !== "strength_sets") {
+      return 0;
+    }
+    const firstStep = timeline.steps[0];
+    const firstExercise = firstStep ? exerciseById.get(firstStep.exerciseId) : undefined;
+    if (firstStep && firstExercise && liveStepPlayerMode(playerMode, firstExercise, firstStep) === "movement_flow") {
+      return 0;
+    }
+    const firstStrengthWork = timeline.steps.findIndex((step) => {
+      const exercise = exerciseById.get(step.exerciseId);
+      return Boolean(exercise && step.tracksCompletion && liveStepPlayerMode(playerMode, exercise, step) === "strength_sets");
+    });
+    return firstStrengthWork >= 0 ? firstStrengthWork : 0;
+  }, [exerciseById, playerMode, timeline.steps]);
+  const firstStepSeconds = timeline.steps[initialStepIndex]?.durationSeconds ?? 0;
   const [status, setStatus] = React.useState<WorkoutPlayerStatus>("not_started");
-  const [activeStepIndex, setActiveStepIndex] = React.useState(0);
+  const [activeStepIndex, setActiveStepIndex] = React.useState(initialStepIndex);
   const [stepRemainingSeconds, setStepRemainingSeconds] = React.useState(firstStepSeconds);
   const [completedSetMap, setCompletedSetMap] = React.useState<Record<string, readonly number[]>>({});
   const [skippedWorkStepMap, setSkippedWorkStepMap] = React.useState<Record<string, readonly number[]>>({});
@@ -775,7 +1254,7 @@ export function WorkoutPlayer({
 
   React.useEffect(() => {
     setStatus("not_started");
-    setActiveStepIndex(0);
+    setActiveStepIndex(initialStepIndex);
     setStepRemainingSeconds(firstStepSeconds);
     setCompletedSetMap({});
     setSkippedWorkStepMap({});
@@ -792,7 +1271,7 @@ export function WorkoutPlayer({
     setDiscardConfirm(false);
     setSkipConfirm(false);
     setResumeState(null);
-  }, [firstStepSeconds, session.generatedSessionId]);
+  }, [firstStepSeconds, initialStepIndex, session.generatedSessionId]);
 
   React.useEffect(() => {
     let active = true;
@@ -822,7 +1301,7 @@ export function WorkoutPlayer({
   }, [activeStepIndex, timeline.steps]);
 
   React.useEffect(() => {
-    if (status !== "active" || stepRemainingSeconds <= 0) {
+    if (status !== "active") {
       return undefined;
     }
     const interval = setInterval(() => {
@@ -916,7 +1395,7 @@ export function WorkoutPlayer({
   const setCount = currentTimelineStep.totalExerciseSets;
   const completedSets = completedSetMap[activeExerciseId] ?? [];
   const selectedSubstitution = substitutionMap[activeExerciseId];
-  const exerciseNameById = new Map(session.sections.flatMap((section) => section.exercises.map((exercise) => [exercise.exerciseId, exercise.name] as const)));
+  const exerciseNameById = new Map([...exerciseById.entries()].map(([exerciseId, exercise]) => [exerciseId, exercise.name] as const));
   const displayLoad = plainTrainingCopy(selectedSubstitution?.loadGuidance ?? currentTimelineStep.loadGuidance ?? currentTimelineStep.instruction ?? currentExercise.loadGuidance);
   const displayNotes = (selectedSubstitution?.coachingNotes ?? currentExercise.coachingNotes).map(plainTrainingCopy);
   const progress = steps.length > 0 ? Math.max(0, currentStepIndex) / steps.length : 0;
@@ -949,14 +1428,50 @@ export function WorkoutPlayer({
   const firstRecipeStep = firstRecipeBlock?.steps[0];
   const firstPreviewSection = session.sections[0];
   const firstPreviewExercise = firstPreviewSection?.exercises[0];
+  const strengthExerciseIds = Array.from(
+    new Set(
+      steps
+        .filter((step) => {
+          const exercise = exerciseById.get(step.exerciseId);
+          return Boolean(exercise && step.tracksCompletion && liveStepPlayerMode(playerMode, exercise, step) === "strength_sets");
+        })
+        .map((step) => step.exerciseId)
+    )
+  );
+  const strengthExercises = strengthExerciseIds.map((exerciseId) => exerciseById.get(exerciseId)).filter((exercise): exercise is ExercisePrescription => Boolean(exercise));
+  const totalStrengthSets = strengthExercises.reduce((sum, exercise) => {
+    const firstStepForExercise = steps.find((step) => step.exerciseId === exercise.exerciseId && step.tracksCompletion);
+    return sum + Math.max(1, firstStepForExercise?.totalExerciseSets ?? exercise.sets.length);
+  }, 0);
+  const firstStrengthExercise = strengthExercises[0];
+  const previewMovementLines = steps
+    .filter((step) => {
+      const exercise = exerciseById.get(step.exerciseId);
+      return Boolean(exercise && step.kind !== "rest" && liveStepPlayerMode(playerMode, exercise, step) === "movement_flow");
+    })
+    .slice(0, 3)
+    .map((step, index) => `Movement ${index + 1}: ${step.title}`);
   const previewStartLine =
-    firstRecipeBlock && firstRecipeStep
+    playerMode === "strength_sets" && firstStrengthExercise
+      ? `Start with ${plainWorkoutTitle(firstStrengthExercise.name)}.`
+      : playerMode === "movement_flow" && previewMovementLines.length > 0
+        ? `Start with ${previewMovementLines[0]?.replace(/^Movement\s+\d+:\s*/, "")}.`
+        : firstRecipeBlock && firstRecipeStep
       ? `Start with ${firstRecipeBlock.title}: ${firstRecipeStep.title}.`
       : firstPreviewSection && firstPreviewExercise
       ? `Start with ${plainSectionName(firstPreviewSection.name)}: ${plainWorkoutTitle(firstPreviewExercise.name)}.`
       : session.walkthrough.beforeYouStart[0] ?? "Start when you are ready.";
   const guidedDurationLabel = formatWorkoutLength(timeline.totalSeconds || session.durationMinutes * 60);
-  const previewFlowLines = recipeFlowLines(session);
+  const previewFlowLines =
+    playerMode === "strength_sets"
+      ? [
+          `Exercises: ${strengthExercises.length}`,
+          `Prescribed sets: ${totalStrengthSets}`,
+          firstStrengthExercise ? `First lift: ${plainWorkoutTitle(firstStrengthExercise.name)}` : "First lift: ready when you are"
+        ]
+      : playerMode === "movement_flow" && previewMovementLines.length > 0
+        ? previewMovementLines
+        : recipeFlowLines(session);
   const previewWhy = recipeWhy(session);
 
   const restoreWorkoutState = (persisted: PersistedWorkoutPlayerState) => {
@@ -983,7 +1498,8 @@ export function WorkoutPlayer({
   const startWorkoutFresh = () => {
     void clearWorkoutPlayerState(session.generatedSessionId);
     setResumeState(null);
-    setStepRemainingSeconds(currentTimelineStep.durationSeconds);
+    setActiveStepIndex(initialStepIndex);
+    setStepRemainingSeconds(steps[initialStepIndex]?.durationSeconds ?? currentTimelineStep.durationSeconds);
     setStatus("active");
   };
 
@@ -1027,6 +1543,7 @@ export function WorkoutPlayer({
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
+            <PreviewPill label={playerModeLabel(playerMode)} tone={playerMode === "strength_sets" ? "orange" : playerMode === "movement_flow" ? "green" : playerMode === "hybrid" ? "gold" : "purple"} />
             <PreviewPill label={guidedDurationLabel} />
             <PreviewPill label={`${timeline.blockCount} block${timeline.blockCount === 1 ? "" : "s"}`} tone="quiet" />
             <PreviewPill label={recipeEquipmentLabel(session.recipe)} tone="quiet" />
@@ -1040,6 +1557,8 @@ export function WorkoutPlayer({
 
           <TrainPreviewInfoPanel label="FLOW" tone="blue">
             {previewFlowLines.map((line) => <Text key={`preview-flow:${line}`} style={{ color: trainPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>{line}</Text>)}
+            {playerMode === "strength_sets" ? <Text style={{ color: trainPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>You'll move set by set. Rest starts after each completed set.</Text> : null}
+            {playerMode === "movement_flow" ? <Text style={{ color: trainPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 20 }}>You'll move one movement at a time.</Text> : null}
           </TrainPreviewInfoPanel>
 
           <TrainPreviewInfoPanel label="DO THIS" tone="gold">
@@ -1165,6 +1684,150 @@ export function WorkoutPlayer({
     });
   };
 
+  const stepModeAtIndex = (stepIndex: number): Exclude<WorkoutPlayerMode, "hybrid"> | null => {
+    const step = steps[stepIndex];
+    const exercise = step ? exerciseById.get(step.exerciseId) : undefined;
+    return step && exercise ? liveStepPlayerMode(playerMode, exercise, step) : null;
+  };
+
+  const findNextStrengthWorkIndex = (fromIndex: number, input?: { differentExerciseFrom?: string | undefined }): number =>
+    steps.findIndex((step, index) => {
+      if (index <= fromIndex || !step.tracksCompletion) {
+        return false;
+      }
+      if (input?.differentExerciseFrom && step.exerciseId === input.differentExerciseFrom) {
+        return false;
+      }
+      return stepModeAtIndex(index) === "strength_sets";
+    });
+
+  const findNextPresentedStepIndex = (fromIndex: number): number =>
+    steps.findIndex((step, index) => index > fromIndex && step.kind !== "rest");
+
+  const moveToNextStrengthWork = (fromIndex = currentStepIndex) => {
+    const nextStrengthIndex = findNextStrengthWorkIndex(fromIndex);
+    if (nextStrengthIndex >= 0) {
+      moveToStep(nextStrengthIndex);
+      return;
+    }
+    const nextPresentedStepIndex = findNextPresentedStepIndex(fromIndex);
+    if (nextPresentedStepIndex >= 0) {
+      moveToStep(nextPresentedStepIndex);
+      return;
+    }
+    setStatus("finishing");
+  };
+
+  const completeStrengthSet = () => {
+    touchExercise();
+    setSkippedExerciseMap((current) => {
+      const next = { ...current };
+      delete next[activeExerciseId];
+      return next;
+    });
+    setSkippedWorkStepMap((current) => {
+      const currentSets = current[activeExerciseId] ?? [];
+      return {
+        ...current,
+        [activeExerciseId]: currentSets.filter((index) => index !== activeSetIndex)
+      };
+    });
+    setCompletedSetMap((current) => {
+      const currentSets = current[activeExerciseId] ?? [];
+      return currentSets.includes(activeSetIndex)
+        ? current
+        : {
+            ...current,
+            [activeExerciseId]: [...currentSets, activeSetIndex].sort((left, right) => left - right)
+          };
+    });
+    const nextStepIndex = currentStepIndex + 1;
+    const nextStepCandidate = steps[nextStepIndex];
+    if (nextStepCandidate?.kind === "rest" && nextStepCandidate.exerciseId === activeExerciseId) {
+      moveToStep(nextStepIndex);
+      return;
+    }
+    moveToNextStrengthWork();
+  };
+
+  const skipStrengthSet = () => {
+    touchExercise();
+    setCompletedSetMap((current) => {
+      const currentSets = current[activeExerciseId] ?? [];
+      return {
+        ...current,
+        [activeExerciseId]: currentSets.filter((index) => index !== activeSetIndex)
+      };
+    });
+    setSkippedWorkStepMap((current) => {
+      const currentSets = current[activeExerciseId] ?? [];
+      return currentSets.includes(activeSetIndex)
+        ? current
+        : {
+            ...current,
+            [activeExerciseId]: [...currentSets, activeSetIndex].sort((left, right) => left - right)
+          };
+    });
+    moveToNextStrengthWork();
+  };
+
+  const skipStrengthExercise = () => {
+    touchExercise(activeExerciseId);
+    setSkippedExerciseMap((current) => ({ ...current, [activeExerciseId]: true }));
+    const nextStrengthIndex = findNextStrengthWorkIndex(currentStepIndex, { differentExerciseFrom: activeExerciseId });
+    if (nextStrengthIndex >= 0) {
+      moveToStep(nextStrengthIndex);
+      return;
+    }
+    setStatus("finishing");
+  };
+
+  const completeMovementStep = () => {
+    if (currentTimelineStep.tracksCompletion) {
+      touchExercise();
+      setSkippedExerciseMap((current) => {
+        const next = { ...current };
+        delete next[activeExerciseId];
+        return next;
+      });
+      setSkippedWorkStepMap((current) => {
+        const currentSets = current[activeExerciseId] ?? [];
+        return {
+          ...current,
+          [activeExerciseId]: currentSets.filter((index) => index !== activeSetIndex)
+        };
+      });
+      setCompletedSetMap((current) => {
+        const currentSets = current[activeExerciseId] ?? [];
+        return currentSets.includes(activeSetIndex)
+          ? current
+          : {
+              ...current,
+              [activeExerciseId]: [...currentSets, activeSetIndex].sort((left, right) => left - right)
+            };
+      });
+      if (stepModeAtIndex(currentStepIndex + 1) === "strength_sets") {
+        moveToNextStrengthWork();
+        return;
+      }
+      moveNext();
+      return;
+    }
+    if (stepModeAtIndex(currentStepIndex + 1) === "strength_sets") {
+      moveToNextStrengthWork();
+      return;
+    }
+    moveNext();
+  };
+
+  const skipMovementStep = () => {
+    if (currentTimelineStep.tracksCompletion) {
+      skipSet();
+      return;
+    }
+    moveNext();
+  };
+
   const saveWorkout = async () => {
     if (submitting) {
       return;
@@ -1273,6 +1936,7 @@ export function WorkoutPlayer({
     );
   }
 
+  const currentLiveMode = liveStepPlayerMode(playerMode, currentExercise, currentTimelineStep);
   const futureStepSeconds = steps.slice(currentStepIndex + 1).reduce((sum, step) => sum + step.durationSeconds, 0);
   const remainingSessionSeconds = Math.max(0, stepRemainingSeconds + futureStepSeconds);
   const bigTimerSeconds = stepRemainingSeconds;
@@ -1319,6 +1983,340 @@ export function WorkoutPlayer({
       <LiveDockButton disabled={busy} icon={painFlagMap[activeExerciseId] ? "heart" : "heart-outline"} label="Pain" onPress={togglePainFlag} tone={painFlagMap[activeExerciseId] ? "danger" : "neutral"} />
     </View>
   );
+
+  if (currentLiveMode === "strength_sets") {
+    const strengthExerciseNumber = Math.max(0, strengthExerciseIds.indexOf(activeExerciseId)) + 1;
+    const currentSet = currentExercise.sets[activeSetIndex] ?? currentExercise.sets[0];
+    const isStrengthResting = currentTimelineStep.kind === "rest";
+    const displaySetIndex = isStrengthResting ? Math.min(activeSetIndex + 1, Math.max(0, setCount - 1)) : activeSetIndex;
+    const skippedSets = skippedWorkStepMap[activeExerciseId] ?? [];
+    const restSeconds = restSecondsForExercise(currentExercise, activeSetIndex, currentTimelineStep);
+    const restTimerSeconds = isStrengthResting ? stepRemainingSeconds : restSeconds;
+    const restTimerProgress = isStrengthResting && currentTimelineStep.durationSeconds > 0 ? stepRemainingSeconds / currentTimelineStep.durationSeconds : restSeconds > 0 ? 1 : 0;
+    const nextStrengthWorkIndex = findNextStrengthWorkIndex(currentStepIndex);
+    const nextStrengthStep = nextStrengthWorkIndex >= 0 ? steps[nextStrengthWorkIndex] : undefined;
+    const nextStrengthExercise = nextStrengthStep ? exerciseById.get(nextStrengthStep.exerciseId) : undefined;
+    const nextStrengthLabel = nextStrengthStep && nextStrengthExercise
+      ? `Next: ${plainWorkoutTitle(nextStrengthExercise.name)} - Set ${nextStrengthStep.setIndex + 1}`
+      : "Next: finish workout";
+    const strengthExerciseRows = strengthExerciseIds
+      .map((exerciseId) => exerciseById.get(exerciseId))
+      .filter((exercise): exercise is ExercisePrescription => Boolean(exercise));
+    const moveToStrengthExercise = (exerciseId: string) => {
+      const openSetIndex = steps.findIndex((step, index) => {
+        if (step.exerciseId !== exerciseId || !step.tracksCompletion || stepModeAtIndex(index) !== "strength_sets") {
+          return false;
+        }
+        const completedForExercise = completedSetMap[exerciseId] ?? [];
+        const skippedForExercise = skippedWorkStepMap[exerciseId] ?? [];
+        return !completedForExercise.includes(step.setIndex) && !skippedForExercise.includes(step.setIndex);
+      });
+      if (openSetIndex >= 0) {
+        moveToStep(openSetIndex);
+        return;
+      }
+      const firstSetIndex = steps.findIndex((step, index) => step.exerciseId === exerciseId && step.tracksCompletion && stepModeAtIndex(index) === "strength_sets");
+      if (firstSetIndex >= 0) {
+        moveToStep(firstSetIndex);
+      }
+    };
+    const strengthPrimaryMeta = [
+      setTargetText(currentExercise, activeSetIndex),
+      plainTrainingCopy(selectedSubstitution?.loadGuidance ?? setLoadText(currentExercise, activeSetIndex)),
+      currentExercise.rpeTarget ?? currentSet?.rpeTarget ? `RPE ${currentExercise.rpeTarget ?? currentSet?.rpeTarget}` : null,
+      currentExercise.rirTarget ?? currentSet?.rirTarget ? `RIR ${currentExercise.rirTarget ?? currentSet?.rirTarget}` : null
+    ].filter((item): item is string => Boolean(item));
+    const strengthSecondaryMeta = [
+      currentExercise.tempo ?? currentSet?.tempo ? `Tempo ${plainTrainingCopy(currentExercise.tempo ?? currentSet?.tempo ?? "")}` : null,
+      isStrengthResting ? "Rest running" : restGuidanceText(currentExercise, activeSetIndex, currentTimelineStep)
+    ].filter((item): item is string => Boolean(item));
+    const strengthControlDock = (
+      <View
+        style={{
+          ...glassStyles.control,
+          borderColor: "rgba(255, 82, 101, 0.18)",
+          borderRadius: 24,
+          flexDirection: "row",
+          overflow: "hidden"
+        }}
+        testID="workout-player-strength-control-dock"
+      >
+        <LiveDockButton disabled={currentStepIndex <= 0} icon="play-back" label="Back" onPress={moveBack} />
+        <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
+        <LiveDockButton icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
+        <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", width: 1 }} />
+        <LiveDockButton icon="flag-outline" label="Finish workout" onPress={() => setStatus("finishing")} tone="danger" />
+      </View>
+    );
+
+    if (currentTimelineStep.kind !== "work" && !isStrengthResting) {
+      return (
+        <WorkoutScreenFrame accent="orange" footer={strengthControlDock} mode="STRENGTH WORKOUT" onClose={onClose} scrollResetKey={`${status}:${currentTimelineStep.id}:${currentStepIndex}`} testID="workout-player">
+          <View style={{ alignItems: "center", gap: spacing.xs }}>
+            <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 37, textAlign: "center" }}>{recipeTitle(session)}</Text>
+            <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>Exercise {strengthExerciseNumber} of {strengthExerciseIds.length}</Text>
+          </View>
+          <GlassPanel testID="workout-player-strength-set">
+            <View style={{ gap: spacing.xs }}>
+              <Text style={screenStyles.fieldLabel}>{currentTimelineStep.sectionName}</Text>
+              <Text style={screenStyles.heroTitle}>{currentTimelineStep.title}</Text>
+              <Text style={screenStyles.body}>{currentTimelineStep.instruction}</Text>
+              <Text style={screenStyles.callout}>{primaryCue}</Text>
+            </View>
+            <View style={{ gap: spacing.sm }}>
+              <PlayerButton accent="red" icon="play" label="Start set" layout="full" onPress={() => moveToNextStrengthWork()} tone="primary" />
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                <PlayerButton accent="red" disabled={busy} icon="play-skip-forward" label="Skip exercise" layout="full" onPress={skipStrengthExercise} tone="warning" />
+              </View>
+            </View>
+          </GlassPanel>
+        </WorkoutScreenFrame>
+      );
+    }
+
+    return (
+      <WorkoutScreenFrame accent="orange" footer={strengthControlDock} mode="STRENGTH WORKOUT" onClose={onClose} scrollResetKey={`${status}:${currentTimelineStep.id}:${currentStepIndex}`} testID="workout-player">
+        <View style={{ alignItems: "center", gap: spacing.xs }}>
+          <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 37, textAlign: "center" }}>{recipeTitle(session)}</Text>
+          {selectedSubstitution ? <Text style={screenStyles.subtle}>Swapped from {plainWorkoutTitle(currentExercise.name)}</Text> : null}
+          <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount} - {currentTimelineStep.sectionName}</Text>
+        </View>
+
+        <View style={{ gap: spacing.md }} testID="workout-player-progress">
+          <LuminousProgressBar accent="orange" progress={liveProgress} />
+          <BlockDots accent="orange" activeIndex={currentTimelineStep.sectionIndex} count={timeline.blockCount} />
+        </View>
+
+        <GlassPanel testID="workout-player-strength-set">
+          {isStrengthResting ? <View testID="workout-player-strength-rest" /> : null}
+          <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: "rgba(255, 82, 101, 0.12)",
+                borderColor: "rgba(255, 82, 101, 0.7)",
+                borderRadius: 10,
+                borderWidth: 1,
+                height: 48,
+                justifyContent: "center",
+                width: 48
+              }}
+            >
+              <Text style={{ color: colors.redCorner, fontSize: 20, fontWeight: "900", lineHeight: 25 }}>{strengthExerciseNumber}</Text>
+            </View>
+            <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+              <Text style={{ color: colors.redCorner, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, lineHeight: 16 }}>Exercise {strengthExerciseNumber} of {strengthExerciseIds.length}</Text>
+              <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: 29, fontWeight: "900", lineHeight: 34 }}>{plainWorkoutTitle(selectedSubstitution?.name ?? currentExercise.name)}</Text>
+              <Text style={{ color: colors.wrap, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>{categoryLabel(currentExercise)} - {setSummaryText(currentExercise)}</Text>
+            </View>
+            <Ionicons color={colors.redCorner} name="chevron-up" size={24} />
+          </View>
+
+          <View style={{ alignItems: "center", gap: spacing.xs }}>
+            <CompactSegmentTimer
+              accent="orange"
+              label="REST"
+              progress={restTimerProgress}
+              seconds={restTimerSeconds}
+              sublabel={isStrengthResting ? "Between sets" : "After log"}
+            />
+            <View style={{ gap: 2, paddingHorizontal: spacing.sm }} testID="workout-player-strength-meta">
+              {strengthPrimaryMeta.length > 0 ? (
+                <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 17, textAlign: "center" }}>{strengthPrimaryMeta.join(" | ")}</Text>
+              ) : null}
+              {strengthSecondaryMeta.length > 0 ? (
+                <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 17, textAlign: "center" }}>{strengthSecondaryMeta.join(" | ")}</Text>
+              ) : null}
+            </View>
+          </View>
+
+          <StrengthSetLogTable
+            activeSetIndex={displaySetIndex}
+            completedSetIndices={completedSets}
+            exercise={currentExercise}
+            skippedSetIndices={skippedSets}
+          />
+          <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{liveSafetyLine}</Text>
+          <View style={{ gap: spacing.sm }} testID="workout-player-strength-actions">
+            {isStrengthResting ? (
+              <>
+                <PlayerButton accent="red" icon="play" label="Start next set" layout="full" onPress={() => {
+                  setStatus("active");
+                  moveToNextStrengthWork();
+                }} tone="primary" />
+              </>
+            ) : (
+              <PlayerButton accent="red" disabled={busy || status === "paused"} icon="checkmark" label="Log set" layout="full" onPress={completeStrengthSet} tone="primary" />
+            )}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {isStrengthResting ? (
+                <PlayerButton accent="red" icon="play-skip-forward" label="Skip rest" layout="half" onPress={() => {
+                  setStatus("active");
+                  moveToNextStrengthWork();
+                }} />
+              ) : (
+                <PlayerButton accent="red" disabled={busy} icon="play-skip-forward" label="Skip set" layout="half" onPress={skipStrengthSet} tone="warning" />
+              )}
+              {currentExercise.substitutions.length > 0 ? (
+                <PlayerButton accent="red" icon="swap-horizontal" label="Swap exercise" layout="half" onPress={() => setDetailMode((value) => value === "swap" ? null : "swap")} />
+              ) : (
+                <PlayerButton accent="red" icon="alert-circle-outline" label={painFlagMap[activeExerciseId] ? "Pain flagged" : "Pain flag"} layout="half" onPress={togglePainFlag} tone={painFlagMap[activeExerciseId] ? "warning" : "quiet"} />
+              )}
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <PlayerButton accent="red" disabled={busy} icon="play-skip-forward" label="Skip exercise" layout={currentExercise.substitutions.length > 0 ? "half" : "full"} onPress={skipStrengthExercise} tone="warning" />
+              {currentExercise.substitutions.length > 0 ? <PlayerButton accent="red" icon="alert-circle-outline" label={painFlagMap[activeExerciseId] ? "Pain flagged" : "Pain flag"} layout="half" onPress={togglePainFlag} tone={painFlagMap[activeExerciseId] ? "warning" : "quiet"} /> : null}
+            </View>
+          </View>
+        </GlassPanel>
+
+        <GlassPanel testID="workout-player-strength-guidance">
+          <LiveInfoCard body={liveDoThis} icon="locate-outline" label="DO THIS" />
+          <LiveInfoCard accent="orange" body={primaryCue} icon="headset-outline" label="COACH CUE" tone="hot" />
+          <LiveInfoCard body={nextStrengthLabel} icon="chevron-forward" label="NEXT" />
+        </GlassPanel>
+
+        <View style={{ gap: spacing.sm }}>
+          {strengthExerciseRows.map((exercise, index) => {
+            if (exercise.exerciseId === activeExerciseId) {
+              return null;
+            }
+            return (
+              <StrengthAccordionRow
+                completedSetIndices={completedSetMap[exercise.exerciseId] ?? []}
+                exercise={exercise}
+                index={index}
+                isActive={false}
+                key={`strength-accordion:${exercise.exerciseId}`}
+                onPress={() => moveToStrengthExercise(exercise.exerciseId)}
+                skipped={Boolean(skippedExerciseMap[exercise.exerciseId])}
+                skippedSetIndices={skippedWorkStepMap[exercise.exerciseId] ?? []}
+              />
+            );
+          })}
+        </View>
+
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
+          <PlayerButton label="How to do it" onPress={() => setDetailMode((value) => value === "how" ? null : "how")} />
+          <PlayerButton label="Need help?" onPress={() => setDetailMode((value) => value === "help" ? null : "help")} />
+        </View>
+
+        {detailMode ? (
+          <GlassPanel testID="workout-player-more-detail">
+            {detailMode === "how" ? (
+              <View style={{ gap: spacing.sm }} testID="workout-player-how-to">
+                <Text style={screenStyles.fieldLabel}>How to do it</Text>
+                {teaching.setupSteps.map((item, index) => <Text key={`setup:${index}`} style={screenStyles.body}>Setup {index + 1}: {plainTrainingCopy(item)}</Text>)}
+                {teaching.executionSteps.map((item, index) => <Text key={`execution:${index}`} style={screenStyles.body}>Step {index + 1}: {plainTrainingCopy(item)}</Text>)}
+                {teaching.breathing ? <Text style={screenStyles.subtle}>Breathing: {plainTrainingCopy(teaching.breathing)}</Text> : null}
+              </View>
+            ) : null}
+            {detailMode === "help" ? (
+              <View style={{ gap: spacing.sm }} testID="workout-player-need-help">
+                <Text style={screenStyles.fieldLabel}>Need help?</Text>
+                <Text style={screenStyles.body}>Common mistake: {plainTrainingCopy(teaching.commonMistake.problem)}</Text>
+                <Text style={screenStyles.body}>Fix: {plainTrainingCopy(teaching.commonMistake.fix)}</Text>
+                <Text style={screenStyles.body}>Easier: {plainWorkoutTitle(teaching.easierOption.label)} - {plainTrainingCopy(teaching.easierOption.instruction)}</Text>
+                {teaching.shouldFeel ? <Text style={screenStyles.subtle}>Should feel: {plainTrainingCopy(teaching.shouldFeel)}</Text> : null}
+                {teaching.shouldNotFeel ? <Text style={screenStyles.subtle}>Should not feel: {plainTrainingCopy(teaching.shouldNotFeel)}</Text> : null}
+                <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {plainTrainingCopy(teaching.safetyStop)}</Text>
+                <SafetyStack exercise={currentExercise} session={session} />
+              </View>
+            ) : null}
+            {detailMode === "swap" ? (
+              <View style={{ gap: spacing.sm }} testID="workout-player-swap-panel">
+                <Text style={screenStyles.fieldLabel}>Swap exercise</Text>
+                <SubstitutionChooser
+                  exercise={currentExercise}
+                  onChoose={(substitution) => {
+                    touchExercise();
+                    setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
+                  }}
+                  selected={selectedSubstitution}
+                />
+              </View>
+            ) : null}
+          </GlassPanel>
+        ) : null}
+
+        <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 17, textAlign: "center" }}>Progress is saved on this device. Reopen this workout to resume. Discard removes saved progress.</Text>
+      </WorkoutScreenFrame>
+    );
+  }
+
+  if (currentLiveMode === "movement_flow") {
+    const movementSteps = steps.filter((step, index) => step.sectionIndex === currentTimelineStep.sectionIndex && step.kind !== "rest" && stepModeAtIndex(index) === "movement_flow");
+    const movementIndex = Math.max(0, movementSteps.findIndex((step) => step.id === currentTimelineStep.id));
+    const nextMode = stepModeAtIndex(currentStepIndex + 1);
+    const movementTimerProgress = currentTimelineStep.durationSeconds > 0 ? stepRemainingSeconds / currentTimelineStep.durationSeconds : 0;
+    const movementNextStep = movementSteps[movementIndex + 1];
+    const movementBreathCue = teaching.breathing ? plainTrainingCopy(teaching.breathing) : activeMicroCue && activeMicroCue !== primaryCue ? activeMicroCue : undefined;
+    const movementPrimaryLabel = nextStep
+      ? nextMode && nextMode !== "movement_flow"
+        ? "Continue to main work"
+        : currentTimelineStep.tracksCompletion
+          ? "Done"
+          : "Next movement"
+      : "Finish workout";
+
+    return (
+      <WorkoutScreenFrame accent={blockAccent} mode="MOVEMENT FLOW" onClose={onClose} scrollResetKey={`${status}:${currentTimelineStep.id}:${currentStepIndex}`} testID="workout-player">
+        <View style={{ alignItems: "center", gap: spacing.xs }}>
+          <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 37, textAlign: "center" }}>{recipeTitle(session)}</Text>
+          <Text style={{ color: colors.wrap, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>Block {currentTimelineStep.sectionIndex + 1} of {timeline.blockCount} - {currentTimelineStep.sectionName}</Text>
+        </View>
+        <View style={{ gap: spacing.md }} testID="workout-player-progress">
+          <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={{ color: colors.wrap, flex: 1, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>Movement {movementIndex + 1} of {Math.max(1, movementSteps.length)}</Text>
+            <Text style={{ color: colors.wrap, fontSize: 18, fontVariant: ["tabular-nums"], fontWeight: "800", lineHeight: 24 }}>{formatTimer(remainingSessionSeconds)} left</Text>
+          </View>
+          <LuminousProgressBar accent={blockAccent} progress={liveProgress} />
+        </View>
+        <GlassPanel testID="workout-player-movement-flow">
+          <View style={{ alignItems: "center", gap: spacing.md }}>
+            <LiveTimerOrb accent={blockAccent} label="Move" progress={movementTimerProgress} seconds={stepRemainingSeconds} />
+            <View style={{ alignItems: "center", gap: spacing.xs }}>
+              <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 37, textAlign: "center" }}>{currentTimelineStep.title}</Text>
+              <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{currentTimelineStep.dose}</Text>
+            </View>
+          </View>
+          <MovementMetaLine
+            accent={blockAccent}
+            items={[
+              currentTimelineStep.durationSeconds > 0 ? `Timer ${formatTimer(stepRemainingSeconds)}` : "Self paced",
+              currentTimelineStep.repsText,
+              currentTimelineStep.durationLabel
+            ]}
+          />
+          <LiveInfoCard accent={blockAccent} body={liveDoThis} icon="locate-outline" label="DO THIS" />
+          <LiveInfoCard accent={blockAccent} body={primaryCue} icon="headset-outline" label="CUE" tone="hot" />
+          {movementBreathCue ? <LiveInfoCard accent={blockAccent} body={movementBreathCue} icon="radio-outline" label="BREATH" /> : null}
+          {movementNextStep ? <LiveInfoCard body={`${movementNextStep.title} - ${movementNextStep.durationLabel}`} icon="chevron-forward" label="NEXT" /> : null}
+          <MovementUpNextList currentIndex={movementIndex} steps={movementSteps} />
+          {teaching.shouldFeel ? <Text style={screenStyles.subtle}>Should feel: {plainTrainingCopy(teaching.shouldFeel)}</Text> : null}
+          {teaching.shouldNotFeel ? <Text style={screenStyles.subtle}>Should not feel: {plainTrainingCopy(teaching.shouldNotFeel)}</Text> : null}
+          <Text style={{ color: colors.amberCaution, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>{plainTrainingCopy(currentTimelineStep.safetyStop ?? teaching.safetyStop ?? liveSafetyLine)}</Text>
+          <View style={{ gap: spacing.sm }}>
+            <PlayerButton
+              accent={blockAccent}
+              disabled={busy || status === "paused"}
+              icon={movementPrimaryLabel === "Finish workout" ? "flag-outline" : "checkmark"}
+              label={movementPrimaryLabel}
+              layout="full"
+              onPress={movementPrimaryLabel === "Finish workout" ? () => setStatus("finishing") : completeMovementStep}
+              tone="primary"
+            />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <PlayerButton accent={blockAccent} disabled={currentStepIndex <= 0} icon="arrow-back" label="Back" layout="half" onPress={moveBack} />
+              <PlayerButton accent={blockAccent} icon={status === "paused" ? "play" : "pause"} label={status === "paused" ? "Resume" : "Pause"} layout="half" onPress={() => setStatus(status === "paused" ? "active" : "paused")} />
+              <PlayerButton accent={blockAccent} disabled={busy} icon="play-skip-forward" label="Skip movement" layout="half" onPress={skipMovementStep} tone="warning" />
+              <PlayerButton accent={blockAccent} icon="flag-outline" label="Finish workout" layout="half" onPress={() => setStatus("finishing")} />
+            </View>
+          </View>
+        </GlassPanel>
+      </WorkoutScreenFrame>
+    );
+  }
 
   return (
     <WorkoutScreenFrame footer={liveControlDock} mode="LIVE WORKOUT" onClose={onClose} scrollResetKey={`${status}:${currentTimelineStep.id}:${currentStepIndex}`} testID="workout-player">

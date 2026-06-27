@@ -352,7 +352,7 @@ export function buildWorkoutPlayerTimeline(session: DetailedTrainingSession): Wo
     return entries.map((entry, entryIndex): WorkoutPlayerTimelineStep => {
       const durationSeconds = durations[entryIndex] ?? MIN_TIMED_STEP_SECONDS;
       const currentActionLabel = actionLabel(entry);
-      const title = entry.step.kind === "setup" && entry.exercise.category === "warm_up" ? "Preparation" : playerStepTitle(entry.step, currentActionLabel);
+      const title = playerStepTitle(entry.step, currentActionLabel);
       return {
         actionLabel: currentActionLabel,
         autoAdvance: autoAdvance(entry),

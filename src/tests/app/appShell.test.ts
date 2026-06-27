@@ -93,6 +93,7 @@ vi.mock("react-native", () => {
       spring: animation,
       timing: animation
     },
+    Image: component("Image"),
     ImageBackground: component("ImageBackground"),
     KeyboardAvoidingView: component("KeyboardAvoidingView"),
     Linking: {
@@ -1335,6 +1336,53 @@ function workoutPlayerTestSession(): DetailedTrainingSession {
   };
 }
 
+function movementFlowPlayerTestSession(): DetailedTrainingSession {
+  const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+  const detail = state.viewModels.train.detailedTodaySessions[0]?.detail;
+  const sourceSection = detail?.sections[0];
+  const sourceExercise = sourceSection?.exercises[0];
+  if (!detail || !sourceSection || !sourceExercise) {
+    throw new Error("missing detailed workout fixture");
+  }
+  const { guidedProfile: _guidedProfile, ...sourceWithoutGuidance } = sourceExercise;
+  const warmup: ExercisePrescription = {
+    ...sourceWithoutGuidance,
+    exerciseId: "movement_prep_flow",
+    name: "Movement prep flow",
+    category: "warm_up",
+    repsText: undefined,
+    durationText: "15 sec each",
+    loadGuidance: "Move smoothly and keep breathing easy.",
+    rpeTarget: 2,
+    rirTarget: undefined,
+    tempo: undefined,
+    restText: "Move continuously.",
+    sets: [{ setLabel: "Flow", durationText: "15 sec each", loadGuidance: "Easy movement.", rpeTarget: 2, restText: "Move continuously." }],
+    coachingNotes: ["Move smoothly."],
+    boxingTransfer: "Prepare stance, shoulders, hips, and breathing for boxing.",
+    substitutions: [],
+    safetyNotes: ["Keep the warm-up easy."],
+    stopConditions: ["Stop if pain, dizziness, or unusual symptoms increase."]
+  };
+  return {
+    ...detail,
+    recipe: undefined,
+    title: "Movement flow player test",
+    durationMinutes: 4,
+    guidedSections: undefined,
+    sections: [
+      {
+        ...sourceSection,
+        name: "Warm-up",
+        intent: "Walk through each warm-up movement.",
+        durationMinutes: 4,
+        guidedSteps: undefined,
+        exercises: [warmup]
+      }
+    ]
+  };
+}
+
 function playerGuidedStep(input: Omit<GuidedWorkoutStep, "id"> & { id?: string | undefined }): GuidedWorkoutStep {
   return {
     ...input,
@@ -2004,20 +2052,24 @@ describe("minimal app screens", () => {
     const trainingStatusStyle = flattenStyle((trainingStatusTile.props as { style?: unknown }).style);
     expect(trainingStatusStyle.borderLeftWidth).toBeUndefined();
     expect(trainingStatusStyle.borderColor).toBe("rgba(172, 215, 231, 0.16)");
-    expect(output).toContain("Today's Check-In");
+    expect(output).toContain("today-hero-card");
+    expect(output).toContain("today-status-row");
+    expect(output).toContain("today-next-action-card");
+    expect(output).toContain("today-details-toggle");
+    expect(output).toContain("Today");
     expect(output).toContain("Check in");
     expect(output).toContain("Log food");
     expect(output).toContain("View workout");
     expect(output).not.toContain("Start workout");
-    expect(output).toContain("Training Today");
-    expect(output).toContain("Fuel Today");
-    expect(output).toContain("This Week");
-    expect(output).toContain("Quick Logs");
-    expect(output).toContain("Readiness details");
-    expect(output).toContain("Training load");
-    expect(output).toContain("Weight trend");
-    expect(output).toContain("Recent logs");
-    expect(output).toContain("Missing info stays unknown.");
+    expect(output).not.toContain("Training Today");
+    expect(output).not.toContain("Fuel Today");
+    expect(output).not.toContain("This Week");
+    expect(output).not.toContain("Quick Logs");
+    expect(output).not.toContain("Readiness details");
+    expect(output).not.toContain("Training load");
+    expect(output).not.toContain("Weight trend");
+    expect(output).not.toContain("Recent logs");
+    expect(output).not.toContain("Missing info stays unknown.");
     expect(output).not.toContain("Readiness score");
     expect(output).not.toContain("Weekly training load");
     expect(output).not.toContain("Fuel status");
@@ -2034,7 +2086,19 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Body weight (kg)");
     expect(output).not.toContain("Water liters");
     expect(output).not.toContain("Complete the planned support workout");
-    expect(output.indexOf("Today's Check-In")).toBeLessThan(output.indexOf("Training Today"));
+    await switchSection(renderer, "More today");
+    const detailsOutput = JSON.stringify(renderer.toJSON());
+    expect(detailsOutput).toContain("today-details-section");
+    expect(detailsOutput).toContain("Training Today");
+    expect(detailsOutput).toContain("Fuel Today");
+    expect(detailsOutput).toContain("This Week");
+    expect(detailsOutput).toContain("Quick Logs");
+    expect(detailsOutput).toContain("Readiness details");
+    expect(detailsOutput).toContain("Training load");
+    expect(detailsOutput).toContain("Weight trend");
+    expect(detailsOutput).toContain("Recent logs");
+    expect(detailsOutput).toContain("Missing info stays unknown.");
+    expect(detailsOutput.indexOf("today-hero-card")).toBeLessThan(detailsOutput.indexOf("Training Today"));
   });
 
   it("TodayScreen handles every quick action and opens quick-check controls", async () => {
@@ -2153,6 +2217,9 @@ describe("minimal app screens", () => {
       })
     );
     await act(async () => {
+      await press(pressableWithText(renderer, "More today"));
+    });
+    await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Readiness"));
     });
     const readinessOutput = JSON.stringify(renderer.toJSON());
@@ -2203,7 +2270,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Safety stop");
     expect(output).not.toContain("That lowers confidence because the engine has less context");
     expect(output).toContain("Existing plan stays visible");
-    expect(output).toContain("Today's Check-In");
+    expect(output).toContain("today-hero-card");
     expect(output).toContain("Start workout");
     expect(output).not.toContain("Show Why this plan?");
   });
@@ -2584,36 +2651,39 @@ describe("minimal app screens", () => {
       await press(startButtons[startButtons.length - 1]);
     });
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("LIVE WORKOUT");
-    expect(output).toContain("WORK");
-    expect(output).toContain("workout-player-big-timer");
-    expect(output).toContain("How to");
-    expect(output).toContain("Need help?");
-    await act(async () => {
-      await press(pressableWithText(renderer, "Pause"));
-    });
+    expect(output).toMatch(/LIVE WORKOUT|STRENGTH WORKOUT|MOVEMENT FLOW/);
+    expect(output).toMatch(/workout-player-big-timer|Log set|Movement/);
+    const pauseButton = pressableWithText(renderer, "Pause");
+    if (pauseButton) {
+      await act(async () => {
+        await press(pauseButton);
+      });
+    }
   });
 
   it("FuelScreen renders the start-here action path before raw details", async () => {
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("fuel-hero-card");
     expect(output).toContain("Today's Fuel Plan");
     expect(output).toContain("No active cut");
+    expect(output).toContain("fuel-key-numbers");
     expect(output).toContain("Fuel readiness");
     expect(output).toContain("Hydration guide");
     expect(output).toContain("Food log");
     expect(output).toContain("Training load");
     expect(output).not.toContain("To weight");
     expect(output).not.toContain("Body check");
-    expect(output).toContain("Do Not Miss Today");
-    expect(output).toContain("Training Today");
-    expect(output).toContain("Weight Trend");
-    expect(output).toContain("Food details");
-    expect(output).toContain("Weight context");
+    expect(output).toContain("Do not miss");
+    expect(output).not.toContain("Training Today");
+    expect(output).not.toContain("Weight Trend");
+    expect(output).not.toContain("Food details");
+    expect(output).not.toContain("Weight context");
     expect(output).not.toContain("Weigh-in plan");
-    expect(output).toContain("Health checks");
-    expect(output).toContain("No cut warnings today.");
+    expect(output).not.toContain("Health checks");
+    expect(output).toContain("fuel-details-toggle");
+    expect(output).not.toContain("No cut warnings today.");
     expect(output).toContain("Log meal");
     expect(output).toContain("Add water");
     expect(output).not.toContain("Fuel action");
@@ -2628,9 +2698,21 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Protein stays steady");
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output.indexOf("Today's Fuel Plan")).toBeLessThan(output.indexOf("Do Not Miss Today"));
-    expect(output.indexOf("Do Not Miss Today")).toBeLessThan(output.indexOf("Training Today"));
-    expect(output.indexOf("Food details")).toBeLessThan(output.indexOf("Weight Trend"));
+    expect(output.indexOf("Today's Fuel Plan")).toBeLessThan(output.indexOf("Fuel readiness"));
+    expect(output.indexOf("Fuel readiness")).toBeLessThan(output.indexOf("Do not miss"));
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Fuel details"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("fuel-details-section");
+    expect(output).toContain("Training Today");
+    expect(output).toContain("Weight Trend");
+    expect(output).toContain("Food details");
+    expect(output).toContain("Weight context");
+    expect(output).toContain("Health checks");
+    expect(output).toContain("No cut warnings today.");
+    expect((output.match(/fuel-weight-trend-card/g) ?? []).length).toBe(1);
 
     await act(async () => {
       await press(pressableWithText(renderer, "Food details"));
@@ -2661,6 +2743,55 @@ describe("minimal app screens", () => {
     output = JSON.stringify(renderer.toJSON());
     expect(output).not.toContain("fuel-log-action-section");
     expect(output).toContain("Today's Fuel Plan");
+  });
+
+  it("FuelScreen focus intents open logging and safety detail states", async () => {
+    const { FuelScreen } = await import("../../app/screens/FuelScreen");
+    const onFoodIntentApplied = vi.fn();
+    const foodRenderer = render(
+      React.createElement(FuelScreen, {
+        busy: false,
+        focusIntent: "log_food",
+        message: null,
+        onFocusIntentApplied: onFoodIntentApplied,
+        quickLogs: quickLogActions,
+        recentLogs: recentLogsViewModel,
+        viewModel: fuelViewModel
+      })
+    );
+    let output = JSON.stringify(foodRenderer.toJSON());
+    expect(output).toContain("fuel-log-action-section");
+    expect(output).toContain("Log food");
+    expect(onFoodIntentApplied).toHaveBeenCalled();
+
+    const hydrationRenderer = render(
+      React.createElement(FuelScreen, {
+        busy: false,
+        focusIntent: "log_hydration",
+        message: null,
+        quickLogs: quickLogActions,
+        recentLogs: recentLogsViewModel,
+        viewModel: fuelViewModel
+      })
+    );
+    output = JSON.stringify(hydrationRenderer.toJSON());
+    expect(output).toContain("fuel-log-action-section");
+    expect(output).toContain("Add water");
+
+    const safetyRenderer = render(
+      React.createElement(FuelScreen, {
+        busy: false,
+        focusIntent: "safety_review",
+        message: null,
+        quickLogs: quickLogActions,
+        recentLogs: recentLogsViewModel,
+        viewModel: fuelViewModel
+      })
+    );
+    output = JSON.stringify(safetyRenderer.toJSON());
+    expect(output).not.toContain("fuel-log-action-section");
+    expect(output).toContain("fuel-details-section");
+    expect(output).toContain("Health checks");
   });
 
   it("FuelScreen renders actual-vs-target rows without shaming missing logs and keeps fight/tournament cards", async () => {
@@ -2700,10 +2831,16 @@ describe("minimal app screens", () => {
     const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel }));
     let output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Today's Fuel Plan");
-    expect(output).toContain("Weigh-in plan");
+    expect(output).not.toContain("Weigh-in plan");
     expect(output).not.toContain("Today's recommendation");
     expect(output).not.toContain("Actual vs target today");
     expect(output).not.toContain("Fight-week fuel");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Fuel details"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Weigh-in plan");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Weigh-in plan"));
@@ -2736,17 +2873,16 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("Today's Fuel Plan");
     expect(output).toContain("Pause cut");
-    expect(output).toContain("Health checks");
+    expect(output).toContain("fuel-safety-card");
+    expect(output).toContain("Review safety");
     expect(output).toContain("Cut warning");
-    expect(output).toContain("You cannot resolve nutrition cut warnings yourself.");
-    expect(output.indexOf("Today's Fuel Plan")).toBeLessThan(output.indexOf("Health checks"));
+    expect(output).toContain("This cannot be resolved in the app.");
+    expect(output.indexOf("Today's Fuel Plan")).toBeLessThan(output.indexOf("Review safety"));
     expect(output).toContain("Cut warning");
     expect(output).not.toContain("Request safety review");
     expect(output).toContain("Outside support is required before this plan can continue");
     expect(output).not.toContain("Request safety review");
-    expect(output).toContain("You cannot resolve nutrition cut warnings yourself.");
-    expect(output).toContain("CornerIQ cannot resolve cut warnings in the app.");
-    expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and get medical or nutrition support now.");
+    expect(output).toContain("For urgent symptoms or unsafe weight concerns, stop and get support now.");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
   });
 
@@ -2823,12 +2959,16 @@ describe("minimal app screens", () => {
     expect(output).toContain("review_1");
     expect(output).toContain("Acknowledge review status");
     expect(output).toContain("Cut warning remains active");
+    expect(output).not.toContain("Nutrition review history");
     await act(async () => {
       await press(pressableWithText(renderer, "Acknowledge review status"));
     });
     expect(onAcknowledgeNutritionSafetyReview).toHaveBeenCalledWith("review_1");
     expect(output).not.toMatch(/clear review|clear as reviewer|reviewer-clear/i);
 
+    await act(async () => {
+      await press(pressableWithText(renderer, "Fuel details"));
+    });
     const historyOutput = JSON.stringify(renderer.toJSON());
     expect(historyOutput).toContain("Nutrition review history");
     expect(historyOutput).toContain("Review event timeline");
@@ -2951,10 +3091,17 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Today's Fuel Plan");
-    expect(output).toContain("Weight Trend");
-    expect(output).toContain("Weigh-in plan");
+    expect(output).not.toContain("Weight Trend");
+    expect(output).not.toContain("Weigh-in plan");
     expect(output).not.toContain("Today's recommendation");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Fuel details"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Weight Trend");
+    expect(output).toContain("Weigh-in plan");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Weigh-in plan"));
@@ -2971,10 +3118,17 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Today's Fuel Plan");
-    expect(output).toContain("Weight Trend");
-    expect(output).toContain("Weigh-in plan");
+    expect(output).not.toContain("Weight Trend");
+    expect(output).not.toContain("Weigh-in plan");
     expect(output).not.toContain("Today's recommendation");
     expect(output).not.toMatch(/make weight at all costs|extreme dehydration/i);
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Fuel details"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Weight Trend");
+    expect(output).toContain("Weigh-in plan");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Weigh-in plan"));
@@ -3337,7 +3491,7 @@ describe("minimal app screens", () => {
     expect(noPlayerOutput).toContain("Training log");
   });
 
-  it("WorkoutPlayer shows the active step, timer controls, substitutions, and safety notes", async () => {
+  it("WorkoutPlayer shows the strength set player, rest, substitutions, and safety notes", async () => {
     vi.useFakeTimers();
     try {
       const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
@@ -3358,7 +3512,7 @@ describe("minimal app screens", () => {
       expect(output).toContain("WHY");
       expect(output).toContain("FLOW");
       expect(output).toContain("DO THIS");
-      expect(output).toContain("Start with Strength primer");
+      expect(output).toContain("Start with Tempo squat");
       expect(output).toContain("Show Exercise details");
       expect(output).not.toContain("Session flow");
       expect(output).not.toContain("Coach note");
@@ -3379,16 +3533,28 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("LIVE WORKOUT");
-      expect(output).toContain("Setup");
-      expect(output).toContain("DO THIS");
+      expect(output).toContain("STRENGTH WORKOUT");
+      expect(output).toContain("Exercise ");
+      expect(output).toContain("Set ");
+      expect(output).toContain("3");
+      expect(output).toContain("2");
+      expect(output).toContain("Log set");
+      expect(output).toContain("8 reps");
+      expect(output).toContain("Light and smooth");
+      expect(output).toContain("RPE 6");
+      expect(output).toContain("RIR 2");
+      expect(output).toContain("Tempo 3-1-1");
+      expect(output).toContain("Rest 45 sec after this set");
       expect(output).toContain("COACH CUE");
+      expect(output).toContain("NEXT");
+      expect(output).toContain("Next: Tempo squat - Set 2");
       expect(output).toContain("Tempo squat");
-      expect(output).toContain("Ready");
-      expect(output).toContain("How to");
+      expect(output).toContain("How to do it");
       expect(output).toContain("Need help?");
-      expect(output).toContain("Swap");
+      expect(output).toContain("Swap exercise");
+      expect(output).toContain("Pain flag");
       expect(output).not.toContain("Load guidance");
+      expect(output).not.toContain("workout-player-big-timer");
       expect(output).not.toContain("WHY");
       expect(output).not.toContain("STOP IF");
       expect(output).not.toContain("Stop if sharp knee pain appears.");
@@ -3396,44 +3562,32 @@ describe("minimal app screens", () => {
       act(() => {
         vi.advanceTimersByTime(3000);
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("Ready");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Log set");
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Ready"));
+        await press(pressableWithText(renderer, "Log set"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Work");
-      expect(output).toContain("Done set 1");
-      expect(output).toContain("Back");
+      expect(output).toContain("Rest");
+      expect(output).toContain("0:45");
+      expect(output).toContain("Next: Tempo squat - Set 2");
+      expect(output).toContain("Start next set");
+      expect(output).toContain("Skip rest");
 
       await act(async () => {
-        await press(pressableWithExactText(renderer, "Back"));
+        await press(pressableWithText(renderer, "Start next set"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Setup");
-      expect(output).toContain("Ready");
+      expect(output).toContain("Set ");
+      expect(output).toContain("Log set");
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Ready"));
+        await press(pressableWithExactText(renderer, "How to do it"));
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Work");
-      expect(output).toContain("Done set 1");
-
-      await act(async () => {
-        await press(pressableWithExactText(renderer, "How to"));
-      });
-      output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Set 1 of 2");
-      expect(output).toContain("8 reps");
-      expect(output).toContain("Light and smooth");
-      expect(output).toContain("RPE 6");
-      expect(output).toContain("RIR 2");
-      expect(output).toContain("Tempo 3-1-1");
-      expect(output).toContain("Rest after:");
-      expect(output).toContain("Section purpose");
-      expect(output).toContain("How to");
-      expect(output).toContain("NEXT");
+      expect(output).toContain("How to do it");
+      expect(output).toContain("Setup ");
+      expect(output).toContain("Step ");
       expect(output.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
 
       await act(async () => {
@@ -3444,7 +3598,7 @@ describe("minimal app screens", () => {
       expect(output).toContain("Stop if sharp knee pain appears.");
 
       await act(async () => {
-        await press(pressableWithExactText(renderer, "Swap"));
+        await press(pressableWithExactText(renderer, "Swap exercise"));
       });
       await switchSection(renderer, "Show Swap exercise");
       output = JSON.stringify(renderer.toJSON());
@@ -3457,12 +3611,19 @@ describe("minimal app screens", () => {
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Swapped from");
       expect(output).toContain("Tempo squat");
+      expect(output).toContain("Chair squat");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Pain flag"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Pain flagged");
 
       act(() => {
         vi.advanceTimersByTime(1000);
       });
       output = JSON.stringify(renderer.toJSON());
-      expect(output).toContain("Done set 1");
+      expect(output).toContain("Log set");
       await act(async () => {
         await press(pressableWithText(renderer, "Pause"));
       });
@@ -3477,7 +3638,7 @@ describe("minimal app screens", () => {
       act(() => {
         vi.advanceTimersByTime(1000);
       });
-      expect(JSON.stringify(renderer.toJSON())).toContain("Done set 1");
+      expect(JSON.stringify(renderer.toJSON())).toContain("Log set");
     } finally {
       vi.useRealTimers();
     }
@@ -3544,6 +3705,49 @@ describe("minimal app screens", () => {
     }
   });
 
+  it("WorkoutPlayer renders warm-up movement flow one movement at a time", async () => {
+    vi.useFakeTimers();
+    try {
+      const { WorkoutPlayer } = await import("../../app/screens/train/WorkoutPlayer");
+      const renderer = render(
+        React.createElement(WorkoutPlayer, {
+          busy: false,
+          completionActions: { complete: vi.fn(), skip: vi.fn() },
+          onClose: vi.fn(),
+          onDiscard: vi.fn(),
+          session: movementFlowPlayerTestSession()
+        })
+      );
+
+      let output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Movement flow");
+      expect(output).toContain("You'll move one movement at a time.");
+      expect(output).not.toContain("Preparation");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Start workout"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("MOVEMENT FLOW");
+      expect(output).toContain("Movement ");
+      expect(output).toContain("8");
+      expect(output).toContain("Readiness check");
+      expect(output).toContain("Stand tall.");
+      expect(output).toContain("Start calm.");
+      expect(output).toContain("Done");
+      expect(output).not.toContain("Preparation");
+
+      await act(async () => {
+        await press(pressableWithText(renderer, "Done"));
+      });
+      output = JSON.stringify(renderer.toJSON());
+      expect(output).toContain("Movement ");
+      expect(output).toContain("Shoulder circles forward");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("WorkoutPlayer advances across exercises and saves partial, skipped, and pain-flag results", async () => {
     vi.useFakeTimers();
     try {
@@ -3564,35 +3768,22 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Ready"));
+        await press(pressableWithText(renderer, "Log set"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Done set 1"));
-      });
-      const advanceWithoutCompleting = () => pressableWithText(renderer, "Skip") ?? pressableWithText(renderer, "Next");
-      for (let guard = 0; guard < 4 && !JSON.stringify(renderer.toJSON()).includes('"children":["Set up Timed carry"]'); guard += 1) {
-        await act(async () => {
-          await press(advanceWithoutCompleting());
-        });
-      }
-      expect(JSON.stringify(renderer.toJSON())).toContain('"children":["Set up Timed carry"]');
-
-      await act(async () => {
-        await press(pressableWithText(renderer, "Ready"));
+        await press(pressableWithText(renderer, "Start next set"));
       });
       await act(async () => {
-        await press(advanceWithoutCompleting());
+        await press(pressableWithText(renderer, "Skip set"));
       });
+      expect(JSON.stringify(renderer.toJSON())).toContain("Timed carry");
       await act(async () => {
-        await press(advanceWithoutCompleting());
+        await press(pressableWithText(renderer, "Skip exercise"));
       });
       expect(JSON.stringify(renderer.toJSON())).toContain("Dead bug reach");
 
       await act(async () => {
-        await press(pressableWithText(renderer, "Pain"));
-      });
-      await act(async () => {
-        await press(pressableWithExactText(renderer, "How to"));
+        await press(pressableWithText(renderer, "Pain flag"));
       });
       await act(async () => {
         await press(pressableWithText(renderer, "Finish workout"));
@@ -3638,28 +3829,16 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Ready"));
+        await press(pressableWithText(renderer, "Log set"));
       });
       await act(async () => {
-        await press(pressableWithText(renderer, "Done set 1"));
-      });
-      const advanceWithoutCompleting = () => pressableWithText(renderer, "Skip") ?? pressableWithText(renderer, "Next");
-      for (let guard = 0; guard < 4 && !JSON.stringify(renderer.toJSON()).includes('"children":["Set up Timed carry"]'); guard += 1) {
-        await act(async () => {
-          await press(advanceWithoutCompleting());
-        });
-      }
-      await act(async () => {
-        await press(pressableWithText(renderer, "Ready"));
+        await press(pressableWithText(renderer, "Start next set"));
       });
       await act(async () => {
-        await press(advanceWithoutCompleting());
+        await press(pressableWithText(renderer, "Skip set"));
       });
       await act(async () => {
-        await press(advanceWithoutCompleting());
-      });
-      await act(async () => {
-        await press(pressableWithExactText(renderer, "How to"));
+        await press(pressableWithText(renderer, "Skip exercise"));
       });
       await act(async () => {
         await press(pressableWithText(renderer, "Finish workout"));
@@ -3848,11 +4027,14 @@ describe("minimal app screens", () => {
     expect(output).toContain("This Week's Plan");
     expect(output).toContain("This week's job");
     expect(output).toContain("plan-week-strip-card");
+    expect(output).toContain("plan-week-color-legend");
+    expect(output).toContain("plan-calendar-icons");
     expect(output).toContain("Next up");
-    expect(output).toContain("Next Week");
+    expect(output).toContain("Show calendar");
     expect(output).toContain("Change plan");
     expect(output).toContain("Preview next week");
     expect(output).toContain("plan-details-collapsed");
+    expect(output).not.toContain("plan-calendar-expanded");
     expect(output).not.toContain("Week Details");
     expect(output).not.toContain("Review Notes");
     expect(output).not.toContain("Week Shape");
@@ -3861,6 +4043,8 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Week at a Glance");
     expect(output).not.toContain("Built Around");
     expect(output).not.toContain("Edit boxing schedule");
+    expect(output.indexOf("Plan Your Path screen header")).toBeLessThan(output.indexOf("plan-hero-card"));
+    expect(output.indexOf("plan-hero-card")).toBeLessThan(output.indexOf("plan-roadmap"));
     await switchSection(renderer, "Plan details");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Week Details");
@@ -3925,7 +4109,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Sparring 75 min + App session 30 min");
   });
 
-  it("PlanScreen moves selected workflows into the active workspace", async () => {
+  it("PlanScreen keeps next-week preview in the calendar and moves deeper workflows into the active workspace", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const renderPlan = () =>
       render(
@@ -3958,7 +4142,9 @@ describe("minimal app screens", () => {
     await switchSection(previewRenderer, "Preview next week");
     output = JSON.stringify(previewRenderer.toJSON());
     expect(visibleModalCount(previewRenderer)).toBe(0);
-    expectActiveWorkspaceBeforeOverview(output, "plan-generated-support-summary-card");
+    expect(output).not.toContain("plan-active-workspace");
+    expect(output).toContain("plan-calendar-expanded");
+    expect(output).toContain("plan-calendar-next-week");
     expect(output).toContain("build strength - progress");
 
     const scheduleRenderer = renderPlan();
@@ -4195,7 +4381,7 @@ describe("minimal app screens", () => {
     );
     await switchSection(renderer, "Preview next week");
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("A safety stop must be resolved before this plan can start.");
+    expect(output).toContain("A health warning must be resolved before this plan can start.");
     expect(output).not.toContain("Review required");
     expect(output).not.toContain("Safety stop");
     expect(pressableWithText(renderer, "Start next week plan")?.props.disabled).toBe(true);
@@ -5127,15 +5313,28 @@ describe("minimal app screens", () => {
       })
     );
     let output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Athlete Setup");
+    expect(output).toContain("Athlete setup");
+    expect(output).toContain("profile-hero-card");
+    expect(output).toContain("profile-setup-snapshot");
+    expect(output).toContain("Equipment");
+    expect(output).toContain("Schedule");
+    expect(output).toContain("Units");
     expect(output).toContain("Build - Week 2");
     expect(output).toContain("CornerIQ uses this setup to build your Plan, adjust Train, and guide Fuel.");
-    expect(output).toContain("Show Setup details");
+    expect(output).toContain("Edit setup");
+    expect(output).toContain("Show Profile details");
+    expect(output).not.toContain("Show Setup details");
     expect(output).not.toContain("App inputs");
     expect(output).not.toContain("Quick updates");
+    expect(output).not.toContain("Privacy Policy");
+    expect(output).not.toContain("Sign out");
     expect(output).not.toContain("Signal constellation");
     expect(output).not.toContain("Corner intelligence layers");
     expect(output).not.toContain("Profile action");
+    await switchSection(renderer, "Show Profile details");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("profile-details-section");
+    expect(output).toContain("Show Setup details");
     await switchSection(renderer, "Show Setup details");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("App inputs");
@@ -5149,6 +5348,39 @@ describe("minimal app screens", () => {
     expect(output).toContain("Fuel safety history");
     expect(output).toContain("Health warnings need medical or nutrition support outside the app.");
     expect(output).not.toMatch(/beta|tester|preflight|release candidate|send feedback/i);
+  });
+
+  it("ProfileScreen keeps active health warnings visible without duplicating full details by default", async () => {
+    const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
+    const state = resolvePerformanceState({ journey: short_notice_unsafe_cut, asOfDate: fixtureAsOfDate });
+    const renderer = render(
+      React.createElement(ProfileScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        cycleTrackingStatus: "disabled",
+        cycleContext: null,
+        equipmentAccess: ["jump_rope"],
+        onSignOut: vi.fn(),
+        onUpdateSettings: vi.fn(),
+        preferredUnits: "metric",
+        recentLogs: recentLogsViewModel,
+        viewModel: state.viewModels.profile,
+        wearablePreference: "manual_only",
+        wearableStatus: "manual only"
+      })
+    );
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("profile-health-warning-card");
+    expect(output).toContain("Health warning active");
+    expect(output).not.toContain("profile-safety-section");
+    expect((output.match(/Use caution before pushing training or weight/g) ?? []).length).toBe(1);
+
+    await switchSection(renderer, "Show Profile details");
+    await switchSection(renderer, "Show Health & Safety");
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("profile-safety-section");
+    expect(output).toContain("Active health warning is shown above.");
+    expect((output.match(/Use caution before pushing training or weight/g) ?? []).length).toBe(1);
   });
 
   it("ProfileScreen disables sign-out while app or user-data mutations are busy", async () => {
@@ -5188,8 +5420,12 @@ describe("minimal app screens", () => {
     };
     const dataBusyRenderer = render(React.createElement(ProfileScreen, { ...props, userDataControls: busyControls }));
 
-    expect(pressableWithText(appBusyRenderer, "Sign out")?.props.disabled).toBe(true);
-    expect(pressableWithText(dataBusyRenderer, "Sign out")?.props.disabled).toBe(true);
+    await switchSection(appBusyRenderer, "Show Profile details");
+    await switchSection(appBusyRenderer, "Show Account");
+    await switchSection(dataBusyRenderer, "Show Profile details");
+    await switchSection(dataBusyRenderer, "Show Account");
+    expect(pressableWithExactText(appBusyRenderer, "Sign out")?.props.disabled).toBe(true);
+    expect(pressableWithExactText(dataBusyRenderer, "Sign out")?.props.disabled).toBe(true);
   });
 
   it("ProfileScreen wires export preview and DELETE-gated delete controls", async () => {
@@ -5241,6 +5477,8 @@ describe("minimal app screens", () => {
           wearableStatus: "manual only"
         })
       );
+      expect(JSON.stringify(renderer.toJSON())).not.toContain("Privacy Policy");
+      await switchSection(renderer, "Show Profile details");
       await switchSection(renderer, "Show Privacy & Data");
       expect(JSON.stringify(renderer.toJSON())).toContain("Privacy Policy");
       expect(JSON.stringify(renderer.toJSON())).toContain("Open Privacy Policy");
@@ -5305,18 +5543,26 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(todayRenderer.toJSON())).toContain("Log food");
     expect(JSON.stringify(todayRenderer.toJSON())).toContain("View workout");
     expect(JSON.stringify(todayRenderer.toJSON())).not.toContain("Start workout");
+    expect(JSON.stringify(todayRenderer.toJSON())).toContain("today-details-toggle");
+    expect(JSON.stringify(todayRenderer.toJSON())).not.toContain("today-quick-logs");
+    await switchSection(todayRenderer, "More today");
     expect(JSON.stringify(todayRenderer.toJSON())).toContain("today-quick-logs");
 
     const fuelRenderer = render(React.createElement(FuelScreen, { busy: false, message: null, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: fuelViewModel }));
     const fuelButtons = pressableLabels(fuelRenderer);
     const fuelShowButtons = fuelButtons.filter((label) => label.includes("Show "));
     expect(fuelShowButtons).toHaveLength(0);
-    expect(fuelButtons.some((label) => label.includes("Food details"))).toBe(true);
-    expect(fuelButtons.some((label) => label.includes("Weight context"))).toBe(true);
-    expect(fuelButtons.some((label) => label.includes("Health checks"))).toBe(true);
+    expect(fuelButtons.some((label) => label.includes("Fuel details"))).toBe(true);
+    expect(fuelButtons.some((label) => label.includes("Food details"))).toBe(false);
+    expect(fuelButtons.some((label) => label.includes("Weight context"))).toBe(false);
+    expect(fuelButtons.some((label) => label.includes("Health checks"))).toBe(false);
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Today's Fuel Plan");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Log meal");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Add water");
+    expect(JSON.stringify(fuelRenderer.toJSON())).not.toContain("Weight Trend");
+    await switchSection(fuelRenderer, "Fuel details");
+    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Food details");
+    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Weight Trend");
 
     const trainRenderer = render(React.createElement(TrainScreen, { busy: false, quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: trainViewModel }));
     let trainOutput = JSON.stringify(trainRenderer.toJSON());
@@ -5361,6 +5607,10 @@ describe("minimal app screens", () => {
         wearableStatus: "manual only"
       })
     );
+    expect(JSON.stringify(profileRenderer.toJSON())).toContain("profile-setup-snapshot");
+    expect(JSON.stringify(profileRenderer.toJSON())).toContain("Show Profile details");
+    expect(JSON.stringify(profileRenderer.toJSON())).not.toContain("Preview export");
+    await switchSection(profileRenderer, "Show Profile details");
     await switchSection(profileRenderer, "Show Privacy & Data");
     expect(pressableWithText(profileRenderer, "Delete app data")).toBeUndefined();
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("Preview export");

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { DetailedTrainingSession, ExercisePrescription, GuidedWorkoutStep } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { resolveWorkoutPlayerMode } from "../../engine/presentation/workoutPlayerMode";
 import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../engine/presentation/workoutPlayerTimeline";
+import { buildGuidedStepsForExercise } from "../../engine/training/guidedExerciseCatalog";
 import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function detailedFixture(): DetailedTrainingSession {
@@ -206,6 +208,56 @@ function gobletStrengthExercise(): ExercisePrescription {
 }
 
 describe("workout player timeline", () => {
+  it("routes player modes by workout content", () => {
+    const detail = { ...detailedFixture(), recipe: undefined };
+    const sourceSection = detail.sections[0];
+    if (!sourceSection) {
+      throw new Error("fixture did not include a source section");
+    }
+    const strengthSession: DetailedTrainingSession = {
+      ...detail,
+      recipe: undefined,
+      guidedSections: undefined,
+      sections: [{ ...sourceSection, guidedSteps: undefined, exercises: [gobletStrengthExercise()] }]
+    };
+    const boxingSession: DetailedTrainingSession = {
+      ...detail,
+      recipe: undefined,
+      guidedSections: undefined,
+      sections: [{ ...sourceSection, guidedSteps: undefined, exercises: [shadowboxingRoundsExercise()] }]
+    };
+    const movementSession: DetailedTrainingSession = {
+      ...detail,
+      recipe: undefined,
+      guidedSections: undefined,
+      sections: [{ ...sourceSection, name: "Mobility reset", guidedSteps: undefined, exercises: [movementPrepExercise(), cooldownExercise()] }]
+    };
+    const warmupPlusStrength: DetailedTrainingSession = {
+      ...detail,
+      recipe: undefined,
+      guidedSections: undefined,
+      sections: [
+        { ...sourceSection, name: "Warm-up", guidedSteps: undefined, exercises: [movementPrepExercise()] },
+        { ...sourceSection, name: "Strength", guidedSteps: undefined, exercises: [gobletStrengthExercise()] }
+      ]
+    };
+    const strengthPlusBoxing: DetailedTrainingSession = {
+      ...detail,
+      recipe: undefined,
+      guidedSections: undefined,
+      sections: [
+        { ...sourceSection, name: "Strength", guidedSteps: undefined, exercises: [gobletStrengthExercise()] },
+        { ...sourceSection, name: "Boxing rounds", guidedSteps: undefined, exercises: [shadowboxingRoundsExercise()] }
+      ]
+    };
+
+    expect(resolveWorkoutPlayerMode(boxingSession)).toBe("round_timer");
+    expect(resolveWorkoutPlayerMode(strengthSession)).toBe("strength_sets");
+    expect(resolveWorkoutPlayerMode(movementSession)).toBe("movement_flow");
+    expect(["strength_sets", "hybrid"]).toContain(resolveWorkoutPlayerMode(warmupPlusStrength));
+    expect(resolveWorkoutPlayerMode(strengthPlusBoxing)).toBe("hybrid");
+  });
+
   it("allocates each section timer across every movement in that section", () => {
     const detail = { ...detailedFixture(), recipe: undefined };
     const timeline = buildWorkoutPlayerTimeline(detail);
@@ -223,9 +275,32 @@ describe("workout player timeline", () => {
     expect(warmupTimelineExerciseIds).toEqual(warmupExerciseIds);
     expect(warmupSteps.every((step) => step.durationSeconds > 0 && step.timerLabel.toLowerCase().includes("timer"))).toBe(true);
     expect(warmupSteps.some((step) => step.kind === "setup")).toBe(true);
-    expect(warmupSteps.some((step) => step.title === "Preparation")).toBe(true);
+    expect(warmupSteps.some((step) => step.title === "Preparation")).toBe(false);
     expect(warmupSteps.every((step) => step.blockAccent === "blue")).toBe(true);
     expect(JSON.stringify(timeline).toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
+  });
+
+  it("keeps movement prep flow as individual warm-up movement titles", () => {
+    const base = movementPrepExercise();
+    const { guidedProfile: _guidedProfile, ...withoutGuidance } = base;
+    const catalogWarmup: ExercisePrescription = {
+      ...withoutGuidance,
+      exerciseId: "movement_prep_flow",
+      name: "Movement prep flow"
+    };
+
+    const steps = buildGuidedStepsForExercise(catalogWarmup, { exerciseIndex: 0, sectionIndex: 0 });
+
+    expect(steps.map((step) => step.title)).toEqual([
+      "Readiness check",
+      "Shoulder circles forward",
+      "Shoulder circles backward",
+      "Punch and twist",
+      "Scoops",
+      "Hip hinges",
+      "Stance bounce",
+      "Step and guard reset"
+    ]);
   });
 
   it("formats jab-focused shadowboxing as colored timed blocks with micro-cues", () => {
