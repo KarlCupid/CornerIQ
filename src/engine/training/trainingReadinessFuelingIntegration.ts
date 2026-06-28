@@ -142,9 +142,11 @@ function impactFromReadiness(status: TrainingExecutionReadinessStatus): Training
 
 function impactFromFueling(status: TrainingExecutionFuelingStatus): TrainingGenerationImpact {
   switch (status) {
+    case "severe_underfueling_hard_stop":
+      return "hard_block";
     case "repeated_low_complete_evidence":
     case "underfueling_evidence":
-    case "severe_underfueling_hard_stop":
+      return "load_downshift";
     case "complete_low_advisory":
     case "quick_fuel_check_supported":
     case "not_tracking_today":
@@ -213,11 +215,11 @@ function fuelingGateFor(status: TrainingExecutionFuelingStatus): string {
     case "complete_low_advisory":
       return "One complete low intake day adds caution. Fuel before training, protect recovery fuel, and trim optional finishers if quality drops.";
     case "repeated_low_complete_evidence":
-      return "Repeated complete low intake evidence is active. Training stays generated; fuel before hard work when possible and protect recovery fuel.";
+      return "Repeated complete low intake evidence is active. Generated support is capped while recovery fuel and review come first.";
     case "underfueling_evidence":
-      return "Under-fueling evidence is active. Training stays generated; fuel before hard work when possible and protect recovery fuel.";
+      return "Under-fueling evidence is active. Generated support is reduced while fuel recovery and review come first.";
     case "severe_underfueling_hard_stop":
-      return "Severe under-fueling evidence is active. Training remains available, but fuel and recovery guidance should be treated seriously.";
+      return "Severe under-fueling evidence is active. Automatic generated support is recovery-only until qualified review.";
   }
 }
 
@@ -269,9 +271,9 @@ export function resolveTrainingReadinessFuelingIntegration(
   const hardStopReasons = activeHardStopFlags(input.safetyFlags).map((flag) => flag.message);
   const underfuelingReasons = activeUnderfuelingEvidenceFlags(input.safetyFlags).map((flag) => flag.message);
   const trainingImplications = unique([
-    generationImpact === "hard_block" ? "Hard safety evidence blocks baseline execution." : "Baseline prescription stays available unless explicit evidence overrides it.",
+    generationImpact === "hard_block" ? "Hard safety evidence blocks baseline execution." : generationImpact === "load_downshift" ? "Positive fueling evidence caps generated support until review." : "Baseline prescription stays available unless explicit evidence overrides it.",
     resolvedFuelingStatus === "repeated_low_complete_evidence" || resolvedFuelingStatus === "underfueling_evidence" || resolvedFuelingStatus === "severe_underfueling_hard_stop"
-      ? "Fueling evidence stays in execution guidance and does not reduce workout generation."
+      ? "Fueling evidence affects generation only when it is positive risk evidence, not missing logs."
       : "",
     missingLogsAffectedExecutionOnly ? "Missing logs affect confidence and execution guidance only." : "",
     fuelStatusIsExecutionOnly && !missingFuel ? "Incomplete or not-tracking food status cannot create under-fueling evidence." : "",
@@ -286,7 +288,8 @@ export function resolveTrainingReadinessFuelingIntegration(
     "Downshift if dizziness, fainting, chest pain, unusual pain, coordination drop, or abnormal fatigue appears.",
     resolvedReadinessStatus === "amber" || resolvedReadinessStatus === "red_non_hard_stop" ? "Cap RPE, extend recovery between intervals, and cut the final interval or optional finisher if quality drops." : "",
     resolvedFuelingStatus === "unknown" ? "If the session is hard or high fuel-demand and pre-session fuel is not possible, keep quality work and remove all-out finishers." : "",
-    resolvedFuelingStatus === "underfueling_evidence" ? "Keep recovery fuel protected and trim optional finishers only if quality drops." : "",
+    resolvedFuelingStatus === "underfueling_evidence" || resolvedFuelingStatus === "repeated_low_complete_evidence" ? "Keep recovery fuel protected and do not add optional finishers or bonus conditioning." : "",
+    resolvedFuelingStatus === "severe_underfueling_hard_stop" ? "Use recovery-only guidance until qualified review clears normal training." : "",
     resolvedHydrationStatus === "advisory" || resolvedHydrationStatus === "unknown" ? "Bring fluid and downshift if very dark urine, dizziness, or heat stress shows up." : ""
   ]);
   const auditReasons = unique([
@@ -305,6 +308,8 @@ export function resolveTrainingReadinessFuelingIntegration(
       ? 0.86
       : resolvedReadinessStatus === "green" && resolvedFuelingStatus === "complete_supported" && resolvedHydrationStatus === "supported"
         ? 0.83
+        : generationImpact === "load_downshift"
+          ? 0.66
         : missingReadiness || fuelStatusIsExecutionOnly || missingHydration
           ? 0.62
           : 0.72;
@@ -328,6 +333,10 @@ export function resolveTrainingReadinessFuelingIntegration(
     confidenceImpact:
       confidenceScore >= 0.8
         ? "Fresh consistent readiness, fueling, and hydration logs increase confidence."
+        : generationImpact === "hard_block"
+          ? "Positive safety evidence blocks automatic generated support until review."
+        : generationImpact === "load_downshift"
+          ? "Positive fueling evidence caps generated support; missing logs alone do not."
         : missingReadiness || fuelStatusIsExecutionOnly || missingHydration
           ? "Missing logs lower confidence and add execution gates, but do not reduce baseline generation."
           : "Execution guidance is adjusted from explicit athlete context.",
@@ -377,9 +386,9 @@ export function applyTrainingExecutionGuidance(
       ? ["One complete low intake day: keep the planned session, protect recovery fuel, and trim optional finishers if quality drops."]
       : []),
     ...(integration.fuelingStatus === "underfueling_evidence" || integration.fuelingStatus === "repeated_low_complete_evidence"
-      ? ["Under-fueling evidence: training stays planned; protect recovery fuel and trim optional finishers only if quality drops."]
+      ? ["Under-fueling evidence: generated support is capped; protect recovery fuel and remove optional finishers or bonus conditioning."]
       : []),
-    ...(integration.generationImpact === "hard_block" ? ["Hard-stop evidence: do not turn this into hard training."] : [])
+    ...(integration.generationImpact === "hard_block" ? ["Hard-stop evidence: use recovery-only guidance and do not turn this into hard training."] : [])
   ]);
 
   return {

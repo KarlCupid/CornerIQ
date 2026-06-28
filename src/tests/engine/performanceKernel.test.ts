@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
-import type { GeneratedTrainingSession, JourneyEvent, PersistedTrainingPlanAdjustment, ReadinessCheckIn } from "../../engine/core/types";
+import type { GeneratedTrainingSession, JourneyEvent, NutritionSafetyReviewEvent, PersistedNutritionSafetyReview, PersistedTrainingPlanAdjustment, ReadinessCheckIn } from "../../engine/core/types";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
 import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
 import {
@@ -52,8 +52,46 @@ describe("Corner Engine performance kernel", () => {
 
     expect(state.safety.hardStops.map((flag) => flag.code)).toContain("heavy_bleeding_with_dizziness");
     expect(state.readiness.color).toBe("red");
+    expect(state.phase.phase).toBe("recovery");
     expect(state.training.todaySessions[0]?.intensity).toBe("recovery");
     expect(state.nutrition.acuteProtocolStatus).toBe("blocked");
+  });
+
+  it("uses safety-aware phase overrides without unsupported fight phases", () => {
+    const redReadiness: ReadinessCheckIn = {
+      date: fixtureAsOfDate,
+      recordedAt: "2026-05-19T09:00:00.000Z",
+      sleepHours: 4,
+      sleepQuality1To5: 1,
+      energy1To5: 1,
+      soreness1To5: 5,
+      stress1To5: 5,
+      mood1To5: 1,
+      painNotes: [],
+      illnessSymptoms: [],
+      dizziness: false,
+      fainting: false
+    };
+    const red = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, readinessHistory: [redReadiness] },
+      asOfDate: fixtureAsOfDate
+    });
+    const externalHardStop = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        safetyFlags: [createRiskFlag("medical", "external_safety_flag", "critical", "External hard stop.", { source: "probe" }, true, { hardStop: true })]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const unsupportedExplicitPhase = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, activePhase: "bout_day" },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(red.readiness.color).toBe("red");
+    expect(red.phase.phase).toBe("build");
+    expect(externalHardStop.phase.phase).toBe("recovery");
+    expect(unsupportedExplicitPhase.phase.phase).toBe("build");
   });
 
   it("supports manual-only athletes without wearable shame copy", () => {
@@ -144,9 +182,16 @@ describe("Corner Engine performance kernel", () => {
       asOfDate: fixtureAsOfDate,
       generatedAt: "2026-05-19T10:00:00.000Z"
     });
+    const defaultCurrent = resolvePerformanceState({
+      journey: { ...no_wearable_manual_only, readinessHistory: [morningAmber, afternoonGreen] },
+      asOfDate: fixtureAsOfDate
+    });
 
     expect(latest.readiness.color).toBe("green");
     expect(replayBeforeAfternoonUpdate.readiness.color).toBe("amber");
+    expect(defaultCurrent.readiness.color).toBe("green");
+    expect(defaultCurrent.generatedAt).toBe("2026-05-19T15:00:00.000Z");
+    expect(defaultCurrent.snapshotGeneratedAt).toBeUndefined();
   });
 
   it("keeps same-day food completion events invisible before their recorded time", () => {
@@ -206,6 +251,67 @@ describe("Corner Engine performance kernel", () => {
     expect(beforeFlag.training.supportGenerationAudit.activeRiskFlagCodes).not.toContain("severe_dizziness");
     expect(afterFlag.safety.hardStops.map((flag) => flag.id)).toContain(futureHardStop.id);
     expect(afterFlag.training.supportGenerationAudit.activeRiskFlagCodes).toContain("severe_dizziness");
+  });
+
+  it("defaults generatedAt to selected safety and nutrition review evidence", () => {
+    const externalHardStop = createRiskFlag(
+      "medical",
+      "severe_dizziness",
+      "critical",
+      "Severe dizziness was reported by an external safety intake.",
+      { date: fixtureAsOfDate, recordedAt: "2026-05-19T17:00:00.000Z" },
+      true,
+      { hardStop: true }
+    );
+    const nutritionReview: PersistedNutritionSafetyReview = {
+      id: "nutrition_review_replay_1",
+      userId: "athlete_base",
+      asOfDate: fixtureAsOfDate,
+      reviewType: "under_fueling",
+      status: "requested",
+      severity: "critical",
+      hardStop: true,
+      blockingFlags: ["under_fueling"],
+      reasons: ["Positive under-fueling evidence needs qualified review."],
+      suggestedNextSteps: ["Pause weight-class pressure."],
+      sourcePayload: { source: "test" },
+      reviewerUserId: null,
+      reviewerRole: null,
+      reviewedAt: null,
+      engineVersion: "test",
+      inputHash: "input_hash",
+      outputHash: "output_hash",
+      createdAt: "2026-05-19T18:00:00.000Z",
+      updatedAt: "2026-05-19T18:00:00.000Z"
+    };
+    const nutritionReviewEvent: NutritionSafetyReviewEvent = {
+      id: "nutrition_review_event_replay_1",
+      userId: "athlete_base",
+      nutritionSafetyReviewId: nutritionReview.id,
+      eventType: "requested",
+      actorType: "engine",
+      actorUserId: null,
+      eventPayload: { source: "test" },
+      createdAt: "2026-05-19T18:30:00.000Z"
+    };
+    const journey = {
+      ...no_wearable_manual_only,
+      safetyFlags: [externalHardStop],
+      nutritionSafetyReviews: [nutritionReview],
+      nutritionSafetyReviewEvents: [nutritionReviewEvent]
+    };
+
+    const current = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate });
+    const replay = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate, generatedAt: current.generatedAt });
+
+    expect(current.generatedAt).toBe("2026-05-19T18:30:00.000Z");
+    expect(current.snapshotGeneratedAt).toBeUndefined();
+    expect(current.phase.phase).toBe("recovery");
+    expect(replay.phase.phase).toBe("recovery");
+    expect(replay.safety.hardStops.map((flag) => flag.id)).toContain(externalHardStop.id);
+    expect(replay.nutrition.nutritionSafetyReview.activeReview?.id).toBe(nutritionReview.id);
+    expect(replay.nutrition.nutritionSafetyReviewEvents.map((event) => event.id)).toContain(nutritionReviewEvent.id);
+    expect(replay.outputHash).toBe(current.outputHash);
   });
 
   it("ignores legacy generated-session rows instead of replaying them as active prescriptions", () => {

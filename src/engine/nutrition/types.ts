@@ -15,6 +15,7 @@ import type { FoodLogActualSummary } from "./foodLogSummary";
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "./nutritionSafetyReviewTypes";
 
 export interface FoodLog {
+  id?: string | undefined;
   date: ISODateString;
   calories: number;
   proteinGrams?: number | undefined;
@@ -107,12 +108,14 @@ export interface DailyFoodLogSummary {
 }
 
 export interface WaterLog {
+  id?: string | undefined;
   date: ISODateString;
   liters: number;
   recordedAt?: ISODateTimeString | undefined;
 }
 
 export interface ElectrolyteLog {
+  id?: string | undefined;
   date: ISODateString;
   sodiumMg: number;
   recordedAt?: ISODateTimeString | undefined;

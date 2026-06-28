@@ -6,7 +6,7 @@ Published Support URL: `https://sites.google.com/view/corneriq/support`.
 
 The app defaults point to these public URLs. `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` and `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override them if the release owner moves the pages.
 
-This template is for release-owner/legal review. Replace bracketed placeholders before publication.
+This policy source is for release-owner/legal review before publication or republication.
 
 ## Overview
 
@@ -49,7 +49,7 @@ Users can delete app-owned rows from Profile > Data after previewing export coun
 
 Users can delete the full account from Profile > Data by typing `DELETE ACCOUNT`. The app calls a server-side Supabase Edge Function that verifies the signed-in user, deletes user-owned app rows, deletes the Supabase Auth identity, and signs the user out.
 
-Backups, logs, and processor retention may continue for limited operational periods according to the release owner's production retention policy: [insert retention policy].
+Backups, security logs, processor logs, purchase records, and legal/accounting records may remain for limited operational, security, fraud-prevention, legal, tax, or payment-processing periods after an in-app deletion. Account deletion removes active app-owned data and the Supabase Auth identity through the server-side deletion function, while backup and processor retention age out according to the release owner's production operations policy and the applicable processor terms.
 
 ## Contact
 

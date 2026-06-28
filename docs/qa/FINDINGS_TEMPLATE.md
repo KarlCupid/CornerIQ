@@ -1,5 +1,7 @@
 # Agent Browser QA Findings
 
+Use this template for launch/browser QA. For the full-codebase technical and scientific audit, use `docs/qa/FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md`; that loop has a separate no-P-any exit contract and tracks `P0-P4` findings under `qa-artifacts/audit-loop/`.
+
 - Audit date:
 - Commit tested:
 - Agent:

@@ -402,7 +402,7 @@ describe("Fuel Command Center engine", () => {
       blocked: false
     });
 
-    expect(state.phase.phase).toBe("fight_week");
+    expect(state.phase.phase).toBe("recovery");
     expect(timing).toHaveLength(0);
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import type { JourneyEvent } from "../../engine/core/types";
 import { buildFuelDashboardVisual, buildPlanDashboardVisual, buildTodayDashboardVisual } from "../../engine/presentation/dashboardVisualData";
 import {
   buildFuelReferencePanelViewModel,
@@ -8,7 +9,21 @@ import {
   buildTodayReferencePanelViewModel,
   buildTrainReferencePanelViewModel
 } from "../../engine/presentation/referencePanelViewModel";
-import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
+import { fixtureAsOfDate, no_wearable_manual_only, pro_4_round_build_strength } from "../fixtures/engineFixtures";
+
+function foodNotTrackingEvent(date: string): JourneyEvent {
+  return {
+    id: `reference_not_tracking_${date}`,
+    type: "FoodLogStatusUpdated",
+    occurredAt: `${date}T20:00:00.000Z`,
+    payload: {
+      date,
+      status: "not_tracking_today",
+      completionSource: "not_tracking",
+      userMarkedCompleteAt: `${date}T20:00:00.000Z`
+    }
+  };
+}
 
 describe("referencePanelViewModel", () => {
   it("feeds Today reference cards from the same dashboard schedule and readiness data", () => {
@@ -54,6 +69,72 @@ describe("referencePanelViewModel", () => {
     } else {
       expect(reference.meal.meta).toBe(state.viewModels.recentLogs.foodToday.statusLabel);
     }
+  });
+
+  it("keeps missing hydration and food context unknown in Fuel reference cards", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const dashboard = buildFuelDashboardVisual(state.viewModels.fuel, state.viewModels.recentLogs);
+    const reference = buildFuelReferencePanelViewModel(state.viewModels.fuel, dashboard, state.viewModels.recentLogs);
+
+    expect(reference.hydration.loggedLabel).toBe("No log");
+    expect(reference.hydration.targetLabel).not.toBe("2500mg");
+    expect(reference.meal.title).toBe("Fuel context unknown");
+    expect(reference.meal.summary).toContain("Training still stays planned");
+    expect(reference.meal.summary).not.toBe("No food entry has been logged today.");
+  });
+
+  it("presents food not-tracking as opt-out in Fuel reference cards", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        nutritionHistory: [],
+        journeyEvents: [foodNotTrackingEvent(fixtureAsOfDate)]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const dashboard = buildFuelDashboardVisual(state.viewModels.fuel, state.viewModels.recentLogs);
+    const reference = buildFuelReferencePanelViewModel(state.viewModels.fuel, dashboard, state.viewModels.recentLogs);
+
+    expect(reference.meal).toMatchObject({
+      logged: false,
+      meta: "not tracking today",
+      title: "Not tracking today"
+    });
+    expect(reference.meal.summary).toContain("Training guidance remains available");
+    expect(reference.meal.summary).not.toContain("No food entry");
+  });
+
+  it("presents calories-only partial food logs as partial macro context in Fuel reference cards", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        nutritionHistory: [
+          {
+            date: fixtureAsOfDate,
+            calories: 900,
+            confidence: "medium"
+          }
+        ]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const dashboard = buildFuelDashboardVisual(state.viewModels.fuel, state.viewModels.recentLogs);
+    const reference = buildFuelReferencePanelViewModel(state.viewModels.fuel, dashboard, state.viewModels.recentLogs);
+
+    expect(state.nutrition.actualIntakeSummary.status).toBe("partial_day");
+    expect(reference.meal).toMatchObject({
+      logged: true,
+      meta: expect.stringContaining("macros partial"),
+      title: "Partial food log"
+    });
+    expect(reference.macros).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Protein", percentLabel: "Unknown", value: "Unknown" }),
+        expect.objectContaining({ label: "Carbs", percentLabel: "Unknown", value: "Unknown" }),
+        expect.objectContaining({ label: "Fat", percentLabel: "Unknown", value: "Unknown" })
+      ])
+    );
+    expect(reference.meal.summary).not.toContain("No food entry");
   });
 
   it("maps Plan reference rows to the actual week days", () => {

@@ -23,6 +23,7 @@ import type {
 import { recommendTrainingProgression } from "./progressionEngine";
 import { buildWeeklyMicrocycle } from "./microcycleEngine";
 import { readinessHasHardStop } from "./trainingReadinessFuelingIntegration";
+import { fuelingRiskCapsGeneratedCount, severeFuelingRisk } from "./trainingGenerationConstraints";
 import { selectAuthoritativeTrainingWeekSummary } from "./trainingHistoryAuthority";
 
 export interface TrainingBlockEngineInput {
@@ -170,10 +171,13 @@ function weekIndexFor(input: TrainingBlockEngineInput): number {
 
 export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): TrainingBlockRecommendation {
   const underFueling = isUnderFuelingRisk(input.safetyFlags);
+  const severeFueling = severeFuelingRisk(input.safetyFlags);
+  const fuelingCap = fuelingRiskCapsGeneratedCount(input.safetyFlags);
   const repeatedPain = hasRepeatedPain(input);
   const redReadinessHardStop = readinessHasHardStop(input.readiness, input.safetyFlags);
   const trainingHardStop =
     redReadinessHardStop ||
+    severeFueling ||
     input.safetyFlags.some((flag) => flag.hardStop && (flag.domain === "training" || flag.domain === "readiness" || flag.domain === "cycle" || flag.domain === "medical"));
   const phase: TrainingBlockPhase = trainingHardStop || repeatedPain
     ? "recovery_deload"
@@ -216,7 +220,13 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
             ? progression.status
             : "unknown";
   const warnings = [
-    ...(underFueling ? ["Under-fueling evidence adds fuel guidance, but it does not block workout generation."] : []),
+    ...(severeFueling
+      ? ["Severe under-fueling evidence makes generated support recovery-only until qualified review."]
+      : fuelingCap
+        ? ["Under-fueling evidence caps generated support until recovery fuel and review are addressed."]
+        : underFueling
+          ? ["Under-fueling evidence adds fuel guidance and review context."]
+          : []),
     ...(input.cycle.symptomBurden === "high" ? ["High cycle symptoms trim optional volume."] : []),
     ...(input.safetyFlags.some((flag) => flag.code === "heavy_bleeding_with_dizziness") ? ["Heavy bleeding with dizziness needs safety review before hard work."] : []),
     ...(phase === "tournament_week" ? ["Tournament week avoids extra hard conditioning and weight pressure."] : [])
@@ -229,7 +239,7 @@ export function recommendTrainingBlockPhase(input: TrainingBlockEngineInput): Tr
       phase === "recovery_deload"
         ? repeatedPain
           ? "Pain history or professional-review flags require qualified review before progression."
-          : "Readiness hard-stop symptoms or training safety flags override the training block."
+          : "Readiness hard-stop symptoms or safety flags override the training block."
         : phase === "tournament_week"
           ? "Tournament context keeps generated work conservative and secondary."
           : phase === "fight_week_taper"

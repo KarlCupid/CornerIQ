@@ -56,6 +56,7 @@ export type FlowLevel = "none" | "spotting" | "light" | "moderate" | "heavy" | "
 export type CycleRelatedWeightNoiseRisk = "low" | "moderate" | "high" | "unknown";
 
 export interface CycleLog {
+  id?: string | undefined;
   date: ISODateString;
   recordedAt?: ISODateTimeString | undefined;
   bleedStart?: boolean | undefined;

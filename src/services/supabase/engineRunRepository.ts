@@ -1,5 +1,12 @@
 import { RiskFlagSchema } from "../../engine/core/schemas";
-import type { DecisionTrace, GeneratedTrainingSession, ISODateString, PerformanceState, RiskFlag } from "../../engine/core/types";
+import {
+  selectAsOfCycleLogs,
+  selectAsOfElectrolyteLogs,
+  selectAsOfFoodLogs,
+  selectAsOfReadinessHistory,
+  selectAsOfWaterLogs
+} from "../../engine/core/temporalSelectors";
+import type { AthleteJourney, DecisionTrace, GeneratedTrainingSession, ISODateString, PerformanceState, RiskFlag } from "../../engine/core/types";
 import { normalizeAthleteTrainingProfile, normalizePlanIntent } from "../../engine/training/compiler/normalizePlanInputs";
 import { TRAINING_COMPILER_CONTRACT_VERSION } from "../../engine/training/compiler/types";
 import type { CornerSupabaseClient } from "./client";
@@ -33,23 +40,60 @@ function trimmedStringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-function sourceRecordIdsFor(state: PerformanceState) {
+export interface EngineRunSourceRecordIds {
+  athleteProfileId: string;
+  planIntentId?: string | undefined;
+  protectedWorkoutIds: readonly string[];
+  completedSessionIds: readonly string[];
+  exerciseResultIds: readonly string[];
+  readinessCheckinIds: readonly string[];
+  nutritionLogIds: readonly string[];
+  hydrationLogIds: readonly string[];
+  electrolyteLogIds: readonly string[];
+  cycleLogIds: readonly string[];
+  riskFlagIds: readonly string[];
+}
+
+function idsFrom<TValue extends { id?: string | undefined }>(values: readonly TValue[]): readonly string[] {
+  return values.map((value) => value.id).filter((id): id is string => typeof id === "string" && id.length > 0).sort();
+}
+
+function sourceRecordIdsFor(state: PerformanceState, sourceRecordIds: Partial<EngineRunSourceRecordIds> = {}): EngineRunSourceRecordIds {
   return {
     athleteProfileId: state.athlete.athleteId,
     ...(state.training.planGenerationIntent?.id ? { planIntentId: state.training.planGenerationIntent.id } : {}),
     protectedWorkoutIds: state.training.protectedAnchors.map((workout) => workout.id).sort(),
     completedSessionIds: state.training.completedSessions.map((session) => session.id).sort(),
     exerciseResultIds: state.training.recentExerciseResults.map((result) => result.id).sort(),
-    readinessCheckinIds: [],
-    nutritionLogIds: [],
-    hydrationLogIds: [],
-    electrolyteLogIds: [],
-    cycleLogIds: [],
+    readinessCheckinIds: [...(sourceRecordIds.readinessCheckinIds ?? [])].sort(),
+    nutritionLogIds: [...(sourceRecordIds.nutritionLogIds ?? [])].sort(),
+    hydrationLogIds: [...(sourceRecordIds.hydrationLogIds ?? [])].sort(),
+    electrolyteLogIds: [...(sourceRecordIds.electrolyteLogIds ?? [])].sort(),
+    cycleLogIds: [...(sourceRecordIds.cycleLogIds ?? [])].sort(),
     riskFlagIds: state.safety.riskFlags.map((flag) => flag.id).sort()
   };
 }
 
-function workoutEngineInputSnapshot(userId: string, inputHash: string, state: PerformanceState) {
+export function sourceRecordIdsFromJourney(
+  journey: AthleteJourney,
+  asOfDate: ISODateString,
+  generatedAt?: string | undefined
+): Partial<EngineRunSourceRecordIds> {
+  return {
+    readinessCheckinIds: idsFrom(selectAsOfReadinessHistory(journey.readinessHistory, asOfDate, generatedAt)),
+    nutritionLogIds: idsFrom(selectAsOfFoodLogs(journey.nutritionHistory, asOfDate, generatedAt)),
+    hydrationLogIds: idsFrom(selectAsOfWaterLogs(journey.hydrationHistory, asOfDate, generatedAt)),
+    electrolyteLogIds: idsFrom(selectAsOfElectrolyteLogs(journey.electrolyteHistory, asOfDate, generatedAt)),
+    cycleLogIds: idsFrom(selectAsOfCycleLogs(journey.cycleHistory, asOfDate, generatedAt))
+  };
+}
+
+function workoutEngineInputSnapshot(
+  userId: string,
+  inputHash: string,
+  state: PerformanceState,
+  sourceRecordIds: Partial<EngineRunSourceRecordIds> = {}
+) {
   const planIntent = normalizePlanIntent({
     legacyIntent: state.training.planGenerationIntent,
     userId,
@@ -80,7 +124,7 @@ function workoutEngineInputSnapshot(userId: string, inputHash: string, state: Pe
     hydrationLogCount: undefined,
     electrolyteLogCount: undefined,
     riskFlags: state.safety.riskFlags,
-    sourceRecordIds: sourceRecordIdsFor(state),
+    sourceRecordIds: sourceRecordIdsFor(state, sourceRecordIds),
     inputHash
   };
 }
@@ -100,7 +144,12 @@ function workoutEngineOutputSnapshot(state: PerformanceState) {
   };
 }
 
-export function mapPerformanceStateToEngineRun(userId: string, inputHash: string, state: PerformanceState): TableInsert<"engine_runs"> {
+export function mapPerformanceStateToEngineRun(
+  userId: string,
+  inputHash: string,
+  state: PerformanceState,
+  sourceRecordIds: Partial<EngineRunSourceRecordIds> = {}
+): TableInsert<"engine_runs"> {
   return {
     user_id: userId,
     engine_version: state.engineVersion,
@@ -112,8 +161,10 @@ export function mapPerformanceStateToEngineRun(userId: string, inputHash: string
       objective: state.objective,
       confidence: state.confidence.level,
       outputHash: state.outputHash,
+      generatedAt: state.generatedAt,
+      snapshotGeneratedAt: state.snapshotGeneratedAt,
       riskCount: state.safety.riskFlags.length,
-      workoutEngineInputSnapshot: workoutEngineInputSnapshot(userId, inputHash, state),
+      workoutEngineInputSnapshot: workoutEngineInputSnapshot(userId, inputHash, state, sourceRecordIds),
       workoutEngineOutputSnapshot: workoutEngineOutputSnapshot(state)
     })
   };

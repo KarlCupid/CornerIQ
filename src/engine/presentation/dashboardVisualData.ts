@@ -1,7 +1,7 @@
 import type { DetailedTrainingSession, GeneratedSessionIntensity } from "../training/types";
 import type { GeneratedSupportWeekday } from "../training/supportAvailability";
 import type { FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "./types";
-import { compactFuelCopy } from "./fuelCopy";
+import { compactFuelCopy, plainFuelCopy } from "./fuelCopy";
 import { plainIntensityLabel, plainSectionName, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
 export type VisualTone = "blue" | "green" | "orange" | "purple" | "gold" | "red" | "muted";
@@ -97,9 +97,73 @@ export interface TodayDashboardVisual {
   topSummary: string;
   ctaLabel: string;
   ctaAction: TodayPrimaryActionKind;
+  keyStatuses: TodayKeyStatusVisual;
+  checkIn: TodayCheckInVisual;
+  trainingToday: TodayTrainingCardVisual;
+  fuelToday: TodayFuelCardVisual;
+  nextAction: TodayNextActionVisual;
 }
 
 export type TodayPrimaryActionKind = "log_food" | "log_readiness" | "open_plan" | "open_train" | "open_workout" | "open_fuel_safety";
+export type TodayActionKind = "open_quick_check" | "log_food" | "log_hydration" | "open_fuel" | "open_fuel_safety" | "open_plan" | "open_train" | "open_train_workout";
+export type TodayQuickCheckFocus = "readiness" | "body_mass" | "hydration";
+
+export interface TodayActionVisual {
+  disabled?: boolean | undefined;
+  icon: string;
+  kind: TodayActionKind;
+  label: string;
+  quickCheckFocus?: TodayQuickCheckFocus | undefined;
+  tone: VisualTone;
+}
+
+export interface TodayStatusVisual<TValue extends string = string> {
+  tone: VisualTone;
+  value: TValue;
+}
+
+export interface TodayKeyStatusVisual {
+  fuel: TodayStatusVisual<"Eat before" | "Normal" | "Log if useful" | "Hydrate first">;
+  readiness: TodayStatusVisual<"Good" | "Caution" | "Low">;
+  training: TodayStatusVisual<"Start" | "Easy" | "Recovery" | "No workout">;
+  weight: TodayStatusVisual<"On pace" | "Tight" | "Behind" | "No active cut" | "Paused">;
+}
+
+export interface TodayCheckInVisual {
+  focus: TodayQuickCheckFocus;
+  primaryAction: TodayActionVisual;
+  secondaryActions: readonly TodayActionVisual[];
+  sentence: string;
+  status: "Ready" | "Check in" | "Fuel first" | "Easy day" | "Recovery day";
+  tone: VisualTone;
+}
+
+export interface TodayTrainingCardVisual {
+  action: TodayActionVisual;
+  buttonLabel: string;
+  disabled: boolean;
+  durationLabel: string;
+  intensityLabel: string;
+  sentence: string;
+  title: string;
+  tone: VisualTone;
+}
+
+export interface TodayFuelCardVisual {
+  action: TodayActionVisual;
+  note: string;
+  status: string;
+  tone: VisualTone;
+  why: string;
+}
+
+export interface TodayNextActionVisual {
+  action: TodayActionVisual;
+  label: string;
+  sentence: string;
+  title: string;
+  tone: VisualTone;
+}
 
 export interface FuelDashboardVisual {
   macros: readonly ProgressVisual[];
@@ -232,6 +296,21 @@ function progress(label: string, value: number, target: number, unit: string, to
   };
 }
 
+function contextProgress(label: string, valueLabel: string, targetLabel: string, tone: VisualTone, ratio: number, stateLabel: string): ProgressVisual {
+  return {
+    label,
+    valueLabel,
+    targetLabel,
+    ratio: clamp01(ratio),
+    tone,
+    stateLabel
+  };
+}
+
+function missingProgress(label: string, targetLabel = "Target unknown"): ProgressVisual {
+  return contextProgress(label, "No log", targetLabel, "orange", 0, "Unknown");
+}
+
 export function progressFromText(label: string, loggedText: string, targetText: string, tone: VisualTone): ProgressVisual {
   const logged = firstNumber(loggedText) ?? 0;
   const target = firstNumber(targetText) ?? 0;
@@ -301,6 +380,399 @@ function toneForIntensity(intensity: string | undefined): VisualTone {
     return "green";
   }
   return "muted";
+}
+
+function sentenceCase(value: string): string {
+  return value.length === 0 ? value : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+}
+
+function firstSentence(value: string | null | undefined, fallback = ""): string {
+  if (!value) {
+    return fallback;
+  }
+  const [first] = value.split(/(?<=[.!?])\s+/);
+  return first?.trim() || fallback;
+}
+
+const ADVISORY_FOOD_LOG_STATUSES = new Set([
+  "no_log",
+  "quick_fuel_check_only",
+  "not_tracking_today",
+  "partial_day",
+  "likely_partial",
+  "auto_closed_incomplete"
+]);
+
+function todayReadinessStatus(readiness: ReadinessDashboardVisual, recentLogs: RecentLogsViewModel): TodayKeyStatusVisual["readiness"] {
+  if (!recentLogs.readinessToday.loggedToday || readiness.score === null) {
+    return { tone: "orange", value: "Caution" };
+  }
+  if (readiness.score >= 72) {
+    return { tone: "green", value: "Good" };
+  }
+  if (readiness.score >= 55) {
+    return { tone: "orange", value: "Caution" };
+  }
+  return { tone: "red", value: "Low" };
+}
+
+function todayWeightStatus(fuel: FuelViewModel | undefined): TodayKeyStatusVisual["weight"] {
+  if (
+    fuel?.underFuelingRisk ||
+    fuel?.nutritionSafetyReview.required ||
+    (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0 ||
+    (fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0 ||
+    (fuel?.riskSummary.length ?? 0) > 0 ||
+    (fuel?.weightClassStatus.safetyFlags.length ?? 0) > 0
+  ) {
+    return { tone: "red", value: "Paused" };
+  }
+  switch (fuel?.weightClassStatus.status) {
+    case "ahead":
+    case "on_track":
+      return { tone: "green", value: "On pace" };
+    case "behind":
+      return { tone: "orange", value: "Behind" };
+    case "blocked":
+    case "needs_review":
+    case "unsafe":
+      return { tone: "red", value: "Paused" };
+    case "cycle_noisy":
+    case "unknown":
+      return { tone: "orange", value: "Tight" };
+    case "no_active_weight_target":
+    default:
+      return { tone: "muted", value: "No active cut" };
+  }
+}
+
+function todayFuelStatus(fuelRows: readonly ProgressVisual[], fuel: FuelViewModel | undefined): TodayKeyStatusVisual["fuel"] {
+  const hydration = fuelRows.find((item) => /hydration/i.test(item.label));
+  const carbs = fuelRows.find((item) => /carb/i.test(item.label));
+  const highFuelNeed = fuel?.trainingDemandHandoff.todayTrainingDemand === "high";
+  if (!fuel || fuel.foodLogStatus.entryCount === 0 || ADVISORY_FOOD_LOG_STATUSES.has(fuel.foodLogStatus.status)) {
+    return { tone: "muted", value: "Log if useful" };
+  }
+  if (hydration && hydration.ratio > 0 && hydration.ratio < 0.55) {
+    return { tone: "blue", value: "Hydrate first" };
+  }
+  if (highFuelNeed || (carbs && carbs.ratio > 0 && carbs.ratio < 0.55)) {
+    return { tone: "orange", value: "Eat before" };
+  }
+  return { tone: "green", value: "Normal" };
+}
+
+function todayTrainingStatus(train: TrainViewModel | undefined): TodayKeyStatusVisual["training"] {
+  const session = train?.todayGeneratedSessions[0] ?? train?.nextGeneratedSession;
+  const intensity = train?.sessionCards[0]?.intensity ?? session?.intensity;
+  if (!session && (train?.sessionCards.length ?? 0) === 0) {
+    return { tone: "muted", value: "No workout" };
+  }
+  if (intensity === "recovery") {
+    return { tone: "green", value: "Recovery" };
+  }
+  if (intensity === "easy") {
+    return { tone: "green", value: "Easy" };
+  }
+  return { tone: "purple", value: "Start" };
+}
+
+function buildTodayCheckInBase(input: {
+  fuel: TodayKeyStatusVisual["fuel"];
+  readinessLogged: boolean;
+  readiness: TodayKeyStatusVisual["readiness"];
+  training: TodayKeyStatusVisual["training"];
+}): Omit<TodayCheckInVisual, "primaryAction" | "secondaryActions"> {
+  if (!input.readinessLogged) {
+    return {
+      focus: "readiness",
+      sentence: "Log today's readiness first. Fuel, water, and body weight can wait unless they help you.",
+      status: "Check in",
+      tone: "blue"
+    };
+  }
+  if (input.readiness.value === "Low") {
+    return {
+      focus: "readiness",
+      sentence: "Readiness is low, so keep the work controlled and stop if symptoms show up.",
+      status: input.training.value === "Recovery" ? "Recovery day" : "Easy day",
+      tone: "orange"
+    };
+  }
+  if (input.fuel.value === "Eat before" || input.fuel.value === "Hydrate first") {
+    return {
+      focus: input.fuel.value === "Hydrate first" ? "hydration" : "readiness",
+      sentence: input.fuel.value === "Hydrate first"
+        ? "Water matters before today's work. Do not turn this into a low-fluid session."
+        : "Food matters before today's work. Do not turn this into a low-energy session.",
+      status: "Fuel first",
+      tone: "orange"
+    };
+  }
+  if (input.readiness.value === "Caution") {
+    return {
+      focus: "readiness",
+      sentence: "Give CornerIQ a quick update before it points you into the day.",
+      status: "Check in",
+      tone: "blue"
+    };
+  }
+  if (input.training.value === "Recovery") {
+    return {
+      focus: "readiness",
+      sentence: "Today is about getting your body back under you.",
+      status: "Recovery day",
+      tone: "green"
+    };
+  }
+  if (input.training.value === "Easy") {
+    return {
+      focus: "readiness",
+      sentence: "Keep today controlled. The goal is to leave better than you started.",
+      status: "Easy day",
+      tone: "green"
+    };
+  }
+  return {
+    focus: "readiness",
+    sentence: "You're good to start. Check in first if anything feels different today.",
+    status: "Ready",
+    tone: "green"
+  };
+}
+
+function quickCheckAction(label: string, focus: TodayQuickCheckFocus, tone: VisualTone): TodayActionVisual {
+  return { icon: "checkmark-circle-outline", kind: "open_quick_check", label, quickCheckFocus: focus, tone };
+}
+
+function workoutAction(buttonLabel: string, tone: VisualTone): TodayActionVisual {
+  return {
+    icon: buttonLabel === "Start workout" ? "play-outline" : "barbell-outline",
+    kind: buttonLabel === "Start workout" ? "open_train_workout" : "open_train",
+    label: buttonLabel,
+    tone
+  };
+}
+
+function buildTodayCheckInVisual(checkIn: Omit<TodayCheckInVisual, "primaryAction" | "secondaryActions">, trainingToday: TodayTrainingCardVisual): TodayCheckInVisual {
+  const workout = workoutAction(trainingToday.buttonLabel, "purple");
+  const primaryAction: TodayActionVisual =
+    checkIn.status === "Fuel first" && checkIn.focus === "hydration"
+      ? { icon: "water-outline", kind: "log_hydration" as const, label: "Add water", tone: "blue" as const }
+      : checkIn.status === "Fuel first"
+        ? { icon: "restaurant-outline", kind: "log_food" as const, label: "Log food", tone: "orange" as const }
+        : checkIn.status === "Ready"
+          ? workout
+          : quickCheckAction("Check in", checkIn.focus, "blue");
+  const secondaryActions = [
+    primaryAction.label !== "Check in" ? quickCheckAction("Check in", checkIn.focus, "blue") : null,
+    primaryAction.label !== "Log food" ? { icon: "restaurant-outline", kind: "log_food" as const, label: "Log food", tone: "orange" as const } : null,
+    primaryAction.label !== trainingToday.buttonLabel ? workout : null
+  ].filter((item): item is TodayActionVisual => item !== null);
+  return {
+    ...checkIn,
+    primaryAction,
+    secondaryActions
+  };
+}
+
+function todayTrainingHumanLine(input: {
+  card: TrainViewModel["sessionCards"][number] | null;
+  generated: NonNullable<TrainViewModel["nextGeneratedSession"]> | null;
+  readinessLogged: boolean;
+  session: TrainViewModel["detailedTodaySessions"][number]["detail"] | null;
+  viewModel: TrainViewModel | undefined;
+}): string {
+  const intensity = input.session?.intensity ?? input.card?.intensity ?? input.generated?.intensity;
+  const source = firstSentence(
+    input.session?.whyThisMattersForBoxing ?? input.card?.why ?? input.viewModel?.todayRole.summary ?? input.viewModel?.todaySummary,
+    ""
+  );
+  const lowerSource = source.toLowerCase();
+  if (!input.session && !input.card && !input.generated) {
+    return "No app workout is set for today. Log real boxing if training changes.";
+  }
+  if (!input.readinessLogged) {
+    return "Today's workout is ready. Log readiness first, then start if the warm-up feels right.";
+  }
+  if (intensity === "recovery" || intensity === "easy") {
+    return "Today is a lighter session. Move well and leave some gas in the tank.";
+  }
+  if (/jab|footwork|technical|skill|timing|rhythm/.test(lowerSource)) {
+    return "Today is about keeping the jab sharp and getting out clean.";
+  }
+  if (/condition|aerobic|roadwork|capacity|gas/.test(lowerSource)) {
+    return "Use this session to build conditioning without losing your shape.";
+  }
+  if (/pressure|round|tempo/.test(lowerSource)) {
+    return "The work today is controlled pressure, not rushing your feet.";
+  }
+  return "Use the workout to stay sharp without adding extra fatigue.";
+}
+
+function buildTodayTrainingCard(train: TrainViewModel | undefined, readinessLogged: boolean): TodayTrainingCardVisual {
+  const session = train?.detailedTodaySessions.find((item) => item.detail !== null)?.detail ?? null;
+  const card = train?.sessionCards[0] ?? null;
+  const generated = train?.todayGeneratedSessions[0] ?? train?.nextGeneratedSession ?? null;
+  const title = session
+    ? plainWorkoutTitle(session.title, session.family)
+    : card
+      ? plainWorkoutTitle(card.title)
+      : generated
+        ? plainWorkoutTitle(generated.title, generated.family)
+        : "No workout set";
+  const durationMinutes = session?.durationMinutes ?? card?.durationMinutes ?? generated?.durationMinutes ?? 0;
+  const intensity = session?.intensity ?? card?.intensity ?? generated?.intensity ?? "moderate";
+  const hasWorkout = Boolean(session || card || generated);
+  const canStartPlayableSession = Boolean(session && readinessLogged);
+  const buttonLabel = canStartPlayableSession ? "Start workout" : hasWorkout ? "View workout" : "Open Train";
+  const tone = toneForIntensity(intensity);
+  return {
+    action: workoutAction(buttonLabel, tone),
+    buttonLabel,
+    disabled: false,
+    durationLabel: durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD",
+    intensityLabel: sentenceCase(plainIntensityLabel(intensity)),
+    sentence: todayTrainingHumanLine({ card, generated, readinessLogged, session, viewModel: train }),
+    title,
+    tone
+  };
+}
+
+function todayFuelWarningIsActive(fuel: FuelViewModel | undefined): boolean {
+  return Boolean(
+    fuel?.nutritionSafetyReview.required ||
+      (fuel?.activeNutritionSafetyReviews.length ?? 0) > 0 ||
+      (fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0 ||
+      fuel?.underFuelingRisk ||
+      (fuel?.riskSummary.length ?? 0) > 0 ||
+      (fuel?.weightClassStatus.safetyFlags.length ?? 0) > 0
+  );
+}
+
+function buildTodayFuelCard(input: {
+  fuel: FuelViewModel | undefined;
+  fuelStatus: TodayKeyStatusVisual["fuel"];
+  weightStatus: TodayKeyStatusVisual["weight"];
+}): TodayFuelCardVisual {
+  if (input.weightStatus.value === "Paused" || todayFuelWarningIsActive(input.fuel)) {
+    const reviewRequired = input.fuel?.nutritionSafetyReview.required || (input.fuel?.nutritionReviewHistory.activeReviewCount ?? 0) > 0;
+    return {
+      action: { icon: "flame-outline", kind: reviewRequired ? "open_fuel_safety" : "open_fuel", label: "Open Fuel", tone: "blue" },
+      note: reviewRequired ? "Fuel guidance is active. Eat and hydrate normally." : "Weight pressure stays off today. Eat and hydrate normally.",
+      status: reviewRequired ? "Guidance" : "Weight pressure off",
+      tone: "orange",
+      why: "Fuel and weight notes do not block the workout."
+    };
+  }
+  if (input.fuelStatus.value === "Hydrate first") {
+    return {
+      action: { icon: "flame-outline", kind: "open_fuel", label: "Open Fuel", tone: "blue" },
+      note: "Hydration matters more than extra restriction today.",
+      status: "Hydrate first",
+      tone: "blue",
+      why: "Fluids help the session stay controlled and safer."
+    };
+  }
+  if (input.fuelStatus.value === "Eat before") {
+    return {
+      action: { icon: "flame-outline", kind: "open_fuel", label: "Open Fuel", tone: "blue" },
+      note: "Food matters before today's work. Get some carbs in before you train.",
+      status: "Fuel first",
+      tone: "orange",
+      why: "The day asks for work that should not become a low-energy grind."
+    };
+  }
+  if (input.weightStatus.value === "Behind" || input.weightStatus.value === "Tight") {
+    return {
+      action: { icon: "flame-outline", kind: "open_fuel", label: "Open Fuel", tone: "blue" },
+      note: "You're tight on the cut, but don't make today a fasted grind.",
+      status: input.weightStatus.value,
+      tone: "orange",
+      why: "The scale matters, but performance and recovery still come first."
+    };
+  }
+  if (input.weightStatus.value === "On pace") {
+    return {
+      action: { icon: "flame-outline", kind: "open_fuel", label: "Open Fuel", tone: "blue" },
+      note: "You're on pace. Keep meals steady and train normally.",
+      status: "On pace",
+      tone: "green",
+      why: "No extra restriction is needed for today's plan."
+    };
+  }
+  return {
+    action: { icon: "flame-outline", kind: "open_fuel", label: "Open Fuel", tone: "blue" },
+    note: input.fuel ? firstSentence(plainFuelCopy(input.fuel.commandCenter.primaryFuelAction), "Normal meals are enough today.") : "Normal meals are enough today. No need to overthink it.",
+    status: "Normal",
+    tone: "green",
+    why: "Food and water only need attention if something changed."
+  };
+}
+
+function buildTodayNextAction(input: {
+  checkIn: TodayCheckInVisual;
+  fuel: TodayKeyStatusVisual["fuel"];
+  fuelToday: TodayFuelCardVisual;
+  trainingToday: TodayTrainingCardVisual;
+}): TodayNextActionVisual {
+  if (input.fuelToday.status === "Guidance" || input.fuelToday.status === "Weight pressure off") {
+    return {
+      action: {
+        icon: "flame-outline",
+        kind: input.fuelToday.status === "Guidance" ? "open_fuel_safety" : "open_fuel",
+        label: "Open Fuel",
+        tone: input.fuelToday.tone
+      },
+      label: input.fuelToday.status,
+      sentence: input.fuelToday.note,
+      title: "Fuel first",
+      tone: input.fuelToday.tone
+    };
+  }
+  if (!/Ready|Easy day|Recovery day/.test(input.checkIn.status)) {
+    return {
+      action: quickCheckAction("Check in", input.checkIn.focus, "blue"),
+      label: input.checkIn.status,
+      sentence: "Log readiness, then use the workout or fuel action that still matters.",
+      title: "Next up: Check in",
+      tone: input.checkIn.tone
+    };
+  }
+  if (input.fuel.value === "Hydrate first") {
+    return {
+      action: { icon: "water-outline", kind: "log_hydration", label: "Add water", tone: "blue" },
+      label: "Hydrate",
+      sentence: "Hydrate first. Keep the session controlled if fluids are low.",
+      title: "Hydrate first",
+      tone: "blue"
+    };
+  }
+  if (input.fuel.value === "Eat before") {
+    return {
+      action: { icon: "restaurant-outline", kind: "log_food", label: "Log food", tone: "orange" },
+      label: "Fuel first",
+      sentence: "Eat before training. Do not turn this into a low-energy session.",
+      title: "Eat before training",
+      tone: "orange"
+    };
+  }
+  if (input.trainingToday.buttonLabel !== "Open Train") {
+    return {
+      action: workoutAction(input.trainingToday.buttonLabel, input.trainingToday.tone),
+      label: input.trainingToday.intensityLabel,
+      sentence: input.trainingToday.sentence,
+      title: `Next up: ${input.trainingToday.buttonLabel}`,
+      tone: input.trainingToday.tone
+    };
+  }
+  return {
+    action: { icon: "calendar-outline", kind: "open_plan", label: "View plan", tone: "green" },
+    label: "Plan",
+    sentence: "Open the plan when the week changes. Log if useful.",
+    title: "Next up: View plan",
+    tone: "green"
+  };
 }
 
 function toneForDay(day: PlanViewModel["dayPlans"][number]): VisualTone {
@@ -422,21 +894,11 @@ function todayFuelRows(fuel: FuelViewModel | undefined): readonly ProgressVisual
       progress("Sodium", 0, 1, "mg", "muted")
     ].map((item) => ({ ...item, stateLabel: "Open Fuel" }));
   }
-  const macroRows = fuel.macroTargets.progress
-    .filter((item) => /protein|carb|fat/i.test(item.label))
-    .map((item) =>
-      progressFromText(
-        item.label,
-        item.logged,
-        item.target,
-        /protein/i.test(item.label) ? "purple" : /carb/i.test(item.label) ? "orange" : "gold"
-      )
-    );
+  const macros = macroRows(fuel);
   const today = fuel.fuelHistory.groupedDays[0];
-  const waterTarget = firstNumber(fuel.macroTargets.targets.find((item) => /water/i.test(item.label))?.value ?? fuel.hydrationSummary) ?? 2.5;
-  const hydration = progress("Hydration", today?.waterLiters ?? 0, waterTarget, "L", "blue");
-  const sodium = progress("Sodium", today?.sodium ?? 0, 2500, "mg", "muted");
-  return [...macroRows, hydration, sodium];
+  const hydration = hydrationProgress(fuel, today);
+  const sodium = sodiumContextProgress("Sodium", today?.sodium ?? null);
+  return [...macros, hydration, sodium];
 }
 
 function decisionSubtitle(intensity: string | undefined): string {
@@ -542,6 +1004,23 @@ export function buildTodayDashboardVisual(input: {
   const fuelRows = todayFuelRows(input.fuel);
   const lowFuel = fuelRows.some((item) => item.ratio < 0.45 && /carb|hydration/i.test(item.label));
   const cta = primaryTodayCta({ hasWorkout, lowFuel, needsReadiness });
+  const keyStatuses: TodayKeyStatusVisual = {
+    fuel: todayFuelStatus(fuelRows, input.fuel),
+    readiness: todayReadinessStatus(readiness, input.recentLogs),
+    training: todayTrainingStatus(input.train),
+    weight: todayWeightStatus(input.fuel)
+  };
+  const trainingToday = buildTodayTrainingCard(input.train, input.recentLogs.readinessToday.loggedToday);
+  const fuelToday = buildTodayFuelCard({ fuel: input.fuel, fuelStatus: keyStatuses.fuel, weightStatus: keyStatuses.weight });
+  const checkIn = buildTodayCheckInVisual(
+    buildTodayCheckInBase({
+      fuel: keyStatuses.fuel,
+      readiness: keyStatuses.readiness,
+      readinessLogged: input.recentLogs.readinessToday.loggedToday,
+      training: keyStatuses.training
+    }),
+    trainingToday
+  );
   return {
     readiness,
     weeklyLoad: barsFromPlan(input.plan, input.asOfDate),
@@ -557,7 +1036,17 @@ export function buildTodayDashboardVisual(input: {
       needsReadiness
     }),
     ctaLabel: cta.ctaLabel,
-    ctaAction: cta.ctaAction
+    ctaAction: cta.ctaAction,
+    keyStatuses,
+    checkIn,
+    trainingToday,
+    fuelToday,
+    nextAction: buildTodayNextAction({
+      checkIn,
+      fuel: keyStatuses.fuel,
+      fuelToday,
+      trainingToday
+    })
   };
 }
 
@@ -566,6 +1055,13 @@ function macroRows(fuel: FuelViewModel): readonly ProgressVisual[] {
     .filter((item) => /protein|carb|fat/i.test(item.label))
     .map((item) => {
       const tone: VisualTone = /protein/i.test(item.label) ? "purple" : /carb/i.test(item.label) ? "orange" : "gold";
+      const completenessKey = macroCompletenessKey(item.label);
+      if (!hasAnyFoodLog(fuel)) {
+        return contextProgress(item.label, "No log", item.target, "orange", 0, "Unknown");
+      }
+      if (completenessKey && !fuel.foodLogStatus.quality.nutrientCompleteness[completenessKey]) {
+        return contextProgress(item.label, "Unknown", item.target, "orange", 0, "Partial");
+      }
       return {
         ...progressFromText(
           item.label,
@@ -576,6 +1072,27 @@ function macroRows(fuel: FuelViewModel): readonly ProgressVisual[] {
         tone
       };
     });
+}
+
+function hasAnyFoodLog(fuel: FuelViewModel): boolean {
+  return fuel.foodLogStatus.entryCount > 0 || fuel.foodLogStatus.totalCaloriesLogged > 0;
+}
+
+function isPartialFoodStatus(status: FuelViewModel["foodLogStatus"]["status"]): boolean {
+  return status === "partial_day" || status === "likely_partial" || status === "auto_closed_incomplete" || status === "quick_fuel_check_only";
+}
+
+function macroCompletenessKey(label: string): "protein" | "carbohydrate" | "fat" | null {
+  if (/protein/i.test(label)) {
+    return "protein";
+  }
+  if (/carb/i.test(label)) {
+    return "carbohydrate";
+  }
+  if (/^fat$/i.test(label)) {
+    return "fat";
+  }
+  return null;
 }
 
 function targetValue(fuel: FuelViewModel, label: RegExp, fallback: string): string {
@@ -616,10 +1133,39 @@ function fuelQuickContext(fuel: FuelViewModel, hydration: ProgressVisual, sodium
   ];
 }
 
+function hasWaterLog(day: FuelViewModel["fuelHistory"]["groupedDays"][number] | undefined): boolean {
+  return Boolean(day && !day.notes.some((note) => /no water log/i.test(note)));
+}
+
+function hydrationTargetLabel(fuel: FuelViewModel): string {
+  return fuel.macroTargets.targets.find((item) => /water/i.test(item.label))?.value ?? fuel.hydrationSummary.split(".")[0] ?? "Target unknown";
+}
+
+function hydrationProgress(fuel: FuelViewModel, day: FuelViewModel["fuelHistory"]["groupedDays"][number] | undefined): ProgressVisual {
+  const targetLabel = hydrationTargetLabel(fuel);
+  if (!hasWaterLog(day)) {
+    return missingProgress("Hydration", targetLabel);
+  }
+  const target = firstNumber(targetLabel);
+  const waterLiters = day?.waterLiters ?? 0;
+  if (target && target > 0) {
+    return progress("Hydration", waterLiters, target, "L", "blue");
+  }
+  return contextProgress("Hydration", numberLabel(waterLiters, "L"), "Target unknown", "blue", 0.72, "Logged");
+}
+
+function sodiumContextProgress(label: string, sodiumMg: number | null | undefined): ProgressVisual {
+  if (sodiumMg === null || sodiumMg === undefined) {
+    return missingProgress(label, "Context only");
+  }
+  return contextProgress(label, numberLabel(sodiumMg, "mg"), "Context only", "muted", 0.72, "Logged");
+}
+
 function mealDistribution(fuel: FuelViewModel): readonly BarVisual[] {
   const today = fuel.fuelHistory.groupedDays[0];
   const total = today?.carbs ?? today?.calories ?? 0;
   const logged = total > 0;
+  const notTracking = fuel.foodLogStatus.status === "not_tracking_today";
   const shares = [0.18, 0.32, 0.12, 0.28, 0.1] as const;
   const labels = ["Breakfast", "Lunch", "Snack", "Dinner", "Post-training"] as const;
   const max = Math.max(1, ...shares.map((share) => total * share));
@@ -628,7 +1174,7 @@ function mealDistribution(fuel: FuelViewModel): readonly BarVisual[] {
     return {
       label,
       value,
-      valueLabel: logged ? `${Math.round(value)}g` : "No log",
+      valueLabel: logged ? `${Math.round(value)}g` : notTracking ? "Not tracking" : "Unknown",
       ratio: value / max,
       tone: label === "Post-training" ? "purple" : label === "Dinner" ? "gold" : "blue",
       faded: !logged
@@ -645,7 +1191,14 @@ function trendFromFuel(fuel: FuelViewModel): FuelDashboardVisual["trend"] {
   }));
   return {
     bodyMass,
-    carbs: grouped.map((item) => ({ label: shortDateLabel(item.date), value: item.carbs, valueLabel: `${item.carbs}g` }))
+    carbs: grouped.map((item) => ({
+      label: shortDateLabel(item.date),
+      value: item.carbs,
+      valueLabel:
+        item.date === fuel.foodLogStatus.date && hasAnyFoodLog(fuel) && !fuel.foodLogStatus.quality.nutrientCompleteness.carbohydrate
+          ? "Unknown"
+          : `${item.carbs}g`
+    }))
   };
 }
 
@@ -671,18 +1224,25 @@ function recommendationFromFuel(fuel: FuelViewModel, fuelRows: readonly Progress
   const carbs = fuelRows.find((item) => /carb/i.test(item.label));
   const hydration = fuelRows.find((item) => /hydration/i.test(item.label));
   const protein = fuelRows.find((item) => /protein/i.test(item.label));
-  const noFoodLogged = fuelRows.filter((item) => /protein|carb|fat/i.test(item.label)).every((item) => item.ratio <= 0.05);
-  if (noFoodLogged) {
-    return { label: "Log meal", tone: "orange", body: "Log food you have. Fuel advice stays cautious until intake is known." };
+  const hasFoodLog = hasAnyFoodLog(fuel);
+  const partialMacroLog = hasFoodLog && (isPartialFoodStatus(fuel.foodLogStatus.status) || fuelRows.some((item) => /protein|carb|fat/i.test(item.label) && item.stateLabel === "Partial"));
+  if (fuel.foodLogStatus.status === "not_tracking_today") {
+    return { label: "Not tracking", tone: "muted", body: "Food is not tracked today. Fuel normally; training guidance remains available." };
   }
-  if (hydration && hydration.ratio < 0.55) {
+  if (!hasFoodLog) {
+    return { label: "Fuel unknown", tone: "orange", body: "No food log today. Training stays planned; log food only if it helps." };
+  }
+  if (partialMacroLog) {
+    return { label: "Partial log", tone: "orange", body: "Calories are logged; macros are incomplete. Training stays planned; add details only if they help." };
+  }
+  if (hydration && hydration.stateLabel !== "Unknown" && hydration.ratio < 0.55) {
     return { label: "Hydrate", tone: "blue", body: compactFuelCopy(fuel.commandCenter.hydrationAction) };
   }
   const carbRelevantDemand = ["strength", "power", "hard_conditioning", "long_zone2", "protected_sparring_or_hard_anchor", "mixed_high_day"].includes(fuel.trainingDemandHandoff.todayTrainingDemandTier);
-  if (carbs && carbs.ratio < 0.7 && carbRelevantDemand) {
+  if (carbs && carbs.stateLabel !== "Partial" && carbs.stateLabel !== "Unknown" && carbs.ratio < 0.7 && carbRelevantDemand) {
     return { label: "Add carbs", tone: "orange", body: "Add carbs before boxing." };
   }
-  if (protein && protein.ratio >= 0.85) {
+  if (protein && protein.stateLabel !== "Partial" && protein.stateLabel !== "Unknown" && protein.ratio >= 0.85) {
     return { label: "Protein target close", tone: "purple", body: "Protein is close enough to support recovery." };
   }
   return { label: "Fuel looks good", tone: "green", body: compactFuelCopy(fuel.commandCenter.primaryFuelAction) };
@@ -718,14 +1278,13 @@ function fuelDetailDefaultOpen(fuel: FuelViewModel): boolean {
 export function buildFuelDashboardVisual(fuel: FuelViewModel, recentLogs: RecentLogsViewModel): FuelDashboardVisual {
   const macros = macroRows(fuel);
   const today = fuel.fuelHistory.groupedDays[0];
-  const waterTarget = firstNumber(fuel.macroTargets.targets.find((item) => /water/i.test(item.label))?.value ?? fuel.hydrationSummary) ?? 2.5;
-  const hydration = progress("Hydration", today?.waterLiters ?? 0, waterTarget, "L", "blue");
-  const sodium = progress("Sodium", today?.sodium ?? 0, 2500, "mg", "muted");
+  const hydration = hydrationProgress(fuel, today);
+  const sodium = sodiumContextProgress("Sodium", today?.sodium ?? null);
   const fiberTarget = firstNumber(fuel.macroTargets.targets.find((item) => /fiber/i.test(item.label))?.value) ?? 30;
   const recovery = [
     progress("Fiber", today?.fiber ?? 0, fiberTarget, "g", "green"),
     hydration,
-    progress("Electrolytes", today?.sodium ?? 0, 2500, "mg", "gold"),
+    sodiumContextProgress("Electrolytes", today?.sodium ?? null),
     {
       label: "Sleep support",
       valueLabel: recentLogs.readinessToday.loggedToday ? "Logged" : "Unknown",
@@ -743,7 +1302,14 @@ export function buildFuelDashboardVisual(fuel: FuelViewModel, recentLogs: Recent
     hydration,
     sodium,
     meals: mealDistribution(fuel),
-    mealReferenceLabel: today && today.carbs > 0 ? "Estimated from today's logged total" : "Log meals for distribution",
+    mealReferenceLabel:
+      today && today.carbs > 0
+        ? "Estimated from today's logged total"
+        : fuel.foodLogStatus.status === "not_tracking_today"
+          ? "Not tracking today"
+          : hasAnyFoodLog(fuel) && isPartialFoodStatus(fuel.foodLogStatus.status)
+            ? "Calories logged; meal split unknown"
+          : "Meal distribution unknown",
     detailSummary: fuelDetailSummary(fuel),
     detailDefaultOpen: fuelDetailDefaultOpen(fuel),
     trend: trendFromFuel(fuel),
@@ -894,6 +1460,22 @@ function weekdayOrder(weekday: GeneratedSupportWeekday): number {
   return ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(weekday);
 }
 
+function fuelRiskVisual(plan: PlanViewModel): ModifierVisual {
+  switch (plan.generationAudit?.fuelRiskClassification) {
+    case "healthy_logged":
+      return { label: "Fuel context", value: "Logged", ratio: 0.82, tone: "green" };
+    case "underfueling_evidence":
+      return { label: "Low-fuel evidence", value: "Active", ratio: 0.42, tone: "orange" };
+    case "severe_fueling_risk":
+      return { label: "Fuel safety", value: "Safety stop", ratio: 0.24, tone: "red" };
+    case "low_confidence":
+      return { label: "Fuel context", value: "Low confidence", ratio: 0.52, tone: "orange" };
+    case "missing_data":
+    default:
+      return { label: "Fuel context", value: "Unknown", ratio: 0.52, tone: "orange" };
+  }
+}
+
 export function buildPlanDashboardVisual(plan: PlanViewModel): PlanDashboardVisual {
   const loadBalance = barsFromPlan(plan);
   const anchors = [
@@ -952,7 +1534,7 @@ export function buildPlanDashboardVisual(plan: PlanViewModel): PlanDashboardVisu
       { label: "Hard-day spacing", value: plan.hardDayCap >= plan.plannedHardDays ? "Good" : "Watch", ratio: plan.hardDayCap >= plan.plannedHardDays ? 0.82 : 0.45, tone: plan.hardDayCap >= plan.plannedHardDays ? "green" : "orange" },
       { label: "ACWR", value: acwrFromPlan(plan).state, ratio: acwrFromPlan(plan).state === "High" ? 0.38 : 0.78, tone: acwrFromPlan(plan).state === "High" ? "red" : "blue" },
       { label: "Readiness fit", value: plan.generationAudit?.readinessGenerationImpact?.replace(/_/g, " ") ?? "Advisory", ratio: 0.68, tone: "green" },
-      { label: "Low-fuel conflict", value: plan.generationAudit?.fuelRiskClassification === "healthy_logged" ? "Low" : "Watch", ratio: plan.generationAudit?.fuelRiskClassification === "healthy_logged" ? 0.82 : 0.52, tone: plan.generationAudit?.fuelRiskClassification === "healthy_logged" ? "green" : "orange" }
+      fuelRiskVisual(plan)
     ],
     blockOverview: [
       { label: "Week 1", subtitle: plan.weekIndex === 1 ? plan.blockGoal : "Build", active: plan.weekIndex === 1, dots: activeWeekDots },

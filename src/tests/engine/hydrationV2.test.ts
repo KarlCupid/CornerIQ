@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { resolveHydrationPlanV2 } from "../../engine/nutrition/hydrationEngine";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
-import { fixtureAsOfDate, no_wearable_manual_only, pro_8_round_camp_day_before_weigh_in } from "../fixtures/engineFixtures";
+import { fixtureAsOfDate, no_wearable_manual_only, pro_8_round_camp_day_before_weigh_in, pro_12_round_taper } from "../fixtures/engineFixtures";
 
 describe("hydration plan V2", () => {
   it("returns baseline context when hydration logs are missing", () => {
@@ -32,6 +32,22 @@ describe("hydration plan V2", () => {
 
     expect(state.nutrition.hydrationPlanV2.overdrinkingWarning).toContain("Avoid overdrinking plain water");
     expect(state.nutrition.hydrationPlanV2.evidenceIds).toContain("plain_water_overdrinking_context_0_08_l_per_kg");
+  });
+
+  it("keeps daily fluid ranges unavailable when fight-week body mass is stale", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_12_round_taper,
+        bodyMassHistory: [{ date: "2026-04-20", bodyMassKg: 66.4, source: "manual" }]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.phase.phase).toBe("fight_week");
+    expect(state.bodyMass.freshness.status).toBe("stale");
+    expect(state.nutrition.hydrationPlanV2.dailyFluidLiters).toBeNull();
+    expect(state.nutrition.hydrationPlanV2.missingInputs).toContain("fresh body mass");
+    expect(state.nutrition.hydrationPlanV2.reasons).toContain("Body-mass data is stale; daily fluid range stays unavailable.");
   });
 
   it("requires review for kidney/cardiac/hypertension flags and post-weigh-in caps", () => {

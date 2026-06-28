@@ -72,6 +72,27 @@ function readInput(path) {
   return parsed;
 }
 
+function inputCandidateSha(input) {
+  const candidate = typeof input.candidateSha === "string" ? input.candidateSha.trim().toLowerCase() : "";
+  return /^[0-9a-f]{40}$/i.test(candidate) ? candidate : null;
+}
+
+function safeInputForCurrentSha(input, path, sha, explicitInput) {
+  const candidate = inputCandidateSha(input);
+  if (candidate === sha || Object.keys(input).length === 0) {
+    return input;
+  }
+
+  const inputIdentity = candidate ? `candidate ${candidate}` : "no valid candidateSha";
+  const message = `${path} was collected for ${inputIdentity}, but current candidate is ${sha}.`;
+  if (explicitInput) {
+    throw new Error(`${message} Refusing to generate mixed-SHA release evidence from explicit input.`);
+  }
+
+  console.warn(`${message} Ignoring stale default input and generating current-SHA release-blocking defaults.`);
+  return {};
+}
+
 function assertNoSecretShapedValues(fields) {
   const forbiddenValues = [
     [/\bSUPABASE_SERVICE_ROLE(?:_KEY)?\b[^\S\r\n]*[:=][^\S\r\n]*[^\s\r\n]+/i, "server-only role value"],
@@ -101,11 +122,12 @@ function tableRow(label, value) {
 }
 
 const outputPath = argValue("--output") ?? process.env.CORNERIQ_RELEASE_EVIDENCE_PATH ?? defaultOutputPath;
-const inputPath = argValue("--input") ?? process.env.CORNERIQ_RELEASE_EVIDENCE_INPUT_PATH ?? defaultInputPath;
+const explicitInputPath = argValue("--input") ?? process.env.CORNERIQ_RELEASE_EVIDENCE_INPUT_PATH ?? null;
+const inputPath = explicitInputPath ?? defaultInputPath;
 const sha = candidateSha();
 const shortSha = sha.slice(0, 7);
 const generatedAt = new Date().toISOString();
-const input = readInput(inputPath);
+const input = safeInputForCurrentSha(readInput(inputPath), inputPath, sha, Boolean(explicitInputPath));
 const migrationList = migrationEvidenceList();
 
 const fields = {

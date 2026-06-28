@@ -2,7 +2,7 @@
 
 Date: 2026-05-21
 
-This runbook describes how to prepare and distribute a CornerIQ Expo/EAS beta build. It keeps live smoke, secrets, and product feedback triage separate from app distribution.
+This runbook describes how to prepare and distribute a CornerIQ Expo/EAS beta build. It keeps live smoke, secrets, and outside-app product feedback triage separate from app distribution.
 
 ## Required Tools
 
@@ -11,7 +11,7 @@ This runbook describes how to prepare and distribute a CornerIQ Expo/EAS beta bu
 - Expo CLI through `npm start`, `npm run android`, `npm run ios`, `npm run web`, or `npx expo`.
 - EAS CLI through `npx eas-cli` or an installed `eas` command when the release owner is ready to build.
 - Access to the Expo/EAS project owner account.
-- Access to the linked Supabase project for manual smoke and feedback triage.
+- Access to the linked Supabase project for manual smoke when explicitly opted in.
 
 ## Required Public Env Names
 
@@ -151,7 +151,7 @@ Manual release-owner tasks:
 - Do not share `.env`, Supabase tokens, DB passwords, service role keys, smoke credentials, or tester passwords.
 - Tell testers this is a beta, not medical advice, not a replacement for qualified human judgment, and not emergency support.
 - Tell testers that manual logs are enough and wearables are optional.
-- Ask testers to use Profile > Audit for product feedback and avoid secrets or emergency details.
+- Collect product feedback through private facilitator notes or outside-app support, not Profile > Audit. Ask testers to avoid secrets, emergency details, medical records, full health histories, credentials, and personal contact details.
 
 ## Smoke
 
@@ -195,13 +195,13 @@ Supabase project link:
 App starts but no profile:
 
 - Complete onboarding, or use the demo profile path for a non-production local check.
-- Missing profile is a warning in beta health and should not be treated as safe data.
+- Missing profile is an onboarding/runtime warning and should not be treated as safe data.
 
-Feedback submit fails:
+Feedback/support path:
 
-- Confirm the user is signed in.
-- Confirm migration `009` is applied remotely.
-- Inspect `beta_feedback_reports` in the Supabase dashboard for user-owned rows.
+- Launch runtime has no Profile > Audit feedback form, beta health panel, beta tester notice, feedback history, or signed-in issue-reporting path.
+- Use private facilitator notes or outside-app support records for product feedback.
+- Do not inspect `beta_feedback_reports` as an active launch table; the pre-launch feedback table was removed from the final launch schema.
 - Do not use an admin dashboard in the app; manual triage remains private and outside the client.
 
 ## What Not To Do
@@ -219,7 +219,9 @@ Feedback submit fails:
 2. `eas.json`
 3. `package.json`
 4. `scripts/beta-preflight.mjs`
-5. `src/services/config/betaRuntimeConfig.ts`
-6. `src/app/components/BetaTesterNoticePanel.tsx`
-7. `src/tests/static/betaReleaseConfigStatic.test.ts`
-8. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
+5. `src/app/components/AppErrorBoundary.tsx`
+6. `src/app/components/AppErrorState.tsx`
+7. `src/app/supportCopy.ts`
+8. `src/tests/static/betaReleaseConfigStatic.test.ts`
+9. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
+10. `docs/qa/INCIDENT_TRIAGE_RUNBOOK.md`

@@ -55,6 +55,23 @@ describe("engine evidence registry", () => {
     expect(ENGINE_EVIDENCE_REGISTRY.find((entry) => entry.id === "under-fueling-target-relative")?.thresholds.join(" ")).toContain("75%");
   });
 
+  it("keeps REDs and weight-making source anchors current without broadening beyond boxing safety policy", () => {
+    const sourceText = ENGINE_EVIDENCE_REGISTRY.flatMap((entry) => entry.sources.map((source) => [source.label, source.url ?? ""].join(" "))).join(" ");
+    const acuteWeightClass = ENGINE_EVIDENCE_REGISTRY.find((entry) => entry.id === "acute-weight-class-safety");
+    const fightWeek = ENGINE_EVIDENCE_REGISTRY.find((entry) => entry.id === "fight-week-low-residue-rehydration");
+    const acuteSourceLabels = acuteWeightClass?.sources.map((source) => source.label).join(" ") ?? "";
+    const fightWeekSourceLabels = fightWeek?.sources.map((source) => source.label).join(" ") ?? "";
+
+    expect(sourceText).toContain("bjsm.bmj.com/content/57/17/1073");
+    expect(sourceText).not.toContain("bjsm.bmj.com/content/52/11/687");
+    expect(sourceText).toContain("pubmed.ncbi.nlm.nih.gov/21669045");
+    expect(sourceText).toContain("pubmed.ncbi.nlm.nih.gov/40059405");
+    expect(acuteWeightClass).toBeDefined();
+    expect(fightWeek).toBeDefined();
+    expect(acuteSourceLabels).toContain("No generated unsafe weight-cut protocol");
+    expect(fightWeekSourceLabels).toContain("not a generic combat-sport default");
+  });
+
   it("covers every production-relevant threshold domain requested by the audit", () => {
     const registryText = ENGINE_EVIDENCE_REGISTRY.map((entry) => [entry.id, entry.title, entry.files.join(" "), entry.functions.join(" "), entry.thresholds.join(" ")].join(" ")).join(" ");
 

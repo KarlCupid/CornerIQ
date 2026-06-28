@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  AthleteJourneySchema,
   AthleteProfileSchema,
   BodyMassLogSchema,
   CycleLogSchema,
   FightOpportunitySchema,
+  GeneratedTrainingSessionSchema,
   ReadinessCheckInSchema,
   TrainingBlockSchema,
   WearableSignalSchema
@@ -84,5 +86,45 @@ describe("engine boundary schemas", () => {
     const state = resolvePerformanceState({ journey: amateur_novice_build, asOfDate: "2026-05-19" });
 
     expect(TrainingBlockSchema.safeParse(state.training.activeBlock).success).toBe(true);
+  });
+
+  it("rejects malformed structured prescriptions and opaque plan adjustments", () => {
+    const state = resolvePerformanceState({ journey: amateur_novice_build, asOfDate: "2026-05-19" });
+    const generated = state.training.generatedSessions[0];
+    const structured = generated?.structuredPrescriptionV2;
+
+    expect(generated).toBeDefined();
+    expect(structured).toBeDefined();
+    expect(GeneratedTrainingSessionSchema.safeParse(generated).success).toBe(true);
+    expect(
+      GeneratedTrainingSessionSchema.safeParse({
+        ...generated,
+        structuredPrescriptionV2: {
+          blocks: "not an array",
+          totalWorkMinutes: "not a number"
+        }
+      }).success
+    ).toBe(false);
+    expect(
+      GeneratedTrainingSessionSchema.safeParse({
+        ...generated,
+        structuredPrescriptionV2: {
+          ...structured!,
+          canonicalWorkoutSession: {}
+        }
+      }).success
+    ).toBe(false);
+    expect(
+      AthleteJourneySchema.safeParse({
+        ...amateur_novice_build,
+        trainingPlanAdjustments: [
+          {
+            id: "opaque_adjustment",
+            command: { type: "note", note: "missing required boundary fields" },
+            createdAt: "2026-05-19T12:00:00.000Z"
+          }
+        ]
+      }).success
+    ).toBe(false);
   });
 });

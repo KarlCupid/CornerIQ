@@ -28,7 +28,7 @@ describe("beta release operations", () => {
     expect(codeqlWorkflow).not.toMatch(/CORNERIQ_SMOKE|SERVICE_ROLE/i);
   });
 
-  it("documents release operations, feedback triage, and ChatGPT audit steps", () => {
+  it("documents release operations, outside-app feedback triage, and ChatGPT audit steps", () => {
     expect(existsSync("docs/21_BETA_RELEASE_OPERATIONS.md")).toBe(true);
     expect(existsSync("docs/qa/INCIDENT_TRIAGE_RUNBOOK.md")).toBe(true);
     const doc = readFileSync("docs/21_BETA_RELEASE_OPERATIONS.md", "utf8");
@@ -39,8 +39,8 @@ describe("beta release operations", () => {
       "Local Checks",
       "Live Smoke",
       "Supabase Verification",
-      "Feedback Workflow",
-      "Error Reporting",
+      "Feedback And Incident Notes",
+      "Error Recovery",
       "Scenario QA",
       "Data And Privacy",
       "Deferred Features",
@@ -55,6 +55,10 @@ describe("beta release operations", () => {
     expect(doc).toContain("CI does not run live smoke");
     expect(doc).toContain("Release Quality");
     expect(doc).toContain("release-blocking");
+    expect(doc).toContain("There is no in-app feedback form");
+    expect(doc).toContain("outside-app support guidance");
+    expect(doc).not.toContain("Testers submit feedback in Profile > Audit");
+    expect(doc).not.toContain("Inspect `beta_feedback_reports`");
     expect(incidentRunbook).toContain("Severity Definitions");
     expect(incidentRunbook).toContain("Stop-Launch Criteria");
     expect(incidentRunbook).toContain("Critical And High Owner Actions");
@@ -70,7 +74,7 @@ describe("beta release operations", () => {
     }
     expect(incidentRunbook).toContain("Normal users cannot mark reports reviewed");
     expect(incidentRunbook).toContain("Retain user text only as long as needed");
-    expect(doc).toContain("Reports are user-owned");
+    expect(doc).toContain("removed pre-launch surface");
     expect(doc).toContain("no admin-review UI");
     expect(doc).not.toMatch(/make weight at all costs|sauna|sweat suit|laxative|diuretic/i);
   });

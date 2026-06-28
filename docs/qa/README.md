@@ -25,6 +25,8 @@ CornerIQ agent QA lets Codex run repeatable browser audits without a human manua
 - QA surface matrix: `docs/qa/QA_SURFACE_MATRIX.md`
 - Full loop runbook: `docs/qa/CODEX_QA_LOOP_RUNBOOK.md`
 - Finding template: `docs/qa/FINDINGS_TEMPLATE.md`
+- Full-codebase technical/scientific audit loop: `docs/qa/FULL_CODEBASE_AUDIT_LOOP.md`
+- Full-codebase audit findings template: `docs/qa/FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md`
 - E2E tests: `qa/e2e/`
 - Playwright config: `playwright.config.ts`
 - Generated reports: `qa-artifacts/reports/`
@@ -48,3 +50,9 @@ Page-text snapshots should describe the active surface, not the whole app shell,
 The default bundle is canonical: latest report names, current screenshots, current page-text snapshots, current Playwright artifacts when present, QA loop docs/state/rubric/surface matrix, package scripts, workflow, and the bundle manifest. Older timestamped audit reports are left out unless a human explicitly asks for them.
 
 Update `docs/qa/QA_LOOP_STATE.md` after each pass. Automation cannot certify real Supabase auth/email confirmation, physical iPhone behavior, distribution readiness, or human boxer comprehension; those surfaces must stay `human_review_required` until a human or release owner supplies real evidence.
+
+## Full-Codebase Technical And Scientific Audit
+
+The full-codebase audit is a separate loop from launch QA. Use `docs/qa/FULL_CODEBASE_AUDIT_LOOP.md` and `docs/qa/FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md` when auditing the repository piece by piece. Its completion bar is no unresolved `P0-P4` findings, not merely no launch blockers or highs.
+
+Generated per-chunk evidence belongs under `qa-artifacts/audit-loop/`. The reviewer agent scores each audit or fix pass, and the planner agent uses that reviewer score to choose the next main-agent goal by highest unresolved severity.

@@ -40,9 +40,207 @@ const WorkoutTemplateSectionRoleSchema = z.enum(["prepare", "primary", "companio
 const ExerciseResultLoadUnitSchema = z.enum(["kg", "lb", "bodyweight", "band", "other"]);
 const ExerciseResultSideSchema = z.enum(["left", "right", "bilateral", "alternating", "not_applicable"]);
 const ExerciseResultTechnicalQualitySchema = z.enum(["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"]);
-const StructuredPrescriptionV2Schema: z.ZodType<NonNullable<GeneratedTrainingSession["structuredPrescriptionV2"]>> = z.custom(
-  (value) => value !== null && typeof value === "object" && !Array.isArray(value)
-);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function numberValue(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function stringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function optionalRecord(value: unknown): boolean {
+  return value === undefined || isRecord(value);
+}
+
+const TrainingAdaptationBoundaryValues = new Set(["strength", "conditioning", "power", "boxing_skill", "mobility", "durability", "recovery"]);
+const TrainingBlockRoleBoundaryValues = new Set(["warm_up", "primary", "secondary", "accessory", "conditioning", "boxing_rounds", "mobility", "cooldown"]);
+
+function isTrainingAdaptation(value: unknown): boolean {
+  return typeof value === "string" && TrainingAdaptationBoundaryValues.has(value);
+}
+
+function isTrainingBlockRole(value: unknown): boolean {
+  return typeof value === "string" && TrainingBlockRoleBoundaryValues.has(value);
+}
+
+function isExercisePrescriptionV2(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    nonEmptyString(value.exerciseId) &&
+    nonEmptyString(value.name) &&
+    nonEmptyString(value.movementPattern) &&
+    isTrainingAdaptation(value.adaptation) &&
+    nonEmptyString(value.loadUnit) &&
+    numberValue(value.restSeconds) &&
+    nonEmptyString(value.progressionKey) &&
+    nonEmptyString(value.regressionKey) &&
+    isRecord(value.adaptationContribution) &&
+    stringArray(value.substitutions) &&
+    stringArray(value.stopConditions)
+  );
+}
+
+function isConditioningDose(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    nonEmptyString(value.modality) &&
+    nonEmptyString(value.energySystem) &&
+    numberValue(value.warmupSeconds) &&
+    numberValue(value.workSeconds) &&
+    numberValue(value.restSeconds) &&
+    numberValue(value.repetitions) &&
+    numberValue(value.cooldownSeconds) &&
+    numberValue(value.rpe) &&
+    nonEmptyString(value.progressionTrigger) &&
+    nonEmptyString(value.stopCondition) &&
+    nonEmptyString(value.substitution)
+  );
+}
+
+function isBoxingRoundPrescription(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    nonEmptyString(value.modality) &&
+    nonEmptyString(value.purpose) &&
+    Array.isArray(value.rounds) &&
+    value.rounds.every(
+      (round) =>
+        isRecord(round) &&
+        numberValue(round.roundNumber) &&
+        numberValue(round.durationSeconds) &&
+        numberValue(round.restSeconds) &&
+        nonEmptyString(round.intent) &&
+        nonEmptyString(round.cue)
+    ) &&
+    numberValue(value.rpe) &&
+    nonEmptyString(value.technicalQualityCheckpoint) &&
+    nonEmptyString(value.stopRule) &&
+    nonEmptyString(value.progressionRule)
+  );
+}
+
+function isCanonicalWorkoutSlot(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    !nonEmptyString(value.slotId) ||
+    !nonEmptyString(value.slotRole) ||
+    !nonEmptyString(value.priority) ||
+    !isTrainingAdaptation(value.adaptation) ||
+    !isRecord(value.dose)
+  ) {
+    return false;
+  }
+  if (value.exercise !== undefined && !isExercisePrescriptionV2(value.exercise)) {
+    return false;
+  }
+  if (value.conditioning !== undefined && !isConditioningDose(value.conditioning)) {
+    return false;
+  }
+  if (value.boxingRounds !== undefined && !isBoxingRoundPrescription(value.boxingRounds)) {
+    return false;
+  }
+  return true;
+}
+
+function isStructuredTrainingBlock(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    !nonEmptyString(value.id) ||
+    !isTrainingBlockRole(value.role) ||
+    !nonEmptyString(value.title) ||
+    !isTrainingAdaptation(value.adaptation) ||
+    !numberValue(value.durationMinutes) ||
+    !Array.isArray(value.exercises) ||
+    !stringArray(value.coachingNotes)
+  ) {
+    return false;
+  }
+  if (!value.exercises.every(isExercisePrescriptionV2)) {
+    return false;
+  }
+  if (value.conditioning !== undefined && !isConditioningDose(value.conditioning)) {
+    return false;
+  }
+  if (value.boxingRounds !== undefined && !isBoxingRoundPrescription(value.boxingRounds)) {
+    return false;
+  }
+  return true;
+}
+
+function isCanonicalWorkoutBlock(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    nonEmptyString(value.id) &&
+    isTrainingBlockRole(value.role) &&
+    nonEmptyString(value.title) &&
+    isTrainingAdaptation(value.adaptation) &&
+    numberValue(value.durationMinutes) &&
+    Array.isArray(value.slots) &&
+    value.slots.every(isCanonicalWorkoutSlot) &&
+    stringArray(value.coachingNotes)
+  );
+}
+
+function isCanonicalWorkoutSession(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    nonEmptyString(value.id) &&
+    ISODateSchema.safeParse(value.date).success &&
+    nonEmptyString(value.title) &&
+    nonEmptyString(value.role) &&
+    isTrainingAdaptation(value.primaryAdaptation) &&
+    nonEmptyString(value.hardness) &&
+    numberValue(value.durationMinutes) &&
+    numberValue(value.targetDurationMinutes) &&
+    Array.isArray(value.blocks) &&
+    value.blocks.every(isCanonicalWorkoutBlock) &&
+    stringArray(value.safetyConstraintIds) &&
+    optionalRecord(value.readinessOverlay) &&
+    nonEmptyString(value.progressionIntent) &&
+    stringArray(value.rationale)
+  );
+}
+
+function isStructuredPrescriptionV2(value: unknown): value is NonNullable<GeneratedTrainingSession["structuredPrescriptionV2"]> {
+  if (!isRecord(value) || !isRecord(value.sessionIntent) || !isRecord(value.compiledSession) || !isRecord(value.adaptationBudget)) {
+    return false;
+  }
+  if (!nonEmptyString(value.sessionIntent.id) || !ISODateSchema.safeParse(value.sessionIntent.date).success) {
+    return false;
+  }
+  const compiledSession = value.compiledSession;
+  if (
+    !nonEmptyString(compiledSession.id) ||
+    !nonEmptyString(compiledSession.sessionIntentId) ||
+    !ISODateSchema.safeParse(compiledSession.date).success ||
+    !nonEmptyString(compiledSession.role) ||
+    !isTrainingAdaptation(compiledSession.primaryAdaptation) ||
+    !nonEmptyString(compiledSession.title) ||
+    !numberValue(compiledSession.targetDurationMinutes) ||
+    !numberValue(compiledSession.structuredDurationMinutes) ||
+    !numberValue(compiledSession.displayedDurationMinutes) ||
+    !nonEmptyString(compiledSession.hardness) ||
+    !Array.isArray(compiledSession.blocks) ||
+    !stringArray(compiledSession.rationale) ||
+    !stringArray(compiledSession.safetyConstraintIds)
+  ) {
+    return false;
+  }
+  if (value.canonicalWorkoutSession !== undefined && !isCanonicalWorkoutSession(value.canonicalWorkoutSession)) {
+    return false;
+  }
+  return compiledSession.blocks.every(isStructuredTrainingBlock);
+}
+
+const StructuredPrescriptionV2Schema = z.custom<NonNullable<GeneratedTrainingSession["structuredPrescriptionV2"]>>(isStructuredPrescriptionV2);
 const GeneratedSessionTypeLabelSchema = z.enum([
   "Lift",
   "Strength",
@@ -215,6 +413,7 @@ export const FightOpportunitySchema = z.object({
 });
 
 export const CycleLogSchema = z.object({
+  id: z.string().min(1).optional(),
   date: ISODateSchema,
   recordedAt: ISODateTimeSchema.optional(),
   bleedStart: z.boolean().optional(),
@@ -275,6 +474,7 @@ export const BodyMassLogSchema = z.object({
 });
 
 export const ReadinessCheckInSchema = z.object({
+  id: z.string().min(1).optional(),
   date: ISODateSchema,
   recordedAt: ISODateTimeSchema.optional(),
   sleepHours: z.number().nonnegative().optional(),
@@ -292,6 +492,7 @@ export const ReadinessCheckInSchema = z.object({
 });
 
 export const FoodLogSchema = z.object({
+  id: z.string().min(1).optional(),
   date: ISODateSchema,
   calories: z.number().nonnegative(),
   proteinGrams: z.number().nonnegative().optional(),
@@ -316,12 +517,14 @@ export const FoodLogSchema = z.object({
 });
 
 export const WaterLogSchema = z.object({
+  id: z.string().min(1).optional(),
   date: ISODateSchema,
   liters: z.number().nonnegative(),
   recordedAt: ISODateTimeSchema.optional()
 });
 
 export const ElectrolyteLogSchema = z.object({
+  id: z.string().min(1).optional(),
   date: ISODateSchema,
   sodiumMg: z.number().nonnegative(),
   recordedAt: ISODateTimeSchema.optional()
@@ -684,6 +887,98 @@ export const TrainingBlockSchema = z.object({
   engineVersion: z.string().min(1)
 });
 
+const TrainingPlanAdjustmentActorBoundarySchema = z.object({
+  actorType: z.enum(["athlete", "coach", "engine"]),
+  actorId: z.string().min(1),
+  actorLabel: z.string().min(1).optional()
+});
+const TrainingPlanAdjustmentRequesterBoundarySchema = z.enum(["user", "coach"]).optional();
+const TrainingPlanAdjustmentReasonBoundarySchema = z.string().min(1);
+const TrainingPlanAdjustmentActorFieldBoundarySchema = TrainingPlanAdjustmentActorBoundarySchema.optional();
+const TrainingPlanAdjustmentCommandBoundarySchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("protect_day"),
+    date: ISODateSchema,
+    reason: TrainingPlanAdjustmentReasonBoundarySchema,
+    requestedBy: TrainingPlanAdjustmentRequesterBoundarySchema,
+    actor: TrainingPlanAdjustmentActorFieldBoundarySchema,
+    createdAt: ISODateTimeSchema.optional()
+  }),
+  z.object({
+    type: z.literal("move_generated_session"),
+    sessionId: z.string().min(1),
+    fromDate: ISODateSchema,
+    toDate: ISODateSchema,
+    reason: TrainingPlanAdjustmentReasonBoundarySchema,
+    requestedBy: TrainingPlanAdjustmentRequesterBoundarySchema,
+    actor: TrainingPlanAdjustmentActorFieldBoundarySchema,
+    createdAt: ISODateTimeSchema.optional()
+  }),
+  z.object({
+    type: z.literal("request_deload"),
+    startDate: ISODateSchema,
+    endDate: ISODateSchema,
+    reason: TrainingPlanAdjustmentReasonBoundarySchema,
+    requestedBy: TrainingPlanAdjustmentRequesterBoundarySchema,
+    actor: TrainingPlanAdjustmentActorFieldBoundarySchema,
+    createdAt: ISODateTimeSchema.optional()
+  }),
+  z.object({
+    type: z.literal("mark_unavailable"),
+    date: ISODateSchema,
+    reason: TrainingPlanAdjustmentReasonBoundarySchema,
+    requestedBy: TrainingPlanAdjustmentRequesterBoundarySchema,
+    actor: TrainingPlanAdjustmentActorFieldBoundarySchema,
+    createdAt: ISODateTimeSchema.optional()
+  }),
+  z.object({
+    type: z.literal("restore_engine_plan"),
+    date: ISODateSchema.optional(),
+    sessionId: z.string().min(1).optional(),
+    reason: TrainingPlanAdjustmentReasonBoundarySchema,
+    requestedBy: TrainingPlanAdjustmentRequesterBoundarySchema,
+    actor: TrainingPlanAdjustmentActorFieldBoundarySchema,
+    createdAt: ISODateTimeSchema.optional()
+  }),
+  z.object({
+    type: z.literal("note"),
+    date: ISODateSchema.optional(),
+    note: z.string().min(1),
+    reason: z.string().min(1).optional(),
+    requestedBy: TrainingPlanAdjustmentRequesterBoundarySchema,
+    actor: TrainingPlanAdjustmentActorFieldBoundarySchema,
+    createdAt: ISODateTimeSchema.optional()
+  }),
+  z.object({
+    type: z.literal("coach_note"),
+    date: ISODateSchema.optional(),
+    note: z.string().min(1),
+    reason: z.string().min(1).optional(),
+    requestedBy: z.literal("coach").optional(),
+    actor: TrainingPlanAdjustmentActorFieldBoundarySchema,
+    createdAt: ISODateTimeSchema.optional()
+  })
+]);
+const TrainingPlanAdjustmentResultBoundarySchema = z.object({
+  status: z.enum(["applied", "rejected", "needs_review"]),
+  explanation: z.string().min(1),
+  modifiedDayPlans: z.array(TrainingDayPlanSchema),
+  safetyFlags: z.array(z.string()),
+  persistedAdjustmentPayload: z.record(z.unknown())
+});
+const PersistedTrainingPlanAdjustmentBoundarySchema: z.ZodType<PersistedTrainingPlanAdjustment> = z.object({
+  id: z.string().min(1),
+  userId: z.string().min(1).optional(),
+  trainingBlockId: z.string().min(1).nullable(),
+  planDate: ISODateSchema.nullable(),
+  adjustmentType: z.enum(["protect_day", "move_generated_session", "request_deload", "mark_unavailable", "restore_engine_plan", "note", "coach_note"]),
+  command: TrainingPlanAdjustmentCommandBoundarySchema,
+  status: z.enum(["requested", "applied", "rejected", "superseded"]),
+  engineResponse: TrainingPlanAdjustmentResultBoundarySchema,
+  createdAt: ISODateTimeSchema,
+  updatedAt: ISODateTimeSchema.optional()
+});
+
 export const AthleteJourneySchema = z.object({
   athlete: AthleteProfileSchema,
   activePhase: z.enum(["onboarding", "build", "camp", "short_notice_camp", "fight_week", "tournament", "weigh_in_day", "post_weigh_in", "bout_day", "recovery", "deload", "maintenance"]).nullable(),
@@ -707,7 +1002,7 @@ export const AthleteJourneySchema = z.object({
   completedTrainingSessions: z.array(CompletedTrainingSessionSchema),
   exerciseResults: z.array(ExerciseResultRecordSchema),
   trainingHistory: z.array(GeneratedTrainingSessionSchema),
-  trainingPlanAdjustments: z.array(z.custom<PersistedTrainingPlanAdjustment>()),
+  trainingPlanAdjustments: z.array(PersistedTrainingPlanAdjustmentBoundarySchema),
   protectedWorkouts: z.array(ProtectedWorkoutSchema),
   safetyFlags: z.array(RiskFlagSchema),
   journeyEvents: z.array(JourneyEventSchema)

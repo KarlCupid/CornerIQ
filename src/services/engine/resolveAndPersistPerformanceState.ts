@@ -2,7 +2,7 @@ import { AthleteJourneySchema } from "../../engine/core/schemas";
 import { addDays } from "../../engine/core/dates";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { stableHash } from "../../engine/core/stableHash";
-import type { ISODateString, PerformanceState } from "../../engine/core/types";
+import type { AthleteJourney, ISODateString, PerformanceState } from "../../engine/core/types";
 import { buildFuelViewModel } from "../../engine/presentation/fuelViewModel";
 import { buildPlanViewModel } from "../../engine/presentation/planViewModel";
 import { buildProfileViewModel } from "../../engine/presentation/profileViewModel";
@@ -20,6 +20,7 @@ import {
   loadAthleteJourney
 } from "../supabase/loadAthleteJourney";
 import {
+  sourceRecordIdsFromJourney,
   mapDecisionTraceToRow,
   mapGeneratedSessionToRow,
   mapNutritionTargetToRow,
@@ -758,10 +759,11 @@ async function persistPerformanceState(
   userId: string,
   inputHash: string,
   state: PerformanceState,
+  sourceRecordIds: ReturnType<typeof sourceRecordIdsFromJourney>,
   repositories: AthleteJourneyRepositories,
   lifecycleSource?: "plan_wizard_new_plan" | "plan_wizard_amendment" | null
 ): Promise<{ state: PerformanceState; persistenceWarning?: string | undefined }> {
-  const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state));
+  const run = await repositories.engineRun.upsertRun(mapPerformanceStateToEngineRun(userId, inputHash, state, sourceRecordIds));
   await repositories.engineRun.saveDecisionTracesForRun(userId, run.id, state.decisionTrace.map((trace) => mapDecisionTraceToRow(userId, run.id, trace)));
   if (state.training.planGenerationIntent && repositories.trainingPlanIntent) {
     await repositories.trainingPlanIntent.upsertPlanIntent(userId, state.training.planGenerationIntent);
@@ -839,9 +841,10 @@ export async function resolveAndPersistPerformanceState(input: {
   const loadWarning = degradedLoadWarning(journeyResult);
 
   let inputHash: string;
+  let journey: AthleteJourney;
   let state: PerformanceState;
   try {
-    const journey = parseWithSchema(AthleteJourneySchema, journeyResult.journey, "resolveAndPersistPerformanceState.journey");
+    journey = parseWithSchema(AthleteJourneySchema, journeyResult.journey, "resolveAndPersistPerformanceState.journey");
     inputHash = stableHash({ asOfDate: input.asOfDate, journey });
     state = resolvePerformanceState(
       input.generatedAt
@@ -861,7 +864,14 @@ export async function resolveAndPersistPerformanceState(input: {
 
   try {
     const lifecycleSource = journeyResult.status === "ready" ? latestPlanWizardIntentSource(journeyResult.journey) : null;
-    const persisted = await persistPerformanceState(userId, inputHash, state, input.repositories, lifecycleSource);
+    const persisted = await persistPerformanceState(
+      userId,
+      inputHash,
+      state,
+      sourceRecordIdsFromJourney(journey, input.asOfDate, state.generatedAt),
+      input.repositories,
+      lifecycleSource
+    );
     const persistenceWarning = combinedWarning([loadWarning, persisted.persistenceWarning]);
     return {
       status: "ready",

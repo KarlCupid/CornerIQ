@@ -1,7 +1,7 @@
 import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
-import type { FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
+import type { FuelPlanStatusViewModel, FuelSafetyStateViewModel, FuelViewModel, RecentLogsViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart } from "../../design/components/PerformanceVisuals";
@@ -28,22 +28,8 @@ export interface FuelScreenProps {
 
 export type FuelFocusIntent = "action" | "log_food" | "log_hydration" | "safety_review";
 
-type FuelPlanLabel = "No active cut" | "On pace" | "Tight" | "Behind pace" | "Too aggressive" | "Pause cut";
-
-interface FuelPlanStatus {
-  action: string;
-  label: FuelPlanLabel;
-  sentence: string;
-  tone: VisualTone;
-}
-
-interface FuelSafetyState {
-  active: boolean;
-  healthStatus: string;
-  reviewActive: boolean;
-  stripText: string;
-  tone: VisualTone;
-}
+type FuelPlanStatus = FuelPlanStatusViewModel;
+type FuelSafetyState = FuelSafetyStateViewModel;
 
 const fuelPalette = {
   actionFill: "rgba(148, 88, 54, 0.34)",
@@ -116,148 +102,6 @@ function titleCaseStatus(value: string): string {
     .filter(Boolean)
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(" ");
-}
-
-function buildFuelSafetyState(viewModel: FuelViewModel, message: string | null): FuelSafetyState {
-  const reviewActive =
-    viewModel.nutritionSafetyReview.required ||
-    viewModel.activeNutritionSafetyReviews.length > 0 ||
-    viewModel.nutritionReviewHistory.activeReviewCount > 0;
-  const underFuelingActive = Boolean(viewModel.underFuelingRisk);
-  const riskActive = viewModel.riskSummary.length > 0;
-  const weightSafetyActive = viewModel.weightClassStatus.safetyFlags.length > 0;
-  const active = reviewActive || underFuelingActive || riskActive || weightSafetyActive;
-
-  if (reviewActive) {
-    return {
-      active,
-      healthStatus: "Review active",
-      reviewActive,
-      stripText: "Cut paused. Eat and hydrate normally today.",
-      tone: "red"
-    };
-  }
-  if (underFuelingActive) {
-    return {
-      active,
-      healthStatus: "Under-fueling risk",
-      reviewActive,
-      stripText: "Fuel comes first today. Eat and hydrate normally.",
-      tone: "red"
-    };
-  }
-  if (weightSafetyActive) {
-    return {
-      active,
-      healthStatus: "Weight safety flags",
-      reviewActive,
-      stripText: "Weight pressure pauses until the safety flags are reviewed.",
-      tone: "red"
-    };
-  }
-  if (riskActive) {
-    return {
-      active,
-      healthStatus: "Caution",
-      reviewActive,
-      stripText: "Review the fuel signals before pushing training or weight.",
-      tone: "orange"
-    };
-  }
-  return {
-    active,
-    healthStatus: message ? "App note" : "Clear",
-    reviewActive,
-    stripText: message ?? "No cut warnings today.",
-    tone: message ? "orange" : "green"
-  };
-}
-
-function planStatusFromFuel(viewModel: FuelViewModel, safety: FuelSafetyState): FuelPlanStatus {
-  if (safety.active) {
-    return {
-      action: "Eat normally today. Hydrate normally. Do not cut harder.",
-      label: "Pause cut",
-      sentence: viewModel.underFuelingRisk
-        ? "Your body is not showing enough recovery to keep pushing weight."
-        : "Fuel or weight safety signals are active, so weight pressure pauses today.",
-      tone: safety.tone === "orange" ? "orange" : "red"
-    };
-  }
-
-  switch (viewModel.weightClassStatus.status) {
-    case "no_active_weight_target":
-      return {
-        action: "Train normally. Keep food and fluids steady.",
-        label: "No active cut",
-        sentence: "No fight weight target is active today.",
-        tone: "muted"
-      };
-    case "on_track":
-    case "ahead":
-      return {
-        action: "Do the planned boxing. Eat before training.",
-        label: "On pace",
-        sentence: "Your weight is moving at a reasonable pace.",
-        tone: "green"
-      };
-    case "behind":
-      return {
-        action: "Do the planned boxing. Do not add bonus work just to chase weight.",
-        label: "Behind pace",
-        sentence: "The scale is not moving fast enough for the current date.",
-        tone: "orange"
-      };
-    case "unsafe":
-      return {
-        action: "Pause weight pressure and review the plan.",
-        label: "Too aggressive",
-        sentence: "Making this weight from here may cost performance.",
-        tone: "red"
-      };
-    case "blocked":
-    case "needs_review":
-      return {
-        action: "Pause weight pressure and review the plan.",
-        label: "Too aggressive",
-        sentence: "This cut needs outside support before weight pressure continues.",
-        tone: "red"
-      };
-    case "cycle_noisy":
-      return {
-        action: "Keep meals predictable. No extra conditioning.",
-        label: "Tight",
-        sentence: "The scale may be noisy today, so use the trend before reacting.",
-        tone: "orange"
-      };
-    case "unknown":
-    default:
-      return {
-        action: "Log morning weight if useful. Do not guess the cut is safe.",
-        label: "Tight",
-        sentence: "The trend is unclear because key weight data is missing.",
-        tone: "orange"
-      };
-  }
-}
-
-function trainingTodayCopy(viewModel: FuelViewModel, plan: FuelPlanStatus): string {
-  if (plan.label === "Pause cut") {
-    return "Make today a recovery day.";
-  }
-  if (plan.label === "Too aggressive") {
-    return "Short session only.";
-  }
-  if (plan.label === "Behind pace") {
-    return "Do the planned boxing. Do not add bonus work just to chase weight.";
-  }
-  if (plan.label === "Tight") {
-    return "Do the planned boxing. Skip extra conditioning.";
-  }
-  if (viewModel.trainingDemandHandoff.todayTrainingDemand === "high") {
-    return "Do the planned boxing. Eat before training.";
-  }
-  return plan.label === "No active cut" ? "Train normally." : "Do the planned boxing.";
 }
 
 function weightLabel(viewModel: FuelViewModel): string {
@@ -1248,9 +1092,17 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
     }
     onFocusIntentApplied?.();
   }, [focusIntent, onFocusIntentApplied]);
-  const safety = buildFuelSafetyState(viewModel, message);
-  const plan = planStatusFromFuel(viewModel, safety);
-  const trainingCopy = trainingTodayCopy(viewModel, plan);
+  const safety: FuelSafetyState =
+    message && !viewModel.safetyState.active
+      ? {
+          ...viewModel.safetyState,
+          healthStatus: "App note",
+          stripText: message,
+          tone: "orange"
+        }
+      : viewModel.safetyState;
+  const plan = viewModel.planStatus;
+  const trainingCopy = viewModel.trainingTodayCopy;
   const primaryLog =
     appliedFocusIntent === "log_hydration" || focusIntent === "log_hydration"
       ? "water"

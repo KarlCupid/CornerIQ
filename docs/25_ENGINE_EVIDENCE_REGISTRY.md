@@ -41,10 +41,14 @@ This is not a clinical validation package. Current thresholds are conservative b
 
 ## Source Anchors
 
-- IOC RED-S consensus update: https://bjsm.bmj.com/content/52/11/687
+- IOC REDs consensus update: https://bjsm.bmj.com/content/57/17/1073
 - Academy/DC/ACSM nutrition position: https://pubmed.ncbi.nlm.nih.gov/26920240/
 - NATA fluid replacement statement: https://pmc.ncbi.nlm.nih.gov/articles/PMC5634236/
+- NATA safe weight loss and maintenance practices: https://pubmed.ncbi.nlm.nih.gov/21669045/
+- ISSN sport nutrition position stand for weight-making risk context: https://pubmed.ncbi.nlm.nih.gov/40059405/
 - ACOG menstrual cycle as a vital sign: https://www.acog.org/clinical/clinical-guidance/committee-opinion/articles/2015/12/menstruation-in-girls-and-adolescents-using-the-menstrual-cycle-as-a-vital-sign
+
+Combat-sport and weight-making sources are safety anchors only. They do not broaden CornerIQ beyond boxing and do not authorize generated dehydration, water-loading, sodium-manipulation, fluid-restriction, or make-weight-at-all-costs protocols.
 
 ## Review Rule
 

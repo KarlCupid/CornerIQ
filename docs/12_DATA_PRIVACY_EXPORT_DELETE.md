@@ -11,6 +11,7 @@ Include every user-owned table:
 - `athlete_journey_events`
 - `fight_opportunities`
 - `tournament_plans`
+- `athlete_coach_relationships` when the signed-in user is either participant
 - `protected_workouts`
 - `readiness_checkins`
 - `body_mass_logs`
@@ -62,7 +63,9 @@ Include every user-owned table:
 
 ## Delete Scope
 
-Delete by `user_id` for all user-owned tables, using dependency-aware ordering: projection/result tables first, source/profile tables later, and `users_public` last. Workout completion operation rows are deleted before their completed-session rows. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
+Delete by `user_id` for user-id owned tables, using dependency-aware ordering: projection/result tables first, source/profile tables later, and `users_public` last. Workout completion operation rows are deleted before their completed-session rows.
+
+Participant-owned rows use their participant columns instead of `user_id`. Export includes `athlete_coach_relationships` rows where the signed-in user is either `athlete_user_id` or `coach_user_id`. App-data deletion uses the anon client under RLS and revokes those relationships by setting `status = revoked`; it does not physically delete the other participant's shared row. Full account deletion runs through the trusted Edge Function and physically deletes participant-owned rows before deleting the caller's Auth identity. `auth.users` cascade rules cover many records, but production delete workflows should verify row counts before and after deletion for every table above.
 
 Code skeleton: `src/services/supabase/userDataService.ts` exports `USER_OWNED_TABLES`, `exportUserOwnedData(userId, client)`, `previewUserOwnedDataExport(userId, client)`, `generateUserOwnedDataExportBundle(userId, client, options)`, `generateUserOwnedDataExportBundleString(userId, client, options)`, `deleteUserOwnedData(userId, client, confirmation)`, and `deleteAccount(userId, client, confirmation)`. App-data helpers use the anon client under RLS and never delete from `auth.users`.
 
@@ -97,6 +100,7 @@ The script is `scripts/dev-reset-supabase.mjs`. It previews row counts first, de
 
 - Verify RLS remains enabled on every user-owned table.
 - Verify owner policies use `auth.uid() = user_id`.
+- Verify participant-owned tables use participant-column filters and revocation semantics where a plain `user_id` owner column does not exist.
 - Verify export includes JSON payload fields without silently dropping unknown keys.
 - Verify export bundle redacts secret-shaped keys and values.
 - Verify delete removes generated projections as well as source logs.

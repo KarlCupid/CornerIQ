@@ -55,8 +55,8 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     sources: [
       {
         kind: "consensus_statement",
-        label: "IOC RED-S consensus update: low energy availability can affect health and performance systems.",
-        url: "https://bjsm.bmj.com/content/52/11/687"
+        label: "IOC REDs 2023 consensus update: low energy availability can affect health and performance systems.",
+        url: "https://bjsm.bmj.com/content/57/17/1073"
       },
       {
         kind: "external_guideline",
@@ -146,6 +146,16 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     knownLimitations: ["Fight rules, hydration testing, and medical eligibility vary by commission and athlete.", "The app intentionally does not provide cut protocols."],
     betaCalibrationPlan: "Keep all blocked cases blocked through beta; collect only comprehension and pressure-risk notes, not athlete-led cut outcomes.",
     sources: [
+      {
+        kind: "consensus_statement",
+        label: "IOC REDs 2023 consensus update: low energy availability and rapid loss are health and performance risk signals.",
+        url: "https://bjsm.bmj.com/content/57/17/1073"
+      },
+      {
+        kind: "external_guideline",
+        label: "NATA safe weight loss and maintenance practices: weight-class loss should be conservative and supervised when risk is present.",
+        url: "https://pubmed.ncbi.nlm.nih.gov/21669045/"
+      },
       { kind: "internal_policy", label: "Safety beats performance and weight-class pressure." },
       { kind: "internal_policy", label: "No generated unsafe weight-cut protocol or self-clear path." }
     ]
@@ -283,6 +293,11 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     knownLimitations: ["The app does not know commission-specific rules, meal tolerance, sweat losses, or clinician instructions.", "Outputs are checklist-style cautions, not personalized medical or dietetic plans."],
     betaCalibrationPlan: "Use guided beta scripts to verify athletes read low-residue and rehydration copy as safety framing, not weight-cut instruction.",
     sources: [
+      {
+        kind: "external_guideline",
+        label: "ISSN sport nutrition position stand: weight-making risk context is a safety anchor, not a generic combat-sport default.",
+        url: "https://pubmed.ncbi.nlm.nih.gov/40059405/"
+      },
       { kind: "internal_policy", label: "No unsafe weight-cut instructions; low-residue guidance must not reduce calories." },
       { kind: "calibration_required", label: "Tournament and rehydration heuristics require qualified review before any expansion." }
     ]

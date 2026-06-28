@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AthleteJourney, ISODateString, JourneyEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
+import type { AthleteJourney, ISODateString, JourneyEvent, PersistedNutritionSafetyReview, ReadinessCheckIn } from "../../engine/core/types";
 import { addDays } from "../../engine/core/dates";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { summarizeTrainingWeek } from "../../engine/training/trainingWeekSummaryEngine";
@@ -411,6 +411,8 @@ describe("resolveAndPersistPerformanceState", () => {
           canonicalWorkoutSessionIds?: readonly string[];
           validationPassed?: boolean;
         };
+        generatedAt?: string;
+        snapshotGeneratedAt?: string;
       };
     };
     expect(engineRunRecord.run_payload.workoutEngineInputSnapshot).toMatchObject({
@@ -445,6 +447,113 @@ describe("resolveAndPersistPerformanceState", () => {
     expect(calls.upsertActiveTrainingBlock).toHaveBeenCalledTimes(1);
     expect(calls.upsertTrainingMicrocycle).toHaveBeenCalledTimes(1);
     expect(calls.upsertTrainingDayPlans).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists replay-visible readiness, nutrition, hydration, electrolyte, and cycle source row ids", async () => {
+    const journey: AthleteJourney = {
+      ...no_wearable_manual_only,
+      readinessHistory: [
+        { ...no_wearable_manual_only.readinessHistory[0]!, id: "readiness_visible", recordedAt: "2026-05-19T08:00:00.000Z" },
+        { ...no_wearable_manual_only.readinessHistory[0]!, id: "readiness_after_cutoff", recordedAt: "2026-05-19T15:00:00.000Z" }
+      ],
+      nutritionHistory: [
+        { id: "food_visible", date: fixtureAsOfDate, calories: 2600, confidence: "medium", loggedAt: "2026-05-19T08:30:00.000Z" },
+        { id: "food_after_cutoff", date: fixtureAsOfDate, calories: 400, confidence: "medium", loggedAt: "2026-05-19T15:30:00.000Z" }
+      ],
+      hydrationHistory: [
+        { id: "water_visible", date: fixtureAsOfDate, liters: 1.2, recordedAt: "2026-05-19T09:00:00.000Z" },
+        { id: "water_after_cutoff", date: fixtureAsOfDate, liters: 0.2, recordedAt: "2026-05-19T16:00:00.000Z" }
+      ],
+      electrolyteHistory: [
+        { id: "electrolyte_visible", date: fixtureAsOfDate, sodiumMg: 500, recordedAt: "2026-05-19T09:15:00.000Z" },
+        { id: "electrolyte_after_cutoff", date: fixtureAsOfDate, sodiumMg: 100, recordedAt: "2026-05-19T16:15:00.000Z" }
+      ],
+      cycleHistory: [
+        {
+          id: "cycle_visible",
+          date: fixtureAsOfDate,
+          recordedAt: "2026-05-19T07:45:00.000Z",
+          flowLevel: "none",
+          symptoms: [],
+          hormonalContraception: "none"
+        },
+        {
+          id: "cycle_after_cutoff",
+          date: fixtureAsOfDate,
+          recordedAt: "2026-05-19T16:30:00.000Z",
+          flowLevel: "moderate",
+          symptoms: ["cramps"],
+          hormonalContraception: "none"
+        }
+      ]
+    };
+    const { repositories, calls } = createRepositories({ journey });
+
+    await resolveAndPersistPerformanceState({
+      userId: "user_1",
+      asOfDate: fixtureAsOfDate,
+      generatedAt: "2026-05-19T12:00:00.000Z",
+      repositories
+    });
+
+    const engineRunRecord = calls.upsertRun.mock.calls[0]?.[0] as unknown as {
+      run_payload: {
+        workoutEngineInputSnapshot?: {
+          sourceRecordIds?: {
+            cycleLogIds?: readonly string[];
+            electrolyteLogIds?: readonly string[];
+            hydrationLogIds?: readonly string[];
+            nutritionLogIds?: readonly string[];
+            readinessCheckinIds?: readonly string[];
+          };
+        };
+      };
+    };
+    const sourceRecordIds = engineRunRecord.run_payload.workoutEngineInputSnapshot?.sourceRecordIds;
+    expect(sourceRecordIds).toMatchObject({
+      cycleLogIds: ["cycle_visible"],
+      electrolyteLogIds: ["electrolyte_visible"],
+      hydrationLogIds: ["water_visible"],
+      nutritionLogIds: ["food_visible"],
+      readinessCheckinIds: ["readiness_visible"]
+    });
+    expect(JSON.stringify(sourceRecordIds)).not.toContain("after_cutoff");
+  });
+
+  it("persists an evidence-bounded generatedAt when replay cutoff is omitted", async () => {
+    const afternoonReadiness: ReadinessCheckIn = {
+      date: fixtureAsOfDate,
+      recordedAt: "2026-05-19T15:00:00.000Z",
+      sleepHours: 8,
+      sleepQuality1To5: 4,
+      energy1To5: 4,
+      soreness1To5: 2,
+      stress1To5: 2,
+      mood1To5: 4,
+      painNotes: [],
+      illnessSymptoms: [],
+      dizziness: false,
+      fainting: false
+    };
+    const { repositories, calls } = createRepositories({
+      journey: { ...no_wearable_manual_only, readinessHistory: [afternoonReadiness] }
+    });
+    const result = await resolveAndPersistPerformanceState({ userId: "user_1", asOfDate: fixtureAsOfDate, repositories });
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") {
+      return;
+    }
+    expect(result.state.generatedAt).toBe("2026-05-19T15:00:00.000Z");
+    expect(result.state.snapshotGeneratedAt).toBeUndefined();
+    const engineRunRecord = calls.upsertRun.mock.calls[0]?.[0] as unknown as {
+      run_payload: {
+        generatedAt?: string;
+        snapshotGeneratedAt?: string;
+      };
+    };
+    expect(engineRunRecord.run_payload.generatedAt).toBe("2026-05-19T15:00:00.000Z");
+    expect(engineRunRecord.run_payload.snapshotGeneratedAt).toBeUndefined();
   });
 
   it("persists active block, microcycle, day plans, and a block-started journey event", async () => {
@@ -979,7 +1088,8 @@ describe("resolveAndPersistPerformanceState", () => {
       userId: "user_1",
       asOfDate: finalAsOfDate,
       repositories,
-      journeyResult: { status: "ready", journey }
+      journeyResult: { status: "ready", journey },
+      generatedAt: "2026-05-28T10:00:00.000Z"
     });
 
     expect(result.status).toBe("ready");

@@ -11,10 +11,10 @@
     "still": "remotion still src/index.jsx CornerIQPromo out/preview-frame.png --frame=150 --scale=0.25 --overwrite"
   },
   "dependencies": {
-    "@remotion/cli": "^4.0.475",
-    "@remotion/media": "^4.0.475",
+    "@remotion/cli": "^4.0.484",
+    "@remotion/media": "^4.0.484",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "remotion": "^4.0.475"
+    "remotion": "^4.0.484"
   }
 }

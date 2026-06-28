@@ -62,6 +62,43 @@ function hardHydrationFlags(flags: readonly RiskFlag[]): readonly RiskFlag[] {
   return flags.filter((flag) => flag.domain === "hydration" && (flag.hardStop || flag.severity === "critical"));
 }
 
+function resolveHydrationBodyMassContext(input: {
+  athlete: AthleteProfile;
+  bodyMass?: BodyMassState | undefined;
+}): { kg: number | null; missingInput: string | null; reason: string } {
+  const freshness = input.bodyMass?.freshness.status;
+  if (freshness === "current" || freshness === "recent" || freshness === "optional_no_active_target") {
+    return {
+      kg: input.bodyMass?.trend.latestKg ?? toKg(input.athlete.currentBodyMass),
+      missingInput: null,
+      reason: "Daily fluid is baseline context, not a fixed formula."
+    };
+  }
+
+  if (freshness === "stale") {
+    return {
+      kg: null,
+      missingInput: "fresh body mass",
+      reason: "Body-mass data is stale; daily fluid range stays unavailable."
+    };
+  }
+
+  if (freshness === "missing") {
+    return {
+      kg: null,
+      missingInput: "current body mass",
+      reason: "Current body mass is missing; daily fluid range stays unavailable."
+    };
+  }
+
+  const fallbackKg = toKg(input.athlete.currentBodyMass);
+  return {
+    kg: fallbackKg,
+    missingInput: fallbackKg === null ? "current body mass" : null,
+    reason: fallbackKg === null ? "Body mass is missing, so daily fluid is baseline guidance only." : "Daily fluid is baseline context, not a fixed formula."
+  };
+}
+
 export function resolveHydrationPlanV2(input: {
   athlete: AthleteProfile;
   bodyMass?: BodyMassState | undefined;
@@ -74,7 +111,8 @@ export function resolveHydrationPlanV2(input: {
   asOfDate: string;
 }): HydrationPlanV2 {
   assertFuelEvidenceIds(HYDRATION_EVIDENCE_IDS, "resolveHydrationPlanV2");
-  const kg = input.bodyMass?.freshness.status === "current" || input.bodyMass?.freshness.status === "recent" ? input.bodyMass.trend.latestKg : toKg(input.athlete.currentBodyMass);
+  const bodyMassContext = resolveHydrationBodyMassContext(input);
+  const kg = bodyMassContext.kg;
   const waterToday = todayWaterLiters(input.waterLogs, input.asOfDate);
   const sodiumToday = todaySodiumMg(input.electrolyteLogs, input.asOfDate);
   const overdrinkingFlag = input.riskFlags.find((flag) => flag.code === "excess_plain_water_low_sodium");
@@ -84,13 +122,13 @@ export function resolveHydrationPlanV2(input: {
   const postWeighInCap = input.weighInContext?.postWeighInWeightCapKg !== null && input.weighInContext?.postWeighInWeightCapKg !== undefined;
   const hardSession = input.training?.todaySessions.some((session) => session.fuelDemand === "high") ?? false;
   const missingInputs = [
-    kg === null ? "current body mass" : null,
+    bodyMassContext.missingInput,
     input.waterLogs.some((log) => log.date === input.asOfDate) ? null : "same-day water log",
     input.electrolyteLogs.some((log) => log.date === input.asOfDate) ? null : "same-day electrolyte log",
     "sweat-rate or pre/post-session body-mass change"
   ].filter((value): value is string => value !== null);
   const reasons = [
-    kg === null ? "Body mass is missing, so daily fluid is baseline guidance only." : "Daily fluid is baseline context, not a fixed formula.",
+    bodyMassContext.reason,
     hardSession ? "Hard sweating sessions need electrolyte attention." : null,
     overdrinkingFlag ? "Plain-water intake is high relative to sodium context." : null,
     medicalReview ? "Medical hydration context requires qualified review." : null,

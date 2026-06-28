@@ -4,7 +4,7 @@ import { traceDecision } from "./decisionTrace";
 import type { EngineViewModels, PerformanceState, ResolvePerformanceStateInput } from "./types";
 import { stableHash } from "./stableHash";
 import { buildAthleteJourneySnapshot, selectLatestReadinessForDate } from "./temporalSelectors";
-import { resolvePhase } from "../phase/phaseController";
+import { applySafetyPhaseOverride, resolvePhase } from "../phase/phaseController";
 import { resolveCycleState } from "../cycle/cycleEngine";
 import { resolveReadiness } from "../readiness/readinessEngine";
 import { resolveWearableState } from "../readiness/wearableSignals";
@@ -60,6 +60,131 @@ function nutritionTraceInputSummary(nutrition: PerformanceState["nutrition"]): s
   return `${selected.caloriesKcal} kcal, ${carbs}`;
 }
 
+function startOfDateIso(date: string): string {
+  return `${date}T00:00:00.000Z`;
+}
+
+function datePart(value: string | null | undefined): string | null {
+  if (!value || value.length < 10) {
+    return null;
+  }
+  return value.slice(0, 10);
+}
+
+function stringFromPayload(payload: Record<string, unknown>, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function pushTimestamp(timestamps: string[], timestamp: string | null | undefined): void {
+  if (timestamp) {
+    timestamps.push(timestamp);
+  }
+}
+
+function pushDatedEvidenceTimestamp(input: {
+  timestamps: string[];
+  date: string;
+  recordedAt?: string | null | undefined;
+  asOfDate: string;
+}): void {
+  if (input.recordedAt) {
+    input.timestamps.push(input.recordedAt);
+    return;
+  }
+  if (input.date <= input.asOfDate) {
+    input.timestamps.push(startOfDateIso(input.date));
+  }
+}
+
+function riskFlagTimestamp(flag: ResolvePerformanceStateInput["journey"]["safetyFlags"][number]): string | null {
+  const recordedAt = stringFromPayload(flag.evidence, ["recordedAt", "createdAt", "raisedAt", "occurredAt"]);
+  if (recordedAt) {
+    return recordedAt;
+  }
+  const effectiveDate = datePart(stringFromPayload(flag.evidence, ["date", "asOfDate", "activeFrom", "startedAt", "occurredAt", "recordedAt", "createdAt", "raisedAt"]));
+  return effectiveDate ? startOfDateIso(effectiveDate) : null;
+}
+
+function defaultGeneratedAtForJourney(journey: ResolvePerformanceStateInput["journey"], asOfDate: string): string {
+  const snapshot = buildAthleteJourneySnapshot(journey, asOfDate);
+  const timestamps: string[] = [];
+  if (snapshot.activeFightOpportunity?.recordedAt) {
+    pushTimestamp(timestamps, snapshot.activeFightOpportunity.recordedAt);
+  }
+  if (snapshot.activeTournament?.recordedAt) {
+    pushTimestamp(timestamps, snapshot.activeTournament.recordedAt);
+  }
+  if (snapshot.activeTrainingBlock?.recordedAt) {
+    pushTimestamp(timestamps, snapshot.activeTrainingBlock.recordedAt);
+  }
+  for (const checkIn of snapshot.readinessHistory) {
+    pushDatedEvidenceTimestamp({ timestamps, date: checkIn.date, recordedAt: checkIn.recordedAt, asOfDate });
+  }
+  for (const log of snapshot.bodyMassHistory) {
+    pushDatedEvidenceTimestamp({ timestamps, date: log.date, recordedAt: log.recordedAt, asOfDate });
+  }
+  for (const log of snapshot.nutritionHistory) {
+    pushDatedEvidenceTimestamp({ timestamps, date: log.date, recordedAt: log.loggedAt, asOfDate });
+  }
+  for (const review of snapshot.nutritionSafetyReviews) {
+    pushTimestamp(timestamps, review.createdAt);
+    pushTimestamp(timestamps, review.updatedAt);
+    pushTimestamp(timestamps, review.reviewedAt);
+  }
+  for (const event of snapshot.nutritionSafetyReviewEvents) {
+    pushTimestamp(timestamps, event.createdAt);
+  }
+  for (const log of snapshot.hydrationHistory) {
+    pushDatedEvidenceTimestamp({ timestamps, date: log.date, recordedAt: log.recordedAt, asOfDate });
+  }
+  for (const log of snapshot.electrolyteHistory) {
+    pushDatedEvidenceTimestamp({ timestamps, date: log.date, recordedAt: log.recordedAt, asOfDate });
+  }
+  for (const log of snapshot.cycleHistory) {
+    pushDatedEvidenceTimestamp({ timestamps, date: log.date, recordedAt: log.recordedAt, asOfDate });
+  }
+  for (const signal of snapshot.wearableSignalHistory) {
+    pushTimestamp(timestamps, signal.recordedAt);
+  }
+  for (const session of snapshot.completedTrainingSessions) {
+    pushDatedEvidenceTimestamp({ timestamps, date: session.performedDate ?? session.date, recordedAt: session.recordedAt, asOfDate });
+  }
+  for (const result of snapshot.exerciseResults) {
+    const recordedAt = result.completedAt ?? result.recordedAt;
+    pushTimestamp(timestamps, recordedAt);
+  }
+  for (const workout of [...snapshot.athlete.protectedBoxingSchedule, ...snapshot.protectedWorkouts]) {
+    pushDatedEvidenceTimestamp({ timestamps, date: workout.date, recordedAt: workout.recordedAt, asOfDate });
+  }
+  for (const adjustment of snapshot.trainingPlanAdjustments) {
+    pushTimestamp(timestamps, adjustment.createdAt);
+  }
+  for (const summary of snapshot.trainingWeekSummaries) {
+    const recordedAt = summary.finalizedAt ?? summary.generatedAt;
+    pushTimestamp(timestamps, recordedAt);
+  }
+  for (const decision of snapshot.trainingProgressionDecisions) {
+    pushTimestamp(timestamps, decision.generatedAt);
+  }
+  for (const event of snapshot.trainingBlockTimelineEvents) {
+    const recordedAt = stringFromPayload(event.payload, ["generatedAt", "finalizedAt", "createdAt", "occurredAt", "recordedAt"]);
+    pushDatedEvidenceTimestamp({ timestamps, date: event.eventDate, recordedAt, asOfDate });
+  }
+  for (const flag of snapshot.safetyFlags) {
+    pushTimestamp(timestamps, riskFlagTimestamp(flag));
+  }
+  for (const event of snapshot.journeyEvents) {
+    pushTimestamp(timestamps, event.occurredAt);
+  }
+  return timestamps.sort().at(-1) ?? startOfDateIso(asOfDate);
+}
+
 function underFuelingCalorieTargets(input: {
   athlete: ResolvePerformanceStateInput["journey"]["athlete"];
   phase: ReturnType<typeof resolvePhase>;
@@ -96,7 +221,7 @@ function underFuelingCalorieTargets(input: {
 }
 
 export function resolvePerformanceState(input: ResolvePerformanceStateInput): PerformanceState {
-  const generatedAt = input.generatedAt ?? `${input.asOfDate}T00:00:00.000Z`;
+  const generatedAt = input.generatedAt ?? defaultGeneratedAtForJourney(input.journey, input.asOfDate);
   const generatedAtCutoff = input.generatedAt;
   const journey = buildAthleteJourneySnapshot(input.journey, input.asOfDate, generatedAtCutoff);
   const readinessHistory = journey.readinessHistory;
@@ -108,7 +233,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   const electrolyteHistory = journey.electrolyteHistory;
   const cycleHistory = journey.cycleHistory;
   const wearableSignalHistory = journey.wearableSignalHistory;
-  const phase = resolvePhase(journey, input.asOfDate);
+  const chronologicalPhase = resolvePhase(journey, input.asOfDate);
   const cycle = resolveCycleState({
     trackingEnabled: journey.athlete.cycleTrackingPreference === "enabled",
     consentVersion: journey.athlete.cycleTrackingPreference === "enabled" ? "v1" : null,
@@ -147,7 +272,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     athlete: journey.athlete,
     anchors,
     asOfDate: input.asOfDate,
-    phase,
+    phase: chronologicalPhase,
     readiness,
     cycle,
     fight: journey.activeFightOpportunity,
@@ -187,7 +312,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       generatedAt,
       underFuelingCalorieTargets({
         athlete: journey.athlete,
-        phase,
+        phase: chronologicalPhase,
         readiness,
         training: initialTraining,
         foodLogs: nutritionHistory,
@@ -213,11 +338,12 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
   });
   const safetyFlags = [...earlySafetyFlags, ...feasibility.riskFlags];
   const safety = resolveSafety(safetyFlags);
+  const phase = applySafetyPhaseOverride(chronologicalPhase, { readiness, safetyFlags: safety.riskFlags });
   const training = resolveCompiledTrainingState({
     athlete: journey.athlete,
     anchors,
     asOfDate: input.asOfDate,
-    phase,
+    phase: chronologicalPhase,
     readiness,
     cycle,
     fight: journey.activeFightOpportunity,
@@ -257,13 +383,13 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     waterLogs: hydrationHistory,
     electrolyteLogs: electrolyteHistory,
     training,
-    phase,
+    phase: chronologicalPhase,
     weighInContext,
     asOfDate: input.asOfDate
   });
   const nutrition = resolveNutrition({
     athlete: journey.athlete,
-    phase,
+    phase: chronologicalPhase,
     fight: journey.activeFightOpportunity,
     weighInContext,
     tournamentStrategy,

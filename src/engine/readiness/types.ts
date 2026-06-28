@@ -2,6 +2,7 @@ import type { Confidence, ISODateString, ISODateTimeString } from "../core/share
 import type { RiskFlag } from "../safety/types";
 
 export interface ReadinessCheckIn {
+  id?: string | undefined;
   date: ISODateString;
   recordedAt?: ISODateTimeString | undefined;
   sleepHours?: number | undefined;

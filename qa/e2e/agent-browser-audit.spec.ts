@@ -737,11 +737,13 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
     if (hasQuickLogButton) {
       await expect(quickLogButton).toBeVisible();
       await expect(page.getByRole("button", { name: "Show Why This Session" }).first()).toBeVisible();
-      const exerciseDetailsButton = page.getByTestId("train-workout-section").getByRole("button", { name: /^Show Exercise Details$/ });
+      const exerciseDetailsButton = page.getByTestId("train-workout-section").getByRole("button", { name: /^(Show|Hide) Exercise Details$/ });
       await expect(exerciseDetailsButton).toBeVisible();
       await page.getByRole("button", { name: "Show Why This Session" }).first().click();
       await expect(page.getByTestId("train-workout-section")).toContainText(/Stop rule|future training call stays conservative/i);
-      await exerciseDetailsButton.click();
+      if (await page.getByTestId("train-workout-section").getByRole("button", { name: /^Show Exercise Details$/ }).count()) {
+        await exerciseDetailsButton.click();
+      }
       await expect(page.getByTestId("workout-plan-detail-section")).toContainText(/Workout recipe|Exercise details/);
       generatedQuickLogAvailable = await quickLogButton.isEnabled();
       if (!generatedQuickLogAvailable) {

@@ -18,7 +18,9 @@ import {
   generateUserOwnedDataExportBundle,
   generateUserOwnedDataExportBundleString,
   groupUserOwnedPreviewCounts,
+  PARTICIPANT_OWNED_TABLES,
   previewUserOwnedDataExport,
+  USER_ID_OWNED_TABLES,
   USER_OWNED_TABLES
 } from "../../services/supabase/userDataService";
 import { mapFoodLogRow } from "../../services/supabase/nutritionRepository";
@@ -273,6 +275,58 @@ function createNutritionReviewInsertClient() {
     }
   };
   return { client: client as unknown as CornerSupabaseClient, inserted };
+}
+
+function createNutritionReviewExistingClient() {
+  const writes: string[] = [];
+  const existingRow = {
+    id: "review_1",
+    user_id: "user_1",
+    as_of_date: fixtureAsOfDate,
+    review_type: "weight_class",
+    status: "requested",
+    severity: "critical",
+    hard_stop: true,
+    blocking_flags: ["acute_protocol_blocked"],
+    reasons: ["Original hard stop reason."],
+    suggested_next_steps: ["Pause weight-class pressure."],
+    source_payload: { source: "existing_review" },
+    reviewer_user_id: null,
+    reviewer_role: null,
+    reviewed_at: null,
+    engine_version: "0.2.0",
+    input_hash: "input_hash",
+    output_hash: "output_hash",
+    created_at: "2026-05-19T00:00:00.000Z",
+    updated_at: "2026-05-19T00:00:00.000Z"
+  };
+  const existingQuery = {
+    eq() {
+      return existingQuery;
+    },
+    limit() {
+      return existingQuery;
+    },
+    maybeSingle: async () => ({ data: existingRow, error: null })
+  };
+  const client = {
+    from(table: string) {
+      return {
+        select() {
+          return existingQuery;
+        },
+        insert() {
+          writes.push(`${table}.insert`);
+          throw new Error("existing review should not be inserted");
+        },
+        update() {
+          writes.push(`${table}.update`);
+          throw new Error("existing review should not be updated");
+        }
+      };
+    }
+  };
+  return { client: client as unknown as CornerSupabaseClient, writes };
 }
 
 function createNutritionReviewEventListClient() {
@@ -819,6 +873,7 @@ function createJourneyRepositories(): AthleteJourneyRepositories {
 function createUserDataClient(rowsByTable: Partial<Record<(typeof USER_OWNED_TABLES)[number], unknown[]>> = {}) {
   const selected: { table: string; userId: string }[] = [];
   const deleted: { table: string; userId: string }[] = [];
+  const updated: { table: string; filter: string; record: unknown }[] = [];
   const client = {
     from(table: string) {
       return {
@@ -826,6 +881,10 @@ function createUserDataClient(rowsByTable: Partial<Record<(typeof USER_OWNED_TAB
           return {
             eq(column: string, value: string) {
               selected.push({ table, userId: `${column}:${value}` });
+              return Promise.resolve({ data: rowsByTable[table as (typeof USER_OWNED_TABLES)[number]] ?? [], error: null });
+            },
+            or(filter: string) {
+              selected.push({ table, userId: `or:${filter}` });
               return Promise.resolve({ data: rowsByTable[table as (typeof USER_OWNED_TABLES)[number]] ?? [], error: null });
             }
           };
@@ -837,11 +896,19 @@ function createUserDataClient(rowsByTable: Partial<Record<(typeof USER_OWNED_TAB
               return Promise.resolve({ data: [], error: null, count: 0 });
             }
           };
+        },
+        update(record: unknown) {
+          return {
+            or(filter: string) {
+              updated.push({ table, filter, record });
+              return Promise.resolve({ data: [], error: null, count: 0 });
+            }
+          };
         }
       };
     }
   };
-  return { client: client as unknown as CornerSupabaseClient, deleted, selected };
+  return { client: client as unknown as CornerSupabaseClient, deleted, selected, updated };
 }
 
 function createAccountDeletionClient(response: unknown, error: { message: string } | null = null) {
@@ -1256,9 +1323,10 @@ describe("Supabase repositories", () => {
       expect.arrayContaining([
         { method: "from", value: "generated_training_sessions" },
         { method: "eq", column: "user_id", value: "user_1" },
-        { method: "gte", column: "current_scheduled_date", value: fixtureAsOfDate }
+        { method: "eq", column: "block_id", value: "training_block_current" }
       ])
     );
+    expect(calls).not.toEqual(expect.arrayContaining([{ method: "gte", column: "current_scheduled_date", value: fixtureAsOfDate }]));
   });
 
   it("generated training session reads can use active week bounds before asOfDate", async () => {
@@ -1275,10 +1343,58 @@ describe("Supabase repositories", () => {
     expect(sessions.map((session) => session.title)).toEqual(["Monday scoped support", "Tuesday scoped support"]);
     expect(calls).toEqual(
       expect.arrayContaining([
-        { method: "gte", column: "current_scheduled_date", value: "2026-05-18" },
-        { method: "lte", column: "current_scheduled_date", value: "2026-05-24" }
+        { method: "eq", column: "block_id", value: "training_block_current" }
       ])
     );
+    expect(calls).not.toEqual(expect.arrayContaining([{ method: "gte", column: "current_scheduled_date", value: "2026-05-18" }]));
+    expect(calls).not.toEqual(expect.arrayContaining([{ method: "lte", column: "current_scheduled_date", value: "2026-05-24" }]));
+  });
+
+  it("generated training session reads keep moved sessions when either current or original date is in the active week", async () => {
+    const { calls, client } = createGeneratedSessionListClient([
+      {
+        ...generatedSessionRow({ id: "moved_from_week", date: "2026-05-18", title: "Moved out of active week", trainingBlockId: "training_block_current" }),
+        current_scheduled_date: "2026-05-27",
+        generated_session_lifecycle: "moved",
+        session_payload: {
+          ...generatedSessionRow({ id: "moved_from_week", date: "2026-05-18", title: "Moved out of active week", trainingBlockId: "training_block_current" }).session_payload,
+          currentScheduledDate: "2026-05-27",
+          generatedSessionLifecycle: "moved"
+        }
+      },
+      {
+        ...generatedSessionRow({ id: "moved_into_week", date: "2026-05-12", title: "Moved into active week", trainingBlockId: "training_block_current" }),
+        current_scheduled_date: "2026-05-20",
+        original_planned_date: "2026-05-12",
+        generated_session_lifecycle: "moved",
+        session_payload: {
+          ...generatedSessionRow({ id: "moved_into_week", date: "2026-05-12", title: "Moved into active week", trainingBlockId: "training_block_current" }).session_payload,
+          currentScheduledDate: "2026-05-20",
+          originalPlannedDate: "2026-05-12",
+          generatedSessionLifecycle: "moved"
+        }
+      },
+      {
+        ...generatedSessionRow({ id: "outside_week", date: "2026-05-10", title: "Outside active week", trainingBlockId: "training_block_current" }),
+        current_scheduled_date: "2026-05-26",
+        original_planned_date: "2026-05-10",
+        session_payload: {
+          ...generatedSessionRow({ id: "outside_week", date: "2026-05-10", title: "Outside active week", trainingBlockId: "training_block_current" }).session_payload,
+          currentScheduledDate: "2026-05-26",
+          originalPlannedDate: "2026-05-10"
+        }
+      }
+    ]);
+
+    const sessions = await createTrainingRepository(client).listGeneratedSessions("user_1", {
+      startDate: "2026-05-18",
+      endDate: "2026-05-24",
+      trainingBlockId: "training_block_current"
+    });
+
+    expect(sessions.map((session) => session.title)).toEqual(["Moved out of active week", "Moved into active week"]);
+    expect(calls).not.toEqual(expect.arrayContaining([{ method: "gte", column: "current_scheduled_date", value: "2026-05-18" }]));
+    expect(calls).not.toEqual(expect.arrayContaining([{ method: "lte", column: "current_scheduled_date", value: "2026-05-24" }]));
   });
 
   it("generated training session reads preserve compiler contract metadata", async () => {
@@ -1906,6 +2022,32 @@ describe("Supabase repositories", () => {
     expect(source).toContain("acknowledgeNutritionSafetyReview");
     expect(source).toContain("supersedeNutritionSafetyReviews");
     expect(source).not.toContain("clearNutritionSafetyReview");
+  });
+
+  it("nutritionSafetyReviewRepository returns existing active reviews without rewriting safety evidence", async () => {
+    const { client, writes } = createNutritionReviewExistingClient();
+    const repository = createNutritionSafetyReviewRepository(client);
+
+    const result = await repository.upsertNutritionSafetyReview({
+      userId: "user_1",
+      asOfDate: fixtureAsOfDate,
+      reviewType: "weight_class",
+      severity: "high",
+      hardStop: false,
+      blockingFlags: [],
+      reasons: ["New lower-severity reason should not overwrite."],
+      suggestedNextSteps: [],
+      sourcePayload: { source: "new_request" },
+      engineVersion: "0.2.0",
+      inputHash: "input_hash",
+      outputHash: "output_hash"
+    });
+
+    expect(result.lifecycle).toBe("existing");
+    expect(result.review.hardStop).toBe(true);
+    expect(result.review.blockingFlags).toEqual(["acute_protocol_blocked"]);
+    expect(result.review.sourcePayload).toEqual({ source: "existing_review" });
+    expect(writes).toEqual([]);
   });
 
   it("nutritionSafetyReviewRepository lists review events scoped by user and review id", async () => {
@@ -2546,6 +2688,8 @@ describe("Supabase repositories", () => {
   });
 
   it("userDataService includes every user-owned table", () => {
+    expect(USER_ID_OWNED_TABLES).toContain("training_plan_intents");
+    expect(PARTICIPANT_OWNED_TABLES).toEqual(["athlete_coach_relationships"]);
     expect(USER_OWNED_TABLES).toContain("exercise_results");
     expect(USER_OWNED_TABLES).toContain("training_blocks");
     expect(USER_OWNED_TABLES).toContain("training_microcycles");
@@ -2562,11 +2706,13 @@ describe("Supabase repositories", () => {
     expect(USER_OWNED_TABLES).toContain("decision_traces");
     expect(USER_OWNED_TABLES).toContain("engine_runs");
     expect(USER_OWNED_TABLES).toContain("workout_completion_operations");
-    expect(USER_OWNED_TABLES).toHaveLength(39);
+    expect(USER_OWNED_TABLES).toContain("athlete_coach_relationships");
+    expect(USER_OWNED_TABLES).toHaveLength(USER_ID_OWNED_TABLES.length + PARTICIPANT_OWNED_TABLES.length);
+    expect(USER_OWNED_TABLES).toHaveLength(40);
   });
 
   it("userDataService deletion order keeps known child tables before parent tables", () => {
-    const index = (table: (typeof USER_OWNED_TABLES)[number]) => USER_OWNED_TABLES.indexOf(table);
+    const index = (table: (typeof USER_ID_OWNED_TABLES)[number]) => USER_ID_OWNED_TABLES.indexOf(table);
 
     expect(index("exercise_results")).toBeLessThan(index("completed_training_sessions"));
     expect(index("workout_completion_operations")).toBeLessThan(index("completed_training_sessions"));
@@ -2612,17 +2758,36 @@ describe("Supabase repositories", () => {
     expect(readFileSync("src/app/screens/plan/PlanAdjustmentControls.tsx", "utf8")).not.toContain("coach_note");
   });
 
-  it("export and delete scope every table by user_id", async () => {
-    const { client, deleted, selected } = createUserDataClient();
+  it("export scopes participant-owned rows and app-data deletion revokes coach relationships", async () => {
+    const { client, deleted, selected, updated } = createUserDataClient();
 
     await exportUserOwnedData("user_1", client);
     await previewUserOwnedDataExport("user_1", client);
     await deleteUserOwnedData("user_1", client, "DELETE");
 
-    expect(selected.map((item) => item.table)).toEqual([...USER_OWNED_TABLES, ...USER_OWNED_TABLES]);
-    expect(deleted.map((item) => item.table)).toEqual([...USER_OWNED_TABLES]);
-    expect(selected.every((item) => item.userId === "user_id:user_1")).toBe(true);
+    expect(selected.map((item) => item.table)).toEqual([
+      ...USER_ID_OWNED_TABLES,
+      ...PARTICIPANT_OWNED_TABLES,
+      ...USER_ID_OWNED_TABLES,
+      ...PARTICIPANT_OWNED_TABLES
+    ]);
+    expect(selected.slice(0, USER_ID_OWNED_TABLES.length).every((item) => item.userId === "user_id:user_1")).toBe(true);
+    expect(selected.slice(USER_ID_OWNED_TABLES.length, USER_ID_OWNED_TABLES.length + PARTICIPANT_OWNED_TABLES.length)).toEqual([
+      { table: "athlete_coach_relationships", userId: "or:athlete_user_id.eq.user_1,coach_user_id.eq.user_1" }
+    ]);
+    expect(selected.slice(USER_OWNED_TABLES.length, USER_OWNED_TABLES.length + USER_ID_OWNED_TABLES.length).every((item) => item.userId === "user_id:user_1")).toBe(true);
+    expect(selected.slice(USER_OWNED_TABLES.length + USER_ID_OWNED_TABLES.length)).toEqual([
+      { table: "athlete_coach_relationships", userId: "or:athlete_user_id.eq.user_1,coach_user_id.eq.user_1" }
+    ]);
+    expect(deleted.map((item) => item.table)).toEqual([...USER_ID_OWNED_TABLES]);
     expect(deleted.every((item) => item.userId === "user_id:user_1")).toBe(true);
+    expect(updated).toEqual([
+      {
+        table: "athlete_coach_relationships",
+        filter: "athlete_user_id.eq.user_1,coach_user_id.eq.user_1",
+        record: { status: "revoked" }
+      }
+    ]);
   });
 
   it("userDataService builds a portable grouped export bundle with redacted identifiers and secrets", async () => {
@@ -2679,7 +2844,7 @@ describe("Supabase repositories", () => {
   });
 
   it("userDataService calls the trusted account deletion function and validates the caller", async () => {
-    const appDataDeletion = Object.fromEntries(USER_OWNED_TABLES.map((table) => [table, { count: 0, status: "deleted" }])) as Record<(typeof USER_OWNED_TABLES)[number], { count: number; status: "deleted" }>;
+    const appDataDeletion = Object.fromEntries(USER_OWNED_TABLES.map((table) => [table, { count: 0, status: "deleted" }])) as Record<(typeof USER_OWNED_TABLES)[number], { count: number; status: "deleted" | "revoked" }>;
     const { client, invoke } = createAccountDeletionClient({
       appDataDeletion,
       deletedAt: "2026-06-12T00:00:00.000Z",

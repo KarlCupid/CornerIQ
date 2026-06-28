@@ -164,6 +164,23 @@ export interface TodayViewModel {
   quickLogs: readonly string[];
 }
 
+export type PresentationTone = "blue" | "green" | "orange" | "purple" | "gold" | "red" | "muted";
+
+export interface FuelPlanStatusViewModel {
+  action: string;
+  label: "No active cut" | "On pace" | "Tight" | "Behind pace" | "Too aggressive" | "Pause cut";
+  sentence: string;
+  tone: PresentationTone;
+}
+
+export interface FuelSafetyStateViewModel {
+  active: boolean;
+  healthStatus: string;
+  reviewActive: boolean;
+  stripText: string;
+  tone: PresentationTone;
+}
+
 export interface FuelViewModel {
   title: string;
   topAction: TopActionViewModel;
@@ -208,6 +225,9 @@ export interface FuelViewModel {
   tournamentFuel: FuelContextCard | null;
   rehydrationPlan: FuelContextCard | null;
   underFuelingRisk: FuelContextCard | null;
+  safetyState: FuelSafetyStateViewModel;
+  planStatus: FuelPlanStatusViewModel;
+  trainingTodayCopy: string;
   riskSummary: readonly string[];
   why: string;
 }

@@ -2,13 +2,13 @@
 
 Date: 2026-05-21
 
-This document is the operational checklist for structured CornerIQ beta releases. It covers local gates, remote Supabase verification, live smoke, issue reporting, feedback triage, privacy, and the next ChatGPT audit path.
+This document is the operational checklist for structured CornerIQ beta releases. It covers local gates, remote Supabase verification, live smoke, outside-app feedback/incident triage, privacy, and the next ChatGPT audit path.
 
 ## Beta Readiness Status
 
-CornerIQ is beta-ready for structured local/scripted boxer testing of Today, Fuel, Train, Plan, Profile, data controls, feedback, issue reporting, and automated beta scenario QA. Recent passes added app-level recovery, a privacy-safe issue report path, visible feedback history/status, a beta health preflight panel, a beta tester notice, runtime public-env validation, EAS build profiles, a beta preflight script, GitHub Actions quality workflows, CodeQL, ten-persona scenario coverage, static safety scans, and focused quick-log/workout/plan-adjustment friction polish.
+CornerIQ is beta-ready for structured local/scripted boxer testing of Today, Fuel, Train, Plan, Profile, data controls, outside-app facilitator feedback, app recovery, and automated beta scenario QA. Earlier pre-launch passes explored Profile Audit feedback/history, beta health, beta tester notice, and in-app issue reporting, but those runtime surfaces were removed before launch. Active beta guidance uses Profile Data/Safety, outside-app support, private facilitator notes, static safety scans, release evidence, and the private incident triage runbook.
 
-Local migration files now run through `20260619194631_generated_session_identity_lifecycle.sql`. Historical remote verification aligned migrations `001` through `013` on 2026-06-18. On 2026-06-19, a local clean Supabase database applied every local migration, local migration list/lint passed, and generated database types were refreshed from that schema. A guarded remote release pass then applied `014_temporal_integrity_session_resolution.sql`, `20260619190201_training_week_finalization_authority.sql`, and `20260619194631_generated_session_identity_lifecycle.sql`; follow-up remote migration list, dry-run, and linked lint passed. Live smoke remains blocked until the configured smoke account signs in successfully.
+Local migration files now run through `20260628123000_chunk09_rls_grants_privacy_hardening.sql`. Historical remote verification aligned migrations `001` through `013` on 2026-06-18. On 2026-06-19, a local clean Supabase database applied every local migration through `20260619194631_generated_session_identity_lifecycle.sql`, local migration list/lint passed, and generated database types were refreshed from that schema. A guarded remote release pass then applied `014_temporal_integrity_session_resolution.sql`, `20260619190201_training_week_finalization_authority.sql`, and `20260619194631_generated_session_identity_lifecycle.sql`; follow-up remote migration list, dry-run, and linked lint passed. Later local migrations from `20260620000100_workout_completion_retry_integrity.sql` through `20260628123000_chunk09_rls_grants_privacy_hardening.sql` require fresh exact-SHA migration list, dry-run, clean apply/lint/type evidence, and live-smoke decision evidence before release. Live smoke remains blocked until the configured smoke account signs in successfully.
 
 2026-05-21 historical release-candidate verification result: code gates, Supabase checks, live smoke, preflight, and a public GitHub Actions `Quality` run passed for that older candidate. That historical result does not prove any later candidate.
 
@@ -119,26 +119,26 @@ npm exec supabase -- db push --dry-run
 Expected current state:
 
 - CLI version verified as `2.100.1`.
-- Local migration files include `001` through `014` plus timestamped migrations `20260619190201` and `20260619194631`.
+- Local migration files include `001` through `014` plus timestamped migrations through `20260628123000`.
 - 2026-06-19 local clean-database evidence applied every local migration, `migration list --local` showed all local migrations, `db lint --local --level error --fail-on error` passed, and generated TypeScript database types were refreshed from that local schema.
-- The latest guarded remote verification aligned every local migration through `20260619194631`.
+- The latest historical guarded remote verification aligned every local migration through `20260619194631`; later local migrations require fresh exact-SHA generated evidence.
 - Dry run must be rerun before release handoff and must either report `Remote database is up to date.` or document the exact pending migration files.
 
-## Feedback Workflow
+## Feedback And Incident Notes
 
-Testers submit feedback in Profile > Audit.
+Testers do not submit feedback in Profile > Audit in the launch runtime. There is no in-app feedback form, feedback history, beta health panel, beta tester notice, or signed-in issue-reporting path.
 
-The panel supports:
+Facilitators and release owners collect product feedback outside the app using private notes or a controlled support channel. Private notes may include:
 
 - Screen.
 - Category.
-- Severity.
-- Short message.
-- Recent feedback history with read-only status chips.
+- Confusion severity.
+- Short product summary with no private health detail.
+- Action taken.
 
-Reports are user-owned rows in `beta_feedback_reports` under RLS. Client code can submit and list the signed-in user's own reports; it cannot mark reports reviewed, resolved, or dismissed.
+Historical `beta_feedback_reports` references belong to a removed pre-launch surface. Migration `012` removes that table from the final launch schema, and active launch docs must not direct testers or release owners to inspect it.
 
-Testers should not include secrets, emergency details, medical records, full health histories, or screenshots with private content. In-app copy now states that feedback is not emergency support and is not medical review.
+Testers should not include secrets, emergency details, medical records, full health histories, credentials, personal contact details, or screenshots with private content. Feedback is not emergency support and is not medical review.
 
 ## Feedback Triage
 
@@ -146,30 +146,29 @@ There is no admin-review UI yet.
 
 Manual triage path for now:
 
-1. Open the Supabase dashboard for the linked project.
-2. Inspect `beta_feedback_reports`.
-3. Filter by `user_id`, `created_at`, `screen`, `category`, `severity`, or `status`.
-4. Treat message text as potentially sensitive.
-5. Do not copy medical details or private tester text into public issues.
+1. Use private facilitator notes or release-owner support records.
+2. Use tester/session aliases instead of names, emails, phone numbers, or gym identifiers.
+3. Treat message text as potentially sensitive.
+4. Do not copy medical details or private tester text into public issues.
 
 Future options:
 
-- Admin Edge Function for status changes.
-- Private dashboard with permissioned reviewers.
+- Private support dashboard with permissioned reviewers.
+- Retention policy for outside-app notes.
 - Private export for beta research synthesis.
 
-## Error Reporting
+## Error Recovery
 
 `AppErrorBoundary` catches render/runtime errors in the React tree and shows:
 
 - "Something went wrong."
 - "Your data is still protected."
 - Retry.
-- "Report this issue" when a signed-in user has feedback available.
+- outside-app support guidance.
 
-Issue reports reuse beta feedback with category `bug`. The payload includes a sanitized error summary and bounded component-stack summary. The UI does not show raw stack traces, and there is no automatic third-party reporting.
+The launch runtime does not submit in-app issue reports. The UI does not show raw stack traces, and there is no automatic third-party reporting.
 
-Signed-out users see recovery copy, but no issue report is submitted.
+Signed-out users see recovery copy and outside-app support guidance.
 
 ## Scenario QA
 
@@ -197,12 +196,12 @@ The results and human testing adjustments are documented in `docs/22_BETA_SCENAR
 ## Data And Privacy
 
 - Data export preview and DELETE-gated app-data deletion remain in Profile > Data.
-- Feedback reports are included in user-owned export/delete scope.
+- Runtime feedback reports are not part of launch export/delete scope because in-app feedback persistence was removed before launch.
 - Cycle support remains optional, private, and symptom-aware.
 - Wearables are optional; manual input is first-class.
 - Client and smoke use public Supabase URL plus anon key only.
 - No service role key belongs in Expo/client code.
-- Runtime beta health and startup copy show missing public env variable names only, never values.
+- Release evidence and startup copy show missing public env variable names only, never values.
 
 ## CI Quality And Security Workflows
 
@@ -318,8 +317,7 @@ Still deferred:
 - No unsafe weight-cut copy.
 - No contact-work generation.
 - No self-clear path.
-- Feedback submit and history visible.
-- Beta tester notice visible.
+- In-app feedback, issue reporting, feedback history, beta health, and beta tester notice remain absent from launch runtime.
 - Expo/EAS preview profile exists or setup deferral is documented.
 - EAS preview build attempted and result documented.
 - Scenario QA and static safety scans pass.
@@ -332,28 +330,22 @@ Still deferred:
 Inspect first:
 
 1. `src/app/components/AppErrorBoundary.tsx`
-2. `src/app/components/BetaFeedbackPanel.tsx`
-3. `src/app/components/BetaHealthPanel.tsx`
-4. `src/app/components/BetaTesterNoticePanel.tsx`
-5. `src/services/config/betaRuntimeConfig.ts`
-6. `src/engine/presentation/betaHealthViewModel.ts`
-7. `eas.json`
-8. `scripts/beta-preflight.mjs`
-9. `src/hooks/useBetaFeedback.ts`
-10. `src/app/screens/ProfileScreen.tsx`
-11. `.github/workflows/quality.yml`
-12. `.github/workflows/codeql.yml`
-13. `src/tests/app/appShell.test.ts`
-14. `src/tests/engine/betaHealthViewModel.test.ts`
-15. `src/tests/services/betaRuntimeConfig.test.ts`
-16. `src/tests/beta/betaScenarioFlows.test.ts`
-17. `src/tests/static/betaSafetyStatic.test.ts`
-18. `src/tests/static/betaReleaseConfigStatic.test.ts`
-19. `src/tests/docs/betaReleaseOperations.test.ts`
-20. `src/tests/docs/betaScenarioQaResults.test.ts`
-21. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
-22. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
-23. `docs/21_BETA_RELEASE_OPERATIONS.md`
-24. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
-25. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
-26. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`
+2. `src/app/components/AppErrorState.tsx`
+3. `src/app/supportCopy.ts`
+4. `eas.json`
+5. `src/app/screens/ProfileScreen.tsx`
+6. `.github/workflows/quality.yml`
+7. `.github/workflows/codeql.yml`
+8. `src/tests/app/appShell.test.ts`
+9. `src/tests/beta/betaScenarioFlows.test.ts`
+10. `src/tests/static/betaSafetyStatic.test.ts`
+11. `src/tests/static/betaReleaseConfigStatic.test.ts`
+12. `src/tests/docs/betaReleaseOperations.test.ts`
+13. `src/tests/docs/betaScenarioQaResults.test.ts`
+14. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
+15. `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`
+16. `docs/21_BETA_RELEASE_OPERATIONS.md`
+17. `docs/22_BETA_SCENARIO_QA_RESULTS.md`
+18. `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md`
+19. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`
+20. `docs/qa/INCIDENT_TRIAGE_RUNBOOK.md`

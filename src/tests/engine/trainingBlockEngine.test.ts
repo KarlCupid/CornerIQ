@@ -16,6 +16,8 @@ import type {
   WaterLog
 } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { buildWorkoutPlayerTimeline } from "../../engine/presentation/workoutPlayerTimeline";
+import { buildDetailedTrainingSession } from "../../engine/training/detailedSessionEngine";
 import { materializeRecurringProtectedAnchors } from "../../engine/training/protectedAnchors";
 import { applyTrainingPlanAdjustment } from "../../engine/training/planAdjustmentEngine";
 import { generatedSupportWeekdayForDate } from "../../engine/training/supportAvailability";
@@ -27,7 +29,6 @@ import {
   amateur_novice_build,
   amateur_open_tournament,
   fixtureAsOfDate,
-  menstruating_athlete_camp_heavy_symptoms,
   no_wearable_manual_only,
   pro_12_round_taper,
   pro_4_round_build_strength,
@@ -38,6 +39,33 @@ import {
 const LEGACY_PRESCRIPTION_CONTRACT_VERSION = "athlete_prescription_contract_v1";
 const LEGACY_PLAN_INTENT_VERSION = "plan_generation_intent_v1";
 const LEGACY_GENERATED_SESSION_SCHEMA_VERSION = "generated_training_session_v1";
+
+type ResolvedPerformanceState = ReturnType<typeof resolvePerformanceState>;
+
+function expectExecutablePrescriptionMatchesSession(state: ResolvedPerformanceState, session: GeneratedTrainingSession): void {
+  const structured = session.structuredPrescriptionV2;
+  expect(structured).toBeDefined();
+  expect(structured?.compiledSession.displayedDurationMinutes).toBe(session.durationMinutes);
+  expect(structured?.compiledSession.structuredDurationMinutes).toBe(session.durationMinutes);
+  expect(structured?.compiledSession.hardness).toBe(session.intensity);
+  expect(structured?.canonicalWorkoutSession?.durationMinutes).toBe(session.durationMinutes);
+  expect(structured?.canonicalWorkoutSession?.hardness).toBe(session.intensity);
+  expect(structured?.canonicalWorkoutSession?.blocks.reduce((sum, block) => sum + block.durationMinutes, 0)).toBe(session.durationMinutes);
+
+  const detail = buildDetailedTrainingSession({
+    generatedSession: session,
+    athlete: state.athlete,
+    readiness: state.readiness,
+    cycle: state.cycle,
+    phase: state.phase,
+    protectedWorkouts: state.training.protectedAnchors,
+    equipmentAccess: state.athlete.equipmentAccess
+  });
+  const timeline = buildWorkoutPlayerTimeline(detail);
+  expect(detail.durationMinutes).toBe(session.durationMinutes);
+  expect(detail.sections.reduce((sum, section) => sum + section.durationMinutes, 0)).toBe(session.durationMinutes);
+  expect(timeline.totalSeconds).toBeLessThanOrEqual(session.durationMinutes * 60);
+}
 
 const generatedBoxingSkillFamilies = new Set<string>([
   "boxing_technical_shadowboxing",
@@ -427,7 +455,7 @@ describe("training block and microcycle engine", () => {
     expect(pain.training.blockRecommendation.reason).toContain("qualified review");
   });
 
-  it("protected sparring owns the day and under-fueling stays fuel guidance only", () => {
+  it("protected sparring owns the day while positive under-fueling evidence caps generated support", () => {
     const sparring = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const underFueling = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
     const repeatedLowIntakeOnly = resolvePerformanceState({
@@ -455,18 +483,27 @@ describe("training block and microcycle engine", () => {
     expect(sparring.training.dayPlans[0]?.protectedAnchors.some((anchor) => anchor.type === "sparring")).toBe(true);
     expect(sparring.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
     expect(underFueling.training.blockRecommendation.warnings.join(" ")).toContain("Under-fueling");
-    expect(underFueling.training.generatedSessions.length).toBeGreaterThan(1);
-    expect(underFueling.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
-    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).not.toContain("fueling");
-    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).not.toContain("Under-fueling");
+    expect(underFueling.training.generatedSessions.length).toBeLessThan(underFueling.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(underFueling.training.generatedSessions).toHaveLength(1);
+    expect(underFueling.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low")).toBe(true);
+    expectExecutablePrescriptionMatchesSession(underFueling, underFueling.training.generatedSessions[0]!);
+    expect(underFueling.training.dayPlans.find((day) => day.generatedSessions.some((session) => session.id === underFueling.training.generatedSessions[0]!.id))?.fuelDemand).toBe("low");
+    const removedByCapDay = underFueling.training.dayPlans.find((day) => day.date === "2026-05-20")!;
+    expect(removedByCapDay.generatedSessions).toHaveLength(0);
+    expect(removedByCapDay.protectedAnchors).toHaveLength(0);
+    expect(removedByCapDay.fuelDemand).toBe("low");
+    expect(underFueling.training.supportGenerationAudit.reducedBy).toContain("nutrition");
+    expect(underFueling.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).toContain("Rapid body-mass loss");
     expect(underFueling.training.executionReadiness.fuelingStatus).toBe("underfueling_evidence");
-    expect(underFueling.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
-    expect(underFueling.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).not.toContain("Severe fueling evidence");
+    expect(underFueling.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
+    expect(underFueling.training.supportGenerationAudit.evidenceBasedOverridesApplied.join(" ")).toContain("Positive under-fueling evidence capped generated support");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
     expect(repeatedLowIntakeOnly.safety.riskFlags.map((flag) => flag.code)).not.toContain("rapid_weight_loss");
-    expect(repeatedLowIntakeOnly.training.generatedSessions.length).toBeGreaterThan(1);
-    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.reducedBy).not.toContain("nutrition");
-    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(repeatedLowIntakeOnly.training.generatedSessions).toHaveLength(1);
+    expect(repeatedLowIntakeOnly.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low")).toBe(true);
+    expectExecutablePrescriptionMatchesSession(repeatedLowIntakeOnly, repeatedLowIntakeOnly.training.generatedSessions[0]!);
+    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.reducedBy).toContain("nutrition");
+    expect(repeatedLowIntakeOnly.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
   });
 
   it("places generated support only on athlete schedule availability days", () => {
@@ -2634,7 +2671,25 @@ describe("training block and microcycle engine", () => {
   });
 
   it("high cycle symptoms trim optional work and completed good sessions allow progression", () => {
-    const highSymptoms = resolvePerformanceState({ journey: menstruating_athlete_camp_heavy_symptoms, asOfDate: fixtureAsOfDate });
+    const highSymptoms = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          cycleTrackingPreference: "enabled"
+        },
+        cycleHistory: [
+          {
+            date: fixtureAsOfDate,
+            flowLevel: "moderate",
+            symptoms: ["cramps", "low_energy", "poor_sleep", "bloating", "cravings"],
+            hormonalContraception: "none"
+          }
+        ],
+        journeyEvents: [planWizardBuildEvent({ focus: "strength", id: "plan_high_cycle_trim", selectedSupportDays: ["tuesday", "thursday", "saturday"] })]
+      },
+      asOfDate: fixtureAsOfDate
+    });
     const goodHistory = resolvePerformanceState({
       journey: {
         ...pro_4_round_build_strength,
@@ -2643,7 +2698,12 @@ describe("training block and microcycle engine", () => {
       asOfDate: fixtureAsOfDate
     });
 
-    expect(highSymptoms.training.dayPlans[0]?.cycleAdjustment).toContain("safety review");
+    expect(highSymptoms.training.dayPlans[0]?.cycleAdjustment).toContain("High symptoms trim optional volume");
+    const cycleTrimmed = highSymptoms.training.generatedSessions.find((session) => session.modifications.join(" ").includes("High cycle symptoms trim optional hard work today"));
+    expect(cycleTrimmed).toBeDefined();
+    expect(cycleTrimmed?.intensity).not.toBe("hard");
+    expect(cycleTrimmed?.structuredPrescriptionV2?.compiledSession.hardness).toBe(cycleTrimmed?.intensity);
+    expectExecutablePrescriptionMatchesSession(highSymptoms, cycleTrimmed!);
     expect(goodHistory.training.activeBlock.progressionState.progressionRecommendation).toBe("progress");
   });
 });

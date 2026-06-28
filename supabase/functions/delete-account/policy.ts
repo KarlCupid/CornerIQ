@@ -5,7 +5,7 @@ export const ACCOUNT_DELETION_CORS_HEADERS = {
   "access-control-allow-origin": "*"
 } as const;
 
-export const USER_OWNED_TABLES = [
+export const USER_ID_OWNED_TABLES = [
   "exercise_results",
   "decision_traces",
   "risk_flags",
@@ -23,6 +23,7 @@ export const USER_OWNED_TABLES = [
   "training_progression_decisions",
   "training_week_summaries",
   "training_plan_adjustments",
+  "training_plan_intents",
   "training_day_plans",
   "training_microcycles",
   "training_blocks",
@@ -46,7 +47,12 @@ export const USER_OWNED_TABLES = [
   "users_public"
 ] as const;
 
-export type UserOwnedTable = (typeof USER_OWNED_TABLES)[number];
+export const PARTICIPANT_OWNED_TABLES = ["athlete_coach_relationships"] as const;
+export const USER_OWNED_TABLES = [...USER_ID_OWNED_TABLES, ...PARTICIPANT_OWNED_TABLES] as const;
+
+export type UserIdOwnedTable = (typeof USER_ID_OWNED_TABLES)[number];
+export type ParticipantOwnedTable = (typeof PARTICIPANT_OWNED_TABLES)[number];
+export type UserOwnedTable = UserIdOwnedTable | ParticipantOwnedTable;
 export type AccountDeletionPayload = {
   confirmation?: unknown;
 };

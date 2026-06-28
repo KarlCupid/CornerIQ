@@ -66,21 +66,21 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Fuel: Command, History, Reviews, and Body Mass sections render with safety review visibility.
 - Train: Today, Workout, Exercise History, and Progression sections render.
 - Plan: Week, Next Week, Block History, and Adjustments sections render without screen-owned programming logic.
-- Profile: Athlete, Settings, Data, and Audit sections render.
-- Agent QA output includes screenshots and page-text snapshots for onboarding, Today, Fuel, Train, Plan, Profile Audit, and Profile Data.
+- Profile: Athlete, Settings, Data, and Safety sections render.
+- Agent QA output includes screenshots and page-text snapshots for onboarding, Today, Fuel, Train, Plan, Profile Safety, and Profile Data.
 - Engine-output review exists at `qa-artifacts/reports/engine-output-review.md`.
-- Feedback: Profile > Audit can submit user-owned beta feedback and show recent read-only status.
-- Error boundary: signed-in issue reporting is sanitized; signed-out users cannot submit reports.
+- Feedback: launch runtime has no in-app feedback submission, issue reporting, feedback history, beta health, or beta tester notice; feedback collection uses private facilitator notes or outside-app support.
+- Error boundary: app recovery hides raw stacks and directs users to outside-app support; signed-in issue reporting is not exposed in launch runtime.
 - Data export/delete: preview works and deletion remains DELETE-gated.
-- Beta tester notice: Profile > Audit shows beta, no-emergency-support, manual-input, wearable-optional, and no-self-clear copy.
-- Beta health: Profile > Audit shows public env readiness, auth, engine, feedback, data, cycle privacy, and wearable checks without env values.
+- Support boundary: Profile and app recovery copy route support outside the app without collecting emergency details or private health histories.
+- Release evidence: scripts and generated artifacts, not runtime beta-health UI, record public env readiness and release blockers without env values.
 
 ## Beta Tester Gates
 
 - Test accounts exist and are not shared in docs, source, tests, or issue trackers.
 - Test script is ready from `docs/20_BETA_TESTING_AND_FEEDBACK_PLAN.md`.
 - Facilitator notes are kept outside public docs when they contain private tester text.
-- Feedback collection uses Profile > Audit or private facilitator notes.
+- Feedback collection uses private facilitator notes or outside-app support; the launch runtime does not expose Profile > Audit feedback.
 - Privacy reminders are read before testing: no secrets, no emergency details, no medical records, no full health histories.
 - Testers are told this is a beta, not medical advice, not a replacement for qualified human judgment, and not emergency support.
 - If a tester reports urgent health or weight-class concern, stop the session and seek qualified support outside the app.
@@ -123,7 +123,7 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 - Coach UI.
 - Reviewer-clear UI.
 - Drag/drop calendar.
-- Admin feedback triage dashboard.
+- Production support/incident triage dashboard.
 - External analytics.
 - Routed drilldowns.
 
@@ -144,13 +144,14 @@ Use this checklist before handing CornerIQ to real boxer beta testers. It is a r
 
 1. `eas.json`
 2. `scripts/beta-preflight.mjs`
-3. `src/services/config/betaRuntimeConfig.ts`
-4. `src/engine/presentation/betaHealthViewModel.ts`
-5. `src/app/components/BetaTesterNoticePanel.tsx`
-6. `src/app/components/BetaHealthPanel.tsx`
-7. `src/app/screens/ProfileScreen.tsx`
+3. `src/app/components/AppErrorBoundary.tsx`
+4. `src/app/components/AppErrorState.tsx`
+5. `src/app/supportCopy.ts`
+6. `src/app/screens/ProfileScreen.tsx`
+7. `src/tests/static/betaSafetyStatic.test.ts`
 8. `src/tests/static/betaReleaseConfigStatic.test.ts`
 9. `src/tests/docs/betaReleaseCandidateChecklist.test.ts`
 10. `.github/workflows/quality.yml`
 11. `.github/workflows/codeql.yml`
 12. `docs/24_EXPO_EAS_BETA_DISTRIBUTION.md`
+13. `docs/qa/INCIDENT_TRIAGE_RUNBOOK.md`

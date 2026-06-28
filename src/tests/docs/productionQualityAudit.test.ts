@@ -55,11 +55,15 @@ describe("production quality audit documentation", () => {
     expect(source).toContain("014_temporal_integrity_session_resolution.sql");
     expect(source).toContain("20260619190201_training_week_finalization_authority.sql");
     expect(source).toContain("20260619194631_generated_session_identity_lifecycle.sql");
+    expect(source).toContain("20260628123000_chunk09_rls_grants_privacy_hardening.sql");
+    expect(source).toContain("Later local migrations require fresh exact-SHA migration");
     expect(source).toContain("historically aligned in production");
     expect(source).toContain("rows-created/cleaned proof remains release-blocking");
     expect(source).toContain("CodeQL run");
     expect(ledger).toContain("every local migration file status");
     expect(ledger).toContain("20260619194631_generated_session_identity_lifecycle.sql");
+    expect(ledger).toContain("20260628123000_chunk09_rls_grants_privacy_hardening.sql");
+    expect(ledger).toContain("Later local migrations from `20260620000100_workout_completion_retry_integrity.sql`");
     expect(combined).not.toContain("security evidence pending");
     expect(source).not.toMatch(/current-head pass|latest head passed|current head passed/i);
 
@@ -86,6 +90,24 @@ describe("production quality audit documentation", () => {
       .filter((line) => !/historically applied remotely|historical status only|historical evidence is not current-candidate proof/i.test(line))
       .filter((line) => !/\b(not|do not|must not|release-blocking)\b/i.test(line));
     expect(unsupportedMigrationPassClaims).toHaveLength(0);
+
+    for (const migration of [
+      "20260620000100_workout_completion_retry_integrity.sql",
+      "20260625080657_generated_session_active_slot_reconciliation.sql",
+      "20260626062900_revision_isolated_plan_lifecycle.sql",
+      "20260626120000_outside_engine_workout_support.sql",
+      "20260627090000_nutrition_safety_review_canonical_statuses.sql",
+      "20260628123000_chunk09_rls_grants_privacy_hardening.sql"
+    ]) {
+      expect(combined).toContain(migration);
+      const unsupportedRecentMigrationClaims = combined
+        .split(/\r?\n/)
+        .filter((line) => line.includes(migration))
+        .filter((line) => /applied remotely|remote(?:ly)? verified|remote migration list.*passed|dry-run.*passed/i.test(line))
+        .filter((line) => !/require|must|before release|bounded evidence/i.test(line));
+      expect(unsupportedRecentMigrationClaims).toHaveLength(0);
+    }
+
     expect(combined).not.toMatch(/CodeQL[^.\n]*(latest run passed|passed)(?![^.\n]*(run ID|https:\/\/github\.com))/i);
   });
 });

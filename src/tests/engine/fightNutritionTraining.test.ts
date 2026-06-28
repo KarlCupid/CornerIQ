@@ -69,6 +69,20 @@ function foodLogCompleteEvent(date: string, id = date): JourneyEvent {
   };
 }
 
+function foodNotTrackingEvent(date: string, id = date): JourneyEvent {
+  return {
+    id: `food_not_tracking_${id}`,
+    type: "FoodLogStatusUpdated",
+    occurredAt: `${date}T20:00:00.000Z`,
+    payload: {
+      date,
+      status: "not_tracking_today",
+      completionSource: "not_tracking",
+      userMarkedCompleteAt: `${date}T20:00:00.000Z`
+    }
+  };
+}
+
 describe("fight, nutrition, training, and presentation vertical slice", () => {
   it("amateur tournament mode does not create an acute cut protocol", () => {
     const state = resolvePerformanceState({ journey: amateur_open_tournament, asOfDate: fixtureAsOfDate });
@@ -226,7 +240,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
       asOfDate: fixtureAsOfDate
     });
 
-    expect(state.phase.phase).toBe("tournament");
+    expect(state.phase.phase).toBe("recovery");
     expect(state.readiness.color).toBe("red");
     expect(["mobility_recovery_flow", "recovery_reset"]).toContain(state.training.todaySessions[0]?.family);
     expect(state.training.todaySessions[0]?.structuredPrescriptionV2?.compiledSession.readinessOverlay?.status).toBe("recovery_only");
@@ -275,15 +289,16 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(fightWeek.nutrition.fuelTargetRange.caloriesKcal?.min).toBeGreaterThan(1800);
   });
 
-  it("under-fueling risk blocks deficit without reducing workout generation", () => {
+  it("under-fueling risk blocks deficit and caps generated support from positive evidence", () => {
     const state = resolvePerformanceState({ journey: underfueling_risk_camp, asOfDate: fixtureAsOfDate });
 
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("rapid_weight_loss");
     expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("severe_fueling_risk");
-    expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
-    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
-    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).toContain("nutrition");
+    expect(state.training.generatedSessions.length).toBeLessThan(state.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low")).toBe(true);
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
   });
 
   it("recent repeated low intake raises under-fueling risk even with older normal logs", () => {
@@ -303,6 +318,10 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("repeated_low_intake");
     expect(state.nutrition.underFuelingRiskNote).toContain("blocked");
+    expect(state.training.executionReadiness.fuelingStatus).toBe("repeated_low_complete_evidence");
+    expect(state.training.supportGenerationAudit.reducedBy).toContain("nutrition");
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("load_downshift");
+    expect(state.training.generatedSessions).toHaveLength(1);
   });
 
   it("does not treat a fixed calorie line as repeated low intake for a smaller low-demand boxer", () => {
@@ -405,6 +424,12 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
 
     expect(state.training.plannedLoadLedger.hardDayCount).toBeGreaterThanOrEqual(3);
     expect(state.safety.riskFlags.map((flag) => flag.code)).toContain("missed_period_underfueling_risk");
+    expect(state.training.executionReadiness.fuelingStatus).toBe("severe_underfueling_hard_stop");
+    expect(state.training.supportGenerationAudit.reducedBy).toContain("nutrition");
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("hard_block");
+    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory === "safety_capped" && session.fuelDemand === "low" && session.intensity === "recovery")).toBe(true);
+    expect(state.training.generatedSessions.every((session) => session.structuredPrescriptionV2?.compiledSession.hardness === "recovery")).toBe(true);
+    expect(state.training.generatedSessions.every((session) => session.structuredPrescriptionV2?.canonicalWorkoutSession?.durationMinutes === session.durationMinutes)).toBe(true);
   });
 
   it("no food logs lower confidence without shame copy", () => {
@@ -418,6 +443,29 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(nutritionSafetyFlags.some((flag) => flag.hardStop || flag.blocksPlan)).toBe(false);
     expect(state.viewModels.train.preSessionFuelHint).toContain("No food log today");
     expect(state.viewModels.fuel.why.toLowerCase()).not.toContain("shame");
+  });
+
+  it("not tracking food today stays advisory and does not reduce generated training", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        nutritionHistory: [],
+        journeyEvents: [foodNotTrackingEvent(fixtureAsOfDate, "today")]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const nutritionSafetyFlags = state.safety.riskFlags.filter((flag) => flag.domain === "nutrition");
+
+    expect(state.nutrition.actualIntakeSummary.status).toBe("not_tracking_today");
+    expect(state.training.executionReadiness.fuelingStatus).toBe("not_tracking_today");
+    expect(state.training.generatedSessions.length).toBeGreaterThan(1);
+    expect(state.training.generatedSessions.every((session) => session.durationPolicyCategory !== "safety_capped")).toBe(true);
+    expect(state.training.generatedSessions.every((session) => session.structuredPrescriptionV2?.compiledSession.displayedDurationMinutes === session.durationMinutes)).toBe(true);
+    expect(state.training.supportGenerationAudit.actualGeneratedSupportCount).toBe(state.training.supportGenerationAudit.targetGeneratedSupportCount);
+    expect(state.viewModels.plan.generationAudit?.fuelRiskClassification).toBe("missing_data");
+    expect(state.viewModels.plan.generationAudit?.reducedBy).not.toContain("nutrition");
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(nutritionSafetyFlags.some((flag) => flag.hardStop || flag.blocksPlan)).toBe(false);
   });
 
   it("excessive plain water with low sodium creates warning", () => {

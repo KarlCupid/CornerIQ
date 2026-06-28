@@ -94,6 +94,14 @@ function knownMacro(value: number | undefined): number {
   return value ?? 0;
 }
 
+function knownNumbers(values: readonly (number | undefined)[]): readonly number[] {
+  return values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+}
+
+function gramLabel(value: number | null | undefined): string {
+  return value === null || value === undefined ? "unknown" : `${value.toFixed(0)}g`;
+}
+
 function average(values: readonly number[]): number | null {
   return values.length === 0 ? null : sum(values) / values.length;
 }
@@ -136,11 +144,15 @@ function groupedDay(input: BuildFuelHistoryViewModelInput, date: ISODateString):
   const water = input.waterLogs.filter((log) => log.date === date);
   const electrolytes = input.electrolyteLogs.filter((log) => log.date === date);
   const electrolyteSodium = sum(electrolytes.map((log) => log.sodiumMg));
-  const fiberValues = food.map((log) => log.fiberGrams ?? 0);
-  const foodSodiumValues = food.map((log) => log.sodiumMg ?? 0);
+  const fiberValues = knownNumbers(food.map((log) => log.fiberGrams));
+  const foodSodiumValues = knownNumbers(food.map((log) => log.sodiumMg));
+  const hasSodiumContext = foodSodiumValues.length > 0 || electrolytes.length > 0;
   const notes: string[] = [];
   if (food.length === 0) {
     notes.push("No food log; training stays planned and target context does not change.");
+  }
+  if (food.length > 0 && food.some((log) => log.proteinGrams === undefined || log.carbohydrateGrams === undefined || log.fatGrams === undefined)) {
+    notes.push("Food log is partial; omitted macros stay unknown.");
   }
   if (water.length === 0) {
     notes.push("No water log; hydration confidence is lower.");
@@ -157,8 +169,8 @@ function groupedDay(input: BuildFuelHistoryViewModelInput, date: ISODateString):
     protein: sum(food.map((log) => knownMacro(log.proteinGrams))),
     carbs: sum(food.map((log) => knownMacro(log.carbohydrateGrams))),
     fat: sum(food.map((log) => knownMacro(log.fatGrams))),
-    fiber: food.length > 0 ? sum(fiberValues) : null,
-    sodium: food.length > 0 || electrolytes.length > 0 ? sum(foodSodiumValues) + electrolyteSodium : null,
+    fiber: fiberValues.length > 0 ? sum(fiberValues) : null,
+    sodium: hasSodiumContext ? sum(foodSodiumValues) + electrolyteSodium : null,
     waterLiters: sum(water.map((log) => log.liters)),
     electrolyteSummary: electrolytes.length > 0 ? `${electrolytes.length} electrolyte log(s), ${electrolyteSodium}mg sodium.` : "No electrolyte log.",
     confidence: confidenceForDay(food, water),
@@ -176,20 +188,25 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
   const groupedDays = last7Dates(input.asOfDate).map((date) => groupedDay(input, date));
 
   const todayCalories = sum(foodToday.map((log) => log.calories));
-  const todayProtein = sum(foodToday.map((log) => knownMacro(log.proteinGrams)));
-  const todayCarbs = sum(foodToday.map((log) => knownMacro(log.carbohydrateGrams)));
-  const todayFat = sum(foodToday.map((log) => knownMacro(log.fatGrams)));
+  const todayProteinValues = knownNumbers(foodToday.map((log) => log.proteinGrams));
+  const todayCarbValues = knownNumbers(foodToday.map((log) => log.carbohydrateGrams));
+  const todayFatValues = knownNumbers(foodToday.map((log) => log.fatGrams));
+  const todayProtein = todayProteinValues.length > 0 ? sum(todayProteinValues) : null;
+  const todayCarbs = todayCarbValues.length > 0 ? sum(todayCarbValues) : null;
+  const todayFat = todayFatValues.length > 0 ? sum(todayFatValues) : null;
   const todayWater = sum(waterToday.map((log) => log.liters));
-  const todaySodium = sum(foodToday.map((log) => log.sodiumMg ?? 0)) + sum(electrolytesToday.map((log) => log.sodiumMg));
-  const todayFiber = sum(foodToday.map((log) => log.fiberGrams ?? 0));
+  const todaySodiumValues = knownNumbers(foodToday.map((log) => log.sodiumMg));
+  const todaySodium = todaySodiumValues.length > 0 || electrolytesToday.length > 0 ? sum(todaySodiumValues) + sum(electrolytesToday.map((log) => log.sodiumMg)) : null;
+  const todayFiberValues = knownNumbers(foodToday.map((log) => log.fiberGrams));
+  const todayFiber = todayFiberValues.length > 0 ? sum(todayFiberValues) : null;
 
   const avgCalories = average(food7Day.map((log) => log.calories));
   const macroComplete7Day = food7Day.filter((log) => log.proteinGrams !== undefined && log.carbohydrateGrams !== undefined && log.fatGrams !== undefined);
   const avgProtein = average(macroComplete7Day.map((log) => knownMacro(log.proteinGrams)));
   const avgCarbs = average(macroComplete7Day.map((log) => knownMacro(log.carbohydrateGrams)));
   const avgWater = average(water7Day.map((log) => log.liters));
-  const avgSodium = average([...food7Day.map((log) => log.sodiumMg ?? 0), ...electrolytes7Day.map((log) => log.sodiumMg)]);
-  const avgFiber = average(food7Day.map((log) => log.fiberGrams ?? 0));
+  const avgSodium = average([...knownNumbers(food7Day.map((log) => log.sodiumMg)), ...electrolytes7Day.map((log) => log.sodiumMg)]);
+  const avgFiber = average(knownNumbers(food7Day.map((log) => log.fiberGrams)));
   const loggingConfidence = confidenceFrom(foodToday.length, food7Day.length, water7Day.length);
   const highFuelDemandDates = [...new Set((input.highFuelDemandDates ?? []).filter((date) => inLast7Days(date, input.asOfDate)))];
   const sessionFuelLink = highFuelDemandDates.map((date) => {
@@ -229,11 +246,15 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
       : groupedDays.some((day) => day.confidence === "unknown")
         ? "Some days are missing logs. The engine reads that as lower confidence, not as failure or permission to change targets."
         : "Manual history is present for this window. It explains context only and does not change targets by itself.";
+  const todayFiberLabel = todayFiber === null ? "unknown" : `${todayFiber.toFixed(0)}g`;
+  const todaySodiumLabel = todaySodium === null ? "unknown" : `${todaySodium.toFixed(0)}mg`;
+  const avgFiberLabel = avgFiber === null ? "unknown" : `${avgFiber.toFixed(0)}g`;
+  const avgSodiumLabel = avgSodium === null ? "unknown" : `${avgSodium.toFixed(0)}mg`;
 
   return {
     todaySummary:
       foodToday.length > 0
-        ? `${todayCalories} kcal logged today: ${todayProtein}g protein, ${todayCarbs}g carbs, ${todayFat}g fat.`
+        ? `${todayCalories} kcal logged today: ${gramLabel(todayProtein)} protein, ${gramLabel(todayCarbs)} carbs, ${gramLabel(todayFat)} fat.`
         : "No food log today. Training still stays planned. Log food only if you want more personalized fueling feedback.",
     recentMeals:
       food7Day.length > 0
@@ -241,7 +262,7 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
             .slice()
             .sort((left, right) => right.date.localeCompare(left.date))
             .slice(0, 5)
-            .map((log) => `${log.date}: ${log.calories} kcal, ${log.proteinGrams ?? "unknown"}g protein, ${log.carbohydrateGrams ?? "unknown"}g carbs, confidence ${log.confidence}.`)
+            .map((log) => `${log.date}: ${log.calories} kcal, ${gramLabel(log.proteinGrams)} protein, ${gramLabel(log.carbohydrateGrams)} carbs, confidence ${log.confidence}.`)
         : ["No recent manual meals yet. Barcode scanning is not required."],
     macroTrend7Day:
       avgCalories === null || avgProtein === null || avgCarbs === null
@@ -267,7 +288,7 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
     fiberSodiumSummary:
       avgFiber === null && avgSodium === null
         ? "Fiber and sodium trend unknown until manual food or electrolyte logs exist."
-        : `Today fiber/sodium: ${todayFiber.toFixed(0)}g fiber, ${todaySodium.toFixed(0)}mg sodium. 7-day context: ${avgFiber?.toFixed(0) ?? "unknown"}g fiber, ${avgSodium?.toFixed(0) ?? "unknown"}mg sodium.`,
+        : `Today fiber/sodium: ${todayFiberLabel} fiber, ${todaySodiumLabel} sodium. 7-day context: ${avgFiberLabel} fiber, ${avgSodiumLabel} sodium.`,
     loggingConfidence,
     missingDataCopy:
       loggingConfidence === "unknown"

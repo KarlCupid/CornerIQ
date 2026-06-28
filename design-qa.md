@@ -48,7 +48,7 @@
 - `cmd /c npm run quality`: passed, including typecheck and 569 passing tests with 1 skipped.
 - `cmd /c npm run preflight:beta`: passed.
 - Note: a direct `npx vitest run src/tests/app/foodQuickLogValidation.test.ts` attempt hit a Windows sandbox/config resolution error before running tests; the same targeted test passed via `cmd /c npm test -- src/tests/app/foodQuickLogValidation.test.ts`.
-- Preflight warnings remain the existing Apple submission warnings: final app icon not wired, final splash not wired, and public privacy-policy URL not finalized.
+- Current Apple-submission preflight warnings are paid-build blockers: enable the paywall and set the public RevenueCat iOS SDK key. Icon/splash files are wired, while final visual acceptance remains a release-owner task.
 
 **Follow-up Polish**
 - P3: native iOS/Android screenshots would still be useful to verify exact status-bar and device-frame proportions outside the web E2E capture.

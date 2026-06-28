@@ -1,4 +1,4 @@
-import type { FuelViewModel, PerformanceState } from "../core/types";
+import type { FuelPlanStatusViewModel, FuelSafetyStateViewModel, FuelViewModel, PerformanceState } from "../core/types";
 import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import { riskSummary } from "./explanationCopy";
 import { buildNutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
@@ -34,6 +34,147 @@ function displayActiveReviewStatus(
   return { ...review, status };
 }
 
+function buildFuelSafetyState(state: PerformanceState): FuelSafetyStateViewModel {
+  const reviewActive =
+    state.nutrition.nutritionSafetyReview.required ||
+    state.nutrition.activeNutritionSafetyReviews.length > 0;
+  const underFuelingActive = Boolean(state.nutrition.underFuelingRiskNote);
+  const riskActive = riskSummary(state.nutrition.riskFlags).length > 0;
+  const weightSafetyActive = state.nutrition.weightClassStatus.safetyFlags.length > 0;
+  const active = reviewActive || underFuelingActive || riskActive || weightSafetyActive;
+
+  if (reviewActive) {
+    return {
+      active,
+      healthStatus: "Review active",
+      reviewActive,
+      stripText: "Cut paused. Eat and hydrate normally today.",
+      tone: "red"
+    };
+  }
+  if (underFuelingActive) {
+    return {
+      active,
+      healthStatus: "Under-fueling risk",
+      reviewActive,
+      stripText: "Fuel comes first today. Eat and hydrate normally.",
+      tone: "red"
+    };
+  }
+  if (weightSafetyActive) {
+    return {
+      active,
+      healthStatus: "Weight safety flags",
+      reviewActive,
+      stripText: "Weight pressure pauses until the safety flags are reviewed.",
+      tone: "red"
+    };
+  }
+  if (riskActive) {
+    return {
+      active,
+      healthStatus: "Caution",
+      reviewActive,
+      stripText: "Review the fuel signals before pushing training or weight.",
+      tone: "orange"
+    };
+  }
+  return {
+    active,
+    healthStatus: "Clear",
+    reviewActive,
+    stripText: "No cut warnings today.",
+    tone: "green"
+  };
+}
+
+function planStatusFromFuel(state: PerformanceState, safety: FuelSafetyStateViewModel): FuelPlanStatusViewModel {
+  if (safety.active) {
+    return {
+      action: "Eat normally today. Hydrate normally. Do not cut harder.",
+      label: "Pause cut",
+      sentence: state.nutrition.underFuelingRiskNote
+        ? "Your body is not showing enough recovery to keep pushing weight."
+        : "Fuel or weight safety signals are active, so weight pressure pauses today.",
+      tone: safety.tone === "orange" ? "orange" : "red"
+    };
+  }
+
+  switch (state.nutrition.weightClassStatus.status) {
+    case "no_active_weight_target":
+      return {
+        action: "Train normally. Keep food and fluids steady.",
+        label: "No active cut",
+        sentence: "No fight weight target is active today.",
+        tone: "muted"
+      };
+    case "on_track":
+    case "ahead":
+      return {
+        action: "Do the planned boxing. Eat before training.",
+        label: "On pace",
+        sentence: "Your weight is moving at a reasonable pace.",
+        tone: "green"
+      };
+    case "behind":
+      return {
+        action: "Do the planned boxing. Do not add bonus work just to chase weight.",
+        label: "Behind pace",
+        sentence: "The scale is not moving fast enough for the current date.",
+        tone: "orange"
+      };
+    case "unsafe":
+      return {
+        action: "Pause weight pressure and review the plan.",
+        label: "Too aggressive",
+        sentence: "Making this weight from here may cost performance.",
+        tone: "red"
+      };
+    case "blocked":
+    case "needs_review":
+      return {
+        action: "Pause weight pressure and review the plan.",
+        label: "Too aggressive",
+        sentence: "This cut needs outside support before weight pressure continues.",
+        tone: "red"
+      };
+    case "cycle_noisy":
+      return {
+        action: "Keep meals predictable. No extra conditioning.",
+        label: "Tight",
+        sentence: "The scale may be noisy today, so use the trend before reacting.",
+        tone: "orange"
+      };
+    case "unknown":
+    default:
+      return {
+        action: "Log morning weight if useful. Do not guess the cut is safe.",
+        label: "Tight",
+        sentence: "The trend is unclear because key weight data is missing.",
+        tone: "orange"
+      };
+  }
+}
+
+function trainingTodayCopy(state: PerformanceState, plan: FuelPlanStatusViewModel): string {
+  if (plan.label === "Pause cut") {
+    return "Make today a recovery day.";
+  }
+  if (plan.label === "Too aggressive") {
+    return "Short session only.";
+  }
+  if (plan.label === "Behind pace") {
+    return "Do the planned boxing. Do not add bonus work just to chase weight.";
+  }
+  if (plan.label === "Tight") {
+    return "Do the planned boxing. Skip extra conditioning.";
+  }
+  if (state.nutrition.trainingDemandHandoff.todayTrainingDemand === "high") {
+    return "Do the planned boxing. Eat before training.";
+  }
+  return plan.label === "No active cut" ? "Train normally." : "Do the planned boxing.";
+}
+
 export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
   const selectedTargets = state.nutrition.fuelTargetRange.selected;
   const caloriesTarget = targetLabel(selectedTargets.caloriesKcal, " kcal");
@@ -66,6 +207,8 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
     : null;
   const rehydration = state.nutrition.rehydrationPlan.status === "not_applicable" ? null : state.nutrition.rehydrationPlan;
   const safetyReviewFirst = state.nutrition.nutritionSafetyReview.required;
+  const safetyState = buildFuelSafetyState(state);
+  const planStatus = planStatusFromFuel(state, safetyState);
   return {
       title: "Fuel the rounds",
       topAction: {
@@ -211,8 +354,11 @@ export function buildFuelViewModel(state: PerformanceState): FuelViewModel {
           status: "caution",
           summary: plainFuelCopy(state.nutrition.underFuelingRiskNote),
           actions: ["Do not push weight loss through hard boxing days.", "Use the next logs before changing weight pressure."]
-        }
+      }
       : null,
+    safetyState,
+    planStatus,
+    trainingTodayCopy: trainingTodayCopy(state, planStatus),
     riskSummary: riskSummary(state.nutrition.riskFlags).map(plainFuelCopy),
     why: plainFuelCopy(state.nutrition.explanation)
   };

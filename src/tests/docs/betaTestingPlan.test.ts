@@ -14,7 +14,8 @@ describe("beta testing documentation", () => {
     expect(source).toContain("Automated Scenario QA");
     expect(source).toContain("Feedback Prompts");
     expect(source).toContain("Beta Exit Criteria");
-    expect(source).toContain("Submit beta feedback");
+    expect(source).toContain("outside-app support path");
+    expect(source).toContain("Launch runtime no longer exposes Profile > Audit");
     expect(source).toContain("manual-only no wearable athlete");
     expect(source).toContain("no unsafe weight-cut instructions");
     expect(source).toContain("missing data = unknown");
@@ -25,6 +26,8 @@ describe("beta testing documentation", () => {
     expect(source).toContain("Pass/fail criteria");
     expect(source).toContain("What would you do first in the next five seconds?");
     expect(source).toContain("Stop the session and seek qualified support");
+    expect(source).not.toContain("Submit beta feedback from Profile > Audit");
+    expect(source).not.toContain("Feedback is saved to `beta_feedback_reports`");
     for (const field of [
       "Tester/session id alias",
       "Flow tested",

@@ -156,10 +156,6 @@ function reviewInsert(input: NutritionSafetyReviewRequest): TableInsert<"nutriti
   };
 }
 
-function existingStatusForUpdate(status: string): NutritionSafetyReviewStatus {
-  return parseWithSchema(NutritionSafetyReviewStatusSchema, status, "nutrition_safety_reviews.status");
-}
-
 function eventInsert(input: AppendNutritionSafetyReviewEventInput): TableInsert<"nutrition_safety_review_events"> {
   const userId = assertUserId(input.userId, "nutrition_safety_review_events.appendNutritionSafetyReviewEvent");
   const reviewId = assertReviewId(input.nutritionSafetyReviewId, "nutrition_safety_review_events.appendNutritionSafetyReviewEvent");
@@ -202,26 +198,9 @@ export function createNutritionSafetyReviewRepository(client: CornerSupabaseClie
       const existing = readMaybeDataOrThrow(existingResponse, "nutrition_safety_reviews.upsertNutritionSafetyReview.findExisting");
 
       if (existing) {
-        const existingStatus = existingStatusForUpdate(existing.status);
-        const update: TableUpdate<"nutrition_safety_reviews"> = {
-          status: existingStatus === "superseded" ? record.status ?? "requested" : existingStatus,
-          severity: record.severity ?? "high",
-          hard_stop: record.hard_stop ?? false,
-          blocking_flags: record.blocking_flags ?? toJson([]),
-          reasons: record.reasons ?? toJson([]),
-          suggested_next_steps: record.suggested_next_steps ?? toJson([]),
-          source_payload: record.source_payload ?? toJson({})
-        };
-        const updateResponse = await client
-          .from("nutrition_safety_reviews")
-          .update(update)
-          .eq("id", existing.id)
-          .eq("user_id", record.user_id)
-          .select(reviewSelect)
-          .single();
         return {
           lifecycle: "existing",
-          review: mapNutritionSafetyReviewRow(readDataOrThrow(updateResponse, "nutrition_safety_reviews.upsertNutritionSafetyReview.updateExisting"))
+          review: mapNutritionSafetyReviewRow(existing)
         };
       }
 

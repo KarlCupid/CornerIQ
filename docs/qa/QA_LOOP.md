@@ -2,6 +2,8 @@
 
 CornerIQ launch readiness is a loop, not a screenshot bundle. The goal is to keep collecting evidence, reviewing it, fixing scoped blockers, verifying fixes, and updating durable state until every launch-blocking area is either covered or explicitly marked human-only.
 
+This launch QA loop is separate from the full-codebase technical and scientific audit. Launch QA exits on launch-readiness criteria; the full-codebase audit exits only when every scoped chunk has reviewer-scored evidence and no unresolved `P0-P4` findings. Use `docs/qa/FULL_CODEBASE_AUDIT_LOOP.md` and `docs/qa/FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md` for the no-P-any audit loop.
+
 ## Loop Shape
 
 1. Retrieve: read `docs/qa/QA_LOOP_STATE.md`, the latest audit report, latest analysis, known gaps, release docs, and current git state.

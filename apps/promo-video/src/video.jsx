@@ -49,7 +49,7 @@ const SCENES = [
     id: 'dailyPlan',
     start: 120,
     duration: 150,
-    text: 'CornerIQ gives you the plan.',
+    text: 'CornerIQ helps organize your plan.',
   },
   {
     id: 'signals',
@@ -61,7 +61,7 @@ const SCENES = [
     id: 'workout',
     start: 450,
     duration: 210,
-    text: 'Every round. Fully guided.',
+    text: 'Round-by-round workout support.',
   },
   {
     id: 'closing',
@@ -472,7 +472,20 @@ function ClosingScene({local}) {
             lineHeight: 1.14,
           }}
         >
-          The intelligence in your corner.
+          Planning support in your corner.
+        </div>
+        <div
+          style={{
+            color: COLORS.muted,
+            fontFamily: FONT,
+            fontSize: 25,
+            fontWeight: 700,
+            lineHeight: 1.2,
+            marginTop: 28,
+            opacity: 0.78,
+          }}
+        >
+          Educational support, not medical, dietetic, or coaching care.
         </div>
       </div>
     </>

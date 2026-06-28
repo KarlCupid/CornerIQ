@@ -59,6 +59,10 @@ All permission values must be boolean. Unsupported keys are rejected.
 
 RLS allows participant revocation by updating status to `revoked`. Revoked relationships should remove coach/team access immediately in future UI and service checks.
 
+## Export and deletion
+
+`athlete_coach_relationships` is participant-owned rather than `user_id` owned. Data export includes rows where the signed-in user is either `athlete_user_id` or `coach_user_id`. App-data deletion revokes those rows under participant RLS. Full account deletion may physically delete them only inside the trusted `delete-account` Edge Function before the caller's Auth identity is removed.
+
 ## Client restrictions
 
 Expo/client code must never read or embed the service role key. Client repositories can request pending rows, list participant-visible rows, revoke participant rows, and check active relationships. They cannot activate a relationship.

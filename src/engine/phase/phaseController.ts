@@ -1,6 +1,14 @@
 import { makeConfidence } from "../core/confidence";
 import { dateOnlyInTimeZone, daysBetween, isWithinInclusive } from "../core/dates";
 import type { AthleteJourney, PhaseState } from "../core/types";
+import type { ReadinessState } from "../readiness/types";
+import type { RiskFlag } from "../safety/types";
+
+const standalonePhases = new Set<PhaseState["phase"]>(["onboarding", "build", "recovery", "deload", "maintenance"]);
+
+function phaseAllowedWithoutFightOrTournament(phase: PhaseState["phase"] | null): phase is PhaseState["phase"] {
+  return Boolean(phase && standalonePhases.has(phase));
+}
 
 export function resolvePhase(journey: AthleteJourney, asOfDate: string): PhaseState {
   const fight = journey.activeFightOpportunity;
@@ -17,11 +25,16 @@ export function resolvePhase(journey: AthleteJourney, asOfDate: string): PhaseSt
   }
 
   if (!fight || fight.status === "canceled" || fight.status === "completed") {
+    const explicitStandalonePhase = phaseAllowedWithoutFightOrTournament(journey.activePhase) ? journey.activePhase : null;
     return {
-      phase: journey.activePhase ?? "build",
+      phase: explicitStandalonePhase ?? "build",
       daysUntilBout: null,
       daysUntilWeighIn: null,
-      reason: "No active fight requires camp timing, so the athlete remains in build/maintenance planning.",
+      reason: explicitStandalonePhase
+        ? "No active fight requires camp timing, so the explicit standalone phase can own planning."
+        : journey.activePhase
+          ? "No active fight or tournament supports the requested competition phase, so the athlete remains in build/maintenance planning."
+          : "No active fight requires camp timing, so the athlete remains in build/maintenance planning.",
       confidence: makeConfidence(0.72, ["no active fight context"])
     };
   }
@@ -86,4 +99,25 @@ export function resolvePhase(journey: AthleteJourney, asOfDate: string): PhaseSt
     reason: "Confirmed fight context sets camp planning.",
     confidence: makeConfidence(0.84, ["fight context is active"])
   };
+}
+
+export function applySafetyPhaseOverride(
+  phase: PhaseState,
+  input: {
+    readiness: ReadinessState;
+    safetyFlags: readonly RiskFlag[];
+  }
+): PhaseState {
+  const activeFlags = input.safetyFlags.filter((flag) => flag.status === "active");
+  const hardStops = activeFlags.filter((flag) => flag.hardStop || flag.severity === "critical");
+  const hardStopIds = new Set([...hardStops.map((flag) => flag.id), ...input.readiness.hardStops.map((flag) => flag.id)]);
+  if (hardStops.length > 0 || input.readiness.hardStops.length > 0) {
+    return {
+      ...phase,
+      phase: "recovery",
+      reason: `Critical safety override: ${hardStopIds.size} hard-stop signal(s) require recovery planning before fight timing.`,
+      confidence: makeConfidence(0.86, ["active hard-stop safety evidence", ...phase.confidence.reasons])
+    };
+  }
+  return phase;
 }

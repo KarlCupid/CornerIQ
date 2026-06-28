@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-06-28",
+  "reviewedBy": "Codex main-agent Chunk 13 fix pass",
+  "sourceCommit": "6d85da4e2ae82214a0103ae4c540942e1090bc02",
+  "demoPersona": "Local/demo adult boxer state only; no real tester credentials, emails, or production health records.",
+  "privacyReview": "Approved for committed promo tooling only when screenshots contain no credentials, personal emails, tokens, medical records, or private tester identifiers.",
+  "safetyReview": "Approved screenshots must preserve boxing-only scope, optional manual logging, missing-data-is-unknown semantics, and no unsafe cut/contact/fight-simulation claims.",
+  "entries": [
+    {
+      "file": "00-auth-welcome-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Auth/welcome surface; no sport-science claim."
+    },
+    {
+      "file": "01-auth-welcome.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Auth/welcome surface; no sport-science claim."
+    },
+    {
+      "file": "01-branded-first-screen.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Brand surface; no sport-science claim."
+    },
+    {
+      "file": "01-today-screen-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": ["CornerIQInstagramAuraTeaser"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Shows fuel optional and no active cut; re-capture before broader paid marketing if UI changes."
+    },
+    {
+      "file": "02-today-dashboard.png",
+      "captureStatus": "current_reviewed",
+      "approvedSurfaces": ["CornerIQPromo"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Shows training stays planned and fuel logging optional."
+    },
+    {
+      "file": "02-today-quick-check-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Manual check-in surface; no unsafe sport claim observed."
+    },
+    {
+      "file": "02-today-screen.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Retained old Today capture; do not use for new marketing without re-review."
+    },
+    {
+      "file": "03-train-screen-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": ["CornerIQInstagramAuraTeaser"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Training support surface; no generated contact/sparring claim observed."
+    },
+    {
+      "file": "03-train-screen.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Retained old Train capture; do not use for new marketing without re-review."
+    },
+    {
+      "file": "04-today-quick-check-modal.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Manual quick-check surface; no unsafe sport claim observed."
+    },
+    {
+      "file": "04-workout-player-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Workout player surface; re-review before public reuse."
+    },
+    {
+      "file": "04-workout-player.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Workout player surface; re-review before public reuse."
+    },
+    {
+      "file": "04-workout-viewer-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": ["CornerIQInstagramAuraTeaser"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Workout viewer surface; no generated contact/sparring claim observed."
+    },
+    {
+      "file": "05-fuel-screen.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Retained old Fuel capture; do not use for new marketing without re-review."
+    },
+    {
+      "file": "05-train-overview.png",
+      "captureStatus": "current_reviewed",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Train overview surface; no generated contact/sparring claim observed."
+    },
+    {
+      "file": "06-fuel-screen-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": ["CornerIQInstagramAuraTeaser"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Shows no active cut, optional meal logging, and steady food/fluids; re-capture before broader paid marketing if UI changes."
+    },
+    {
+      "file": "06-plan-screen.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Retained old Plan capture; do not use for new marketing without re-review."
+    },
+    {
+      "file": "06-train-workout-plan.png",
+      "captureStatus": "current_reviewed",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Train workout-plan surface; no generated contact/sparring claim observed."
+    },
+    {
+      "file": "07-plan-screen-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": ["CornerIQInstagramAuraTeaser"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Plan surface; re-capture before broader paid marketing if UI changes."
+    },
+    {
+      "file": "07-profile-screen.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Retained old Profile capture; do not use for new marketing without re-review."
+    },
+    {
+      "file": "08-profile-screen-fresh.png",
+      "captureStatus": "legacy_retained",
+      "approvedSurfaces": [],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Profile surface; re-review before public reuse."
+    },
+    {
+      "file": "09-live-workout-player.png",
+      "captureStatus": "current_reviewed",
+      "approvedSurfaces": ["CornerIQPromo"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Shows shadowboxing warm-up with pain/skip controls; no sparring/contact claim."
+    },
+    {
+      "file": "11-fuel-overview.png",
+      "captureStatus": "current_reviewed",
+      "approvedSurfaces": ["CornerIQPromo"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Shows optional meal logging and missing food unknown/cautious advice."
+    },
+    {
+      "file": "15-plan-overview.png",
+      "captureStatus": "current_reviewed",
+      "approvedSurfaces": ["CornerIQPromo"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Boxing-specific Plan surface with no active plan warnings."
+    },
+    {
+      "file": "21-profile-athlete-overview.png",
+      "captureStatus": "current_reviewed",
+      "approvedSurfaces": ["CornerIQPromo"],
+      "privacyReview": "No credentials or personal identifiers visible in committed asset.",
+      "safetyReview": "Shows missing wearable/body-mass inputs remain unknown, not safe."
+    }
+  ]
+}

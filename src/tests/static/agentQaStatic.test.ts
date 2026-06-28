@@ -57,6 +57,8 @@ describe("agent browser QA static checks", () => {
       "docs/qa/QA_RUBRIC.md",
       "docs/qa/QA_SURFACE_MATRIX.md",
       "docs/qa/CODEX_QA_LOOP_RUNBOOK.md",
+      "docs/qa/FULL_CODEBASE_AUDIT_LOOP.md",
+      "docs/qa/FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md",
       "playwright.config.ts",
       "qa/e2e/agent-browser-audit.spec.ts",
       "scripts/analyze-agent-qa-evidence.mjs",
@@ -67,6 +69,43 @@ describe("agent browser QA static checks", () => {
     ]) {
       expect(existsSync(path)).toBe(true);
     }
+  });
+
+  it("defines the full-codebase audit no-P-any loop separately from launch QA", () => {
+    const auditLoop = readSource("docs/qa/FULL_CODEBASE_AUDIT_LOOP.md");
+    const auditTemplate = readSource("docs/qa/FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md");
+    const readme = readSource("docs/qa/README.md");
+    const launchLoop = readSource("docs/qa/QA_LOOP.md");
+    const launchState = readSource("docs/qa/QA_LOOP_STATE.md");
+    const browserFindingsTemplate = readSource("docs/qa/FINDINGS_TEMPLATE.md");
+    const combined = [auditLoop, auditTemplate, readme, launchLoop, launchState, browserFindingsTemplate].join("\n");
+
+    for (const phrase of [
+      "full-codebase audit exits only when every scoped chunk has reviewer-scored evidence and no unresolved `P0-P4` findings",
+      "Launch readiness decisions in this file do not close full-codebase audit findings",
+      "The full-codebase audit is a separate loop from launch QA",
+      "no unresolved `P0-P4` findings",
+      "qa-artifacts/audit-loop/",
+      "Reviewer scoring drives the next main-agent goal",
+      "highest unresolved severity",
+      "fixed",
+      "rejected_with_evidence",
+      "duplicate",
+      "explicitly_accepted",
+      "human_live_device_limited",
+      "Engine/UI boundary",
+      "Scientific/safety evidence",
+      "Missing-data semantics",
+      "wearable/cycle/privacy",
+      "Reviewer score"
+    ]) {
+      expect(combined).toContain(phrase);
+    }
+
+    expect(browserFindingsTemplate).toContain("FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md");
+    expect(readme).toContain("FULL_CODEBASE_AUDIT_LOOP.md");
+    expect(launchLoop).toContain("FULL_CODEBASE_AUDIT_LOOP.md");
+    expect(auditLoop).toContain("Do not close a finding because it is lower than `P0` or `P1`");
   });
 
   it("keeps routine agent QA local-only and generated artifacts out of git", () => {

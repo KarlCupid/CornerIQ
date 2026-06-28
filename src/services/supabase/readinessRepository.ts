@@ -4,7 +4,8 @@ import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export type ReadinessCheckInRow = Pick<TableRow<"readiness_checkins">, "checkin_date" | "checkin_payload" | "recorded_at">;
+export type ReadinessCheckInRow = Pick<TableRow<"readiness_checkins">, "checkin_date" | "checkin_payload" | "recorded_at"> &
+  Partial<Pick<TableRow<"readiness_checkins">, "id">>;
 
 export interface CreateReadinessCheckInInput {
   userId: string;
@@ -30,6 +31,7 @@ export function mapReadinessCheckInRow(row: ReadinessCheckInRow): ReadinessCheck
     ReadinessCheckInSchema,
     {
       ...payload,
+      id: row.id,
       date: row.checkin_date,
       ...(row.recorded_at ? { recordedAt: isoDateTimeValue(row.recorded_at, "readiness_checkins.recorded_at") } : typeof payload.recordedAt === "string" ? { recordedAt: payload.recordedAt } : {})
     },
@@ -43,7 +45,7 @@ export function createReadinessRepository(client: CornerSupabaseClient) {
       const safeUserId = assertUserId(userId, "readiness_checkins.listCheckIns");
       const response = await client
         .from("readiness_checkins")
-        .select("checkin_date, checkin_payload, recorded_at")
+        .select("id, checkin_date, checkin_payload, recorded_at")
         .eq("user_id", safeUserId)
         .order("checkin_date", { ascending: true })
         .order("recorded_at", { ascending: true, nullsFirst: true });

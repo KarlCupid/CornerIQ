@@ -32,16 +32,17 @@ function isReviewerActor(actor: NutritionSafetyReviewerActor): boolean {
 
 export function canTransitionNutritionSafetyReview(input: NutritionSafetyReviewTransitionInput): NutritionSafetyReviewTransitionDecision {
   if (input.targetStatus === "acknowledged_by_athlete") {
-    return input.actor.actorType === "athlete" && input.currentStatus === "requested"
+    const canAcknowledge = input.currentStatus === "requested" || input.currentStatus === "not_cleared";
+    return input.actor.actorType === "athlete" && canAcknowledge
       ? {
           allowed: true,
           auditEventType: "acknowledged_by_athlete",
-          reason: "Athlete may acknowledge a review request, but this never resolves a safety stop."
+          reason: "Athlete may acknowledge an active review state, but this never resolves a safety stop."
         }
       : {
           allowed: false,
           auditEventType: null,
-          reason: "Athlete acknowledgement is only valid from requested status."
+          reason: "Athlete acknowledgement is only valid from requested or not-cleared status."
         };
   }
 

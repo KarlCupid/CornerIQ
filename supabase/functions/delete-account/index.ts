@@ -2,8 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   ACCOUNT_DELETION_CORS_HEADERS,
   bearerToken,
+  PARTICIPANT_OWNED_TABLES,
   validatePayload,
-  USER_OWNED_TABLES,
+  USER_ID_OWNED_TABLES,
   type AccountDeletionPayload,
   type UserOwnedTable
 } from "./policy.ts";
@@ -31,8 +32,21 @@ function failure(status: number, code: FailureCode, message: string): Response {
 async function deleteUserOwnedRows(admin: ReturnType<typeof createClient>, userId: string): Promise<UserOwnedDeleteResult> {
   const result: Partial<UserOwnedDeleteResult> = {};
 
-  for (const table of USER_OWNED_TABLES) {
+  for (const table of USER_ID_OWNED_TABLES) {
     const response = await admin.from(table).delete({ count: "exact" }).eq("user_id", userId);
+    if (response.error) {
+      throw new Error(`Unable to delete ${table}.`);
+    }
+    result[table] = {
+      count: response.count ?? null,
+      status: "deleted"
+    };
+  }
+  for (const table of PARTICIPANT_OWNED_TABLES) {
+    const response = await admin
+      .from(table)
+      .delete({ count: "exact" })
+      .or(`athlete_user_id.eq.${userId},coach_user_id.eq.${userId}`);
     if (response.error) {
       throw new Error(`Unable to delete ${table}.`);
     }

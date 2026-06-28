@@ -8,7 +8,7 @@ Status: APPLE_SUBMISSION_BLOCKED until the release owner completes the blockers 
 
 - Privacy Policy URL: published at `https://sites.google.com/view/corneriq/privacy-policy` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL` can override it if the release owner moves the policy.
 - Account deletion Edge Function: completed on 2026-06-18. `supabase/functions/delete-account` is deployed to the production Supabase project as ACTIVE v2, and Profile > Data > Delete account passed live smoke with a real signed-in account.
-- App icon and splash: APPLE_SUBMISSION_BLOCKED until final icon/splash assets are added and wired in `app.json`, or the release owner documents accepted final assets.
+- App icon and splash: local assets are wired in `app.json`; APPLE_SUBMISSION_BLOCKED until the release owner accepts them as final App Store assets or replaces them.
 - Screenshots: APPLE_SUBMISSION_BLOCKED until App Store screenshots are captured from a production-like build with real public privacy and support metadata.
 - Support URL: published at `https://sites.google.com/view/corneriq/support` and configured as the app default release link. `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL` can override it if the release owner moves support.
 - Reviewer credentials: review account prepared on 2026-06-19. Provide credentials only in App Store Connect Review Notes. Do not commit credentials.
@@ -151,9 +151,9 @@ Do not claim:
 ## Assets And Config
 
 - Current `app.json` has name, slug, scheme, version, portrait orientation, bundle id, Android package, EAS project id, and `ios.supportsTablet: false`.
-- Final app icon is not wired.
-- Final splash image is not wired.
-- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` must fail until final icon/splash and any remaining release-owner blockers are ready.
+- App icon and splash files are wired in `app.json`; production preflight verifies file presence only.
+- Final icon/splash visual acceptance remains a release-owner App Store task.
+- `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` must fail until the paid subscription build blockers and any remaining automated release blockers are ready. It does not prove final App Store artwork acceptance.
 - The same Apple-submission preflight must fail until the subscription gate is explicitly enabled and the public RevenueCat iOS SDK key is configured.
 
 ## Production E2E/Demo Mode Guard
@@ -170,7 +170,7 @@ Do not claim:
 - [x] Configure in-app Support URL.
 - [x] Deploy `delete-account` Edge Function.
 - [x] Smoke-test Profile > Data > Delete account in production.
-- [ ] Add final icon and splash assets to `app.json`.
+- [ ] Accept the wired icon/splash as final App Store assets or replace them.
 - [x] Create and confirm review account.
 - [x] Preload a safe adult boxer profile or verify onboarding from empty profile.
 - [ ] Capture screenshots.

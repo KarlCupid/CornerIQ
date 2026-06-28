@@ -21,7 +21,6 @@ import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./t
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 import {
-  plainFuelDemandLabel,
   plainGeneratedSessionFamilyLabel,
   plainGeneratedSessionFamilyWhy,
   plainIntensityLabel,
@@ -30,7 +29,16 @@ import {
   plainTrainingStimulusLabel,
   plainWorkoutTitle
 } from "../../engine/presentation/trainingCopy";
-import { recipeFlowLines, recipeQuickLogContext, recipeTitle, recipeWhy } from "../../engine/presentation/workoutRecipePresentation";
+import {
+  trainCriticalTrainingRisk,
+  trainCycleDecisionIsDefaultVisible,
+  trainFuelStatLabel,
+  trainPrepRows,
+  trainReadinessTone,
+  trainReadinessValue,
+  trainStartWorkoutBlockedReason
+} from "../../engine/presentation/trainViewModel";
+import { recipeFlowLines, recipeTitle, recipeWhy } from "../../engine/presentation/workoutRecipePresentation";
 
 export type TrainSection = "today" | "workout" | "progress";
 
@@ -68,13 +76,6 @@ interface FlowRow {
   value: string;
 }
 
-interface PrepRow {
-  detail?: string | undefined;
-  label: string;
-  tone: VisualTone;
-  value: string;
-}
-
 interface TrainWeekDayVisual extends BarVisual {
   date: string;
   hasSession: boolean;
@@ -101,16 +102,6 @@ function firstSentence(value: string): string {
   const copy = plainTrainCopy(value).trim();
   const match = copy.match(/^.+?[.!?](?:\s|$)/);
   return (match?.[0] ?? copy).trim();
-}
-
-function firstUsefulSentence(...values: (string | null | undefined)[]): string | undefined {
-  for (const value of values) {
-    const copy = firstSentence(value ?? "");
-    if (copy) {
-      return copy;
-    }
-  }
-  return undefined;
 }
 
 function parseIsoDate(date: string): Date | null {
@@ -194,105 +185,6 @@ function trainingAim(session: DetailedTrainingSession | null, card: TrainSession
   return firstSentence(viewModel.todaySummary || "Keep today simple and log the boxing work you actually do.");
 }
 
-function coachNote(session: DetailedTrainingSession | null, card: TrainSessionCard | null): string {
-  if (session) {
-    const fromSession =
-      session.athleteQualityCues?.[0] ??
-      session.selfCheckCues?.[0] ??
-      session.sessionQualityCheckpoints?.[0] ??
-      session.walkthrough.steps.find((step) => step.items.length > 0)?.items[0]?.cue ??
-      recipeQuickLogContext(session).mainJob;
-    return firstSentence(fromSession || "Win the reset, then go again.");
-  }
-  return firstSentence(card?.modifications[0] ?? "Win the reset, then go again.");
-}
-
-function readinessValue(session: DetailedTrainingSession | null, viewModel: TrainViewModel): "Good" | "Caution" | "Low" | "Stop" {
-  if (viewModel.riskSummary.length > 0 || session?.executionReadinessStatus === "red_hard_stop") {
-    return "Stop";
-  }
-  if (session?.executionReadinessStatus === "red_non_hard_stop") {
-    return "Low";
-  }
-  if (session?.executionReadinessStatus === "green") {
-    return "Good";
-  }
-  return "Caution";
-}
-
-function readinessTone(value: "Good" | "Caution" | "Low" | "Stop"): VisualTone {
-  if (value === "Good") {
-    return "green";
-  }
-  if (value === "Stop") {
-    return "red";
-  }
-  return "orange";
-}
-
-function readinessPrepCopy(value: "Good" | "Caution" | "Low" | "Stop"): string {
-  switch (value) {
-    case "Good":
-      return "Warm up normally before intensity rises.";
-    case "Caution":
-      return "Start controlled. Build only if you feel sharp.";
-    case "Low":
-      return "Keep this session easy and cut any round that gets messy.";
-    case "Stop":
-      return "Today should be recovery-focused. Stop if symptoms return.";
-  }
-}
-
-function fuelStatLabel(fuelDemand: "low" | "moderate" | "high" | string, intensity: string): string {
-  if (fuelDemand === "high" || intensity === "hard") {
-    return "Eat before";
-  }
-  if (fuelDemand === "low" || intensity === "easy" || intensity === "recovery") {
-    return "Light";
-  }
-  return "Eat before";
-}
-
-function prepRows(session: DetailedTrainingSession | null, card: TrainSessionCard | null, viewModel: TrainViewModel): readonly PrepRow[] {
-  const readiness = readinessValue(session, viewModel);
-  return [
-    {
-      detail: firstUsefulSentence(session?.fuelingGate, viewModel.preSessionFuelHint),
-      label: "Fuel check",
-      tone: "gold",
-      value: firstUsefulSentence(session?.fuelBefore, viewModel.preSessionFuelHint, plainFuelDemandLabel(card?.fuelDemand ?? "moderate")) ?? "Fuel status is unknown."
-    },
-    {
-      detail: "Use a real water/sodium log if you want the engine to raise confidence.",
-      label: "Hydration check",
-      tone: "blue",
-      value: firstUsefulSentence(session?.hydrationGate, viewModel.hydrationHint, "Keep water nearby.") ?? "Hydration is unknown."
-    },
-    {
-      label: "Readiness",
-      tone: readinessTone(readiness),
-      value: firstUsefulSentence(session?.readinessGate, readinessPrepCopy(readiness)) ?? "Start controlled."
-    },
-    {
-      detail: session?.downshiftIf?.[0] ? "Make the next block easier before technique breaks." : "Check this before the first hard or technical block.",
-      label: session?.downshiftIf?.[0] ? "Downshift if" : "First check",
-      tone: session?.downshiftIf?.[0] ? "orange" : "green",
-      value: firstUsefulSentence(session?.downshiftIf?.[0], session?.preSessionChecklist?.[0], session?.selfCheckCues?.[0], coachNote(session, card)) ?? "Keep the first clean cue repeatable."
-    },
-    {
-      detail: "Safety beats completing the prescription.",
-      label: "Stop if",
-      tone: "red",
-      value: firstUsefulSentence(session?.stopConditions[0], "Pain, dizziness, or unusual symptoms appear.") ?? "Pain, dizziness, or unusual symptoms appear."
-    },
-    {
-      label: "Coach's note",
-      tone: "purple",
-      value: coachNote(session, card)
-    }
-  ];
-}
-
 function flowRows(session: DetailedTrainingSession | null, card: TrainSessionCard | null): readonly FlowRow[] {
   if (session?.sections.length) {
     return session.sections.slice(0, 5).map((section) => ({
@@ -320,23 +212,8 @@ function flowRows(session: DetailedTrainingSession | null, card: TrainSessionCar
   ];
 }
 
-function startWorkoutBlockedReason(session: DetailedTrainingSession): string | undefined {
-  if (session.executionReadinessStatus === "red_hard_stop" && session.intensity !== "recovery" && session.intensity !== "easy") {
-    return "Readiness logged hard-stop symptoms. Use recovery-focused work today.";
-  }
-  return undefined;
-}
-
 function playerStatusIsInProgress(status: WorkoutPlayerStatus): boolean {
   return status === "active" || status === "paused" || status === "finishing";
-}
-
-function criticalTrainingRisk(viewModel: TrainViewModel): string | undefined {
-  return viewModel.riskSummary.find((risk) => /safety stop|hard stop|hard-stop|no training|fainting/i.test(risk));
-}
-
-function cycleDecisionIsDefaultVisible(viewModel: TrainViewModel): boolean {
-  return viewModel.cycleTrainingDecision.status === "safety_review" || viewModel.cycleTrainingDecision.status === "symptom_trim";
 }
 
 function currentWeekDays(viewModel: TrainViewModel, asOfDate?: ISODateString | undefined): readonly TrainWeekDayVisual[] {
@@ -910,12 +787,12 @@ function QuickStatsRow({
   const intensity = session?.intensity ?? card?.intensity ?? generated?.intensity ?? "moderate";
   const durationMinutes = session?.durationMinutes ?? card?.durationMinutes ?? generated?.durationMinutes ?? 0;
   const fuelDemand = session?.fuelDemand ?? card?.fuelDemand ?? generated?.fuelDemand ?? "moderate";
-  const readiness = readinessValue(session, viewModel);
+  const readiness = trainReadinessValue(session, viewModel);
   const items = [
     { label: "Duration", tone: "muted" as const, value: durationMinutes > 0 ? `${durationMinutes} min` : "TBD" },
     { label: "Intensity", tone: toneForIntensity(intensity), value: sentenceCase(plainIntensityLabel(intensity)) },
-    { label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "gold" as const, value: fuelStatLabel(fuelDemand, intensity) },
-    { label: "Readiness", tone: readinessTone(readiness), value: readiness }
+    { label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "gold" as const, value: trainFuelStatLabel(fuelDemand, intensity) },
+    { label: "Readiness", tone: trainReadinessTone(readiness), value: readiness }
   ];
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="train-compact-stats">
@@ -985,7 +862,7 @@ function BeforeYouStartCard({
   return (
     <DashboardCard testID="train-before-start-card" title="Before You Start">
       <View style={{ gap: spacing.sm }}>
-        {prepRows(session, card, viewModel).map((row) => (
+        {trainPrepRows(session, card, viewModel).map((row) => (
           <View
             key={`prep:${row.label}`}
             style={{
@@ -1133,7 +1010,7 @@ function CollapsibleTrainDetails({
             <EmptyState title="No player workout today" message={plainTrainCopy(viewModel.todaySummary)} />
           )}
           <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
-          {!cycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
+          {!trainCycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
           <ManualTrainingLoggerSection busy={busy} openRequestKey={trainingLogOpenRequestKey} quickLogs={quickLogs} />
           <TrainingScheduleDebugCard viewModel={viewModel} />
         </>
@@ -1199,11 +1076,11 @@ export function TrainScreen({
   const pendingStartSession = detailedSessions.find((session) => session.generatedSessionId === pendingStartSessionId) ?? null;
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
   const previewOnlyReason = previewOnlyWeeklySession ? `Scheduled for ${previewOnlyWeeklySession.date}. Keep future sessions on their planned day.` : undefined;
-  const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? startWorkoutBlockedReason(primarySession) : undefined;
+  const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? trainStartWorkoutBlockedReason(primarySession) : undefined;
   const readinessGateAcknowledged = Boolean(viewModel.preSessionReadinessGate.sessionId && controlledStartSessionIds.has(viewModel.preSessionReadinessGate.sessionId));
 
   const startWorkout = (sessionDetail: DetailedTrainingSession) => {
-    const blockedReason = startWorkoutBlockedReason(sessionDetail);
+    const blockedReason = trainStartWorkoutBlockedReason(sessionDetail);
     if (blockedReason) {
       return;
     }
@@ -1229,7 +1106,7 @@ export function TrainScreen({
     setDetailsOpen(true);
     setTrainingLogOpenRequestKey((value) => value + 1);
   };
-  const criticalRisk = criticalTrainingRisk(viewModel);
+  const criticalRisk = trainCriticalTrainingRisk(viewModel);
   const showSafety = Boolean(primarySessionBlockedReason || criticalRisk);
 
   return (
@@ -1323,7 +1200,7 @@ export function TrainScreen({
           </View>
         </EngineCard>
       ) : null}
-      {cycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
+      {trainCycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
       <CollapsibleTrainDetails
         asOfDate={asOfDate}
         busy={busy}

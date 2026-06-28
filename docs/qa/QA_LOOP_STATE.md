@@ -1,6 +1,8 @@
 # QA Loop State
 
-This file is the persistent QA memory for CornerIQ launch readiness. Update it after every audit, AI review, fix pass, and verification pass.
+This file is the persistent QA memory for CornerIQ launch readiness only. Update it after every launch QA audit, AI review, fix pass, and verification pass.
+
+The full-codebase technical and scientific audit is tracked separately through `docs/qa/FULL_CODEBASE_AUDIT_LOOP.md`, `docs/qa/FULL_CODEBASE_AUDIT_FINDINGS_TEMPLATE.md`, and generated packets under `qa-artifacts/audit-loop/`. Launch readiness decisions in this file do not close full-codebase audit findings; the full audit requires no unresolved `P0-P4` findings.
 
 ## Summary
 

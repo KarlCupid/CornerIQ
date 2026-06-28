@@ -97,20 +97,20 @@ function cycleLoggedAt(log: CycleLog): string {
   return log.recordedAt ?? fallbackRecordedAt(log.date);
 }
 
-function protectedWorkoutRecordedAt(workout: ProtectedWorkout): string {
-  return workout.recordedAt ?? fallbackRecordedAt(workout.date);
+function protectedWorkoutRecordedAt(workout: ProtectedWorkout): string | null {
+  return workout.recordedAt ?? null;
 }
 
-function fightRecordedAt(fight: FightOpportunity): string {
-  return fight.recordedAt ?? fallbackRecordedAt(fight.boutDate);
+function fightRecordedAt(fight: FightOpportunity): string | null {
+  return fight.recordedAt ?? null;
 }
 
-function tournamentRecordedAt(tournament: TournamentDetails): string {
-  return tournament.recordedAt ?? fallbackRecordedAt(tournament.tournamentStartDate);
+function tournamentRecordedAt(tournament: TournamentDetails): string | null {
+  return tournament.recordedAt ?? null;
 }
 
-function trainingBlockRecordedAt(block: TrainingBlock): string {
-  return block.recordedAt ?? fallbackRecordedAt(block.startDate);
+function trainingBlockRecordedAt(block: TrainingBlock): string | null {
+  return block.recordedAt ?? null;
 }
 
 function trainingWeekSummaryRecordedAt(summary: TrainingWeekSummary): string {

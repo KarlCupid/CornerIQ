@@ -93,6 +93,42 @@ describe("fuelHistoryViewModel", () => {
     expect(viewModel.missingDataNarrative).toContain("not treated as noncompliance");
   });
 
+  it("does not turn omitted sodium fields into a zero sodium log", () => {
+    const viewModel = buildFuelHistoryViewModel({
+      asOfDate: "2026-05-19",
+      foodLogs: [{ date: "2026-05-19", calories: 2100, proteinGrams: 120, carbohydrateGrams: 240, fatGrams: 65, confidence: "medium" }],
+      waterLogs: [],
+      electrolyteLogs: [],
+      nutritionTargets: targets,
+      fightWeekActive: false
+    });
+
+    expect(viewModel.groupedDays[0]?.sodium).toBeNull();
+    expect(viewModel.groupedDays[0]?.fiber).toBeNull();
+    expect(viewModel.fiberSodiumSummary).toContain("trend unknown");
+    expect(viewModel.fiberSodiumSummary).not.toContain("0mg sodium");
+  });
+
+  it("does not present omitted macros in calories-only logs as zero grams", () => {
+    const viewModel = buildFuelHistoryViewModel({
+      asOfDate: "2026-05-19",
+      foodLogs: [{ date: "2026-05-19", calories: 900, confidence: "medium" }],
+      waterLogs: [],
+      electrolyteLogs: [],
+      nutritionTargets: targets,
+      fightWeekActive: false
+    });
+
+    expect(viewModel.todaySummary).toContain("900 kcal logged today");
+    expect(viewModel.todaySummary).toContain("unknown protein");
+    expect(viewModel.todaySummary).toContain("unknown carbs");
+    expect(viewModel.todaySummary).not.toContain("0g protein");
+    expect(viewModel.todaySummary).not.toContain("0g carbs");
+    expect(viewModel.recentMeals[0]).toContain("unknown protein");
+    expect(viewModel.recentMeals[0]).not.toContain("unknowng");
+    expect(viewModel.groupedDays[0]?.notes).toContain("Food log is partial; omitted macros stay unknown.");
+  });
+
   it("shows fiber/sodium context without fight-week unsafe instructions", () => {
     const viewModel = buildFuelHistoryViewModel({
       asOfDate: "2026-05-19",

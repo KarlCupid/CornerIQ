@@ -3,7 +3,7 @@ import type { TableName } from "./repositoryTypes";
 import { assertUserId, readDataOrThrow } from "./repositoryTypes";
 import { stableHash } from "../../engine/core/stableHash";
 
-export const USER_OWNED_TABLES = [
+export const USER_ID_OWNED_TABLES = [
   "exercise_results",
   "decision_traces",
   "risk_flags",
@@ -45,7 +45,12 @@ export const USER_OWNED_TABLES = [
   "users_public"
 ] as const satisfies readonly TableName[];
 
+export const PARTICIPANT_OWNED_TABLES = ["athlete_coach_relationships"] as const satisfies readonly TableName[];
+export const USER_OWNED_TABLES = [...USER_ID_OWNED_TABLES, ...PARTICIPANT_OWNED_TABLES] as const satisfies readonly TableName[];
+
 export type UserOwnedTable = (typeof USER_OWNED_TABLES)[number];
+export type UserIdOwnedTable = (typeof USER_ID_OWNED_TABLES)[number];
+export type ParticipantOwnedTable = (typeof PARTICIPANT_OWNED_TABLES)[number];
 export type UserOwnedDataExport = Record<UserOwnedTable, unknown[]>;
 export type UserOwnedDataExportPreview = Record<UserOwnedTable, number>;
 export type UserOwnedDataCategory = "profile" | "logs" | "training" | "nutrition" | "cycle/wearable" | "projections/traces";
@@ -75,7 +80,7 @@ export interface UserOwnedDataExportBundleOptions {
 export type UserOwnedDeleteResult = {
   [TTable in UserOwnedTable]: {
     count: number | null;
-    status: "deleted";
+    status: "deleted" | "revoked";
   };
 };
 
@@ -134,7 +139,8 @@ export const USER_OWNED_TABLE_CATEGORIES: Record<UserOwnedTable, UserOwnedDataCa
   weight_class_plans: "projections/traces",
   weigh_in_logs: "projections/traces",
   fight_opportunities: "profile",
-  tournament_plans: "profile"
+  tournament_plans: "profile",
+  athlete_coach_relationships: "profile"
 };
 
 const USER_OWNED_DATA_CATEGORIES: readonly UserOwnedDataCategory[] = ["profile", "logs", "training", "nutrition", "cycle/wearable", "projections/traces"];
@@ -203,12 +209,20 @@ function tableCounts(exported: UserOwnedDataExport): UserOwnedDataExportPreview 
   return preview as UserOwnedDataExportPreview;
 }
 
+function participantOwnershipFilter(userId: string): string {
+  return `athlete_user_id.eq.${userId},coach_user_id.eq.${userId}`;
+}
+
 export async function exportUserOwnedData(userId: string, client: CornerSupabaseClient): Promise<UserOwnedDataExport> {
   const safeUserId = assertUserId(userId, "userDataService.exportUserOwnedData");
   const output: Partial<UserOwnedDataExport> = {};
 
-  for (const table of USER_OWNED_TABLES) {
+  for (const table of USER_ID_OWNED_TABLES) {
     const response = await client.from(table).select("*").eq("user_id", safeUserId);
+    output[table] = readDataOrThrow(response, `userDataService.exportUserOwnedData.${table}`);
+  }
+  for (const table of PARTICIPANT_OWNED_TABLES) {
+    const response = await client.from(table).select("*").or(participantOwnershipFilter(safeUserId));
     output[table] = readDataOrThrow(response, `userDataService.exportUserOwnedData.${table}`);
   }
 
@@ -264,12 +278,20 @@ export async function deleteUserOwnedData(userId: string, client: CornerSupabase
   }
   const result: Partial<UserOwnedDeleteResult> = {};
 
-  for (const table of USER_OWNED_TABLES) {
+  for (const table of USER_ID_OWNED_TABLES) {
     const response = await client.from(table).delete({ count: "exact" }).eq("user_id", safeUserId);
     readDataOrThrow({ data: [], error: response.error }, `userDataService.deleteUserOwnedData.${table}`);
     result[table] = {
       count: response.count ?? null,
       status: "deleted"
+    };
+  }
+  for (const table of PARTICIPANT_OWNED_TABLES) {
+    const response = await client.from(table).update({ status: "revoked" }, { count: "exact" }).or(participantOwnershipFilter(safeUserId));
+    readDataOrThrow({ data: [], error: response.error }, `userDataService.deleteUserOwnedData.${table}`);
+    result[table] = {
+      count: response.count ?? null,
+      status: "revoked"
     };
   }
 

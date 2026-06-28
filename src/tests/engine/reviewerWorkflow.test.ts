@@ -13,6 +13,14 @@ describe("nutrition reviewer workflow policy", () => {
 
     expect(
       canTransitionNutritionSafetyReview({
+        currentStatus: "not_cleared",
+        targetStatus: "acknowledged_by_athlete",
+        actor: { actorType: "athlete", actorUserId: "user_1", reviewerRole: null, trustedServerSide: false }
+      })
+    ).toMatchObject({ allowed: true, auditEventType: "acknowledged_by_athlete" });
+
+    expect(
+      canTransitionNutritionSafetyReview({
         currentStatus: "reviewer_reviewing",
         targetStatus: "cleared_by_reviewer",
         actor: { actorType: "athlete", actorUserId: "user_1", reviewerRole: null, trustedServerSide: false }

@@ -48,7 +48,7 @@ Camp requires a confirmed, tentative, or short-notice fight context. The engine 
 
 ## Fight Week And Weigh-In
 
-Fight week separates chronic fat loss from acute scale strategy. The engine may model gut-content reduction, carbohydrate/glycogen shifts, sodium consistency, supervised sodium changes, water loading/tapering, and staged rehydration only behind strict gates.
+Fight week separates chronic fat loss from acute scale pressure. The engine may provide conservative gut-comfort context, carbohydrate/glycogen context, sodium-consistency reminders, and staged post-weigh-in rehydration checklists only behind strict gates. It must not generate water-loading, sodium-manipulation, dehydration, or fluid-restriction protocols.
 
 Blocked states must explain alternatives: move weight class, extend timeline, stop cutting, or seek professional review.
 

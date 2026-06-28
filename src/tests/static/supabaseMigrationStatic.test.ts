@@ -11,6 +11,7 @@ const launchMigrationNames = [
   "20260626062900_revision_isolated_plan_lifecycle.sql",
   "20260626120000_outside_engine_workout_support.sql"
 ] as const;
+const chunk09HardeningMigrationName = "20260628123000_chunk09_rls_grants_privacy_hardening.sql";
 
 function readSource(path: string): string {
   return readFileSync(path, "utf8");
@@ -18,6 +19,53 @@ function readSource(path: string): string {
 
 function readMigration(name: string): string {
   return readSource(join(migrationDir, name));
+}
+
+function readAllMigrationSource(): string {
+  return readdirSync(migrationDir)
+    .sort()
+    .map((name) => readMigration(name))
+    .join("\n");
+}
+
+function finalCreatedPublicTables(): readonly string[] {
+  const source = readAllMigrationSource().toLowerCase();
+  const created = new Set([...source.matchAll(/create\s+table(?:\s+if\s+not\s+exists)?\s+public\.([a-z0-9_]+)/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
+  const dropped = new Set([...source.matchAll(/drop\s+table(?:\s+if\s+exists)?\s+public\.([a-z0-9_]+)/g)].flatMap((match) => (match[1] ? [match[1]] : [])));
+
+  return [...created].filter((table) => !dropped.has(table)).sort();
+}
+
+function tableNamesFromGrantTarget(target: string): readonly string[] {
+  return target
+    .split(",")
+    .map((entry) => entry.trim().replace(/^public\./, ""))
+    .filter(Boolean);
+}
+
+function grantsByRole(role: "anon" | "authenticated" | "service_role"): Map<string, string[]> {
+  const output = new Map<string, string[]>();
+  const source = readAllMigrationSource().toLowerCase();
+  const grantPattern = /grant\s+([^;]+?)\s+on\s+table\s+([^;]+?)\s+to\s+(anon|authenticated|service_role)/gs;
+  for (const match of source.matchAll(grantPattern)) {
+    const privileges = match[1]?.trim() ?? "";
+    const targetRole = match[3]?.trim();
+    if (targetRole !== role) {
+      continue;
+    }
+    for (const table of tableNamesFromGrantTarget(match[2] ?? "")) {
+      output.set(table, [...(output.get(table) ?? []), privileges]);
+    }
+  }
+  return output;
+}
+
+function hasBareUpdatePrivilege(privileges: readonly string[]): boolean {
+  return privileges.some((privilege) => privilege === "all" || /\bupdate\b(?!\s*\()/.test(privilege));
+}
+
+function hasPrivilege(privileges: readonly string[], privilegeName: "delete" | "insert" | "select"): boolean {
+  return privileges.some((privilege) => privilege === "all" || new RegExp(`\\b${privilegeName}\\b`).test(privilege));
 }
 
 describe("Supabase migration static checks", () => {
@@ -194,6 +242,42 @@ describe("Supabase migration static checks", () => {
     ]) {
       expect(source).toContain(requiredFragment);
     }
+  });
+
+  it("keeps final public app tables explicitly granted for authenticated and service-role Data API access", () => {
+    const localMigrationNames = new Set(readdirSync(migrationDir));
+    expect(localMigrationNames.has(chunk09HardeningMigrationName)).toBe(true);
+
+    const finalTables = finalCreatedPublicTables();
+    const authenticatedGrants = grantsByRole("authenticated");
+    const serviceRoleGrants = grantsByRole("service_role");
+    const anonGrants = grantsByRole("anon");
+
+    expect(finalTables).toHaveLength(40);
+    expect(finalTables).not.toContain("beta_feedback_reports");
+    for (const table of finalTables) {
+      expect(authenticatedGrants.has(table), `${table} authenticated grant`).toBe(true);
+      expect(serviceRoleGrants.has(table), `${table} service_role grant`).toBe(true);
+      expect(anonGrants.has(table), `${table} anon grant`).toBe(false);
+    }
+
+    expect(hasBareUpdatePrivilege(authenticatedGrants.get("nutrition_safety_reviews") ?? [])).toBe(false);
+    expect(authenticatedGrants.get("nutrition_safety_reviews")?.some((privilege) => /update\s*\(\s*status\s*\)/.test(privilege))).toBe(true);
+    expect(hasPrivilege(authenticatedGrants.get("nutrition_safety_reviews") ?? [], "delete")).toBe(true);
+    expect(hasBareUpdatePrivilege(authenticatedGrants.get("nutrition_safety_review_events") ?? [])).toBe(false);
+    expect(hasPrivilege(authenticatedGrants.get("nutrition_safety_review_events") ?? [], "delete")).toBe(true);
+    expect(hasBareUpdatePrivilege(authenticatedGrants.get("athlete_coach_relationships") ?? [])).toBe(false);
+    expect(authenticatedGrants.get("athlete_coach_relationships")?.some((privilege) => /update\s*\(\s*status\s*\)/.test(privilege))).toBe(true);
+
+    const hardeningMigration = readMigration(chunk09HardeningMigrationName).toLowerCase();
+    const acknowledgePolicy = hardeningMigration.match(
+      /create policy "nutrition_safety_reviews athlete acknowledge"[\s\S]+?;\s*drop policy if exists "nutrition_safety_reviews owner delete"/
+    )?.[0] ?? "";
+    expect(acknowledgePolicy).toContain("status in ('requested', 'not_cleared')");
+    expect(acknowledgePolicy).toContain("status = 'acknowledged_by_athlete'");
+    expect(acknowledgePolicy).not.toContain("reviewer_user_id is null");
+    expect(acknowledgePolicy).not.toContain("reviewer_role is null");
+    expect(acknowledgePolicy).not.toContain("reviewed_at is null");
   });
 
   it("documents non-workout feature influence boundaries", () => {

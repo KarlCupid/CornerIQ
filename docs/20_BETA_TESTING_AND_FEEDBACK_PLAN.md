@@ -14,7 +14,7 @@ The beta should answer:
 - Does Fuel support boxing performance without pressuring weight-class behavior?
 - Does Train feel specific to boxing support rather than generic fitness?
 - Does Plan explain current week, next week, and roll-forward without feeling like manual programming?
-- Does Profile make privacy, feedback, and data controls understandable?
+- Does Profile make privacy, support, safety-history, and data controls understandable?
 
 ## Test Personas
 
@@ -48,11 +48,9 @@ Run each script as observation, not coaching advice. Ask the tester to narrate w
 11. Accept a next-week preview when available.
 12. Check the auto-roll-forward explanation after a week boundary scenario.
 13. Preview export and review DELETE-gated data deletion copy without deleting unless this is a dedicated test account.
-14. Submit beta feedback from Profile > Audit.
-15. Reopen Profile > Audit and confirm the recent feedback list shows the submitted report as received.
-16. Review the Beta health preflight and explain any warning in the tester's own words.
-17. In Plan > Adjustments, ask what each plan-change button means before pressing it: Keep for boxing, Mark unavailable, Request deload, and Restore plan.
-18. Review the Profile > Audit beta tester notice and ask the tester to summarize the beta boundaries.
+14. Capture product feedback in private facilitator notes or the outside-app support path; do not ask the tester to enter emergency details, private health history, credentials, or personal contact details into the app.
+15. Review Profile > Data and Profile > Safety, then ask the tester to summarize export/delete, outside-app support, and safety-history boundaries.
+16. In Plan > Adjustments, ask what each plan-change button means before pressing it: Keep for boxing, Mark unavailable, Request deload, and Restore plan.
 
 ## Guided Human Beta Scripts
 
@@ -65,7 +63,7 @@ Facilitator rule: ask what the tester understands; do not coach, diagnose, clear
 | Fuel | "What is the first safe fuel action and what is CornerIQ not doing?" | Fuel supports boxing quality, not unsafe weight cutting or dietetic care. | Pass if tester sees safety/review copy and no pressure to cut. Fail on pressure, precision overclaim, or unsafe interpretation. | Flow, category, severity, private note if needed. |
 | Train fast completion | "How would you finish logging if you only had 30 seconds?" | Session RPE-only completion is acceptable; detailed exercise rows are optional. | Pass if fast path is found. Fail if tester thinks full exercise data is required. | Completion path used and friction note. |
 | Plan Week/Next Week | "What changed, what is pending, and what stays engine-owned?" | Current week, preview, acceptance, and boundary materialization are distinct. | Pass if tester does not think future hard work can be pulled forward freely. Fail on stale-preview or coach-replacement confusion. | Preview explanation and any unsafe assumption. |
-| Profile Data/Audit | "What can you export/delete/report, and what cannot feedback do?" | App data controls are DELETE-gated; feedback is not emergency support, medical review, coaching review, or hard-stop clearance. | Pass if tester can explain limits. Fail if feedback seems like clearance or emergency help. | Report id or private issue id, no secrets. |
+| Profile Data/Safety | "What can you export, delete, or ask support about outside the app, and what can safety history not do?" | App data controls are DELETE-gated; support and product feedback stay outside the app; safety history is not emergency support, medical review, coaching review, or hard-stop clearance. | Pass if tester can explain limits. Fail if outside-app support seems like clearance or emergency help. | Private issue id or facilitator note, no secrets. |
 
 Stop the session and seek qualified support outside the app if the tester reports urgent symptoms, pregnancy-related concern, eating-disorder risk, unsafe weight-class pressure, fainting, severe dizziness, or anything that sounds like a hard-stop self-clear request.
 
@@ -76,11 +74,11 @@ Use this only for real tester sessions. Keep planned scripts, agent QA, and faci
 | Field | Private record guidance |
 | --- | --- |
 | Tester/session id alias | Use a non-identifying alias such as `session-001`; do not use real names, emails, phone numbers, or gym identifiers. |
-| Flow tested | Onboarding, Today, Fuel, Train, Plan, Profile Data, Profile Audit, or Error Recovery. |
+| Flow tested | Onboarding, Today, Fuel, Train, Plan, Profile Data, Profile Safety, or Error Recovery. |
 | First-action comprehension | Record whether the tester could say the first safe action without coaching. |
 | Confusion severity | None, Low, Medium, High, or Critical. |
 | Safety interpretation | Record whether safety limits were understood; do not record private health details. |
-| Privacy interpretation | Record whether feedback/data/cycle/wearable boundaries were understood. |
+| Privacy interpretation | Record whether support/data/cycle/wearable boundaries were understood. |
 | Action taken | No action, copy tweak, private issue, stop-session, or release blocker. |
 | No private health details | Confirm no medical history, cycle detail, credential, personal contact detail, or private tester quote was copied into public docs. |
 
@@ -97,8 +95,8 @@ Before and during each beta session, confirm:
 - Manual input works without a wearable.
 - Safety beats performance and weight-class pressure.
 - Cycle support stays optional, private, and symptom-aware.
-- Beta tester notice is visible before guided feedback.
-- Runtime public env readiness shows missing variable names only and never values.
+- Facilitator explains beta boundaries before collecting feedback outside the app.
+- Release evidence and support notes use public env variable names only and never values.
 
 ## Feedback Prompts
 
@@ -113,43 +111,39 @@ Ask these after each flow:
 - Did cycle support feel respectful?
 - Did Fuel feel useful without barcode scanning?
 
-## In-App Feedback Workflow
+## Feedback Workflow
 
-Feedback is available in Profile > Audit through the Beta feedback panel.
+Launch runtime no longer exposes Profile > Audit, a Beta feedback panel, beta health, beta tester notice, in-app feedback history, or signed-in issue reporting. Feedback and incident notes for guided beta sessions are collected outside the app by the facilitator or release owner.
 
-Profile > Audit also includes a beta tester notice. It states this is a beta, not medical advice, not a replacement for qualified human judgment, not emergency support, not for urgent symptoms, not for self-clearing hard stops, and that manual logs are enough while wearables are optional. Its acknowledgement is local-only and does not block app use.
+Private feedback notes may record:
 
-The panel collects:
+- app section;
+- feedback category;
+- confusion severity;
+- short product summary with no private health detail;
+- action taken, such as no action, copy tweak, private issue, stop-session, or release blocker.
 
-- App section.
-- Feedback category.
-- Severity.
-- Short message.
-- Sanitized app context such as section, engine version, and safe status labels.
+The facilitator reminds testers:
 
-The panel reminds testers:
+- Do not include emergency details, medical records, full health histories, credentials, or secrets.
+- CornerIQ is not emergency support, medical review, dietetic care, coaching review, or hard-stop clearance.
+- For urgent safety concerns, stop the session and seek qualified support outside the app.
 
-- Do not include emergency details or secrets.
-- This is not emergency support and is not medical review.
-- For urgent safety concerns, stop and seek qualified support.
+Historical `beta_feedback_reports` and Profile > Audit docs refer to a removed pre-launch surface. They are not active launch guidance, not part of export/delete scope for the final launch schema, and should not be used as beta-session instructions.
 
-Feedback is saved to `beta_feedback_reports` as user-owned data under RLS. Feedback reports are included in app data export/delete scope. There is no admin triage dashboard in the app yet, and reports are not sent to third-party analytics.
+## Error Recovery Flow
 
-Recent reports are visible to the signed-in user in Profile > Audit. Status chips are read-only in the client: received, reviewed, resolved, or dismissed. The client cannot mark a report reviewed, resolved, or dismissed.
+If the React tree hits an app-level error, CornerIQ shows recovery copy instead of a raw stack trace. Users can retry and are directed to contact support outside the app. The launch runtime does not submit signed-in issue reports from the app shell.
 
-## Error Report Flow
-
-If the React tree hits an app-level error, CornerIQ shows recovery copy instead of a raw stack trace. Signed-in users can choose Report this issue, which submits sanitized bug feedback through the same beta feedback service. Signed-out users can retry, but no issue report is submitted.
-
-This flow is product issue reporting only. It is not emergency support, medical review, reviewer workflow, or hard-stop clearance.
+This flow is product recovery guidance only. It is not emergency support, medical review, reviewer workflow, or hard-stop clearance.
 
 ## Automated Scenario QA
 
 The twenty-third implementation pass added `src/tests/beta/betaScenarioFlows.test.ts` and `docs/22_BETA_SCENARIO_QA_RESULTS.md`.
 
-The automated harness covers all listed beta personas and asserts that Today/Fuel/Train/Plan/Profile/Beta Health view models resolve, unsafe Fuel copy is absent, generated support does not prescribe sparring or contact, nutrition review cannot be self-cleared, missing data is not treated as safe, and manual-only athletes remain valid without a wearable.
+The automated harness covers all listed beta personas and asserts that Today/Fuel/Train/Plan/Profile view models resolve, unsafe Fuel copy is absent, generated support does not prescribe sparring or contact, nutrition review cannot be self-cleared, missing data is not treated as safe, and manual-only athletes remain valid without a wearable.
 
-Use the results doc as the pre-session checklist for facilitators. It also records friction notes found before human beta: quick logs needed clearer "log enough for today" copy, workout completion needed a faster path, Plan adjustments needed clearer engine-request framing, and feedback/error reporting needed stronger not-emergency/support boundaries.
+Use the results doc as the pre-session checklist for facilitators. It also records friction notes found before human beta: quick logs needed clearer "log enough for today" copy, workout completion needed a faster path, Plan adjustments needed clearer engine-request framing, and support/error recovery needed stronger not-emergency/support boundaries.
 
 ## Release-Candidate Preflight
 
@@ -165,14 +159,14 @@ Use `docs/23_BETA_RELEASE_CANDIDATE_CHECKLIST.md` and `docs/24_EXPO_EAS_BETA_DIS
 
 ## Manual Feedback Triage
 
-Until a private admin triage dashboard exists, inspect feedback manually in the Supabase dashboard:
+Until a privacy-reviewed support or research workflow exists, keep beta feedback in private facilitator notes or a release-owner-controlled support channel outside the app:
 
-1. Open `beta_feedback_reports`.
-2. Filter by `user_id`, `created_at`, `screen`, `category`, `severity`, or `status`.
-3. Treat message text as sensitive.
+1. Use tester/session aliases instead of names, emails, phone numbers, or gym identifiers.
+2. Record only product facts needed to triage clarity, safety interpretation, privacy understanding, or release readiness.
+3. Treat tester text as sensitive.
 4. Do not copy medical details or private tester text into public issues.
 
-Future options include an admin Edge Function, a private dashboard, or private exports for beta synthesis.
+Future options include a private support dashboard, admin workflow, or private exports for beta synthesis after permission, retention, and privacy rules are defined.
 
 ## Privacy Rules
 
@@ -181,7 +175,7 @@ Future options include an admin Edge Function, a private dashboard, or private e
 - Keep wearable use optional; manual input is first-class.
 - Use only public Supabase URL and anon key in the client and smoke.
 - Do not print or document smoke email/password values.
-- Feedback is product feedback, not emergency support, medical review, reviewer workflow, or a hard-stop clearing workflow.
+- Feedback and support notes are outside-app product signals, not emergency support, medical review, reviewer workflow, or a hard-stop clearing workflow.
 
 ## Beta Exit Criteria
 
@@ -193,15 +187,14 @@ Beta can move from structured test to broader pilot only when:
 - No hard-stop self-clear exists.
 - No generated contact work exists.
 - No major confusion remains on Today/Fuel/Train/Plan first action.
-- Profile feedback and data-control copy are understandable to testers.
-- Feedback reports can be submitted, verified, and cleaned up in smoke.
+- Profile Data/Safety and outside-app support boundaries are understandable to testers.
+- Private facilitator notes or outside-app support records can be reviewed without storing secrets or private health details in committed docs.
 
 ## Known Beta Gaps To Track
 
 - No production issue triage dashboard yet.
-- Feedback reports are user-owned and not admin-reviewed in app.
+- Launch runtime has no in-app feedback submission, issue reporting, feedback history, beta health panel, or Profile > Audit surface.
 - No external analytics yet.
-- No beta health drilldown beyond Profile > Audit preflight yet.
 - EAS Android preview build produced APK artifact `https://expo.dev/artifacts/eas/pYeMLGCyyhfB72dRYhG93K.apk`.
 - App store metadata, icon, splash polish, private tester distribution, and physical-device checks are not prepared yet.
 - Automated scenario QA exists, but real boxer findings are still not captured.
@@ -210,18 +203,13 @@ Beta can move from structured test to broader pilot only when:
 
 ## Auditor Inspect First
 
-1. `supabase/migrations/009_beta_feedback_reports.sql`
-2. `src/services/supabase/betaFeedbackRepository.ts`
-3. `src/services/feedback/submitBetaFeedback.ts`
-4. `src/hooks/useBetaFeedback.ts`
-5. `src/app/components/BetaFeedbackPanel.tsx`
-6. `src/app/components/AppErrorBoundary.tsx`
-7. `src/app/components/BetaHealthPanel.tsx`
-8. `src/engine/presentation/betaHealthViewModel.ts`
-9. `src/app/screens/ProfileScreen.tsx`
-10. `src/tests/services/betaFeedbackService.test.ts`
-11. `src/tests/services/supabaseRepositories.test.ts`
-12. `src/tests/app/appShell.test.ts`
-13. `src/tests/engine/betaHealthViewModel.test.ts`
-14. `src/tests/live/liveDbSmoke.test.ts`
-15. `docs/21_BETA_RELEASE_OPERATIONS.md`
+1. `src/app/components/AppErrorBoundary.tsx`
+2. `src/app/components/AppErrorState.tsx`
+3. `src/app/supportCopy.ts`
+4. `src/app/screens/ProfileScreen.tsx`
+5. `src/tests/static/betaSafetyStatic.test.ts`
+6. `src/tests/services/supabaseRepositories.test.ts`
+7. `src/tests/app/appShell.test.ts`
+8. `src/tests/live/liveDbSmoke.test.ts`
+9. `docs/21_BETA_RELEASE_OPERATIONS.md`
+10. `docs/qa/INCIDENT_TRIAGE_RUNBOOK.md`

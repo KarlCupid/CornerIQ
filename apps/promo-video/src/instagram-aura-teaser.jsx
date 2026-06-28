@@ -317,7 +317,7 @@ function LogoTeaser({frame}) {
             maxWidth: 900,
           }}
         >
-          Boxing guidance for training, food, weight, and planning before you have a full team.
+          Boxing support for training, food, weight, and planning. Not medical, dietetic, or coaching care.
         </div>
       </div>
     </AbsoluteFill>
@@ -811,7 +811,7 @@ function FinalLockup({frame}) {
             opacity: 0.86,
           }}
         >
-          Built for boxers before they have a full team.
+          Built to support boxers, not replace qualified medical, dietetic, or coaching care.
         </div>
       </div>
     </AbsoluteFill>

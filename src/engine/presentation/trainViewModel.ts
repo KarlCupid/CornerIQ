@@ -1,4 +1,4 @@
-import type { CycleTrainingDecisionViewModel, PerformanceState, RiskDomain, RiskFlag, TrainViewModel, TrainingDayPlan } from "../core/types";
+import type { CycleTrainingDecisionViewModel, DetailedTrainingSession, PerformanceState, PresentationTone, RiskDomain, RiskFlag, TrainViewModel, TrainingDayPlan } from "../core/types";
 import { buildDetailedTrainingSession } from "../training/detailedSessionEngine";
 import { resolveGeneratedSessionStatus } from "../training/generatedSessionStatus";
 import { buildTrainingAnalytics } from "../training/trainingAnalytics";
@@ -6,6 +6,7 @@ import { buildExerciseHistoryViewModel } from "./exerciseHistoryViewModel";
 import { withMovementFamiliarity } from "./movementFamiliarity";
 import { riskSummary } from "./explanationCopy";
 import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainIntensityLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
+import { recipeQuickLogContext } from "./workoutRecipePresentation";
 
 const TRAIN_VIEW_SAFETY_DOMAINS = new Set<RiskDomain>(["training", "readiness", "medical", "cycle", "plan_integrity", "hydration", "fight", "tournament"]);
 
@@ -180,6 +181,145 @@ function fuelHints(state: PerformanceState, plan: TrainingDayPlan | null): Pick<
     postSessionFuelHint: "Protein after training supports repair.",
     hydrationHint: "Thirst, urine color, and heat matter."
   };
+}
+
+export type TrainReadinessValue = "Good" | "Caution" | "Low" | "Stop";
+
+export interface TrainPrepRowViewModel {
+  detail?: string | undefined;
+  label: string;
+  tone: PresentationTone;
+  value: string;
+}
+
+function trainFirstSentence(value: string | null | undefined): string {
+  const copy = plainTrainingCopy(value ?? "").trim();
+  const match = copy.match(/^.+?[.!?](?:\s|$)/);
+  return (match?.[0] ?? copy).trim();
+}
+
+function trainFirstUsefulSentence(...values: (string | null | undefined)[]): string | undefined {
+  for (const value of values) {
+    const copy = trainFirstSentence(value);
+    if (copy) {
+      return copy;
+    }
+  }
+  return undefined;
+}
+
+export function trainReadinessValue(session: DetailedTrainingSession | null, viewModel: TrainViewModel): TrainReadinessValue {
+  if (viewModel.riskSummary.length > 0 || session?.executionReadinessStatus === "red_hard_stop") {
+    return "Stop";
+  }
+  if (session?.executionReadinessStatus === "red_non_hard_stop") {
+    return "Low";
+  }
+  if (session?.executionReadinessStatus === "green") {
+    return "Good";
+  }
+  return "Caution";
+}
+
+export function trainReadinessTone(value: TrainReadinessValue): PresentationTone {
+  if (value === "Good") {
+    return "green";
+  }
+  if (value === "Stop") {
+    return "red";
+  }
+  return "orange";
+}
+
+function trainReadinessPrepCopy(value: TrainReadinessValue): string {
+  switch (value) {
+    case "Good":
+      return "Warm up normally before intensity rises.";
+    case "Caution":
+      return "Start controlled. Build only if you feel sharp.";
+    case "Low":
+      return "Keep this session easy and cut any round that gets messy.";
+    case "Stop":
+      return "Today should be recovery-focused. Stop if symptoms return.";
+  }
+}
+
+export function trainFuelStatLabel(fuelDemand: "low" | "moderate" | "high" | string, intensity: string): string {
+  if (fuelDemand === "high" || intensity === "hard") {
+    return "Eat before";
+  }
+  if (fuelDemand === "low" || intensity === "easy" || intensity === "recovery") {
+    return "Light";
+  }
+  return "Eat before";
+}
+
+function trainCoachNote(session: DetailedTrainingSession | null, card: TrainViewModel["sessionCards"][number] | null): string {
+  if (session) {
+    const fromSession =
+      session.athleteQualityCues?.[0] ??
+      session.selfCheckCues?.[0] ??
+      session.sessionQualityCheckpoints?.[0] ??
+      session.walkthrough.steps.find((step) => step.items.length > 0)?.items[0]?.cue ??
+      recipeQuickLogContext(session).mainJob;
+    return trainFirstSentence(fromSession || "Win the reset, then go again.");
+  }
+  return trainFirstSentence(card?.modifications[0] ?? "Win the reset, then go again.");
+}
+
+export function trainPrepRows(session: DetailedTrainingSession | null, card: TrainViewModel["sessionCards"][number] | null, viewModel: TrainViewModel): readonly TrainPrepRowViewModel[] {
+  const readiness = trainReadinessValue(session, viewModel);
+  return [
+    {
+      detail: trainFirstUsefulSentence(session?.fuelingGate, viewModel.preSessionFuelHint),
+      label: "Fuel check",
+      tone: "gold",
+      value: trainFirstUsefulSentence(session?.fuelBefore, viewModel.preSessionFuelHint, plainFuelDemandLabel(card?.fuelDemand ?? "moderate")) ?? "Fuel status is unknown."
+    },
+    {
+      detail: "Use a real water/sodium log if you want the engine to raise confidence.",
+      label: "Hydration check",
+      tone: "blue",
+      value: trainFirstUsefulSentence(session?.hydrationGate, viewModel.hydrationHint, "Keep water nearby.") ?? "Hydration is unknown."
+    },
+    {
+      label: "Readiness",
+      tone: trainReadinessTone(readiness),
+      value: trainFirstUsefulSentence(session?.readinessGate, trainReadinessPrepCopy(readiness)) ?? "Start controlled."
+    },
+    {
+      detail: session?.downshiftIf?.[0] ? "Make the next block easier before technique breaks." : "Check this before the first hard or technical block.",
+      label: session?.downshiftIf?.[0] ? "Downshift if" : "First check",
+      tone: session?.downshiftIf?.[0] ? "orange" : "green",
+      value: trainFirstUsefulSentence(session?.downshiftIf?.[0], session?.preSessionChecklist?.[0], session?.selfCheckCues?.[0], trainCoachNote(session, card)) ?? "Keep the first clean cue repeatable."
+    },
+    {
+      detail: "Safety beats completing the prescription.",
+      label: "Stop if",
+      tone: "red",
+      value: trainFirstUsefulSentence(session?.stopConditions[0], "Pain, dizziness, or unusual symptoms appear.") ?? "Pain, dizziness, or unusual symptoms appear."
+    },
+    {
+      label: "Coach's note",
+      tone: "purple",
+      value: trainCoachNote(session, card)
+    }
+  ];
+}
+
+export function trainStartWorkoutBlockedReason(session: DetailedTrainingSession): string | undefined {
+  if (session.executionReadinessStatus === "red_hard_stop" && session.intensity !== "recovery" && session.intensity !== "easy") {
+    return "Readiness logged hard-stop symptoms. Use recovery-focused work today.";
+  }
+  return undefined;
+}
+
+export function trainCriticalTrainingRisk(viewModel: TrainViewModel): string | undefined {
+  return viewModel.riskSummary.find((risk) => /safety stop|hard stop|hard-stop|no training|fainting/i.test(risk));
+}
+
+export function trainCycleDecisionIsDefaultVisible(viewModel: TrainViewModel): boolean {
+  return viewModel.cycleTrainingDecision.status === "safety_review" || viewModel.cycleTrainingDecision.status === "symptom_trim";
 }
 
 function detailedSessionCard(state: PerformanceState, session: PerformanceState["training"]["generatedSessions"][number]) {

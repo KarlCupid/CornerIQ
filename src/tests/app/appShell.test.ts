@@ -476,6 +476,20 @@ const fuelViewModel: FuelViewModel = {
   tournamentFuel: null,
   rehydrationPlan: null,
   underFuelingRisk: null,
+  safetyState: {
+    active: false,
+    healthStatus: "Clear",
+    reviewActive: false,
+    stripText: "No cut warnings today.",
+    tone: "green"
+  },
+  planStatus: {
+    action: "Train normally. Keep food and fluids steady.",
+    label: "No active cut",
+    sentence: "No fight weight target is active today.",
+    tone: "muted"
+  },
+  trainingTodayCopy: "Train normally.",
   riskSummary: [],
   why: "Fuel supports the planned session."
 };
@@ -1782,12 +1796,17 @@ function persistedPreviewForState(state: ReturnType<typeof resolvePerformanceSta
 function createUserDataClient() {
   const deleted: string[] = [];
   const selected: string[] = [];
+  const updated: string[] = [];
   const client = {
     from(table: string) {
       return {
         select() {
           return {
             eq() {
+              selected.push(table);
+              return Promise.resolve({ data: [{ id: `${table}_1` }], error: null });
+            },
+            or() {
               selected.push(table);
               return Promise.resolve({ data: [{ id: `${table}_1` }], error: null });
             }
@@ -1800,11 +1819,19 @@ function createUserDataClient() {
               return Promise.resolve({ data: [], error: null, count: 1 });
             }
           };
+        },
+        update() {
+          return {
+            or() {
+              updated.push(table);
+              return Promise.resolve({ data: [], error: null, count: 1 });
+            }
+          };
         }
       };
     }
   };
-  return { client: client as unknown as CornerSupabaseClient, deleted, selected };
+  return { client: client as unknown as CornerSupabaseClient, deleted, selected, updated };
 }
 
 describe("minimal app screens", () => {
@@ -2428,9 +2455,14 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Training: Review");
 
     await act(async () => {
+      await press(pressableWithText(renderer, "Open Fuel"));
+    });
+    expect(onOpenFuelSafety).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
       await press(pressableWithText(renderer, "Start workout"));
     });
-    expect(onOpenFuelSafety).not.toHaveBeenCalled();
+    expect(onOpenFuelSafety).toHaveBeenCalledTimes(1);
     expect(onOpenTrainWorkout).toHaveBeenCalled();
   });
 
@@ -2638,7 +2670,50 @@ describe("minimal app screens", () => {
         })
       ).toJSON()
     );
-    expect(output).not.toContain("Log cycle symptom");
+    expect(output).not.toContain("Optional and private. Log enough for today");
+    expect(output).not.toContain("Log cycle");
+  });
+
+  it("TodayScreen exposes enabled private cycle quick logging from More today", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const logCycle = vi.fn(async () => undefined);
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: todayViewModel,
+        recentLogs: recentLogsViewModel,
+        cycleContext: null,
+        quickLogs: { ...quickLogActions, logCycle },
+        cycleQuickLogEnabled: true,
+        cycleTrackingStatus: "enabled",
+        cycleSymptomOptions: ["cramps", "headache"],
+        busy: false,
+        message: null
+      })
+    );
+
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Optional and private. Log enough for today");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "More today"));
+    });
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Optional and private. Log enough for today");
+    expect(output).toContain("Log cycle");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "cramps"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Log cycle"));
+    });
+
+    expect(logCycle).toHaveBeenCalledWith({
+      bleedEnd: false,
+      bleedStart: false,
+      flowLevel: "unknown",
+      hormonalContraception: "unknown",
+      symptoms: ["cramps"]
+    });
   });
 
   it("AppTabs orders daily tabs and applies Today route intents once", async () => {
@@ -3023,7 +3098,21 @@ describe("minimal app screens", () => {
           createdAt: "2026-05-19T00:00:00.000Z",
           updatedAt: "2026-05-19T00:00:00.000Z"
         }
-      ]
+      ],
+      safetyState: {
+        active: true,
+        healthStatus: "Review active",
+        reviewActive: true,
+        stripText: "Cut paused. Eat and hydrate normally today.",
+        tone: "red"
+      },
+      planStatus: {
+        action: "Eat normally today. Hydrate normally. Do not cut harder.",
+        label: "Pause cut",
+        sentence: "Fuel or weight safety signals are active, so weight pressure pauses today.",
+        tone: "red"
+      },
+      trainingTodayCopy: "Make today a recovery day."
     };
     const renderer = render(
       React.createElement(FuelScreen, {

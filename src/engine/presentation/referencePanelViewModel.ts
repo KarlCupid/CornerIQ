@@ -224,6 +224,45 @@ function profileTone(tone: ProfileMetricViewModel["tone"]): ReferenceTone {
   return tone === "muted" ? "neutral" : tone;
 }
 
+function isPartialFoodStatus(status: FuelViewModel["foodLogStatus"]["status"]): boolean {
+  return status === "partial_day" || status === "likely_partial" || status === "auto_closed_incomplete" || status === "quick_fuel_check_only";
+}
+
+function fuelMealReference(fuel: FuelViewModel, recentLogs: RecentLogsViewModel): FuelReferencePanelViewModel["meal"] {
+  const foodEntries = fuel.foodLogStatus.entryCount;
+  const caloriesLogged = fuel.foodLogStatus.totalCaloriesLogged;
+  if (foodEntries > 0 && isPartialFoodStatus(fuel.foodLogStatus.status)) {
+    return {
+      logged: true,
+      meta: `${foodEntries} ${foodEntries === 1 ? "entry" : "entries"} - ${caloriesLogged} kcal - macros partial`,
+      summary: fuel.foodLogStatus.athleteFacingSummary,
+      title: "Partial food log"
+    };
+  }
+  if (foodEntries > 0) {
+    return {
+      logged: true,
+      meta: `${foodEntries} ${foodEntries === 1 ? "entry" : "entries"} - ${caloriesLogged} kcal`,
+      summary: fuel.foodLogStatus.athleteFacingSummary,
+      title: "Food logged today"
+    };
+  }
+  if (fuel.foodLogStatus.status === "not_tracking_today") {
+    return {
+      logged: false,
+      meta: recentLogs.foodToday.statusLabel,
+      summary: fuel.foodLogStatus.athleteFacingSummary,
+      title: "Not tracking today"
+    };
+  }
+  return {
+    logged: false,
+    meta: recentLogs.foodToday.statusLabel,
+    summary: fuel.foodLogStatus.athleteFacingSummary,
+    title: "Fuel context unknown"
+  };
+}
+
 export function buildTodayReferencePanelViewModel(input: {
   dashboard: TodayDashboardVisual;
   recentLogs: RecentLogsViewModel;
@@ -314,11 +353,10 @@ export function buildFuelReferencePanelViewModel(
   const caloriePercent = calorieLogged !== null && calorieTarget !== null && calorieTarget > 0 ? Math.round(clamp01(calorieLogged / calorieTarget) * 100) : null;
   const macros = dashboard.macros.slice(0, 3).map((item) => ({
     label: item.label,
-    percentLabel: ratioMeta(percentFromProgress(item)),
+    percentLabel: item.stateLabel === "Partial" || item.stateLabel === "Unknown" ? "Unknown" : ratioMeta(percentFromProgress(item)),
     ratio: clamp01(item.ratio),
     value: item.valueLabel
   }));
-  const foodEntries = fuel.foodLogStatus.entryCount;
   const caloriesLogged = fuel.foodLogStatus.totalCaloriesLogged;
   return {
     calorie: {
@@ -332,12 +370,7 @@ export function buildFuelReferencePanelViewModel(
       targetLabel: dashboard.hydration.targetLabel
     },
     macros,
-    meal: {
-      logged: foodEntries > 0,
-      meta: foodEntries > 0 ? `${foodEntries} ${foodEntries === 1 ? "entry" : "entries"} - ${caloriesLogged} kcal` : recentLogs.foodToday.statusLabel,
-      summary: foodEntries > 0 ? fuel.foodLogStatus.athleteFacingSummary : "No food entry has been logged today.",
-      title: foodEntries > 0 ? "Food logged today" : "No food logged yet"
-    }
+    meal: fuelMealReference(fuel, recentLogs)
   };
 }
 

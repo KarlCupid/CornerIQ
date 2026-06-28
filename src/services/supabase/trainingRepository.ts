@@ -381,8 +381,9 @@ export function createTrainingRepository(client: CornerSupabaseClient) {
         .select("id, block_id, planned_date, original_planned_date, current_scheduled_date, plan_revision_id, week_id, week_index, prescription_slot_id, generated_session_lifecycle, session_payload")
         .eq("user_id", safeUserId);
       const startDate = options.startDate ?? options.asOfDate;
-      let scopedQuery = startDate ? query.gte("current_scheduled_date", startDate) : query;
-      scopedQuery = options.endDate ? scopedQuery.lte("current_scheduled_date", options.endDate) : scopedQuery;
+      const useDatabaseDateWindow = !options.trainingBlockId;
+      let scopedQuery = useDatabaseDateWindow && startDate ? query.gte("current_scheduled_date", startDate) : query;
+      scopedQuery = useDatabaseDateWindow && options.endDate ? scopedQuery.lte("current_scheduled_date", options.endDate) : scopedQuery;
       scopedQuery = options.planRevisionId ? scopedQuery.eq("plan_revision_id", options.planRevisionId) : scopedQuery;
       scopedQuery = options.trainingBlockId ? scopedQuery.eq("block_id", options.trainingBlockId) : scopedQuery;
       scopedQuery = scopedQuery.in("generated_session_lifecycle", ["active", "moved"]);

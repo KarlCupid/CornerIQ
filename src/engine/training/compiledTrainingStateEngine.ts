@@ -38,7 +38,7 @@ import type { PersistedTrainingPlanAdjustment } from "./planAdjustmentTypes";
 import { resolveTrainingBlock } from "./trainingBlockEngine";
 import { selectAuthoritativeTrainingProgressionDecision } from "./trainingHistoryAuthority";
 import { generatedSupportAllowedOnDate, generatedSupportWeekdayForDate, normalizeGeneratedSupportWeekdays, type GeneratedSupportWeekday } from "./supportAvailability";
-import { classifyTrainingGenerationConstraints } from "./trainingGenerationConstraints";
+import { classifyTrainingGenerationConstraints, fuelingRiskCapsGeneratedCount, severeFuelingRisk, supportCountFuelCapFlags } from "./trainingGenerationConstraints";
 import {
   applyTrainingExecutionGuidance,
   readinessHasHardStop,
@@ -62,11 +62,18 @@ import {
   GENERATED_SESSION_SCHEMA_VERSION_V2,
   PLAN_INTENT_VERSION_V2
 } from "./compiledWeekProjection";
+import { canonicalWorkoutSessionFromCompiledSession } from "./compiler/canonicalWorkoutAdapter";
 import { normalizeAthleteTrainingProfile, normalizePlanIntent } from "./compiler/normalizePlanInputs";
 import {
   TRAINING_COMPILER_CONTRACT_VERSION,
+  type BoxingRoundPrescription,
+  type CompiledTrainingSession,
+  type ConditioningDose,
+  type ExercisePrescriptionV2,
   type PersistentSafetyConstraint,
-  type PersistentSafetyDomain
+  type PersistentSafetyDomain,
+  type SessionHardness,
+  type TrainingSessionBlock
 } from "./compiler/types";
 
 function hardStopSafetyActive(flags: readonly RiskFlag[] | undefined): boolean {
@@ -793,12 +800,7 @@ function finalDayPlansWithGeneratedSessions(input: {
       generatedSessions,
       hardDay,
       role,
-      fuelDemand:
-        hardDay || generatedSessions.some((session) => session.fuelDemand === "high")
-          ? "high"
-          : generatedSessions.some((session) => session.fuelDemand === "moderate")
-            ? "moderate"
-            : dayPlan.fuelDemand
+      fuelDemand: finalFuelDemandForDayPlan({ dayPlan, generatedSessions })
     };
   });
 }
@@ -840,15 +842,440 @@ function compilerTrainingDoseForPhase(input: { phase: PhaseState; selectedTraini
   return input.selectedTrainingDose;
 }
 
+function formatCompiledDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder === 0 ? `${minutes} min` : `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function compiledFuelDemand(session: CompiledTrainingSession): GeneratedTrainingSession["fuelDemand"] {
+  if (session.hardness === "recovery" || session.primaryAdaptation === "recovery" || session.primaryAdaptation === "mobility") {
+    return "low";
+  }
+  if (session.hardness === "hard" || session.structuredDurationMinutes >= 55) {
+    return "high";
+  }
+  if (session.hardness === "moderate" || session.structuredDurationMinutes >= 35) {
+    return "moderate";
+  }
+  return "low";
+}
+
+function compiledIntensity(hardness: SessionHardness): GeneratedTrainingSession["intensity"] {
+  return hardness;
+}
+
+function compiledPrescriptionLines(session: CompiledTrainingSession): readonly string[] {
+  return session.blocks.flatMap((block) => {
+    const lines: string[] = [];
+    for (const exercise of block.exercises) {
+      const dose =
+        typeof exercise.durationSeconds === "number"
+          ? `${formatCompiledDuration(exercise.durationSeconds)}`
+          : `${exercise.sets ?? 1} x ${exercise.reps ?? 1}`;
+      lines.push(`${block.title}: ${exercise.name} - ${dose}, RPE ${exercise.rpe ?? "target"}, rest ${exercise.restSeconds}s.`);
+    }
+    if (block.conditioning) {
+      lines.push(
+        `${block.title}: ${block.conditioning.modality.replaceAll("_", " ")} ${block.conditioning.energySystem.replaceAll("_", " ")} - ${block.conditioning.repetitions} x ${formatCompiledDuration(block.conditioning.workSeconds)} work / ${formatCompiledDuration(block.conditioning.restSeconds)} rest, RPE ${block.conditioning.rpe}.`
+      );
+    }
+    if (block.boxingRounds) {
+      const firstRound = block.boxingRounds.rounds[0];
+      lines.push(
+        `${block.title}: ${block.boxingRounds.modality.replaceAll("_", " ")} - ${block.boxingRounds.rounds.length} rounds x ${formatCompiledDuration(firstRound?.durationSeconds ?? 0)} with ${formatCompiledDuration(firstRound?.restSeconds ?? 0)} rest, RPE ${block.boxingRounds.rpe}.`
+      );
+    }
+    if (lines.length === 0) {
+      lines.push(`${block.title}: ${block.durationMinutes} minutes.`);
+    }
+    return lines;
+  });
+}
+
+function compiledRoundStructure(session: CompiledTrainingSession): string | undefined {
+  const boxing = session.blocks.find((block) => block.boxingRounds)?.boxingRounds;
+  if (!boxing) {
+    return undefined;
+  }
+  const firstRound = boxing.rounds[0];
+  return `${boxing.rounds.length} x ${formatCompiledDuration(firstRound?.durationSeconds ?? 0)} / ${formatCompiledDuration(firstRound?.restSeconds ?? 0)} ${boxing.modality.replaceAll("_", " ")}`;
+}
+
+function capRpe(value: number | undefined, hardness: SessionHardness): number | undefined {
+  if (typeof value !== "number") {
+    return value;
+  }
+  const cap = hardness === "recovery" ? 3 : hardness === "easy" ? 5 : hardness === "moderate" ? 6 : value;
+  return Math.min(value, cap);
+}
+
+function scalePositiveInteger(value: number, ratio: number, minimum: number): number {
+  if (value <= 0) {
+    return 0;
+  }
+  return Math.max(minimum, Math.round(value * ratio));
+}
+
+function distributeBlockMinutes(blocks: readonly TrainingSessionBlock[], targetDurationMinutes: number): readonly number[] {
+  if (blocks.length === 0) {
+    return [];
+  }
+  const minimum = 1;
+  const safeTarget = Math.max(blocks.length * minimum, Math.round(targetDurationMinutes));
+  const weights = blocks.map((block) => Math.max(1, block.durationMinutes));
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+  const raw = weights.map((weight) => (weight / totalWeight) * safeTarget);
+  const durations = raw.map((value) => Math.max(minimum, Math.floor(value)));
+  let delta = safeTarget - durations.reduce((sum, value) => sum + value, 0);
+  const order = raw
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((left, right) => right.fraction - left.fraction);
+  for (let cursor = 0; delta > 0; cursor += 1, delta -= 1) {
+    const index = order[cursor % order.length]!.index;
+    durations[index] = (durations[index] ?? minimum) + 1;
+  }
+  for (let cursor = order.length - 1; delta < 0; cursor -= 1) {
+    const item = order[((cursor % order.length) + order.length) % order.length]!;
+    const current = durations[item.index] ?? minimum;
+    if (current > minimum) {
+      durations[item.index] = current - 1;
+      delta += 1;
+    }
+  }
+  return durations;
+}
+
+function fitWorkRestToTarget(input: {
+  repetitions: number;
+  workSeconds: number;
+  restSeconds: number;
+  targetSeconds: number;
+}): { workSeconds: number; restSeconds: number } {
+  const total = input.repetitions * input.workSeconds + Math.max(0, input.repetitions - 1) * input.restSeconds;
+  if (total <= input.targetSeconds || total <= 0) {
+    return { workSeconds: input.workSeconds, restSeconds: input.restSeconds };
+  }
+  const ratio = input.targetSeconds / total;
+  return {
+    workSeconds: scalePositiveInteger(input.workSeconds, ratio, 15),
+    restSeconds: input.restSeconds > 0 ? scalePositiveInteger(input.restSeconds, ratio, 10) : 0
+  };
+}
+
+function adjustExerciseForSafety(input: {
+  exercise: ExercisePrescriptionV2;
+  ratio: number;
+  hardness: SessionHardness;
+}): ExercisePrescriptionV2 {
+  const exercise = input.exercise;
+  return {
+    ...exercise,
+    ...(typeof exercise.sets === "number" ? { sets: Math.max(1, Math.min(exercise.sets, Math.round(exercise.sets * input.ratio))) } : {}),
+    ...(typeof exercise.durationSeconds === "number" ? { durationSeconds: scalePositiveInteger(exercise.durationSeconds, input.ratio, 15) } : {}),
+    ...(typeof exercise.rpe === "number" ? { rpe: capRpe(exercise.rpe, input.hardness) } : {})
+  };
+}
+
+function adjustConditioningForSafety(input: {
+  conditioning: ConditioningDose;
+  ratio: number;
+  targetBlockMinutes: number;
+  hardness: SessionHardness;
+}): ConditioningDose {
+  const conditioning = input.conditioning;
+  const repetitions = Math.max(1, Math.min(conditioning.repetitions, Math.round(conditioning.repetitions * input.ratio)));
+  const scaled = fitWorkRestToTarget({
+    repetitions,
+    workSeconds: conditioning.workSeconds,
+    restSeconds: conditioning.restSeconds,
+    targetSeconds: Math.max(60, Math.round(input.targetBlockMinutes * 60))
+  });
+  return {
+    ...conditioning,
+    warmupSeconds: scalePositiveInteger(conditioning.warmupSeconds, input.ratio, 30),
+    workSeconds: scaled.workSeconds,
+    restSeconds: scaled.restSeconds,
+    repetitions,
+    cooldownSeconds: scalePositiveInteger(conditioning.cooldownSeconds, input.ratio, 30),
+    rpe: capRpe(conditioning.rpe, input.hardness) ?? conditioning.rpe
+  };
+}
+
+function boxingStepSeconds(rounds: BoxingRoundPrescription["rounds"]): number {
+  return rounds.reduce((sum, round, index) => sum + round.durationSeconds + (index < rounds.length - 1 ? round.restSeconds : 0), 0);
+}
+
+function adjustBoxingRoundsForSafety(input: {
+  boxingRounds: BoxingRoundPrescription;
+  ratio: number;
+  targetBlockMinutes: number;
+  hardness: SessionHardness;
+}): BoxingRoundPrescription {
+  const boxing = input.boxingRounds;
+  const roundCount = Math.max(1, Math.min(boxing.rounds.length, Math.round(boxing.rounds.length * input.ratio)));
+  const targetSeconds = Math.max(60, Math.round(input.targetBlockMinutes * 60));
+  let rounds = boxing.rounds.slice(0, roundCount).map((round, index) => ({
+    ...round,
+    roundNumber: index + 1
+  }));
+  const total = boxingStepSeconds(rounds);
+  if (total > targetSeconds) {
+    const ratio = targetSeconds / total;
+    rounds = rounds.map((round) => ({
+      ...round,
+      durationSeconds: scalePositiveInteger(round.durationSeconds, ratio, 30),
+      restSeconds: round.restSeconds > 0 ? scalePositiveInteger(round.restSeconds, ratio, 10) : 0
+    }));
+  }
+  return {
+    ...boxing,
+    rounds,
+    rpe: capRpe(boxing.rpe, input.hardness) ?? boxing.rpe
+  };
+}
+
+function adjustBlockForSafety(input: {
+  block: TrainingSessionBlock;
+  targetDurationMinutes: number;
+  reason: string;
+  hardness: SessionHardness;
+}): TrainingSessionBlock {
+  const ratio = input.block.durationMinutes > 0 ? input.targetDurationMinutes / input.block.durationMinutes : 1;
+  const conditioning = input.block.conditioning
+    ? adjustConditioningForSafety({
+        conditioning: input.block.conditioning,
+        ratio,
+        targetBlockMinutes: input.targetDurationMinutes,
+        hardness: input.hardness
+      })
+    : undefined;
+  const boxingRounds = input.block.boxingRounds
+    ? adjustBoxingRoundsForSafety({
+        boxingRounds: input.block.boxingRounds,
+        ratio,
+        targetBlockMinutes: input.targetDurationMinutes,
+        hardness: input.hardness
+      })
+    : undefined;
+  return {
+    ...input.block,
+    durationMinutes: input.targetDurationMinutes,
+    exercises: input.block.exercises.map((exercise) => adjustExerciseForSafety({ exercise, ratio, hardness: input.hardness })),
+    ...(conditioning ? { conditioning } : {}),
+    ...(boxingRounds ? { boxingRounds } : {}),
+    coachingNotes: uniqueStrings([...input.block.coachingNotes, input.reason])
+  };
+}
+
+function adjustCompiledSessionForSafety(input: {
+  session: CompiledTrainingSession;
+  targetDurationMinutes: number;
+  hardness: SessionHardness;
+  reason: string;
+}): CompiledTrainingSession {
+  const targetDurationMinutes = Math.max(20, Math.min(input.session.displayedDurationMinutes, Math.round(input.targetDurationMinutes)));
+  const blockDurations = distributeBlockMinutes(input.session.blocks, targetDurationMinutes);
+  const blocks = input.session.blocks.map((block, index) =>
+    adjustBlockForSafety({
+      block,
+      targetDurationMinutes: blockDurations[index] ?? block.durationMinutes,
+      reason: input.reason,
+      hardness: input.hardness
+    })
+  );
+  return {
+    ...input.session,
+    targetDurationMinutes,
+    structuredDurationMinutes: targetDurationMinutes,
+    displayedDurationMinutes: targetDurationMinutes,
+    hardness: input.hardness,
+    blocks,
+    rationale: uniqueStrings([...input.session.rationale, input.reason])
+  };
+}
+
+function applyStructuredSafetyAdjustment(input: {
+  session: GeneratedTrainingSession;
+  targetDurationMinutes: number;
+  hardness: SessionHardness;
+  reason: string;
+}): GeneratedTrainingSession {
+  const structured = input.session.structuredPrescriptionV2;
+  if (!structured) {
+    return input.session;
+  }
+  const compiledSession = adjustCompiledSessionForSafety({
+    session: structured.compiledSession,
+    targetDurationMinutes: input.targetDurationMinutes,
+    hardness: input.hardness,
+    reason: input.reason
+  });
+  const sessionIntent = {
+    ...structured.sessionIntent,
+    targetDurationMinutes: Math.min(structured.sessionIntent.targetDurationMinutes, compiledSession.targetDurationMinutes),
+    hardness: compiledSession.hardness
+  };
+  const canonicalWorkoutSession = canonicalWorkoutSessionFromCompiledSession({
+    session: compiledSession,
+    intent: sessionIntent
+  });
+  const roundStructure = compiledRoundStructure(compiledSession);
+  return {
+    ...input.session,
+    durationMinutes: compiledSession.displayedDurationMinutes,
+    targetDurationMinutes: compiledSession.targetDurationMinutes,
+    minDurationMinutes: Math.min(input.session.minDurationMinutes ?? compiledSession.displayedDurationMinutes, compiledSession.displayedDurationMinutes),
+    maxDurationMinutes: compiledSession.displayedDurationMinutes,
+    finalDurationMinutes: compiledSession.displayedDurationMinutes,
+    intensity: compiledIntensity(compiledSession.hardness),
+    fuelDemand: compiledFuelDemand(compiledSession),
+    prescription: compiledPrescriptionLines(compiledSession),
+    rationale: compiledSession.rationale.join(" "),
+    ...(roundStructure ? { roundStructure } : {}),
+    structuredPrescriptionV2: {
+      ...structured,
+      sessionIntent,
+      compiledSession,
+      canonicalWorkoutSession
+    }
+  };
+}
+
 function applyCycleSymptomDownshift(session: GeneratedTrainingSession, highCycleSymptoms: boolean): GeneratedTrainingSession {
   if (!highCycleSymptoms || session.intensity !== "hard") {
     return session;
   }
+  const intensity: GeneratedTrainingSession["intensity"] = session.family.startsWith("power") || session.family.startsWith("strength") ? "moderate" : "easy";
+  const reason = "High cycle symptoms trim optional hard work today. Keep the plan available, but do not chase top intensity.";
+  const targetDurationMinutes = Math.max(20, Math.round(session.durationMinutes * 0.8));
+  return applyStructuredSafetyAdjustment({
+    session: {
+      ...session,
+      durationMinutes: targetDurationMinutes,
+      intensity,
+      fuelDemand: session.fuelDemand === "high" ? "moderate" : session.fuelDemand,
+      finalDurationMinutes: Math.min(session.finalDurationMinutes ?? session.durationMinutes, targetDurationMinutes),
+      modifications: uniqueStrings([...session.modifications, reason])
+    },
+    targetDurationMinutes,
+    hardness: intensity,
+    reason
+  });
+}
+
+function uniqueStrings(items: readonly string[]): readonly string[] {
+  return [...new Set(items.filter((item) => item.trim().length > 0))];
+}
+
+function markFuelingSafetyCappedSession(
+  session: GeneratedTrainingSession,
+  reason: string,
+  intensity: GeneratedTrainingSession["intensity"] = "easy"
+): GeneratedTrainingSession {
+  const cappedDuration = Math.min(session.durationMinutes, 30);
+  return applyStructuredSafetyAdjustment({
+    session: {
+      ...session,
+      durationMinutes: cappedDuration,
+      intensity,
+      fuelDemand: "low",
+      durationPolicyCategory: "safety_capped",
+      durationReductionReasons: uniqueStrings([...(session.durationReductionReasons ?? []), reason]),
+      finalDurationMinutes: Math.min(session.finalDurationMinutes ?? session.durationMinutes, cappedDuration),
+      modifications: uniqueStrings([...session.modifications, reason])
+    },
+    targetDurationMinutes: cappedDuration,
+    hardness: intensity,
+    reason
+  });
+}
+
+function generatedFuelDemand(sessions: readonly GeneratedTrainingSession[]): TrainingDayPlan["fuelDemand"] | null {
+  if (sessions.length === 0) {
+    return null;
+  }
+  if (sessions.some((session) => session.fuelDemand === "high")) {
+    return "high";
+  }
+  if (sessions.some((session) => session.fuelDemand === "moderate")) {
+    return "moderate";
+  }
+  return "low";
+}
+
+function protectedAnchorFuelDemand(anchors: readonly ProtectedWorkout[]): TrainingDayPlan["fuelDemand"] | null {
+  if (anchors.length === 0) {
+    return null;
+  }
+  if (anchors.some(isHighStimulusProtectedWorkout)) {
+    return "high";
+  }
+  return "moderate";
+}
+
+function maxFuelDemand(demands: readonly (TrainingDayPlan["fuelDemand"] | null | undefined)[]): TrainingDayPlan["fuelDemand"] {
+  if (demands.includes("high")) {
+    return "high";
+  }
+  if (demands.includes("moderate")) {
+    return "moderate";
+  }
+  return "low";
+}
+
+function finalFuelDemandForDayPlan(input: {
+  dayPlan: TrainingDayPlan;
+  generatedSessions: readonly GeneratedTrainingSession[];
+}): TrainingDayPlan["fuelDemand"] {
+  const generatedDemand = generatedFuelDemand(input.generatedSessions);
+  const anchorDemand = protectedAnchorFuelDemand(input.dayPlan.protectedAnchors);
+  return maxFuelDemand([anchorDemand, generatedDemand]);
+}
+
+function recoveryOnlyFuelingSession(session: GeneratedTrainingSession): boolean {
+  return session.intensity === "recovery" || session.family === "recovery_reset" || trainingStimulusForFamily(session.family) === "recovery";
+}
+
+function supportSessionAllowedDuringFuelCap(session: GeneratedTrainingSession): boolean {
+  return recoveryOnlyFuelingSession(session) || (!isHighStimulusGeneratedSession(session) && session.intensity !== "hard" && session.fuelDemand !== "high");
+}
+
+function applyFuelingEvidenceGenerationGate(input: {
+  sessions: readonly GeneratedTrainingSession[];
+  safetyFlags: readonly RiskFlag[];
+}): { sessions: readonly GeneratedTrainingSession[]; reasons: readonly string[]; mode: "none" | "capped" | "recovery_only" } {
+  const severe = severeFuelingRisk(input.safetyFlags);
+  const capFlags = supportCountFuelCapFlags(input.safetyFlags);
+  if (!severe && !fuelingRiskCapsGeneratedCount(input.safetyFlags)) {
+    return { sessions: input.sessions, reasons: [], mode: "none" };
+  }
+  const reasons = uniqueStrings(
+    (severe
+      ? input.safetyFlags.filter(
+          (flag) =>
+            flag.status === "active" &&
+            flag.domain === "nutrition" &&
+            (flag.hardStop || flag.severity === "critical" || flag.code === "missed_period_underfueling_risk" || flag.code === "high_underfueling_blocks_deficit")
+        )
+      : capFlags)
+      .map((flag) => flag.message)
+  );
+  const reason = severe
+    ? "Positive under-fueling safety evidence makes generated support recovery-only until qualified review."
+    : "Positive under-fueling evidence caps generated support until recovery fuel and review are addressed.";
+  if (severe) {
+    return {
+      sessions: input.sessions.filter(recoveryOnlyFuelingSession).map((session) => markFuelingSafetyCappedSession(session, reason, "recovery")),
+      reasons,
+      mode: "recovery_only"
+    };
+  }
+  const allowed = input.sessions.filter(supportSessionAllowedDuringFuelCap);
   return {
-    ...session,
-    intensity: session.family.startsWith("power") || session.family.startsWith("strength") ? "moderate" : "easy",
-    fuelDemand: session.fuelDemand === "high" ? "moderate" : session.fuelDemand,
-    modifications: [...session.modifications, "High cycle symptoms trim optional hard work today. Keep the plan available, but do not chase top intensity."]
+    sessions: allowed.slice(0, 1).map((session) => markFuelingSafetyCappedSession(session, reason)),
+    reasons,
+    mode: "capped"
   };
 }
 
@@ -1015,7 +1442,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
     adjustments: input.trainingPlanAdjustments ?? []
   });
   const adjustedGeneratedBeforeGuidance = adjustmentApplication.dayPlans.flatMap((day) => day.generatedSessions);
-  const mergedGeneratedSessions = adjustedGeneratedBeforeGuidance.map((session) =>
+  const guidedGeneratedSessions = adjustedGeneratedBeforeGuidance.map((session) =>
     applyTrainingExecutionGuidance(
       applyCycleSymptomDownshift({
         ...session,
@@ -1031,6 +1458,11 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       input.executionReadiness
     )
   );
+  const fuelingGenerationGate = applyFuelingEvidenceGenerationGate({
+    sessions: guidedGeneratedSessions,
+    safetyFlags: input.safetyFlags ?? []
+  });
+  const mergedGeneratedSessions = fuelingGenerationGate.sessions;
   const requestedPlanIntentId = input.planGenerationIntent?.id ?? input.planRevision;
   const resolvedPlanIntentId = compilerResult.currentWeek.planIntent.activeRevisionId;
   const activeCompiledWeekId = `week:${resolvedPlanIntentId}:${compilerResult.currentWeek.weekStartDate}`;
@@ -1122,7 +1554,9 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
   const readinessDownshiftReasons = mergedGeneratedSessions.flatMap((session) => session.structuredPrescriptionV2?.compiledSession.readinessOverlay?.rationale ?? []);
   const evidenceBasedOverridesApplied = [
     ...persistentSafetyConstraints.map((constraint) => `Active ${constraint.affectedBodyRegion} safety constraint scoped to ${constraint.affectedTrainingDomains.join(", ")}.`),
-    ...(input.redReadinessHardStop ? ["Same-day readiness hard-stop changed only today's matching compiled session."] : [])
+    ...(input.redReadinessHardStop ? ["Same-day readiness hard-stop changed only today's matching compiled session."] : []),
+    ...(fuelingGenerationGate.mode === "recovery_only" ? ["Positive under-fueling safety evidence made generated support recovery-only until qualified review."] : []),
+    ...(fuelingGenerationGate.mode === "capped" ? ["Positive under-fueling evidence capped generated support until recovery fuel and review are addressed."] : [])
   ];
   const executionAdjustmentsApplied = [
     ...input.executionReadiness.sessionExecutionGuidance,
@@ -1142,6 +1576,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
   const reducedBy: TrainingGenerationReductionSource[] = [
     ...(input.hardStopOrRedReadiness ? (["readiness"] as const) : []),
     ...(persistentSafetyConstraints.length > 0 ? (["safety"] as const) : []),
+    ...(fuelingGenerationGate.mode !== "none" ? (["nutrition"] as const) : []),
     ...(input.highCycleSymptoms ? (["cycle"] as const) : []),
     ...(input.candidateAllowedDays < targetGeneratedSupportCount ? (["availability"] as const) : []),
     ...(input.blockedByAnchors ? (["anchors"] as const) : [])
@@ -1339,7 +1774,7 @@ function resolveCompiledTrainingStateWithCompiler(input: ResolveCompiledTraining
       const compiled = session.structuredPrescriptionV2?.compiledSession;
       return `${session.date}: V2 placed ${session.title} for ${compiled?.primaryAdaptation ?? session.trainingStimulus ?? "support"} with ${compiled?.displayedDurationMinutes ?? session.durationMinutes} structured minutes.`;
     }),
-    blockedGenerationReasons: [...validationFailures, ...unresolvedTargetReasons],
+    blockedGenerationReasons: [...validationFailures, ...unresolvedTargetReasons, ...fuelingGenerationGate.reasons],
     persistenceWarning: "",
     reducedBy
   };

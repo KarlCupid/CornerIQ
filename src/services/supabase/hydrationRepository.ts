@@ -4,8 +4,9 @@ import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, numericValue, parseWithSchema, readDataOrThrow, toJson } from "./repositoryTypes";
 
-export type WaterLogRow = Pick<TableRow<"water_logs">, "created_at" | "log_date" | "liters">;
-export type ElectrolyteLogRow = Pick<TableRow<"electrolyte_logs">, "created_at" | "log_date" | "sodium_mg">;
+export type WaterLogRow = Pick<TableRow<"water_logs">, "created_at" | "log_date" | "liters"> & Partial<Pick<TableRow<"water_logs">, "id">>;
+export type ElectrolyteLogRow = Pick<TableRow<"electrolyte_logs">, "created_at" | "log_date" | "sodium_mg"> &
+  Partial<Pick<TableRow<"electrolyte_logs">, "id">>;
 
 export interface CreateWaterLogInput {
   userId: string;
@@ -21,24 +22,24 @@ export interface CreateElectrolyteLogInput {
 }
 
 export function mapWaterLogRow(row: WaterLogRow): WaterLog {
-  return parseWithSchema(WaterLogSchema, { date: row.log_date, liters: numericValue(row.liters, "water_logs.liters"), recordedAt: row.created_at }, "water_logs");
+  return parseWithSchema(WaterLogSchema, { id: row.id, date: row.log_date, liters: numericValue(row.liters, "water_logs.liters"), recordedAt: row.created_at }, "water_logs");
 }
 
 export function mapElectrolyteLogRow(row: ElectrolyteLogRow): ElectrolyteLog {
-  return parseWithSchema(ElectrolyteLogSchema, { date: row.log_date, sodiumMg: numericValue(row.sodium_mg, "electrolyte_logs.sodium_mg"), recordedAt: row.created_at }, "electrolyte_logs");
+  return parseWithSchema(ElectrolyteLogSchema, { id: row.id, date: row.log_date, sodiumMg: numericValue(row.sodium_mg, "electrolyte_logs.sodium_mg"), recordedAt: row.created_at }, "electrolyte_logs");
 }
 
 export function createHydrationRepository(client: CornerSupabaseClient) {
   return {
     async listWaterLogs(userId: string): Promise<WaterLog[]> {
       const safeUserId = assertUserId(userId, "water_logs.listWaterLogs");
-      const response = await client.from("water_logs").select("created_at, log_date, liters").eq("user_id", safeUserId).order("log_date", { ascending: true });
+      const response = await client.from("water_logs").select("id, created_at, log_date, liters").eq("user_id", safeUserId).order("log_date", { ascending: true });
       return readDataOrThrow(response, "water_logs.listWaterLogs").map(mapWaterLogRow);
     },
 
     async listElectrolyteLogs(userId: string): Promise<ElectrolyteLog[]> {
       const safeUserId = assertUserId(userId, "electrolyte_logs.listElectrolyteLogs");
-      const response = await client.from("electrolyte_logs").select("created_at, log_date, sodium_mg").eq("user_id", safeUserId).order("log_date", { ascending: true });
+      const response = await client.from("electrolyte_logs").select("id, created_at, log_date, sodium_mg").eq("user_id", safeUserId).order("log_date", { ascending: true });
       return readDataOrThrow(response, "electrolyte_logs.listElectrolyteLogs").map(mapElectrolyteLogRow);
     },
 
