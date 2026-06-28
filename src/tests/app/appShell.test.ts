@@ -366,6 +366,7 @@ const fuelViewModel: FuelViewModel = {
     ]
   },
   hitTheseFirst: ["Water", "Carbs"],
+  fuelTimingRecommendations: [],
   macroTargets: {
     why: "Targets are based on your profile and today's training. Demand tier: strength.",
     confidence: "medium",

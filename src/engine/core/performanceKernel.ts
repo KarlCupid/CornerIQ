@@ -51,6 +51,15 @@ function trainingBlockHistoryFor(journey: ResolvePerformanceStateInput["journey"
   };
 }
 
+function nutritionTraceInputSummary(nutrition: PerformanceState["nutrition"]): string {
+  const selected = nutrition.fuelTargetRange.selected;
+  if (selected.caloriesKcal === null) {
+    return `calorie target unavailable (${nutrition.targetConfidence.status})`;
+  }
+  const carbs = selected.carbohydrateGrams === null ? "carb target unavailable" : `${selected.carbohydrateGrams}g carbs`;
+  return `${selected.caloriesKcal} kcal, ${carbs}`;
+}
+
 function underFuelingCalorieTargets(input: {
   athlete: ResolvePerformanceStateInput["journey"]["athlete"];
   phase: ReturnType<typeof resolvePhase>;
@@ -328,7 +337,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
     traceDecision({
       engine: "Corner Engine",
       step: "nutrition",
-      inputSummary: `${nutrition.dailyCaloriesTarget} kcal, ${nutrition.carbohydrateGrams}g carbs`,
+      inputSummary: nutritionTraceInputSummary(nutrition),
       selectedDecision: nutrition.explanation,
       rejectedAlternatives: nutrition.acuteProtocolStatus === "blocked" ? ["fight-week acute protocol"] : [],
       rationale: nutrition.explanation,
@@ -366,7 +375,7 @@ export function resolvePerformanceState(input: ResolvePerformanceStateInput): Pe
       planRevisionId: planGenerationIntent?.id ?? null,
       planStartDate: planGenerationIntent?.planStartDate ?? training.activeBlock.startDate,
       risks: safety.riskFlags.map((flag) => flag.id),
-      nutrition: nutrition.dailyCaloriesTarget,
+      nutrition: nutrition.fuelTargetRange.selected.caloriesKcal ?? nutrition.targetConfidence.status,
       sessions: training.generatedSessions.map((session) => session.id),
       adjustments: training.activeAdjustments.map((adjustment) => adjustment.id)
     }),

@@ -223,9 +223,14 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
   {
     id: "macro-target-body-size-demand",
     title: "Macro targets by body size and training demand",
-    files: ["src/engine/nutrition/macroTargets.ts", "src/engine/nutrition/sessionFueling.ts"],
+    files: ["src/engine/nutrition/macroTargets.ts", "src/engine/nutrition/sessionFueling.ts", "src/engine/nutrition/trainingEnergy.ts"],
     functions: ["calculateMacroTargets", "sessionFuelingGuidance"],
-    thresholds: ["calorie factors 32-40 kcal/kg by demand tier", "protein 2.0-2.1 g/kg", "carbohydrate 3.2-5.8 g/kg by demand tier", "deficit capped at min(300 kcal, 3.5 kcal/kg) only when safety allows"],
+    thresholds: [
+      "resting energy uses verified fat-free mass with normal confidence, legacy/source-less fat-free mass as low-confidence, otherwise body mass, height, age, and sex-at-birth",
+      "planned training energy uses body-size-aware MET proxy by generated session and protected anchor demand",
+      "calorie target uncertainty is 8-12%",
+      "deficit capped at min(300 kcal, 3.5 kcal/kg, 12% living energy) only when safety allows"
+    ],
     rationale:
       "Macro targets are body-size and demand scaled heuristics for beta support. They are not individualized dietetics care and should be recalibrated against athlete outcomes and qualified review.",
     sourcePosture: "externally_informed",
@@ -240,6 +245,28 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
         url: "https://pubmed.ncbi.nlm.nih.gov/26920240/"
       },
       { kind: "internal_policy", label: "Deficit pressure is blocked by hard stops, red readiness, cycle noise, or under-fueling evidence." }
+    ]
+  },
+  {
+    id: "fuel-timing-around-training",
+    title: "Food timing around selected training days",
+    files: ["src/engine/nutrition/fuelTiming.ts"],
+    functions: ["resolveFuelTimingRecommendations"],
+    thresholds: ["normal meal 1-3 or 2-3 hours before selected training", "optional snack 30-60 minutes before", "recovery meal or snack within 1-2 hours after"],
+    rationale:
+      "Timing recommendations should help boxers execute meaningful training days without turning food logs into a gate. The guidance is optional, plain-language, and only appears when training demand justifies the attention.",
+    sourcePosture: "externally_informed",
+    owner: "nutrition_safety",
+    reviewCadence: "after_calibration_data",
+    knownLimitations: ["No exact training start time is modeled yet.", "GI tolerance, culture, budget, and food access require user choice and later personalization."],
+    betaCalibrationPlan: "Review whether boxers understand the timing card and whether it reduces confusion before adding schedule-time personalization.",
+    sources: [
+      {
+        kind: "external_guideline",
+        label: "Academy/DC/ACSM nutrition position: meal timing and carbohydrate availability can support training.",
+        url: "https://pubmed.ncbi.nlm.nih.gov/26920240/"
+      },
+      { kind: "internal_policy", label: "Food timing is recommendation-only and never blocks workout generation." }
     ]
   },
   {

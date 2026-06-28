@@ -52,9 +52,9 @@ export interface ResolveFuelCommandCenterInput {
   activeNutritionSafetyReviews: readonly PersistedNutritionSafetyReview[];
   asOfDate: string;
   nutritionTargets: {
-    dailyCaloriesTarget: number;
-    carbohydrateGrams: number;
-    waterLiters: number;
+    dailyCaloriesTarget: number | null;
+    carbohydrateGrams: number | null;
+    waterLiters: number | null;
     sodiumGuidance: string;
     sessionFueling: readonly string[];
     lowResidueGuidance: string | null;
@@ -464,7 +464,9 @@ export function resolveFuelCommandCenter(input: ResolveFuelCommandCenterInput): 
       input.training.todaySessions.some((session) => session.fuelDemand === "high")
         ? "High fuel-demand session: prioritize familiar carbs and fluids before the work, then protein after."
         : input.nutritionTargets.sessionFueling.join(" "),
-    hydrationAction: `${input.nutritionTargets.waterLiters.toFixed(1)}L target context. ${input.nutritionTargets.sodiumGuidance}`,
+    hydrationAction: input.nutritionTargets.waterLiters === null
+      ? `Hydration target unavailable. ${input.nutritionTargets.sodiumGuidance}`
+      : `${input.nutritionTargets.waterLiters.toFixed(1)}L target context. ${input.nutritionTargets.sodiumGuidance}`,
     cycleAction: input.cycle.trackingEnabled ? input.cycle.nutritionAdjustment : "No cycle assumptions are applied.",
     safetyAction: nutritionSafetyReview.required ? nutritionSafetyReview.professionalReviewCopy : "No nutrition hard stop is active.",
     confidence: makeConfidence(

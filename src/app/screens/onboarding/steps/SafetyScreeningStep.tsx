@@ -118,25 +118,6 @@ export function SafetyScreeningStep({ draft, setStepError, updateDraft }: Onboar
           ) : (
             <Text style={screenStyles.subtle}>Pregnancy choices are hidden for this selection.</Text>
           )}
-          <FieldGroup helper="Optional flags only make guidance more conservative." label="Eating and weight-cut risk context">
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              <ChipButton
-                active={draft.safety.eatingDisorderRisk.activeConcern}
-                label="Active eating concern"
-                onPress={() => updateSafety((current) => ({ ...current, safety: { ...current.safety, eatingDisorderRisk: { ...current.safety.eatingDisorderRisk, activeConcern: !current.safety.eatingDisorderRisk.activeConcern } } }))}
-              />
-              <ChipButton
-                active={draft.safety.eatingDisorderRisk.severeRestrictionHistory}
-                label="Severe restriction history"
-                onPress={() => updateSafety((current) => ({ ...current, safety: { ...current.safety, eatingDisorderRisk: { ...current.safety.eatingDisorderRisk, severeRestrictionHistory: !current.safety.eatingDisorderRisk.severeRestrictionHistory } } }))}
-              />
-              <ChipButton
-                active={draft.safety.eatingDisorderRisk.rapidWeightLossConcern}
-                label="Rapid loss concern"
-                onPress={() => updateSafety((current) => ({ ...current, safety: { ...current.safety, eatingDisorderRisk: { ...current.safety.eatingDisorderRisk, rapidWeightLossConcern: !current.safety.eatingDisorderRisk.rapidWeightLossConcern } } }))}
-              />
-            </View>
-          </FieldGroup>
           <LabeledTextInput
             helper="Optional prior reactions during a cut."
             label="Prior adverse weight-cut events (optional notes)"

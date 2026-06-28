@@ -625,6 +625,62 @@ function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   );
 }
 
+function timingIcon(id: string): keyof typeof Ionicons.glyphMap {
+  if (/post/i.test(id)) {
+    return "refresh-outline";
+  }
+  if (/snack/i.test(id)) {
+    return "timer-outline";
+  }
+  return "restaurant-outline";
+}
+
+function FuelTimingCard({ viewModel }: { viewModel: FuelViewModel }) {
+  if (viewModel.fuelTimingRecommendations.length === 0) {
+    return null;
+  }
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.sm }} testID="fuel-timing-card">
+        <Text style={fuelTextStyles.sectionTitle}>Food timing</Text>
+        {viewModel.fuelTimingRecommendations.map((item) => (
+          <View
+            key={`fuel-timing:${item.id}`}
+            style={{
+              alignItems: "flex-start",
+              backgroundColor: fuelPalette.controlFill,
+              borderColor: fuelPalette.cardLine,
+              borderCurve: "continuous",
+              borderRadius: radii.tile,
+              borderWidth: 1,
+              flexDirection: "row",
+              gap: spacing.sm,
+              padding: spacing.md
+            }}
+          >
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: fuelTint(item.id.includes("post") ? "purple" : "orange", "16"),
+                borderRadius: radii.pill,
+                height: 34,
+                justifyContent: "center",
+                width: 34
+              }}
+            >
+              <Ionicons color={colorForTone(item.id.includes("post") ? "purple" : "orange")} name={timingIcon(item.id)} size={17} />
+            </View>
+            <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+              <Text style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{item.title}: {item.timing}</Text>
+              <Text style={{ color: fuelPalette.textBody, fontSize: 12, fontWeight: "700", lineHeight: 17 }}>{item.amount}. {item.suggestion}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </EngineCard>
+  );
+}
+
 function TrainingTodayCard({
   plan,
   trainingCopy,
@@ -1156,6 +1212,7 @@ function FuelOverview({
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
       <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} safety={safety} viewModel={viewModel} />
       <DoNotMissTodayCard dashboard={dashboard} />
+      <FuelTimingCard viewModel={viewModel} />
       <FuelSafetyCard
         message={message}
         onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}

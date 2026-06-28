@@ -26,7 +26,22 @@ describe("energy availability estimate", () => {
     expect(state.nutrition.energyAvailabilityEstimate.missingInputs).toContain("fat-free mass");
   });
 
-  it("calculates measured EA only when intake, exercise energy, and FFM are available", () => {
+  it("keeps energy availability optional when food is not logged and no risk signal is present", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        nutritionHistory: [],
+        journeyEvents: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.nutrition.energyAvailabilityEstimate.status).toBe("not_estimated");
+    expect(state.nutrition.energyAvailabilityEstimate.blocksDeficitPressure).toBe(false);
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+  });
+
+  it("calculates provisional EA when legacy FFM lacks source metadata", () => {
     const journey: AthleteJourney = {
       ...pro_4_round_build_strength,
       athlete: { ...pro_4_round_build_strength.athlete, fatFreeMassKg: 55 },
@@ -35,9 +50,33 @@ describe("energy availability estimate", () => {
     };
     const state = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate });
 
-    expect(state.nutrition.energyAvailabilityEstimate.method).toBe("measured_ffm");
+    expect(state.nutrition.energyAvailabilityEstimate.method).toBe("estimated_ffm");
     expect(state.nutrition.energyAvailabilityEstimate.kcalPerKgFfm).toBeGreaterThan(30);
+    expect(state.nutrition.energyAvailabilityEstimate.missingInputs).toContain("verified fat-free mass");
+    expect(state.nutrition.energyAvailabilityEstimate.reasons.join(" ")).toContain("Legacy fat-free mass");
     expect(["likely_adequate", "watch"]).toContain(state.nutrition.energyAvailabilityEstimate.status);
+  });
+
+  it("labels EA as measured only when FFM has source, date, and confidence", () => {
+    const journey: AthleteJourney = {
+      ...pro_4_round_build_strength,
+      athlete: {
+        ...pro_4_round_build_strength.athlete,
+        fatFreeMassEstimate: {
+          kg: 55,
+          source: "dexa",
+          measuredAt: fixtureAsOfDate,
+          confidence: "high"
+        }
+      },
+      nutritionHistory: [{ date: fixtureAsOfDate, calories: 2800, proteinGrams: 150, carbohydrateGrams: 360, fatGrams: 80, confidence: "high" }],
+      journeyEvents: [completeFoodEvent()]
+    };
+    const state = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate });
+
+    expect(state.nutrition.energyAvailabilityEstimate.method).toBe("measured_ffm");
+    expect(state.nutrition.energyAvailabilityEstimate.missingInputs).not.toContain("verified fat-free mass");
+    expect(state.nutrition.energyAvailabilityEstimate.reasons.join(" ")).toContain("source, date, and confidence");
   });
 
   it("blocks deficit pressure when measured EA is high risk", () => {

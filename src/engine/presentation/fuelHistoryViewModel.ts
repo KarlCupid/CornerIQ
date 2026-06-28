@@ -71,12 +71,12 @@ export interface BuildFuelHistoryViewModelInput {
   waterLogs: readonly WaterLogLike[];
   electrolyteLogs: readonly ElectrolyteLogLike[];
   nutritionTargets: {
-    calories: number;
-    proteinGrams: number;
-    carbohydrateGrams: number;
-    fatGrams: number;
-    fiberGrams: number;
-    waterLiters: number;
+    calories: number | null;
+    proteinGrams: number | null;
+    carbohydrateGrams: number | null;
+    fatGrams: number | null;
+    fiberGrams: number | null;
+    waterLiters: number | null;
   };
   fightWeekActive: boolean;
   highFuelDemandDates?: readonly ISODateString[] | undefined;
@@ -247,13 +247,19 @@ export function buildFuelHistoryViewModel(input: BuildFuelHistoryViewModelInput)
       avgCalories === null || avgProtein === null || avgCarbs === null
         ? ["7-day macro trend unknown until manual food logs exist."]
         : [
-            `7-day average: ${avgCalories.toFixed(0)} kcal against ${input.nutritionTargets.calories} kcal target context.`,
+            input.nutritionTargets.calories === null
+              ? `7-day average: ${avgCalories.toFixed(0)} kcal. No calorie target is available yet.`
+              : `7-day average: ${avgCalories.toFixed(0)} kcal against ${input.nutritionTargets.calories} kcal target.`,
             `Protein average: ${avgProtein.toFixed(0)}g. Carbohydrate average: ${avgCarbs.toFixed(0)}g.`
           ],
     hydrationTrend7Day:
       avgWater === null
         ? ["Hydration trend unknown until manual water logs exist."]
-        : [`Today: ${todayWater.toFixed(1)}L logged. 7-day average: ${avgWater.toFixed(1)}L against ${input.nutritionTargets.waterLiters.toFixed(1)}L target context.`],
+        : [
+            input.nutritionTargets.waterLiters === null
+              ? `Today: ${todayWater.toFixed(1)}L logged. 7-day average: ${avgWater.toFixed(1)}L. No fluid target is available yet.`
+              : `Today: ${todayWater.toFixed(1)}L logged. 7-day average: ${avgWater.toFixed(1)}L against ${input.nutritionTargets.waterLiters.toFixed(1)}L target.`
+          ],
     electrolyteSummary:
       electrolytes7Day.length > 0
         ? `Electrolytes logged on ${electrolytes7Day.length} of the last 7 days. Today adds ${sum(electrolytesToday.map((log) => log.sodiumMg))}mg sodium.`

@@ -1,4 +1,4 @@
-import type { AmateurOrPro, Height, ISODateString, ISODateTimeString, Mass, UnitSystem } from "../core/sharedTypes";
+import type { AmateurOrPro, ConfidenceLevel, Height, ISODateString, ISODateTimeString, Mass, UnitSystem } from "../core/sharedTypes";
 import type { BodyMassLog } from "../bodyMass/types";
 import type { CycleLog, CycleTrackingPreference } from "../cycle/types";
 import type { FightOpportunity, TournamentDetails } from "../fight/types";
@@ -44,6 +44,15 @@ export interface PriorWeightCutHistory {
   lowestRecentFightingWeightKg: number | null;
 }
 
+export type FatFreeMassSource = "dexa" | "bod_pod" | "skinfold" | "bioimpedance" | "clinician" | "user_estimate" | "unknown";
+
+export interface FatFreeMassEstimate {
+  kg: number;
+  source: FatFreeMassSource;
+  measuredAt?: ISODateString | undefined;
+  confidence: ConfidenceLevel;
+}
+
 export interface AthleteProfile {
   athleteId: string;
   dateOfBirth?: ISODateString | undefined;
@@ -54,6 +63,7 @@ export interface AthleteProfile {
   height: Height;
   currentBodyMass: Mass | null;
   fatFreeMassKg?: number | undefined;
+  fatFreeMassEstimate?: FatFreeMassEstimate | undefined;
   preferredUnits: UnitSystem;
   boxingLevel: BoxingLevel;
   amateurOrPro: AmateurOrPro;

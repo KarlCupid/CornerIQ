@@ -11,8 +11,10 @@ import type {
   TrainingDemandTier,
   TrainingState
 } from "../core/types";
-import { toKg } from "../core/units";
+import { inToCm, toKg } from "../core/units";
 import { assertFuelEvidenceIds } from "./evidenceRegistry";
+import { resolveFatFreeMass } from "./fatFreeMass";
+import { estimatePlannedExerciseEnergyKcal } from "./trainingEnergy";
 
 const tierRank: Record<TrainingDemandTier, number> = {
   recovery_day: 0,
@@ -84,27 +86,6 @@ export function weeklyTrainingDemandTier(input: { training: TrainingState; phase
   return strongestTier(input.training.dayPlans.map((day) => trainingDemandTierForDate({ training: input.training, phase: input.phase, date: day.date })));
 }
 
-function tierCaloriesPerKg(tier: TrainingDemandTier): number {
-  const factors: Record<TrainingDemandTier, number> = {
-    recovery_day: 32,
-    technical_boxing: 34,
-    strength: 35,
-    power: 36,
-    hard_conditioning: 38,
-    long_zone2: 37,
-    protected_sparring_or_hard_anchor: 39,
-    mixed_high_day: 40,
-    fight_week_taper: 34,
-    tournament_reset: 36
-  };
-  return factors[tier];
-}
-
-function tierCaloriesPerKgRange(tier: TrainingDemandTier): NumericRange {
-  const center = tierCaloriesPerKg(tier);
-  return { min: center - 3, max: center + 3 };
-}
-
 function tierCarbRange(tier: TrainingDemandTier): { range: NumericRange; evidenceId: string } {
   const factors: Record<TrainingDemandTier, { range: NumericRange; evidenceId: string }> = {
     recovery_day: { range: { min: 3, max: 5 }, evidenceId: "carb_light_technical_3_5_g_per_kg" },
@@ -172,10 +153,10 @@ export function calculateMacroTargets(input: {
     date: input.asOfDate ?? input.training.supportGenerationAudit.asOfDate
   });
   return {
-    calories: midpoint(targetRange.caloriesKcal),
-    proteinGrams: midpoint(targetRange.proteinGrams),
-    carbohydrateGrams: midpoint(targetRange.carbohydrateGrams),
-    fatGrams: midpoint(targetRange.fatGrams),
+    calories: targetRange.selected.caloriesKcal ?? 0,
+    proteinGrams: targetRange.selected.proteinGrams ?? 0,
+    carbohydrateGrams: targetRange.selected.carbohydrateGrams ?? 0,
+    fatGrams: targetRange.selected.fatGrams ?? 0,
     todayTrainingDemandTier,
     targetRange
   };
@@ -198,7 +179,7 @@ export function calculateDailyCalorieTarget(input: {
   const trainingDemandTier = trainingDemandTierForDate({ training: input.training, phase: input.phase, date: input.date });
   const targetRange = calculateFuelTargetRange({ ...input });
   return {
-    calories: midpoint(targetRange.caloriesKcal),
+    calories: targetRange.selected.caloriesKcal ?? 0,
     bodyMassKg: kg,
     trainingDemandTier,
     targetRange
@@ -223,6 +204,123 @@ function roundRange(range: NumericRange, digits = 0): NumericRange {
   return {
     min: round(range.min, digits),
     max: round(range.max, digits)
+  };
+}
+
+function selectedTargetsFromRanges(input: {
+  status: FuelTargetRange["status"];
+  caloriesKcal: NumericRange | null;
+  proteinGrams: NumericRange | null;
+  carbohydrateGrams: NumericRange | null;
+  fatGrams: NumericRange | null;
+  fiberGrams: NumericRange | null;
+  fluidLiters: NumericRange | null;
+}): FuelTargetRange["selected"] {
+  const source =
+    input.status === "blocked_by_safety"
+      ? "blocked_by_safety"
+      : input.status === "numeric_unavailable"
+        ? "numeric_unavailable"
+        : "range_midpoint";
+  return {
+    caloriesKcal: midpoint(input.caloriesKcal) || null,
+    proteinGrams: midpoint(input.proteinGrams) || null,
+    carbohydrateGrams: midpoint(input.carbohydrateGrams) || null,
+    fatGrams: midpoint(input.fatGrams) || null,
+    fiberGrams: midpoint(input.fiberGrams) || null,
+    fluidLiters: input.fluidLiters ? round((input.fluidLiters.min + input.fluidLiters.max) / 2, 1) : null,
+    source
+  };
+}
+
+function heightCm(athlete: AthleteProfile): number {
+  return athlete.height.unit === "cm" ? athlete.height.value : inToCm(athlete.height.value);
+}
+
+function restingEnergyEstimate(input: { athlete: AthleteProfile; bodyMassKg: number }): { kcal: number; reasons: readonly string[]; lowConfidence: boolean } {
+  const reasons: string[] = [];
+  const fatFreeMass = resolveFatFreeMass({ athlete: input.athlete, bodyMassKg: input.bodyMassKg });
+  if (fatFreeMass.kg !== null) {
+    return {
+      kcal: round(370 + 21.6 * fatFreeMass.kg),
+      reasons: fatFreeMass.reasons,
+      lowConfidence: fatFreeMass.lowConfidence
+    };
+  }
+  if (input.athlete.fatFreeMassKg !== undefined || input.athlete.fatFreeMassEstimate !== undefined) {
+    reasons.push("Lean mass entry is not usable, so resting calories use body weight, height, age, and sex.");
+  }
+  const age = input.athlete.ageYears ?? 30;
+  if (input.athlete.ageYears === undefined) {
+    reasons.push("Age is missing, so resting energy uses an adult default.");
+  }
+  const sexConstant =
+    input.athlete.sexAtBirth === "male"
+      ? 5
+      : input.athlete.sexAtBirth === "female"
+        ? -161
+        : -78;
+  if (input.athlete.sexAtBirth === undefined || input.athlete.sexAtBirth === "intersex" || input.athlete.sexAtBirth === "prefer_not_to_say") {
+    reasons.push("Sex-at-birth is not specified, so resting energy uses a neutral estimate.");
+  }
+  const kcal = 10 * input.bodyMassKg + 6.25 * heightCm(input.athlete) - 5 * age + sexConstant;
+  return {
+    kcal: round(kcal),
+    reasons,
+    lowConfidence: reasons.length > 0
+  };
+}
+
+function dailyLivingMultiplier(tier: TrainingDemandTier): number {
+  const multipliers: Record<TrainingDemandTier, number> = {
+    recovery_day: 1.2,
+    technical_boxing: 1.22,
+    strength: 1.24,
+    power: 1.24,
+    hard_conditioning: 1.27,
+    long_zone2: 1.25,
+    protected_sparring_or_hard_anchor: 1.28,
+    mixed_high_day: 1.28,
+    fight_week_taper: 1.3,
+    tournament_reset: 1.3
+  };
+  return multipliers[tier];
+}
+
+function dailyEnergyRange(input: {
+  athlete: AthleteProfile;
+  training: TrainingState;
+  readiness: ReadinessState;
+  bodyMassKg: number;
+  tier: TrainingDemandTier;
+  date: string;
+  applyDeficit: boolean;
+  lowConfidence: boolean;
+}): { caloriesKcal: NumericRange; reasons: readonly string[]; lowConfidence: boolean } {
+  const resting = restingEnergyEstimate({ athlete: input.athlete, bodyMassKg: input.bodyMassKg });
+  const dailyLiving = resting.kcal * dailyLivingMultiplier(input.tier);
+  const trainingEnergy = estimatePlannedExerciseEnergyKcal({
+    generatedSessions: input.training.generatedSessions,
+    protectedAnchors: input.training.protectedAnchors,
+    bodyMassKg: input.bodyMassKg,
+    date: input.date
+  });
+  const recoveryAdd = input.readiness.color === "red" ? Math.max(100, input.bodyMassKg * 1.5) : input.readiness.color === "amber" ? 50 : 0;
+  const deficit =
+    input.applyDeficit && deficitAllowedForTier(input.tier)
+      ? Math.min(300, input.bodyMassKg * 3.5, dailyLiving * 0.12)
+      : 0;
+  const center = dailyLiving + trainingEnergy + recoveryAdd - deficit;
+  const uncertainty = center * (input.lowConfidence || resting.lowConfidence ? 0.12 : 0.08);
+  const floor = input.bodyMassKg * 22;
+  return {
+    caloriesKcal: roundRange({ min: Math.max(floor, center - uncertainty), max: center + uncertainty }),
+    reasons: [
+      ...resting.reasons,
+      `Training energy estimate adds about ${Math.round(trainingEnergy)} kcal for today's planned work.`,
+      deficit > 0 ? "A small deficit is included only because safety gates allow it." : "No extra deficit pressure is applied."
+    ],
+    lowConfidence: resting.lowConfidence || input.lowConfidence
   };
 }
 
@@ -282,6 +380,10 @@ export function calculateFuelTargetRange(input: {
     "adult_amdr_fat_20_35_percent_energy",
     "fiber_context_14_g_per_1000_kcal",
     "baseline_water_context_30_40_ml_per_kg",
+    "mifflin_st_jeor_rmr_context",
+    "cunningham_rmr_lean_mass_context",
+    "training_energy_met_context_by_demand",
+    "energy_target_uncertainty_8_12_percent",
     "body_mass_freshness_general_14_days",
     ...(input.activeFightContext ? ["body_mass_freshness_active_fight_7_days"] : []),
     ...(input.applyDeficit ? ["chronic_loss_conservative_0_25_0_75_percent_per_week"] : []),
@@ -298,6 +400,15 @@ export function calculateFuelTargetRange(input: {
       fatGrams: null,
       fiberGrams: null,
       fluidLiters: null,
+      selected: selectedTargetsFromRanges({
+        status: "blocked_by_safety",
+        caloriesKcal: null,
+        proteinGrams: null,
+        carbohydrateGrams: null,
+        fatGrams: null,
+        fiberGrams: null,
+        fluidLiters: null
+      }),
       sodiumGuidance: "Keep sodium consistent unless qualified support changes the plan.",
       reasons: [
         input.safetyBlocked ? "Hard-stop safety evidence is active." : null,
@@ -319,6 +430,15 @@ export function calculateFuelTargetRange(input: {
       fatGrams: null,
       fiberGrams: null,
       fluidLiters: null,
+      selected: selectedTargetsFromRanges({
+        status: "numeric_unavailable",
+        caloriesKcal: null,
+        proteinGrams: null,
+        carbohydrateGrams: null,
+        fatGrams: null,
+        fiberGrams: null,
+        fluidLiters: null
+      }),
       sodiumGuidance: "Keep sodium consistent with normal meals and training unless qualified support changes it.",
       reasons: mass.reasons,
       missingInputs: mass.missingInputs,
@@ -327,17 +447,17 @@ export function calculateFuelTargetRange(input: {
     };
   }
 
-  const calorieFactor = tierCaloriesPerKgRange(trainingDemandTier);
-  const recoveryAdd = input.readiness.color === "red" ? mass.kg * 2 : 0;
-  const deficit = input.applyDeficit && deficitAllowedForTier(trainingDemandTier) ? Math.min(300, mass.kg * 3.5) : 0;
-  const uncertainty = mass.lowConfidence ? mass.kg * 3 : 0;
-  const caloriesKcal = roundRange(
-    {
-      min: mass.kg * calorieFactor.min + recoveryAdd - deficit - uncertainty,
-      max: mass.kg * calorieFactor.max + recoveryAdd - deficit + uncertainty
-    },
-    0
-  );
+  const energy = dailyEnergyRange({
+    athlete: input.athlete,
+    training: input.training,
+    readiness: input.readiness,
+    bodyMassKg: mass.kg,
+    tier: trainingDemandTier,
+    date: input.date,
+    applyDeficit: input.applyDeficit,
+    lowConfidence: mass.lowConfidence
+  });
+  const caloriesKcal = energy.caloriesKcal;
   const proteinGrams = scaleRange(mass.kg, protein.range);
   const carbohydrateGrams = scaleRange(mass.kg, carb.range);
   const fatFloor = scaleRange(mass.kg, { min: 0.5, max: 0.9 });
@@ -348,13 +468,23 @@ export function calculateFuelTargetRange(input: {
       ? { min: 12, max: 20 }
       : roundRange({ min: (caloriesKcal.min / 1000) * 14, max: (caloriesKcal.max / 1000) * 14 });
   const fluidLiters = roundRange({ min: mass.kg * 0.03, max: mass.kg * 0.04 }, 1);
-  const status: FuelTargetRange["status"] = mass.lowConfidence ? "low_confidence" : input.applyDeficit || input.readiness.color !== "green" ? "provisional" : "confident";
+  const status: FuelTargetRange["status"] = energy.lowConfidence ? "low_confidence" : input.applyDeficit || input.readiness.color !== "green" ? "provisional" : "confident";
   const reasons = [
     ...mass.reasons,
-    input.applyDeficit ? "A conservative deficit range is included only because safety gates allow it." : "No extra deficit pressure is applied.",
+    ...energy.reasons,
     input.readiness.color === "red" ? "Red readiness protects recovery fuel." : null,
-    mass.lowConfidence ? "Body-mass confidence is low, so the range is widened." : null
+    energy.lowConfidence ? "Some calorie inputs are missing or low-confidence, so the target zone is wider." : null
   ].filter((value): value is string => value !== null);
+
+  const selected = selectedTargetsFromRanges({
+    status,
+    caloriesKcal,
+    proteinGrams,
+    carbohydrateGrams,
+    fatGrams,
+    fiberGrams,
+    fluidLiters
+  });
 
   return {
     status,
@@ -364,13 +494,14 @@ export function calculateFuelTargetRange(input: {
     fatGrams,
     fiberGrams,
     fluidLiters,
+    selected,
     sodiumGuidance: "Keep sodium consistent with normal meals and add electrolytes for hard sweating sessions.",
     reasons,
     missingInputs: mass.missingInputs,
     evidenceIds,
     athleteFacingCopy:
       status === "confident"
-        ? "Targets are ranges with enough current context for normal fueling guidance."
-        : "Targets are a range guide because input confidence is limited. Use the range before any midpoint."
+        ? "Today's number is picked from the middle of a safe target zone."
+        : "Today's number is a cautious guide because some inputs are missing or changing."
   };
 }

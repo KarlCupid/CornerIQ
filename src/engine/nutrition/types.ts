@@ -162,6 +162,7 @@ export interface NutritionState {
   hydrationPlanV2: HydrationPlanV2;
   sodiumGuidance: string;
   sessionFueling: readonly string[];
+  fuelTimingRecommendations: readonly FuelTimingRecommendation[];
   hitTheseFirst: readonly string[];
   bodyMassNote: string;
   cycleNote: string | null;
@@ -197,6 +198,16 @@ export type NumericRange = {
   max: number;
 };
 
+export interface FuelSelectedTargets {
+  caloriesKcal: number | null;
+  proteinGrams: number | null;
+  carbohydrateGrams: number | null;
+  fatGrams: number | null;
+  fiberGrams: number | null;
+  fluidLiters: number | null;
+  source: "range_midpoint" | "numeric_unavailable" | "blocked_by_safety";
+}
+
 export interface FuelTargetRange {
   status: "confident" | "provisional" | "low_confidence" | "numeric_unavailable" | "blocked_by_safety";
   caloriesKcal: NumericRange | null;
@@ -205,6 +216,7 @@ export interface FuelTargetRange {
   fatGrams: NumericRange | null;
   fiberGrams: NumericRange | null;
   fluidLiters: NumericRange | null;
+  selected: FuelSelectedTargets;
   sodiumGuidance: string;
   reasons: readonly string[];
   missingInputs: readonly string[];
@@ -236,6 +248,17 @@ export interface HydrationPlanV2 {
   reasons: readonly string[];
   missingInputs: readonly string[];
   evidenceIds: readonly string[];
+}
+
+export interface FuelTimingRecommendation {
+  id: string;
+  date: ISODateString;
+  title: string;
+  timing: string;
+  amount: string;
+  suggestion: string;
+  reason: string;
+  optional: boolean;
 }
 
 export interface NutritionTrainingDemandHandoff {

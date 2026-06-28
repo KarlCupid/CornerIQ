@@ -71,8 +71,42 @@ describe("food log energy validation", () => {
     expect(validation.valid).toBe(true);
     expect(validation.status).toBe("macro_partial");
     expect(summary.quality.status).toBe("macro_partial");
-    expect(summary.quality.targetComparisonAllowedByNutrient).toMatchObject({ calories: true, protein: true, carbohydrate: false, fat: false });
+    expect(summary.quality.targetComparisonAllowedByNutrient).toMatchObject({ calories: false, protein: false, carbohydrate: false, fat: false });
     expect(summary.underFuelingEvidenceAllowed).toBe(false);
+  });
+
+  it("keeps completed food logs advisory when targets are missing or nonpositive", () => {
+    const summary = summarizeFoodLogs(
+      [
+        {
+          date: fixtureAsOfDate,
+          calories: 2100,
+          proteinGrams: 130,
+          carbohydrateGrams: 240,
+          fatGrams: 70,
+          confidence: "high",
+          entryType: "day_total",
+          sourceConfidence: "high"
+        }
+      ],
+      fixtureAsOfDate,
+      { calories: 0, proteinGrams: 0, carbohydrateGrams: 0, fatGrams: 0 },
+      [
+        {
+          date: fixtureAsOfDate,
+          status: "complete_high_confidence",
+          completionSource: "user",
+          userMarkedCompleteAt: `${fixtureAsOfDate}T20:00:00.000Z`
+        }
+      ]
+    );
+
+    expect(summary.targetComparisonAllowed).toBe(false);
+    expect(summary.underFuelingEvidenceAllowed).toBe(false);
+    expect(summary.calorieTargetPercent).toBeNull();
+    expect(summary.dailySummary.targetComparisonAllowedByNutrient).toMatchObject({ calories: false, protein: false, carbohydrate: false, fat: false });
+    expect(summary.dailySummary.confidence.missingInputs).toContain("valid calorie target");
+    expect(summary.dailySummary.quality.reasons.join(" ")).toContain("Calorie target is unavailable");
   });
 
   it("keeps inconsistent completed logs out of target comparison and under-fueling evidence", () => {

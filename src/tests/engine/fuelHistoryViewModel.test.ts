@@ -25,7 +25,7 @@ describe("fuelHistoryViewModel", () => {
     });
 
     expect(viewModel.todaySummary).toContain("2200 kcal");
-    expect(viewModel.macroTrend7Day[0]).toContain("2200 kcal target context");
+    expect(viewModel.macroTrend7Day[0]).toContain("2200 kcal target");
     expect(viewModel.recentMeals[0]).toContain("2026-05-19");
     expect(viewModel.groupedDays).toHaveLength(7);
     expect(viewModel.groupedDays[0]).toMatchObject({ date: "2026-05-19", calories: 2200, protein: 132, carbs: 260, fat: 70 });
@@ -51,6 +51,29 @@ describe("fuelHistoryViewModel", () => {
     expect(viewModel.hydrationTrend7Day[0]).toContain("2.6L");
     expect(viewModel.electrolyteSummary).toContain("2 of the last 7 days");
     expect(viewModel.hydrationConsistency).toContain("Water logged on 2/7 days");
+  });
+
+  it("uses plain copy when target numbers are unavailable", () => {
+    const viewModel = buildFuelHistoryViewModel({
+      asOfDate: "2026-05-19",
+      foodLogs: [{ date: "2026-05-19", calories: 2200, proteinGrams: 132, carbohydrateGrams: 260, fatGrams: 70, confidence: "medium" }],
+      waterLogs: [{ date: "2026-05-19", liters: 2.6 }],
+      electrolyteLogs: [],
+      nutritionTargets: {
+        calories: null,
+        proteinGrams: null,
+        carbohydrateGrams: null,
+        fatGrams: null,
+        fiberGrams: null,
+        waterLiters: null
+      },
+      fightWeekActive: false
+    });
+
+    expect(viewModel.macroTrend7Day[0]).toContain("No calorie target is available yet.");
+    expect(viewModel.hydrationTrend7Day[0]).toContain("No fluid target is available yet.");
+    expect(viewModel.macroTrend7Day.join(" ")).not.toContain("unavailable target context");
+    expect(viewModel.hydrationTrend7Day.join(" ")).not.toContain("unavailable target context");
   });
 
   it("uses non-shaming missing-data copy when logs are absent", () => {

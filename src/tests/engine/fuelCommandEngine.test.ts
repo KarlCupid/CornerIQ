@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { AthleteJourney, FightOpportunity } from "../../engine/core/types";
+import { resolveFuelTimingRecommendations } from "../../engine/nutrition/fuelTiming";
 import {
   fixtureAsOfDate,
   menstruating_athlete_build_phase_scale_noise,
@@ -30,6 +31,20 @@ function withFight(base: AthleteJourney, fight: Partial<FightOpportunity>, bodyM
     ...base,
     activeFightOpportunity: { ...activeFightOpportunity, ...fight },
     bodyMassHistory
+  };
+}
+
+function completeFoodEvent(date = fixtureAsOfDate): AthleteJourney["journeyEvents"][number] {
+  return {
+    id: `food_complete_${date}`,
+    type: "FoodLogStatusUpdated",
+    occurredAt: `${date}T20:00:00.000Z`,
+    payload: {
+      date,
+      status: "complete_high_confidence",
+      completionSource: "user",
+      userMarkedCompleteAt: `${date}T20:00:00.000Z`
+    }
   };
 }
 
@@ -320,6 +335,124 @@ describe("Fuel Command Center engine", () => {
     expect(hardStop.nutrition.targetConfidence.status).toBe("blocked_by_safety");
     expect(hardStop.viewModels.fuel.macroTargets.why).toContain("safety-gated");
     expect(JSON.stringify(complete.viewModels.fuel.macroTargets).toLowerCase()).not.toContain("exact");
+  });
+
+  it("shows one selected target number and practical food timing on useful training days", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const calorieTarget = state.viewModels.fuel.macroTargets.targets.find((item) => item.label === "Calories")?.value;
+    const timingCopy = state.viewModels.fuel.fuelTimingRecommendations.map((item) => `${item.title} ${item.timing} ${item.amount} ${item.suggestion}`).join(" ");
+
+    expect(state.nutrition.fuelTargetRange.caloriesKcal).not.toBeNull();
+    expect(state.nutrition.fuelTargetRange.selected.caloriesKcal).toBeGreaterThan(1800);
+    expect(calorieTarget).toMatch(/^\d+ kcal$/);
+    expect(calorieTarget).not.toMatch(/\d+\s*-\s*\d+/);
+    expect(timingCopy).toContain("Before training");
+    expect(timingCopy).toContain("2-3 hours before");
+    expect(timingCopy).toContain("Within 1-2 hours after");
+  });
+
+  it("uses fat-free mass for calorie estimates when available", () => {
+    const fallback = resolvePerformanceState({ journey: pro_4_round_build_strength, asOfDate: fixtureAsOfDate });
+    const leanMassKnown = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: { ...pro_4_round_build_strength.athlete, fatFreeMassKg: 60 }
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(leanMassKnown.nutrition.fuelTargetRange.selected.caloriesKcal).toBeGreaterThan(fallback.nutrition.fuelTargetRange.selected.caloriesKcal ?? 0);
+    expect(leanMassKnown.nutrition.fuelTargetRange.status).toBe("low_confidence");
+    expect(leanMassKnown.nutrition.fuelTargetRange.reasons.join(" ")).toContain("Legacy fat-free mass");
+    expect(leanMassKnown.nutrition.fuelTargetRange.evidenceIds).toContain("cunningham_rmr_lean_mass_context");
+  });
+
+  it("uses verified fat-free mass without forcing low-confidence calories", () => {
+    const leanMassVerified = resolvePerformanceState({
+      journey: {
+        ...pro_4_round_build_strength,
+        athlete: {
+          ...pro_4_round_build_strength.athlete,
+          fatFreeMassEstimate: {
+            kg: 60,
+            source: "dexa",
+            measuredAt: fixtureAsOfDate,
+            confidence: "high"
+          }
+        }
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(leanMassVerified.nutrition.fuelTargetRange.status).toBe("confident");
+    expect(leanMassVerified.nutrition.fuelTargetRange.reasons.join(" ")).toContain("source, date, and confidence");
+  });
+
+  it("does not show training timing just because fight week is active", () => {
+    const state = resolvePerformanceState({ journey: pro_12_round_taper, asOfDate: fixtureAsOfDate });
+    const timing = resolveFuelTimingRecommendations({
+      training: {
+        ...state.training,
+        todaySessions: [],
+        generatedSessions: [],
+        protectedAnchors: []
+      },
+      phase: state.phase,
+      asOfDate: fixtureAsOfDate,
+      blocked: false
+    });
+
+    expect(state.phase.phase).toBe("fight_week");
+    expect(timing).toHaveLength(0);
+  });
+
+  it("missing body mass removes numeric fuel targets but does not block workout generation", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        athlete: { ...no_wearable_manual_only.athlete, currentBodyMass: null },
+        bodyMassHistory: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.nutrition.fuelTargetRange.status).toBe("numeric_unavailable");
+    expect(state.viewModels.fuel.macroTargets.targets.find((item) => item.label === "Calories")?.value).toBe("Unavailable");
+    expect(state.training.generatedSessions.length).toBeGreaterThan(0);
+    expect(state.training.supportGenerationAudit.nutritionGenerationImpact).toBe("advisory");
+    expect(state.training.supportGenerationAudit.blockedGenerationReasons.join(" ")).not.toMatch(/body mass|nutrition|fuel/i);
+  });
+
+  it("does not turn complete food logs into target evidence when body mass is missing", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        athlete: { ...no_wearable_manual_only.athlete, currentBodyMass: null },
+        bodyMassHistory: [],
+        nutritionHistory: [
+          {
+            date: fixtureAsOfDate,
+            calories: 2300,
+            proteinGrams: 135,
+            carbohydrateGrams: 280,
+            fatGrams: 70,
+            confidence: "high",
+            entryType: "day_total",
+            sourceConfidence: "high"
+          }
+        ],
+        journeyEvents: [completeFoodEvent()]
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.nutrition.fuelTargetRange.status).toBe("numeric_unavailable");
+    expect(state.nutrition.dailyFoodLogSummary.status).toBe("complete_high_confidence");
+    expect(state.nutrition.dailyFoodLogSummary.targetComparisonAllowed).toBe(false);
+    expect(state.nutrition.dailyFoodLogSummary.underFuelingEvidenceAllowed).toBe(false);
+    expect(state.decisionTrace.find((item) => item.step === "nutrition")?.inputSummary).toContain("calorie target unavailable");
+    expect(state.decisionTrace.find((item) => item.step === "nutrition")?.inputSummary).not.toContain("0 kcal");
+    expect(state.viewModels.fuel.macroSummary).toContain("Unavailable until body weight is updated");
   });
 
   it("stale fight-week body mass does not authorize numeric Fuel ranges", () => {

@@ -122,6 +122,13 @@ export const RecurringProtectedWorkoutAnchorSchema = z.object({
   activeUntil: ISODateSchema.optional()
 });
 
+const FatFreeMassEstimateSchema = z.object({
+  kg: z.number().positive(),
+  source: z.enum(["dexa", "bod_pod", "skinfold", "bioimpedance", "clinician", "user_estimate", "unknown"]),
+  measuredAt: ISODateSchema.optional(),
+  confidence: z.enum(["high", "medium", "low", "unknown"])
+});
+
 export const AthleteProfileSchema = z.object({
   athleteId: z.string().min(1),
   dateOfBirth: ISODateSchema.optional(),
@@ -132,6 +139,7 @@ export const AthleteProfileSchema = z.object({
   height: HeightSchema,
   currentBodyMass: MassSchema.nullable(),
   fatFreeMassKg: z.number().positive().optional(),
+  fatFreeMassEstimate: FatFreeMassEstimateSchema.optional(),
   preferredUnits: z.enum(["metric", "imperial"]),
   boxingLevel: z.enum(["aspiring_boxer", "amateur_novice", "amateur_open", "amateur_elite", "pro_development", "pro_4_6_round", "pro_8_10_round", "pro_12_round"]),
   amateurOrPro: z.enum(["amateur", "pro"]),

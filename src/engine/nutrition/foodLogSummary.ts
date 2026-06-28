@@ -18,10 +18,10 @@ import type {
 import { assertFuelEvidenceIds } from "./evidenceRegistry";
 
 export interface FoodLogTargets {
-  calories: number;
-  proteinGrams: number;
-  carbohydrateGrams: number;
-  fatGrams: number;
+  calories?: number | undefined;
+  proteinGrams?: number | undefined;
+  carbohydrateGrams?: number | undefined;
+  fatGrams?: number | undefined;
 }
 
 export interface FoodLogActualSummary {
@@ -81,6 +81,21 @@ function percent(value: number, target: number): number | null {
     return null;
   }
   return Math.round((value / target) * 100);
+}
+
+function positiveTarget(value: number | undefined): value is number {
+  return value !== undefined && Number.isFinite(value) && value > 0;
+}
+
+function targetAvailability(targets?: FoodLogTargets | undefined): FoodLogQuality["targetComparisonAllowedByNutrient"] {
+  return {
+    calories: positiveTarget(targets?.calories),
+    protein: positiveTarget(targets?.proteinGrams),
+    carbohydrate: positiveTarget(targets?.carbohydrateGrams),
+    fat: positiveTarget(targets?.fatGrams),
+    fiber: false,
+    sodium: false
+  };
 }
 
 function confidenceScore(logs: readonly FoodLog[]): number {
@@ -166,15 +181,16 @@ function qualityStatusFor(input: {
 function targetComparisonAllowedByNutrient(input: {
   qualityStatus: FoodLogQuality["status"];
   nutrients: FoodLogQuality["nutrientCompleteness"];
+  targetAvailable: FoodLogQuality["targetComparisonAllowedByNutrient"];
 }): FoodLogQuality["targetComparisonAllowedByNutrient"] {
   const allowedBase = input.qualityStatus !== "no_log" && input.qualityStatus !== "not_tracking_today" && input.qualityStatus !== "quick_fuel_check";
   return {
-    calories: allowedBase && input.nutrients.calories,
-    protein: allowedBase && input.nutrients.protein,
-    carbohydrate: allowedBase && input.nutrients.carbohydrate,
-    fat: allowedBase && input.nutrients.fat,
-    fiber: allowedBase && input.nutrients.fiber,
-    sodium: allowedBase && input.nutrients.sodium
+    calories: allowedBase && input.nutrients.calories && input.targetAvailable.calories,
+    protein: allowedBase && input.nutrients.protein && input.targetAvailable.protein,
+    carbohydrate: allowedBase && input.nutrients.carbohydrate && input.targetAvailable.carbohydrate,
+    fat: allowedBase && input.nutrients.fat && input.targetAvailable.fat,
+    fiber: allowedBase && input.nutrients.fiber && input.targetAvailable.fiber,
+    sodium: allowedBase && input.nutrients.sodium && input.targetAvailable.sodium
   };
 }
 
@@ -182,19 +198,21 @@ export function resolveFoodLogQuality(input: {
   logs: readonly FoodLog[];
   dailyStatus: DailyFoodLogStatus;
   underFuelingEvidenceAllowed: boolean;
+  targetAvailable: FoodLogQuality["targetComparisonAllowedByNutrient"];
   confidenceScore: number;
   energyValidationIssueCount: number;
 }): FoodLogQuality {
   assertFuelEvidenceIds(FOOD_LOG_QUALITY_EVIDENCE_IDS, "resolveFoodLogQuality");
   const nutrients = nutrientCompletenessFor(input.logs);
   const status = qualityStatusFor({ logs: input.logs, dailyStatus: input.dailyStatus, nutrients });
-  const comparison = targetComparisonAllowedByNutrient({ qualityStatus: status, nutrients });
+  const comparison = targetComparisonAllowedByNutrient({ qualityStatus: status, nutrients, targetAvailable: input.targetAvailable });
   const reasons = [
     status === "no_log" ? "No food log is present; missing data stays unknown." : null,
     status === "quick_fuel_check" ? "Quick fuel checks guide session execution only." : null,
     status === "calories_only" ? "Calories are known, but macros are not." : null,
     status === "macro_partial" ? "Only some nutrients are known; compare only those nutrients." : null,
     status === "macro_complete" || status === "day_total" ? "Macro-complete or day-total entries can support target comparison." : null,
+    !input.targetAvailable.calories ? "Calorie target is unavailable, so target-relative food evidence stays off." : null,
     input.energyValidationIssueCount > 0 ? "Macro-complete calories and macros need correction before safety evidence." : null,
     input.underFuelingEvidenceAllowed ? "Complete food evidence can support repeated low-intake cautions." : "This food status cannot create under-fueling evidence by itself."
   ].filter((value): value is string => value !== null);
@@ -212,6 +230,10 @@ export function resolveFoodLogQuality(input: {
 
 function formatTarget(value: number, target: number, unit: string, targetPercent: number | null): string {
   return targetPercent === null ? `${value}${unit} logged` : `${value}${unit} logged (${targetPercent}% of target)`;
+}
+
+function percentIfAllowed(value: number, target: number | undefined, allowed: boolean): number | null {
+  return allowed && positiveTarget(target) ? percent(value, target) : null;
 }
 
 function isoDateFromNow(now: ISODateTimeString | Date | undefined, fallback: ISODateString): ISODateString {
@@ -264,10 +286,10 @@ function macroCompleteness(totals: { calories: number; proteinGrams: number; car
     return 0;
   }
   const scores = [
-    targets.calories > 0 ? totals.calories / targets.calories : 0,
-    targets.proteinGrams > 0 ? totals.proteinGrams / targets.proteinGrams : 0,
-    targets.carbohydrateGrams > 0 ? totals.carbohydrateGrams / targets.carbohydrateGrams : 0,
-    targets.fatGrams > 0 ? totals.fatGrams / targets.fatGrams : 0
+    positiveTarget(targets.calories) ? totals.calories / targets.calories : 0,
+    positiveTarget(targets.proteinGrams) ? totals.proteinGrams / targets.proteinGrams : 0,
+    positiveTarget(targets.carbohydrateGrams) ? totals.carbohydrateGrams / targets.carbohydrateGrams : 0,
+    positiveTarget(targets.fatGrams) ? totals.fatGrams / targets.fatGrams : 0
   ].map((value) => clamp01(value));
   return Number((scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(2));
 }
@@ -284,7 +306,7 @@ function coverageScore(input: {
   if (input.mealTags.includes("day_total")) {
     return 0.86;
   }
-  const calorieCoverage = input.targets ? clamp01(input.totals.calories / input.targets.calories) : Math.min(0.7, input.entryCount * 0.22);
+  const calorieCoverage = positiveTarget(input.targets?.calories) ? clamp01(input.totals.calories / input.targets.calories) : Math.min(0.7, input.entryCount * 0.22);
   const mealCoverage = Math.min(1, input.mealTags.filter((tag) => ["breakfast", "lunch", "dinner", "snack"].includes(tag)).length / 3);
   return Number(Math.max(calorieCoverage, mealCoverage * 0.74, Math.min(0.55, input.entryCount * 0.18)).toFixed(2));
 }
@@ -414,6 +436,7 @@ export function resolveDailyFoodLogSummary(
   const sortedLoggedAt = dayLogs.map((log) => log.loggedAt).filter((value): value is ISODateTimeString => Boolean(value)).sort();
   const mealTagsLogged = [...new Set(dayLogs.map(mealTagForLog))];
   const energyValidationIssues = dayLogs.map(validateFoodLogEnergy).filter((validation) => !validation.valid);
+  const targetAvailable = targetAvailability(targets);
   const coverage = coverageScore({ totals, targets, mealTags: mealTagsLogged, entryCount: dayLogs.length });
   const status = resolveStatus({
     dayLogs,
@@ -423,8 +446,13 @@ export function resolveDailyFoodLogSummary(
     asOfDate: date,
     lastLoggedAt: sortedLoggedAt.at(-1)
   });
-  const targetComparisonAllowed = completeStatuses.has(status) && energyValidationIssues.length === 0;
-  const underFuelingEvidenceAllowed = completeStatuses.has(status) && energyValidationIssues.length === 0;
+  const comparisonByNutrient = targetComparisonAllowedByNutrient({
+    qualityStatus: qualityStatusFor({ logs: dayLogs, dailyStatus: status, nutrients: nutrientCompletenessFor(dayLogs) }),
+    nutrients: nutrientCompletenessFor(dayLogs),
+    targetAvailable
+  });
+  const targetComparisonAllowed = completeStatuses.has(status) && energyValidationIssues.length === 0 && Object.values(comparisonByNutrient).some(Boolean);
+  const underFuelingEvidenceAllowed = completeStatuses.has(status) && energyValidationIssues.length === 0 && comparisonByNutrient.calories;
   const score =
     energyValidationIssues.length > 0
       ? 0.34
@@ -447,12 +475,14 @@ export function resolveDailyFoodLogSummary(
     ...(status === "no_log" ? ["food logs"] : []),
     ...(status === "partial_day" || status === "likely_partial" || status === "auto_closed_incomplete" ? ["complete food log"] : []),
     ...(status === "quick_fuel_check_only" ? ["full day macro log"] : []),
+    ...(!targetAvailable.calories ? ["valid calorie target"] : []),
     ...(energyValidationIssues.length > 0 ? ["macro-consistent food log"] : [])
   ];
   const quality = resolveFoodLogQuality({
     logs: dayLogs,
     dailyStatus: status,
     underFuelingEvidenceAllowed,
+    targetAvailable,
     confidenceScore: score,
     energyValidationIssueCount: energyValidationIssues.length
   });
@@ -549,10 +579,10 @@ export function summarizeFoodLogs(
   const energyValidation = validateFoodLogEnergy({ calories: totals.calories, ...knownMacroTotals });
   const dailySummary = resolveDailyFoodLogSummary(logs, statusEvents, date, targets, now);
   const nutrientComparison = dailySummary.targetComparisonAllowedByNutrient;
-  const calorieTargetPercent = targets && nutrientComparison.calories ? percent(totals.calories, targets.calories) : null;
-  const proteinTargetPercent = targets && nutrientComparison.protein ? percent(totals.proteinGrams, targets.proteinGrams) : null;
-  const carbohydrateTargetPercent = targets && nutrientComparison.carbohydrate ? percent(totals.carbohydrateGrams, targets.carbohydrateGrams) : null;
-  const fatTargetPercent = targets && nutrientComparison.fat ? percent(totals.fatGrams, targets.fatGrams) : null;
+  const calorieTargetPercent = percentIfAllowed(totals.calories, targets?.calories, nutrientComparison.calories);
+  const proteinTargetPercent = percentIfAllowed(totals.proteinGrams, targets?.proteinGrams, nutrientComparison.protein);
+  const carbohydrateTargetPercent = percentIfAllowed(totals.carbohydrateGrams, targets?.carbohydrateGrams, nutrientComparison.carbohydrate);
+  const fatTargetPercent = percentIfAllowed(totals.fatGrams, targets?.fatGrams, nutrientComparison.fat);
 
   return {
     date,

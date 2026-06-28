@@ -25,6 +25,31 @@ describe("engine boundary schemas", () => {
     expect(parsed.recurringProtectedAnchors).toEqual([]);
   });
 
+  it("accepts fat-free mass metadata and rejects unknown sources", () => {
+    expect(
+      AthleteProfileSchema.safeParse({
+        ...amateur_novice_build.athlete,
+        fatFreeMassEstimate: {
+          kg: 58,
+          source: "dexa",
+          measuredAt: "2026-05-19",
+          confidence: "high"
+        }
+      }).success
+    ).toBe(true);
+    expect(
+      AthleteProfileSchema.safeParse({
+        ...amateur_novice_build.athlete,
+        fatFreeMassEstimate: {
+          kg: 58,
+          source: "mirror_guess",
+          measuredAt: "2026-05-19",
+          confidence: "high"
+        }
+      }).success
+    ).toBe(false);
+  });
+
   it("rejects invalid fight date shape and missing required weight fields", () => {
     const fight = amateur_elite_camp_same_day_weigh_in.activeFightOpportunity;
     expect(fight).not.toBeNull();

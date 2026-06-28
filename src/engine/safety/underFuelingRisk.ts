@@ -36,11 +36,11 @@ function recentLowIntakeEvidence(
     dates.add(log.date);
   }
   return [...dates].flatMap((date) => {
-    const summary = resolveDailyFoodLogSummary(foodLogs, statusEvents, date, undefined, now);
     const target = targetForDate(targets, date);
     if (target.calories <= 0) {
       return [];
     }
+    const summary = resolveDailyFoodLogSummary(foodLogs, statusEvents, date, { calories: target.calories }, now);
     const threshold = target.calories * TARGET_RELATIVE_LOW_INTAKE_RATIO;
     return summary.underFuelingEvidenceAllowed && summary.totalCaloriesLogged < threshold && summary.confidence.score >= 0.55
       ? [

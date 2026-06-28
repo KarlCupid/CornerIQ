@@ -9,7 +9,7 @@ import type {
   WeightClassStatus
 } from "../nutrition/fuelCommandTypes";
 import type { PersistedNutritionSafetyReview } from "../nutrition/nutritionSafetyReviewTypes";
-import type { DailyFoodLogStatus, DailyFoodLogSummary, NutritionTargetConfidence, NutritionTrainingDemandHandoff } from "../nutrition/types";
+import type { DailyFoodLogStatus, DailyFoodLogSummary, FuelTimingRecommendation, NutritionTargetConfidence, NutritionTrainingDemandHandoff } from "../nutrition/types";
 import type { BodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import type { FuelHistoryViewModel } from "./fuelHistoryViewModel";
 import type { NutritionReviewHistoryViewModel } from "./nutritionReviewHistoryViewModel";
@@ -187,6 +187,7 @@ export interface FuelViewModel {
     }[];
   };
   hitTheseFirst: readonly string[];
+  fuelTimingRecommendations: readonly FuelTimingRecommendation[];
   macroTargets: FuelMacroTargetsViewModel;
   calorieSummary: string;
   macroSummary: string;
