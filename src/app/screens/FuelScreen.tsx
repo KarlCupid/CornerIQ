@@ -7,6 +7,7 @@ import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../desi
 import { TrendLineChart } from "../../design/components/PerformanceVisuals";
 import { GroupedMetricTiles, PremiumCard } from "../../design/components/PremiumPrimitives";
 import { colors, radii, spacing } from "../../design/theme";
+import { kgToLb } from "../../engine/core/units";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
@@ -22,12 +23,14 @@ export interface FuelScreenProps {
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
   onFocusIntentApplied?: (() => void) | undefined;
+  preferredUnits?: PreferredUnits | undefined;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
   viewModel: FuelViewModel;
 }
 
 export type FuelFocusIntent = "action" | "log_food" | "log_hydration" | "safety_review";
+type PreferredUnits = "metric" | "imperial";
 
 type FuelPlanStatus = FuelPlanStatusViewModel;
 type FuelSafetyState = FuelSafetyStateViewModel;
@@ -105,15 +108,36 @@ function titleCaseStatus(value: string): string {
     .join(" ");
 }
 
-function weightLabel(viewModel: FuelViewModel): string {
-  const latest = viewModel.weightClassStatus.latestBodyMassKg;
-  if (latest !== null) {
-    return `${latest.toFixed(1)} kg`;
-  }
-  return viewModel.bodyMassTrajectory.latestWeight.replace(/^Latest:\s*/i, "") || "Unknown";
+function massLabelFromKg(kg: number, preferredUnits: PreferredUnits): string {
+  return preferredUnits === "imperial" ? `${kgToLb(kg).toFixed(1)} lb` : `${kg.toFixed(1)} kg`;
 }
 
-function toWeightLabel(dashboard: FuelDashboardVisual, viewModel: FuelViewModel): string {
+function convertMassCopy(value: string, preferredUnits: PreferredUnits): string {
+  if (preferredUnits === "metric") {
+    return value;
+  }
+  return value.replace(/(-?\d+(?:\.\d+)?)\s*kg(\/week)?/gi, (_match, amount: string, cadence: string | undefined) => {
+    const kg = Number(amount);
+    if (!Number.isFinite(kg)) {
+      return _match;
+    }
+    return `${kgToLb(kg).toFixed(1)} lb${cadence ?? ""}`;
+  });
+}
+
+function displayFuelCopy(value: string, preferredUnits: PreferredUnits): string {
+  return convertMassCopy(fuelSurfaceCopy(value), preferredUnits);
+}
+
+function weightLabel(viewModel: FuelViewModel, preferredUnits: PreferredUnits): string {
+  const latest = viewModel.weightClassStatus.latestBodyMassKg;
+  if (latest !== null) {
+    return massLabelFromKg(latest, preferredUnits);
+  }
+  return convertMassCopy(viewModel.bodyMassTrajectory.latestWeight.replace(/^Latest:\s*/i, ""), preferredUnits) || "Unknown";
+}
+
+function toWeightLabel(dashboard: FuelDashboardVisual, viewModel: FuelViewModel, preferredUnits: PreferredUnits): string {
   if (viewModel.weightClassStatus.status === "no_active_weight_target") {
     return "No target";
   }
@@ -126,7 +150,8 @@ function toWeightLabel(dashboard: FuelDashboardVisual, viewModel: FuelViewModel)
   if (Math.abs(delta) < 0.05) {
     return "At class";
   }
-  return delta > 0 ? `${delta.toFixed(1)} kg over` : `${Math.abs(delta).toFixed(1)} kg under`;
+  const mass = massLabelFromKg(Math.abs(delta), preferredUnits);
+  return delta > 0 ? `${mass} over` : `${mass} under`;
 }
 
 function weighInLabel(viewModel: FuelViewModel): string {
@@ -191,26 +216,21 @@ function guideValue(dashboard: FuelDashboardVisual, label: RegExp): string {
 
 function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
   return (
-    <View
+    <Text
       accessibilityLabel={`Status: ${label}`}
+      numberOfLines={2}
       style={{
-        alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(232, 240, 255, 0.15)",
-        borderRadius: radii.pill,
-        borderWidth: 1,
-        justifyContent: "center",
+        color: colors.wrap,
+        fontSize: 12,
+        fontWeight: "800",
+        lineHeight: 16,
         maxWidth: 190,
-        minHeight: 28,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3
+        minHeight: 16
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
-        {label}
-      </Text>
-    </View>
+      {label}
+    </Text>
   );
 }
 
@@ -269,10 +289,10 @@ function FuelActionButton({
       ]}
     >
       {icon ? <Ionicons color={primary ? colors.cornerBlack : fuelPalette.toneOrange} name={icon} size={18} /> : null}
-      <Text style={{ color: primary ? colors.cornerBlack : fuelPalette.textBody, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>
+      <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: primary ? colors.cornerBlack : fuelPalette.textBody, flexShrink: 1, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
-      <Text style={{ color: primary ? "rgba(3, 7, 18, 0.72)" : fuelPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15, textAlign: "center" }}>
+      <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: primary ? "rgba(3, 7, 18, 0.72)" : fuelPalette.textMuted, flexShrink: 1, fontSize: 11, fontWeight: "700", lineHeight: 15, textAlign: "center" }}>
         {summary}
       </Text>
     </Pressable>
@@ -317,14 +337,16 @@ function FuelActionButtons({
           alignSelf: "center",
           flexDirection: "row",
           gap: spacing.xs,
+          flexWrap: "wrap",
+          justifyContent: "center",
           minHeight: 44,
           opacity: busy ? 0.58 : pressed ? 0.78 : 1,
           paddingHorizontal: spacing.md
         })}
       >
         <Ionicons color={fuelPalette.toneOrange} name={primaryLog === "water" ? "restaurant-outline" : "water-outline"} size={17} />
-        <Text style={{ color: fuelPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{secondary.label}</Text>
-        <Text style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{secondary.summary}</Text>
+        <Text numberOfLines={1} style={{ color: fuelPalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{secondary.label}</Text>
+        <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{secondary.summary}</Text>
       </Pressable>
     </View>
   );
@@ -414,7 +436,7 @@ function FuelMetricTile({
         paddingVertical: spacing.md
       }}
     >
-      <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
+      <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
       <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={2} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 24 }}>
         {value}
       </Text>
@@ -425,22 +447,25 @@ function FuelMetricTile({
 function FuelKeyNumbersCard({
   dashboard,
   hasActiveWeightTarget,
+  preferredUnits,
   safety,
   viewModel,
 }: {
   dashboard: FuelDashboardVisual;
   hasActiveWeightTarget: boolean;
+  preferredUnits: PreferredUnits;
   safety: FuelSafetyState;
   viewModel: FuelViewModel;
 }) {
   const check = bodyCheck(viewModel, safety);
+  const currentWeight = weightLabel(viewModel, preferredUnits);
   if (!hasActiveWeightTarget) {
     return (
       <PremiumCard density="compact" testID="fuel-key-numbers">
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <FuelMetricTile label="Pre-session" tone={check.tone} value={check.value} />
           <FuelMetricTile label="Hydration" tone={dashboard.hydration.tone} value={dashboard.hydration.targetLabel} />
-          <FuelMetricTile label="Weight" tone={weightLabel(viewModel) === "Unknown" ? "orange" : "muted"} value={weightLabel(viewModel)} />
+          <FuelMetricTile label="Weight" tone={currentWeight === "Unknown" ? "orange" : "muted"} value={currentWeight} />
         </View>
       </PremiumCard>
     );
@@ -448,8 +473,8 @@ function FuelKeyNumbersCard({
   return (
     <GroupedMetricTiles
       items={[
-        { icon: "scale-outline", label: "Morning weight", tone: "muted", value: weightLabel(viewModel) },
-        { icon: "flag-outline", label: "To weight", tone: "orange", value: toWeightLabel(dashboard, viewModel) },
+        { icon: "scale-outline", label: "Morning weight", tone: "muted", value: currentWeight },
+        { icon: "flag-outline", label: "To weight", tone: "orange", value: toWeightLabel(dashboard, viewModel, preferredUnits) },
         { icon: "calendar-outline", label: "Weigh-in", tone: "muted", value: weighInLabel(viewModel) },
         { icon: "shield-checkmark-outline", label: "Fuel readiness", tone: check.tone, value: check.value }
       ]}
@@ -489,8 +514,8 @@ function PriorityRow({
         <Ionicons color={color} name={icon} size={18} />
       </View>
       <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}: {title}</Text>
-        <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{meta}</Text>
+        <Text numberOfLines={2} style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}: {title}</Text>
+        <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{meta}</Text>
       </View>
     </View>
   );
@@ -555,7 +580,7 @@ function FuelTimingCard({ viewModel }: { viewModel: FuelViewModel }) {
               <Ionicons color={colorForTone(item.id.includes("post") ? "purple" : "orange")} name={timingIcon(item.id)} size={17} />
             </View>
             <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-              <Text style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{item.title}: {item.timing}</Text>
+              <Text numberOfLines={2} style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{item.title}: {item.timing}</Text>
               <Text style={{ color: fuelPalette.textBody, fontSize: 12, fontWeight: "700", lineHeight: 17 }}>{item.amount}. {item.suggestion}</Text>
             </View>
           </View>
@@ -592,10 +617,12 @@ function TrainingTodayCard({
 function WeightTrendCard({
   dashboard,
   plan,
+  preferredUnits,
   viewModel
 }: {
   dashboard: FuelDashboardVisual;
   plan: FuelPlanStatus;
+  preferredUnits: PreferredUnits;
   viewModel: FuelViewModel;
 }) {
   const trend = trendInterpretation(viewModel, plan, dashboard);
@@ -608,10 +635,10 @@ function WeightTrendCard({
         </View>
         <TrendLineChart accent={trend.tone} height={92} points={dashboard.bodyMass.points} testID="fuel-weight-trend-chart" width={280} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <FuelMetricTile label="7-day read" tone={dashboard.bodyMass.tone} value={dashboard.bodyMass.deltaLabel} />
+          <FuelMetricTile label="7-day read" tone={dashboard.bodyMass.tone} value={convertMassCopy(dashboard.bodyMass.deltaLabel, preferredUnits)} />
           <FuelMetricTile label="Needed pace" tone={plan.tone} value={plan.label} />
         </View>
-        <Text style={fuelTextStyles.body}>{trend.sentence}</Text>
+        <Text style={fuelTextStyles.body}>{convertMassCopy(trend.sentence, preferredUnits)}</Text>
       </View>
     </EngineCard>
   );
@@ -672,8 +699,8 @@ function FuelDetailRow({
             <Ionicons color={color} name={icon} size={18} />
           </View>
           <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-            <Text style={{ color: fuelPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
-            <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{status}</Text>
+            <Text numberOfLines={2} style={{ color: fuelPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
+            <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{status}</Text>
           </View>
           <Ionicons color={fuelPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
         </Pressable>
@@ -683,9 +710,9 @@ function FuelDetailRow({
   );
 }
 
-function DetailLine({ text, tone = "subtle" }: { text: string; tone?: "body" | "subtle" | "callout" | undefined }) {
+function DetailLine({ preferredUnits = "metric", text, tone = "subtle" }: { preferredUnits?: PreferredUnits | undefined; text: string; tone?: "body" | "subtle" | "callout" | undefined }) {
   const style = tone === "body" ? fuelTextStyles.body : tone === "callout" ? fuelTextStyles.callout : fuelTextStyles.subtle;
-  return <Text style={style}>{fuelSurfaceCopy(text)}</Text>;
+  return <Text style={style}>{displayFuelCopy(text, preferredUnits)}</Text>;
 }
 
 function FoodDetailsContent({ dashboard, viewModel }: { dashboard: FuelDashboardVisual; viewModel: FuelViewModel }) {
@@ -703,7 +730,7 @@ function FoodDetailsContent({ dashboard, viewModel }: { dashboard: FuelDashboard
   );
 }
 
-function WeighInPlanContent({ viewModel }: { viewModel: FuelViewModel }) {
+function WeighInPlanContent({ preferredUnits, viewModel }: { preferredUnits: PreferredUnits; viewModel: FuelViewModel }) {
   const rows = [
     viewModel.bodyMassTrajectory.target,
     viewModel.bodyMassTrajectory.weighInCountdown,
@@ -714,8 +741,8 @@ function WeighInPlanContent({ viewModel }: { viewModel: FuelViewModel }) {
   ];
   return (
     <>
-      {detailRowsFromItems(rows.map(fuelSurfaceCopy), "No weigh-in plan is active today.").slice(0, 7).map((item, index) => (
-        <DetailLine key={`fuel-weigh-in-detail:${index}`} text={item} />
+      {detailRowsFromItems(rows, "No weigh-in plan is active today.").slice(0, 7).map((item, index) => (
+        <DetailLine key={`fuel-weigh-in-detail:${index}`} preferredUnits={preferredUnits} text={item} />
       ))}
     </>
   );
@@ -724,11 +751,13 @@ function WeighInPlanContent({ viewModel }: { viewModel: FuelViewModel }) {
 function HealthChecksContent({
   message,
   onAcknowledgeNutritionSafetyReview,
+  preferredUnits,
   safety,
   viewModel,
 }: {
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  preferredUnits: PreferredUnits;
   safety: FuelSafetyState;
   viewModel: FuelViewModel;
 }) {
@@ -747,25 +776,25 @@ function HealthChecksContent({
       {viewModel.underFuelingRisk ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={[fuelTextStyles.callout, { color: colorForTone("orange") }]}>{viewModel.underFuelingRisk.title}</Text>
-          <DetailLine text={viewModel.underFuelingRisk.summary} tone="body" />
-          {viewModel.underFuelingRisk.actions.map((item, index) => <DetailLine key={`fuel-under-risk:${index}`} text={item} />)}
+          <DetailLine preferredUnits={preferredUnits} text={viewModel.underFuelingRisk.summary} tone="body" />
+          {viewModel.underFuelingRisk.actions.map((item, index) => <DetailLine key={`fuel-under-risk:${index}`} preferredUnits={preferredUnits} text={item} />)}
         </View>
       ) : null}
       {viewModel.riskSummary.length > 0 ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={fuelTextStyles.callout}>Health warning</Text>
-          {viewModel.riskSummary.slice(0, 4).map((risk, index) => <DetailLine key={`fuel-risk:${index}`} text={risk} tone="body" />)}
+          {viewModel.riskSummary.slice(0, 4).map((risk, index) => <DetailLine key={`fuel-risk:${index}`} preferredUnits={preferredUnits} text={risk} tone="body" />)}
         </View>
       ) : null}
       {viewModel.weightClassStatus.safetyFlags.length > 0 ? (
         <View style={{ gap: spacing.xs }}>
           <Text style={fuelTextStyles.callout}>Weight safety</Text>
-          {viewModel.weightClassStatus.safetyFlags.slice(0, 4).map((flag, index) => <DetailLine key={`fuel-weight-flag:${index}`} text={flag} tone="body" />)}
+          {viewModel.weightClassStatus.safetyFlags.slice(0, 4).map((flag, index) => <DetailLine key={`fuel-weight-flag:${index}`} preferredUnits={preferredUnits} text={flag} tone="body" />)}
         </View>
       ) : null}
-      <DetailLine text={viewModel.hydrationSummary} />
-      <DetailLine text={viewModel.bodyMassTrajectory.riskExplanation} />
-      {message ? <DetailLine text={message} tone="callout" /> : null}
+      <DetailLine preferredUnits={preferredUnits} text={viewModel.hydrationSummary} />
+      <DetailLine preferredUnits={preferredUnits} text={viewModel.bodyMassTrajectory.riskExplanation} />
+      {message ? <DetailLine preferredUnits={preferredUnits} text={message} tone="callout" /> : null}
       {!safety.active ? <DetailLine text="No health warnings logged today." tone="body" /> : null}
     </View>
   );
@@ -775,12 +804,14 @@ function FuelCollapsedDetails({
   dashboard,
   message,
   onAcknowledgeNutritionSafetyReview,
+  preferredUnits,
   safety,
   viewModel,
 }: {
   dashboard: FuelDashboardVisual;
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  preferredUnits: PreferredUnits;
   safety: FuelSafetyState;
   viewModel: FuelViewModel;
 }) {
@@ -795,12 +826,13 @@ function FuelCollapsedDetails({
         <FoodDetailsContent dashboard={dashboard} viewModel={viewModel} />
       </FuelDetailRow>
       <FuelDetailRow icon="calendar-outline" status={weightDetailStatus} title={weightDetailTitle} tone="gold">
-        <WeighInPlanContent viewModel={viewModel} />
+        <WeighInPlanContent preferredUnits={preferredUnits} viewModel={viewModel} />
       </FuelDetailRow>
       <FuelDetailRow defaultOpen={safety.active} icon="shield-checkmark-outline" status={healthStatus} title="Health checks" tone={safety.active ? safety.tone : "green"}>
         <HealthChecksContent
           message={message}
           onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+          preferredUnits={preferredUnits}
           safety={safety}
           viewModel={viewModel}
         />
@@ -812,11 +844,13 @@ function FuelCollapsedDetails({
 function FuelSafetyCard({
   message,
   onAcknowledgeNutritionSafetyReview,
+  preferredUnits,
   safety,
   viewModel
 }: {
   message: string | null;
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
+  preferredUnits: PreferredUnits;
   safety: FuelSafetyState;
   viewModel: FuelViewModel;
 }) {
@@ -829,7 +863,7 @@ function FuelSafetyCard({
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 250, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={fuelTextStyles.sectionTitle}>{safety.reviewActive ? "Review safety" : "Fuel safety"}</Text>
-            <Text style={fuelTextStyles.body}>{safety.stripText}</Text>
+            <Text style={fuelTextStyles.body}>{convertMassCopy(safety.stripText, preferredUnits)}</Text>
           </View>
           <FuelTonePill label={safety.healthStatus} tone={safety.tone} />
         </View>
@@ -843,16 +877,16 @@ function FuelSafetyCard({
         {viewModel.underFuelingRisk ? (
           <View style={{ gap: spacing.xs }}>
             <Text style={[fuelTextStyles.callout, { color: colorForTone("orange") }]}>{viewModel.underFuelingRisk.title}</Text>
-            <DetailLine text={viewModel.underFuelingRisk.summary} tone="body" />
+            <DetailLine preferredUnits={preferredUnits} text={viewModel.underFuelingRisk.summary} tone="body" />
           </View>
         ) : null}
         {viewModel.weightClassStatus.safetyFlags.slice(0, 2).map((flag, index) => (
-          <DetailLine key={`fuel-default-weight-flag:${index}`} text={flag} tone="body" />
+          <DetailLine key={`fuel-default-weight-flag:${index}`} preferredUnits={preferredUnits} text={flag} tone="body" />
         ))}
         {viewModel.riskSummary.slice(0, safety.reviewActive ? 1 : 2).map((risk, index) => (
-          <DetailLine key={`fuel-default-risk:${index}`} text={risk} tone="body" />
+          <DetailLine key={`fuel-default-risk:${index}`} preferredUnits={preferredUnits} text={risk} tone="body" />
         ))}
-        {message && !safety.reviewActive ? <DetailLine text={message} tone="callout" /> : null}
+        {message && !safety.reviewActive ? <DetailLine preferredUnits={preferredUnits} text={message} tone="callout" /> : null}
       </View>
     </EngineCard>
   );
@@ -891,6 +925,7 @@ function FuelDetailsDisclosure({
   onAcknowledgeNutritionSafetyReview,
   onToggleDetails,
   plan,
+  preferredUnits,
   safety,
   trainingCopy,
   viewModel
@@ -901,6 +936,7 @@ function FuelDetailsDisclosure({
   onAcknowledgeNutritionSafetyReview?: ((reviewId: string) => void | Promise<void>) | undefined;
   onToggleDetails: () => void;
   plan: FuelPlanStatus;
+  preferredUnits: PreferredUnits;
   safety: FuelSafetyState;
   trainingCopy: string;
   viewModel: FuelViewModel;
@@ -946,6 +982,7 @@ function FuelDetailsDisclosure({
             dashboard={dashboard}
             message={message}
             onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+            preferredUnits={preferredUnits}
             safety={safety}
             viewModel={viewModel}
           />
@@ -1070,6 +1107,7 @@ function FuelOverview({
   onLogHydration,
   onToggleDetails,
   plan,
+  preferredUnits,
   primaryLog,
   safety,
   trainingCopy,
@@ -1084,6 +1122,7 @@ function FuelOverview({
   onLogHydration: () => void;
   onToggleDetails: () => void;
   plan: FuelPlanStatus;
+  preferredUnits: PreferredUnits;
   primaryLog: "food" | "water";
   safety: FuelSafetyState;
   trainingCopy: string;
@@ -1093,13 +1132,14 @@ function FuelOverview({
   return (
     <View style={{ gap: spacing.md }} testID="fuel-overview">
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
-      <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} safety={safety} viewModel={viewModel} />
-      <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} />
+      <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} preferredUnits={preferredUnits} safety={safety} viewModel={viewModel} />
+      <WeightTrendCard dashboard={dashboard} plan={plan} preferredUnits={preferredUnits} viewModel={viewModel} />
       <DoNotMissTodayCard dashboard={dashboard} />
       <FuelTimingCard viewModel={viewModel} />
       <FuelSafetyCard
         message={message}
         onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
+        preferredUnits={preferredUnits}
         safety={safety}
         viewModel={viewModel}
       />
@@ -1110,6 +1150,7 @@ function FuelOverview({
         onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
         onToggleDetails={onToggleDetails}
         plan={plan}
+        preferredUnits={preferredUnits}
         safety={safety}
         trainingCopy={trainingCopy}
         viewModel={viewModel}
@@ -1118,7 +1159,7 @@ function FuelOverview({
   );
 }
 
-export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, quickLogs, recentLogs, viewModel }: FuelScreenProps) {
+export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionSafetyReview, onFocusIntentApplied, preferredUnits = "metric", quickLogs, recentLogs, viewModel }: FuelScreenProps) {
   const [appliedFocusIntent, setAppliedFocusIntent] = React.useState<FuelFocusIntent | null>(null);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const dashboard = buildFuelDashboardVisual(viewModel, recentLogs);
@@ -1176,6 +1217,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
           onLogHydration={openLogHydration}
           onToggleDetails={() => setDetailsOpen((value) => !value)}
           plan={plan}
+          preferredUnits={preferredUnits}
           primaryLog={primaryLog}
           safety={safety}
           trainingCopy={trainingCopy}

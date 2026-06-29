@@ -365,30 +365,27 @@ function TodayQuickCheckModal({
 
 function TodayTonePill({ label, tone: _tone = "blue" }: { label: string; tone?: VisualTone | undefined }) {
   return (
-    <View
+    <Text
       accessibilityLabel={`Status: ${label}`}
       style={{
-        alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(232, 240, 255, 0.15)",
-        borderRadius: radii.pill,
-        borderWidth: 1,
-        justifyContent: "center",
-        minHeight: 26,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3
+        color: colors.wrap,
+        fontSize: 11,
+        fontWeight: "900",
+        lineHeight: 15
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>
-        {label}
-      </Text>
-    </View>
+      {label}
+    </Text>
   );
 }
 
 function actionIcon(action: TodayActionVisual): keyof typeof Ionicons.glyphMap {
   return action.icon as keyof typeof Ionicons.glyphMap;
+}
+
+function todayActionTone(action: TodayActionVisual): VisualTone {
+  return /workout/i.test(action.label) ? "blue" : action.tone;
 }
 
 function TodayButton({
@@ -453,7 +450,12 @@ function TodayButton({
       testID={testID}
     >
       <Ionicons color={disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : toneColor} name={icon} size={16} />
-      <Text style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : todayPalette.textBody, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.78}
+        numberOfLines={2}
+        style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : todayPalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}
+      >
         {label}
       </Text>
     </Pressable>
@@ -671,38 +673,40 @@ function TodayCheckInCard({
   const compact = width < 390;
   return (
     <PremiumCard accent={checkIn.tone} density="regular">
-      <View style={{ gap: spacing.sm }} testID="today-hero-card">
+      <View style={{ gap: spacing.md }} testID="today-hero-card">
         <View testID="today-check-in-card">
-          <View style={{ alignItems: "center", flexDirection: "row", gap: compact ? spacing.sm : spacing.md }}>
-            <View style={{ alignItems: "center", width: compact ? 48 : 54 }}>
-              <View
-                style={{
-                  alignItems: "center",
-                  backgroundColor: todayTint(checkIn.tone, "16"),
-                  borderColor: todayTint(checkIn.tone, "55"),
-                  borderRadius: radii.pill,
-                  borderWidth: 1,
-                  height: compact ? 46 : 50,
-                  justifyContent: "center",
-                  width: compact ? 46 : 50
-                }}
-              >
-                <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={compact ? 23 : 25} />
+          <View style={{ gap: spacing.md }}>
+            <View style={{ alignItems: "center", flexDirection: "row", gap: compact ? spacing.sm : spacing.md }}>
+              <View style={{ alignItems: "center", width: compact ? 48 : 54 }}>
+                <View
+                  style={{
+                    alignItems: "center",
+                    backgroundColor: todayTint(checkIn.tone, "16"),
+                    borderColor: todayTint(checkIn.tone, "55"),
+                    borderRadius: radii.pill,
+                    borderWidth: 1,
+                    height: compact ? 46 : 50,
+                    justifyContent: "center",
+                    width: compact ? 46 : 50
+                  }}
+                >
+                  <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={compact ? 23 : 25} />
+                </View>
               </View>
+              <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
+                <Text style={{ color: colorForTone(checkIn.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+                  Readiness
+                </Text>
+                <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: compact ? 18 : 20, fontWeight: "900", lineHeight: compact ? 23 : 25 }}>
+                  Readiness: <Text style={{ color: colorForTone(checkIn.tone) }}>{checkIn.status}</Text>
+                </Text>
+                <Text numberOfLines={3} style={{ color: colors.wrap, fontSize: compact ? 13 : 14, fontWeight: "600", lineHeight: compact ? 18 : 20 }}>{checkIn.sentence}</Text>
+              </View>
+              {!compact ? <Ionicons color={colors.wrap} name="chevron-forward" size={20} /> : null}
             </View>
-            <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-              <Text style={{ color: colorForTone(checkIn.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
-                Readiness
-              </Text>
-              <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: compact ? 18 : 20, fontWeight: "900", lineHeight: compact ? 23 : 25 }}>
-                Readiness: <Text style={{ color: colorForTone(checkIn.tone) }}>{checkIn.status}</Text>
-              </Text>
-              <Text numberOfLines={2} style={{ color: colors.wrap, fontSize: compact ? 13 : 14, fontWeight: "600", lineHeight: compact ? 18 : 20 }}>{checkIn.sentence}</Text>
+            <View>
+              <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone="blue" />
             </View>
-            <View style={{ flexShrink: 0, minWidth: compact ? 96 : 108 }}>
-              <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone={primaryAction.tone} />
-            </View>
-            {!compact ? <Ionicons color={colors.wrap} name="chevron-forward" size={20} /> : null}
           </View>
         </View>
         {compactCheckInAction ? (
@@ -755,7 +759,7 @@ function TodayNextActionCard({
           </View>
           <TodayTonePill label={nextAction.label} tone={nextAction.tone} />
         </View>
-        <TodayButton disabled={busy || nextAction.action.disabled || !handler} icon={actionIcon(nextAction.action)} label={nextAction.action.label} onPress={handler} primary tone={nextAction.action.tone} />
+        <TodayButton disabled={busy || nextAction.action.disabled || !handler} icon={actionIcon(nextAction.action)} label={nextAction.action.label} onPress={handler} primary tone={todayActionTone(nextAction.action)} />
       </View>
     </EngineCard>
   );
@@ -774,7 +778,7 @@ function TrainingTodayCard({
   return (
     <PremiumCard accent={model.tone} density="spacious" testID="today-training-card">
       <View style={{ gap: spacing.md }}>
-        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ gap: spacing.xs }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={{ color: colorForTone(model.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
               Training Today
@@ -784,14 +788,12 @@ function TrainingTodayCard({
             </Text>
             <Text numberOfLines={2} style={screenStyles.body}>{model.sentence}</Text>
           </View>
-          <TodayTonePill label={model.intensityLabel} tone={model.tone} />
+          <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+            {model.durationLabel} / {model.intensityLabel}
+          </Text>
         </View>
         <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            <TodayTonePill label={model.durationLabel} tone="muted" />
-            <TodayTonePill label={model.intensityLabel} tone={model.tone} />
-          </View>
-          <TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} tone={model.action.tone} />
+          <TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} tone={todayActionTone(model.action)} />
         </View>
       </View>
     </PremiumCard>
@@ -837,7 +839,6 @@ function FuelTodayCard({
             <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26 }}>Fuel Today</Text>
             <Text numberOfLines={2} style={screenStyles.body}>{model.note}</Text>
           </View>
-          <TodayTonePill label={model.status} tone={model.tone} />
         </View>
         <View style={{ backgroundColor: todayPalette.cardLine, height: 1 }} />
         <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
@@ -861,7 +862,7 @@ function ThisWeekCard({
   return (
     <PremiumCard accent="green" density="regular" testID="today-week-card">
       <View style={{ gap: spacing.md }}>
-        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ gap: spacing.xs }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={{ color: todayPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
               This Week
@@ -869,7 +870,7 @@ function ThisWeekCard({
             <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26 }}>This Week</Text>
             <Text numberOfLines={2} style={screenStyles.body}>{model.sentence}</Text>
           </View>
-          <TodayTonePill label={model.phaseLabel} tone="green" />
+          <Text style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>{model.phaseLabel}</Text>
         </View>
         <View style={{ gap: 0 }}>
         {model.sessions.length > 0 ? model.sessions.map((session) => (
@@ -902,16 +903,6 @@ function TodayLoadGraphCard({ dashboard }: { dashboard: TodayDashboardVisual }) 
   return (
     <PremiumCard accent={tone} density="regular" testID="today-load-graph-card">
       <View style={{ gap: spacing.md }}>
-        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: colorForTone(tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
-              Weekly Load
-            </Text>
-            <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26 }}>Training rhythm</Text>
-            <Text style={screenStyles.body}>Planned app work across the current week.</Text>
-          </View>
-          <TodayTonePill label={dashboard.loadStateLabel} tone={tone} />
-        </View>
         <WeeklyLoadBars bars={dashboard.weeklyLoad} testID="today-weekly-load-graph" />
         <Text style={screenStyles.subtle}>Use the graph as context only. Readiness and safety notes still decide how hard today should feel.</Text>
       </View>

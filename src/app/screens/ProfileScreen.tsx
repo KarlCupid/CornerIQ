@@ -81,26 +81,23 @@ function profileTint(tone: ProfileVisualTone, alpha: string): string {
 
 function ProfileStatusPill({ label, tone: _tone = "muted" }: { label: string; tone?: ProfileVisualTone | undefined }) {
   return (
-    <View
+    <Text
       accessibilityLabel={`Status: ${label}`}
+      numberOfLines={2}
       style={{
-        alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(232, 240, 255, 0.15)",
-        borderRadius: radii.pill,
-        borderWidth: 1,
-        justifyContent: "center",
+        color: colors.wrap,
+        fontSize: 12,
+        fontWeight: "800",
+        letterSpacing: 0,
+        lineHeight: 16,
         maxWidth: 180,
-        minHeight: 26,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3
-        }}
+        minHeight: 16,
+        textAlign: "right"
+      }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
-        {label}
-      </Text>
-    </View>
+      {label}
+    </Text>
   );
 }
 
@@ -177,7 +174,7 @@ function ProfileIconButton({
         paddingVertical: spacing.sm
       })}
     >
-      <Ionicons color={iconColor} name={icon} size={17} />
+      <Ionicons color={iconColor} name={icon} size={17} style={{ flexShrink: 0 }} />
       <Text style={{ color: variant === "primary" ? profilePalette.textPrimary : profilePalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>
         {label}
       </Text>
@@ -337,6 +334,101 @@ function ProfileDisclosureSection({
   );
 }
 
+function ProfilePriorityActions({
+  accountDeleteConfirmation,
+  busy,
+  deleteConfirmation,
+  onOpenPlan,
+  onOpenPrivacyPolicy,
+  onOpenSettings,
+  onOpenSupport,
+  onSignOut,
+  planUnavailable,
+  privacyPolicyUnavailable,
+  setAccountDeleteConfirmation,
+  setDeleteConfirmation,
+  supportUnavailable,
+  userDataControls
+}: {
+  accountDeleteConfirmation: string;
+  busy: boolean;
+  deleteConfirmation: string;
+  onOpenPlan: () => void;
+  onOpenPrivacyPolicy: () => void;
+  onOpenSettings: () => void;
+  onOpenSupport: () => void;
+  onSignOut: () => Promise<void>;
+  planUnavailable: boolean;
+  privacyPolicyUnavailable: boolean;
+  setAccountDeleteConfirmation: (value: string) => void;
+  setDeleteConfirmation: (value: string) => void;
+  supportUnavailable: boolean;
+  userDataControls?: UserDataControlsHook | undefined;
+}) {
+  const dataBusy = Boolean(userDataControls?.busy);
+  return (
+    <DashboardCard testID="profile-priority-actions-card" title="Account essentials">
+      <View style={{ gap: spacing.md }}>
+        <Text style={profileTextStyles.body}>Privacy, support, export, delete, and sign out.</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <View style={{ flexBasis: 156, flexGrow: 1 }}>
+            <ProfileIconButton disabled={busy} icon="create-outline" label="Edit setup" onPress={onOpenSettings} tone="muted" />
+          </View>
+          <View style={{ flexBasis: 180, flexGrow: 1 }}>
+            <ProfileIconButton disabled={busy || planUnavailable} icon="flag-outline" label="Change goal or schedule" onPress={onOpenPlan} tone="blue" />
+          </View>
+          <View style={{ flexBasis: 180, flexGrow: 1 }}>
+            <ProfileIconButton accessibilityLabel={privacyPolicyUnavailable ? "Shortcut privacy unavailable" : "Shortcut privacy link"} disabled={privacyPolicyUnavailable} icon="document-text-outline" label={privacyPolicyUnavailable ? "Privacy policy unavailable" : "Open Privacy Policy"} onPress={onOpenPrivacyPolicy} tone="muted" />
+          </View>
+          <View style={{ flexBasis: 150, flexGrow: 1 }}>
+            <ProfileIconButton accessibilityLabel="Shortcut support link" disabled={supportUnavailable} icon="help-circle-outline" label="Open Support" onPress={onOpenSupport} tone="blue" />
+          </View>
+          <View style={{ flexBasis: 160, flexGrow: 1 }}>
+            <ProfileIconButton accessibilityLabel="Shortcut data preview" disabled={!userDataControls || busy || dataBusy} icon="eye-outline" label="Preview export" onPress={() => void userDataControls?.previewExport()} tone="muted" />
+          </View>
+          <View style={{ flexBasis: 220, flexGrow: 1 }}>
+            <ProfileIconButton accessibilityLabel="Shortcut JSON bundle" disabled={!userDataControls || busy || dataBusy} icon="download-outline" label="Generate portable JSON export" onPress={() => void userDataControls?.generateExportBundle()} tone="muted" />
+          </View>
+          <View style={{ flexBasis: 150, flexGrow: 1 }}>
+            <ProfileIconButton accessibilityLabel="Shortcut account exit" disabled={busy || dataBusy} icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} tone="muted" />
+          </View>
+        </View>
+        {userDataControls?.previewRows.map((row, index) => <Text key={`profile-priority-preview-row:${index}`} style={profileTextStyles.subtle}>{row}</Text>)}
+        {userDataControls?.portableExportRows.map((row, index) => <Text key={`profile-priority-portable-export-row:${index}`} style={profileTextStyles.subtle}>{row}</Text>)}
+        {userDataControls?.bundleText ? (
+          <TextInput accessibilityLabel="Portable JSON export payload" editable={false} multiline style={[screenStyles.input, { minHeight: 110 }]} value={userDataControls.bundleText} />
+        ) : null}
+        {userDataControls?.message ? <Text style={profileTextStyles.subtle}>{userDataControls.message}</Text> : null}
+        <View style={{ backgroundColor: profilePalette.cardLine, height: 1 }} />
+        <View style={{ gap: spacing.sm }}>
+          <Text style={profileTextStyles.sectionTitle}>Delete controls</Text>
+          <Text style={profileTextStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Delete account requires a signed-in server-side account deletion function."}</Text>
+          <Text style={profileTextStyles.subtle}>Export first. Destructive actions require exact confirmation.</Text>
+          <TextInput accessibilityLabel="Shortcut data removal confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={deleteConfirmation} />
+          <ProfileIconButton
+            accessibilityLabel="Shortcut app data removal"
+            disabled={!userDataControls || deleteConfirmation !== "DELETE" || !userDataControls.preview || busy || dataBusy}
+            icon="trash-outline"
+            label="Delete app data"
+            onPress={() => void userDataControls?.deleteData()}
+            tone="red"
+          />
+          <TextInput accessibilityLabel="Shortcut identity removal confirmation" onChangeText={setAccountDeleteConfirmation} placeholder="Type DELETE ACCOUNT to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={accountDeleteConfirmation} />
+          <ProfileIconButton
+            accessibilityLabel="Shortcut identity removal"
+            disabled={!userDataControls || accountDeleteConfirmation !== "DELETE ACCOUNT" || busy || dataBusy}
+            icon="person-remove-outline"
+            label="Delete account"
+            onPress={() => void userDataControls?.deleteAccount()}
+            tone="red"
+          />
+          {userDataControls?.accountDeletionResultRows.map((row, index) => <Text key={`profile-priority-account-deletion-result:${index}`} style={profileTextStyles.subtle}>{row}</Text>)}
+        </View>
+      </View>
+    </DashboardCard>
+  );
+}
+
 export function ProfileScreen({
   asOfDate,
   busy,
@@ -362,7 +454,7 @@ export function ProfileScreen({
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [profileDetailsOpen, setProfileDetailsOpen] = React.useState(true);
   const [setupDetailsOpen, setSetupDetailsOpen] = React.useState(false);
-  const [privacyOpen, setPrivacyOpen] = React.useState(true);
+  const [privacyOpen, setPrivacyOpen] = React.useState(false);
   const [healthOpen, setHealthOpen] = React.useState(false);
   const [deleteControlsOpen, setDeleteControlsOpen] = React.useState(true);
   const [historyDetailOpen, setHistoryDetailOpen] = React.useState(false);
@@ -433,6 +525,23 @@ export function ProfileScreen({
           </View>
         </DashboardCard>
       ) : null}
+
+      <ProfilePriorityActions
+        accountDeleteConfirmation={accountDeleteConfirmation}
+        busy={busy}
+        deleteConfirmation={deleteConfirmation}
+        onOpenPlan={openPlan}
+        onOpenPrivacyPolicy={openPrivacyPolicy}
+        onOpenSettings={openSettings}
+        onOpenSupport={openSupport}
+        onSignOut={onSignOut}
+        planUnavailable={!onOpenPlan}
+        privacyPolicyUnavailable={releaseLinks.privacyPolicyUrlIsPlaceholder}
+        setAccountDeleteConfirmation={setAccountDeleteConfirmation}
+        setDeleteConfirmation={setDeleteConfirmation}
+        supportUnavailable={!releaseLinks.supportUrl}
+        userDataControls={userDataControls}
+      />
 
       {settingsOpen ? (
         <View style={{ gap: spacing.md }} testID="profile-settings-section">

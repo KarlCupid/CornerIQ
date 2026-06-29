@@ -704,24 +704,22 @@ function PlanGoalWizardModal({
 
 function PlanTonePill({ label, tone: _tone = "green" }: { label: string; tone?: PlanTone | undefined }) {
   return (
-    <View
+    <Text
       accessibilityLabel={`Status: ${label}`}
+      numberOfLines={2}
       style={{
-        alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(232, 240, 255, 0.15)",
-        borderRadius: radii.pill,
-        borderWidth: 1,
-        minHeight: 28,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3
+        color: colors.wrap,
+        fontSize: 12,
+        fontWeight: "800",
+        lineHeight: 16,
+        maxWidth: 140,
+        minHeight: 16,
+        textAlign: "right"
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
-        {label}
-      </Text>
-    </View>
+      {label}
+    </Text>
   );
 }
 
@@ -752,16 +750,27 @@ function PlanButton({
           backgroundColor: primary ? (pressed ? planPalette.actionFillPressed : planPalette.actionFill) : pressed ? planPalette.controlFillPressed : planPalette.controlFill,
           borderColor: primary ? planPalette.actionBorder : planPalette.controlLine,
           boxShadow: disabled ? "none" : primary ? `0 12px 28px ${planPalette.actionShadow}` : "none",
-          flexBasis: primary ? 190 : 160,
+          flexBasis: primary ? 190 : 150,
           flexDirection: "row",
           flexGrow: 1,
+          flexShrink: 1,
           gap: spacing.xs,
-          opacity: disabled ? 0.55 : 1
+          minHeight: 52,
+          minWidth: 0,
+          opacity: disabled ? 0.55 : 1,
+          paddingHorizontal: primary ? spacing.md : spacing.sm
         }
       ]}
     >
-      {icon ? <Ionicons color={iconColor} name={icon} size={16} /> : null}
-      <Text style={{ color: primary ? colors.cornerBlack : planPalette.textBody, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>{label}</Text>
+      {icon ? <Ionicons color={iconColor} name={icon} size={15} style={{ flexShrink: 0 }} /> : null}
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.78}
+        numberOfLines={2}
+        style={{ color: primary ? colors.cornerBlack : planPalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: primary ? "900" : "700", lineHeight: 18, textAlign: "center" }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }

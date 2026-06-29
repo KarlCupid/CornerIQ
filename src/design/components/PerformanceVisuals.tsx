@@ -156,26 +156,20 @@ export function DashboardCard({
 
 export function DashboardPill({ label, tone: _tone = "blue" }: { label: string; tone?: VisualTone | undefined }) {
   return (
-    <View
+    <Text
       accessibilityLabel={`Status: ${label}`}
       style={{
-        alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.075)",
-        borderColor: "rgba(255, 255, 255, 0.16)",
-        borderRadius: radii.pill,
-        borderWidth: 1,
-        justifyContent: "center",
         maxWidth: 180,
-        minHeight: 26,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3
-        }}
+        color: colors.wrap,
+        fontSize: 12,
+        fontWeight: "800",
+        letterSpacing: 0,
+        lineHeight: 16
+      }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", letterSpacing: 0, lineHeight: 16 }}>
-        {label}
-      </Text>
-    </View>
+      {label}
+    </Text>
   );
 }
 
@@ -385,28 +379,39 @@ export function MiniBarChart({
   testID?: string | undefined;
 }) {
   const theme = useLuminousScreenTheme();
+  const maxValue = Math.max(0, ...bars.map((bar) => bar.value));
+  const topAxis = maxValue > 0 ? String(Math.ceil(maxValue)) : "";
+  const midAxis = maxValue > 1 ? String(Math.round(maxValue / 2)) : "";
   return (
     <View style={{ gap: spacing.sm }} testID={testID}>
-      <View style={{ alignItems: "flex-end", flexDirection: "row", gap: spacing.sm, height }}>
-        {bars.map((bar, index) => (
-          <View key={`bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, gap: spacing.xs, height: "100%", justifyContent: "flex-end", minWidth: 22 }}>
-            {bar.markerLabel ? <DashboardPill label={bar.markerLabel} tone={bar.tone === "muted" ? (theme.accent === "neutral" ? "muted" : theme.accent) : bar.tone} /> : null}
-            <View
-              style={{
-                backgroundColor: bar.faded ? "transparent" : colorForTone(bar.tone),
-                borderColor: bar.faded ? "rgba(255, 255, 255, 0.24)" : `${colorForTone(bar.tone)}77`,
-                borderRadius: 8,
-                borderStyle: bar.faded ? "dashed" : "solid",
-                borderWidth: bar.faded ? 1 : 0,
-                height: `${Math.max(8, clamp01(bar.ratio) * 100)}%`,
-                opacity: bar.faded ? 0.55 : 1,
-                width: "72%"
-              }}
-            />
-          </View>
-        ))}
+      <View style={{ alignItems: "stretch", flexDirection: "row", gap: spacing.sm }}>
+        <View style={{ alignItems: "flex-end", height, justifyContent: "space-between", width: 30 }}>
+          {[topAxis, midAxis, "0"].map((value, index) => (
+            <Text key={`bar-axis:${index}`} numberOfLines={1} style={{ color: colors.mutedText, fontSize: 10, fontWeight: "800", lineHeight: 12 }}>
+              {value}
+            </Text>
+          ))}
+        </View>
+        <View style={{ alignItems: "flex-end", flex: 1, flexDirection: "row", gap: spacing.sm, height }}>
+          {bars.map((bar, index) => (
+            <View key={`bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end", minWidth: 22 }}>
+              <View
+                style={{
+                  backgroundColor: bar.faded ? "transparent" : colorForTone(bar.tone),
+                  borderColor: bar.faded ? "rgba(255, 255, 255, 0.24)" : `${colorForTone(bar.tone)}77`,
+                  borderRadius: 8,
+                  borderStyle: bar.faded ? "dashed" : "solid",
+                  borderWidth: bar.faded ? 1 : 0,
+                  height: `${Math.max(8, clamp01(bar.ratio) * 100)}%`,
+                  opacity: bar.faded ? 0.55 : 1,
+                  width: "72%"
+                }}
+              />
+            </View>
+          ))}
+        </View>
       </View>
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+      <View style={{ flexDirection: "row", gap: spacing.sm, paddingLeft: 30 + spacing.sm }}>
         {bars.map((bar, index) => (
           <Text key={`bar-label:${bar.label}:${index}`} numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "center" }}>
             {bar.label}

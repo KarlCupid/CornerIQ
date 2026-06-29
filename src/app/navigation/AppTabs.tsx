@@ -425,6 +425,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               message={message}
               onAcknowledgeNutritionSafetyReview={onAcknowledgeNutritionSafetyReview}
               onFocusIntentApplied={() => setFuelFocusIntent(undefined)}
+              preferredUnits={state.athlete.preferredUnits}
               quickLogs={quickLogs}
               recentLogs={state.viewModels.recentLogs}
               viewModel={state.viewModels.fuel}

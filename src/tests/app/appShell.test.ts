@@ -2151,7 +2151,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Fuel Today");
     expect(output).toContain("This Week");
     expect(output).toContain("today-load-graph-card");
-    expect(output).toContain("Training rhythm");
+    expect(output).toContain("today-weekly-load-graph");
+    expect(output).not.toContain("Training rhythm");
     expect(output).not.toContain("Quick Logs");
     expect(output).not.toContain("Readiness details");
     expect(output).not.toContain("Training load");
@@ -3014,6 +3015,11 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Today's recommendation");
     expect(output).not.toContain("Actual vs target today");
     expect(output).not.toContain("Fight-week fuel");
+
+    const imperialRenderer = render(React.createElement(FuelScreen, { busy: false, message: null, preferredUnits: "imperial", quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel }));
+    const imperialOutput = JSON.stringify(imperialRenderer.toJSON());
+    expect(imperialOutput).toContain("146.4 lb");
+    expect(imperialOutput).not.toContain("66.4 kg");
 
     await act(async () => {
       await press(pressableWithText(renderer, "Fuel details"));

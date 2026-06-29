@@ -278,19 +278,15 @@ function TrainTonePill({
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.055)",
-        borderColor: "rgba(232, 240, 255, 0.15)",
-        borderRadius: radii.pill,
-        borderWidth: 1,
+        flexDirection: "row",
+        gap: 5,
         justifyContent: "center",
         maxWidth: 180,
-        minHeight: 30,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3
+        minHeight: 22
       }}
     >
       {icon ? <Ionicons color={color} name={icon} size={15} /> : null}
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, flexShrink: 1, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
     </View>
@@ -456,33 +452,42 @@ function TrainMiniBarChart({
   height?: number | undefined;
   referenceLabel?: string | undefined;
 }) {
+  const maxValue = Math.max(0, ...bars.map((bar) => bar.value));
+  const topAxis = maxValue > 0 ? String(Math.ceil(maxValue)) : "";
+  const midAxis = maxValue > 1 ? String(Math.round(maxValue / 2)) : "";
   return (
     <View style={{ gap: spacing.sm }}>
-      <View style={{ alignItems: "flex-end", flexDirection: "row", gap: spacing.sm, height }}>
-        {bars.map((bar, index) => {
-          const color = trainColorForTone(bar.tone);
-          return (
-            <View key={`train-bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, gap: spacing.xs, height: "100%", justifyContent: "flex-end", minWidth: 22 }}>
-              <Text numberOfLines={1} style={{ color: bar.hasSession ? trainPalette.textBody : trainPalette.textMuted, fontSize: 10, fontWeight: "800", lineHeight: 13 }}>
-                {bar.valueLabel}
-              </Text>
-              <View
-                style={{
-                  backgroundColor: !bar.hasSession || bar.faded ? "transparent" : color,
-                  borderColor: !bar.hasSession || bar.faded ? "rgba(218, 208, 242, 0.24)" : `${color}77`,
-                  borderRadius: 8,
-                  borderStyle: !bar.hasSession || bar.faded ? "dashed" : "solid",
-                  borderWidth: !bar.hasSession || bar.faded ? 1 : 0,
-                  height: `${Math.max(8, clamp01(bar.ratio) * 100)}%`,
-                  opacity: !bar.hasSession ? 0.34 : bar.faded ? 0.48 : 0.9,
-                  width: "72%"
-                }}
-              />
-            </View>
-          );
-        })}
+      <View style={{ alignItems: "stretch", flexDirection: "row", gap: spacing.sm }}>
+        <View style={{ alignItems: "flex-end", height, justifyContent: "space-between", width: 30 }}>
+          {[topAxis, midAxis, "0"].map((value, index) => (
+            <Text key={`train-axis:${index}`} numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 10, fontWeight: "800", lineHeight: 12 }}>
+              {value}
+            </Text>
+          ))}
+        </View>
+        <View style={{ alignItems: "flex-end", flex: 1, flexDirection: "row", gap: spacing.sm, height }}>
+          {bars.map((bar, index) => {
+            const color = trainColorForTone(bar.tone);
+            return (
+              <View key={`train-bar:${bar.label}:${index}`} style={{ alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end", minWidth: 22 }}>
+                <View
+                  style={{
+                    backgroundColor: !bar.hasSession || bar.faded ? "transparent" : color,
+                    borderColor: !bar.hasSession || bar.faded ? "rgba(218, 208, 242, 0.24)" : `${color}77`,
+                    borderRadius: 8,
+                    borderStyle: !bar.hasSession || bar.faded ? "dashed" : "solid",
+                    borderWidth: !bar.hasSession || bar.faded ? 1 : 0,
+                    height: `${Math.max(8, clamp01(bar.ratio) * 100)}%`,
+                    opacity: !bar.hasSession ? 0.34 : bar.faded ? 0.48 : 0.9,
+                    width: "72%"
+                  }}
+                />
+              </View>
+            );
+          })}
+        </View>
       </View>
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+      <View style={{ flexDirection: "row", gap: spacing.sm, paddingLeft: 30 + spacing.sm }}>
         {bars.map((bar, index) => (
           <Text key={`train-bar-label:${bar.label}:${index}`} numberOfLines={1} style={{ color: trainPalette.textMuted, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "center" }}>
             {bar.label}
@@ -951,7 +956,7 @@ function WeekContextCard({ asOfDate, viewModel }: { asOfDate?: ISODateString | u
   return (
     <DashboardCard testID="train-week-context" title="This Week">
       <Text style={trainTextStyles.body}>Theme: {plainTrainCopy(viewModel.supportGenerationSummary.weekDevelopmentTheme || "keep boxing quality repeatable")}</Text>
-      <TrainMiniBarChart bars={weekDays} height={86} referenceLabel="7-day support view" />
+      <TrainMiniBarChart bars={weekDays} height={122} referenceLabel="7-day support view" />
       <View style={{ gap: spacing.xs }}>
         {weekDays.map((item) => (
           <View key={`train-week-session:${item.date}:${item.label}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
