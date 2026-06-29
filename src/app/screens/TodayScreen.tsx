@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, RecentLogsViewModel, TodayViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
-import { TrendLineChart, WeeklyLoadBars } from "../../design/components/PerformanceVisuals";
+import { TrendLineChart, WeeklyLoadBars, WorkoutLogContributionGrid } from "../../design/components/PerformanceVisuals";
 import { GroupedMetricTiles, PremiumCard } from "../../design/components/PremiumPrimitives";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
@@ -899,12 +899,11 @@ function ThisWeekCard({
 }
 
 function TodayLoadGraphCard({ dashboard }: { dashboard: TodayDashboardVisual }) {
-  const tone: VisualTone = dashboard.loadStateLabel === "High" ? "red" : dashboard.loadStateLabel === "Watch" ? "orange" : "blue";
   return (
-    <PremiumCard accent={tone} density="regular" testID="today-load-graph-card">
+    <PremiumCard accent="blue" density="regular" testID="today-load-graph-card">
       <View style={{ gap: spacing.md }}>
-        <WeeklyLoadBars bars={dashboard.weeklyLoad} testID="today-weekly-load-graph" />
-        <Text style={screenStyles.subtle}>Use the graph as context only. Readiness and safety notes still decide how hard today should feel.</Text>
+        <WorkoutLogContributionGrid testID="today-workout-log-graph" visual={dashboard.workoutLog} />
+        <Text style={screenStyles.subtle}>Only completed workout logs fill the grid. Missing days stay unknown until you log them.</Text>
       </View>
     </PremiumCard>
   );

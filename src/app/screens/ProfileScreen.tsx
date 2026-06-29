@@ -369,7 +369,7 @@ function ProfilePriorityActions({
   return (
     <DashboardCard testID="profile-priority-actions-card" title="Account essentials">
       <View style={{ gap: spacing.md }}>
-        <Text style={profileTextStyles.body}>Privacy, support, export, delete, and sign out.</Text>
+        <Text style={profileTextStyles.body}>Privacy, support, export, sign out, and clear account actions.</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <View style={{ flexBasis: 156, flexGrow: 1 }}>
             <ProfileIconButton disabled={busy} icon="create-outline" label="Edit setup" onPress={onOpenSettings} tone="muted" />
@@ -401,18 +401,9 @@ function ProfilePriorityActions({
         {userDataControls?.message ? <Text style={profileTextStyles.subtle}>{userDataControls.message}</Text> : null}
         <View style={{ backgroundColor: profilePalette.cardLine, height: 1 }} />
         <View style={{ gap: spacing.sm }}>
-          <Text style={profileTextStyles.sectionTitle}>Delete controls</Text>
-          <Text style={profileTextStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Delete account requires a signed-in server-side account deletion function."}</Text>
-          <Text style={profileTextStyles.subtle}>Export first. Destructive actions require exact confirmation.</Text>
-          <TextInput accessibilityLabel="Shortcut data removal confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={deleteConfirmation} />
-          <ProfileIconButton
-            accessibilityLabel="Shortcut app data removal"
-            disabled={!userDataControls || deleteConfirmation !== "DELETE" || !userDataControls.preview || busy || dataBusy}
-            icon="trash-outline"
-            label="Delete app data"
-            onPress={() => void userDataControls?.deleteData()}
-            tone="red"
-          />
+          <Text style={profileTextStyles.sectionTitle}>Delete account</Text>
+          <Text style={profileTextStyles.body}>To permanently remove your CornerIQ account: preview/export your data, type DELETE ACCOUNT, then tap Delete account.</Text>
+          <Text style={profileTextStyles.subtle}>{userDataControls?.accountDeletionCopy ?? "Delete account removes app data and the sign-in identity when the server-side account deletion function is available."}</Text>
           <TextInput accessibilityLabel="Shortcut identity removal confirmation" onChangeText={setAccountDeleteConfirmation} placeholder="Type DELETE ACCOUNT to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={accountDeleteConfirmation} />
           <ProfileIconButton
             accessibilityLabel="Shortcut identity removal"
@@ -423,6 +414,18 @@ function ProfilePriorityActions({
             tone="red"
           />
           {userDataControls?.accountDeletionResultRows.map((row, index) => <Text key={`profile-priority-account-deletion-result:${index}`} style={profileTextStyles.subtle}>{row}</Text>)}
+          <View style={{ backgroundColor: profilePalette.cardLine, height: 1 }} />
+          <Text style={profileTextStyles.sectionTitle}>Delete app data only</Text>
+          <Text style={profileTextStyles.subtle}>This keeps your login but removes user-owned app rows. It requires an export preview and DELETE.</Text>
+          <TextInput accessibilityLabel="Shortcut data removal confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={deleteConfirmation} />
+          <ProfileIconButton
+            accessibilityLabel="Shortcut app data removal"
+            disabled={!userDataControls || deleteConfirmation !== "DELETE" || !userDataControls.preview || busy || dataBusy}
+            icon="trash-outline"
+            label="Delete app data only"
+            onPress={() => void userDataControls?.deleteData()}
+            tone="red"
+          />
         </View>
       </View>
     </DashboardCard>
@@ -732,7 +735,7 @@ export function ProfileScreen({
         <DashboardCard title="Account and app data">
           <View style={{ gap: spacing.sm }}>
             <Text style={profileTextStyles.body}>{userDataControls?.accountDeletionCopy ?? "Delete app data removes user-owned app rows only. Delete account requires a signed-in server-side account deletion function."}</Text>
-            <Text style={profileTextStyles.subtle}>Export first before any destructive action.</Text>
+            <Text style={profileTextStyles.subtle}>Delete account is the full removal path. Delete app data only keeps the sign-in identity.</Text>
           </View>
         </DashboardCard>
         <ProfileDisclosureSection
@@ -743,23 +746,9 @@ export function ProfileScreen({
           testID="profile-delete-controls"
           title="Delete controls"
         >
-          <DashboardCard title="Delete app data">
-            <View style={{ gap: spacing.sm }}>
-              <Text style={profileTextStyles.body}>Deletes user-owned app rows only. It does not delete auth identity.</Text>
-              <Text style={profileTextStyles.subtle}>Requires an export preview and the exact word DELETE.</Text>
-              <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={deleteConfirmation} />
-              <ProfileIconButton
-                disabled={!userDataControls || deleteConfirmation !== "DELETE" || !userDataControls.preview || busy || userDataControls.busy}
-                icon="trash-outline"
-                label="Delete app data"
-                onPress={() => void userDataControls?.deleteData()}
-                tone="red"
-              />
-            </View>
-          </DashboardCard>
           <DashboardCard title="Delete account">
             <View style={{ gap: spacing.sm }}>
-              <Text style={profileTextStyles.body}>Deletes app data and the sign-in identity for this account through the server-side account deletion function.</Text>
+              <Text style={profileTextStyles.body}>Full account removal: preview/export your data, type DELETE ACCOUNT, then delete the sign-in identity and app data.</Text>
               <Text style={profileTextStyles.subtle}>This is irreversible and signs you out. Export first. Requires DELETE ACCOUNT.</Text>
               <TextInput accessibilityLabel="Delete account confirmation" onChangeText={setAccountDeleteConfirmation} placeholder="Type DELETE ACCOUNT to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={accountDeleteConfirmation} />
               <ProfileIconButton
@@ -770,6 +759,20 @@ export function ProfileScreen({
                 tone="red"
               />
               {userDataControls?.accountDeletionResultRows.map((row, index) => <Text key={`profile-account-deletion-result:${index}`} style={profileTextStyles.subtle}>{row}</Text>)}
+            </View>
+          </DashboardCard>
+          <DashboardCard title="Delete app data only">
+            <View style={{ gap: spacing.sm }}>
+              <Text style={profileTextStyles.body}>Deletes user-owned app rows only. It does not delete auth identity.</Text>
+              <Text style={profileTextStyles.subtle}>Requires an export preview and the exact word DELETE.</Text>
+              <TextInput accessibilityLabel="Delete confirmation" onChangeText={setDeleteConfirmation} placeholder="Type DELETE to enable" placeholderTextColor={profilePalette.textMuted} style={[screenStyles.input, { color: profilePalette.textPrimary }]} value={deleteConfirmation} />
+              <ProfileIconButton
+                disabled={!userDataControls || deleteConfirmation !== "DELETE" || !userDataControls.preview || busy || userDataControls.busy}
+                icon="trash-outline"
+                label="Delete app data only"
+                onPress={() => void userDataControls?.deleteData()}
+                tone="red"
+              />
             </View>
           </DashboardCard>
         </ProfileDisclosureSection>

@@ -35,6 +35,15 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
   const electrolyteHistory = journey.electrolyteHistory.filter((log) => log.date <= state.asOfDate);
   const cycleHistory = journey.cycleHistory.filter((log) => log.date <= state.asOfDate);
   const completedTrainingSessions = journey.completedTrainingSessions.filter((log) => log.date <= state.asOfDate);
+  const completedWorkoutLogs = completedTrainingSessions
+    .filter((log) => log.completionStatus === "completed" && log.resolutionLifecycle !== "superseded")
+    .map((log) => ({
+      date: log.performedDate ?? log.date,
+      durationMinutes: log.durationMinutes,
+      intensity: log.intensity,
+      type: log.type
+    }))
+    .filter((log) => log.date <= state.asOfDate);
   const protectedWorkouts = journey.protectedWorkouts.filter((log) => log.date <= state.asOfDate);
   const hydrationHistory = journey.hydrationHistory.filter((log) => log.date <= state.asOfDate);
   const nutritionHistory = journey.nutritionHistory.filter((log) => log.date <= state.asOfDate);
@@ -170,6 +179,7 @@ export function buildRecentLogsViewModel(journey: AthleteJourney, state: Perform
       lastElectrolytes ? `Last electrolytes: ${lastElectrolytes.sodiumMg} mg sodium on ${lastElectrolytes.date}.` : "No electrolyte log yet."
     ],
     training: recentTraining.length > 0 ? recentTraining.map((log) => `${log.date}: ${log.type.replace(/_/g, " ")} for ${log.durationMinutes} min.`) : ["No training log yet."],
+    trainingLogDays: takeRecentByDate(completedWorkoutLogs, 90),
     cycle: [cycleLastLogSummary, "Cycle support is not fertility tracking."],
     profile: [lastEvent ? `Last journey event: ${lastEvent.type} on ${lastEvent.occurredAt.slice(0, 10)}.` : "No journey events yet."],
     readinessToday,

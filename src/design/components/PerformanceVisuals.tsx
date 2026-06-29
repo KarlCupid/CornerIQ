@@ -4,7 +4,8 @@ import Svg, { Circle, Line, Path } from "react-native-svg";
 import { glassStyles } from "../glass";
 import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
-import type { BarVisual, BreakdownVisual, ModifierVisual, ProgressVisual, TimelineVisual, TrendPoint, VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { fontFamilies } from "../typography";
+import type { BarVisual, BreakdownVisual, ModifierVisual, ProgressVisual, TimelineVisual, TrendPoint, VisualTone, WorkoutLogContributionVisual } from "../../engine/presentation/dashboardVisualData";
 import { PremiumCard } from "./PremiumPrimitives";
 
 const toneColors: Record<VisualTone, string> = {
@@ -143,7 +144,7 @@ export function DashboardCard({
   return (
     <PremiumCard density={density === "compact" ? "compact" : "regular"} testID={testID}>
       <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
-        <Text numberOfLines={2} style={{ color: quietTitle ? colors.wrap : theme.accentColor, flex: 1, fontSize: quietTitle ? 14 : 12, fontWeight: quietTitle ? "700" : "900", letterSpacing: 0, lineHeight: quietTitle ? 18 : 16, textTransform: quietTitle ? "none" : "uppercase" }}>
+        <Text numberOfLines={2} style={{ color: quietTitle ? colors.wrap : theme.accentColor, flex: 1, fontFamily: quietTitle ? fontFamilies.bold : fontFamilies.black, fontSize: quietTitle ? 14 : 12, fontWeight: quietTitle ? "700" : "900", letterSpacing: 0, lineHeight: quietTitle ? 18 : 16, textTransform: quietTitle ? "none" : "uppercase" }}>
           {quietTitle ? title : title.toUpperCase()}
         </Text>
         {headerRight}
@@ -162,6 +163,7 @@ export function DashboardPill({ label, tone: _tone = "blue" }: { label: string; 
         alignSelf: "flex-start",
         maxWidth: 180,
         color: colors.wrap,
+        fontFamily: fontFamilies.extraBold,
         fontSize: 12,
         fontWeight: "800",
         letterSpacing: 0,
@@ -247,10 +249,10 @@ export function MetricRing({
       tone={value === null ? "muted" : tone}
     >
       <View style={{ alignItems: "center", gap: 2 }}>
-        <Text style={{ color: colors.canvas, fontSize: value === null ? 28 : 40, fontWeight: "900", lineHeight: value === null ? 34 : 46 }}>
+        <Text style={{ color: colors.canvas, fontFamily: fontFamilies.black, fontSize: value === null ? 28 : 40, fontWeight: "900", lineHeight: value === null ? 34 : 46 }}>
           {value === null ? "Log" : Math.round(value)}
         </Text>
-        <Text style={{ color: colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 17 }}>
+        <Text style={{ color: colors.wrap, fontFamily: fontFamilies.extraBold, fontSize: 13, fontWeight: "800", lineHeight: 17 }}>
           {subLabel ?? `/${max}`}
         </Text>
       </View>
@@ -387,7 +389,7 @@ export function MiniBarChart({
       <View style={{ alignItems: "stretch", flexDirection: "row", gap: spacing.sm }}>
         <View style={{ alignItems: "flex-end", height, justifyContent: "space-between", width: 30 }}>
           {[topAxis, midAxis, "0"].map((value, index) => (
-            <Text key={`bar-axis:${index}`} numberOfLines={1} style={{ color: colors.mutedText, fontSize: 10, fontWeight: "800", lineHeight: 12 }}>
+            <Text key={`bar-axis:${index}`} numberOfLines={1} style={{ color: colors.mutedText, fontFamily: fontFamilies.extraBold, fontSize: 10, fontWeight: "800", lineHeight: 12 }}>
               {value}
             </Text>
           ))}
@@ -413,18 +415,90 @@ export function MiniBarChart({
       </View>
       <View style={{ flexDirection: "row", gap: spacing.sm, paddingLeft: 30 + spacing.sm }}>
         {bars.map((bar, index) => (
-          <Text key={`bar-label:${bar.label}:${index}`} numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "center" }}>
+          <Text key={`bar-label:${bar.label}:${index}`} numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontFamily: fontFamilies.extraBold, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "center" }}>
             {bar.label}
           </Text>
         ))}
       </View>
-      {referenceLabel ? <Text style={{ color: theme.accentColor, fontSize: 11, fontWeight: "800", lineHeight: 15, textAlign: "right" }}>{referenceLabel}</Text> : null}
+      {referenceLabel ? <Text style={{ color: theme.accentColor, fontFamily: fontFamilies.extraBold, fontSize: 11, fontWeight: "800", lineHeight: 15, textAlign: "right" }}>{referenceLabel}</Text> : null}
     </View>
   );
 }
 
 export function WeeklyLoadBars(props: { bars: readonly BarVisual[]; testID?: string | undefined }) {
   return <MiniBarChart bars={props.bars} height={120} testID={props.testID} />;
+}
+
+const workoutLogFill: Record<0 | 1 | 2 | 3, string> = {
+  0: "rgba(232, 240, 255, 0.07)",
+  1: "rgba(39, 206, 241, 0.34)",
+  2: "rgba(39, 206, 241, 0.58)",
+  3: colors.blueIQ
+};
+
+export function WorkoutLogContributionGrid({
+  visual,
+  testID
+}: {
+  visual: WorkoutLogContributionVisual;
+  testID?: string | undefined;
+}) {
+  return (
+    <View
+      accessibilityLabel={`${visual.totalLoggedDays} workout days logged in ${visual.windowLabel}. ${visual.totalMinutes} total minutes.`}
+      style={{ gap: spacing.md }}
+      testID={testID}
+    >
+      <View style={{ alignItems: "baseline", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
+        <Text style={{ color: colors.canvas, flexShrink: 1, fontFamily: fontFamilies.extraBold, fontSize: 24, fontWeight: "800", lineHeight: 30 }}>
+          {visual.totalLoggedDays} logged day{visual.totalLoggedDays === 1 ? "" : "s"}
+        </Text>
+        <Text style={{ color: colors.blueIQ, fontFamily: fontFamilies.extraBold, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "right" }}>
+          {visual.totalMinutes} min
+        </Text>
+      </View>
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.sm }}>
+        <View style={{ gap: 6, paddingTop: 18, width: 14 }}>
+          {visual.weekdayLabels.map((label, index) => (
+            <Text key={`workout-log-weekday:${label}:${index}`} style={{ color: colors.mutedText, fontFamily: fontFamilies.bold, fontSize: 9, fontWeight: "700", height: 14, lineHeight: 14, textAlign: "center" }}>
+              {label}
+            </Text>
+          ))}
+        </View>
+        <View style={{ flex: 1, flexDirection: "row", gap: 7, justifyContent: "space-between" }}>
+          {visual.weeks.map((week, weekIndex) => (
+            <View key={`workout-log-week:${week.label}:${weekIndex}`} style={{ flex: 1, gap: 6, minWidth: 0 }}>
+              <Text numberOfLines={1} style={{ color: colors.mutedText, fontFamily: fontFamilies.bold, fontSize: 9, fontWeight: "700", lineHeight: 12, textAlign: "center" }}>
+                {week.label}
+              </Text>
+              {week.days.map((day) => (
+                <View
+                  accessibilityLabel={`${day.date}: ${day.valueLabel}`}
+                  key={`workout-log-day:${day.date}`}
+                  style={{
+                    backgroundColor: workoutLogFill[day.level],
+                    borderColor: day.logged ? "rgba(39, 206, 241, 0.34)" : "rgba(232, 240, 255, 0.08)",
+                    borderRadius: 4,
+                    borderWidth: 1,
+                    height: 14,
+                    opacity: day.logged ? 1 : 0.86,
+                    width: "100%"
+                  }}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.xs, justifyContent: "flex-end" }}>
+        <Text style={{ color: colors.mutedText, fontFamily: fontFamilies.bold, fontSize: 10, fontWeight: "700", lineHeight: 14 }}>Less</Text>
+        {[0, 1, 2, 3].map((level) => (
+          <View key={`workout-log-legend:${level}`} style={{ backgroundColor: workoutLogFill[level as 0 | 1 | 2 | 3], borderColor: "rgba(232, 240, 255, 0.11)", borderRadius: 3, borderWidth: 1, height: 10, width: 10 }} />
+        ))}
+        <Text style={{ color: colors.mutedText, fontFamily: fontFamilies.bold, fontSize: 10, fontWeight: "700", lineHeight: 14 }}>More</Text>
+      </View>
+    </View>
+  );
 }
 
 export function TrendLineChart({

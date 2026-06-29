@@ -88,6 +88,7 @@ export interface TargetGuideVisual {
 export interface TodayDashboardVisual {
   readiness: ReadinessDashboardVisual;
   weeklyLoad: readonly BarVisual[];
+  workoutLog: WorkoutLogContributionVisual;
   loadStateLabel: string;
   acwrLabel: string;
   fuel: readonly ProgressVisual[];
@@ -102,6 +103,29 @@ export interface TodayDashboardVisual {
   trainingToday: TodayTrainingCardVisual;
   fuelToday: TodayFuelCardVisual;
   nextAction: TodayNextActionVisual;
+}
+
+export interface WorkoutLogDayVisual {
+  count: number;
+  date: string;
+  dayLabel: string;
+  logged: boolean;
+  minutes: number;
+  valueLabel: string;
+  level: 0 | 1 | 2 | 3;
+}
+
+export interface WorkoutLogWeekVisual {
+  label: string;
+  days: readonly WorkoutLogDayVisual[];
+}
+
+export interface WorkoutLogContributionVisual {
+  totalLoggedDays: number;
+  totalMinutes: number;
+  windowLabel: string;
+  weeks: readonly WorkoutLogWeekVisual[];
+  weekdayLabels: readonly string[];
 }
 
 export type TodayPrimaryActionKind = "log_food" | "log_readiness" | "open_plan" | "open_train" | "open_workout" | "open_fuel_safety";
@@ -331,6 +355,23 @@ function shortDateLabel(date: string): string {
     return date.slice(0, 3).toUpperCase();
   }
   return parsed.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }).toUpperCase();
+}
+
+function addDays(date: string, dayDelta: number): string {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  parsed.setUTCDate(parsed.getUTCDate() + dayDelta);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function monthDayLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  return parsed.toLocaleDateString("en-US", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 function dayLabelFromPlan(label: string, date: string): string {
@@ -837,6 +878,67 @@ function barsFromPlan(plan: PlanViewModel | undefined, asOfDate?: string | undef
   }));
 }
 
+function workoutLogLevel(count: number, minutes: number): 0 | 1 | 2 | 3 {
+  if (count <= 0 || minutes <= 0) {
+    return 0;
+  }
+  if (count >= 2 || minutes >= 90) {
+    return 3;
+  }
+  if (minutes >= 45) {
+    return 2;
+  }
+  return 1;
+}
+
+function buildWorkoutLogContribution(recentLogs: RecentLogsViewModel, asOfDate?: string | undefined): WorkoutLogContributionVisual {
+  const endDate = asOfDate ?? recentLogs.trainingLogDays[0]?.date ?? new Date().toISOString().slice(0, 10);
+  const startDate = addDays(endDate, -27);
+  const logsByDate = new Map<string, { count: number; minutes: number }>();
+
+  for (const log of recentLogs.trainingLogDays) {
+    if (log.date < startDate || log.date > endDate) {
+      continue;
+    }
+    const current = logsByDate.get(log.date) ?? { count: 0, minutes: 0 };
+    logsByDate.set(log.date, {
+      count: current.count + 1,
+      minutes: current.minutes + log.durationMinutes
+    });
+  }
+
+  const days: WorkoutLogDayVisual[] = Array.from({ length: 28 }, (_, index) => {
+    const date = addDays(startDate, index);
+    const log = logsByDate.get(date) ?? { count: 0, minutes: 0 };
+    const level = workoutLogLevel(log.count, log.minutes);
+    return {
+      count: log.count,
+      date,
+      dayLabel: shortDateLabel(date).slice(0, 1),
+      logged: log.count > 0,
+      minutes: log.minutes,
+      valueLabel: log.count > 0 ? `${log.count} workout${log.count === 1 ? "" : "s"}, ${log.minutes} min` : "No workout logged",
+      level
+    };
+  });
+
+  const weeks = Array.from({ length: 4 }, (_, weekIndex) => {
+    const weekDays = days.slice(weekIndex * 7, weekIndex * 7 + 7);
+    return {
+      label: monthDayLabel(weekDays[0]?.date ?? startDate),
+      days: weekDays
+    };
+  });
+
+  return {
+    totalLoggedDays: days.filter((day) => day.logged).length,
+    totalMinutes: days.reduce((total, day) => total + day.minutes, 0),
+    windowLabel: `${monthDayLabel(startDate)} - ${monthDayLabel(endDate)}`,
+    weeks,
+    weekdayLabels: WEEKDAY_LABELS.map((label) => label.slice(0, 1))
+  };
+}
+
 function acwrFromPlan(plan: PlanViewModel | undefined): { label: string; state: string } {
   const audit = plan?.generationAudit;
   if (!audit) {
@@ -1036,6 +1138,7 @@ export function buildTodayDashboardVisual(input: {
   return {
     readiness,
     weeklyLoad: barsFromPlan(input.plan, input.asOfDate),
+    workoutLog: buildWorkoutLogContribution(input.recentLogs, input.asOfDate),
     loadStateLabel: acwr.state,
     acwrLabel: acwr.label,
     fuel: fuelRows,

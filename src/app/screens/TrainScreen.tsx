@@ -239,7 +239,6 @@ function currentWeekDays(viewModel: TrainViewModel, asOfDate?: ISODateString | u
   for (const session of viewModel.weeklyWorkoutCards) {
     sessionsByDate.set(session.date, [...(sessionsByDate.get(session.date) ?? []), session]);
   }
-  const maxMinutes = Math.max(1, ...viewModel.weeklyWorkoutCards.map((session) => session.durationMinutes));
   const todayDate = asOfDate ?? viewModel.todayGeneratedSessions[0]?.date ?? seedDate;
   return Array.from({ length: 7 }, (_, index) => {
     const date = addDays(weekStart, index);
@@ -252,7 +251,7 @@ function currentWeekDays(viewModel: TrainViewModel, asOfDate?: ISODateString | u
       faded: date < todayDate,
       hasSession: Boolean(primary),
       label: compactDayLabel(date, date.slice(5)),
-      ratio: totalMinutes > 0 ? clamp01(totalMinutes / maxMinutes) : 0.08,
+      ratio: totalMinutes > 0 ? clamp01(totalMinutes / 120) : 0.08,
       subtitle: primary ? `${totalMinutes} min - ${sentenceCase(plainIntensityLabel(primary.intensity))}` : "No support session",
       title,
       tone: primary ? toneForIntensity(primary.intensity) : "muted",
@@ -452,14 +451,12 @@ function TrainMiniBarChart({
   height?: number | undefined;
   referenceLabel?: string | undefined;
 }) {
-  const maxValue = Math.max(0, ...bars.map((bar) => bar.value));
-  const topAxis = maxValue > 0 ? String(Math.ceil(maxValue)) : "";
-  const midAxis = maxValue > 1 ? String(Math.round(maxValue / 2)) : "";
+  const axisLabels = ["120", "90", "60", "30"];
   return (
     <View style={{ gap: spacing.sm }}>
       <View style={{ alignItems: "stretch", flexDirection: "row", gap: spacing.sm }}>
         <View style={{ alignItems: "flex-end", height, justifyContent: "space-between", width: 30 }}>
-          {[topAxis, midAxis, "0"].map((value, index) => (
+          {axisLabels.map((value, index) => (
             <Text key={`train-axis:${index}`} numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 10, fontWeight: "800", lineHeight: 12 }}>
               {value}
             </Text>

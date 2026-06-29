@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import { glassStyles } from "../glass";
 import { type LuminousAccent, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
-import { typography } from "../typography";
+import { fontFamilies, typography } from "../typography";
 
 export type PremiumTone = LuminousAccent | "muted";
 
@@ -121,11 +121,11 @@ export function PremiumSectionHeader({
   return (
     <View style={{ gap: 3 }}>
       {eyebrow ? (
-        <Text style={{ color: premiumToneColor(tone), fontSize: 11, fontWeight: "900", letterSpacing: 0, lineHeight: 15, textTransform: "uppercase" }}>
+        <Text style={{ color: premiumToneColor(tone), fontFamily: fontFamilies.black, fontSize: 11, fontWeight: "900", letterSpacing: 0, lineHeight: 15, textTransform: "uppercase" }}>
           {eyebrow}
         </Text>
       ) : null}
-      <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "800", letterSpacing: 0, lineHeight: 23 }}>
+      <Text style={{ color: colors.canvas, fontFamily: fontFamilies.extraBold, fontSize: 18, fontWeight: "800", letterSpacing: 0, lineHeight: 23 }}>
         {title}
       </Text>
     </View>
@@ -216,7 +216,7 @@ export function PremiumButton({
       })}
     >
       {icon ? <Ionicons color={disabled ? colors.mutedText : primary ? colors.cornerBlack : color} name={icon} size={18} /> : null}
-      <Text style={{ color: disabled ? colors.mutedText : primary ? colors.cornerBlack : color, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: disabled ? colors.mutedText : primary ? colors.cornerBlack : color, fontFamily: fontFamilies.black, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
     </Pressable>
@@ -261,14 +261,14 @@ export function GroupedMetricTiles({
               }}
             >
               {item.icon ? <Ionicons color={color} name={item.icon} size={22} /> : null}
-              <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16, textAlign: "center" }}>
+              <Text numberOfLines={1} style={{ color: colors.wrap, fontFamily: fontFamilies.bold, fontSize: 12, fontWeight: "700", lineHeight: 16, textAlign: "center" }}>
                 {item.label}
               </Text>
-              <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={2} style={{ color, fontSize: 16, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
+              <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={2} style={{ color, fontFamily: fontFamilies.black, fontSize: 16, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
                 {item.value}
               </Text>
               {item.meta ? (
-                <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 11, fontWeight: "700", lineHeight: 15, textAlign: "center" }}>
+                <Text numberOfLines={1} style={{ color: colors.mutedText, fontFamily: fontFamilies.bold, fontSize: 11, fontWeight: "700", lineHeight: 15, textAlign: "center" }}>
                   {item.meta}
                 </Text>
               ) : null}

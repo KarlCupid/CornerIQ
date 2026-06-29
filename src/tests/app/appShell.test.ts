@@ -1142,6 +1142,11 @@ const recentLogsViewModel: RecentLogsViewModel = {
   today: ["Last body weight: 66.4 kg on 2026-05-19."],
   fuel: ["2026-05-19: 2200 kcal, 130g protein, 260g carbs."],
   training: ["2026-05-19: technical session for 45 min."],
+  trainingLogDays: [
+    { date: "2026-05-12", durationMinutes: 35, intensity: "easy", type: "technical_session" },
+    { date: "2026-05-15", durationMinutes: 60, intensity: "moderate", type: "bag_work" },
+    { date: "2026-05-19", durationMinutes: 45, intensity: "moderate", type: "technical_session" }
+  ],
   cycle: ["No cycle log yet.", "Cycle support is not fertility tracking."],
   profile: ["Last journey event: OnboardingCompleted on 2026-05-19."],
   readinessToday: {
@@ -2151,7 +2156,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Fuel Today");
     expect(output).toContain("This Week");
     expect(output).toContain("today-load-graph-card");
-    expect(output).toContain("today-weekly-load-graph");
+    expect(output).toContain("today-workout-log-graph");
+    expect(output).toContain("logged day");
     expect(output).not.toContain("Training rhythm");
     expect(output).not.toContain("Quick Logs");
     expect(output).not.toContain("Readiness details");
@@ -5682,7 +5688,8 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("App inputs");
     expect(output).not.toContain("Quick updates");
     expect(output).toContain("Privacy Policy");
-    expect(output).toContain("Delete controls");
+    expect(output).toContain("Delete account");
+    expect(output).toContain("Delete app data only");
     expect(output).toContain("Sign out");
     expect(output).not.toContain("Signal constellation");
     expect(output).not.toContain("Corner intelligence layers");
@@ -5847,7 +5854,7 @@ describe("minimal app screens", () => {
       });
       expect(generateExportBundle).toHaveBeenCalled();
       expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
-      const deleteButton = pressableWithText(renderer, "Delete app data");
+      const deleteButton = pressableWithText(renderer, "Delete app data only");
       const deleteAccountButton = pressableWithText(renderer, "Delete account");
       expect(deleteButton?.props.disabled).toBe(true);
       expect(deleteAccountButton?.props.disabled).toBe(true);
@@ -5956,7 +5963,7 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("profile-setup-snapshot");
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("Hide Profile details");
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("Preview export");
-    expect(pressableWithText(profileRenderer, "Delete app data")?.props.disabled).toBe(true);
+    expect(pressableWithText(profileRenderer, "Delete app data only")?.props.disabled).toBe(true);
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("Preview export");
   });
 

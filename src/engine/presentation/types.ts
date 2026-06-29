@@ -92,6 +92,12 @@ export interface RecentLogsViewModel {
   today: readonly string[];
   fuel: readonly string[];
   training: readonly string[];
+  trainingLogDays: readonly {
+    date: string;
+    durationMinutes: number;
+    intensity: SessionIntensity;
+    type: ProtectedWorkoutType;
+  }[];
   cycle: readonly string[];
   profile: readonly string[];
   readinessToday: {

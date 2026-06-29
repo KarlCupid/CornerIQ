@@ -49,6 +49,9 @@ describe("dashboardVisualData", () => {
     const plan = buildPlanDashboardVisual(state.viewModels.plan);
 
     expect(today.weeklyLoad).toHaveLength(7);
+    expect(today.workoutLog.weeks).toHaveLength(4);
+    expect(today.workoutLog.weeks.flatMap((week) => week.days)).toHaveLength(28);
+    expect(today.workoutLog.totalLoggedDays).toBeGreaterThanOrEqual(0);
     expect(today.fuel.some((item) => item.label === "Protein")).toBe(true);
     expect(today.schedule.length).toBeGreaterThan(0);
     expect(today.keyStatuses.fuel).toMatchObject({ tone: "orange", value: "Unknown" });

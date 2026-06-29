@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { glassStyles } from "../glass";
 import { accentColor, LuminousScreenThemeContext, luminousScreenThemes, type LuminousAccent, useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
-import { typography } from "../typography";
+import { fontFamilies, typography } from "../typography";
 
 export { accentColor, accentWash, luminousScreenThemes, useLuminousScreenTheme, type LuminousAccent } from "../luminousTheme";
 
@@ -79,6 +79,7 @@ const luminousStyles = {
   },
   heroTitle: {
     color: colors.canvas,
+    fontFamily: fontFamilies.black,
     fontSize: 40,
     fontWeight: "900" as const,
     letterSpacing: 0,
@@ -87,6 +88,7 @@ const luminousStyles = {
   },
   heroSubtitle: {
     color: colors.wrap,
+    fontFamily: fontFamilies.medium,
     fontSize: 15,
     fontWeight: "500" as const,
     letterSpacing: 0,

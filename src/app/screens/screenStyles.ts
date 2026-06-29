@@ -1,7 +1,7 @@
 import type { TextStyle, ViewStyle } from "react-native";
 import { glassStyles } from "../../design/glass";
 import { colors, spacing } from "../../design/theme";
-import { typography } from "../../design/typography";
+import { fontFamilies, typography } from "../../design/typography";
 
 export const screenStyles = {
   screen: {
@@ -67,6 +67,7 @@ export const screenStyles = {
   } satisfies ViewStyle,
   headerPillText: {
     color: colors.wrap,
+    fontFamily: fontFamilies.bold,
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0,
@@ -86,6 +87,7 @@ export const screenStyles = {
   } satisfies TextStyle,
   fieldLabel: {
     color: colors.canvas,
+    fontFamily: fontFamilies.bold,
     fontSize: 12,
     fontWeight: "700",
     lineHeight: 16
@@ -100,18 +102,21 @@ export const screenStyles = {
   } satisfies TextStyle,
   callout: {
     color: colors.canvas,
+    fontFamily: fontFamilies.semibold,
     fontSize: 16,
     lineHeight: 23,
     fontWeight: "600"
   } satisfies TextStyle,
   exampleText: {
     color: colors.wrap,
+    fontFamily: fontFamilies.semibold,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: "600"
   } satisfies TextStyle,
   successText: {
     color: colors.readyGreen,
+    fontFamily: fontFamilies.bold,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: "700"
@@ -120,6 +125,7 @@ export const screenStyles = {
     ...glassStyles.input,
     minHeight: 48,
     color: colors.canvas,
+    fontFamily: fontFamilies.medium,
     fontSize: 16,
     fontWeight: "500",
     lineHeight: 23,
@@ -144,6 +150,7 @@ export const screenStyles = {
   } satisfies ViewStyle,
   buttonText: {
     color: colors.cornerBlack,
+    fontFamily: fontFamilies.extraBold,
     fontSize: 15,
     fontWeight: "800",
     lineHeight: 20,
@@ -151,6 +158,7 @@ export const screenStyles = {
   } satisfies TextStyle,
   quietButtonText: {
     color: colors.canvas,
+    fontFamily: fontFamilies.bold,
     fontSize: 15,
     fontWeight: "700",
     lineHeight: 20,
@@ -171,6 +179,7 @@ export const screenStyles = {
   } satisfies ViewStyle,
   chipText: {
     color: colors.mutedText,
+    fontFamily: fontFamilies.semibold,
     fontSize: 14,
     fontWeight: "600",
     lineHeight: 18
