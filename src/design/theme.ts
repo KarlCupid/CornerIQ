@@ -1,5 +1,5 @@
 export const colors = {
-  cornerBlack: "#070B18",
+  cornerBlack: "#030712",
   canvas: "#F7FBFF",
   wrap: "#D9E4F4",
   redCorner: "#FF5265",
@@ -8,13 +8,13 @@ export const colors = {
   readyGreen: "#38E28A",
   powerPurple: "#9657F5",
   gold: "#FFD861",
-  panel: "rgba(255, 255, 255, 0.08)",
-  panelRaised: "rgba(255, 255, 255, 0.09)",
-  panelDeep: "rgba(12, 18, 35, 0.92)",
-  glassRail: "rgba(255, 255, 255, 0.06)",
-  line: "rgba(255, 255, 255, 0.14)",
-  lineStrong: "rgba(255, 255, 255, 0.16)",
-  mutedText: "#B7C4D9"
+  panel: "rgba(12, 18, 30, 0.62)",
+  panelRaised: "rgba(16, 23, 36, 0.68)",
+  panelDeep: "rgba(5, 10, 18, 0.88)",
+  glassRail: "rgba(255, 255, 255, 0.055)",
+  line: "rgba(223, 234, 255, 0.13)",
+  lineStrong: "rgba(236, 243, 255, 0.18)",
+  mutedText: "#AEB9C9"
 } as const;
 
 export const spacing = {
@@ -27,8 +27,8 @@ export const spacing = {
 } as const;
 
 export const radii = {
-  card: 16,
-  tile: 13,
+  card: 14,
+  tile: 12,
   control: 14,
   pill: 999
 } as const;

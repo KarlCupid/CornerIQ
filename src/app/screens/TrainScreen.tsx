@@ -6,8 +6,8 @@ import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { DashboardCard } from "../../design/components/PerformanceVisuals";
+import { GroupedMetricTiles, PremiumCard, PremiumTimelineRows } from "../../design/components/PremiumPrimitives";
 import { RiskBanner } from "../../design/components/RiskBanner";
-import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
 import type { BarVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { clamp01 } from "../../engine/presentation/dashboardVisualData";
@@ -21,12 +21,10 @@ import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./t
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
 import {
-  plainGeneratedSessionFamilyLabel,
   plainGeneratedSessionFamilyWhy,
   plainIntensityLabel,
   plainSectionName,
   plainTrainingCopy as plainTrainCopy,
-  plainTrainingStimulusLabel,
   plainWorkoutTitle
 } from "../../engine/presentation/trainingCopy";
 import {
@@ -143,22 +141,6 @@ function compactDayLabel(date: string, fallback: string): string {
   return parsed.toLocaleDateString("en-US", { weekday: "short" });
 }
 
-function sessionTypeLabel(session: DetailedTrainingSession | null, card: TrainSessionCard | null, generated: CompactGeneratedSession | null): string {
-  if (session) {
-    return plainGeneratedSessionFamilyLabel(session.family);
-  }
-  if (card?.sessionTypeLabel) {
-    return sentenceCase(card.sessionTypeLabel);
-  }
-  if (generated?.sessionTypeLabel) {
-    return sentenceCase(generated.sessionTypeLabel);
-  }
-  if (generated?.trainingStimulus) {
-    return plainTrainingStimulusLabel(generated.trainingStimulus);
-  }
-  return plainGeneratedSessionFamilyLabel(generated?.family);
-}
-
 function planTitle(session: DetailedTrainingSession | null, card: TrainSessionCard | null, generated: CompactGeneratedSession | null): string {
   if (session) {
     return recipeTitle(session);
@@ -272,13 +254,13 @@ function TrainTonePill({ label, tone: _tone = "muted" }: { label: string; tone?:
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.075)",
-        borderColor: "rgba(255, 255, 255, 0.16)",
+        backgroundColor: "rgba(255, 255, 255, 0.055)",
+        borderColor: "rgba(232, 240, 255, 0.15)",
         borderRadius: radii.pill,
         borderWidth: 1,
         justifyContent: "center",
         maxWidth: 180,
-        minHeight: 28,
+        minHeight: 30,
         paddingHorizontal: spacing.sm,
         paddingVertical: 3
       }}
@@ -301,6 +283,9 @@ function TrainPrimaryButton({
   tone?: VisualTone | undefined;
 }>) {
   const toneColor = trainColorForTone(tone);
+  const fill = tone === "purple" ? trainPalette.actionFill : `${toneColor}E6`;
+  const pressedFill = tone === "purple" ? trainPalette.actionFillPressed : `${toneColor}CC`;
+  const textColor = disabled ? trainPalette.textMuted : tone === "purple" || tone === "red" ? trainPalette.textPrimary : colors.cornerBlack;
   return (
     <Pressable
       accessibilityRole="button"
@@ -310,13 +295,13 @@ function TrainPrimaryButton({
       style={({ pressed }) => [
         screenStyles.button,
         {
-          backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? trainPalette.actionFillPressed : trainPalette.actionFill,
+          backgroundColor: disabled ? "rgba(255, 255, 255, 0.1)" : pressed ? pressedFill : fill,
           borderColor: disabled ? "rgba(255, 255, 255, 0.16)" : tone === "purple" ? trainPalette.actionBorder : trainTint(tone, "66"),
-          boxShadow: disabled ? "none" : `0 12px 28px ${tone === "purple" ? trainPalette.actionShadow : `${toneColor}2B`}`
+          boxShadow: disabled ? "none" : `0 14px 32px ${tone === "purple" ? trainPalette.actionShadow : `${toneColor}35`}`
         }
       ]}
     >
-      <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+      <Text style={{ color: textColor, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
         {children}
       </Text>
     </Pressable>
@@ -692,7 +677,7 @@ function TodayTrainingPlanCard({
       : previewOnlyReason
           ? { label: "View session", onPress: onViewDetails, tone: primaryTone }
           : session && onStart
-            ? { label: "Start workout", onPress: onStart, tone: primaryTone }
+            ? { label: "Start session", onPress: onStart, tone: primaryTone }
             : session
               ? { label: "View details", onPress: onViewDetails, tone: primaryTone }
             : hasSessionSummary
@@ -703,36 +688,29 @@ function TodayTrainingPlanCard({
   const showTrainingLogAction = primaryAction.label !== "Log other training" && primaryAction.label !== "Log outside player";
   const dayNote = viewModel.todayRole.status === "support_day" ? null : firstSentence(viewModel.todayRole.summary);
   return (
-    <DashboardCard
-      density="regular"
-      headerRight={<TrainTonePill label={sentenceCase(plainIntensityLabel(intensity))} tone={primaryTone} />}
+    <View
+      style={{
+        borderTopColor: trainPalette.cardLine,
+        borderTopWidth: 1,
+        gap: spacing.lg,
+        paddingTop: spacing.xxl
+      }}
       testID="train-today-plan-card"
-      title="Today's Training Plan"
     >
       <View style={{ gap: spacing.md }}>
-        <View style={{ gap: spacing.xs }}>
-          <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 24, fontWeight: "900", letterSpacing: 0, lineHeight: 29 }}>
+        <View style={{ gap: spacing.sm }}>
+          <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 40, fontWeight: "900", letterSpacing: 0, lineHeight: 45 }}>
             {planTitle(session, card, generated)}
           </Text>
-          <Text style={{ color: trainPalette.textBody, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>
-            {sessionTypeLabel(session, card, generated)} - {durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD"} - {sentenceCase(plainIntensityLabel(intensity))}
+          <Text style={{ color: trainPalette.textBody, fontSize: 20, fontWeight: "600", lineHeight: 27 }}>
+            {trainingAim(session, card, generated, viewModel)}
           </Text>
           {dayNote ? <Text style={trainTextStyles.subtle}>{dayNote}</Text> : null}
         </View>
-        <View
-          style={{
-            backgroundColor: trainTint(primaryTone, "12"),
-            borderColor: trainTint(primaryTone, "42"),
-            borderRadius: radii.tile,
-            borderWidth: 1,
-            gap: spacing.xs,
-            padding: spacing.md
-          }}
-        >
-          <Text style={{ color: trainColorForTone("gold"), fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16, textTransform: "uppercase" }}>
-            Your job today
-          </Text>
-          <Text style={trainTextStyles.body}>{trainingAim(session, card, generated, viewModel)}</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <TrainTonePill label={durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD"} />
+          <TrainTonePill label={sentenceCase(plainIntensityLabel(intensity))} tone={primaryTone} />
+          <TrainTonePill label="Non-contact" tone="blue" />
         </View>
         <Pressable
           accessibilityLabel={primaryAction.label}
@@ -769,7 +747,7 @@ function TodayTrainingPlanCard({
         {previewOnlyReason ? <Text style={trainTextStyles.subtle}>{previewOnlyReason}</Text> : null}
         {!session && !generated && !card ? <Text style={trainTextStyles.subtle}>Log boxing class, roadwork, lifting, or anything you complete outside the player.</Text> : null}
       </View>
-    </DashboardCard>
+    </View>
   );
 }
 
@@ -789,64 +767,30 @@ function QuickStatsRow({
   const fuelDemand = session?.fuelDemand ?? card?.fuelDemand ?? generated?.fuelDemand ?? "moderate";
   const readiness = trainReadinessValue(session, viewModel);
   const items = [
-    { label: "Duration", tone: "muted" as const, value: durationMinutes > 0 ? `${durationMinutes} min` : "TBD" },
-    { label: "Intensity", tone: toneForIntensity(intensity), value: sentenceCase(plainIntensityLabel(intensity)) },
-    { label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "gold" as const, value: trainFuelStatLabel(fuelDemand, intensity) },
-    { label: "Readiness", tone: trainReadinessTone(readiness), value: readiness }
+    { icon: "time-outline" as const, label: "Duration", tone: "muted" as const, value: durationMinutes > 0 ? `${durationMinutes} min` : "TBD" },
+    { icon: "stats-chart-outline" as const, label: "Intensity", tone: toneForIntensity(intensity), value: sentenceCase(plainIntensityLabel(intensity)) },
+    { icon: "flame-outline" as const, label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "gold" as const, value: trainFuelStatLabel(fuelDemand, intensity) },
+    { icon: "shield-checkmark-outline" as const, label: "Readiness", tone: trainReadinessTone(readiness), value: readiness }
   ];
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="train-compact-stats">
-      {items.map((item) => (
-        <View
-          key={`train-stat:${item.label}`}
-          style={{
-            ...glassStyles.tile,
-            backgroundColor: trainPalette.controlFill,
-            borderColor: trainPalette.cardLine,
-            flexBasis: 126,
-            flexGrow: 1,
-            gap: spacing.xs,
-            minHeight: 72,
-            padding: spacing.md
-          }}
-        >
-          <Text numberOfLines={1} style={{ color: trainPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
-            {item.label}
-          </Text>
-          <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: trainColorForTone(item.tone), fontSize: 17, fontWeight: "900", lineHeight: 22 }}>
-            {item.value}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
+  return <GroupedMetricTiles items={items} testID="train-compact-stats" />;
 }
 
 function WorkoutFlowCard({ card, session }: { card: TrainSessionCard | null; session: DetailedTrainingSession | null }) {
   const rows = flowRows(session, card);
   return (
-    <DashboardCard testID="train-workout-flow-card" title="Workout Flow">
-      <View style={{ gap: spacing.sm }}>
-        {rows.map((row, index) => (
-          <View
-            key={`flow:${index}:${row.label}`}
-            style={{
-              alignItems: "center",
-              borderBottomColor: index === rows.length - 1 ? "transparent" : trainPalette.cardLine,
-              borderBottomWidth: 1,
-              flexDirection: "row",
-              gap: spacing.md,
-              minHeight: 38,
-              paddingBottom: index === rows.length - 1 ? 0 : spacing.sm
-            }}
-          >
-            <View style={{ backgroundColor: trainColorForTone(index === 0 ? "gold" : index === rows.length - 1 ? "green" : "blue"), borderRadius: radii.pill, height: 8, opacity: 0.9, width: 8 }} />
-            <Text style={{ color: trainPalette.textPrimary, flex: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>{row.label}</Text>
-            {row.value ? <Text numberOfLines={1} style={{ color: trainPalette.textMuted, flexShrink: 1, fontSize: 13, fontWeight: "700", lineHeight: 18, textAlign: "right" }}>{row.value}</Text> : null}
-          </View>
-        ))}
-      </View>
-    </DashboardCard>
+    <View style={{ gap: spacing.sm }} testID="train-workout-flow-card">
+      <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>Session Plan</Text>
+      <PremiumCard density="compact">
+        <PremiumTimelineRows
+          items={rows.map((row, index) => ({
+            id: `flow:${index}:${row.label}`,
+            meta: row.value,
+            title: row.label,
+            tone: index === 0 ? "purple" : index === rows.length - 1 ? "green" : "purple"
+          }))}
+        />
+      </PremiumCard>
+    </View>
   );
 }
 
@@ -984,7 +928,6 @@ function CollapsibleTrainDetails({
       </View>
       {detailsOpen ? (
         <>
-          <WorkoutFlowCard card={card} session={session} />
           <BeforeYouStartCard card={card} session={session} viewModel={viewModel} />
           {session ? (
             <View testID="train-workout-section">
@@ -1170,6 +1113,7 @@ export function TrainScreen({
       />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
       <QuickStatsRow card={primaryCard} generated={generatedSummary} session={primarySession} viewModel={viewModel} />
+      <WorkoutFlowCard card={primaryCard} session={primarySession} />
       {pendingStartSession && activeWorkout ? (
         <EngineCard>
           <View style={{ gap: spacing.sm }} testID="train-start-conflict-card">

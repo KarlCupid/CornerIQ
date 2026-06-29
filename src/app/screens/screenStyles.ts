@@ -36,11 +36,11 @@ export const screenStyles = {
     right: 0
   } satisfies ViewStyle,
   content: {
-    gap: spacing.xl,
+    gap: spacing.lg,
     flexGrow: 1,
     paddingBottom: 132,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl
+    paddingTop: spacing.lg
   } satisfies ViewStyle,
   row: {
     gap: spacing.sm
@@ -55,8 +55,8 @@ export const screenStyles = {
   } satisfies TextStyle,
   headerPill: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.075)",
-    borderColor: "rgba(255, 255, 255, 0.16)",
+    backgroundColor: "rgba(255, 255, 255, 0.055)",
+    borderColor: "rgba(232, 240, 255, 0.15)",
     borderCurve: "continuous",
     borderRadius: 999,
     borderWidth: 1,
@@ -130,7 +130,7 @@ export const screenStyles = {
     ...glassStyles.primaryControl,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: 54,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm
   } satisfies ViewStyle,
@@ -159,7 +159,7 @@ export const screenStyles = {
   chip: {
     ...glassStyles.control,
     alignItems: "center",
-    borderRadius: 12,
+    borderRadius: 13,
     justifyContent: "center",
     minHeight: 40,
     paddingHorizontal: spacing.md,

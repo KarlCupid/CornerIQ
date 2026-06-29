@@ -16,36 +16,36 @@ export const tabHeroHeaders = {
     accent: "orange",
     eyebrow: "Fuel",
     heroImage: fuelHero,
-    icon: "flame-outline",
-    title: "Fuel Your Fight"
+    icon: "restaurant-outline",
+    title: "Fuel Brief"
   },
   plan: {
     accent: "green",
     eyebrow: "Plan",
     heroImage: planHero,
-    icon: "clipboard-outline",
-    title: "Plan Your Path"
+    icon: "calendar-outline",
+    title: "Camp Plan"
   },
   profile: {
     accent: "neutral",
     eyebrow: "Profile",
     heroImage: profileHero,
     icon: "person-outline",
-    title: "Your Boxer Setup"
+    title: "Athlete Profile"
   },
   today: {
     accent: "blue",
     eyebrow: "Today",
     heroImage: todayHero,
-    icon: "today-outline",
-    title: "Today's Corner"
+    icon: "calendar-outline",
+    title: "Corner Brief"
   },
   train: {
     accent: "purple",
     eyebrow: "Train",
     heroImage: trainHero,
-    icon: "barbell-outline",
-    title: "Train Sharp"
+    icon: "document-text-outline",
+    title: "Session Brief"
   }
 } satisfies Record<string, ScreenHeaderProps>;
 

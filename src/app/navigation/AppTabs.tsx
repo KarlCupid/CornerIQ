@@ -27,12 +27,12 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
-const floatingTabBarHeight = 72;
+const floatingTabBarHeight = 78;
 const floatingTabBarRadius = floatingTabBarHeight / 2;
-const floatingTabTouchTarget = 54;
-const floatingTabPuckSize = 36;
-const floatingTabIconSize = 18;
-const floatingTabBarMaxWidth = 376;
+const floatingTabTouchTarget = 58;
+const floatingTabPuckSize = 54;
+const floatingTabIconSize = 23;
+const floatingTabBarMaxWidth = 392;
 const floatingTabBarMinWidth = floatingTabTouchTarget * 5 + spacing.md * 2;
 
 const tabAccents: Record<keyof RootTabParamList, string> = {
@@ -91,7 +91,11 @@ function FloatingTabIcon({
 
   const scale = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.08]
+    outputRange: [0.96, 1]
+  });
+  const translateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -8]
   });
   const glowOpacity = progress.interpolate({
     inputRange: [0, 1],
@@ -108,17 +112,18 @@ function FloatingTabIcon({
         alignItems: "center",
         height: floatingTabTouchTarget,
         justifyContent: "center",
-        transform: [{ scale }],
+        transform: [{ translateY }, { scale }],
         width: floatingTabTouchTarget
       }}
     >
       <View
         style={{
           alignItems: "center",
-          backgroundColor: focused ? alphaHex(accent, "1F") : "transparent",
-          borderColor: focused ? alphaHex(accent, "55") : "transparent",
+          backgroundColor: focused ? alphaHex(accent, "24") : "transparent",
+          borderColor: focused ? alphaHex(accent, "70") : "transparent",
           borderRadius: floatingTabPuckSize / 2,
-          borderWidth: 1,
+          borderWidth: focused ? 1 : 0,
+          boxShadow: focused ? `0 0 26px ${alphaHex(accent, "4D")}, 0 12px 24px rgba(0, 0, 0, 0.38)` : undefined,
           height: floatingTabPuckSize,
           justifyContent: "center",
           overflow: "hidden",
@@ -129,13 +134,13 @@ function FloatingTabIcon({
           pointerEvents="none"
           style={{
             backgroundColor: alphaHex(accent, "24"),
-            borderRadius: (floatingTabPuckSize - 8) / 2,
-            bottom: 4,
-            left: 4,
+            borderRadius: (floatingTabPuckSize - 10) / 2,
+            bottom: 5,
+            left: 5,
             opacity: glowOpacity,
             position: "absolute",
-            right: 4,
-            top: 4,
+            right: 5,
+            top: 5,
             transform: [{ scale: glowScale }]
           }}
         />
@@ -261,9 +266,10 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             tabBarIconStyle: {
               alignItems: "center",
               height: 42,
+              overflow: "visible",
               justifyContent: "center",
-              marginBottom: 0,
-              marginTop: 0,
+              marginBottom: 2,
+              marginTop: -2,
               width: floatingTabTouchTarget
             },
             tabBarItemStyle: {
@@ -271,19 +277,19 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               height: floatingTabBarHeight,
               justifyContent: "center",
               paddingBottom: 0,
-              paddingTop: 2
+              paddingTop: 4
             },
             tabBarLabelStyle: {
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: "800",
-              lineHeight: 12,
-              marginBottom: 8,
-              marginTop: -5
+              lineHeight: 14,
+              marginBottom: 9,
+              marginTop: -8
             },
             tabBarStyle: {
               ...glassStyles.tabBar,
-              backgroundColor: tabChromeThemes[route.name].cardDeep,
-              borderColor: tabChromeThemes[route.name].cardBorder,
+              backgroundColor: "rgba(4, 8, 15, 0.86)",
+              borderColor: alphaHex(tabAccents[route.name], "32"),
               borderBottomLeftRadius: floatingTabBarRadius,
               borderBottomRightRadius: floatingTabBarRadius,
               borderBottomWidth: 1,
@@ -292,7 +298,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               borderTopLeftRadius: floatingTabBarRadius,
               borderTopRightRadius: floatingTabBarRadius,
               bottom: Math.max(insets.bottom, spacing.md),
-              boxShadow: `0 18px 42px rgba(0, 0, 0, 0.44), 0 0 24px ${tabChromeThemes[route.name].strongGlow}`,
+              boxShadow: `0 18px 42px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 24px ${tabChromeThemes[route.name].strongGlow}`,
               end: floatingTabBarSideInset,
               height: floatingTabBarHeight,
               overflow: "visible",

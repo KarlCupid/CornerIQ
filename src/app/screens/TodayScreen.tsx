@@ -6,6 +6,7 @@ import type { CycleSymptom, CycleViewModel, FuelViewModel, PlanViewModel, Recent
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart, WeeklyLoadBars } from "../../design/components/PerformanceVisuals";
+import { GroupedMetricTiles, PremiumCard } from "../../design/components/PremiumPrimitives";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
 import { buildTodayDashboardVisual, type TodayActionVisual, type TodayDashboardVisual, type TodayQuickCheckFocus, type VisualTone } from "../../engine/presentation/dashboardVisualData";
@@ -56,24 +57,24 @@ interface WeekTodayModel {
 }
 
 const todayPalette = {
-  actionBorder: "rgba(142, 205, 224, 0.48)",
-  actionFill: "rgba(43, 137, 166, 0.34)",
-  actionFillPressed: "rgba(52, 158, 190, 0.44)",
-  actionShadow: "rgba(24, 102, 137, 0.26)",
-  cardLine: "rgba(172, 215, 231, 0.16)",
-  controlFill: "rgba(224, 244, 252, 0.062)",
-  controlFillPressed: "rgba(224, 244, 252, 0.1)",
-  controlLine: "rgba(172, 215, 231, 0.18)",
+  actionBorder: "rgba(39, 206, 241, 0.58)",
+  actionFill: "#27CEF1",
+  actionFillPressed: "#20BADD",
+  actionShadow: "rgba(39, 206, 241, 0.28)",
+  cardLine: "rgba(205, 239, 247, 0.14)",
+  controlFill: "rgba(224, 244, 252, 0.055)",
+  controlFillPressed: "rgba(224, 244, 252, 0.095)",
+  controlLine: "rgba(205, 239, 247, 0.16)",
   textBody: "#D7E7F4",
   textMuted: "#A9BDD0",
   textPrimary: "#F6FBFF",
-  toneBlue: "#8ECDE0",
-  toneGold: "#D0BC78",
-  toneGreen: "#8BC6A7",
+  toneBlue: "#27CEF1",
+  toneGold: "#FFD861",
+  toneGreen: "#38E28A",
   toneMuted: "#A9BDD0",
-  toneOrange: "#C9956D",
-  tonePurple: "#B0A3D4",
-  toneRed: "#D87B88"
+  toneOrange: "#FF9448",
+  tonePurple: "#9657F5",
+  toneRed: "#FF5265"
 } as const;
 
 function plainTodayCopy(value: string): string {
@@ -369,8 +370,8 @@ function TodayTonePill({ label, tone: _tone = "blue" }: { label: string; tone?: 
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.075)",
-        borderColor: "rgba(255, 255, 255, 0.16)",
+        backgroundColor: "rgba(255, 255, 255, 0.055)",
+        borderColor: "rgba(232, 240, 255, 0.15)",
         borderRadius: radii.pill,
         borderWidth: 1,
         justifyContent: "center",
@@ -450,8 +451,8 @@ function TodayButton({
       ]}
       testID={testID}
     >
-      <Ionicons color={disabled ? todayPalette.textMuted : primary ? todayPalette.textPrimary : toneColor} name={icon} size={18} />
-      <Text style={{ color: primary ? todayPalette.textPrimary : todayPalette.textBody, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>
+      <Ionicons color={disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : toneColor} name={icon} size={18} />
+      <Text style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : todayPalette.textBody, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
     </Pressable>
@@ -514,7 +515,7 @@ function TodaySectionCard({
   tone?: VisualTone | undefined;
 }>) {
   return (
-    <EngineCard>
+    <PremiumCard accent={tone} rail>
       <View style={{ gap: spacing.md }} testID={testID}>
         <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flexBasis: 250, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
@@ -526,7 +527,7 @@ function TodaySectionCard({
         {children}
         {action}
       </View>
-    </EngineCard>
+    </PremiumCard>
   );
 }
 
@@ -697,25 +698,42 @@ function TodayCheckInCard({
   const primaryAction = checkIn.primaryAction;
   const primaryHandler = resolveAction(primaryAction);
   return (
-    <EngineCard>
+    <PremiumCard accent="blue" rail>
       <View style={{ gap: spacing.lg }} testID="today-hero-card">
         <View testID="today-check-in-card">
-        <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
-          <View style={{ flexBasis: 260, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: colors.canvas, fontSize: 23, fontWeight: "900", lineHeight: 29 }}>Today</Text>
-            <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "600", lineHeight: 23 }}>{checkIn.sentence}</Text>
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, justifyContent: "space-between" }}>
+          <View style={{ alignItems: "center", flexDirection: "row", flexBasis: 260, flexGrow: 1, gap: spacing.md, minWidth: 0 }}>
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: todayTint(checkIn.tone, "18"),
+                borderColor: todayTint(checkIn.tone, "55"),
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                height: 58,
+                justifyContent: "center",
+                width: 58
+              }}
+            >
+              <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={31} />
+            </View>
+            <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+              <Text style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>
+                Readiness: <Text style={{ color: colorForTone(checkIn.tone) }}>{checkIn.status}</Text>
+              </Text>
+              <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "600", lineHeight: 23 }}>{checkIn.sentence}</Text>
+            </View>
           </View>
-          <TodayTonePill label={checkIn.status} tone={checkIn.tone} />
+          <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone={primaryAction.tone} />
         </View>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone={primaryAction.tone} />
           {checkIn.secondaryActions.map((action) => (
             <TodayButton disabled={busy || action.disabled || !resolveAction(action)} icon={actionIcon(action)} key={`today-secondary-action:${action.kind}:${action.label}`} label={action.label} onPress={resolveAction(action)} tone={action.tone} />
           ))}
         </View>
       </View>
-    </EngineCard>
+    </PremiumCard>
   );
 }
 
@@ -726,12 +744,15 @@ function KeyStatusRow({
 }) {
   return (
     <View testID="today-status-row">
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="today-key-status-row">
-        <TodayStatusTile label="Training" tone={statuses.training.tone} value={statuses.training.value} />
-        <TodayStatusTile label="Fuel" tone={statuses.fuel.tone} value={statuses.fuel.value} />
-        <TodayStatusTile label="Weight" tone={statuses.weight.tone} value={statuses.weight.value} />
-        <TodayStatusTile label="Readiness" tone={statuses.readiness.tone} value={statuses.readiness.value} />
-      </View>
+      <GroupedMetricTiles
+        items={[
+          { icon: "barbell-outline", label: "Training", tone: statuses.training.tone, value: statuses.training.value },
+          { icon: "restaurant-outline", label: "Fuel", tone: statuses.fuel.tone, value: statuses.fuel.value },
+          { icon: "scale-outline", label: "Weight", tone: statuses.weight.tone, value: statuses.weight.value },
+          { icon: "shield-checkmark-outline", label: "Readiness", tone: statuses.readiness.tone, value: statuses.readiness.value }
+        ]}
+        testID="today-key-status-row"
+      />
     </View>
   );
 }

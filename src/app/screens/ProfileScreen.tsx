@@ -14,6 +14,7 @@ import type {
 import { EmptyState } from "../../design/components/EmptyState";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { DashboardCard } from "../../design/components/PerformanceVisuals";
+import { GroupedMetricTiles } from "../../design/components/PremiumPrimitives";
 import { glassStyles } from "../../design/glass";
 import { useLuminousScreenTheme } from "../../design/luminousTheme";
 import { colors, radii, spacing } from "../../design/theme";
@@ -28,9 +29,9 @@ import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
 
 const profilePalette = {
-  actionBorder: "rgba(198, 213, 231, 0.42)",
-  actionFill: "rgba(112, 132, 158, 0.32)",
-  actionFillPressed: "rgba(128, 150, 178, 0.42)",
+  actionBorder: "rgba(198, 213, 231, 0.5)",
+  actionFill: "rgba(198, 213, 231, 0.18)",
+  actionFillPressed: "rgba(198, 213, 231, 0.26)",
   cardLine: "rgba(205, 217, 233, 0.14)",
   controlFill: "rgba(230, 239, 251, 0.06)",
   controlFillPressed: "rgba(230, 239, 251, 0.1)",
@@ -38,13 +39,13 @@ const profilePalette = {
   textBody: "#D7E1EE",
   textMuted: "#A8B5C8",
   textPrimary: "#F5F8FC",
-  toneBlue: "#8DB8CA",
-  toneGold: "#C9B879",
-  toneGreen: "#8CB89D",
+  toneBlue: "#A9C3D8",
+  toneGold: "#FFD861",
+  toneGreen: "#38E28A",
   toneMuted: "#A8B5C8",
-  toneOrange: "#CB9871",
-  tonePurple: "#A99ACB",
-  toneRed: "#D57986"
+  toneOrange: "#FF9448",
+  tonePurple: "#9657F5",
+  toneRed: "#FF5265"
 } as const;
 
 const profileTextStyles = {
@@ -85,8 +86,8 @@ function ProfileStatusPill({ label, tone: _tone = "muted" }: { label: string; to
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.075)",
-        borderColor: "rgba(255, 255, 255, 0.16)",
+        backgroundColor: "rgba(255, 255, 255, 0.055)",
+        borderColor: "rgba(232, 240, 255, 0.15)",
         borderRadius: radii.pill,
         borderWidth: 1,
         justifyContent: "center",
@@ -184,32 +185,6 @@ function ProfileIconButton({
   );
 }
 
-function SetupFactTile({ item }: { item: ProfileSetupFactViewModel }) {
-  const color = profileColorForTone(item.tone);
-  return (
-    <View
-      accessibilityLabel={`${item.label}: ${item.value}`}
-      style={{
-        ...glassStyles.tile,
-        backgroundColor: profileTint(item.tone, "14"),
-        borderColor: profileTint(item.tone, "38"),
-        flexBasis: 142,
-        flexGrow: 1,
-        gap: spacing.xs,
-        minHeight: 76,
-        padding: spacing.md
-      }}
-    >
-      <Text numberOfLines={1} style={{ color, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>
-        {item.label.toUpperCase()}
-      </Text>
-      <Text numberOfLines={2} style={{ color: profilePalette.textPrimary, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>
-        {item.value}
-      </Text>
-    </View>
-  );
-}
-
 function snapshotFactFromSetup(items: readonly ProfileSetupFactViewModel[], label: string, fallback: string): ProfileSetupFactViewModel {
   return items.find((item) => item.label.toLowerCase() === label.toLowerCase()) ?? { label, value: fallback, tone: "muted" };
 }
@@ -231,12 +206,14 @@ function ProfileSetupSnapshot({
   const wearableCycleValue = `${wearableStatus}; cycle ${cycleTrackingStatus}`;
   return (
     <DashboardCard testID="profile-setup-snapshot" title="Setup snapshot">
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        <SetupFactTile item={equipment} />
-        <SetupFactTile item={schedule} />
-        <SetupFactTile item={units} />
-        <SetupFactTile item={{ label: "Wearable / cycle", value: wearableCycleValue, tone: cycleTrackingStatus === "enabled" ? cycleTone : wearableTone }} />
-      </View>
+      <GroupedMetricTiles
+        items={[
+          { icon: "barbell-outline", label: equipment.label, tone: equipment.tone, value: equipment.value },
+          { icon: "calendar-outline", label: schedule.label, tone: schedule.tone, value: schedule.value },
+          { icon: "resize-outline", label: units.label, tone: units.tone, value: units.value },
+          { icon: "person-outline", label: "Manual / cycle", tone: cycleTrackingStatus === "enabled" ? cycleTone : wearableTone, value: wearableCycleValue }
+        ]}
+      />
     </DashboardCard>
   );
 }
@@ -490,8 +467,15 @@ export function ProfileScreen({
           title="Setup details"
           accessibilityName="Setup details"
         >
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="profile-key-setup-row">
-            {viewModel.keySetup.map((item) => <SetupFactTile item={item} key={`profile-key-setup:${item.label}`} />)}
+          <View testID="profile-key-setup-row">
+            <GroupedMetricTiles
+              items={viewModel.keySetup.map((item) => ({
+                icon: item.label.toLowerCase().includes("schedule") ? "calendar-outline" : item.label.toLowerCase().includes("equipment") ? "barbell-outline" : "person-outline",
+                label: item.label,
+                tone: item.tone,
+                value: item.value
+              }))}
+            />
           </View>
           <DashboardCard testID="profile-schedule-breakdown-card" title="Schedule">
             <View style={{ gap: spacing.md }}>

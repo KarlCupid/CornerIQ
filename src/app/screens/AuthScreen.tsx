@@ -43,17 +43,17 @@ function AuthCard({ children }: React.PropsWithChildren) {
     <View
       style={{
         ...glassStyles.cardDeep,
-        backgroundColor: "rgba(5, 17, 34, 0.86)",
-        borderColor: "rgba(39, 206, 241, 0.22)",
+        backgroundColor: "rgba(5, 10, 18, 0.84)",
+        borderColor: "rgba(232, 240, 255, 0.13)",
         borderRadius: radii.card,
-        boxShadow: "0 18px 42px rgba(0, 0, 0, 0.34), 0 0 24px rgba(39, 206, 241, 0.18)",
+        boxShadow: "0 20px 44px rgba(0, 0, 0, 0.4), 0 0 20px rgba(39, 206, 241, 0.14)",
         gap: spacing.lg,
         overflow: "hidden",
         padding: spacing.xl,
         width: "100%"
       }}
     >
-      <View style={{ backgroundColor: "rgba(39, 206, 241, 0.28)", height: 1, left: 0, position: "absolute", right: 0, top: 0 }} />
+      <View style={{ backgroundColor: "rgba(39, 206, 241, 0.24)", height: 1, left: 0, position: "absolute", right: 0, top: 0 }} />
       {children}
     </View>
   );

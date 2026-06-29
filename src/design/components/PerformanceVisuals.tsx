@@ -4,6 +4,7 @@ import { glassStyles } from "../glass";
 import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
 import type { BarVisual, BreakdownVisual, ModifierVisual, ProgressVisual, TimelineVisual, TrendPoint, VisualTone } from "../../engine/presentation/dashboardVisualData";
+import { PremiumCard } from "./PremiumPrimitives";
 
 const toneColors: Record<VisualTone, string> = {
   blue: colors.blueIQ,
@@ -55,27 +56,16 @@ export function DashboardCard({
   const quietTitle = titleVariant === "quiet";
   const theme = useLuminousScreenTheme();
   return (
-    <View
-      style={{
-        ...glassStyles.cardDeep,
-        backgroundColor: theme.cardDeep,
-        borderColor: theme.cardBorder,
-        boxShadow: `0 18px 42px rgba(0, 0, 0, 0.34), 0 0 22px ${theme.strongGlow}`,
-        gap: density === "compact" ? spacing.sm : spacing.md,
-        overflow: "hidden",
-        padding: density === "compact" ? spacing.md : spacing.lg
-      }}
-      testID={testID}
-    >
+    <PremiumCard density={density === "compact" ? "compact" : "regular"} testID={testID}>
       <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
-        <Text numberOfLines={2} style={{ color: quietTitle ? colors.wrap : colors.canvas, flex: 1, fontSize: quietTitle ? 14 : 13, fontWeight: quietTitle ? "700" : "900", letterSpacing: 0, lineHeight: quietTitle ? 18 : 17 }}>
+        <Text numberOfLines={2} style={{ color: quietTitle ? colors.wrap : theme.accentColor, flex: 1, fontSize: quietTitle ? 14 : 12, fontWeight: quietTitle ? "700" : "900", letterSpacing: 0, lineHeight: quietTitle ? 18 : 16, textTransform: quietTitle ? "none" : "uppercase" }}>
           {quietTitle ? title : title.toUpperCase()}
         </Text>
         {headerRight}
       </View>
       {children}
       {footer}
-    </View>
+    </PremiumCard>
   );
 }
 

@@ -62,7 +62,7 @@ describe("fatigue-first UI copy density static checks", () => {
 
   it("keeps the simplified first-screen action labels present", () => {
     const source = screenFiles.map((file) => readFileSync(file, "utf8")).join("\n");
-    const requiredLabels = ["Check in", "Start workout", "Log meal", "Add water", "Quick Logs", "This Week", "Plan details"];
+    const requiredLabels = ["Check in", "Start session", "Log meal", "Add water", "Quick Logs", "This Week", "Plan details"];
 
     for (const label of requiredLabels) {
       expect(source, `missing ${label}`).toContain(label);
@@ -75,10 +75,10 @@ describe("fatigue-first UI copy density static checks", () => {
     const tabBarStyle = tabsSource.match(/tabBarStyle:\s*{[\s\S]*?\n\s{12}}/)?.[0] ?? "";
     expect(tabsSource).toContain("function FloatingTabIcon");
     expect(tabsSource).toContain("Animated.spring");
-    expect(tabsSource).toContain("const floatingTabBarHeight = 72;");
-    expect(tabsSource).toContain("const floatingTabTouchTarget = 54;");
-    expect(tabsSource).toContain("const floatingTabPuckSize = 36;");
-    expect(tabsSource).toContain("const floatingTabBarMaxWidth = 376;");
+    expect(tabsSource).toContain("const floatingTabBarHeight = 78;");
+    expect(tabsSource).toContain("const floatingTabTouchTarget = 58;");
+    expect(tabsSource).toContain("const floatingTabPuckSize = 54;");
+    expect(tabsSource).toContain("const floatingTabBarMaxWidth = 392;");
     expect(tabsSource).toContain("useWindowDimensions");
     expect(tabsSource).toContain("tabBarShowLabel: true");
     expect(tabsSource).toContain("height: 42");
@@ -94,7 +94,7 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(tabBarStyle).toContain("paddingBottom: 0");
     expect(tabBarStyle).toContain("paddingTop: 0");
     expect(tabBarStyle).not.toMatch(/bottom:\s*0/);
-    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 112;");
+    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 122;");
   });
 
   it("keeps the tab photo headers wired to real local assets and matching icons", () => {
@@ -113,17 +113,22 @@ describe("fatigue-first UI copy density static checks", () => {
     }
 
     for (const icon of ["today-outline", "barbell-outline", "flame-outline", "clipboard-outline", "person-outline"]) {
-      expect(heroSource).toContain(icon);
       expect(tabsSource).toContain(icon);
+    }
+
+    for (const icon of ["calendar-outline", "document-text-outline", "restaurant-outline", "person-outline"]) {
+      expect(heroSource).toContain(icon);
     }
   });
 
   it("keeps hero titles boxing-specific and away from generic fitness phrasing", () => {
     const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
 
-    expect(heroSource).toContain("Today's Corner");
-    expect(heroSource).toContain("Train Sharp");
-    expect(heroSource).toContain("Your Boxer Setup");
+    expect(heroSource).toContain("Corner Brief");
+    expect(heroSource).toContain("Session Brief");
+    expect(heroSource).toContain("Fuel Brief");
+    expect(heroSource).toContain("Camp Plan");
+    expect(heroSource).toContain("Athlete Profile");
     expect(heroSource).not.toContain("Ready to Own Your Day");
   });
 

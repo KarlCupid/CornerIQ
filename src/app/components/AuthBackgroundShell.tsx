@@ -66,9 +66,9 @@ export function AuthBackgroundShell({
                 selectable={false}
                 style={{
                   color: colors.canvas,
-                  fontSize: 38,
+                  fontSize: 40,
                   fontWeight: "800",
-                  lineHeight: 46,
+                  lineHeight: 48,
                   textAlign: "center"
                 }}
               >

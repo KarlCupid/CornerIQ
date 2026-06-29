@@ -10,12 +10,12 @@ import { typography } from "../typography";
 
 export { accentColor, accentWash, luminousScreenThemes, useLuminousScreenTheme, type LuminousAccent } from "../luminousTheme";
 
-const TAB_SCREEN_BOTTOM_PADDING = 112;
+const TAB_SCREEN_BOTTOM_PADDING = 122;
 
 const luminousStyles = {
   content: {
     alignSelf: "center" as const,
-    gap: spacing.md,
+    gap: spacing.lg,
     flexGrow: 1,
     maxWidth: 1120,
     paddingHorizontal: spacing.lg,
@@ -33,7 +33,7 @@ const luminousStyles = {
     top: 0
   },
   screenBackgroundScrim: {
-    backgroundColor: "rgba(1, 4, 10, 0.36)",
+    backgroundColor: "rgba(1, 4, 10, 0.44)",
     bottom: 0,
     left: 0,
     position: "absolute" as const,
@@ -41,7 +41,7 @@ const luminousStyles = {
     top: 0
   },
   screenBackgroundBottomShade: {
-    backgroundColor: "rgba(0, 0, 0, 0.24)",
+    backgroundColor: "rgba(0, 0, 0, 0.34)",
     bottom: 0,
     height: "64%" as const,
     left: 0,
@@ -60,18 +60,21 @@ const luminousStyles = {
     maxWidth: 680
   },
   heroFrame: {
-    borderColor: "rgba(255, 255, 255, 0.11)",
+    borderBottomColor: "rgba(255, 255, 255, 0.13)",
     borderCurve: "continuous" as const,
-    borderRadius: 24,
-    borderWidth: 1,
-    minHeight: 236,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderBottomWidth: 1,
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.sm,
+    minHeight: 306,
     overflow: "hidden" as const
   },
   heroImage: {
-    borderRadius: 24
+    borderRadius: 0
   },
   heroOverlay: {
-    backgroundColor: "rgba(2, 5, 12, 0.12)",
+    backgroundColor: "rgba(2, 5, 12, 0.2)",
     bottom: 0,
     left: 0,
     position: "absolute" as const,
@@ -79,20 +82,20 @@ const luminousStyles = {
     top: 0
   },
   heroBaseShadow: {
-    backgroundColor: "rgba(0, 0, 0, 0.14)",
+    backgroundColor: "rgba(0, 0, 0, 0.28)",
     bottom: 0,
-    height: "58%" as const,
+    height: "64%" as const,
     left: 0,
     position: "absolute" as const,
     right: 0
   },
   heroContent: {
-    gap: spacing.md,
+    gap: spacing.lg,
     justifyContent: "flex-end" as const,
-    minHeight: 236,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingTop: 76
+    minHeight: 306,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
+    paddingTop: 82
   },
   heroCopy: {
     gap: spacing.xs,
@@ -101,11 +104,11 @@ const luminousStyles = {
   },
   heroTitle: {
     color: colors.canvas,
-    fontSize: 29,
+    fontSize: 40,
     fontWeight: "900" as const,
     letterSpacing: 0,
-    lineHeight: 33,
-    maxWidth: 340
+    lineHeight: 46,
+    maxWidth: 420
   },
   heroSubtitle: {
     color: colors.wrap,
@@ -119,19 +122,19 @@ const luminousStyles = {
     flexDirection: "row" as const,
     gap: spacing.sm,
     position: "absolute" as const,
-    right: spacing.lg,
-    top: spacing.lg
+    right: spacing.xl,
+    top: spacing.xl
   },
   heroActionGlyph: {
     alignItems: "center" as const,
-    backgroundColor: "rgba(6, 10, 18, 0.52)",
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(6, 10, 18, 0.62)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
     borderCurve: "continuous" as const,
-    borderRadius: 18,
+    borderRadius: 24,
     borderWidth: 1,
-    height: 36,
+    height: 48,
     justifyContent: "center" as const,
-    width: 36
+    width: 48
   }
 };
 
@@ -227,30 +230,30 @@ export function ScreenHeader({
         imageStyle={luminousStyles.heroImage}
         resizeMode="cover"
         source={heroImage}
-        style={[luminousStyles.heroFrame, heroShadow, { borderColor: theme.cardBorder, minHeight: compact ? 232 : 260 }]}
+        style={[luminousStyles.heroFrame, heroShadow, { borderBottomColor: theme.cardBorder, minHeight: compact ? 306 : 326 }]}
       >
-        <View style={[luminousStyles.heroOverlay, { backgroundColor: `${theme.background}1F` }]} />
-        <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}B8` }]} />
+        <View style={[luminousStyles.heroOverlay, { backgroundColor: `${theme.background}33` }]} />
+        <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}D4` }]} />
         <View pointerEvents="none" style={luminousStyles.heroActionRow}>
           <View style={[luminousStyles.heroActionGlyph, { backgroundColor: theme.cardDeep, borderColor: theme.cardBorder }]}>
-            <Ionicons color={colors.canvas} name="notifications-outline" size={18} />
+            <Ionicons color={colors.canvas} name="notifications-outline" size={24} />
           </View>
           <View style={[luminousStyles.heroActionGlyph, { backgroundColor: theme.cardDeep, borderColor: `${accentColor[accent]}66` }]}>
-            <Ionicons color={colors.canvas} name={icon ?? "settings-outline"} size={18} />
+            <Ionicons color={colors.canvas} name={icon ?? "settings-outline"} size={24} />
           </View>
         </View>
-        <View style={[luminousStyles.heroContent, { minHeight: compact ? 232 : 260, paddingBottom: compact ? spacing.xl : spacing.xxl }]}>
+        <View style={[luminousStyles.heroContent, { minHeight: compact ? 306 : 326, paddingBottom: compact ? spacing.xxl : spacing.xxl }]}>
           <View style={luminousStyles.heroCopy}>
             {eyebrow ? (
-              <Text style={{ color: accentColor[accent], fontSize: 11, fontWeight: "900", letterSpacing: 0, lineHeight: 15, textTransform: "uppercase" }}>
+              <Text style={{ color: accentColor[accent], fontSize: 13, fontWeight: "900", letterSpacing: 0, lineHeight: 17, textTransform: "uppercase" }}>
                 {eyebrow}
               </Text>
             ) : null}
-            <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={[luminousStyles.heroTitle, { fontSize: compact ? 28 : 34, lineHeight: compact ? 32 : 39 }]}>
+            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={[luminousStyles.heroTitle, { fontSize: compact ? 39 : 44, lineHeight: compact ? 45 : 50 }]}>
               {title}
             </Text>
             {subtitle ? <Text numberOfLines={2} style={luminousStyles.heroSubtitle}>{subtitle}</Text> : null}
-            <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 2, marginTop: spacing.md, width: 44 }} />
+            <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 3, marginTop: spacing.lg, width: 54 }} />
           </View>
         </View>
       </ImageBackground>
@@ -342,12 +345,12 @@ export function MetricTile({
         ...glassStyles.tile,
         backgroundColor: theme.tile,
         borderColor: theme.tileBorder,
-        borderRadius: 20,
+        borderRadius: radii.tile,
         flexBasis: "47%",
         flexGrow: 1,
         flexShrink: 1,
         gap: spacing.xs,
-        minHeight: 124,
+        minHeight: 104,
         minWidth: 136,
         padding: spacing.md
       }}

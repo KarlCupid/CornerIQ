@@ -22,6 +22,7 @@ import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
+import { GroupedMetricTiles, PremiumCard } from "../../design/components/PremiumPrimitives";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
@@ -809,8 +810,8 @@ function PlanTonePill({ label, tone: _tone = "green" }: { label: string; tone?: 
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.075)",
-        borderColor: "rgba(255, 255, 255, 0.16)",
+        backgroundColor: "rgba(255, 255, 255, 0.055)",
+        borderColor: "rgba(232, 240, 255, 0.15)",
         borderRadius: radii.pill,
         borderWidth: 1,
         minHeight: 28,
@@ -838,7 +839,7 @@ function PlanButton({
   onPress: () => void;
   primary?: boolean | undefined;
 }) {
-  const iconColor = primary ? planPalette.textPrimary : planPalette.textBody;
+  const iconColor = primary ? colors.cornerBlack : planPalette.textBody;
   return (
     <Pressable
       accessibilityLabel={label}
@@ -861,32 +862,8 @@ function PlanButton({
       ]}
     >
       {icon ? <Ionicons color={iconColor} name={icon} size={16} /> : null}
-      <Text style={{ color: primary ? planPalette.textPrimary : planPalette.textBody, fontSize: 15, fontWeight: primary ? "800" : "700", lineHeight: 20, textAlign: "center" }}>{label}</Text>
+      <Text style={{ color: primary ? colors.cornerBlack : planPalette.textBody, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>{label}</Text>
     </Pressable>
-  );
-}
-
-function PlanStatTile({ label, tone, value }: { label: string; tone: PlanTone; value: string }) {
-  return (
-    <View
-      style={{
-        ...glassStyles.tile,
-        backgroundColor: planTint(tone, "10"),
-        borderColor: planTint(tone, "36"),
-        flexBasis: 136,
-        flexGrow: 1,
-        gap: spacing.xs,
-        minHeight: 64,
-        padding: spacing.md
-      }}
-    >
-      <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
-        {label}
-      </Text>
-      <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: planToneColors[tone], fontSize: 18, fontWeight: "900", lineHeight: 23 }}>
-        {value}
-      </Text>
-    </View>
   );
 }
 
@@ -939,22 +916,36 @@ function ThisWeeksPlanCard({
   viewModel: PlanViewModel;
 }) {
   const fixedBoxingCount = viewModel.weeklyAnchors.length + viewModel.fixedSchedule.length;
+  const progressLabel = `W${viewModel.weekIndex}`;
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="plan-hero-card">
-        <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
-          <View style={{ flexBasis: 230, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: planPalette.textPrimary, fontSize: 22, fontWeight: "900", letterSpacing: 0, lineHeight: 27 }}>
-              This Week's Plan
+    <PremiumCard accent="green" density="spacious">
+      <View style={{ gap: spacing.lg }} testID="plan-hero-card">
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, justifyContent: "space-between" }}>
+          <View
+            style={{
+              alignItems: "center",
+              backgroundColor: planTint("green", "14"),
+              borderColor: planTint("green", "55"),
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              height: 98,
+              justifyContent: "center",
+              width: 98
+            }}
+          >
+            <Text style={{ color: planPalette.textPrimary, fontSize: 28, fontWeight: "900", lineHeight: 33 }}>{progressLabel}</Text>
+            <Text style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>active</Text>
+          </View>
+          <View style={{ flexBasis: 176, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: planPalette.toneGreen, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>
+              {viewModel.modeLabel}
+            </Text>
+            <Text style={{ color: planPalette.textPrimary, fontSize: 28, fontWeight: "900", letterSpacing: 0, lineHeight: 34 }}>
+              Week {viewModel.weekIndex}
             </Text>
             <Text style={planTextStyles.body}>{weekPlanSentence(viewModel)}</Text>
           </View>
-          <View style={{ alignItems: "flex-start", gap: spacing.xs }}>
-            <PlanTonePill label={planPhaseLabel(viewModel)} tone={viewModel.rollForwardStatus === "blocked" ? "orange" : "green"} />
-            <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
-              Week {viewModel.weekIndex}
-            </Text>
-          </View>
+          <PlanButton disabled={busy} icon="options-outline" label="Adjust plan" onPress={onChangeGoal} />
         </View>
         <WeekReviewStrip viewModel={viewModel} />
         <PlanWeekTicker
@@ -967,16 +958,20 @@ function ThisWeeksPlanCard({
           onToggleCalendar={onToggleCalendar}
           viewModel={viewModel}
         />
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <PlanStatTile label="App sessions" tone="purple" value={`${viewModel.generatedSupportSessionCount}`} />
-          <PlanStatTile label="Boxing you added" tone="green" value={fixedBoxingCount > 0 ? `${fixedBoxingCount}` : "None"} />
-        </View>
+        <GroupedMetricTiles
+          items={[
+            { icon: "barbell-outline", label: "App sessions", tone: "purple", value: `${viewModel.generatedSupportSessionCount}` },
+            { icon: "shield-outline", label: "Boxing added", tone: fixedBoxingCount > 0 ? "green" : "muted", value: fixedBoxingCount > 0 ? `${fixedBoxingCount}` : "None" },
+            { icon: "calendar-outline", label: "Phase", tone: viewModel.rollForwardStatus === "blocked" ? "orange" : "green", value: planPhaseLabel(viewModel) }
+          ]}
+          testID="plan-key-numbers"
+        />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <PlanButton disabled={busy} icon="create-outline" label="Change plan" onPress={onChangeGoal} primary />
           <PlanButton disabled={busy} icon="calendar-outline" label="Preview next week" onPress={onPreviewNextWeek} />
         </View>
       </View>
-    </EngineCard>
+    </PremiumCard>
   );
 }
 

@@ -4,24 +4,24 @@ import { screenStyles } from "../screenStyles";
 export type PlanTone = "blue" | "gold" | "green" | "muted" | "orange" | "purple" | "red";
 
 export const planPalette = {
-  actionBorder: "rgba(181, 224, 191, 0.48)",
-  actionFill: "rgba(73, 132, 91, 0.36)",
-  actionFillPressed: "rgba(88, 151, 105, 0.44)",
-  actionShadow: "rgba(42, 106, 65, 0.28)",
-  cardLine: "rgba(205, 226, 211, 0.16)",
-  controlFill: "rgba(230, 247, 234, 0.062)",
-  controlFillPressed: "rgba(230, 247, 234, 0.1)",
-  controlLine: "rgba(205, 226, 211, 0.18)",
+  actionBorder: "rgba(56, 226, 138, 0.56)",
+  actionFill: "#38E28A",
+  actionFillPressed: "#30CA7B",
+  actionShadow: "rgba(56, 226, 138, 0.28)",
+  cardLine: "rgba(210, 244, 221, 0.14)",
+  controlFill: "rgba(230, 247, 234, 0.055)",
+  controlFillPressed: "rgba(230, 247, 234, 0.095)",
+  controlLine: "rgba(210, 244, 221, 0.16)",
   textBody: "#D4E2D7",
   textMuted: "#A4B4A8",
   textPrimary: "#F3F8F4",
-  toneBlue: "#8DBDCC",
-  toneGold: "#CBB878",
-  toneGreen: "#8DBB9B",
+  toneBlue: "#27CEF1",
+  toneGold: "#FFD861",
+  toneGreen: "#38E28A",
   toneMuted: "#A4B4A8",
-  toneOrange: "#CE9565",
-  tonePurple: "#A99ACB",
-  toneRed: "#D57986"
+  toneOrange: "#FF9448",
+  tonePurple: "#9657F5",
+  toneRed: "#FF5265"
 } as const;
 
 export const planTextStyles = {

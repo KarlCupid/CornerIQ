@@ -3,24 +3,24 @@ import type { VisualTone } from "../../../engine/presentation/dashboardVisualDat
 import { screenStyles } from "../screenStyles";
 
 export const trainPalette = {
-  actionBorder: "rgba(202, 181, 255, 0.48)",
-  actionFill: "rgba(119, 91, 173, 0.38)",
-  actionFillPressed: "rgba(135, 103, 195, 0.46)",
-  actionShadow: "rgba(76, 45, 145, 0.3)",
-  cardLine: "rgba(218, 208, 242, 0.16)",
-  controlFill: "rgba(236, 229, 255, 0.062)",
-  controlFillPressed: "rgba(236, 229, 255, 0.1)",
-  controlLine: "rgba(218, 208, 242, 0.18)",
+  actionBorder: "rgba(202, 181, 255, 0.58)",
+  actionFill: "#9657F5",
+  actionFillPressed: "#854CE2",
+  actionShadow: "rgba(150, 87, 245, 0.34)",
+  cardLine: "rgba(232, 222, 255, 0.14)",
+  controlFill: "rgba(236, 229, 255, 0.055)",
+  controlFillPressed: "rgba(236, 229, 255, 0.095)",
+  controlLine: "rgba(232, 222, 255, 0.16)",
   textBody: "#D9D2E7",
   textMuted: "#A9A1B8",
-  textPrimary: "#F7F2FF",
-  toneBlue: "#8FBFD2",
-  toneGold: "#D5BE7B",
-  toneGreen: "#8CBC9B",
+  textPrimary: "#FAF7FF",
+  toneBlue: "#27CEF1",
+  toneGold: "#FFD861",
+  toneGreen: "#38E28A",
   toneMuted: "#A9A1B8",
-  toneOrange: "#D09666",
-  tonePurple: "#A993D8",
-  toneRed: "#D97887"
+  toneOrange: "#FF9448",
+  tonePurple: "#9657F5",
+  toneRed: "#FF5265"
 } as const;
 
 export const trainTextStyles = {

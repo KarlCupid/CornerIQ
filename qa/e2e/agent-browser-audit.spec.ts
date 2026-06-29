@@ -378,11 +378,11 @@ async function expectTodayOverviewSurface(page: Page) {
   const checkInCard = page.getByTestId("today-check-in-card");
   const primaryActionScope = (await heroCard.count()) > 0 ? heroCard : checkInCard;
   if ((await heroCard.count()) > 0) {
-    await expect(heroCard).toContainText("Today");
+    await expect(heroCard).toContainText(/Readiness:|Give CornerIQ|You're good|Hydrate|Eat before|Recovery/);
   } else {
     await expect(checkInCard).toContainText("Today's Check-In");
   }
-  await expect(checkInCard).toContainText(/Today's Check-In|Give CornerIQ|You're good|Hydrate|Eat before|Recovery/);
+  await expect(checkInCard).toContainText(/Today's Check-In|Readiness:|Give CornerIQ|You're good|Hydrate|Eat before|Recovery/);
   await expect(primaryActionScope.getByRole("button", { name: "Check in" })).toBeVisible();
   await expect(primaryActionScope.getByRole("button", { name: "Log food" })).toBeVisible();
   await expect(primaryActionScope.getByRole("button", { name: /Start workout|View workout|Open Train/ })).toBeVisible();
@@ -451,8 +451,8 @@ async function clickFirstVisibleEnabled(locator: Locator) {
 
 async function clickStartWorkout(page: Page) {
   return (
-    (await clickFirstVisibleEnabled(page.getByTestId("workout-player-preview").getByRole("button", { name: "Start workout" }))) ||
-    (await clickFirstVisibleEnabled(page.getByRole("button", { name: "Start workout" })))
+    (await clickFirstVisibleEnabled(page.getByTestId("workout-player-preview").getByRole("button", { name: /Start workout|Start session/ }))) ||
+    (await clickFirstVisibleEnabled(page.getByRole("button", { name: /Start workout|Start session/ })))
   );
 }
 
@@ -460,9 +460,9 @@ async function openLiveWorkoutPlayer(page: Page) {
   const livePlayer = page.getByTestId("workout-player");
   const liveModeLabel = page.getByText(/LIVE WORKOUT|STRENGTH WORKOUT|MOVEMENT FLOW/);
   if ((await livePlayer.count()) === 0) {
-    const todayOpenWorkout = page.getByTestId("today-hero-card").getByRole("button", { name: /Start workout|View workout|Open Train/ });
-    const todayNextWorkout = page.getByTestId("today-next-action-card").getByRole("button", { name: /Start workout|View workout|Open Train/ });
-    const todayLegacyWorkout = page.getByTestId("today-check-in-card").getByRole("button", { name: /Start workout|View workout|Open Train/ });
+    const todayOpenWorkout = page.getByTestId("today-hero-card").getByRole("button", { name: /Start workout|Start session|View workout|Open Train/ });
+    const todayNextWorkout = page.getByTestId("today-next-action-card").getByRole("button", { name: /Start workout|Start session|View workout|Open Train/ });
+    const todayLegacyWorkout = page.getByTestId("today-check-in-card").getByRole("button", { name: /Start workout|Start session|View workout|Open Train/ });
     if (await clickFirstVisibleEnabled(todayOpenWorkout)) {
       // Opened from the first-screen Today action.
     } else if (await clickFirstVisibleEnabled(todayNextWorkout)) {
@@ -621,11 +621,11 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Fuel");
   await expectVisibleText(page, "Fuel");
-  await expect(page.getByTestId("fuel-overview")).toContainText("Today's Fuel Plan");
+  await expect(page.getByTestId("fuel-overview")).toContainText("Fuel status:");
   await expect(page.getByTestId("fuel-overview")).toContainText("No active cut");
   await expect(page.getByTestId("fuel-do-not-miss-card")).toContainText("Do not miss");
   await expect(page.getByTestId("fuel-key-numbers")).toContainText("Fuel readiness");
-  await expect(page.getByTestId("fuel-key-numbers")).toContainText("Hydration guide");
+  await expect(page.getByTestId("fuel-key-numbers")).toContainText("Hydration");
   await expect(page.getByTestId("fuel-details-toggle")).toContainText("Fuel details");
   await page.getByTestId("fuel-details-toggle").click();
   await expect(page.getByTestId("fuel-details-section")).toBeVisible();
@@ -687,7 +687,7 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
 async function auditProfileSafety(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Profile");
-  await expect(page.getByTestId("profile-screen")).toContainText("Your Boxer Setup");
+  await expect(page.getByTestId("profile-screen")).toContainText("Athlete Profile");
   await expect(page.getByTestId("profile-athlete-section")).toContainText(/Athlete setup/i);
   await expect(page.getByTestId("profile-athlete-section")).toContainText(/Ready|Needs details|Health note/);
   await openProfileSection(page, "Setup details");
@@ -713,19 +713,18 @@ async function auditProfileSafety(page: Page, testInfo: TestInfo) {
 async function auditTrain(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openTab(page, "Train");
-  await expectVisibleText(page, "Today's Training Plan");
-  await expect(page.getByTestId("train-today-plan-card")).toContainText(/Your job today/i);
+  await expect(page.getByTestId("train-today-plan-card")).toContainText(/Non-contact/i);
   await expect(page.getByTestId("train-compact-stats")).toContainText(/Duration/i);
   await expect(page.getByTestId("train-compact-stats")).toContainText(/Readiness/i);
   await expect(page.getByTestId("train-collapsible-details")).toHaveCount(0);
   await page.getByTestId("train-today-plan-card").getByRole("button", { name: "View details" }).click();
-  await expect(page.getByTestId("train-workout-flow-card")).toContainText(/Workout Flow/i);
+  await expect(page.getByTestId("train-workout-flow-card")).toContainText(/Session Plan/i);
   await expect(page.getByTestId("train-before-start-card")).toContainText(/Before You Start/i);
   await expect(page.getByTestId("train-execution-overlay-card")).toHaveCount(0);
   const workoutCount = await page.getByTestId("train-workout-section").count();
   let generatedQuickLogAvailable = false;
   if (workoutCount > 0) {
-    const startWorkoutButton = page.getByRole("button", { name: "Start workout" }).first();
+    const startWorkoutButton = page.getByRole("button", { name: /Start workout|Start session/ }).first();
     if ((await startWorkoutButton.count()) > 0 && await startWorkoutButton.isVisible().catch(() => false)) {
       await expect(startWorkoutButton).toBeVisible();
     } else {
@@ -808,7 +807,7 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await openTab(page, "Plan");
   await expectVisibleText(page, "Plan");
   await expectVisibleText(page, "Build phase");
-  await expect(page.getByTestId("plan-hero-card")).toContainText("This Week's Plan");
+  await expect(page.getByTestId("plan-hero-card")).toContainText("Adjust plan");
   await expect(page.getByTestId("plan-hero-card")).not.toContainText("This week's job");
   await expect(page.getByTestId("plan-hero-card")).not.toContainText(/V2 compiler/i);
   await expect(page.getByTestId("plan-week-strip-card")).toContainText("This week");

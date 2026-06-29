@@ -17,6 +17,11 @@ vi.mock("react-native", () => {
   };
 });
 
+vi.mock("@expo/vector-icons/Ionicons", () => ({
+  default: ({ color, name, size }: { color?: string; name?: string; size?: number }) =>
+    React.createElement("Ionicons", { color, name, size })
+}));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function quickLogActions(): QuickLogActions {
