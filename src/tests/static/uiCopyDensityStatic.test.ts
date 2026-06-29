@@ -75,15 +75,18 @@ describe("fatigue-first UI copy density static checks", () => {
     const tabBarStyle = tabsSource.match(/tabBarStyle:\s*{[\s\S]*?\n\s{12}}/)?.[0] ?? "";
     expect(tabsSource).toContain("function FloatingTabIcon");
     expect(tabsSource).toContain("Animated.spring");
-    expect(tabsSource).toContain("const floatingTabBarHeight = 78;");
-    expect(tabsSource).toContain("const floatingTabTouchTarget = 58;");
-    expect(tabsSource).toContain("const floatingTabPuckSize = 54;");
-    expect(tabsSource).toContain("const floatingTabBarMaxWidth = 392;");
+    expect(tabsSource).toContain("const floatingTabBarHeight = 64;");
+    expect(tabsSource).toContain("const floatingTabTouchTarget = 50;");
+    expect(tabsSource).toContain("const floatingTabPuckSize = 46;");
+    expect(tabsSource).toContain("const floatingTabBarMaxWidth = 368;");
     expect(tabsSource).toContain("useWindowDimensions");
     expect(tabsSource).toContain("tabBarShowLabel: true");
-    expect(tabsSource).toContain("height: 42");
+    expect(tabsSource).toContain("const floatingTabReservedBottom = floatingTabBarHeight + Math.max(insets.bottom, spacing.sm) + spacing.sm;");
+    expect(tabsSource).toContain("sceneStyle:");
+    expect(tabsSource).toContain("marginBottom: floatingTabReservedBottom");
+    expect(tabsSource).toContain("height: 34");
     expect(tabsSource).toMatch(/tabBarStyle:\s*{[\s\S]*position:\s*"absolute"/);
-    expect(tabsSource).toContain("bottom: Math.max(insets.bottom, spacing.md)");
+    expect(tabsSource).toContain("bottom: Math.max(insets.bottom, spacing.sm)");
     expect(tabsSource).toContain("const floatingTabBarSideInset = Math.max(spacing.sm, (windowWidth - floatingTabBarWidth) / 2);");
     expect(tabBarStyle).toContain("end: floatingTabBarSideInset");
     expect(tabBarStyle).toContain("start: floatingTabBarSideInset");
@@ -94,7 +97,7 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(tabBarStyle).toContain("paddingBottom: 0");
     expect(tabBarStyle).toContain("paddingTop: 0");
     expect(tabBarStyle).not.toMatch(/bottom:\s*0/);
-    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 140;");
+    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 170;");
   });
 
   it("keeps the tab photo headers wired to real local assets and matching icons", () => {

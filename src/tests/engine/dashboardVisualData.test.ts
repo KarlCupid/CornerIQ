@@ -51,6 +51,8 @@ describe("dashboardVisualData", () => {
     expect(today.weeklyLoad).toHaveLength(7);
     expect(today.fuel.some((item) => item.label === "Protein")).toBe(true);
     expect(today.schedule.length).toBeGreaterThan(0);
+    expect(today.keyStatuses.fuel).toMatchObject({ tone: "orange", value: "Unknown" });
+    expect(today.fuelToday).toMatchObject({ status: "Unknown", tone: "orange" });
     expect(fuel.macros.map((item) => item.label)).toEqual(expect.arrayContaining(["Protein", "Carbs", "Fat"]));
     expect(fuel.todayGuide.map((item) => item.label)).toEqual(["Protein", "Carbs", "Fat", "Water"]);
     expect(fuel.quickContext.map((item) => item.label)).toEqual(["Food log", "Water", "Sodium"]);

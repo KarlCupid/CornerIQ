@@ -168,7 +168,7 @@ export type PresentationTone = "blue" | "green" | "orange" | "purple" | "gold" |
 
 export interface FuelPlanStatusViewModel {
   action: string;
-  label: "No active cut" | "On pace" | "Tight" | "Behind pace" | "Too aggressive" | "Pause cut";
+  label: "Unknown" | "No active cut" | "On pace" | "Tight" | "Behind pace" | "Too aggressive" | "Pause cut";
   sentence: string;
   tone: PresentationTone;
 }
@@ -672,6 +672,11 @@ export interface PlanViewModel {
   actualStimulusMix: TrainingStimulusMix;
   weeklyTrainingStructure: string;
   blockHistorySummary: TrainingBlockHistoryViewModel;
+  blockProgress: {
+    currentWeek: number;
+    percent: number;
+    totalWeeks: number;
+  };
   weekIndex: number;
   planLifecycleLabel: string;
   currentWeekSummary: TrainingWeekSummaryViewModel | null;

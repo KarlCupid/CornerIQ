@@ -10,7 +10,7 @@ import { typography } from "../typography";
 
 export { accentColor, accentWash, luminousScreenThemes, useLuminousScreenTheme, type LuminousAccent } from "../luminousTheme";
 
-const TAB_SCREEN_BOTTOM_PADDING = 140;
+const TAB_SCREEN_BOTTOM_PADDING = 170;
 
 const luminousStyles = {
   content: {
@@ -66,9 +66,9 @@ const luminousStyles = {
     borderWidth: 0,
     borderBottomWidth: 1,
     marginHorizontal: -spacing.lg,
-    marginBottom: -spacing.xl,
+    marginBottom: -spacing.lg,
     marginTop: -spacing.sm,
-    minHeight: 188,
+    minHeight: 132,
     overflow: "hidden" as const
   },
   heroImage: {
@@ -85,7 +85,7 @@ const luminousStyles = {
   heroBaseShadow: {
     backgroundColor: "rgba(0, 0, 0, 0.28)",
     bottom: 0,
-    height: "64%" as const,
+    height: "54%" as const,
     left: 0,
     position: "absolute" as const,
     right: 0
@@ -93,10 +93,10 @@ const luminousStyles = {
   heroContent: {
     gap: spacing.xl,
     justifyContent: "flex-start" as const,
-    minHeight: 188,
+    minHeight: 132,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
-    paddingTop: 56
+    paddingTop: 58
   },
   heroCopy: {
     gap: spacing.xs,
@@ -131,11 +131,11 @@ const luminousStyles = {
     backgroundColor: "rgba(6, 10, 18, 0.62)",
     borderColor: "rgba(255, 255, 255, 0.18)",
     borderCurve: "continuous" as const,
-    borderRadius: 24,
+    borderRadius: 23,
     borderWidth: 1,
-    height: 48,
+    height: 46,
     justifyContent: "center" as const,
-    width: 48
+    width: 46
   }
 };
 
@@ -217,12 +217,12 @@ export function ScreenHeader({
   const { width } = useWindowDimensions();
   const theme = useLuminousScreenTheme();
   const compact = width < 520;
-  const compactHeight = heroHeight ?? (heroMeta ? 278 : 188);
-  const regularHeight = heroHeight ? heroHeight + 34 : heroMeta ? 330 : 326;
+  const compactHeight = heroHeight ?? (heroMeta ? 282 : 132);
+  const regularHeight = heroHeight ? heroHeight + 34 : heroMeta ? 354 : 336;
   if (heroImage) {
     const heroShadow: ViewStyle =
       Platform.OS === "web"
-        ? ({ boxShadow: `0 24px 54px rgba(0, 0, 0, 0.42), 0 0 32px ${theme.strongGlow}` } as ViewStyle)
+        ? ({ boxShadow: `0 18px 42px rgba(0, 0, 0, 0.36), 0 0 22px ${theme.strongGlow}` } as ViewStyle)
         : {
             elevation: 10,
             shadowColor: accentColor[accent],
@@ -237,10 +237,10 @@ export function ScreenHeader({
         imageStyle={luminousStyles.heroImage}
         resizeMode="cover"
         source={heroImage}
-        style={[luminousStyles.heroFrame, heroShadow, { borderBottomColor: theme.cardBorder, marginBottom: compact ? -spacing.xl : 0, minHeight: compact ? compactHeight : regularHeight }]}
+        style={[luminousStyles.heroFrame, heroShadow, { borderBottomColor: theme.cardBorder, marginBottom: compact ? -spacing.md : 0, minHeight: compact ? compactHeight : regularHeight }]}
       >
         <View style={[luminousStyles.heroOverlay, { backgroundColor: `${theme.background}33` }]} />
-        <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}D4` }]} />
+        <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}A8` }]} />
         <View pointerEvents="none" style={luminousStyles.heroActionRow}>
           <View style={[luminousStyles.heroActionGlyph, { backgroundColor: theme.cardDeep, borderColor: theme.cardBorder }]}>
             <Ionicons color={colors.canvas} name="notifications-outline" size={24} />
@@ -254,8 +254,8 @@ export function ScreenHeader({
             luminousStyles.heroContent,
             {
               minHeight: compact ? compactHeight : regularHeight,
-              paddingBottom: compact ? spacing.lg : spacing.xxl,
-              paddingTop: compact ? spacing.xxl : 72
+              paddingBottom: compact ? spacing.md : spacing.xxl,
+              paddingTop: compact ? 34 : 72
             }
           ]}
         >
@@ -265,11 +265,11 @@ export function ScreenHeader({
                 {eyebrow}
               </Text>
             ) : null}
-            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={[luminousStyles.heroTitle, { fontSize: compact ? 39 : 44, lineHeight: compact ? 45 : 50 }]}>
+            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={[luminousStyles.heroTitle, { fontSize: compact ? 41 : 44, lineHeight: compact ? 47 : 50 }]}>
               {title}
             </Text>
             {subtitle ? <Text numberOfLines={2} style={luminousStyles.heroSubtitle}>{subtitle}</Text> : null}
-            {heroMeta ? null : <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 3, marginTop: spacing.lg, width: 54 }} />}
+            {heroMeta ? null : <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 3, marginTop: spacing.sm, width: 54 }} />}
           </View>
           {heroMeta ? <View style={{ maxWidth: 720, width: "100%" }}>{heroMeta}</View> : null}
         </View>

@@ -103,10 +103,10 @@ function planStatusFromFuel(state: PerformanceState, safety: FuelSafetyStateView
   switch (state.nutrition.weightClassStatus.status) {
     case "no_active_weight_target":
       return {
-        action: "Train normally. Keep food and fluids steady.",
-        label: "No active cut",
-        sentence: "No fight weight target is active today.",
-        tone: "muted"
+        action: "Log food or water before fuel guidance changes.",
+        label: "Unknown",
+        sentence: "No active cut is running, but today's fuel is not confirmed.",
+        tone: "orange"
       };
     case "on_track":
     case "ahead":
@@ -172,7 +172,7 @@ function trainingTodayCopy(state: PerformanceState, plan: FuelPlanStatusViewMode
   if (state.nutrition.trainingDemandHandoff.todayTrainingDemand === "high") {
     return "Do the planned boxing. Eat before training.";
   }
-  return plan.label === "No active cut" ? "Train normally." : "Do the planned boxing.";
+  return plan.label === "Unknown" ? "Follow the plan. Log fuel if anything changed." : "Do the planned boxing.";
 }
 
 export function buildFuelViewModel(state: PerformanceState): FuelViewModel {

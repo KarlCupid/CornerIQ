@@ -13,6 +13,7 @@ import type {
   TrainingDayPlan,
   WeeklyProtectedAnchorWeekday
 } from "../core/types";
+import { daysBetween } from "../core/dates";
 import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
 import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
@@ -566,6 +567,18 @@ function planLifecycleLabel(state: PerformanceState): string {
   return `Week ${week} · ${modeLabel(state).replace(" phase", "")}`;
 }
 
+function blockProgress(state: PerformanceState): PlanViewModel["blockProgress"] {
+  const block = state.training.activeBlock;
+  const totalDays = Math.max(1, daysBetween(block.startDate, block.endDate) + 1);
+  const totalWeeks = Math.max(1, Math.ceil(totalDays / 7));
+  const currentWeek = Math.max(1, Math.min(block.progressionState.weekIndex, totalWeeks));
+  return {
+    currentWeek,
+    percent: Math.round((currentWeek / totalWeeks) * 100),
+    totalWeeks
+  };
+}
+
 function buildBlockHistoryDetail(state: PerformanceState, nextWeekPreview: NextWeekPreviewViewModel): TrainingBlockHistoryDetailViewModel {
   const history = state.training.blockHistory;
   const adjustmentEvents = state.training.adjustmentHistory.map(
@@ -706,6 +719,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
       latestEventSummary: latestTimelineEvent ? `${latestTimelineEvent.title}: ${latestTimelineEvent.summary}` : null,
       currentWeekIndex: state.training.activeBlock.progressionState.weekIndex
     },
+    blockProgress: blockProgress(state),
     weekIndex: state.training.activeBlock.progressionState.weekIndex,
     planLifecycleLabel: planLifecycleLabel(state),
     currentWeekSummary: currentWeekSummary

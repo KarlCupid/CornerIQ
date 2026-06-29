@@ -27,12 +27,12 @@ import type { EngineGenerationStatus } from "../components/EngineGeneratingCard"
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const inactiveTabColor = "rgba(183, 196, 217, 0.7)";
-const floatingTabBarHeight = 78;
+const floatingTabBarHeight = 64;
 const floatingTabBarRadius = floatingTabBarHeight / 2;
-const floatingTabTouchTarget = 58;
-const floatingTabPuckSize = 54;
-const floatingTabIconSize = 23;
-const floatingTabBarMaxWidth = 392;
+const floatingTabTouchTarget = 50;
+const floatingTabPuckSize = 46;
+const floatingTabIconSize = 20;
+const floatingTabBarMaxWidth = 368;
 const floatingTabBarMinWidth = floatingTabTouchTarget * 5 + spacing.md * 2;
 
 const tabAccents: Record<keyof RootTabParamList, string> = {
@@ -95,7 +95,7 @@ function FloatingTabIcon({
   });
   const translateY = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -8]
+    outputRange: [0, -6]
   });
   const glowOpacity = progress.interpolate({
     inputRange: [0, 1],
@@ -123,7 +123,7 @@ function FloatingTabIcon({
           borderColor: focused ? alphaHex(accent, "70") : "transparent",
           borderRadius: floatingTabPuckSize / 2,
           borderWidth: focused ? 1 : 0,
-          boxShadow: focused ? `0 0 26px ${alphaHex(accent, "4D")}, 0 12px 24px rgba(0, 0, 0, 0.38)` : undefined,
+          boxShadow: focused ? `0 0 20px ${alphaHex(accent, "42")}, 0 10px 20px rgba(0, 0, 0, 0.34)` : undefined,
           height: floatingTabPuckSize,
           justifyContent: "center",
           overflow: "hidden",
@@ -187,6 +187,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
     Math.min(windowWidth - spacing.xxl * 2, floatingTabBarMaxWidth)
   );
   const floatingTabBarSideInset = Math.max(spacing.sm, (windowWidth - floatingTabBarWidth) / 2);
+  const floatingTabReservedBottom = floatingTabBarHeight + Math.max(insets.bottom, spacing.sm) + spacing.sm;
   const navigationRef = React.useRef<NavigationContainerRef<RootTabParamList>>(null);
   const [fuelFocusIntent, setFuelFocusIntent] = React.useState<FuelFocusIntent | undefined>();
   const [trainInitialSection, setTrainInitialSection] = React.useState<TrainSection | undefined>();
@@ -256,6 +257,44 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             headerShown: false,
             tabBarAccessibilityLabel: route.name,
             tabBarActiveTintColor: tabAccents[route.name],
+            tabBarBackground: () => (
+              <View
+                pointerEvents="none"
+                style={{
+                  bottom: -Math.max(insets.bottom, spacing.sm),
+                  height: floatingTabReservedBottom + spacing.xxl,
+                  left: -floatingTabBarSideInset,
+                  position: "absolute",
+                  right: -floatingTabBarSideInset
+                }}
+              >
+                <View
+                  style={{
+                    backgroundColor: colors.cornerBlack,
+                    bottom: 0,
+                    boxShadow: "0 -18px 34px rgba(1, 4, 10, 0.92)",
+                    left: 0,
+                    position: "absolute",
+                    right: 0,
+                    top: 0
+                  }}
+                />
+                <View
+                  style={{
+                    backgroundColor: "rgba(4, 8, 15, 0.84)",
+                    borderColor: alphaHex(tabAccents[route.name], "30"),
+                    borderRadius: floatingTabBarRadius,
+                    borderWidth: 1,
+                    bottom: Math.max(insets.bottom, spacing.sm),
+                    boxShadow: `0 14px 34px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 18px ${tabChromeThemes[route.name].strongGlow}`,
+                    left: floatingTabBarSideInset,
+                    position: "absolute",
+                    right: floatingTabBarSideInset,
+                    top: spacing.xxl
+                  }}
+                />
+              </View>
+            ),
             tabBarHideOnKeyboard: true,
             tabBarInactiveTintColor: inactiveTabColor,
             tabBarIcon: ({ color, focused }) => (
@@ -263,13 +302,17 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             ),
             tabBarShowLabel: true,
             tabBarLabelPosition: "below-icon",
+            sceneStyle: {
+              backgroundColor: colors.cornerBlack,
+              marginBottom: floatingTabReservedBottom
+            },
             tabBarIconStyle: {
               alignItems: "center",
-              height: 42,
+              height: 34,
               overflow: "visible",
               justifyContent: "center",
-              marginBottom: 2,
-              marginTop: -2,
+              marginBottom: 0,
+              marginTop: -1,
               width: floatingTabTouchTarget
             },
             tabBarItemStyle: {
@@ -277,19 +320,19 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               height: floatingTabBarHeight,
               justifyContent: "center",
               paddingBottom: 0,
-              paddingTop: 4
+              paddingTop: 3
             },
             tabBarLabelStyle: {
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: "800",
-              lineHeight: 14,
-              marginBottom: 9,
-              marginTop: -8
+              lineHeight: 12,
+              marginBottom: 6,
+              marginTop: -6
             },
             tabBarStyle: {
               ...glassStyles.tabBar,
-              backgroundColor: "rgba(4, 8, 15, 0.86)",
-              borderColor: alphaHex(tabAccents[route.name], "32"),
+              backgroundColor: "rgba(4, 8, 15, 0.82)",
+              borderColor: alphaHex(tabAccents[route.name], "28"),
               borderBottomLeftRadius: floatingTabBarRadius,
               borderBottomRightRadius: floatingTabBarRadius,
               borderBottomWidth: 1,
@@ -297,8 +340,8 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               borderRightWidth: 1,
               borderTopLeftRadius: floatingTabBarRadius,
               borderTopRightRadius: floatingTabBarRadius,
-              bottom: Math.max(insets.bottom, spacing.md),
-              boxShadow: `0 18px 42px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 24px ${tabChromeThemes[route.name].strongGlow}`,
+              bottom: Math.max(insets.bottom, spacing.sm),
+              boxShadow: `0 14px 34px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 18px ${tabChromeThemes[route.name].strongGlow}`,
               end: floatingTabBarSideInset,
               height: floatingTabBarHeight,
               overflow: "visible",
@@ -306,7 +349,8 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
               paddingHorizontal: spacing.xs,
               paddingTop: 0,
               position: "absolute",
-              start: floatingTabBarSideInset
+              start: floatingTabBarSideInset,
+              zIndex: 18
             }
           })}
       >

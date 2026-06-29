@@ -123,7 +123,7 @@ export interface TodayStatusVisual<TValue extends string = string> {
 }
 
 export interface TodayKeyStatusVisual {
-  fuel: TodayStatusVisual<"Eat before" | "Normal" | "Log if useful" | "Hydrate first">;
+  fuel: TodayStatusVisual<"Eat before" | "Normal" | "Log if useful" | "Hydrate first" | "Unknown">;
   readiness: TodayStatusVisual<"Good" | "Caution" | "Low">;
   training: TodayStatusVisual<"Start" | "Easy" | "Recovery" | "No workout">;
   weight: TodayStatusVisual<"On pace" | "Tight" | "Behind" | "No active cut" | "Paused">;
@@ -134,7 +134,7 @@ export interface TodayCheckInVisual {
   primaryAction: TodayActionVisual;
   secondaryActions: readonly TodayActionVisual[];
   sentence: string;
-  status: "Ready" | "Check in" | "Fuel first" | "Easy day" | "Recovery day";
+  status: "Ready" | "Caution" | "Check in" | "Fuel first" | "Easy day" | "Recovery day";
   tone: VisualTone;
 }
 
@@ -450,6 +450,9 @@ function todayFuelStatus(fuelRows: readonly ProgressVisual[], fuel: FuelViewMode
   const hydration = fuelRows.find((item) => /hydration/i.test(item.label));
   const carbs = fuelRows.find((item) => /carb/i.test(item.label));
   const highFuelNeed = fuel?.trainingDemandHandoff.todayTrainingDemand === "high";
+  if (fuel?.planStatus.label === "Unknown") {
+    return { tone: "orange", value: "Unknown" };
+  }
   if (!fuel || fuel.foodLogStatus.entryCount === 0 || ADVISORY_FOOD_LOG_STATUSES.has(fuel.foodLogStatus.status)) {
     return { tone: "muted", value: "Log if useful" };
   }
@@ -486,9 +489,9 @@ function buildTodayCheckInBase(input: {
   if (!input.readinessLogged) {
     return {
       focus: "readiness",
-      sentence: "Log today's readiness first. Fuel, water, and body weight can wait unless they help you.",
-      status: "Check in",
-      tone: "blue"
+      sentence: "Manual check-in needed before guidance.",
+      status: "Caution",
+      tone: "orange"
     };
   }
   if (input.readiness.value === "Low") {
@@ -512,9 +515,9 @@ function buildTodayCheckInBase(input: {
   if (input.readiness.value === "Caution") {
     return {
       focus: "readiness",
-      sentence: "Give CornerIQ a quick update before it points you into the day.",
-      status: "Check in",
-      tone: "blue"
+      sentence: "Update check-in before guidance changes.",
+      status: "Caution",
+      tone: "orange"
     };
   }
   if (input.training.value === "Recovery") {
@@ -699,6 +702,15 @@ function buildTodayFuelCard(input: {
       status: "On pace",
       tone: "green",
       why: "No extra restriction is needed for today's plan."
+    };
+  }
+  if (input.fuelStatus.value === "Unknown" || input.fuel?.planStatus.label === "Unknown") {
+    return {
+      action: { icon: "flame-outline", kind: "open_fuel", label: "Open Fuel", tone: "orange" },
+      note: input.fuel?.planStatus.sentence ?? "Today's fuel is not confirmed yet.",
+      status: "Unknown",
+      tone: "orange",
+      why: "Missing fuel data stays unknown. Log food or water if anything changed."
     };
   }
   return {

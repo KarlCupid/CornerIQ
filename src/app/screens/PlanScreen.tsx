@@ -21,8 +21,9 @@ import stopwatchIcon from "../../../assets/plan-calendar-icons/stopwatch.png";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
+import { SvgProgressRing } from "../../design/components/PerformanceVisuals";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
-import { GroupedMetricTiles, PremiumCard } from "../../design/components/PremiumPrimitives";
+import { PremiumCard } from "../../design/components/PremiumPrimitives";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { glassStyles } from "../../design/glass";
 import { colors, radii, spacing } from "../../design/theme";
@@ -163,12 +164,6 @@ function friendlyCompactTag(tag: "Protected" | "Support" | "Recovery" | "Open"):
 type PlanDay = PlanViewModel["dayPlans"][number];
 type PreviewPlanDay = PlanViewModel["nextWeekPreview"]["dayPlanPreview"][number];
 
-function firstSentence(value: string | null | undefined): string {
-  const copy = plainPlanRiskCopy(value ?? "").trim();
-  const match = copy.match(/^.+?[.!?](?:\s|$)/);
-  return (match?.[0] ?? copy).trim();
-}
-
 function generatedSupportPreviewSummary(viewModel: PlanViewModel): { summary: string } {
   const preview = viewModel.nextWeekPreview;
   return {
@@ -197,19 +192,6 @@ function weekdayLabelFromDate(date: string, fallback: string): string {
     return fallback.slice(0, 3);
   }
   return parsed.toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short" });
-}
-
-function planPhaseLabel(viewModel: PlanViewModel): string {
-  if (viewModel.blockPhase === "fight_week_taper") {
-    return "Fight week";
-  }
-  if (viewModel.blockPhase === "tournament_week") {
-    return "Tournament mode";
-  }
-  if (viewModel.blockPhase === "recovery_deload" || viewModel.blockPhase === "maintenance") {
-    return "Recovery";
-  }
-  return viewModel.modeLabel;
 }
 
 function toneForPlanDay(day: PlanDay): PlanTone {
@@ -406,17 +388,6 @@ function dayMetricLabel(day: PlanDay): string {
     return "Hard";
   }
   return day.compactMetric;
-}
-
-function weekPlanSentence(viewModel: PlanViewModel): string {
-  if (viewModel.rollForwardStatus === "blocked" || viewModel.warnings.length > 0) {
-    return "This week stays conservative until the review notes clear.";
-  }
-  if (viewModel.fightOrTournamentNote) {
-    return firstSentence(viewModel.fightOrTournamentNote);
-  }
-  const summary = firstSentence(viewModel.athleteFacingWeekSummary);
-  return summary || "This week builds boxing quality around your fixed sessions and current fuel context.";
 }
 
 function workspaceForGenerationStatus(status: EngineGenerationStatus): PlanActiveWorkspace | null {
@@ -879,7 +850,7 @@ function WeekReviewStrip({ viewModel }: { viewModel: PlanViewModel }) {
         borderColor: planTint(tone, "42"),
         borderRadius: radii.tile,
         borderWidth: 1,
-        gap: spacing.xs,
+        gap: 5,
         padding: spacing.md
       }}
       testID="plan-review-strip"
@@ -894,12 +865,26 @@ function WeekReviewStrip({ viewModel }: { viewModel: PlanViewModel }) {
   );
 }
 
-function planUpcomingRows(viewModel: PlanViewModel): { id: string; label: string; meta: string; title: string; tone: PlanTone }[] {
-  const rows: { id: string; label: string; meta: string; title: string; tone: PlanTone }[] = [];
+function planUpcomingIcon(tone: PlanTone): keyof typeof Ionicons.glyphMap {
+  if (tone === "gold") {
+    return "shield-checkmark-outline";
+  }
+  if (tone === "green") {
+    return "walk-outline";
+  }
+  if (tone === "orange" || tone === "red") {
+    return "warning-outline";
+  }
+  return "barbell-outline";
+}
+
+function planUpcomingRows(viewModel: PlanViewModel): { icon: keyof typeof Ionicons.glyphMap; id: string; label: string; meta: string; title: string; tone: PlanTone }[] {
+  const rows: { icon: keyof typeof Ionicons.glyphMap; id: string; label: string; meta: string; title: string; tone: PlanTone }[] = [];
   for (const day of sortedPlanDays(viewModel)) {
     const tone = toneForPlanDay(day);
     if (day.protectedAnchors && day.protectedAnchors !== "No boxing added.") {
       rows.push({
+        icon: planUpcomingIcon("gold"),
         id: `boxing:${day.date}`,
         label: shortDateLabel(day.date),
         meta: day.compactMetric,
@@ -909,6 +894,7 @@ function planUpcomingRows(viewModel: PlanViewModel): { id: string; label: string
     }
     for (const session of day.generatedSessions) {
       rows.push({
+        icon: planUpcomingIcon(tone),
         id: session.id,
         label: shortDateLabel(day.date),
         meta: day.compactMetric,
@@ -923,17 +909,159 @@ function planUpcomingRows(viewModel: PlanViewModel): { id: string; label: string
   return rows.slice(0, 3);
 }
 
-function PlanObjectiveCard({ viewModel }: { viewModel: PlanViewModel }) {
+function PlanObjectiveCard({
+  busy,
+  onPreviewNextWeek,
+  viewModel
+}: {
+  busy: boolean;
+  onPreviewNextWeek: () => void;
+  viewModel: PlanViewModel;
+}) {
   return (
-    <PremiumCard accent="green" density="compact" rail testID="plan-objective-card">
-      <View style={{ gap: spacing.xs }}>
-        <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
-          Objective
-        </Text>
-        <Text style={{ color: planPalette.textPrimary, fontSize: 19, fontWeight: "900", lineHeight: 24 }}>
-          {plainPlanCopy(viewModel.blockGoal)}
-        </Text>
-        <Text style={planTextStyles.body}>{weekPlanSentence(viewModel)}</Text>
+    <PremiumCard accent="green" density="regular" testID="plan-objective-card">
+      <View style={{ gap: spacing.md }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
+          <View
+            style={{
+              alignItems: "center",
+              backgroundColor: planTint("green", "18"),
+              borderColor: planTint("green", "42"),
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              height: 48,
+              justifyContent: "center",
+              width: 48
+            }}
+          >
+            <Ionicons color={planPalette.toneGreen} name="locate-outline" size={24} />
+          </View>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+              Objective
+            </Text>
+            <Text style={{ color: planPalette.textPrimary, fontSize: 19, fontWeight: "800", lineHeight: 25 }}>
+              {plainPlanCopy(viewModel.blockGoal)}
+            </Text>
+          </View>
+        </View>
+        <View style={{ backgroundColor: planPalette.cardLine, height: 1 }} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={onPreviewNextWeek}
+          style={({ pressed }) => ({
+            alignItems: "center",
+            flexDirection: "row",
+            gap: spacing.md,
+            minHeight: 44,
+            opacity: busy ? 0.62 : pressed ? 0.82 : 1
+          })}
+        >
+          <Ionicons color={planPalette.textMuted} name="calendar-outline" size={20} />
+          <Text style={{ color: planPalette.textBody, flex: 1, fontSize: 16, fontWeight: "700", lineHeight: 22 }}>
+            Preview next week
+          </Text>
+          <Ionicons color={planPalette.textMuted} name="chevron-forward" size={22} />
+        </Pressable>
+      </View>
+    </PremiumCard>
+  );
+}
+
+function PlanProgressRing({ viewModel }: { viewModel: PlanViewModel }) {
+  const ratio = viewModel.blockProgress.percent / 100;
+  return (
+    <SvgProgressRing
+      accessibilityLabel={`Plan progress: ${viewModel.blockProgress.percent} percent complete`}
+      ratio={ratio}
+      size={72}
+      strokeWidth={7}
+      tone="green"
+    >
+      <Text style={{ color: planPalette.textPrimary, fontSize: 20, fontWeight: "900", lineHeight: 24 }}>
+        {viewModel.blockProgress.percent}%
+      </Text>
+      <Text style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "600", lineHeight: 16 }}>
+        complete
+      </Text>
+    </SvgProgressRing>
+  );
+}
+
+function PlanActionLink({
+  busy,
+  label,
+  onPress
+}: {
+  busy: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: "center",
+        flexDirection: "row",
+        flexShrink: 0,
+        gap: spacing.xs,
+        justifyContent: "center",
+        minHeight: 48,
+        opacity: busy ? 0.62 : pressed ? 0.82 : 1,
+        width: 132
+      })}
+    >
+      <Ionicons color={planPalette.toneGreen} name="options-outline" size={20} />
+      <Text numberOfLines={1} style={{ color: planPalette.toneGreen, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>
+        {label}
+      </Text>
+      <Ionicons color={planPalette.toneGreen} name="chevron-forward" size={20} />
+    </Pressable>
+  );
+}
+
+function PlanWeekSummaryCard({
+  busy,
+  onChangeGoal,
+  viewModel
+}: {
+  busy: boolean;
+  onChangeGoal: () => void;
+  viewModel: PlanViewModel;
+}) {
+  const modeSummary = viewModel.modeLabel === "Tournament mode" || viewModel.modeLabel === "Recovery"
+    ? plainPlanCopy(viewModel.fightOrTournamentNote ?? viewModel.athleteFacingWeekSummary)
+    : null;
+  return (
+    <PremiumCard accent="green" density="regular">
+      <View style={{ gap: spacing.md }} testID="plan-hero-card">
+        <View style={{ alignItems: "center", flexDirection: "row", gap: 10 }}>
+          <PlanProgressRing viewModel={viewModel} />
+          <View style={{ backgroundColor: planPalette.cardLine, height: 72, width: 1 }} />
+          <View style={{ flex: 1, gap: 2, minWidth: 82 }}>
+            <Text numberOfLines={2} style={{ color: planPalette.toneGreen, fontSize: 13, fontWeight: "900", lineHeight: 16 }}>
+              {viewModel.modeLabel}
+            </Text>
+            <Text numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 23, fontWeight: "900", lineHeight: 28 }}>
+              Week {viewModel.blockProgress.currentWeek}
+            </Text>
+            <Text numberOfLines={2} style={{ color: planPalette.textMuted, fontSize: 14, fontWeight: "600", lineHeight: 18 }}>
+              {viewModel.blockProgress.currentWeek} of {viewModel.blockProgress.totalWeeks} weeks
+            </Text>
+          </View>
+          <View style={{ backgroundColor: planPalette.cardLine, height: 72, width: 1 }} />
+          <PlanActionLink busy={busy} label="Adjust plan" onPress={onChangeGoal} />
+        </View>
+        {modeSummary ? (
+          <Text style={{ color: planPalette.textBody, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
+            {modeSummary}
+          </Text>
+        ) : null}
       </View>
     </PremiumCard>
   );
@@ -943,9 +1071,9 @@ function PlanUpcomingSessionsCard({ viewModel }: { viewModel: PlanViewModel }) {
   const rows = planUpcomingRows(viewModel);
   return (
     <PremiumCard accent="green" density="compact" testID="plan-upcoming-sessions-card">
-      <View style={{ gap: spacing.md }}>
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <Text style={{ color: planPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
+          <Text style={{ color: planPalette.textPrimary, fontSize: 17, fontWeight: "900", lineHeight: 22 }}>
             Upcoming sessions
           </Text>
           <PlanTonePill label={`${rows.length} shown`} tone={rows.length > 0 ? "green" : "muted"} />
@@ -956,21 +1084,39 @@ function PlanUpcomingSessionsCard({ viewModel }: { viewModel: PlanViewModel }) {
               <View
                 key={row.id}
                 style={{
-                  alignItems: "center",
-                  borderBottomColor: index === rows.length - 1 ? "transparent" : planPalette.cardLine,
-                  borderBottomWidth: 1,
+                  alignItems: "stretch",
                   flexDirection: "row",
                   gap: spacing.md,
-                  minHeight: 56,
-                  paddingVertical: spacing.sm
+                  minHeight: 66,
+                  paddingBottom: index === rows.length - 1 ? 0 : spacing.sm,
+                  paddingTop: index === 0 ? 0 : spacing.sm
                 }}
               >
-                <View style={{ backgroundColor: planToneColors[row.tone], borderRadius: radii.pill, height: 8, width: 8 }} />
-                <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-                  <Text style={{ color: planToneColors[row.tone], fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{row.label}</Text>
-                  <Text numberOfLines={1} style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{row.title}</Text>
+                <View style={{ alignItems: "center", width: 42 }}>
+                  <View
+                    style={{
+                      alignItems: "center",
+                      backgroundColor: planTint(row.tone, "18"),
+                      borderColor: planTint(row.tone, "70"),
+                      borderRadius: radii.pill,
+                      borderWidth: 1,
+                      height: 36,
+                      justifyContent: "center",
+                      width: 36
+                    }}
+                  >
+                    <Ionicons color={planToneColors[row.tone]} name={row.icon} size={18} />
+                  </View>
+                  {index < rows.length - 1 ? <View style={{ backgroundColor: planPalette.cardLine, flex: 1, marginTop: spacing.xs, width: 1 }} /> : null}
                 </View>
-                <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{row.meta}</Text>
+                <View style={{ borderBottomColor: index === rows.length - 1 ? "transparent" : planPalette.cardLine, borderBottomWidth: 1, flex: 1, gap: 4, minWidth: 0, paddingBottom: spacing.sm }}>
+                  <Text style={{ color: planToneColors[row.tone], fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{row.label}</Text>
+                  <Text numberOfLines={2} style={{ color: planPalette.textPrimary, fontSize: 16, fontWeight: "900", lineHeight: 20 }}>{row.title}</Text>
+                  <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{row.meta}</Text>
+                </View>
+                <View style={{ alignItems: "center", justifyContent: "center", paddingBottom: spacing.sm }}>
+                  <Ionicons color={planPalette.textMuted} name="chevron-forward" size={21} />
+                </View>
               </View>
             ))}
           </View>
@@ -1003,57 +1149,11 @@ function ThisWeeksPlanCard({
   onToggleCalendar: () => void;
   viewModel: PlanViewModel;
 }) {
-  const fixedBoxingCount = viewModel.weeklyAnchors.length + viewModel.fixedSchedule.length;
-  const progressLabel = `W${viewModel.weekIndex}`;
   return (
     <View style={{ gap: spacing.md }}>
-      <PremiumCard accent="green" density="regular">
-        <View style={{ gap: spacing.md }} testID="plan-hero-card">
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <View
-            style={{
-              alignItems: "center",
-              backgroundColor: planTint("green", "14"),
-              borderColor: planTint("green", "55"),
-              borderRadius: radii.pill,
-              borderWidth: 1,
-              height: 86,
-              justifyContent: "center",
-              width: 86
-            }}
-          >
-            <Text style={{ color: planPalette.textPrimary, fontSize: 25, fontWeight: "900", lineHeight: 30 }}>{progressLabel}</Text>
-            <Text style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>active</Text>
-          </View>
-          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
-              {viewModel.modeLabel}
-            </Text>
-            <Text style={{ color: planPalette.textPrimary, fontSize: 24, fontWeight: "900", letterSpacing: 0, lineHeight: 30 }}>
-              Week {viewModel.weekIndex}
-            </Text>
-            <Text style={planTextStyles.subtle}>Phase: {planPhaseLabel(viewModel)}</Text>
-          </View>
-          <View style={{ minWidth: 132 }}>
-            <PlanButton disabled={busy} icon="options-outline" label="Adjust plan" onPress={onChangeGoal} />
-          </View>
-        </View>
-        <WeekReviewStrip viewModel={viewModel} />
-        <GroupedMetricTiles
-          items={[
-            { icon: "barbell-outline", label: "App sessions", tone: "purple", value: `${viewModel.generatedSupportSessionCount}` },
-            { icon: "shield-outline", label: "Boxing added", tone: fixedBoxingCount > 0 ? "green" : "muted", value: fixedBoxingCount > 0 ? `${fixedBoxingCount}` : "None" },
-            { icon: "calendar-outline", label: "Phase", tone: viewModel.rollForwardStatus === "blocked" ? "orange" : "green", value: planPhaseLabel(viewModel) }
-          ]}
-          testID="plan-key-numbers"
-        />
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <PlanButton disabled={busy} icon="create-outline" label="Change plan" onPress={onChangeGoal} primary />
-          <PlanButton disabled={busy} icon="calendar-outline" label="Preview next week" onPress={onPreviewNextWeek} />
-        </View>
-      </View>
-      </PremiumCard>
-      <PlanObjectiveCard viewModel={viewModel} />
+      <PlanWeekSummaryCard busy={busy} onChangeGoal={onChangeGoal} viewModel={viewModel} />
+      <WeekReviewStrip viewModel={viewModel} />
+      <PlanObjectiveCard busy={busy} onPreviewNextWeek={onPreviewNextWeek} viewModel={viewModel} />
       <PlanUpcomingSessionsCard viewModel={viewModel} />
       <PlanWeekTicker
         busy={busy}

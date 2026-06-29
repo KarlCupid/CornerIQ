@@ -1,5 +1,6 @@
 import React from "react";
 import { Text, View } from "react-native";
+import Svg, { Circle, Line, Path } from "react-native-svg";
 import { glassStyles } from "../glass";
 import { useLuminousScreenTheme } from "../luminousTheme";
 import { colors, radii, spacing } from "../theme";
@@ -35,6 +36,90 @@ function clamp01(value: number): number {
     return 0;
   }
   return Math.max(0, Math.min(1, value));
+}
+
+interface ChartPoint {
+  x: number;
+  y: number;
+}
+
+function smoothPath(points: readonly ChartPoint[]): string {
+  if (points.length === 0) {
+    return "";
+  }
+  if (points.length === 1) {
+    return `M ${points[0]!.x} ${points[0]!.y}`;
+  }
+  let path = `M ${points[0]!.x} ${points[0]!.y}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const p0 = points[index - 1] ?? points[index]!;
+    const p1 = points[index]!;
+    const p2 = points[index + 1]!;
+    const p3 = points[index + 2] ?? p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return path;
+}
+
+export function SvgProgressRing({
+  accessibilityLabel,
+  children,
+  ratio,
+  size = 96,
+  strokeWidth = 8,
+  testID,
+  tone = "blue"
+}: React.PropsWithChildren<{
+  accessibilityLabel: string;
+  ratio: number;
+  size?: number | undefined;
+  strokeWidth?: number | undefined;
+  testID?: string | undefined;
+  tone?: VisualTone | undefined;
+}>) {
+  const clamped = clamp01(ratio);
+  const color = colorForTone(tone);
+  const radius = (size - strokeWidth) / 2;
+  const center = size / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - clamped);
+  return (
+    <View
+      accessibilityLabel={accessibilityLabel}
+      style={{ alignItems: "center", height: size, justifyContent: "center", position: "relative", width: size }}
+      testID={testID}
+    >
+      <Svg height={size} width={size}>
+        <Circle
+          cx={center}
+          cy={center}
+          fill="transparent"
+          r={radius}
+          stroke="rgba(255, 255, 255, 0.1)"
+          strokeWidth={strokeWidth}
+        />
+        <Circle
+          cx={center}
+          cy={center}
+          fill="transparent"
+          r={radius}
+          stroke={color}
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          strokeWidth={strokeWidth}
+          transform={`rotate(-90 ${center} ${center})`}
+        />
+      </Svg>
+      <View style={{ alignItems: "center", bottom: 0, justifyContent: "center", left: 0, position: "absolute", right: 0, top: 0 }}>
+        {children}
+      </View>
+    </View>
+  );
 }
 
 export function DashboardCard({
@@ -159,12 +244,14 @@ export function MetricRing({
 }) {
   const ratio = value === null || max <= 0 ? 0 : value / max;
   return (
-    <View
+    <SvgProgressRing
       accessibilityLabel={`${label}: ${value === null ? "not logged" : `${value} of ${max}`}`}
-      style={{ alignItems: "center", height: size, justifyContent: "center", width: size }}
+      ratio={ratio}
+      size={size}
+      strokeWidth={8}
       testID={testID}
+      tone={value === null ? "muted" : tone}
     >
-      <RingSegments ratio={ratio} segmentCount={32} size={size} tone={value === null ? "muted" : tone} />
       <View style={{ alignItems: "center", gap: 2 }}>
         <Text style={{ color: colors.canvas, fontSize: value === null ? 28 : 40, fontWeight: "900", lineHeight: value === null ? 34 : 46 }}>
           {value === null ? "Log" : Math.round(value)}
@@ -173,7 +260,7 @@ export function MetricRing({
           {subLabel ?? `/${max}`}
         </Text>
       </View>
-    </View>
+    </SvgProgressRing>
   );
 }
 
@@ -350,7 +437,7 @@ export function TrendLineChart({
 }) {
   const [layoutWidth, setLayoutWidth] = React.useState(width);
   const theme = useLuminousScreenTheme();
-  const chartWidth = Math.max(180, layoutWidth || width);
+  const chartWidth = Math.max(220, layoutWidth || width);
   const plotHeight = Math.max(56, height);
   if (points.length === 0) {
     return (
@@ -375,6 +462,16 @@ export function TrendLineChart({
   const flatTrend = points.length === 1 || min === max;
   const ratios = points.map((point) => (flatTrend ? 0.5 : clamp01((point.value - min) / spread)));
   const accentColor = colorForTone(accent);
+  const horizontalPadding = 22;
+  const topPadding = 15;
+  const bottomPadding = 18;
+  const innerWidth = Math.max(1, chartWidth - horizontalPadding * 2);
+  const innerHeight = Math.max(1, plotHeight - topPadding - bottomPadding);
+  const chartPoints = points.map((point, index) => ({
+    x: horizontalPadding + (points.length === 1 ? innerWidth / 2 : (innerWidth * index) / Math.max(1, points.length - 1)),
+    y: topPadding + (1 - (ratios[index] ?? 0.5)) * innerHeight
+  }));
+  const linePath = smoothPath(chartPoints);
   return (
     <View
       onLayout={(event) => {
@@ -393,54 +490,53 @@ export function TrendLineChart({
           borderColor: theme.tileBorder,
           height: plotHeight,
           overflow: "hidden",
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.sm,
           position: "relative",
-          width: chartWidth
+          width: "100%"
         }}
       >
-        <View style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", height: 1, left: spacing.sm, position: "absolute", right: spacing.sm, top: "50%" }} />
-        <View style={{ alignItems: "stretch", flexDirection: "row", gap: spacing.xs, height: "100%" }}>
-          {points.map((point, index) => {
-            const ratio = ratios[index] ?? 0.5;
-            return (
-              <View
-                key={`trend-column:${point.label}:${index}`}
-                style={{ alignItems: "center", flex: 1, justifyContent: "flex-end", minWidth: 14, position: "relative" }}
-              >
-                {flatTrend ? null : (
-                  <>
-                    <View style={{ backgroundColor: toneWash[accent], borderRadius: radii.pill, height: "100%", opacity: 0.52, width: 8 }} />
-                    <View
-                      style={{
-                        backgroundColor: accentColor,
-                        borderRadius: radii.pill,
-                        bottom: 0,
-                        height: `${Math.max(8, ratio * 100)}%`,
-                        opacity: 0.9,
-                        position: "absolute",
-                        width: 8
-                      }}
-                    />
-                  </>
-                )}
-                <View
-                  style={{
-                    backgroundColor: colors.cornerBlack,
-                    borderColor: accentColor,
-                    borderRadius: radii.pill,
-                    borderWidth: 3,
-                    bottom: `${ratio * 100}%`,
-                    height: 14,
-                    marginBottom: -7,
-                    position: "absolute",
-                    width: 14
-                  }}
-                />
-              </View>
-            );
-          })}
-        </View>
+        <Svg height={plotHeight} width={chartWidth}>
+          {[0.24, 0.5, 0.76].map((row) => (
+            <Line
+              key={`grid:${row}`}
+              stroke="rgba(255, 255, 255, 0.12)"
+              strokeDasharray="5 5"
+              strokeWidth={1}
+              x1={horizontalPadding}
+              x2={chartWidth - horizontalPadding}
+              y1={topPadding + innerHeight * row}
+              y2={topPadding + innerHeight * row}
+            />
+          ))}
+          <Line
+            stroke="rgba(255, 255, 255, 0.14)"
+            strokeWidth={1}
+            x1={horizontalPadding}
+            x2={horizontalPadding}
+            y1={topPadding}
+            y2={plotHeight - bottomPadding}
+          />
+          {linePath ? (
+            <Path
+              d={linePath}
+              fill="transparent"
+              stroke={accentColor}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={3}
+            />
+          ) : null}
+          {chartPoints.map((point, index) => (
+            <Circle
+              cx={point.x}
+              cy={point.y}
+              fill={colors.cornerBlack}
+              key={`trend-dot:${points[index]?.label ?? index}`}
+              r={5}
+              stroke={accentColor}
+              strokeWidth={3}
+            />
+          ))}
+        </Svg>
         <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between", left: spacing.sm, position: "absolute", right: spacing.sm, top: spacing.xs }}>
           <View
             style={{
@@ -461,7 +557,7 @@ export function TrendLineChart({
           </Text>
         </View>
       </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", width: chartWidth }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
         {points.map((point, index) => (
           <Text key={`trend-label:${point.label}:${index}`} numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, minWidth: 0, textAlign: "center" }}>
             {point.label}

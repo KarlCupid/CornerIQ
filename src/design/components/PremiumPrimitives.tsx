@@ -49,12 +49,12 @@ export function AccentRail({
       style={{
         backgroundColor: premiumToneColor(tone),
         borderRadius: radii.pill,
-        bottom: spacing.md,
-        left: spacing.md,
-        opacity: tone === "muted" ? 0.62 : 0.92,
+        bottom: spacing.lg,
+        left: spacing.lg,
+        opacity: tone === "muted" ? 0.42 : 0.72,
         position: "absolute",
-        top: spacing.md,
-        width: 5
+        top: spacing.lg,
+        width: 4
       }}
     />
   );
@@ -80,8 +80,8 @@ export function PremiumCard({
       style={{
         ...glassStyles.cardDeep,
         backgroundColor: theme.card,
-        borderColor: accent ? `${premiumToneColor(tone)}38` : "rgba(232, 240, 255, 0.12)",
-        boxShadow: `0 22px 48px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.065), 0 0 20px ${accent ? premiumToneWash(tone) : theme.strongGlow}`,
+        borderColor: accent ? `${premiumToneColor(tone)}2E` : "rgba(232, 240, 255, 0.1)",
+        boxShadow: `0 16px 34px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.052), 0 0 14px ${accent ? premiumToneWash(tone) : theme.strongGlow}`,
         gap: density === "compact" ? spacing.sm : spacing.md,
         overflow: "hidden",
         padding,
@@ -93,10 +93,10 @@ export function PremiumCard({
       <View
         pointerEvents="none"
         style={{
-          backgroundColor: "rgba(255, 255, 255, 0.08)",
+          backgroundColor: "rgba(255, 255, 255, 0.065)",
           height: 1,
           left: rail ? padding + spacing.md : padding,
-          opacity: 0.72,
+          opacity: 0.58,
           position: "absolute",
           right: padding,
           top: 0
@@ -255,16 +255,16 @@ export function GroupedMetricTiles({
                 flexBasis: 108,
                 flexGrow: 1,
                 gap: spacing.xs,
-                minHeight: 96,
-                paddingHorizontal: spacing.md,
+                minHeight: 104,
+                paddingHorizontal: spacing.sm,
                 paddingVertical: spacing.sm
               }}
             >
               {item.icon ? <Ionicons color={color} name={item.icon} size={22} /> : null}
-              <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 13, fontWeight: "600", lineHeight: 18, textAlign: "center" }}>
+              <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "700", lineHeight: 16, textAlign: "center" }}>
                 {item.label}
               </Text>
-              <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color, fontSize: 17, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
+              <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={2} style={{ color, fontSize: 16, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
                 {item.value}
               </Text>
               {item.meta ? (

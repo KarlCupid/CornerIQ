@@ -7,7 +7,7 @@ import { EngineCard } from "../../design/components/EngineCard";
 import { EmptyState } from "../../design/components/EmptyState";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { DashboardCard } from "../../design/components/PerformanceVisuals";
-import { GroupedMetricTiles, PremiumCard, PremiumTimelineRows } from "../../design/components/PremiumPrimitives";
+import { GroupedMetricTiles, PremiumTimelineRows } from "../../design/components/PremiumPrimitives";
 import { RiskBanner } from "../../design/components/RiskBanner";
 import { colors, radii, spacing } from "../../design/theme";
 import type { BarVisual, VisualTone } from "../../engine/presentation/dashboardVisualData";
@@ -410,6 +410,43 @@ function TrainQuietButton({
   );
 }
 
+function TrainTextButton({
+  children,
+  disabled,
+  onPress,
+  tone = "purple"
+}: React.PropsWithChildren<{
+  disabled?: boolean | undefined;
+  onPress?: (() => Promise<void> | void) | undefined;
+  tone?: VisualTone | undefined;
+}>) {
+  const color = trainColorForTone(tone);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: "center",
+        alignSelf: "center",
+        flexDirection: "row",
+        gap: spacing.xs,
+        justifyContent: "center",
+        minHeight: 38,
+        opacity: disabled ? 0.54 : pressed ? 0.72 : 1,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs
+      })}
+    >
+      <Text style={{ color: disabled ? trainPalette.textMuted : color, fontSize: 17, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
+        {children}
+      </Text>
+      <Ionicons color={disabled ? trainPalette.textMuted : color} name="chevron-forward" size={18} />
+    </Pressable>
+  );
+}
+
 function TrainMiniBarChart({
   bars,
   height = 84,
@@ -748,7 +785,7 @@ function TodayTrainingPlanCard({
               : { label: "Log other training", onPress: onOpenTrainingLog, tone: "blue" as const };
   const disabled = busy || !primaryAction.onPress;
   const showDetailsAction = Boolean(onViewDetails && primaryAction.label !== "View details");
-  const showTrainingLogAction = primaryAction.label !== "Log other training" && primaryAction.label !== "Log outside player";
+  const showTrainingLogAction = !session && hasSessionSummary;
   const dayNote = viewModel.todayRole.status === "support_day" ? null : firstSentence(viewModel.todayRole.summary);
   return (
     <View
@@ -797,11 +834,7 @@ function TodayTrainingPlanCard({
         </Pressable>
         {showDetailsAction || showTrainingLogAction ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            {showDetailsAction ? (
-              <View style={{ flexBasis: 150, flexGrow: 1 }}>
-                <TrainQuietButton onPress={onViewDetails}>View details</TrainQuietButton>
-              </View>
-            ) : null}
+            {showDetailsAction ? <TrainTextButton onPress={onViewDetails}>View details</TrainTextButton> : null}
             {showTrainingLogAction ? (
               <View style={{ flexBasis: 150, flexGrow: 1 }}>
                 <TrainQuietButton onPress={onOpenTrainingLog}>Log other training</TrainQuietButton>
@@ -846,7 +879,7 @@ function WorkoutFlowCard({ card, session }: { card: TrainSessionCard | null; ses
   return (
     <View style={{ gap: spacing.sm }} testID="train-workout-flow-card">
       <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>Session Plan</Text>
-      <PremiumCard density="compact">
+      <View style={{ borderTopColor: trainPalette.cardLine, borderTopWidth: 1 }}>
         <PremiumTimelineRows
           items={rows.map((row, index) => ({
             id: `flow:${index}:${row.label}`,
@@ -855,7 +888,7 @@ function WorkoutFlowCard({ card, session }: { card: TrainSessionCard | null; ses
             tone: index === 0 ? "purple" : index === rows.length - 1 ? "green" : "purple"
           }))}
         />
-      </PremiumCard>
+      </View>
     </View>
   );
 }
@@ -1127,7 +1160,7 @@ export function TrainScreen({
     <LuminousScreen accent="purple" backgroundImage={tabScreenBackgrounds.train} testID="train-screen">
       <ScreenHeader
         {...tabHeroHeaders.train}
-        heroHeight={278}
+        heroHeight={276}
         heroMeta={(
           <TrainHeroMeta
             plannedDate={asOfDate ?? generatedSummary?.date}
@@ -1193,8 +1226,8 @@ export function TrainScreen({
         viewModel={viewModel}
       />
       <EngineGeneratingCard status={generationStatus === "generating_workout" ? generationStatus : "idle"} />
-      <QuickStatsRow card={primaryCard} generated={generatedSummary} session={primarySession} viewModel={viewModel} />
       <WorkoutFlowCard card={primaryCard} session={primarySession} />
+      <QuickStatsRow card={primaryCard} generated={generatedSummary} session={primarySession} viewModel={viewModel} />
       {pendingStartSession && activeWorkout ? (
         <EngineCard>
           <View style={{ gap: spacing.sm }} testID="train-start-conflict-card">

@@ -157,6 +157,9 @@ function bodyCheck(viewModel: FuelViewModel, safety: FuelSafetyState): { tone: V
   if (viewModel.weightClassStatus.status === "unknown") {
     return { tone: "orange", value: "Unknown" };
   }
+  if (viewModel.weightClassStatus.status === "no_active_weight_target") {
+    return { tone: "orange", value: "Unknown" };
+  }
   return { tone: "green", value: "Clear" };
 }
 
@@ -174,7 +177,7 @@ function trendInterpretation(viewModel: FuelViewModel, plan: FuelPlanStatus, das
     return { label: "Trend unclear", sentence: plainFuelCopy(viewModel.bodyMassTrajectory.trend), tone: "orange" };
   }
   return {
-    label: "Moving well",
+    label: viewModel.weightClassStatus.status === "no_active_weight_target" ? "Context only" : "Moving well",
     sentence: viewModel.weightClassStatus.status === "no_active_weight_target"
       ? "Your recent weight trend is context, not a cut instruction."
       : "Your 7-day average is still moving toward the class.",
@@ -213,6 +216,7 @@ function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: 
 
 function FuelActionButton({
   basis = 142,
+  block = false,
   busy,
   icon,
   label,
@@ -221,6 +225,7 @@ function FuelActionButton({
   summary
 }: {
   basis?: number | undefined;
+  block?: boolean | undefined;
   busy: boolean;
   icon?: keyof typeof Ionicons.glyphMap | undefined;
   label: string;
@@ -240,14 +245,15 @@ function FuelActionButton({
           borderCurve: "continuous",
           borderRadius: primary ? radii.pill : radii.control,
           borderWidth: 1,
-          flexBasis: basis,
+          flexBasis: block ? undefined : basis,
           flexGrow: 1,
           gap: spacing.xs,
           justifyContent: "center",
-          minHeight: 50,
+          minHeight: block ? primary ? 82 : 50 : 50,
           opacity: busy ? 0.58 : 1,
           paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.sm
+          paddingVertical: block && primary ? spacing.md : spacing.sm,
+          width: block ? "100%" : undefined
         },
         primary
           ? {
@@ -293,6 +299,7 @@ function FuelActionButtons({
   return (
     <View style={{ gap: spacing.sm }}>
       <FuelActionButton
+        block
         busy={busy}
         icon={primaryLog === "water" ? "water-outline" : "restaurant-outline"}
         label={primary.label}
@@ -300,16 +307,25 @@ function FuelActionButtons({
         summary={primary.summary}
         onPress={primary.onPress}
       />
-      <View style={{ alignItems: "stretch" }}>
-        <FuelActionButton
-          basis={132}
-          busy={busy}
-          icon={primaryLog === "water" ? "restaurant-outline" : "water-outline"}
-          label={secondary.label}
-          summary={secondary.summary}
-          onPress={secondary.onPress}
-        />
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy }}
+        disabled={busy}
+        onPress={secondary.onPress}
+        style={({ pressed }) => ({
+          alignItems: "center",
+          alignSelf: "center",
+          flexDirection: "row",
+          gap: spacing.xs,
+          minHeight: 44,
+          opacity: busy ? 0.58 : pressed ? 0.78 : 1,
+          paddingHorizontal: spacing.md
+        })}
+      >
+        <Ionicons color={fuelPalette.toneOrange} name={primaryLog === "water" ? "restaurant-outline" : "water-outline"} size={17} />
+        <Text style={{ color: fuelPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{secondary.label}</Text>
+        <Text style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{secondary.summary}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -388,15 +404,18 @@ function FuelMetricTile({
         borderCurve: "continuous",
         borderRadius: radii.tile,
         borderWidth: 1,
-        flexBasis: 132,
+        flexBasis: 0,
         flexGrow: 1,
+        flexShrink: 1,
         gap: spacing.xs,
-        minHeight: 82,
-        padding: spacing.md
+        minHeight: 96,
+        minWidth: 0,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.md
       }}
     >
       <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
-      <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={2} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 25 }}>
+      <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={2} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 24 }}>
         {value}
       </Text>
     </View>
@@ -418,7 +437,7 @@ function FuelKeyNumbersCard({
   if (!hasActiveWeightTarget) {
     return (
       <PremiumCard density="compact" testID="fuel-key-numbers">
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <FuelMetricTile label="Pre-session" tone={check.tone} value={check.value} />
           <FuelMetricTile label="Hydration" tone={dashboard.hydration.tone} value={dashboard.hydration.targetLabel} />
           <FuelMetricTile label="Weight" tone={weightLabel(viewModel) === "Unknown" ? "orange" : "muted"} value={weightLabel(viewModel)} />

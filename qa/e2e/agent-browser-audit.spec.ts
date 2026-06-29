@@ -378,15 +378,14 @@ async function expectTodayOverviewSurface(page: Page) {
   const checkInCard = page.getByTestId("today-check-in-card");
   const primaryActionScope = (await heroCard.count()) > 0 ? heroCard : checkInCard;
   if ((await heroCard.count()) > 0) {
-    await expect(heroCard).toContainText(/Readiness:|Give CornerIQ|You're good|Hydrate|Eat before|Recovery/);
+    await expect(heroCard).toContainText(/Readiness:|Manual check-in|Update check-in|You're good|Hydrate|Eat before|Recovery/);
   } else {
     await expect(checkInCard).toContainText("Today's Check-In");
   }
-  await expect(checkInCard).toContainText(/Today's Check-In|Readiness:|Give CornerIQ|You're good|Hydrate|Eat before|Recovery/);
+  await expect(checkInCard).toContainText(/Today's Check-In|Readiness:|Manual check-in|Update check-in|You're good|Hydrate|Eat before|Recovery/);
   await expect(primaryActionScope.getByRole("button", { name: "Check in" })).toBeVisible();
-  await expect(primaryActionScope.getByRole("button", { name: "Log food" })).toBeVisible();
-  await expect(primaryActionScope.getByRole("button", { name: /Start workout|View workout|Open Train/ })).toBeVisible();
   await expect(page.getByTestId("today-training-card")).toContainText("Training Today");
+  await expect(page.getByTestId("today-training-card").getByRole("button", { name: /Start workout|View workout|Open Train/ })).toBeVisible();
   await expect(page.getByTestId("today-fuel-card")).toContainText("Fuel Today");
   await expect(page.getByTestId("today-week-card")).toContainText("This Week");
   if ((await page.getByTestId("today-details-toggle").count()) > 0) {
@@ -814,7 +813,7 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-upcoming-sessions-card")).toContainText("Upcoming sessions");
   await expect(page.getByTestId("plan-details-collapsed")).toContainText("Plan details");
   await expectVisibleText(page, /Preview next week/i);
-  await expectVisibleText(page, "Change plan");
+  await expectVisibleText(page, "Adjust plan");
   await expect(page.getByRole("button", { name: "Plan details" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add one-off session" })).toHaveCount(0);
   await expect(page.getByPlaceholder("Contracted weight kg")).toHaveCount(0);
@@ -883,6 +882,50 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByTestId("auth-screen")).toBeVisible();
   await expectVisibleText(page, "Local E2E sign-in accepts any non-empty email and password.");
+}
+
+async function captureMobileFirstViewportTabs(page: Page, testInfo: TestInfo) {
+  await expect(page.getByTestId("today-screen")).toBeVisible();
+  await hideMobileFirstViewportDevOverlays(page);
+  await capture(page, testInfo, "Mobile first viewport Today", "mobile-first-viewport-01-today.png", { fullPage: false, scopeTestId: "today-screen" });
+
+  await openTab(page, "Train");
+  await expect(page.getByTestId("train-screen")).toBeVisible();
+  await hideMobileFirstViewportDevOverlays(page);
+  await capture(page, testInfo, "Mobile first viewport Train", "mobile-first-viewport-02-train.png", { fullPage: false, scopeTestId: "train-screen" });
+
+  await openTab(page, "Fuel");
+  await expect(page.getByTestId("fuel-screen")).toBeVisible();
+  await hideMobileFirstViewportDevOverlays(page);
+  await capture(page, testInfo, "Mobile first viewport Fuel", "mobile-first-viewport-03-fuel.png", { fullPage: false, scopeTestId: "fuel-screen" });
+
+  await openTab(page, "Plan");
+  await expect(page.getByTestId("plan-screen")).toBeVisible();
+  await hideMobileFirstViewportDevOverlays(page);
+  await capture(page, testInfo, "Mobile first viewport Plan", "mobile-first-viewport-04-plan.png", { fullPage: false, scopeTestId: "plan-screen" });
+
+  await openTab(page, "Profile");
+  await expect(page.getByTestId("profile-screen")).toBeVisible();
+  await hideMobileFirstViewportDevOverlays(page);
+  await capture(page, testInfo, "Mobile first viewport Profile", "mobile-first-viewport-05-profile.png", { fullPage: false, scopeTestId: "profile-screen" });
+}
+
+async function hideMobileFirstViewportDevOverlays(page: Page) {
+  await page.evaluate(() => {
+    for (const element of Array.from(document.body.querySelectorAll("*"))) {
+      if (!(element instanceof HTMLElement)) {
+        continue;
+      }
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      const nearBottomLeft = rect.left <= 14 && window.innerHeight - rect.bottom <= 14;
+      const tinyOverlay = rect.width > 0 && rect.width <= 58 && rect.height > 0 && rect.height <= 58;
+      const fixedOrSticky = style.position === "fixed" || style.position === "sticky" || Number(style.zIndex) >= 1000;
+      if (nearBottomLeft && tinyOverlay && fixedOrSticky && !element.closest("[role='tablist']")) {
+        element.style.display = "none";
+      }
+    }
+  });
 }
 
 function expectErrorRecoverySource() {
@@ -1138,6 +1181,43 @@ test("mobile-size browser layout smoke reaches Today", async ({ browser }, testI
     await expect(page.getByTestId("today-check-in-card")).toBeVisible();
     await expectTodayOverviewSurface(page);
     await capture(page, testInfo, "Mobile Today smoke", "smoke-04-mobile-today-screen.png", { scopeTestId: "today-screen" });
+  } finally {
+    await context.close();
+  }
+});
+
+test("mobile first viewport captures match approved tab mockup geometry", async ({ browser }, testInfo) => {
+  const context = await browser.newContext({
+    viewport: { width: 430, height: 932 },
+    isMobile: true
+  });
+  const page = await context.newPage();
+
+  try {
+    await openLocalToday(page, { scenario: "due_workout_today" });
+    await page.addStyleTag({
+      content: "[data-testid='local-e2e-banner'] { display: none !important; }"
+    });
+    await page.evaluate(() => {
+      const appRoot = document.querySelector("[data-testid='today-screen']")?.closest("body > *");
+      if (!appRoot) {
+        return;
+      }
+      for (const child of Array.from(document.body.children)) {
+        if (child !== appRoot && child instanceof HTMLElement) {
+          child.style.display = "none";
+        }
+      }
+      for (const button of Array.from(document.querySelectorAll("button"))) {
+        const rect = button.getBoundingClientRect();
+        const inBottomLeft = rect.left < 70 && window.innerHeight - rect.bottom < 70;
+        const isSmallOverlay = rect.width <= 64 && rect.height <= 64;
+        if (inBottomLeft && isSmallOverlay && !button.closest("[role='tablist']")) {
+          button.style.display = "none";
+        }
+      }
+    });
+    await captureMobileFirstViewportTabs(page, testInfo);
   } finally {
     await context.close();
   }

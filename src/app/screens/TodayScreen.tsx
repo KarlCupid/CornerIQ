@@ -375,12 +375,12 @@ function TodayTonePill({ label, tone: _tone = "blue" }: { label: string; tone?: 
         borderRadius: radii.pill,
         borderWidth: 1,
         justifyContent: "center",
-        minHeight: 30,
-        paddingHorizontal: spacing.md,
-        paddingVertical: 4
+        minHeight: 26,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 3
       }}
     >
-      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>
         {label}
       </Text>
     </View>
@@ -423,15 +423,16 @@ function TodayButton({
           borderCurve: "continuous",
           borderRadius: primary ? radii.control : radii.pill,
           borderWidth: 1,
+          alignSelf: primary ? "stretch" : "flex-start",
           flexDirection: "row",
           flexShrink: 1,
           gap: spacing.sm,
           justifyContent: "center",
-          minWidth: primary ? 118 : 104,
-          minHeight: primary ? 52 : 46,
+          minWidth: primary ? 108 : 92,
+          minHeight: primary ? 48 : 40,
           opacity: disabled ? 0.56 : 1,
-          paddingHorizontal: primary ? spacing.lg : spacing.md,
-          paddingVertical: spacing.sm
+          paddingHorizontal: primary ? spacing.md : spacing.sm,
+          paddingVertical: spacing.xs
         },
         primary
           ? {
@@ -451,8 +452,8 @@ function TodayButton({
       ]}
       testID={testID}
     >
-      <Ionicons color={disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : toneColor} name={icon} size={18} />
-      <Text style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : todayPalette.textBody, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>
+      <Ionicons color={disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : toneColor} name={icon} size={16} />
+      <Text style={{ color: disabled ? todayPalette.textMuted : primary && tone !== "red" ? colors.cornerBlack : todayPalette.textBody, fontSize: 14, fontWeight: "900", lineHeight: 18, textAlign: "center" }}>
         {label}
       </Text>
     </Pressable>
@@ -519,9 +520,9 @@ function TodaySectionCard({
   tone?: VisualTone | undefined;
 }>) {
   return (
-    <PremiumCard accent={tone} rail>
-      <View style={{ gap: spacing.md }} testID={testID}>
-        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
+    <PremiumCard accent={tone} density="compact" rail>
+      <View style={{ gap: spacing.sm }} testID={testID}>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.sm }}>
           {icon ? (
             <View
               style={{
@@ -530,12 +531,12 @@ function TodaySectionCard({
                 borderColor: todayTint(tone, "38"),
                 borderRadius: radii.pill,
                 borderWidth: 1,
-                height: 50,
+                height: 44,
                 justifyContent: "center",
-                width: 50
+                width: 44
               }}
             >
-              <Ionicons color={colorForTone(tone)} name={icon} size={25} />
+              <Ionicons color={colorForTone(tone)} name={icon} size={22} />
             </View>
           ) : null}
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
@@ -544,8 +545,8 @@ function TodaySectionCard({
                 {eyebrow}
               </Text>
             ) : null}
-            <Text style={{ color: colors.canvas, fontSize: 19, fontWeight: "900", lineHeight: 24 }}>{title}</Text>
-            {sentence ? <Text style={screenStyles.body}>{sentence}</Text> : null}
+            <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{title}</Text>
+            {sentence ? <Text numberOfLines={2} style={screenStyles.body}>{sentence}</Text> : null}
           </View>
           {label ? <TodayTonePill label={label} tone={tone} /> : null}
         </View>
@@ -722,14 +723,16 @@ function TodayCheckInCard({
 }) {
   const primaryAction = checkIn.primaryAction;
   const primaryHandler = resolveAction(primaryAction);
+  const compactCheckInAction = checkIn.secondaryActions.find((action) => action.label === "Check in");
+  const compactCheckInHandler = compactCheckInAction ? resolveAction(compactCheckInAction) : undefined;
   const { width } = useWindowDimensions();
   const compact = width < 390;
   return (
-    <PremiumCard accent="blue" density="regular" rail>
-      <View style={{ gap: spacing.md }} testID="today-hero-card">
+    <PremiumCard accent="blue" density="compact" rail>
+      <View style={{ gap: spacing.sm }} testID="today-hero-card">
         <View testID="today-check-in-card">
           <View style={{ alignItems: "center", flexDirection: "row", gap: compact ? spacing.sm : spacing.md }}>
-            <View style={{ alignItems: "center", width: compact ? 52 : 62 }}>
+            <View style={{ alignItems: "center", width: compact ? 48 : 54 }}>
               <View
                 style={{
                   alignItems: "center",
@@ -737,36 +740,34 @@ function TodayCheckInCard({
                   borderColor: todayTint(checkIn.tone, "55"),
                   borderRadius: radii.pill,
                   borderWidth: 1,
-                  height: compact ? 50 : 56,
+                  height: compact ? 46 : 50,
                   justifyContent: "center",
-                  width: compact ? 50 : 56
+                  width: compact ? 46 : 50
                 }}
               >
-                <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={compact ? 25 : 28} />
+                <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={compact ? 23 : 25} />
               </View>
             </View>
             <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
               <Text style={{ color: colorForTone(checkIn.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
                 Readiness
               </Text>
-              <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: compact ? 19 : 21, fontWeight: "900", lineHeight: compact ? 24 : 27 }}>
+              <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: compact ? 18 : 20, fontWeight: "900", lineHeight: compact ? 23 : 25 }}>
                 Readiness: <Text style={{ color: colorForTone(checkIn.tone) }}>{checkIn.status}</Text>
               </Text>
-              <Text numberOfLines={2} style={{ color: colors.wrap, fontSize: compact ? 14 : 15, fontWeight: "600", lineHeight: compact ? 20 : 22 }}>{checkIn.sentence}</Text>
+              <Text numberOfLines={2} style={{ color: colors.wrap, fontSize: compact ? 13 : 14, fontWeight: "600", lineHeight: compact ? 18 : 20 }}>{checkIn.sentence}</Text>
             </View>
-            <View style={{ flexShrink: 0, minWidth: compact ? 104 : 118 }}>
+            <View style={{ flexShrink: 0, minWidth: compact ? 96 : 108 }}>
               <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone={primaryAction.tone} />
             </View>
             {!compact ? <Ionicons color={colors.wrap} name="chevron-forward" size={20} /> : null}
           </View>
         </View>
-        <View style={{ borderTopColor: todayPalette.cardLine, borderTopWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingTop: spacing.md }}>
-          {checkIn.secondaryActions.map((action) => (
-            <View key={`today-secondary-action:${action.kind}:${action.label}`} style={{ flexBasis: compact ? 118 : 130, flexGrow: 1 }}>
-              <TodayButton disabled={busy || action.disabled || !resolveAction(action)} icon={actionIcon(action)} label={action.label} onPress={resolveAction(action)} tone={action.tone} />
-            </View>
-          ))}
-        </View>
+        {compactCheckInAction ? (
+          <View style={{ marginTop: spacing.xs }}>
+            <TodayButton disabled={busy || compactCheckInAction.disabled || !compactCheckInHandler} icon={actionIcon(compactCheckInAction)} label={compactCheckInAction.label} onPress={compactCheckInHandler} tone={compactCheckInAction.tone} />
+          </View>
+        ) : null}
       </View>
     </PremiumCard>
   );
@@ -830,7 +831,7 @@ function TrainingTodayCard({
   const handler = resolveAction(model.action);
   return (
     <TodaySectionCard
-      action={<TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} primary tone={model.action.tone} />}
+      action={<TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} tone={model.action.tone} />}
       eyebrow="Training Today"
       icon="barbell-outline"
       label={model.intensityLabel}
@@ -840,7 +841,7 @@ function TrainingTodayCard({
       tone={model.tone}
     >
       <View style={{ gap: spacing.xs }}>
-        <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>
+        <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: colors.canvas, fontSize: 20, fontWeight: "900", lineHeight: 25 }}>
           {model.title}
         </Text>
         <Text style={screenStyles.subtle}>{model.durationLabel} - {model.intensityLabel}</Text>
@@ -858,10 +859,14 @@ function FuelTodayCard({
   model: TodayDashboardVisual["fuelToday"];
   resolveAction: TodayActionResolver;
 }) {
-  const handler = resolveAction(model.action);
+  const cardAction: TodayActionVisual =
+    model.action.kind === "open_fuel"
+      ? { icon: "restaurant-outline", kind: "log_food", label: "Log food", tone: "orange" }
+      : model.action;
+  const handler = resolveAction(cardAction);
   return (
     <TodaySectionCard
-      action={<TodayButton disabled={busy || model.action.disabled || !handler} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} primary tone={model.action.tone} />}
+      action={<TodayButton disabled={busy || cardAction.disabled || !handler} icon={actionIcon(cardAction)} label={cardAction.label} onPress={handler} tone={cardAction.tone} />}
       eyebrow="Fuel Status"
       icon="restaurant-outline"
       label={model.status}
