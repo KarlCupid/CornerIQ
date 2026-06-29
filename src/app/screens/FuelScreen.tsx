@@ -214,6 +214,7 @@ function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: 
 function FuelActionButton({
   basis = 142,
   busy,
+  icon,
   label,
   onPress,
   primary,
@@ -221,6 +222,7 @@ function FuelActionButton({
 }: {
   basis?: number | undefined;
   busy: boolean;
+  icon?: keyof typeof Ionicons.glyphMap | undefined;
   label: string;
   onPress: () => void;
   primary?: boolean | undefined;
@@ -240,7 +242,7 @@ function FuelActionButton({
           borderWidth: 1,
           flexBasis: basis,
           flexGrow: 1,
-          gap: 1,
+          gap: spacing.xs,
           justifyContent: "center",
           minHeight: 50,
           opacity: busy ? 0.58 : 1,
@@ -257,9 +259,10 @@ function FuelActionButton({
               backgroundColor: pressed ? fuelPalette.controlFillPressed : fuelPalette.controlFill,
               borderColor: fuelPalette.controlLine,
               boxShadow: "0 8px 22px rgba(0, 0, 0, 0.18)"
-            }
+        }
       ]}
     >
+      {icon ? <Ionicons color={primary ? colors.cornerBlack : fuelPalette.toneOrange} name={icon} size={18} /> : null}
       <Text style={{ color: primary ? colors.cornerBlack : fuelPalette.textBody, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
@@ -288,17 +291,25 @@ function FuelActionButtons({
     ? { label: "Log meal", onPress: onLogFood, summary: "If useful" }
     : { label: "Add water", onPress: onLogHydration, summary: "Fast log" };
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-      {[primary, secondary].map((action, index) => (
+    <View style={{ gap: spacing.sm }}>
+      <FuelActionButton
+        busy={busy}
+        icon={primaryLog === "water" ? "water-outline" : "restaurant-outline"}
+        label={primary.label}
+        primary
+        summary={primary.summary}
+        onPress={primary.onPress}
+      />
+      <View style={{ alignItems: "stretch" }}>
         <FuelActionButton
+          basis={132}
           busy={busy}
-          label={action.label}
-          primary={index === 0}
-          summary={action.summary}
-          key={`fuel-plan-action:${action.label}`}
-          onPress={action.onPress}
+          icon={primaryLog === "water" ? "restaurant-outline" : "water-outline"}
+          label={secondary.label}
+          summary={secondary.summary}
+          onPress={secondary.onPress}
         />
-      ))}
+      </View>
     </View>
   );
 }
@@ -317,10 +328,10 @@ function TodayFuelPlanCard({
   primaryLog: "food" | "water";
 }) {
   return (
-    <PremiumCard accent="orange" density="spacious" rail>
-      <View style={{ gap: spacing.lg }} testID="fuel-hero-card">
+    <PremiumCard accent="orange" density="regular">
+      <View style={{ gap: spacing.md }} testID="fuel-hero-card">
         <View testID="fuel-today-plan-card">
-        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.lg }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
           <View
             style={{
               alignItems: "center",
@@ -328,18 +339,18 @@ function TodayFuelPlanCard({
               borderColor: fuelTint(plan.tone, "55"),
               borderRadius: radii.pill,
               borderWidth: 1,
-              height: 70,
+              height: 62,
               justifyContent: "center",
-              width: 70
+              width: 62
             }}
           >
-            <Ionicons color={colorForTone(plan.tone)} name={plan.tone === "orange" || plan.tone === "gold" ? "help-outline" : "restaurant-outline"} size={36} />
+            <Ionicons color={colorForTone(plan.tone)} name={plan.tone === "orange" || plan.tone === "gold" ? "help-outline" : "restaurant-outline"} size={31} />
           </View>
-          <View style={{ flexBasis: 230, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
-            <Text style={{ color: fuelPalette.textPrimary, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: fuelPalette.textPrimary, fontSize: 21, fontWeight: "900", lineHeight: 27 }}>
               Fuel status: <Text style={{ color: colorForTone(plan.tone) }}>{plan.label}</Text>
             </Text>
-            <Text style={{ color: fuelPalette.textBody, fontSize: 18, fontWeight: "600", lineHeight: 25 }}>{plan.sentence}</Text>
+            <Text style={{ color: fuelPalette.textBody, fontSize: 15, fontWeight: "600", lineHeight: 22 }}>{plan.sentence}</Text>
           </View>
         </View>
         </View>
@@ -348,10 +359,10 @@ function TodayFuelPlanCard({
             borderTopColor: fuelPalette.cardLine,
             borderTopWidth: 1,
             gap: spacing.xs,
-            paddingTop: spacing.lg
+            paddingTop: spacing.md
           }}
         >
-          <Text style={{ color: fuelPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>{plan.action}</Text>
+          <Text style={{ color: fuelPalette.textPrimary, fontSize: 17, fontWeight: "900", lineHeight: 23 }}>{plan.action}</Text>
         </View>
         <FuelActionButtons busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} primaryLog={primaryLog} />
       </View>
@@ -406,15 +417,13 @@ function FuelKeyNumbersCard({
   const check = bodyCheck(viewModel, safety);
   if (!hasActiveWeightTarget) {
     return (
-      <GroupedMetricTiles
-        items={[
-          { icon: "shield-checkmark-outline", label: "Fuel readiness", tone: check.tone, value: check.value },
-          { icon: "water-outline", label: "Hydration", tone: dashboard.hydration.tone, value: dashboard.hydration.targetLabel },
-          { icon: "restaurant-outline", label: "Food log", tone: viewModel.foodLogStatus.entryCount > 0 ? "green" : "orange", value: viewModel.foodLogStatus.entryCount > 0 ? `${viewModel.foodLogStatus.entryCount} logged` : "Optional" },
-          { icon: "barbell-outline", label: "Training load", tone: viewModel.trainingDemandHandoff.todayTrainingDemand === "high" ? "orange" : "blue", value: titleCaseStatus(viewModel.trainingDemandHandoff.todayTrainingDemand) }
-        ]}
-        testID="fuel-key-numbers"
-      />
+      <PremiumCard density="compact" testID="fuel-key-numbers">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <FuelMetricTile label="Pre-session" tone={check.tone} value={check.value} />
+          <FuelMetricTile label="Hydration" tone={dashboard.hydration.tone} value={dashboard.hydration.targetLabel} />
+          <FuelMetricTile label="Weight" tone={weightLabel(viewModel) === "Unknown" ? "orange" : "muted"} value={weightLabel(viewModel)} />
+        </View>
+      </PremiumCard>
     );
   }
   return (
@@ -913,7 +922,6 @@ function FuelDetailsDisclosure({
       </EngineCard>
       {detailsOpen ? (
         <View style={{ gap: spacing.sm }} testID="fuel-details-section">
-          <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} />
           <TrainingTodayCard plan={plan} trainingCopy={trainingCopy} viewModel={viewModel} />
           <FuelCollapsedDetails
             dashboard={dashboard}
@@ -1067,6 +1075,7 @@ function FuelOverview({
     <View style={{ gap: spacing.md }} testID="fuel-overview">
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
       <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} safety={safety} viewModel={viewModel} />
+      <WeightTrendCard dashboard={dashboard} plan={plan} viewModel={viewModel} />
       <DoNotMissTodayCard dashboard={dashboard} />
       <FuelTimingCard viewModel={viewModel} />
       <FuelSafetyCard

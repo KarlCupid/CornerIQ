@@ -386,6 +386,13 @@ async function expectTodayOverviewSurface(page: Page) {
   await expect(primaryActionScope.getByRole("button", { name: "Check in" })).toBeVisible();
   await expect(primaryActionScope.getByRole("button", { name: "Log food" })).toBeVisible();
   await expect(primaryActionScope.getByRole("button", { name: /Start workout|View workout|Open Train/ })).toBeVisible();
+  await expect(page.getByTestId("today-training-card")).toContainText("Training Today");
+  await expect(page.getByTestId("today-fuel-card")).toContainText("Fuel Today");
+  await expect(page.getByTestId("today-week-card")).toContainText("This Week");
+  if ((await page.getByTestId("today-details-toggle").count()) > 0) {
+    await expect(page.getByTestId("today-details-toggle")).toBeVisible();
+  }
+  await openTodayDetails(page);
   await expect(page.getByTestId("today-key-status-row")).toContainText("Training");
   await expect(page.getByTestId("today-key-status-row")).toContainText("Fuel");
   await expect(page.getByTestId("today-key-status-row")).toContainText("Weight");
@@ -393,13 +400,6 @@ async function expectTodayOverviewSurface(page: Page) {
   if ((await page.getByTestId("today-next-action-card").count()) > 0) {
     await expect(page.getByTestId("today-next-action-card")).toContainText(/Next up|Fuel first|Hydrate first|Eat before training/);
   }
-  if ((await page.getByTestId("today-details-toggle").count()) > 0) {
-    await expect(page.getByTestId("today-details-toggle")).toBeVisible();
-  }
-  await openTodayDetails(page);
-  await expect(page.getByTestId("today-training-card")).toContainText("Training Today");
-  await expect(page.getByTestId("today-fuel-card")).toContainText("Fuel Today");
-  await expect(page.getByTestId("today-week-card")).toContainText("This Week");
   await expect(page.getByTestId("today-quick-logs")).toContainText("Quick Logs");
   await expect(page.getByTestId("today-quick-logs").getByRole("button", { name: "Readiness" })).toBeVisible();
   await expect(page.getByTestId("today-quick-logs").getByRole("button", { name: "Weight" })).toBeVisible();
@@ -624,13 +624,13 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("fuel-overview")).toContainText("Fuel status:");
   await expect(page.getByTestId("fuel-overview")).toContainText("No active cut");
   await expect(page.getByTestId("fuel-do-not-miss-card")).toContainText("Do not miss");
-  await expect(page.getByTestId("fuel-key-numbers")).toContainText("Fuel readiness");
+  await expect(page.getByTestId("fuel-key-numbers")).toContainText("Pre-session");
   await expect(page.getByTestId("fuel-key-numbers")).toContainText("Hydration");
+  await expect(page.getByTestId("fuel-overview")).toContainText("Weight Trend");
   await expect(page.getByTestId("fuel-details-toggle")).toContainText("Fuel details");
   await page.getByTestId("fuel-details-toggle").click();
   await expect(page.getByTestId("fuel-details-section")).toBeVisible();
   await expect(page.getByTestId("fuel-details-section")).toContainText("Training Today");
-  await expect(page.getByTestId("fuel-details-section")).toContainText("Weight Trend");
   await expect(page.getByTestId("fuel-detail-rows")).toContainText("Food details");
   await expect(page.getByTestId("fuel-detail-rows")).toContainText("Weight context");
   await expect(page.getByTestId("fuel-detail-rows")).toContainText("Health checks");
@@ -811,7 +811,7 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-hero-card")).not.toContainText("This week's job");
   await expect(page.getByTestId("plan-hero-card")).not.toContainText(/V2 compiler/i);
   await expect(page.getByTestId("plan-week-strip-card")).toContainText("This week");
-  await expect(page.getByTestId("plan-upcoming-sessions-card")).toHaveCount(0);
+  await expect(page.getByTestId("plan-upcoming-sessions-card")).toContainText("Upcoming sessions");
   await expect(page.getByTestId("plan-details-collapsed")).toContainText("Plan details");
   await expectVisibleText(page, /Preview next week/i);
   await expectVisibleText(page, "Change plan");

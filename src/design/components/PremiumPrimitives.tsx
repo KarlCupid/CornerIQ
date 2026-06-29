@@ -49,12 +49,12 @@ export function AccentRail({
       style={{
         backgroundColor: premiumToneColor(tone),
         borderRadius: radii.pill,
-        bottom: spacing.lg,
+        bottom: spacing.md,
         left: spacing.md,
         opacity: tone === "muted" ? 0.62 : 0.92,
         position: "absolute",
-        top: spacing.lg,
-        width: 3
+        top: spacing.md,
+        width: 5
       }}
     />
   );
@@ -79,9 +79,9 @@ export function PremiumCard({
     <View
       style={{
         ...glassStyles.cardDeep,
-        backgroundColor: theme.cardDeep,
+        backgroundColor: theme.card,
         borderColor: accent ? `${premiumToneColor(tone)}38` : "rgba(232, 240, 255, 0.12)",
-        boxShadow: `0 20px 44px rgba(0, 0, 0, 0.38), 0 0 20px ${accent ? premiumToneWash(tone) : theme.strongGlow}`,
+        boxShadow: `0 22px 48px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.065), 0 0 20px ${accent ? premiumToneWash(tone) : theme.strongGlow}`,
         gap: density === "compact" ? spacing.sm : spacing.md,
         overflow: "hidden",
         padding,
@@ -90,6 +90,18 @@ export function PremiumCard({
       testID={testID}
     >
       {rail ? <AccentRail tone={tone} /> : null}
+      <View
+        pointerEvents="none"
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.08)",
+          height: 1,
+          left: rail ? padding + spacing.md : padding,
+          opacity: 0.72,
+          position: "absolute",
+          right: padding,
+          top: 0
+        }}
+      />
       {children}
     </View>
   );

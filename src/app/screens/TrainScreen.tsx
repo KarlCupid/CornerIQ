@@ -1,4 +1,5 @@
 import React from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, View } from "react-native";
 import type { DetailedTrainingSession, ISODateString, RecentLogsViewModel, TrainViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
@@ -141,6 +142,20 @@ function compactDayLabel(date: string, fallback: string): string {
   return parsed.toLocaleDateString("en-US", { weekday: "short" });
 }
 
+function trainHeroDateLabel(date: ISODateString | string | undefined): { label: string; meta: string } {
+  if (!date) {
+    return { label: "Today", meta: "Date unknown" };
+  }
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return { label: "Today", meta: date };
+  }
+  return {
+    label: "Today",
+    meta: parsed.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+  };
+}
+
 function planTitle(session: DetailedTrainingSession | null, card: TrainSessionCard | null, generated: CompactGeneratedSession | null): string {
   if (session) {
     return recipeTitle(session);
@@ -247,7 +262,16 @@ function currentWeekDays(viewModel: TrainViewModel, asOfDate?: ISODateString | u
   });
 }
 
-function TrainTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
+function TrainTonePill({
+  icon,
+  label,
+  tone = "muted"
+}: {
+  icon?: keyof typeof Ionicons.glyphMap | undefined;
+  label: string;
+  tone?: VisualTone | undefined;
+}) {
+  const color = trainColorForTone(tone);
   return (
     <View
       accessibilityLabel={`Status: ${label}`}
@@ -265,9 +289,48 @@ function TrainTonePill({ label, tone: _tone = "muted" }: { label: string; tone?:
         paddingVertical: 3
       }}
     >
+      {icon ? <Ionicons color={color} name={icon} size={15} /> : null}
       <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+function TrainHeroMeta({
+  plannedDate,
+  readiness,
+  readinessSummary
+}: {
+  plannedDate: ISODateString | string | undefined;
+  readiness: ReturnType<typeof trainReadinessValue>;
+  readinessSummary: string;
+}) {
+  const planned = trainHeroDateLabel(plannedDate);
+  const readinessTone = trainReadinessTone(readiness);
+  const readinessColor = trainColorForTone(readinessTone);
+  return (
+    <View style={{ alignItems: "stretch", flexDirection: "row", gap: spacing.lg }}>
+      <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
+          <View style={{ backgroundColor: trainColorForTone("purple"), borderRadius: radii.pill, height: 10, width: 10 }} />
+          <Text style={{ color: trainPalette.textBody, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+            Planned for
+          </Text>
+        </View>
+        <Text style={{ color: trainPalette.textPrimary, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>{planned.label}</Text>
+        <Text style={{ color: trainPalette.textMuted, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>{planned.meta}</Text>
+      </View>
+      <View style={{ backgroundColor: trainPalette.cardLine, width: 1 }} />
+      <View style={{ flex: 1.2, gap: spacing.xs, minWidth: 0 }}>
+        <Text style={{ color: trainPalette.textBody, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+          Readiness
+        </Text>
+        <Text style={{ color: readinessColor, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>{readiness}</Text>
+        <Text numberOfLines={2} style={{ color: trainPalette.textMuted, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>
+          {readinessSummary}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -708,9 +771,9 @@ function TodayTrainingPlanCard({
           {dayNote ? <Text style={trainTextStyles.subtle}>{dayNote}</Text> : null}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <TrainTonePill label={durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD"} />
-          <TrainTonePill label={sentenceCase(plainIntensityLabel(intensity))} tone={primaryTone} />
-          <TrainTonePill label="Non-contact" tone="blue" />
+          <TrainTonePill icon="time-outline" label={durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD"} />
+          <TrainTonePill icon="stats-chart-outline" label={sentenceCase(plainIntensityLabel(intensity))} tone={primaryTone} />
+          <TrainTonePill icon="hand-left-outline" label="Non-contact" tone="blue" />
         </View>
         <Pressable
           accessibilityLabel={primaryAction.label}
@@ -727,7 +790,10 @@ function TodayTrainingPlanCard({
             }
           ]}
         >
-          <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{primaryAction.label}</Text>
+          <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center" }}>
+            <Ionicons color={disabled ? trainPalette.textMuted : trainPalette.textPrimary} name={primaryAction.label.toLowerCase().includes("start") ? "play-outline" : "chevron-forward"} size={20} />
+            <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{primaryAction.label}</Text>
+          </View>
         </Pressable>
         {showDetailsAction || showTrainingLogAction ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -978,6 +1044,7 @@ export function TrainScreen({
   onResumeWorkout,
   onStartWorkout,
   quickLogs,
+  recentLogs,
   viewModel
 }: TrainScreenProps) {
   const [pendingStartSessionId, setPendingStartSessionId] = React.useState<string | null>(null);
@@ -1051,10 +1118,24 @@ export function TrainScreen({
   };
   const criticalRisk = trainCriticalTrainingRisk(viewModel);
   const showSafety = Boolean(primarySessionBlockedReason || criticalRisk);
+  const heroReadiness = trainReadinessValue(primarySession, viewModel);
+  const heroReadinessSummary = recentLogs.readinessToday.loggedToday
+    ? firstSentence(recentLogs.readinessToday.summary)
+    : "Check-in needed before guidance.";
 
   return (
     <LuminousScreen accent="purple" backgroundImage={tabScreenBackgrounds.train} testID="train-screen">
-      <ScreenHeader {...tabHeroHeaders.train} />
+      <ScreenHeader
+        {...tabHeroHeaders.train}
+        heroHeight={278}
+        heroMeta={(
+          <TrainHeroMeta
+            plannedDate={asOfDate ?? generatedSummary?.date}
+            readiness={heroReadiness}
+            readinessSummary={heroReadinessSummary}
+          />
+        )}
+      />
       {showSafety ? (
         <RiskBanner
           message={primarySessionBlockedReason ?? firstSentence(criticalRisk ?? "Use today's recovery-focused guidance.")}

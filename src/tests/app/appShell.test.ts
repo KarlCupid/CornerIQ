@@ -2120,27 +2120,19 @@ describe("minimal app screens", () => {
     );
     const tree = renderer.toJSON();
     const output = JSON.stringify(tree);
-    const trainingStatusTile = (renderer.root.findAllByType("View") as TestInstance[]).find((item) =>
-      String((item.props as { accessibilityLabel?: string }).accessibilityLabel ?? "").startsWith("Training: ")
-    );
-    if (!trainingStatusTile) {
-      throw new Error("Today key status row did not render the training tile.");
-    }
-    const trainingStatusStyle = flattenStyle((trainingStatusTile.props as { style?: unknown }).style);
-    expect(trainingStatusStyle.borderLeftWidth).toBe(0);
-    expect(trainingStatusStyle.borderColor).toBe("rgba(39, 206, 241, 0.16)");
     expect(output).toContain("today-hero-card");
-    expect(output).toContain("today-status-row");
-    expect(output).toContain("today-next-action-card");
+    expect(output).not.toContain("today-status-row");
+    expect(output).not.toContain("today-next-action-card");
     expect(output).toContain("today-details-toggle");
     expect(output).toContain("Today");
     expect(output).toContain("Check in");
     expect(output).toContain("Log food");
     expect(output).toContain("View workout");
     expect(output).not.toContain("Start workout");
-    expect(output).not.toContain("Training Today");
-    expect(output).not.toContain("Fuel Today");
-    expect(output).not.toContain("This Week");
+    expect(output).toContain("Training Today");
+    expect(output).toContain("Fuel Today");
+    expect(output).toContain("This Week");
+    expect(output).toContain("Manual input remains first-class");
     expect(output).not.toContain("Quick Logs");
     expect(output).not.toContain("Readiness details");
     expect(output).not.toContain("Training load");
@@ -2166,6 +2158,17 @@ describe("minimal app screens", () => {
     await switchSection(renderer, "More today");
     const detailsOutput = JSON.stringify(renderer.toJSON());
     expect(detailsOutput).toContain("today-details-section");
+    const trainingStatusTile = (renderer.root.findAllByType("View") as TestInstance[]).find((item) =>
+      String((item.props as { accessibilityLabel?: string }).accessibilityLabel ?? "").startsWith("Training: ")
+    );
+    if (!trainingStatusTile) {
+      throw new Error("Today key status row did not render the training tile.");
+    }
+    const trainingStatusStyle = flattenStyle((trainingStatusTile.props as { style?: unknown }).style);
+    expect(trainingStatusStyle.borderLeftWidth).toBe(0);
+    expect(trainingStatusStyle.borderColor).toBe("rgba(39, 206, 241, 0.16)");
+    expect(detailsOutput).toContain("today-status-row");
+    expect(detailsOutput).toContain("today-next-action-card");
     expect(detailsOutput).toContain("Training Today");
     expect(detailsOutput).toContain("Fuel Today");
     expect(detailsOutput).toContain("This Week");
@@ -2554,7 +2557,7 @@ describe("minimal app screens", () => {
 
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Start workout");
-    expect(output).toContain("Log if useful");
+    expect(output).toContain("Log food");
     expect(output).not.toContain("Review needed");
     expect(output).not.toContain("Fuel review needed");
     expect(output).not.toContain("Fuel first");
@@ -2826,15 +2829,14 @@ describe("minimal app screens", () => {
     expect(output).toContain("Fuel status:");
     expect(output).toContain("No active cut");
     expect(output).toContain("fuel-key-numbers");
-    expect(output).toContain("Fuel readiness");
+    expect(output).toContain("Pre-session");
     expect(output).toContain("Hydration");
-    expect(output).toContain("Food log");
-    expect(output).toContain("Training load");
+    expect(output).toContain("Weight");
     expect(output).not.toContain("To weight");
     expect(output).not.toContain("Body check");
     expect(output).toContain("Do not miss");
     expect(output).not.toContain("Training Today");
-    expect(output).not.toContain("Weight Trend");
+    expect(output).toContain("Weight Trend");
     expect(output).not.toContain("Food details");
     expect(output).not.toContain("Weight context");
     expect(output).not.toContain("Weigh-in plan");
@@ -2855,8 +2857,9 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Protein stays steady");
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output.indexOf("Fuel status:")).toBeLessThan(output.indexOf("Fuel readiness"));
-    expect(output.indexOf("Fuel readiness")).toBeLessThan(output.indexOf("Do not miss"));
+    expect(output.indexOf("Fuel status:")).toBeLessThan(output.indexOf("Pre-session"));
+    expect(output.indexOf("Pre-session")).toBeLessThan(output.indexOf("Weight Trend"));
+    expect(output.indexOf("Weight Trend")).toBeLessThan(output.indexOf("Do not miss"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Fuel details"));
@@ -3262,7 +3265,7 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Fuel status:");
-    expect(output).not.toContain("Weight Trend");
+    expect(output).toContain("Weight Trend");
     expect(output).not.toContain("Weigh-in plan");
     expect(output).not.toContain("Today's recommendation");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|extreme dehydration/i);
@@ -3271,7 +3274,6 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Fuel details"));
     });
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Weight Trend");
     expect(output).toContain("Weigh-in plan");
 
     await act(async () => {
@@ -3289,7 +3291,7 @@ describe("minimal app screens", () => {
     let output = JSON.stringify(renderer.toJSON());
 
     expect(output).toContain("Fuel status:");
-    expect(output).not.toContain("Weight Trend");
+    expect(output).toContain("Weight Trend");
     expect(output).not.toContain("Weigh-in plan");
     expect(output).not.toContain("Today's recommendation");
     expect(output).not.toMatch(/make weight at all costs|extreme dehydration/i);
@@ -3298,7 +3300,6 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Fuel details"));
     });
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Weight Trend");
     expect(output).toContain("Weigh-in plan");
 
     await act(async () => {
@@ -4365,7 +4366,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("plan-week-color-legend");
     expect(output).toContain("plan-calendar-icons");
     expect(output).not.toContain("Next up");
-    expect(output).not.toContain("plan-upcoming-sessions-card");
+    expect(output).toContain("plan-upcoming-sessions-card");
     expect(output).toContain("Show calendar");
     expect(output).toContain("Change plan");
     expect(output).toContain("Preview next week");
@@ -5895,7 +5896,7 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Fuel status:");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Log meal");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Add water");
-    expect(JSON.stringify(fuelRenderer.toJSON())).not.toContain("Weight Trend");
+    expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Weight Trend");
     await switchSection(fuelRenderer, "Fuel details");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Food details");
     expect(JSON.stringify(fuelRenderer.toJSON())).toContain("Weight Trend");

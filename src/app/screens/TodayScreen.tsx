@@ -423,14 +423,14 @@ function TodayButton({
           borderCurve: "continuous",
           borderRadius: primary ? radii.control : radii.pill,
           borderWidth: 1,
-          flexBasis: primary ? 230 : 130,
           flexDirection: "row",
-          flexGrow: primary ? 1.2 : 1,
+          flexShrink: 1,
           gap: spacing.sm,
           justifyContent: "center",
+          minWidth: primary ? 118 : 104,
           minHeight: primary ? 52 : 46,
           opacity: disabled ? 0.56 : 1,
-          paddingHorizontal: spacing.lg,
+          paddingHorizontal: primary ? spacing.lg : spacing.md,
           paddingVertical: spacing.sm
         },
         primary
@@ -501,6 +501,8 @@ function TodayStatusTile({
 function TodaySectionCard({
   action,
   children,
+  eyebrow,
+  icon,
   label,
   sentence,
   testID,
@@ -508,6 +510,8 @@ function TodaySectionCard({
   tone = "blue"
 }: React.PropsWithChildren<{
   action?: React.ReactNode;
+  eyebrow?: string | undefined;
+  icon?: keyof typeof Ionicons.glyphMap | undefined;
   label?: string | undefined;
   sentence?: string | undefined;
   testID?: string | undefined;
@@ -517,8 +521,29 @@ function TodaySectionCard({
   return (
     <PremiumCard accent={tone} rail>
       <View style={{ gap: spacing.md }} testID={testID}>
-        <View style={{ alignItems: "flex-start", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
-          <View style={{ flexBasis: 250, flexGrow: 1, gap: spacing.xs, minWidth: 0 }}>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
+          {icon ? (
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: todayTint(tone, "12"),
+                borderColor: todayTint(tone, "38"),
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                height: 50,
+                justifyContent: "center",
+                width: 50
+              }}
+            >
+              <Ionicons color={colorForTone(tone)} name={icon} size={25} />
+            </View>
+          ) : null}
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            {eyebrow ? (
+              <Text style={{ color: colorForTone(tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+                {eyebrow}
+              </Text>
+            ) : null}
             <Text style={{ color: colors.canvas, fontSize: 19, fontWeight: "900", lineHeight: 24 }}>{title}</Text>
             {sentence ? <Text style={screenStyles.body}>{sentence}</Text> : null}
           </View>
@@ -697,39 +722,49 @@ function TodayCheckInCard({
 }) {
   const primaryAction = checkIn.primaryAction;
   const primaryHandler = resolveAction(primaryAction);
+  const { width } = useWindowDimensions();
+  const compact = width < 390;
   return (
-    <PremiumCard accent="blue" rail>
-      <View style={{ gap: spacing.lg }} testID="today-hero-card">
+    <PremiumCard accent="blue" density="regular" rail>
+      <View style={{ gap: spacing.md }} testID="today-hero-card">
         <View testID="today-check-in-card">
-        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, justifyContent: "space-between" }}>
-          <View style={{ alignItems: "center", flexDirection: "row", flexBasis: 260, flexGrow: 1, gap: spacing.md, minWidth: 0 }}>
-            <View
-              style={{
-                alignItems: "center",
-                backgroundColor: todayTint(checkIn.tone, "18"),
-                borderColor: todayTint(checkIn.tone, "55"),
-                borderRadius: radii.pill,
-                borderWidth: 1,
-                height: 58,
-                justifyContent: "center",
-                width: 58
-              }}
-            >
-              <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={31} />
+          <View style={{ alignItems: "center", flexDirection: "row", gap: compact ? spacing.sm : spacing.md }}>
+            <View style={{ alignItems: "center", width: compact ? 52 : 62 }}>
+              <View
+                style={{
+                  alignItems: "center",
+                  backgroundColor: todayTint(checkIn.tone, "16"),
+                  borderColor: todayTint(checkIn.tone, "55"),
+                  borderRadius: radii.pill,
+                  borderWidth: 1,
+                  height: compact ? 50 : 56,
+                  justifyContent: "center",
+                  width: compact ? 50 : 56
+                }}
+              >
+                <Ionicons color={colorForTone(checkIn.tone)} name="shield-outline" size={compact ? 25 : 28} />
+              </View>
             </View>
-            <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-              <Text style={{ color: colors.canvas, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>
+            <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
+              <Text style={{ color: colorForTone(checkIn.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+                Readiness
+              </Text>
+              <Text numberOfLines={2} style={{ color: colors.canvas, fontSize: compact ? 19 : 21, fontWeight: "900", lineHeight: compact ? 24 : 27 }}>
                 Readiness: <Text style={{ color: colorForTone(checkIn.tone) }}>{checkIn.status}</Text>
               </Text>
-              <Text style={{ color: colors.wrap, fontSize: 16, fontWeight: "600", lineHeight: 23 }}>{checkIn.sentence}</Text>
+              <Text numberOfLines={2} style={{ color: colors.wrap, fontSize: compact ? 14 : 15, fontWeight: "600", lineHeight: compact ? 20 : 22 }}>{checkIn.sentence}</Text>
             </View>
+            <View style={{ flexShrink: 0, minWidth: compact ? 104 : 118 }}>
+              <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone={primaryAction.tone} />
+            </View>
+            {!compact ? <Ionicons color={colors.wrap} name="chevron-forward" size={20} /> : null}
           </View>
-          <TodayButton disabled={busy || primaryAction.disabled || !primaryHandler} icon={actionIcon(primaryAction)} label={primaryAction.label} onPress={primaryHandler} primary testID="today-primary-check-in-action" tone={primaryAction.tone} />
         </View>
-        </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <View style={{ borderTopColor: todayPalette.cardLine, borderTopWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingTop: spacing.md }}>
           {checkIn.secondaryActions.map((action) => (
-            <TodayButton disabled={busy || action.disabled || !resolveAction(action)} icon={actionIcon(action)} key={`today-secondary-action:${action.kind}:${action.label}`} label={action.label} onPress={resolveAction(action)} tone={action.tone} />
+            <View key={`today-secondary-action:${action.kind}:${action.label}`} style={{ flexBasis: compact ? 118 : 130, flexGrow: 1 }}>
+              <TodayButton disabled={busy || action.disabled || !resolveAction(action)} icon={actionIcon(action)} label={action.label} onPress={resolveAction(action)} tone={action.tone} />
+            </View>
           ))}
         </View>
       </View>
@@ -796,10 +831,12 @@ function TrainingTodayCard({
   return (
     <TodaySectionCard
       action={<TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} primary tone={model.action.tone} />}
+      eyebrow="Training Today"
+      icon="barbell-outline"
       label={model.intensityLabel}
       sentence={model.sentence}
       testID="today-training-card"
-      title="Training Today"
+      title="Today's Session"
       tone={model.tone}
     >
       <View style={{ gap: spacing.xs }}>
@@ -825,6 +862,8 @@ function FuelTodayCard({
   return (
     <TodaySectionCard
       action={<TodayButton disabled={busy || model.action.disabled || !handler} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} primary tone={model.action.tone} />}
+      eyebrow="Fuel Status"
+      icon="restaurant-outline"
       label={model.status}
       sentence={model.note}
       testID="today-fuel-card"
@@ -848,6 +887,8 @@ function ThisWeekCard({
   return (
     <TodaySectionCard
       action={<TodayButton disabled={busy || !onOpenPlan} icon="calendar-outline" label="View Plan" onPress={onOpenPlan} tone="green" />}
+      eyebrow="This Week"
+      icon="calendar-outline"
       label={model.phaseLabel}
       sentence={model.sentence}
       testID="today-week-card"
@@ -876,6 +917,22 @@ function ThisWeekCard({
           <Text style={screenStyles.subtle}>No next session is pinned here. Open Plan when the week changes.</Text>
         )}
       </View>
+    </TodaySectionCard>
+  );
+}
+
+function AthleteContextCard() {
+  return (
+    <TodaySectionCard
+      action={<TodayTonePill label="Manual first" tone="muted" />}
+      eyebrow="Athlete Context"
+      icon="person-outline"
+      sentence="Data stays private and under your control."
+      testID="today-athlete-context-card"
+      title="Manual input remains first-class"
+      tone="muted"
+    >
+      <Text style={screenStyles.subtle}>Wearables can add confidence, but CornerIQ never requires one.</Text>
     </TodaySectionCard>
   );
 }
@@ -973,26 +1030,22 @@ function TodayDetailsDisclosure({
   children,
   cycleQuickLogEnabled,
   cycleSymptomOptions,
-  fuelToday,
   onLogFood,
   onOpenQuickCheck,
-  onOpenPlan,
   quickLogs,
-  resolveAction,
-  trainingToday,
-  weekToday
+  keyStatuses,
+  nextAction,
+  resolveAction
 }: React.PropsWithChildren<{
   busy: boolean;
   cycleQuickLogEnabled: boolean;
   cycleSymptomOptions: readonly CycleSymptom[];
-  fuelToday: TodayDashboardVisual["fuelToday"];
   onLogFood?: (() => void) | undefined;
   onOpenQuickCheck: (focus: TodayQuickCheckFocus, placement: TodayQuickCheckPlacement) => void;
-  onOpenPlan?: (() => void) | undefined;
   quickLogs: QuickLogActions;
+  keyStatuses: TodayDashboardVisual["keyStatuses"];
+  nextAction: TodayDashboardVisual["nextAction"];
   resolveAction: TodayActionResolver;
-  trainingToday: TodayDashboardVisual["trainingToday"];
-  weekToday: WeekTodayModel;
 }>) {
   const [open, setOpen] = React.useState(false);
   return (
@@ -1024,7 +1077,7 @@ function TodayDetailsDisclosure({
             <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
               <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>More today</Text>
               <Text numberOfLines={1} style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
-                Training, fuel, week notes, quick logs, and recent logs.
+                Status tiles, next action, quick logs, and recent logs.
               </Text>
             </View>
             <Ionicons color={colors.wrap} name={open ? "chevron-up" : "chevron-down"} size={18} />
@@ -1033,9 +1086,12 @@ function TodayDetailsDisclosure({
       </EngineCard>
       {open ? (
         <View style={{ gap: spacing.sm }} testID="today-details-section">
-          <TrainingTodayCard busy={busy} model={trainingToday} resolveAction={resolveAction} />
-          <FuelTodayCard busy={busy} model={fuelToday} resolveAction={resolveAction} />
-          <ThisWeekCard busy={busy} model={weekToday} onOpenPlan={onOpenPlan} />
+          <KeyStatusRow statuses={keyStatuses} />
+          <TodayNextActionCard
+            busy={busy}
+            nextAction={nextAction}
+            resolveAction={resolveAction}
+          />
           <QuickLogsCard busy={busy} onLogFood={onLogFood} onOpenQuickCheck={onOpenQuickCheck} />
           {cycleQuickLogEnabled ? <CycleLogCard actions={quickLogs} busy={busy} cycleSymptomOptions={cycleSymptomOptions} /> : null}
           {children}
@@ -1126,24 +1182,20 @@ export function TodayScreen({
           checkIn={checkIn}
           resolveAction={resolveAction}
         />
-        <KeyStatusRow statuses={keyStatuses} />
-        <TodayNextActionCard
-          busy={busy}
-          nextAction={nextAction}
-          resolveAction={resolveAction}
-        />
+        <TrainingTodayCard busy={busy} model={trainingToday} resolveAction={resolveAction} />
+        <FuelTodayCard busy={busy} model={fuelToday} resolveAction={resolveAction} />
+        <ThisWeekCard busy={busy} model={weekToday} onOpenPlan={onOpenPlan} />
+        <AthleteContextCard />
         <TodayDetailsDisclosure
           busy={busy}
           cycleQuickLogEnabled={cycleQuickLogEnabled}
           cycleSymptomOptions={cycleSymptomOptions}
-          fuelToday={fuelToday}
+          keyStatuses={keyStatuses}
+          nextAction={nextAction}
           onLogFood={foodAction}
-          onOpenPlan={onOpenPlan}
           onOpenQuickCheck={openQuickCheck}
           quickLogs={quickLogs}
           resolveAction={resolveAction}
-          trainingToday={trainingToday}
-          weekToday={weekToday}
         >
           <TodayDetails
             cycleContext={cycleContext}

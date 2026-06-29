@@ -94,7 +94,7 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(tabBarStyle).toContain("paddingBottom: 0");
     expect(tabBarStyle).toContain("paddingTop: 0");
     expect(tabBarStyle).not.toMatch(/bottom:\s*0/);
-    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 122;");
+    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 140;");
   });
 
   it("keeps the tab photo headers wired to real local assets and matching icons", () => {

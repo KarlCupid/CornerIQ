@@ -10,12 +10,12 @@ import { typography } from "../typography";
 
 export { accentColor, accentWash, luminousScreenThemes, useLuminousScreenTheme, type LuminousAccent } from "../luminousTheme";
 
-const TAB_SCREEN_BOTTOM_PADDING = 122;
+const TAB_SCREEN_BOTTOM_PADDING = 140;
 
 const luminousStyles = {
   content: {
     alignSelf: "center" as const,
-    gap: spacing.lg,
+    gap: spacing.md,
     flexGrow: 1,
     maxWidth: 1120,
     paddingHorizontal: spacing.lg,
@@ -66,8 +66,9 @@ const luminousStyles = {
     borderWidth: 0,
     borderBottomWidth: 1,
     marginHorizontal: -spacing.lg,
+    marginBottom: -spacing.xl,
     marginTop: -spacing.sm,
-    minHeight: 306,
+    minHeight: 188,
     overflow: "hidden" as const
   },
   heroImage: {
@@ -90,16 +91,16 @@ const luminousStyles = {
     right: 0
   },
   heroContent: {
-    gap: spacing.lg,
-    justifyContent: "flex-end" as const,
-    minHeight: 306,
+    gap: spacing.xl,
+    justifyContent: "flex-start" as const,
+    minHeight: 188,
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xxl,
-    paddingTop: 82
+    paddingBottom: spacing.xl,
+    paddingTop: 56
   },
   heroCopy: {
     gap: spacing.xs,
-    maxWidth: 340,
+    maxWidth: 430,
     minWidth: 0
   },
   heroTitle: {
@@ -195,6 +196,8 @@ export function LuminousScreen({
 export interface ScreenHeaderProps {
   accent?: LuminousAccent | undefined;
   eyebrow?: string | undefined;
+  heroHeight?: number | undefined;
+  heroMeta?: React.ReactNode | undefined;
   heroImage?: ImageSourcePropType | undefined;
   icon?: keyof typeof Ionicons.glyphMap | undefined;
   subtitle?: string | undefined;
@@ -204,7 +207,9 @@ export interface ScreenHeaderProps {
 export function ScreenHeader({
   accent = "blue",
   eyebrow,
+  heroHeight,
   heroImage,
+  heroMeta,
   icon,
   subtitle,
   title
@@ -212,6 +217,8 @@ export function ScreenHeader({
   const { width } = useWindowDimensions();
   const theme = useLuminousScreenTheme();
   const compact = width < 520;
+  const compactHeight = heroHeight ?? (heroMeta ? 278 : 188);
+  const regularHeight = heroHeight ? heroHeight + 34 : heroMeta ? 330 : 326;
   if (heroImage) {
     const heroShadow: ViewStyle =
       Platform.OS === "web"
@@ -230,7 +237,7 @@ export function ScreenHeader({
         imageStyle={luminousStyles.heroImage}
         resizeMode="cover"
         source={heroImage}
-        style={[luminousStyles.heroFrame, heroShadow, { borderBottomColor: theme.cardBorder, minHeight: compact ? 306 : 326 }]}
+        style={[luminousStyles.heroFrame, heroShadow, { borderBottomColor: theme.cardBorder, marginBottom: compact ? -spacing.xl : 0, minHeight: compact ? compactHeight : regularHeight }]}
       >
         <View style={[luminousStyles.heroOverlay, { backgroundColor: `${theme.background}33` }]} />
         <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}D4` }]} />
@@ -242,7 +249,16 @@ export function ScreenHeader({
             <Ionicons color={colors.canvas} name={icon ?? "settings-outline"} size={24} />
           </View>
         </View>
-        <View style={[luminousStyles.heroContent, { minHeight: compact ? 306 : 326, paddingBottom: compact ? spacing.xxl : spacing.xxl }]}>
+        <View
+          style={[
+            luminousStyles.heroContent,
+            {
+              minHeight: compact ? compactHeight : regularHeight,
+              paddingBottom: compact ? spacing.lg : spacing.xxl,
+              paddingTop: compact ? spacing.xxl : 72
+            }
+          ]}
+        >
           <View style={luminousStyles.heroCopy}>
             {eyebrow ? (
               <Text style={{ color: accentColor[accent], fontSize: 13, fontWeight: "900", letterSpacing: 0, lineHeight: 17, textTransform: "uppercase" }}>
@@ -253,8 +269,9 @@ export function ScreenHeader({
               {title}
             </Text>
             {subtitle ? <Text numberOfLines={2} style={luminousStyles.heroSubtitle}>{subtitle}</Text> : null}
-            <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 3, marginTop: spacing.lg, width: 54 }} />
+            {heroMeta ? null : <View style={{ backgroundColor: accentColor[accent], borderRadius: radii.pill, height: 3, marginTop: spacing.lg, width: 54 }} />}
           </View>
+          {heroMeta ? <View style={{ maxWidth: 720, width: "100%" }}>{heroMeta}</View> : null}
         </View>
       </ImageBackground>
     );
