@@ -397,18 +397,22 @@ function looseEndCards(state: PerformanceState, sessions: readonly PerformanceSt
           trainingPlanAdjustments: state.training.adjustmentHistory
         }).status === "unresolved_past"
     )
-    .map((session) => ({
-      allowedActions: ["Did it", "Skipped", "Move to today", "Leave unknown"] as const,
-      duration: `${session.durationMinutes} min`,
-      family: session.family,
-      generatedSessionId: session.id,
-      intensity: session.intensity,
-      originalDate: session.date,
-      prompt: "Did this happen?",
-      sessionTypeLabel: session.sessionTypeLabel ? plainTrainingCopy(session.sessionTypeLabel) : plainGeneratedSessionFamilyLabel(session.family),
-      status: "unresolved_past",
-      title: plainWorkoutTitle(session.title, session.family)
-    }));
+    .map((session) => {
+      const detailCard = detailedSessionCard(state, session);
+      return {
+        allowedActions: ["Did it", "Missed it", "Do it today", "Not sure"] as const,
+        detail: detailCard.detail,
+        duration: `${session.durationMinutes} min`,
+        family: session.family,
+        generatedSessionId: session.id,
+        intensity: session.intensity,
+        originalDate: session.originalPlannedDate ?? session.date,
+        prompt: "What happened?",
+        sessionTypeLabel: session.sessionTypeLabel ? plainTrainingCopy(session.sessionTypeLabel) : plainGeneratedSessionFamilyLabel(session.family),
+        status: "unresolved_past",
+        title: plainWorkoutTitle(session.title, session.family)
+      };
+    });
 }
 
 function generatedSessionResolutionDebug(state: PerformanceState, sessions: readonly PerformanceState["training"]["generatedSessions"][number][]): readonly string[] {

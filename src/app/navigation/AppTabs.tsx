@@ -255,7 +255,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
-            tabBarAccessibilityLabel: route.name,
+            tabBarAccessibilityLabel: `${route.name} tab`,
             tabBarActiveTintColor: tabAccents[route.name],
             tabBarBackground: () => (
               <View

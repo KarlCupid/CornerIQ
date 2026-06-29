@@ -65,7 +65,7 @@ Generated workout resolution is canonical per user and `generatedSessionId`:
 - Generated-session completion writes are staged through `workout_completion_operations`. The completion row, exercise-result rows, and journey event each use deterministic idempotency keys so a retry after a partial write resumes missing stages instead of returning early.
 - Missing completion stays unresolved. It is not treated as skipped, completed, safe adherence, or progression evidence.
 
-The Train view model exposes `workoutLooseEnds` for unresolved past generated sessions. The compact card asks: "This workout was planned for {date}. Did it happen?" Actions resolve the session as completed/skipped, request an explicit move adjustment, or leave it unknown. Leaving it unknown creates no completion row.
+The Train view model exposes `workoutLooseEnds` for unresolved past generated sessions. The compact card asks: "This workout was planned for {date}. What happened?" Actions resolve the session as completed (`Did it`) or skipped/missed (`Missed it`) on the original planned date, request an explicit move adjustment (`Do it today`), or leave it unknown (`Not sure`). Leaving it unknown creates no completion row.
 
 Explicit moves keep the same `generatedSessionId` and `prescriptionSlotId`, preserve `originalPlannedDate`, set `currentScheduledDate`, and mark the generated session `moved`. Moves from stale clients are rejected when the source row is superseded/canceled or is no longer scheduled on the requested source date. The adjustment service also re-reads persisted generated sessions for the active week when available, so a client with stale state cannot persist a move after the server already sees that session on another date.
 

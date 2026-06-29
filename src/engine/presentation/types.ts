@@ -325,7 +325,8 @@ export interface TrainViewModel {
     selectedTemplateDefaultDuration?: number | null | undefined;
   }[];
   workoutLooseEnds: readonly {
-    allowedActions: readonly ["Did it", "Skipped", "Move to today", "Leave unknown"];
+    allowedActions: readonly ["Did it", "Missed it", "Do it today", "Not sure"];
+    detail?: DetailedTrainingSession | null | undefined;
     duration: string;
     family: string;
     generatedSessionId: string;

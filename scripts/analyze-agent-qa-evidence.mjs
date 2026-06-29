@@ -34,7 +34,7 @@ const expectedScreenshots = [
   "18-train-manual-log-completion.png",
   "19-train-week-context.png",
   "20-plan-screen.png",
-  "21-plan-details-screen.png",
+  "21-plan-tools-schedule-screen.png",
   "24-profile-data-controls.png",
   "24-profile-data-delete-submit.png",
   "25-profile-settings-signout.png",
@@ -60,7 +60,7 @@ const expectedScenarios = [
 const comprehensionNeedles = [
   { key: "Today overview", pattern: /today(?:'s)? check-in|training today|fuel today|quick logs/i },
   { key: "Fuel dashboard", pattern: /fuel dashboard|today's fuel plan|macro summary|food targets|food details/i },
-  { key: "Training overview", pattern: /training overview|today's training plan|workout flow/i },
+  { key: "Training overview", pattern: /training overview|today's training plan|workout flow|session brief|session plan/i },
   { key: "Plan action", pattern: /plan action|plan changes|adjust plan|change goal or schedule/i },
   { key: "Profile action", pattern: /profile action|app inputs|quick updates|update setup/i },
   { key: "support outside app", pattern: /qualified support outside the app|contact support outside the app|(?:medical|nutrition) support outside the app/i },

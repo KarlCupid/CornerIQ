@@ -168,6 +168,7 @@ export const handledTodaySecondaryActions: Record<TodaySecondaryAction, true> = 
 
 function TodayQuickCheckSection({
   busy,
+  compact = false,
   framed = true,
   focus,
   includeOtherLogs = true,
@@ -177,6 +178,7 @@ function TodayQuickCheckSection({
   recentLogs
 }: {
   busy: boolean;
+  compact?: boolean | undefined;
   framed?: boolean | undefined;
   focus: TodayQuickCheckFocus;
   includeOtherLogs?: boolean | undefined;
@@ -192,9 +194,9 @@ function TodayQuickCheckSection({
         ? "Weight first"
         : "Water first";
   const logCards = {
-    body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} forceOpen={focus === "body_mass"} framed={false} preferredUnits={preferredUnits} status={recentLogs.bodyMassToday} />,
-    hydration: <HydrationLogCard actions={quickLogs} busy={busy} framed={false} status={recentLogs.hydrationToday} />,
-    readiness: <ReadinessCheckInCard actions={quickLogs} busy={busy} forceOpen={focus === "readiness"} framed={false} status={recentLogs.readinessToday} />
+    body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} compact={compact} forceOpen={focus === "body_mass"} framed={false} preferredUnits={preferredUnits} status={recentLogs.bodyMassToday} />,
+    hydration: <HydrationLogCard actions={quickLogs} busy={busy} compact={compact} framed={false} status={recentLogs.hydrationToday} />,
+    readiness: <ReadinessCheckInCard actions={quickLogs} busy={busy} compact={compact} forceOpen={focus === "readiness"} framed={false} status={recentLogs.readinessToday} />
   } satisfies Record<TodayQuickCheckFocus, React.ReactNode>;
   const bodyMassNeeded = recentLogs.bodyMassToday.status === "needed_for_cut" || recentLogs.bodyMassToday.status === "unknown_cut_context";
   const orderedFocuses: readonly TodayQuickCheckFocus[] =
@@ -275,9 +277,9 @@ function TodayQuickCheckModal({
 
   const compact = width < 520;
   const modalPaddingBottom = Math.max(insets.bottom + spacing.md, spacing.lg);
-  const modalPaddingTop = Math.max(insets.top + spacing.md, spacing.lg);
+  const modalPaddingTop = compact ? Math.max(insets.top + spacing.sm, spacing.md) : Math.max(insets.top + spacing.md, spacing.lg);
   const availablePanelHeight = Math.max(320, height - modalPaddingTop - modalPaddingBottom);
-  const maxPanelHeight = Math.min(availablePanelHeight, 820);
+  const maxPanelHeight = compact ? Math.max(520, Math.min(availablePanelHeight, Math.round(height * 0.78))) : Math.min(availablePanelHeight, 820);
   const includeOtherLogs = !compact && (quickCheck.placement === "top" || quickCheck.placement === "manual");
   const modalShadowStyle: ViewStyle =
     Platform.OS === "web"
@@ -303,9 +305,9 @@ function TodayQuickCheckModal({
         style={{
           alignItems: "center",
           flex: 1,
-          justifyContent: "flex-start",
+          justifyContent: compact ? "flex-end" : "flex-start",
           paddingBottom: modalPaddingBottom,
-          paddingHorizontal: spacing.lg,
+          paddingHorizontal: compact ? spacing.md : spacing.lg,
           paddingTop: modalPaddingTop
         }}
       >
@@ -334,20 +336,30 @@ function TodayQuickCheckModal({
               maxHeight: maxPanelHeight,
               maxWidth: 640,
               overflow: "hidden",
-              padding: compact ? spacing.sm : spacing.lg,
+              padding: compact ? spacing.md : spacing.lg,
               width: "100%"
             },
             modalShadowStyle
           ]}
           testID="today-quick-check-modal"
         >
+          {compact ? (
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={{ alignItems: "center", paddingBottom: spacing.sm }}
+            >
+              <View style={{ backgroundColor: "rgba(255, 255, 255, 0.34)", borderRadius: radii.pill, height: 4, width: 42 }} />
+            </View>
+          ) : null}
           <ScrollView
-            contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.sm }}
+            contentContainerStyle={{ gap: spacing.md, paddingBottom: compact ? spacing.md : spacing.sm }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             <TodayQuickCheckSection
               busy={busy}
+              compact={compact}
               focus={quickCheck.focus}
               framed={false}
               includeOtherLogs={includeOtherLogs}

@@ -627,7 +627,7 @@ function buildPrivacyMatrix(state: PerformanceState): readonly ProfileSignalView
     },
     {
       label: "Review boundary",
-      value: "No self-clear",
+      value: "Review required",
       detail: "Profile can show safety history, but athlete controls cannot resolve safety stops.",
       ratio: state.safety.hardStops.length > 0 ? 0.22 : 0.72,
       tone: state.safety.hardStops.length > 0 ? "red" : "green"

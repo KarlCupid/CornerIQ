@@ -71,8 +71,17 @@ function firstSentences(value: string | undefined, fallback: string, limit: numb
   return (matches && matches.length > 0 ? matches.slice(0, limit).join(" ") : cleaned).replace(/\s+/g, " ").trim();
 }
 
+const TRAILING_CUE_STOP_WORDS = new Set(["a", "an", "and", "as", "at", "before", "for", "from", "in", "into", "of", "on", "or", "the", "to", "with", "without"]);
+
 function conciseCue(value: string | undefined, fallback: string): string {
-  const words = clean(value, fallback).replace(/[.!?]+$/g, "").split(/\s+/).filter(Boolean).slice(0, 10);
+  const words = clean(value, fallback).replace(/[.!?]+$/g, "").split(/\s+/).filter(Boolean).slice(0, 12);
+  while (words.length > 4) {
+    const tail = words[words.length - 1]?.toLowerCase().replace(/[^a-z]/g, "");
+    if (!tail || !TRAILING_CUE_STOP_WORDS.has(tail)) {
+      break;
+    }
+    words.pop();
+  }
   return sentence(words.join(" "));
 }
 

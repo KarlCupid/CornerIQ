@@ -1065,7 +1065,7 @@ function FuelLogActionSection({
         <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={fuelTextStyles.sectionTitle}>{primaryLog === "water" ? "Add water" : "Log food"}</Text>
-            <Text style={fuelTextStyles.subtle}>Log what you know, then return to overview.</Text>
+            <Text style={fuelTextStyles.subtle}>Log only what you know. Missing food or water stays unknown.</Text>
           </View>
           <Pressable
             accessibilityLabel="Back to Fuel overview"

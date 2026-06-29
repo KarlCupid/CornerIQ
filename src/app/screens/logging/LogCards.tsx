@@ -21,6 +21,7 @@ interface LogCardProps {
 }
 
 interface QuickLogCardProps extends LogCardProps {
+  compact?: boolean | undefined;
   forceOpen?: boolean | undefined;
   actions: QuickLogActions;
   framed?: boolean | undefined;
@@ -47,9 +48,16 @@ const fuelLogSurface = {
   textPrimary: "#F4EFE8"
 } as const;
 
-function ToggleButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
+function ToggleButton({ active, busy, compact = false, label, onPress }: { active: boolean; busy: boolean; compact?: boolean | undefined; label: string; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy, selected: active }} disabled={busy} onPress={onPress} style={[screenStyles.chip, active ? screenStyles.chipSelected : null]}>
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy, selected: active }}
+      disabled={busy}
+      onPress={onPress}
+      style={[screenStyles.chip, compact ? { minHeight: 36, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs } : null, active ? screenStyles.chipSelected : null]}
+    >
       <Text style={[screenStyles.chipText, active ? screenStyles.chipTextSelected : null]}>{label}</Text>
     </Pressable>
   );
@@ -128,12 +136,14 @@ function InputLabel({ children }: { children: React.ReactNode }) {
 }
 
 function CompactField({
+  compact = false,
   keyboardType,
   label,
   onChangeText,
   placeholder,
   value
 }: {
+  compact?: boolean | undefined;
   keyboardType: "decimal-pad" | "number-pad";
   label: string;
   onChangeText: (value: string) => void;
@@ -141,9 +151,17 @@ function CompactField({
   value: string;
 }) {
   return (
-    <View style={{ flexBasis: 148, flexGrow: 1, gap: spacing.xs, minWidth: 132 }}>
+    <View style={{ flexBasis: compact ? 132 : 148, flexGrow: 1, gap: spacing.xs, minWidth: compact ? 118 : 132 }}>
       <InputLabel>{label}</InputLabel>
-      <TextInput keyboardType={keyboardType} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={colors.wrap} style={screenStyles.input} value={value} />
+      <TextInput
+        accessibilityLabel={label}
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.wrap}
+        style={[screenStyles.input, compact ? { fontSize: 15, minHeight: 44, paddingVertical: spacing.xs } : null]}
+        value={value}
+      />
     </View>
   );
 }
@@ -159,12 +177,14 @@ function ReadinessScaleHelp() {
 
 function ScaleSegmentedControl({
   busy,
+  compact = false,
   label,
   onChange,
   style,
   value
 }: {
   busy: boolean;
+  compact?: boolean | undefined;
   label: string;
   onChange: (value: ScaleValue) => void;
   style?: ViewStyle | undefined;
@@ -184,7 +204,7 @@ function ScaleSegmentedControl({
               disabled={busy}
               key={`scale-option:${option}`}
               onPress={() => onChange(option)}
-              style={[screenStyles.chip, { borderRadius: 16, minHeight: 36, minWidth: 42, paddingHorizontal: spacing.sm }, selected ? screenStyles.chipSelected : null]}
+              style={[screenStyles.chip, { borderRadius: 16, minHeight: compact ? 34 : 36, minWidth: compact ? 38 : 42, paddingHorizontal: spacing.sm }, selected ? screenStyles.chipSelected : null]}
             >
               <Text style={[screenStyles.chipText, selected ? screenStyles.chipTextSelected : null]}>{option}</Text>
             </Pressable>
@@ -253,7 +273,7 @@ function foodEnergyPreview(
   return { message: validation.athleteFacingMessage, valid: validation.valid };
 }
 
-export function BodyMassLogCard({ actions, busy, forceOpen, framed, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined }) {
+export function BodyMassLogCard({ actions, busy, compact = false, forceOpen, framed, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined }) {
   const [bodyMassValue, setBodyMassValue] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body weight log failed.");
   const [success, setSuccess] = useState<string | null>(null);
@@ -262,11 +282,10 @@ export function BodyMassLogCard({ actions, busy, forceOpen, framed, preferredUni
   const bodyMassExample = usesImperial ? "146" : "66.4";
   return (
     <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title="Body weight">
-        <QuickLogHelp />
+        {compact ? null : <QuickLogHelp />}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
-        <InputLabel>Body weight ({unitLabel})</InputLabel>
-        <TextInput keyboardType="decimal-pad" onChangeText={setBodyMassValue} placeholder={unitLabel} placeholderTextColor={colors.wrap} style={screenStyles.input} value={bodyMassValue} />
+        <CompactField compact={compact} keyboardType="decimal-pad" label={`Body weight (${unitLabel})`} onChangeText={setBodyMassValue} placeholder={unitLabel} value={bodyMassValue} />
         <Pressable
           accessibilityLabel={busy ? "Saving body weight log" : status?.loggedToday ? "Update body weight" : "Log body weight"}
           accessibilityRole="button"
@@ -289,7 +308,7 @@ export function BodyMassLogCard({ actions, busy, forceOpen, framed, preferredUni
   );
 }
 
-export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
+export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen, framed, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
   const [sleepHours, setSleepHours] = useState("");
   const [sleepQuality, setSleepQuality] = useState("");
   const [energy, setEnergy] = useState("");
@@ -302,8 +321,8 @@ export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status 
   const [fainting, setFainting] = useState(false);
   const { message: error, runWithMessage } = useFormMessage("Readiness log failed.");
   const [success, setSuccess] = useState<string | null>(null);
-  const compactLayout = framed === false;
-  const requiredScaleStyle: ViewStyle = { flexBasis: 152, flexGrow: 1, minWidth: 146 };
+  const compactLayout = compact || framed === false;
+  const requiredScaleStyle: ViewStyle = { flexBasis: compactLayout ? 118 : 152, flexGrow: 1, minWidth: compactLayout ? 106 : 146 };
 
   const clear = () => {
     setSleepHours("");
@@ -325,19 +344,19 @@ export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status 
         {compactLayout ? null : <QuickLogHelp />}
         {compactLayout ? null : <ReadinessScaleHelp />}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <CompactField keyboardType="decimal-pad" label="Sleep hours" onChangeText={setSleepHours} placeholder="Sleep hours" value={sleepHours} />
-          <ScaleSegmentedControl busy={busy} label="Energy (1-5)" onChange={setEnergy} style={requiredScaleStyle} value={energy} />
-          <ScaleSegmentedControl busy={busy} label="Soreness (1-5)" onChange={setSoreness} style={requiredScaleStyle} value={soreness} />
-          <ScaleSegmentedControl busy={busy} label="Sleep quality (1-5)" onChange={setSleepQuality} style={requiredScaleStyle} value={sleepQuality} />
-          <ScaleSegmentedControl busy={busy} label="Stress (1-5)" onChange={setStress} style={requiredScaleStyle} value={stress} />
-          <ScaleSegmentedControl busy={busy} label="Mood (1-5)" onChange={setMood} style={requiredScaleStyle} value={mood} />
+          <CompactField compact={compactLayout} keyboardType="decimal-pad" label="Sleep hours" onChangeText={setSleepHours} placeholder="Sleep hours" value={sleepHours} />
+          <ScaleSegmentedControl busy={busy} compact={compactLayout} label="Energy (1-5)" onChange={setEnergy} style={requiredScaleStyle} value={energy} />
+          <ScaleSegmentedControl busy={busy} compact={compactLayout} label="Soreness (1-5)" onChange={setSoreness} style={requiredScaleStyle} value={soreness} />
+          <ScaleSegmentedControl busy={busy} compact={compactLayout} label="Sleep quality (1-5)" onChange={setSleepQuality} style={requiredScaleStyle} value={sleepQuality} />
+          <ScaleSegmentedControl busy={busy} compact={compactLayout} label="Stress (1-5)" onChange={setStress} style={requiredScaleStyle} value={stress} />
+          <ScaleSegmentedControl busy={busy} compact={compactLayout} label="Mood (1-5)" onChange={setMood} style={requiredScaleStyle} value={mood} />
         </View>
         <InputLabel>Pain notes (optional)</InputLabel>
-        <TextInput onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={painNotes} />
+        <TextInput accessibilityLabel="Pain notes" onChangeText={setPainNotes} placeholder="Pain notes optional" placeholderTextColor={colors.wrap} style={[screenStyles.input, compactLayout ? { fontSize: 15, minHeight: 44, paddingVertical: spacing.xs } : null]} value={painNotes} />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <ToggleButton active={illness} busy={busy} label="Illness" onPress={() => setIllness((value) => !value)} />
-          <ToggleButton active={dizziness} busy={busy} label="Dizziness" onPress={() => setDizziness((value) => !value)} />
-          <ToggleButton active={fainting} busy={busy} label="Fainting" onPress={() => setFainting((value) => !value)} />
+          <ToggleButton active={illness} busy={busy} compact={compactLayout} label="Illness" onPress={() => setIllness((value) => !value)} />
+          <ToggleButton active={dizziness} busy={busy} compact={compactLayout} label="Dizziness" onPress={() => setDizziness((value) => !value)} />
+          <ToggleButton active={fainting} busy={busy} compact={compactLayout} label="Fainting" onPress={() => setFainting((value) => !value)} />
         </View>
         <Pressable
           accessibilityLabel={busy ? "Saving readiness log" : status?.loggedToday ? "Update readiness" : "Log readiness"}
@@ -374,7 +393,7 @@ export function ReadinessCheckInCard({ actions, busy, forceOpen, framed, status 
   );
 }
 
-export function HydrationLogCard({ actions, busy, framed, status, surface = "default" }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
+export function HydrationLogCard({ actions, busy, compact = false, framed, status, surface = "default" }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
   const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
@@ -391,8 +410,8 @@ export function HydrationLogCard({ actions, busy, framed, status, surface = "def
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <CompactField keyboardType="decimal-pad" label="Water (liters)" onChangeText={setLiters} placeholder="Water liters" value={liters} />
-          {moreFieldsOpen ? <CompactField keyboardType="number-pad" label="Sodium (mg, optional)" onChangeText={setSodiumMg} placeholder="Sodium mg optional" value={sodiumMg} /> : null}
+          <CompactField compact={compact} keyboardType="decimal-pad" label="Water (liters)" onChangeText={setLiters} placeholder="Water liters" value={liters} />
+          {moreFieldsOpen ? <CompactField compact={compact} keyboardType="number-pad" label="Sodium (mg, optional)" onChangeText={setSodiumMg} placeholder="Sodium mg optional" value={sodiumMg} /> : null}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <Pressable

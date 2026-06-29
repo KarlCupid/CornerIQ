@@ -40,7 +40,7 @@ export function PlanAdjustmentControls({ actions, busy, date }: PlanAdjustmentCo
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={screenStyles.callout}>Plan change</Text>
-      <Text style={screenStyles.subtle}>These buttons ask CornerIQ to update the plan while keeping boxing and safety first.</Text>
+      <Text style={screenStyles.subtle}>Request a plan update. CornerIQ keeps boxing sessions and safety rules first.</Text>
       {!actions ? <Text style={screenStyles.subtle}>Plan changes are available after setup finishes.</Text> : null}
       <View style={{ gap: spacing.sm }}>
         <Pressable accessibilityLabel="Keep for boxing" accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} style={screenStyles.quietButton} onPress={() => void runAdjustment(() => actions!.protectDay(date))}>

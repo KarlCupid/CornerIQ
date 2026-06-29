@@ -71,6 +71,13 @@ function nearSparring(anchors: readonly ProtectedWorkout[], date: ISODateString)
   return anchors.some((anchor) => anchor.type === "sparring" && Math.abs(daysBetween(anchor.date, date)) <= 1);
 }
 
+function fixedContextLabel(anchor: ProtectedWorkout): string {
+  if (anchor.type === "sparring") {
+    return "hard fixed boxing";
+  }
+  return anchor.type.replaceAll("_", " ");
+}
+
 function dayAfterHardBoxing(anchors: readonly ProtectedWorkout[], date: ISODateString): boolean {
   return anchors.some((anchor) => hardAnchor(anchor) && daysBetween(anchor.date, date) === 1);
 }
@@ -286,8 +293,8 @@ export function allocateSessionIntents(input: {
       `${placedRole.role.replaceAll("_", " ")} placed on ${selected}.`,
       ...(placedRole.role !== role.role ? [`Hard fixed boxing on ${selected} changed ${role.role.replaceAll("_", " ")} into easy recovery support.`] : []),
       ...(dayAfterHardBoxing(input.athlete.fixedBoxingSchedule, selected) ? ["This date follows hard fixed boxing, so recovery-biased work receives priority."] : []),
-      ...(nearSparring(input.athlete.fixedBoxingSchedule, selected) && placedRole.primaryAdaptation === "strength" ? ["Strength is kept away from sparring when another support day is available."] : []),
-      ...(fixedBoxingContext.length > 0 ? [`Fixed context on this date: ${fixedBoxingContext.map((anchor) => anchor.type.replaceAll("_", " ")).join(", ")}.`] : [])
+      ...(nearSparring(input.athlete.fixedBoxingSchedule, selected) && placedRole.primaryAdaptation === "strength" ? ["Strength is kept away from hard fixed boxing when another support day is available."] : []),
+      ...(fixedBoxingContext.length > 0 ? [`Fixed context on this date: ${[...new Set(fixedBoxingContext.map(fixedContextLabel))].join(", ")}.`] : [])
     ];
     intents.push({
       id: `intent:${input.planIntent.activeRevisionId}:${selected}:${placedRole.role}`,

@@ -3,7 +3,7 @@ import type { DetailedTrainingSession, ExercisePrescription, GuidedWorkoutStep }
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { resolveWorkoutPlayerMode } from "../../engine/presentation/workoutPlayerMode";
 import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../engine/presentation/workoutPlayerTimeline";
-import { buildGuidedStepsForExercise } from "../../engine/training/guidedExerciseCatalog";
+import { buildGuidedStepsForExercise, movementTeachingForExercise } from "../../engine/training/guidedExerciseCatalog";
 import { fixtureAsOfDate, pro_4_round_build_strength } from "../fixtures/engineFixtures";
 
 function detailedFixture(): DetailedTrainingSession {
@@ -301,6 +301,22 @@ describe("workout player timeline", () => {
       "Stance bounce",
       "Step and guard reset"
     ]);
+  });
+
+  it("keeps generated live cues from ending on filler words", () => {
+    const base = movementPrepExercise();
+    const { guidedProfile: _guidedProfile, ...withoutGuidance } = base;
+    const generatedWarmup: ExercisePrescription = {
+      ...withoutGuidance,
+      coachingNotes: ["Warm up slowly and check how you feel before the main work."],
+      exerciseId: "generated_warm_up_cue",
+      name: "Generated warm-up cue"
+    };
+
+    const teaching = movementTeachingForExercise(generatedWarmup);
+
+    expect(teaching.liveCue).toBe("Warm up slowly and check how you feel before the main work.");
+    expect(teaching.liveCue).not.toContain("before the.");
   });
 
   it("formats jab-focused shadowboxing as colored timed blocks with micro-cues", () => {

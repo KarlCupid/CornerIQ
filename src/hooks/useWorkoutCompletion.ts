@@ -6,15 +6,23 @@ import { completedSessionTypeForFamily, completeWorkoutService } from "../servic
 import { ENGINE_VERSION } from "../engine/core/performanceKernel";
 
 export interface WorkoutCompletionFormDraft {
+  performedDate?: ISODateString | undefined;
+  plannedDate?: ISODateString | undefined;
   sessionRpe?: number | undefined;
   painNotes: readonly string[];
   notes: string;
   exerciseResults: readonly ExerciseResultDraft[];
 }
 
+export interface WorkoutSkipFormDraft {
+  performedDate?: ISODateString | undefined;
+  plannedDate?: ISODateString | undefined;
+  notes?: string | undefined;
+}
+
 export interface WorkoutCompletionActions {
   complete: (session: DetailedTrainingSession, draft: WorkoutCompletionFormDraft) => Promise<void>;
-  skip: (session: DetailedTrainingSession, notes?: string) => Promise<void>;
+  skip: (session: DetailedTrainingSession, notesOrDraft?: string | WorkoutSkipFormDraft) => Promise<void>;
 }
 
 export interface WorkoutCompletionHook {
@@ -68,6 +76,8 @@ export function useWorkoutCompletion(input: {
               detailedSession: session,
               completion: {
                 generatedSessionId: session.generatedSessionId,
+                plannedDate: draft.plannedDate,
+                performedDate: draft.performedDate,
                 completedSessionType: completedSessionTypeForFamily(session.family),
                 status: "completed",
                 sessionRpe: draft.sessionRpe,
@@ -80,8 +90,9 @@ export function useWorkoutCompletion(input: {
             }),
           "Workout completed."
         ),
-      skip: (session, notes = "") =>
-        run(
+      skip: (session, notesOrDraft = "") => {
+        const draft = typeof notesOrDraft === "string" ? { notes: notesOrDraft } : notesOrDraft;
+        return run(
           () =>
             completeWorkoutService({
               userId: input.userId,
@@ -89,17 +100,20 @@ export function useWorkoutCompletion(input: {
               detailedSession: session,
               completion: {
                 generatedSessionId: session.generatedSessionId,
+                plannedDate: draft.plannedDate,
+                performedDate: draft.performedDate,
                 completedSessionType: completedSessionTypeForFamily(session.family),
                 status: "skipped",
                 painNotes: [],
-                notes,
+                notes: draft.notes ?? "",
                 exerciseResults: []
               },
               repositories: input.repositories,
               engineVersion: ENGINE_VERSION
             }),
           "Workout skipped."
-        )
+        );
+      }
     }),
     [input, run]
   );

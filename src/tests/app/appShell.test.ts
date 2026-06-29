@@ -1121,7 +1121,7 @@ const profileViewModel: ProfileViewModel = {
     { label: "Device lane", value: "Manual-first", detail: "Manual input remains complete.", ratio: 0.72, tone: "green" },
     { label: "Export control", value: "Preview first", detail: "App data export is previewed before destructive controls are shown.", ratio: 0.76, tone: "blue" },
     { label: "Support path", value: "Outside app", detail: "Account and urgent support stay outside this client.", ratio: 0.68, tone: "gold" },
-    { label: "Review boundary", value: "No self-clear", detail: "Profile can show safety history, but athlete controls cannot resolve safety stops.", ratio: 0.72, tone: "green" }
+    { label: "Review boundary", value: "Review required", detail: "Profile can show safety history, but athlete controls cannot resolve safety stops.", ratio: 0.72, tone: "green" }
   ],
   safetyLedger: [
     { label: "Now", title: "No active safety stops", subtitle: "No active safety stops.", tone: "green" },
@@ -2254,9 +2254,9 @@ describe("minimal app screens", () => {
     expect(quickCheckOutput).toContain("today-quick-check-modal");
     expect(quickCheckOutput).toContain("today-quick-check-section");
     expect(quickCheckOutput).toContain("Quick check");
-    expect(modalContainerStyle(renderer).justifyContent).toBe("flex-start");
-    expect(quickCheckPanelStyle(renderer).maxHeight).toBeGreaterThanOrEqual(760);
-    expect(quickCheckPanelStyle(renderer).maxHeight).toBeLessThanOrEqual(820);
+    expect(modalContainerStyle(renderer).justifyContent).toBe("flex-end");
+    expect(quickCheckPanelStyle(renderer).maxHeight).toBeGreaterThanOrEqual(600);
+    expect(quickCheckPanelStyle(renderer).maxHeight).toBeLessThanOrEqual(700);
     expect(quickCheckOutput.indexOf("today-check-in-card")).toBeLessThan(quickCheckOutput.indexOf("today-quick-check-modal"));
 
     expect(markFoodNotTrackingToday).not.toHaveBeenCalled();
@@ -3593,13 +3593,14 @@ describe("minimal app screens", () => {
       throw new Error("missing detailed session fixture");
     }
     const looseEnd: TrainViewModel["workoutLooseEnds"][number] = {
-      allowedActions: ["Did it", "Skipped", "Move to today", "Leave unknown"],
+      allowedActions: ["Did it", "Missed it", "Do it today", "Not sure"],
+      detail: todayDetail.detail,
       duration: todayDetail.duration,
       family: todayDetail.detail.family,
       generatedSessionId: todayDetail.generatedSessionId,
       intensity: todayDetail.intensity,
       originalDate: "2026-05-18",
-      prompt: "Did this happen?",
+      prompt: "What happened?",
       sessionTypeLabel: "Support workout",
       status: "unresolved_past",
       title: todayDetail.title
@@ -3645,20 +3646,32 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Did it"));
     });
     expect(complete).toHaveBeenCalledWith(todayDetail.detail, {
+      plannedDate: looseEnd.originalDate,
+      performedDate: looseEnd.originalDate,
       painNotes: [],
       notes: "Completed from loose-end resolution.",
       exerciseResults: []
     });
-    expect(JSON.stringify(renderer.toJSON())).toContain("Marked completed.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Marked done for the planned day.");
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Move to today"));
+      await press(pressableWithText(renderer, "Missed it"));
+    });
+    expect(skip).toHaveBeenCalledWith(todayDetail.detail, {
+      plannedDate: looseEnd.originalDate,
+      performedDate: looseEnd.originalDate,
+      notes: "Missed from loose-end resolution."
+    });
+    expect(JSON.stringify(renderer.toJSON())).toContain("Marked missed for the planned day.");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Do it today"));
     });
     expect(moveGeneratedSession).toHaveBeenCalledWith(looseEnd.generatedSessionId, looseEnd.originalDate, fixtureAsOfDate);
     expect(JSON.stringify(renderer.toJSON())).toContain("Move requested. Today's plan will refresh with the latest engine decision.");
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Leave unknown"));
+      await press(pressableWithText(renderer, "Not sure"));
     });
     const output = JSON.stringify(renderer.toJSON());
     expect(output).not.toContain("Still open");

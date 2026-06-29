@@ -190,6 +190,7 @@ function doneButtonLabel(step: ReturnType<typeof buildWorkoutPlayerTimeline>["st
 
 function PlayerButton({
   accent = "blue",
+  accessibilityLabel,
   disabled = false,
   icon,
   label,
@@ -199,6 +200,7 @@ function PlayerButton({
   visualTheme = "player"
 }: {
   accent?: LuminousAccent | undefined;
+  accessibilityLabel?: string | undefined;
   disabled?: boolean | undefined;
   icon?: keyof typeof Ionicons.glyphMap | undefined;
   label: string;
@@ -262,6 +264,7 @@ function PlayerButton({
         : colors.canvas;
   return (
     <Pressable
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -688,6 +691,7 @@ function LiveInfoCard({
   const color = accentColor[accent];
   return (
     <View
+      accessibilityLabel={`${label}: ${body}`}
       style={{
         backgroundColor: tone === "hot" ? `${color}1F` : "rgba(255, 255, 255, 0.046)",
         borderColor: tone === "neutral" ? "rgba(255, 255, 255, 0.16)" : `${color}7A`,
@@ -740,6 +744,7 @@ function LiveDockButton({
 }) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -2532,7 +2537,7 @@ export function WorkoutPlayer({
           <MovementUpNextList currentIndex={movementIndex} steps={movementSteps} />
           {teaching.shouldFeel ? <Text style={screenStyles.subtle}>Should feel: {plainTrainingCopy(teaching.shouldFeel)}</Text> : null}
           {teaching.shouldNotFeel ? <Text style={screenStyles.subtle}>Should not feel: {plainTrainingCopy(teaching.shouldNotFeel)}</Text> : null}
-          <Text style={{ color: colors.amberCaution, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>{plainTrainingCopy(currentTimelineStep.safetyStop ?? teaching.safetyStop ?? liveSafetyLine)}</Text>
+          <Text style={{ color: colors.amberCaution, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>Stop rule: {plainTrainingCopy(currentTimelineStep.safetyStop ?? teaching.safetyStop ?? liveSafetyLine)}</Text>
           <View style={{ gap: spacing.sm }}>
             <PlayerButton
               accent={blockAccent}

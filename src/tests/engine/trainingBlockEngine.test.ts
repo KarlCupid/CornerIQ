@@ -482,6 +482,7 @@ describe("training block and microcycle engine", () => {
 
     expect(sparring.training.dayPlans[0]?.protectedAnchors.some((anchor) => anchor.type === "sparring")).toBe(true);
     expect(sparring.training.todaySessions.every((session) => session.intensity !== "hard")).toBe(true);
+    expect(generatedSessionSafetyText(sparring.training.generatedSessions)).not.toMatch(/sparring|contact|sauna|sweat\s*suit|sweatsuit|weight\s*cut|cut\s*weight/);
     expect(underFueling.training.blockRecommendation.warnings.join(" ")).toContain("Under-fueling");
     expect(underFueling.training.generatedSessions.length).toBeLessThan(underFueling.training.supportGenerationAudit.targetGeneratedSupportCount);
     expect(underFueling.training.generatedSessions).toHaveLength(1);
@@ -635,7 +636,7 @@ describe("training block and microcycle engine", () => {
       expect.objectContaining({
         generatedSessionId: mondaySession!.id,
         originalDate: "2026-05-18",
-        prompt: "Did this happen?",
+        prompt: "What happened?",
         status: "unresolved_past"
       })
     ]);

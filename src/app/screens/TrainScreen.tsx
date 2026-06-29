@@ -557,7 +557,7 @@ function WorkoutLooseEndsCard({
   if (!looseEnd) {
     return null;
   }
-  const detail = detailsById.get(looseEnd.generatedSessionId) ?? null;
+  const detail = looseEnd.detail ?? detailsById.get(looseEnd.generatedSessionId) ?? null;
   const canResolve = Boolean(detail && completionActions);
   const canMove = Boolean(adjustmentActions && asOfDate);
   const actionBusy = busy || pendingAction !== null;
@@ -585,7 +585,7 @@ function WorkoutLooseEndsCard({
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.xs }}>
           <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{looseEnd.title}</Text>
-          <Text style={trainTextStyles.body}>This workout was planned for {looseEnd.originalDate}. Did it happen?</Text>
+          <Text style={trainTextStyles.body}>This workout was planned for {looseEnd.originalDate}. What happened?</Text>
           <Text style={trainTextStyles.subtle}>{looseEnd.sessionTypeLabel} - {looseEnd.duration} - {sentenceCase(plainIntensityLabel(looseEnd.intensity))}</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
@@ -597,11 +597,13 @@ function WorkoutLooseEndsCard({
                   throw new Error("Workout details are unavailable, so this cannot be marked complete here.");
                 }
                 await completionActions.complete(detail, {
+                  plannedDate: looseEnd.originalDate,
+                  performedDate: looseEnd.originalDate,
                   painNotes: [],
                   notes: "Completed from loose-end resolution.",
                   exerciseResults: []
                 });
-                return "Marked completed. The Still open card will refresh after the engine reloads.";
+                return "Marked done for the planned day. The Still open card will refresh after the engine reloads.";
               })}
               tone="green"
             >
@@ -611,15 +613,19 @@ function WorkoutLooseEndsCard({
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
             <TrainQuietButton
               disabled={actionBusy || !canResolve}
-              onPress={() => runAction("skipped", async () => {
+              onPress={() => runAction("missed", async () => {
                 if (!detail || !completionActions || busy) {
-                  throw new Error("Workout details are unavailable, so this cannot be skipped here.");
+                  throw new Error("Workout details are unavailable, so this cannot be marked missed here.");
                 }
-                await completionActions.skip(detail, "Skipped from loose-end resolution.");
-                return "Marked skipped. The Still open card will refresh after the engine reloads.";
+                await completionActions.skip(detail, {
+                  plannedDate: looseEnd.originalDate,
+                  performedDate: looseEnd.originalDate,
+                  notes: "Missed from loose-end resolution."
+                });
+                return "Marked missed for the planned day. The Still open card will refresh after the engine reloads.";
               })}
             >
-              {pendingAction === "skipped" ? "Saving..." : "Skipped"}
+              {pendingAction === "missed" ? "Saving..." : "Missed it"}
             </TrainQuietButton>
           </View>
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
@@ -638,7 +644,7 @@ function WorkoutLooseEndsCard({
                   : "Move requested. Today's plan will refresh with the latest engine decision.";
               })}
             >
-              {pendingAction === "move" ? "Moving..." : "Move to today"}
+              {pendingAction === "move" ? "Moving..." : "Do it today"}
             </TrainQuietButton>
           </View>
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
@@ -653,12 +659,12 @@ function WorkoutLooseEndsCard({
                 onLeaveUnknown(looseEnd.generatedSessionId);
               }}
             >
-              Leave unknown
+              Not sure
             </TrainQuietButton>
           </View>
         </View>
         {feedback ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone(feedback.tone) }]}>{feedback.message}</Text> : null}
-        {!canResolve ? <Text style={trainTextStyles.subtle}>Exercise details are unavailable for quick resolution. Move it or leave it unknown.</Text> : null}
+        {!canResolve ? <Text style={trainTextStyles.subtle}>Exercise details are unavailable for quick resolution. Do it today or leave it unknown.</Text> : null}
         {!canMove ? <Text style={trainTextStyles.subtle}>Move is available after the plan and date are loaded.</Text> : null}
         {looseEnds.length > 1 ? <Text style={trainTextStyles.subtle}>{looseEnds.length - 1} more open workout{looseEnds.length === 2 ? "" : "s"} after this.</Text> : null}
       </View>
