@@ -2150,7 +2150,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Training Today");
     expect(output).toContain("Fuel Today");
     expect(output).toContain("This Week");
-    expect(output).toContain("Manual input remains first-class");
+    expect(output).toContain("today-load-graph-card");
+    expect(output).toContain("Training rhythm");
     expect(output).not.toContain("Quick Logs");
     expect(output).not.toContain("Readiness details");
     expect(output).not.toContain("Training load");
@@ -3343,7 +3344,8 @@ describe("minimal app screens", () => {
     expect(output).toContain("Strength support");
     expect(output).toContain("35");
     expect(output).toContain("Moderate");
-    expect(output).not.toContain("This Week");
+    expect(output).toContain("This Week");
+    expect(output).toContain("train-week-context");
     expect(output).not.toContain("Log Other Training");
     expect(output).not.toContain("Training overview");
     expect(output).not.toContain("Workout preview");
@@ -4332,17 +4334,17 @@ describe("minimal app screens", () => {
         viewModel: planViewModel
       })
     );
-    let warningOutput = JSON.stringify(warningRenderer.toJSON());
-    expect(warningOutput).toContain("Plan details");
+    const warningOutput = JSON.stringify(warningRenderer.toJSON());
+    expect(warningOutput).toContain("Plan tools");
     expect(warningOutput).toContain("Adjust plan");
+    expect(warningOutput).toContain("Edit boxing schedule");
+    expect(warningOutput).toContain("Plan changes");
+    expect(warningOutput).toContain("Plan history");
     expect(warningOutput).toContain("Missing readiness lowers confidence.");
-    await switchSection(warningRenderer, "Plan details");
-    warningOutput = JSON.stringify(warningRenderer.toJSON());
-    expect(warningOutput).toContain("Week Details");
-    expect(warningOutput).toContain("Review Notes");
-    expect(warningOutput).toContain("Missing readiness lowers confidence.");
+    expect(warningOutput).not.toContain("Week Details");
+    expect(warningOutput).not.toContain("Review Notes");
+    expect(warningOutput).not.toContain("Planning Notes");
     expect(warningOutput).not.toContain("Input hash:");
-    expect(warningOutput).toContain("No deeper review notes were produced for this plan.");
     expect(
       JSON.stringify(
         render(
@@ -4374,7 +4376,7 @@ describe("minimal app screens", () => {
         viewModel: state.viewModels.plan
       })
     );
-    let output = JSON.stringify(renderer.toJSON());
+    const output = JSON.stringify(renderer.toJSON());
 
     expect(state.viewModels.plan.dayPlans).toHaveLength(7);
     expect(output).toContain("Adjust plan");
@@ -4397,20 +4399,12 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Planning Notes");
     expect(output).not.toContain("Week at a Glance");
     expect(output).not.toContain("Built Around");
-    expect(output).not.toContain("Edit boxing schedule");
+    expect(output).toContain("Plan tools");
+    expect(output).toContain("Edit boxing schedule");
+    expect(output).toContain("Plan changes");
+    expect(output).toContain("Plan history");
     expect(output.indexOf("Plan Your Path screen header")).toBeLessThan(output.indexOf("plan-hero-card"));
     expect(output.indexOf("plan-hero-card")).toBeLessThan(output.indexOf("plan-roadmap"));
-    await switchSection(renderer, "Plan details");
-    output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Week Details");
-    expect(output).toContain("Review Notes");
-    expect(output).toContain("Week Shape");
-    expect(output).toContain("Plan History");
-    expect(output).toContain("Edit boxing schedule");
-    await switchSection(renderer, "Week Shape");
-    output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Boxing schedule");
-    expect(output).toContain("Strength / conditioning");
     expect(output).not.toContain("Weekly structure");
     expect(output).not.toContain("Weekly load balance");
     expect(output).not.toContain("Energy systems mix");
@@ -4503,17 +4497,19 @@ describe("minimal app screens", () => {
     expect(output).toContain("build strength - progress");
 
     const scheduleRenderer = renderPlan();
-    await switchSection(scheduleRenderer, "Plan details");
     await switchSection(scheduleRenderer, "Edit boxing schedule");
     output = JSON.stringify(scheduleRenderer.toJSON());
     expect(visibleModalCount(scheduleRenderer)).toBe(0);
     expectActiveWorkspaceBeforeOverview(output, "fixed-boxing-schedule-card");
     expect(output).toContain("Add one-off session");
 
-    const detailsRenderer = renderPlan();
-    await switchSection(detailsRenderer, "Plan details");
-    expect(JSON.stringify(detailsRenderer.toJSON())).toContain("plan-detail-rows");
-    expect(JSON.stringify(detailsRenderer.toJSON())).toContain("Planning Notes");
+    const historyRenderer = renderPlan();
+    await switchSection(historyRenderer, "Plan history");
+    output = JSON.stringify(historyRenderer.toJSON());
+    expect(visibleModalCount(historyRenderer)).toBe(0);
+    expectActiveWorkspaceBeforeOverview(output, "plan-block-history-workspace");
+    expect(output).not.toContain("plan-detail-rows");
+    expect(output).not.toContain("Planning Notes");
   });
 
   it("Plan and Train agree on generated support count, dates, and titles", async () => {
@@ -4552,9 +4548,9 @@ describe("minimal app screens", () => {
       throw new Error("missing generation audit");
     }
     expect(primaryPlanOutput).not.toContain(audit.planRevisionId);
-    await switchSection(planRenderer, "Plan details");
+    await switchSection(planRenderer, "Show calendar");
     let planOutput = JSON.stringify(planRenderer.toJSON());
-    expect(planOutput).toContain("Week Details");
+    expect(planOutput).toContain("plan-calendar-expanded");
     expect(planOutput).not.toContain("Input hash:");
     expect(planOutput).not.toContain(audit.planRevisionId);
     planOutput = JSON.stringify(planRenderer.toJSON());
@@ -4570,8 +4566,8 @@ describe("minimal app screens", () => {
     }
     expect(trainOutput).toContain("This Week");
     expect(trainOutput).toContain("Theme:");
-    expect(planOutput).toContain("Planning Notes");
-    expect(planOutput).toContain("Available days:");
+    expect(planOutput).toContain("Plan tools");
+    expect(planOutput).not.toContain("Planning Notes");
   });
 
   it("Plan next-week preview uses progression context without mutating current week", async () => {
@@ -4603,9 +4599,9 @@ describe("minimal app screens", () => {
 
     expect(output).toContain("build strength - progress");
     expect(output).not.toContain("Persisted progression decision shaped this preview.");
-    await switchSection(renderer, "Plan details");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Boxing:");
+    expect(output).toContain("plan-calendar-expanded");
+    expect(output).toContain("Next week");
     expect(state.viewModels.plan.dayPlans.map((day) => day.date)).toEqual(currentWeekDates);
   });
 
@@ -4806,8 +4802,6 @@ describe("minimal app screens", () => {
       })
     );
 
-    expect(JSON.stringify(renderer.toJSON())).not.toContain("Edit boxing schedule");
-    await switchSection(renderer, "Plan details");
     expect(JSON.stringify(renderer.toJSON())).toContain("Edit boxing schedule");
     await act(async () => {
       await press(pressableWithText(renderer, "Edit boxing schedule"));
@@ -5314,7 +5308,7 @@ describe("minimal app screens", () => {
     expect(wizardOutput).not.toContain("Adjust plan");
   });
 
-  it("PlanScreen surfaces review notes when app sessions are capped", async () => {
+  it("PlanScreen keeps capped-session audit notes out of simplified plan tools", async () => {
     const { PlanScreen } = await import("../../app/screens/PlanScreen");
     const renderer = render(
       React.createElement(PlanScreen, {
@@ -5373,8 +5367,9 @@ describe("minimal app screens", () => {
     );
 
     expect(JSON.stringify(renderer.toJSON())).not.toContain("Fuel safety capped support workout count.");
-    await switchSection(renderer, "Plan details");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Fuel health review capped app session count.");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Fuel health review capped app session count.");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Plan tools");
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("Planning Notes");
   });
 
   it("PlanScreen shows saved next-week app session count and summaries", async () => {
@@ -5677,17 +5672,15 @@ describe("minimal app screens", () => {
     expect(output).toContain("Build - Week 2");
     expect(output).toContain("CornerIQ uses this setup to build your Plan, adjust Train, and guide Fuel.");
     expect(output).toContain("Edit setup");
-    expect(output).toContain("Show Profile details");
-    expect(output).not.toContain("Show Setup details");
+    expect(output).toContain("Hide Profile details");
     expect(output).not.toContain("App inputs");
     expect(output).not.toContain("Quick updates");
-    expect(output).not.toContain("Privacy Policy");
-    expect(output).not.toContain("Sign out");
+    expect(output).toContain("Privacy Policy");
+    expect(output).toContain("Delete controls");
+    expect(output).toContain("Sign out");
     expect(output).not.toContain("Signal constellation");
     expect(output).not.toContain("Corner intelligence layers");
     expect(output).not.toContain("Profile action");
-    await switchSection(renderer, "Show Profile details");
-    output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("profile-details-section");
     expect(output).toContain("Show Setup details");
     await switchSection(renderer, "Show Setup details");
@@ -5730,7 +5723,6 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("profile-safety-section");
     expect((output.match(/Use caution before pushing training or weight/g) ?? []).length).toBe(1);
 
-    await switchSection(renderer, "Show Profile details");
     await switchSection(renderer, "Show Health & Safety");
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("profile-safety-section");
@@ -5775,10 +5767,6 @@ describe("minimal app screens", () => {
     };
     const dataBusyRenderer = render(React.createElement(ProfileScreen, { ...props, userDataControls: busyControls }));
 
-    await switchSection(appBusyRenderer, "Show Profile details");
-    await switchSection(appBusyRenderer, "Show Account");
-    await switchSection(dataBusyRenderer, "Show Profile details");
-    await switchSection(dataBusyRenderer, "Show Account");
     expect(pressableWithExactText(appBusyRenderer, "Sign out")?.props.disabled).toBe(true);
     expect(pressableWithExactText(dataBusyRenderer, "Sign out")?.props.disabled).toBe(true);
   });
@@ -5832,9 +5820,6 @@ describe("minimal app screens", () => {
           wearableStatus: "manual only"
         })
       );
-      expect(JSON.stringify(renderer.toJSON())).not.toContain("Privacy Policy");
-      await switchSection(renderer, "Show Profile details");
-      await switchSection(renderer, "Show Privacy & Data");
       expect(JSON.stringify(renderer.toJSON())).toContain("Privacy Policy");
       expect(JSON.stringify(renderer.toJSON())).toContain("Open Privacy Policy");
       expect(JSON.stringify(renderer.toJSON())).toContain("Support");
@@ -5856,10 +5841,6 @@ describe("minimal app screens", () => {
       });
       expect(generateExportBundle).toHaveBeenCalled();
       expect(JSON.stringify(renderer.toJSON())).toContain("corneriq.app_data_export.v1");
-      expect(pressableWithText(renderer, "Delete app data")).toBeUndefined();
-      expect(pressableWithText(renderer, "Delete account")).toBeUndefined();
-      expect(JSON.stringify(renderer.toJSON())).toContain("Show Delete controls");
-      await switchSection(renderer, "Show Delete controls");
       const deleteButton = pressableWithText(renderer, "Delete app data");
       const deleteAccountButton = pressableWithText(renderer, "Delete account");
       expect(deleteButton?.props.disabled).toBe(true);
@@ -5926,7 +5907,8 @@ describe("minimal app screens", () => {
     expect(trainOutput).not.toContain("train-workout-flow-collapsed");
     expect(trainOutput).not.toContain("train-before-start-collapsed");
     expect(trainOutput).not.toContain("Workout Flow");
-    expect(trainOutput).not.toContain("This Week");
+    expect(trainOutput).toContain("This Week");
+    expect(trainOutput).toContain("train-week-context");
     expect(trainOutput).not.toContain("Exercise History");
     expect(trainOutput).not.toContain("Progression");
     await switchSection(trainRenderer, "View details");
@@ -5947,7 +5929,7 @@ describe("minimal app screens", () => {
     );
     expect(expandedDisclosureLabels(planRenderer)).toHaveLength(0);
     expect(JSON.stringify(planRenderer.toJSON())).toContain("Adjust plan");
-    expect(JSON.stringify(planRenderer.toJSON())).toContain("Plan details");
+    expect(JSON.stringify(planRenderer.toJSON())).toContain("Plan tools");
 
     const profileRenderer = render(
       React.createElement(ProfileScreen, {
@@ -5966,11 +5948,9 @@ describe("minimal app screens", () => {
       })
     );
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("profile-setup-snapshot");
-    expect(JSON.stringify(profileRenderer.toJSON())).toContain("Show Profile details");
-    expect(JSON.stringify(profileRenderer.toJSON())).not.toContain("Preview export");
-    await switchSection(profileRenderer, "Show Profile details");
-    await switchSection(profileRenderer, "Show Privacy & Data");
-    expect(pressableWithText(profileRenderer, "Delete app data")).toBeUndefined();
+    expect(JSON.stringify(profileRenderer.toJSON())).toContain("Hide Profile details");
+    expect(JSON.stringify(profileRenderer.toJSON())).toContain("Preview export");
+    expect(pressableWithText(profileRenderer, "Delete app data")?.props.disabled).toBe(true);
     expect(JSON.stringify(profileRenderer.toJSON())).toContain("Preview export");
   });
 

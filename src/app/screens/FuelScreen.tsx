@@ -14,7 +14,7 @@ import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 export interface FuelScreenProps {
   busy: boolean;
@@ -1158,7 +1158,7 @@ export function FuelScreen({ busy, focusIntent, message, onAcknowledgeNutritionS
   const openLogHydration = () => setAppliedFocusIntent("log_hydration");
 
   return (
-    <LuminousScreen accent="orange" backgroundImage={tabScreenBackgrounds.fuel} testID="fuel-screen">
+    <LuminousScreen accent="orange" testID="fuel-screen">
       <ScreenHeader {...tabHeroHeaders.fuel} />
       {showLogSection ? (
         <>

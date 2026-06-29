@@ -21,7 +21,6 @@ import stopwatchIcon from "../../../assets/plan-calendar-icons/stopwatch.png";
 import type { ISODateString, PlanViewModel } from "../../engine/core/types";
 import { EngineGeneratingCard, type EngineGenerationStatus } from "../components/EngineGeneratingCard";
 import { EngineCard } from "../../design/components/EngineCard";
-import { SvgProgressRing } from "../../design/components/PerformanceVisuals";
 import { LuminousScreen, ScreenHeader } from "../../design/components/LuminousScreen";
 import { PremiumCard } from "../../design/components/PremiumPrimitives";
 import { RiskBanner } from "../../design/components/RiskBanner";
@@ -36,7 +35,7 @@ import { PlanGoalFlowCard } from "./plan/PlanGoalFlowCard";
 import { planPalette, planTextStyles, planTint, planToneColors, type PlanTone } from "./plan/planPalette";
 import { TrainingBlockHistoryPanel } from "./plan/TrainingBlockHistoryPanel";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 export interface PlanScreenProps {
   adjustmentActions?: TrainingPlanAdjustmentActions | undefined;
@@ -64,8 +63,7 @@ type PlanActiveWorkspace =
   | "next_week_preview"
   | "fixed_schedule"
   | "adjustments"
-  | "block_history"
-  | "plan_details";
+  | "block_history";
 
 const ACTIVE_NEXT_WEEK_STATUS = "mater" + "ialized";
 
@@ -90,16 +88,8 @@ const planCalendarIcons = {
 
 type PlanCalendarIconName = keyof typeof planCalendarIcons;
 
-function compactCount(count: number, singular: string, plural = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
 function friendlyAnchorText(value: string): string {
   return value === "No " + "protected " + "anchors." ? "None" : plainPlanCopy(value);
-}
-
-function friendlySupportText(value: string): string {
-  return value === "No generated support." || value === "No support workout." ? "None" : plainPlanCopy(value);
 }
 
 function plainPlanCopy(value: string): string {
@@ -540,16 +530,6 @@ function GeneratedSupportSummaryCard({
   );
 }
 
-function PlanReviewNotesContent({ viewModel }: { viewModel: PlanViewModel }) {
-  return (
-    <View style={{ gap: spacing.sm }}>
-      <Text style={planTextStyles.sectionTitle}>Review Notes</Text>
-      <Text style={planTextStyles.body}>{plainPlanRiskCopy(viewModel.rollForwardMessage)}</Text>
-      {viewModel.warnings.length > 0 ? viewModel.warnings.map((warning, index) => <Text key={`plan-warning:${index}`} style={planTextStyles.subtle}>{plainPlanRiskCopy(warning)}</Text>) : <Text style={planTextStyles.subtle}>No active plan warnings.</Text>}
-    </View>
-  );
-}
-
 function PlanAdjustmentsContent({
   adjustmentActions,
   asOfDate,
@@ -573,58 +553,6 @@ function PlanAdjustmentsContent({
         date={(dayPlan?.date ?? asOfDate) as ISODateString}
         generatedSessions={dayPlan?.generatedSessions ?? []}
       />
-    </View>
-  );
-}
-
-function PlanAuditDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
-  const audit = viewModel.generationAudit;
-  const planNotes = audit
-    ? [
-        ...(audit.blockedGenerationReasons ?? []).slice(0, 2),
-        ...(audit.whyHardDaysWereReduced ?? []).slice(0, 1),
-        ...(audit.whyVolumeWasReduced ?? []).slice(0, 1)
-      ]
-    : [];
-  return (
-    <View style={{ gap: spacing.sm }}>
-      <Text style={planTextStyles.sectionTitle}>Planning Notes</Text>
-      {audit ? (
-        <>
-          <Text style={planTextStyles.body}>
-            App sessions: {audit.actualGeneratedSupportCount}/{audit.targetGeneratedSupportCount} planned this week.
-          </Text>
-          <Text style={planTextStyles.subtle}>Available days: {audit.selectedSupportDays.length > 0 ? audit.selectedSupportDays.join(", ") : "None selected"}</Text>
-          {typeof audit.targetHardDayCount === "number" ? (
-            <Text style={planTextStyles.subtle}>
-              Hard work: {audit.actualHardDayCount ?? 0}/{audit.targetHardDayCount}
-              {typeof audit.protectedHardDayCount === "number" ? ` (${audit.protectedHardDayCount} boxing, ${audit.generatedHardDayCount ?? 0} app)` : ""}.
-            </Text>
-          ) : null}
-          {typeof audit.targetWeeklyGeneratedMinutes === "number" ? (
-            <Text style={planTextStyles.subtle}>Planned app minutes: {audit.actualWeeklyGeneratedMinutes ?? 0}/{audit.targetWeeklyGeneratedMinutes}.</Text>
-          ) : null}
-          <Text style={planTextStyles.subtle}>
-            Readiness {audit.readinessGenerationImpact ?? "unknown"}; nutrition {audit.nutritionGenerationImpact ?? "unknown"}; hydration {audit.hydrationGenerationImpact ?? "unknown"}.
-          </Text>
-          {audit.missingLogsAffectedExecutionOnly ? <Text style={planTextStyles.subtle}>Missing logs affected how-to notes only; the workout stayed available.</Text> : null}
-          {planNotes.map((note, index) => <Text key={`plan-diagnostic-note:${index}`} style={planTextStyles.subtle}>Note: {plainPlanRiskCopy(note)}</Text>)}
-        </>
-      ) : (
-        <Text style={planTextStyles.subtle}>No deeper review notes were produced for this plan.</Text>
-      )}
-    </View>
-  );
-}
-
-function PlanDetailsWorkspace({
-  viewModel
-}: {
-  viewModel: PlanViewModel;
-}) {
-  return (
-    <View style={{ gap: spacing.sm }} testID="plan-details-workspace">
-      <PlanDetailRows startOpen viewModel={viewModel} />
     </View>
   );
 }
@@ -970,26 +898,6 @@ function PlanObjectiveCard({
   );
 }
 
-function PlanProgressRing({ viewModel }: { viewModel: PlanViewModel }) {
-  const ratio = viewModel.blockProgress.percent / 100;
-  return (
-    <SvgProgressRing
-      accessibilityLabel={`Plan progress: ${viewModel.blockProgress.percent} percent complete`}
-      ratio={ratio}
-      size={72}
-      strokeWidth={7}
-      tone="green"
-    >
-      <Text style={{ color: planPalette.textPrimary, fontSize: 20, fontWeight: "900", lineHeight: 24 }}>
-        {viewModel.blockProgress.percent}%
-      </Text>
-      <Text style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "600", lineHeight: 16 }}>
-        complete
-      </Text>
-    </SvgProgressRing>
-  );
-}
-
 function PlanActionLink({
   busy,
   label,
@@ -1041,9 +949,7 @@ function PlanWeekSummaryCard({
     <PremiumCard accent="green" density="regular">
       <View style={{ gap: spacing.md }} testID="plan-hero-card">
         <View style={{ alignItems: "center", flexDirection: "row", gap: 10 }}>
-          <PlanProgressRing viewModel={viewModel} />
-          <View style={{ backgroundColor: planPalette.cardLine, height: 72, width: 1 }} />
-          <View style={{ flex: 1, gap: 2, minWidth: 82 }}>
+          <View style={{ flex: 1, gap: 2, minWidth: 120 }}>
             <Text numberOfLines={2} style={{ color: planPalette.toneGreen, fontSize: 13, fontWeight: "900", lineHeight: 16 }}>
               {viewModel.modeLabel}
             </Text>
@@ -1485,55 +1391,6 @@ function PlanWeekTicker({
   );
 }
 
-function builtAroundRows(viewModel: PlanViewModel): { detail: string; label: string; tone: PlanTone }[] {
-  const boxingCount = viewModel.weeklyAnchors.length + viewModel.fixedSchedule.length;
-  const fuelRisk = viewModel.generationAudit?.fuelRiskClassification;
-  const fuelCopy =
-    fuelRisk === "severe_fueling_risk" || fuelRisk === "underfueling_evidence"
-      ? "health warnings keep the week conservative."
-      : fuelRisk === "missing_data" || fuelRisk === "low_confidence"
-        ? "missing fuel or weight data stays unknown."
-        : "no extra work just to chase weight.";
-  return [
-    {
-      detail: boxingCount > 0 ? `${compactCount(boxingCount, "boxing session")} stays first.` : "Add boxing sessions when your week changes.",
-      label: "Boxing schedule",
-      tone: "green"
-    },
-    {
-      detail: fuelCopy,
-      label: "Fuel and weight",
-      tone: fuelRisk === "severe_fueling_risk" || fuelRisk === "underfueling_evidence" ? "orange" : "gold"
-    },
-    {
-      detail: viewModel.recoveryDayCount > 0 ? `${compactCount(viewModel.recoveryDayCount, "easier day")} protects the work.` : "recovery stays available if warnings appear.",
-      label: "Recovery",
-      tone: "blue"
-    },
-    {
-      detail: viewModel.generatedSupportSessionCount > 0 ? `${compactCount(viewModel.generatedSupportSessionCount, "app session")} fits around boxing.` : "no extra app work is forced this week.",
-      label: "Strength / conditioning",
-      tone: "purple"
-    }
-  ];
-}
-
-function BuiltAroundContent({ viewModel }: { viewModel: PlanViewModel }) {
-  return (
-    <>
-      {builtAroundRows(viewModel).map((row) => (
-        <View key={`built-around:${row.label}`} style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 42 }}>
-          <View style={{ backgroundColor: planToneColors[row.tone], borderRadius: radii.pill, height: 8, width: 8 }} />
-          <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-            <Text style={{ color: planPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{row.label}</Text>
-            <Text style={planTextStyles.subtle}>{row.detail}</Text>
-          </View>
-        </View>
-      ))}
-    </>
-  );
-}
-
 function previewStatusCopy(viewModel: PlanViewModel): { label: string; summary: string; tone: PlanTone } {
   const preview = viewModel.nextWeekPreview;
   if (viewModel.rollForwardStatus === ACTIVE_NEXT_WEEK_STATUS) {
@@ -1564,161 +1421,29 @@ function nextWeekAction(viewModel: PlanViewModel): { label: string; kind: "accep
 function CollapsedPlanDetails({
   busy,
   onOpenWorkspace,
-  viewModel
+  viewModel: _viewModel
 }: {
   busy: boolean;
   onOpenWorkspace: (workspace: PlanActiveWorkspace) => void;
   viewModel: PlanViewModel;
 }) {
-  const [open, setOpen] = React.useState(false);
   return (
     <View style={{ gap: spacing.sm }} testID="plan-details-collapsed">
       <EngineCard>
         <View style={{ gap: spacing.md }}>
-          <Pressable
-            accessibilityLabel={open ? "Hide plan details" : "Plan details"}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: open }}
-            onPress={() => setOpen((value) => !value)}
-            style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 54 }}
-            testID="plan-details-toggle"
-          >
-            <View
-              style={{
-                alignItems: "center",
-                backgroundColor: planTint("blue", "16"),
-                borderColor: planTint("blue", "42"),
-                borderRadius: radii.pill,
-                borderWidth: 1,
-                height: 38,
-                justifyContent: "center",
-                width: 38
-              }}
-            >
-              <Ionicons color={planToneColors.blue} name="list-outline" size={18} />
-            </View>
-            <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-              <Text style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Plan details</Text>
-              <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
-                Week notes, schedule edits, history, and planning details.
-              </Text>
-            </View>
-            <Ionicons color={planPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
-          </Pressable>
-          {open ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              <PlanButton disabled={busy} icon="calendar-outline" label="Edit boxing schedule" onPress={() => onOpenWorkspace("fixed_schedule")} />
-              <PlanButton disabled={busy} icon="options-outline" label="Plan changes" onPress={() => onOpenWorkspace("adjustments")} />
-              <PlanButton disabled={busy} icon="time-outline" label="Plan history" onPress={() => onOpenWorkspace("block_history")} />
-            </View>
-          ) : null}
+          <View style={{ gap: spacing.xs }}>
+            <Text style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Plan tools</Text>
+            <Text style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
+              Schedule edits, plan changes, and history stay one tap away without expanding week details.
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            <PlanButton disabled={busy} icon="calendar-outline" label="Edit boxing schedule" onPress={() => onOpenWorkspace("fixed_schedule")} />
+            <PlanButton disabled={busy} icon="options-outline" label="Plan changes" onPress={() => onOpenWorkspace("adjustments")} />
+            <PlanButton disabled={busy} icon="time-outline" label="Plan history" onPress={() => onOpenWorkspace("block_history")} />
+          </View>
         </View>
       </EngineCard>
-      {open ? <PlanDetailRows startOpen viewModel={viewModel} /> : null}
-    </View>
-  );
-}
-
-function WeekDetailsContent({ viewModel }: { viewModel: PlanViewModel }) {
-  return (
-    <View style={{ gap: spacing.sm }}>
-      {sortedPlanDays(viewModel).map((day) => (
-        <View key={`week-detail:${day.date}`} style={{ gap: spacing.xs }}>
-          <Text style={planTextStyles.fieldLabel}>{day.label}</Text>
-          <Text style={planTextStyles.subtle}>Boxing: {friendlyAnchorText(day.protectedAnchors)}</Text>
-          <Text style={planTextStyles.subtle}>App sessions: {friendlySupportText(day.generatedSupport)}</Text>
-          {day.adjustmentNotes.map((note, index) => <Text key={`adjustment-note:${day.date}:${index}`} style={planTextStyles.subtle}>{plainPlanCopy(note)}</Text>)}
-          {day.warningSummary ? <Text style={planTextStyles.subtle}>Review: {plainPlanRiskCopy(day.warningSummary)}</Text> : null}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function PlanDetailRow({
-  children,
-  defaultOpen = false,
-  icon,
-  summary,
-  testID,
-  title,
-  tone = "green"
-}: React.PropsWithChildren<{
-  defaultOpen?: boolean | undefined;
-  icon: keyof typeof Ionicons.glyphMap;
-  summary: string;
-  testID?: string | undefined;
-  title: string;
-  tone?: PlanTone | undefined;
-}>) {
-  const [open, setOpen] = React.useState(defaultOpen);
-  React.useEffect(() => {
-    if (defaultOpen) {
-      setOpen(true);
-    }
-  }, [defaultOpen]);
-  const color = planToneColors[tone];
-  return (
-    <EngineCard>
-      <View style={{ gap: open ? spacing.md : 0 }} testID={testID}>
-        <Pressable
-          accessibilityLabel={open ? `Hide ${title}` : title}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
-          onPress={() => setOpen((value) => !value)}
-          style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 54 }}
-        >
-          <View
-            style={{
-              alignItems: "center",
-              backgroundColor: planTint(tone, "16"),
-              borderColor: planTint(tone, "42"),
-              borderRadius: radii.pill,
-              borderWidth: 1,
-              height: 38,
-              justifyContent: "center",
-              width: 38
-            }}
-          >
-            <Ionicons color={color} name={icon} size={18} />
-          </View>
-          <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-            <Text style={{ color: planPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
-            <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{summary}</Text>
-          </View>
-          <Ionicons color={planPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
-        </Pressable>
-        {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
-      </View>
-    </EngineCard>
-  );
-}
-
-function PlanDetailRows({
-  startOpen = false,
-  viewModel
-}: {
-  startOpen?: boolean | undefined;
-  viewModel: PlanViewModel;
-}) {
-  const hasReview = viewModel.warnings.length > 0 || viewModel.rollForwardStatus === "blocked";
-  const reviewOpen = startOpen;
-  return (
-    <View style={{ gap: spacing.sm }} testID="plan-detail-rows">
-      <PlanDetailRow defaultOpen={startOpen} icon="calendar-outline" summary={`${viewModel.dayPlans.length} days, ${viewModel.generatedSupportSessionCount} app session${viewModel.generatedSupportSessionCount === 1 ? "" : "s"}.`} testID="plan-week-details-row" title="Week Details" tone="green">
-        <WeekDetailsContent viewModel={viewModel} />
-      </PlanDetailRow>
-      <PlanDetailRow defaultOpen={reviewOpen} icon="shield-checkmark-outline" summary={viewModel.warnings.length > 0 ? `${compactCount(viewModel.warnings.length, "review note")}.` : "No active plan warnings."} testID="plan-review-notes-row" title="Review Notes" tone={hasReview ? "orange" : "blue"}>
-        <PlanReviewNotesContent viewModel={viewModel} />
-        <PlanAuditDetailsContent viewModel={viewModel} />
-      </PlanDetailRow>
-      <PlanDetailRow icon="grid-outline" summary="Seven-day shape and what the week is built around." testID="plan-week-shape-row" title="Week Shape" tone="green">
-        <WeekAtAGlanceContent viewModel={viewModel} />
-        <BuiltAroundContent viewModel={viewModel} />
-      </PlanDetailRow>
-      <PlanDetailRow icon="time-outline" summary="Block history, previous changes, and saved decisions." testID="plan-history-row" title="Plan History" tone="purple">
-        <TrainingBlockHistoryPanel history={viewModel.blockHistoryDetail} />
-      </PlanDetailRow>
     </View>
   );
 }
@@ -1857,12 +1582,10 @@ export function PlanScreen({
     activeWorkspaceContent = <PlanAdjustmentsWorkspace adjustmentActions={adjustmentActions} asOfDate={asOfDate} busy={busy} viewModel={viewModel} />;
   } else if (effectiveWorkspace === "block_history") {
     activeWorkspaceContent = <BlockHistoryWorkspace viewModel={viewModel} />;
-  } else if (effectiveWorkspace === "plan_details") {
-    activeWorkspaceContent = <PlanDetailsWorkspace viewModel={viewModel} />;
   }
 
   return (
-    <LuminousScreen accent="green" backgroundImage={tabScreenBackgrounds.plan} testID="plan-screen">
+    <LuminousScreen accent="green" testID="plan-screen">
       <ScreenHeader {...tabHeroHeaders.plan} />
       <ThisWeeksPlanCard
         busy={busy}

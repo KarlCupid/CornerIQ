@@ -26,7 +26,7 @@ import { SUPPORT_OUTSIDE_APP_COPY, URGENT_SUPPORT_COPY } from "../supportCopy";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { ProfileSettingsScreen } from "./profile/ProfileSettingsScreen";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 const profilePalette = {
   actionBorder: "rgba(198, 213, 231, 0.5)",
@@ -360,13 +360,13 @@ export function ProfileScreen({
   const accountDeleteConfirmation = userDataControls?.accountDeleteConfirmation ?? fallbackAccountDeleteConfirmation;
   const setAccountDeleteConfirmation = userDataControls?.setAccountDeleteConfirmation ?? setFallbackAccountDeleteConfirmation;
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [profileDetailsOpen, setProfileDetailsOpen] = React.useState(false);
+  const [profileDetailsOpen, setProfileDetailsOpen] = React.useState(true);
   const [setupDetailsOpen, setSetupDetailsOpen] = React.useState(false);
-  const [privacyOpen, setPrivacyOpen] = React.useState(false);
+  const [privacyOpen, setPrivacyOpen] = React.useState(true);
   const [healthOpen, setHealthOpen] = React.useState(false);
-  const [deleteControlsOpen, setDeleteControlsOpen] = React.useState(false);
+  const [deleteControlsOpen, setDeleteControlsOpen] = React.useState(true);
   const [historyDetailOpen, setHistoryDetailOpen] = React.useState(false);
-  const [accountOpen, setAccountOpen] = React.useState(false);
+  const [accountOpen, setAccountOpen] = React.useState(true);
   const releaseLinks = React.useMemo(() => getReleaseLinkConfig(), []);
   const openPrivacyPolicy = React.useCallback(() => {
     if (releaseLinks.privacyPolicyUrl) {
@@ -395,7 +395,7 @@ export function ProfileScreen({
     : "Health notes, support path, and saved safety history.";
 
   return (
-    <LuminousScreen accent="neutral" backgroundImage={tabScreenBackgrounds.profile} testID="profile-screen">
+    <LuminousScreen accent="neutral" testID="profile-screen">
       <ScreenHeader {...tabHeroHeaders.profile} />
 
       <View testID="profile-hero-card">
@@ -630,7 +630,7 @@ export function ProfileScreen({
           defaultTone="red"
           onToggle={() => setDeleteControlsOpen((value) => !value)}
           open={deleteControlsOpen}
-          summary="Delete controls stay hidden. Export first."
+          summary="Export first; destructive actions require exact confirmation."
           testID="profile-delete-controls"
           title="Delete controls"
         >

@@ -25,14 +25,15 @@ final result: passed
 - Fuel preserves amber unknown/caution semantics; missing data is not shown as safe or normal.
 - Manual input, optional private cycle support, and confidence-only wearable language remain visible without requiring a wearable.
 - No broad fitness, MMA, sparring, contact drill, fight simulation, or unsafe weight-cut pressure was introduced.
+- Icon/splash files are wired in `app.json`; this QA note verifies presence only, not final App Store artwork acceptance.
 
 ## Resolved Audit Findings
 
-- P1: Bottom dock overlap/content bleed was resolved with a reserved tab scene margin plus a dark safe-area band behind the rounded glass pill.
+- P1: Bottom dock overlap/content bleed was resolved by tightening tab-screen bottom padding while keeping the floating rounded glass pill safe-area aware.
 - P1: Fuel unknown state mismatch was resolved. Today and Fuel both show missing fuel as amber `Unknown`, not safe/normal.
-- P2: Cheap/generated hero feel was reduced by replacing the main tab hero/background assets with darker, cleaner, lower-noise image assets.
+- P2: Cheap/generated hero feel was reduced by keeping subtle tab hero assets while removing full-screen background images from app screens.
 - P2: Train visual structure was brought closer to the mock: hero image emphasis, larger title section, violet action hierarchy, and timeline-style session plan.
-- P2: Plan now uses a ring progress treatment and grouped upcoming sessions closer to the reference.
+- P2: Plan now keeps the week summary and Adjust Plan action without the completion ring or week-details accordion.
 
 ## Remaining P3 Polish
 

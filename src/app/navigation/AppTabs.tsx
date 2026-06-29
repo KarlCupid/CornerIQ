@@ -303,8 +303,7 @@ export function AppTabs({ asOfDate, busy, cycleSymptomOptions, generationStatus 
             tabBarShowLabel: true,
             tabBarLabelPosition: "below-icon",
             sceneStyle: {
-              backgroundColor: colors.cornerBlack,
-              marginBottom: floatingTabReservedBottom
+              backgroundColor: colors.cornerBlack
             },
             tabBarIconStyle: {
               alignItems: "center",

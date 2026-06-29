@@ -17,7 +17,7 @@ import type { TrainingPlanAdjustmentActions } from "../../hooks/useTrainingPlanA
 import type { WorkoutCompletionActions } from "../../hooks/useWorkoutCompletion";
 import { ProtectedWorkoutLogCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
+import { tabHeroHeaders } from "./tabHeroConfig";
 import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./train/trainPalette";
 import { WorkoutDetailPanel } from "./train/WorkoutDetailPanel";
 import type { WorkoutPlayerStatus } from "./train/WorkoutPlayer";
@@ -980,7 +980,6 @@ function CycleContextCard({ viewModel }: { viewModel: TrainViewModel }) {
 }
 
 function CollapsibleTrainDetails({
-  asOfDate,
   busy,
   card,
   completionActions,
@@ -998,7 +997,6 @@ function CollapsibleTrainDetails({
   trainingLogOpenRequestKey,
   viewModel
 }: {
-  asOfDate?: ISODateString | undefined;
   busy: boolean;
   card: TrainSessionCard | null;
   completionActions?: WorkoutCompletionActions | undefined;
@@ -1051,7 +1049,6 @@ function CollapsibleTrainDetails({
           ) : (
             <EmptyState title="No player workout today" message={plainTrainCopy(viewModel.todaySummary)} />
           )}
-          <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
           {!trainCycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
           <ManualTrainingLoggerSection busy={busy} openRequestKey={trainingLogOpenRequestKey} quickLogs={quickLogs} />
           <TrainingScheduleDebugCard viewModel={viewModel} />
@@ -1157,7 +1154,7 @@ export function TrainScreen({
     : "Check-in needed before guidance.";
 
   return (
-    <LuminousScreen accent="purple" backgroundImage={tabScreenBackgrounds.train} testID="train-screen">
+    <LuminousScreen accent="purple" testID="train-screen">
       <ScreenHeader
         {...tabHeroHeaders.train}
         heroHeight={276}
@@ -1260,7 +1257,6 @@ export function TrainScreen({
       ) : null}
       {trainCycleDecisionIsDefaultVisible(viewModel) ? <CycleContextCard viewModel={viewModel} /> : null}
       <CollapsibleTrainDetails
-        asOfDate={asOfDate}
         busy={busy}
         card={primaryCard}
         completionActions={completionActions}
@@ -1279,6 +1275,7 @@ export function TrainScreen({
         viewModel={viewModel}
       />
       {completionMessage ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone("orange") }]}>{completionMessage}</Text> : null}
+      <WeekContextCard asOfDate={asOfDate} viewModel={viewModel} />
     </LuminousScreen>
   );
 }

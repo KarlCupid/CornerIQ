@@ -58,7 +58,6 @@ const activeSurfaceTestIds = [
   "plan-roadmap",
   "plan-week-strip-card",
   "plan-details-collapsed",
-  "plan-detail-rows",
   "plan-active-workspace",
   "plan-screen",
   "profile-athlete-section",
@@ -811,10 +810,12 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("plan-hero-card")).not.toContainText(/V2 compiler/i);
   await expect(page.getByTestId("plan-week-strip-card")).toContainText("This week");
   await expect(page.getByTestId("plan-upcoming-sessions-card")).toContainText("Upcoming sessions");
-  await expect(page.getByTestId("plan-details-collapsed")).toContainText("Plan details");
+  await expect(page.getByTestId("plan-details-collapsed")).toContainText("Plan tools");
   await expectVisibleText(page, /Preview next week/i);
   await expectVisibleText(page, "Adjust plan");
-  await expect(page.getByRole("button", { name: "Plan details" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit boxing schedule" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plan changes" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plan history" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add one-off session" })).toHaveCount(0);
   await expect(page.getByPlaceholder("Contracted weight kg")).toHaveCount(0);
   const firstViewText = await visiblePageText(page, "plan-screen");
@@ -823,26 +824,18 @@ async function auditPlan(page: Page, testInfo: TestInfo) {
   expect(firstViewText).not.toContain("Families:");
   expect(firstViewText).not.toContain("Required add-ons:");
   expect(firstViewText).not.toContain("Quality checkpoints:");
+  expect(firstViewText).not.toContain("Week Details");
+  expect(firstViewText).not.toContain("Review Notes");
+  expect(firstViewText).not.toContain("Planning Notes");
   expect(firstViewText).not.toMatch(/generated training|protected anchors?|protected schedule|protected boxing|protected sparring|protected work/i);
   expectNoCoachOrReviewerControls(firstViewText);
   await capture(page, testInfo, "Plan screen", "20-plan-screen.png", { scopeTestId: "plan-screen" });
-  await page.getByRole("button", { name: "Plan details" }).click();
-  await expect(page.getByRole("button", { name: "Edit boxing schedule" })).toBeVisible();
-  const planDetailsRows = page.getByTestId("plan-detail-rows");
-  await expect(planDetailsRows).toContainText("Week Details");
-  await expect(planDetailsRows).toContainText("Review Notes");
-  await expect(planDetailsRows).toContainText("Week Shape");
-  await expect(planDetailsRows).toContainText("Plan History");
-  await expect(planDetailsRows.getByTestId("plan-week-details-row")).toContainText("Boxing:");
-  await expect(planDetailsRows.getByTestId("plan-week-details-row")).toContainText("App sessions:");
-  await expect(planDetailsRows.getByTestId("plan-review-notes-row")).toContainText("Planning Notes");
-  await expect(planDetailsRows.getByTestId("plan-review-notes-row")).toContainText("Available days:");
-  await expect(planDetailsRows.getByTestId("plan-review-notes-row")).toContainText(/Readiness .*nutrition .*hydration/i);
-  await expect(planDetailsRows.getByTestId("plan-review-notes-row")).not.toContainText("Input hash:");
-  await expect(planDetailsRows.getByTestId("plan-review-notes-row")).not.toContainText("Required add-ons:");
-  await expect(planDetailsRows.getByTestId("plan-review-notes-row")).not.toContainText("Quality checkpoints:");
+  await page.getByRole("button", { name: "Edit boxing schedule" }).click();
+  await expect(page.getByTestId("plan-active-workspace")).toContainText("Fixed boxing schedule");
+  await expect(page.getByRole("button", { name: "Add one-off session" })).toBeVisible();
+  await expect(page.getByPlaceholder("Contracted weight kg")).toHaveCount(0);
   expectNoCoachOrReviewerControls(await visiblePageText(page, "plan-screen"));
-  await capture(page, testInfo, "Plan details screen", "21-plan-details-screen.png", { scopeTestId: "plan-screen" });
+  await capture(page, testInfo, "Plan tools schedule screen", "21-plan-tools-schedule-screen.png", { scopeTestId: "plan-screen" });
 }
 
 async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
@@ -855,9 +848,6 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, /Delete account uses the trusted server-side account deletion function/);
   await expectVisibleText(page, "Privacy Policy");
   await expectVisibleText(page, "Open Privacy Policy");
-  await expect(page.getByRole("button", { name: "Delete app data" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Delete account" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Show Delete controls section" }).click();
   const deleteButton = page.getByRole("button", { name: "Delete app data" });
   const deleteAccountButton = page.getByRole("button", { name: "Delete account" });
   await expect(deleteButton).toBeDisabled();
@@ -876,7 +866,6 @@ async function auditProfileDataControls(page: Page, testInfo: TestInfo) {
   await capture(page, testInfo, "Profile Data controls", "24-profile-data-controls.png", { scopeTestId: "profile-data-section" });
   await capture(page, testInfo, "Profile Data delete submit", "24-profile-data-delete-submit.png", { fullPage: false, scopeTestId: "profile-data-section" });
 
-  await openSection(page, "Account");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await capture(page, testInfo, "Profile Account sign out", "25-profile-settings-signout.png", { scopeTestId: "profile-account-section" });
   await page.getByRole("button", { name: "Sign out" }).click();

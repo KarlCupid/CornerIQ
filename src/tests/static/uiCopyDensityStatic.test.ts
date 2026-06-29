@@ -62,7 +62,7 @@ describe("fatigue-first UI copy density static checks", () => {
 
   it("keeps the simplified first-screen action labels present", () => {
     const source = screenFiles.map((file) => readFileSync(file, "utf8")).join("\n");
-    const requiredLabels = ["Check in", "Start session", "Log meal", "Add water", "Quick Logs", "This Week", "Plan details"];
+    const requiredLabels = ["Check in", "Start session", "Log meal", "Add water", "Quick Logs", "This Week", "Plan tools"];
 
     for (const label of requiredLabels) {
       expect(source, `missing ${label}`).toContain(label);
@@ -83,7 +83,7 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(tabsSource).toContain("tabBarShowLabel: true");
     expect(tabsSource).toContain("const floatingTabReservedBottom = floatingTabBarHeight + Math.max(insets.bottom, spacing.sm) + spacing.sm;");
     expect(tabsSource).toContain("sceneStyle:");
-    expect(tabsSource).toContain("marginBottom: floatingTabReservedBottom");
+    expect(tabsSource).not.toContain("marginBottom: floatingTabReservedBottom");
     expect(tabsSource).toContain("height: 34");
     expect(tabsSource).toMatch(/tabBarStyle:\s*{[\s\S]*position:\s*"absolute"/);
     expect(tabsSource).toContain("bottom: Math.max(insets.bottom, spacing.sm)");
@@ -97,7 +97,7 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(tabBarStyle).toContain("paddingBottom: 0");
     expect(tabBarStyle).toContain("paddingTop: 0");
     expect(tabBarStyle).not.toMatch(/bottom:\s*0/);
-    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 170;");
+    expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 104;");
   });
 
   it("keeps the tab photo headers wired to real local assets and matching icons", () => {
@@ -135,20 +135,34 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(heroSource).not.toContain("Ready to Own Your Day");
   });
 
-  it("keeps the tab screen backgrounds wired to real local assets", () => {
+  it("keeps tab screens black-first while retaining local hero assets", () => {
     const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
     const screenShellSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");
-    const screenMappings: readonly [string, string][] = [
-      ["TodayScreen.tsx", "today"],
-      ["TrainScreen.tsx", "train"],
-      ["FuelScreen.tsx", "fuel"],
-      ["PlanScreen.tsx", "plan"],
-      ["ProfileScreen.tsx", "profile"]
+    const screenFiles = [
+      "TodayScreen.tsx",
+      "TrainScreen.tsx",
+      "FuelScreen.tsx",
+      "PlanScreen.tsx",
+      "ProfileScreen.tsx",
+      "PaywallScreen.tsx",
+      "onboarding/OnboardingScreen.tsx",
+      "train/WorkoutPlayer.tsx"
     ];
 
-    expect(heroSource).toContain("tabScreenBackgrounds");
+    expect(heroSource).not.toContain("tabScreenBackgrounds");
     expect(screenShellSource).toContain("backgroundImage?: ImageSourcePropType");
-    expect(screenShellSource).toContain("resizeMode=\"cover\"");
+    expect(screenShellSource).toContain("backgroundColor: colors.cornerBlack");
+
+    for (const asset of [
+      "tab-today-hero.png",
+      "tab-train-hero.png",
+      "tab-fuel-hero.png",
+      "tab-plan-hero.png",
+      "tab-profile-hero.png"
+    ]) {
+      expect(heroSource).toContain(asset);
+      expect(statSync(`assets/backgrounds/${asset}`).isFile()).toBe(true);
+    }
 
     for (const asset of [
       "screen-today-background.png",
@@ -157,13 +171,12 @@ describe("fatigue-first UI copy density static checks", () => {
       "screen-plan-background.png",
       "screen-profile-background.png"
     ]) {
-      expect(heroSource).toContain(asset);
-      expect(statSync(`assets/backgrounds/${asset}`).isFile()).toBe(true);
+      expect(heroSource).not.toContain(asset);
     }
 
-    for (const [fileName, key] of screenMappings) {
+    for (const fileName of screenFiles) {
       const screenSource = readFileSync(`src/app/screens/${fileName}`, "utf8");
-      expect(screenSource).toContain(`backgroundImage={tabScreenBackgrounds.${key}}`);
+      expect(screenSource).not.toContain("tabScreenBackgrounds");
     }
   });
 

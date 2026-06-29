@@ -25,7 +25,6 @@ import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
 import { clearWorkoutPlayerState, loadWorkoutPlayerState, saveWorkoutPlayerState, type PersistedWorkoutPlayerState, type PersistedWorkoutPlayerStatus } from "../../../services/workout/workoutPlayerPersistence";
 import { screenStyles } from "../screenStyles";
-import { tabScreenBackgrounds } from "../tabHeroConfig";
 import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./trainPalette";
 import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 
@@ -1385,7 +1384,7 @@ export function WorkoutPlayer({
 
   if (!currentTimelineStep || !currentSection || !currentExercise || steps.length === 0) {
     return (
-      <WorkoutScreenFrame accent="purple" backgroundImage={tabScreenBackgrounds.train} mode="WORKOUT PREVIEW" onClose={onClose}>
+      <WorkoutScreenFrame accent="purple" mode="WORKOUT PREVIEW" onClose={onClose}>
         <GlassPanel visualTheme="train">
           <Text style={trainTextStyles.sectionTitle}>Workout player unavailable</Text>
           <Text style={trainTextStyles.body}>No exercise steps are available for this support workout.</Text>
@@ -1519,7 +1518,7 @@ export function WorkoutPlayer({
 
   if (status === "not_started") {
     return (
-      <WorkoutScreenFrame accent="purple" backgroundImage={tabScreenBackgrounds.train} mode="WORKOUT PREVIEW" onClose={onClose}>
+      <WorkoutScreenFrame accent="purple" mode="WORKOUT PREVIEW" onClose={onClose}>
         <GlassPanel testID="workout-player-preview" visualTheme="train">
           {resumeState ? (
             <View

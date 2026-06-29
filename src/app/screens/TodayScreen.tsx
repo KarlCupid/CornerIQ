@@ -15,7 +15,7 @@ import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
 import { BodyMassLogCard, CycleLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
-import { tabHeroHeaders, tabScreenBackgrounds } from "./tabHeroConfig";
+import { tabHeroHeaders } from "./tabHeroConfig";
 
 export interface TodayScreenProps {
   asOfDate?: string | undefined;
@@ -499,64 +499,6 @@ function TodayStatusTile({
   );
 }
 
-function TodaySectionCard({
-  action,
-  children,
-  eyebrow,
-  icon,
-  label,
-  sentence,
-  testID,
-  title,
-  tone = "blue"
-}: React.PropsWithChildren<{
-  action?: React.ReactNode;
-  eyebrow?: string | undefined;
-  icon?: keyof typeof Ionicons.glyphMap | undefined;
-  label?: string | undefined;
-  sentence?: string | undefined;
-  testID?: string | undefined;
-  title: string;
-  tone?: VisualTone | undefined;
-}>) {
-  return (
-    <PremiumCard accent={tone} density="compact" rail>
-      <View style={{ gap: spacing.sm }} testID={testID}>
-        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.sm }}>
-          {icon ? (
-            <View
-              style={{
-                alignItems: "center",
-                backgroundColor: todayTint(tone, "12"),
-                borderColor: todayTint(tone, "38"),
-                borderRadius: radii.pill,
-                borderWidth: 1,
-                height: 44,
-                justifyContent: "center",
-                width: 44
-              }}
-            >
-              <Ionicons color={colorForTone(tone)} name={icon} size={22} />
-            </View>
-          ) : null}
-          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-            {eyebrow ? (
-              <Text style={{ color: colorForTone(tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
-                {eyebrow}
-              </Text>
-            ) : null}
-            <Text style={{ color: colors.canvas, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{title}</Text>
-            {sentence ? <Text numberOfLines={2} style={screenStyles.body}>{sentence}</Text> : null}
-          </View>
-          {label ? <TodayTonePill label={label} tone={tone} /> : null}
-        </View>
-        {children}
-        {action}
-      </View>
-    </PremiumCard>
-  );
-}
-
 function TodayDetailRow({
   children,
   defaultOpen = false,
@@ -728,7 +670,7 @@ function TodayCheckInCard({
   const { width } = useWindowDimensions();
   const compact = width < 390;
   return (
-    <PremiumCard accent="blue" density="compact" rail>
+    <PremiumCard accent={checkIn.tone} density="regular">
       <View style={{ gap: spacing.sm }} testID="today-hero-card">
         <View testID="today-check-in-card">
           <View style={{ alignItems: "center", flexDirection: "row", gap: compact ? spacing.sm : spacing.md }}>
@@ -830,23 +772,29 @@ function TrainingTodayCard({
 }) {
   const handler = resolveAction(model.action);
   return (
-    <TodaySectionCard
-      action={<TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} tone={model.action.tone} />}
-      eyebrow="Training Today"
-      icon="barbell-outline"
-      label={model.intensityLabel}
-      sentence={model.sentence}
-      testID="today-training-card"
-      title="Today's Session"
-      tone={model.tone}
-    >
-      <View style={{ gap: spacing.xs }}>
-        <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: colors.canvas, fontSize: 20, fontWeight: "900", lineHeight: 25 }}>
-          {model.title}
-        </Text>
-        <Text style={screenStyles.subtle}>{model.durationLabel} - {model.intensityLabel}</Text>
+    <PremiumCard accent={model.tone} density="spacious" testID="today-training-card">
+      <View style={{ gap: spacing.md }}>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: colorForTone(model.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+              Training Today
+            </Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: colors.canvas, fontSize: 25, fontWeight: "900", lineHeight: 31 }}>
+              {model.title}
+            </Text>
+            <Text numberOfLines={2} style={screenStyles.body}>{model.sentence}</Text>
+          </View>
+          <TodayTonePill label={model.intensityLabel} tone={model.tone} />
+        </View>
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            <TodayTonePill label={model.durationLabel} tone="muted" />
+            <TodayTonePill label={model.intensityLabel} tone={model.tone} />
+          </View>
+          <TodayButton disabled={busy || !handler || model.disabled || model.action.disabled} icon={actionIcon(model.action)} label={model.action.label} onPress={handler} tone={model.action.tone} />
+        </View>
       </View>
-    </TodaySectionCard>
+    </PremiumCard>
   );
 }
 
@@ -865,18 +813,39 @@ function FuelTodayCard({
       : model.action;
   const handler = resolveAction(cardAction);
   return (
-    <TodaySectionCard
-      action={<TodayButton disabled={busy || cardAction.disabled || !handler} icon={actionIcon(cardAction)} label={cardAction.label} onPress={handler} tone={cardAction.tone} />}
-      eyebrow="Fuel Status"
-      icon="restaurant-outline"
-      label={model.status}
-      sentence={model.note}
-      testID="today-fuel-card"
-      title="Fuel Today"
-      tone={model.tone}
-    >
-      <Text style={screenStyles.subtle}>{model.why}</Text>
-    </TodaySectionCard>
+    <PremiumCard accent={model.tone} density="regular" testID="today-fuel-card">
+      <View style={{ gap: spacing.md }}>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md }}>
+          <View
+            style={{
+              alignItems: "center",
+              backgroundColor: todayTint(model.tone, "14"),
+              borderColor: todayTint(model.tone, "42"),
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              height: 46,
+              justifyContent: "center",
+              width: 46
+            }}
+          >
+            <Ionicons color={colorForTone(model.tone)} name="restaurant-outline" size={22} />
+          </View>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: colorForTone(model.tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+              Fuel Status
+            </Text>
+            <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26 }}>Fuel Today</Text>
+            <Text numberOfLines={2} style={screenStyles.body}>{model.note}</Text>
+          </View>
+          <TodayTonePill label={model.status} tone={model.tone} />
+        </View>
+        <View style={{ backgroundColor: todayPalette.cardLine, height: 1 }} />
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "space-between" }}>
+          <Text numberOfLines={3} style={[screenStyles.subtle, { flex: 1, minWidth: 180 }]}>{model.why}</Text>
+          <TodayButton disabled={busy || cardAction.disabled || !handler} icon={actionIcon(cardAction)} label={cardAction.label} onPress={handler} tone={cardAction.tone} />
+        </View>
+      </View>
+    </PremiumCard>
   );
 }
 
@@ -890,27 +859,27 @@ function ThisWeekCard({
   onOpenPlan?: (() => void) | undefined;
 }) {
   return (
-    <TodaySectionCard
-      action={<TodayButton disabled={busy || !onOpenPlan} icon="calendar-outline" label="View Plan" onPress={onOpenPlan} tone="green" />}
-      eyebrow="This Week"
-      icon="calendar-outline"
-      label={model.phaseLabel}
-      sentence={model.sentence}
-      testID="today-week-card"
-      title="This Week"
-      tone="green"
-    >
-      <View style={{ gap: spacing.sm }}>
+    <PremiumCard accent="green" density="regular" testID="today-week-card">
+      <View style={{ gap: spacing.md }}>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: todayPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+              This Week
+            </Text>
+            <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26 }}>This Week</Text>
+            <Text numberOfLines={2} style={screenStyles.body}>{model.sentence}</Text>
+          </View>
+          <TodayTonePill label={model.phaseLabel} tone="green" />
+        </View>
+        <View style={{ gap: 0 }}>
         {model.sessions.length > 0 ? model.sessions.map((session) => (
           <View
             key={`today-week-session:${session.id}`}
             style={{
-              backgroundColor: todayPalette.controlFill,
-              borderColor: todayPalette.cardLine,
-              borderRadius: radii.tile,
-              borderWidth: 1,
+              borderBottomColor: todayPalette.cardLine,
+              borderBottomWidth: 1,
               gap: spacing.xs,
-              padding: spacing.md
+              paddingVertical: spacing.sm
             }}
           >
             <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
@@ -921,24 +890,32 @@ function ThisWeekCard({
         )) : (
           <Text style={screenStyles.subtle}>No next session is pinned here. Open Plan when the week changes.</Text>
         )}
+        </View>
+        <TodayButton disabled={busy || !onOpenPlan} icon="calendar-outline" label="View Plan" onPress={onOpenPlan} tone="green" />
       </View>
-    </TodaySectionCard>
+    </PremiumCard>
   );
 }
 
-function AthleteContextCard() {
+function TodayLoadGraphCard({ dashboard }: { dashboard: TodayDashboardVisual }) {
+  const tone: VisualTone = dashboard.loadStateLabel === "High" ? "red" : dashboard.loadStateLabel === "Watch" ? "orange" : "blue";
   return (
-    <TodaySectionCard
-      action={<TodayTonePill label="Manual first" tone="muted" />}
-      eyebrow="Athlete Context"
-      icon="person-outline"
-      sentence="Data stays private and under your control."
-      testID="today-athlete-context-card"
-      title="Manual input remains first-class"
-      tone="muted"
-    >
-      <Text style={screenStyles.subtle}>Wearables can add confidence, but CornerIQ never requires one.</Text>
-    </TodaySectionCard>
+    <PremiumCard accent={tone} density="regular" testID="today-load-graph-card">
+      <View style={{ gap: spacing.md }}>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: colorForTone(tone), fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
+              Weekly Load
+            </Text>
+            <Text style={{ color: colors.canvas, fontSize: 21, fontWeight: "900", lineHeight: 26 }}>Training rhythm</Text>
+            <Text style={screenStyles.body}>Planned app work across the current week.</Text>
+          </View>
+          <TodayTonePill label={dashboard.loadStateLabel} tone={tone} />
+        </View>
+        <WeeklyLoadBars bars={dashboard.weeklyLoad} testID="today-weekly-load-graph" />
+        <Text style={screenStyles.subtle}>Use the graph as context only. Readiness and safety notes still decide how hard today should feel.</Text>
+      </View>
+    </PremiumCard>
   );
 }
 
@@ -1180,7 +1157,7 @@ export function TodayScreen({
   };
   return (
     <>
-      <LuminousScreen accent="blue" backgroundImage={tabScreenBackgrounds.today} testID="today-screen">
+      <LuminousScreen accent="blue" testID="today-screen">
         <ScreenHeader {...tabHeroHeaders.today} />
         <TodayCheckInCard
           busy={busy}
@@ -1190,7 +1167,7 @@ export function TodayScreen({
         <TrainingTodayCard busy={busy} model={trainingToday} resolveAction={resolveAction} />
         <FuelTodayCard busy={busy} model={fuelToday} resolveAction={resolveAction} />
         <ThisWeekCard busy={busy} model={weekToday} onOpenPlan={onOpenPlan} />
-        <AthleteContextCard />
+        <TodayLoadGraphCard dashboard={dashboard} />
         <TodayDetailsDisclosure
           busy={busy}
           cycleQuickLogEnabled={cycleQuickLogEnabled}

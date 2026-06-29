@@ -7,7 +7,6 @@ import type { ISODateString } from "../../../engine/core/types";
 import { useOnboardingDraft } from "../../../hooks/useOnboardingDraft";
 import type { OnboardingCompletionResult, OnboardingDraft } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
-import { tabScreenBackgrounds } from "../tabHeroConfig";
 import { BodyMassStep } from "./steps/BodyMassStep";
 import { BoxerBasicsStep } from "./steps/BoxerBasicsStep";
 import { CycleSupportStep } from "./steps/CycleSupportStep";
@@ -131,7 +130,7 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
   const showStorageStatus = /resume setup|unavailable/i.test(onboarding.storageStatus);
 
   return (
-    <LuminousScreen accent="neutral" backgroundImage={tabScreenBackgrounds.profile} bottomInset="none" testID="onboarding-screen">
+    <LuminousScreen accent="neutral" bottomInset="none" testID="onboarding-screen">
       <OnboardingHeader stepIndex={onboarding.stepIndex} stepLabel={onboarding.stepLabel ?? "Boxer basics"} stepTotal={onboarding.stepTotal} />
       <EngineCard>
         <View style={{ gap: spacing.md }}>

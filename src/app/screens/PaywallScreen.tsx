@@ -12,7 +12,6 @@ import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { getReleaseLinkConfig } from "../../services/config/runtimeConfig";
 import { SUPPORT_OUTSIDE_APP_COPY } from "../supportCopy";
 import { screenStyles } from "./screenStyles";
-import { tabScreenBackgrounds } from "./tabHeroConfig";
 
 function PaywallActionButton({
   disabled = false,
@@ -143,7 +142,7 @@ export function PaywallScreen({ onSignOut, subscription, userDataControls }: Pay
   }, [releaseLinks.supportUrl]);
 
   return (
-    <LuminousScreen accent="blue" backgroundImage={tabScreenBackgrounds.today} bottomInset="none" testID="paywall-screen">
+    <LuminousScreen accent="blue" bottomInset="none" testID="paywall-screen">
       <ScreenHeader
         accent="blue"
         eyebrow={viewModel.statusLabel}
