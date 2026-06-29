@@ -2,7 +2,7 @@ import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ImageBackground, Platform, Pressable, ScrollView, Text, TextInput, View, type ImageSourcePropType, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { DetailedTrainingSession, ExercisePrescription, ExerciseSubstitution } from "../../../engine/core/types";
+import type { DetailedTrainingSession, ExercisePrescription, ExerciseSetResultLog, ExerciseSubstitution } from "../../../engine/core/types";
 import type { WorkoutPlayerMode } from "../../../engine/presentation/workoutPlayerMode";
 import { resolveExercisePlayerMode, resolveWorkoutPlayerMode } from "../../../engine/presentation/workoutPlayerMode";
 import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../../engine/presentation/workoutPlayerTimeline";
@@ -23,7 +23,7 @@ import { accentColor, accentWash, LuminousScreenThemeContext, luminousScreenThem
 import { glassStyles } from "../../../design/glass";
 import { colors, radii, spacing } from "../../../design/theme";
 import type { WorkoutCompletionActions } from "../../../hooks/useWorkoutCompletion";
-import { clearWorkoutPlayerState, loadWorkoutPlayerState, saveWorkoutPlayerState, type PersistedWorkoutPlayerState, type PersistedWorkoutPlayerStatus } from "../../../services/workout/workoutPlayerPersistence";
+import { clearWorkoutPlayerState, loadWorkoutPlayerState, saveWorkoutPlayerState, type PersistedWorkoutPlayerState, type PersistedWorkoutPlayerStatus, type PersistedWorkoutSetLogDraft } from "../../../services/workout/workoutPlayerPersistence";
 import { screenStyles } from "../screenStyles";
 import { trainColorForTone, trainPalette, trainTextStyles, trainTint } from "./trainPalette";
 import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
@@ -213,7 +213,6 @@ function PlayerButton({
   const compact = layout === "compact";
   const buttonAccent = accentColor[accent];
   const buttonTheme = luminousScreenThemes[accent];
-  const labelVerticalOffset = Platform.OS === "web" ? -11 : -2;
   const layoutStyle: ViewStyle =
     layout === "full"
       ? { alignSelf: "stretch", width: "100%" }
@@ -288,27 +287,29 @@ function PlayerButton({
         style={{
           alignItems: "center",
           alignSelf: "stretch",
+          flexDirection: "row",
+          gap: icon ? spacing.xs : 0,
           justifyContent: "center",
           minHeight: compact ? 42 : primary ? 52 : 46,
           paddingHorizontal: 0,
           position: "relative"
         }}
       >
-        {icon ? <Ionicons color={textColor} name={icon} size={compact ? 16 : 18} style={{ left: 0, position: "absolute" }} /> : null}
+        {icon ? <Ionicons color={textColor} name={icon} size={compact ? 16 : 18} /> : null}
         <Text
           adjustsFontSizeToFit
           minimumFontScale={0.78}
           numberOfLines={1}
           style={{
             color: textColor,
+            flexShrink: 1,
             fontSize: compact ? 13 : 15,
             fontWeight: primary ? "900" : "800",
             includeFontPadding: false,
             lineHeight: compact ? 16 : 18,
             textAlign: "center",
             textAlignVertical: "center",
-            transform: [{ translateX: icon ? -5 : -3 }, { translateY: labelVerticalOffset }],
-            width: "100%"
+            transform: [{ translateY: Platform.OS === "web" ? -1 : 0 }]
           }}
         >
           {label}
@@ -746,16 +747,23 @@ function LiveDockButton({
       style={{
         alignItems: "center",
         flex: 1,
-        gap: spacing.xs,
+        gap: 3,
         justifyContent: "center",
-        minHeight: 78,
+        minHeight: 74,
         opacity: disabled ? 0.42 : 1,
         paddingHorizontal: spacing.xs,
-        paddingVertical: spacing.md
+        paddingVertical: spacing.sm
       }}
     >
-      <Ionicons color={tone === "danger" ? colors.redCorner : colors.canvas} name={icon} size={28} />
-      <Text style={{ color: colors.canvas, fontSize: 13, fontWeight: "800", lineHeight: 17 }}>{label}</Text>
+      <Ionicons color={tone === "danger" ? colors.redCorner : colors.canvas} name={icon} size={24} />
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.78}
+        numberOfLines={1}
+        style={{ color: colors.canvas, fontSize: 12, fontWeight: "800", lineHeight: 16, textAlign: "center", width: "100%" }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -840,6 +848,104 @@ function setRpeText(exercise: ExercisePrescription, setIndex: number): string {
   const set = exercise.sets[setIndex] ?? exercise.sets[0];
   const target = set?.rpeTarget ?? exercise.rpeTarget;
   return target ? String(target) : "-";
+}
+
+type WorkoutSetLogMap = Record<string, Record<string, PersistedWorkoutSetLogDraft>>;
+
+function emptySetLogDraft(): PersistedWorkoutSetLogDraft {
+  return {
+    loadText: "",
+    reps: "",
+    rpe: ""
+  };
+}
+
+function setLogKey(setIndex: number): string {
+  return String(Math.max(0, setIndex));
+}
+
+function setLogDraftFor(setLogMap: WorkoutSetLogMap, exerciseId: string, setIndex: number): PersistedWorkoutSetLogDraft {
+  return setLogMap[exerciseId]?.[setLogKey(setIndex)] ?? emptySetLogDraft();
+}
+
+function setLogUsesTime(exercise: ExercisePrescription, setIndex: number): boolean {
+  const set = exercise.sets[setIndex] ?? exercise.sets[0];
+  return Boolean((set?.durationText ?? exercise.durationText) && !(set?.repsText ?? exercise.repsText));
+}
+
+function parseOptionalSetInteger(value: string, label: string, input: { allowZero: boolean }): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  const zeroAllowed = input.allowZero ? parsed >= 0 : parsed > 0;
+  if (!Number.isInteger(parsed) || !zeroAllowed) {
+    throw new Error(`${label} must be ${input.allowZero ? "0 or higher" : "greater than 0"}.`);
+  }
+  return parsed;
+}
+
+function parseOptionalSetRpe(value: string, label: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 10) {
+    throw new Error(`${label} RPE must be between 1 and 10.`);
+  }
+  return parsed;
+}
+
+function parseWorkoutSetLog(
+  exercise: ExercisePrescription,
+  setIndex: number,
+  draft: PersistedWorkoutSetLogDraft
+): ExerciseSetResultLog | undefined {
+  const loadText = draft.loadText.trim();
+  const usesTime = setLogUsesTime(exercise, setIndex);
+  const repsOrSeconds = parseOptionalSetInteger(draft.reps, `${exercise.name} set ${setIndex + 1} ${usesTime ? "seconds" : "reps"}`, { allowZero: !usesTime });
+  const rpe = parseOptionalSetRpe(draft.rpe, `${exercise.name} set ${setIndex + 1}`);
+  if (repsOrSeconds === undefined && !loadText && rpe === undefined) {
+    return undefined;
+  }
+  return {
+    setIndex,
+    setLabel: exercise.sets[setIndex]?.setLabel ?? `Set ${setIndex + 1}`,
+    ...(usesTime ? (repsOrSeconds === undefined ? {} : { timeSeconds: repsOrSeconds }) : repsOrSeconds === undefined ? {} : { repsCompleted: repsOrSeconds }),
+    ...(loadText ? { loadText } : {}),
+    ...(rpe === undefined ? {} : { rpe })
+  };
+}
+
+function completedSetLogsForExercise(
+  exercise: ExercisePrescription,
+  completedSetIndices: readonly number[],
+  setLogs: Record<string, PersistedWorkoutSetLogDraft> | undefined
+): readonly ExerciseSetResultLog[] {
+  return completedSetIndices
+    .map((setIndex) => {
+      try {
+        return parseWorkoutSetLog(exercise, setIndex, setLogs?.[setLogKey(setIndex)] ?? emptySetLogDraft());
+      } catch {
+        return undefined;
+      }
+    })
+    .filter((log): log is ExerciseSetResultLog => log !== undefined);
+}
+
+function setLogSummaryText(exercise: ExercisePrescription, setIndex: number, draft: PersistedWorkoutSetLogDraft, completed: boolean): string {
+  if (!completed) {
+    return "-";
+  }
+  const usesTime = setLogUsesTime(exercise, setIndex);
+  const values = [
+    draft.reps.trim() ? `${draft.reps.trim()} ${usesTime ? "sec" : "reps"}` : null,
+    draft.loadText.trim() ? draft.loadText.trim() : null,
+    draft.rpe.trim() ? `RPE ${draft.rpe.trim()}` : null
+  ].filter((item): item is string => item !== null);
+  return values.length > 0 ? values.join(" | ") : "Logged";
 }
 
 function setSummaryText(exercise: ExercisePrescription): string {
@@ -932,75 +1038,140 @@ function StrengthStatusPill({ status }: { status: "active" | "done" | "skipped" 
   );
 }
 
+function StrengthSetInput({
+  keyboardType,
+  label,
+  onChangeText,
+  placeholder,
+  value
+}: {
+  keyboardType?: "default" | "decimal-pad" | "number-pad" | undefined;
+  label: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <View style={{ flexBasis: 92, flexGrow: 1, gap: 4, minWidth: 0 }}>
+      <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>{label}</Text>
+      <TextInput
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(255, 255, 255, 0.38)"
+        style={{
+          backgroundColor: "rgba(0, 0, 0, 0.2)",
+          borderColor: "rgba(255, 255, 255, 0.18)",
+          borderRadius: 10,
+          borderWidth: 1,
+          color: colors.canvas,
+          fontSize: 14,
+          fontWeight: "800",
+          minHeight: 46,
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs
+        }}
+        value={value}
+      />
+    </View>
+  );
+}
+
 function StrengthSetLogTable({
   activeSetIndex,
   completedSetIndices,
   exercise,
+  onChangeSetLog,
+  setLogMap,
   skippedSetIndices
 }: {
   activeSetIndex: number;
   completedSetIndices: readonly number[];
   exercise: ExercisePrescription;
+  onChangeSetLog: (setIndex: number, patch: Partial<PersistedWorkoutSetLogDraft>) => void;
+  setLogMap: Record<string, PersistedWorkoutSetLogDraft>;
   skippedSetIndices: readonly number[];
 }) {
   const completed = new Set(completedSetIndices);
   const skipped = new Set(skippedSetIndices);
   const setCount = Math.max(1, exercise.sets.length);
-  const headerStyle = { color: colors.wrap, fontSize: 10, fontWeight: "900" as const, letterSpacing: 0.4, lineHeight: 14 };
   return (
-    <View style={{ gap: spacing.xs }} testID="workout-player-strength-log-table">
-      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.xs, paddingHorizontal: spacing.xs }}>
-        <Text style={[headerStyle, { flex: 0.65 }]}>SET</Text>
-        <Text style={[headerStyle, { flex: 1.1, textAlign: "center" }]}>TARGET</Text>
-        <Text style={[headerStyle, { flex: 1.25, textAlign: "center" }]}>LOAD</Text>
-        <Text style={[headerStyle, { flex: 1.05, textAlign: "center" }]}>DONE</Text>
-        <Text style={[headerStyle, { flex: 0.72, textAlign: "center" }]}>RPE</Text>
-        <Text style={[headerStyle, { flex: 1.12, textAlign: "right" }]}>STATUS</Text>
-      </View>
+    <View style={{ gap: spacing.sm }} testID="workout-player-strength-log-table">
       {Array.from({ length: setCount }).map((_, index) => {
         const isCompleted = completed.has(index);
         const isSkipped = skipped.has(index);
         const isActive = index === activeSetIndex && !isCompleted && !isSkipped;
+        const draft = setLogMap[setLogKey(index)] ?? emptySetLogDraft();
         const rowColor = isCompleted ? "rgba(56, 226, 138, 0.05)" : isActive ? "rgba(255, 82, 101, 0.09)" : isSkipped ? "rgba(255, 179, 71, 0.06)" : "rgba(255, 255, 255, 0.035)";
         const borderColor = isCompleted ? "rgba(56, 226, 138, 0.28)" : isActive ? "rgba(255, 82, 101, 0.62)" : isSkipped ? "rgba(255, 179, 71, 0.32)" : "rgba(255, 255, 255, 0.09)";
         const textColor = isActive ? colors.redCorner : colors.canvas;
+        const usesTime = setLogUsesTime(exercise, index);
         return (
           <View
             key={`strength-set-row:${exercise.exerciseId}:${index}`}
             style={{
-              alignItems: "center",
               backgroundColor: rowColor,
               borderColor,
-              borderRadius: 10,
+              borderRadius: 14,
               borderWidth: 1,
-              flexDirection: "row",
-              gap: spacing.xs,
-              minHeight: 44,
-              paddingHorizontal: spacing.xs,
-              paddingVertical: spacing.xs
+              gap: spacing.sm,
+              minHeight: 68,
+              padding: spacing.sm
             }}
           >
-            <View
-              style={{
-                alignItems: "center",
-                backgroundColor: isActive ? "rgba(255, 82, 101, 0.12)" : "rgba(255, 255, 255, 0.04)",
-                borderColor,
-                borderRadius: 8,
-                borderWidth: 1,
-                flex: 0.65,
-                height: 32,
-                justifyContent: "center"
-              }}
-            >
-              <Text style={{ color: textColor, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{index + 1}</Text>
-            </View>
-            <Text numberOfLines={1} style={{ color: textColor, flex: 1.1, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{setTargetText(exercise, index)}</Text>
-            <Text numberOfLines={1} style={{ color: textColor, flex: 1.25, fontSize: 12, fontWeight: "800", lineHeight: 17, textAlign: "center" }}>{setLoadText(exercise, index)}</Text>
-            <Text numberOfLines={1} style={{ color: colors.wrap, flex: 1.05, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{isCompleted ? setTargetText(exercise, index) : "-"}</Text>
-            <Text style={{ color: colors.wrap, flex: 0.72, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{isCompleted ? setRpeText(exercise, index) : "-"}</Text>
-            <View style={{ alignItems: "flex-end", flex: 1.12 }}>
+            <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
+              <View
+                style={{
+                  alignItems: "center",
+                  backgroundColor: isActive ? "rgba(255, 82, 101, 0.12)" : "rgba(255, 255, 255, 0.04)",
+                  borderColor,
+                  borderRadius: 9,
+                  borderWidth: 1,
+                  height: 38,
+                  justifyContent: "center",
+                  width: 38
+                }}
+              >
+                <Text style={{ color: textColor, fontSize: 16, fontWeight: "900", lineHeight: 21 }}>{index + 1}</Text>
+              </View>
+              <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+                <Text numberOfLines={1} style={{ color: textColor, fontSize: 14, fontWeight: "900", lineHeight: 19 }}>
+                  {setTargetText(exercise, index)}
+                </Text>
+                <Text numberOfLines={1} style={{ color: colors.wrap, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
+                  {setLoadText(exercise, index)}{setRpeText(exercise, index) !== "-" ? ` | Target RPE ${setRpeText(exercise, index)}` : ""}
+                </Text>
+              </View>
               <StrengthStatusPill status={isCompleted ? "done" : isSkipped ? "skipped" : isActive ? "active" : "up_next"} />
             </View>
+            {isActive ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }} testID="workout-player-active-set-inputs">
+                <StrengthSetInput
+                  keyboardType="number-pad"
+                  label={usesTime ? "Seconds" : "Reps"}
+                  onChangeText={(value) => onChangeSetLog(index, { reps: value })}
+                  placeholder={`Set ${index + 1} ${usesTime ? "seconds" : "reps"}`}
+                  value={draft.reps}
+                />
+                <StrengthSetInput
+                  label="Load"
+                  onChangeText={(value) => onChangeSetLog(index, { loadText: value })}
+                  placeholder={`Set ${index + 1} load`}
+                  value={draft.loadText}
+                />
+                <StrengthSetInput
+                  keyboardType="decimal-pad"
+                  label="RPE"
+                  onChangeText={(value) => onChangeSetLog(index, { rpe: value })}
+                  placeholder={`Set ${index + 1} RPE`}
+                  value={draft.rpe}
+                />
+              </View>
+            ) : (
+              <Text numberOfLines={2} style={{ color: isSkipped ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18 }}>
+                {isSkipped ? "Skipped" : setLogSummaryText(exercise, index, draft, isCompleted)}
+              </Text>
+            )}
           </View>
         );
       })}
@@ -1239,6 +1410,7 @@ export function WorkoutPlayer({
   const [painFlagMap, setPainFlagMap] = React.useState<Record<string, true>>({});
   const [touchedExerciseMap, setTouchedExerciseMap] = React.useState<Record<string, true>>({});
   const [substitutionMap, setSubstitutionMap] = React.useState<Record<string, ExerciseSubstitution | undefined>>({});
+  const [setLogMap, setSetLogMap] = React.useState<WorkoutSetLogMap>({});
   const [sessionRpe, setSessionRpe] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
@@ -1262,6 +1434,7 @@ export function WorkoutPlayer({
     setPainFlagMap({});
     setTouchedExerciseMap({});
     setSubstitutionMap({});
+    setSetLogMap({});
     setSessionRpe("");
     setNotes("");
     setElapsedSeconds(0);
@@ -1339,6 +1512,7 @@ export function WorkoutPlayer({
       painFlagMap,
       sessionId: session.generatedSessionId,
       sessionRpe,
+      setLogMap,
       skippedExerciseMap,
       skippedWorkStepMap,
       status,
@@ -1354,6 +1528,7 @@ export function WorkoutPlayer({
     elapsedSeconds,
     notes,
     painFlagMap,
+    setLogMap,
     session.generatedSessionId,
     sessionRpe,
     skippedExerciseMap,
@@ -1408,10 +1583,19 @@ export function WorkoutPlayer({
   const completedCountByExerciseId = Object.fromEntries(Object.entries(completedSetMap).map(([exerciseId, sets]) => [exerciseId, sets.length]));
   const skippedCountByExerciseId = Object.fromEntries(Object.entries(skippedWorkStepMap).map(([exerciseId, sets]) => [exerciseId, sets.length]));
   const prescribedSetsByExerciseId = Object.fromEntries(steps.map((step) => [step.exerciseId, step.totalExerciseSets]));
+  const setLogsByExerciseId = Object.fromEntries(
+    Object.entries(completedSetMap)
+      .map(([exerciseId, setIndices]) => {
+        const exercise = exerciseById.get(exerciseId);
+        return [exerciseId, exercise ? completedSetLogsForExercise(exercise, setIndices, setLogMap[exerciseId]) : []] as const;
+      })
+      .filter((entry): entry is readonly [string, readonly ExerciseSetResultLog[]] => entry[1].length > 0)
+  );
   const playerResults = buildWorkoutPlayerExerciseResults(session, {
     completedSetsByExerciseId: completedCountByExerciseId,
     painFlagExerciseIds: Object.keys(painFlagMap),
     prescribedSetsByExerciseId,
+    setLogsByExerciseId,
     skippedSetsByExerciseId: skippedCountByExerciseId,
     skippedExerciseIds: Object.keys(skippedExerciseMap),
     substitutionByExerciseId: substitutionMap,
@@ -1493,6 +1677,7 @@ export function WorkoutPlayer({
     setPainFlagMap(persisted.painFlagMap);
     setTouchedExerciseMap(persisted.touchedExerciseMap);
     setSubstitutionMap(persisted.substitutionMap);
+    setSetLogMap(persisted.setLogMap);
     setSessionRpe(persisted.sessionRpe);
     setNotes(persisted.notes);
     setLocalError(null);
@@ -1593,6 +1778,33 @@ export function WorkoutPlayer({
 
   const touchExercise = (exerciseId = activeExerciseId) => {
     setTouchedExerciseMap((current) => ({ ...current, [exerciseId]: true }));
+  };
+
+  const updateSetLog = (exerciseId: string, setIndex: number, patch: Partial<PersistedWorkoutSetLogDraft>) => {
+    touchExercise(exerciseId);
+    setLocalError(null);
+    setSetLogMap((current) => ({
+      ...current,
+      [exerciseId]: {
+        ...(current[exerciseId] ?? {}),
+        [setLogKey(setIndex)]: {
+          ...emptySetLogDraft(),
+          ...((current[exerciseId] ?? {})[setLogKey(setIndex)] ?? {}),
+          ...patch
+        }
+      }
+    }));
+  };
+
+  const clearSetLog = (exerciseId: string, setIndex: number) => {
+    setSetLogMap((current) => {
+      const exerciseLogs = { ...(current[exerciseId] ?? {}) };
+      delete exerciseLogs[setLogKey(setIndex)];
+      return {
+        ...current,
+        [exerciseId]: exerciseLogs
+      };
+    });
   };
 
   const moveToStep = (stepIndex: number) => {
@@ -1727,6 +1939,13 @@ export function WorkoutPlayer({
   };
 
   const completeStrengthSet = () => {
+    try {
+      parseWorkoutSetLog(currentExercise, activeSetIndex, setLogDraftFor(setLogMap, activeExerciseId, activeSetIndex));
+      setLocalError(null);
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : "Set log is invalid.");
+      return;
+    }
     touchExercise();
     setSkippedExerciseMap((current) => {
       const next = { ...current };
@@ -1760,6 +1979,7 @@ export function WorkoutPlayer({
 
   const skipStrengthSet = () => {
     touchExercise();
+    clearSetLog(activeExerciseId, activeSetIndex);
     setCompletedSetMap((current) => {
       const currentSets = current[activeExerciseId] ?? [];
       return {
@@ -1782,6 +2002,11 @@ export function WorkoutPlayer({
   const skipStrengthExercise = () => {
     touchExercise(activeExerciseId);
     setSkippedExerciseMap((current) => ({ ...current, [activeExerciseId]: true }));
+    setSetLogMap((current) => {
+      const next = { ...current };
+      delete next[activeExerciseId];
+      return next;
+    });
     const nextStrengthIndex = findNextStrengthWorkIndex(currentStepIndex, { differentExerciseFrom: activeExerciseId });
     if (nextStrengthIndex >= 0) {
       moveToStep(nextStrengthIndex);
@@ -1998,6 +2223,7 @@ export function WorkoutPlayer({
     const isStrengthResting = currentTimelineStep.kind === "rest";
     const displaySetIndex = isStrengthResting ? Math.min(activeSetIndex + 1, Math.max(0, setCount - 1)) : activeSetIndex;
     const skippedSets = skippedWorkStepMap[activeExerciseId] ?? [];
+    const activeExerciseSetLogMap = setLogMap[activeExerciseId] ?? {};
     const restSeconds = restSecondsForExercise(currentExercise, activeSetIndex, currentTimelineStep);
     const restTimerSeconds = isStrengthResting ? stepRemainingSeconds : restSeconds;
     const restTimerProgress = isStrengthResting && currentTimelineStep.durationSeconds > 0 ? stepRemainingSeconds / currentTimelineStep.durationSeconds : restSeconds > 0 ? 1 : 0;
@@ -2142,8 +2368,11 @@ export function WorkoutPlayer({
             activeSetIndex={displaySetIndex}
             completedSetIndices={completedSets}
             exercise={currentExercise}
+            onChangeSetLog={(setIndex, draft) => updateSetLog(activeExerciseId, setIndex, draft)}
+            setLogMap={activeExerciseSetLogMap}
             skippedSetIndices={skippedSets}
           />
+          {localError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{localError}</Text> : null}
           <Text style={{ color: painFlagMap[activeExerciseId] ? colors.amberCaution : colors.wrap, fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>{liveSafetyLine}</Text>
           <View style={{ gap: spacing.sm }} testID="workout-player-strength-actions">
             {isStrengthResting ? (

@@ -4062,6 +4062,11 @@ describe("minimal app screens", () => {
         painFlagMap: { player_tempo_squat: true },
         sessionId: session.generatedSessionId,
         sessionRpe: "7",
+        setLogMap: {
+          player_tempo_squat: {
+            "0": { loadText: "bodyweight plus band", reps: "8", rpe: "6" }
+          }
+        },
         skippedExerciseMap: {},
         skippedWorkStepMap: {},
         status: "active",
@@ -4102,6 +4107,7 @@ describe("minimal app screens", () => {
       let output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Rest");
       expect(output).toContain("0:17");
+      expect(output).toContain("8 reps | bodyweight plus band | RPE 6");
       expect(output).toContain("Pause");
 
       act(() => {
@@ -4134,9 +4140,16 @@ describe("minimal app screens", () => {
       await act(async () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
+      act(() => {
+        changeInput(renderer, "Set 1 reps", "8");
+        changeInput(renderer, "Set 1 load", "bodyweight plus band");
+        changeInput(renderer, "Set 1 RPE", "7");
+      });
       await act(async () => {
         await press(pressableWithText(renderer, "Log set"));
       });
+      expect(JSON.stringify(renderer.toJSON())).toContain("bodyweight plus band");
+      expect(JSON.stringify(renderer.toJSON())).toContain("RPE 7");
       await act(async () => {
         await press(pressableWithText(renderer, "Start next set"));
       });
@@ -4164,7 +4177,14 @@ describe("minimal app screens", () => {
       if (!draft) {
         throw new Error("missing workout completion draft");
       }
-      expect(draft.exerciseResults.find((result: { exerciseId: string }) => result.exerciseId === "player_tempo_squat")).toEqual(expect.objectContaining({ completedSets: 1, resultStatus: "partial" }));
+      expect(draft.exerciseResults.find((result: { exerciseId: string }) => result.exerciseId === "player_tempo_squat")).toEqual(expect.objectContaining({
+        completedSets: 1,
+        loadText: "bodyweight plus band",
+        repsCompleted: 8,
+        rpe: 7,
+        resultStatus: "partial",
+        setLogs: [expect.objectContaining({ loadText: "bodyweight plus band", repsCompleted: 8, rpe: 7, setIndex: 0 })]
+      }));
       expect(draft.exerciseResults.find((result: { exerciseId: string }) => result.exerciseId === "player_timed_carry")).toEqual(expect.objectContaining({ completedSets: 0, resultStatus: "skipped" }));
       expect(draft.exerciseResults.find((result: { exerciseId: string }) => result.exerciseId === "player_dead_bug")).toEqual(expect.objectContaining({ completedSets: 0, painFlag: true, resultStatus: "partial" }));
       expect(draft.painNotes[0]).toContain("Dead bug reach");
@@ -4236,12 +4256,31 @@ describe("minimal app screens", () => {
       completedSetsByExerciseId: { [first.exerciseId]: 2 },
       painFlagExerciseIds: [third.exerciseId],
       prescribedSetsByExerciseId: { [first.exerciseId]: 2, [second.exerciseId]: 1, [third.exerciseId]: 1 },
+      setLogsByExerciseId: {
+        [first.exerciseId]: [
+          { setIndex: 0, setLabel: "Set 1", repsCompleted: 8, loadText: "bodyweight plus band", rpe: 7 },
+          { setIndex: 1, setLabel: "Set 2", repsCompleted: 7, loadText: "same load", rpe: 8 }
+        ]
+      },
       skippedExerciseIds: [second.exerciseId],
       substitutionByExerciseId: { [first.exerciseId]: first.substitutions[0] },
       touchedExerciseIds: [third.exerciseId]
     });
     const substitutedResult = results.find((result) => result.exerciseId === first.substitutions[0]?.exerciseId);
-    expect(substitutedResult).toEqual(expect.objectContaining({ completedSets: 2, exerciseName: "Chair squat", resultStatus: "completed", notes: expect.stringContaining("Substitution used: Chair squat") }));
+    expect(substitutedResult).toEqual(expect.objectContaining({
+      completedSets: 2,
+      exerciseName: "Chair squat",
+      loadText: "same load",
+      repsCompleted: 7,
+      resultStatus: "completed",
+      rpe: 8,
+      setLogs: [
+        expect.objectContaining({ loadText: "bodyweight plus band", repsCompleted: 8, setIndex: 0 }),
+        expect.objectContaining({ loadText: "same load", repsCompleted: 7, setIndex: 1 })
+      ],
+      notes: expect.stringContaining("Substitution used: Chair squat")
+    }));
+    expect(substitutedResult?.notes).toContain("Set logs: Set 1, 8 reps, load: bodyweight plus band, RPE 7");
     expect(substitutedResult?.prescribed.safetyNotes).toContain("Original prescription: Tempo squat (player_tempo_squat).");
     expect(results.find((result) => result.exerciseId === second.exerciseId)).toEqual(expect.objectContaining({ completedSets: 0, resultStatus: "skipped" }));
     expect(results.find((result) => result.exerciseId === third.exerciseId)).toEqual(expect.objectContaining({ completedSets: 0, painFlag: true, resultStatus: "partial" }));

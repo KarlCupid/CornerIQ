@@ -1,6 +1,8 @@
 import React from "react";
 import { Pressable, Text, TextInput, View, type TextInputProps, type ViewStyle } from "react-native";
-import { colors, spacing } from "../../../../design/theme";
+import { glassStyles } from "../../../../design/glass";
+import { colors, radii, spacing } from "../../../../design/theme";
+import { fontFamilies } from "../../../../design/typography";
 import { screenStyles } from "../../screenStyles";
 
 type OnboardingOptionVisualStyle = ViewStyle & {
@@ -8,22 +10,30 @@ type OnboardingOptionVisualStyle = ViewStyle & {
 };
 
 const optionBaseStyle = {
-  maxWidth: 280
+  ...glassStyles.control,
+  backgroundColor: "rgba(12, 21, 31, 0.72)",
+  borderColor: "rgba(232, 240, 255, 0.14)",
+  borderRadius: radii.tile,
+  flexGrow: 1,
+  maxWidth: 340,
+  minHeight: 46,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.sm
 } satisfies ViewStyle;
 
 const optionSelectedStyle = {
-  backgroundColor: "rgba(39, 206, 241, 0.13)",
-  borderColor: "rgba(39, 206, 241, 0.72)"
+  backgroundColor: "rgba(169, 185, 207, 0.15)",
+  borderColor: "rgba(232, 240, 255, 0.44)"
 } satisfies ViewStyle;
 
 const optionInteractiveStyle = {
-  backgroundColor: "rgba(39, 206, 241, 0.11)",
-  borderColor: "rgba(39, 206, 241, 0.64)",
-  boxShadow: "0 0 0 1px rgba(39, 206, 241, 0.42), 0 10px 24px rgba(39, 206, 241, 0.16)"
+  backgroundColor: "rgba(169, 185, 207, 0.12)",
+  borderColor: "rgba(232, 240, 255, 0.36)",
+  boxShadow: "0 0 0 1px rgba(169, 185, 207, 0.26), 0 12px 26px rgba(0, 0, 0, 0.24)"
 } satisfies OnboardingOptionVisualStyle;
 
 const optionPressedStyle = {
-  backgroundColor: "rgba(39, 206, 241, 0.18)",
+  backgroundColor: "rgba(247, 251, 255, 0.14)",
   borderColor: "rgba(247, 251, 255, 0.78)"
 } satisfies ViewStyle;
 
@@ -91,8 +101,10 @@ export function ChipButton({
       onPress={onPress}
       style={({ pressed }) => onboardingOptionStyle({ active, description: Boolean(description), disabled, focused, hovered, pressed })}
     >
-      <Text style={screenStyles.quietButtonText}>{label}</Text>
-      {description ? <Text style={[screenStyles.subtle, { marginTop: spacing.xs }]}>{description}</Text> : null}
+      <Text style={[screenStyles.quietButtonText, { color: active ? colors.canvas : colors.wrap, fontFamily: fontFamilies.bold, textAlign: description ? "left" : "center" }]}>
+        {label}
+      </Text>
+      {description ? <Text style={[screenStyles.subtle, { color: colors.mutedText, marginTop: spacing.xs }]}>{description}</Text> : null}
     </Pressable>
   );
 }
@@ -122,6 +134,7 @@ export function LabeledTextInput({
   example,
   helper,
   label,
+  style,
   ...inputProps
 }: TextInputProps & {
   example?: string | undefined;
@@ -130,7 +143,20 @@ export function LabeledTextInput({
 }) {
   return (
     <FieldGroup example={example} helper={helper} label={label}>
-      <TextInput accessibilityLabel={label} placeholderTextColor={colors.wrap} style={screenStyles.input} {...inputProps} />
+      <TextInput
+        accessibilityLabel={label}
+        placeholderTextColor={colors.mutedText}
+        style={[
+          screenStyles.input,
+          {
+            backgroundColor: "rgba(12, 21, 31, 0.72)",
+            borderColor: "rgba(232, 240, 255, 0.15)",
+            borderRadius: radii.tile
+          },
+          style
+        ]}
+        {...inputProps}
+      />
     </FieldGroup>
   );
 }

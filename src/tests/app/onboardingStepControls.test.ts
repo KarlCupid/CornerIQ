@@ -104,9 +104,9 @@ describe("onboarding step controls", () => {
     });
     const focusedStyle = renderedStyle(firstPressable(renderer));
 
-    expect(hoveredStyle.borderColor).toBe("rgba(39, 206, 241, 0.64)");
-    expect(hoveredStyle.backgroundColor).toBe("rgba(39, 206, 241, 0.11)");
-    expect(hoveredStyle.boxShadow).toContain("rgba(39, 206, 241");
+    expect(hoveredStyle.borderColor).toBe("rgba(232, 240, 255, 0.36)");
+    expect(hoveredStyle.backgroundColor).toBe("rgba(169, 185, 207, 0.12)");
+    expect(hoveredStyle.boxShadow).toContain("rgba(169, 185, 207");
     expect(hoveredStyle.borderColor).not.toBe(idleStyle.borderColor);
     expect(focusedStyle.borderColor).toBe(hoveredStyle.borderColor);
   });

@@ -40,6 +40,17 @@ const WorkoutTemplateSectionRoleSchema = z.enum(["prepare", "primary", "companio
 const ExerciseResultLoadUnitSchema = z.enum(["kg", "lb", "bodyweight", "band", "other"]);
 const ExerciseResultSideSchema = z.enum(["left", "right", "bilateral", "alternating", "not_applicable"]);
 const ExerciseResultTechnicalQualitySchema = z.enum(["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"]);
+const ExerciseSetResultLogSchema = z.object({
+  setIndex: z.number().int().nonnegative(),
+  setLabel: z.string().min(1).optional(),
+  repsCompleted: z.number().int().nonnegative().optional(),
+  timeSeconds: z.number().positive().optional(),
+  loadText: z.string().optional(),
+  loadValue: z.number().positive().optional(),
+  loadUnit: ExerciseResultLoadUnitSchema.optional(),
+  rpe: z.number().min(1).max(10).optional(),
+  notes: z.string().optional()
+});
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -781,6 +792,7 @@ export const ExerciseResultRecordSchema = z.object({
   technicalQuality: ExerciseResultTechnicalQualitySchema.optional(),
   loadText: z.string().optional(),
   rpe: z.number().min(1).max(10).optional(),
+  setLogs: z.array(ExerciseSetResultLogSchema).optional(),
   notes: z.string().optional(),
   painFlag: z.boolean().optional(),
   source: z.string().min(1),

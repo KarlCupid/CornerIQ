@@ -3,6 +3,12 @@ import { resolveDeviceStorage } from "../storage/deviceStorage";
 
 export type PersistedWorkoutPlayerStatus = "active" | "paused" | "finishing";
 
+export interface PersistedWorkoutSetLogDraft {
+  loadText: string;
+  reps: string;
+  rpe: string;
+}
+
 export interface PersistedWorkoutPlayerState {
   activeStepIndex: number;
   completedSetMap: Record<string, readonly number[]>;
@@ -10,6 +16,7 @@ export interface PersistedWorkoutPlayerState {
   painFlagMap: Record<string, true>;
   sessionId: string;
   sessionRpe: string;
+  setLogMap: Record<string, Record<string, PersistedWorkoutSetLogDraft>>;
   skippedExerciseMap: Record<string, true>;
   skippedWorkStepMap: Record<string, readonly number[]>;
   status: PersistedWorkoutPlayerStatus;
@@ -52,6 +59,37 @@ function substitutionMap(value: unknown): Record<string, ExerciseSubstitution | 
   return value as Record<string, ExerciseSubstitution | undefined>;
 }
 
+function setLogDraftMap(value: unknown): Record<string, Record<string, PersistedWorkoutSetLogDraft>> {
+  if (!isRecord(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([exerciseId, rawSetMap]) => {
+      if (!isRecord(rawSetMap)) {
+        return [exerciseId, {}];
+      }
+      return [
+        exerciseId,
+        Object.fromEntries(
+          Object.entries(rawSetMap).map(([setIndex, rawLog]) => {
+            if (!isRecord(rawLog)) {
+              return [setIndex, { loadText: "", reps: "", rpe: "" }];
+            }
+            return [
+              setIndex,
+              {
+                loadText: typeof rawLog.loadText === "string" ? rawLog.loadText : "",
+                reps: typeof rawLog.reps === "string" ? rawLog.reps : "",
+                rpe: typeof rawLog.rpe === "string" ? rawLog.rpe : ""
+              }
+            ];
+          })
+        )
+      ];
+    })
+  );
+}
+
 function parsePersistedState(raw: string | null): PersistedWorkoutPlayerState | null {
   if (!raw) {
     return null;
@@ -78,6 +116,7 @@ function parsePersistedState(raw: string | null): PersistedWorkoutPlayerState | 
       painFlagMap: stringTrueMap(parsed.painFlagMap),
       sessionId: parsed.sessionId,
       sessionRpe: typeof parsed.sessionRpe === "string" ? parsed.sessionRpe : "",
+      setLogMap: setLogDraftMap(parsed.setLogMap),
       skippedExerciseMap: stringTrueMap(parsed.skippedExerciseMap),
       skippedWorkStepMap: numberArrayMap(parsed.skippedWorkStepMap),
       status,

@@ -146,7 +146,6 @@ export function PaywallScreen({ onSignOut, subscription, userDataControls }: Pay
       <ScreenHeader
         accent="blue"
         eyebrow={viewModel.statusLabel}
-        icon="lock-closed-outline"
         subtitle={viewModel.summary}
         title={viewModel.headline}
       />

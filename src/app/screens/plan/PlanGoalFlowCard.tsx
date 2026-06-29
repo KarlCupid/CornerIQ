@@ -1,8 +1,10 @@
 import React from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { ISODateString, PlanViewModel } from "../../../engine/core/types";
-import { EngineCard } from "../../../design/components/EngineCard";
-import { colors, spacing } from "../../../design/theme";
+import { PremiumButton, PremiumCard } from "../../../design/components/PremiumPrimitives";
+import { colors, radii, spacing } from "../../../design/theme";
+import { fontFamilies } from "../../../design/typography";
 import { useFormMessage } from "../../forms/useFormMessage";
 import {
   parseOptionalISODateTime,
@@ -30,6 +32,7 @@ import {
   type TournamentSetupDraft
 } from "../../../services/supabase/onboardingService";
 import { screenStyles } from "../screenStyles";
+import { planPalette } from "./planPalette";
 
 type GoalMode = "build" | "fight" | "tournament" | "recovery";
 type WizardStep = "goal" | "schedule" | "details" | "review";
@@ -123,9 +126,104 @@ const anchorIntensityOptions: readonly { label: string; value: ProtectedWorkoutD
 
 function OptionButton({ active, busy, label, onPress }: { active: boolean; busy: boolean; label: string; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy, selected: active }} disabled={busy} onPress={onPress} style={[screenStyles.chip, active ? screenStyles.chipSelected : null]}>
-      <Text style={[screenStyles.chipText, active ? screenStyles.chipTextSelected : null]}>{label}</Text>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy, selected: active }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: "center",
+        backgroundColor: active ? "rgba(56, 226, 138, 0.14)" : pressed ? "rgba(230, 247, 234, 0.095)" : "rgba(230, 247, 234, 0.055)",
+        borderColor: active ? "rgba(56, 226, 138, 0.5)" : "rgba(210, 244, 221, 0.16)",
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        boxShadow: active ? "0 10px 26px rgba(56, 226, 138, 0.14)" : "0 8px 22px rgba(0, 0, 0, 0.16)",
+        flexGrow: 1,
+        justifyContent: "center",
+        maxWidth: 360,
+        minHeight: 44,
+        opacity: busy ? 0.58 : 1,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      })}
+    >
+      <Text style={{ color: active ? planPalette.textPrimary : planPalette.textBody, fontFamily: fontFamilies.bold, fontSize: 14, fontWeight: "700", lineHeight: 18, textAlign: "center" }}>{label}</Text>
     </Pressable>
+  );
+}
+
+function WizardProgress({
+  currentStep
+}: {
+  currentStep: WizardStep;
+}) {
+  const currentIndex = stepIndex(currentStep);
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+      {wizardSteps.map((item, index) => {
+        const active = item.key === currentStep;
+        const complete = index < currentIndex;
+        return (
+          <View
+            accessibilityLabel={`${item.label} ${complete ? "complete" : active ? "current" : "upcoming"}`}
+            key={item.key}
+            style={{
+              alignItems: "center",
+              backgroundColor: active ? "rgba(56, 226, 138, 0.14)" : complete ? "rgba(56, 226, 138, 0.085)" : "rgba(230, 247, 234, 0.045)",
+              borderColor: active || complete ? "rgba(56, 226, 138, 0.36)" : "rgba(210, 244, 221, 0.12)",
+              borderCurve: "continuous",
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              flexDirection: "row",
+              gap: spacing.xs,
+              minHeight: 34,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: spacing.xs
+            }}
+          >
+            <Text style={{ color: active || complete ? planPalette.actionFill : planPalette.textMuted, fontFamily: fontFamilies.black, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>
+              {index + 1}
+            </Text>
+            <Text style={{ color: active ? planPalette.textPrimary : planPalette.textMuted, fontFamily: fontFamilies.bold, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
+              {item.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function WizardNotice({
+  body,
+  testID,
+  title,
+  tone = "muted"
+}: {
+  body?: string | undefined;
+  testID?: string | undefined;
+  title: string;
+  tone?: "green" | "muted" | "red" | "orange" | undefined;
+}) {
+  const color = tone === "green" ? planPalette.actionFill : tone === "red" ? colors.redCorner : tone === "orange" ? colors.amberCaution : planPalette.textMuted;
+  return (
+    <View
+      accessibilityRole={tone === "red" || tone === "orange" ? "alert" : undefined}
+      style={{
+        backgroundColor: tone === "red" ? "rgba(255, 82, 101, 0.09)" : tone === "orange" ? "rgba(255, 148, 72, 0.09)" : "rgba(230, 247, 234, 0.055)",
+        borderColor: `${color}44`,
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        gap: spacing.xs,
+        padding: spacing.md
+      }}
+      testID={testID}
+    >
+      <Text style={{ color, fontFamily: fontFamilies.bold, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>{title}</Text>
+      {body ? <Text style={{ ...screenStyles.subtle, color: planPalette.textBody }}>{body}</Text> : null}
+    </View>
   );
 }
 
@@ -606,54 +704,43 @@ export function PlanGoalFlowCard({
 
   const content = (
     <View accessibilityLabel="Plan generation wizard" style={{ gap: spacing.md }} testID="plan-generation-wizard">
-      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
-          <Text style={screenStyles.sectionTitle}>Generate new plan</Text>
-          <Text style={screenStyles.body}>A guided setup keeps the plan goal, availability, and details clear before saving.</Text>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+        <View style={{ alignItems: "center", flexDirection: "row", flex: 1, gap: spacing.md, minWidth: 0 }}>
+          <View
+            style={{
+              alignItems: "center",
+              backgroundColor: "rgba(56, 226, 138, 0.12)",
+              borderColor: "rgba(56, 226, 138, 0.34)",
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              height: 46,
+              justifyContent: "center",
+              width: 46
+            }}
+          >
+            <Ionicons color={planPalette.actionFill} name="sparkles-outline" size={22} />
+          </View>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={{ color: planPalette.actionFill, fontFamily: fontFamilies.black, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>
+              Plan wizard
+            </Text>
+            <Text style={{ color: planPalette.textPrimary, fontFamily: fontFamilies.extraBold, fontSize: 24, fontWeight: "800", lineHeight: 30 }}>
+              Generate new plan
+            </Text>
+            <Text style={{ ...screenStyles.subtle, color: planPalette.textBody }}>A guided setup keeps the plan goal, availability, and details clear before saving.</Text>
+          </View>
         </View>
         {showCloseButton ? (
-          <Pressable
-            accessibilityLabel="Close plan wizard"
-            accessibilityRole="button"
-            disabled={controlsBusy}
-            onPress={onCancel}
-            style={[screenStyles.quietButton, { minHeight: 44, minWidth: 76, paddingHorizontal: spacing.md }]}
-          >
-            <Text style={screenStyles.quietButtonText}>Close</Text>
-          </Pressable>
+          <PremiumButton disabled={controlsBusy} icon="close-outline" label="Close" onPress={onCancel} tone="green" variant="quiet" />
         ) : null}
       </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-          {wizardSteps.map((item, index) => {
-            const active = item.key === step;
-            const complete = index < stepIndex(step);
-            return (
-              <View
-                key={item.key}
-                style={[
-                  screenStyles.chip,
-                  {
-                    minHeight: 34,
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.xs
-                  },
-                  active || complete ? screenStyles.chipSelected : null
-                ]}
-              >
-                <Text style={[screenStyles.chipText, active || complete ? screenStyles.chipTextSelected : null]}>{index + 1}. {item.label}</Text>
-              </View>
-            );
-          })}
-        </View>
-        {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
-        {stepError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{stepError}</Text> : null}
+        <WizardProgress currentStep={step} />
+        {formError ? <WizardNotice title={formError} tone="red" /> : null}
+        {stepError ? <WizardNotice title={stepError} tone="red" /> : null}
         {submittingCopy ? (
-          <View accessibilityRole="alert" style={{ gap: spacing.xs }} testID="plan-wizard-generating-state">
-            <Text style={screenStyles.callout}>{submittingCopy.title}</Text>
-            <Text style={screenStyles.body}>{submittingCopy.body}</Text>
-          </View>
+          <WizardNotice body={submittingCopy.body} testID="plan-wizard-generating-state" title={submittingCopy.title} tone="green" />
         ) : null}
-        {isMinor ? <Text style={screenStyles.subtle}>Minor athletes stay safety-first; acute weight-class shortcuts stay blocked.</Text> : null}
+        {isMinor ? <WizardNotice title="Minor athletes stay safety-first; acute weight-class shortcuts stay blocked." tone="orange" /> : null}
 
         {step === "goal" ? (
           <View style={{ gap: spacing.sm }} testID="plan-wizard-goal-step">
@@ -701,24 +788,18 @@ export function PlanGoalFlowCard({
               {pendingWeeklyAnchors.length > 0 ? pendingWeeklyAnchors.map((anchor, index) => (
                 <View key={`pending-weekly-anchor:${index}`} style={{ gap: spacing.xs }}>
                   <Text style={screenStyles.body}>{weeklyAnchorSummary(anchor)}</Text>
-                  <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={() => removePendingWeeklyAnchor(index)} style={screenStyles.quietButton}>
-                    <Text style={screenStyles.quietButtonText}>Remove draft weekly session</Text>
-                  </Pressable>
+                  <PremiumButton disabled={controlsBusy} icon="trash-outline" label="Remove draft weekly session" onPress={() => removePendingWeeklyAnchor(index)} tone="green" variant="quiet" />
                 </View>
               )) : null}
               {pendingDatedAnchors.length > 0 ? pendingDatedAnchors.map((anchor, index) => (
                 <View key={`pending-dated-anchor:${index}`} style={{ gap: spacing.xs }}>
                   <Text style={screenStyles.body}>{datedAnchorSummary(anchor)}</Text>
-                  <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={() => removePendingDatedAnchor(index)} style={screenStyles.quietButton}>
-                    <Text style={screenStyles.quietButtonText}>Remove draft one-off session</Text>
-                  </Pressable>
+                  <PremiumButton disabled={controlsBusy} icon="trash-outline" label="Remove draft one-off session" onPress={() => removePendingDatedAnchor(index)} tone="green" variant="quiet" />
                 </View>
               )) : null}
               {pendingWeeklyAnchors.length === 0 && pendingDatedAnchors.length === 0 ? <Text style={screenStyles.subtle}>No new boxing sessions added in this wizard yet.</Text> : null}
               {protectedScheduleMode !== "clear_for_plan" ? (
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: anchorEditorOpen }} disabled={controlsBusy} onPress={() => setAnchorEditorOpen((value) => !value)} style={screenStyles.quietButton}>
-                  <Text style={screenStyles.quietButtonText}>{anchorEditorOpen ? "Hide session fields" : "Add weekly session"}</Text>
-                </Pressable>
+                <PremiumButton disabled={controlsBusy} icon={anchorEditorOpen ? "chevron-up-outline" : "add-outline"} label={anchorEditorOpen ? "Hide session fields" : "Add weekly session"} onPress={() => setAnchorEditorOpen((value) => !value)} tone="green" variant="quiet" />
               ) : null}
               {anchorEditorOpen && protectedScheduleMode !== "clear_for_plan" ? (
                 <View style={{ gap: spacing.sm }}>
@@ -747,9 +828,7 @@ export function PlanGoalFlowCard({
                   </View>
                   <TextInput keyboardType="number-pad" onChangeText={setAnchorRounds} placeholder="Rounds optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorRounds} />
                   <TextInput onChangeText={setAnchorNote} placeholder="Note optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={anchorNote} />
-                  <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={addPendingAnchor} style={screenStyles.button}>
-                    <Text style={screenStyles.buttonText}>Add session to review</Text>
-                  </Pressable>
+                  <PremiumButton disabled={controlsBusy} icon="add-circle-outline" label="Add session to review" onPress={addPendingAnchor} tone="green" />
                 </View>
               ) : null}
             </View>
@@ -803,9 +882,7 @@ export function PlanGoalFlowCard({
                   <OptionButton active={weighInType === "unknown"} busy={controlsBusy} label="Unknown" onPress={() => setWeighInType("unknown")} />
                 </View>
                 {weighInType === "unknown" ? <Text style={screenStyles.callout}>Weight-class action is blocked until weigh-in timing is confirmed.</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: advancedOpen }} disabled={controlsBusy} onPress={() => setAdvancedOpen((value) => !value)} style={screenStyles.quietButton}>
-                  <Text style={screenStyles.quietButtonText}>{advancedOpen ? "Hide advanced fields" : "Advanced fields"}</Text>
-                </Pressable>
+                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide advanced fields" : "Advanced fields"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
                 {advancedOpen ? (
                   <View style={{ gap: spacing.sm }}>
                     <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rounds} />
@@ -834,9 +911,7 @@ export function PlanGoalFlowCard({
                   <OptionButton active={strategyMode === "mild_daily_cut"} busy={controlsBusy} label="Mild daily cut" onPress={() => setStrategyMode("mild_daily_cut")} />
                   <OptionButton active={strategyMode === "no_cut_recommended"} busy={controlsBusy} label="No cut recommended" onPress={() => setStrategyMode("no_cut_recommended")} />
                 </View>
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: advancedOpen }} disabled={controlsBusy} onPress={() => setAdvancedOpen((value) => !value)} style={screenStyles.quietButton}>
-                  <Text style={screenStyles.quietButtonText}>{advancedOpen ? "Hide advanced fields" : "Advanced fields"}</Text>
-                </Pressable>
+                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide advanced fields" : "Advanced fields"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
                 {advancedOpen ? (
                   <View style={{ gap: spacing.sm }}>
                     <OptionButton active={sameDayBoutLikely} busy={controlsBusy} label="Same-day bout likely" onPress={() => setSameDayBoutLikely((value) => !value)} />
@@ -923,26 +998,25 @@ export function PlanGoalFlowCard({
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {step !== "goal" ? (
-            <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={goBack} style={[screenStyles.quietButton, { flexBasis: 120, flexGrow: 1 }]}>
-              <Text style={screenStyles.quietButtonText}>Back</Text>
-            </Pressable>
+            <View style={{ flexBasis: 120, flexGrow: 1 }}>
+              <PremiumButton disabled={controlsBusy} icon="chevron-back-outline" label="Back" onPress={goBack} tone="green" variant="quiet" />
+            </View>
           ) : null}
-          <Pressable
-            accessibilityLabel={step === "review" ? finalAccessibilityLabel(mode) : "Next plan wizard step"}
-            accessibilityRole="button"
-            disabled={controlsBusy}
-            onPress={step === "review" ? () => void saveCurrentGoal() : goNext}
-            style={[screenStyles.button, { flexBasis: 150, flexGrow: 1 }]}
-          >
-            <Text style={screenStyles.buttonText}>{submittingPlanAction === "start_new_plan" ? "Generating plan..." : submittingPlanAction === "amend_current_plan" ? "Updating plan..." : step === "review" ? "Generate plan" : step === "details" ? "Review plan" : "Next"}</Text>
-          </Pressable>
+          <View style={{ flexBasis: 150, flexGrow: 1 }}>
+            <PremiumButton
+              accessibilityLabel={step === "review" ? finalAccessibilityLabel(mode) : "Next plan wizard step"}
+              disabled={controlsBusy}
+              icon={step === "review" ? "sparkles-outline" : "arrow-forward-outline"}
+              label={submittingPlanAction === "start_new_plan" ? "Generating plan..." : submittingPlanAction === "amend_current_plan" ? "Updating plan..." : step === "review" ? "Generate plan" : step === "details" ? "Review plan" : "Next"}
+              onPress={step === "review" ? () => void saveCurrentGoal() : goNext}
+              tone="green"
+            />
+          </View>
         </View>
-        <Pressable accessibilityRole="button" disabled={controlsBusy} onPress={onCancel} style={screenStyles.quietButton}>
-          <Text style={screenStyles.quietButtonText}>Keep current plan</Text>
-        </Pressable>
+        <PremiumButton disabled={controlsBusy} icon="return-up-back-outline" label="Keep current plan" onPress={onCancel} tone="green" variant="quiet" />
     </View>
   );
 
-  return framed ? <EngineCard>{content}</EngineCard> : content;
+  return framed ? <PremiumCard accent="green" density="spacious" testID="plan-generation-frame">{content}</PremiumCard> : content;
 }
 

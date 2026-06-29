@@ -10,35 +10,30 @@ export const tabHeroHeaders = {
     accent: "orange",
     eyebrow: "Fuel",
     heroImage: fuelHero,
-    icon: "restaurant-outline",
     title: "Fuel Brief"
   },
   plan: {
     accent: "green",
     eyebrow: "Plan",
     heroImage: planHero,
-    icon: "calendar-outline",
     title: "Camp Plan"
   },
   profile: {
     accent: "neutral",
     eyebrow: "Profile",
     heroImage: profileHero,
-    icon: "person-outline",
     title: "Athlete Profile"
   },
   today: {
     accent: "blue",
     eyebrow: "Today",
     heroImage: todayHero,
-    icon: "calendar-outline",
     title: "Corner Brief"
   },
   train: {
     accent: "purple",
     eyebrow: "Train",
     heroImage: trainHero,
-    icon: "document-text-outline",
     title: "Session Brief"
   }
 } satisfies Record<string, ScreenHeaderProps>;

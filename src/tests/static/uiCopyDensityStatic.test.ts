@@ -100,8 +100,9 @@ describe("fatigue-first UI copy density static checks", () => {
     expect(screenSource).toContain("const TAB_SCREEN_BOTTOM_PADDING = 104;");
   });
 
-  it("keeps the tab photo headers wired to real local assets and matching icons", () => {
+  it("keeps the tab photo headers wired to real local assets without decorative hero actions", () => {
     const heroSource = readFileSync("src/app/screens/tabHeroConfig.ts", "utf8");
+    const screenShellSource = readFileSync("src/design/components/LuminousScreen.tsx", "utf8");
     const tabsSource = readFileSync("src/app/navigation/AppTabs.tsx", "utf8");
 
     for (const asset of [
@@ -119,9 +120,10 @@ describe("fatigue-first UI copy density static checks", () => {
       expect(tabsSource).toContain(icon);
     }
 
-    for (const icon of ["calendar-outline", "document-text-outline", "restaurant-outline", "person-outline"]) {
-      expect(heroSource).toContain(icon);
-    }
+    expect(heroSource).not.toContain("icon:");
+    expect(screenShellSource).not.toContain("notifications-outline");
+    expect(screenShellSource).not.toContain("settings-outline");
+    expect(screenShellSource).not.toContain("heroActionGlyph");
   });
 
   it("keeps hero titles boxing-specific and away from generic fitness phrasing", () => {

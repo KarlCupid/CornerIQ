@@ -159,6 +159,7 @@ export function PremiumIconBadge({
 }
 
 export function PremiumButton({
+  accessibilityLabel,
   disabled,
   icon,
   label,
@@ -166,6 +167,7 @@ export function PremiumButton({
   tone,
   variant = "primary"
 }: {
+  accessibilityLabel?: string | undefined;
   disabled?: boolean | undefined;
   icon?: keyof typeof Ionicons.glyphMap | undefined;
   label: string;
@@ -198,7 +200,7 @@ export function PremiumButton({
         };
   return (
     <Pressable
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}

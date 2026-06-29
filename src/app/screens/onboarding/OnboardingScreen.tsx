@@ -1,8 +1,9 @@
 import React from "react";
-import { Pressable, Text, View } from "react-native";
-import { EngineCard } from "../../../design/components/EngineCard";
+import { Text, View } from "react-native";
 import { LuminousProgressBar, LuminousScreen } from "../../../design/components/LuminousScreen";
+import { PremiumButton, PremiumCard, PremiumIconBadge } from "../../../design/components/PremiumPrimitives";
 import { colors, radii, spacing } from "../../../design/theme";
+import { fontFamilies } from "../../../design/typography";
 import type { ISODateString } from "../../../engine/core/types";
 import { useOnboardingDraft } from "../../../hooks/useOnboardingDraft";
 import type { OnboardingCompletionResult, OnboardingDraft } from "../../../services/supabase/onboardingService";
@@ -71,19 +72,35 @@ function OnboardingHeader({
   stepTotal: number;
 }) {
   return (
-    <View style={{ gap: spacing.sm, paddingTop: spacing.xs }}>
-      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-        <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-          <Text style={{ color: colors.mutedText, fontSize: 11, fontWeight: "900", lineHeight: 15 }}>
-            BOXER SETUP
+    <PremiumCard accent="neutral" density="spacious" testID="onboarding-setup-header">
+      <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md }}>
+        <PremiumIconBadge icon="shield-checkmark-outline" tone="neutral" />
+        <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
+          <Text style={{ color: colors.mutedText, fontFamily: fontFamilies.black, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>
+            Boxer setup
           </Text>
-          <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={{ color: colors.canvas, fontSize: 30, fontWeight: "900", lineHeight: 36 }}>
+          <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: colors.canvas, fontFamily: fontFamilies.extraBold, fontSize: 30, fontWeight: "800", lineHeight: 35 }}>
             Boxer setup
           </Text>
         </View>
-        <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "800", lineHeight: 16, paddingTop: 3 }}>
-          {stepIndex + 1}/{stepTotal}
-        </Text>
+        <View
+          accessibilityLabel={`Setup step ${stepIndex + 1} of ${stepTotal}`}
+          style={{
+            alignItems: "center",
+            backgroundColor: "rgba(169, 185, 207, 0.1)",
+            borderColor: "rgba(232, 240, 255, 0.16)",
+            borderRadius: radii.pill,
+            borderWidth: 1,
+            justifyContent: "center",
+            minHeight: 34,
+            minWidth: 58,
+            paddingHorizontal: spacing.sm
+          }}
+        >
+          <Text style={{ color: colors.wrap, fontFamily: fontFamilies.bold, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
+            {stepIndex + 1}/{stepTotal}
+          </Text>
+        </View>
       </View>
       <LuminousProgressBar accent="neutral" progress={(stepIndex + 1) / stepTotal} />
       <View
@@ -100,7 +117,7 @@ function OnboardingHeader({
           {stepLabel}
         </Text>
       </View>
-    </View>
+    </PremiumCard>
   );
 }
 
@@ -132,8 +149,8 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
   return (
     <LuminousScreen accent="neutral" bottomInset="none" testID="onboarding-screen">
       <OnboardingHeader stepIndex={onboarding.stepIndex} stepLabel={onboarding.stepLabel ?? "Boxer basics"} stepTotal={onboarding.stepTotal} />
-      <EngineCard>
-        <View style={{ gap: spacing.md }}>
+      <PremiumCard accent="neutral" density="spacious" testID="onboarding-step-card">
+        <View style={{ gap: spacing.lg }}>
           <Text style={screenStyles.subtle}>{stepWhy(onboarding.stepIndex)}</Text>
           {showStorageStatus ? <Text style={screenStyles.subtle}>{onboarding.storageStatus}</Text> : null}
           {message ? <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>{message}</Text> : null}
@@ -142,52 +159,49 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
           {onboarding.isLastStep ? <Text style={screenStyles.callout}>{goalSummary(onboarding.draft)}</Text> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             {!onboarding.isFirstStep ? (
-              <Pressable accessibilityLabel="Back to previous setup step" accessibilityRole="button" disabled={busy} onPress={onboarding.back} style={screenStyles.quietButton}>
-                <Text style={screenStyles.quietButtonText}>Back</Text>
-              </Pressable>
+              <View style={{ flexBasis: 120, flexGrow: 1 }}>
+                <PremiumButton accessibilityLabel="Back to previous setup step" disabled={busy} icon="chevron-back-outline" label="Back" onPress={onboarding.back} tone="neutral" variant="quiet" />
+              </View>
             ) : null}
             {onboarding.isLastStep ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Finish boxer setup"
-                disabled={busy}
-                onPress={() => {
-                  const error = onboarding.validateCurrentStep();
-                  if (!error) {
-                    void (async () => {
-                      try {
-                        const result = await onComplete(onboarding.draft);
-                        if (result.status === "saved") {
-                          await onboarding.clearDraft();
-                          return;
+              <View style={{ flexBasis: 156, flexGrow: 1 }}>
+                <PremiumButton
+                  accessibilityLabel="Finish boxer setup"
+                  disabled={busy}
+                  icon="checkmark-outline"
+                  label={busy ? "Saving..." : "Finish setup"}
+                  onPress={() => {
+                    const error = onboarding.validateCurrentStep();
+                    if (!error) {
+                      void (async () => {
+                        try {
+                          const result = await onComplete(onboarding.draft);
+                          if (result.status === "saved") {
+                            await onboarding.clearDraft();
+                            return;
+                          }
+                          onboarding.setStepError(result.message);
+                        } catch (failure) {
+                          onboarding.setStepError(failure instanceof Error ? failure.message : "Onboarding failed.");
                         }
-                        onboarding.setStepError(result.message);
-                      } catch (failure) {
-                        onboarding.setStepError(failure instanceof Error ? failure.message : "Onboarding failed.");
-                      }
-                    })();
-                  }
-                }}
-                style={screenStyles.button}
-              >
-                <Text style={screenStyles.buttonText}>{busy ? "Saving..." : "Finish setup"}</Text>
-              </Pressable>
+                      })();
+                    }
+                  }}
+                  tone="neutral"
+                />
+              </View>
             ) : (
-              <Pressable accessibilityLabel="Next setup step" accessibilityRole="button" disabled={busy} onPress={onboarding.next} style={screenStyles.button}>
-                <Text style={screenStyles.buttonText}>Next</Text>
-              </Pressable>
+              <View style={{ flexBasis: 156, flexGrow: 1 }}>
+                <PremiumButton accessibilityLabel="Next setup step" disabled={busy} icon="arrow-forward-outline" label="Next" onPress={onboarding.next} tone="neutral" />
+              </View>
             )}
           </View>
           {demoShortcutEnabled ? (
-            <Pressable accessibilityLabel="Create safe demo boxer" accessibilityRole="button" disabled={busy} onPress={onCreateDemoProfile} style={screenStyles.quietButton}>
-              <Text style={screenStyles.quietButtonText}>Development shortcut: create safe demo boxer</Text>
-            </Pressable>
+            <PremiumButton accessibilityLabel="Create safe demo boxer" disabled={busy} icon="flask-outline" label="Development shortcut: create safe demo boxer" onPress={onCreateDemoProfile} tone="neutral" variant="quiet" />
           ) : null}
-          <Pressable accessibilityLabel="Sign out of onboarding" accessibilityRole="button" disabled={busy} onPress={() => void onSignOut()} style={screenStyles.quietButton}>
-            <Text style={screenStyles.quietButtonText}>Sign out</Text>
-          </Pressable>
+          <PremiumButton accessibilityLabel="Sign out of onboarding" disabled={busy} icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} tone="neutral" variant="quiet" />
         </View>
-      </EngineCard>
+      </PremiumCard>
     </LuminousScreen>
   );
 }

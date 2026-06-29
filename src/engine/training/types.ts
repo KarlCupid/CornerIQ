@@ -468,6 +468,18 @@ export type ExerciseResultLoadUnit = "kg" | "lb" | "bodyweight" | "band" | "othe
 export type ExerciseResultSide = "left" | "right" | "bilateral" | "alternating" | "not_applicable";
 export type ExerciseResultTechnicalQuality = "clean" | "mostly_clean" | "technical_breakdown" | "stopped_for_pain" | "unknown";
 
+export interface ExerciseSetResultLog {
+  setIndex: number;
+  setLabel?: string | undefined;
+  repsCompleted?: number | undefined;
+  timeSeconds?: number | undefined;
+  loadText?: string | undefined;
+  loadValue?: number | undefined;
+  loadUnit?: ExerciseResultLoadUnit | undefined;
+  rpe?: number | undefined;
+  notes?: string | undefined;
+}
+
 export interface WorkoutSection {
   name: string;
   intent: string;
@@ -639,6 +651,7 @@ export interface ExerciseResultDraft {
   technicalQuality?: ExerciseResultTechnicalQuality | undefined;
   loadText?: string | undefined;
   rpe?: number | undefined;
+  setLogs?: readonly ExerciseSetResultLog[] | undefined;
   notes?: string | undefined;
   painFlag?: boolean | undefined;
 }
@@ -673,6 +686,7 @@ export interface ExerciseResultRecord {
   technicalQuality?: ExerciseResultTechnicalQuality | undefined;
   loadText?: string | undefined;
   rpe?: number | undefined;
+  setLogs?: readonly ExerciseSetResultLog[] | undefined;
   notes?: string | undefined;
   painFlag?: boolean | undefined;
   source: string;

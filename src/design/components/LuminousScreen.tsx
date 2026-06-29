@@ -1,6 +1,5 @@
 import React from "react";
 import type { PropsWithChildren } from "react";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { ImageBackground, Platform, ScrollView, Text, useWindowDimensions, View, type ImageSourcePropType, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { glassStyles } from "../glass";
@@ -94,24 +93,6 @@ const luminousStyles = {
     letterSpacing: 0,
     lineHeight: 21,
     maxWidth: 340
-  },
-  heroActionRow: {
-    flexDirection: "row" as const,
-    gap: spacing.sm,
-    position: "absolute" as const,
-    right: spacing.xl,
-    top: spacing.xl
-  },
-  heroActionGlyph: {
-    alignItems: "center" as const,
-    backgroundColor: "rgba(6, 10, 18, 0.62)",
-    borderColor: "rgba(255, 255, 255, 0.18)",
-    borderCurve: "continuous" as const,
-    borderRadius: 23,
-    borderWidth: 1,
-    height: 46,
-    justifyContent: "center" as const,
-    width: 46
   }
 };
 
@@ -159,7 +140,6 @@ export interface ScreenHeaderProps {
   heroHeight?: number | undefined;
   heroMeta?: React.ReactNode | undefined;
   heroImage?: ImageSourcePropType | undefined;
-  icon?: keyof typeof Ionicons.glyphMap | undefined;
   subtitle?: string | undefined;
   title: string;
 }
@@ -170,7 +150,6 @@ export function ScreenHeader({
   heroHeight,
   heroImage,
   heroMeta,
-  icon,
   subtitle,
   title
 }: ScreenHeaderProps) {
@@ -201,14 +180,6 @@ export function ScreenHeader({
       >
         <View style={[luminousStyles.heroOverlay, { backgroundColor: `${theme.background}33` }]} />
         <View style={[luminousStyles.heroBaseShadow, { backgroundColor: `${theme.background}A8` }]} />
-        <View pointerEvents="none" style={luminousStyles.heroActionRow}>
-          <View style={[luminousStyles.heroActionGlyph, { backgroundColor: theme.cardDeep, borderColor: theme.cardBorder }]}>
-            <Ionicons color={colors.canvas} name="notifications-outline" size={24} />
-          </View>
-          <View style={[luminousStyles.heroActionGlyph, { backgroundColor: theme.cardDeep, borderColor: `${accentColor[accent]}66` }]}>
-            <Ionicons color={colors.canvas} name={icon ?? "settings-outline"} size={24} />
-          </View>
-        </View>
         <View
           style={[
             luminousStyles.heroContent,

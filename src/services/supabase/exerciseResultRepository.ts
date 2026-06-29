@@ -3,6 +3,7 @@ import type {
   ExerciseResultDraft,
   ExerciseResultLoadUnit,
   ExerciseResultRecord,
+  ExerciseSetResultLog,
   ExerciseResultSide,
   ExerciseResultStatus,
   ExerciseResultTechnicalQuality
@@ -11,6 +12,18 @@ import type { MovementPattern, TrainingAdaptation } from "../../engine/training/
 import type { CornerSupabaseClient } from "./client";
 import type { TableInsert, TableRow } from "./repositoryTypes";
 import { assertUserId, isoDateTimeValue, parseWithSchema, payloadObject, readDataOrThrow, toJson } from "./repositoryTypes";
+
+const ExerciseSetResultLogPayloadSchema = z.object({
+  setIndex: z.number().int().nonnegative(),
+  setLabel: z.string().min(1).optional(),
+  repsCompleted: z.number().int().nonnegative().optional(),
+  timeSeconds: z.number().positive().optional(),
+  loadText: z.string().optional(),
+  loadValue: z.number().positive().optional(),
+  loadUnit: z.enum(["kg", "lb", "bodyweight", "band", "other"]).optional(),
+  rpe: z.number().min(1).max(10).optional(),
+  notes: z.string().optional()
+});
 
 const ExerciseResultPayloadSchema = z.object({
   exerciseId: z.string().min(1),
@@ -41,6 +54,7 @@ const ExerciseResultPayloadSchema = z.object({
   technicalQuality: z.enum(["clean", "mostly_clean", "technical_breakdown", "stopped_for_pain", "unknown"]).optional(),
   loadText: z.string().optional(),
   rpe: z.number().min(1).max(10).optional(),
+  setLogs: z.array(ExerciseSetResultLogPayloadSchema).optional(),
   notes: z.string().optional(),
   painFlag: z.boolean().optional(),
   source: z.string().min(1),
@@ -121,6 +135,7 @@ export function mapExerciseResultRow(row: ExerciseResultRow): ExerciseResultReco
     ...(payload.technicalQuality === undefined ? {} : { technicalQuality: payload.technicalQuality as ExerciseResultTechnicalQuality }),
     ...(payload.loadText === undefined ? {} : { loadText: payload.loadText }),
     ...(payload.rpe === undefined ? {} : { rpe: payload.rpe }),
+    ...(payload.setLogs === undefined ? {} : { setLogs: payload.setLogs as ExerciseSetResultLog[] }),
     ...(payload.notes === undefined ? {} : { notes: payload.notes }),
     ...(payload.painFlag === undefined ? {} : { painFlag: payload.painFlag }),
     source: row.source ?? payload.source,
@@ -146,6 +161,7 @@ function inferLegacyResultStatus(payload: z.infer<typeof ExerciseResultPayloadSc
     payload.technicalQuality !== undefined ||
     payload.loadText ||
     payload.rpe !== undefined ||
+    payload.setLogs !== undefined ||
     payload.notes ||
     payload.painFlag
   ) {
@@ -186,6 +202,7 @@ function resultPayload(input: InsertExerciseResultInput): z.infer<typeof Exercis
       ...(input.result.technicalQuality === undefined ? {} : { technicalQuality: input.result.technicalQuality }),
       ...(input.result.loadText === undefined ? {} : { loadText: input.result.loadText }),
       ...(input.result.rpe === undefined ? {} : { rpe: input.result.rpe }),
+      ...(input.result.setLogs === undefined ? {} : { setLogs: input.result.setLogs }),
       ...(input.result.notes === undefined ? {} : { notes: input.result.notes }),
       ...(input.result.painFlag === undefined ? {} : { painFlag: input.result.painFlag }),
       source: input.source,

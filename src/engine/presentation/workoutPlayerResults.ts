@@ -1,10 +1,11 @@
-import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseSubstitution } from "../core/types";
+import type { DetailedTrainingSession, ExerciseResultDraft, ExerciseSetResultLog, ExerciseSubstitution } from "../core/types";
 import { guidedProfileForExercise } from "../training/guidedExerciseCatalog";
 
 export interface WorkoutPlayerExerciseResultState {
   completedSetsByExerciseId: Readonly<Record<string, number>>;
   painFlagExerciseIds: readonly string[];
   prescribedSetsByExerciseId?: Readonly<Record<string, number>> | undefined;
+  setLogsByExerciseId?: Readonly<Record<string, readonly ExerciseSetResultLog[]>> | undefined;
   skippedSetsByExerciseId?: Readonly<Record<string, number>> | undefined;
   skippedExerciseIds: readonly string[];
   substitutionByExerciseId?: Readonly<Record<string, ExerciseSubstitution | undefined>> | undefined;
@@ -59,6 +60,41 @@ function canonicalResultMetadata(exercise: DetailedTrainingSession["sections"][n
   };
 }
 
+function sortedSetLogs(logs: readonly ExerciseSetResultLog[] | undefined): readonly ExerciseSetResultLog[] {
+  return [...(logs ?? [])].sort((left, right) => left.setIndex - right.setIndex);
+}
+
+function latestLoggedSet(logs: readonly ExerciseSetResultLog[]): ExerciseSetResultLog | undefined {
+  return [...logs]
+    .reverse()
+    .find((log) =>
+      log.repsCompleted !== undefined ||
+      log.timeSeconds !== undefined ||
+      log.loadText?.trim() ||
+      log.loadValue !== undefined ||
+      log.loadUnit !== undefined ||
+      log.rpe !== undefined ||
+      log.notes?.trim()
+    );
+}
+
+function setLogNotes(logs: readonly ExerciseSetResultLog[]): string | undefined {
+  const lines = logs.map((log) => {
+    const parts = [
+      log.setLabel ?? `Set ${log.setIndex + 1}`,
+      log.repsCompleted === undefined ? undefined : `${log.repsCompleted} reps`,
+      log.timeSeconds === undefined ? undefined : `${log.timeSeconds} sec`,
+      log.loadText?.trim() ? `load: ${log.loadText.trim()}` : undefined,
+      log.loadValue === undefined ? undefined : `load value: ${log.loadValue}`,
+      log.loadUnit === undefined ? undefined : `unit: ${log.loadUnit}`,
+      log.rpe === undefined ? undefined : `RPE ${log.rpe}`,
+      log.notes?.trim() ? `notes: ${log.notes.trim()}` : undefined
+    ].filter((item): item is string => Boolean(item));
+    return parts.join(", ");
+  });
+  return lines.length > 0 ? `Set logs: ${lines.join(" | ")}.` : undefined;
+}
+
 export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSession, state: WorkoutPlayerExerciseResultState): ExerciseResultDraft[] {
   const skipped = new Set(state.skippedExerciseIds);
   const painFlags = new Set(state.painFlagExerciseIds);
@@ -71,12 +107,15 @@ export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSessi
       const completedSets = Math.max(0, state.completedSetsByExerciseId[exercise.exerciseId] ?? 0);
       const setCount = Math.max(1, state.prescribedSetsByExerciseId?.[exercise.exerciseId] ?? prescribedSetCount(exercise));
       const skippedSets = Math.max(0, state.skippedSetsByExerciseId?.[exercise.exerciseId] ?? 0);
+      const setLogs = sortedSetLogs(state.setLogsByExerciseId?.[exercise.exerciseId]).filter((log) => log.setIndex < setCount);
+      const latestSetLog = latestLoggedSet(setLogs);
       const skippedExercise = skipped.has(exercise.exerciseId);
       const allWorkSkipped = skippedSets >= setCount && completedSets === 0;
       const painFlag = painFlags.has(exercise.exerciseId);
-      const touchedExercise = touched.has(exercise.exerciseId) || completedSets > 0 || skippedSets > 0 || skippedExercise || painFlag;
+      const touchedExercise = touched.has(exercise.exerciseId) || completedSets > 0 || skippedSets > 0 || skippedExercise || painFlag || setLogs.length > 0;
       const notes = [
         substitutionNote(substitution),
+        setLogNotes(setLogs),
         skippedSets > 0 ? `Skipped work steps: ${skippedSets}.` : undefined
       ].filter((item): item is string => Boolean(item));
       const resultStatus: ExerciseResultDraft["resultStatus"] = skippedExercise || (allWorkSkipped && !painFlag)
@@ -95,6 +134,13 @@ export function buildWorkoutPlayerExerciseResults(session: DetailedTrainingSessi
         prescribed: resultPrescription,
         resultStatus,
         ...(resultStatus === "prescribed_only" ? {} : { completedSets }),
+        ...(latestSetLog?.loadText?.trim() ? { loadText: latestSetLog.loadText.trim() } : {}),
+        ...(latestSetLog?.loadValue === undefined ? {} : { loadValue: latestSetLog.loadValue }),
+        ...(latestSetLog?.loadUnit === undefined ? {} : { loadUnit: latestSetLog.loadUnit }),
+        ...(latestSetLog?.repsCompleted === undefined ? {} : { repsCompleted: latestSetLog.repsCompleted }),
+        ...(latestSetLog?.timeSeconds === undefined ? {} : { timeSeconds: latestSetLog.timeSeconds }),
+        ...(latestSetLog?.rpe === undefined ? {} : { rpe: latestSetLog.rpe }),
+        ...(setLogs.length === 0 ? {} : { setLogs }),
         ...(notes.length > 0 ? { notes: notes.join(" ") } : {}),
         ...(painFlag ? { painFlag: true } : {})
       };
