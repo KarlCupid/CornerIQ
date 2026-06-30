@@ -186,11 +186,11 @@ function strongestImpact(impacts: readonly TrainingGenerationImpact[]): Training
 function warmupGateFor(status: TrainingExecutionReadinessStatus): string {
   switch (status) {
     case "unknown":
-      return "No readiness check-in yet. Start with the warm-up. If dizziness, unusual pain, chest pain, coordination drop, or abnormal fatigue appears, stop or downshift.";
+      return "No readiness check-in yet. Start controlled. If dizziness, unusual pain, chest pain, coordination drop, or abnormal fatigue appears, stop or downshift.";
     case "green":
-      return "Readiness supports the planned session. Still use the normal warm-up check before intensity rises.";
+      return "Readiness supports the planned session. Keep the first movements controlled before intensity rises.";
     case "amber":
-      return "Amber readiness: use a longer warm-up, keep quality high, cap effort before strain, and downshift if symptoms appear.";
+      return "Amber readiness: keep the start controlled, cap effort before strain, and downshift if symptoms appear.";
     case "red_non_hard_stop":
       return "Red readiness without hard-stop symptoms: keep the planned session available, but start conservatively and downshift if quality or symptoms worsen.";
     case "red_hard_stop":
@@ -257,7 +257,7 @@ export function resolveTrainingReadinessFuelingIntegration(
   const missingHydration = input.hydrationLogCount === 0 && resolvedHydrationStatus !== "hard_stop";
   const missingLogsAffectedExecutionOnly = (missingReadiness || fuelStatusIsExecutionOnly || missingHydration) && generationImpact !== "hard_block" && generationImpact !== "load_downshift";
   const executionAdjustmentsApplied = [
-    ...(resolvedReadinessStatus === "unknown" ? ["warm-up gate for missing readiness"] : []),
+    ...(resolvedReadinessStatus === "unknown" ? ["controlled start for missing readiness"] : []),
     ...(resolvedReadinessStatus === "amber" ? ["amber readiness RPE and recovery cap"] : []),
     ...(resolvedReadinessStatus === "red_non_hard_stop" ? ["red readiness execution downshift without hard-stop block"] : []),
     ...(resolvedFuelingStatus === "unknown" ? ["fuel prompt for missing food log"] : []),
@@ -338,7 +338,7 @@ export function resolveTrainingReadinessFuelingIntegration(
         : generationImpact === "load_downshift"
           ? "Positive fueling evidence caps generated support; missing logs alone do not."
         : missingReadiness || fuelStatusIsExecutionOnly || missingHydration
-          ? "Missing logs lower confidence and add execution gates, but do not reduce baseline generation."
+          ? "Missing logs lower confidence and add controlled-start guidance, but do not reduce baseline generation."
           : "Execution guidance is adjusted from explicit athlete context.",
     confidenceScore,
     missingLogsAffectedGeneration: false,
@@ -367,7 +367,7 @@ export function applyTrainingExecutionGuidance(
   integration: TrainingReadinessFuelingIntegration
 ): GeneratedTrainingSession {
   const missingDataAdvisories = unique([
-    ...(integration.readinessStatus === "unknown" ? ["No readiness check-in yet; warm-up gate added without reducing the planned session."] : []),
+    ...(integration.readinessStatus === "unknown" ? ["No readiness check-in yet; controlled-start guidance added without reducing the planned session."] : []),
     ...(integration.fuelingStatus === "unknown" ? ["No food log today; fuel prompt added without removing hard work by default."] : []),
     ...(integration.fuelingStatus === "partial_day" || integration.fuelingStatus === "likely_partial" ? ["Food log is incomplete; advisory only, with no under-fueling evidence."] : []),
     ...(integration.fuelingStatus === "not_tracking_today" ? ["Food marked not tracking today; training remains available and no under-fueling evidence is inferred."] : []),
@@ -377,7 +377,7 @@ export function applyTrainingExecutionGuidance(
   const executionAdjustments = unique([
     ...missingDataAdvisories,
     ...(integration.readinessStatus === "amber"
-      ? ["Amber readiness execution: longer warm-up, lower RPE cap, more recovery between intervals, and quality-first stopping."]
+      ? ["Amber readiness execution: controlled start, lower RPE cap, more recovery between intervals, and quality-first stopping."]
       : []),
     ...(integration.readinessStatus === "red_non_hard_stop"
       ? ["Red readiness without hard-stop symptoms: session stays planned with conservative execution and downshift rules."]

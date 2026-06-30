@@ -203,7 +203,6 @@ describe("fatigue-first UI copy density static checks", () => {
       { file: "src/app/screens/FuelScreen.tsx", start: "function FuelTonePill", end: "function FuelActionButton" },
       { file: "src/app/screens/PlanScreen.tsx", start: "function PlanTonePill", end: "function PlanButton" },
       { file: "src/app/screens/ProfileScreen.tsx", start: "function ProfileStatusPill", end: "export interface ProfileScreenProps" },
-      { file: "src/app/screens/train/WorkoutPlayer.tsx", start: "function PreviewPill", end: "function SegmentedTimerRing" },
       { file: "src/app/screens/AuthScreen.tsx", start: "function TrustPills", end: "export function AuthScreen" }
     ];
 

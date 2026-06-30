@@ -31,6 +31,110 @@ function nonEmpty(value: string | undefined): string | undefined {
   return copy.length > 0 ? copy : undefined;
 }
 
+function ensureSentence(value: string): string {
+  const copy = plainTrainingCopy(value).trim();
+  if (!copy) {
+    return "";
+  }
+  return /[.!?]$/.test(copy) ? copy : `${copy}.`;
+}
+
+function sentenceFragment(value: string): string {
+  return plainTrainingCopy(value).trim().replace(/[.!?]+$/g, "");
+}
+
+function technicalFocus(session: DetailedTrainingSession): string {
+  return sentenceFragment(session.boxingSkillTheme ?? session.technicalEmphasis?.[0] ?? "").toLowerCase();
+}
+
+function familyFunction(session: DetailedTrainingSession): string {
+  const focus = technicalFocus(session);
+  const skill = focus || "the main boxing skill";
+  if (session.family.startsWith("boxing_")) {
+    return `Rehearse ${skill} in controlled boxing-length rounds so stance, guard, feet, and reset stay repeatable before effort rises.`;
+  }
+  if (session.family === "agility_reactive_footwork" || session.family === "footwork_agility" || session.family === "reaction_rhythm") {
+    return "Practice braking, rhythm, angles, and stance resets so footwork stays clean when boxing pace changes.";
+  }
+  if (session.family.startsWith("strength_")) {
+    return "Build controlled support strength for stance, trunk, and guard positions while leaving boxing practice available.";
+  }
+  if (session.family.startsWith("power_")) {
+    return "Train fast, low-fatigue reps that support first step, punch snap, and stance recovery without turning the day into conditioning.";
+  }
+  if (session.family.startsWith("roadwork") || session.family === "round_based_conditioning" || session.family === "alactic_sprints") {
+    return "Build repeatable breathing and round-to-round recovery while keeping posture and movement controlled.";
+  }
+  if (session.family.includes("durability")) {
+    return "Strengthen the support positions behind guard, punching volume, pivots, and posture without chasing load.";
+  }
+  if (session.family.includes("mobility") || session.family === "mobility_recovery_flow" || session.family === "recovery_reset") {
+    return "Restore boxing positions, breathing, and joint comfort so the next boxing session starts cleaner.";
+  }
+  if (session.family === "movement_quality_prep") {
+    return "Check readiness and organize hips, shoulders, stance, and guard before harder boxing work.";
+  }
+  if (session.family === "taper_maintenance") {
+    return "Keep timing and speed awake while volume stays low enough to protect fight-week freshness.";
+  }
+  return "Support the next boxing session with controlled work that has a clear quality cap.";
+}
+
+function familyImportance(session: DetailedTrainingSession): string {
+  if (session.family.startsWith("boxing_")) {
+    return "The value is making the skill repeatable under round structure, not adding random extra volume.";
+  }
+  if (session.family === "agility_reactive_footwork" || session.family === "footwork_agility" || session.family === "reaction_rhythm") {
+    return "The value is cleaner entries, exits, and resets when the feet have to answer quickly.";
+  }
+  if (session.family.startsWith("strength_")) {
+    return "The value is a stronger, cleaner position that carries back to stance and punching, not more fatigue.";
+  }
+  if (session.family.startsWith("power_")) {
+    return "The value is speed you can repeat while still recovering for boxing skill work.";
+  }
+  if (session.family.startsWith("roadwork") || session.family === "round_based_conditioning" || session.family === "alactic_sprints") {
+    return "The value is better recovery between rounds without letting conditioning work make movement sloppy.";
+  }
+  if (session.family.includes("durability")) {
+    return "The value is keeping common boxing support areas ready without pretending pain or missing history is safe.";
+  }
+  if (session.family.includes("mobility") || session.family === "mobility_recovery_flow" || session.family === "recovery_reset") {
+    return "The value is leaving joints, breathing, and symptoms better for the next boxing session.";
+  }
+  if (session.family === "movement_quality_prep") {
+    return "The value is finding readiness problems early and making the first real boxing work cleaner.";
+  }
+  if (session.family === "taper_maintenance") {
+    return "The value is staying sharp without adding fatigue that competes with the bout.";
+  }
+  return "The value is useful boxing support without treating missing data as permission to push harder.";
+}
+
+function isGenericRecipeWhy(value: string): boolean {
+  return /\b(?:this recipe follows the compiled workout exactly|follow this block as written|do not add extra work)\b/i.test(value);
+}
+
+function whyImportance(session: DetailedTrainingSession): string {
+  const raw = plainTrainingCopy(session.recipe?.why ?? session.whyThisMattersForBoxing);
+  const base = firstSentence(raw);
+  const familyLine = familyImportance(session);
+  if (!base || isGenericRecipeWhy(base)) {
+    return familyLine;
+  }
+  return `${ensureSentence(base)} ${familyLine}`;
+}
+
+function qualityCheck(session: DetailedTrainingSession): string {
+  return (
+    nonEmpty(session.sessionQualityCheckpoints?.[0]) ??
+    nonEmpty(session.athleteQualityCues?.[0]) ??
+    nonEmpty(session.selfCheckCues?.[0]) ??
+    nonEmpty(session.stopConditions[0]) ??
+    "Keep the main cue clean; if it breaks twice, make the next block easier."
+  );
+}
+
 function shouldPreviewGuidedSteps(section: WorkoutSection): boolean {
   const searchable = `${section.name} ${section.intent}`.toLowerCase();
   return Boolean(section.guidedSteps?.length && /\b(warm|prep)\b/.test(searchable));
@@ -68,7 +172,11 @@ export function recipeTitle(session: DetailedTrainingSession): string {
 }
 
 export function recipeWhy(session: DetailedTrainingSession): string {
-  return plainTrainingCopy(session.recipe?.why ?? session.whyThisMattersForBoxing);
+  return [
+    `Function: ${familyFunction(session)}`,
+    `Why it matters: ${whyImportance(session)}`,
+    `Quality check: ${qualityCheck(session)}`
+  ].join(" ");
 }
 
 export function recipeEquipmentLabel(recipe: WorkoutRecipe | undefined): string {

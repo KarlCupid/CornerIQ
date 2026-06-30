@@ -945,9 +945,6 @@ export function PlanGoalFlowCard({
                 <OptionButton active={planAction === "start_new_plan"} busy={controlsBusy} label="Start new plan" onPress={() => setPlanAction("start_new_plan")} />
                 <OptionButton active={planAction === "amend_current_plan"} busy={controlsBusy} label="Amend current plan" onPress={() => setPlanAction("amend_current_plan")} />
               </View>
-              <Text style={screenStyles.subtle}>
-                {planAction === "start_new_plan" ? "Starts week 1 and supersedes the prior active block without deleting history." : "Keeps the current week index and records the current plan as amended."}
-              </Text>
             </View>
             <View style={{ gap: spacing.xs }}>
               <Text style={screenStyles.fieldLabel}>Goal</Text>

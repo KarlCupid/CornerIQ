@@ -664,8 +664,9 @@ function v2BoxingSteps(block: StructuredBlockV2, sectionIndex: number): readonly
   return steps;
 }
 
-function v2BlockOnlyExercise(block: StructuredBlockV2, metadata: V2CanonicalMetadata): ExercisePrescription {
+function v2BlockOnlyExercise(block: StructuredBlockV2, metadata: V2CanonicalMetadata, durationSecondsOverride?: number | undefined): ExercisePrescription {
   const category: ExerciseCategory = block.role === "warm_up" ? "warm_up" : block.adaptation === "mobility" ? "mobility" : block.adaptation === "recovery" ? "recovery" : "durability";
+  const durationSeconds = durationSecondsOverride ?? Math.round(block.durationMinutes * 60);
   return v2PseudoExercise({
     id: `v2_${detailSlug(block.id)}`,
     name: block.title,
@@ -673,12 +674,12 @@ function v2BlockOnlyExercise(block: StructuredBlockV2, metadata: V2CanonicalMeta
     metadata: {
       adaptation: block.adaptation,
       canonicalSessionId: metadata.canonicalSessionId,
-      prescribedDurationSeconds: Math.round(block.durationMinutes * 60),
+      prescribedDurationSeconds: durationSeconds,
       templateBlockId: block.templateBlockId,
       templateId: metadata.templateId
     },
     loadGuidance: block.coachingNotes[0] ?? "Keep this easy and technical.",
-    durationText: v2DurationText(block.durationMinutes * 60),
+    durationText: v2DurationText(durationSeconds),
     restText: "Move continuously and calmly.",
     coachingNotes: block.coachingNotes,
     boxingTransfer: "Prepare or restore positions that keep boxing quality available.",
@@ -702,7 +703,7 @@ function v2WarmupSteps(block: StructuredBlockV2, sectionIndex: number, context: 
   const warmup = v2WarmupStructureForBlock(block, context);
   return warmup.steps.map((warmupStep, index): GuidedWorkoutStep => ({
     id: `guided:${sectionIndex}:0:${exerciseId}:${index}:${warmupStep.id}`,
-    kind: index === 0 ? "setup" : "work",
+    kind: "work",
     title: warmupStep.title,
     beginnerInstruction: warmupStep.instruction,
     intent: warmupStep.intent,
@@ -742,11 +743,13 @@ function v2BlockOnlySteps(block: StructuredBlockV2, sectionIndex: number, contex
 }
 
 function v2SectionFromBlock(block: StructuredBlockV2, sectionIndex: number, context: V2SectionContext): WorkoutSection {
+  const warmupStructure = block.role === "warm_up" ? v2WarmupStructureForBlock(block, context) : null;
+  const warmupDurationSeconds = warmupStructure?.steps.reduce((sum, step) => sum + step.durationSeconds, 0);
   const directExercises = block.exercises.map((exercise) => v2ExercisePrescription({ block, exercise, metadata: context }));
   const conditioningExercise = v2ConditioningExercise(block, context);
   const boxingExercise = v2BoxingExercise(block, context);
   const exercises = directExercises.length > 0 ? directExercises : [conditioningExercise, boxingExercise].filter((item): item is ExercisePrescription => item !== null);
-  const fallbackExercises = exercises.length > 0 ? exercises : [v2BlockOnlyExercise(block, context)];
+  const fallbackExercises = exercises.length > 0 ? exercises : [v2BlockOnlyExercise(block, context, warmupDurationSeconds)];
   const guidedSteps = block.conditioning
     ? v2ConditioningSteps(block, sectionIndex)
     : block.boxingRounds
@@ -754,7 +757,6 @@ function v2SectionFromBlock(block: StructuredBlockV2, sectionIndex: number, cont
       : directExercises.length === 0
         ? v2BlockOnlySteps(block, sectionIndex, context)
         : undefined;
-  const warmupStructure = block.role === "warm_up" ? v2WarmupStructureForBlock(block, context) : null;
   return {
     name: block.title,
     intent: warmupStructure?.why ?? (block.coachingNotes.join(" ") || block.adaptation.replaceAll("_", " ")),

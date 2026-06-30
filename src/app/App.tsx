@@ -14,7 +14,7 @@ import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions, type NextWeekPreviewActionsHook } from "../hooks/useNextWeekPreviewActions";
 import { usePostOnboardingWalkthrough } from "../hooks/usePostOnboardingWalkthrough";
 import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
-import { useSupabaseSession } from "../hooks/useSupabaseSession";
+import { useSupabaseSession, type AuthCallbackStatus } from "../hooks/useSupabaseSession";
 import { useSubscription } from "../hooks/useSubscription";
 import { useTrainingPlanAdjustments, type TrainingPlanAdjustmentsHook } from "../hooks/useTrainingPlanAdjustments";
 import { useUserDataControls, type UserDataControlsHook } from "../hooks/useUserDataControls";
@@ -543,6 +543,37 @@ function LocalE2EApp() {
   );
 }
 
+function AuthCallbackState({
+  message,
+  onDismiss,
+  status
+}: {
+  message: string | null;
+  onDismiss: () => void;
+  status: Exclude<AuthCallbackStatus, "idle">;
+}) {
+  const copy =
+    status === "processing"
+      ? {
+          message: "Finishing your CornerIQ account confirmation. This usually only takes a moment.",
+          title: "Confirming account"
+        }
+      : status === "success"
+        ? {
+            actionLabel: "Continue in CornerIQ",
+            message: message ?? "Account confirmed. Continue into CornerIQ to finish setup.",
+            title: "Account confirmed"
+          }
+        : {
+            actionLabel: "Back to sign in",
+            message: message ?? "This confirmation link could not be completed. Request a fresh link or sign in again.",
+            title: "Confirmation needs a new link"
+          };
+  const actionProps = "actionLabel" in copy ? { actionLabel: copy.actionLabel, onAction: onDismiss } : {};
+
+  return <StartupState title={copy.title} message={copy.message} {...actionProps} />;
+}
+
 function CornerIQApp() {
   if (isLocalE2EMode()) {
     return <LocalE2EApp />;
@@ -562,6 +593,16 @@ function CornerIQApp() {
 
   if (supabaseSession.status === "starting" || !supabaseSession.client) {
     return <StartupState title="CornerIQ" message="Starting the public Supabase client with the anon key only." />;
+  }
+
+  if (supabaseSession.authCallbackStatus !== "idle") {
+    return (
+      <AuthCallbackState
+        message={supabaseSession.authCallbackStatus === "error" ? supabaseSession.authError : supabaseSession.authMessage}
+        onDismiss={supabaseSession.dismissAuthCallbackStatus}
+        status={supabaseSession.authCallbackStatus}
+      />
+    );
   }
 
   if (!supabaseSession.session) {

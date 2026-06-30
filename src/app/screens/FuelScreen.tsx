@@ -214,10 +214,6 @@ function trendInterpretation(viewModel: FuelViewModel, plan: FuelPlanStatus, das
   };
 }
 
-function guideValue(dashboard: FuelDashboardVisual, label: RegExp): string {
-  return dashboard.todayGuide.find((item) => label.test(item.label))?.valueLabel ?? "Guide";
-}
-
 function FuelTonePill({ label, tone: _tone = "muted" }: { label: string; tone?: VisualTone | undefined }) {
   return (
     <Text
@@ -531,9 +527,9 @@ function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
       <View style={{ gap: spacing.sm }} testID="fuel-do-not-miss-card">
         <Text style={fuelTextStyles.sectionTitle}>Training fuel priorities</Text>
         <Text style={fuelTextStyles.subtle}>Use these as context when you know what you ate or drank.</Text>
-        <PriorityRow icon="flash-outline" label="Before training" meta={guideValue(dashboard, /carb/i)} title="carbs" tone="orange" />
-        <PriorityRow icon="restaurant-outline" label="After training" meta={guideValue(dashboard, /protein/i)} title="protein + meal" tone="purple" />
-        <PriorityRow icon="water-outline" label="Fluids" meta={`${dashboard.hydration.targetLabel} guide`} title="water + electrolytes" tone="blue" />
+        <PriorityRow icon="flash-outline" label="Before training" meta={dashboard.trainingFuelPriorities.beforeTraining} title="carbs + protein" tone="orange" />
+        <PriorityRow icon="restaurant-outline" label="After training" meta={dashboard.trainingFuelPriorities.afterTraining} title="protein + meal" tone="purple" />
+        <PriorityRow icon="water-outline" label="Fluids" meta={dashboard.trainingFuelPriorities.fluids} title="water + electrolytes" tone="blue" />
       </View>
     </EngineCard>
   );
@@ -1090,14 +1086,14 @@ function FuelDetailsDisclosure({
 function FoodLogStatusCard({ busy, quickLogs, viewModel }: { busy: boolean; quickLogs: QuickLogActions; viewModel: FuelViewModel }) {
   const run = (kind: FuelViewModel["completionControls"]["actions"][number]["kind"]) => {
     if (kind === "still_logging") {
-      void quickLogs.markFoodStillLoggingToday();
+      void quickLogs.markFoodStillLoggingToday().catch(() => undefined);
       return;
     }
     if (kind === "done_logging") {
-      void quickLogs.markFoodDoneLoggingToday();
+      void quickLogs.markFoodDoneLoggingToday().catch(() => undefined);
       return;
     }
-    void quickLogs.markFoodNotTrackingToday();
+    void quickLogs.markFoodNotTrackingToday().catch(() => undefined);
   };
   return (
     <EngineCard>

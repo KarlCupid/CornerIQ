@@ -507,7 +507,6 @@ const guidedProfileOverrides: Readonly<Record<string, GuidedProfileOverride>> = 
     oneLineGoal: "Warm up with short boxing movements before the main work.",
     setup: [],
     work: [
-      roundStep("Readiness check", "Stand tall. Take two slow breaths. Notice pain, dizziness, or anything that feels off before you move.", "Start calm.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Skipping the readiness check before the warm-up.", successCheck: "You know whether anything feels off before the first movement." }),
       roundStep("Shoulder circles forward", "Make slow circles with both shoulders. Start small, then gradually make the circles bigger.", "Relax your neck.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Shrugging the shoulders up toward the ears.", successCheck: "Shoulders move smoothly and the neck stays relaxed." }),
       roundStep("Shoulder circles backward", "Reverse the shoulder circles. Keep the motion slow and smooth.", "Keep your jaw loose.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Rushing the circles or holding the breath.", successCheck: "The circles stay easy and pain-free." }),
       roundStep("Punch and twist", "Stand tall. Punch one arm across your body while gently rotating your upper back. Switch sides each punch.", "Rotate smooth. Do not force it.", { durationSeconds: 15, restAfterSeconds: 0, commonMistake: "Forcing the twist or letting the neck tense.", successCheck: "The twist stays smooth and easy." }),

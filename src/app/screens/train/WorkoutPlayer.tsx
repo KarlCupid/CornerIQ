@@ -9,14 +9,12 @@ import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../../e
 import { buildWorkoutPlayerExerciseResults } from "../../../engine/presentation/workoutPlayerResults";
 import { movementTeachingForExercise } from "../../../engine/presentation/workoutMovementTeaching";
 import {
-  plainFuelDemandLabel,
-  plainIntensityLabel,
   plainSectionIntent,
   plainSectionName,
   plainTrainingCopy,
   plainWorkoutTitle
 } from "../../../engine/presentation/trainingCopy";
-import { recipeEquipmentLabel, recipeFlowLines, recipeQuickLogContext, recipeTitle, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
+import { recipeFlowLines, recipeQuickLogContext, recipeTitle, recipeWhy } from "../../../engine/presentation/workoutRecipePresentation";
 import { CollapsedDetailDisclosure, PostActionNextStep } from "../../../design/components/FastTask";
 import { LuminousProgressBar } from "../../../design/components/LuminousScreen";
 import { accentColor, accentWash, LuminousScreenThemeContext, luminousScreenThemes, type LuminousAccent } from "../../../design/luminousTheme";
@@ -30,7 +28,6 @@ import { WorkoutExerciseDetails } from "./WorkoutExerciseDetails";
 
 export type WorkoutPlayerStatus = "not_started" | "active" | "paused" | "finishing" | "completed" | "skipped";
 type PlayerVisualTheme = "player" | "train";
-type PreviewPillTone = Parameters<typeof trainColorForTone>[0] | "quiet";
 type WorkoutTimelineStep = ReturnType<typeof buildWorkoutPlayerTimeline>["steps"][number];
 
 function isPersistableWorkoutStatus(status: WorkoutPlayerStatus): status is PersistedWorkoutPlayerStatus {
@@ -88,19 +85,6 @@ function splitStepTitle(title: string): { heading: string; subheading?: string |
     heading: match[1] ?? title,
     subheading: match[2]
   };
-}
-
-function playerModeLabel(mode: WorkoutPlayerMode): string {
-  switch (mode) {
-    case "round_timer":
-      return "Round workout";
-    case "strength_sets":
-      return "Strength workout";
-    case "movement_flow":
-      return "Movement flow";
-    case "hybrid":
-      return "Hybrid workout";
-  }
 }
 
 function liveStepPlayerMode(
@@ -505,26 +489,6 @@ function WorkoutScreenFrame({
         ) : null}
       </View>
     </LuminousScreenThemeContext.Provider>
-  );
-}
-
-function PreviewPill({ label, tone = "purple" }: { label: string; tone?: PreviewPillTone | undefined }) {
-  const quiet = tone === "quiet";
-  const accentTone = quiet ? "muted" : tone;
-  return (
-    <View
-      style={{
-        backgroundColor: "rgba(255, 255, 255, 0.075)",
-        borderColor: "rgba(255, 255, 255, 0.16)",
-        borderRadius: radii.pill,
-        borderWidth: 1,
-        minHeight: 34,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.xs
-      }}
-    >
-      <Text numberOfLines={1} style={{ color: quiet ? trainPalette.textBody : trainColorForTone(accentTone), fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 17 }}>{label}</Text>
-    </View>
   );
 }
 
@@ -1642,7 +1606,6 @@ export function WorkoutPlayer({
   const partialExerciseCount = playerResults.filter((result) => result.resultStatus === "partial").length;
   const skippedExerciseCount = playerResults.filter((result) => result.resultStatus === "skipped").length;
   const painFlagCount = playerResults.filter((result) => result.painFlag).length;
-  const fuelLabel = session.fuelingGate ? "Fuel check" : plainFuelDemandLabel(session.fuelDemand);
   const recipeContext = recipeQuickLogContext(session);
   const coachNote =
     recipeContext.mainJob ||
@@ -1687,7 +1650,6 @@ export function WorkoutPlayer({
       : firstPreviewSection && firstPreviewExercise
       ? `Start with ${plainSectionName(firstPreviewSection.name)}: ${plainWorkoutTitle(firstPreviewExercise.name)}.`
       : session.walkthrough.beforeYouStart[0] ?? "Start when you are ready.";
-  const guidedDurationLabel = formatWorkoutLength(timeline.totalSeconds || session.durationMinutes * 60);
   const previewFlowLines =
     playerMode === "strength_sets"
       ? [
@@ -1770,15 +1732,6 @@ export function WorkoutPlayer({
             <Text style={{ color: trainColorForTone("purple"), fontSize: 12, fontWeight: "900", letterSpacing: 0, lineHeight: 16 }}>WORKOUT PREVIEW</Text>
             <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={2} style={{ color: trainPalette.textPrimary, fontSize: 34, fontWeight: "900", letterSpacing: 0, lineHeight: 38, textAlign: "center" }}>{recipeTitle(session)}</Text>
             <Text style={{ color: trainPalette.textBody, fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "center" }}>{plainTrainingCopy(previewStartLine)}</Text>
-          </View>
-
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" }}>
-            <PreviewPill label={playerModeLabel(playerMode)} tone={playerMode === "strength_sets" ? "orange" : playerMode === "movement_flow" ? "green" : playerMode === "hybrid" ? "gold" : "purple"} />
-            <PreviewPill label={guidedDurationLabel} />
-            <PreviewPill label={`${timeline.blockCount} block${timeline.blockCount === 1 ? "" : "s"}`} tone="quiet" />
-            <PreviewPill label={recipeEquipmentLabel(session.recipe)} tone="quiet" />
-            <PreviewPill label={plainIntensityLabel(session.intensity)} tone="green" />
-            <PreviewPill label={fuelLabel} tone={session.fuelDemand === "high" ? "orange" : "green"} />
           </View>
 
           <TrainPreviewInfoPanel label="WHY" tone="green">

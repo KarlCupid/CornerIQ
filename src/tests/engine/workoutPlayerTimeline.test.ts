@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DetailedTrainingSession, ExercisePrescription, GuidedWorkoutStep } from "../../engine/core/types";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
+import { recipeWhy } from "../../engine/presentation/workoutRecipePresentation";
 import { resolveWorkoutPlayerMode } from "../../engine/presentation/workoutPlayerMode";
 import { buildWorkoutPlayerTimeline, parseWorkoutTimerSeconds } from "../../engine/presentation/workoutPlayerTimeline";
 import { buildGuidedStepsForExercise, movementTeachingForExercise } from "../../engine/training/guidedExerciseCatalog";
@@ -274,7 +275,8 @@ describe("workout player timeline", () => {
     expect(timeline.totalSeconds).toBeGreaterThan(0);
     expect(warmupTimelineExerciseIds).toEqual(warmupExerciseIds);
     expect(warmupSteps.every((step) => step.durationSeconds > 0 && step.timerLabel.toLowerCase().includes("timer"))).toBe(true);
-    expect(warmupSteps.some((step) => step.kind === "setup")).toBe(true);
+    expect(warmupSteps.every((step) => step.kind === "work")).toBe(true);
+    expect(warmupSteps.map((step) => step.title)).not.toContain("Readiness check");
     expect(warmupSteps.some((step) => step.title === "Preparation")).toBe(false);
     expect(warmupSteps.every((step) => step.blockAccent === "blue")).toBe(true);
     expect(JSON.stringify(timeline).toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
@@ -294,13 +296,15 @@ describe("workout player timeline", () => {
 
     expect(warmup.guidedSteps?.length).toBeGreaterThan(6);
     expect(warmupSteps.length).toBeGreaterThan(6);
-    expect(warmupSteps[0]).toEqual(expect.objectContaining({ autoAdvance: false, kind: "setup", title: "Readiness check" }));
-    expect(warmupSteps.slice(1).every((step) => step.kind === "work" && step.autoAdvance)).toBe(true);
-    expect(warmupSteps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBe(warmup.durationMinutes * 60);
-    expect(warmupSteps.every((step) => step.durationSeconds < warmup.durationMinutes * 60)).toBe(true);
+    expect(warmupSteps[0]).toEqual(expect.objectContaining({ autoAdvance: true, kind: "work" }));
+    expect(warmupSteps.every((step) => step.kind === "work" && step.autoAdvance)).toBe(true);
+    expect(warmupSteps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBeGreaterThanOrEqual(190);
+    expect(warmupSteps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBeLessThanOrEqual(300);
+    expect(warmupSteps.every((step) => step.durationSeconds >= 20 && step.durationSeconds <= 45)).toBe(true);
     expect(warmupText).toMatch(/\b(shoulder|hip|stance|jab|squat|walk|ankle|bag)\b/i);
     expect(warmupRecipeBlock?.steps.length).toBe(warmup.guidedSteps?.length);
-    expect(warmupRecipeBlock?.steps.map((step) => step.title)).toContain("Readiness check");
+    expect(warmupRecipeBlock?.steps.map((step) => step.title)).not.toContain("Readiness check");
+    expect(warmupText.toLowerCase()).not.toMatch(/\breadiness\b/);
     expect(warmupText.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
   });
 
@@ -316,7 +320,6 @@ describe("workout player timeline", () => {
     const steps = buildGuidedStepsForExercise(catalogWarmup, { exerciseIndex: 0, sectionIndex: 0 });
 
     expect(steps.map((step) => step.title)).toEqual([
-      "Readiness check",
       "Shoulder circles forward",
       "Shoulder circles backward",
       "Punch and twist",
@@ -367,10 +370,11 @@ describe("workout player timeline", () => {
 
     const timeline = buildWorkoutPlayerTimeline(session);
     const warmupSteps = timeline.steps.filter((step) => step.sectionIndex === 0);
+    const warmupWorkSteps = warmupSteps.filter((step) => step.kind === "work");
     const boxingSteps = timeline.steps.filter((step) => step.sectionIndex === 1);
     const cooldownSteps = timeline.steps.filter((step) => step.sectionIndex === 2);
 
-    expect(warmupSteps.slice(1, 6).map((step) => `${step.title} - ${step.durationLabel}`)).toEqual([
+    expect(warmupWorkSteps.slice(0, 5).map((step) => `${step.title} - ${step.durationLabel}`)).toEqual([
       "Shoulder circles forward - 15 sec",
       "Shoulder circles backward - 15 sec",
       "Punch and twist - 15 sec",
@@ -535,6 +539,49 @@ describe("workout player timeline", () => {
     expect(timeline.steps.filter((step) => step.kind !== "setup").every((step) => step.intent.length > 20)).toBe(true);
     expect(allStepText).not.toMatch(/\b(base shape|primary action|quality round|clean repeat|guard return rounds|shadowboxing rounds|defense round|rhythm round|technical round|execute cleanly|focus on quality|reset shape)\b/i);
     expect(timeline.steps.filter((step) => step.kind === "work").every((step) => step.safetyStop)).toBe(true);
+  });
+
+  it("explains preview why with workout function, boxing importance, and quality check", () => {
+    const detail = detailedFixture();
+    const sourceSection = detail.sections[0];
+    if (!sourceSection) {
+      throw new Error("fixture did not include a source section");
+    }
+    const session: DetailedTrainingSession = {
+      ...detail,
+      family: "strength_full_body",
+      recipe: undefined,
+      whyThisMattersForBoxing: "Protect the boxing anchor.",
+      sessionQualityCheckpoints: ["No grinding reps."],
+      sections: [
+        {
+          ...sourceSection,
+          name: "Strength primer",
+          intent: "Build smooth support strength for boxing.",
+          exercises: [gobletStrengthExercise()]
+        }
+      ]
+    };
+
+    const why = recipeWhy(session);
+
+    expect(why).toContain("Function:");
+    expect(why).toContain("Why it matters:");
+    expect(why).toContain("Quality check: No grinding reps.");
+    expect(why).toMatch(/\b(stance|guard|boxing)\b/i);
+    expect(why).not.toMatch(/\b(generic fitness|MMA|sparring|contact drill|fight simulation)\b/i);
+  });
+
+  it("keeps recipe-backed preview why boxer-facing instead of generic recipe copy", () => {
+    const detail = detailedFixture();
+
+    const why = recipeWhy(detail);
+
+    expect(detail.recipe).toBeTruthy();
+    expect(why).toContain("Function:");
+    expect(why).toContain("Why it matters:");
+    expect(why).toMatch(/\bboxing\b/i);
+    expect(why).not.toContain("This recipe follows the compiled workout exactly.");
   });
 
   it("parses common boxing-support timer formats", () => {

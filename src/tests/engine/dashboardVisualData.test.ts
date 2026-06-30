@@ -58,6 +58,7 @@ describe("dashboardVisualData", () => {
     expect(today.fuelToday).toMatchObject({ status: "Unknown", tone: "orange" });
     expect(fuel.macros.map((item) => item.label)).toEqual(expect.arrayContaining(["Protein", "Carbs", "Fat"]));
     expect(fuel.todayGuide.map((item) => item.label)).toEqual(["Protein", "Carbs", "Fat", "Water"]);
+    expect(fuel.trainingFuelPriorities.beforeTraining).not.toMatch(/\d+\s*g\b/i);
     expect(fuel.quickContext.map((item) => item.label)).toEqual(["Food log", "Water", "Sodium"]);
     expect(fuel.detailSummary).toMatch(/Open/);
     expect(fuel.detailDefaultOpen).toBe(false);
@@ -101,6 +102,18 @@ describe("dashboardVisualData", () => {
     expect(fuel.recommendation.body).toContain("Training stays planned");
     expect(plan.risk).toContainEqual(expect.objectContaining({ label: "Fuel context", value: "Unknown" }));
     expect(plan.risk.map((item) => item.label)).not.toContain("Low-fuel conflict");
+  });
+
+  it("keeps pre-training priorities separate from full-day carb targets", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const fuel = buildFuelDashboardVisual(state.viewModels.fuel, state.viewModels.recentLogs);
+    const carbTarget = state.viewModels.fuel.macroTargets.targets.find((item) => item.label === "Carbs")?.value;
+
+    expect(carbTarget).toMatch(/\d+g/);
+    expect(fuel.todayGuide.find((item) => item.label === "Carbs")?.valueLabel).toBe(carbTarget);
+    expect(fuel.trainingFuelPriorities.beforeTraining).toBe("2-3 hours before; normal meal");
+    expect(fuel.trainingFuelPriorities.beforeTraining).not.toBe(carbTarget);
+    expect(fuel.trainingFuelPriorities.beforeTraining).not.toMatch(/\d+\s*g\b/i);
   });
 
   it("presents food not-tracking as an explicit opt-out, not a log-meal prompt", () => {

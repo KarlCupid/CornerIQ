@@ -171,7 +171,7 @@ export function classifyTrainingGenerationConstraints(input: {
   ];
   const advisoryUncertainty: TrainingGenerationConstraintAuditItem[] = [
     ...(readinessUncertaintyAdvisory(input.readiness)
-      ? [item("advisoryUncertainty", "missing_readiness_check_in", "readiness", "No readiness check-in today; use the warm-up gate before training.")]
+      ? [item("advisoryUncertainty", "missing_readiness_check_in", "readiness", "No readiness check-in today; start controlled and downshift if symptoms appear.")]
       : []),
     ...(statusAdvisory
       ? [statusAdvisory]

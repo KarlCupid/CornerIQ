@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Linking } from "react-native";
 import { createAuthService } from "../services/supabase/authService";
@@ -12,8 +12,11 @@ import {
 } from "../services/supabase/client";
 
 type AuthService = ReturnType<typeof createAuthService>;
+type AuthRedirectKind = "account_confirmation" | "password_recovery";
+type VerifyOtpInput = Parameters<AuthService["verifyOtp"]>[0];
 
 export type SupabaseSessionStatus = "starting" | "missing_config" | "ready" | "error";
+export type AuthCallbackStatus = "idle" | "processing" | "success" | "error";
 export const PASSWORD_RESET_REDIRECT_URL = "corneriq://auth/update-password";
 
 export interface UseSupabaseSessionOptions {
@@ -23,9 +26,11 @@ export interface UseSupabaseSessionOptions {
 
 export interface SupabaseSessionState {
   authError: string | null;
+  authCallbackStatus: AuthCallbackStatus;
   authLoading: boolean;
   authMessage: string | null;
   client: CornerSupabaseClient | null;
+  dismissAuthCallbackStatus: () => void;
   passwordRecoveryReady: boolean;
   requestPasswordReset: (email: string) => Promise<void>;
   session: Session | null;
@@ -82,10 +87,7 @@ export function isInvalidRefreshTokenError(error: unknown): boolean {
   );
 }
 
-function recoveryParamsFromUrl(url: string): URLSearchParams | null {
-  if (!url.includes("auth/update-password") && !url.includes("type=recovery")) {
-    return null;
-  }
+function authParamsFromUrl(url: string): URLSearchParams {
   const params = new URLSearchParams();
   const query = url.includes("?") ? (url.split("?")[1]?.split("#")[0] ?? "") : "";
   const fragment = url.includes("#") ? (url.split("#")[1] ?? "") : "";
@@ -95,6 +97,59 @@ function recoveryParamsFromUrl(url: string): URLSearchParams | null {
     }
   }
   return params;
+}
+
+function authRedirectKindFromUrl(url: string): AuthRedirectKind | null {
+  const params = authParamsFromUrl(url);
+  const type = params.get("type");
+  const hasCode = params.has("code");
+  const hasSessionCredentials = params.has("access_token") && params.has("refresh_token");
+  const hasTokenHash = params.has("token_hash");
+  const hasAuthError = params.has("error") || params.has("error_description") || params.has("error_code");
+  const isPasswordRecovery = url.includes("auth/update-password") || type === "recovery";
+
+  if (isPasswordRecovery) {
+    return "password_recovery";
+  }
+
+  if (
+    url.includes("auth/callback") ||
+    url.includes("auth/confirm") ||
+    type === "email" ||
+    type === "signup" ||
+    type === "invite" ||
+    type === "magiclink" ||
+    hasCode ||
+    hasSessionCredentials ||
+    hasTokenHash ||
+    hasAuthError
+  ) {
+    return "account_confirmation";
+  }
+
+  return null;
+}
+
+function verifyOtpInputFromParams(params: URLSearchParams): VerifyOtpInput | null {
+  const tokenHash = params.get("token_hash");
+  const type = params.get("type");
+  if (!tokenHash) {
+    return null;
+  }
+
+  if (type === "email" || type === "signup" || type === "invite" || type === "magiclink" || type === "recovery") {
+    return { token_hash: tokenHash, type } as VerifyOtpInput;
+  }
+
+  return null;
+}
+
+function sessionFromAuthResponse(response: { data?: unknown }): Session | null {
+  const data = response.data;
+  if (data !== null && typeof data === "object" && "session" in data) {
+    return (data as { session?: Session | null }).session ?? null;
+  }
+  return null;
 }
 
 type LinkingLike = {
@@ -113,7 +168,9 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [authCallbackStatus, setAuthCallbackStatus] = useState<AuthCallbackStatus>("idle");
   const [passwordRecoveryReady, setPasswordRecoveryReady] = useState(false);
+  const authRedirectSessionRef = useRef<Session | null>(null);
 
   const auth = useMemo(() => (client ? authServiceFactory(client) : null), [authServiceFactory, client]);
 
@@ -165,7 +222,7 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
               return;
             }
             setAuthError(error?.message ?? null);
-            setSession(data.session);
+            setSession(authRedirectSessionRef.current ?? data.session);
             setStatus("ready");
           })
           .catch(async (error: unknown) => {
@@ -223,21 +280,31 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
     };
   }, [authServiceFactory, clientFactory, shouldPrepareDefaultClient]);
 
-  const handlePasswordRecoveryUrl = useCallback(
+  const handleAuthRedirectUrl = useCallback(
     async (url: string) => {
-      const params = recoveryParamsFromUrl(url);
-      if (!params || !auth) {
+      const kind = authRedirectKindFromUrl(url);
+      if (!kind || !auth) {
         return;
       }
+      const params = authParamsFromUrl(url);
+      const handlingPasswordRecovery = kind === "password_recovery";
       const linkError = params.get("error_description") ?? params.get("error");
+      if (!handlingPasswordRecovery) {
+        setAuthCallbackStatus("processing");
+      }
       if (linkError) {
         setAuthError(linkError);
         setAuthMessage(null);
+        setPasswordRecoveryReady(false);
+        if (!handlingPasswordRecovery) {
+          setAuthCallbackStatus("error");
+        }
         return;
       }
       const code = params.get("code");
       const accessSessionCredential = params.get("access_token");
       const refreshSessionCredential = params.get("refresh_token");
+      const verifyOtpInput = verifyOtpInputFromParams(params);
       const sessionCredentials =
         accessSessionCredential && refreshSessionCredential
           ? ({
@@ -253,17 +320,47 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
           ? await auth.exchangeCodeForSession(code)
           : sessionCredentials
             ? await auth.setSession(sessionCredentials)
-            : { error: null };
+            : verifyOtpInput
+              ? await auth.verifyOtp(verifyOtpInput)
+              : { data: { session: null }, error: null };
         if (response.error) {
           setAuthError(response.error.message);
           setPasswordRecoveryReady(false);
+          if (!handlingPasswordRecovery) {
+            setAuthCallbackStatus("error");
+          }
           return;
         }
-        setPasswordRecoveryReady(true);
-        setAuthMessage("Enter a new password to finish account recovery.");
-      } catch (error) {
-        setAuthError(authErrorMessage(error, "Password reset link could not be opened. Request a new reset email."));
+        const nextSession = sessionFromAuthResponse(response);
+        if (nextSession) {
+          authRedirectSessionRef.current = nextSession;
+          setSession(nextSession);
+        }
+        if (handlingPasswordRecovery) {
+          setPasswordRecoveryReady(true);
+          setAuthMessage("Enter a new password to finish account recovery.");
+          return;
+        }
         setPasswordRecoveryReady(false);
+        setAuthCallbackStatus("success");
+        setAuthMessage(
+          nextSession
+            ? "Account confirmed. Continue into CornerIQ to finish setup."
+            : "Account confirmed. Return to CornerIQ and sign in with your email and password."
+        );
+      } catch (error) {
+        setAuthError(
+          authErrorMessage(
+            error,
+            handlingPasswordRecovery
+              ? "Password reset link could not be opened. Request a new reset email."
+              : "Account confirmation link could not be opened. Request a fresh link or sign in again."
+          )
+        );
+        setPasswordRecoveryReady(false);
+        if (!handlingPasswordRecovery) {
+          setAuthCallbackStatus("error");
+        }
       } finally {
         setAuthLoading(false);
       }
@@ -279,17 +376,21 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
     let active = true;
     void nativeLinking?.getInitialURL?.().then((url) => {
       if (active && url) {
-        void handlePasswordRecoveryUrl(url);
+        void handleAuthRedirectUrl(url);
       }
     });
     const subscription = nativeLinking?.addEventListener?.("url", ({ url }) => {
-      void handlePasswordRecoveryUrl(url);
+      void handleAuthRedirectUrl(url);
     });
     return () => {
       active = false;
       subscription?.remove();
     };
-  }, [auth, handlePasswordRecoveryUrl]);
+  }, [auth, handleAuthRedirectUrl]);
+
+  const dismissAuthCallbackStatus = useCallback(() => {
+    setAuthCallbackStatus("idle");
+  }, []);
 
   const signIn = useCallback(
     async (rawEmail: string, rawPassword: string) => {
@@ -306,6 +407,8 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       }
 
       setAuthLoading(true);
+      authRedirectSessionRef.current = null;
+      setAuthCallbackStatus("idle");
       setAuthError(null);
       setAuthMessage(null);
       try {
@@ -335,6 +438,8 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       }
 
       setAuthLoading(true);
+      authRedirectSessionRef.current = null;
+      setAuthCallbackStatus("idle");
       setAuthError(null);
       setAuthMessage(null);
       try {
@@ -366,6 +471,8 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       }
 
       setAuthLoading(true);
+      authRedirectSessionRef.current = null;
+      setAuthCallbackStatus("idle");
       setAuthError(null);
       setAuthMessage(null);
       try {
@@ -389,6 +496,8 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       // A failed storage cleanup must not trap the user behind an authenticated error screen.
     }
     setPasswordRecoveryReady(false);
+    authRedirectSessionRef.current = null;
+    setAuthCallbackStatus("idle");
     setSession(null);
     setAuthMessage("Signed out on this device. Sign in again when you are ready.");
   }, []);
@@ -399,6 +508,8 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       return;
     }
     setAuthLoading(true);
+    authRedirectSessionRef.current = null;
+    setAuthCallbackStatus("idle");
     setAuthError(null);
     setAuthMessage(null);
     try {
@@ -430,6 +541,8 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
         return;
       }
       setAuthLoading(true);
+      authRedirectSessionRef.current = null;
+      setAuthCallbackStatus("idle");
       setAuthError(null);
       setAuthMessage(null);
       try {
@@ -449,10 +562,12 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
   );
 
   return {
+    authCallbackStatus,
     authError,
     authLoading,
     authMessage,
     client,
+    dismissAuthCallbackStatus,
     passwordRecoveryReady,
     requestPasswordReset,
     session,

@@ -59,9 +59,9 @@ function hasSafetyStop(input: {
 function modeTitle(mode: DailyOperatingMode): string {
   const titles: Record<DailyOperatingMode, string> = {
     full_plan: "Full plan",
-    plan_warmup_gate: "Plan plus warm-up gate",
+    plan_warmup_gate: "Plan plus controlled start",
     plan_fuel_gate: "Plan plus fuel advisory",
-    plan_warmup_and_fuel_gate: "Plan plus warm-up and fuel advisory",
+    plan_warmup_and_fuel_gate: "Plan plus controlled start and fuel advisory",
     modified_execution: "Modified execution",
     downshift_today: "Downshift today",
     safety_stop: "Safety-adjusted day"
@@ -108,7 +108,7 @@ function primaryAction(mode: DailyOperatingMode): string {
     case "plan_warmup_and_fuel_gate":
       return "Do a 60-sec check-in, fuel normally, then start without waiting on perfect logs.";
     case "plan_warmup_gate":
-      return "Do a 60-sec check-in or use the warm-up gate before intensity.";
+      return "Do a 60-sec check-in or keep the first movements controlled before intensity.";
     case "plan_fuel_gate":
       return "Fuel the high-demand session before training when possible.";
     case "full_plan":

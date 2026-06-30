@@ -128,7 +128,7 @@ function boxerWarmup(exerciseId: string | undefined, blockId = "warmup"): Workou
     title: "Warm-up",
     type: "warmup",
     accent: "blue",
-    why: "Get warm, check how your body feels, and get your stance ready before the boxing rounds.",
+    why: "Get warm and get your stance ready before the boxing rounds.",
     steps: [
       step({ type: "movement", title: "Shoulder circles forward", durationSeconds: 15, doThis: "Make slow circles forward with both shoulders. Start small, then gradually make the circles bigger.", coachCue: "Relax your neck.", exerciseId }),
       step({ type: "movement", title: "Shoulder circles backward", durationSeconds: 15, doThis: "Reverse the circles. Keep your shoulders smooth and your jaw relaxed.", coachCue: "Smooth circles.", exerciseId }),
@@ -140,8 +140,7 @@ function boxerWarmup(exerciseId: string | undefined, blockId = "warmup"): Workou
       step({ type: "movement", title: "Stance bounce", durationSeconds: 30, doThis: "Step into boxing stance. Bounce lightly. Keep both hands near your cheeks.", coachCue: "Warm, loose, not tired.", exerciseId }),
       step({ type: "movement", title: "Step and guard reset", durationSeconds: 30, doThis: "Take one small step, recover your stance width, and bring both hands home. Repeat slowly.", coachCue: "Feet first. Hands home.", exerciseId }),
       step({ type: "movement", title: "Jab shape to guard", durationSeconds: 45, doThis: "Touch a light jab, bring the hand back to your cheek, then reset your feet before the next jab.", coachCue: "Jab, guard, feet, breathe.", exerciseId }),
-      step({ type: "movement", title: "Easy shadow flow", durationSeconds: 60, doThis: "Move slowly in stance. Add light jab shapes only if your hands and feet keep coming home.", coachCue: "Get into your body.", exerciseId }),
-      step({ type: "movement", title: "Final warm-up check", durationSeconds: 60, doThis: "Bounce, breathe, and check your shoulders, feet, and balance. Keep it easy.", coachCue: "Start sharp, not tired.", exerciseId })
+      step({ type: "movement", title: "Easy shadow flow", durationSeconds: 45, doThis: "Move slowly in stance. Add light jab shapes only if your hands and feet keep coming home.", coachCue: "Get into your body.", exerciseId })
     ]
   });
 }
@@ -152,7 +151,7 @@ function bagWarmup(exerciseId: string | undefined): WorkoutRecipeBlock {
     title: "Warm-up",
     type: "warmup",
     accent: "blue",
-    why: "Get warm, check how your body feels, and find clean bag distance before the rounds.",
+    why: "Get warm and find clean bag distance before the rounds.",
     steps: [
       step({ type: "movement", title: "Shoulder circles forward", durationSeconds: 15, doThis: "Make slow circles forward with both shoulders.", coachCue: "Relax your neck.", exerciseId }),
       step({ type: "movement", title: "Shoulder circles backward", durationSeconds: 15, doThis: "Reverse the circles and keep your breathing calm.", coachCue: "Smooth circles.", exerciseId }),
@@ -160,10 +159,10 @@ function bagWarmup(exerciseId: string | undefined): WorkoutRecipeBlock {
       step({ type: "movement", title: "Hip hinges", durationSeconds: 20, doThis: "Push your hips back, keep your back long, then stand tall.", coachCue: "Hips back.", exerciseId }),
       step({ type: "movement", title: "Stance bounce", durationSeconds: 30, doThis: "Bounce lightly in stance with your hands near your cheeks.", coachCue: "Warm, not tired.", exerciseId }),
       step({ type: "movement", title: "Step and guard reset", durationSeconds: 30, doThis: "Take one small step, recover stance width, and bring both hands home.", coachCue: "Feet first. Hands home.", exerciseId }),
-      step({ type: "movement", title: "Air jab to guard", durationSeconds: 45, doThis: "Touch a light jab in the air, bring it home, and reset your feet.", coachCue: "Hands come back.", exerciseId }),
-      step({ type: "movement", title: "Light bag touch", durationSeconds: 60, doThis: "Touch the bag lightly with the jab. Bring the hand home after every touch.", coachCue: "Touch, home, reset.", exerciseId }),
-      step({ type: "movement", title: "Bag distance check", durationSeconds: 60, doThis: "Step in, touch the bag, step out, and reset your stance.", coachCue: "In clean. Out clean.", exerciseId }),
-      step({ type: "movement", title: "Easy bag rhythm", durationSeconds: 65, doThis: "Move around the bag slowly. Keep your shoulders loose and your feet under you.", coachCue: "No power yet.", exerciseId })
+      step({ type: "movement", title: "Air jab to guard", durationSeconds: 30, doThis: "Touch a light jab in the air, bring it home, and reset your feet.", coachCue: "Hands come back.", exerciseId }),
+      step({ type: "movement", title: "Light bag touch", durationSeconds: 40, doThis: "Touch the bag lightly with the jab. Bring the hand home after every touch.", coachCue: "Touch, home, reset.", exerciseId }),
+      step({ type: "movement", title: "Step in-out bag touch", durationSeconds: 40, doThis: "Step in, touch the bag, step out, and reset your stance.", coachCue: "In clean. Out clean.", exerciseId }),
+      step({ type: "movement", title: "Easy bag rhythm", durationSeconds: 45, doThis: "Move around the bag slowly. Keep your shoulders loose and your feet under you.", coachCue: "No power yet.", exerciseId })
     ]
   });
 }

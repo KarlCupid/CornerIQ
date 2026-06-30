@@ -161,6 +161,7 @@ export function useQuickLogs(input: UseQuickLogsInput): QuickLogsHook {
       } catch (error) {
         if (isActiveRun()) {
           setMessage(error instanceof Error ? error.message : "Log failed.");
+          throw error;
         }
       } finally {
         if (isActiveRun()) {

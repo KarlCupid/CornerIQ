@@ -192,6 +192,11 @@ export interface TodayNextActionVisual {
 export interface FuelDashboardVisual {
   macros: readonly ProgressVisual[];
   todayGuide: readonly TargetGuideVisual[];
+  trainingFuelPriorities: {
+    beforeTraining: string;
+    afterTraining: string;
+    fluids: string;
+  };
   quickContext: readonly ModifierVisual[];
   hydration: ProgressVisual;
   sodium: ProgressVisual;
@@ -637,7 +642,7 @@ function todayTrainingHumanLine(input: {
     return "No app workout is set for today. Log real boxing if training changes.";
   }
   if (!input.readinessLogged) {
-    return "Today's workout is ready. Log readiness first, then start if the warm-up feels right.";
+    return "Today's workout is ready. Log readiness first, then start controlled.";
   }
   if (intensity === "recovery" || intensity === "easy") {
     return "Today is a lighter session. Move well and leave some gas in the tank.";
@@ -1223,6 +1228,26 @@ function fuelTodayGuide(fuel: FuelViewModel): readonly TargetGuideVisual[] {
   ];
 }
 
+function lowerFirst(value: string): string {
+  return value.length > 0 ? `${value.slice(0, 1).toLowerCase()}${value.slice(1)}` : value;
+}
+
+function timingPriority(fuel: FuelViewModel, id: RegExp, fallback: string): string {
+  const recommendation = fuel.fuelTimingRecommendations.find((item) => id.test(item.id));
+  if (!recommendation) {
+    return fallback;
+  }
+  return `${recommendation.timing}; ${lowerFirst(recommendation.amount)}`;
+}
+
+function trainingFuelPriorities(fuel: FuelViewModel): FuelDashboardVisual["trainingFuelPriorities"] {
+  return {
+    beforeTraining: timingPriority(fuel, /^pre-training-meal$/, "Normal meal timing"),
+    afterTraining: timingPriority(fuel, /^post-training-meal$/, "Protein plus carbs after"),
+    fluids: `${hydrationTargetLabel(fuel)} daily guide`
+  };
+}
+
 function fuelQuickContext(fuel: FuelViewModel, hydration: ProgressVisual, sodium: ProgressVisual): readonly ModifierVisual[] {
   const foodEntries = fuel.foodLogStatus.entryCount;
   const foodRatio = Number.isFinite(fuel.foodLogStatus.coverageScore) ? fuel.foodLogStatus.coverageScore : foodEntries > 0 ? 0.55 : 0.18;
@@ -1413,6 +1438,7 @@ export function buildFuelDashboardVisual(fuel: FuelViewModel, recentLogs: Recent
   return {
     macros,
     todayGuide: fuelTodayGuide(fuel),
+    trainingFuelPriorities: trainingFuelPriorities(fuel),
     quickContext: fuelQuickContext(fuel, hydration, sodium),
     hydration,
     sodium,

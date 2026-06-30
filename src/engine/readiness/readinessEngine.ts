@@ -13,7 +13,7 @@ export function resolveReadiness(checkIns: readonly ReadinessCheckIn[], asOfDate
       drivers: ["No readiness check-in logged today."],
       hardStops: [],
       confidence: makeConfidence(0.28, ["manual readiness can still be logged"], ["today readiness check-in"]),
-      explanation: "No readiness check-in yet. CornerIQ keeps the planned training available and adds a warm-up gate so you can downshift if symptoms show up."
+      explanation: "No readiness check-in yet. CornerIQ keeps the planned training available and adds controlled-start guidance so you can downshift if symptoms show up."
     };
   }
 

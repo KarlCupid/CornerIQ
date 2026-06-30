@@ -2304,7 +2304,8 @@ describe("minimal app screens", () => {
     expect(quickCheckOutput).toContain("today-quick-check-modal");
     expect(quickCheckOutput).toContain("today-quick-check-section");
     expect(quickCheckOutput).toContain("Quick check");
-    expect(modalContainerStyle(renderer).justifyContent).toBe("flex-end");
+    expect(modalContainerStyle(renderer).justifyContent).toBe("flex-start");
+    expect(modalContainerStyle(renderer).paddingTop).toBe(44);
     expect(quickCheckPanelStyle(renderer).maxHeight).toBeGreaterThanOrEqual(600);
     expect(quickCheckPanelStyle(renderer).maxHeight).toBeLessThanOrEqual(700);
     expect(quickCheckOutput.indexOf("today-check-in-card")).toBeLessThan(quickCheckOutput.indexOf("today-quick-check-modal"));
@@ -2342,6 +2343,110 @@ describe("minimal app screens", () => {
     });
     expect(visibleModalCount(renderer)).toBe(0);
     expect(JSON.stringify(renderer.toJSON())).not.toContain("today-quick-check-section");
+  });
+
+  it("TodayScreen auto-closes the quick-check wizard after a successful readiness log", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const logReadiness = vi.fn(async () => undefined);
+    const missingReadinessLogs: RecentLogsViewModel = {
+      ...recentLogsViewModel,
+      readinessToday: {
+        loggedToday: false,
+        actionLabel: "Log readiness",
+        statusLabel: "Not logged today",
+        summary: "No readiness check-in logged today.",
+        why: "Readiness can change training safety, so missing data stays unknown."
+      }
+    };
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: todayViewModel,
+        recentLogs: missingReadinessLogs,
+        cycleContext: null,
+        quickLogs: { ...quickLogActions, logReadiness },
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: null
+      })
+    );
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Check in"));
+    });
+    expect(visibleModalCount(renderer)).toBe(1);
+
+    act(() => {
+      changeInput(renderer, "Sleep hours", "7.5");
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Energy (1-5) 4"));
+      await press(pressableWithAccessibilityLabel(renderer, "Soreness (1-5) 2"));
+      await press(pressableWithAccessibilityLabel(renderer, "Sleep quality (1-5) 4"));
+      await press(pressableWithAccessibilityLabel(renderer, "Stress (1-5) 2"));
+      await press(pressableWithAccessibilityLabel(renderer, "Mood (1-5) 4"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Log readiness"));
+    });
+
+    expect(logReadiness).toHaveBeenCalledWith(expect.objectContaining({ energy1To5: 4, sleepHours: 7.5 }));
+    expect(visibleModalCount(renderer)).toBe(0);
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("today-quick-check-section");
+  });
+
+  it("TodayScreen keeps the quick-check wizard open when readiness logging fails", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const logReadiness = vi.fn(async () => {
+      throw new Error("readiness insert failed");
+    });
+    const missingReadinessLogs: RecentLogsViewModel = {
+      ...recentLogsViewModel,
+      readinessToday: {
+        loggedToday: false,
+        actionLabel: "Log readiness",
+        statusLabel: "Not logged today",
+        summary: "No readiness check-in logged today.",
+        why: "Readiness can change training safety, so missing data stays unknown."
+      }
+    };
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: todayViewModel,
+        recentLogs: missingReadinessLogs,
+        cycleContext: null,
+        quickLogs: { ...quickLogActions, logReadiness },
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: null
+      })
+    );
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Check in"));
+    });
+    act(() => {
+      changeInput(renderer, "Sleep hours", "7.5");
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Energy (1-5) 4"));
+      await press(pressableWithAccessibilityLabel(renderer, "Soreness (1-5) 2"));
+      await press(pressableWithAccessibilityLabel(renderer, "Sleep quality (1-5) 4"));
+      await press(pressableWithAccessibilityLabel(renderer, "Stress (1-5) 2"));
+      await press(pressableWithAccessibilityLabel(renderer, "Mood (1-5) 4"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Log readiness"));
+    });
+
+    expect(logReadiness).toHaveBeenCalled();
+    expect(visibleModalCount(renderer)).toBe(1);
+    const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("today-quick-check-section");
+    expect(output).toContain("readiness insert failed");
   });
 
   it("TodayScreen opens readiness and body-weight inputs in the popup that launched them", async () => {
@@ -2911,6 +3016,8 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("To weight");
     expect(output).not.toContain("Body check");
     expect(output).toContain("Training fuel priorities");
+    expect(output).toContain("Normal meal timing");
+    expect(output).not.toContain("260g");
     expect(output).not.toContain("Training Today");
     expect(output).toContain("Weight Trend");
     expect(output).not.toContain("Cut runway");
@@ -3923,6 +4030,14 @@ describe("minimal app screens", () => {
       expect(output).toContain("DO THIS");
       expect(output).toContain("Start with Tempo squat");
       expect(output).toContain("Show Exercise details");
+      expect(output).toContain("Function:");
+      expect(output).toContain("Why it matters:");
+      expect(output).toContain("Quality check:");
+      expect(output).not.toContain("Strength workout");
+      expect(output).not.toContain("18 min");
+      expect(output).not.toContain("2 blocks");
+      expect(output).not.toContain("equipment varies");
+      expect(output).not.toContain("steady fuel");
       expect(output).not.toContain("Session flow");
       expect(output).not.toContain("Coach note");
 
@@ -4145,10 +4260,10 @@ describe("minimal app screens", () => {
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("MOVEMENT FLOW");
       expect(output).toContain("Movement ");
-      expect(output).toContain("8");
-      expect(output).toContain("Readiness check");
-      expect(output).toContain("Stand tall.");
-      expect(output).toContain("Start calm.");
+      expect(output).toContain("7");
+      expect(output).toContain("Shoulder circles forward");
+      expect(output).toContain("Make slow circles with both shoulders.");
+      expect(output).toContain("Relax your neck.");
       expect(output).toContain("Done");
       expect(output).not.toContain("Preparation");
 
@@ -4157,7 +4272,7 @@ describe("minimal app screens", () => {
       });
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Movement ");
-      expect(output).toContain("Shoulder circles forward");
+      expect(output).toContain("Shoulder circles backward");
     } finally {
       vi.useRealTimers();
     }
@@ -7155,6 +7270,101 @@ describe("minimal app screens", () => {
     expect(missingSnapshot.current?.authError).toContain("not configured");
   });
 
+  it("useSupabaseSession shows account confirmation success for auth callback codes", async () => {
+    const signedInSession = { user: { id: "user_1", email: "boxer@example.com" } } as unknown as Session;
+    const reactNative = (await import("react-native")) as unknown as {
+      Linking: {
+        getInitialURL: ReturnType<typeof vi.fn>;
+      };
+    };
+    reactNative.Linking.getInitialURL.mockResolvedValueOnce("https://corneriq.app/?type=email&code=confirm-code");
+    const fakeAuth = {
+      exchangeCodeForSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
+      getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      requestPasswordReset: vi.fn(async () => ({ data: {}, error: null })),
+      setSession: vi.fn(async () => ({ data: { session: signedInSession }, error: null })),
+      signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      signOut: vi.fn(async () => ({ error: null })),
+      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      updatePassword: vi.fn(async () => ({ data: { user: signedInSession.user }, error: null })),
+      verifyOtp: vi.fn(async () => ({ data: { session: signedInSession }, error: null }))
+    };
+    const fakeClientFactory = () => ({ auth: {} }) as unknown as CornerSupabaseClient;
+    const fakeAuthServiceFactory = () => fakeAuth as unknown as ReturnType<typeof createAuthService>;
+    const snapshot: { current: SupabaseSessionState | null } = { current: null };
+    function Probe() {
+      snapshot.current = useSupabaseSession({
+        authServiceFactory: fakeAuthServiceFactory,
+        clientFactory: fakeClientFactory
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    for (let attempt = 0; attempt < 8 && snapshot.current?.authCallbackStatus !== "success"; attempt += 1) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
+
+    expect(fakeAuth.exchangeCodeForSession).toHaveBeenCalledWith("confirm-code");
+    expect(snapshot.current?.authCallbackStatus).toBe("success");
+    expect(snapshot.current?.authMessage).toContain("Account confirmed");
+    expect(snapshot.current?.session).toBe(signedInSession);
+
+    act(() => {
+      snapshot.current?.dismissAuthCallbackStatus();
+    });
+    expect(snapshot.current?.authCallbackStatus).toBe("idle");
+  });
+
+  it("useSupabaseSession verifies Supabase token-hash confirmation links", async () => {
+    const reactNative = (await import("react-native")) as unknown as {
+      Linking: {
+        addEventListener: ReturnType<typeof vi.fn>;
+      };
+    };
+    const authUrlListeners: ((input: { url: string }) => void)[] = [];
+    reactNative.Linking.addEventListener.mockImplementationOnce((_event: "url", listener: (input: { url: string }) => void) => {
+      authUrlListeners.push(listener);
+      return { remove: vi.fn() };
+    });
+    const fakeAuth = {
+      exchangeCodeForSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      requestPasswordReset: vi.fn(async () => ({ data: {}, error: null })),
+      setSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      signInWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      signOut: vi.fn(async () => ({ error: null })),
+      signUpWithPassword: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      updatePassword: vi.fn(async () => ({ data: { user: null }, error: null })),
+      verifyOtp: vi.fn(async () => ({ data: { session: null }, error: null }))
+    };
+    const fakeClientFactory = () => ({ auth: {} }) as unknown as CornerSupabaseClient;
+    const fakeAuthServiceFactory = () => fakeAuth as unknown as ReturnType<typeof createAuthService>;
+    const snapshot: { current: SupabaseSessionState | null } = { current: null };
+    function Probe() {
+      snapshot.current = useSupabaseSession({
+        authServiceFactory: fakeAuthServiceFactory,
+        clientFactory: fakeClientFactory
+      });
+      return React.createElement("View");
+    }
+
+    render(React.createElement(Probe));
+    await act(async () => undefined);
+    await act(async () => {
+      authUrlListeners[0]?.({ url: "https://corneriq.app/auth/confirm?token_hash=token-hash&type=email" });
+      await Promise.resolve();
+    });
+
+    expect(fakeAuth.verifyOtp).toHaveBeenCalledWith({ token_hash: "token-hash", type: "email" });
+    expect(snapshot.current?.authCallbackStatus).toBe("success");
+    expect(snapshot.current?.authMessage).toContain("sign in");
+  });
+
   it("useSupabaseSession clears the local session when remote sign-out fails", async () => {
     const signedInSession = { user: { id: "user_1", email: "boxer@example.com" } } as unknown as Session;
     const fakeAuth = {
@@ -7687,13 +7897,27 @@ describe("minimal app screens", () => {
     }
 
     render(React.createElement(Probe));
+    const currentQuickLogs = (): QuickLogsHook => {
+      if (!quickLogs) {
+        throw new Error("quick logs hook did not render");
+      }
+      return quickLogs;
+    };
+    let thrown: unknown;
     await act(async () => {
-      await quickLogs?.actions.logCycle({ flowLevel: "unknown", symptoms: ["not a symptom" as CycleSymptom], hormonalContraception: "unknown" });
+      try {
+        await currentQuickLogs().actions.logCycle({ flowLevel: "unknown", symptoms: ["not a symptom" as CycleSymptom], hormonalContraception: "unknown" });
+      } catch (error) {
+        thrown = error;
+      }
     });
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown instanceof Error ? thrown.message : "").toContain("Choose listed cycle symptoms");
+    expect(currentQuickLogs().message).toContain("Choose listed cycle symptoms");
     expect(insertCycleLog).not.toHaveBeenCalled();
 
     await act(async () => {
-      await quickLogs?.actions.logCycle({ flowLevel: "unknown", symptoms: ["cramps"], hormonalContraception: "unknown" });
+      await currentQuickLogs().actions.logCycle({ flowLevel: "unknown", symptoms: ["cramps"], hormonalContraception: "unknown" });
     });
     expect(insertCycleLog).toHaveBeenCalledWith({ userId: "user_1", date: "2026-05-19", flowLevel: "unknown", symptoms: ["cramps"], hormonalContraception: "unknown" });
   });

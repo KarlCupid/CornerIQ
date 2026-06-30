@@ -25,6 +25,7 @@ interface QuickLogCardProps extends LogCardProps {
   forceOpen?: boolean | undefined;
   actions: QuickLogActions;
   framed?: boolean | undefined;
+  onLogged?: (() => void) | undefined;
   surface?: "default" | "fuel" | undefined;
 }
 
@@ -273,7 +274,7 @@ function foodEnergyPreview(
   return { message: validation.athleteFacingMessage, valid: validation.valid };
 }
 
-export function BodyMassLogCard({ actions, busy, compact = false, forceOpen, framed, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined }) {
+export function BodyMassLogCard({ actions, busy, compact = false, forceOpen, framed, onLogged, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined }) {
   const [bodyMassValue, setBodyMassValue] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body weight log failed.");
   const [success, setSuccess] = useState<string | null>(null);
@@ -298,6 +299,7 @@ export function BodyMassLogCard({ actions, busy, compact = false, forceOpen, fra
               await actions.logBodyMass({ bodyMassKg: usesImperial ? enteredBodyMass * KG_PER_LB : enteredBodyMass });
               setBodyMassValue("");
               setSuccess(`Body weight saved in ${unitLabel}. Trend confidence has fresher scale context; readiness can still be unknown.`);
+              onLogged?.();
             })
           }
           style={screenStyles.button}
@@ -308,7 +310,7 @@ export function BodyMassLogCard({ actions, busy, compact = false, forceOpen, fra
   );
 }
 
-export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen, framed, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
+export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen, framed, onLogged, status }: QuickLogCardProps & { status?: DailyLogStatus | undefined }) {
   const [sleepHours, setSleepHours] = useState("");
   const [sleepQuality, setSleepQuality] = useState("");
   const [energy, setEnergy] = useState("");
@@ -383,6 +385,7 @@ export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen
               });
               clear();
               setSuccess("Readiness logged. CornerIQ has more confidence for today's training call.");
+              onLogged?.();
             })
           }
           style={screenStyles.button}
@@ -393,7 +396,7 @@ export function ReadinessCheckInCard({ actions, busy, compact = false, forceOpen
   );
 }
 
-export function HydrationLogCard({ actions, busy, compact = false, framed, status, surface = "default" }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
+export function HydrationLogCard({ actions, busy, compact = false, framed, onLogged, status, surface = "default" }: QuickLogCardProps & { status?: HydrationTodayStatus | undefined }) {
   const [liters, setLiters] = useState("");
   const [sodiumMg, setSodiumMg] = useState("");
   const [moreFieldsOpen, setMoreFieldsOpen] = useState(false);
@@ -429,6 +432,7 @@ export function HydrationLogCard({ actions, busy, compact = false, framed, statu
                 setSodiumMg("");
                 setMoreFieldsOpen(false);
                 setSuccess("Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown.");
+                onLogged?.();
               })
             }
             style={[
