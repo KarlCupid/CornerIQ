@@ -56,6 +56,7 @@ export type UserOwnedDataExportPreview = Record<UserOwnedTable, number>;
 export type UserOwnedDataCategory = "profile" | "logs" | "training" | "nutrition" | "cycle/wearable" | "projections/traces";
 export type UserOwnedDataExportPreviewGrouped = Record<UserOwnedDataCategory, number>;
 export type UserOwnedDataExportRowsByCategory = Record<UserOwnedDataCategory, Partial<Record<UserOwnedTable, unknown[]>>>;
+export const APP_DATA_DELETION_CONFIRMATION = "DELETE";
 export const ACCOUNT_DELETION_CONFIRMATION = "DELETE ACCOUNT";
 export const ACCOUNT_DELETION_FUNCTION_NAME = "delete-account";
 
@@ -273,7 +274,7 @@ export async function generateUserOwnedDataExportBundleString(
 
 export async function deleteUserOwnedData(userId: string, client: CornerSupabaseClient, confirmation: string): Promise<UserOwnedDeleteResult> {
   const safeUserId = assertUserId(userId, "userDataService.deleteUserOwnedData");
-  if (confirmation !== "DELETE") {
+  if (confirmation !== APP_DATA_DELETION_CONFIRMATION) {
     throw new Error("userDataService.deleteUserOwnedData: explicit DELETE confirmation is required");
   }
   const result: Partial<UserOwnedDeleteResult> = {};

@@ -8,7 +8,7 @@ import { glassStyles } from "../../design/glass";
 import { colors, spacing } from "../../design/theme";
 import { typography } from "../../design/typography";
 import type { SubscriptionHook } from "../../hooks/useSubscription";
-import type { UserDataControlsHook } from "../../hooks/useUserDataControls";
+import { accountDeleteConfirmationMatches, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { getReleaseLinkConfig } from "../../services/config/runtimeConfig";
 import { SUPPORT_OUTSIDE_APP_COPY } from "../supportCopy";
 import { screenStyles } from "./screenStyles";
@@ -125,6 +125,7 @@ export function PaywallScreen({ onSignOut, subscription, userDataControls }: Pay
   const [fallbackAccountDeleteConfirmation, setFallbackAccountDeleteConfirmation] = React.useState("");
   const accountDeleteConfirmation = userDataControls?.accountDeleteConfirmation ?? fallbackAccountDeleteConfirmation;
   const setAccountDeleteConfirmation = userDataControls?.setAccountDeleteConfirmation ?? setFallbackAccountDeleteConfirmation;
+  const accountDeleteReady = accountDeleteConfirmationMatches(accountDeleteConfirmation);
   const releaseLinks = React.useMemo(() => getReleaseLinkConfig(), []);
   const viewModel = subscription.viewModel;
   const actionsDisabled = subscription.busy || subscription.loading || Boolean(viewModel.setupBlockedReason);
@@ -225,6 +226,8 @@ export function PaywallScreen({ onSignOut, subscription, userDataControls }: Pay
             <Text style={screenStyles.subtle}>Deletes app data and the sign-in identity through the server-side account deletion function. Requires DELETE ACCOUNT.</Text>
             <TextInput
               accessibilityLabel="Delete account confirmation"
+              autoCapitalize="characters"
+              autoCorrect={false}
               onChangeText={setAccountDeleteConfirmation}
               placeholder="Type DELETE ACCOUNT to enable"
               placeholderTextColor={colors.mutedText}
@@ -232,7 +235,7 @@ export function PaywallScreen({ onSignOut, subscription, userDataControls }: Pay
               value={accountDeleteConfirmation}
             />
             <PaywallActionButton
-              disabled={!userDataControls || accountDeleteConfirmation !== "DELETE ACCOUNT" || userDataControls.busy}
+              disabled={!userDataControls || !accountDeleteReady || userDataControls.busy}
               icon="person-remove-outline"
               label="Delete account"
               onPress={() => void userDataControls?.deleteAccount()}

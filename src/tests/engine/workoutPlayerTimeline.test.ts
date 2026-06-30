@@ -280,6 +280,30 @@ describe("workout player timeline", () => {
     expect(JSON.stringify(timeline).toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
   });
 
+  it("expands generated V2 warm-ups into live timed movement steps", () => {
+    const detail = detailedFixture();
+    const timeline = buildWorkoutPlayerTimeline(detail);
+    const warmupIndex = detail.sections.findIndex((section) => /warm|prep/i.test(section.name));
+    const warmup = detail.sections[warmupIndex];
+    if (!warmup) {
+      throw new Error("fixture did not include a warmup/prep section");
+    }
+    const warmupSteps = timeline.steps.filter((step) => step.sectionIndex === warmupIndex);
+    const warmupRecipeBlock = detail.recipe?.blocks.find((block) => block.type === "warmup");
+    const warmupText = warmupSteps.map((step) => `${step.title} ${step.instruction} ${step.cue}`).join(" ");
+
+    expect(warmup.guidedSteps?.length).toBeGreaterThan(6);
+    expect(warmupSteps.length).toBeGreaterThan(6);
+    expect(warmupSteps[0]).toEqual(expect.objectContaining({ autoAdvance: false, kind: "setup", title: "Readiness check" }));
+    expect(warmupSteps.slice(1).every((step) => step.kind === "work" && step.autoAdvance)).toBe(true);
+    expect(warmupSteps.reduce((sum, step) => sum + step.durationSeconds, 0)).toBe(warmup.durationMinutes * 60);
+    expect(warmupSteps.every((step) => step.durationSeconds < warmup.durationMinutes * 60)).toBe(true);
+    expect(warmupText).toMatch(/\b(shoulder|hip|stance|jab|squat|walk|ankle|bag)\b/i);
+    expect(warmupRecipeBlock?.steps.length).toBe(warmup.guidedSteps?.length);
+    expect(warmupRecipeBlock?.steps.map((step) => step.title)).toContain("Readiness check");
+    expect(warmupText.toLowerCase()).not.toMatch(/\b(contact|sparring|fight simulation|partner drill)\b/);
+  });
+
   it("keeps movement prep flow as individual warm-up movement titles", () => {
     const base = movementPrepExercise();
     const { guidedProfile: _guidedProfile, ...withoutGuidance } = base;

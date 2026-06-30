@@ -2,6 +2,7 @@ import type {
   DetailedTrainingSession,
   GeneratedSessionFamily,
   GeneratedSessionEquipmentMode,
+  GuidedWorkoutStep,
   WorkoutRecipe,
   WorkoutRecipeBlock,
   WorkoutRecipeBlockType,
@@ -847,30 +848,69 @@ function compiledStepType(section: DetailedTrainingSession["sections"][number]):
   return "movement";
 }
 
+function compiledGuidedStepType(guidedStep: GuidedWorkoutStep, blockType: WorkoutRecipeBlockType): WorkoutRecipeStepType {
+  if (guidedStep.kind === "rest") {
+    return "rest";
+  }
+  if (guidedStep.kind === "cooldown" || blockType === "cooldown") {
+    return "cooldown";
+  }
+  if (blockType === "boxing_rounds" || guidedStep.title.toLowerCase().startsWith("round ")) {
+    return "round";
+  }
+  if (blockType === "strength" || guidedStep.kind === "checkpoint") {
+    return "set";
+  }
+  return "movement";
+}
+
+function compiledGuidedRecipeSteps(sectionItem: DetailedTrainingSession["sections"][number], sectionIndex: number, blockType: WorkoutRecipeBlockType): readonly WorkoutRecipeStep[] | null {
+  const guidedSteps = sectionItem.guidedSteps;
+  if (blockType !== "warmup" || !guidedSteps || guidedSteps.length <= 1) {
+    return null;
+  }
+  return guidedSteps.map((guidedStep, guidedIndex) =>
+    step({
+      type: compiledGuidedStepType(guidedStep, blockType),
+      title: guidedStep.title,
+      durationSeconds: Math.max(15, guidedStep.durationSeconds ?? Math.round((sectionItem.durationMinutes * 60) / guidedSteps.length)),
+      doThis: guidedStep.beginnerInstruction,
+      coachCue: guidedStep.cue,
+      ...(guidedStep.microCues && guidedStep.microCues.length > 0 ? { microCues: guidedStep.microCues } : {}),
+      safetyStop: guidedStep.safetyStop ?? DEFAULT_STOP,
+      autoAdvance: guidedStep.kind !== "setup" && guidedStep.kind !== "checkpoint",
+      exerciseId: sectionItem.exercises[0]?.exerciseId,
+      stepId: `compiled_${sectionIndex}_guided_${guidedIndex}_${slug(guidedStep.id)}`
+    })
+  );
+}
+
 function compiledRecipe(input: WorkoutRecipeResolutionInput): WorkoutRecipe | null {
   if (!input.templateId || input.sections.length === 0) {
     return null;
   }
   const blocks = input.sections.map((sectionItem, sectionIndex) => {
+    const blockType = compiledRecipeBlockType(sectionItem);
     const stepSeconds = Math.max(30, Math.round((sectionItem.durationMinutes * 60) / Math.max(1, sectionItem.exercises.length)));
-    const steps = sectionItem.exercises.map((exercise, exerciseIndex) =>
-      step({
-        type: compiledStepType(sectionItem),
-        title: exercise.name,
-        durationSeconds: stepSeconds,
-        doThis: exercise.loadGuidance,
-        coachCue: exercise.coachingNotes[0] ?? exercise.stopConditions[0] ?? "Keep the work clean.",
-        safetyStop: exercise.stopConditions[0] ?? DEFAULT_STOP,
-        autoAdvance: compiledStepType(sectionItem) !== "set",
-        exerciseId: exercise.exerciseId,
-        stepId: `compiled_${sectionIndex}_${exerciseIndex}_${slug(exercise.exerciseId)}`
-      })
-    );
+    const steps = compiledGuidedRecipeSteps(sectionItem, sectionIndex, blockType) ??
+      sectionItem.exercises.map((exercise, exerciseIndex) =>
+        step({
+          type: compiledStepType(sectionItem),
+          title: exercise.name,
+          durationSeconds: stepSeconds,
+          doThis: exercise.loadGuidance,
+          coachCue: exercise.coachingNotes[0] ?? exercise.stopConditions[0] ?? "Keep the work clean.",
+          safetyStop: exercise.stopConditions[0] ?? DEFAULT_STOP,
+          autoAdvance: compiledStepType(sectionItem) !== "set",
+          exerciseId: exercise.exerciseId,
+          stepId: `compiled_${sectionIndex}_${exerciseIndex}_${slug(exercise.exerciseId)}`
+        })
+      );
     return block({
       blockId: `compiled_${sectionIndex}_${slug(sectionItem.name)}`,
       title: sectionItem.name,
-      type: compiledRecipeBlockType(sectionItem),
-      accent: compiledRecipeBlockType(sectionItem) === "cooldown" ? "green" : compiledRecipeBlockType(sectionItem) === "boxing_rounds" || compiledRecipeBlockType(sectionItem) === "conditioning" ? "red" : compiledRecipeBlockType(sectionItem) === "strength" ? "orange" : "blue",
+      type: blockType,
+      accent: blockType === "cooldown" ? "green" : blockType === "boxing_rounds" || blockType === "conditioning" ? "red" : blockType === "strength" ? "orange" : "blue",
       why: "Follow this block as written. Do not add extra work.",
       steps:
         steps.length > 0

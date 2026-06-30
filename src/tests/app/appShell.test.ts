@@ -1289,6 +1289,15 @@ function changeInput(renderer: ReactTestRenderer, placeholder: string, value: st
   onChangeText(value);
 }
 
+function changeInputWithAccessibilityLabel(renderer: ReactTestRenderer, label: string, value: string): void {
+  const input = (renderer.root.findAllByType("TextInput") as TestInstance[]).find((item) => (item.props as { accessibilityLabel?: string }).accessibilityLabel === label);
+  const onChangeText = (input?.props as { onChangeText?: (text: string) => void } | undefined)?.onChangeText;
+  if (typeof onChangeText !== "function") {
+    throw new Error(`TextInput ${label} did not expose an onChangeText handler.`);
+  }
+  onChangeText(value);
+}
+
 function pressableWithText(renderer: ReactTestRenderer, text: string): TestInstance | undefined {
   return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => JSON.stringify(item.findAllByType("Text").map((label) => label.props.children)).includes(text));
 }
@@ -6017,6 +6026,65 @@ describe("minimal app screens", () => {
     }
   });
 
+  it("ProfileScreen enables destructive buttons with normalized confirmation text", async () => {
+    const { ProfileScreen } = await import("../../app/screens/ProfileScreen");
+    function ProfileDeleteProbe({ previewLoaded }: { previewLoaded: boolean }) {
+      const [deleteConfirmation, setDeleteConfirmation] = React.useState("");
+      const [accountDeleteConfirmation, setAccountDeleteConfirmation] = React.useState("");
+      return React.createElement(ProfileScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        cycleTrackingStatus: "undecided",
+        cycleContext: null,
+        equipmentAccess: ["jump_rope"],
+        onSignOut: vi.fn(),
+        onUpdateSettings: vi.fn(),
+        preferredUnits: "metric",
+        recentLogs: recentLogsViewModel,
+        userDataControls: {
+          accountDeleteConfirmation,
+          accountDeletionResultRows: [],
+          accountDeletionCopy: "Delete app data removes user-owned app rows only. Delete account uses a trusted server path.",
+          bundleText: null,
+          busy: false,
+          deleteConfirmation,
+          deleteAccount: vi.fn(),
+          deleteData: vi.fn(),
+          generateExportBundle: vi.fn(),
+          message: null,
+          portableExportRows: [],
+          preview: previewLoaded ? ({} as NonNullable<UserDataControlsHook["preview"]>) : null,
+          previewExport: vi.fn(),
+          previewRows: previewLoaded ? ["training: 1"] : [],
+          setAccountDeleteConfirmation,
+          setDeleteConfirmation
+        },
+        viewModel: profileViewModel,
+        wearablePreference: "manual_only",
+        wearableStatus: "manual only"
+      });
+    }
+
+    const renderer = render(React.createElement(ProfileDeleteProbe, { previewLoaded: true }));
+    expect(pressableWithAccessibilityLabel(renderer, "Shortcut identity removal")?.props.disabled).toBe(true);
+    expect(pressableWithAccessibilityLabel(renderer, "Shortcut app data removal")?.props.disabled).toBe(true);
+
+    await act(async () => {
+      changeInputWithAccessibilityLabel(renderer, "Shortcut identity removal confirmation", " delete account ");
+      changeInputWithAccessibilityLabel(renderer, "Shortcut data removal confirmation", " delete ");
+    });
+
+    expect(pressableWithAccessibilityLabel(renderer, "Shortcut identity removal")?.props.disabled).toBe(false);
+    expect(pressableWithAccessibilityLabel(renderer, "Shortcut app data removal")?.props.disabled).toBe(false);
+
+    const noPreviewRenderer = render(React.createElement(ProfileDeleteProbe, { previewLoaded: false }));
+    await act(async () => {
+      changeInputWithAccessibilityLabel(noPreviewRenderer, "Shortcut data removal confirmation", "DELETE");
+    });
+    expect(pressableWithAccessibilityLabel(noPreviewRenderer, "Shortcut app data removal")?.props.disabled).toBe(true);
+    expect(JSON.stringify(noPreviewRenderer.toJSON())).toContain("Preview export first to enable app-data deletion.");
+  });
+
   it("fatigue-first screens keep collapsed sections and primary actions short", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const { FuelScreen } = await import("../../app/screens/FuelScreen");
@@ -6149,13 +6217,22 @@ describe("minimal app screens", () => {
     expect(onAfterDelete).not.toHaveBeenCalled();
 
     await act(async () => {
-      snapshot.current?.setDeleteConfirmation("DELETE");
+      snapshot.current?.setDeleteConfirmation(" delete ");
     });
     await act(async () => {
       await snapshot.current?.deleteData();
     });
     expect(deleted.length).toBeGreaterThan(0);
     expect(onAfterDelete).toHaveBeenCalled();
+  });
+
+  it("destructive confirmation helpers normalize casing and whitespace only", async () => {
+    const { accountDeleteConfirmationMatches, appDataDeleteConfirmationMatches } = await import("../../hooks/useUserDataControls");
+
+    expect(accountDeleteConfirmationMatches(" delete account ")).toBe(true);
+    expect(appDataDeleteConfirmationMatches(" delete ")).toBe(true);
+    expect(accountDeleteConfirmationMatches("delete")).toBe(false);
+    expect(appDataDeleteConfirmationMatches("delete account")).toBe(false);
   });
 
   it("useUserDataControls blocks delete until a preview is loaded", async () => {

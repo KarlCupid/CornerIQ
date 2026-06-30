@@ -18,6 +18,7 @@ export interface WorkoutPlanSummaryBlock {
 }
 
 const STOP_DETAIL = "Pain notes keep future training conservative.";
+type WorkoutSection = DetailedTrainingSession["sections"][number];
 
 function firstSentence(value: string | undefined): string {
   const copy = plainTrainingCopy(value ?? "").trim();
@@ -28,6 +29,21 @@ function firstSentence(value: string | undefined): string {
 function nonEmpty(value: string | undefined): string | undefined {
   const copy = firstSentence(value);
   return copy.length > 0 ? copy : undefined;
+}
+
+function shouldPreviewGuidedSteps(section: WorkoutSection): boolean {
+  const searchable = `${section.name} ${section.intent}`.toLowerCase();
+  return Boolean(section.guidedSteps?.length && /\b(warm|prep)\b/.test(searchable));
+}
+
+function sectionPreviewSteps(section: WorkoutSection, limit: number): readonly string[] {
+  if (shouldPreviewGuidedSteps(section)) {
+    return (section.guidedSteps ?? [])
+      .filter((step) => step.kind !== "rest" && step.kind !== "checkpoint")
+      .slice(0, limit)
+      .map((step) => plainWorkoutTitle(step.title));
+  }
+  return section.exercises.slice(0, limit).map((exercise) => plainWorkoutTitle(exercise.name));
 }
 
 function uniqueGuidance(items: readonly WorkoutGuidanceItem[], limit: number): readonly WorkoutGuidanceItem[] {
@@ -64,7 +80,8 @@ export function recipeEquipmentLabel(recipe: WorkoutRecipe | undefined): string 
 
 export function recipeFlowLines(session: DetailedTrainingSession): readonly string[] {
   return session.walkthrough.steps.map((step, index) => {
-    const itemTitles = step.items.slice(0, 4).map((item) => plainWorkoutTitle(item.title)).join(", ");
+    const section = session.sections[index];
+    const itemTitles = (section ? sectionPreviewSteps(section, 4) : step.items.slice(0, 4).map((item) => plainWorkoutTitle(item.title))).join(", ");
     return `${index + 1}. ${step.title}${itemTitles ? ` - ${itemTitles}` : ""}`;
   });
 }
@@ -94,7 +111,7 @@ export function recipePlanSummaryBlocks(session: DetailedTrainingSession): reado
     detail: firstSentence(plainSectionIntent(section.intent)),
     durationLabel: section.durationMinutes > 0 ? `${section.durationMinutes} min` : `${section.exercises.length} move${section.exercises.length === 1 ? "" : "s"}`,
     label: String(index + 1).padStart(2, "0"),
-    steps: section.exercises.slice(0, 3).map((exercise) => plainWorkoutTitle(exercise.name)),
+    steps: sectionPreviewSteps(section, 3),
     title: plainSectionName(section.name),
     tone: index === 0 ? "gold" : index === session.sections.length - 1 ? "green" : "blue"
   }));

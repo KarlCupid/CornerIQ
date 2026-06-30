@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 import {
+  ACCOUNT_DELETION_CONFIRMATION,
+  APP_DATA_DELETION_CONFIRMATION,
   deleteUserOwnedData,
   deleteAccount,
   generateUserOwnedDataExportBundleString,
@@ -8,6 +10,18 @@ import {
   previewUserOwnedDataExport,
   type UserOwnedDataExportPreview
 } from "../services/supabase/userDataService";
+
+export function normalizeDestructiveConfirmation(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+export function appDataDeleteConfirmationMatches(value: string): boolean {
+  return normalizeDestructiveConfirmation(value) === APP_DATA_DELETION_CONFIRMATION;
+}
+
+export function accountDeleteConfirmationMatches(value: string): boolean {
+  return normalizeDestructiveConfirmation(value) === ACCOUNT_DELETION_CONFIRMATION;
+}
 
 export interface UserDataControlsHook {
   accountDeleteConfirmation: string;
@@ -63,7 +77,7 @@ export function useUserDataControls(input: {
         setMessage("Preview export before deleting app data.");
         return;
       }
-      await deleteUserOwnedData(input.userId, input.client, deleteConfirmation);
+      await deleteUserOwnedData(input.userId, input.client, normalizeDestructiveConfirmation(deleteConfirmation));
       setPreview(null);
       setDeleteConfirmation("");
       setMessage("User-owned data deleted.");
@@ -93,7 +107,7 @@ export function useUserDataControls(input: {
     setBusy(true);
     setMessage(null);
     try {
-      const result = await deleteAccount(input.userId, input.client, accountDeleteConfirmation);
+      const result = await deleteAccount(input.userId, input.client, normalizeDestructiveConfirmation(accountDeleteConfirmation));
       const deletedCount = Object.values(result.appDataDeletion).reduce((sum, row) => sum + (row.count ?? 0), 0);
       setAccountDeletionResultRows([`Account deletion completed at ${result.deletedAt}.`, `Deleted app-data rows reported by server: ${deletedCount}.`, "Signing out of this device."]);
       setAccountDeleteConfirmation("");
