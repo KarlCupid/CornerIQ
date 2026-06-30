@@ -675,7 +675,7 @@ function buildTodayTrainingCard(train: TrainViewModel | undefined, readinessLogg
     action: workoutAction(buttonLabel, tone),
     buttonLabel,
     disabled: false,
-    durationLabel: durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD",
+    durationLabel: durationMinutes > 0 ? `${durationMinutes} min` : "Duration unknown",
     intensityLabel: sentenceCase(plainIntensityLabel(intensity)),
     sentence: todayTrainingHumanLine({ card, generated, readinessLogged, session, viewModel: train }),
     title,

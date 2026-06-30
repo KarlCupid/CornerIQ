@@ -22,6 +22,17 @@ The Expo client uses only these public runtime variable names:
 
 Runtime UI and preflight checks may show missing variable names. They must never show values.
 
+Paid App Store builds also declare these public runtime variable names:
+
+- `EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL`
+- `EXPO_PUBLIC_CORNERIQ_SUPPORT_URL`
+- `EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED`
+- `EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY`
+- `EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY`
+- `EXPO_PUBLIC_CORNERIQ_REVENUECAT_ENTITLEMENT_ID`
+- `EXPO_PUBLIC_CORNERIQ_MONTHLY_PRODUCT_ID`
+- `EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID`
+
 ## Secret Values Never Committed
 
 Keep these out of git, docs, source, tests, issue trackers, screenshots, and build config:
@@ -64,7 +75,7 @@ PowerShell on this Windows host may block `npm.ps1`; `cmd /c npm run <script>` i
 
 - `development`: internal distribution, Android APK, iOS simulator.
 - `preview`: internal distribution, Android APK.
-- `production`: store-oriented profile with local app version source.
+- `production`: store-oriented profile with EAS remote app versions, auto-incremented build numbers, and a pinned Xcode 26 iOS image.
 
 Preview build command:
 
@@ -92,6 +103,8 @@ Current app config:
 - Orientation: portrait.
 - User interface style: dark.
 - iOS bundle identifier: `com.corneriq.app`.
+- iOS build number seed: `1`; production EAS builds auto-increment from remote version state.
+- iOS export compliance: `usesNonExemptEncryption` is set to `false`.
 - Android package: `com.corneriq.app`.
 - Icon and splash assets are not production-polished yet; accept this as a beta limitation or add assets before broader distribution.
 

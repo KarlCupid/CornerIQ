@@ -6,7 +6,8 @@ function useInterTightFonts() {
   React.useEffect(() => {
     const runtime = globalThis as { __DEV__?: boolean; process?: { env?: { NODE_ENV?: string } } };
     if (typeof runtime.__DEV__ !== "boolean") {
-      runtime.__DEV__ = runtime.process?.env?.NODE_ENV !== "production";
+      const nodeEnv = runtime.process?.env?.NODE_ENV;
+      runtime.__DEV__ = nodeEnv === "development" || nodeEnv === "test";
     }
     if (runtime.process?.env?.NODE_ENV === "test") {
       return;

@@ -6204,6 +6204,51 @@ describe("minimal app screens", () => {
     expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
+  it("PostOnboardingWalkthroughScreen explains the app safely and can be finished or skipped", async () => {
+    const { PostOnboardingWalkthroughScreen } = await import("../../app/screens/onboarding/PostOnboardingWalkthroughScreen");
+    const onFinish = vi.fn(async () => undefined);
+    const onSkip = vi.fn(async () => undefined);
+    const renderer = render(React.createElement(PostOnboardingWalkthroughScreen, { onFinish, onSkip }));
+
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Setup complete");
+    expect(output).toContain("Meet CornerIQ");
+    expect(output).toContain("Start with Today");
+    expect(output).toContain("Missing data stays unknown.");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Next"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Manual logs are enough");
+    expect(output).toContain("Wearables are optional.");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Next"));
+    });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Train around boxing");
+    expect(output).toContain("CornerIQ does not create contact drills or unsupervised fight simulation.");
+
+    await act(async () => {
+      await press(pressableWithText(renderer, "Next"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Next"));
+    });
+    await act(async () => {
+      await press(pressableWithText(renderer, "Start Today"));
+    });
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onSkip).not.toHaveBeenCalled();
+
+    const skipRenderer = render(React.createElement(PostOnboardingWalkthroughScreen, { onFinish, onSkip }));
+    await act(async () => {
+      await press(pressableWithText(skipRenderer, "Skip walkthrough"));
+    });
+    expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+
   it("onboarding setup steps show visible labels, examples, chips, and recurring anchor copy", async () => {
     const { BoxerBasicsStep } = await import("../../app/screens/onboarding/steps/BoxerBasicsStep");
     const { BodyMassStep } = await import("../../app/screens/onboarding/steps/BodyMassStep");
@@ -6281,6 +6326,58 @@ describe("minimal app screens", () => {
     expect(userAKey).toMatch(/^corneriq:onboarding:[a-f0-9]{20}:2026-05-19$/);
     expect(userBKey).toMatch(/^corneriq:onboarding:[a-f0-9]{20}:2026-05-19$/);
     expect(legacyOnboardingDraftStorageKey(fixtureAsOfDate)).toBe("corneriq:onboarding:2026-05-19");
+  });
+
+  it("post-onboarding walkthrough persists pending and completed states per user", async () => {
+    const { setDeviceStorageOverrideForTests } = await import("../../services/storage/deviceStorage");
+    const { postOnboardingWalkthroughStorageKey, usePostOnboardingWalkthrough } = await import("../../hooks/usePostOnboardingWalkthrough");
+    const storage = createTestDeviceStorage();
+    type UnmountableRenderer = ReactTestRenderer & { unmount: () => void };
+    let userOneRenderer: UnmountableRenderer | null = null;
+    let userTwoRenderer: UnmountableRenderer | null = null;
+    setDeviceStorageOverrideForTests(storage);
+    try {
+      const snapshot: { current: ReturnType<typeof usePostOnboardingWalkthrough> | null } = { current: null };
+      function Probe({ userId }: { userId: string }) {
+        snapshot.current = usePostOnboardingWalkthrough(userId);
+        return React.createElement("View");
+      }
+
+      userOneRenderer = render(React.createElement(Probe, { userId: "user_1" })) as UnmountableRenderer;
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const userOneKey = postOnboardingWalkthroughStorageKey("user_1");
+      expect(snapshot.current?.visible).toBe(false);
+
+      await act(async () => {
+        await snapshot.current?.showAfterOnboarding();
+      });
+      expect(snapshot.current?.visible).toBe(true);
+      expect(storage.state.get(userOneKey)).toBe("pending");
+
+      await act(async () => {
+        await snapshot.current?.complete();
+      });
+      expect(snapshot.current?.visible).toBe(false);
+      expect(storage.state.get(userOneKey)).toBe("completed");
+
+      const userTwoKey = postOnboardingWalkthroughStorageKey("user_2");
+      await storage.setItem(userTwoKey, "pending");
+      userTwoRenderer = render(React.createElement(Probe, { userId: "user_2" })) as UnmountableRenderer;
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(snapshot.current?.visible).toBe(true);
+    } finally {
+      await act(async () => {
+        userOneRenderer?.unmount();
+        userTwoRenderer?.unmount();
+      });
+      setDeviceStorageOverrideForTests(undefined);
+    }
   });
 
   it("male safety selection hides pregnancy choices with plain explanation", async () => {
@@ -6753,11 +6850,28 @@ describe("minimal app screens", () => {
   it("App renders startup state without Supabase env in test mode", async () => {
     const { default: App } = await import("../../app/App");
     const renderer = render(React.createElement(App));
-    await act(async () => undefined);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("Supabase not configured");
     expect(output).toContain("EXPO_PUBLIC_SUPABASE_URL");
     expect(output).toContain("anon key only");
+  });
+
+  it("App routes saved onboarding into the walkthrough before paywall or tabs", () => {
+    const appSource = readFileSync("src/app/App.tsx", "utf8");
+    const walkthroughGateIndex = appSource.indexOf("if (postOnboardingWalkthrough.visible)");
+    const paywallGateIndex = appSource.indexOf("if (subscription.enabled && !subscription.active)");
+
+    expect(appSource).toContain("usePostOnboardingWalkthrough(session.user.id)");
+    expect(appSource).toContain('if (result.status === "saved")');
+    expect(appSource).toContain("postOnboardingWalkthrough.showAfterOnboarding()");
+    expect(appSource).toContain("<PostOnboardingWalkthroughScreen");
+    expect(walkthroughGateIndex).toBeGreaterThan(-1);
+    expect(paywallGateIndex).toBeGreaterThan(-1);
+    expect(walkthroughGateIndex).toBeLessThan(paywallGateIndex);
   });
 
   it("AppErrorState renders a retryable error", async () => {
@@ -6829,7 +6943,11 @@ describe("minimal app screens", () => {
     }
 
     render(React.createElement(Probe));
-    await act(async () => undefined);
+    for (let attempt = 0; attempt < 5 && snapshot.current?.status === "starting"; attempt += 1) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
     expect(snapshot.current?.status).toBe("ready");
     expect(snapshot.current?.session).toBeNull();
 

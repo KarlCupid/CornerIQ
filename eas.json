@@ -1,6 +1,7 @@
 {
   "cli": {
-    "appVersionSource": "local"
+    "version": ">= 16.0.1",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -19,7 +20,11 @@
       }
     },
     "production": {
-      "autoIncrement": false
+      "autoIncrement": true,
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.0",
+        "resourceClass": "m-medium"
+      }
     }
   }
 }

@@ -8,9 +8,11 @@ import { StartupState } from "./components/StartupState";
 import { AppTabs } from "./navigation/AppTabs";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OnboardingScreen } from "./screens/onboarding/OnboardingScreen";
+import { PostOnboardingWalkthroughScreen } from "./screens/onboarding/PostOnboardingWalkthroughScreen";
 import { PaywallScreen } from "./screens/PaywallScreen";
 import { usePerformanceState } from "../hooks/usePerformanceState";
 import { useNextWeekPreviewActions, type NextWeekPreviewActionsHook } from "../hooks/useNextWeekPreviewActions";
+import { usePostOnboardingWalkthrough } from "../hooks/usePostOnboardingWalkthrough";
 import { useQuickLogs, type QuickLogActions } from "../hooks/useQuickLogs";
 import { useSupabaseSession } from "../hooks/useSupabaseSession";
 import { useSubscription } from "../hooks/useSubscription";
@@ -21,7 +23,7 @@ import type { CycleSymptom, ISODateString, PerformanceState, ProtectedWorkout, R
 import { isLocalE2EMode, isPromoCaptureMode, LOCAL_E2E_MODE_ENV } from "../services/config/e2eRuntimeConfig";
 import { getPublicRuntimeConfig } from "../services/config/runtimeConfig";
 import { buildLocalE2EPerformanceState, localE2EDefaultAsOfDateForScenario, normalizeLocalE2EScenario, type LocalE2EScenario } from "../services/e2e/localE2EState";
-import { recurringAnchorFromDraft, workoutFromDraft, type BuildGoalDraft } from "../services/supabase/onboardingService";
+import { recurringAnchorFromDraft, workoutFromDraft, type BuildGoalDraft, type OnboardingDraft } from "../services/supabase/onboardingService";
 import type { CornerSupabaseClient } from "../services/supabase/client";
 import { colors, spacing } from "../design/theme";
 
@@ -29,6 +31,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
   const [signingOut, setSigningOut] = useState(false);
   const performance = usePerformanceState({ client, session });
   const subscription = useSubscription({ appUserId: session.user.id });
+  const postOnboardingWalkthrough = usePostOnboardingWalkthrough(session.user.id);
   const quickLogs = useQuickLogs({
     asOfDate: performance.asOfDate,
     onRefresh: performance.refresh,
@@ -85,6 +88,16 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
       setSigningOut(false);
     }
   }, [busy, onSignOut]);
+  const completeOnboarding = useCallback(
+    async (draft: OnboardingDraft) => {
+      const result = await performance.completeOnboarding(draft);
+      if (result.status === "saved") {
+        void postOnboardingWalkthrough.showAfterOnboarding();
+      }
+      return result;
+    },
+    [performance.completeOnboarding, postOnboardingWalkthrough.showAfterOnboarding]
+  );
 
   useEffect(() => {
     void performance.refresh();
@@ -100,8 +113,7 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
         asOfDate={performance.asOfDate}
         busy={busy}
         message={performance.message}
-        onComplete={performance.completeOnboarding}
-        onCreateDemoProfile={() => void performance.createDemoProfile()}
+        onComplete={completeOnboarding}
         onSignOut={guardedSignOut}
         userId={session.user.id}
       />
@@ -114,6 +126,14 @@ function AuthenticatedApp({ client, session, onSignOut }: { client: CornerSupaba
 
   if (!performance.result || performance.result.status !== "ready") {
     return <AppErrorState message="Engine state is unavailable." onRetry={() => void performance.refresh()} onSignOut={() => void guardedSignOut()} />;
+  }
+
+  if (postOnboardingWalkthrough.visible) {
+    return (
+      <AppErrorBoundary signedIn>
+        <PostOnboardingWalkthroughScreen onFinish={postOnboardingWalkthrough.complete} onSkip={postOnboardingWalkthrough.skip} />
+      </AppErrorBoundary>
+    );
   }
 
   if (subscription.enabled && !subscription.active) {

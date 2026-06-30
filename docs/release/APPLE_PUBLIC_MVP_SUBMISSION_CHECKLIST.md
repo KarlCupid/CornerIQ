@@ -110,8 +110,10 @@ cmd /c npm run release:quality
 - [ ] Apple distribution credentials are configured through EAS credentials.
 - [ ] App Store Connect app record uses bundle id `com.corneriq.app`.
 - [ ] App Store Connect API key or Apple ID submission path is chosen and kept out of git.
-- [ ] Build number strategy is set. If using current `eas.json` with `appVersionSource: "local"` and `production.autoIncrement: false`, manually increment iOS build numbers for every upload.
-- [ ] Export compliance is answered in App Store Connect. If appropriate, add `ios.config.usesNonExemptEncryption` to `app.json` before submission.
+- [ ] If non-interactive submit is required, add a non-secret `submit.production.ios` config after the App Store Connect app id is known; keep API keys, `.p8` files, Apple ID credentials, and passwords in EAS/env secrets only.
+- [ ] Build number strategy is set. Current `eas.json` uses EAS remote app versions and `production.autoIncrement: true`; run `eas build:version:get` before the first public build and seed remote versions with `eas build:version:set -p ios` only if the release owner needs to reset them.
+- [ ] Production iOS builds use an Xcode 26 EAS image and the build logs confirm an iOS 26 SDK upload path.
+- [ ] Export compliance is answered in App Store Connect and reflected in `app.json` at `ios.config.usesNonExemptEncryption`.
 
 ## TestFlight
 

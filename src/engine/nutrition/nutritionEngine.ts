@@ -382,7 +382,7 @@ export function resolveNutrition(input: {
   });
   const hitTheseFirst =
     input.training.protectedAnchors.some((anchor) => anchor.type === "sparring")
-      ? ["Carbs before sparring", "Protein after", "Fluids plus electrolytes"]
+      ? ["Carbs before coach/team sparring you added", "Protein after", "Fluids plus electrolytes"]
       : ["Protein steady", "Carbs around boxing", "Fluids consistent"];
   const underFuelingRiskNote = underFuelingBlocked ? "Under-fueling risk is active, so deficit pressure is blocked and recovery fuel is protected." : null;
   const demandHandoff = trainingDemandHandoff({

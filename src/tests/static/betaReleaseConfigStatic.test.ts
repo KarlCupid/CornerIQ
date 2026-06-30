@@ -14,13 +14,23 @@ function readSource(path: string): string {
 describe("release config static checks", () => {
   it("defines EAS build profiles without app config secrets", () => {
     expect(existsSync("eas.json")).toBe(true);
-    const eas = readJson("eas.json") as { build?: Record<string, unknown> };
+    const eas = readJson("eas.json") as { build?: Record<string, { autoIncrement?: unknown; ios?: Record<string, unknown> }>; cli?: { appVersionSource?: unknown; version?: unknown } };
+    const app = readJson("app.json") as { expo?: { ios?: { bundleIdentifier?: unknown; buildNumber?: unknown; config?: { usesNonExemptEncryption?: unknown }; supportsTablet?: unknown } } };
     const appConfig = readSource("app.json");
     const easSource = readSource("eas.json");
 
     expect(eas.build?.development).toBeTruthy();
     expect(eas.build?.preview).toBeTruthy();
     expect(eas.build?.production).toBeTruthy();
+    expect(eas.cli?.version).toBe(">= 16.0.1");
+    expect(eas.cli?.appVersionSource).toBe("remote");
+    expect(eas.build?.production?.autoIncrement).toBe(true);
+    expect(eas.build?.production?.ios?.image).toBe("macos-sequoia-15.6-xcode-26.0");
+    expect(eas.build?.production?.ios?.resourceClass).toBe("m-medium");
+    expect(app.expo?.ios?.bundleIdentifier).toBe("com.corneriq.app");
+    expect(app.expo?.ios?.buildNumber).toMatch(/^\d+$/);
+    expect(app.expo?.ios?.supportsTablet).toBe(false);
+    expect(app.expo?.ios?.config?.usesNonExemptEncryption).toBe(false);
     expect(`${appConfig}\n${easSource}`).not.toMatch(/CORNERIQ_SMOKE_EMAIL|CORNERIQ_SMOKE_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE|service_role/i);
   });
 

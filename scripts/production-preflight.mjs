@@ -79,13 +79,26 @@ function checkEasProfiles() {
       failures.push(`Missing EAS build profile: ${profile}`);
     }
   }
+  if (eas.cli?.appVersionSource !== "remote") {
+    addAppleSubmissionBlocker('set eas.json cli.appVersionSource to "remote" for store build-number authority.');
+  }
+  if (eas.build?.production?.autoIncrement !== true) {
+    addAppleSubmissionBlocker("enable production.autoIncrement in eas.json so every App Store upload gets a new build number.");
+  }
 }
 
 function checkAppConfig() {
   const app = readJson("app.json");
-  const projectId = app.expo?.extra?.eas?.projectId;
+  const expo = app.expo ?? {};
+  const projectId = expo.extra?.eas?.projectId;
   if (projectId !== undefined && (typeof projectId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId))) {
     failures.push("Invalid EAS projectId in app.json; expected UUID.");
+  }
+  if (typeof expo.ios?.bundleIdentifier !== "string" || expo.ios.bundleIdentifier.trim() === "") {
+    addAppleSubmissionBlocker("set a stable iOS bundle identifier in app.json.");
+  }
+  if (typeof expo.ios?.config?.usesNonExemptEncryption !== "boolean") {
+    addAppleSubmissionBlocker("answer iOS export compliance in app.json at ios.config.usesNonExemptEncryption.");
   }
 }
 

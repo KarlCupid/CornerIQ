@@ -6,6 +6,13 @@ playwright-report/
 qa-artifacts/
 test-results/
 *.log
+*.aab
+*.apk
+*.ipa
+*.mobileprovision
+*.p12
+*.xcarchive
+AuthKey_*.p8
 .DS_Store
 android/
 ios/

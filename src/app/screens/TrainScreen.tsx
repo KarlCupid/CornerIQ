@@ -821,7 +821,7 @@ function TodayTrainingPlanCard({
           {dayNote ? <Text style={trainTextStyles.subtle}>{dayNote}</Text> : null}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <TrainTonePill icon="time-outline" label={durationMinutes > 0 ? `${durationMinutes} min` : "Duration TBD"} />
+          <TrainTonePill icon="time-outline" label={durationMinutes > 0 ? `${durationMinutes} min` : "Duration unknown"} />
           <TrainTonePill icon="stats-chart-outline" label={sentenceCase(plainIntensityLabel(intensity))} tone={primaryTone} />
           <TrainTonePill icon="hand-left-outline" label="Non-contact" tone="blue" />
         </View>
@@ -879,7 +879,7 @@ function QuickStatsRow({
   const fuelDemand = session?.fuelDemand ?? card?.fuelDemand ?? generated?.fuelDemand ?? "moderate";
   const readiness = trainReadinessValue(session, viewModel);
   const items = [
-    { icon: "time-outline" as const, label: "Duration", tone: "muted" as const, value: durationMinutes > 0 ? `${durationMinutes} min` : "TBD" },
+    { icon: "time-outline" as const, label: "Duration", tone: "muted" as const, value: durationMinutes > 0 ? `${durationMinutes} min` : "Unknown" },
     { icon: "stats-chart-outline" as const, label: "Intensity", tone: toneForIntensity(intensity), value: sentenceCase(plainIntensityLabel(intensity)) },
     { icon: "flame-outline" as const, label: "Fuel", tone: fuelDemand === "high" || intensity === "hard" ? "orange" as const : "gold" as const, value: trainFuelStatLabel(fuelDemand, intensity) },
     { icon: "shield-checkmark-outline" as const, label: "Readiness", tone: trainReadinessTone(readiness), value: readiness }

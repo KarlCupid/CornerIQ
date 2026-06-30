@@ -373,7 +373,7 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
   it("sparring day preserves carbs and fuel demand handoff", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
 
-    expect(state.nutrition.hitTheseFirst).toContain("Carbs before sparring");
+    expect(state.nutrition.hitTheseFirst).toContain("Carbs before coach/team sparring you added");
     expect(state.training.dayPlans.find((day) => day.date === fixtureAsOfDate)?.fuelDemand).toBe("high");
     expect(state.training.todaySessions[0]?.fuelDemand).toBe("low");
     expect(state.viewModels.train.sessionCards[0]?.fuelDemand).toBe("low");

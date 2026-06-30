@@ -14,8 +14,12 @@
     },
     "ios": {
       "bundleIdentifier": "com.corneriq.app",
+      "buildNumber": "1",
       "icon": "./assets/app-icon.png",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.corneriq.app"

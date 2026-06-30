@@ -23,6 +23,43 @@ describe("agent browser QA static checks", () => {
     expect(isPromoCaptureMode({ EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: "1", EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: "1", NODE_ENV: "production" })).toBe(false);
   });
 
+  it("fails production debug surfaces closed when runtime dev state is missing", () => {
+    const providers = readSource("src/app/providers/AppProviders.tsx");
+    const train = readSource("src/app/screens/TrainScreen.tsx");
+
+    expect(providers).toContain('nodeEnv === "development" || nodeEnv === "test"');
+    expect(providers).not.toContain('NODE_ENV !== "production"');
+    expect(train).toContain('globalThis as { __DEV__?: boolean }');
+    expect(train).toContain("if (!isDev)");
+  });
+
+  it("keeps Supabase-writing demo profile shortcuts out of the signed-in app path", () => {
+    const app = readSource("src/app/App.tsx");
+    const hook = readSource("src/hooks/usePerformanceState.ts");
+    const onboarding = readSource("src/app/screens/onboarding/OnboardingScreen.tsx");
+    const localE2ESection = app.slice(app.indexOf("function LocalE2EApp"));
+
+    expect(hook).not.toContain("createDemoProfile");
+    expect(hook).not.toContain("createDemoBoxerProfile");
+    expect(app).not.toContain("performance.createDemoProfile");
+    expect(localE2ESection).toContain("onCreateDemoProfile");
+    expect(onboarding).toContain("demoShortcutEnabled && onCreateDemoProfile");
+    expect(existsSync("src/app/components/NeedsProfileState.tsx")).toBe(false);
+  });
+
+  it("keeps launch copy away from bare sparring fuel prompts and TBD placeholders", () => {
+    const combined = [
+      "src/engine/nutrition/sessionFueling.ts",
+      "src/engine/nutrition/nutritionEngine.ts",
+      "src/engine/presentation/dashboardVisualData.ts",
+      "src/app/screens/TrainScreen.tsx"
+    ].map(readSource).join("\n");
+
+    expect(combined).toContain("coach/team sparring");
+    expect(combined).not.toMatch(/Carbs before sparring|Protein after sparring|Duration TBD|value: "TBD"/);
+    expect(existsSync("src/engine/presentation/uiPriority.ts")).toBe(false);
+  });
+
   it("defines agent QA scripts, docs, and Playwright scenario", () => {
     const packageJson = JSON.parse(readSource("package.json")) as { scripts?: Record<string, string> };
 

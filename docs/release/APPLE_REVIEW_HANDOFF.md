@@ -150,7 +150,9 @@ Do not claim:
 
 ## Assets And Config
 
-- Current `app.json` has name, slug, scheme, version, portrait orientation, bundle id, Android package, EAS project id, and `ios.supportsTablet: false`.
+- Current `app.json` has name, slug, scheme, version, portrait orientation, bundle id, iOS build-number seed, Android package, EAS project id, `ios.supportsTablet: false`, and iOS export-compliance config.
+- Current `eas.json` uses EAS remote app versions, pins the production iOS build image to Xcode 26 for Expo SDK 54, and sets `production.autoIncrement: true` so App Store uploads get a fresh build number.
+- App Store submission can stay interactive until the App Store Connect app id/API-key path is chosen. If the release owner needs non-interactive submit, add only non-secret submit metadata to `eas.json` and keep `.p8`, Apple ID, team, and password values out of git.
 - App icon and splash files are wired in `app.json`; production preflight verifies file presence only.
 - Final icon/splash visual acceptance remains a release-owner App Store task.
 - `CORNERIQ_APPLE_SUBMISSION=1 cmd /c npm run preflight:production` must fail until the paid subscription build blockers and any remaining automated release blockers are ready. It does not prove final App Store artwork acceptance.

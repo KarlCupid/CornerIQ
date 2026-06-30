@@ -5,7 +5,6 @@ import { useAutoRollForward } from "./useAutoRollForward";
 import { useTodayLocalDate, type TodayLocalDateAppStateLike } from "./useTodayLocalDate";
 import { resolveAndPersistPerformanceState, type ResolveAndPersistPerformanceStateResult } from "../services/engine/resolveAndPersistPerformanceState";
 import { acknowledgeNutritionSafetyReview as acknowledgeNutritionSafetyReviewService } from "../services/nutrition/requestNutritionSafetyReview";
-import { createDemoBoxerProfile } from "../services/supabase/demoDataService";
 import { createAthleteJourneyRepositories, type AthleteJourneyRepositories } from "../services/supabase/loadAthleteJourney";
 import {
   completeOnboarding,
@@ -48,7 +47,6 @@ export interface PerformanceStateHook {
   asOfDate: ISODateString;
   acknowledgeNutritionSafetyReview: (reviewId: string) => Promise<void>;
   completeOnboarding: (draft: OnboardingDraft) => Promise<OnboardingCompletionResult>;
-  createDemoProfile: () => Promise<void>;
   loading: boolean;
   generationStatus: EngineGenerationStatus;
   message: string | null;
@@ -265,20 +263,6 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     }
     return final;
   }, [asOfDate, repositories, runAutoRollForward, userId]);
-
-  const createDemoProfile = useCallback(async () => {
-    setLoading(true);
-    setMessage(null);
-    try {
-      await createDemoBoxerProfile({ userId, asOfDate, repositories });
-      await refresh();
-      setMessage("Demo profile created.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Demo profile creation failed.");
-      setLoading(false);
-      setGenerationStatus("idle");
-    }
-  }, [asOfDate, refresh, repositories, userId]);
 
   const finishOnboarding = useCallback(
     async (draft: OnboardingDraft): Promise<OnboardingCompletionResult> => {
@@ -577,7 +561,6 @@ export function usePerformanceState(input: UsePerformanceStateInput): Performanc
     asOfDate,
     acknowledgeNutritionSafetyReview,
     completeOnboarding: finishOnboarding,
-    createDemoProfile,
     loading,
     generationStatus,
     message,

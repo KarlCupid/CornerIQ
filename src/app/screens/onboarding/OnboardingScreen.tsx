@@ -23,7 +23,7 @@ export interface OnboardingScreenProps {
   demoShortcutEnabled?: boolean | undefined;
   message: string | null;
   onComplete: (draft: OnboardingDraft) => Promise<OnboardingCompletionResult>;
-  onCreateDemoProfile: () => void;
+  onCreateDemoProfile?: (() => void) | undefined;
   onSignOut: () => Promise<void>;
   userId: string;
 }
@@ -196,7 +196,7 @@ export function OnboardingScreen({ asOfDate, busy, demoShortcutEnabled = false, 
               </View>
             )}
           </View>
-          {demoShortcutEnabled ? (
+          {demoShortcutEnabled && onCreateDemoProfile ? (
             <PremiumButton accessibilityLabel="Create safe demo boxer" disabled={busy} icon="flask-outline" label="Development shortcut: create safe demo boxer" onPress={onCreateDemoProfile} tone="neutral" variant="quiet" />
           ) : null}
           <PremiumButton accessibilityLabel="Sign out of onboarding" disabled={busy} icon="log-out-outline" label="Sign out" onPress={() => void onSignOut()} tone="neutral" variant="quiet" />
