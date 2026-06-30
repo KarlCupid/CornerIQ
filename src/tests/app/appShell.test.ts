@@ -26,6 +26,7 @@ import type { PlanGenerationIntent } from "../../engine/training/types";
 import { createDefaultOnboardingDraft, type BuildGoalDraft, type ProtectedWorkoutDraft, type RecurringProtectedWorkoutAnchorDraft } from "../../services/supabase/onboardingService";
 import { legacyOnboardingDraftStorageKey, migrateOnboardingDraft, onboardingDraftStorageKey, validateOnboardingDraftForFinish } from "../../hooks/useOnboardingDraft";
 import { trainPalette } from "../../app/screens/train/trainPalette";
+import { colors } from "../../design/theme";
 
 const LEGACY_PRESCRIPTION_CONTRACT_VERSION = "athlete_prescription_contract_v1";
 const LEGACY_PLAN_INTENT_VERSION = "plan_generation_intent_v1";
@@ -468,7 +469,18 @@ const fuelViewModel: FuelViewModel = {
     cycleNoiseWindow: "Cycle scale-noise window is not elevated today.",
     riskExplanation: "No active weight-class target today.",
     nextSafeActions: ["Add a manual body weight log if it feels safe and useful.", "Keep missing scale data marked unknown."],
-    reviewActionVisible: false
+    reviewActionVisible: false,
+    cutRunway: {
+      visible: false,
+      title: "Cut runway",
+      statusLabel: "No active target",
+      tone: "muted",
+      summary: "No active weight-class target today.",
+      metrics: [],
+      safeActions: [],
+      boundaryCopy: "No fight-week cut runway is active.",
+      reviewRequired: false
+    }
   },
   nutritionReviewHistory: {
     title: "Nutrition review history",
@@ -964,7 +976,7 @@ const planViewModel: PlanViewModel = {
       date: "2026-05-19",
       label: "Tue, May 19",
       type: "sparring",
-      typeLabel: "Sparring",
+      typeLabel: "Coach/team sparring",
       startTime: null,
       durationMinutes: 75,
       intensity: "hard",
@@ -1000,13 +1012,13 @@ const planViewModel: PlanViewModel = {
       label: "Tue, May 19",
       protectedAnchors: "sparring (hard)",
       generatedSupport: "Support microdose around boxing (easy)",
-      compactSummary: "Sparring",
+      compactSummary: "Coach/team sparring",
       compactTag: "Protected",
       compactMetric: "75 min",
       workSummary: {
         id: "day-work:2026-05-19",
-        title: "Sparring + 1 app session",
-        detail: "Sparring 75 min + App session 30 min (105 min total)",
+        title: "Coach/team sparring + 1 app session",
+        detail: "Coach/team sparring 75 min + App session 30 min (105 min total)",
         aim: "Boxing you added owns the day.",
         workCount: 2,
         hasBoxing: true,
@@ -1025,6 +1037,17 @@ const planViewModel: PlanViewModel = {
   protectedAnchorSummary: "Boxing you added stays first.",
   supportWorkReason: "Support workouts are low because boxing you added already creates hard days.",
   fightOrTournamentNote: null,
+  cutRunway: {
+    visible: false,
+    title: "Cut runway",
+    statusLabel: "No active target",
+    tone: "muted",
+    summary: "No active weight-class target today.",
+    metrics: [],
+    safeActions: [],
+    boundaryCopy: "No fight-week cut runway is active.",
+    reviewRequired: false
+  },
   warnings: ["Missing readiness lowers confidence."]
 };
 
@@ -1208,6 +1231,24 @@ function render(element: React.ReactElement): ReactTestRenderer {
     throw new Error("render failed");
   }
   return renderer;
+}
+
+function addDays(date: string, offset: number): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + offset);
+  return value.toISOString().slice(0, 10);
+}
+
+function lbToKg(lb: number): number {
+  return lb * 0.45359237;
+}
+
+function bodyMassLogsEnding(endDate: string, valuesKg: readonly number[]) {
+  return valuesKg.map((bodyMassKg, index) => ({
+    date: addDays(endDate, index - valuesKg.length + 1),
+    bodyMassKg: Number(bodyMassKg.toFixed(2)),
+    source: "manual" as const
+  }));
 }
 
 function createTestDeviceStorage(): DeviceKeyValueStorage & { state: Map<string, string> } {
@@ -2860,9 +2901,10 @@ describe("minimal app screens", () => {
     expect(output).toContain("Weight");
     expect(output).not.toContain("To weight");
     expect(output).not.toContain("Body check");
-    expect(output).toContain("Do not miss");
+    expect(output).toContain("Training fuel priorities");
     expect(output).not.toContain("Training Today");
     expect(output).toContain("Weight Trend");
+    expect(output).not.toContain("Cut runway");
     expect(output).not.toContain("Food details");
     expect(output).not.toContain("Weight context");
     expect(output).not.toContain("Weigh-in plan");
@@ -2885,7 +2927,7 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("fuel-log-action-section");
     expect(output.indexOf("Fuel status:")).toBeLessThan(output.indexOf("Pre-session"));
     expect(output.indexOf("Pre-session")).toBeLessThan(output.indexOf("Weight Trend"));
-    expect(output.indexOf("Weight Trend")).toBeLessThan(output.indexOf("Do not miss"));
+    expect(output.indexOf("Weight Trend")).toBeLessThan(output.indexOf("Training fuel priorities"));
 
     await act(async () => {
       await press(pressableWithText(renderer, "Fuel details"));
@@ -2929,6 +2971,60 @@ describe("minimal app screens", () => {
     output = JSON.stringify(renderer.toJSON());
     expect(output).not.toContain("fuel-log-action-section");
     expect(output).toContain("Fuel status:");
+  });
+
+  it("FuelScreen renders the same-day fight cut runway without unsafe protocol copy", async () => {
+    const { FuelScreen } = await import("../../app/screens/FuelScreen");
+    const currentKg = lbToKg(149);
+    const targetKg = lbToKg(140);
+    const weighInDate = addDays(fixtureAsOfDate, 35);
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_8_round_camp_day_before_weigh_in,
+        athlete: {
+          ...pro_8_round_camp_day_before_weigh_in.athlete,
+          athleteId: "same_day_ui_149_to_140",
+          amateurOrPro: "amateur",
+          boxingLevel: "amateur_open",
+          currentBodyMass: { value: Number(currentKg.toFixed(2)), unit: "kg" },
+          cycleTrackingPreference: "disabled",
+          typicalWalkAroundWeightKg: Number(currentKg.toFixed(2))
+        },
+        activeObjective: "camp",
+        activeFightOpportunity: {
+          ...pro_8_round_camp_day_before_weigh_in.activeFightOpportunity!,
+          id: "same_day_ui_149_to_140",
+          amateurOrPro: "amateur",
+          boutDate: weighInDate,
+          weighInDateTime: `${weighInDate}T08:00:00.000Z`,
+          weighInType: "same_day",
+          contractedWeightKg: Number(targetKg.toFixed(2)),
+          allowanceKg: 0,
+          targetWeightClass: { label: "140 lb", limitKg: Number(targetKg.toFixed(2)) },
+          rounds: 3
+        },
+        bodyMassHistory: bodyMassLogsEnding(fixtureAsOfDate, Array(7).fill(currentKg) as number[]),
+        nutritionHistory: [],
+        cycleHistory: [],
+        wearableSignalHistory: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const renderer = render(React.createElement(FuelScreen, { busy: false, message: null, preferredUnits: "imperial", quickLogs: quickLogActions, recentLogs: recentLogsViewModel, viewModel: state.viewModels.fuel }));
+    const output = JSON.stringify(renderer.toJSON());
+
+    expect(output).toContain("fuel-cut-runway-card");
+    expect(output).toContain("Cut runway");
+    expect(output).toContain("Checkpoint Runway");
+    expect(output).toContain("6-day checkpoint");
+    expect(output).toContain("Camp gap");
+    expect(output).toContain("Modeled allowance");
+    expect(output).toContain("Review gap");
+    expect(output).toMatch(/142\.[12] lb/);
+    expect(output).toContain("low-residue/gut-content");
+    expect(output).toContain("qualified review");
+    expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|make weight at all costs/i);
   });
 
   it("FuelScreen focus intents open logging and safety detail states", async () => {
@@ -3585,7 +3681,7 @@ describe("minimal app screens", () => {
     expect(JSON.stringify(renderer.toJSON())).toContain("This Week");
   });
 
-  it("TrainScreen shows feedback when Still open actions are pressed", async () => {
+  it("TrainScreen shows feedback when past workout actions are pressed", async () => {
     const { TrainScreen } = await import("../../app/screens/TrainScreen");
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
     const todayDetail = state.viewModels.train.detailedTodaySessions[0];
@@ -3641,7 +3737,7 @@ describe("minimal app screens", () => {
       })
     );
 
-    expect(JSON.stringify(renderer.toJSON())).toContain("Still open");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Past workout to resolve");
     await act(async () => {
       await press(pressableWithText(renderer, "Did it"));
     });
@@ -3674,7 +3770,7 @@ describe("minimal app screens", () => {
       await press(pressableWithText(renderer, "Not sure"));
     });
     const output = JSON.stringify(renderer.toJSON());
-    expect(output).not.toContain("Still open");
+    expect(output).not.toContain("Past workout to resolve");
     expect(output).toContain("left unknown. Missing data stays unknown, not completed.");
   });
 
@@ -3837,6 +3933,8 @@ describe("minimal app screens", () => {
         await press(pressableWithText(renderer, "Start workout"));
       });
       output = JSON.stringify(renderer.toJSON());
+      const playerFrame = (renderer.root.findAllByType("View") as TestInstance[]).find((item) => (item.props as { testID?: string }).testID === "workout-player");
+      expect(flattenStyle((playerFrame?.props as { style?: unknown } | undefined)?.style).backgroundColor).toBe(colors.cornerBlack);
       expect(output).toContain("STRENGTH WORKOUT");
       expect(output).toContain("Exercise ");
       expect(output).toContain("Set ");
@@ -3849,6 +3947,7 @@ describe("minimal app screens", () => {
       expect(output).toContain("RIR 2");
       expect(output).toContain("Tempo 3-1-1");
       expect(output).toContain("Rest 45 sec after this set");
+      expect(output).toContain("workout-player-do-this-strip");
       expect(output).toContain("COACH CUE");
       expect(output).toContain("NEXT");
       expect(output).toContain("Next: Tempo squat - Set 2");
@@ -3904,10 +4003,10 @@ describe("minimal app screens", () => {
       await act(async () => {
         await press(pressableWithExactText(renderer, "Swap exercise"));
       });
-      await switchSection(renderer, "Show Swap exercise");
       output = JSON.stringify(renderer.toJSON());
       expect(output).toContain("Chair squat");
       expect(output).toContain("Bodyweight only.");
+      expect(output).not.toContain("Show Swap exercise");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Chair squat"));
@@ -3916,6 +4015,9 @@ describe("minimal app screens", () => {
       expect(output).toContain("Swapped from");
       expect(output).toContain("Tempo squat");
       expect(output).toContain("Chair squat");
+      expect(output).not.toContain("workout-player-swap-panel");
+      expect(output).not.toContain("Use original Tempo squat");
+      expect(output).not.toContain("Reason: Use when depth or equipment is limited.");
 
       await act(async () => {
         await press(pressableWithText(renderer, "Pain flag"));
@@ -4518,8 +4620,8 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("plan-upcoming-session-row");
     await switchSection(renderer, "Show calendar");
     output = JSON.stringify(renderer.toJSON());
-    expect(output).toContain("Sparring + 1 app session");
-    expect(output).toContain("Sparring 75 min + App session 30 min");
+    expect(output).toContain("Coach/team sparring + 1 app session");
+    expect(output).toContain("Coach/team sparring 75 min + App session 30 min");
   });
 
   it("PlanScreen keeps next-week preview in the calendar and moves deeper workflows into the active workspace", async () => {
@@ -4880,7 +4982,7 @@ describe("minimal app screens", () => {
     expect(onSaveProtectedSession).toHaveBeenCalledWith(null, expect.objectContaining({ date: fixtureAsOfDate, durationMinutes: 60, intensity: "moderate", type: "technical_session" }));
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Sparring"));
+      await press(pressableWithText(renderer, "Coach/team sparring"));
     });
     act(() => {
       changeInput(renderer, "Duration minutes", "90");
@@ -4891,7 +4993,7 @@ describe("minimal app screens", () => {
     expect(onSaveProtectedSession).toHaveBeenCalledWith("sparring_1", expect.objectContaining({ durationMinutes: 90, type: "sparring" }));
 
     await act(async () => {
-      await press(pressableWithText(renderer, "Sparring"));
+      await press(pressableWithText(renderer, "Coach/team sparring"));
     });
     await act(async () => {
       await press(pressableWithText(renderer, "Remove session"));
@@ -6141,7 +6243,8 @@ describe("minimal app screens", () => {
     expect(accessOutput).toContain("Optional availability notes");
 
     const protectedOutput = JSON.stringify(render(React.createElement(ProtectedScheduleStep, stepProps)).toJSON());
-    expect(protectedOutput).toContain("Add boxing commitments, travel, or recovery days.");
+    expect(protectedOutput).toContain("Add boxing commitments, travel, or recovery days already set outside CornerIQ.");
+    expect(protectedOutput).toContain("Sparring here means a coach/team session already on your calendar.");
     expect(protectedOutput).toContain("No fixed sessions right now");
     expect(protectedOutput).toContain("CornerIQ will place support workouts from your availability.");
     expect(protectedOutput).not.toContain("Every Wednesday");

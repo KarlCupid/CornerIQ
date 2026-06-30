@@ -110,7 +110,7 @@ const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft[
   { label: "Pads / mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
   { label: "Footwork", value: "footwork_session" },
-  { label: "Sparring", value: "sparring" },
+  { label: "Coach/team sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Assigned strength", value: "coach_assigned_strength" },
   { label: "Recovery day", value: "recovery_day" },

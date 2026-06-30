@@ -13,7 +13,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
   const hasSparring = state.training.protectedAnchors.some((anchor) => anchor.date === state.asOfDate && anchor.type === "sparring");
   const trainingReviewFlags = state.safety.riskFlags.filter(todayTrainingReviewFlag);
   const trainingHardStops = state.safety.hardStops.filter(todayTrainingReviewFlag);
-  const title = trainingHardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: keep sparring quality" : "Today: build the boxer";
+  const title = trainingHardStops.length > 0 ? "Today: safety first" : hasSparring ? "Today: protect coach/team sparring" : "Today: build the boxer";
   const safetySeverity = trainingHardStops[0]?.severity ?? (trainingReviewFlags.length > 0 ? "caution" : "info");
   const safetyWhy = trainingHardStops[0]?.explanation ?? trainingReviewFlags[0]?.explanation ?? "Fuel and weight notes stay in their own cards; no active training safety note is changing today.";
   const cycleRelevant = state.cycle.trackingEnabled || state.athlete.cycleTrackingPreference === "undecided";
@@ -25,7 +25,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     trainingHardStops.length > 0
       ? "Use recovery-only guidance and keep symptoms in view."
       : hasSparring
-        ? "Keep the support workout short around boxing you added."
+        ? "Keep the support workout short around coach/team boxing you added."
         : "Complete today's support workout.";
   const decisionStack = [
     {
@@ -37,7 +37,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
     },
     {
       label: "Training",
-      summary: hasSparring ? "Boxing you added stays fixed." : plainTrainingCopy(state.training.explanation),
+      summary: hasSparring ? "Coach/team boxing you added stays fixed." : plainTrainingCopy(state.training.explanation),
       why: "Boxing sessions you added are placed before support workouts.",
       severity: state.training.protectedAnchors.length > 0 ? "info" : "caution",
       confidence: state.training.confidence.level
@@ -99,7 +99,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
       why:
         plainTrainingCopy(
           trainingHardStops[0]?.explanation ??
-            (hasSparring ? "Boxing you added owns the day, so support work stays secondary." : state.training.explanation)
+            (hasSparring ? "Coach/team boxing you added owns the day, so support work stays secondary." : state.training.explanation)
         ),
       optional: "Food, water, pain, and cycle notes add context. Workout-only use still gets useful training."
     },
@@ -109,7 +109,7 @@ export function buildTodayViewModel(state: PerformanceState): TodayViewModel {
         : state.cycle.trackingEnabled && state.cycle.symptomBurden === "high"
           ? "Cycle symptoms trimmed optional work."
           : hasSparring
-            ? "Scheduled sparring moved support work down."
+            ? "Coach/team sparring you added moved support work down."
             : "CornerIQ built today's workout from current logs.",
     primaryAction:
       trainingHardStops.length > 0 ? "Use today's safety-adjusted workout guidance." : firstTrainingAction,

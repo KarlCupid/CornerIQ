@@ -27,7 +27,7 @@ const anchorTypes: Array<{ label: string; value: ProtectedWorkoutDraft["type"] }
   { label: "Pads or mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
   { label: "Footwork", value: "footwork_session" },
-  { label: "Scheduled sparring", value: "sparring" },
+  { label: "Coach/team sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Assigned strength", value: "coach_assigned_strength" },
   { label: "Travel", value: "travel" },
@@ -122,7 +122,10 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
     <View style={{ gap: spacing.md }}>
       <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
       <Text style={screenStyles.subtle}>
-        Add boxing commitments, travel, or recovery days. CornerIQ only adds support work around them.
+        Add boxing commitments, travel, or recovery days already set outside CornerIQ. The app only places non-contact support around them.
+      </Text>
+      <Text style={screenStyles.subtle}>
+        Sparring here means a coach/team session already on your calendar.
       </Text>
       <Text style={screenStyles.exampleText}>Example: Tuesday pads, 60 min, RPE 6.</Text>
       <FieldGroup helper="Leave empty if you do not have fixed sessions." label="Fixed schedule">
@@ -156,7 +159,7 @@ export function ProtectedScheduleStep({ draft, updateDraft }: OnboardingStepProp
               ))}
             </View>
           </FieldGroup>
-          <FieldGroup helper="What is already on your calendar?" label="Session type">
+          <FieldGroup helper="What is already set outside CornerIQ?" label="Session type">
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
               {anchorTypes.map((option) => (
                 <ChipButton active={type === option.value} key={option.value} label={option.label} onPress={() => setType(option.value)} />

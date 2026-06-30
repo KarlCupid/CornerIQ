@@ -124,7 +124,7 @@ function daySafetyFlags(input: {
     messages.push("Red readiness score adds execution gates today.");
   }
   if (input.protectedAnchors.some((anchor) => anchor.type === "sparring")) {
-    messages.push("Protected sparring owns the hard stress; generated work stays secondary.");
+    messages.push("Coach/team sparring you added owns the hard stress; app work stays secondary.");
   }
   if (input.blockPhase === "tournament_week" && input.generated.some((session) => session.intensity === "hard")) {
     messages.push("Tournament week should avoid extra hard conditioning.");
@@ -149,7 +149,7 @@ function explanationForDay(input: {
     return "Fight week taper keeps speed touched while dropping volume.";
   }
   if (input.protectedAnchors.some((anchor) => anchor.type === "sparring")) {
-    return "Protected sparring is the fixed anchor; generated training cannot compete with it.";
+    return "Coach/team sparring you added is the fixed anchor; app training cannot compete with it.";
   }
   if (input.hardDay) {
     return "This is a planned hard stress day inside the weekly cap.";

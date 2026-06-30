@@ -174,11 +174,11 @@ describe("kernel immutability, view models, and persistence schema", () => {
       expect.objectContaining({
         hasAppWork: true,
         hasBoxing: true,
-        title: "Sparring + 1 app session",
+        title: "Coach/team sparring + 1 app session",
         workCount: 2
       })
     );
-    expect(mergedDay?.workSummary?.detail).toContain("Sparring 75 min");
+    expect(mergedDay?.workSummary?.detail).toContain("Coach/team sparring 75 min");
     expect(mergedDay?.workSummary?.detail).toContain(`${generatedSession.durationMinutes} min`);
   });
 

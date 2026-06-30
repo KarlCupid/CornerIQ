@@ -527,6 +527,13 @@ async function goNext(page: Page) {
   await page.getByRole("button", { name: "Next" }).click();
 }
 
+function normalizeVisibleText(value: string) {
+  return value
+    .replace(/[\uE000-\uF8FF]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function visibleSurfaceText(page: Page, preferredTestId?: string) {
   const ids = preferredTestId
     ? [preferredTestId, ...activeSurfaceTestIds.filter((item) => item !== preferredTestId)]
@@ -542,13 +549,13 @@ async function visibleSurfaceText(page: Page, preferredTestId?: string) {
     return {
       fallback: false,
       scope: `data-testid=${testId}`,
-      text: (await locator.innerText()).replace(/\s+/g, " ").trim()
+      text: normalizeVisibleText(await locator.innerText())
     };
   }
   return {
     fallback: true,
     scope: "document.body",
-    text: (await page.locator("body").innerText()).replace(/\s+/g, " ").trim()
+    text: normalizeVisibleText(await page.locator("body").innerText())
   };
 }
 
@@ -621,7 +628,7 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expectVisibleText(page, "Fuel");
   await expect(page.getByTestId("fuel-overview")).toContainText("Fuel status:");
   await expect(page.getByTestId("fuel-overview")).toContainText("No active cut");
-  await expect(page.getByTestId("fuel-do-not-miss-card")).toContainText("Do not miss");
+  await expect(page.getByTestId("fuel-do-not-miss-card")).toContainText("Training fuel priorities");
   await expect(page.getByTestId("fuel-key-numbers")).toContainText("Pre-session");
   await expect(page.getByTestId("fuel-key-numbers")).toContainText("Hydration");
   await expect(page.getByTestId("fuel-overview")).toContainText("Weight Trend");
@@ -727,7 +734,7 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
       await expect(startWorkoutButton).toBeVisible();
     } else {
       await expect(page.getByRole("button", { name: "View session" }).first()).toBeVisible();
-      await expect(page.getByTestId("train-workout-section")).toContainText(/Available on the planned day|Keep future sessions on their planned day/i);
+      await expect(page.getByTestId("train-workout-section")).toContainText(/Available on the planned day|Future preview|Keep it on that date/i);
     }
     const quickLogButton = page.getByRole("button", { name: "Show Quick Log" }).first();
     const hasQuickLogButton = (await quickLogButton.count()) > 0;
@@ -744,10 +751,10 @@ async function auditTrain(page: Page, testInfo: TestInfo) {
       await expect(page.getByTestId("workout-plan-detail-section")).toContainText(/Workout recipe|Exercise details/);
       generatedQuickLogAvailable = await quickLogButton.isEnabled();
       if (!generatedQuickLogAvailable) {
-        await expect(page.getByTestId("train-workout-section")).toContainText(/Available on the planned day|Keep future sessions on their planned day/i);
+        await expect(page.getByTestId("train-workout-section")).toContainText(/Available on the planned day|Future preview|Keep it on that date/i);
       }
     } else {
-      await expect(page.getByTestId("train-workout-section")).toContainText(/Keep future sessions on their planned day|player details are not available/i);
+      await expect(page.getByTestId("train-workout-section")).toContainText(/Future preview|Keep it on that date|player details are not available/i);
     }
   } else {
     await expectVisibleText(page, "No player workout today");
@@ -1010,8 +1017,9 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await goNext(page);
 
   await expectVisibleText(page, "Fixed boxing schedule");
-  await expectVisibleText(page, /Add boxing commitments, travel, or recovery days\./);
-  await expectVisibleText(page, /CornerIQ only adds support work around them\./);
+  await expectVisibleText(page, /Add boxing commitments, travel, or recovery days already set outside CornerIQ\./);
+  await expectVisibleText(page, /The app only places non-contact support around them\./);
+  await expectVisibleText(page, /Sparring here means a coach\/team session already on your calendar\./);
   await expectVisibleText(page, /Example: Tuesday pads, 60 min, RPE 6\./);
   await expectVisibleText(page, "Fixed schedule");
   await expect(page.getByRole("button", { name: "I have fixed boxing sessions" })).toBeVisible();
@@ -1028,11 +1036,11 @@ async function completeRealOnboarding(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Add session" }).click();
   await expectVisibleText(page, /Every Tuesday - Pads or mitts - 60 min - RPE 6/);
   await page.getByRole("button", { name: "Thursday" }).click();
-  await page.getByRole("button", { name: "Scheduled sparring" }).click();
+  await page.getByRole("button", { name: "Coach/team sparring" }).click();
   await page.getByLabel("Duration (minutes)").fill("90");
   await page.getByRole("button", { name: "8", exact: true }).click();
   await page.getByRole("button", { name: "Add session" }).click();
-  await expectVisibleText(page, /Every Thursday - Scheduled sparring - 90 min - RPE 8/);
+  await expectVisibleText(page, /Every Thursday - Coach\/team sparring - 90 min - RPE 8/);
   await capture(page, testInfo, "Onboarding fixed boxing schedule", "05-onboarding-fixed-boxing-schedule.png");
   await goNext(page);
 

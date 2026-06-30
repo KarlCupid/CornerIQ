@@ -262,16 +262,28 @@ export const FUEL_EVIDENCE_REGISTRY: readonly EvidenceBackedThreshold[] = [
     notes: "Rapid loss is risk evidence even when food logs are absent."
   },
   {
-    id: "same_day_weigh_in_conservative_1_percent_body_mass",
-    value: 1,
+    id: "same_day_weigh_in_automatic_low_residue_1_5_percent_body_mass",
+    value: 1.5,
     unit: "percent_body_mass",
     sourceTitle: "CornerIQ internal conservative same-day policy",
     sourceType: "internal_conservative_default",
     lastReviewedAt: "2026-06-27",
-    appliesTo: ["same-day weigh-in safety gate"],
+    appliesTo: ["same-day weigh-in acute-entry checkpoint"],
     contraindications: ["minor athlete", "medical flag", "under-fueling risk"],
     confidence: "moderate",
-    notes: "Blocks automatic acute support; does not expose cut instructions."
+    notes: "Automatic same-day allowance models low-residue gut-content change only; it does not expose fluid or sodium restriction instructions."
+  },
+  {
+    id: "same_day_weigh_in_review_3_percent_body_mass",
+    value: 3,
+    unit: "percent_body_mass",
+    sourceTitle: "CornerIQ internal conservative same-day policy",
+    sourceType: "internal_conservative_default",
+    lastReviewedAt: "2026-06-30",
+    appliesTo: ["same-day weigh-in review threshold"],
+    contraindications: ["minor athlete", "medical flag", "under-fueling risk"],
+    confidence: "moderate",
+    notes: "Same-day acute scale need above the automatic allowance requires qualified review and above this line is blocked as short-notice unsafe loss."
   },
   {
     id: "short_notice_loss_review_3_percent_7_days",

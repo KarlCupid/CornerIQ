@@ -63,6 +63,10 @@ const fuelTextStyles = {
   subtle: { ...screenStyles.subtle, color: fuelPalette.textMuted }
 } as const;
 
+function DecorativeIcon(props: React.ComponentProps<typeof Ionicons>) {
+  return <Ionicons {...props} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+}
+
 function colorForTone(tone: VisualTone): string {
   switch (tone) {
     case "blue":
@@ -288,7 +292,7 @@ function FuelActionButton({
         }
       ]}
     >
-      {icon ? <Ionicons color={primary ? colors.cornerBlack : fuelPalette.toneOrange} name={icon} size={18} /> : null}
+      {icon ? <DecorativeIcon color={primary ? colors.cornerBlack : fuelPalette.toneOrange} name={icon} size={18} /> : null}
       <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={2} style={{ color: primary ? colors.cornerBlack : fuelPalette.textBody, flexShrink: 1, fontSize: 15, fontWeight: primary ? "900" : "700", lineHeight: 20, textAlign: "center" }}>
         {label}
       </Text>
@@ -344,7 +348,7 @@ function FuelActionButtons({
           paddingHorizontal: spacing.md
         })}
       >
-        <Ionicons color={fuelPalette.toneOrange} name={primaryLog === "water" ? "restaurant-outline" : "water-outline"} size={17} />
+        <DecorativeIcon color={fuelPalette.toneOrange} name={primaryLog === "water" ? "restaurant-outline" : "water-outline"} size={17} />
         <Text numberOfLines={1} style={{ color: fuelPalette.textBody, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>{secondary.label}</Text>
         <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{secondary.summary}</Text>
       </Pressable>
@@ -382,7 +386,7 @@ function TodayFuelPlanCard({
               width: 62
             }}
           >
-            <Ionicons color={colorForTone(plan.tone)} name={plan.tone === "orange" || plan.tone === "gold" ? "help-outline" : "restaurant-outline"} size={31} />
+            <DecorativeIcon color={colorForTone(plan.tone)} name={plan.tone === "orange" || plan.tone === "gold" ? "help-outline" : "restaurant-outline"} size={31} />
           </View>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={{ color: fuelPalette.textPrimary, fontSize: 21, fontWeight: "900", lineHeight: 27 }}>
@@ -511,7 +515,7 @@ function PriorityRow({
           width: 36
         }}
       >
-        <Ionicons color={color} name={icon} size={18} />
+        <DecorativeIcon color={color} name={icon} size={18} />
       </View>
       <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
         <Text numberOfLines={2} style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{label}: {title}</Text>
@@ -525,7 +529,8 @@ function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   return (
     <EngineCard>
       <View style={{ gap: spacing.sm }} testID="fuel-do-not-miss-card">
-        <Text style={fuelTextStyles.sectionTitle}>Do not miss</Text>
+        <Text style={fuelTextStyles.sectionTitle}>Training fuel priorities</Text>
+        <Text style={fuelTextStyles.subtle}>Use these as context when you know what you ate or drank.</Text>
         <PriorityRow icon="flash-outline" label="Before training" meta={guideValue(dashboard, /carb/i)} title="carbs" tone="orange" />
         <PriorityRow icon="restaurant-outline" label="After training" meta={guideValue(dashboard, /protein/i)} title="protein + meal" tone="purple" />
         <PriorityRow icon="water-outline" label="Fluids" meta={`${dashboard.hydration.targetLabel} guide`} title="water + electrolytes" tone="blue" />
@@ -577,7 +582,7 @@ function FuelTimingCard({ viewModel }: { viewModel: FuelViewModel }) {
                 width: 34
               }}
             >
-              <Ionicons color={colorForTone(item.id.includes("post") ? "purple" : "orange")} name={timingIcon(item.id)} size={17} />
+              <DecorativeIcon color={colorForTone(item.id.includes("post") ? "purple" : "orange")} name={timingIcon(item.id)} size={17} />
             </View>
             <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
               <Text numberOfLines={2} style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{item.title}: {item.timing}</Text>
@@ -644,6 +649,93 @@ function WeightTrendCard({
   );
 }
 
+function CutRunwayMetricTile({
+  helper,
+  label,
+  preferredUnits,
+  tone,
+  value
+}: {
+  helper: string;
+  label: string;
+  preferredUnits: PreferredUnits;
+  tone: VisualTone;
+  value: string;
+}) {
+  const color = colorForTone(tone);
+  return (
+    <View
+      style={{
+        backgroundColor: fuelPalette.controlFill,
+        borderColor: fuelTint(tone, tone === "muted" ? "2A" : "3D"),
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexBasis: 132,
+        flexGrow: 1,
+        gap: spacing.xs,
+        minHeight: 102,
+        minWidth: 0,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.md
+      }}
+    >
+      <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={2} style={{ color, fontSize: 19, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 24 }}>
+        {displayFuelCopy(value, preferredUnits)}
+      </Text>
+      <Text numberOfLines={3} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>
+        {displayFuelCopy(helper, preferredUnits)}
+      </Text>
+    </View>
+  );
+}
+
+function CutRunwayCard({
+  preferredUnits,
+  viewModel
+}: {
+  preferredUnits: PreferredUnits;
+  viewModel: FuelViewModel;
+}) {
+  const runway = viewModel.bodyMassTrajectory.cutRunway;
+  if (!runway.visible) {
+    return null;
+  }
+  const metrics = runway.metrics.filter((metric) => metric.label !== "Official target").slice(0, 4);
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-cut-runway-card">
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={fuelTextStyles.sectionTitle}>{runway.title}</Text>
+            <Text style={fuelTextStyles.body}>{displayFuelCopy(runway.summary, preferredUnits)}</Text>
+          </View>
+          <FuelTonePill label={titleCaseStatus(runway.statusLabel)} tone={runway.tone} />
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {metrics.map((metric) => (
+            <CutRunwayMetricTile
+              helper={metric.helper}
+              key={`fuel-cut-runway-metric:${metric.label}`}
+              label={metric.label}
+              preferredUnits={preferredUnits}
+              tone={metric.tone}
+              value={metric.value}
+            />
+          ))}
+        </View>
+        <View style={{ gap: spacing.xs }}>
+          {runway.safeActions.slice(0, 3).map((action, index) => (
+            <DetailLine key={`fuel-cut-runway-action:${index}`} preferredUnits={preferredUnits} text={action} tone={index === 0 ? "body" : "subtle"} />
+          ))}
+          <DetailLine preferredUnits={preferredUnits} text={runway.boundaryCopy} />
+        </View>
+      </View>
+    </EngineCard>
+  );
+}
+
 function detailRowsFromItems(items: readonly string[], fallback: string): readonly string[] {
   return items.length > 0 ? items : [fallback];
 }
@@ -696,13 +788,13 @@ function FuelDetailRow({
               width: 38
             }}
           >
-            <Ionicons color={color} name={icon} size={18} />
+            <DecorativeIcon color={color} name={icon} size={18} />
           </View>
           <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
             <Text numberOfLines={2} style={{ color: fuelPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>{title}</Text>
             <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{status}</Text>
           </View>
-          <Ionicons color={fuelPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
+          <DecorativeIcon color={fuelPalette.textBody} name={open ? "chevron-up" : "chevron-down"} size={18} />
         </Pressable>
         {open ? <View style={{ gap: spacing.sm }}>{children}</View> : null}
       </View>
@@ -731,7 +823,9 @@ function FoodDetailsContent({ dashboard, viewModel }: { dashboard: FuelDashboard
 }
 
 function WeighInPlanContent({ preferredUnits, viewModel }: { preferredUnits: PreferredUnits; viewModel: FuelViewModel }) {
+  const runway = viewModel.bodyMassTrajectory.cutRunway;
   const rows = [
+    ...(runway.visible ? [runway.summary, runway.boundaryCopy, ...runway.safeActions.slice(0, 2)] : []),
     viewModel.bodyMassTrajectory.target,
     viewModel.bodyMassTrajectory.weighInCountdown,
     viewModel.fightWeekFuelPlan.carbohydrateGuidance,
@@ -741,7 +835,7 @@ function WeighInPlanContent({ preferredUnits, viewModel }: { preferredUnits: Pre
   ];
   return (
     <>
-      {detailRowsFromItems(rows, "No weigh-in plan is active today.").slice(0, 7).map((item, index) => (
+      {detailRowsFromItems(rows, "No weigh-in plan is active today.").slice(0, 10).map((item, index) => (
         <DetailLine key={`fuel-weigh-in-detail:${index}`} preferredUnits={preferredUnits} text={item} />
       ))}
     </>
@@ -964,7 +1058,7 @@ function FuelDetailsDisclosure({
               width: 38
             }}
           >
-            <Ionicons color={fuelPalette.toneOrange} name="list-outline" size={18} />
+            <DecorativeIcon color={fuelPalette.toneOrange} name="list-outline" size={18} />
           </View>
           <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
             <Text style={{ color: fuelPalette.textPrimary, fontSize: 15, fontWeight: "900", lineHeight: 20 }}>Fuel details</Text>
@@ -972,7 +1066,7 @@ function FuelDetailsDisclosure({
               Weight trend, training context, logs, safety history, and full fuel context.
             </Text>
           </View>
-          <Ionicons color={fuelPalette.textBody} name={detailsOpen ? "chevron-up" : "chevron-down"} size={18} />
+          <DecorativeIcon color={fuelPalette.textBody} name={detailsOpen ? "chevron-up" : "chevron-down"} size={18} />
         </Pressable>
       </EngineCard>
       {detailsOpen ? (
@@ -1133,6 +1227,7 @@ function FuelOverview({
     <View style={{ gap: spacing.md }} testID="fuel-overview">
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
       <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} preferredUnits={preferredUnits} safety={safety} viewModel={viewModel} />
+      <CutRunwayCard preferredUnits={preferredUnits} viewModel={viewModel} />
       <WeightTrendCard dashboard={dashboard} plan={plan} preferredUnits={preferredUnits} viewModel={viewModel} />
       <DoNotMissTodayCard dashboard={dashboard} />
       <FuelTimingCard viewModel={viewModel} />

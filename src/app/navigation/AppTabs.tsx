@@ -144,7 +144,13 @@ function FloatingTabIcon({
             transform: [{ scale: glowScale }]
           }}
         />
-        <Ionicons color={focused ? accent : color} name={focused ? activeTabIcons[routeName] : tabIcons[routeName]} size={floatingTabIconSize} />
+        <Ionicons
+          accessibilityElementsHidden
+          color={focused ? accent : color}
+          importantForAccessibility="no-hide-descendants"
+          name={focused ? activeTabIcons[routeName] : tabIcons[routeName]}
+          size={floatingTabIconSize}
+        />
       </View>
     </Animated.View>
   );

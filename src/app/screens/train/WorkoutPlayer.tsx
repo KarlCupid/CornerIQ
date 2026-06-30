@@ -449,14 +449,14 @@ function WorkoutScreenFrame({
   const insets = useSafeAreaInsets();
   const scrollRef = React.useRef<ScrollView>(null);
   const theme = luminousScreenThemes[accent];
-  const showBackdrop = Boolean(backgroundImage) || accent !== "blue";
+  const showBackdrop = Boolean(backgroundImage);
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ animated: false, y: 0 });
   }, [scrollResetKey]);
 
   return (
     <LuminousScreenThemeContext.Provider value={theme}>
-      <View style={{ backgroundColor: showBackdrop ? theme.background : colors.cornerBlack, flex: 1 }} testID={testID}>
+      <View style={{ backgroundColor: colors.cornerBlack, flex: 1 }} testID={testID}>
         {backgroundImage ? (
           <View pointerEvents="none" style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}>
             <ImageBackground importantForAccessibility="no-hide-descendants" resizeMode="cover" source={backgroundImage} style={{ flex: 1 }}>
@@ -725,6 +725,39 @@ function LiveInfoCard({
           {body}
         </Text>
       </View>
+    </View>
+  );
+}
+
+function LiveInstructionStrip({
+  accent = "blue",
+  body,
+  testID
+}: {
+  accent?: LuminousAccent | undefined;
+  body: string;
+  testID?: string | undefined;
+}) {
+  const color = accentColor[accent];
+  return (
+    <View
+      accessibilityLabel={`DO THIS: ${body}`}
+      style={{
+        alignSelf: "stretch",
+        borderBottomColor: `${color}2A`,
+        borderBottomWidth: 1,
+        borderLeftColor: color,
+        borderLeftWidth: 3,
+        borderTopColor: `${color}38`,
+        borderTopWidth: 1,
+        gap: spacing.xs,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      }}
+      testID={testID}
+    >
+      <Text style={{ color, fontSize: 11, fontWeight: "900", letterSpacing: 1.4, lineHeight: 15 }}>DO THIS</Text>
+      <Text style={{ color: colors.canvas, fontSize: 16, fontWeight: "800", lineHeight: 22 }}>{body}</Text>
     </View>
   );
 }
@@ -1344,33 +1377,32 @@ function SubstitutionChooser({
     return null;
   }
   return (
-    <CollapsedDetailDisclosure framed={false} title="Swap exercise" summary={selected ? `Using ${plainWorkoutTitle(selected.name)}.` : "Use a listed swap if equipment or pain requires it."} testID="workout-player-substitutions">
-      <View style={{ gap: spacing.sm }}>
-        {selected ? <PlayerButton label={`Use original ${plainWorkoutTitle(exercise.name)}`} onPress={() => onChoose(undefined)} /> : null}
-        {exercise.substitutions.map((substitution) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: selected?.exerciseId === substitution.exerciseId }}
-            key={substitution.exerciseId}
-            onPress={() => onChoose(substitution)}
-            style={{
-              backgroundColor: selected?.exerciseId === substitution.exerciseId ? "rgba(56, 226, 138, 0.13)" : "rgba(255, 255, 255, 0.055)",
-              borderColor: selected?.exerciseId === substitution.exerciseId ? "rgba(56, 226, 138, 0.44)" : colors.line,
-              borderRadius: 18,
-              borderWidth: 1,
-              gap: spacing.xs,
-              padding: spacing.md
-            }}
-          >
-            <Text style={screenStyles.callout}>{plainWorkoutTitle(substitution.name)}</Text>
-            <Text style={screenStyles.subtle}>Reason: {plainTrainingCopy(substitution.reason)}</Text>
-            <Text style={screenStyles.subtle}>Equipment: {substitution.equipmentNeeded.length > 0 ? substitution.equipmentNeeded.join(", ") : "none"}</Text>
-            <Text style={screenStyles.subtle}>Load: {plainTrainingCopy(substitution.loadGuidance)}</Text>
-            {substitution.coachingNotes.slice(0, 2).map((note, index) => <Text key={`sub-note:${substitution.exerciseId}:${index}`} style={screenStyles.subtle}>Cue: {plainTrainingCopy(note)}</Text>)}
-          </Pressable>
-        ))}
-      </View>
-    </CollapsedDetailDisclosure>
+    <View style={{ gap: spacing.sm }} testID="workout-player-substitutions">
+      <Text style={screenStyles.subtle}>{selected ? `Using ${plainWorkoutTitle(selected.name)}.` : "Use a listed swap if equipment or pain requires it."}</Text>
+      {selected ? <PlayerButton label={`Use original ${plainWorkoutTitle(exercise.name)}`} onPress={() => onChoose(undefined)} /> : null}
+      {exercise.substitutions.map((substitution) => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: selected?.exerciseId === substitution.exerciseId }}
+          key={substitution.exerciseId}
+          onPress={() => onChoose(substitution)}
+          style={{
+            backgroundColor: selected?.exerciseId === substitution.exerciseId ? "rgba(56, 226, 138, 0.13)" : "rgba(255, 255, 255, 0.055)",
+            borderColor: selected?.exerciseId === substitution.exerciseId ? "rgba(56, 226, 138, 0.44)" : colors.line,
+            borderRadius: 18,
+            borderWidth: 1,
+            gap: spacing.xs,
+            padding: spacing.md
+          }}
+        >
+          <Text style={screenStyles.callout}>{plainWorkoutTitle(substitution.name)}</Text>
+          <Text style={screenStyles.subtle}>Reason: {plainTrainingCopy(substitution.reason)}</Text>
+          <Text style={screenStyles.subtle}>Equipment: {substitution.equipmentNeeded.length > 0 ? substitution.equipmentNeeded.join(", ") : "none"}</Text>
+          <Text style={screenStyles.subtle}>Load: {plainTrainingCopy(substitution.loadGuidance)}</Text>
+          {substitution.coachingNotes.slice(0, 2).map((note, index) => <Text key={`sub-note:${substitution.exerciseId}:${index}`} style={screenStyles.subtle}>Cue: {plainTrainingCopy(note)}</Text>)}
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -1909,6 +1941,12 @@ export function WorkoutPlayer({
     });
   };
 
+  const chooseActiveSubstitution = (substitution: ExerciseSubstitution | undefined) => {
+    touchExercise();
+    setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
+    setDetailMode(null);
+  };
+
   const stepModeAtIndex = (stepIndex: number): Exclude<WorkoutPlayerMode, "hybrid"> | null => {
     const step = steps[stepIndex];
     const exercise = step ? exerciseById.get(step.exerciseId) : undefined;
@@ -2350,6 +2388,7 @@ export function WorkoutPlayer({
             </View>
             <Ionicons color={colors.redCorner} name="chevron-up" size={24} />
           </View>
+          <LiveInstructionStrip accent="orange" body={liveDoThis} testID="workout-player-do-this-strip" />
 
           <View style={{ alignItems: "center", gap: spacing.xs }}>
             <CompactSegmentTimer
@@ -2410,10 +2449,19 @@ export function WorkoutPlayer({
               {currentExercise.substitutions.length > 0 ? <PlayerButton accent="red" icon="alert-circle-outline" label={painFlagMap[activeExerciseId] ? "Pain flagged" : "Pain flag"} layout="half" onPress={togglePainFlag} tone={painFlagMap[activeExerciseId] ? "warning" : "quiet"} /> : null}
             </View>
           </View>
+          {detailMode === "swap" ? (
+            <View style={{ gap: spacing.sm }} testID="workout-player-swap-panel">
+              <Text style={screenStyles.fieldLabel}>Swap exercise</Text>
+              <SubstitutionChooser
+                exercise={currentExercise}
+                onChoose={chooseActiveSubstitution}
+                selected={selectedSubstitution}
+              />
+            </View>
+          ) : null}
         </GlassPanel>
 
         <GlassPanel testID="workout-player-strength-guidance">
-          <LiveInfoCard body={liveDoThis} icon="locate-outline" label="DO THIS" />
           <LiveInfoCard accent="orange" body={primaryCue} icon="headset-outline" label="COACH CUE" tone="hot" />
           <LiveInfoCard body={nextStrengthLabel} icon="chevron-forward" label="NEXT" />
         </GlassPanel>
@@ -2443,7 +2491,7 @@ export function WorkoutPlayer({
           <PlayerButton label="Need help?" onPress={() => setDetailMode((value) => value === "help" ? null : "help")} />
         </View>
 
-        {detailMode ? (
+        {detailMode === "how" || detailMode === "help" ? (
           <GlassPanel testID="workout-player-more-detail">
             {detailMode === "how" ? (
               <View style={{ gap: spacing.sm }} testID="workout-player-how-to">
@@ -2463,19 +2511,6 @@ export function WorkoutPlayer({
                 {teaching.shouldNotFeel ? <Text style={screenStyles.subtle}>Should not feel: {plainTrainingCopy(teaching.shouldNotFeel)}</Text> : null}
                 <Text style={[screenStyles.subtle, { color: colors.amberCaution }]}>Stop: {plainTrainingCopy(teaching.safetyStop)}</Text>
                 <SafetyStack exercise={currentExercise} session={session} />
-              </View>
-            ) : null}
-            {detailMode === "swap" ? (
-              <View style={{ gap: spacing.sm }} testID="workout-player-swap-panel">
-                <Text style={screenStyles.fieldLabel}>Swap exercise</Text>
-                <SubstitutionChooser
-                  exercise={currentExercise}
-                  onChoose={(substitution) => {
-                    touchExercise();
-                    setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
-                  }}
-                  selected={selectedSubstitution}
-                />
               </View>
             ) : null}
           </GlassPanel>
@@ -2521,6 +2556,7 @@ export function WorkoutPlayer({
               <Text style={{ color: colors.canvas, fontSize: 31, fontWeight: "900", lineHeight: 37, textAlign: "center" }}>{currentTimelineStep.title}</Text>
               <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{currentTimelineStep.dose}</Text>
             </View>
+            <LiveInstructionStrip accent={blockAccent} body={liveDoThis} testID="workout-player-do-this-strip" />
           </View>
           <MovementMetaLine
             accent={blockAccent}
@@ -2530,7 +2566,6 @@ export function WorkoutPlayer({
               currentTimelineStep.durationLabel
             ]}
           />
-          <LiveInfoCard accent={blockAccent} body={liveDoThis} icon="locate-outline" label="DO THIS" />
           <LiveInfoCard accent={blockAccent} body={primaryCue} icon="headset-outline" label="CUE" tone="hot" />
           {movementBreathCue ? <LiveInfoCard accent={blockAccent} body={movementBreathCue} icon="radio-outline" label="BREATH" /> : null}
           {movementNextStep ? <LiveInfoCard body={`${movementNextStep.title} - ${movementNextStep.durationLabel}`} icon="chevron-forward" label="NEXT" /> : null}
@@ -2584,10 +2619,10 @@ export function WorkoutPlayer({
           {stepTitle.subheading ? <Text style={{ color: colors.wrap, fontSize: 21, fontWeight: "800", lineHeight: 27, textAlign: "center" }}>{stepTitle.subheading}</Text> : null}
           <Text style={{ color: blockColor, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{currentTimelineStep.dose}</Text>
         </View>
+        <LiveInstructionStrip accent={blockAccent} body={liveDoThis} testID="workout-player-do-this-strip" />
       </View>
 
       <View style={{ gap: spacing.sm }}>
-        <LiveInfoCard accent={blockAccent} body={liveDoThis} icon="locate-outline" label="DO THIS" testID="workout-player-do-this-card" />
         <LiveInfoCard accent={blockAccent} body={primaryCue} icon="headset-outline" label="COACH CUE" testID="workout-player-coach-cue" tone="hot" />
         <LiveInfoCard body={nextStepLabel} icon="chevron-forward" label="NEXT" testID="workout-player-next-card" />
       </View>
@@ -2641,10 +2676,7 @@ export function WorkoutPlayer({
               <Text style={screenStyles.fieldLabel}>Swap</Text>
               <SubstitutionChooser
                 exercise={currentExercise}
-                onChoose={(substitution) => {
-                  touchExercise();
-                  setSubstitutionMap((current) => ({ ...current, [activeExerciseId]: substitution }));
-                }}
+                onChoose={chooseActiveSubstitution}
                 selected={selectedSubstitution}
               />
             </View>

@@ -935,6 +935,7 @@ export interface PlanViewModel {
   protectedAnchorSummary: string;
   supportWorkReason: string | null;
   fightOrTournamentNote: string | null;
+  cutRunway: BodyMassTrajectoryViewModel["cutRunway"];
   warnings: readonly string[];
 }
 

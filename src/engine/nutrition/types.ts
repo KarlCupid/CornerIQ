@@ -208,7 +208,7 @@ export interface FuelSelectedTargets {
   fatGrams: number | null;
   fiberGrams: number | null;
   fluidLiters: number | null;
-  source: "range_midpoint" | "numeric_unavailable" | "blocked_by_safety";
+  source: "calorie_balanced_range_point" | "range_midpoint" | "numeric_unavailable" | "blocked_by_safety";
 }
 
 export interface FuelTargetRange {

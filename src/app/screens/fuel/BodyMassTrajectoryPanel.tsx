@@ -14,6 +14,18 @@ export function BodyMassTrajectoryPanel({ trajectory }: { trajectory: BodyMassTr
         <Text style={screenStyles.callout}>{plainFuelCopy(trajectory.status)}</Text>
         <Text style={screenStyles.body}>{plainFuelCopy(trajectory.latestWeight)}</Text>
         <Text style={screenStyles.body}>{plainFuelCopy(trajectory.targetGapKg)}</Text>
+        {trajectory.cutRunway.visible ? (
+          <View style={{ gap: spacing.xs }}>
+            <Text style={screenStyles.callout}>{plainFuelCopy(trajectory.cutRunway.title)}: {plainFuelCopy(trajectory.cutRunway.statusLabel)}</Text>
+            <Text style={screenStyles.body}>{plainFuelCopy(trajectory.cutRunway.summary)}</Text>
+            {trajectory.cutRunway.metrics.slice(0, 4).map((metric) => (
+              <Text key={`body-mass-cut-runway:${metric.label}`} style={screenStyles.subtle}>
+                {metric.label}: {plainFuelCopy(metric.value)} ({plainFuelCopy(metric.helper)})
+              </Text>
+            ))}
+            <Text style={screenStyles.subtle}>{plainFuelCopy(trajectory.cutRunway.boundaryCopy)}</Text>
+          </View>
+        ) : null}
         <Text style={screenStyles.subtle}>{plainFuelCopy(trajectory.weighInCountdown)}</Text>
         <Text style={screenStyles.subtle}>{plainFuelCopy(trajectory.trend)}</Text>
         <Text style={screenStyles.subtle}>{plainFuelCopy(trajectory.trendConfidence)}</Text>

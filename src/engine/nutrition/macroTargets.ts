@@ -16,6 +16,14 @@ import { assertFuelEvidenceIds } from "./evidenceRegistry";
 import { resolveFatFreeMass } from "./fatFreeMass";
 import { estimatePlannedExerciseEnergyKcal } from "./trainingEnergy";
 
+const MACRO_KCAL_PER_GRAM = {
+  protein: 4,
+  carbohydrate: 4,
+  fat: 9
+} as const;
+const FAT_AMDR_MIN_ENERGY_FRACTION = 0.2;
+const FAT_AMDR_MAX_ENERGY_FRACTION = 0.35;
+
 const tierRank: Record<TrainingDemandTier, number> = {
   recovery_day: 0,
   technical_boxing: 1,
@@ -193,6 +201,10 @@ function midpoint(range: NumericRange | null): number {
   return Math.round((range.min + range.max) / 2);
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 function scaleRange(kg: number, range: NumericRange): NumericRange {
   return {
     min: round(kg * range.min),
@@ -204,6 +216,191 @@ function roundRange(range: NumericRange, digits = 0): NumericRange {
   return {
     min: round(range.min, digits),
     max: round(range.max, digits)
+  };
+}
+
+function macroCalories(input: { proteinGrams: number; carbohydrateGrams: number; fatGrams: number }): number {
+  return Math.round(
+    input.proteinGrams * MACRO_KCAL_PER_GRAM.protein +
+      input.carbohydrateGrams * MACRO_KCAL_PER_GRAM.carbohydrate +
+      input.fatGrams * MACRO_KCAL_PER_GRAM.fat
+  );
+}
+
+function fatRangeForSelectedCalories(caloriesKcal: number, fatRange: NumericRange): NumericRange {
+  const amdrMin = round((caloriesKcal * FAT_AMDR_MIN_ENERGY_FRACTION) / MACRO_KCAL_PER_GRAM.fat);
+  const min = Math.max(fatRange.min, amdrMin);
+  if (min > fatRange.max) {
+    return { min: fatRange.max, max: fatRange.max };
+  }
+  return { min, max: fatRange.max };
+}
+
+function selectedCaloriesInFeasibleRange(input: {
+  caloriesKcal: NumericRange;
+  proteinGrams: NumericRange;
+  carbohydrateGrams: NumericRange;
+  fatGrams: NumericRange;
+}): number {
+  const desiredCalories = midpoint(input.caloriesKcal);
+  const minMacroCalories = macroCalories({
+    proteinGrams: input.proteinGrams.min,
+    carbohydrateGrams: input.carbohydrateGrams.min,
+    fatGrams: input.fatGrams.min
+  });
+  const maxMacroCalories = macroCalories({
+    proteinGrams: input.proteinGrams.max,
+    carbohydrateGrams: input.carbohydrateGrams.max,
+    fatGrams: input.fatGrams.max
+  });
+  const feasibleMin = Math.max(input.caloriesKcal.min, minMacroCalories);
+  const feasibleMax = Math.min(input.caloriesKcal.max, maxMacroCalories);
+  return feasibleMin <= feasibleMax ? clampNumber(desiredCalories, feasibleMin, feasibleMax) : desiredCalories;
+}
+
+function reduceMacroTowardCalories(input: {
+  value: number;
+  min: number;
+  kcalPerGram: number;
+  currentCalories: number;
+  targetCalories: number;
+}): { value: number; currentCalories: number } {
+  const excess = input.currentCalories - input.targetCalories;
+  if (excess <= 0 || input.value <= input.min) {
+    return { value: input.value, currentCalories: input.currentCalories };
+  }
+  const grams = Math.min(input.value - input.min, Math.ceil(excess / input.kcalPerGram));
+  return {
+    value: input.value - grams,
+    currentCalories: input.currentCalories - grams * input.kcalPerGram
+  };
+}
+
+function increaseMacroTowardCalories(input: {
+  value: number;
+  max: number;
+  kcalPerGram: number;
+  currentCalories: number;
+  targetCalories: number;
+}): { value: number; currentCalories: number } {
+  const shortfall = input.targetCalories - input.currentCalories;
+  if (shortfall <= 0 || input.value >= input.max) {
+    return { value: input.value, currentCalories: input.currentCalories };
+  }
+  const grams = Math.min(input.max - input.value, Math.round(shortfall / input.kcalPerGram));
+  return {
+    value: input.value + grams,
+    currentCalories: input.currentCalories + grams * input.kcalPerGram
+  };
+}
+
+function calorieBalancedMacroTargets(input: {
+  caloriesKcal: NumericRange;
+  proteinGrams: NumericRange;
+  carbohydrateGrams: NumericRange;
+  fatGrams: NumericRange;
+}): {
+  caloriesKcal: number;
+  proteinGrams: number;
+  carbohydrateGrams: number;
+  fatGrams: number;
+} {
+  const caloriesKcal = selectedCaloriesInFeasibleRange(input);
+  const selectedFatRange = fatRangeForSelectedCalories(caloriesKcal, input.fatGrams);
+  let proteinGrams = midpoint(input.proteinGrams);
+  let carbohydrateGrams = midpoint(input.carbohydrateGrams);
+  let fatGrams = clampNumber(
+    round(
+      (caloriesKcal -
+        proteinGrams * MACRO_KCAL_PER_GRAM.protein -
+        carbohydrateGrams * MACRO_KCAL_PER_GRAM.carbohydrate) /
+        MACRO_KCAL_PER_GRAM.fat
+    ),
+    selectedFatRange.min,
+    selectedFatRange.max
+  );
+  let currentCalories = macroCalories({ proteinGrams, carbohydrateGrams, fatGrams });
+
+  if (currentCalories > caloriesKcal) {
+    const carb = reduceMacroTowardCalories({
+      value: carbohydrateGrams,
+      min: input.carbohydrateGrams.min,
+      kcalPerGram: MACRO_KCAL_PER_GRAM.carbohydrate,
+      currentCalories,
+      targetCalories: caloriesKcal
+    });
+    carbohydrateGrams = carb.value;
+    currentCalories = carb.currentCalories;
+    fatGrams = clampNumber(
+      round(
+        (caloriesKcal -
+          proteinGrams * MACRO_KCAL_PER_GRAM.protein -
+          carbohydrateGrams * MACRO_KCAL_PER_GRAM.carbohydrate) /
+          MACRO_KCAL_PER_GRAM.fat
+      ),
+      selectedFatRange.min,
+      selectedFatRange.max
+    );
+    currentCalories = macroCalories({ proteinGrams, carbohydrateGrams, fatGrams });
+
+    const protein = reduceMacroTowardCalories({
+      value: proteinGrams,
+      min: input.proteinGrams.min,
+      kcalPerGram: MACRO_KCAL_PER_GRAM.protein,
+      currentCalories,
+      targetCalories: caloriesKcal
+    });
+    proteinGrams = protein.value;
+    currentCalories = protein.currentCalories;
+    fatGrams = clampNumber(
+      round(
+        (caloriesKcal -
+          proteinGrams * MACRO_KCAL_PER_GRAM.protein -
+          carbohydrateGrams * MACRO_KCAL_PER_GRAM.carbohydrate) /
+          MACRO_KCAL_PER_GRAM.fat
+      ),
+      selectedFatRange.min,
+      selectedFatRange.max
+    );
+    currentCalories = macroCalories({ proteinGrams, carbohydrateGrams, fatGrams });
+  }
+
+  if (currentCalories < caloriesKcal) {
+    const carb = increaseMacroTowardCalories({
+      value: carbohydrateGrams,
+      max: input.carbohydrateGrams.max,
+      kcalPerGram: MACRO_KCAL_PER_GRAM.carbohydrate,
+      currentCalories,
+      targetCalories: caloriesKcal
+    });
+    carbohydrateGrams = carb.value;
+    currentCalories = carb.currentCalories;
+
+    const fat = increaseMacroTowardCalories({
+      value: fatGrams,
+      max: selectedFatRange.max,
+      kcalPerGram: MACRO_KCAL_PER_GRAM.fat,
+      currentCalories,
+      targetCalories: caloriesKcal
+    });
+    fatGrams = fat.value;
+    currentCalories = fat.currentCalories;
+
+    const protein = increaseMacroTowardCalories({
+      value: proteinGrams,
+      max: input.proteinGrams.max,
+      kcalPerGram: MACRO_KCAL_PER_GRAM.protein,
+      currentCalories,
+      targetCalories: caloriesKcal
+    });
+    proteinGrams = protein.value;
+  }
+
+  return {
+    caloriesKcal,
+    proteinGrams,
+    carbohydrateGrams,
+    fatGrams
   };
 }
 
@@ -221,12 +418,21 @@ function selectedTargetsFromRanges(input: {
       ? "blocked_by_safety"
       : input.status === "numeric_unavailable"
         ? "numeric_unavailable"
-        : "range_midpoint";
+        : "calorie_balanced_range_point";
+  const balancedTargets =
+    input.caloriesKcal && input.proteinGrams && input.carbohydrateGrams && input.fatGrams
+      ? calorieBalancedMacroTargets({
+          caloriesKcal: input.caloriesKcal,
+          proteinGrams: input.proteinGrams,
+          carbohydrateGrams: input.carbohydrateGrams,
+          fatGrams: input.fatGrams
+        })
+      : null;
   return {
-    caloriesKcal: midpoint(input.caloriesKcal) || null,
-    proteinGrams: midpoint(input.proteinGrams) || null,
-    carbohydrateGrams: midpoint(input.carbohydrateGrams) || null,
-    fatGrams: midpoint(input.fatGrams) || null,
+    caloriesKcal: (balancedTargets?.caloriesKcal ?? midpoint(input.caloriesKcal)) || null,
+    proteinGrams: (balancedTargets?.proteinGrams ?? midpoint(input.proteinGrams)) || null,
+    carbohydrateGrams: (balancedTargets?.carbohydrateGrams ?? midpoint(input.carbohydrateGrams)) || null,
+    fatGrams: (balancedTargets?.fatGrams ?? midpoint(input.fatGrams)) || null,
     fiberGrams: midpoint(input.fiberGrams) || null,
     fluidLiters: input.fluidLiters ? round((input.fluidLiters.min + input.fluidLiters.max) / 2, 1) : null,
     source
@@ -460,9 +666,10 @@ export function calculateFuelTargetRange(input: {
   const caloriesKcal = energy.caloriesKcal;
   const proteinGrams = scaleRange(mass.kg, protein.range);
   const carbohydrateGrams = scaleRange(mass.kg, carb.range);
-  const fatFloor = scaleRange(mass.kg, { min: 0.5, max: 0.9 });
-  const amdrMax = round((caloriesKcal.max * 0.35) / 9);
-  const fatGrams = { min: fatFloor.min, max: Math.max(fatFloor.max, amdrMax) };
+  const fatFloor = scaleRange(mass.kg, { min: 0.5, max: 0.7 });
+  const amdrMin = round((caloriesKcal.min * FAT_AMDR_MIN_ENERGY_FRACTION) / MACRO_KCAL_PER_GRAM.fat);
+  const amdrMax = round((caloriesKcal.max * FAT_AMDR_MAX_ENERGY_FRACTION) / MACRO_KCAL_PER_GRAM.fat);
+  const fatGrams = { min: Math.max(fatFloor.min, amdrMin), max: Math.max(fatFloor.max, amdrMax) };
   const fiberGrams =
     input.phase.phase === "fight_week" || input.phase.phase === "weigh_in_day"
       ? { min: 12, max: 20 }

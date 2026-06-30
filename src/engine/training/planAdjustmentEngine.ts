@@ -182,7 +182,7 @@ export function applyTrainingPlanAdjustment(input: TrainingPlanAdjustmentEngineI
       if (hasProtectedSparringOrCompetition(toDay)) {
         return result({
           status: "rejected",
-          explanation: "Move rejected: generated work cannot be moved onto protected sparring or competition day.",
+          explanation: "Move rejected: app work cannot be moved onto coach/team sparring or competition day.",
           modifiedDayPlans: [],
           safetyFlags: ["protected_boxing_anchor_conflict"],
           command

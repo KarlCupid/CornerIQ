@@ -9,15 +9,15 @@ The full-codebase technical and scientific audit is tracked separately through `
 | Field | Value |
 | --- | --- |
 | Current QA phase | needs_human_review |
-| Last commit tested | 2026-06-26 local automated hardening pass based on HEAD `703916c6d514aed251e3750d57163b4e39d48214` (`703916c`). The QA scripts report the HEAD SHA; code, test, browser-audit, and doc changes in this worktree were verified before commit. |
-| Last QA run result | 2026-06-26 local / 2026-06-27 UTC automated hardening verification: WorkoutPlayer resume now preserves a persisted mid-step timer instead of resetting to the full step duration; revision-isolated active plan lifecycle coverage now rejects duplicate active plan intents/blocks and prevents new revisions from reusing superseded generated state; cleanup derived-state guardrail tests cover dry-run-first behavior and preservation of completed sessions/exercise results. `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:production`, `cmd /c npm run preflight:beta`, and `cmd /c npm run qa:agent:ci` passed. Routine agent QA remained local-only. |
+| Last commit tested | 2026-06-30 AI comprehension fix pass in the uncommitted working tree on top of `e7fc92e9cf57ea861e09ad4f290e93ec01b1f92c` (`e7fc92e`). |
+| Last QA run result | 2026-06-30 AI comprehension fix verification: `cmd /c npm install`, `cmd /c npm run typecheck`, `cmd /c npm test`, `cmd /c npm run lint`, `cmd /c npm run quality`, `cmd /c npm run preflight:beta`, and `cmd /c npm run qa:agent:ci` passed. The fix pass addressed Train date/action disambiguation, fixed coach/team sparring framing, Fuel command tone, icon glyph page-text cleanup, and engine-output confidence formatting. `qa:agent:ci` passed static checks, typecheck, full unit suite, lint, production preflight, browser audit, engine-output review, deterministic analysis, and bundle generation. |
 | Last QA bundle path | qa-artifacts/corneriq-agent-qa-bundle.zip |
 | Last generated release evidence path | qa-artifacts/release-evidence/current-release-evidence.md (generated artifact; not stored in this committed state file) |
 | Last AI review brief path | qa-artifacts/reports/agent-ai-review-brief.md |
 | Current open blocker count | 0 |
 | Current open high count | 0 |
-| Current required-medium count | 3 AI/human review limitations remain explicitly tracked |
-| Next recommended action | Send `qa-artifacts/corneriq-agent-qa-bundle.zip` for AI qualitative review, then schedule physical iPhone, live Supabase, and release-owner checks. Apple paid-build warnings for paywall/RevenueCat iOS env remain intentionally uncleared in this automated pass. |
+| Current required-medium count | 0 AI comprehension Medium fix findings remain open after the verified fix pass; physical iPhone, live Supabase/email confirmation, GitHub Actions on the eventual pushed commit, and real boxer review remain human-required. |
+| Next recommended action | Have the release owner review the fixed Train/Fuel/Plan/Onboarding comprehension surfaces, then complete physical iPhone, live Supabase/email, and GitHub Actions evidence. Apple paid-build warnings for paywall/RevenueCat iOS env remain intentionally uncleared in this automated pass. |
 | Launch readiness decision | needs_human_review |
 
 Allowed readiness decisions: `not_ready`, `blocked`, `needs_fix`, `needs_human_review`, `launch_code_ready`, `external_launch_ready`.
@@ -30,16 +30,16 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-26; npm reported dependencies up to date and 18 existing audit advisories (1 low, 17 moderate). |
-| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-26 directly, inside `quality`, and inside `qa:agent:ci`. |
-| tests | automated_pass | `cmd /c npm test` passed on 2026-06-26 after focused regression runs; 773 tests passed and 1 skipped. Coverage added for WorkoutPlayer resume timer, revision-isolated active lifecycle duplicates, new-revision stale state isolation, and cleanup/preflight guardrails. |
-| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-26 directly and inside `qa:agent:ci`. |
-| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-26; embedded typecheck and tests passed with 773 tests passed and 1 skipped. |
+| npm install | automated_pass | `cmd /c npm install` passed on 2026-06-30; npm reported dependencies up to date and 13 existing audit advisories (1 low, 12 moderate). |
+| typecheck | automated_pass | `cmd /c npm run typecheck` passed on 2026-06-30 directly, inside `quality`, and inside `qa:agent:ci`. |
+| tests | automated_pass | `cmd /c npm test` passed on 2026-06-30 after focused regression runs; 845 tests passed and 1 live DB smoke test skipped. Coverage included the AI comprehension copy and evidence-format fixes. |
+| lint | automated_pass | `cmd /c npm run lint` passed on 2026-06-30 directly and inside `qa:agent:ci`. |
+| quality | automated_pass | `cmd /c npm run quality` passed on 2026-06-30; embedded typecheck and tests passed with 845 tests passed and 1 skipped. |
 | coverage | automated_pass | `cmd /c npm run test:coverage` passed on 2026-06-19; statements 90.22, functions 90.51, lines 90.22, branches 85.38. |
-| production preflight | automated_pass | `cmd /c npm run preflight:production` and `cmd /c npm run preflight:beta` passed on 2026-06-26; revision-isolated lifecycle schema fragments are checked, and Apple paid-build warnings remain for paywall and RevenueCat iOS env values. |
+| production preflight | automated_pass | `cmd /c npm run preflight:production` inside `qa:agent:ci` and `cmd /c npm run preflight:beta` passed on 2026-06-30; Apple paid-build warnings remain for paywall and RevenueCat iOS env values. |
 | GitHub Actions quality | human_review_required | Exact Quality run evidence is required for the pushed commit. |
 | Expo web startup | automated_pass | Covered by `qa:agent:ci`. |
-| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-26: static checks (46 tests), typecheck, full unit suite (773 passed, 1 skipped), lint, production preflight, 10 Playwright browser tests, engine-output review, deterministic analysis, contact sheet, AI brief, and bundle generation all passed. |
+| agent QA CI | automated_pass | `cmd /c npm run qa:agent:ci` passed on 2026-06-30 for the AI comprehension fix working tree on top of `e7fc92e`: static checks, typecheck, full unit suite (845 passed, 1 skipped), lint, production preflight, 11 Playwright browser tests, engine-output review, deterministic analysis, AI brief, and bundle generation all passed. |
 
 ### B. Auth and account
 
@@ -70,7 +70,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | goal phase clarity | automated_pass | Playwright first-time onboarding. |
 | finish setup | automated_pass | Playwright first-time onboarding. |
 | onboarding draft persistence | automated_pass | Native draft storage now resolves through AsyncStorage and is cleared after successful completion; memory fallback is limited to test, web, and local E2E paths. |
-| no user guessing about internal engine terms | human_review_required | Local text checks pass; real boxer comprehension remains human-only. |
+| no user guessing about internal engine terms | human_review_required | 2026-06-30 fix pass changed onboarding/Plan/Today/Train presentation copy from generic scheduled/protected sparring labels to coach/team sparring already set outside CornerIQ, while preserving deterministic engine constraints. Automation passes; real boxer comprehension remains human-only. |
 
 ### D. Today
 
@@ -85,7 +85,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | save success/feedback | automated_pass | Quick-log feedback smoke requires confidence/context messages for body mass, readiness, hydration, food, and training paths, including update states. |
 | missing data unknown/not safe | automated_pass | Deterministic scan required. |
 | not too dense for first-run user | human_review_required | Today now uses compact dashboard cards, title-case card headers, quieter metric tiles, and a top stat rail instead of nested status tiles. The first mobile viewport still needs human boxer/phone review before clearing this gate. |
-| mobile viewport readability | human_review_required | Mobile viewport is automated and the 2026-06-10 screenshots show the bottom nav using below-icon labels, a tighter bar, a smaller active marker, restored tab-specific accents, and calmer inactive tab colour; the local-only E2E banner and dev overlay reduce available space in artifacts. Physical phone review remains required. |
+| mobile viewport readability | human_review_required | Mobile viewport is automated and the 2026-06-10 screenshots show the bottom nav using below-icon labels, a tighter bar, a smaller active marker, restored tab-specific accents, and calmer inactive tab colour; the local-only E2E banner and dev overlay reduce available space in artifacts. The 2026-06-30 fix pass sanitizes private-use icon glyphs from page-text snapshots and hides key decorative icons from accessibility; physical phone and native assistive-technology review remain required. |
 
 ### E. Fuel
 
@@ -95,7 +95,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | daily macro targets visible | automated_pass | Fuel audit checks the redesigned Fuel dashboard, macro summary, hydration/sodium, meal distribution, body-mass trend, recovery support, and manual `Log meal`/`Add water` paths. The 2026-06-10 rollout applies the Today-style compact card density, title-case headers, and primary-led top action row to Fuel. |
 | first safe action clear | automated_pass | Fuel food logging now says "Add meal/snack" and explains one meal/snack or day total entries add up today; real boxer comprehension remains human_review_required. |
 | no unsafe weight-cut copy | automated_pass | Deterministic scan plus Fuel audit. |
-| no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; real boxer safety interpretation remains human-only. |
+| no pressure to make weight | human_review_required | Deterministic unsafe-copy scan passes; 2026-06-30 fix pass changed Fuel `Do not miss` to `Training fuel priorities` with context copy so exact fuel amounts read as guidance when food/hydration context is known. Real boxer safety interpretation remains human-only. |
 | manual food logging visible | automated_pass | Fuel audit checks meal/snack/day-total add-up copy. |
 | hydration copy safe | automated_pass | Fuel and Today audit check `Add water`/hydration copy after opening the manual log path, without pretending to set a daily total. |
 | logger focus reset | automated_pass | Today-to-Fuel `Log food` and `Add water` intents open the logger, and the logger has a visible return-to-overview action so Fuel does not stay stuck in logging mode. |
@@ -108,7 +108,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
-| Today/Workout screen visible | automated_pass | Train audit checks the new Training Overview dashboard, preview-only future generated workouts, manual boxing log completion, next-7-days context, and completion affordances when the generated workout is available today. The 2026-06-10 rollout applies the Today-style top action row, compact dashboard card defaults, title-case headers, and a quiet fuel/hydration rail instead of nested helper cards. |
+| Today/Workout screen visible | automated_pass | Train audit checks the new Training Overview dashboard, preview-only future generated workouts, manual boxing log completion, next-7-days context, and completion affordances when the generated workout is available today. The 2026-06-30 fix pass renamed overdue work to `Past workout to resolve`, added explicit planned-day/move-today/unknown copy, and changed future previews to `Future preview` with planned-date guidance. |
 | generated workout feels boxing-supportive, not generic | human_review_required | Engine report and screenshots pass deterministic scans, cards show concrete prescription lines, and robotic engine copy is collapsed; real boxer usefulness remains human-only. |
 | no generated sparring/contact/fight simulation | automated_pass | Train audit plus deterministic scan. |
 | no unsafe intensity escalation | automated_pass | Added safety tests for stale persisted hard sessions, red tournament readiness, under-fueling, and protected hard anchors. |
@@ -128,7 +128,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Next Week visible | automated_pass | Plan audit checks a concise top card with goal, planned support count, fixed boxing context, and status; dense detail is collapsed. |
 | Block History visible | automated_pass | Plan audit and static checks cover Block History while avoiding duplicate-prone user-facing string keys. |
 | Adjustments visible | automated_pass | New Plan audit. |
-| Fixed boxing schedule understandable | human_review_required | Automation checks fixed boxing schedule labels and visible scheduled sparring example; real boxer interpretation remains human-only. |
+| Fixed boxing schedule understandable | human_review_required | Automation checks fixed boxing schedule labels and visible coach/team sparring example. The 2026-06-30 fix pass changed scheduled/generic sparring labels to coach/team sparring already set outside CornerIQ and clarified that CornerIQ only places non-contact support around fixed outside-app boxing. Real boxer interpretation remains human-only. |
 | Mark unavailable understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
 | Request deload understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
 | Restore plan understandable | human_review_required | Automation checks request framing; real boxer interpretation remains human-only. |
@@ -174,7 +174,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | Gate | Status | Evidence / notes |
 | --- | --- | --- |
 | Today view model output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
-| Fuel command output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
+| Fuel command output quality | human_review_required | Engine-output report generated and deterministic scans pass. The 2026-06-30 fix pass softened visible Fuel priority copy and formatted confidence evidence as reviewer-readable prose instead of raw JSON or bare labels; real boxer interpretation remains human-only. |
 | Train workout output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer usefulness remains human-only. |
 | Plan recommendation output quality | human_review_required | Engine-output report generated and deterministic scans pass; real boxer interpretation remains human-only. |
 | local launch persona coverage | automated_pass | Engine-output report required; object serialization leaks fail deterministic analysis. |
@@ -186,7 +186,7 @@ Allowed surface statuses: `not_started`, `automated_pass`, `needs_ai_review`, `n
 | cycle high symptoms case | automated_pass | Engine-output report required. |
 | manual-only no wearable case | automated_pass | Engine-output report required. |
 | no-equipment boxer case | automated_pass | Engine-output report required. |
-| amateur open with protected sparring case | automated_pass | Engine-output report required. |
+| amateur open with coach/team sparring case | automated_pass | Engine-output report required. |
 | no unsafe generated support | automated_pass | Engine-output report scan. |
 | no missing data treated as safe | automated_pass | Engine-output report scan. |
 | no hard-stop self-clear | automated_pass | Engine-output report scan. |

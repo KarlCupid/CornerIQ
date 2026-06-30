@@ -88,6 +88,10 @@ const planCalendarIcons = {
 
 type PlanCalendarIconName = keyof typeof planCalendarIcons;
 
+function DecorativeIcon(props: React.ComponentProps<typeof Ionicons>) {
+  return <Ionicons {...props} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+}
+
 function friendlyAnchorText(value: string): string {
   return value === "No " + "protected " + "anchors." ? "None" : plainPlanCopy(value);
 }
@@ -114,7 +118,7 @@ function plainPlanCopy(value: string): string {
     .replace(new RegExp("material" + "ized", "gi"), "saved")
     .replace(new RegExp("material" + "ization", "gi"), "saving next week")
     .replace(new RegExp("protected " + "anchors?", "gi"), "boxing sessions you added")
-    .replace(new RegExp("protected " + "sparring", "gi"), "fixed sparring")
+    .replace(new RegExp("protected " + "sparring", "gi"), "fixed coach/team sparring")
     .replace(new RegExp("protected " + "sessions", "gi"), "fixed boxing sessions")
     .replace(new RegExp("protected " + "boxing", "gi"), "fixed boxing")
     .replace(new RegExp("protected " + "work", "gi"), "boxing work")
@@ -133,7 +137,11 @@ function plainPlanCopy(value: string): string {
     .replace(/\bSupport work\b/g, "App work")
     .replace(/\bsupport work\b/g, "app work")
     .replace(/App sessions is/g, "App sessions are")
-    .replace(/app sessions is/g, "app sessions are");
+    .replace(/app sessions is/g, "app sessions are")
+    .replace(/\bSparring\b/g, "Coach/team sparring")
+    .replace(/\bsparring\b/g, "coach/team sparring")
+    .replace(/\bCoach\/team coach\/team sparring\b/g, "Coach/team sparring")
+    .replace(/\bcoach\/team coach\/team sparring\b/g, "coach/team sparring");
 }
 
 function plainPlanRiskCopy(value: string): string {
@@ -762,7 +770,7 @@ function PlanButton({
         }
       ]}
     >
-      {icon ? <Ionicons color={iconColor} name={icon} size={15} style={{ flexShrink: 0 }} /> : null}
+      {icon ? <DecorativeIcon color={iconColor} name={icon} size={15} style={{ flexShrink: 0 }} /> : null}
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.78}
@@ -772,6 +780,54 @@ function PlanButton({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+function PlanCutRunwayCard({ viewModel }: { viewModel: PlanViewModel }) {
+  const runway = viewModel.cutRunway;
+  if (!runway.visible) {
+    return null;
+  }
+  const checkpoint = runway.metrics.find((metric) => metric.label === "6-day checkpoint" || metric.label === "Fight-week window");
+  const campGap = runway.metrics.find((metric) => metric.label === "Camp gap" || metric.label === "Target gap");
+  const allowance = runway.metrics.find((metric) => metric.label === "Modeled allowance");
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="plan-cut-runway-card">
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={planTextStyles.sectionTitle}>{plainPlanCopy(runway.title)}</Text>
+            <Text style={planTextStyles.body}>{plainPlanCopy(runway.summary)}</Text>
+          </View>
+          <PlanTonePill label={plainPlanCopy(runway.statusLabel)} tone={runway.tone} />
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {[checkpoint, campGap, allowance].filter((metric): metric is NonNullable<typeof metric> => Boolean(metric)).map((metric) => (
+            <View
+              key={`plan-cut-runway-metric:${metric.label}`}
+              style={{
+                backgroundColor: planPalette.controlFill,
+                borderColor: planTint(metric.tone, metric.tone === "muted" ? "2A" : "3D"),
+                borderRadius: radii.tile,
+                borderWidth: 1,
+                flexBasis: 126,
+                flexGrow: 1,
+                gap: spacing.xs,
+                minHeight: 88,
+                padding: spacing.sm
+              }}
+            >
+              <Text numberOfLines={2} style={{ color: planPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{plainPlanCopy(metric.label)}</Text>
+              <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={2} style={{ color: planToneColors[metric.tone], fontSize: 17, fontWeight: "900", lineHeight: 22 }}>
+                {plainPlanCopy(metric.value)}
+              </Text>
+              <Text numberOfLines={2} style={{ color: planPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>{plainPlanCopy(metric.helper)}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={planTextStyles.subtle}>{plainPlanCopy(runway.safeActions[0] ?? runway.boundaryCopy)}</Text>
+      </View>
+    </EngineCard>
   );
 }
 
@@ -871,7 +927,7 @@ function PlanObjectiveCard({
               width: 48
             }}
           >
-            <Ionicons color={planPalette.toneGreen} name="locate-outline" size={24} />
+            <DecorativeIcon color={planPalette.toneGreen} name="locate-outline" size={24} />
           </View>
           <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
             <Text style={{ color: planPalette.toneGreen, fontSize: 12, fontWeight: "900", lineHeight: 16, textTransform: "uppercase" }}>
@@ -896,11 +952,11 @@ function PlanObjectiveCard({
             opacity: busy ? 0.62 : pressed ? 0.82 : 1
           })}
         >
-          <Ionicons color={planPalette.textMuted} name="calendar-outline" size={20} />
+          <DecorativeIcon color={planPalette.textMuted} name="calendar-outline" size={20} />
           <Text style={{ color: planPalette.textBody, flex: 1, fontSize: 16, fontWeight: "700", lineHeight: 22 }}>
             Preview next week
           </Text>
-          <Ionicons color={planPalette.textMuted} name="chevron-forward" size={22} />
+          <DecorativeIcon color={planPalette.textMuted} name="chevron-forward" size={22} />
         </Pressable>
       </View>
     </PremiumCard>
@@ -933,11 +989,11 @@ function PlanActionLink({
         width: 132
       })}
     >
-      <Ionicons color={planPalette.toneGreen} name="options-outline" size={20} />
+      <DecorativeIcon color={planPalette.toneGreen} name="options-outline" size={20} />
       <Text numberOfLines={1} style={{ color: planPalette.toneGreen, flexShrink: 1, fontSize: 14, fontWeight: "800", lineHeight: 19 }}>
         {label}
       </Text>
-      <Ionicons color={planPalette.toneGreen} name="chevron-forward" size={20} />
+      <DecorativeIcon color={planPalette.toneGreen} name="chevron-forward" size={20} />
     </Pressable>
   );
 }
@@ -1020,7 +1076,7 @@ function PlanUpcomingSessionsCard({ viewModel }: { viewModel: PlanViewModel }) {
                       width: 36
                     }}
                   >
-                    <Ionicons color={planToneColors[row.tone]} name={row.icon} size={18} />
+                    <DecorativeIcon color={planToneColors[row.tone]} name={row.icon} size={18} />
                   </View>
                   {index < rows.length - 1 ? <View style={{ backgroundColor: planPalette.cardLine, flex: 1, marginTop: spacing.xs, width: 1 }} /> : null}
                 </View>
@@ -1030,7 +1086,7 @@ function PlanUpcomingSessionsCard({ viewModel }: { viewModel: PlanViewModel }) {
                   <Text numberOfLines={1} style={{ color: planPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{row.meta}</Text>
                 </View>
                 <View style={{ alignItems: "center", justifyContent: "center", paddingBottom: spacing.sm }}>
-                  <Ionicons color={planPalette.textMuted} name="chevron-forward" size={21} />
+                  <DecorativeIcon color={planPalette.textMuted} name="chevron-forward" size={21} />
                 </View>
               </View>
             ))}
@@ -1067,6 +1123,7 @@ function ThisWeeksPlanCard({
   return (
     <View style={{ gap: spacing.md }}>
       <PlanWeekSummaryCard busy={busy} onChangeGoal={onChangeGoal} viewModel={viewModel} />
+      <PlanCutRunwayCard viewModel={viewModel} />
       <WeekReviewStrip viewModel={viewModel} />
       <PlanObjectiveCard busy={busy} onPreviewNextWeek={onPreviewNextWeek} viewModel={viewModel} />
       <PlanUpcomingSessionsCard viewModel={viewModel} />
@@ -1365,7 +1422,7 @@ function PlanWeekTicker({
           ]}
           testID="plan-week-ticker-toggle"
         >
-          <Ionicons color={planPalette.textBody} name={calendarOpen ? "chevron-up" : "calendar-outline"} size={16} />
+          <DecorativeIcon color={planPalette.textBody} name={calendarOpen ? "chevron-up" : "calendar-outline"} size={16} />
           <Text style={{ color: planPalette.textBody, fontSize: 14, fontWeight: "800", lineHeight: 18, textAlign: "center" }}>
             {calendarOpen ? "Hide calendar" : "Show calendar"}
           </Text>

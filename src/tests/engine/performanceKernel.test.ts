@@ -99,7 +99,7 @@ describe("Corner Engine performance kernel", () => {
 
     expect(state.wearable.hasWearable).toBe(false);
     expect(state.wearable.explanation).toContain("No wearable needed");
-    expect(state.viewModels.today.title).toBe("Today: keep sparring quality");
+    expect(state.viewModels.today.title).toBe("Today: protect coach/team sparring");
     expect(state.training.todaySessions[0]?.intensity).toBe("recovery");
   });
 

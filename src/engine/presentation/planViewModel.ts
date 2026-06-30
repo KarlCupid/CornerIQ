@@ -15,6 +15,7 @@ import type {
 } from "../core/types";
 import { daysBetween } from "../core/dates";
 import { formatGeneratedSupportWeekdays, normalizeGeneratedSupportWeekdays } from "../training/supportAvailability";
+import { buildBodyMassTrajectoryViewModel } from "./bodyMassTrajectoryViewModel";
 import { plainFuelDemandLabel, plainGeneratedSessionFamilyLabel, plainTrainingCopy, plainWorkoutTitle } from "./trainingCopy";
 
 const UNDERFUELING_EVIDENCE_CODES = new Set<string>(["rapid_weight_loss", "repeated_low_intake", "missed_period_underfueling_risk", "high_underfueling_blocks_deficit"]);
@@ -53,7 +54,7 @@ function protectedTypeLabel(type: ProtectedWorkoutType): string {
     pads_mitts: "Pads / mitts",
     recovery_day: "Recovery day",
     roadwork: "Roadwork",
-    sparring: "Sparring",
+    sparring: "Coach/team sparring",
     technical_session: "Technical session",
     travel: "Travel"
   };
@@ -688,6 +689,12 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
   const athleteFacingThemePurpose = plainTrainingCopy(state.training.supportGenerationAudit.athleteFacingThemePurpose);
   const boxingDevelopmentTheme = plainTrainingCopy(state.training.supportGenerationAudit.boxingDevelopmentTheme);
   const boxingDevelopmentThemeTitle = plainTrainingCopy(state.training.supportGenerationAudit.boxingDevelopmentThemeTitle);
+  const cutRunway = buildBodyMassTrajectoryViewModel({
+    bodyMass: state.bodyMass,
+    cycle: state.cycle,
+    weighInContext: state.weighInContext,
+    weightClassStatus: state.nutrition.weightClassStatus
+  }).cutRunway;
   return {
     title: "Plan",
     topAction: {
@@ -988,6 +995,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
         : state.phase.phase === "fight_week"
           ? "Fight week taper protects speed and freshness."
           : null,
+    cutRunway,
     warnings: state.safety.riskFlags.filter((flag) => flag.blocksPlan).map((flag) => flag.message)
   };
 }

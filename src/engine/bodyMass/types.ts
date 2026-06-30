@@ -42,6 +42,25 @@ export interface WeightClassFeasibility {
   requiredLossKg: number | null;
   requiredLossPercent: number | null;
   daysUntilWeighIn: number | null;
+  acuteScaleAllowance?: {
+    officialTargetKg: number;
+    automaticScaleAllowanceKg: number;
+    automaticScaleAllowancePercent: number;
+    reviewLimitPercent: number;
+    entryWindowDays: number;
+    allowanceComponents: readonly string[];
+  } | undefined;
+  acuteEntryCheckpoint?: {
+    date: ISODateString;
+    targetKg: number;
+    requiredLossKg: number;
+    requiredLossPercent: number;
+    daysUntil: number;
+    weeklyLossPercent: number;
+    automaticScaleAllowanceKg: number;
+    automaticScaleAllowancePercent: number;
+    allowanceComponents: readonly string[];
+  } | undefined;
   explanation: string;
   riskFlags: readonly RiskFlag[];
   confidence: Confidence;

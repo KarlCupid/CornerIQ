@@ -17,7 +17,7 @@ const typeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"
   { label: "Pads / mitts", value: "pads_mitts" },
   { label: "Bag work", value: "bag_work" },
   { label: "Footwork", value: "footwork_session" },
-  { label: "Sparring", value: "sparring" },
+  { label: "Coach/team sparring", value: "sparring" },
   { label: "Roadwork", value: "roadwork" },
   { label: "Assigned strength", value: "coach_assigned_strength" },
   { label: "Competition", value: "competition" },
@@ -218,7 +218,7 @@ export function FixedBoxingScheduleCard({ asOfDate, busy, initialIntent, onDelet
       <View style={{ gap: spacing.md }} testID="fixed-boxing-schedule-card">
         <View style={{ gap: spacing.xs }}>
           <Text style={screenStyles.sectionTitle}>Fixed boxing schedule</Text>
-          <Text style={screenStyles.body}>CornerIQ builds support workouts around these first.</Text>
+          <Text style={screenStyles.body}>CornerIQ builds non-contact support workouts around fixed outside-app boxing first.</Text>
         </View>
         {formError ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{formError}</Text> : null}
         <View style={{ gap: spacing.sm }}>

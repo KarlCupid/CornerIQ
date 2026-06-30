@@ -560,6 +560,7 @@ export const RiskFlagSchema = z.object({
     "pregnancy_cut_blocked",
     "hard_stop_blocks_cut",
     "same_day_acute_loss_blocked",
+    "same_day_acute_review_required",
     "short_notice_unsafe_loss",
     "poor_cut_data_confidence",
     "post_weigh_in_cap_caution",

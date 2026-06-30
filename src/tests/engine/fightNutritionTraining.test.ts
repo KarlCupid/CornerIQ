@@ -83,6 +83,24 @@ function foodNotTrackingEvent(date: string, id = date): JourneyEvent {
   };
 }
 
+function addDays(date: string, offset: number): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + offset);
+  return value.toISOString().slice(0, 10);
+}
+
+function lbToKg(lb: number): number {
+  return lb * 0.45359237;
+}
+
+function bodyMassLogsEnding(input: { endDate: string; valuesKg: readonly number[] }): AthleteJourney["bodyMassHistory"] {
+  return input.valuesKg.map((bodyMassKg, index) => ({
+    date: addDays(input.endDate, index - input.valuesKg.length + 1),
+    bodyMassKg: Number(bodyMassKg.toFixed(2)),
+    source: "manual" as const
+  }));
+}
+
 describe("fight, nutrition, training, and presentation vertical slice", () => {
   it("amateur tournament mode does not create an acute cut protocol", () => {
     const state = resolvePerformanceState({ journey: amateur_open_tournament, asOfDate: fixtureAsOfDate });
@@ -100,10 +118,172 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(state.nutrition.acuteProtocolEligibility.blockReasons.join(" ")).toContain("Same-day");
   });
 
-  it("day-before low acute requirement can be eligible education", () => {
-    const state = resolvePerformanceState({ journey: pro_8_round_camp_day_before_weigh_in, asOfDate: fixtureAsOfDate });
+  it("day-before low acute requirement can be eligible education inside the acute window", () => {
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_8_round_camp_day_before_weigh_in,
+        bodyMassHistory: bodyMassLogsEnding({
+          endDate: "2026-06-18",
+          valuesKg: [66.9, 66.8, 66.8, 66.7, 66.7, 66.7, 66.6]
+        })
+      },
+      asOfDate: "2026-06-18"
+    });
 
     expect(state.nutrition.acuteProtocolEligibility.status).toBe("eligible_education");
+  });
+
+  it("same-day amateur camp uses an acute-entry checkpoint instead of blocking the whole five-week camp", () => {
+    const currentKg = lbToKg(149);
+    const targetKg = lbToKg(140);
+    const weighInDate = addDays(fixtureAsOfDate, 35);
+    const state = resolvePerformanceState({
+      journey: {
+        ...pro_8_round_camp_day_before_weigh_in,
+        athlete: {
+          ...pro_8_round_camp_day_before_weigh_in.athlete,
+          athleteId: "same_day_amateur_149_to_140",
+          boxingLevel: "amateur_open",
+          amateurOrPro: "amateur",
+          currentBodyMass: { value: Number(currentKg.toFixed(2)), unit: "kg" },
+          typicalWalkAroundWeightKg: Number(currentKg.toFixed(2)),
+          cycleTrackingPreference: "disabled"
+        },
+        activeObjective: "camp",
+        activeFightOpportunity: {
+          ...pro_8_round_camp_day_before_weigh_in.activeFightOpportunity!,
+          id: "same_day_amateur_149_to_140",
+          amateurOrPro: "amateur",
+          boutDate: weighInDate,
+          weighInDateTime: `${weighInDate}T08:00:00.000Z`,
+          weighInType: "same_day",
+          contractedWeightKg: Number(targetKg.toFixed(2)),
+          allowanceKg: 0,
+          targetWeightClass: { label: "140 lb", limitKg: Number(targetKg.toFixed(2)) },
+          rounds: 3
+        },
+        bodyMassHistory: bodyMassLogsEnding({
+          endDate: fixtureAsOfDate,
+          valuesKg: [currentKg, currentKg, currentKg, currentKg, currentKg, currentKg, currentKg]
+        }),
+        nutritionHistory: [],
+        protectedWorkouts: [
+          {
+            id: "example_active_bag_work",
+            type: "bag_work",
+            date: fixtureAsOfDate,
+            durationMinutes: 60,
+            intensity: "moderate",
+            protected: true,
+            rounds: 6
+          }
+        ],
+        cycleHistory: [],
+        wearableSignalHistory: [],
+        safetyFlags: []
+      },
+      asOfDate: fixtureAsOfDate
+    });
+
+    expect(state.bodyMass.feasibility.status).toBe("behind");
+    expect(state.bodyMass.feasibility.acuteEntryCheckpoint?.date).toBe(addDays(weighInDate, -6));
+    expect(state.bodyMass.feasibility.acuteEntryCheckpoint?.targetKg).toBeCloseTo(targetKg / 0.985, 2);
+    expect(state.bodyMass.feasibility.acuteEntryCheckpoint?.automaticScaleAllowancePercent).toBe(1.5);
+    expect(state.bodyMass.feasibility.acuteEntryCheckpoint?.allowanceComponents).toContain("low_residue_gut_content");
+    expect(state.bodyMass.feasibility.acuteScaleAllowance?.officialTargetKg).toBeCloseTo(targetKg, 1);
+    expect(state.bodyMass.feasibility.acuteScaleAllowance?.automaticScaleAllowancePercent).toBe(1.5);
+    expect(state.bodyMass.feasibility.acuteScaleAllowance?.reviewLimitPercent).toBe(3);
+    expect(state.bodyMass.feasibility.acuteEntryCheckpoint?.weeklyLossPercent).toBeLessThanOrEqual(1.5);
+    expect(state.nutrition.acuteProtocolEligibility.status).toBe("no_protocol");
+    expect(state.nutrition.weightClassStatus.status).toBe("behind");
+    expect(state.nutrition.fuelTargetRange.selected.caloriesKcal).not.toBeNull();
+    expect(state.safety.riskFlags.map((flag) => flag.code)).not.toContain("same_day_acute_loss_blocked");
+    expect(state.viewModels.fuel.bodyMassTrajectory.targetGapKg).toContain("Checkpoint");
+    expect(state.viewModels.fuel.bodyMassTrajectory.cutRunway.visible).toBe(true);
+    expect(state.viewModels.fuel.bodyMassTrajectory.cutRunway.statusLabel).toBe("Checkpoint runway");
+    expect(state.viewModels.fuel.bodyMassTrajectory.cutRunway.summary).toContain("low-residue/gut-content");
+    expect(state.viewModels.fuel.bodyMassTrajectory.cutRunway.metrics.map((metric) => metric.label)).toContain("6-day checkpoint");
+    expect(state.viewModels.fuel.bodyMassTrajectory.cutRunway.metrics.map((metric) => metric.label)).toContain("Modeled allowance");
+    expect(state.viewModels.plan.cutRunway.summary).toBe(state.viewModels.fuel.bodyMassTrajectory.cutRunway.summary);
+    expect(JSON.stringify(state.viewModels.fuel.bodyMassTrajectory.cutRunway)).not.toMatch(/sauna|sweat suit|laxative|diuretic|make weight at all costs/i);
+  });
+
+  it("same-day acute-entry window allows automatic low-residue allowance but reviews above it", () => {
+    const targetKg = lbToKg(140);
+    const roundedTargetKg = Number(targetKg.toFixed(2));
+    const weighInDate = addDays(fixtureAsOfDate, 35);
+    const asOfDate = addDays(weighInDate, -6);
+    const baseFight = {
+      ...pro_8_round_camp_day_before_weigh_in.activeFightOpportunity!,
+      id: "same_day_amateur_final_window",
+      amateurOrPro: "amateur" as const,
+      boutDate: weighInDate,
+      weighInDateTime: `${weighInDate}T08:00:00.000Z`,
+      weighInType: "same_day" as const,
+      contractedWeightKg: roundedTargetKg,
+      allowanceKg: 0,
+      targetWeightClass: { label: "140 lb", limitKg: roundedTargetKg },
+      rounds: 3
+    };
+    const baseAthlete = {
+      ...pro_8_round_camp_day_before_weigh_in.athlete,
+      athleteId: "same_day_amateur_final_window",
+      boxingLevel: "amateur_open" as const,
+      amateurOrPro: "amateur" as const,
+      cycleTrackingPreference: "disabled" as const
+    };
+    const atAutomaticAllowanceKg = roundedTargetKg / 0.985;
+    const aboveAutomaticAllowanceKg = roundedTargetKg / 0.98;
+    const automatic = resolvePerformanceState({
+      journey: {
+        ...pro_8_round_camp_day_before_weigh_in,
+        athlete: {
+          ...baseAthlete,
+          currentBodyMass: { value: Number(atAutomaticAllowanceKg.toFixed(2)), unit: "kg" as const },
+          typicalWalkAroundWeightKg: Number(atAutomaticAllowanceKg.toFixed(2))
+        },
+        activeObjective: "camp",
+        activeFightOpportunity: baseFight,
+        bodyMassHistory: bodyMassLogsEnding({
+          endDate: asOfDate,
+          valuesKg: Array(7).fill(atAutomaticAllowanceKg) as number[]
+        }),
+        nutritionHistory: [],
+        cycleHistory: [],
+        wearableSignalHistory: [],
+        safetyFlags: []
+      },
+      asOfDate
+    });
+    const review = resolvePerformanceState({
+      journey: {
+        ...pro_8_round_camp_day_before_weigh_in,
+        athlete: {
+          ...baseAthlete,
+          currentBodyMass: { value: Number(aboveAutomaticAllowanceKg.toFixed(2)), unit: "kg" as const },
+          typicalWalkAroundWeightKg: Number(aboveAutomaticAllowanceKg.toFixed(2))
+        },
+        activeObjective: "camp",
+        activeFightOpportunity: baseFight,
+        bodyMassHistory: bodyMassLogsEnding({
+          endDate: asOfDate,
+          valuesKg: Array(7).fill(aboveAutomaticAllowanceKg) as number[]
+        }),
+        nutritionHistory: [],
+        cycleHistory: [],
+        wearableSignalHistory: [],
+        safetyFlags: []
+      },
+      asOfDate
+    });
+
+    expect(automatic.nutrition.acuteProtocolEligibility.status).toBe("eligible_education");
+    expect(automatic.bodyMass.feasibility.status).toBe("behind");
+    expect(automatic.safety.riskFlags.map((flag) => flag.code)).not.toContain("same_day_acute_review_required");
+    expect(review.nutrition.acuteProtocolEligibility.status).toBe("review_required");
+    expect(review.bodyMass.feasibility.status).toBe("needs_review");
+    expect(review.safety.riskFlags.map((flag) => flag.code)).toContain("same_day_acute_review_required");
+    expect(review.nutrition.nutritionSafetyReview.blockingFlags).not.toContain("same_day_acute_review_required");
   });
 
   it("uses the fight timezone when resolving a UTC-midnight weigh-in boundary", () => {
@@ -185,7 +365,8 @@ describe("fight, nutrition, training, and presentation vertical slice", () => {
     expect(postpartumContext.nutrition.acuteProtocolEligibility.status).toBe("blocked");
     expect(postpartumContext.nutrition.acuteProtocolEligibility.blockReasons.join(" ")).toContain("Postpartum context requires professional review");
     expect(postpartumContext.safety.riskFlags.map((flag) => flag.code)).toContain("postpartum_cut_review");
-    expect(maleContext.nutrition.acuteProtocolEligibility.status).toBe("eligible_education");
+    expect(maleContext.nutrition.acuteProtocolEligibility.status).toBe("no_protocol");
+    expect(maleContext.nutrition.acuteProtocolEligibility.blockReasons).toHaveLength(0);
     expect(maleContext.safety.riskFlags.map((flag) => flag.code)).not.toContain("pregnancy_status_unknown");
   });
 

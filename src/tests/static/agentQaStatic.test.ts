@@ -332,6 +332,9 @@ describe("agent browser QA static checks", () => {
     const analysis = readSource("scripts/analyze-agent-qa-evidence.mjs");
 
     expect(engineReview).toContain("serializeRiskFlagOrHardStop");
+    expect(engineReview).toContain("serializeConfidenceValue");
+    expect(engineReview).toContain("serializeStandaloneConfidenceLabel");
+    expect(engineReview).toContain("missing inputs");
     expect(engineReview).toContain("requiresProfessionalReview");
     expect(engineReview).toContain("blocksPlan");
     expect(engineReview).toContain("[object Object]");
@@ -361,6 +364,8 @@ describe("agent browser QA static checks", () => {
 
     expect(scenario).toContain("activeSurfaceTestIds");
     expect(scenario).toContain("visibleSurfaceText");
+    expect(scenario).toContain("normalizeVisibleText");
+    expect(scenario).toContain("\\uE000-\\uF8FF");
     expect(scenario).toContain("pageTextScope");
     expect(scenario).toContain("Fallback:");
     expect(scenario).toContain("document.body");

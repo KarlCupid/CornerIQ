@@ -136,8 +136,15 @@ export const ENGINE_EVIDENCE_REGISTRY: readonly EngineEvidenceEntry[] = [
     id: "acute-weight-class-safety",
     title: "Acute weight-class eligibility",
     files: ["src/engine/fight/weighInRules.ts", "src/engine/bodyMass/acuteScaleStrategy.ts"],
-    functions: ["resolveAcuteProtocolEligibility", "acuteScaleStrategy"],
-    thresholds: ["minor athletes blocked", "active ED/severe restriction blocked", "possible/confirmed pregnancy blocked", "same-day required loss > 1% blocked", "within 7 days and required loss > 3% blocked"],
+    functions: ["resolveAcuteProtocolEligibility", "sameDayAcuteEntryCheckpoint", "acuteScaleStrategy"],
+    thresholds: [
+      "minor athletes blocked",
+      "active ED/severe restriction blocked",
+      "possible/confirmed pregnancy blocked",
+      "same-day automatic low-residue allowance 1.5%",
+      "same-day acute need > 1.5% requires review",
+      "within 7 days and required loss > 3% blocked"
+    ],
     rationale:
       "These are product safety gates for a boxing-only beta, not athlete-led cut instructions. They intentionally block unsupported acute manipulation and route to qualified review.",
     sourcePosture: "internal_conservative_policy",

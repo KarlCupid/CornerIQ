@@ -3,6 +3,8 @@ import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import type { AthleteJourney, FightOpportunity } from "../../engine/core/types";
 import { resolveFuelTimingRecommendations } from "../../engine/nutrition/fuelTiming";
 import {
+  amateur_novice_build,
+  amateur_open_tournament,
   fixtureAsOfDate,
   menstruating_athlete_build_phase_scale_noise,
   menstruating_athlete_camp_heavy_symptoms,
@@ -52,6 +54,18 @@ function serializedFuel(journey: AthleteJourney, asOfDate = fixtureAsOfDate): st
   return JSON.stringify(resolvePerformanceState({ journey, asOfDate }).viewModels.fuel).toLowerCase();
 }
 
+function selectedMacroCalories(selected: ReturnType<typeof resolvePerformanceState>["nutrition"]["fuelTargetRange"]["selected"]): number {
+  return (selected.proteinGrams ?? 0) * 4 + (selected.carbohydrateGrams ?? 0) * 4 + (selected.fatGrams ?? 0) * 9;
+}
+
+function expectNumberInRange(value: number | null, range: { min: number; max: number } | null): void {
+  if (value === null || range === null) {
+    throw new Error("Expected a numeric target and range.");
+  }
+  expect(value).toBeGreaterThanOrEqual(range.min);
+  expect(value).toBeLessThanOrEqual(range.max);
+}
+
 describe("Fuel Command Center engine", () => {
   it("build phase shows training-fuel priority and no cut pressure", () => {
     const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
@@ -60,6 +74,36 @@ describe("Fuel Command Center engine", () => {
     expect(state.nutrition.commandCenter.primaryFuelAction).toBe("Fuel the boxing work first. Do not chase weight changes before training quality and safety are covered.");
     expect(state.nutrition.weightClassStatus.status).toBe("no_active_weight_target");
     expect(state.nutrition.commandCenter.primaryFuelAction.toLowerCase()).not.toContain("cut");
+  });
+
+  it("selects macro targets that reconcile with selected calories", () => {
+    const journeys = [
+      pro_4_round_build_strength,
+      no_wearable_manual_only,
+      pro_8_round_camp_day_before_weigh_in,
+      amateur_open_tournament,
+      amateur_novice_build,
+      menstruating_athlete_build_phase_scale_noise
+    ];
+
+    for (const journey of journeys) {
+      const state = resolvePerformanceState({ journey, asOfDate: fixtureAsOfDate });
+      const range = state.nutrition.fuelTargetRange;
+      const selected = range.selected;
+
+      if (selected.caloriesKcal === null) {
+        throw new Error(`${journey.athlete.athleteId} unexpectedly produced unavailable selected calories.`);
+      }
+
+      expect(selected.source).toBe("calorie_balanced_range_point");
+      expect(Math.abs(selectedMacroCalories(selected) - selected.caloriesKcal)).toBeLessThanOrEqual(10);
+      expectNumberInRange(selected.caloriesKcal, range.caloriesKcal);
+      expectNumberInRange(selected.proteinGrams, range.proteinGrams);
+      expectNumberInRange(selected.carbohydrateGrams, range.carbohydrateGrams);
+      expectNumberInRange(selected.fatGrams, range.fatGrams);
+      expect(((selected.fatGrams ?? 0) * 9) / selected.caloriesKcal).toBeGreaterThanOrEqual(0.19);
+      expect(((selected.fatGrams ?? 0) * 9) / selected.caloriesKcal).toBeLessThanOrEqual(0.36);
+    }
   });
 
   it("camp resolves on-track, behind, and ahead weight-class statuses", () => {

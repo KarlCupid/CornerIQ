@@ -4,8 +4,84 @@ import type { AcuteProtocolEligibility, AthleteProfile, BodyMassTrend, CycleStat
 import { ACTIVE_CUT_RECENT_BODY_MASS_MAX_AGE_DAYS, FIGHT_WEEK_BODY_MASS_MAX_AGE_DAYS } from "../bodyMass/bodyMassTrend";
 import { createRiskFlag } from "../safety/riskSafetyEngine";
 
+const SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT = 1.5;
+const SAME_DAY_QUALIFIED_REVIEW_LIMIT_PERCENT = 3;
+const ACUTE_ENTRY_WINDOW_DAYS = 6;
+const CHRONIC_LOSS_LIKELY_PERCENT_PER_WEEK = 0.75;
+const CHRONIC_LOSS_REVIEW_PERCENT_PER_WEEK = 1.5;
+const PERCENT_COMPARISON_TOLERANCE = 0.05;
+const AUTOMATIC_ACUTE_ALLOWANCE_COMPONENTS = ["low_residue_gut_content"] as const;
+
 function weighInDate(fight: FightOpportunity): string | null {
   return fight.weighInDateTime ? dateOnlyInTimeZone(fight.weighInDateTime, fight.timezone) : null;
+}
+
+function addDays(date: string, offset: number): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + offset);
+  return value.toISOString().slice(0, 10);
+}
+
+function round2(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function lossPercent(lossKg: number, bodyMassKg: number): number {
+  return bodyMassKg > 0 ? (lossKg / bodyMassKg) * 100 : 0;
+}
+
+function weeklyLossPercent(totalLossPercent: number, days: number): number {
+  return days > 0 ? (totalLossPercent / days) * 7 : totalLossPercent;
+}
+
+function exceedsPercent(value: number, threshold: number): boolean {
+  return value > threshold + PERCENT_COMPARISON_TOLERANCE;
+}
+
+function sameDayAcuteEntryTargetKg(targetKg: number): number {
+  return targetKg / (1 - SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT / 100);
+}
+
+function sameDayAcuteScaleAllowance(targetKg: number, fight: FightOpportunity): WeightClassFeasibility["acuteScaleAllowance"] {
+  if (fight.weighInType !== "same_day") {
+    return undefined;
+  }
+  const acuteEntryTargetKg = sameDayAcuteEntryTargetKg(targetKg);
+  return {
+    officialTargetKg: round2(targetKg),
+    automaticScaleAllowanceKg: round2(acuteEntryTargetKg - targetKg),
+    automaticScaleAllowancePercent: SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT,
+    reviewLimitPercent: SAME_DAY_QUALIFIED_REVIEW_LIMIT_PERCENT,
+    entryWindowDays: ACUTE_ENTRY_WINDOW_DAYS,
+    allowanceComponents: AUTOMATIC_ACUTE_ALLOWANCE_COMPONENTS
+  };
+}
+
+function sameDayAcuteEntryCheckpoint(input: {
+  fight: FightOpportunity;
+  latestKg: number;
+  targetKg: number;
+  daysUntilWeighIn: number;
+}): WeightClassFeasibility["acuteEntryCheckpoint"] {
+  if (input.fight.weighInType !== "same_day" || input.daysUntilWeighIn <= ACUTE_ENTRY_WINDOW_DAYS) {
+    return undefined;
+  }
+  const targetKg = sameDayAcuteEntryTargetKg(input.targetKg);
+  const automaticScaleAllowanceKg = targetKg - input.targetKg;
+  const requiredLossKg = Math.max(0, input.latestKg - targetKg);
+  const requiredLossPercent = lossPercent(requiredLossKg, input.latestKg);
+  const daysUntil = input.daysUntilWeighIn - ACUTE_ENTRY_WINDOW_DAYS;
+  return {
+    date: addDays(weighInDate(input.fight) ?? input.fight.boutDate, -ACUTE_ENTRY_WINDOW_DAYS),
+    targetKg: round2(targetKg),
+    requiredLossKg: round2(requiredLossKg),
+    requiredLossPercent: round2(requiredLossPercent),
+    daysUntil,
+    weeklyLossPercent: round2(weeklyLossPercent(requiredLossPercent, daysUntil)),
+    automaticScaleAllowanceKg: round2(automaticScaleAllowanceKg),
+    automaticScaleAllowancePercent: SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT,
+    allowanceComponents: AUTOMATIC_ACUTE_ALLOWANCE_COMPONENTS
+  };
 }
 
 function requiredBodyMassMaxAgeDays(daysUntilWeighIn: number | null): number {
@@ -165,13 +241,18 @@ export function resolveAcuteProtocolEligibility(input: {
   const targetKg = fight.contractedWeightKg + fight.allowanceKg;
   const requiredLossPercent = input.trend.latestKg === null ? null : (Math.max(0, input.trend.latestKg - targetKg) / input.trend.latestKg) * 100;
   const daysUntilWeighIn = fight.weighInDateTime ? daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate) : null;
-  if (requiredLossPercent !== null && fight.weighInType === "same_day" && requiredLossPercent > 1) {
+  const outsideAcuteEntryWindow = daysUntilWeighIn !== null && daysUntilWeighIn > ACUTE_ENTRY_WINDOW_DAYS;
+  if (outsideAcuteEntryWindow) {
+    pass("acute entry window not active");
+  } else if (requiredLossPercent !== null && fight.weighInType === "same_day" && exceedsPercent(requiredLossPercent, SAME_DAY_QUALIFIED_REVIEW_LIMIT_PERCENT)) {
     fail("same-day acute threshold", "Same-day acute loss is above CornerIQ's conservative safety threshold.");
+  } else if (requiredLossPercent !== null && fight.weighInType === "same_day" && exceedsPercent(requiredLossPercent, SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT)) {
+    fail("same-day acute review threshold", "Same-day acute scale need is above CornerIQ's automatic low-residue allowance and requires qualified review.", false);
   } else {
     pass("same-day acute threshold");
   }
 
-  if (requiredLossPercent !== null && daysUntilWeighIn !== null && daysUntilWeighIn <= 7 && requiredLossPercent > 3) {
+  if (!outsideAcuteEntryWindow && requiredLossPercent !== null && daysUntilWeighIn !== null && daysUntilWeighIn <= 7 && exceedsPercent(requiredLossPercent, 3)) {
     fail("short-notice loss threshold", "Required loss is too high for the remaining timeline.");
   } else {
     pass("short-notice loss threshold");
@@ -192,7 +273,9 @@ export function resolveAcuteProtocolEligibility(input: {
         ? "review_required"
         : fight.weighInType === "multi_day_tournament"
           ? "no_protocol"
-          : "eligible_education";
+          : outsideAcuteEntryWindow
+            ? "no_protocol"
+            : "eligible_education";
 
   return {
     status,
@@ -206,7 +289,9 @@ export function resolveAcuteProtocolEligibility(input: {
         : status === "review_required"
           ? "Acute protocol requires qualified review before use."
           : status === "no_protocol"
-            ? "Tournament mode keeps you near weight instead of creating an acute cut protocol."
+            ? outsideAcuteEntryWindow
+              ? "Acute protocol support is not active yet; use camp trend and conservative fueling first."
+              : "Tournament mode keeps you near weight instead of creating an acute cut protocol."
             : "Gates support educational acute protocol guidance, with conservative limits.",
     confidence: makeConfidence(blockReasons.length > 0 ? 0.7 : input.trend.logCount7Day >= 4 ? 0.82 : 0.42, gatesPassed, gatesFailed)
   };
@@ -257,6 +342,8 @@ export function resolveWeightClassFeasibility(input: {
   }
 
   const daysUntilWeighIn = daysBetween(input.asOfDate, weighInDate(fight) ?? input.asOfDate);
+  const targetKg = fight.contractedWeightKg + fight.allowanceKg;
+  const acuteScaleAllowance = sameDayAcuteScaleAllowance(targetKg, fight);
   if (input.trend.latestKg === null) {
     riskFlags.push(
       createRiskFlag("body_mass", "missing_current_body_mass", "high", "Current body mass is unknown, so weight-class feasibility cannot be confirmed.", {}, true)
@@ -266,6 +353,7 @@ export function resolveWeightClassFeasibility(input: {
       requiredLossKg: null,
       requiredLossPercent: null,
       daysUntilWeighIn,
+      acuteScaleAllowance,
       explanation: "No current body-mass log is available.",
       riskFlags,
       confidence: makeConfidence(0.24, ["fight target exists"], ["current body mass", "recent body-mass logs"])
@@ -290,15 +378,24 @@ export function resolveWeightClassFeasibility(input: {
       requiredLossKg: null,
       requiredLossPercent: null,
       daysUntilWeighIn,
+      acuteScaleAllowance,
       explanation: "Latest body-mass log is stale for the active weight context.",
       riskFlags,
       confidence: makeConfidence(0.26, ["fight target exists"], ["current body mass"])
     };
   }
 
-  const targetKg = fight.contractedWeightKg + fight.allowanceKg;
   const requiredLossKg = Math.max(0, input.trend.latestKg - targetKg);
-  const requiredLossPercent = (requiredLossKg / input.trend.latestKg) * 100;
+  const requiredLossPercent = lossPercent(requiredLossKg, input.trend.latestKg);
+  const acuteEntryCheckpoint = sameDayAcuteEntryCheckpoint({
+    fight,
+    latestKg: input.trend.latestKg,
+    targetKg,
+    daysUntilWeighIn
+  });
+  const planningLossPercent = acuteEntryCheckpoint?.requiredLossPercent ?? requiredLossPercent;
+  const planningDays = acuteEntryCheckpoint?.daysUntil ?? daysUntilWeighIn;
+  const planningWeeklyLossPercent = weeklyLossPercent(planningLossPercent, planningDays);
   const age = input.athlete.ageYears;
 
   if (age !== undefined && age < 18 && requiredLossKg > 0) {
@@ -348,8 +445,13 @@ export function resolveWeightClassFeasibility(input: {
     );
   }
 
-  const sameDayAggressive = fight.weighInType === "same_day" && requiredLossPercent > 1;
-  const shortNoticeAggressive = daysUntilWeighIn <= 7 && requiredLossPercent > 3;
+  const sameDayInsideAcuteWindow = fight.weighInType === "same_day" && daysUntilWeighIn <= ACUTE_ENTRY_WINDOW_DAYS;
+  const sameDayReviewRequired =
+    sameDayInsideAcuteWindow &&
+    exceedsPercent(requiredLossPercent, SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT) &&
+    !exceedsPercent(requiredLossPercent, SAME_DAY_QUALIFIED_REVIEW_LIMIT_PERCENT);
+  const sameDayAggressive = sameDayInsideAcuteWindow && exceedsPercent(requiredLossPercent, SAME_DAY_QUALIFIED_REVIEW_LIMIT_PERCENT);
+  const shortNoticeAggressive = daysUntilWeighIn <= 7 && exceedsPercent(requiredLossPercent, 3);
   const poorData = input.trend.logCount7Day < 4;
 
   if (sameDayAggressive) {
@@ -361,6 +463,25 @@ export function resolveWeightClassFeasibility(input: {
         "Same-day weigh-in acute loss is above the conservative safety threshold.",
         { requiredLossPercent, weighInType: fight.weighInType },
         true
+      )
+    );
+  }
+
+  if (sameDayReviewRequired) {
+    riskFlags.push(
+      createRiskFlag(
+        "body_mass",
+        "same_day_acute_review_required",
+        "high",
+        "Same-day acute scale need is above the automatic low-residue allowance and requires qualified review.",
+        {
+          requiredLossPercent,
+          automaticAllowancePercent: SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT,
+          reviewLimitPercent: SAME_DAY_QUALIFIED_REVIEW_LIMIT_PERCENT,
+          weighInType: fight.weighInType
+        },
+        false,
+        { hardStop: false, requiresProfessionalReview: true }
       )
     );
   }
@@ -386,6 +507,9 @@ export function resolveWeightClassFeasibility(input: {
 
   const blocked = riskFlags.some((flag) => flag.hardStop);
   const needsReview = riskFlags.some((flag) => flag.requiresProfessionalReview);
+  const trendLikely = planningWeeklyLossPercent <= CHRONIC_LOSS_LIKELY_PERCENT_PER_WEEK;
+  const trendReviewable = planningWeeklyLossPercent <= CHRONIC_LOSS_REVIEW_PERCENT_PER_WEEK;
+  const sameDayWithinAutomaticAllowance = sameDayInsideAcuteWindow && !exceedsPercent(requiredLossPercent, SAME_DAY_AUTOMATIC_ACUTE_ALLOWANCE_PERCENT);
   const status =
     blocked
       ? "blocked"
@@ -395,22 +519,30 @@ export function resolveWeightClassFeasibility(input: {
           ? "needs_review"
           : requiredLossPercent <= 0.5
             ? "on_track"
-            : daysUntilWeighIn > 21 && requiredLossPercent <= 5
+            : sameDayWithinAutomaticAllowance
+              ? "behind"
+            : trendLikely
               ? "on_track"
-              : "behind";
+              : trendReviewable
+                ? "behind"
+                : "needs_review";
 
   return {
     status,
     requiredLossKg: Number(requiredLossKg.toFixed(2)),
     requiredLossPercent: Number(requiredLossPercent.toFixed(2)),
     daysUntilWeighIn,
+    acuteScaleAllowance,
+    acuteEntryCheckpoint,
     explanation:
       status === "blocked"
         ? "Weight-class plan is blocked. Move class, extend timeline, stop cutting, or seek professional review."
         : status === "cycle_noisy"
           ? "Cycle-related water noise lowers scale confidence; do not chase one weigh-in spike."
           : status === "needs_review"
-            ? "Weight-class target needs qualified review before acute protocol support."
+            ? "Weight-class target needs qualified review before pressure increases."
+            : acuteEntryCheckpoint
+              ? "Same-day camp uses an acute-entry checkpoint before the final weigh-in target."
             : "Weight-class trend is usable with conservative fueling and training support.",
     riskFlags,
     confidence: makeConfidence(poorData ? 0.38 : 0.78, poorData ? ["fight target known"] : ["fight target and recent body mass known"], poorData ? ["four recent body-mass logs"] : [])

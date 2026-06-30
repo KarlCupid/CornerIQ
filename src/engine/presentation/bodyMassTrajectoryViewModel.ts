@@ -7,6 +7,27 @@ export interface BodyMassTrajectoryHistoryItem {
   note: string | null;
 }
 
+export type BodyMassTrajectoryTone = "blue" | "green" | "orange" | "red" | "muted";
+
+export interface CutRunwayMetricViewModel {
+  label: string;
+  value: string;
+  helper: string;
+  tone: BodyMassTrajectoryTone;
+}
+
+export interface CutRunwayViewModel {
+  visible: boolean;
+  title: string;
+  statusLabel: string;
+  tone: BodyMassTrajectoryTone;
+  summary: string;
+  metrics: readonly CutRunwayMetricViewModel[];
+  safeActions: readonly string[];
+  boundaryCopy: string;
+  reviewRequired: boolean;
+}
+
 export interface BodyMassTrajectoryViewModel {
   latestWeight: string;
   logCount7Day: string;
@@ -25,6 +46,7 @@ export interface BodyMassTrajectoryViewModel {
   riskExplanation: string;
   nextSafeActions: readonly string[];
   reviewActionVisible: boolean;
+  cutRunway: CutRunwayViewModel;
 }
 
 function kgLabel(value: number | null): string {
@@ -45,6 +67,175 @@ function sourceLabel(source: string): string {
   return source.replaceAll("_", " ");
 }
 
+function allowanceComponentLabel(component: string): string {
+  return component.replaceAll("_", " ");
+}
+
+function hiddenCutRunway(): CutRunwayViewModel {
+  return {
+    visible: false,
+    title: "Cut runway",
+    statusLabel: "No active target",
+    tone: "muted",
+    summary: "No active weight-class target today.",
+    metrics: [],
+    safeActions: [],
+    boundaryCopy: "No fight-week cut runway is active.",
+    reviewRequired: false
+  };
+}
+
+function cutRunwayTone(status: WeightClassStatus["status"]): BodyMassTrajectoryTone {
+  if (status === "blocked" || status === "unsafe") {
+    return "red";
+  }
+  if (status === "behind" || status === "needs_review" || status === "unknown" || status === "cycle_noisy") {
+    return "orange";
+  }
+  if (status === "on_track" || status === "ahead") {
+    return "green";
+  }
+  return "muted";
+}
+
+function buildCutRunway(input: {
+  bodyMass: BodyMassState;
+  weighInContext: WeighInContext;
+  weightClassStatus: WeightClassStatus;
+}): CutRunwayViewModel {
+  const feasibility = input.bodyMass.feasibility;
+  const activeTarget =
+    input.weightClassStatus.status !== "no_active_weight_target" ||
+    (feasibility.status !== "not_applicable" && input.weighInContext.daysUntilWeighIn !== null);
+  if (!activeTarget) {
+    return hiddenCutRunway();
+  }
+
+  const currentKg = input.weightClassStatus.latestBodyMassKg ?? input.bodyMass.trend.latestKg;
+  const checkpoint = feasibility.acuteEntryCheckpoint;
+  const allowance = feasibility.acuteScaleAllowance;
+  const totalGapKg = feasibility.requiredLossKg;
+  const officialTargetKg =
+    allowance?.officialTargetKg ??
+    (currentKg !== null && totalGapKg !== null ? Math.max(0, currentKg - totalGapKg) : null);
+  const days = input.weighInContext.daysUntilWeighIn;
+  const sameDayFinalWindow = Boolean(
+    allowance && input.weighInContext.weighInType === "same_day" && days !== null && days <= allowance.entryWindowDays
+  );
+  const reviewGapKg =
+    sameDayFinalWindow && allowance && totalGapKg !== null
+      ? Math.max(0, totalGapKg - allowance.automaticScaleAllowanceKg)
+      : null;
+  const reviewRequired =
+    input.weightClassStatus.status === "needs_review" ||
+    input.weightClassStatus.status === "blocked" ||
+    input.weightClassStatus.status === "unsafe" ||
+    Boolean(reviewGapKg && reviewGapKg > 0.05);
+  const tone = cutRunwayTone(input.weightClassStatus.status);
+  const statusLabel =
+    input.weightClassStatus.status === "blocked" || input.weightClassStatus.status === "unsafe"
+      ? "Paused"
+      : reviewRequired
+        ? "Review needed"
+        : checkpoint
+          ? "Checkpoint runway"
+          : sameDayFinalWindow
+            ? "Final-week lane"
+            : input.weightClassStatus.status.replaceAll("_", " ");
+  const allowanceCopy = allowance
+    ? `${kgLabel(allowance.automaticScaleAllowanceKg)} modeled from ${allowance.allowanceComponents.map(allowanceComponentLabel).join(", ")} only`
+    : "No automatic acute allowance is modeled for this weigh-in type.";
+  const checkpointCopy = checkpoint
+    ? `${kgLabel(checkpoint.targetKg)} by ${checkpoint.date}`
+    : sameDayFinalWindow
+      ? "Final-week window is active"
+      : days === null
+        ? "Weigh-in timing unknown"
+        : `${days} day(s) to weigh-in`;
+  const campGapValue = checkpoint
+    ? kgLabel(checkpoint.requiredLossKg)
+    : totalGapKg === null
+      ? "unknown"
+      : kgLabel(totalGapKg);
+  const reviewGapValue =
+    reviewGapKg === null
+      ? checkpoint
+        ? "None if checkpoint hit"
+        : "Review if above automatic lane"
+      : reviewGapKg <= 0.05
+        ? "0.0 kg"
+        : kgLabel(reviewGapKg);
+  const weeklyPaceValue =
+    checkpoint
+      ? `${checkpoint.weeklyLossPercent.toFixed(2)}%/week`
+      : feasibility.requiredLossPercent !== null && days !== null && days > 0
+        ? `${((feasibility.requiredLossPercent / days) * 7).toFixed(2)}%/week`
+        : "unknown";
+  const summary =
+    checkpoint
+      ? `Reach ${kgLabel(checkpoint.targetKg)} by ${checkpoint.date}; the final ${kgLabel(checkpoint.automaticScaleAllowanceKg)} is modeled as low-residue/gut-content, not dehydration.`
+      : sameDayFinalWindow && allowance && totalGapKg !== null
+        ? `Final gap is ${kgLabel(totalGapKg)}. Automatic lane covers ${kgLabel(allowance.automaticScaleAllowanceKg)} from low-residue/gut-content; ${reviewGapValue} requires review if still present.`
+        : totalGapKg === null
+          ? "Log a current body weight so the cut runway can stay honest."
+          : `${kgLabel(totalGapKg)} to the official target. Use gradual fueling and safety checks before any fight-week changes.`;
+
+  return {
+    visible: true,
+    title: "Cut runway",
+    statusLabel,
+    tone,
+    summary,
+    metrics: [
+      {
+        label: "Official target",
+        value: kgLabel(officialTargetKg),
+        helper: input.weighInContext.weighInType.replaceAll("_", " "),
+        tone: "muted"
+      },
+      {
+        label: checkpoint ? "6-day checkpoint" : sameDayFinalWindow ? "Fight-week window" : "Weigh-in",
+        value: checkpointCopy,
+        helper: checkpoint ? "Target before final allowance" : "Timeline context",
+        tone: checkpoint || sameDayFinalWindow ? "orange" : "muted"
+      },
+      {
+        label: checkpoint ? "Camp gap" : "Target gap",
+        value: campGapValue,
+        helper: checkpoint ? `Needed before checkpoint, ${weeklyPaceValue}` : `Current runway, ${weeklyPaceValue}`,
+        tone: tone === "red" ? "red" : "orange"
+      },
+      {
+        label: "Modeled allowance",
+        value: allowance ? kgLabel(allowance.automaticScaleAllowanceKg) : "none",
+        helper: allowance ? `${allowance.automaticScaleAllowancePercent}% low-residue/gut-content` : "No automatic acute lane",
+        tone: allowance ? "green" : "muted"
+      },
+      {
+        label: "Review gap",
+        value: reviewGapValue,
+        helper: allowance ? `Review above ${allowance.automaticScaleAllowancePercent}% automatic or ${allowance.reviewLimitPercent}% hard limit` : "Qualified review if acute manipulation is needed",
+        tone: reviewRequired ? "orange" : "green"
+      }
+    ],
+    safeActions: [
+      checkpoint
+        ? "Aim for the checkpoint before the final week; do not chase the official target early."
+        : "Use the current trend and official target without turning one scale entry into pressure.",
+      allowance
+        ? "Automatic fight-week allowance is low-residue/gut-content only."
+        : "Keep fight-week fueling conservative unless qualified support reviews the plan.",
+      "Keep fluids and sodium consistent unless a qualified reviewer sets a plan.",
+      "Stop and get support for dizziness, fainting, illness, vomiting, chest pain, confusion, or severe cramps."
+    ],
+    boundaryCopy:
+      allowance
+        ? `${allowanceCopy}. Any fluid, sodium, heat, or medication-style manipulation requires qualified review outside the automatic lane.`
+        : "CornerIQ keeps athlete-led fight-week guidance to fueling, logs, hydration recovery, and safety checks.",
+    reviewRequired
+  };
+}
+
 export function buildBodyMassTrajectoryViewModel(input: {
   bodyMass: BodyMassState;
   cycle: CycleState;
@@ -60,8 +251,11 @@ export function buildBodyMassTrajectoryViewModel(input: {
   const targetGap =
     input.weightClassStatus.latestBodyMassKg === null || input.bodyMass.feasibility.requiredLossKg === null
       ? "Target gap unknown until current body weight and fight target are both known."
+      : input.bodyMass.feasibility.acuteEntryCheckpoint
+        ? `Checkpoint: ${input.bodyMass.feasibility.acuteEntryCheckpoint.targetKg.toFixed(1)} kg by ${input.bodyMass.feasibility.acuteEntryCheckpoint.date} with ${input.bodyMass.feasibility.acuteEntryCheckpoint.automaticScaleAllowancePercent}% acute scale allowance modeled; ${input.bodyMass.feasibility.requiredLossKg.toFixed(1)} kg total target gap. This is not a short-term weight instruction.`
       : `${input.bodyMass.feasibility.requiredLossKg.toFixed(1)} kg from target context. This is not a short-term weight instruction.`;
   const reviewActionVisible = blocked;
+  const cutRunway = buildCutRunway(input);
   const nextSafeActions =
     input.bodyMass.trend.latestKg === null
       ? ["Add a manual body weight log if it feels safe and useful.", "Keep missing scale data marked unknown."]
@@ -104,6 +298,7 @@ export function buildBodyMassTrajectoryViewModel(input: {
         ? "Body weight trend is blocked or unsafe, so review is the next step."
         : input.weightClassStatus.explanation,
     nextSafeActions,
-    reviewActionVisible
+    reviewActionVisible,
+    cutRunway
   };
 }

@@ -653,7 +653,7 @@ export function ProtectedWorkoutLogCard({ actions, busy }: QuickLogCardProps) {
     technical_session: "technical session",
     pads_mitts: "pads / mitts",
     bag_work: "bag work",
-    sparring: "sparring",
+    sparring: "coach/team sparring",
     roadwork: "roadwork",
     coach_assigned_strength: "assigned strength",
     recovery_day: "recovery day"

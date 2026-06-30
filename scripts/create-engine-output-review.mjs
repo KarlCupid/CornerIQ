@@ -130,8 +130,37 @@ function serializeRiskFlagOrHardStop(value) {
   return entries.map(([field, fieldValue]) => `${field}: ${fieldValue}`).join("; ");
 }
 
+function serializeConfidenceValue(value) {
+  if (value === undefined || value === null || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const level = compactSafetyValue(value.level);
+  const score = typeof value.score === "number" ? value.score.toFixed(2) : compactSafetyValue(value.score);
+  const reasons = Array.isArray(value.reasons) ? value.reasons.map(compactSafetyValue).filter(Boolean) : [];
+  const missingInputs = Array.isArray(value.missingInputs) ? value.missingInputs.map(compactSafetyValue).filter(Boolean) : [];
+
+  if (!level && !score && reasons.length === 0 && missingInputs.length === 0) {
+    return null;
+  }
+
+  return [
+    `Confidence: ${level ?? "unknown"}${score ? ` (${score})` : ""}`,
+    reasons.length > 0 ? `reasons: ${reasons.join("; ")}` : null,
+    missingInputs.length > 0 ? `missing inputs: ${missingInputs.join("; ")}` : "missing inputs: none"
+  ].filter(Boolean).join("; ");
+}
+
+function serializeStandaloneConfidenceLabel(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const label = compact(value);
+  return /^(low|medium|high|unknown)$/i.test(label) ? `Confidence: ${label.toLowerCase()}` : null;
+}
+
 function compactEvidenceValue(value) {
-  return compactSafetyValue(value) ?? "";
+  return serializeConfidenceValue(value) ?? serializeStandaloneConfidenceLabel(value) ?? compactSafetyValue(value) ?? "";
 }
 
 function lines(items) {
@@ -218,7 +247,7 @@ const fixtures = require(join(repoRoot, "src", "tests", "fixtures", "engineFixtu
 
 const scenarios = [
   ["amateur novice build phase", fixtures.amateur_novice_build],
-  ["amateur open with protected sparring", fixtures.no_wearable_manual_only],
+  ["amateur open with coach/team sparring", fixtures.no_wearable_manual_only],
   ["amateur tournament daily weigh-ins", fixtures.amateur_open_tournament],
   ["pro camp day-before weigh-in", fixtures.pro_8_round_camp_day_before_weigh_in],
   ["same-day weigh-in amateur", fixtures.amateur_elite_camp_same_day_weigh_in],

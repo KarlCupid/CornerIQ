@@ -67,6 +67,10 @@ export interface TrainWorkoutPlayerSummary {
   title: string;
 }
 
+function DecorativeIcon(props: React.ComponentProps<typeof Ionicons>) {
+  return <Ionicons {...props} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+}
+
 type TrainSessionCard = TrainViewModel["sessionCards"][number];
 type CompactGeneratedSession = NonNullable<TrainViewModel["nextGeneratedSession"]>;
 
@@ -284,7 +288,7 @@ function TrainTonePill({
         minHeight: 22
       }}
     >
-      {icon ? <Ionicons color={color} name={icon} size={15} /> : null}
+      {icon ? <DecorativeIcon color={color} name={icon} size={15} /> : null}
       <Text numberOfLines={1} style={{ color: colors.wrap, flexShrink: 1, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
         {label}
       </Text>
@@ -437,7 +441,7 @@ function TrainTextButton({
       <Text style={{ color: disabled ? trainPalette.textMuted : color, fontSize: 17, fontWeight: "900", lineHeight: 22, textAlign: "center" }}>
         {children}
       </Text>
-      <Ionicons color={disabled ? trainPalette.textMuted : color} name="chevron-forward" size={18} />
+      <DecorativeIcon color={disabled ? trainPalette.textMuted : color} name="chevron-forward" size={18} />
     </Pressable>
   );
 }
@@ -575,18 +579,19 @@ function WorkoutLooseEndsCard({
     try {
       publishFeedback(await action(), "green");
     } catch (error) {
-      publishFeedback(error instanceof Error ? error.message : "That Still open update could not be saved.", "red");
+      publishFeedback(error instanceof Error ? error.message : "That past workout update could not be saved.", "red");
     } finally {
       setPendingAction(null);
     }
   };
   return (
-    <DashboardCard testID="train-loose-end-card" title="Still open">
+    <DashboardCard testID="train-loose-end-card" title="Past workout to resolve">
       <View style={{ gap: spacing.md }}>
         <View style={{ gap: spacing.xs }}>
           <Text style={{ color: trainPalette.textPrimary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>{looseEnd.title}</Text>
-          <Text style={trainTextStyles.body}>This workout was planned for {looseEnd.originalDate}. What happened?</Text>
+          <Text style={trainTextStyles.body}>This support workout was planned for {looseEnd.originalDate}. Resolve that planned day, move it to today, or leave it unknown.</Text>
           <Text style={trainTextStyles.subtle}>{looseEnd.sessionTypeLabel} - {looseEnd.duration} - {sentenceCase(plainIntensityLabel(looseEnd.intensity))}</Text>
+          <Text style={trainTextStyles.subtle}>Today's workout and future previews stay separate below.</Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           <View style={{ flexBasis: 132, flexGrow: 1 }}>
@@ -603,7 +608,7 @@ function WorkoutLooseEndsCard({
                   notes: "Completed from loose-end resolution.",
                   exerciseResults: []
                 });
-                return "Marked done for the planned day. The Still open card will refresh after the engine reloads.";
+                return "Marked done for the planned day. The past workout card will refresh after the engine reloads.";
               })}
               tone="green"
             >
@@ -622,7 +627,7 @@ function WorkoutLooseEndsCard({
                   performedDate: looseEnd.originalDate,
                   notes: "Missed from loose-end resolution."
                 });
-                return "Marked missed for the planned day. The Still open card will refresh after the engine reloads.";
+                return "Marked missed for the planned day. The past workout card will refresh after the engine reloads.";
               })}
             >
               {pendingAction === "missed" ? "Saving..." : "Missed it"}
@@ -664,9 +669,9 @@ function WorkoutLooseEndsCard({
           </View>
         </View>
         {feedback ? <Text style={[trainTextStyles.subtle, { color: trainColorForTone(feedback.tone) }]}>{feedback.message}</Text> : null}
-        {!canResolve ? <Text style={trainTextStyles.subtle}>Exercise details are unavailable for quick resolution. Do it today or leave it unknown.</Text> : null}
+        {!canResolve ? <Text style={trainTextStyles.subtle}>Exercise details are unavailable for quick resolution. Move it to today or leave it unknown.</Text> : null}
         {!canMove ? <Text style={trainTextStyles.subtle}>Move is available after the plan and date are loaded.</Text> : null}
-        {looseEnds.length > 1 ? <Text style={trainTextStyles.subtle}>{looseEnds.length - 1} more open workout{looseEnds.length === 2 ? "" : "s"} after this.</Text> : null}
+        {looseEnds.length > 1 ? <Text style={trainTextStyles.subtle}>{looseEnds.length - 1} more past workout{looseEnds.length === 2 ? "" : "s"} after this.</Text> : null}
       </View>
     </DashboardCard>
   );
@@ -836,7 +841,7 @@ function TodayTrainingPlanCard({
           ]}
         >
           <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "center" }}>
-            <Ionicons color={disabled ? trainPalette.textMuted : trainPalette.textPrimary} name={primaryAction.label.toLowerCase().includes("start") ? "play-outline" : "chevron-forward"} size={20} />
+            <DecorativeIcon color={disabled ? trainPalette.textMuted : trainPalette.textPrimary} name={primaryAction.label.toLowerCase().includes("start") ? "play-outline" : "chevron-forward"} size={20} />
             <Text style={{ color: disabled ? trainPalette.textMuted : trainPalette.textPrimary, fontSize: 15, fontWeight: "800", lineHeight: 20, textAlign: "center" }}>{primaryAction.label}</Text>
           </View>
         </Pressable>
@@ -1123,7 +1128,7 @@ export function TrainScreen({
   const generatedSummary = viewModel.todayGeneratedSessions[0] ?? viewModel.nextGeneratedSession;
   const pendingStartSession = detailedSessions.find((session) => session.generatedSessionId === pendingStartSessionId) ?? null;
   const playerInProgress = Boolean(activeWorkout && playerStatusIsInProgress(activeWorkout.status));
-  const previewOnlyReason = previewOnlyWeeklySession ? `Scheduled for ${previewOnlyWeeklySession.date}. Keep future sessions on their planned day.` : undefined;
+  const previewOnlyReason = previewOnlyWeeklySession ? `Future preview: scheduled for ${previewOnlyWeeklySession.date}. Keep it on that date unless you move it from Plan.` : undefined;
   const primarySessionBlockedReason = primarySession && !previewOnlyWeeklySession ? trainStartWorkoutBlockedReason(primarySession) : undefined;
   const readinessGateAcknowledged = Boolean(viewModel.preSessionReadinessGate.sessionId && controlledStartSessionIds.has(viewModel.preSessionReadinessGate.sessionId));
 

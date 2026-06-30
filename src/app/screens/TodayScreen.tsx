@@ -85,7 +85,7 @@ function plainTodayCopy(value: string): string {
     .replace(/\bgenerated session\b/gi, "app session")
     .replace(/\bgenerated training\b/gi, "app training")
     .replace(/\bprotected anchors?\b/gi, "boxing sessions you added")
-    .replace(/\bprotected sparring\b/gi, "fixed sparring")
+    .replace(/\bprotected sparring\b/gi, "fixed coach/team sparring")
     .replace(/\bexecution readiness\b/gi, "readiness")
     .replace(/\btraining demand\b/gi, "training need")
     .replace(/\bsafety override\b/gi, "safety note")
