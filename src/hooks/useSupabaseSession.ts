@@ -10,6 +10,7 @@ import {
   isSupabaseAuthStorageUnavailableError,
   type CornerSupabaseClient
 } from "../services/supabase/client";
+import { CORNERIQ_SUPPORT_URL } from "../services/config/runtimeConfig";
 
 type AuthService = ReturnType<typeof createAuthService>;
 type AuthRedirectKind = "account_confirmation" | "password_recovery";
@@ -17,7 +18,7 @@ type VerifyOtpInput = Parameters<AuthService["verifyOtp"]>[0];
 
 export type SupabaseSessionStatus = "starting" | "missing_config" | "ready" | "error";
 export type AuthCallbackStatus = "idle" | "processing" | "success" | "error";
-export const ACCOUNT_CONFIRMATION_REDIRECT_URL = "corneriq://auth/confirm";
+export const ACCOUNT_CONFIRMATION_REDIRECT_URL = CORNERIQ_SUPPORT_URL;
 export const PASSWORD_RESET_REDIRECT_URL = "corneriq://auth/update-password";
 
 export interface UseSupabaseSessionOptions {
@@ -446,7 +447,7 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       try {
         const { error } = await auth.signUpWithPassword(credentials.email, credentials.password, ACCOUNT_CONFIRMATION_REDIRECT_URL);
         setAuthError(error?.message ?? null);
-        setAuthMessage(error ? null : "Check your email to confirm the new account if confirmation is enabled.");
+        setAuthMessage(error ? null : "Check your email to confirm the new account. After confirming, return to CornerIQ and sign in.");
       } catch (error) {
         setAuthError(authErrorMessage(error, "Sign-up failed. Check the connection and try again."));
         setAuthMessage(null);

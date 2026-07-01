@@ -7,12 +7,12 @@ describe("createAuthService", () => {
     const signUp = vi.fn(async () => ({ data: { session: null, user: null }, error: null }));
     const auth = createAuthService({ auth: { signUp } } as unknown as CornerSupabaseClient);
 
-    await auth.signUpWithPassword("boxer@example.com", "password", "corneriq://auth/confirm");
+    await auth.signUpWithPassword("boxer@example.com", "password", "https://sites.google.com/view/corneriq/support");
 
     expect(signUp).toHaveBeenCalledWith({
       email: "boxer@example.com",
       password: "password",
-      options: { emailRedirectTo: "corneriq://auth/confirm" }
+      options: { emailRedirectTo: "https://sites.google.com/view/corneriq/support" }
     });
   });
 
