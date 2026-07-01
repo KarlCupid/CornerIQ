@@ -13,7 +13,12 @@ export function createAuthService(client: CornerSupabaseClient) {
       client.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined),
     setSession: (session: SupabaseSetSessionInput) => client.auth.setSession(session),
     signInWithPassword: (email: string, password: string) => client.auth.signInWithPassword({ email, password }),
-    signUpWithPassword: (email: string, password: string) => client.auth.signUp({ email, password }),
+    signUpWithPassword: (email: string, password: string, emailRedirectTo?: string | undefined) =>
+      client.auth.signUp({
+        email,
+        password,
+        ...(emailRedirectTo ? { options: { emailRedirectTo } } : {})
+      }),
     signOut: () => client.auth.signOut(),
     updatePassword: (password: string) => client.auth.updateUser({ password }),
     verifyOtp: (input: SupabaseVerifyOtpInput) => client.auth.verifyOtp(input)

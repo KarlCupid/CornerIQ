@@ -12,7 +12,7 @@ import type { DeviceKeyValueStorage } from "../../services/storage/deviceStorage
 import { useQuickLogs, normalizeCycleSymptom } from "../../hooks/useQuickLogs";
 import type { QuickLogActions, QuickLogsHook } from "../../hooks/useQuickLogs";
 import type { WorkoutCompletionFormDraft } from "../../hooks/useWorkoutCompletion";
-import { PASSWORD_RESET_REDIRECT_URL, useSupabaseSession } from "../../hooks/useSupabaseSession";
+import { ACCOUNT_CONFIRMATION_REDIRECT_URL, PASSWORD_RESET_REDIRECT_URL, useSupabaseSession } from "../../hooks/useSupabaseSession";
 import type { SupabaseSessionState } from "../../hooks/useSupabaseSession";
 import { useUserDataControls, type UserDataControlsHook } from "../../hooks/useUserDataControls";
 import { usePerformanceState } from "../../hooks/usePerformanceState";
@@ -7146,6 +7146,7 @@ describe("minimal app screens", () => {
     await act(async () => {
       await snapshot.current?.signUp("boxer@example.com", "password");
     });
+    expect(fakeAuth.signUpWithPassword).toHaveBeenCalledWith("boxer@example.com", "password", ACCOUNT_CONFIRMATION_REDIRECT_URL);
     expect(snapshot.current?.authError).toBeNull();
     expect(snapshot.current?.authMessage).toContain("Check your email");
   });

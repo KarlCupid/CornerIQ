@@ -193,7 +193,7 @@ function TodayQuickCheckSection({
     : focus === "body_mass"
         ? "Weight first"
         : "Water first";
-  const focusedLogSuccess = onClose;
+  const focusedLogSuccess = includeOtherLogs ? undefined : onClose;
   const logCards = {
     body_mass: <BodyMassLogCard actions={quickLogs} busy={busy} compact={compact} forceOpen={focus === "body_mass"} framed={false} onLogged={focus === "body_mass" ? focusedLogSuccess : undefined} preferredUnits={preferredUnits} status={recentLogs.bodyMassToday} />,
     hydration: <HydrationLogCard actions={quickLogs} busy={busy} compact={compact} framed={false} onLogged={focus === "hydration" ? focusedLogSuccess : undefined} status={recentLogs.hydrationToday} />,

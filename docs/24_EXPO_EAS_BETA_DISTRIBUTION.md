@@ -196,7 +196,9 @@ Missing env:
 
 Auth email confirmation:
 
-- If sign-up succeeds but sign-in does not, check whether Supabase email confirmation is enabled.
+- If sign-up succeeds but the confirmation email opens a dead browser page, confirm Supabase Auth URL Configuration is not relying on localhost or an expired preview Site URL.
+- Add the app callback to Supabase Auth Redirect URLs: `corneriq://auth/confirm` for production-tight config, or `corneriq://**` while testing all CornerIQ auth callbacks.
+- Keep the app sign-up redirect aligned with `ACCOUNT_CONFIRMATION_REDIRECT_URL` in `src/hooks/useSupabaseSession.ts`; the callback handler accepts `code`, session credentials, and `token_hash` confirmation links.
 - Use a test account that has completed confirmation for live smoke.
 
 Supabase project link:

@@ -17,6 +17,7 @@ type VerifyOtpInput = Parameters<AuthService["verifyOtp"]>[0];
 
 export type SupabaseSessionStatus = "starting" | "missing_config" | "ready" | "error";
 export type AuthCallbackStatus = "idle" | "processing" | "success" | "error";
+export const ACCOUNT_CONFIRMATION_REDIRECT_URL = "corneriq://auth/confirm";
 export const PASSWORD_RESET_REDIRECT_URL = "corneriq://auth/update-password";
 
 export interface UseSupabaseSessionOptions {
@@ -443,7 +444,7 @@ export function useSupabaseSession(options: UseSupabaseSessionOptions = {}): Sup
       setAuthError(null);
       setAuthMessage(null);
       try {
-        const { error } = await auth.signUpWithPassword(credentials.email, credentials.password);
+        const { error } = await auth.signUpWithPassword(credentials.email, credentials.password, ACCOUNT_CONFIRMATION_REDIRECT_URL);
         setAuthError(error?.message ?? null);
         setAuthMessage(error ? null : "Check your email to confirm the new account if confirmation is enabled.");
       } catch (error) {
