@@ -535,6 +535,58 @@ function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   );
 }
 
+function MacroProgressTile({ item }: { item: FuelDashboardVisual["macros"][number] }) {
+  const color = colorForTone(item.tone);
+  return (
+    <View
+      accessibilityLabel={`${item.label}: ${item.valueLabel} of ${item.targetLabel}`}
+      style={{
+        backgroundColor: fuelPalette.controlFill,
+        borderColor: fuelTint(item.tone, item.tone === "muted" ? "2A" : "3D"),
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexBasis: 104,
+        flexGrow: 1,
+        gap: spacing.xs,
+        minHeight: 104,
+        minWidth: 96,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.md
+      }}
+    >
+      <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between", gap: spacing.xs }}>
+        <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, flex: 1, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{item.label}</Text>
+        {item.stateLabel ? <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13 }}>{item.stateLabel}</Text> : null}
+      </View>
+      <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={1} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 24 }}>
+        {item.valueLabel}
+      </Text>
+      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
+        <View style={{ backgroundColor: color, borderRadius: radii.pill, height: 6, width: `${Math.round(item.ratio * 100)}%` }} />
+      </View>
+      <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>of {item.targetLabel}</Text>
+    </View>
+  );
+}
+
+function MacroTargetsCard({ dashboard, viewModel }: { dashboard: FuelDashboardVisual; viewModel: FuelViewModel }) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="fuel-macro-targets-card">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={fuelTextStyles.sectionTitle}>Protein / carbs / fat</Text>
+          <Text style={fuelTextStyles.subtle}>{plainFuelCopy(viewModel.macroTargets.logStatus)}</Text>
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {dashboard.macros.map((item) => <MacroProgressTile item={item} key={`fuel-visible-macro:${item.label}`} />)}
+        </View>
+        <Text style={fuelTextStyles.subtle}>Calories-only is okay when that is all you know. Macro gaps stay unknown.</Text>
+      </View>
+    </EngineCard>
+  );
+}
+
 function timingIcon(id: string): keyof typeof Ionicons.glyphMap {
   if (/post/i.test(id)) {
     return "refresh-outline";
@@ -1222,6 +1274,7 @@ function FuelOverview({
   return (
     <View style={{ gap: spacing.md }} testID="fuel-overview">
       <TodayFuelPlanCard busy={busy} onLogFood={onLogFood} onLogHydration={onLogHydration} plan={plan} primaryLog={primaryLog} />
+      <MacroTargetsCard dashboard={dashboard} viewModel={viewModel} />
       <FuelKeyNumbersCard dashboard={dashboard} hasActiveWeightTarget={hasActiveWeightTarget} preferredUnits={preferredUnits} safety={safety} viewModel={viewModel} />
       <CutRunwayCard preferredUnits={preferredUnits} viewModel={viewModel} />
       <WeightTrendCard dashboard={dashboard} plan={plan} preferredUnits={preferredUnits} viewModel={viewModel} />

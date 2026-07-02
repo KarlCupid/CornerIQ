@@ -120,10 +120,11 @@ export function parseOptionalISODateTime(value: string, label: string, options: 
   if (!trimmed) {
     return undefined;
   }
-  if (!trimmed.includes("T") || !Number.isFinite(Date.parse(trimmed))) {
-    throw new FormValidationError(formatRequirement(label, "enter a valid ISO datetime", { example: "2026-06-20T08:00:00.000Z", ...options, required: false }));
+  const candidate = trimmed.includes("T") ? trimmed : trimmed.replace(/\s+/, "T");
+  if (!candidate.includes("T") || !Number.isFinite(Date.parse(candidate))) {
+    throw new FormValidationError(formatRequirement(label, "enter a valid date and time", { example: "2026-06-20 08:00 or 2026-06-20T08:00:00.000Z", ...options, required: false }));
   }
-  return trimmed;
+  return new Date(candidate).toISOString();
 }
 
 export function parseRequiredTimeHHMM(value: string, label: string, options: ValidationCopyOptions = {}): string {

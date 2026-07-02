@@ -1609,6 +1609,7 @@ export function PlanScreen({
   const goalWizardContent = goalWizardOpen ? (
     <PlanGoalFlowCard
       asOfDate={asOfDate}
+      bodyMassContext={viewModel.bodyMassContext}
       busy={goalBusy}
       currentModeLabel={viewModel.modeLabel}
       existingFixedSchedule={viewModel.fixedSchedule}

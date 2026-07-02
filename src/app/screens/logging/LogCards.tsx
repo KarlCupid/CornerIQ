@@ -274,7 +274,17 @@ function foodEnergyPreview(
   return { message: validation.athleteFacingMessage, valid: validation.valid };
 }
 
-export function BodyMassLogCard({ actions, busy, compact = false, forceOpen, framed, onLogged, preferredUnits = "metric", status }: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined }) {
+export function BodyMassLogCard({
+  actions,
+  busy,
+  compact = false,
+  forceOpen,
+  framed,
+  onLogged,
+  preferredUnits = "metric",
+  status,
+  title = "Body weight"
+}: QuickLogCardProps & { preferredUnits?: "metric" | "imperial" | undefined; status?: BodyMassTodayStatus | undefined; title?: string | undefined }) {
   const [bodyMassValue, setBodyMassValue] = useState("");
   const { message: error, runWithMessage } = useFormMessage("Body weight log failed.");
   const [success, setSuccess] = useState<string | null>(null);
@@ -282,7 +292,7 @@ export function BodyMassLogCard({ actions, busy, compact = false, forceOpen, fra
   const unitLabel = usesImperial ? "lb" : "kg";
   const bodyMassExample = usesImperial ? "146" : "66.4";
   return (
-    <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title="Body weight">
+    <DailyLogFrame busy={busy} forceOpen={forceOpen} framed={framed} status={status} title={title}>
         {compact ? null : <QuickLogHelp />}
         {error ? <Text style={[screenStyles.subtle, { color: colors.redCorner }]}>{error}</Text> : null}
         {success ? <Text style={screenStyles.successText}>{success}</Text> : null}

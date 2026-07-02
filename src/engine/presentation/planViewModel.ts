@@ -84,6 +84,38 @@ function modeLabel(state: PerformanceState): PlanViewModel["modeLabel"] {
   return "Build phase";
 }
 
+function kgLabel(value: number | null): string {
+  return value === null ? "unknown" : `${value.toFixed(1)} kg`;
+}
+
+function planBodyMassContext(state: PerformanceState): PlanViewModel["bodyMassContext"] {
+  const latestKg = state.bodyMass.trend.latestKg;
+  const latestDate = state.bodyMass.trend.latestDate;
+  const autoFilledFromTodayLog = latestKg !== null && latestDate === state.asOfDate;
+  if (autoFilledFromTodayLog) {
+    return {
+      currentWeightLabel: `${kgLabel(latestKg)} today`,
+      statusLabel: "Auto-filled from today's log",
+      helperCopy: "Update the body-weight log from Today or Fuel if it changed. Missing scale data is never treated as safe.",
+      autoFilledFromTodayLog: true
+    };
+  }
+  if (latestKg !== null && latestDate !== null) {
+    return {
+      currentWeightLabel: `${kgLabel(latestKg)} on ${latestDate}`,
+      statusLabel: "Latest body weight available",
+      helperCopy: "Weight-class decisions still use freshness gates; log today if the number has changed.",
+      autoFilledFromTodayLog: false
+    };
+  }
+  return {
+    currentWeightLabel: "Not logged",
+    statusLabel: "Current weight unknown",
+    helperCopy: "CornerIQ does not assume missing body-weight data is safe. Manual logging remains optional.",
+    autoFilledFromTodayLog: false
+  };
+}
+
 function compactTagForDay(day: Pick<TrainingDayPlan, "generatedSessions" | "protectedAnchors" | "role">): "Protected" | "Support" | "Recovery" | "Open" {
   if (day.protectedAnchors.length > 0) {
     return "Protected";
@@ -996,6 +1028,7 @@ export function buildPlanViewModel(state: PerformanceState): PlanViewModel {
           ? "Fight week taper protects speed and freshness."
           : null,
     cutRunway,
+    bodyMassContext: planBodyMassContext(state),
     warnings: state.safety.riskFlags.filter((flag) => flag.blocksPlan).map((flag) => flag.message)
   };
 }

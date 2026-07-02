@@ -1048,6 +1048,12 @@ const planViewModel: PlanViewModel = {
     boundaryCopy: "No fight-week cut runway is active.",
     reviewRequired: false
   },
+  bodyMassContext: {
+    currentWeightLabel: "68.0 kg today",
+    statusLabel: "Auto-filled from today's log",
+    helperCopy: "Update the body-weight log from Today or Fuel if it changed. Missing scale data is never treated as safe.",
+    autoFilledFromTodayLog: true
+  },
   warnings: ["Missing readiness lowers confidence."]
 };
 
@@ -2204,6 +2210,9 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Start workout");
     expect(output).toContain("Training Today");
     expect(output).toContain("Fuel Today");
+    expect(output).toContain("today-daily-weight-log");
+    expect(output).toContain("Daily weight (optional)");
+    expect(output).toContain("Update body weight");
     expect(output).toContain("This Week");
     expect(output).toContain("today-load-graph-card");
     expect(output).toContain("today-workout-log-graph");
@@ -2255,6 +2264,56 @@ describe("minimal app screens", () => {
     expect(detailsOutput).toContain("Recent logs");
     expect(detailsOutput).toContain("Missing info stays unknown.");
     expect(detailsOutput.indexOf("today-hero-card")).toBeLessThan(detailsOutput.indexOf("Training Today"));
+  });
+
+  it("TodayScreen keeps optional body-weight logging visible without making it mandatory", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const logBodyMass = vi.fn(async () => undefined);
+    const missingBodyMassLogs: RecentLogsViewModel = {
+      ...recentLogsViewModel,
+      bodyMassToday: {
+        loggedToday: false,
+        actionLabel: "Log body weight",
+        status: "optional_today",
+        statusLabel: "Optional today",
+        summary: "No weight target needs a scale check today.",
+        why: "Body weight helps trends, but it is not required outside a cut or active weight target."
+      }
+    };
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: todayViewModel,
+        recentLogs: missingBodyMassLogs,
+        cycleContext: null,
+        quickLogs: { ...quickLogActions, logBodyMass },
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        busy: false,
+        message: null,
+        trainViewModel,
+        onOpenFuelLog: vi.fn(),
+        onOpenTrainWorkout: vi.fn()
+      })
+    );
+
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("today-daily-weight-log");
+    expect(output).toContain("Daily weight (optional)");
+    expect(output).toContain("Optional today");
+    expect(output).toContain("Body weight (kg)");
+    expect(output).not.toContain("today-quick-check-modal");
+
+    act(() => {
+      changeInputWithAccessibilityLabel(renderer, "Body weight (kg)", "68.4");
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Log body weight"));
+    });
+
+    expect(logBodyMass).toHaveBeenCalledWith({ bodyMassKg: 68.4 });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Body weight saved in kg");
   });
 
   it("TodayScreen handles every quick action and opens quick-check controls", async () => {
@@ -3015,9 +3074,14 @@ describe("minimal app screens", () => {
     expect(output).toContain("Weight");
     expect(output).not.toContain("To weight");
     expect(output).not.toContain("Body check");
+    expect(output).toContain("fuel-macro-targets-card");
+    expect(output).toContain("Protein / carbs / fat");
+    expect(output).toContain("80g");
+    expect(output).toContain("140g");
+    expect(output).toContain("35g");
+    expect(output).toContain("260g");
     expect(output).toContain("Training fuel priorities");
     expect(output).toContain("Normal meal timing");
-    expect(output).not.toContain("260g");
     expect(output).not.toContain("Training Today");
     expect(output).toContain("Weight Trend");
     expect(output).not.toContain("Cut runway");
@@ -3042,6 +3106,8 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
     expect(output.indexOf("Fuel status:")).toBeLessThan(output.indexOf("Pre-session"));
+    expect(output.indexOf("Log meal")).toBeLessThan(output.indexOf("fuel-macro-targets-card"));
+    expect(output.indexOf("fuel-macro-targets-card")).toBeLessThan(output.indexOf("Weight Trend"));
     expect(output.indexOf("Pre-session")).toBeLessThan(output.indexOf("Weight Trend"));
     expect(output.indexOf("Weight Trend")).toBeLessThan(output.indexOf("Training fuel priorities"));
 
@@ -5200,10 +5266,10 @@ describe("minimal app screens", () => {
     output = JSON.stringify(renderer.toJSON());
     expect(output).toContain("plan-wizard-details-step");
     expect(output).toContain("Support workout dose");
-    expect(output).toContain("Sub-focus");
+    expect(output).toContain("Specific target");
     expect(output).not.toContain("Support days per week");
     await switchSection(renderer, "Conditioning");
-    await switchSection(renderer, "Intervals");
+    await switchSection(renderer, "Interval conditioning");
 
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
@@ -5446,7 +5512,7 @@ describe("minimal app screens", () => {
 
     await switchSection(renderer, "Adjust plan");
     expect(JSON.stringify(renderer.toJSON())).toContain("Generate new plan");
-    expect(JSON.stringify(renderer.toJSON())).toContain("Build general boxing fitness");
+    expect(JSON.stringify(renderer.toJSON())).toContain("Build phase");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5481,13 +5547,21 @@ describe("minimal app screens", () => {
     expect(savedBuildDraft).not.toHaveProperty("supportDaysPerWeek");
 
     await switchSection(renderer, "Adjust plan");
-    await switchSection(renderer, "Enter fight camp");
+    await switchSection(renderer, "Fight camp");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
+    let output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Current weight");
+    expect(output).toContain("68.0 kg today");
+    expect(output).toContain("Auto-filled from today");
+    expect(output).toContain("Fight date");
+    expect(output).toContain("Weigh-in target (kg)");
+    expect(output).toContain("Optional official details");
+    expect(output).not.toContain("Advanced fields");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5497,13 +5571,20 @@ describe("minimal app screens", () => {
     expect(onSaveFightSetup).toHaveBeenCalledWith(expect.objectContaining({ boutDate: fixtureAsOfDate }));
 
     await switchSection(renderer, "Adjust plan");
-    await switchSection(renderer, "Enter tournament mode");
+    await switchSection(renderer, "Tournament");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
+    output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain("Current weight");
+    expect(output).toContain("Tournament dates");
+    expect(output).toContain("Target weight source");
+    expect(output).toContain("Use fight / weight-class setup");
+    expect(output).toContain("Daily weigh-in time");
+    expect(output).toContain("Optional timing details");
     await act(async () => {
       await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
     });
@@ -5527,6 +5608,62 @@ describe("minimal app screens", () => {
       await press(pressableWithAccessibilityLabel(renderer, "Save recovery goal"));
     });
     expect(onSaveRecoveryGoal).toHaveBeenCalledWith(expect.objectContaining({ focus: "general" }));
+  });
+
+  it("Plan generation wizard saves short-notice fight camp with a normalized weigh-in datetime", async () => {
+    const { PlanScreen } = await import("../../app/screens/PlanScreen");
+    const onSaveFightSetup = vi.fn(async () => undefined);
+    const fightDate = addDays(fixtureAsOfDate, 7);
+    const weighInDate = addDays(fightDate, -1);
+    const renderer = render(
+      React.createElement(PlanScreen, {
+        asOfDate: fixtureAsOfDate,
+        busy: false,
+        hasActiveFightOrTournament: false,
+        isMinor: false,
+        onSaveFightSetup,
+        onSaveTournamentSetup: vi.fn(),
+        viewModel: planViewModel
+      })
+    );
+
+    await switchSection(renderer, "Adjust plan");
+    await switchSection(renderer, "Fight camp");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    await switchSection(renderer, "Short notice");
+    await switchSection(renderer, "Day before");
+    act(() => {
+      changeInputWithAccessibilityLabel(renderer, "Fight date", fightDate);
+      changeInputWithAccessibilityLabel(renderer, "Weigh-in target (kg)", "67");
+      changeInputWithAccessibilityLabel(renderer, "Allowance (kg)", "0");
+    });
+    await switchSection(renderer, "Optional official details");
+    act(() => {
+      changeInputWithAccessibilityLabel(renderer, "Exact weigh-in date/time", `${weighInDate}T08:00Z`);
+    });
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Next plan wizard step"));
+    });
+    expect(JSON.stringify(renderer.toJSON())).not.toContain("invalid date in json format");
+    await act(async () => {
+      await press(pressableWithAccessibilityLabel(renderer, "Save fight camp goal"));
+    });
+
+    expect(onSaveFightSetup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowanceKg: 0,
+        boutDate: fightDate,
+        contractedWeightKg: 67,
+        status: "short_notice",
+        weighInDateTime: `${weighInDate}T08:00:00.000Z`,
+        weighInType: "day_before"
+      })
+    );
   });
 
   it("Plan and Train screens render explicit engine generation pending states", async () => {

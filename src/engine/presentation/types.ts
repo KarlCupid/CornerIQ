@@ -936,6 +936,12 @@ export interface PlanViewModel {
   supportWorkReason: string | null;
   fightOrTournamentNote: string | null;
   cutRunway: BodyMassTrajectoryViewModel["cutRunway"];
+  bodyMassContext: {
+    currentWeightLabel: string;
+    statusLabel: string;
+    helperCopy: string;
+    autoFilledFromTodayLog: boolean;
+  };
   warnings: readonly string[];
 }
 

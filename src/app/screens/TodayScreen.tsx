@@ -864,6 +864,38 @@ function FuelTodayCard({
   );
 }
 
+function TodayDailyWeightCard({
+  busy,
+  preferredUnits,
+  quickLogs,
+  recentLogs
+}: {
+  busy: boolean;
+  preferredUnits: "metric" | "imperial";
+  quickLogs: QuickLogActions;
+  recentLogs: RecentLogsViewModel;
+}) {
+  return (
+    <EngineCard>
+      <View style={{ gap: spacing.md }} testID="today-daily-weight-log">
+        <View style={{ gap: spacing.xs }}>
+          <Text style={screenStyles.sectionTitle}>Daily weight (optional)</Text>
+          <Text style={screenStyles.subtle}>Log a morning scale reading when you have one. Skip it when you do not.</Text>
+        </View>
+        <BodyMassLogCard
+          actions={quickLogs}
+          busy={busy}
+          compact
+          framed={false}
+          preferredUnits={preferredUnits}
+          status={recentLogs.bodyMassToday}
+          title="Body weight"
+        />
+      </View>
+    </EngineCard>
+  );
+}
+
 function ThisWeekCard({
   busy,
   model,
@@ -1168,6 +1200,7 @@ export function TodayScreen({
           checkIn={checkIn}
           resolveAction={resolveAction}
         />
+        <TodayDailyWeightCard busy={busy} preferredUnits={preferredUnits} quickLogs={quickLogs} recentLogs={recentLogs} />
         <TrainingTodayCard busy={busy} model={trainingToday} resolveAction={resolveAction} />
         <FuelTodayCard busy={busy} model={fuelToday} resolveAction={resolveAction} />
         <ThisWeekCard busy={busy} model={weekToday} onOpenPlan={onOpenPlan} />

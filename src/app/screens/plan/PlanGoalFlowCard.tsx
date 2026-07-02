@@ -40,9 +40,11 @@ type AnchorMode = "weekly" | "one_off";
 type GeneratedSupportDay = PlanViewModel["generatedSupportAvailability"]["selectedDays"][number];
 type FixedSession = PlanViewModel["fixedSchedule"][number];
 type WeeklyAnchor = PlanViewModel["weeklyAnchors"][number];
+type OptionDetail<TValue extends string> = { description: string; label: string; value: TValue };
 
 export interface PlanGoalFlowCardProps {
   asOfDate: ISODateString;
+  bodyMassContext?: PlanViewModel["bodyMassContext"] | undefined;
   busy: boolean;
   currentModeLabel: PlanViewModel["modeLabel"];
   existingFixedSchedule: readonly FixedSession[];
@@ -67,11 +69,11 @@ const wizardSteps: readonly { key: WizardStep; label: string }[] = [
   { key: "review", label: "Review" }
 ];
 
-const goalOptions: readonly { label: string; value: GoalMode }[] = [
-  { label: "Build general boxing fitness", value: "build" },
-  { label: "Enter fight camp", value: "fight" },
-  { label: "Enter tournament mode", value: "tournament" },
-  { label: "Recovery / maintenance", value: "recovery" }
+const goalOptions: readonly OptionDetail<GoalMode>[] = [
+  { label: "Build phase", value: "build", description: "No fight date. Build strength, conditioning, power, skill, or mobility around boxing." },
+  { label: "Fight camp", value: "fight", description: "Use when there is a real bout date, even if details are still tentative." },
+  { label: "Tournament", value: "tournament", description: "Use for repeated weigh-ins, possible same-day bouts, and multi-day recovery needs." },
+  { label: "Recovery / maintenance", value: "recovery", description: "Use after a bout, during travel, or when training should stay conservative." }
 ];
 
 const availableDayOptions: readonly { label: string; value: GeneratedSupportDay }[] = [
@@ -96,14 +98,69 @@ const weekdayOptions: readonly { label: string; value: RecurringProtectedWorkout
 
 type BuildSubFocus = NonNullable<BuildGoalDraft["subFocus"]>;
 
-const buildFocusOptions: readonly BuildGoalDraft["primaryFocus"][] = ["balanced", "power", "conditioning", "strength", "boxing_skill", "mobility"];
+const buildFocusOptions: readonly OptionDetail<BuildGoalDraft["primaryFocus"]>[] = [
+  { label: "Balanced", value: "balanced", description: "A mix of strength, conditioning, skill, and recovery when nothing needs priority." },
+  { label: "Strength", value: "strength", description: "Choose a clear strength target like upper body, lower body, full body, or posture." },
+  { label: "Conditioning", value: "conditioning", description: "Build aerobic base, repeatable rounds, intervals, or boxing-specific engine work." },
+  { label: "Power", value: "power", description: "Improve rotational power, first-step speed, short bursts, or reaction timing." },
+  { label: "Boxing skill", value: "boxing_skill", description: "Target jab work, footwork, entries, exits, counters, pressure, or bag skill." },
+  { label: "Mobility / recovery", value: "mobility", description: "Use when hips, shoulders, trunk posture, soreness, travel, or recovery need priority." }
+];
 const strengthSubFocusOptions: readonly BuildSubFocus[] = ["full_body_strength", "lower_body_strength", "posterior_chain_strength", "upper_body_trunk_strength", "unilateral_control", "stance_posture_strength", "strength_maintenance"];
 const powerSubFocusOptions: readonly BuildSubFocus[] = ["rotational_power", "first_step_explosiveness", "alactic_speed", "reaction_timing", "power_maintenance"];
 const conditioningSubFocusOptions: readonly BuildSubFocus[] = ["aerobic_base", "repeatable_rounds", "tempo", "intervals", "sprint_alactic_conditioning", "boxing_specific_conditioning", "recovery_conditioning"];
 const boxingSkillSubFocusOptions: readonly BuildSubFocus[] = ["jab_system", "entries_exits", "defense_after_punching", "footwork_ringcraft", "counter_timing", "pressure_control", "outside_movement", "bag_skill", "shadowboxing_mechanics"];
 const mobilitySubFocusOptions: readonly BuildSubFocus[] = ["hips_ankles", "shoulders_thoracic", "trunk_guard_posture", "general_recovery", "post_bout", "travel", "soreness_management"];
-const trainingDoseOptions: readonly NonNullable<BuildGoalDraft["trainingDose"]>[] = ["minimal", "standard", "serious", "high"];
-const recoveryFocusOptions: readonly NonNullable<RecoveryGoalDraft["focus"]>[] = ["general", "soreness", "sleep", "travel", "post_bout"];
+const subFocusDetails: Record<BuildSubFocus, Omit<OptionDetail<BuildSubFocus>, "value">> = {
+  full_body_strength: { label: "Full body strength", description: "General strength support across legs, trunk, and upper body." },
+  lower_body_strength: { label: "Lower body strength", description: "Leg strength for stance, pressure, balance, and drive." },
+  posterior_chain_strength: { label: "Hips + posterior chain", description: "Glutes, hamstrings, and back-side strength for stance and punching base." },
+  upper_body_trunk_strength: { label: "Upper body strength", description: "Upper body and trunk strength for guard, clinch posture, and punch support." },
+  unilateral_control: { label: "Single-leg control", description: "One-side-at-a-time control for balance, pivots, and ring movement." },
+  stance_posture_strength: { label: "Stance posture strength", description: "Strength that helps hold boxing stance and guard shape." },
+  strength_maintenance: { label: "Maintain strength", description: "Keep strength topped up without adding much fatigue." },
+  rotational_power: { label: "Rotational power", description: "Hip-to-shoulder power for harder punching mechanics." },
+  first_step_explosiveness: { label: "First-step speed", description: "Explosive starts for entries, exits, and angle changes." },
+  alactic_speed: { label: "Short burst power", description: "Very short high-quality bursts with full recovery." },
+  reaction_timing: { label: "Reaction timing", description: "Fast response work without turning it into extra contact." },
+  power_maintenance: { label: "Maintain power", description: "Keep explosiveness sharp with low volume." },
+  aerobic_base: { label: "Aerobic base", description: "Easy engine work for recovery between sessions and rounds." },
+  repeatable_rounds: { label: "Repeatable rounds", description: "Conditioning for sustaining output round after round." },
+  tempo: { label: "Tempo conditioning", description: "Controlled moderate work that is harder than easy base, below all-out intervals." },
+  intervals: { label: "Interval conditioning", description: "Structured hard/easy work when readiness and schedule can support it." },
+  sprint_alactic_conditioning: { label: "Sprint bursts", description: "Short sprint-style efforts without grinding fatigue." },
+  boxing_specific_conditioning: { label: "Boxing conditioning", description: "Conditioning shaped around boxing rhythm, stance, and footwork." },
+  recovery_conditioning: { label: "Easy recovery conditioning", description: "Very light movement to support recovery and circulation." },
+  jab_system: { label: "Jab system", description: "Build jab rhythm, positioning, and follow-up options." },
+  entries_exits: { label: "Entries and exits", description: "Get in, score, and get out with cleaner footwork." },
+  defense_after_punching: { label: "Defense after punching", description: "Finish combinations with guard, angle, or exit habits." },
+  footwork_ringcraft: { label: "Footwork / ring craft", description: "Positioning, pivots, cutting space, and staying balanced." },
+  counter_timing: { label: "Counter timing", description: "Timing windows and reactions without contact drills." },
+  pressure_control: { label: "Pressure control", description: "Step in behind shape, balance, and controlled pressure." },
+  outside_movement: { label: "Outside movement", description: "Range control, lateral movement, and long-distance boxing." },
+  bag_skill: { label: "Bag skill", description: "Bag work themes without treating the bag as generic conditioning." },
+  shadowboxing_mechanics: { label: "Shadowboxing mechanics", description: "Clean stance, guard, rhythm, and non-contact technique." },
+  hips_ankles: { label: "Hips and ankles", description: "Mobility for stance depth, pivots, and footwork comfort." },
+  shoulders_thoracic: { label: "Shoulders and upper back", description: "Shoulder and upper-back range for guard, punching, and posture." },
+  trunk_guard_posture: { label: "Trunk / guard posture", description: "Trunk mobility and positioning that supports guard shape." },
+  general_recovery: { label: "General recovery", description: "Simple reset work when fatigue or stress is the main issue." },
+  post_bout: { label: "Post-bout reset", description: "Low-pressure movement after competition." },
+  travel: { label: "Travel reset", description: "Mobility and light work around flights, drives, or hotel constraints." },
+  soreness_management: { label: "Soreness management", description: "Gentle movement when soreness needs priority." }
+};
+const trainingDoseOptions: readonly OptionDetail<NonNullable<BuildGoalDraft["trainingDose"]>>[] = [
+  { label: "Minimal", value: "minimal", description: "Lowest app workload. Useful for short notice, heavy boxing weeks, or low readiness." },
+  { label: "Standard", value: "standard", description: "Default support dose for most weeks with a normal boxing schedule." },
+  { label: "Serious", value: "serious", description: "More app support when recovery, food, and schedule are consistent." },
+  { label: "High", value: "high", description: "Most demanding option. The engine still caps work around safety and boxing." }
+];
+const recoveryFocusOptions: readonly OptionDetail<NonNullable<RecoveryGoalDraft["focus"]>>[] = [
+  { label: "General recovery", value: "general", description: "Default reset when no single recovery issue stands out." },
+  { label: "Soreness", value: "soreness", description: "Prioritize low-pressure movement and soreness management." },
+  { label: "Sleep", value: "sleep", description: "Keep training conservative when sleep is the main limiter." },
+  { label: "Travel", value: "travel", description: "Plan around travel fatigue, limited equipment, and disrupted routines." },
+  { label: "Post-bout", value: "post_bout", description: "Use after competition before normal training resumes." }
+];
 const anchorTypeOptions: readonly { label: string; value: ProtectedWorkoutDraft["type"] }[] = [
   { label: "Boxing class", value: "boxing_class" },
   { label: "Technical session", value: "technical_session" },
@@ -149,6 +206,54 @@ function OptionButton({ active, busy, label, onPress }: { active: boolean; busy:
       })}
     >
       <Text style={{ color: active ? planPalette.textPrimary : planPalette.textBody, fontFamily: fontFamilies.bold, fontSize: 14, fontWeight: "700", lineHeight: 18, textAlign: "center" }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function DescribedOptionButton({
+  active,
+  busy,
+  description,
+  label,
+  onPress
+}: {
+  active: boolean;
+  busy: boolean;
+  description: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy, selected: active }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: "flex-start",
+        backgroundColor: active ? "rgba(56, 226, 138, 0.14)" : pressed ? "rgba(230, 247, 234, 0.095)" : "rgba(230, 247, 234, 0.055)",
+        borderColor: active ? "rgba(56, 226, 138, 0.5)" : "rgba(210, 244, 221, 0.16)",
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        boxShadow: active ? "0 10px 26px rgba(56, 226, 138, 0.14)" : "0 8px 22px rgba(0, 0, 0, 0.16)",
+        flexBasis: 158,
+        flexGrow: 1,
+        gap: 3,
+        justifyContent: "center",
+        minHeight: 72,
+        minWidth: 138,
+        opacity: busy ? 0.58 : 1,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      })}
+    >
+      <Text style={{ color: active ? planPalette.textPrimary : planPalette.textBody, fontFamily: fontFamilies.bold, fontSize: 14, fontWeight: "800", lineHeight: 18 }}>
+        {label}
+      </Text>
+      <Text style={{ color: planPalette.textMuted, fontFamily: fontFamilies.medium, fontSize: 12, fontWeight: "600", lineHeight: 16 }}>
+        {description}
+      </Text>
     </Pressable>
   );
 }
@@ -227,6 +332,92 @@ function WizardNotice({
   );
 }
 
+function WizardField({
+  helper,
+  keyboardType,
+  label,
+  onChangeText,
+  placeholder,
+  value
+}: {
+  helper?: string | undefined;
+  keyboardType?: React.ComponentProps<typeof TextInput>["keyboardType"];
+  label: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <View style={{ flexBasis: 150, flexGrow: 1, gap: spacing.xs, minWidth: 132 }}>
+      <Text style={screenStyles.fieldLabel}>{label}</Text>
+      <TextInput
+        accessibilityLabel={label}
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.wrap}
+        style={screenStyles.input}
+        value={value}
+      />
+      {helper ? <Text style={screenStyles.subtle}>{helper}</Text> : null}
+    </View>
+  );
+}
+
+function WizardFactField({
+  helper,
+  label,
+  value
+}: {
+  helper?: string | undefined;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={{ flexBasis: 150, flexGrow: 1, gap: spacing.xs, minWidth: 132 }}>
+      <Text style={screenStyles.fieldLabel}>{label}</Text>
+      <View
+        accessibilityLabel={`${label}: ${value}`}
+        style={{
+          backgroundColor: "rgba(230, 247, 234, 0.035)",
+          borderColor: "rgba(210, 244, 221, 0.14)",
+          borderCurve: "continuous",
+          borderRadius: radii.tile,
+          borderWidth: 1,
+          justifyContent: "center",
+          minHeight: 48,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm
+        }}
+      >
+        <Text selectable style={{ color: planPalette.textPrimary, fontFamily: fontFamilies.medium, fontSize: 16, fontWeight: "600", lineHeight: 22 }}>
+          {value}
+        </Text>
+      </View>
+      {helper ? <Text style={screenStyles.subtle}>{helper}</Text> : null}
+    </View>
+  );
+}
+
+function WizardFieldGroup({
+  children,
+  helper,
+  title
+}: React.PropsWithChildren<{
+  helper?: string | undefined;
+  title: string;
+}>) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View style={{ gap: spacing.xs }}>
+        <Text style={screenStyles.fieldLabel}>{title}</Text>
+        {helper ? <Text style={screenStyles.subtle}>{helper}</Text> : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
 function parseHourList(value: string): number[] {
   const hours = value
     .split(",")
@@ -248,7 +439,27 @@ function titleCase(value: string): string {
 }
 
 function goalLabel(mode: GoalMode): string {
-  return goalOptions.find((option) => option.value === mode)?.label ?? "Build general boxing fitness";
+  return goalOptions.find((option) => option.value === mode)?.label ?? "Build phase";
+}
+
+function primaryFocusLabel(value: BuildGoalDraft["primaryFocus"]): string {
+  return buildFocusOptions.find((option) => option.value === value)?.label ?? titleCase(value);
+}
+
+function subFocusLabel(value: BuildSubFocus): string {
+  return subFocusDetails[value]?.label ?? titleCase(value);
+}
+
+function subFocusDescription(value: BuildSubFocus): string {
+  return subFocusDetails[value]?.description ?? "Focused app support around this boxing need.";
+}
+
+function trainingDoseLabel(value: NonNullable<BuildGoalDraft["trainingDose"]>): string {
+  return trainingDoseOptions.find((option) => option.value === value)?.label ?? titleCase(value);
+}
+
+function recoveryFocusLabel(value: NonNullable<RecoveryGoalDraft["focus"]>): string {
+  return recoveryFocusOptions.find((option) => option.value === value)?.label ?? titleCase(value);
 }
 
 function defaultPlanAction(_currentModeLabel: PlanViewModel["modeLabel"], _nextMode: GoalMode): PlanLifecycleAction {
@@ -344,8 +555,40 @@ function finalAccessibilityLabel(mode: GoalMode): string {
   return "Save build goal";
 }
 
+function optionalDisplayNumber(value: string): number | null {
+  if (!value.trim()) {
+    return null;
+  }
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function fightOfficialTargetLabel(contractedWeightKg: string, allowanceKg: string): string {
+  const contracted = optionalDisplayNumber(contractedWeightKg);
+  const allowance = optionalDisplayNumber(allowanceKg) ?? 0;
+  if (contracted === null || contracted <= 0 || allowance < 0) {
+    return "Enter a target";
+  }
+  return `${(contracted + allowance).toFixed(1)} kg`;
+}
+
+function fightTargetHelper(contractedWeightKg: string, allowanceKg: string): string {
+  const target = fightOfficialTargetLabel(contractedWeightKg, allowanceKg);
+  return target === "Enter a target" ? "Used as the official weigh-in target after allowance." : `Official target after allowance: ${target}.`;
+}
+
+function defaultBodyMassContext(): PlanViewModel["bodyMassContext"] {
+  return {
+    currentWeightLabel: "Not logged",
+    statusLabel: "Current weight unknown",
+    helperCopy: "CornerIQ does not assume missing body-weight data is safe. Manual logging remains optional.",
+    autoFilledFromTodayLog: false
+  };
+}
+
 export function PlanGoalFlowCard({
   asOfDate,
+  bodyMassContext,
   busy,
   currentModeLabel,
   existingFixedSchedule,
@@ -362,6 +605,7 @@ export function PlanGoalFlowCard({
 }: PlanGoalFlowCardProps) {
   const defaultFight = createDefaultFightDraft(asOfDate);
   const defaultTournament = createDefaultTournamentDraft(asOfDate);
+  const effectiveBodyMassContext = bodyMassContext ?? defaultBodyMassContext();
   const [step, setStep] = React.useState<WizardStep>("goal");
   const [mode, setMode] = React.useState<GoalMode>("build");
   const [planAction, setPlanAction] = React.useState<PlanLifecycleAction>(() => defaultPlanAction(currentModeLabel, "build"));
@@ -678,29 +922,33 @@ export function PlanGoalFlowCard({
       return [
         `Status: ${titleCase(status)}`,
         `Ruleset: ${titleCase(amateurOrPro)}`,
+        `Current weight: ${effectiveBodyMassContext.currentWeightLabel}`,
         `Bout date: ${boutDate}`,
+        `Official target: ${fightOfficialTargetLabel(contractedWeightKg, allowanceKg)}`,
         `Weigh-in timing: ${titleCase(weighInType)}`,
-        `Training dose: ${titleCase(trainingDose)}`
+        `Training dose: ${trainingDoseLabel(trainingDose)}`
       ];
     }
     if (mode === "tournament") {
       return [
+        `Current weight: ${effectiveBodyMassContext.currentWeightLabel}`,
         `Dates: ${tournamentStartDate} to ${tournamentEndDate}`,
         `Possible bout days: ${possibleBoutDates}`,
+        `Daily weigh-ins: ${dailyWeighIns ? "Yes" : "No"}`,
         `Possible bouts: ${numberOfPotentialBouts}`,
         `Strategy: ${titleCase(strategyMode)}`,
-        `Training dose: ${titleCase(trainingDose)}`
+        `Training dose: ${trainingDoseLabel(trainingDose)}`
       ];
     }
     if (mode === "recovery") {
       return [
         `Duration: ${recoveryDurationDays.trim() ? `${recoveryDurationDays.trim()} days` : "Engine default"}`,
-        `Focus: ${titleCase(recoveryFocus)}`,
-        `Training dose: ${titleCase(trainingDose)}`
+        `Focus: ${recoveryFocusLabel(recoveryFocus)}`,
+        `Training dose: ${trainingDoseLabel(trainingDose)}`
       ];
     }
-    return [`Primary focus: ${titleCase(primaryFocus)}`, `Sub-focus: ${titleCase(subFocus)}`, `Training dose: ${titleCase(trainingDose)}`];
-  }, [amateurOrPro, boutDate, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, subFocus, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
+    return [`Primary focus: ${primaryFocusLabel(primaryFocus)}`, `Specific target: ${subFocusLabel(subFocus)}`, `Training dose: ${trainingDoseLabel(trainingDose)}`];
+  }, [allowanceKg, amateurOrPro, boutDate, contractedWeightKg, dailyWeighIns, effectiveBodyMassContext.currentWeightLabel, mode, numberOfPotentialBouts, possibleBoutDates, primaryFocus, recoveryDurationDays, recoveryFocus, status, strategyMode, subFocus, tournamentEndDate, tournamentStartDate, trainingDose, weighInType]);
 
   const content = (
     <View accessibilityLabel="Plan generation wizard" style={{ gap: spacing.md }} testID="plan-generation-wizard">
@@ -747,7 +995,9 @@ export function PlanGoalFlowCard({
             <Text style={screenStyles.callout}>Step 1: Goal type</Text>
             <Text style={screenStyles.body}>Choose the boxing phase CornerIQ should plan around next.</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              {goalOptions.map((option) => <OptionButton active={mode === option.value} busy={controlsBusy} key={option.value} label={option.label} onPress={() => chooseMode(option.value)} />)}
+              {goalOptions.map((option) => (
+                <DescribedOptionButton active={mode === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => chooseMode(option.value)} />
+              ))}
             </View>
           </View>
         ) : null}
@@ -841,24 +1091,27 @@ export function PlanGoalFlowCard({
             <Text style={screenStyles.body}>{goalLabel(mode)}</Text>
             <View style={{ gap: spacing.sm }}>
               <Text style={screenStyles.fieldLabel}>Support workout dose</Text>
+              <Text style={screenStyles.subtle}>How much app-generated support should CornerIQ try to place around boxing. Safety and readiness can still reduce it.</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 {trainingDoseOptions.map((option) => (
-                  <OptionButton active={trainingDose === option} busy={controlsBusy} key={option} label={titleCase(option)} onPress={() => setTrainingDose(option)} />
+                  <DescribedOptionButton active={trainingDose === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => setTrainingDose(option.value)} />
                 ))}
               </View>
             </View>
             {mode === "build" ? (
               <View style={{ gap: spacing.sm }}>
-                <Text style={screenStyles.fieldLabel}>Primary focus</Text>
+                <Text style={screenStyles.fieldLabel}>Main workout goal</Text>
+                <Text style={screenStyles.subtle}>Pick the clearest thing your app workouts should improve. Boxing sessions you add still stay first.</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {buildFocusOptions.map((option) => (
-                    <OptionButton active={primaryFocus === option} busy={controlsBusy} key={option} label={titleCase(option)} onPress={() => selectPrimaryFocus(option)} />
+                    <DescribedOptionButton active={primaryFocus === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => selectPrimaryFocus(option.value)} />
                   ))}
                 </View>
-                <Text style={screenStyles.fieldLabel}>Sub-focus</Text>
+                <Text style={screenStyles.fieldLabel}>Specific target</Text>
+                <Text style={screenStyles.subtle}>Choose the most objective target you recognize. Balanced defaults to a safe mix if you are unsure.</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {subFocusOptionsFor(primaryFocus).map((option) => (
-                    <OptionButton active={subFocus === option} busy={controlsBusy} key={option} label={titleCase(option)} onPress={() => setSubFocus(option)} />
+                    <DescribedOptionButton active={subFocus === option} busy={controlsBusy} description={subFocusDescription(option)} key={option} label={subFocusLabel(option)} onPress={() => setSubFocus(option)} />
                   ))}
                 </View>
               </View>
@@ -866,32 +1119,47 @@ export function PlanGoalFlowCard({
 
             {mode === "fight" ? (
               <View style={{ gap: spacing.sm }}>
+                <WizardFieldGroup title="Fight status" helper="Tentative details are allowed; confirmed details give the engine more confidence.">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <OptionButton active={status === "tentative"} busy={controlsBusy} label="Tentative" onPress={() => setStatus("tentative")} />
+                    <OptionButton active={status === "confirmed"} busy={controlsBusy} label="Confirmed" onPress={() => setStatus("confirmed")} />
+                    <OptionButton active={status === "short_notice"} busy={controlsBusy} label="Short notice" onPress={() => setStatus("short_notice")} />
+                  </View>
+                </WizardFieldGroup>
+                <WizardFieldGroup title="Ruleset" helper="Amateur, pro, and weigh-in timing change how conservative fight-week support stays.">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <OptionButton active={amateurOrPro === "amateur"} busy={controlsBusy} label="Amateur" onPress={() => setAmateurOrPro("amateur")} />
+                    <OptionButton active={amateurOrPro === "pro"} busy={controlsBusy} label="Pro" onPress={() => setAmateurOrPro("pro")} />
+                  </View>
+                </WizardFieldGroup>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={status === "tentative"} busy={controlsBusy} label="Tentative" onPress={() => setStatus("tentative")} />
-                  <OptionButton active={status === "confirmed"} busy={controlsBusy} label="Confirmed" onPress={() => setStatus("confirmed")} />
-                  <OptionButton active={status === "short_notice"} busy={controlsBusy} label="Short notice" onPress={() => setStatus("short_notice")} />
+                  <WizardFactField helper={`${effectiveBodyMassContext.statusLabel}. ${effectiveBodyMassContext.helperCopy}`} label="Current weight" value={effectiveBodyMassContext.currentWeightLabel} />
+                  <WizardField helper="Use the scheduled fight date, even if the bout is tentative." label="Fight date" onChangeText={setBoutDate} placeholder="YYYY-MM-DD" value={boutDate} />
                 </View>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={amateurOrPro === "amateur"} busy={controlsBusy} label="Amateur" onPress={() => setAmateurOrPro("amateur")} />
-                  <OptionButton active={amateurOrPro === "pro"} busy={controlsBusy} label="Pro" onPress={() => setAmateurOrPro("pro")} />
+                  <WizardField helper={fightTargetHelper(contractedWeightKg, allowanceKg)} keyboardType="decimal-pad" label="Weigh-in target (kg)" onChangeText={setContractedWeightKg} placeholder="Contracted weight kg" value={contractedWeightKg} />
+                  <WizardField helper="Use 0 unless the bout sheet lists an allowance." keyboardType="decimal-pad" label="Allowance (kg)" onChangeText={setAllowanceKg} placeholder="Allowance kg" value={allowanceKg} />
                 </View>
-                <TextInput onChangeText={setBoutDate} placeholder="Bout date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={boutDate} />
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={weighInType === "same_day"} busy={controlsBusy} label="Same day" onPress={() => setWeighInType("same_day")} />
-                  <OptionButton active={weighInType === "day_before"} busy={controlsBusy} label="Day before" onPress={() => setWeighInType("day_before")} />
-                  <OptionButton active={weighInType === "unknown"} busy={controlsBusy} label="Unknown" onPress={() => setWeighInType("unknown")} />
-                </View>
-                {weighInType === "unknown" ? <Text style={screenStyles.callout}>Weight-class action is blocked until weigh-in timing is confirmed.</Text> : null}
-                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide advanced fields" : "Advanced fields"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
+                <WizardField helper="Examples: 67 kg, open class, 147 lb catchweight." label="Class / contract label" onChangeText={setTargetClassLabel} placeholder="Target class label" value={targetClassLabel} />
+                <WizardFieldGroup title="Weigh-in timing" helper="Unknown timing keeps weight-class action blocked until confirmed.">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <OptionButton active={weighInType === "same_day"} busy={controlsBusy} label="Same day" onPress={() => setWeighInType("same_day")} />
+                    <OptionButton active={weighInType === "day_before"} busy={controlsBusy} label="Day before" onPress={() => setWeighInType("day_before")} />
+                    <OptionButton active={weighInType === "unknown"} busy={controlsBusy} label="Unknown" onPress={() => setWeighInType("unknown")} />
+                  </View>
+                </WizardFieldGroup>
+                {weighInType === "unknown" ? <WizardNotice title="Weight-class action is blocked until weigh-in timing is confirmed." tone="orange" /> : null}
+                <WizardFieldGroup title="Bout format" helper="Defaults are fine for most amateur entries; update if the bout sheet differs.">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <WizardField keyboardType="number-pad" label="Rounds" onChangeText={setRounds} placeholder="Rounds" value={rounds} />
+                    <WizardField keyboardType="decimal-pad" label="Round minutes" onChangeText={setRoundMinutes} placeholder="Round minutes" value={roundMinutes} />
+                  </View>
+                </WizardFieldGroup>
+                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide optional details" : "Optional official details"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
                 {advancedOpen ? (
                   <View style={{ gap: spacing.sm }}>
-                    <TextInput keyboardType="number-pad" onChangeText={setRounds} placeholder="Rounds" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rounds} />
-                    <TextInput keyboardType="decimal-pad" onChangeText={setRoundMinutes} placeholder="Round minutes" placeholderTextColor={colors.wrap} style={screenStyles.input} value={roundMinutes} />
-                    <TextInput onChangeText={setTargetClassLabel} placeholder="Target class label" placeholderTextColor={colors.wrap} style={screenStyles.input} value={targetClassLabel} />
-                    <TextInput keyboardType="decimal-pad" onChangeText={setContractedWeightKg} placeholder="Contracted weight kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={contractedWeightKg} />
-                    <TextInput keyboardType="decimal-pad" onChangeText={setAllowanceKg} placeholder="Allowance kg" placeholderTextColor={colors.wrap} style={screenStyles.input} value={allowanceKg} />
-                    <TextInput onChangeText={setWeighInDateTime} placeholder="Weigh-in datetime optional ISO" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weighInDateTime} />
-                    <TextInput keyboardType="decimal-pad" onChangeText={setPostWeighInWeightCapKg} placeholder="Post-weigh-in cap kg optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={postWeighInWeightCapKg} />
+                    <WizardField helper="Optional exact timestamp from the bout sheet, for example 2026-07-01T08:00:00.000Z." label="Exact weigh-in date/time" onChangeText={setWeighInDateTime} placeholder="Weigh-in datetime optional ISO" value={weighInDateTime} />
+                    <WizardField helper="Only use this if the promotion lists a post-weigh-in cap." keyboardType="decimal-pad" label="Post-weigh-in cap (kg)" onChangeText={setPostWeighInWeightCapKg} placeholder="Post-weigh-in cap kg optional" value={postWeighInWeightCapKg} />
                     <OptionButton active={hydrationTestingRequired} busy={controlsBusy} label="Hydration testing required" onPress={() => setHydrationTestingRequired((value) => !value)} />
                   </View>
                 ) : null}
@@ -900,22 +1168,36 @@ export function PlanGoalFlowCard({
 
             {mode === "tournament" ? (
               <View style={{ gap: spacing.sm }}>
-                <TextInput onChangeText={setTournamentStartDate} placeholder="Start date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={tournamentStartDate} />
-                <TextInput onChangeText={setTournamentEndDate} placeholder="End date YYYY-MM-DD" placeholderTextColor={colors.wrap} style={screenStyles.input} value={tournamentEndDate} />
-                <TextInput onChangeText={setPossibleBoutDates} placeholder="Possible bout days, comma-separated" placeholderTextColor={colors.wrap} style={screenStyles.input} value={possibleBoutDates} />
-                <OptionButton active={dailyWeighIns} busy={controlsBusy} label="Daily weigh-ins" onPress={() => setDailyWeighIns((value) => !value)} />
-                <TextInput onChangeText={setWeighInTimeEachDay} placeholder="Weigh-in time" placeholderTextColor={colors.wrap} style={screenStyles.input} value={weighInTimeEachDay} />
-                <TextInput keyboardType="number-pad" onChangeText={setNumberOfPotentialBouts} placeholder="Number of possible bouts" placeholderTextColor={colors.wrap} style={screenStyles.input} value={numberOfPotentialBouts} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                  <OptionButton active={strategyMode === "stay_near_weight"} busy={controlsBusy} label="Stay near weight" onPress={() => setStrategyMode("stay_near_weight")} />
-                  <OptionButton active={strategyMode === "mild_daily_cut"} busy={controlsBusy} label="Mild daily cut" onPress={() => setStrategyMode("mild_daily_cut")} />
-                  <OptionButton active={strategyMode === "no_cut_recommended"} busy={controlsBusy} label="No cut recommended" onPress={() => setStrategyMode("no_cut_recommended")} />
+                  <WizardFactField helper={`${effectiveBodyMassContext.statusLabel}. Tournament support defaults to staying near weight unless real review says otherwise.`} label="Current weight" value={effectiveBodyMassContext.currentWeightLabel} />
+                  <WizardFactField helper="Tournament setup records dates and daily weigh-ins. Official target weight still comes from fight or weight-class context." label="Target weight source" value="Use fight / weight-class setup" />
                 </View>
-                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide advanced fields" : "Advanced fields"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
+                <WizardFieldGroup title="Tournament dates" helper="Use the full tournament window so repeated weigh-ins and recovery days stay visible.">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <WizardField label="Start date" onChangeText={setTournamentStartDate} placeholder="Start date YYYY-MM-DD" value={tournamentStartDate} />
+                    <WizardField label="End date" onChangeText={setTournamentEndDate} placeholder="End date YYYY-MM-DD" value={tournamentEndDate} />
+                  </View>
+                </WizardFieldGroup>
+                <WizardField helper="Comma-separated dates are okay while the draw is uncertain." label="Possible bout dates" onChangeText={setPossibleBoutDates} placeholder="Possible bout days, comma-separated" value={possibleBoutDates} />
+                <WizardFieldGroup title="Weigh-ins" helper="Daily or same-day weigh-ins keep the plan conservative by default.">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <OptionButton active={dailyWeighIns} busy={controlsBusy} label="Daily weigh-ins" onPress={() => setDailyWeighIns((value) => !value)} />
+                    <OptionButton active={sameDayBoutLikely} busy={controlsBusy} label="Same-day bout likely" onPress={() => setSameDayBoutLikely((value) => !value)} />
+                  </View>
+                  <WizardField helper="Local time, HH:MM." label="Daily weigh-in time" onChangeText={setWeighInTimeEachDay} placeholder="Weigh-in time" value={weighInTimeEachDay} />
+                </WizardFieldGroup>
+                <WizardField keyboardType="number-pad" helper="Include the maximum realistic number of bouts, not just the first bout." label="Possible bouts" onChangeText={setNumberOfPotentialBouts} placeholder="Number of possible bouts" value={numberOfPotentialBouts} />
+                <WizardFieldGroup title="Tournament strategy" helper="Stay near weight is the safest default for repeated weigh-ins.">
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                    <OptionButton active={strategyMode === "stay_near_weight"} busy={controlsBusy} label="Stay near weight" onPress={() => setStrategyMode("stay_near_weight")} />
+                    <OptionButton active={strategyMode === "mild_daily_cut"} busy={controlsBusy} label="Mild daily cut" onPress={() => setStrategyMode("mild_daily_cut")} />
+                    <OptionButton active={strategyMode === "no_cut_recommended"} busy={controlsBusy} label="No cut recommended" onPress={() => setStrategyMode("no_cut_recommended")} />
+                  </View>
+                </WizardFieldGroup>
+                <PremiumButton disabled={controlsBusy} icon={advancedOpen ? "chevron-up-outline" : "options-outline"} label={advancedOpen ? "Hide optional timing" : "Optional timing details"} onPress={() => setAdvancedOpen((value) => !value)} tone="green" variant="quiet" />
                 {advancedOpen ? (
                   <View style={{ gap: spacing.sm }}>
-                    <OptionButton active={sameDayBoutLikely} busy={controlsBusy} label="Same-day bout likely" onPress={() => setSameDayBoutLikely((value) => !value)} />
-                    <TextInput onChangeText={setRehydrationWindowHoursByDay} placeholder="Rehydration windows hours" placeholderTextColor={colors.wrap} style={screenStyles.input} value={rehydrationWindowHoursByDay} />
+                    <WizardField helper="Hours available after each weigh-in before a possible bout, comma-separated if it varies by day." label="Rehydration windows (hours)" onChangeText={setRehydrationWindowHoursByDay} placeholder="Rehydration windows hours" value={rehydrationWindowHoursByDay} />
                   </View>
                 ) : null}
               </View>
@@ -924,10 +1206,10 @@ export function PlanGoalFlowCard({
             {mode === "recovery" ? (
               <View style={{ gap: spacing.sm }}>
                 <Text style={screenStyles.body}>Recovery keeps support workouts conservative while you get back to normal training.</Text>
-                <TextInput keyboardType="number-pad" onChangeText={setRecoveryDurationDays} placeholder="Duration days optional" placeholderTextColor={colors.wrap} style={screenStyles.input} value={recoveryDurationDays} />
+                <WizardField keyboardType="number-pad" helper="Leave blank for the engine default." label="Recovery duration days" onChangeText={setRecoveryDurationDays} placeholder="Duration days optional" value={recoveryDurationDays} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                   {recoveryFocusOptions.map((option) => (
-                    <OptionButton active={recoveryFocus === option} busy={controlsBusy} key={option} label={option === "post_bout" ? "Post-bout" : titleCase(option)} onPress={() => setRecoveryFocus(option)} />
+                    <DescribedOptionButton active={recoveryFocus === option.value} busy={controlsBusy} description={option.description} key={option.value} label={option.label} onPress={() => setRecoveryFocus(option.value)} />
                   ))}
                 </View>
               </View>
