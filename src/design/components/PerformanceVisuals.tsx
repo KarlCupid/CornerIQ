@@ -503,7 +503,7 @@ export function WorkoutLogContributionGrid({
 
 export function TrendLineChart({
   accent = "blue",
-  height = 96,
+  height = 128,
   points,
   testID,
   width = 280
@@ -516,8 +516,9 @@ export function TrendLineChart({
 }) {
   const [layoutWidth, setLayoutWidth] = React.useState(width);
   const theme = useLuminousScreenTheme();
-  const chartWidth = Math.max(220, layoutWidth || width);
+  const chartWidth = Math.max(240, layoutWidth || width);
   const plotHeight = Math.max(56, height);
+  const accentColor = colorForTone(accent);
   if (points.length === 0) {
     return (
       <View
@@ -527,23 +528,38 @@ export function TrendLineChart({
             setLayoutWidth(nextWidth);
           }
         }}
-        style={{ ...glassStyles.tile, alignItems: "center", alignSelf: "stretch", backgroundColor: theme.tile, borderColor: theme.tileBorder, minHeight: height, justifyContent: "center", width: "100%" }}
+        style={{
+          ...glassStyles.tile,
+          alignItems: "center",
+          alignSelf: "stretch",
+          backgroundColor: theme.tile,
+          borderColor: `${accentColor}2F`,
+          boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px rgba(0, 0, 0, 0.2), 0 0 18px ${toneWash[accent]}`,
+          gap: spacing.xs,
+          minHeight: height,
+          justifyContent: "center",
+          padding: spacing.lg,
+          width: "100%"
+        }}
         testID={testID}
       >
-        <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>Trend unknown</Text>
+        <Text style={{ color: colors.canvas, fontSize: 15, fontWeight: "900", lineHeight: 20, textAlign: "center" }}>Trend unknown</Text>
+        <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700", lineHeight: 16, textAlign: "center" }}>Log more body weights to draw the line.</Text>
       </View>
     );
   }
   const values = points.map((point) => point.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
+  const minPoint = points[values.indexOf(min)];
+  const maxPoint = points[values.indexOf(max)];
+  const latestPoint = points[points.length - 1];
   const spread = Math.max(0.01, max - min);
   const flatTrend = points.length === 1 || min === max;
   const ratios = points.map((point) => (flatTrend ? 0.5 : clamp01((point.value - min) / spread)));
-  const accentColor = colorForTone(accent);
-  const horizontalPadding = 22;
-  const topPadding = 15;
-  const bottomPadding = 18;
+  const horizontalPadding = 26;
+  const topPadding = 26;
+  const bottomPadding = 24;
   const innerWidth = Math.max(1, chartWidth - horizontalPadding * 2);
   const innerHeight = Math.max(1, plotHeight - topPadding - bottomPadding);
   const chartPoints = points.map((point, index) => ({
@@ -551,6 +567,11 @@ export function TrendLineChart({
     y: topPadding + (1 - (ratios[index] ?? 0.5)) * innerHeight
   }));
   const linePath = smoothPath(chartPoints);
+  const firstChartPoint = chartPoints[0];
+  const lastChartPoint = chartPoints[chartPoints.length - 1];
+  const areaPath = linePath && firstChartPoint && lastChartPoint
+    ? `${linePath} L ${lastChartPoint.x} ${plotHeight - bottomPadding} L ${firstChartPoint.x} ${plotHeight - bottomPadding} Z`
+    : "";
   return (
     <View
       onLayout={(event) => {
@@ -559,14 +580,15 @@ export function TrendLineChart({
           setLayoutWidth(nextWidth);
         }
       }}
-      style={{ alignSelf: "stretch", gap: spacing.xs, width: "100%" }}
+      style={{ alignSelf: "stretch", gap: spacing.sm, width: "100%" }}
       testID={testID}
     >
       <View
         style={{
           ...glassStyles.tile,
           backgroundColor: theme.tile,
-          borderColor: theme.tileBorder,
+          borderColor: `${accentColor}30`,
+          boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 26px rgba(0, 0, 0, 0.24), 0 0 18px ${toneWash[accent]}`,
           height: plotHeight,
           overflow: "hidden",
           position: "relative",
@@ -574,11 +596,11 @@ export function TrendLineChart({
         }}
       >
         <Svg height={plotHeight} width={chartWidth}>
-          {[0.24, 0.5, 0.76].map((row) => (
+          {[0, 0.5, 1].map((row) => (
             <Line
               key={`grid:${row}`}
-              stroke="rgba(255, 255, 255, 0.12)"
-              strokeDasharray="5 5"
+              stroke="rgba(255, 255, 255, 0.10)"
+              {...(row === 0.5 ? { strokeDasharray: "5 6" } : {})}
               strokeWidth={1}
               x1={horizontalPadding}
               x2={chartWidth - horizontalPadding}
@@ -587,13 +609,35 @@ export function TrendLineChart({
             />
           ))}
           <Line
-            stroke="rgba(255, 255, 255, 0.14)"
+            stroke="rgba(255, 255, 255, 0.12)"
             strokeWidth={1}
             x1={horizontalPadding}
-            x2={horizontalPadding}
-            y1={topPadding}
+            x2={chartWidth - horizontalPadding}
+            y1={plotHeight - bottomPadding}
             y2={plotHeight - bottomPadding}
           />
+          {lastChartPoint ? (
+            <Line
+              stroke={`${accentColor}55`}
+              strokeDasharray="4 5"
+              strokeWidth={1}
+              x1={lastChartPoint.x}
+              x2={lastChartPoint.x}
+              y1={topPadding}
+              y2={plotHeight - bottomPadding}
+            />
+          ) : null}
+          {areaPath ? <Path d={areaPath} fill={`${accentColor}1F`} /> : null}
+          {linePath ? (
+            <Path
+              d={linePath}
+              fill="transparent"
+              stroke={`${accentColor}55`}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={7}
+            />
+          ) : null}
           {linePath ? (
             <Path
               d={linePath}
@@ -601,22 +645,22 @@ export function TrendLineChart({
               stroke={accentColor}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={3}
+              strokeWidth={3.5}
             />
           ) : null}
           {chartPoints.map((point, index) => (
             <Circle
               cx={point.x}
               cy={point.y}
-              fill={colors.cornerBlack}
+              fill={index === chartPoints.length - 1 ? accentColor : colors.cornerBlack}
               key={`trend-dot:${points[index]?.label ?? index}`}
-              r={5}
-              stroke={accentColor}
-              strokeWidth={3}
+              r={index === chartPoints.length - 1 ? 5.5 : 4}
+              stroke={index === chartPoints.length - 1 ? colors.canvas : `${accentColor}BB`}
+              strokeWidth={index === chartPoints.length - 1 ? 2 : 2.5}
             />
           ))}
         </Svg>
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between", left: spacing.sm, position: "absolute", right: spacing.sm, top: spacing.xs }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between", left: spacing.sm, position: "absolute", right: spacing.sm, top: spacing.sm }}>
           <View
             style={{
               backgroundColor: `${accentColor}22`,
@@ -628,11 +672,19 @@ export function TrendLineChart({
             }}
           >
             <Text numberOfLines={1} style={{ color: accentColor, fontSize: 10, fontWeight: "900", lineHeight: 14 }}>
-              {min === max ? `${Math.round(max)}` : `${Math.round(min)}-${Math.round(max)}`}
+              {latestPoint?.valueLabel ?? (min === max ? `${Math.round(max)}` : `${Math.round(min)}-${Math.round(max)}`)}
             </Text>
           </View>
           <Text numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "right" }}>
             {points.length} logs
+          </Text>
+        </View>
+        <View style={{ bottom: spacing.sm, flexDirection: "row", justifyContent: "space-between", left: spacing.sm, position: "absolute", right: spacing.sm }}>
+          <Text numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14 }}>
+            Low {minPoint?.valueLabel ?? "unknown"}
+          </Text>
+          <Text numberOfLines={1} style={{ color: colors.mutedText, flex: 1, fontSize: 10, fontWeight: "800", lineHeight: 14, textAlign: "right" }}>
+            High {maxPoint?.valueLabel ?? "unknown"}
           </Text>
         </View>
       </View>

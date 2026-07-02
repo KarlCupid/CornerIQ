@@ -3084,6 +3084,10 @@ describe("minimal app screens", () => {
     expect(output).toContain("Normal meal timing");
     expect(output).not.toContain("Training Today");
     expect(output).toContain("Weight Trend");
+    expect(output).toContain("7-day change");
+    expect(output).toContain("Pace signal");
+    expect(output).not.toContain("7-day read");
+    expect(output).not.toContain("Needed pace");
     expect(output).not.toContain("Cut runway");
     expect(output).not.toContain("Food details");
     expect(output).not.toContain("Weight context");

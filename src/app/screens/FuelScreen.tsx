@@ -408,42 +408,6 @@ function TodayFuelPlanCard({
   );
 }
 
-function FuelMetricTile({
-  label,
-  tone = "muted",
-  value
-}: {
-  label: string;
-  tone?: VisualTone | undefined;
-  value: string;
-}) {
-  const color = colorForTone(tone);
-  return (
-    <View
-      style={{
-        backgroundColor: fuelPalette.controlFill,
-        borderColor: fuelPalette.cardLine,
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
-        flexBasis: 0,
-        flexGrow: 1,
-        flexShrink: 1,
-        gap: spacing.xs,
-        minHeight: 96,
-        minWidth: 0,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.md
-      }}
-    >
-      <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{label}</Text>
-      <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={2} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 24 }}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 function FuelSignalRow({
   helper,
   icon,
@@ -784,6 +748,60 @@ function TrainingTodayCard({
   );
 }
 
+function WeightTrendInfoRow({
+  helper,
+  icon,
+  label,
+  tone,
+  value
+}: {
+  helper: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  tone: VisualTone;
+  value: string;
+}) {
+  const color = colorForTone(tone);
+  return (
+    <View
+      accessibilityLabel={`${label}: ${value}. ${helper}`}
+      style={{
+        alignItems: "center",
+        backgroundColor: fuelPalette.controlFill,
+        borderColor: fuelTint(tone, tone === "muted" ? "26" : "3A"),
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        minHeight: 74,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: fuelTint(tone, "16"),
+          borderColor: fuelTint(tone, "40"),
+          borderRadius: radii.pill,
+          borderWidth: 1,
+          height: 40,
+          justifyContent: "center",
+          width: 40
+        }}
+      >
+        <DecorativeIcon color={color} name={icon} size={19} />
+      </View>
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{label}</Text>
+        <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={{ color, fontSize: 18, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 23 }}>{value}</Text>
+        <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{helper}</Text>
+      </View>
+    </View>
+  );
+}
+
 function WeightTrendCard({
   dashboard,
   plan,
@@ -796,21 +814,74 @@ function WeightTrendCard({
   viewModel: FuelViewModel;
 }) {
   const trend = trendInterpretation(viewModel, plan, dashboard);
+  const currentLabel = convertMassCopy(dashboard.bodyMass.currentLabel, preferredUnits);
+  const trendPointCount = dashboard.bodyMass.points.length;
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.md }} testID="fuel-weight-trend-card">
-        <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
-          <Text style={fuelTextStyles.sectionTitle}>Weight Trend</Text>
-          <FuelTonePill label={trend.label} tone={trend.tone} />
+    <PremiumCard accent={trend.tone} density="regular" testID="fuel-weight-trend-card">
+      <View style={{ gap: spacing.lg }}>
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: spacing.md, justifyContent: "space-between" }}>
+          <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+            <Text style={fuelTextStyles.sectionTitle}>Weight Trend</Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={{ color: fuelPalette.textPrimary, fontSize: 28, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 34 }}>{currentLabel}</Text>
+            <Text numberOfLines={2} style={fuelTextStyles.subtle}>
+              {trendPointCount > 0 ? `${trendPointCount} recent log${trendPointCount === 1 ? "" : "s"} in view` : dashboard.bodyMass.emptyLabel}
+            </Text>
+          </View>
+          <View
+            accessibilityLabel={`Trend status: ${trend.label}`}
+            style={{
+              alignItems: "center",
+              backgroundColor: fuelTint(trend.tone, "18"),
+              borderColor: fuelTint(trend.tone, "45"),
+              borderRadius: radii.pill,
+              borderWidth: 1,
+              flexDirection: "row",
+              gap: spacing.xs,
+              maxWidth: 154,
+              minHeight: 34,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 5
+            }}
+          >
+            <DecorativeIcon color={colorForTone(trend.tone)} name="analytics-outline" size={15} />
+            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: colorForTone(trend.tone), flexShrink: 1, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{trend.label}</Text>
+          </View>
         </View>
-        <TrendLineChart accent={trend.tone} height={92} points={dashboard.bodyMass.points} testID="fuel-weight-trend-chart" width={280} />
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          <FuelMetricTile label="7-day read" tone={dashboard.bodyMass.tone} value={convertMassCopy(dashboard.bodyMass.deltaLabel, preferredUnits)} />
-          <FuelMetricTile label="Needed pace" tone={plan.tone} value={plan.label} />
+        <TrendLineChart accent={trend.tone} height={154} points={dashboard.bodyMass.points} testID="fuel-weight-trend-chart" width={320} />
+        <View style={{ gap: spacing.sm }}>
+          <WeightTrendInfoRow
+            helper={trendPointCount > 0 ? `Latest logged value: ${currentLabel}.` : "Log body weight manually if it feels safe and useful."}
+            icon="scale-outline"
+            label="7-day change"
+            tone={dashboard.bodyMass.tone}
+            value={convertMassCopy(dashboard.bodyMass.deltaLabel, preferredUnits)}
+          />
+          <WeightTrendInfoRow
+            helper="Used as context only. Do not add weight pressure from missing data."
+            icon="speedometer-outline"
+            label="Pace signal"
+            tone={plan.tone}
+            value={plan.label}
+          />
         </View>
-        <Text style={fuelTextStyles.body}>{convertMassCopy(trend.sentence, preferredUnits)}</Text>
+        <View
+          style={{
+            alignItems: "flex-start",
+            backgroundColor: fuelTint(trend.tone, "10"),
+            borderColor: fuelTint(trend.tone, "2D"),
+            borderCurve: "continuous",
+            borderRadius: radii.tile,
+            borderWidth: 1,
+            flexDirection: "row",
+            gap: spacing.sm,
+            padding: spacing.md
+          }}
+        >
+          <DecorativeIcon color={colorForTone(trend.tone)} name="information-circle-outline" size={18} />
+          <Text style={{ color: fuelPalette.textBody, flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 19 }}>{convertMassCopy(trend.sentence, preferredUnits)}</Text>
+        </View>
       </View>
-    </EngineCard>
+    </PremiumCard>
   );
 }
 
