@@ -1316,6 +1316,14 @@ function pressableWithAccessibilityLabel(renderer: ReactTestRenderer, label: str
   return (renderer.root.findAllByType("Pressable") as TestInstance[]).find((item) => (item.props as { accessibilityLabel?: string }).accessibilityLabel === label);
 }
 
+function textUnderTestId(renderer: ReactTestRenderer, testID: string): string {
+  const view = (renderer.root.findAllByType("View") as TestInstance[]).find((item) => (item.props as { testID?: string }).testID === testID);
+  if (!view) {
+    throw new Error(`View ${testID} did not render.`);
+  }
+  return JSON.stringify(view.findAllByType("Text").map((label) => label.props.children));
+}
+
 function visibleModalCount(renderer: ReactTestRenderer): number {
   return (renderer.root.findAllByType("Modal") as TestInstance[]).filter((item) => (item.props as { visible?: boolean }).visible === true).length;
 }
@@ -2266,6 +2274,48 @@ describe("minimal app screens", () => {
     expect(detailsOutput.indexOf("today-hero-card")).toBeLessThan(detailsOutput.indexOf("Training Today"));
   });
 
+  it("TodayScreen renders weight trend graph labels in preferred units", async () => {
+    const { TodayScreen } = await import("../../app/screens/TodayScreen");
+    const currentKg = lbToKg(149);
+    const state = resolvePerformanceState({
+      journey: {
+        ...no_wearable_manual_only,
+        athlete: {
+          ...no_wearable_manual_only.athlete,
+          currentBodyMass: { value: Number(currentKg.toFixed(2)), unit: "kg" },
+          preferredUnits: "imperial",
+          typicalWalkAroundWeightKg: Number(currentKg.toFixed(2))
+        },
+        bodyMassHistory: bodyMassLogsEnding(fixtureAsOfDate, Array(7).fill(currentKg) as number[])
+      },
+      asOfDate: fixtureAsOfDate
+    });
+    const renderer = render(
+      React.createElement(TodayScreen, {
+        viewModel: state.viewModels.today,
+        fuelViewModel: state.viewModels.fuel,
+        recentLogs: state.viewModels.recentLogs,
+        cycleContext: null,
+        quickLogs: quickLogActions,
+        cycleQuickLogEnabled: false,
+        cycleTrackingStatus: "disabled",
+        cycleSymptomOptions: ["cramps"],
+        preferredUnits: "imperial",
+        busy: false,
+        message: null
+      })
+    );
+
+    await switchSection(renderer, "More today");
+    await act(async () => {
+      await press(pressableWithText(renderer, "Weight trend"));
+    });
+
+    const weightTrendText = textUnderTestId(renderer, "today-weight-trend-details");
+    expect(weightTrendText).toContain("149.0 lb");
+    expect(weightTrendText).not.toContain("67.6 kg");
+  });
+
   it("TodayScreen keeps optional body-weight logging visible without making it mandatory", async () => {
     const { TodayScreen } = await import("../../app/screens/TodayScreen");
     const logBodyMass = vi.fn(async () => undefined);
@@ -3208,6 +3258,9 @@ describe("minimal app screens", () => {
     expect(output).toContain("Modeled allowance");
     expect(output).toContain("Review gap");
     expect(output).toMatch(/142\.[12] lb/);
+    const weightTrendText = textUnderTestId(renderer, "fuel-weight-trend-card");
+    expect(weightTrendText).toContain("149.0 lb");
+    expect(weightTrendText).not.toContain("67.6 kg");
     expect(output).toContain("low-residue/gut-content");
     expect(output).toContain("qualified review");
     expect(output).not.toMatch(/sauna|sweat suit|laxative|diuretic|make weight at all costs/i);

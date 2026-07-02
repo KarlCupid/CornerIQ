@@ -7,10 +7,10 @@ import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../desi
 import { TrendLineChart } from "../../design/components/PerformanceVisuals";
 import { PremiumCard } from "../../design/components/PremiumPrimitives";
 import { colors, radii, spacing } from "../../design/theme";
-import { kgToLb } from "../../engine/core/units";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
 import { plainFuelCopy } from "../../engine/presentation/fuelCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
+import { bodyMassTrendPointsForUnits, convertMassCopy, massLabelFromKg, type PreferredUnits } from "./displayUnits";
 import { NutritionSafetyReviewCard } from "./fuel/NutritionSafetyReviewCard";
 import { NutritionReviewHistoryPanel } from "./fuel/NutritionReviewHistoryPanel";
 import { FoodQuickLogCard, HydrationLogCard } from "./logging/LogCards";
@@ -30,7 +30,6 @@ export interface FuelScreenProps {
 }
 
 export type FuelFocusIntent = "action" | "log_food" | "log_hydration" | "safety_review";
-type PreferredUnits = "metric" | "imperial";
 
 type FuelPlanStatus = FuelPlanStatusViewModel;
 type FuelSafetyState = FuelSafetyStateViewModel;
@@ -110,23 +109,6 @@ function titleCaseStatus(value: string): string {
     .filter(Boolean)
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(" ");
-}
-
-function massLabelFromKg(kg: number, preferredUnits: PreferredUnits): string {
-  return preferredUnits === "imperial" ? `${kgToLb(kg).toFixed(1)} lb` : `${kg.toFixed(1)} kg`;
-}
-
-function convertMassCopy(value: string, preferredUnits: PreferredUnits): string {
-  if (preferredUnits === "metric") {
-    return value;
-  }
-  return value.replace(/(-?\d+(?:\.\d+)?)\s*kg(\/week)?/gi, (_match, amount: string, cadence: string | undefined) => {
-    const kg = Number(amount);
-    if (!Number.isFinite(kg)) {
-      return _match;
-    }
-    return `${kgToLb(kg).toFixed(1)} lb${cadence ?? ""}`;
-  });
 }
 
 function displayFuelCopy(value: string, preferredUnits: PreferredUnits): string {
@@ -815,7 +797,8 @@ function WeightTrendCard({
 }) {
   const trend = trendInterpretation(viewModel, plan, dashboard);
   const currentLabel = convertMassCopy(dashboard.bodyMass.currentLabel, preferredUnits);
-  const trendPointCount = dashboard.bodyMass.points.length;
+  const trendPoints = bodyMassTrendPointsForUnits(dashboard.bodyMass.points, preferredUnits);
+  const trendPointCount = trendPoints.length;
   return (
     <PremiumCard accent={trend.tone} density="regular" testID="fuel-weight-trend-card">
       <View style={{ gap: spacing.lg }}>
@@ -847,7 +830,7 @@ function WeightTrendCard({
             <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={{ color: colorForTone(trend.tone), flexShrink: 1, fontSize: 12, fontWeight: "900", lineHeight: 16 }}>{trend.label}</Text>
           </View>
         </View>
-        <TrendLineChart accent={trend.tone} height={154} points={dashboard.bodyMass.points} testID="fuel-weight-trend-chart" width={320} />
+        <TrendLineChart accent={trend.tone} height={154} points={trendPoints} testID="fuel-weight-trend-chart" width={320} />
         <View style={{ gap: spacing.sm }}>
           <WeightTrendInfoRow
             helper={trendPointCount > 0 ? `Latest logged value: ${currentLabel}.` : "Log body weight manually if it feels safe and useful."}

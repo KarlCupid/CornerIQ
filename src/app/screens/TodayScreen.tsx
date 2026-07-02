@@ -13,6 +13,7 @@ import { buildTodayDashboardVisual, type TodayActionVisual, type TodayDashboardV
 import { plainWorkoutTitle } from "../../engine/presentation/trainingCopy";
 import type { QuickLogActions } from "../../hooks/useQuickLogs";
 import { CycleContextCard } from "./cycle/CycleContextCard";
+import { bodyMassTrendPointsForUnits, convertMassCopy, type PreferredUnits } from "./displayUnits";
 import { BodyMassLogCard, CycleLogCard, HydrationLogCard, ReadinessCheckInCard } from "./logging/LogCards";
 import { screenStyles } from "./screenStyles";
 import { tabHeroHeaders } from "./tabHeroConfig";
@@ -29,7 +30,7 @@ export interface TodayScreenProps {
   cycleQuickLogEnabled: boolean;
   cycleTrackingStatus: "enabled" | "disabled" | "undecided" | string;
   cycleSymptomOptions: readonly CycleSymptom[];
-  preferredUnits?: "metric" | "imperial" | undefined;
+  preferredUnits?: PreferredUnits | undefined;
   busy: boolean;
   message: string | null;
   onOpenFuel?: (() => void) | undefined;
@@ -183,7 +184,7 @@ function TodayQuickCheckSection({
   focus: TodayQuickCheckFocus;
   includeOtherLogs?: boolean | undefined;
   onClose?: (() => void) | undefined;
-  preferredUnits: "metric" | "imperial";
+  preferredUnits: PreferredUnits;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
 }) {
@@ -265,7 +266,7 @@ function TodayQuickCheckModal({
 }: {
   busy: boolean;
   onClose: () => void;
-  preferredUnits: "metric" | "imperial";
+  preferredUnits: PreferredUnits;
   quickCheck: { focus: TodayQuickCheckFocus; placement: TodayQuickCheckPlacement } | null;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
@@ -871,7 +872,7 @@ function TodayDailyWeightCard({
   recentLogs
 }: {
   busy: boolean;
-  preferredUnits: "metric" | "imperial";
+  preferredUnits: PreferredUnits;
   quickLogs: QuickLogActions;
   recentLogs: RecentLogsViewModel;
 }) {
@@ -990,6 +991,7 @@ function TodayDetails({
   hasWarning,
   onOpenBodyMass,
   onOpenReadiness,
+  preferredUnits,
   recentLogs,
   showCycleImpact
 }: {
@@ -999,10 +1001,14 @@ function TodayDetails({
   hasWarning: boolean;
   onOpenBodyMass: () => void;
   onOpenReadiness: () => void;
+  preferredUnits: PreferredUnits;
   recentLogs: RecentLogsViewModel;
   showCycleImpact: boolean;
 }) {
-  const hasBodyMassLine = dashboard.bodyMass.points.length >= 2;
+  const bodyMassTrendPoints = bodyMassTrendPointsForUnits(dashboard.bodyMass.points, preferredUnits);
+  const bodyMassCurrentLabel = convertMassCopy(dashboard.bodyMass.currentLabel, preferredUnits);
+  const bodyMassDeltaLabel = convertMassCopy(dashboard.bodyMass.deltaLabel, preferredUnits);
+  const hasBodyMassLine = bodyMassTrendPoints.length >= 2;
   const cycleVisible = showCycleImpact && (cycleContext || cycleTrackingStatus === "undecided");
   return (
     <View style={{ gap: spacing.sm }} testID="today-detail-rows">
@@ -1021,9 +1027,9 @@ function TodayDetails({
         <Text style={screenStyles.subtle}>Use this only when you want the weekly context behind today's call.</Text>
       </TodayDetailRow>
 
-      <TodayDetailRow icon="scale-outline" summary={`${dashboard.bodyMass.currentLabel} - ${dashboard.bodyMass.deltaLabel}`} testID="today-weight-trend-details" title="Weight trend" tone={dashboard.bodyMass.tone}>
+      <TodayDetailRow icon="scale-outline" summary={`${bodyMassCurrentLabel} - ${bodyMassDeltaLabel}`} testID="today-weight-trend-details" title="Weight trend" tone={dashboard.bodyMass.tone}>
         {hasBodyMassLine ? (
-          <TrendLineChart accent={accentForTone(dashboard.bodyMass.tone)} height={82} points={dashboard.bodyMass.points} />
+          <TrendLineChart accent={accentForTone(dashboard.bodyMass.tone)} height={82} points={bodyMassTrendPoints} />
         ) : (
           <Text style={screenStyles.subtle}>{plainTodayCopy(dashboard.bodyMass.emptyLabel)}</Text>
         )}
@@ -1223,6 +1229,7 @@ export function TodayScreen({
             hasWarning={false}
             onOpenBodyMass={() => openQuickCheck("body_mass", "body_mass_card")}
             onOpenReadiness={() => openQuickCheck("readiness", "readiness_card")}
+            preferredUnits={preferredUnits}
             recentLogs={recentLogs}
             showCycleImpact={showCycleImpact}
           />
