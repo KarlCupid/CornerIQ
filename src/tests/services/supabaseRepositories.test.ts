@@ -36,7 +36,7 @@ import { RepositoryError } from "../../services/supabase/repositoryTypes";
 import { resolvePerformanceState } from "../../engine/core/performanceKernel";
 import { fixtureAsOfDate, no_wearable_manual_only } from "../fixtures/engineFixtures";
 import type { NutritionSafetyReviewEvent, PersistedNutritionSafetyReview } from "../../engine/core/types";
-import { createEngineRunRepository, mapGeneratedSessionToRow } from "../../services/supabase/engineRunRepository";
+import { createEngineRunRepository, generatedTrainingSessionKey, mapGeneratedSessionToRow } from "../../services/supabase/engineRunRepository";
 import { createTrainingPlanIntentRepository, mapTrainingPlanIntentRow } from "../../services/supabase/trainingPlanIntentRepository";
 import { createRiskFlag } from "../../engine/safety/riskSafetyEngine";
 import { GENERATED_SESSION_SCHEMA_VERSION_V2, PLAN_INTENT_VERSION_V2 } from "../../engine/training/compiledWeekProjection";
@@ -1574,12 +1574,30 @@ describe("Supabase repositories", () => {
     expect(source).toContain("async upsertNutritionTarget");
     expect(source).toContain("async upsertGeneratedSessions");
     expect(source).toContain("generated_session_key");
-    expect(source).toContain("session.prescriptionSlotId ?? session.id");
+    expect(source).toContain("generatedTrainingSessionKey(baseSession, trainingBlockId)");
+    expect(source).toContain('return `v2:${planRevisionId}:${weekId}:${blockId}:${prescriptionSlotId}${planInstanceFingerprint ? `:${planInstanceFingerprint}` : ""}`');
     expect(source).toContain("baseGeneratedSessionForPersistence");
     expect(source).toContain("delete baseSession.readinessGate");
     expect(source).toContain("original_planned_date: baseSession.originalPlannedDate ?? baseSession.date");
     expect(source).toContain("current_scheduled_date: baseSession.currentScheduledDate ?? baseSession.date");
     expect(source).not.toContain("async saveGeneratedSessions");
+  });
+
+  it("engineRunRepository scopes V2 generated session keys to training block revisions", () => {
+    const state = resolvePerformanceState({ journey: no_wearable_manual_only, asOfDate: fixtureAsOfDate });
+    const generated = {
+      ...state.training.generatedSessions[0]!,
+      planRevisionId: "plan:fight-camp:short-notice",
+      weekId: "week:plan:fight-camp:short-notice:2026-07-01",
+      prescriptionSlotId: "intent:plan:fight-camp:short-notice:2026-07-01:strength"
+    };
+    const first = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash", { trainingBlockId: "training_block_1" });
+    const second = mapGeneratedSessionToRow("user_1", "0.2.0", generated, "input_hash", "output_hash", { trainingBlockId: "training_block_2" });
+
+    expect(first.generated_session_key).toContain("training_block_1");
+    expect(second.generated_session_key).toContain("training_block_2");
+    expect(first.generated_session_key).not.toBe(second.generated_session_key);
+    expect(generatedTrainingSessionKey({ ...generated, planRevisionId: undefined, weekId: undefined, prescriptionSlotId: "legacy_slot" })).toBe("legacy_slot");
   });
 
   it("engineRunRepository preserves moved scheduled dates when an active slot is regenerated", async () => {

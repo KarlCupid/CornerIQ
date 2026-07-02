@@ -278,8 +278,16 @@ export function mapNutritionTargetToRow(userId: string, state: PerformanceState,
   };
 }
 
-export function generatedTrainingSessionKey(session: GeneratedTrainingSession): string {
-  return session.prescriptionSlotId ?? session.id;
+export function generatedTrainingSessionKey(session: GeneratedTrainingSession, trainingBlockId?: string | null): string {
+  const planRevisionId = trimmedStringValue(session.planRevisionId);
+  const weekId = trimmedStringValue(session.weekId);
+  const prescriptionSlotId = trimmedStringValue(session.prescriptionSlotId);
+  const blockId = trimmedStringValue(trainingBlockId) ?? trimmedStringValue(session.trainingBlockId);
+  const planInstanceFingerprint = trimmedStringValue(session.planInstanceFingerprint) ?? trimmedStringValue(session.contentFingerprint);
+  if (planRevisionId && weekId && prescriptionSlotId && blockId) {
+    return `v2:${planRevisionId}:${weekId}:${blockId}:${prescriptionSlotId}${planInstanceFingerprint ? `:${planInstanceFingerprint}` : ""}`;
+  }
+  return prescriptionSlotId ?? session.id;
 }
 
 const RECONCILED_GENERATED_SESSION_LIFECYCLES = ["active", "moved", "completed", "skipped", "unresolved"] as const;
@@ -413,8 +421,8 @@ export function mapGeneratedSessionToRow(
   metadata: Record<string, unknown> = {}
 ): TableInsert<"generated_training_sessions"> {
   const baseSession = baseGeneratedSessionForPersistence(session);
-  const generatedSessionKey = generatedTrainingSessionKey(baseSession);
   const trainingBlockId = typeof metadata.trainingBlockId === "string" ? metadata.trainingBlockId : baseSession.trainingBlockId;
+  const generatedSessionKey = generatedTrainingSessionKey(baseSession, trainingBlockId);
   return {
     user_id: userId,
     planned_date: baseSession.originalPlannedDate ?? baseSession.date,
