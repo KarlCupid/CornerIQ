@@ -16,6 +16,7 @@ export const CORNERIQ_MONTHLY_PRODUCT_ID = "com.corneriq.pro.monthly";
 export const CORNERIQ_ANNUAL_PRODUCT_ID = "com.corneriq.pro.annual";
 
 export type PublicRuntimeEnvName = typeof PUBLIC_SUPABASE_URL_ENV | typeof PUBLIC_SUPABASE_ANON_KEY_ENV;
+export type RuntimeEnv = Record<string, string | undefined>;
 
 export interface PublicRuntimeConfig {
   hasAnonKey: boolean;
@@ -42,11 +43,22 @@ export interface SubscriptionRuntimeConfig {
   setupBlockedReason: string | null;
 }
 
-type RuntimeEnv = Record<string, string | undefined>;
-
-function readRuntimeEnv(): RuntimeEnv {
+export function readRuntimeEnv(): RuntimeEnv {
   const runtime = globalThis as { process?: { env?: RuntimeEnv } };
-  return runtime.process?.env ?? {};
+  return {
+    ...(runtime.process?.env ?? {}),
+    EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL: process.env.EXPO_PUBLIC_CORNERIQ_PRIVACY_POLICY_URL,
+    EXPO_PUBLIC_CORNERIQ_SUPPORT_URL: process.env.EXPO_PUBLIC_CORNERIQ_SUPPORT_URL,
+    EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED: process.env.EXPO_PUBLIC_CORNERIQ_PAYWALL_ENABLED,
+    EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY: process.env.EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY,
+    EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY: process.env.EXPO_PUBLIC_CORNERIQ_REVENUECAT_ANDROID_API_KEY,
+    EXPO_PUBLIC_CORNERIQ_REVENUECAT_ENTITLEMENT_ID: process.env.EXPO_PUBLIC_CORNERIQ_REVENUECAT_ENTITLEMENT_ID,
+    EXPO_PUBLIC_CORNERIQ_MONTHLY_PRODUCT_ID: process.env.EXPO_PUBLIC_CORNERIQ_MONTHLY_PRODUCT_ID,
+    EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID: process.env.EXPO_PUBLIC_CORNERIQ_ANNUAL_PRODUCT_ID,
+    EXPO_PUBLIC_CORNERIQ_PRODUCTION: process.env.EXPO_PUBLIC_CORNERIQ_PRODUCTION
+  };
 }
 
 function decodeJwtRole(value: string): string | null {

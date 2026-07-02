@@ -5,7 +5,12 @@ type RuntimeEnv = Record<string, string | undefined>;
 
 function readRuntimeEnv(): RuntimeEnv {
   const runtime = globalThis as { process?: { env?: RuntimeEnv } };
-  return runtime.process?.env ?? {};
+  return {
+    ...(runtime.process?.env ?? {}),
+    EXPO_PUBLIC_CORNERIQ_E2E_LOCAL: process.env.EXPO_PUBLIC_CORNERIQ_E2E_LOCAL,
+    EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE: process.env.EXPO_PUBLIC_CORNERIQ_PROMO_CAPTURE,
+    EXPO_PUBLIC_CORNERIQ_PRODUCTION: process.env.EXPO_PUBLIC_CORNERIQ_PRODUCTION
+  };
 }
 
 export function isLocalE2EMode(env: RuntimeEnv = readRuntimeEnv()): boolean {

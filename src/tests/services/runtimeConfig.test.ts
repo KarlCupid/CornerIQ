@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   CORNERIQ_PRIVACY_POLICY_URL,
@@ -117,5 +118,15 @@ describe("runtimeConfig", () => {
     expect(configured.revenueCatIosApiKey).toBe("appl_do_not_print");
     expect(configured.setupBlockedReason).toBeNull();
     expect(blocked.setupBlockedReason).toContain("RevenueCat public API key");
+  });
+
+  it("keeps Expo public runtime values inlineable for native builds", () => {
+    const source = readFileSync("src/services/config/runtimeConfig.ts", "utf8");
+
+    expect(source).toContain("process.env.EXPO_PUBLIC_SUPABASE_URL");
+    expect(source).toContain("process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY");
+    expect(source).toContain("process.env.EXPO_PUBLIC_CORNERIQ_REVENUECAT_IOS_API_KEY");
+    expect(source).not.toContain("process.env[PUBLIC_SUPABASE_URL_ENV]");
+    expect(source).not.toContain("process.env[PUBLIC_SUPABASE_ANON_KEY_ENV]");
   });
 });
