@@ -5,7 +5,7 @@ import type { FuelPlanStatusViewModel, FuelSafetyStateViewModel, FuelViewModel, 
 import { EngineCard } from "../../design/components/EngineCard";
 import { LuminousScreen, ScreenHeader, useLuminousScreenTheme } from "../../design/components/LuminousScreen";
 import { TrendLineChart } from "../../design/components/PerformanceVisuals";
-import { GroupedMetricTiles, PremiumCard } from "../../design/components/PremiumPrimitives";
+import { PremiumCard } from "../../design/components/PremiumPrimitives";
 import { colors, radii, spacing } from "../../design/theme";
 import { kgToLb } from "../../engine/core/units";
 import { buildFuelDashboardVisual, type FuelDashboardVisual, type VisualTone } from "../../engine/presentation/dashboardVisualData";
@@ -444,6 +444,59 @@ function FuelMetricTile({
   );
 }
 
+function FuelSignalRow({
+  helper,
+  icon,
+  label,
+  tone,
+  value
+}: {
+  helper: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  tone: VisualTone;
+  value: string;
+}) {
+  const color = colorForTone(tone);
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: fuelPalette.controlFill,
+        borderColor: fuelTint(tone, tone === "muted" ? "24" : "36"),
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        minHeight: 66,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: fuelTint(tone, "16"),
+          borderColor: fuelTint(tone, "42"),
+          borderRadius: radii.pill,
+          borderWidth: 1,
+          height: 38,
+          justifyContent: "center",
+          width: 38
+        }}
+      >
+        <DecorativeIcon color={color} name={icon} size={18} />
+      </View>
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "900", lineHeight: 15, textTransform: "uppercase" }}>{label}</Text>
+        <Text adjustsFontSizeToFit minimumFontScale={0.74} numberOfLines={1} style={{ color: fuelPalette.textPrimary, fontSize: 17, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 22 }}>{value}</Text>
+        <Text numberOfLines={2} style={{ color: fuelPalette.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>{helper}</Text>
+      </View>
+    </View>
+  );
+}
+
 function FuelKeyNumbersCard({
   dashboard,
   hasActiveWeightTarget,
@@ -459,27 +512,48 @@ function FuelKeyNumbersCard({
 }) {
   const check = bodyCheck(viewModel, safety);
   const currentWeight = weightLabel(viewModel, preferredUnits);
+  const rows = hasActiveWeightTarget
+    ? [
+        { helper: "Use the latest logged morning value.", icon: "scale-outline" as const, label: "Morning weight", tone: "muted" as const, value: currentWeight },
+        { helper: "Gap to the active contracted class.", icon: "flag-outline" as const, label: "To weight", tone: "orange" as const, value: toWeightLabel(dashboard, viewModel, preferredUnits) },
+        { helper: "Timing changes how conservative fuel guidance stays.", icon: "calendar-outline" as const, label: "Weigh-in", tone: "muted" as const, value: weighInLabel(viewModel) },
+        { helper: "Safety and fuel confidence before training.", icon: "shield-checkmark-outline" as const, label: "Fuel readiness", tone: check.tone, value: check.value }
+      ]
+    : [
+        { helper: "Fluid target context from today's logs.", icon: "water-outline" as const, label: "Hydration", tone: dashboard.hydration.tone, value: dashboard.hydration.targetLabel },
+        { helper: "Optional daily log; useful for trends.", icon: "scale-outline" as const, label: "Weight", tone: currentWeight === "Unknown" ? "orange" as const : "muted" as const, value: currentWeight }
+      ];
   if (!hasActiveWeightTarget) {
     return (
-      <PremiumCard density="compact" testID="fuel-key-numbers">
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <FuelMetricTile label="Pre-session" tone={check.tone} value={check.value} />
-          <FuelMetricTile label="Hydration" tone={dashboard.hydration.tone} value={dashboard.hydration.targetLabel} />
-          <FuelMetricTile label="Weight" tone={currentWeight === "Unknown" ? "orange" : "muted"} value={currentWeight} />
+      <PremiumCard accent="orange" density="compact" testID="fuel-key-numbers">
+        <View style={{ gap: spacing.md }}>
+          <View style={{ gap: spacing.xs }}>
+            <Text style={fuelTextStyles.sectionTitle}>Today fuel checks</Text>
+            <Text style={fuelTextStyles.subtle}>Quick context after macros. Optional logs refine the read; missing data stays unknown.</Text>
+          </View>
+          <View style={{ gap: spacing.sm }}>
+            {rows.map((item) => (
+              <FuelSignalRow helper={item.helper} icon={item.icon} key={`fuel-check:${item.label}`} label={item.label} tone={item.tone} value={item.value} />
+            ))}
+          </View>
         </View>
       </PremiumCard>
     );
   }
   return (
-    <GroupedMetricTiles
-      items={[
-        { icon: "scale-outline", label: "Morning weight", tone: "muted", value: currentWeight },
-        { icon: "flag-outline", label: "To weight", tone: "orange", value: toWeightLabel(dashboard, viewModel, preferredUnits) },
-        { icon: "calendar-outline", label: "Weigh-in", tone: "muted", value: weighInLabel(viewModel) },
-        { icon: "shield-checkmark-outline", label: "Fuel readiness", tone: check.tone, value: check.value }
-      ]}
-      testID="fuel-key-numbers"
-    />
+    <PremiumCard accent="gold" density="compact" testID="fuel-key-numbers">
+      <View style={{ gap: spacing.md }}>
+        <View style={{ gap: spacing.xs }}>
+          <Text style={fuelTextStyles.sectionTitle}>Weight-class fuel checks</Text>
+          <Text style={fuelTextStyles.subtle}>Use these for context before changing food or water. Safety beats making weight pressure.</Text>
+        </View>
+        <View style={{ gap: spacing.sm }}>
+          {rows.map((item) => (
+            <FuelSignalRow helper={item.helper} icon={item.icon} key={`fuel-check:${item.label}`} label={item.label} tone={item.tone} value={item.value} />
+          ))}
+        </View>
+      </View>
+    </PremiumCard>
   );
 }
 
@@ -498,7 +572,21 @@ function PriorityRow({
 }) {
   const color = colorForTone(tone);
   return (
-    <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.md, minHeight: 50 }}>
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: fuelPalette.controlFill,
+        borderColor: fuelTint(tone, "30"),
+        borderCurve: "continuous",
+        borderRadius: radii.tile,
+        borderWidth: 1,
+        flexDirection: "row",
+        gap: spacing.md,
+        minHeight: 62,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm
+      }}
+    >
       <View
         style={{
           alignItems: "center",
@@ -523,49 +611,78 @@ function PriorityRow({
 
 function DoNotMissTodayCard({ dashboard }: { dashboard: FuelDashboardVisual }) {
   return (
-    <EngineCard>
-      <View style={{ gap: spacing.sm }} testID="fuel-do-not-miss-card">
+    <PremiumCard accent="blue" density="compact">
+      <View style={{ gap: spacing.md }} testID="fuel-do-not-miss-card">
         <Text style={fuelTextStyles.sectionTitle}>Training fuel priorities</Text>
-        <Text style={fuelTextStyles.subtle}>Use these as context when you know what you ate or drank.</Text>
-        <PriorityRow icon="flash-outline" label="Before training" meta={dashboard.trainingFuelPriorities.beforeTraining} title="carbs + protein" tone="orange" />
-        <PriorityRow icon="restaurant-outline" label="After training" meta={dashboard.trainingFuelPriorities.afterTraining} title="protein + meal" tone="purple" />
-        <PriorityRow icon="water-outline" label="Fluids" meta={dashboard.trainingFuelPriorities.fluids} title="water + electrolytes" tone="blue" />
+        <Text style={fuelTextStyles.subtle}>Use these around the next session. Log only what you know; missing food stays unknown.</Text>
+        <PriorityRow icon="flash-outline" label="Before training" meta={dashboard.trainingFuelPriorities.beforeTraining} title="Carbs + protein" tone="orange" />
+        <PriorityRow icon="restaurant-outline" label="After training" meta={dashboard.trainingFuelPriorities.afterTraining} title="Protein + meal" tone="purple" />
+        <PriorityRow icon="water-outline" label="Fluids" meta={dashboard.trainingFuelPriorities.fluids} title="Water + electrolytes" tone="blue" />
       </View>
-    </EngineCard>
+    </PremiumCard>
   );
 }
 
-function MacroProgressTile({ item }: { item: FuelDashboardVisual["macros"][number] }) {
+function MacroGraphRow({ item }: { item: FuelDashboardVisual["macros"][number] }) {
   const color = colorForTone(item.tone);
+  const fillPercent = Math.round(item.ratio * 100);
+  const percentLabel = item.stateLabel === "Unknown" || item.stateLabel === "Partial" ? item.stateLabel : `${fillPercent}%`;
   return (
     <View
       accessibilityLabel={`${item.label}: ${item.valueLabel} of ${item.targetLabel}`}
       style={{
-        backgroundColor: fuelPalette.controlFill,
-        borderColor: fuelTint(item.tone, item.tone === "muted" ? "2A" : "3D"),
-        borderCurve: "continuous",
-        borderRadius: radii.tile,
-        borderWidth: 1,
-        flexBasis: 104,
-        flexGrow: 1,
         gap: spacing.xs,
-        minHeight: 104,
-        minWidth: 96,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.md
+        minHeight: 68
       }}
     >
-      <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between", gap: spacing.xs }}>
-        <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, flex: 1, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>{item.label}</Text>
-        {item.stateLabel ? <Text numberOfLines={1} style={{ color, fontSize: 10, fontWeight: "900", lineHeight: 13 }}>{item.stateLabel}</Text> : null}
+      <View style={{ alignItems: "flex-end", flexDirection: "row", gap: spacing.sm, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ color: fuelPalette.textPrimary, fontSize: 14, fontWeight: "900", lineHeight: 18 }}>{item.label}</Text>
+          <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>Target {item.targetLabel}</Text>
+        </View>
+        <View style={{ alignItems: "flex-end", minWidth: 86 }}>
+          <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={{ color, fontSize: 18, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 22 }}>
+            {item.valueLabel}
+          </Text>
+          <Text numberOfLines={1} style={{ color: item.stateLabel === "Unknown" || item.stateLabel === "Partial" ? fuelPalette.toneOrange : fuelPalette.textMuted, fontSize: 11, fontWeight: "800", lineHeight: 15 }}>
+            {percentLabel}
+          </Text>
+        </View>
       </View>
-      <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={1} style={{ color, fontSize: 20, fontVariant: ["tabular-nums"], fontWeight: "900", lineHeight: 24 }}>
-        {item.valueLabel}
-      </Text>
-      <View style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", borderRadius: radii.pill, height: 6, overflow: "hidden" }}>
-        <View style={{ backgroundColor: color, borderRadius: radii.pill, height: 6, width: `${Math.round(item.ratio * 100)}%` }} />
+      <View
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.075)",
+          borderColor: "rgba(255, 255, 255, 0.08)",
+          borderRadius: radii.pill,
+          borderWidth: 1,
+          height: 14,
+          overflow: "hidden",
+          position: "relative"
+        }}
+      >
+        {fillPercent > 0 ? (
+          <View
+            style={{
+              backgroundColor: color,
+              borderRadius: radii.pill,
+              boxShadow: `0 0 14px ${fuelTint(item.tone, "66")}`,
+              height: "100%",
+              width: `${fillPercent}%`
+            }}
+          />
+        ) : null}
+        <View
+          pointerEvents="none"
+          style={{
+            backgroundColor: "rgba(255, 255, 255, 0.52)",
+            bottom: -1,
+            position: "absolute",
+            right: 0,
+            top: -1,
+            width: 2
+          }}
+        />
       </View>
-      <Text numberOfLines={1} style={{ color: fuelPalette.textMuted, fontSize: 11, fontWeight: "700", lineHeight: 15 }}>of {item.targetLabel}</Text>
     </View>
   );
 }
@@ -578,10 +695,10 @@ function MacroTargetsCard({ dashboard, viewModel }: { dashboard: FuelDashboardVi
           <Text style={fuelTextStyles.sectionTitle}>Protein / carbs / fat</Text>
           <Text style={fuelTextStyles.subtle}>{plainFuelCopy(viewModel.macroTargets.logStatus)}</Text>
         </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-          {dashboard.macros.map((item) => <MacroProgressTile item={item} key={`fuel-visible-macro:${item.label}`} />)}
+        <View style={{ gap: spacing.md }}>
+          {dashboard.macros.map((item) => <MacroGraphRow item={item} key={`fuel-visible-macro:${item.label}`} />)}
         </View>
-        <Text style={fuelTextStyles.subtle}>Calories-only is okay when that is all you know. Macro gaps stay unknown.</Text>
+        <Text style={fuelTextStyles.subtle}>Log exact grams when you have them. Calories-only entries stay visible, but macro gaps stay unknown.</Text>
       </View>
     </EngineCard>
   );

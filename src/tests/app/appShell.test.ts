@@ -3069,7 +3069,7 @@ describe("minimal app screens", () => {
     expect(output).toContain("Fuel status:");
     expect(output).toContain("Unknown");
     expect(output).toContain("fuel-key-numbers");
-    expect(output).toContain("Pre-session");
+    expect(output).not.toContain("Pre-session");
     expect(output).toContain("Hydration");
     expect(output).toContain("Weight");
     expect(output).not.toContain("To weight");
@@ -3105,10 +3105,10 @@ describe("minimal app screens", () => {
     expect(output).not.toContain("Protein stays steady");
     expect(output).not.toContain("too little food for the work is only considered");
     expect(output).not.toContain("fuel-log-action-section");
-    expect(output.indexOf("Fuel status:")).toBeLessThan(output.indexOf("Pre-session"));
+    expect(output.indexOf("Fuel status:")).toBeLessThan(output.indexOf("Hydration"));
     expect(output.indexOf("Log meal")).toBeLessThan(output.indexOf("fuel-macro-targets-card"));
     expect(output.indexOf("fuel-macro-targets-card")).toBeLessThan(output.indexOf("Weight Trend"));
-    expect(output.indexOf("Pre-session")).toBeLessThan(output.indexOf("Weight Trend"));
+    expect(output.indexOf("Hydration")).toBeLessThan(output.indexOf("Weight Trend"));
     expect(output.indexOf("Weight Trend")).toBeLessThan(output.indexOf("Training fuel priorities"));
 
     await act(async () => {
