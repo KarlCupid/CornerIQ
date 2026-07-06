@@ -318,40 +318,45 @@ async function openLocalToday(page: Page, options: { scenario?: "due_workout_tod
 
 async function exerciseTodayQuickLogSaves(page: Page) {
   await openTodayDetails(page);
+  let quickLogScope: Page | Locator = page;
   if ((await page.getByPlaceholder("kg").count()) === 0) {
     await page.getByTestId("today-quick-logs").getByRole("button", { name: "Weight" }).click();
+    await expect(page.getByTestId("today-quick-check-modal")).toBeVisible();
+    quickLogScope = page.getByTestId("today-quick-check-modal");
+  } else if (await page.getByTestId("today-quick-check-modal").isVisible().catch(() => false)) {
+    quickLogScope = page.getByTestId("today-quick-check-modal");
   }
 
-  const updateBodyMass = page.getByRole("button", { name: "Update body weight" });
+  const updateBodyMass = quickLogScope.getByRole("button", { name: "Update body weight" });
   if (await updateBodyMass.count()) {
     await updateBodyMass.first().click();
   }
-  await page.getByPlaceholder("kg").fill("82.1");
-  await page.getByRole("button", { name: /Log body weight|Update body weight/ }).last().click();
+  await quickLogScope.getByPlaceholder("kg").fill("82.1");
+  await quickLogScope.getByRole("button", { name: /Log body weight|Update body weight/ }).last().click();
   await expectVisibleText(page, "Body weight saved in kg. Trend confidence has fresher scale context; readiness can still be unknown.");
   await expectVisibleText(page, "Body weight log captured in local E2E mode only.");
 
-  const updateReadiness = page.getByRole("button", { name: "Update readiness" });
-  if ((await page.getByPlaceholder("Sleep hours").count()) === 0 && await updateReadiness.count()) {
+  const updateReadiness = quickLogScope.getByRole("button", { name: "Update readiness" });
+  if ((await quickLogScope.getByPlaceholder("Sleep hours").count()) === 0 && await updateReadiness.count()) {
     await updateReadiness.first().click();
   }
-  await page.getByPlaceholder("Sleep hours").fill("7.5");
-  await page.getByRole("button", { name: "Energy (1-5) 4" }).click();
-  await page.getByRole("button", { name: "Soreness (1-5) 2" }).click();
-  if (await page.getByRole("button", { name: "Show More signals" }).count()) {
-    await page.getByRole("button", { name: "Show More signals" }).click();
+  await quickLogScope.getByPlaceholder("Sleep hours").fill("7.5");
+  await quickLogScope.getByRole("button", { name: "Energy (1-5) 4" }).click();
+  await quickLogScope.getByRole("button", { name: "Soreness (1-5) 2" }).click();
+  if (await quickLogScope.getByRole("button", { name: "Show More signals" }).count()) {
+    await quickLogScope.getByRole("button", { name: "Show More signals" }).click();
   }
-  await page.getByRole("button", { name: "Sleep quality (1-5) 4" }).click();
-  await page.getByRole("button", { name: "Stress (1-5) 2" }).click();
-  await page.getByRole("button", { name: "Mood (1-5) 4" }).click();
-  await page.getByRole("button", { name: /Log readiness|Update readiness/ }).last().click();
+  await quickLogScope.getByRole("button", { name: "Sleep quality (1-5) 4" }).click();
+  await quickLogScope.getByRole("button", { name: "Stress (1-5) 2" }).click();
+  await quickLogScope.getByRole("button", { name: "Mood (1-5) 4" }).click();
+  await quickLogScope.getByRole("button", { name: /Log readiness|Update readiness/ }).last().click();
   await expectVisibleText(page, "Readiness logged. CornerIQ has more confidence for today's training call.");
   await expectVisibleText(page, "Readiness log captured in local E2E mode only.");
 
-  await page.getByPlaceholder("Water liters").fill("2.4");
-  await page.getByRole("button", { name: "Show more hydration fields" }).click();
-  await page.getByPlaceholder("Sodium mg optional").first().fill("500");
-  await page.getByRole("button", { name: "Add hydration" }).click();
+  await quickLogScope.getByPlaceholder("Water liters").fill("2.4");
+  await quickLogScope.getByRole("button", { name: "Show more hydration fields" }).click();
+  await quickLogScope.getByPlaceholder("Sodium mg optional").first().fill("500");
+  await quickLogScope.getByRole("button", { name: "Add hydration" }).click();
   await expectVisibleText(page, "Hydration logged. Fuel confidence has fresher fluid context; food can still be unknown.");
   await expectVisibleText(page, "Hydration log captured in local E2E mode only.");
 }
@@ -629,8 +634,10 @@ async function auditFuel(page: Page, testInfo: TestInfo) {
   await expect(page.getByTestId("fuel-overview")).toContainText("Fuel status:");
   await expect(page.getByTestId("fuel-overview")).toContainText("No active cut");
   await expect(page.getByTestId("fuel-do-not-miss-card")).toContainText("Training fuel priorities");
-  await expect(page.getByTestId("fuel-key-numbers")).toContainText("Pre-session");
+  await expect(page.getByTestId("fuel-do-not-miss-card")).toContainText("Before training");
+  await expect(page.getByTestId("fuel-key-numbers")).toContainText("Today fuel checks");
   await expect(page.getByTestId("fuel-key-numbers")).toContainText("Hydration");
+  await expect(page.getByTestId("fuel-key-numbers")).toContainText("Weight");
   await expect(page.getByTestId("fuel-overview")).toContainText("Weight Trend");
   await expect(page.getByTestId("fuel-details-toggle")).toContainText("Fuel details");
   await page.getByTestId("fuel-details-toggle").click();
